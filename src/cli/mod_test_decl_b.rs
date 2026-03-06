@@ -481,4 +481,12 @@ mod tests_cov_bom2;
 #[cfg(test)]
 mod tests_cov_validate_ord2;
 #[cfg(test)]
+mod tests_cov_lock_validate;
+#[cfg(test)]
 mod tests_cov_apply_output;
+#[cfg(test)]
+mod tests_cov_show2;
+#[cfg(test)]
+mod tests_cov_plan2;
+#[cfg(test)]
+mod tests_cov_graph_scoring2;
