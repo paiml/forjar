@@ -345,7 +345,12 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     if health { return cmd_query_health(&state_dir, json); }
     if drift && query.is_none() { return cmd_query_drift(&state_dir, json); }
     if churn && query.is_none() { return cmd_query_churn(&state_dir, json); }
-    let q = query.as_deref().unwrap_or("*");
+    let needs_enrichment = history || timing || reversibility || git_history;
+    let q = match query.as_deref() {
+        Some(q) => Some(q),
+        None if needs_enrichment => None, // list all resources
+        None => return Err("query term required (e.g. forjar state-query \"nginx\")".into()),
+    };
     cmd_query_state(
         q, &state_dir, resource_type.as_deref(),
         history, drift, timing, reversibility, git_history, json, csv,
@@ -369,7 +374,7 @@ pub(crate) fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::C
 /// FJ-2001: Query state database with live ingest + FTS5 search.
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
-    query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
+    query: Option<&str>, state_dir: &std::path::Path, resource_type: Option<&str>,
     history: bool, _drift: bool, timing: bool, reversibility: bool, git_history: bool,
     json: bool, csv: bool,
 ) -> Result<(), String> {
@@ -377,18 +382,22 @@ fn cmd_query_state(
     use super::query_format as qf;
 
     let conn = open_state_conn(state_dir)?;
-    let mut results = db::fts5_search(&conn, query, 50)?;
+    let mut results = match query {
+        Some(q) => db::fts5_search(&conn, q, 50)?,
+        None => db::list_all_resources(&conn, 50)?,
+    };
     if let Some(rtype) = resource_type {
         results.retain(|r| r.resource_type == rtype);
     }
 
+    let display_query = query.unwrap_or("*");
     if json {
-        qf::print_json(&conn, query, &results, history);
+        qf::print_json(&conn, display_query, &results, history);
     } else if csv {
         qf::print_csv(&results);
     } else {
-        print_table_results(query, &conn, &results, history, timing, reversibility)?;
-        if git_history { qf::print_git_history(query, &results)?; }
+        print_table_results(display_query, &conn, &results, history, timing, reversibility)?;
+        if git_history { qf::print_git_history(display_query, &results)?; }
     }
     Ok(())
 }
