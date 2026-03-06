@@ -126,6 +126,9 @@ pub(super) fn dispatch_generation(sub: GenerationCmd) -> Result<(), String> {
             generation::gc_generations(&state_dir, keep, true);
             Ok(())
         }
+        GenerationCmd::Diff { from, to, state_dir, json } => {
+            generation::cmd_generation_diff(&state_dir, from, to, json)
+        }
     }
 }
 
@@ -168,7 +171,7 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
 }
 
 /// FJ-2200: Contract coverage report.
-fn cmd_contracts(coverage: bool, _file: &std::path::Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_contracts(coverage: bool, _file: &std::path::Path, json: bool) -> Result<(), String> {
     if !coverage {
         return Err("use `forjar contracts --coverage` to see contract report".into());
     }
@@ -263,7 +266,7 @@ fn cmd_build_push(res: &crate::core::types::Resource) -> Result<(), String> {
 }
 
 /// Check if a container runtime binary is available on PATH.
-fn which_runtime(name: &str) -> bool {
+pub(crate) fn which_runtime(name: &str) -> bool {
     std::process::Command::new("which")
         .arg(name)
         .stdout(std::process::Stdio::null())
@@ -274,7 +277,7 @@ fn which_runtime(name: &str) -> bool {
 
 /// FJ-2300: Log viewer with optional follow mode.
 #[allow(clippy::too_many_arguments)]
-fn cmd_logs(
+pub(crate) fn cmd_logs(
     state_dir: &std::path::Path, machine: Option<&str>, run: Option<&str>,
     failures: bool, follow: bool, gc: bool, _json: bool,
 ) -> Result<(), String> {
@@ -302,7 +305,7 @@ fn cmd_logs(
 }
 
 /// FJ-2101: Pack a directory into an OCI image layout.
-fn cmd_oci_pack(
+pub(crate) fn cmd_oci_pack(
     dir: &std::path::Path, tag: &str, output: &std::path::Path, json: bool,
 ) -> Result<(), String> {
     if !dir.is_dir() {
@@ -350,7 +353,7 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
 }
 
 /// Open state DB with fallback to :memory: if state dir is missing.
-fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, String> {
+pub(crate) fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, String> {
     use crate::core::store::db;
     use crate::core::store::ingest;
 
@@ -390,7 +393,7 @@ fn cmd_query_state(
     Ok(())
 }
 
-fn print_table_results(
+pub(crate) fn print_table_results(
     query: &str, conn: &rusqlite::Connection,
     results: &[crate::core::store::db::FtsResult],
     history: bool, timing: bool, reversibility: bool,
@@ -414,7 +417,7 @@ fn print_table_results(
 }
 
 /// FJ-2001: Health summary across all machines.
-fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
     use crate::core::store::ingest;
 
     let conn = open_state_conn(state_dir)?;
@@ -439,7 +442,7 @@ fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), Strin
 }
 
 /// FJ-2004: Show drifted resources.
-fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
     use crate::core::store::ingest;
     let conn = open_state_conn(state_dir)?;
     let entries = ingest::query_drift(&conn)?;
@@ -462,7 +465,7 @@ fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String
 }
 
 /// FJ-2004: Show change frequency (churn).
-fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
     use crate::core::store::ingest;
     let conn = open_state_conn(state_dir)?;
     let entries = ingest::query_churn(&conn)?;

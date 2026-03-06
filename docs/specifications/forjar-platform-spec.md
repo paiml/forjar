@@ -69,8 +69,8 @@ This specification covers five capabilities that close the gap between "good IaC
 ### Core Principles
 
 1. **CQRS**: YAML/JSONL flat files are the source of truth. SQLite is a derived read model. If `state.db` is deleted, `forjar ingest` rebuilds it from flat files.
-2. **Content-addressed**: BLAKE3 for internal store and drift detection. SHA-256 for OCI compatibility. Dual-digest computed in a single pass.
-3. **Idempotent by construction**: Observe-diff-act reconciliation with hash comparison. Second apply is always a no-op (<1ms, zero I/O).
+2. **Content-addressed**: BLAKE3 for internal store and drift detection. SHA-256 for OCI compatibility. Both digests computed per artifact (BLAKE3 for store addressing, SHA-256 for OCI manifests).
+3. **Idempotent by construction**: Observe-diff-act reconciliation with hash comparison. Second apply is always a no-op — zero remote I/O, zero mutations (state files are read and hashes recomputed, but no convergence actions execute).
 4. **Transport-agnostic**: Same YAML works across pepita, Docker, local, and SSH. Transport is dispatched at runtime.
 5. **Honest boundaries**: Formal properties scoped to what's actually provable. Known limitations documented, not hidden.
 
@@ -280,7 +280,7 @@ New Forjar versions must handle old state files, and old versions must not corru
 | Unknown YAML fields ignored | `#[serde(default)]` on all new fields — old lock files work with new Forjar |
 | Schema version in state.db | `PRAGMA user_version` stores schema version; on ingest, run migrations if behind |
 | No automatic downgrade | Upgrading is safe (migrations). Downgrading requires `forjar ingest --rebuild` |
-| State directory lock | `state/.forjar.lock` (flock) prevents concurrent modification |
+| State directory lock | `state/.forjar.lock` (PID-file with liveness check) prevents concurrent modification |
 
 ---
 

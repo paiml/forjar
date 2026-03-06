@@ -305,8 +305,81 @@ pub(crate) fn cmd_undo_destroy(
         return Ok(());
     }
 
-    println!("\nReplay not yet implemented — use `forjar apply` with the original config.");
-    Ok(())
+    // FJ-2005: Replay — reconstruct resources from config_fragment and converge
+    let replay_set: Vec<&types::DestroyLogEntry> = if force {
+        entries.iter().collect()
+    } else {
+        reliable.clone()
+    };
+
+    let mut replayed = 0u32;
+    let mut failed = 0u32;
+    for entry in &replay_set {
+        let Some(ref fragment) = entry.config_fragment else {
+            eprintln!("  SKIP {}: no config_fragment in destroy log", entry.resource_id);
+            failed += 1;
+            continue;
+        };
+        let resource: types::Resource = match serde_yaml_ng::from_str(fragment) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("  SKIP {}: cannot parse config_fragment: {e}", entry.resource_id);
+                failed += 1;
+                continue;
+            }
+        };
+
+        let machine_name = &entry.machine;
+        let machine_config = format!(
+            "version: '1.0'\nname: undo-destroy-replay\nmachines:\n  {machine_name}:\n    hostname: {machine_name}\n    addr: 127.0.0.1\nresources: {{}}\n"
+        );
+        let mut config: types::ForjarConfig = match crate::core::parser::parse_config(&machine_config) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("  SKIP {}: config error: {e}", entry.resource_id);
+                failed += 1;
+                continue;
+            }
+        };
+        config.resources.insert(entry.resource_id.clone(), resource);
+
+        let script = match crate::core::codegen::apply_script(config.resources.get(&entry.resource_id).unwrap()) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("  FAIL {}: codegen error: {e}", entry.resource_id);
+                failed += 1;
+                continue;
+            }
+        };
+
+        let Some(machine) = config.machines.get(machine_name) else {
+            eprintln!("  SKIP {}: machine '{machine_name}' not in config", entry.resource_id);
+            failed += 1;
+            continue;
+        };
+
+        match crate::transport::exec_script(machine, &script) {
+            Ok(out) if out.success() => {
+                println!("  + {} ({})", entry.resource_id, entry.resource_type);
+                replayed += 1;
+            }
+            Ok(out) => {
+                eprintln!("  FAIL {}: exit {}: {}", entry.resource_id, out.exit_code, out.stderr.trim());
+                failed += 1;
+            }
+            Err(e) => {
+                eprintln!("  FAIL {}: {e}", entry.resource_id);
+                failed += 1;
+            }
+        }
+    }
+
+    println!("\nUndo-destroy: {replayed} replayed, {failed} failed.");
+    if failed > 0 {
+        Err(format!("{failed} resource(s) failed to recreate"))
+    } else {
+        Ok(())
+    }
 }
 
 /// Load lock files from a generation directory.

@@ -114,12 +114,13 @@ fn undo_destroy_machine_filter_no_match() {
 }
 
 #[test]
-fn undo_destroy_not_dry_run_prints_not_implemented() {
+fn undo_destroy_not_dry_run_no_fragment() {
     let d = tempfile::tempdir().unwrap();
     let entries = vec![make_destroy_entry("web1", "nginx", "package", true)];
     write_destroy_log(d.path(), &entries);
+    // No config_fragment → replay skips all entries → returns Err
     let r = super::undo::cmd_undo_destroy(d.path(), None, false, false);
-    assert!(r.is_ok());
+    assert!(r.is_err());
 }
 
 #[test]
@@ -135,14 +136,15 @@ fn undo_destroy_all_unreliable_no_force() {
 }
 
 #[test]
-fn undo_destroy_force_not_dry_run() {
+fn undo_destroy_force_not_dry_run_no_fragment() {
     let d = tempfile::tempdir().unwrap();
     let entries = vec![
         make_destroy_entry("web1", "svc1", "service", false),
     ];
     write_destroy_log(d.path(), &entries);
+    // No config_fragment → replay skips → returns Err
     let r = super::undo::cmd_undo_destroy(d.path(), None, true, false);
-    assert!(r.is_ok());
+    assert!(r.is_err());
 }
 
 #[test]
