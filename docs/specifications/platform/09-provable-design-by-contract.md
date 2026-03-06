@@ -116,13 +116,15 @@ fn proof_real_plan_determinism():
     assert_eq!(a1, a2)
 ```
 
-### G4: New Platform Capabilities Have Zero Contracts
+### G4: New Platform Capabilities Have Zero Contracts — PARTIALLY REMEDIATED
 
-The entire container build pipeline — OCI assembly, layer construction, pepita-to-OCI export, distribution — has no formal properties. Critical contracts missing:
-- Layer hash determinism (same inputs, same BLAKE3 + SHA-256)
-- OCI manifest validity (valid JSON, all blobs referenced, correct media types)
-- Store idempotency (storing the same content twice is a no-op)
-- Dual-digest consistency (BLAKE3 store hash and SHA-256 OCI digest both computed correctly)
+The container build pipeline now has runtime postconditions on critical functions:
+- [x] Layer hash determinism: `build_layer()` `debug_assert!` verifies double-build produces same BLAKE3 hash (`layer_builder.rs:106-109`)
+- [x] OCI layout validity: `assemble_image()` `debug_assert!` verifies oci-layout and index.json exist, manifest layer count matches (`image_assembler.rs:142-147`)
+- [x] OCI layout integrity: `write_oci_layout()` `debug_assert!` verifies oci-layout and config blob written (`layer_builder.rs:158-165`)
+- [x] Dual-digest consistency: `compute_dual_digest()` `debug_assert!` verifies size matches and digests non-empty (`layer_builder.rs:125-133`)
+- [ ] Store idempotency (storing the same content twice is a no-op) — not yet contracted
+- [ ] OCI manifest media type correctness — validated by serde but not asserted
 
 ### G5: Labels Are Disconnected from Verification
 
@@ -785,7 +787,7 @@ This gives the highest confidence where it matters most (idempotency, determinis
 4. **Why can't the macro handle complex types?** The `contracts` crate only supports simple boolean expressions; the idempotency postcondition requires nested HashMap lookups and equality checks.
 5. **Root cause**: The contract infrastructure was designed for the simple Verus model types, not the real production types with complex ownership and borrowing.
 
-**Remediation**: Use `debug_assert!` directly inside production functions. DONE for `determine_present_action` (`planner/mod.rs:225-230`) and `hash_desired_state` (`planner/mod.rs:306-310`). Remaining: `save_lock` and `build_execution_order`.
+**Remediation**: Use `debug_assert!` directly inside production functions. DONE for `determine_present_action` (`planner/mod.rs:225-230`), `hash_desired_state` (`planner/mod.rs:306-310`), `save_lock` (`state/mod.rs:56-57`, atomicity postcondition), and `build_execution_order` (`resolver/dag.rs:31-40`, topological ordering postcondition). All four production functions now have runtime postconditions.
 
 ### Why are Kani harnesses operating on toy models?
 
