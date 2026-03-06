@@ -88,15 +88,11 @@ This function is the idempotency gate. Its correctness determines whether a seco
 
 Similarly, `hash_desired_state` has no contract guaranteeing determinism (field ordering stability).
 
-### G2: The Handler Invariant Is Unenforceable
+### ~~G2: The Handler Invariant Is Unenforceable~~ RESOLVED
 
-The spec says: "all handlers must store `hash_desired_state()` as `rl.hash`." But:
-- No trait constraint requires it
-- No runtime assertion checks it
-- No Kani/Verus proof covers it
-- A new resource type can silently break idempotency
+The spec says: "all handlers must store `hash_desired_state()` as `rl.hash`."
 
-This is the most dangerous gap. The entire idempotency proof chain depends on this invariant, and nothing enforces it.
+**Resolution**: The executor (`executor/resource_ops.rs:record_success`) computes `hash_desired_state(resolved)` directly and stores it in the lock. Handlers never touch the hash — they execute scripts and return exit codes. The invariant is enforced **by construction**: there is no code path where a handler can store a different hash. This is stronger than a trait constraint because it eliminates the invariant violation from the design, rather than checking for it at runtime.
 
 ### G3: Kani Proofs Don't Touch Real Code
 
@@ -732,7 +728,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - **Extends**: `src/core/verus_spec.rs`
 - **Deliverable**: ~~Verus proofs cover real hash pipeline~~ Verus proofs cover a simplified model of the hash pipeline. The model captures the core logic correctly but does not reference production types or functions. See Gap G3 and the "What Verus Proves vs What It Assumes" table above.
 
-### Phase 16: Structural Enforcement (FJ-2203) -- PARTIAL
+### Phase 16: Structural Enforcement (FJ-2203) — IMPLEMENTED
 - [x] `HashInvariantCheck` type: pass/fail assertions with deviation_reason
 - [x] `HandlerAuditReport` with checks, exemptions, `all_passed()`, `format_report()`
 - [x] `HandlerExemption` with handler, reason, approved_by
@@ -742,7 +738,8 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [x] `HandlerInvariantStatus` per-resource-type with exemption support
 - [x] `ContractCoverageReport` with histogram, `at_or_above()`, `format_summary()`
 - [x] `verified_by` field on `ContractEntry` (already present — `Vec<String>` linking functions to proofs)
-- **Deliverable**: Handler invariant structurally enforced, coverage report shows per-tier status
+- [x] **Structural enforcement by construction**: `record_success()` in `executor/resource_ops.rs:36` computes `hash_desired_state(resolved)` and stores it directly in the lock (line 62). Handlers never touch the hash — the executor owns it. This is stronger than the spec's proposed `ResourceHandler` trait: handlers _cannot_ return a wrong hash because they don't compute it.
+- **Deliverable**: Handler invariant structurally enforced by executor ownership of hash computation
 
 ---
 
