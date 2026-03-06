@@ -6,6 +6,7 @@
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;
+pub mod convergence_runner;
 pub mod db;
 pub mod closure;
 pub mod ingest;
@@ -23,6 +24,7 @@ pub mod hf_config;
 pub mod kernel_far;
 pub mod lockfile;
 pub mod meta;
+pub mod mutation_runner;
 pub mod path;
 pub mod pin_resolve;
 pub mod pin_tripwire;
@@ -31,6 +33,7 @@ pub mod provider;
 pub mod provider_exec;
 pub mod purity;
 pub mod reference;
+pub mod registry_push;
 pub mod repro_score;
 pub mod sandbox;
 pub mod sandbox_exec;
@@ -55,6 +58,8 @@ mod tests_db;
 mod tests_ingest;
 #[cfg(test)]
 mod tests_closure;
+#[cfg(test)]
+mod tests_convergence_runner;
 #[cfg(test)]
 mod tests_conda;
 #[cfg(test)]
@@ -106,6 +111,8 @@ mod tests_lockfile;
 #[cfg(test)]
 mod tests_meta;
 #[cfg(test)]
+mod tests_mutation_runner;
+#[cfg(test)]
 mod tests_path;
 #[cfg(test)]
 mod tests_pin_resolve;
@@ -121,6 +128,8 @@ mod tests_provider_exec;
 mod tests_purity;
 #[cfg(test)]
 mod tests_reference;
+#[cfg(test)]
+mod tests_registry_push;
 #[cfg(test)]
 mod tests_repro_score;
 #[cfg(test)]

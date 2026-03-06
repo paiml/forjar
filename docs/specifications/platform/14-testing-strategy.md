@@ -629,7 +629,7 @@ Every CI test run produces:
 - [x] `forjar test convergence` command (requires sandbox infrastructure)
 - [x] Proptest generators for resource starting states (arb_convergent_resource)
 - [x] Preservation matrix for resource pairs (CONV-003)
-- [ ] Sandbox integration for real convergence verification
+- [x] Sandbox integration for real convergence verification
 - [x] Hash stability (CONV-001), plan convergence (CONV-002), hash sensitivity (CONV-006)
 - **Deliverable**: 6 proptest convergence properties verified (CONV-001 through CONV-006)
 
@@ -652,7 +652,7 @@ Every CI test run produces:
 - [x] `SandboxConfig` with backend, cleanup, timeout, capture_overlay
 - [x] `SandboxBackend` enum: Pepita, Container, Chroot
 - [x] `SandboxPhase` lifecycle: Created → Applied → Verified → Destroyed
-- [ ] Parallel sandbox execution
+- [x] Parallel sandbox execution
 - **Deliverable**: Tests run in isolated sandboxes with real system state
 
 ### Phase 32: Infrastructure Mutation Testing (FJ-2604) -- PARTIAL
@@ -661,7 +661,7 @@ Every CI test run produces:
 - [x] `MutationScore` with grade calculation (A/B/C/F)
 - [x] `MutationReport` with per-type summaries and undetected mutation listing
 - [x] `TypeMutationSummary` with detection percentage
-- [ ] Mutation runner with sandbox integration
+- [x] Mutation runner with sandbox integration
 - [x] Undetected mutation reporting in CLI
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
 
