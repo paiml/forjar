@@ -317,6 +317,30 @@ Resources map to OCI layers via a tiered build plan:
 | 2 | `Files` | Configuration files |
 | 3 | `Derivation` | Store-path references |
 
+### Runtime Layer Builder
+
+`layer_builder.rs` creates actual OCI layer tarballs from in-memory resource definitions:
+
+```rust
+use forjar::core::store::layer_builder::{build_layer, LayerEntry};
+use forjar::core::types::OciLayerConfig;
+
+let entries = vec![
+    LayerEntry::dir("etc/app/", 0o755),
+    LayerEntry::file("etc/app/config.yaml", b"port: 8080\n", 0o644),
+];
+let (result, compressed_data) = build_layer(&entries, &OciLayerConfig::default()).unwrap();
+// result.digest     — sha256 of compressed (OCI layer digest)
+// result.diff_id    — sha256 of uncompressed (OCI DiffID)
+// result.store_hash — blake3 of uncompressed (forjar store address)
+```
+
+Key properties:
+- **Deterministic**: sorted entries, epoch mtime, uid/gid 0 — same inputs always produce identical digests
+- **Order-independent**: lexicographic sort normalizes entry order regardless of input ordering
+- **Dual-digest**: BLAKE3 for store addressing + SHA-256 for OCI compatibility
+- **Compression**: gzip (default, widest compat), zstd (better ratio), or none
+
 ### OCI Layout
 
 `forjar oci-pack` generates a spec-compliant [OCI Image Layout](https://github.com/opencontainers/image-spec/blob/main/image-layout.md):

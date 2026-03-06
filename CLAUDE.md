@@ -18,7 +18,7 @@ pmat query --coverage-gaps --limit 20 --exclude-tests
 ## Quality Gates
 
 - **No source file over 500 lines** — split into module directories or extract tests
-  - Exception: `src/cli/commands/apply_args.rs` (declarative struct, no logic)
+  - Exception: `src/cli/commands/apply_args.rs`, `status_args.rs`, `validate_args.rs` (declarative clap structs, no logic)
   - Pre-commit hook enforces complexity; `pmat comply check` enforces file health
 - All functions must be TDG grade A (complexity <= 10)
 - Cognitive complexity per function <= 25 (pre-commit enforced)
