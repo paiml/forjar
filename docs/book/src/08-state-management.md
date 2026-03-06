@@ -1210,7 +1210,6 @@ The `QueryEnrichments` flags control which additional data is joined into query 
 | `--timing` | Duration statistics |
 | `--churn` | Change frequency |
 | `--health` | Health summary |
-| `--destroy-log` | Destroy history |
 | `--reversibility` | Reversibility analysis |
 | `-G` | Git history fusion via RRF |
 
