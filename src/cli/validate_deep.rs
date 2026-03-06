@@ -1,11 +1,9 @@
 //! Deep validation — FJ-2503: `validate --deep` aggregated pass.
 
 use super::helpers::*;
-use super::validate_core::cmd_validate_exhaustive;
 use crate::core::{resolver, types};
 use std::path::Path;
 
-type CheckFn = fn(&Path, bool) -> Result<(), String>;
 
 fn check_templates_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut unresolved = 0usize;
@@ -183,9 +181,6 @@ fn emit_deep_json(results: &[(&str, Result<(), String>)]) -> Result<(), String> 
 
 /// Run all deep validation checks and aggregate results.
 pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
-    use super::validate_quality::*;
-    use super::validate_structural::*;
-
     let config = parse_and_validate(file)?;
 
     // JSON mode: run checks silently to avoid stdout contamination
@@ -194,20 +189,9 @@ pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
         return emit_deep_json(&results);
     }
 
-    // Text mode: run checks with human-readable output
-    let checks: &[(&str, CheckFn)] = &[
-        ("templates", cmd_validate_check_templates),
-        ("overlaps", cmd_validate_check_overlaps),
-        ("circular-deps", cmd_validate_check_cycles_deep),
-        ("secrets", cmd_validate_check_secrets),
-        ("naming", cmd_validate_check_naming),
-        ("drift-coverage", cmd_validate_check_drift_coverage),
-        ("idempotency", cmd_validate_check_idempotency),
-    ];
-
-    let mut passed = 0usize;
-    let mut failed = 0usize;
-    let mut failures: Vec<(String, String)> = Vec::new();
+    // Text mode: use silent checks to avoid repeated parse warnings,
+    // then format results as human-readable text
+    let results = run_deep_checks_silent(&config, file);
 
     println!(
         "=== Deep Validation: {} ({} machines, {} resources) ===",
@@ -217,36 +201,31 @@ pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
     );
     println!();
 
-    for (name, check_fn) in checks {
-        match check_fn(file, false) {
-            Ok(()) => passed += 1,
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+    let mut failures: Vec<(String, String)> = Vec::new();
+
+    for (name, result) in &results {
+        match result {
+            Ok(()) => {
+                println!("  {} {name}", green("✓"));
+                passed += 1;
+            }
             Err(e) => {
+                println!("  {} {name}: {e}", red("✗"));
                 failed += 1;
-                failures.push((name.to_string(), e));
+                failures.push((name.to_string(), e.clone()));
             }
         }
-        println!();
     }
 
-    match cmd_validate_exhaustive(file, false) {
-        Ok(()) => passed += 1,
-        Err(e) => {
-            failed += 1;
-            failures.push(("exhaustive".to_string(), e));
-        }
-    }
-
+    println!();
     println!("─────────────────────────────────────");
     println!(
         "Deep validation: {}/{} checks passed",
         passed,
         passed + failed
     );
-    if !failures.is_empty() {
-        for (name, _) in &failures {
-            println!("  {} {name}", red("✗"));
-        }
-    }
 
     if failed > 0 {
         Err(format!("{failed} deep validation check(s) failed"))
