@@ -8,14 +8,15 @@
 //!
 //! Proofs are gated behind `#[cfg(kani)]` so normal `cargo build` ignores them.
 //!
-//! ## Deprecation Notice (FJ-2201)
+//! ## Bounded Model Harnesses (FJ-2201)
 //!
-//! These are **abstract-model harnesses** that operate on simplified state
-//! (u8 arrays, u32 hashes). They prove properties of the abstract model,
-//! not the real code. The next step is real-code harnesses:
-//! - `proof_planner_idempotency_real` on actual `PlannerState`
-//! - `proof_handler_invariant_{file,package,...}` per resource type
-//! - `proof_hash_determinism_real` on bounded `Resource`
+//! These are **bounded-model harnesses** that call real functions with
+//! bounded nondeterministic inputs. They prove properties hold within
+//! the bound, not exhaustively over all inputs.
+//! - `proof_hash_determinism_bounded` — calls `hash_desired_state` on bounded `Resource`
+//! - `proof_planner_idempotency_bounded` — models planner logic with real hash
+//! - `proof_dag_ordering_bounded` — 3-node DAG determinism
+//! - `proof_handler_invariant_{file,package,...}` — per resource type hash stability
 //!
 //! ## Proof Assumptions
 //!
@@ -187,10 +188,10 @@ pub(super) fn compute_order(e01: bool, e02: bool, e12: bool) -> [u8; 3] {
     order
 }
 
-// ── Real-Code Harnesses (FJ-2201) ──────────────────────────────────
+// ── Bounded-Model Harnesses (FJ-2201) ──────────────────────────────
 //
-// These harnesses operate on actual types from the codebase rather than
-// abstract u8/u32 models. They require `cargo kani` to run.
+// These harnesses operate on actual types with bounded nondeterministic
+// inputs. They call real functions but with constrained state space.
 
 /// FJ-2201: hash_desired_state determinism on real Resource.
 ///
@@ -198,7 +199,7 @@ pub(super) fn compute_order(e01: bool, e02: bool, e12: bool) -> [u8; 3] {
 /// that `hash_desired_state` produces the same hash on two calls.
 #[cfg(kani)]
 #[kani::proof]
-fn proof_hash_determinism_real() {
+fn proof_hash_determinism_bounded() {
     use super::planner::hash_desired_state;
     use super::types::{Resource, ResourceType};
 
@@ -223,7 +224,7 @@ fn proof_hash_determinism_real() {
 /// Models the core logic of `determine_present_action`.
 #[cfg(kani)]
 #[kani::proof]
-fn proof_planner_idempotency_real() {
+fn proof_planner_idempotency_bounded() {
     use super::planner::hash_desired_state;
     use super::types::{Resource, ResourceType};
 
@@ -252,7 +253,7 @@ fn proof_planner_idempotency_real() {
 /// alphabetical tie-breaking.
 #[cfg(kani)]
 #[kani::proof]
-fn proof_dag_ordering_real() {
+fn proof_dag_ordering_bounded() {
     // Model: 3-node DAG with nondeterministic edges (acyclic only)
     let dep_01: bool = kani::any(); // res-a → res-b
     let dep_02: bool = kani::any(); // res-a → res-c

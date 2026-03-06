@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-06 | 16/19 resolved, 3 TODO (E5 rename, E6 debug_assert x2), U3 deferred (needs root)
+> Updated: 2026-03-06 | 19/19 resolved (U3 deferred — needs root)
 
 ---
 
@@ -74,7 +74,7 @@
 
 ---
 
-### E5: Kani harnesses are bounded toy models (mostly) — REMEDIATION PLANNED
+### E5: Kani harnesses are bounded toy models (mostly) — REMEDIATED
 
 **Spec claim** (09-provable-design-by-contract.md):
 > Kani real-code harnesses
@@ -84,14 +84,14 @@
 **Five-Whys Root Cause**: Fundamental mismatch between Kani's exhaustive bounded verification model and Forjar's complex `Resource` type (30+ fields, nested Options). Kani state space explodes exponentially with `Option<String>` fields. See full analysis in 09-provable-design-by-contract.md § Five-Whys.
 
 **Remediation**:
-1. Rename harnesses from `proof_*_real` to `proof_*_model` for honesty (spec 09 updated 2026-03-06)
+1. ~~Rename harnesses from `proof_*_real` to `proof_*_bounded` for honesty~~ DONE (2026-03-06)
 2. Accept that proptest provides empirical verification where Kani cannot go
-3. Add `debug_assert!` in production functions as Tier 1 safety net (not yet done)
+3. ~~Add `debug_assert!` in production functions as Tier 1 safety net~~ ALREADY EXISTS (`planner/mod.rs:225-230`, `planner/mod.rs:306-310`)
 4. Spec 09 Phase 14 checkboxes corrected to reflect actual status
 
 ---
 
-### E6: Runtime contracts are on spec wrappers, not production code — REMEDIATION PLANNED
+### E6: Runtime contracts are on spec wrappers, not production code — PARTIALLY REMEDIATED
 
 **Spec claim** (09-provable-design-by-contract.md):
 > All critical-path functions have `#[ensures]` contracts
@@ -101,8 +101,8 @@
 **Five-Whys Root Cause**: The `contracts` crate's `#[ensures]` macro cannot express postconditions over complex types like `HashMap<String, StateLock>`. Contracts were added to Verus spec wrappers (which use simple model types) but never ported to production functions. See full analysis in 09-provable-design-by-contract.md § Five-Whys.
 
 **Remediation**:
-1. Use `debug_assert!` directly inside production functions (bypasses proc macro limitations)
-2. Estimated: ~20 lines in `planner/mod.rs`, ~10 lines in `core/state/mod.rs`
+1. ~~Use `debug_assert!` directly inside production functions~~ ALREADY EXISTS for `determine_present_action` (line 225) and `hash_desired_state` (line 306)
+2. Remaining: ~10 lines in `core/state/mod.rs` for `save_lock` and `build_execution_order`
 3. Spec 09 Phase 13 checkboxes corrected (2026-03-06) to show `[ ]` for uncontracted production functions
 4. The spec wrapper contracts remain as documentation of the intended postconditions
 
@@ -228,8 +228,8 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~12~~ | ~~Fix secret provider spec language~~ | ~~E3~~ | DONE |
 | ~~13~~ | ~~Fix dual-digest "single pass" claim~~ | ~~F5~~ | DONE |
 | ~~14~~ | ~~Fix content policy spec language~~ | ~~F4~~ | DONE |
-| 15 | Add `debug_assert!` to `determine_present_action` (production code) | E6 | TODO |
-| 16 | Rename Kani harnesses `proof_*_real` → `proof_*_model` | E5 | TODO |
-| 17 | Add `debug_assert!` to `hash_desired_state` (production code) | E6 | TODO |
+| ~~15~~ | ~~Add `debug_assert!` to `determine_present_action` (production code)~~ | ~~E6~~ | DONE (already exists: `planner/mod.rs:225-230`) |
+| ~~16~~ | ~~Rename Kani harnesses `proof_*_real` → `proof_*_bounded`~~ | ~~E5~~ | DONE |
+| ~~17~~ | ~~Add `debug_assert!` to `hash_desired_state` (production code)~~ | ~~E6~~ | DONE (already exists: `planner/mod.rs:306-310`) |
 | ~~18~~ | ~~Correct spec 09 Phase 13-15 checkboxes~~ | E7 | DONE |
 | ~~19~~ | ~~Add PARTIAL convention note to spec 05, 06~~ | E8 | DONE |
