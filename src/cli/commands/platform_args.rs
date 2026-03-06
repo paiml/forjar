@@ -89,7 +89,7 @@ pub struct InfraQueryArgs {
     pub pattern: Option<String>,
 
     /// Filter by resource type
-    #[clap(long, name = "type")]
+    #[clap(long = "type")]
     pub resource_type: Option<String>,
 
     /// Filter by machine
@@ -330,7 +330,7 @@ pub struct QueryArgs {
     pub state_dir: PathBuf,
 
     /// Filter by resource type
-    #[arg(long, name = "type")]
+    #[arg(long = "type")]
     pub resource_type: Option<String>,
 
     /// Show history
