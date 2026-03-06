@@ -7,6 +7,7 @@ use super::helpers::*;
 use super::helpers_state::*;
 use super::helpers_time::*;
 use super::validate_core::*;
+use super::validate_deep::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;

@@ -141,13 +141,21 @@ fn print_plan_json(
             entry
         })
         .collect();
+    let change_ids: std::collections::HashSet<&str> =
+        plan.changes.iter().map(|c| c.resource_id.as_str()).collect();
+    let filtered_order: Vec<&str> = plan
+        .execution_order
+        .iter()
+        .filter(|id| change_ids.contains(id.as_str()))
+        .map(|s| s.as_str())
+        .collect();
     let output = serde_json::json!({
         "name": plan.name,
         "to_create": plan.to_create,
         "to_update": plan.to_update,
         "to_destroy": plan.to_destroy,
         "unchanged": plan.unchanged,
-        "execution_order": plan.execution_order,
+        "execution_order": filtered_order,
         "changes": changes,
     });
     println!(

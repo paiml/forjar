@@ -213,11 +213,11 @@ fn validate_exhaustive_json() {
 #[test]
 fn validate_deep_text() {
     let cfg = write_temp_config(CONFIG);
-    let _ = super::validate_core::cmd_validate_deep(cfg.path(), false);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), false);
 }
 
 #[test]
 fn validate_deep_json() {
     let cfg = write_temp_config(CONFIG);
-    let _ = super::validate_core::cmd_validate_deep(cfg.path(), true);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), true);
 }

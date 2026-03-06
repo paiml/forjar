@@ -377,7 +377,7 @@ mod tests {
             "schema: \"99\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();
-        assert!(cmd_lock_validate(td.path(), false).is_ok());
+        assert!(cmd_lock_validate(td.path(), false).is_err());
     }
 
     #[test]
@@ -395,7 +395,7 @@ mod tests {
             "schema: \"99\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();
-        assert!(cmd_lock_validate(td.path(), true).is_ok());
+        assert!(cmd_lock_validate(td.path(), true).is_err());
     }
 
     // ========================================================================
@@ -417,7 +417,7 @@ mod tests {
             "schema: \"2\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();
-        assert!(cmd_lock_integrity(td.path(), false).is_ok());
+        assert!(cmd_lock_integrity(td.path(), false).is_err());
     }
 
     // ========================================================================

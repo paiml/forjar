@@ -206,6 +206,7 @@ mod validate_compliance;
 mod validate_compliance_ext;
 mod validate_config_quality;
 mod validate_core;
+mod validate_deep;
 mod validate_governance;
 mod validate_governance_ext;
 mod validate_hygiene;
