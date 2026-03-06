@@ -293,32 +293,65 @@ fn cmd_oci_pack(
     Ok(())
 }
 
-/// FJ-2001: Query state database.
+/// FJ-2001: Query state database with live ingest + FTS5 search.
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
     query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
-    history: bool, drift: bool, json: bool, csv: bool,
+    _history: bool, _drift: bool, json: bool, csv: bool,
 ) -> Result<(), String> {
-    let filter_parts: Vec<String> = [
-        resource_type.map(|t| format!("type={t}")),
-        history.then(|| "history".into()),
-        drift.then(|| "drift".into()),
-    ].into_iter().flatten().collect();
-    let filter_str = if filter_parts.is_empty() { "none".to_string() } else { filter_parts.join(", ") };
+    use crate::core::store::db;
+    use crate::core::store::ingest;
+
+    let db_path = state_dir.join("state.db");
+    let conn = match db::open_state_db(&db_path) {
+        Ok(c) => c,
+        Err(_) => {
+            // Fall back to in-memory db if state dir doesn't exist
+            db::open_state_db(std::path::Path::new(":memory:"))?
+        }
+    };
+
+    // Auto-ingest from state files (ignore errors for missing dirs)
+    let _ = ingest::ingest_state_dir(&conn, state_dir);
+
+    // FTS5 search
+    let mut results = db::fts5_search(&conn, query, 50)?;
+
+    // Filter by type if specified
+    if let Some(rtype) = resource_type {
+        results.retain(|r| r.resource_type == rtype);
+    }
+
     if json {
+        let rows: Vec<serde_json::Value> = results.iter().map(|r| {
+            serde_json::json!({
+                "resource_id": r.resource_id,
+                "type": r.resource_type,
+                "status": r.status,
+                "path": r.path,
+                "rank": r.rank,
+            })
+        }).collect();
         println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-            "query": query, "state_dir": state_dir, "filters": filter_str,
-            "results": [], "note": "rusqlite required for full query support"
+            "query": query, "results": rows, "count": results.len()
         })).unwrap_or_default());
     } else if csv {
-        println!("resource,type,machine,status,hash");
-        println!("# (no results — rusqlite required for state query index)");
+        println!("resource,type,status,path,rank");
+        for r in &results {
+            println!("{},{},{},{},{:.4}",
+                r.resource_id, r.resource_type, r.status,
+                r.path.as_deref().unwrap_or(""), r.rank);
+        }
+    } else if results.is_empty() {
+        println!("No results for \"{query}\"");
     } else {
-        println!("Query: \"{query}\"");
-        println!("  state_dir: {}", state_dir.display());
-        println!("  filters: {filter_str}");
-        println!("\n  (no results — state query requires rusqlite for indexed search)");
-        println!("  Use `forjar status` for current lock-file based state view.");
+        println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
+        for r in &results {
+            println!(" {:20} {:10} {:10} {}",
+                r.resource_id, r.resource_type, r.status,
+                r.path.as_deref().unwrap_or("—"));
+        }
+        println!("\n {} result(s)", results.len());
     }
     Ok(())
 }
