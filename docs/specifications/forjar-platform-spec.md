@@ -204,6 +204,8 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 
 ## Implementation Roadmap
 
+**Status**: 38/42 phases IMPLEMENTED (90%), 3 PARTIAL (pepita/Verus blocked), 1 INCOMPLETE (Kani state space). 9,660 tests, 95.03% coverage, zero clippy warnings.
+
 Phases are ordered by dependency. Each phase is independently shippable.
 
 | Phase | Spec ID | Component | Depends On | Deliverable |
