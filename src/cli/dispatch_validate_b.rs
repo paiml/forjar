@@ -2,6 +2,7 @@ use super::commands::*;
 use super::dispatch_validate::*;
 use super::validate_advanced::*;
 use super::validate_core::*;
+use super::validate_deep::*;
 use std::path::Path;
 
 // try_validate_phase94 merged into try_validate_phases_94_96

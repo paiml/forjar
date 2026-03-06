@@ -397,7 +397,11 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
             println!("  {m} — {msg}");
         }
     }
-    Ok(())
+    if issues.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} lock validation issue(s)", issues.len()))
+    }
 }
 
 /// FJ-675: Check lock file structural integrity
@@ -415,7 +419,7 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             Ok(lock) => {
-                if lock.schema != "1" {
+                if lock.schema != "1" && lock.schema != "1.0" {
                     issues.push(format!(
                         "{}: unexpected schema version '{}'",
                         m, lock.schema
@@ -447,5 +451,9 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
             println!("  - {issue}");
         }
     }
-    Ok(())
+    if issues.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} lock integrity issue(s)", issues.len()))
+    }
 }
