@@ -295,7 +295,7 @@ fn cmd_oci_pack(
 fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     let QueryArgs {
         query, state_dir, resource_type, history, drift, health,
-        timing, churn, reversibility, json, csv, sql,
+        timing, churn, reversibility, git_history, json, csv, sql,
     } = args;
     if sql {
         super::query_format::print_sql(query.as_deref().unwrap_or("*"), resource_type.as_deref());
@@ -305,7 +305,10 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     if drift && query.is_none() { return cmd_query_drift(&state_dir, json); }
     if churn && query.is_none() { return cmd_query_churn(&state_dir, json); }
     let q = query.as_deref().unwrap_or("*");
-    cmd_query_state(q, &state_dir, resource_type.as_deref(), history, drift, timing, reversibility, json, csv)
+    cmd_query_state(
+        q, &state_dir, resource_type.as_deref(),
+        history, drift, timing, reversibility, git_history, json, csv,
+    )
 }
 
 /// Open state DB with fallback to :memory: if state dir is missing.
@@ -326,7 +329,8 @@ fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, 
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
     query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
-    history: bool, _drift: bool, timing: bool, reversibility: bool, json: bool, csv: bool,
+    history: bool, _drift: bool, timing: bool, reversibility: bool, git_history: bool,
+    json: bool, csv: bool,
 ) -> Result<(), String> {
     use crate::core::store::db;
     use super::query_format as qf;
@@ -343,6 +347,7 @@ fn cmd_query_state(
         qf::print_csv(&results);
     } else {
         print_table_results(query, &conn, &results, history, timing, reversibility)?;
+        if git_history { qf::print_git_history(query, &results)?; }
     }
     Ok(())
 }
