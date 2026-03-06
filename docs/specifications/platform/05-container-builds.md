@@ -295,7 +295,7 @@ resources:
 ## Implementation
 
 ### Phase 7: OCI Assembly (FJ-2101)
-- [ ] `sha2` + `flate2` crates
+- [x] `sha2` + `flate2` crates
 - [x] OCI types: `OciManifest`, `OciDescriptor`, `OciImageConfig`, `OciRuntimeConfig`, `OciRootfs`
 - [x] OCI index type: `OciIndex` with single-manifest constructor
 - [x] OCI history entry: `OciHistoryEntry` for build provenance

@@ -60,6 +60,8 @@ zip = { version = "2", default-features = false, features = ["deflate", "bzip2",
 bzip2 = "0.5"
 zstd = "0.13"
 tar = "0.4"
+sha2 = "0.10"
+flate2 = "1"
 
 [build-dependencies]
 provable-contracts = { version = "0.1" }

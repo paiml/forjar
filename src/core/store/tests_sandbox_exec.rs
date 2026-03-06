@@ -296,6 +296,28 @@ mod tests {
     }
 
     #[test]
+    fn sha256_digest_known_value() {
+        let digest = sha256_digest(b"hello world");
+        assert!(digest.starts_with("sha256:"));
+        // Known SHA-256 of "hello world"
+        assert!(digest.contains("b94d27b9934d3e08"));
+    }
+
+    #[test]
+    fn gzip_compress_roundtrip() {
+        let data = b"forjar test data for compression";
+        let compressed = gzip_compress(data).unwrap();
+        assert!(compressed.len() < data.len() + 50); // gzip has headers
+        // Decompress and verify
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+        let mut decoder = GzDecoder::new(&compressed[..]);
+        let mut output = Vec::new();
+        decoder.read_to_end(&mut output).unwrap();
+        assert_eq!(output, data);
+    }
+
+    #[test]
     fn oci_layout_plan_creates_four_steps() {
         let steps = oci_layout_plan(Path::new("/tmp/oci-out"), "myapp:1.0");
         assert_eq!(steps.len(), 4);
