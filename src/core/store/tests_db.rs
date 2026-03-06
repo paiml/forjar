@@ -111,10 +111,9 @@ mod tests {
             [],
         )
         .unwrap();
-        // Populate FTS
+        // Rebuild FTS from content table
         conn.execute(
-            "INSERT INTO resources_fts(rowid, resource_id, resource_type, status, path, details_json) \
-             SELECT id, resource_id, resource_type, status, path, details_json FROM resources",
+            "INSERT INTO resources_fts(resources_fts) VALUES('rebuild')",
             [],
         )
         .unwrap();
