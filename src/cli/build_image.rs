@@ -102,6 +102,22 @@ fn collect_layer_entries(
     Ok(all_entries)
 }
 
+/// Exposed for testing.
+#[cfg(test)]
+pub(crate) fn test_build_plan_from_resource(
+    name: &str, res: &Resource, config: &ForjarConfig,
+) -> Result<ImageBuildPlan, String> {
+    build_plan_from_resource(name, res, config)
+}
+
+/// Exposed for testing.
+#[cfg(test)]
+pub(crate) fn test_collect_layer_entries(
+    plan: &ImageBuildPlan, config: &ForjarConfig,
+) -> Result<Vec<Vec<LayerEntry>>, String> {
+    collect_layer_entries(plan, config)
+}
+
 /// FJ-2105: Handle --push flag for registry push.
 fn cmd_build_push(res: &Resource) -> Result<(), String> {
     use crate::core::store::registry_push;
