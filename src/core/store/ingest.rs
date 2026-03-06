@@ -62,6 +62,12 @@ pub fn ingest_state_dir(conn: &Connection, state_dir: &Path) -> Result<IngestRes
         if events_path.exists() {
             result.events += ingest_events(conn, &machine_name, &events_path)?;
         }
+
+        // F7: Ingest destroy-log.jsonl → destroy_log table
+        let destroy_path = path.join("destroy-log.jsonl");
+        if destroy_path.exists() {
+            ingest_destroy_log(conn, machine_id, gen_id, &destroy_path)?;
+        }
     }
 
     // Ingest generations from state/generations/ if present
@@ -152,16 +158,23 @@ fn ingest_lock_file(
             .map(|d| serde_json::to_string(d).unwrap_or_default())
             .unwrap_or_else(|| "{}".to_string());
 
+        // FTS5 field extraction: packages for package resources, content_preview for files
+        let packages = if rtype == "package" { Some(rid.to_string()) } else { None };
+        let content_preview = details
+            .and_then(|d| d.get("content_preview"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.chars().take(200).collect::<String>());
+
         conn.execute(
             "INSERT OR REPLACE INTO resources \
              (resource_id, machine_id, generation_id, resource_type, status, \
               state_hash, content_hash, live_hash, applied_at, duration_secs, \
-              details_json, path) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+              details_json, path, packages, content_preview) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             rusqlite::params![
                 rid, machine_id, gen_id, rtype, status,
                 state_hash, content_hash, live_hash, applied_at, duration,
-                details_json, path,
+                details_json, path, packages, content_preview,
             ],
         ).map_err(|e| format!("insert resource {rid}: {e}"))?;
         count += 1;
@@ -241,6 +254,38 @@ fn ingest_generations(conn: &Connection, gens_dir: &Path) -> Result<(), String> 
         ).map_err(|e| format!("insert generation: {e}"))?;
     }
     Ok(())
+}
+
+/// Ingest destroy-log.jsonl into the destroy_log table.
+fn ingest_destroy_log(
+    conn: &Connection, machine_id: i64, gen_id: i64, path: &Path,
+) -> Result<usize, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("read destroy-log: {e}"))?;
+
+    let mut count = 0;
+    for line in content.lines() {
+        if line.trim().is_empty() { continue; }
+        let ev: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let resource_id = ev.get("resource_id").and_then(|v| v.as_str()).unwrap_or("");
+        let resource_type = ev.get("resource_type").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let pre_hash = ev.get("pre_hash").and_then(|v| v.as_str());
+        let timestamp = ev.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
+
+        conn.execute(
+            "INSERT INTO destroy_log \
+             (machine_id, generation_id, resource_id, resource_type, \
+              pre_destroy_hash, destroyed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![machine_id, gen_id, resource_id, resource_type, pre_hash, timestamp],
+        ).map_err(|e| format!("insert destroy_log: {e}"))?;
+        count += 1;
+    }
+    Ok(count)
 }
 
 /// Rebuild FTS5 index from resources table (content-sync rebuild).

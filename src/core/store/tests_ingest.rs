@@ -312,4 +312,91 @@ created_at: 2026-03-06T13:00:00Z\naction: rollback\n").unwrap();
         let churn = query_churn(&conn).unwrap();
         assert!(churn.is_empty());
     }
+
+    #[test]
+    fn ingest_destroy_log() {
+        let (conn, _f) = temp_db();
+        let dir = TempDir::new().unwrap();
+
+        let mdir = dir.path().join("test-machine");
+        std::fs::create_dir(&mdir).unwrap();
+        std::fs::write(
+            mdir.join("state.lock.yaml"),
+            "schema: '1.0'\nmachine: test-machine\nhostname: test\ngenerated_at: 2026-03-06\n\
+             resources:\n  nginx:\n    type: package\n    status: converged\n    \
+             applied_at: 2026-03-06\n    duration_seconds: 0.1\n    hash: blake3:aabb\n",
+        ).unwrap();
+        std::fs::write(mdir.join("events.jsonl"), "").unwrap();
+
+        let destroy_log = r#"{"timestamp":"2026-03-06T12:00:00Z","machine":"test-machine","resource_id":"old-pkg","resource_type":"package","pre_hash":"abc123","generation":1,"reliable_recreate":true}
+{"timestamp":"2026-03-06T12:01:00Z","machine":"test-machine","resource_id":"old-svc","resource_type":"service","pre_hash":"def456","generation":1,"reliable_recreate":false}
+"#;
+        std::fs::write(mdir.join("destroy-log.jsonl"), destroy_log).unwrap();
+
+        ingest_state_dir(&conn, dir.path()).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM destroy_log", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+
+        let rid: String = conn
+            .query_row(
+                "SELECT resource_id FROM destroy_log ORDER BY id LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rid, "old-pkg");
+    }
+
+    #[test]
+    fn ingest_destroy_log_empty() {
+        let (conn, _f) = temp_db();
+        let dir = TempDir::new().unwrap();
+
+        let mdir = dir.path().join("test-machine");
+        std::fs::create_dir(&mdir).unwrap();
+        std::fs::write(
+            mdir.join("state.lock.yaml"),
+            "schema: '1.0'\nmachine: test-machine\nhostname: test\ngenerated_at: 2026-03-06\n\
+             resources:\n  pkg:\n    type: package\n    status: converged\n    \
+             applied_at: 2026-03-06\n    duration_seconds: 0.1\n    hash: blake3:cc\n",
+        ).unwrap();
+        std::fs::write(mdir.join("events.jsonl"), "").unwrap();
+        std::fs::write(mdir.join("destroy-log.jsonl"), "\n").unwrap();
+
+        ingest_state_dir(&conn, dir.path()).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM destroy_log", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn ingest_packages_column() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+        ingest_state_dir(&conn, state_dir.path()).unwrap();
+
+        let pkgs: Option<String> = conn
+            .query_row(
+                "SELECT packages FROM resources WHERE resource_id = 'cargo-tools'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pkgs.as_deref(), Some("cargo-tools"));
+
+        // file type should have NULL packages
+        let file_pkgs: Option<String> = conn
+            .query_row(
+                "SELECT packages FROM resources WHERE resource_id = 'bash-aliases'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(file_pkgs.is_none());
+    }
 }

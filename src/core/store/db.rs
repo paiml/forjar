@@ -6,7 +6,7 @@
 use rusqlite::{Connection, Result as SqlResult};
 
 /// Schema version — bump when schema changes.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// SQL to create the state database schema.
 const SCHEMA_SQL: &str = r#"
@@ -54,14 +54,17 @@ CREATE TABLE IF NOT EXISTS resources (
     duration_secs   REAL NOT NULL DEFAULT 0.0,
     details_json    TEXT NOT NULL DEFAULT '{}',
     path            TEXT,
+    packages        TEXT,
+    content_preview TEXT,
     reversibility   TEXT NOT NULL DEFAULT 'reversible',
     UNIQUE(resource_id, machine_id, generation_id)
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
-    resource_id, resource_type, status, path, details_json,
+    resource_id, resource_type, path, packages, content_preview,
     content='resources',
-    content_rowid='id'
+    content_rowid='id',
+    tokenize='porter unicode61 remove_diacritics 2'
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -94,12 +97,55 @@ CREATE VIRTUAL TABLE IF NOT EXISTS run_logs_fts USING fts5(
     content_rowid='id'
 );
 
+CREATE TABLE IF NOT EXISTS destroy_log (
+    id                  INTEGER PRIMARY KEY,
+    machine_id          INTEGER NOT NULL REFERENCES machines(id),
+    generation_id       INTEGER NOT NULL REFERENCES generations(id),
+    resource_id         TEXT NOT NULL,
+    resource_type       TEXT NOT NULL,
+    pre_destroy_hash    TEXT,
+    pre_destroy_details TEXT,
+    destroyed_at        TEXT NOT NULL,
+    success             INTEGER NOT NULL DEFAULT 1,
+    error               TEXT
+);
+
+CREATE TABLE IF NOT EXISTS drift_findings (
+    id              INTEGER PRIMARY KEY,
+    machine_id      INTEGER NOT NULL REFERENCES machines(id),
+    resource_id     TEXT NOT NULL,
+    resource_type   TEXT NOT NULL,
+    expected_hash   TEXT NOT NULL,
+    actual_hash     TEXT NOT NULL,
+    detail          TEXT NOT NULL,
+    detected_at     TEXT NOT NULL,
+    resolved_at     TEXT,
+    resolved_by     TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
+    event_type, resource_id, error, action,
+    tokenize='porter unicode61 remove_diacritics 2'
+);
+
+CREATE TABLE IF NOT EXISTS ingest_cursor (
+    machine_id      INTEGER PRIMARY KEY REFERENCES machines(id),
+    last_event_offset INTEGER NOT NULL DEFAULT 0,
+    last_lock_hash  TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_resources_machine ON resources(machine_id);
 CREATE INDEX IF NOT EXISTS idx_resources_gen ON resources(generation_id);
 CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(resource_type);
+CREATE INDEX IF NOT EXISTS idx_resources_status ON resources(status);
+CREATE INDEX IF NOT EXISTS idx_resources_path ON resources(path);
 CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);
 CREATE INDEX IF NOT EXISTS idx_events_resource ON events(resource_id);
 CREATE INDEX IF NOT EXISTS idx_run_logs_run ON run_logs(run_id);
+CREATE INDEX IF NOT EXISTS idx_drift_machine ON drift_findings(machine_id);
+CREATE INDEX IF NOT EXISTS idx_drift_resolved ON drift_findings(resolved_at);
+CREATE INDEX IF NOT EXISTS idx_destroy_machine ON destroy_log(machine_id);
+CREATE INDEX IF NOT EXISTS idx_destroy_resource ON destroy_log(resource_id);
 "#;
 
 /// Open (or create) the state database at the given path.
@@ -124,9 +170,11 @@ pub fn set_schema_version(conn: &Connection, version: u32) -> SqlResult<()> {
 pub fn fts5_search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<FtsResult>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT resource_id, resource_type, status, path, rank \
-             FROM resources_fts WHERE resources_fts MATCH ?1 \
-             ORDER BY rank LIMIT ?2",
+            "SELECT r.resource_id, r.resource_type, r.status, r.path, fts.rank \
+             FROM resources_fts fts \
+             JOIN resources r ON r.id = fts.rowid \
+             WHERE resources_fts MATCH ?1 \
+             ORDER BY fts.rank LIMIT ?2",
         )
         .map_err(|e| format!("prepare: {e}"))?;
     let rows = stmt
