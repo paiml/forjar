@@ -220,4 +220,65 @@ resources:
         let health = query_health(&conn).unwrap();
         assert_eq!(health.machines.len(), 2);
     }
+
+    #[test]
+    fn query_history_returns_events() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+        ingest_state_dir(&conn, state_dir.path()).unwrap();
+
+        let history = query_history(&conn, "bash-aliases").unwrap();
+        assert!(!history.is_empty());
+        assert_eq!(history[0].event_type, "resource_converged");
+    }
+
+    #[test]
+    fn query_history_empty_resource() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+        ingest_state_dir(&conn, state_dir.path()).unwrap();
+
+        let history = query_history(&conn, "nonexistent").unwrap();
+        assert!(history.is_empty());
+    }
+
+    #[test]
+    fn query_drift_detects_hash_mismatch() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+        ingest_state_dir(&conn, state_dir.path()).unwrap();
+
+        // bash-aliases has different content_hash and live_hash in our test fixture
+        let drift = query_drift(&conn).unwrap();
+        assert!(!drift.is_empty());
+        let ba = drift.iter().find(|d| d.resource_id == "bash-aliases");
+        assert!(ba.is_some());
+    }
+
+    #[test]
+    fn query_churn_counts_events() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+        ingest_state_dir(&conn, state_dir.path()).unwrap();
+
+        let churn = query_churn(&conn).unwrap();
+        assert!(!churn.is_empty());
+        let ba = churn.iter().find(|c| c.resource_id == "bash-aliases");
+        assert!(ba.is_some());
+        assert!(ba.unwrap().event_count >= 1);
+    }
+
+    #[test]
+    fn query_drift_empty_db() {
+        let (conn, _f) = temp_db();
+        let drift = query_drift(&conn).unwrap();
+        assert!(drift.is_empty());
+    }
+
+    #[test]
+    fn query_churn_empty_db() {
+        let (conn, _f) = temp_db();
+        let churn = query_churn(&conn).unwrap();
+        assert!(churn.is_empty());
+    }
 }

@@ -353,6 +353,10 @@ pub struct QueryArgs {
     #[arg(long)]
     pub timing: bool,
 
+    /// Show change frequency (churn) for resources
+    #[arg(long)]
+    pub churn: bool,
+
     /// JSON output
     #[arg(long)]
     pub json: bool,
