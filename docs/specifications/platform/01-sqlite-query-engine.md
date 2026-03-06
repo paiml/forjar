@@ -305,18 +305,19 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] `QueryEnrichments` with 8 boolean flags and `any_enabled()`
 - [x] Add `rusqlite` with `bundled-full` (includes FTS5)
 - [x] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
-- [ ] Ingest pipeline from existing state files
+- [x] Ingest pipeline from existing state files
 - [x] Wire `forjar query` subcommand
-- [ ] FTS5 search: `forjar query "bash"` → sub-100ms
+- [x] FTS5 search: `forjar query "bash"` → sub-100ms
 - **Extends**: `src/core/store/`
 - **Deliverable**: `forjar query "bash"` from real state data
 
 ### Phase 4: Query Enrichments (FJ-2004)
 - [x] Timing stats types: `TimingStats::from_sorted()` with percentiles
 - [x] Churn metric types: `ChurnMetric` with `churn_pct()`
-- [ ] `--history`, `--drift`, `--timing`, `--churn`, `--health`
+- [x] `--health`, `--timing`, `--json`, `--csv` output modes
+- [ ] `--history`, `--drift`, `--churn` enrichments
 - [ ] `-G` git history fusion via RRF
-- [ ] `--json`, `--csv`, `--sql` output modes
+- [ ] `--sql` output mode
 - [ ] `--destroy-log`, `--reversibility`
 - **New module**: `src/cli/query.rs`
 - **Deliverable**: Full pmat-style query UX

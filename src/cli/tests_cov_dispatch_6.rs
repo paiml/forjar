@@ -91,11 +91,13 @@ fn dispatch_oci_pack_text_with_existing_dir() {
 fn dispatch_state_query_text() {
     let result = dispatch_misc_cmd(
         Commands::StateQuery(QueryArgs {
-            query: "bash".into(),
+            query: Some("bash".into()),
             state_dir: PathBuf::from("/nonexistent"),
             resource_type: None,
             history: false,
             drift: false,
+            health: false,
+            timing: false,
             json: false,
             csv: false,
         }),
@@ -108,11 +110,13 @@ fn dispatch_state_query_text() {
 fn dispatch_state_query_json_with_filters() {
     let result = dispatch_misc_cmd(
         Commands::StateQuery(QueryArgs {
-            query: "nginx".into(),
+            query: Some("nginx".into()),
             state_dir: PathBuf::from("/nonexistent"),
             resource_type: Some("package".into()),
             history: true,
             drift: true,
+            health: false,
+            timing: false,
             json: true,
             csv: false,
         }),
@@ -125,13 +129,53 @@ fn dispatch_state_query_json_with_filters() {
 fn dispatch_state_query_csv() {
     let result = dispatch_misc_cmd(
         Commands::StateQuery(QueryArgs {
-            query: "curl".into(),
+            query: Some("curl".into()),
             state_dir: PathBuf::from("/nonexistent"),
             resource_type: None,
             history: false,
             drift: false,
+            health: false,
+            timing: false,
             json: false,
             csv: true,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_health() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: None,
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: false,
+            health: true,
+            timing: false,
+            json: false,
+            csv: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_health_json() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: None,
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: false,
+            health: true,
+            timing: false,
+            json: true,
+            csv: false,
         }),
         false,
     );
