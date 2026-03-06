@@ -51,11 +51,9 @@ This is a deliberate design choice, not a missing feature. Distributed 2PC adds 
 
 ---
 
-## L4: Destroy State Cleanup Bug
+## L4: ~~Destroy State Cleanup Bug~~ (RESOLVED)
 
-`destroy.rs:cleanup_state_files()` removes `state.lock.yaml` even when some resources failed to destroy. This means the lock reports "destroyed" while the system still has residue.
-
-**Fix required** (Phase 5, FJ-2005): Only remove lock entries for resources where `destroy_single_resource()` returned `true`.
+**Fixed in FJ-2005**: `cleanup_succeeded_entries()` now removes only succeeded resource entries from lock files on partial failure. Full lock removal only occurs when all resources destroy successfully. See `destroy.rs:66-90`.
 
 ---
 
@@ -138,10 +136,12 @@ L5 states that no write-side data may exist only in SQLite. But there is no comp
 
 ## L13: State Directory Requires Exclusive Access
 
-The state directory (`state/`) uses advisory file locking (`flock`) to prevent concurrent modification by multiple forjar processes. This does NOT prevent:
+The state directory (`state/`) uses PID-file locking (`.forjar.lock` containing the process PID) to prevent concurrent modification by multiple forjar processes. Stale locks from crashed processes are detected and cleaned up automatically. This does NOT prevent:
 - External tools modifying state files directly
-- Two users on different machines sharing a state directory via NFS (flock behavior on NFS is kernel-dependent and unreliable)
-- A process that ignores advisory locks
+- Two users on different machines sharing a state directory via NFS (PID-file locking is host-local)
+- A process that ignores the lock file
+
+Note: This is NOT `flock(2)` advisory locking — it is a PID-file with liveness check via `/proc`. The PID-file approach has a small TOCTOU race window between checking and writing, but is simpler and works across all Linux filesystems.
 
 For shared-state scenarios, use a CI/CD pipeline as the single writer, or use a lockfile-aware wrapper.
 
@@ -170,10 +170,6 @@ The spec introduces new state files (`destroy-log.jsonl`), new generation metada
 
 ---
 
-## L16: No Selective Apply
+## L16: ~~No Selective Apply~~ (RESOLVED)
 
-`forjar apply` converges the entire resource DAG. There is no `--resource` or `--type` filter for apply. For large stacks, this means every apply touches every resource (though the planner skips NoOp resources in <1ms each).
-
-**Workaround**: Use `--machine` filter to limit scope. For per-resource debugging, use `forjar plan` to see what would change, then fix the specific resource's config.
-
-**Future**: `forjar apply --resource <id>` would require resolving the resource's upstream dependencies and only converging that subgraph. This is tractable but not in scope for this spec.
+**Fixed**: `forjar apply --resource <id>` is now supported via the `resource_filter` field on `ApplyArgs`. This filters convergence to a single resource (without resolving upstream dependencies — the user is responsible for ensuring dependencies are already converged).
