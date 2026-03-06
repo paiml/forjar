@@ -91,7 +91,7 @@ fn test_fj241_check_gpu_present() {
     let r = make_gpu_resource("gpu0");
     let script = check_script(&r);
     assert!(script.contains("nvidia-smi"));
-    assert!(script.contains("535"));
+    // FJ-1009: check reports match when nvidia-smi works, regardless of version
     assert!(script.contains("match:gpu0"));
 }
 
@@ -108,7 +108,8 @@ fn test_fj241_apply_gpu_install() {
     let r = make_gpu_resource("gpu0");
     let script = apply_script(&r);
     assert!(script.contains("set -euo pipefail"));
-    assert!(script.contains("nvidia-driver-535"));
+    // FJ-1009: when nvidia-smi works, prints NOTICE instead of apt-get install
+    assert!(script.contains("NOTICE: requested driver 535"));
     assert!(script.contains("installed:gpu0"));
 }
 
@@ -154,10 +155,11 @@ fn test_fj241_apply_compute_mode() {
 
 #[test]
 fn test_fj241_check_no_driver_version() {
+    // FJ-1009: check_script always reports match/missing regardless of driver_version
     let mut r = make_gpu_resource("gpu0");
     r.driver_version = None;
     let script = check_script(&r);
-    assert!(script.contains("exists:gpu0"));
+    assert!(script.contains("match:gpu0"));
     assert!(script.contains("missing:gpu0"));
     assert!(!script.contains("535"));
 }
@@ -324,25 +326,24 @@ fn test_fj1125_state_query_rocm_kernel_fallback() {
 
 #[test]
 fn test_pmat036_apply_nvidia_skips_install_when_driver_present() {
-    // apply_script should check nvidia-smi first and skip apt-get install
-    // if the driver is already present.
+    // FJ-1009: apply_script checks nvidia-smi first. If present, prints
+    // NOTICE on version mismatch instead of trying apt-get install.
+    // apt-get install only runs in the else branch (nvidia-smi missing).
     let r = make_gpu_resource("gpu0");
     let script = apply_script(&r);
-    // Must check nvidia-smi BEFORE running apt-get install
     let smi_pos = script
         .find("nvidia-smi")
         .expect("apply must check nvidia-smi");
     let apt_pos = script
         .find("apt-get install")
-        .expect("apply must have apt-get install");
+        .expect("apply must have apt-get install fallback");
     assert!(
         smi_pos < apt_pos,
         "nvidia-smi check must come before apt-get install"
     );
-    // Must have conditional: skip install if driver already present
     assert!(
-        script.contains("command -v nvidia-smi") || script.contains("nvidia-smi --query"),
-        "must check for existing driver"
+        script.contains("NOTICE: requested driver"),
+        "version mismatch must print NOTICE, not install"
     );
 }
 
@@ -369,18 +370,13 @@ fn test_pmat036_apply_nvidia_no_version_skips_when_exists() {
 
 #[test]
 fn test_pmat036_check_nvidia_version_prefix_match() {
-    // driver_version: "550" should match nvidia-smi output "550.127.05"
-    // (prefix match on major version, not exact string match)
+    // FJ-1009: check_script accepts any working nvidia-smi as match,
+    // regardless of requested driver version.
     let mut r = make_gpu_resource("gpu0");
     r.driver_version = Some("550".to_string());
     let script = check_script(&r);
-    // Should use prefix/starts-with comparison, not exact equality
-    assert!(
-        !script.contains("\"$VER\" = '550'"),
-        "must not do exact match on driver version — 550 won't match 550.127.05"
-    );
-    // Should still check for 550 prefix
-    assert!(script.contains("550"));
+    assert!(script.contains("nvidia-smi"), "must check nvidia-smi");
+    assert!(script.contains("match:gpu0"), "working driver = match");
 }
 
 // ── FJ-1005: CPU backend tests ──

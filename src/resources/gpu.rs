@@ -19,31 +19,22 @@ pub fn check_script(resource: &Resource) -> String {
     match resolve_backend(resource) {
         "cpu" => format!("echo 'match:{}'", name),
         "rocm" => check_script_rocm(name, state, resource),
-        _ => check_script_nvidia(name, state, resource),
+        _ => check_script_nvidia(name, state),
     }
 }
 
-fn check_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
-    let driver_version = resource.driver_version.as_deref().unwrap_or("");
+// FJ-1009: If nvidia-smi works, accept the driver regardless of version.
+// Vendor/host drivers (Lambda, RunPod, --gpus all) can't be swapped.
+fn check_script_nvidia(name: &str, state: &str) -> String {
     match state {
         "absent" => format!(
             "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{}'\nelse\n  echo 'absent:{}'\nfi",
             name, name
         ),
-        _ => {
-            if driver_version.is_empty() {
-                format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{}'\nelse\n  echo 'missing:{}'\nfi",
-                    name, name
-                )
-            } else {
-                // PMAT-036: prefix match — "550" matches "550.127.05"
-                format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n  case \"$VER\" in\n    '{}'*) echo 'match:{}' ;;\n    *) echo 'mismatch:{}' ;;\n  esac\nelse\n  echo 'missing:{}'\nfi",
-                    driver_version, name, name, name
-                )
-            }
-        }
+        _ => format!(
+            "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'match:{}'\nelse\n  echo 'missing:{}'\nfi",
+            name, name
+        ),
     }
 }
 
@@ -83,68 +74,73 @@ pub fn apply_script(resource: &Resource) -> String {
 }
 
 fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
-    let driver_version = resource.driver_version.as_deref().unwrap_or("");
-    match state {
-        "absent" => format!(
+    if state == "absent" {
+        return format!(
             "set -euo pipefail\n$SUDO apt-get remove -y 'nvidia-driver-*' 2>/dev/null || true\necho 'removed:{}'",
             name
-        ),
-        _ => {
-            let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
+        );
+    }
 
-            // PMAT-036: Check if driver already present before installing.
-            // Drivers installed via vendor packages (Lambda, RunPod) won't have
-            // the standard nvidia-driver-NNN apt package but nvidia-smi works fine.
-            if !driver_version.is_empty() {
-                script.push_str(&format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n\
-                     \x20 INSTALLED_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n\
-                     \x20 case \"$INSTALLED_VER\" in\n\
-                     \x20   '{}'*) ;;\n\
-                     \x20   *) $SUDO apt-get install -y 'nvidia-driver-{}' ;;\n\
-                     \x20 esac\n\
-                     else\n\
-                     \x20 $SUDO apt-get install -y 'nvidia-driver-{}'\n\
-                     fi\n",
-                    driver_version, driver_version, driver_version
-                ));
-            } else {
-                script.push_str(
-                    "if ! command -v nvidia-smi >/dev/null 2>&1; then\n\
-                     \x20 $SUDO apt-get install -y nvidia-driver\n\
-                     fi\n",
-                );
-            }
+    let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
+    emit_nvidia_driver_install(&mut script, resource);
+    emit_cuda_toolkit(&mut script, resource);
+    emit_nvidia_post_install(&mut script, resource);
+    script.push_str(&format!("echo 'installed:{}'", name));
+    script
+}
 
-            if let Some(ref cuda) = resource.cuda_version {
-                if !cuda.is_empty() {
-                    script.push_str(&format!(
-                        "$SUDO apt-get install -y 'cuda-toolkit-{}'\n",
-                        cuda.replace('.', "-")
-                    ));
-                }
-            }
+/// PMAT-036 + FJ-1009: Install nvidia driver only when nvidia-smi is absent.
+/// When nvidia-smi works, accept the host/vendor driver even on version mismatch
+/// (--gpus-all containers pass through the host driver which cannot be changed).
+fn emit_nvidia_driver_install(script: &mut String, resource: &Resource) {
+    let driver_version = resource.driver_version.as_deref().unwrap_or("");
+    if !driver_version.is_empty() {
+        script.push_str(&format!(
+            "if command -v nvidia-smi >/dev/null 2>&1; then\n\
+             \x20 INSTALLED_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n\
+             \x20 case \"$INSTALLED_VER\" in\n\
+             \x20   '{}'*) ;;\n\
+             \x20   *) echo \"NOTICE: requested driver {} but $INSTALLED_VER is installed (vendor/host driver — accepting)\" ;;\n\
+             \x20 esac\n\
+             else\n\
+             \x20 $SUDO apt-get install -y 'nvidia-driver-{}'\n\
+             fi\n",
+            driver_version, driver_version, driver_version
+        ));
+    } else {
+        script.push_str(
+            "if ! command -v nvidia-smi >/dev/null 2>&1; then\n\
+             \x20 $SUDO apt-get install -y nvidia-driver\n\
+             fi\n",
+        );
+    }
+}
 
-            let persist = resource.persistence_mode.unwrap_or(true);
-            if persist {
-                script.push_str("$SUDO systemctl enable --now nvidia-persistenced 2>/dev/null || true\n");
-            }
-
-            if let Some(ref mode) = resource.compute_mode {
-                let mode_val = match mode.as_str() {
-                    "exclusive_process" => "1",
-                    "prohibited" => "2",
-                    _ => "0",
-                };
-                script.push_str(&format!(
-                    "$SUDO nvidia-smi -c {} 2>/dev/null || true\n",
-                    mode_val
-                ));
-            }
-
-            script.push_str(&format!("echo 'installed:{}'", name));
-            script
+fn emit_cuda_toolkit(script: &mut String, resource: &Resource) {
+    if let Some(ref cuda) = resource.cuda_version {
+        if !cuda.is_empty() {
+            script.push_str(&format!(
+                "$SUDO apt-get install -y 'cuda-toolkit-{}'\n",
+                cuda.replace('.', "-")
+            ));
         }
+    }
+}
+
+fn emit_nvidia_post_install(script: &mut String, resource: &Resource) {
+    if resource.persistence_mode.unwrap_or(true) {
+        script.push_str("$SUDO systemctl enable --now nvidia-persistenced 2>/dev/null || true\n");
+    }
+    if let Some(ref mode) = resource.compute_mode {
+        let mode_val = match mode.as_str() {
+            "exclusive_process" => "1",
+            "prohibited" => "2",
+            _ => "0",
+        };
+        script.push_str(&format!(
+            "$SUDO nvidia-smi -c {} 2>/dev/null || true\n",
+            mode_val
+        ));
     }
 }
 
