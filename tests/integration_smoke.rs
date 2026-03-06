@@ -217,6 +217,48 @@ resources:
 }
 
 #[test]
+fn contracts_coverage_succeeds() {
+    let out = forjar()
+        .args(["contracts", "--coverage"])
+        .output()
+        .expect("failed to run");
+    assert!(out.status.success(), "contracts --coverage should succeed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("Contract Coverage Report") || stdout.contains("total"));
+}
+
+#[test]
+fn state_query_succeeds() {
+    let out = forjar()
+        .args(["state-query", "bash"])
+        .output()
+        .expect("failed to run");
+    assert!(out.status.success(), "state-query should succeed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("Query:") || stdout.contains("bash"));
+}
+
+#[test]
+fn oci_pack_missing_dir_fails() {
+    let out = forjar()
+        .args(["oci-pack", "/tmp/forjar-no-such-dir-999", "--tag", "test:v1"])
+        .output()
+        .expect("failed to run");
+    assert!(!out.status.success(), "oci-pack should fail on missing dir");
+}
+
+#[test]
+fn logs_gc_succeeds() {
+    let out = forjar()
+        .args(["logs", "--gc"])
+        .output()
+        .expect("failed to run");
+    assert!(out.status.success(), "logs --gc should succeed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("garbage collection") || stdout.contains("Log"));
+}
+
+#[test]
 fn validate_deep_runs_all_checks() {
     let dir = tempfile::tempdir().expect("tmpdir");
     let cfg = dir.path().join("forjar.yaml");
