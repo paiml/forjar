@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-06 | Fixes applied: F1, F2, F3, F4, F5, F6, F7, S1, S2, E1, E2, E3, E4 (13/14 resolved)
+> Updated: 2026-03-06 | All actionable items resolved (14/14 done, U3 deferred — needs root)
 
 ---
 
@@ -108,17 +108,17 @@
 
 ## Unverified Claims (No Evidence)
 
-### U1: Performance target <50ms for `forjar query`
+### ~~U1: Performance target <50ms for `forjar query`~~ VERIFIED
 
-No benchmark or test measures query latency. The target is aspirational.
+**Resolved**: Benchmark test `query_latency_under_50ms` in `tests_db_bench.rs` validates FTS5 query completes in <50ms for a 3-machine/40-resource dataset.
 
-### U2: state.db < 1MB for 3 machines
+### ~~U2: state.db < 1MB for 3 machines~~ VERIFIED
 
-No test assertion validates this size bound.
+**Resolved**: Benchmark test `state_db_size_under_1mb` in `tests_db_bench.rs` validates state.db stays under 1MB for 3 machines × 20 resources × 100 events each.
 
 ### U3: pepita namespace creation in 10-50ms
 
-No benchmark measures pepita startup latency.
+No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — cannot be validated in unit tests.
 
 ---
 
@@ -186,7 +186,7 @@ No benchmark measures pepita startup latency.
 | ~~8~~ | ~~Mark L4 as resolved in known-limitations~~ | ~~S1~~ | DONE |
 | ~~9~~ | ~~Mark L16 as resolved in known-limitations~~ | ~~S2~~ | DONE |
 | ~~10~~ | ~~Fix pepita overlayfs spec language~~ | ~~E4~~ | DONE |
-| 11 | Add performance benchmarks for query/pepita targets | U1-U3 | OPEN |
+| ~~11~~ | ~~Add performance benchmarks for query/state.db targets~~ | ~~U1-U2~~ | DONE (U3 needs root) |
 | ~~12~~ | ~~Fix secret provider spec language~~ | ~~E3~~ | DONE |
 | ~~13~~ | ~~Fix dual-digest "single pass" claim~~ | ~~F5~~ | DONE |
 | ~~14~~ | ~~Fix content policy spec language~~ | ~~F4~~ | DONE |
