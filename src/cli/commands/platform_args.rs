@@ -326,8 +326,8 @@ pub struct OciPackArgs {
 /// FJ-2001: CLI arguments for `query`.
 #[derive(clap::Args, Debug)]
 pub struct QueryArgs {
-    /// Search query (e.g., "bash", "nginx")
-    pub query: String,
+    /// Search query (e.g., "bash", "nginx"). Omit for --health.
+    pub query: Option<String>,
 
     /// State directory
     #[arg(long, default_value = "state")]
@@ -344,6 +344,14 @@ pub struct QueryArgs {
     /// Show drift status
     #[arg(long)]
     pub drift: bool,
+
+    /// Show stack-wide health summary
+    #[arg(long)]
+    pub health: bool,
+
+    /// Show timing stats (avg, p50, p95, p99)
+    #[arg(long)]
+    pub timing: bool,
 
     /// JSON output
     #[arg(long)]

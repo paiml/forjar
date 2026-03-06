@@ -3860,18 +3860,41 @@ forjar oci-pack <DIR> --tag <NAME:TAG> [--output <DIR>] [--json]
 
 ### `forjar state-query`
 
-Query the state database (requires rusqlite for full support).
+FTS5-powered full-text search across all managed resources. Auto-ingests
+state files on first query for sub-100ms subsequent searches.
 
 ```bash
-forjar state-query <QUERY> [--state-dir <DIR>] [--type <TYPE>] [--history] [--drift] [--json] [--csv]
+forjar state-query <QUERY> [--state-dir <DIR>] [--type <TYPE>] [--health] [--timing] [--json] [--csv]
+forjar state-query --health [--state-dir <DIR>] [--json]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `QUERY` | required | Search query (e.g., `"bash"`, `"nginx"`) |
+| `QUERY` | optional | Search query (e.g., `"bash"`, `"nginx"`) |
 | `--state-dir` | `state` | State directory |
 | `--type` | all | Filter by resource type |
+| `--health` | false | Stack-wide health summary |
+| `--timing` | false | Duration stats (avg, p50, p95) |
 | `--history` | false | Show resource history |
 | `--drift` | false | Show drift status |
 | `--json` | false | JSON output |
 | `--csv` | false | CSV output |
+
+**Examples:**
+
+```bash
+# Search for bash-related resources
+forjar state-query "bash" --state-dir state
+
+# Show all packages
+forjar state-query "package" --state-dir state --type package
+
+# Stack health dashboard
+forjar state-query --health --state-dir state
+
+# JSON output for scripting
+forjar state-query "nginx" --state-dir state --json
+
+# Timing statistics
+forjar state-query "converged" --state-dir state --timing
+```

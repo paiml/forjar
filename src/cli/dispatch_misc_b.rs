@@ -63,8 +63,15 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::OciPack(OciPackArgs { dir, tag, output, json }) => {
             cmd_oci_pack(&dir, &tag, &output, json)
         }
-        Commands::StateQuery(QueryArgs { query, state_dir, resource_type, history, drift, json, csv }) => {
-            cmd_query_state(&query, &state_dir, resource_type.as_deref(), history, drift, json, csv)
+        Commands::StateQuery(QueryArgs {
+            query, state_dir, resource_type, history, drift, health, timing, json, csv,
+        }) => {
+            if health {
+                cmd_query_health(&state_dir, json)
+            } else {
+                let q = query.as_deref().unwrap_or("*");
+                cmd_query_state(q, &state_dir, resource_type.as_deref(), history, drift, timing, json, csv)
+            }
         }
         other => dispatch_infra_cmd(other),
     }
@@ -293,31 +300,31 @@ fn cmd_oci_pack(
     Ok(())
 }
 
-/// FJ-2001: Query state database with live ingest + FTS5 search.
-#[allow(clippy::too_many_arguments)]
-fn cmd_query_state(
-    query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
-    _history: bool, _drift: bool, json: bool, csv: bool,
-) -> Result<(), String> {
+/// Open state DB with fallback to :memory: if state dir is missing.
+fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, String> {
     use crate::core::store::db;
     use crate::core::store::ingest;
 
     let db_path = state_dir.join("state.db");
     let conn = match db::open_state_db(&db_path) {
         Ok(c) => c,
-        Err(_) => {
-            // Fall back to in-memory db if state dir doesn't exist
-            db::open_state_db(std::path::Path::new(":memory:"))?
-        }
+        Err(_) => db::open_state_db(std::path::Path::new(":memory:"))?,
     };
-
-    // Auto-ingest from state files (ignore errors for missing dirs)
     let _ = ingest::ingest_state_dir(&conn, state_dir);
+    Ok(conn)
+}
 
-    // FTS5 search
+/// FJ-2001: Query state database with live ingest + FTS5 search.
+#[allow(clippy::too_many_arguments)]
+fn cmd_query_state(
+    query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
+    _history: bool, _drift: bool, timing: bool, json: bool, csv: bool,
+) -> Result<(), String> {
+    use crate::core::store::db;
+
+    let conn = open_state_conn(state_dir)?;
     let mut results = db::fts5_search(&conn, query, 50)?;
 
-    // Filter by type if specified
     if let Some(rtype) = resource_type {
         results.retain(|r| r.resource_type == rtype);
     }
@@ -325,11 +332,8 @@ fn cmd_query_state(
     if json {
         let rows: Vec<serde_json::Value> = results.iter().map(|r| {
             serde_json::json!({
-                "resource_id": r.resource_id,
-                "type": r.resource_type,
-                "status": r.status,
-                "path": r.path,
-                "rank": r.rank,
+                "resource_id": r.resource_id, "type": r.resource_type,
+                "status": r.status, "path": r.path, "rank": r.rank,
             })
         }).collect();
         println!("{}", serde_json::to_string_pretty(&serde_json::json!({
@@ -351,7 +355,66 @@ fn cmd_query_state(
                 r.resource_id, r.resource_type, r.status,
                 r.path.as_deref().unwrap_or("—"));
         }
+        if timing {
+            print_timing_stats(&conn, &results)?;
+        }
         println!("\n {} result(s)", results.len());
+    }
+    Ok(())
+}
+
+/// Print timing stats for matched resources.
+fn print_timing_stats(
+    conn: &rusqlite::Connection, results: &[crate::core::store::db::FtsResult],
+) -> Result<(), String> {
+    let rids: Vec<&str> = results.iter().map(|r| r.resource_id.as_str()).collect();
+    if rids.is_empty() { return Ok(()); }
+
+    let placeholders: Vec<String> = (1..=rids.len()).map(|i| format!("?{i}")).collect();
+    let sql = format!(
+        "SELECT duration_secs FROM resources WHERE resource_id IN ({}) ORDER BY duration_secs",
+        placeholders.join(",")
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| format!("timing prepare: {e}"))?;
+    let params: Vec<&dyn rusqlite::types::ToSql> = rids.iter()
+        .map(|s| s as &dyn rusqlite::types::ToSql)
+        .collect();
+    let durations: Vec<f64> = stmt
+        .query_map(params.as_slice(), |row| row.get(0))
+        .map_err(|e| format!("timing query: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if durations.is_empty() { return Ok(()); }
+    let n = durations.len();
+    let avg = durations.iter().sum::<f64>() / n as f64;
+    let p50 = durations[n / 2];
+    let p95 = durations[(n as f64 * 0.95) as usize];
+    println!("\n Timing: avg={avg:.2}s p50={p50:.2}s p95={p95:.2}s (n={n})");
+    Ok(())
+}
+
+/// FJ-2001: Health summary across all machines.
+fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    use crate::core::store::ingest;
+
+    let conn = open_state_conn(state_dir)?;
+    let health = ingest::query_health(&conn)?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&health).unwrap_or_default());
+    } else if health.machines.is_empty() {
+        println!("No machines found in {}", state_dir.display());
+    } else {
+        println!(" {:10} {:>10} {:>10} {:>8} {:>8}", "MACHINE", "RESOURCES", "CONVERGED", "DRIFTED", "FAILED");
+        for m in &health.machines {
+            println!(" {:10} {:>10} {:>10} {:>8} {:>8}",
+                m.name, m.resources, m.converged, m.drifted, m.failed);
+        }
+        println!(" {}", "─".repeat(56));
+        println!(" {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
+            "TOTAL", health.total_resources, health.total_converged,
+            health.total_drifted, health.total_failed, health.health_pct());
     }
     Ok(())
 }
