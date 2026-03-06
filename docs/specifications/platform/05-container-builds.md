@@ -306,20 +306,25 @@ resources:
 - [x] OCI layout writer, Docker compat `manifest.json`
 - [x] `forjar oci pack <dir> --tag name:tag`
 
-### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL
-- [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order
-- [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst)
-- [x] File → layer, Package → layer (`LayerStrategy` enum defined)
-- [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path
-- [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()`
+### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL (types only, no runtime tar assembly)
+- [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order (type definition)
+- [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst) (type definition)
+- [x] File → layer, Package → layer (`LayerStrategy` enum defined) (type definition)
+- [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path (type definition)
+- [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()` (type definition)
+- **Missing for completion**: Runtime `build_layer()` that creates actual tar archives from resource definitions; integration test producing a valid OCI layer from a `type: file` resource
 
-### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL
-- [x] `export_overlay_upper()` in sandbox_exec.rs
-- [x] Overlay-to-OCI whiteout conversion: `WhiteoutEntry` (FileDelete, OpaqueDir)
-- [x] Multi-tier layer stacking
+### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL (types only, no runtime export)
+- [x] `export_overlay_upper()` in sandbox_exec.rs (type definition)
+- [x] Overlay-to-OCI whiteout conversion: `WhiteoutEntry` (FileDelete, OpaqueDir) (type definition)
+- [x] Multi-tier layer stacking (type definition)
+- **Missing for completion**: Runtime overlay → tar conversion; whiteout rewriting against real overlayfs upper directory; integration test with pepita sandbox
 
-### Phase 10: Image Resource Type (FJ-2104) — PARTIAL
-- [x] `ResourceType::Image`
-- [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
-- [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
-- [x] `forjar build` CLI command
+### Phase 10: Image Resource Type (FJ-2104) — PARTIAL (CLI wired, no end-to-end build)
+- [x] `ResourceType::Image` (enum variant exists)
+- [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation) (type definition)
+- [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved (type definition)
+- [x] `forjar build` CLI command (command wired, dispatches to build logic)
+- **Missing for completion**: End-to-end `forjar build` producing a loadable OCI image from a `type: image` resource; integration test with `docker load`
+
+> **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.
