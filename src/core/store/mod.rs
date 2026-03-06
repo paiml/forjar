@@ -21,6 +21,7 @@ pub mod far;
 pub mod gc;
 pub mod gc_exec;
 pub mod hf_config;
+pub mod image_assembler;
 pub mod kernel_far;
 pub mod layer_builder;
 pub mod lockfile;
@@ -107,6 +108,8 @@ mod tests_gc;
 mod tests_gc_exec;
 #[cfg(test)]
 mod tests_hf_config;
+#[cfg(test)]
+mod tests_image_assembler;
 #[cfg(test)]
 mod tests_kernel_far;
 #[cfg(test)]
