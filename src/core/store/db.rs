@@ -175,14 +175,10 @@ pub fn fts5_search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<Fts
     if trimmed.is_empty() {
         return Ok(vec![]);
     }
-    // Quote the query to prevent FTS5 operator interpretation
-    // (e.g., "bash-aliases" → `"bash-aliases"` instead of `bash NOT aliases`)
-    let safe_query = if trimmed.contains('-') || trimmed.contains('"') {
-        let escaped = trimmed.replace('"', "\"\"");
-        format!("\"{escaped}\"")
-    } else {
-        trimmed.to_string()
-    };
+    // Always quote to prevent FTS5 operator interpretation:
+    // hyphens (NOT), OR, AND, etc. Use --sql for raw FTS5 queries.
+    let escaped = trimmed.replace('"', "\"\"");
+    let safe_query = format!("\"{escaped}\"");
     let mut stmt = conn
         .prepare(
             "SELECT r.resource_id, r.resource_type, r.status, r.path, fts.rank \
