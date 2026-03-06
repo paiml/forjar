@@ -320,7 +320,7 @@ resources:
 - [x] `debug_assert!` postcondition: same inputs produce same BLAKE3 hash
 - [x] 14 tests in `tests_layer_builder.rs` (determinism, order independence, compression, OCI layout)
 - [x] `cargo run --example layer_builder` — end-to-end demo
-- **Remaining**: Wire `build_layer()` into `forjar build` command for `type: file` resources
+- [x] `build_layer()` wired into `forjar build` via `assemble_image()` which calls `build_layer()` for each `LayerEntry` set
 
 ### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL (types only, no runtime export)
 - [x] `export_overlay_upper()` in sandbox_exec.rs (type definition)
@@ -338,6 +338,8 @@ resources:
 - [x] Config with entrypoint, labels, history entries
 - [x] `build_image.rs` — CLI module with `build_plan_from_resource()`, `collect_layer_entries()`, `--push` via registry_push
 - [x] 10 tests in `tests_image_assembler.rs`
-- **Remaining**: Base image layer extraction; integration test with `docker load`
+- [x] Base image layer extraction: `extract_base_layers()`, `verify_base_blobs()`, `copy_base_blobs()` (`store/base_image.rs`)
+- [x] `build_plan_from_resource()` probes local base image layout when `image:` field present
+- **Remaining**: Integration test with `docker load` (requires Docker in CI)
 
 > **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.

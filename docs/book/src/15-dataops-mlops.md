@@ -220,6 +220,77 @@ policy:
   convergence_budget: 18000  # 5 hours total
 ```
 
+## Task Modes: Pipeline, Service, Dispatch
+
+The `task_mode` field switches task behavior:
+
+### Pipeline Mode
+
+Ordered multi-stage execution with content-addressed caching:
+
+```yaml
+resources:
+  build-pipeline:
+    type: task
+    machine: builder
+    task_mode: pipeline
+    stages:
+      - name: lint
+        command: "cargo clippy"
+        inputs: ["src/**/*.rs"]
+      - name: test
+        command: "cargo test"
+        gate: true  # pipeline stops on failure
+      - name: build
+        command: "cargo build --release"
+        outputs: ["target/release/app"]
+```
+
+Stages with unchanged inputs skip automatically (`cache: true`).
+
+### Service Mode
+
+Long-running processes with health checks and restart policy:
+
+```yaml
+resources:
+  api-server:
+    type: task
+    machine: web
+    task_mode: service
+    command: "/usr/local/bin/api-server"
+    health_check:
+      command: "curl -sf http://localhost:8080/health"
+      interval: "30s"
+      retries: 3
+    restart_policy:
+      max_restarts: 5
+      backoff_base_secs: 1.0
+      backoff_max_secs: 60.0
+```
+
+The service lifecycle: start → health check → (healthy: wait) or (N failures: restart) → (max restarts: stop). Backoff is exponential with a configurable cap.
+
+### Dispatch Mode
+
+On-demand parameterized command execution via `forjar run`:
+
+```yaml
+resources:
+  deploy:
+    type: task
+    machine: prod
+    task_mode: dispatch
+    dispatch:
+      name: deploy
+      command: "deploy --env {{ env }} --tag {{ tag }}"
+      params:
+        - ["env", "staging"]
+      timeout_secs: 300
+```
+
+Invocation history is tracked in state with success rates and caller attribution.
+
 ## Training Checkpoint Management
 
 Use the checkpoint command to manage training artifacts:

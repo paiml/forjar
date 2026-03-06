@@ -699,7 +699,7 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 
 ## Implementation
 
-### Phase 36: Task Modes (FJ-2700) -- IMPLEMENTED (pipeline engine; service/dispatch types-only)
+### Phase 36: Task Modes (FJ-2700) -- IMPLEMENTED
 - [x] `TaskMode` enum (batch/pipeline/service/dispatch) with serde roundtrip
 - [x] `PipelineStage` struct (name, command, inputs, outputs, gate)
 - [x] `QualityGate` + `HealthCheck` structs defined
@@ -709,9 +709,12 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] Pipeline execution engine: `plan_pipeline()`, `build_pipeline_state()`, `format_pipeline_summary()`
 - [x] Stage cache skip logic: `should_skip_stage()` compares BLAKE3 input hashes
 - [x] Stage command generation: `stage_command()` wraps with strict mode
-- [x] Service mode: `RestartPolicy` (exponential backoff), `HealthCheckResult`, `ServiceEvent` lifecycle enum
-- [x] Dispatch: `DispatchConfig` with name, command, params, timeout
-- **Remaining**: Service mode runtime (restart loop, health checks), dispatch mode runtime (HTTP/event dispatch)
+- [x] Service mode types: `RestartPolicy` (exponential backoff), `HealthCheckResult`, `ServiceEvent` lifecycle enum
+- [x] Service mode runtime: `plan_service_action()`, `process_health_check()`, `apply_restart()`, `apply_start()`, `apply_stop()`, `restart_backoff()`, `format_service_summary()` (`task/service.rs`)
+- [x] Dispatch types: `DispatchConfig` with name, command, params, timeout
+- [x] Dispatch mode runtime: `prepare_dispatch()` (param substitution), `record_invocation()`, `validate_dispatch()`, `dispatch_script()`, `success_rate()`, `format_dispatch_summary()` (`task/dispatch.rs`)
+- [x] Full service lifecycle: start → health check → restart → max restarts → stop
+- [x] 30 tests across service + dispatch modules
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
 - [x] `inputs:` glob pattern hashing (BLAKE3)
