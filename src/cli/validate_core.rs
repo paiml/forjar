@@ -93,6 +93,11 @@ pub(crate) fn cmd_validate(
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
+    // Always detect circular dependencies — a cycle makes the config unusable
+    if let Err(e) = resolver::build_execution_order(&config) {
+        return Err(format!("dependency cycle: {e}"));
+    }
+
     // FJ-330: Show fully expanded config after template resolution
     if dry_expand {
         let mut expanded = config.clone();
