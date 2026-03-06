@@ -272,9 +272,6 @@ fn falsify_l14_all_phase_modules_exist() {
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     for module in &modules {
-        assert!(
-            root.join(module).exists(),
-            "module must exist: {module}"
-        );
+        assert!(root.join(module).exists(), "module must exist: {module}");
     }
 }
