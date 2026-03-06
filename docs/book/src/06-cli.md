@@ -1674,6 +1674,108 @@ forjar lock -f forjar.yaml --json           # JSON output
 | `--verify` | Compare computed hashes against existing lock; exit 1 if mismatch |
 | `--json` | Output as JSON |
 
+### `forjar lock-sign`
+
+Sign lock files with HMAC for tamper detection.
+
+```bash
+forjar lock-sign --state-dir <DIR> --key <KEY> [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | State directory |
+| `--key` | required | Signing key |
+| `--json` | false | JSON output |
+
+Signs each machine's lock file by computing BLAKE3(content + key) and writing the signature to `{machine}/lock.sig`.
+
+### `forjar lock-verify-sig`
+
+Verify lock file HMAC signatures.
+
+```bash
+forjar lock-verify-sig --state-dir <DIR> --key <KEY> [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | State directory |
+| `--key` | required | Signing key |
+| `--json` | false | JSON output |
+
+Re-computes BLAKE3(content + key) and compares against stored signatures. Reports pass/fail per machine.
+
+### `forjar lock-verify-chain`
+
+Verify lock signature chain integrity without needing the signing key.
+
+```bash
+forjar lock-verify-chain --state-dir <DIR> [--json]
+```
+
+Checks that signature files exist and contain well-formed 64-character hex hashes. Does not verify content — use `lock-verify-sig` for full verification.
+
+### `forjar lock-rotate-keys`
+
+Rotate lock file signing keys.
+
+```bash
+forjar lock-rotate-keys --state-dir <DIR> --old-key <KEY> --new-key <KEY> [--json]
+```
+
+Verifies the old key matches existing signatures before rotating. If the old key doesn't match, rotation is aborted to prevent accidental key loss.
+
+### `forjar lock-compact-all`
+
+Compact all machines' lock files at once.
+
+```bash
+forjar lock-compact-all --state-dir <DIR> [--json]
+```
+
+Runs lock compaction across every machine in the state directory. Removes stale resource entries.
+
+### `forjar lock-history`
+
+Show lock file change history.
+
+```bash
+forjar lock-history --state-dir <DIR> [--limit N] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | State directory |
+| `--limit` | `20` | Maximum entries to show |
+| `--json` | false | JSON output |
+
+### `forjar lock-tag`
+
+Add metadata tags to lock files.
+
+```bash
+forjar lock-tag --state-dir <DIR> --tag <NAME> --value <VALUE> [--json]
+```
+
+### `forjar lock-migrate`
+
+Migrate lock file schema between versions.
+
+```bash
+forjar lock-migrate --state-dir <DIR> --from-version <VER> [--json]
+```
+
+### `forjar lock-verify-schema`
+
+Verify lock file schema version compatibility.
+
+```bash
+forjar lock-verify-schema --state-dir <DIR> [--json]
+```
+
+Checks each lock file's schema version against the expected version (1.0). Reports mismatches.
+
 ### `forjar snapshot`
 
 Save, list, and restore named state snapshots for safe rollbacks and checkpoint-based workflows.

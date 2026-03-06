@@ -138,3 +138,49 @@ forjar snapshot restore --id snap-20250615-103000
 ```
 
 Snapshots capture the complete state directory (lock files, global lock, event journal) as a compressed archive.
+
+## Lock File Signing & Verification
+
+```bash
+# Sign lock files with a shared key
+forjar lock-sign --state-dir state --key my-secret-key
+
+# Verify signatures match
+forjar lock-verify-sig --state-dir state --key my-secret-key
+
+# Verify signature chain integrity (well-formed signatures exist)
+forjar lock-verify-chain --state-dir state
+
+# Rotate signing keys (verifies old key before applying new)
+forjar lock-rotate-keys --state-dir state --old-key old-secret --new-key new-secret
+```
+
+Lock signing uses BLAKE3 HMAC (hash of file content + key). `lock-verify-sig` re-computes the hash and compares it against the stored signature. `lock-verify-chain` checks that signatures are well-formed 64-char hex strings without needing the key. `lock-rotate-keys` verifies the old key matches existing signatures before rotating, preventing accidental key loss.
+
+## Lock File Compaction
+
+```bash
+# Compact a single machine's lock file (remove old entries)
+forjar lock-compact --state-dir state
+
+# Compact all machines' lock files at once
+forjar lock-compact-all --state-dir state
+```
+
+Compaction removes stale resource entries from lock files, reducing file size. The `lock-compact-all` variant processes every machine in the state directory.
+
+## Lock File Schema Management
+
+```bash
+# Verify lock file schema versions
+forjar lock-verify-schema --state-dir state
+
+# Migrate lock files from old schema version
+forjar lock-migrate --state-dir state --from-version 0.9
+
+# Add metadata tags to lock files
+forjar lock-tag --state-dir state --tag env --value production
+
+# Show lock file change history
+forjar lock-history --state-dir state --limit 20
+```
