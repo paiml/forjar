@@ -55,7 +55,7 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             cmd_contracts(coverage, &file, json)
         }
         Commands::Build(BuildArgs { file, resource, load, push, far, json }) => {
-            cmd_build(&file, &resource, load, push, far, json)
+            super::build_image::cmd_build(&file, &resource, load, push, far, json)
         }
         Commands::Logs(LogsArgs { state_dir, machine, run, failures, follow, gc, json }) => {
             cmd_logs(&state_dir, machine.as_deref(), run.as_deref(), failures, follow, gc, json)
@@ -196,71 +196,7 @@ pub(crate) fn cmd_contracts(_coverage: bool, _file: &std::path::Path, json: bool
     Ok(())
 }
 
-/// FJ-2104: Build container image from a resource definition.
-#[allow(clippy::too_many_arguments)]
-fn cmd_build(
-    file: &std::path::Path, resource: &str, load: bool, push: bool, far: bool, _json: bool,
-) -> Result<(), String> {
-    let config = super::helpers::parse_and_validate(file)?;
-    let res = config.resources.get(resource)
-        .ok_or_else(|| format!("resource '{resource}' not found"))?;
-    if !matches!(res.resource_type, crate::core::types::ResourceType::Image) {
-        return Err(format!("resource '{resource}' is not type: image"));
-    }
-    println!("Building image for resource '{resource}'...");
-    println!("  type: image");
-    if load {
-        println!("\n--load: would pipe OCI tarball to `docker load`");
-        let runtime = if which_runtime("docker") { "docker" }
-            else if which_runtime("podman") { "podman" }
-            else { return Err("--load requires docker or podman".into()); };
-        println!("  runtime: {runtime}");
-    }
-    if push {
-        cmd_build_push(res)?;
-    }
-    if far {
-        println!("\n--far: would wrap OCI layout in FAR archive");
-        println!("  Use `forjar archive pack <hash>` for existing store entries.");
-    }
-    println!("\nOCI image build requires container runtime — use `forjar apply` for now.");
-    Ok(())
-}
-
-/// FJ-2105: Handle --push flag for registry push.
-fn cmd_build_push(res: &crate::core::types::Resource) -> Result<(), String> {
-    use crate::core::store::registry_push;
-
-    let image_name = res.name.as_deref().unwrap_or("app");
-    let tag = res.version.as_deref().unwrap_or("latest");
-
-    // Extract registry from image name (e.g., "ghcr.io/org/app" → "ghcr.io")
-    let (registry, name) = if let Some(idx) = image_name.find('/') {
-        (&image_name[..idx], &image_name[idx + 1..])
-    } else {
-        ("docker.io", image_name)
-    };
-
-    let push_config = registry_push::RegistryPushConfig {
-        registry: registry.to_string(),
-        name: name.to_string(),
-        tag: tag.to_string(),
-        check_existing: true,
-    };
-
-    let errors = registry_push::validate_push_config(&push_config);
-    if !errors.is_empty() {
-        return Err(format!("push config invalid: {}", errors.join(", ")));
-    }
-
-    println!("\n--push: OCI Distribution v1.1");
-    println!("  registry: {registry}");
-    println!("  name: {name}");
-    println!("  tag: {tag}");
-    println!("  check-existing: HEAD /v2/{name}/blobs/{{digest}}");
-    println!("  protocol: POST uploads/ → PUT ?digest= → PUT manifests/{tag}");
-    Ok(())
-}
+// FJ-2104: Build command delegated to build_image module.
 
 /// Check if a container runtime binary is available on PATH.
 pub(crate) fn which_runtime(name: &str) -> bool {
