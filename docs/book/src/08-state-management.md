@@ -1173,16 +1173,23 @@ The database is configured with WAL mode for concurrent reads, FTS5 for full-tex
 
 ### Schema
 
-The `SchemaV1` DDL creates three core tables plus a FTS5 virtual table:
+The schema (version 2) creates core tables, derived tables, and FTS5 indexes:
 
 | Table | Purpose |
 |-------|---------|
+| `machines` | Machine inventory with transport metadata |
 | `resources` | Resource state per machine and generation |
 | `generations` | Generation metadata with config hashes |
+| `events` | Apply/converge/destroy event log |
 | `run_logs` | Per-resource execution logs |
-| `resources_fts` | FTS5 full-text search over resources |
+| `destroy_log` | Destroyed resource records (ingested from `destroy-log.jsonl`) |
+| `drift_findings` | Drift detection results with expected vs actual hashes |
+| `ingest_cursor` | Per-machine ingest bookkeeping for incremental updates |
+| `resources_fts` | FTS5 full-text search (porter tokenizer, no raw JSON) |
+| `events_fts` | FTS5 search over events |
+| `run_logs_fts` | FTS5 search over run logs |
 
-Seven indexes cover the common query patterns (by machine, type, status, generation, run_id).
+Twelve indexes cover the common query patterns (by machine, type, status, generation, run_id, path, drift, destroy).
 
 ### Incremental Ingest
 
@@ -1297,6 +1304,32 @@ When `forjar destroy` removes resources, it writes a destroy log to `state/destr
 Each entry records the pre-destroy state: the resource's hash, config fragment, and whether it can be reliably recreated. Resources with inline `content:` are flagged as `reliable_recreate: true`.
 
 On partial destroy failure, only succeeded resource entries are removed from the lock file. Failed resources keep their lock entries so the next `forjar apply` can re-converge them.
+
+### Undo-Destroy Replay
+
+`forjar undo-destroy` reads the destroy log and replays entries to recreate destroyed resources:
+
+```bash
+# Preview what would be recreated
+forjar undo-destroy --dry-run
+
+# Replay reliable entries only
+forjar undo-destroy --yes
+
+# Include unreliable entries (best-effort)
+forjar undo-destroy --force --yes
+
+# Filter to specific machine
+forjar undo-destroy --machine web-01 --yes
+```
+
+The replay process:
+1. Reads `destroy-log.jsonl` entries, filtering by machine if specified
+2. Classifies entries as **reliable** (`config_fragment` + `reliable_recreate: true`) or **unreliable**
+3. For each entry: deserializes `config_fragment` to a `Resource`, generates a convergence script via `codegen::apply_script()`, and executes via `transport::exec_script()`
+4. Reports replayed/failed counts
+
+Without `--force`, unreliable entries are skipped. Entries without `config_fragment` are always skipped (no way to reconstruct).
 
 ## Force Re-Apply
 
