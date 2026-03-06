@@ -410,6 +410,29 @@ pub fn oci_layout_plan(output_dir: &std::path::Path, tag: &str) -> Vec<SandboxSt
     ]
 }
 
+/// FJ-2105: Build a multi-arch OCI Image Index from per-platform manifests.
+pub fn multi_arch_index(platforms: &[crate::core::types::ArchBuild]) -> crate::core::types::OciIndex {
+    use crate::core::types::{OciDescriptor, OciIndex};
+    let manifests: Vec<OciDescriptor> = platforms
+        .iter()
+        .filter_map(|p| {
+            p.manifest_digest.as_ref().map(|digest| OciDescriptor {
+                media_type: "application/vnd.oci.image.manifest.v1+json".into(),
+                digest: digest.clone(),
+                size: 0,
+                annotations: [("org.opencontainers.image.platform".into(), p.platform.clone())]
+                    .into_iter()
+                    .collect(),
+            })
+        })
+        .collect();
+    OciIndex {
+        schema_version: 2,
+        manifests,
+        annotations: Default::default(),
+    }
+}
+
 /// Count the total steps in a plan (for progress reporting).
 pub fn plan_step_count(plan: &SandboxPlan) -> usize {
     plan.steps.len()

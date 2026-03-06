@@ -675,8 +675,8 @@ Every CI test run produces:
 ### Phase 34: Test Runner and CLI (FJ-2606) — PARTIAL
 - [x] `forjar test` types: `TestCommand`, `TestSubcommand` (behavior/convergence/mutation/all)
 - [x] `TestResult`, `TestArtifact`, `TestSuiteReport` with `pass_rate()` and `format_summary()`
-- [ ] Parallel execution engine
-- [ ] Test artifact collection (runtime wiring)
+- [x] Parallel execution engine
+- [x] Test artifact collection (runtime wiring)
 - **Deliverable**: Single command runs all test types
 
 ### Phase 35: CI Integration (FJ-2607)

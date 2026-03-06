@@ -295,6 +295,10 @@ pub struct BuildArgs {
     #[arg(long)]
     pub push: bool,
 
+    /// Wrap output in FAR (Forjar Archive) format
+    #[arg(long)]
+    pub far: bool,
+
     /// JSON output
     #[arg(long)]
     pub json: bool,
