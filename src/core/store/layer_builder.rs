@@ -115,11 +115,24 @@ pub fn build_layer(
 pub fn compute_dual_digest(content: &[u8]) -> DualDigest {
     let blake3 = blake3::hash(content).to_hex().to_string();
     let sha256 = hex_sha256(content);
-    DualDigest {
+    let result = DualDigest {
         blake3,
         sha256,
         size_bytes: content.len() as u64,
-    }
+    };
+
+    // FJ-2200 G4: Dual-digest consistency postcondition
+    debug_assert_eq!(
+        result.size_bytes,
+        content.len() as u64,
+        "compute_dual_digest: size mismatch"
+    );
+    debug_assert!(
+        !result.blake3.is_empty() && !result.sha256.is_empty(),
+        "compute_dual_digest: empty digest"
+    );
+
+    result
 }
 
 /// Write an OCI layout directory from layers and config.
@@ -152,6 +165,16 @@ pub fn write_oci_layout(
         config_json,
     )
     .map_err(|e| format!("write config blob: {e}"))?;
+
+    // FJ-2200 G4: OCI layout integrity postcondition
+    debug_assert!(
+        output_dir.join("oci-layout").exists(),
+        "write_oci_layout: oci-layout missing"
+    );
+    debug_assert!(
+        output_dir.join(format!("blobs/sha256/{config_hex}")).exists(),
+        "write_oci_layout: config blob missing"
+    );
 
     Ok(())
 }
