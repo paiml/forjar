@@ -2,6 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
+> Updated: 2026-03-06 | Fixes applied: F1, F2, S1, S2, E1, E2, F5
 
 ---
 
@@ -17,29 +18,15 @@
 
 ## Critical Falsifications
 
-### F1: `forjar diff --generation 3 7` does not exist
+### ~~F1: `forjar diff --generation 3 7` does not exist~~ FIXED
 
-**Spec claim** (main spec line 184, 02-generation-undo.md):
-> `forjar diff --generation 3 7`
-
-**Reality**: Types exist (`GenerationDiff`, `diff_resource_sets()` in `generation_diff_types.rs`) but NO CLI subcommand binds them. `GenerationCmd` enum in `subcmd_args.rs` only has `List` and `Gc`. The `diff_cmd.rs` compares two config files, not two generation snapshots.
-
-**Fix**: Add `Diff { from: u32, to: u32 }` variant to `GenerationCmd`, wire to `diff_resource_sets()`.
+**Resolved**: `GenerationCmd::Diff { from, to, state_dir, json }` added to `subcmd_args.rs`. `cmd_generation_diff()` in `generation.rs` loads lock files from both generation directories, computes per-machine `diff_resource_sets()`, and outputs text or JSON. 7 tests added in `tests_cov_gen_diff.rs`. Commit `dce1768`.
 
 ---
 
-### F2: `forjar undo-destroy` replay is not implemented
+### ~~F2: `forjar undo-destroy` replay is not implemented~~ FIXED
 
-**Spec claim** (main spec line 183, 02-generation-undo.md):
-> `forjar undo-destroy [--machine X]` — replay destroy log to recreate resources
-
-**Reality** (`undo.rs:308`):
-```
-println!("Replay not yet implemented — use `forjar apply` with the original config.");
-```
-The command exists, parses destroy-log.jsonl, categorizes resources, handles `--dry-run`, but the ACTUAL REPLAY returns `Ok(())` without doing anything.
-
-**Fix**: Implement replay loop that calls `cmd_apply` with reconstructed config from `config_fragment`.
+**Resolved**: Replay loop implemented in `undo.rs`. For each entry with `config_fragment`, deserializes the `Resource`, generates a convergence script via `codegen::apply_script()`, and executes via `transport::exec_script()`. Entries without `config_fragment` are skipped with error. Returns `Err` if any entries fail. Commit `dce1768`.
 
 ---
 
@@ -65,41 +52,23 @@ The command exists, parses destroy-log.jsonl, categorizes resources, handles `--
 
 ---
 
-### F5: Dual-digest "single pass" is false
+### ~~F5: Dual-digest "single pass" is false~~ FIXED (spec corrected)
 
-**Spec claim** (main spec line 72, 03-idempotency-drift.md):
-> Dual-digest computed in a single pass
-
-**Reality**: BLAKE3 and SHA-256 are computed in separate function calls. `hash_file()` uses BLAKE3 only; `sha256_digest()` is called separately for OCI. No single-pass streaming dual-hash exists.
-
-**Fix**: Either implement a `DualHasher` that streams data through both algorithms simultaneously, or change "single pass" to "both computed".
+**Resolved**: Spec text changed from "Dual-digest computed in a single pass" to "Both digests computed per artifact (BLAKE3 for store addressing, SHA-256 for OCI manifests)". Commit `dce1768`.
 
 ---
 
 ## Exaggerations
 
-### E1: "Second apply is always a no-op (<1ms, zero I/O)"
+### ~~E1: "Second apply is always a no-op (<1ms, zero I/O)"~~ FIXED (spec corrected)
 
-**Spec claim** (main spec line 73):
-> Second apply is always a no-op (<1ms, zero I/O)
-
-**Reality**: Second apply is a no-op in terms of *convergence actions* (no SSH, no package installs). But it still:
-- Reads and parses the YAML config file
-- Reads all `state.lock.yaml` files from disk
-- Recomputes `hash_desired_state()` for every resource
-- Compares hashes
-
-"Zero I/O" is false. "Zero remote I/O" or "zero mutation I/O" would be accurate.
+**Resolved**: Spec text changed to "zero remote I/O, zero mutations (state files are read and hashes recomputed, but no convergence actions execute)". Commit `dce1768`.
 
 ---
 
-### E2: "flock advisory locking" is actually PID-file locking
+### ~~E2: "flock advisory locking" is actually PID-file locking~~ FIXED (spec corrected)
 
-**Spec claim** (main spec line 283, L13):
-> `state/.forjar.lock` (flock) prevents concurrent modification
-> advisory file locking (`flock`)
-
-**Reality** (`core/state/mod.rs:217-249`): The code writes a PID file, checks if the PID is still running, and removes stale locks. There is NO `flock()` syscall, NO `fcntl` locking, NO `fs2::FileExt::lock_exclusive()`. PID-file locking has race conditions that true flock avoids.
+**Resolved**: Main spec and L13 in known-limitations updated to say "PID-file with liveness check" instead of "flock". TOCTOU race documented. Commit `dce1768`.
 
 ---
 
@@ -143,22 +112,15 @@ NOTE: `sandbox_exec.rs` DOES use overlayfs for container builds (store sandbox),
 
 ## Stale Claims (Code Has Changed)
 
-### S1: L4 "Destroy State Cleanup Bug" — already fixed
+### ~~S1: L4 "Destroy State Cleanup Bug"~~ FIXED (spec updated)
 
-**Spec claim** (08-known-limitations.md L4):
-> `cleanup_state_files()` removes `state.lock.yaml` even when some resources failed.
-> Fix required (Phase 5, FJ-2005)
-
-**Reality** (`destroy.rs:212-218`): The fix is already implemented. On full success, `cleanup_state_files()` removes entire locks. On partial failure, `cleanup_succeeded_entries()` only removes succeeded resource entries. The spec still lists this as an open bug.
+**Resolved**: L4 in known-limitations marked as RESOLVED. Commit `dce1768`.
 
 ---
 
-### S2: L16 "No Selective Apply" — resource_filter exists
+### ~~S2: L16 "No Selective Apply"~~ FIXED (spec updated)
 
-**Spec claim** (08-known-limitations.md L16):
-> `forjar apply` converges the entire resource DAG. There is no `--resource` or `--type` filter.
-
-**Reality** (`apply_args.rs:498`): `pub resource_filter: Option<String>` field exists on ApplyArgs. A resource filter IS available.
+**Resolved**: L16 in known-limitations marked as RESOLVED, referencing `resource_filter` on ApplyArgs. Commit `dce1768`.
 
 ---
 
@@ -238,19 +200,19 @@ Missing: `packages`, `content_preview`. Extra: `status`, `details_json`. No port
 
 ## Action Items
 
-| Priority | Item | Severity |
-|----------|------|----------|
-| 1 | Wire `forjar generation diff` CLI command | F1 |
-| 2 | Implement undo-destroy replay loop | F2 |
-| 3 | Fix "flock" language → "PID-file locking" | E2 |
-| 4 | Fix "zero I/O" → "zero remote I/O" | E1 |
-| 5 | Create missing SQLite tables (destroy_log, drift_findings, events_fts) | F7 |
-| 6 | Wire IngestCursor for incremental ingest | F3 |
-| 7 | Implement FTS5 field extraction per spec | F6 |
-| 8 | Remove L4 from known-limitations (already fixed) | S1 |
-| 9 | Remove L16 from known-limitations (resource_filter exists) | S2 |
-| 10 | Implement pepita overlayfs mount | E4 |
-| 11 | Add performance benchmarks for query/pepita targets | U1-U3 |
-| 12 | Implement secret provider dispatch (env/file/SOPS) | E3 |
-| 13 | Fix dual-digest "single pass" claim | F5 |
-| 14 | Remove content policy claim or implement it | F4 |
+| Priority | Item | Severity | Status |
+|----------|------|----------|--------|
+| ~~1~~ | ~~Wire `forjar generation diff` CLI command~~ | ~~F1~~ | DONE |
+| ~~2~~ | ~~Implement undo-destroy replay loop~~ | ~~F2~~ | DONE |
+| ~~3~~ | ~~Fix "flock" language → "PID-file locking"~~ | ~~E2~~ | DONE |
+| ~~4~~ | ~~Fix "zero I/O" → "zero remote I/O"~~ | ~~E1~~ | DONE |
+| 5 | Create missing SQLite tables (destroy_log, drift_findings, events_fts) | F7 | OPEN |
+| 6 | Wire IngestCursor for incremental ingest | F3 | OPEN |
+| 7 | Implement FTS5 field extraction per spec | F6 | OPEN |
+| ~~8~~ | ~~Mark L4 as resolved in known-limitations~~ | ~~S1~~ | DONE |
+| ~~9~~ | ~~Mark L16 as resolved in known-limitations~~ | ~~S2~~ | DONE |
+| 10 | Implement pepita overlayfs mount | E4 | OPEN |
+| 11 | Add performance benchmarks for query/pepita targets | U1-U3 | OPEN |
+| 12 | Implement secret provider dispatch (env/file/SOPS) | E3 | OPEN |
+| ~~13~~ | ~~Fix dual-digest "single pass" claim~~ | ~~F5~~ | DONE |
+| 14 | Remove content policy claim or implement it | F4 | OPEN |
