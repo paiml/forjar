@@ -171,10 +171,7 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
 }
 
 /// FJ-2200: Contract coverage report.
-pub(crate) fn cmd_contracts(coverage: bool, _file: &std::path::Path, json: bool) -> Result<(), String> {
-    if !coverage {
-        return Err("use `forjar contracts --coverage` to see contract report".into());
-    }
+pub(crate) fn cmd_contracts(_coverage: bool, _file: &std::path::Path, json: bool) -> Result<(), String> {
     let levels = [
         ("Level 5 (structural)", 1u32),
         ("Level 4 (proved)", 3),

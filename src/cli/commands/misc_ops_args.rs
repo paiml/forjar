@@ -297,7 +297,7 @@ pub struct TemplateArgs {
     pub recipe: PathBuf,
 
     /// Variable overrides (KEY=VALUE)
-    #[arg(short, long = "var", value_name = "KEY=VALUE")]
+    #[arg(short = 'V', long = "var", value_name = "KEY=VALUE")]
     pub vars: Vec<String>,
 
     /// Output as JSON

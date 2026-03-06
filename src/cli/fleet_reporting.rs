@@ -1,7 +1,7 @@
 //! Fleet reporting.
 
 use super::helpers::*;
-use crate::core::{state, types};
+use crate::core::{resolver, state, types};
 use crate::tripwire::eventlog;
 use std::path::Path;
 
@@ -159,7 +159,8 @@ fn output_compliance_results(violations: &[serde_json::Value], json: bool) {
 
 // FJ-351: Validate infrastructure against policy rules
 pub(crate) fn cmd_compliance(file: &Path, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let mut config = parse_and_validate(file)?;
+    resolver::resolve_data_sources(&mut config)?;
     let mut violations = Vec::new();
 
     for (id, res) in &config.resources {

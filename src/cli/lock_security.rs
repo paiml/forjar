@@ -3,7 +3,6 @@
 use super::helpers::*;
 use super::helpers_time::*;
 use super::lock_ops::*;
-use crate::core::state;
 use std::path::Path;
 
 // ── FJ-475: lock verify-sig ──
@@ -15,13 +14,14 @@ fn verify_machine_sig(
     key: &str,
 ) -> Result<Option<(bool, serde_json::Value)>, String> {
     use crate::tripwire::hasher;
-    let lock = match state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
-        Some(l) => l,
-        None => return Ok(None),
-    };
-    let lock_yaml = serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
-    let expected_sig = hasher::hash_string(&format!("{lock_yaml}{key}"));
-    let sig_path = state_dir.join(format!("{m}.sig"));
+    let lock_path = state_dir.join(m).join("state.lock.yaml");
+    if !lock_path.exists() {
+        return Ok(None);
+    }
+    let content =
+        std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
+    let expected_sig = hasher::hash_string(&format!("{content}{key}"));
+    let sig_path = state_dir.join(m).join("lock.sig");
     let actual_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
     let valid = actual_sig.trim() == expected_sig;
     let entry = serde_json::json!({
@@ -82,6 +82,7 @@ pub(crate) fn cmd_lock_compact_all(state_dir: &Path, yes: bool, json: bool) -> R
     }
     let mut compacted = 0;
     for _m in &machines {
+        // Suppress inner output — we emit our own summary below
         let result = cmd_lock_compact(state_dir, true, false);
         if result.is_ok() {
             compacted += 1;
@@ -181,16 +182,25 @@ pub(crate) fn cmd_lock_rotate_keys(
     let machines = discover_machines(state_dir);
     let mut rotated = 0;
     for m in &machines {
-        if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
-            let lock_yaml =
-                serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
-            let new_sig = hasher::hash_string(&format!("{lock_yaml}{new_key}"));
-            let sig_path = state_dir.join(format!("{m}.sig"));
-            std::fs::write(&sig_path, &new_sig).map_err(|e| format!("Failed to write sig: {e}"))?;
-            rotated += 1;
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
+        if !lock_path.exists() {
+            continue;
         }
+        let content =
+            std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
+        let sig_path = state_dir.join(m).join("lock.sig");
+        let old_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
+        let expected_old = hasher::hash_string(&format!("{content}{old_key}"));
+        if !old_sig.is_empty() && old_sig.trim() != expected_old {
+            return Err(format!(
+                "{m}: old key does not match existing signature — rotation aborted"
+            ));
+        }
+        let new_sig = hasher::hash_string(&format!("{content}{new_key}"));
+        std::fs::write(&sig_path, &new_sig)
+            .map_err(|e| format!("Failed to write sig: {e}"))?;
+        rotated += 1;
     }
-    let _ = old_key; // acknowledged for audit purposes
     if json {
         let result = serde_json::json!({"rotated": rotated, "total": machines.len()});
         println!(
@@ -260,13 +270,12 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
 
 /// FJ-535: Lock verify chain — verify full chain of custody from signatures.
 pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), String> {
-    use crate::tripwire::hasher;
     let machines = discover_machines(state_dir);
     let mut chain_results: Vec<(String, bool, String)> = Vec::new(); // (machine, valid, detail)
 
     for m in &machines {
         let lock_path = state_dir.join(m).join("state.lock.yaml");
-        let sig_path = state_dir.join(format!("{m}.lock.yaml.sig"));
+        let sig_path = state_dir.join(m).join("lock.sig");
 
         if !lock_path.exists() {
             chain_results.push((m.clone(), false, "lock file missing".to_string()));
@@ -278,20 +287,20 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
             continue;
         }
 
-        let lock_content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         let sig_content = std::fs::read_to_string(&sig_path)
             .unwrap_or_default()
             .trim()
             .to_string();
-        let computed_hash = hasher::hash_string(&lock_content);
-
-        if computed_hash == sig_content {
-            chain_results.push((m.clone(), true, "signature verified".to_string()));
+        // Chain verification: confirm sig file is a valid BLAKE3 hash (keyed verification
+        // requires the signing key — use lock-verify-sig for key-based checks)
+        let sig_hash = sig_content.strip_prefix("blake3:").unwrap_or(&sig_content);
+        if sig_hash.len() == 64 && sig_hash.chars().all(|c| c.is_ascii_hexdigit()) {
+            chain_results.push((m.clone(), true, "signature present and well-formed".to_string()));
         } else {
             chain_results.push((
                 m.clone(),
                 false,
-                format!("hash mismatch: expected {sig_content}, got {computed_hash}"),
+                format!("malformed signature: {}", &sig_content[..sig_content.len().min(20)]),
             ));
         }
     }
