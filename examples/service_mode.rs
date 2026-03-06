@@ -1,97 +1,155 @@
-//! Demonstrates FJ-2700 service mode types: restart policy, health checks, events.
+//! Demonstrates FJ-2700 service + dispatch mode runtime:
+//! health check loop, restart decisions, dispatch execution, state tracking.
+//!
+//! Run with: `cargo run --example service_mode`
 
+use forjar::core::task::dispatch::{
+    format_dispatch_summary, prepare_dispatch, record_invocation, success_rate,
+};
+use forjar::core::task::service::{
+    apply_restart, apply_start, apply_stop, format_service_summary, plan_service_action,
+    process_health_check, restart_backoff, ServiceAction,
+};
 use forjar::core::types::{
-    DispatchConfig, GpuMemoryInfo, HealthCheckResult, IoHashes, RestartPolicy, ServiceEvent,
+    DispatchConfig, DispatchInvocation, DispatchState, HealthCheck, HealthCheckResult,
+    RestartPolicy, ServiceState,
 };
 
 fn main() {
-    // Restart policy with exponential backoff
-    println!("=== Restart Policy ===");
-    let policy = RestartPolicy::default();
-    println!("  Max restarts: {}", policy.max_restarts);
-    println!("  Reset after: {}s healthy", policy.reset_after_secs);
-    println!();
-    for i in 0..7 {
-        let restart = policy.should_restart(i);
-        let backoff = policy.backoff_secs(i);
-        println!(
-            "  Failure #{i}: restart={restart}, backoff={backoff:.1}s"
-        );
-    }
+    println!("FJ-2700: Service + Dispatch Mode Runtime\n");
 
-    // Health check results
-    println!("\n=== Health Checks ===");
-    let ok = HealthCheckResult {
+    // ── Service Mode Lifecycle ──
+    println!("=== Service Mode: Full Lifecycle ===\n");
+
+    let policy = RestartPolicy {
+        max_restarts: 3,
+        backoff_base_secs: 1.0,
+        backoff_max_secs: 30.0,
+        reset_after_secs: 300,
+    };
+    let hc = HealthCheck {
+        command: "curl -sf http://localhost:8080/health".into(),
+        interval: Some("10s".into()),
+        timeout: Some("5s".into()),
+        retries: Some(3),
+    };
+
+    // Step 1: Start
+    let state = ServiceState::default();
+    let action = plan_service_action(&state, &policy, &hc);
+    println!("  State: not started");
+    println!("  Action: {action:?}");
+    assert!(matches!(action, ServiceAction::Start));
+
+    let (mut state, event) = apply_start(1234, "2026-03-06T10:00:00Z");
+    println!("  Event: {event}");
+    println!("  {}\n", format_service_summary("web-api", &state));
+
+    // Step 2: Health OK
+    let ok_result = HealthCheckResult {
         healthy: true,
         exit_code: 0,
         duration_secs: 0.05,
-        checked_at: "2026-03-05T14:30:00Z".into(),
+        checked_at: "2026-03-06T10:00:10Z".into(),
         stdout: "OK".into(),
     };
-    println!("  {ok}");
+    let (s, events) = process_health_check(&state, &ok_result);
+    state = s;
+    for e in &events {
+        println!("  Event: {e}");
+    }
+    println!("  {}", format_service_summary("web-api", &state));
 
-    let fail = HealthCheckResult {
+    // Step 3: Three consecutive failures → restart
+    println!("\n  --- Simulating 3 health failures ---");
+    let fail_result = HealthCheckResult {
         healthy: false,
         exit_code: 1,
         duration_secs: 5.0,
-        checked_at: "2026-03-05T14:30:30Z".into(),
+        checked_at: "2026-03-06T10:01:00Z".into(),
         stdout: "connection refused".into(),
     };
-    println!("  {fail}");
-
-    // Service lifecycle events
-    println!("\n=== Service Events ===");
-    let events: Vec<ServiceEvent> = vec![
-        ServiceEvent::Started { pid: 1234, at: "14:30:00".into() },
-        ServiceEvent::HealthOk { at: "14:30:30".into() },
-        ServiceEvent::HealthFail { exit_code: 1, consecutive: 1, at: "14:31:00".into() },
-        ServiceEvent::HealthFail { exit_code: 1, consecutive: 2, at: "14:31:30".into() },
-        ServiceEvent::HealthFail { exit_code: 1, consecutive: 3, at: "14:32:00".into() },
-        ServiceEvent::Restarted {
-            old_pid: 1234,
-            new_pid: 5678,
-            restart_count: 1,
-            at: "14:32:01".into(),
-        },
-        ServiceEvent::HealthOk { at: "14:32:30".into() },
-    ];
-    for e in &events {
-        println!("  {e}");
+    for i in 1..=3 {
+        let (s, events) = process_health_check(&state, &fail_result);
+        state = s;
+        for e in &events {
+            println!("  Event: {e}");
+        }
+        if i == 3 {
+            let action = plan_service_action(&state, &policy, &hc);
+            println!("  Action: {action:?}");
+            let backoff = restart_backoff(&policy, &state);
+            println!("  Backoff: {backoff:.1}s");
+        }
     }
 
-    // Dispatch configuration
-    println!("\n=== Dispatch Config ===");
-    let dispatch = DispatchConfig {
-        name: "deploy-staging".into(),
-        command: "make deploy ENV=staging".into(),
-        params: vec![
-            ("env".into(), "staging".into()),
-            ("version".into(), "1.2.3".into()),
-        ],
+    // Step 4: Restart
+    let (s, event) = apply_restart(&state, 5678, "2026-03-06T10:02:00Z");
+    state = s;
+    println!("  Event: {event}");
+    println!("  {}\n", format_service_summary("web-api", &state));
+
+    // Step 5: Another failure cycle → stop
+    for _ in 0..3 {
+        let (s, _) = process_health_check(&state, &fail_result);
+        state = s;
+    }
+    let (s, event) = apply_restart(&state, 9012, "2026-03-06T10:03:00Z");
+    state = s;
+    println!("  Restart #2: {event}");
+    for _ in 0..3 {
+        let (s, _) = process_health_check(&state, &fail_result);
+        state = s;
+    }
+    let (s, event) = apply_restart(&state, 3456, "2026-03-06T10:04:00Z");
+    state = s;
+    println!("  Restart #3: {event}");
+
+    let action = plan_service_action(&state, &policy, &hc);
+    println!("  Action: {action:?}");
+    if let ServiceAction::Stop(reason) = &action {
+        let (_, event) = apply_stop(&state, reason, "2026-03-06T10:05:00Z");
+        println!("  Event: {event}");
+    }
+
+    // ── Dispatch Mode ──
+    println!("\n=== Dispatch Mode: Parameterized Execution ===\n");
+
+    let config = DispatchConfig {
+        name: "deploy".into(),
+        command: "deploy --env {{ env }} --tag {{ tag }}".into(),
+        params: vec![("env".into(), "staging".into())],
         timeout_secs: Some(300),
     };
-    println!("  Name: {}", dispatch.name);
-    println!("  Command: {}", dispatch.command);
-    println!("  Timeout: {:?}s", dispatch.timeout_secs);
 
-    // IO hashes for state.lock.yaml
-    println!("\n=== IO Hashes ===");
-    let hashes = IoHashes {
-        input_hash: Some("blake3:abc123def456".into()),
-        output_hash: Some("blake3:789012fed345".into()),
-        cached: true,
-    };
-    println!("  Complete: {}", hashes.is_complete());
-    println!("  Cached: {}", hashes.is_cached());
+    let prepared = prepare_dispatch(
+        &config,
+        &[("tag".into(), "v1.2.3".into())],
+    );
+    println!("  Prepared: {}", prepared.command);
+    println!("  Timeout: {:?}s", prepared.timeout_secs);
 
-    // GPU memory info
-    println!("\n=== GPU Memory ===");
-    let gpu = GpuMemoryInfo {
-        total_bytes: Some(24 * 1024 * 1024 * 1024),
-        used_bytes: Some(18 * 1024 * 1024 * 1024),
-        device: Some("NVIDIA RTX 4090".into()),
-    };
-    println!("  Device: {:?}", gpu.device);
-    println!("  Used: {:.0} MB", gpu.used_mb().unwrap());
-    println!("  Utilization: {:.1}%", gpu.utilization_pct().unwrap());
+    // Simulate invocations
+    let mut dispatch_state = DispatchState::default();
+    let invocations = [
+        ("2026-03-06T09:00:00Z", 0, 1500, "ci"),
+        ("2026-03-06T10:00:00Z", 0, 1200, "admin"),
+        ("2026-03-06T11:00:00Z", 1, 800, "ci"),
+        ("2026-03-06T12:00:00Z", 0, 1100, "admin"),
+    ];
+    for (ts, code, ms, caller) in invocations {
+        record_invocation(
+            &mut dispatch_state,
+            DispatchInvocation {
+                timestamp: ts.into(),
+                exit_code: code,
+                duration_ms: ms,
+                caller: Some(caller.into()),
+            },
+            10,
+        );
+    }
+
+    println!("\n{}", format_dispatch_summary("deploy", &dispatch_state));
+    println!("  Success rate: {:.0}%", success_rate(&dispatch_state));
 }
