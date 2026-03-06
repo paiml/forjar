@@ -284,7 +284,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `forjar diff --generation 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
 - **Extends**: `src/cli/generation.rs`
 
-### Phase 3: Stack Undo (FJ-2003)
+### Phase 3: Stack Undo (FJ-2003) -- IMPLEMENTED
 - [x] Undo plan types: `UndoPlan`, `UndoResourceAction`, `UndoAction` (Destroy/Create/Update)
 - [x] Undo progress types: `UndoProgress`, `ResourceProgress`, `ResourceProgressStatus`, `UndoStatus`
 - [x] `UndoPlan::format_summary()` with irreversibility warnings

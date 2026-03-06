@@ -294,7 +294,7 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 
 ## Implementation
 
-### Phase 1: SQLite Foundation (FJ-2001)
+### Phase 1: SQLite Foundation (FJ-2001) -- IMPLEMENTED
 - [x] Query result types: `QueryResult`, `QueryParams`, `QueryOutputFormat`
 - [x] Health summary types: `HealthSummary`, `MachineHealthRow` with `stack_health_pct()`
 - [x] `HealthSummary::format_table()` for human-readable output
@@ -311,7 +311,7 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - **Extends**: `src/core/store/`
 - **Deliverable**: `forjar query "bash"` from real state data
 
-### Phase 4: Query Enrichments (FJ-2004)
+### Phase 4: Query Enrichments (FJ-2004) -- IMPLEMENTED
 - [x] Timing stats types: `TimingStats::from_sorted()` with percentiles
 - [x] Churn metric types: `ChurnMetric` with `churn_pct()`
 - [x] `--health`, `--timing`, `--json`, `--csv` output modes
