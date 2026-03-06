@@ -208,8 +208,8 @@ forjar query --type image --drift                  # stale deployments
 - **Deliverable**: `forjar build --push` to registry
 
 ### Phase 12: Build Query/Drift (FJ-2106)
-- [ ] Image resources in SQLite `resources` table
-- [ ] `forjar query --type image`
-- [ ] Image drift detection
-- [ ] Build timing in `--timing`
+- [x] Image resources in SQLite `resources` table
+- [x] `forjar query --type image`
+- [x] Image drift detection
+- [x] Build timing in `--timing`
 - **Deliverable**: `forjar query --type image --drift`

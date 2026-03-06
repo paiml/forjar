@@ -99,8 +99,10 @@ fn dispatch_state_query_text() {
             health: false,
             timing: false,
             churn: false,
+            reversibility: false,
             json: false,
             csv: false,
+            sql: false,
         }),
         false,
     );
@@ -119,8 +121,10 @@ fn dispatch_state_query_json_with_filters() {
             health: false,
             timing: false,
             churn: false,
+            reversibility: false,
             json: true,
             csv: false,
+            sql: false,
         }),
         false,
     );
@@ -139,8 +143,10 @@ fn dispatch_state_query_csv() {
             health: false,
             timing: false,
             churn: false,
+            reversibility: false,
             json: false,
             csv: true,
+            sql: false,
         }),
         false,
     );
@@ -159,8 +165,10 @@ fn dispatch_state_query_health() {
             health: true,
             timing: false,
             churn: false,
+            reversibility: false,
             json: false,
             csv: false,
+            sql: false,
         }),
         false,
     );
@@ -179,8 +187,10 @@ fn dispatch_state_query_health_json() {
             health: true,
             timing: false,
             churn: false,
+            reversibility: false,
             json: true,
             csv: false,
+            sql: false,
         }),
         false,
     );
@@ -199,8 +209,10 @@ fn dispatch_state_query_drift() {
             health: false,
             timing: false,
             churn: false,
+            reversibility: false,
             json: false,
             csv: false,
+            sql: false,
         }),
         false,
     );
@@ -219,8 +231,32 @@ fn dispatch_state_query_churn() {
             health: false,
             timing: false,
             churn: true,
+            reversibility: false,
             json: false,
             csv: false,
+            sql: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_sql() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: Some("bash".into()),
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: Some("file".into()),
+            history: false,
+            drift: false,
+            health: false,
+            timing: false,
+            churn: false,
+            reversibility: false,
+            json: false,
+            csv: false,
+            sql: true,
         }),
         false,
     );

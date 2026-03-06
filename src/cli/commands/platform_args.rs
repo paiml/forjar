@@ -357,6 +357,10 @@ pub struct QueryArgs {
     #[arg(long)]
     pub churn: bool,
 
+    /// Show reversibility classification
+    #[arg(long)]
+    pub reversibility: bool,
+
     /// JSON output
     #[arg(long)]
     pub json: bool,
@@ -364,4 +368,8 @@ pub struct QueryArgs {
     /// CSV output
     #[arg(long)]
     pub csv: bool,
+
+    /// Show the SQL query that would be executed
+    #[arg(long)]
+    pub sql: bool,
 }

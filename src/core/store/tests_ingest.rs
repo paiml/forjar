@@ -269,6 +269,37 @@ resources:
     }
 
     #[test]
+    fn ingest_generations_from_dir() {
+        let (conn, _f) = temp_db();
+        let dir = TempDir::new().unwrap();
+
+        // Create machine dir with lock file
+        let mdir = dir.path().join("test-machine");
+        std::fs::create_dir(&mdir).unwrap();
+        std::fs::write(
+            mdir.join("state.lock.yaml"),
+            "schema: '1.0'\nmachine: test\nhostname: test\ngenerated_at: 2026-03-06\nresources:\n",
+        ).unwrap();
+
+        // Create generations directory
+        let gens = dir.path().join("generations");
+        std::fs::create_dir(&gens).unwrap();
+        std::fs::write(gens.join("gen-1.yaml"), "\
+generation: 1\nrun_id: r-gen1\nconfig_hash: blake3:aabb\n\
+created_at: 2026-03-06T12:00:00Z\ngit_ref: abc123\naction: apply\n").unwrap();
+        std::fs::write(gens.join("gen-2.yaml"), "\
+generation: 2\nrun_id: r-gen2\nconfig_hash: blake3:ccdd\n\
+created_at: 2026-03-06T13:00:00Z\naction: rollback\n").unwrap();
+
+        ingest_state_dir(&conn, dir.path()).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM generations WHERE run_id != 'ingest'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
     fn query_drift_empty_db() {
         let (conn, _f) = temp_db();
         let drift = query_drift(&conn).unwrap();

@@ -317,7 +317,7 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] `--health`, `--timing`, `--json`, `--csv` output modes
 - [x] `--history`, `--drift`, `--churn` enrichments
 - [ ] `-G` git history fusion via RRF
-- [ ] `--sql` output mode
-- [ ] `--destroy-log`, `--reversibility`
+- [x] `--sql` output mode
+- [x] `--reversibility` enrichment
 - **New module**: `src/cli/query.rs`
 - **Deliverable**: Full pmat-style query UX

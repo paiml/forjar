@@ -64,6 +64,12 @@ pub fn ingest_state_dir(conn: &Connection, state_dir: &Path) -> Result<IngestRes
         }
     }
 
+    // Ingest generations from state/generations/ if present
+    let gens_dir = state_dir.join("generations");
+    if gens_dir.is_dir() {
+        ingest_generations(conn, &gens_dir)?;
+    }
+
     // Rebuild FTS index
     populate_fts(conn)?;
 
@@ -192,6 +198,49 @@ fn ingest_events(conn: &Connection, machine: &str, events_path: &Path) -> Result
         count += 1;
     }
     Ok(count)
+}
+
+/// Ingest generation metadata from `state/generations/` directory.
+fn ingest_generations(conn: &Connection, gens_dir: &Path) -> Result<(), String> {
+    let entries = std::fs::read_dir(gens_dir)
+        .map_err(|e| format!("read generations dir: {e}"))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("read gen entry: {e}"))?;
+        let path = entry.path();
+        let gen_file = if path.is_dir() {
+            path.join(".generation.yaml")
+        } else if path.extension().is_some_and(|e| e == "yaml") {
+            path
+        } else {
+            continue;
+        };
+        if !gen_file.exists() { continue; }
+
+        let yaml_str = match std::fs::read_to_string(&gen_file) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let doc: serde_yaml_ng::Value = match serde_yaml_ng::from_str(&yaml_str) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let gen_num = doc.get("generation").and_then(|v| v.as_u64()).unwrap_or(0) as i64;
+        let run_id = doc.get("run_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let config_hash = doc.get("config_hash").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let created_at = doc.get("created_at").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let git_ref = doc.get("git_ref").and_then(|v| v.as_str());
+        let action = doc.get("action").and_then(|v| v.as_str()).unwrap_or("apply");
+
+        conn.execute(
+            "INSERT OR REPLACE INTO generations \
+             (generation_num, run_id, config_hash, created_at, git_ref, action) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![gen_num, run_id, config_hash, created_at, git_ref, action],
+        ).map_err(|e| format!("insert generation: {e}"))?;
+    }
+    Ok(())
 }
 
 /// Rebuild FTS5 index from resources table (content-sync rebuild).
