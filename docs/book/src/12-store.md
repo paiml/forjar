@@ -345,6 +345,37 @@ For sandbox-built images, `export_overlay_upper()` converts overlayfs upper dire
 - **Closure determinism**: identical inputs → identical store hashes
 - **Provenance tracking**: every entry records origin provider, ref, hash
 
+## SQLite Query Engine (FJ-2001)
+
+Forjar maintains a SQLite database (`state/state.db`) for sub-second queries
+across all machines, resources, and events. The database uses WAL mode with
+FTS5 full-text search.
+
+```bash
+# Search resources by keyword
+forjar state-query "bash" --state-dir state
+
+# Health dashboard across all machines
+forjar state-query --health --state-dir state
+
+# Drift detection (content_hash != live_hash)
+forjar state-query --drift --state-dir state
+
+# Change frequency analysis
+forjar state-query --churn --state-dir state
+
+# Timing statistics
+forjar state-query "converged" --state-dir state --timing
+
+# Git history fusion (RRF ranking)
+forjar state-query "bash" --state-dir state -G
+
+# Output formats: --json, --csv, --sql
+forjar state-query "package" --type package --json
+```
+
+The database is auto-ingested from state files on first query.
+
 ## References
 
 - Phase L Execution Spec: `docs/specifications/store/phase-l-execution.md`
