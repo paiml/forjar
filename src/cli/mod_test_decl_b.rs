@@ -450,3 +450,5 @@ mod tests_cov_fleet3;
 mod tests_dispatch_platform;
 #[cfg(test)]
 mod tests_undo;
+#[cfg(test)]
+mod tests_cov_query_format;
