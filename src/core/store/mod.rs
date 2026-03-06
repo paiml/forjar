@@ -8,6 +8,7 @@ pub mod cache_exec;
 pub mod chunker;
 pub mod db;
 pub mod closure;
+pub mod ingest;
 pub mod conda;
 pub mod contract_coverage;
 pub mod contract_scaffold;
@@ -50,6 +51,8 @@ mod tests_cache_exec;
 mod tests_chunker;
 #[cfg(test)]
 mod tests_db;
+#[cfg(test)]
+mod tests_ingest;
 #[cfg(test)]
 mod tests_closure;
 #[cfg(test)]
