@@ -79,7 +79,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
 
         // Lock file should exist
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
@@ -117,8 +117,8 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state1, None, None, false, false).unwrap();
-        cmd_lock(&config_path, &state2, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state1, None, None, false, false, false).unwrap();
+        cmd_lock(&config_path, &state2, None, None, false, false, false).unwrap();
 
         let lock1 = state::load_lock(&state1, "box1").unwrap().unwrap();
         let lock2 = state::load_lock(&state2, "box1").unwrap().unwrap();
@@ -152,7 +152,7 @@ resources:
         )
         .unwrap();
         // Generate lock
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
         // Verify should succeed (exit 0 — no process::exit in test, just check no error)
         // We need to catch the process::exit, so let's check the logic directly
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
@@ -183,7 +183,7 @@ resources:
         )
         .unwrap();
         // JSON output should not error
-        cmd_lock(&config_path, &state_dir, None, None, false, true).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, true).unwrap();
         // Lock should still be written
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
         assert_eq!(lock.resources.len(), 1);
@@ -220,7 +220,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
 
         let web_lock = state::load_lock(&state_dir, "web").unwrap().unwrap();
         let db_lock = state::load_lock(&state_dir, "db").unwrap().unwrap();
@@ -253,7 +253,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
 
         let global = state::load_global_lock(&state_dir).unwrap().unwrap();
         assert_eq!(global.name, "global-lock-test");
@@ -304,8 +304,8 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config1, &state1, None, None, false, false).unwrap();
-        cmd_lock(&config2, &state2, None, None, false, false).unwrap();
+        cmd_lock(&config1, &state1, None, None, false, false, false).unwrap();
+        cmd_lock(&config2, &state2, None, None, false, false, false).unwrap();
 
         let lock1 = state::load_lock(&state1, "m1").unwrap().unwrap();
         let lock2 = state::load_lock(&state2, "m1").unwrap().unwrap();
@@ -344,7 +344,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
 
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
         assert_eq!(lock.resources.len(), 2);
@@ -384,7 +384,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_lock(&config_path, &state_dir, None, None, false, false).unwrap();
+        cmd_lock(&config_path, &state_dir, None, None, false, false, false).unwrap();
 
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
         assert_eq!(

@@ -25,6 +25,10 @@ pub struct LockArgs {
     #[arg(long)]
     pub verify: bool,
 
+    /// Show what would be written without modifying state
+    #[arg(long)]
+    pub dry_run: bool,
+
     /// Output as JSON
     #[arg(long)]
     pub json: bool,

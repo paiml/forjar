@@ -108,9 +108,9 @@ mod tests {
         let config_path = write_yaml(dir.path(), "forjar.yaml", &basic_config());
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let result = cmd_lock(&config_path, &state_dir, None, None, false, false);
+        let result = cmd_lock(&config_path, &state_dir, None, None, false, false, false);
         assert!(result.is_ok());
-        let result = cmd_lock(&config_path, &state_dir, None, None, true, false);
+        let result = cmd_lock(&config_path, &state_dir, None, None, true, false, false);
         assert!(result.is_ok());
     }
 
@@ -120,9 +120,9 @@ mod tests {
         let config_path = write_yaml(dir.path(), "forjar.yaml", &basic_config());
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let result = cmd_lock(&config_path, &state_dir, None, None, false, false);
+        let result = cmd_lock(&config_path, &state_dir, None, None, false, false, false);
         assert!(result.is_ok());
-        let result = cmd_lock(&config_path, &state_dir, None, None, true, true);
+        let result = cmd_lock(&config_path, &state_dir, None, None, true, false, true);
         assert!(result.is_ok());
     }
 
@@ -132,7 +132,7 @@ mod tests {
         let config_path = write_yaml(dir.path(), "forjar.yaml", &basic_config());
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let result = cmd_lock(&config_path, &state_dir, None, None, false, true);
+        let result = cmd_lock(&config_path, &state_dir, None, None, false, false, true);
         assert!(result.is_ok());
     }
 
@@ -142,9 +142,9 @@ mod tests {
         let config_path = write_yaml(dir.path(), "forjar.yaml", &basic_config());
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(cmd_lock(&config_path, &state_dir, None, None, false, false).is_ok());
-        assert!(cmd_lock(&config_path, &state_dir, None, None, true, false).is_ok());
-        assert!(cmd_lock(&config_path, &state_dir, None, None, true, true).is_ok());
+        assert!(cmd_lock(&config_path, &state_dir, None, None, false, false, false).is_ok());
+        assert!(cmd_lock(&config_path, &state_dir, None, None, true, false, false).is_ok());
+        assert!(cmd_lock(&config_path, &state_dir, None, None, true, false, true).is_ok());
     }
 
     // ========================================================================

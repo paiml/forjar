@@ -114,13 +114,40 @@ fn output_lock_results(
     Ok(())
 }
 
+/// Output dry-run results (no state written).
+fn output_dry_run_results(
+    total_machines: usize,
+    total_resources: usize,
+    json: bool,
+) -> Result<(), String> {
+    if json {
+        let result = serde_json::json!({
+            "dry_run": true,
+            "machines": total_machines,
+            "resources": total_resources,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {e}"))?
+        );
+    } else {
+        println!(
+            "Dry run: would lock {} machines, {} resources (no changes written)",
+            total_machines, total_resources
+        );
+    }
+    Ok(())
+}
+
 // FJ-256: forjar lock — generate lock file without applying
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_lock(
     file: &Path,
     state_dir: &Path,
     env_file: Option<&Path>,
     workspace: Option<&str>,
     verify: bool,
+    dry_run: bool,
     json: bool,
 ) -> Result<(), String> {
     use crate::core::planner::hash_desired_state;
@@ -191,7 +218,7 @@ pub(crate) fn cmd_lock(
                     collect_verify_mismatches(machine_name, &lock, &existing_lock, &mut mismatches);
                 }
             }
-        } else {
+        } else if !dry_run {
             state::save_lock(state_dir, &lock)?;
         }
 
@@ -200,6 +227,8 @@ pub(crate) fn cmd_lock(
 
     if verify {
         output_verify_results(&mismatches, total_machines, total_resources, json)?;
+    } else if dry_run {
+        output_dry_run_results(total_machines, total_resources, json)?;
     } else {
         output_lock_results(
             state_dir,

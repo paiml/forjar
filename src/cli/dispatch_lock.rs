@@ -19,6 +19,7 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
             env_file,
             workspace,
             verify,
+            dry_run,
             json,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
@@ -28,6 +29,7 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
                 env_file.as_deref(),
                 workspace.as_deref(),
                 verify,
+                dry_run,
                 json,
             )
         }
