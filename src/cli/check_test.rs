@@ -451,7 +451,8 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
             let apply = codegen::apply_script(&resolved).ok()?;
             let check = codegen::check_script(&resolved).unwrap_or_default();
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
-            let refs = [apply.as_str()];
+            // expected_hash must match simulate_state_query output (hash of check script)
+            let refs = [check.as_str()];
             let hash = crate::tripwire::hasher::composite_hash(&refs);
             Some(ConvergenceTarget {
                 resource_id: rid.clone(),
