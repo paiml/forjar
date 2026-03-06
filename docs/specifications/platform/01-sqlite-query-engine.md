@@ -303,8 +303,8 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] `IngestCursor` with `is_ingested()`, `mark_ingested()` for incremental ingest
 - [x] `IngestResult` with Display for ingest summary
 - [x] `QueryEnrichments` with 8 boolean flags and `any_enabled()`
-- [ ] Add `rusqlite` with `bundled-full` (includes FTS5)
-- [ ] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
+- [x] Add `rusqlite` with `bundled-full` (includes FTS5)
+- [x] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
 - [ ] Ingest pipeline from existing state files
 - [x] Wire `forjar query` subcommand
 - [ ] FTS5 search: `forjar query "bash"` → sub-100ms
