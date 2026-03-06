@@ -353,6 +353,25 @@ output/
   manifest.json       # Docker-compat (for docker load)
 ```
 
+### Image Assembly
+
+`assemble_image()` combines layer building with OCI manifest generation:
+
+```bash
+forjar build -f forjar.yaml --resource my-image
+```
+
+This resolves the image resource, builds an `ImageBuildPlan`, creates layers
+from file resources, and writes a complete OCI layout to `state/images/`:
+
+```bash
+cargo run --example image_assembler
+# Layer 0: 4 files, 4096 -> 255 bytes (6% compressed)
+# Layer 1: 4 files, 28160 -> 183 bytes (1% compressed)
+# Manifest layers: 2, Config layers: 2
+# Docker compat: tar -cf - -C output . | docker load
+```
+
 ### Overlay Export
 
 For sandbox-built images, `export_overlay_upper()` converts overlayfs upper directories to OCI layers:

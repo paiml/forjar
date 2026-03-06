@@ -1464,6 +1464,39 @@ forjar test all -f forjar.yaml --parallel
   [FAIL] mutation: file content (mutation, 3.00s) — mutation survived
 ```
 
+### End-to-End Example
+
+Run the unified test suite example to see all three modes in action:
+
+```bash
+cargo run --example test_suite
+```
+
+Output:
+
+```
+--- Convergence Tests ---
+Convergence: 3/3 passed (100%)
+  [PASS] nginx-config/file: converge=true idem=true preserve=true
+  [PASS] curl-pkg/package: converge=true idem=true preserve=true
+  [PASS] app-svc/service: converge=true idem=true preserve=true
+
+--- Mutation Tests ---
+Mutation Score: 100% (Grade A)
+  7/7 detected, 0 survived, 0 errored
+
+--- Behavior Tests ---
+  [PASS] nginx is installed
+  [PASS] port 80 is open
+  [PASS] config is valid
+
+=== Combined Test Report ===
+  Convergence: 3/3 passed (100%)
+  Mutation:    7/7 detected (grade A)
+  Behavior:    3/3 passed
+  Overall: PASS
+```
+
 ### Sandbox Isolation
 
 Tests run in isolated sandboxes (Pepita overlay filesystem by default, container fallback):
