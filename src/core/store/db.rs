@@ -192,6 +192,29 @@ pub fn fts5_search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<Fts
         .map_err(|e| format!("collect: {e}"))
 }
 
+/// List all resources (no FTS5 — used when no query term is provided).
+pub fn list_all_resources(conn: &Connection, limit: u32) -> Result<Vec<FtsResult>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT resource_id, resource_type, status, path \
+             FROM resources ORDER BY resource_id LIMIT ?1",
+        )
+        .map_err(|e| format!("prepare: {e}"))?;
+    let rows = stmt
+        .query_map(rusqlite::params![limit], |row| {
+            Ok(FtsResult {
+                resource_id: row.get(0)?,
+                resource_type: row.get(1)?,
+                status: row.get(2)?,
+                path: row.get(3)?,
+                rank: 0.0,
+            })
+        })
+        .map_err(|e| format!("query: {e}"))?;
+    rows.collect::<SqlResult<Vec<_>>>()
+        .map_err(|e| format!("collect: {e}"))
+}
+
 /// FTS5 search result row.
 #[derive(Debug, Clone)]
 pub struct FtsResult {
