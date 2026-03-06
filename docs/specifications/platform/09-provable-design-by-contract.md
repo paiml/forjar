@@ -260,7 +260,7 @@ Replace abstract-model harnesses with harnesses that call real Forjar functions.
 #[cfg(kani)]
 #[kani::proof]
 #[kani::unwind(4)]
-fn proof_planner_idempotency_real() {
+fn proof_planner_idempotency_bounded() {
     let resource = make_bounded_resource();  // bounded Resource struct
     let machine = "test-machine";
     let mut locks = HashMap::new();
@@ -331,7 +331,7 @@ fn proof_hash_desired_state_determinism() {
 #[cfg(kani)]
 #[kani::proof]
 #[kani::unwind(5)]
-fn proof_dag_ordering_real() {
+fn proof_dag_ordering_bounded() {
     let config = make_bounded_config();  // 3-4 resources with deps
     let o1 = build_execution_order(&config);
     let o2 = build_execution_order(&config);
@@ -701,8 +701,8 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 
 ### Phase 13: Runtime Contracts (FJ-2200) — INCOMPLETE
 - [x] Runtime contract postconditions (using `debug_assert!` — lighter than `contracts` crate)
-- [ ] `#[debug_ensures]` on `determine_present_action` — **NOT on production function**; postcondition exists only on `spec_determine_present_action()` wrapper in `verus_spec.rs` (see E6 in FALSIFICATION-REPORT.md)
-- [ ] `debug_assert!` on `hash_desired_state` — **NOT on production function**; exists on spec wrapper only
+- [x] `debug_assert!` on `determine_present_action` — EXISTS in production code (`planner/mod.rs:225-230`): idempotency postcondition asserts converged+matching hash → NoOp
+- [x] `debug_assert!` on `hash_desired_state` — EXISTS in production code (`planner/mod.rs:306-310`): determinism postcondition asserts double-hash equality
 - [ ] `debug_assert!` on `save_lock` — **NOT on production function**
 - [ ] `debug_assert!` on `build_execution_order` — **NOT on production function**
 - [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — these DO have `#[contract]` macros in `tripwire/hasher.rs` (metadata only, no runtime assertion)
@@ -711,11 +711,11 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - **Deliverable**: ~~All critical-path functions have runtime contracts~~ Spec wrapper functions have contracts; production functions remain uncontracted. See Gap G1 above.
 - **Five-Whys Remediation**: See end of file.
 
-### Phase 14: Kani Real-Code Harnesses (FJ-2201) — INCOMPLETE
-- [x] `proof_planner_idempotency_real` — **EXISTS but bounded toy model** (4-byte inputs, does NOT call `determine_present_action`; see E5 in FALSIFICATION-REPORT.md)
+### Phase 14: Kani Bounded-Model Harnesses (FJ-2201) — INCOMPLETE
+- [x] `proof_planner_idempotency_bounded` — **EXISTS but bounded toy model** (4-byte inputs, does NOT call `determine_present_action`; see E5 in FALSIFICATION-REPORT.md)
 - [x] `proof_handler_invariant_{file,package,service}` — **EXISTS but abstract model** (verifies simplified hash comparison, not real handler code paths)
-- [x] `proof_hash_determinism_real` — **EXISTS but 4-byte bound** (useful but limited)
-- [x] `proof_dag_ordering_real` — **EXISTS but 3-node model** (not real `ForjarConfig`)
+- [x] `proof_hash_determinism_bounded` — **EXISTS but 4-byte bound** (useful but limited)
+- [x] `proof_dag_ordering_bounded` — **EXISTS but 3-node model** (not real `ForjarConfig`)
 - [x] `proof_layer_determinism` — type-level only
 - [x] `proof_store_idempotency` — type-level only
 - [x] Deprecate abstract-model harnesses (documented in `kani_proofs.rs` with deprecation notice + proof assumptions table)
@@ -787,7 +787,7 @@ This gives the highest confidence where it matters most (idempotency, determinis
 4. **Why can't the macro handle complex types?** The `contracts` crate only supports simple boolean expressions; the idempotency postcondition requires nested HashMap lookups and equality checks.
 5. **Root cause**: The contract infrastructure was designed for the simple Verus model types, not the real production types with complex ownership and borrowing.
 
-**Remediation**: Use `debug_assert!` directly inside `determine_present_action` after the match arms, rather than proc macro attributes. This is simpler and works with arbitrary Rust types. Estimated: 20 lines of code in `planner/mod.rs`.
+**Remediation**: Use `debug_assert!` directly inside production functions. DONE for `determine_present_action` (`planner/mod.rs:225-230`) and `hash_desired_state` (`planner/mod.rs:306-310`). Remaining: `save_lock` and `build_execution_order`.
 
 ### Why are Kani harnesses operating on toy models?
 
@@ -797,7 +797,7 @@ This gives the highest confidence where it matters most (idempotency, determinis
 4. **Why not use a different tool?** Proptest already covers this space empirically (see `tests_proptest_convergence.rs`). Kani's value-add is exhaustive verification, which is only feasible on small models.
 5. **Root cause**: Fundamental mismatch between Kani's exhaustive bounded verification model and Forjar's complex aggregate types.
 
-**Remediation**: Accept the limitation honestly. Kani proves properties of the abstract model. Proptest provides empirical verification of the concrete implementation. Runtime `debug_assert!` catches violations during integration testing. Together these provide strong (but not exhaustive) assurance. Rename harnesses from `proof_*_real` to `proof_*_model` for honesty.
+**Remediation**: Accept the limitation honestly. Kani proves properties of the abstract model. Proptest provides empirical verification of the concrete implementation. Runtime `debug_assert!` catches violations during integration testing. Together these provide strong (but not exhaustive) assurance. Rename harnesses from `proof_*_real` to `proof_*_bounded` for honesty (DONE 2026-03-06).
 
 ### Why does the implementation section contradict the gaps section?
 
