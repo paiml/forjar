@@ -64,10 +64,14 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             cmd_oci_pack(&dir, &tag, &output, json)
         }
         Commands::StateQuery(QueryArgs {
-            query, state_dir, resource_type, history, drift, health, timing, json, csv,
+            query, state_dir, resource_type, history, drift, health, timing, churn, json, csv,
         }) => {
             if health {
                 cmd_query_health(&state_dir, json)
+            } else if drift && query.is_none() {
+                cmd_query_drift(&state_dir, json)
+            } else if churn && query.is_none() {
+                cmd_query_churn(&state_dir, json)
             } else {
                 let q = query.as_deref().unwrap_or("*");
                 cmd_query_state(q, &state_dir, resource_type.as_deref(), history, drift, timing, json, csv)
@@ -318,9 +322,10 @@ fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, 
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
     query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
-    _history: bool, _drift: bool, timing: bool, json: bool, csv: bool,
+    history: bool, _drift: bool, timing: bool, json: bool, csv: bool,
 ) -> Result<(), String> {
     use crate::core::store::db;
+    use crate::core::store::ingest;
 
     let conn = open_state_conn(state_dir)?;
     let mut results = db::fts5_search(&conn, query, 50)?;
@@ -330,12 +335,19 @@ fn cmd_query_state(
     }
 
     if json {
-        let rows: Vec<serde_json::Value> = results.iter().map(|r| {
+        let mut rows: Vec<serde_json::Value> = results.iter().map(|r| {
             serde_json::json!({
                 "resource_id": r.resource_id, "type": r.resource_type,
                 "status": r.status, "path": r.path, "rank": r.rank,
             })
         }).collect();
+        if history {
+            for row in &mut rows {
+                let rid = row["resource_id"].as_str().unwrap_or("");
+                let events = ingest::query_history(&conn, rid).unwrap_or_default();
+                row["history"] = serde_json::to_value(&events).unwrap_or_default();
+            }
+        }
         println!("{}", serde_json::to_string_pretty(&serde_json::json!({
             "query": query, "results": rows, "count": results.len()
         })).unwrap_or_default());
@@ -355,10 +367,31 @@ fn cmd_query_state(
                 r.resource_id, r.resource_type, r.status,
                 r.path.as_deref().unwrap_or("—"));
         }
+        if history {
+            print_history(&conn, &results)?;
+        }
         if timing {
             print_timing_stats(&conn, &results)?;
         }
         println!("\n {} result(s)", results.len());
+    }
+    Ok(())
+}
+
+/// Print event history for matched resources.
+fn print_history(
+    conn: &rusqlite::Connection, results: &[crate::core::store::db::FtsResult],
+) -> Result<(), String> {
+    use crate::core::store::ingest;
+    println!("\n History:");
+    for r in results {
+        let events = ingest::query_history(conn, &r.resource_id)?;
+        if events.is_empty() { continue; }
+        println!("  {}: {} event(s)", r.resource_id, events.len());
+        for ev in events.iter().take(3) {
+            let dur = ev.duration_ms.map(|d| format!(" ({d}ms)")).unwrap_or_default();
+            println!("    {} {} [{}]{dur}", ev.timestamp, ev.event_type, ev.run_id);
+        }
     }
     Ok(())
 }
@@ -415,6 +448,48 @@ fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), Strin
         println!(" {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
             "TOTAL", health.total_resources, health.total_converged,
             health.total_drifted, health.total_failed, health.health_pct());
+    }
+    Ok(())
+}
+
+/// FJ-2004: Show drifted resources.
+fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    use crate::core::store::ingest;
+    let conn = open_state_conn(state_dir)?;
+    let entries = ingest::query_drift(&conn)?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&entries).unwrap_or_default());
+    } else if entries.is_empty() {
+        println!("No drift detected");
+    } else {
+        println!(" {:20} {:10} {:10} EXPECTED → ACTUAL", "RESOURCE", "MACHINE", "TYPE");
+        for e in &entries {
+            println!(" {:20} {:10} {:10} {} → {}",
+                e.resource_id, e.machine, e.resource_type,
+                &e.content_hash[..20.min(e.content_hash.len())],
+                &e.live_hash[..20.min(e.live_hash.len())]);
+        }
+        println!("\n {} drifted resource(s)", entries.len());
+    }
+    Ok(())
+}
+
+/// FJ-2004: Show change frequency (churn).
+fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    use crate::core::store::ingest;
+    let conn = open_state_conn(state_dir)?;
+    let entries = ingest::query_churn(&conn)?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&entries).unwrap_or_default());
+    } else if entries.is_empty() {
+        println!("No churn data");
+    } else {
+        println!(" {:20} {:>8} {:>8}", "RESOURCE", "EVENTS", "RUNS");
+        for e in &entries {
+            println!(" {:20} {:>8} {:>8}", e.resource_id, e.event_count, e.distinct_runs);
+        }
     }
     Ok(())
 }

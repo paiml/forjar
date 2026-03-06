@@ -98,6 +98,7 @@ fn dispatch_state_query_text() {
             drift: false,
             health: false,
             timing: false,
+            churn: false,
             json: false,
             csv: false,
         }),
@@ -117,6 +118,7 @@ fn dispatch_state_query_json_with_filters() {
             drift: true,
             health: false,
             timing: false,
+            churn: false,
             json: true,
             csv: false,
         }),
@@ -136,6 +138,7 @@ fn dispatch_state_query_csv() {
             drift: false,
             health: false,
             timing: false,
+            churn: false,
             json: false,
             csv: true,
         }),
@@ -155,6 +158,7 @@ fn dispatch_state_query_health() {
             drift: false,
             health: true,
             timing: false,
+            churn: false,
             json: false,
             csv: false,
         }),
@@ -174,7 +178,48 @@ fn dispatch_state_query_health_json() {
             drift: false,
             health: true,
             timing: false,
+            churn: false,
             json: true,
+            csv: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_drift() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: None,
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: true,
+            health: false,
+            timing: false,
+            churn: false,
+            json: false,
+            csv: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_churn() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: None,
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: false,
+            health: false,
+            timing: false,
+            churn: true,
+            json: false,
             csv: false,
         }),
         false,

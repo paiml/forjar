@@ -315,7 +315,7 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] Timing stats types: `TimingStats::from_sorted()` with percentiles
 - [x] Churn metric types: `ChurnMetric` with `churn_pct()`
 - [x] `--health`, `--timing`, `--json`, `--csv` output modes
-- [ ] `--history`, `--drift`, `--churn` enrichments
+- [x] `--history`, `--drift`, `--churn` enrichments
 - [ ] `-G` git history fusion via RRF
 - [ ] `--sql` output mode
 - [ ] `--destroy-log`, `--reversibility`
