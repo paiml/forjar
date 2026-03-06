@@ -306,13 +306,21 @@ resources:
 - [x] OCI layout writer, Docker compat `manifest.json`
 - [x] `forjar oci pack <dir> --tag name:tag`
 
-### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL (types only, no runtime tar assembly)
-- [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order (type definition)
-- [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst) (type definition)
-- [x] File → layer, Package → layer (`LayerStrategy` enum defined) (type definition)
-- [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path (type definition)
-- [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()` (type definition)
-- **Missing for completion**: Runtime `build_layer()` that creates actual tar archives from resource definitions; integration test producing a valid OCI layer from a `type: file` resource
+### Phase 8: Direct Layer Assembly (FJ-2102) — IMPLEMENTED
+- [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order
+- [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst)
+- [x] File → layer, Package → layer (`LayerStrategy` enum)
+- [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path
+- [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()`
+- [x] Runtime `build_layer()` — creates actual tar archives from `LayerEntry` definitions (`store/layer_builder.rs`)
+- [x] `compute_dual_digest()` — BLAKE3 + SHA-256 in one call
+- [x] `write_oci_layout()` — writes blobs/sha256/ directory with layer + config blobs
+- [x] Gzip and Zstd compression support
+- [x] Deterministic tar: epoch mtime, uid/gid 0, sorted entries, path normalization
+- [x] `debug_assert!` postcondition: same inputs produce same BLAKE3 hash
+- [x] 14 tests in `tests_layer_builder.rs` (determinism, order independence, compression, OCI layout)
+- [x] `cargo run --example layer_builder` — end-to-end demo
+- **Remaining**: Wire `build_layer()` into `forjar build` command for `type: file` resources
 
 ### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL (types only, no runtime export)
 - [x] `export_overlay_upper()` in sandbox_exec.rs (type definition)

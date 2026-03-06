@@ -22,6 +22,7 @@ pub mod gc;
 pub mod gc_exec;
 pub mod hf_config;
 pub mod kernel_far;
+pub mod layer_builder;
 pub mod lockfile;
 pub mod meta;
 pub mod mutation_runner;
@@ -108,6 +109,8 @@ mod tests_gc_exec;
 mod tests_hf_config;
 #[cfg(test)]
 mod tests_kernel_far;
+#[cfg(test)]
+mod tests_layer_builder;
 #[cfg(test)]
 mod tests_lockfile;
 #[cfg(test)]

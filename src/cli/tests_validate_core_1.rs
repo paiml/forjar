@@ -1,16 +1,8 @@
-//! Tests: Core validation command.
-
+//! Tests: Core validation command — part 1.
 #![allow(unused_imports)]
 use super::commands::*;
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 use super::validate_core::*;
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(test)]
 mod tests {
