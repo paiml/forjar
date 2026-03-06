@@ -3,6 +3,7 @@
 //! Implements a Nix-inspired content-addressed store model where every build
 //! output is placed under a deterministic path derived from its inputs.
 
+pub mod base_image;
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;

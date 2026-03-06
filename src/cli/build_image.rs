@@ -60,12 +60,29 @@ fn build_plan_from_resource(
 ) -> Result<ImageBuildPlan, String> {
     let tag = res.version.as_deref().unwrap_or("latest");
     let image_name = res.name.as_deref().unwrap_or(name);
+
+    // Check for base image layers
+    let mut layers = Vec::new();
+    if let Some(ref base) = res.image {
+        let base_dir = std::path::Path::new("state/images").join(
+            base.replace([':', '/'], "_")
+        );
+        if base_dir.exists() {
+            if let Ok(base_layers) = crate::core::store::base_image::extract_base_layers(&base_dir) {
+                println!("  {}", crate::core::store::base_image::format_base_info(base, &base_layers));
+            }
+        }
+    }
+
+    // Add user layers
+    layers.push(LayerStrategy::Files {
+        paths: res.path.iter().cloned().collect(),
+    });
+
     Ok(ImageBuildPlan {
         tag: format!("{image_name}:{tag}"),
         base_image: res.image.clone(),
-        layers: vec![LayerStrategy::Files {
-            paths: res.path.iter().cloned().collect(),
-        }],
+        layers,
         labels: vec![],
         entrypoint: res.command.clone().map(|e| vec![e]),
     })
