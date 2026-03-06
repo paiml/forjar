@@ -55,6 +55,8 @@ mod tests_chunker;
 #[cfg(test)]
 mod tests_db;
 #[cfg(test)]
+mod tests_db_bench;
+#[cfg(test)]
 mod tests_ingest;
 #[cfg(test)]
 mod tests_closure;
