@@ -452,3 +452,33 @@ mod tests_dispatch_platform;
 mod tests_undo;
 #[cfg(test)]
 mod tests_cov_query_format;
+#[cfg(test)]
+mod tests_cov_check_test;
+#[cfg(test)]
+mod tests_cov_misc_b2;
+#[cfg(test)]
+mod tests_cov_dispatch_status2;
+#[cfg(test)]
+mod tests_cov_dispatch_status_b2;
+#[cfg(test)]
+mod tests_cov_dispatch_status3;
+#[cfg(test)]
+mod tests_cov_drift;
+#[cfg(test)]
+mod tests_cov_dispatch_ext_b2;
+#[cfg(test)]
+mod tests_cov_undo2;
+#[cfg(test)]
+mod tests_cov_observe2;
+#[cfg(test)]
+mod tests_cov_infra_state;
+#[cfg(test)]
+mod tests_cov_destroy2;
+#[cfg(test)]
+mod tests_cov_fleet_report2;
+#[cfg(test)]
+mod tests_cov_bom2;
+#[cfg(test)]
+mod tests_cov_validate_ord2;
+#[cfg(test)]
+mod tests_cov_apply_output;
