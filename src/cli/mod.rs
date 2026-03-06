@@ -30,6 +30,7 @@ mod dispatch_graph_b;
 mod dispatch_graph_c;
 mod dispatch_lock;
 mod dispatch_misc;
+mod build_image;
 mod dispatch_misc_b;
 mod dispatch_notify;
 mod dispatch_notify_b;
