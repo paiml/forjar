@@ -171,13 +171,17 @@ pub fn set_schema_version(conn: &Connection, version: u32) -> SqlResult<()> {
 /// Sanitizes the query to prevent FTS5 syntax errors from hyphens
 /// (interpreted as NOT) and other special characters.
 pub fn fts5_search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<FtsResult>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(vec![]);
+    }
     // Quote the query to prevent FTS5 operator interpretation
     // (e.g., "bash-aliases" → `"bash-aliases"` instead of `bash NOT aliases`)
-    let safe_query = if query.contains('-') || query.contains('"') {
-        let escaped = query.replace('"', "\"\"");
+    let safe_query = if trimmed.contains('-') || trimmed.contains('"') {
+        let escaped = trimmed.replace('"', "\"\"");
         format!("\"{escaped}\"")
     } else {
-        query.to_string()
+        trimmed.to_string()
     };
     let mut stmt = conn
         .prepare(
