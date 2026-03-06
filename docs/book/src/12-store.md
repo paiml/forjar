@@ -372,13 +372,37 @@ cargo run --example image_assembler
 # Docker compat: tar -cf - -C output . | docker load
 ```
 
+When `image:` is set on a resource, `build_plan_from_resource()` probes for
+a local base image at `state/images/<base_ref>/`. Pre-pull with skopeo:
+
+```bash
+skopeo copy docker://ubuntu:22.04 oci:state/images/ubuntu_22.04
+```
+
+`extract_base_layers()` reads the OCI layout to extract layer descriptors,
+diff_ids, history, and architecture from base images.
+
 ### Overlay Export
 
-For sandbox-built images, `export_overlay_upper()` converts overlayfs upper directories to OCI layers:
+For sandbox-built images, `scan_overlay_upper()` converts overlayfs upper directories to OCI-compatible layer entries:
 
-1. Convert overlayfs whiteouts to OCI format (`.wh.` prefix)
-2. Create layer tarball from upper directory
-3. Compute DiffID (sha256 of uncompressed layer)
+```rust
+use forjar::core::store::overlay_export::{scan_overlay_upper, merge_overlay_entries};
+
+let scan = scan_overlay_upper(upper_dir, strip_prefix).unwrap();
+// scan.entries   — regular files/directories
+// scan.whiteouts — WhiteoutEntry::FileDelete / OpaqueDir
+let all_entries = merge_overlay_entries(&scan);
+// all_entries includes both regular files and OCI whiteout markers
+```
+
+Whiteout detection:
+- `.wh.<name>` files → `WhiteoutEntry::FileDelete` (file deleted from lower layer)
+- `.wh..wh..opq` → `WhiteoutEntry::OpaqueDir` (directory fully replaced)
+
+```bash
+cargo run --example overlay_export
+```
 
 ### Registry Push (OCI Distribution v1.1)
 
