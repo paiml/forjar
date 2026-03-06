@@ -17,6 +17,7 @@ mod tests {
             env_file: None,
             workspace: None,
             verify: false,
+            dry_run: false,
             json: false,
         };
         let _ = format!("{a:?}");

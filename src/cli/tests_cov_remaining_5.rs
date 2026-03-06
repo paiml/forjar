@@ -390,7 +390,7 @@ mod tests {
         let cfg = write_yaml(dir.path(), "forjar.yaml", basic_config());
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let result = cmd_lock(&cfg, &state_dir, None, Some("staging"), false, false);
+        let result = cmd_lock(&cfg, &state_dir, None, Some("staging"), false, false, false);
         assert!(result.is_ok());
     }
 
