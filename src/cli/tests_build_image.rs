@@ -184,6 +184,85 @@ fn cmd_build_push_with_local_name() {
 }
 
 #[test]
+fn collect_entries_build_strategy_with_overlay() {
+    let dir = tempfile::tempdir().unwrap();
+    // Create overlay-like directory structure
+    std::fs::create_dir_all(dir.path().join("etc")).unwrap();
+    std::fs::write(dir.path().join("etc/app.conf"), "key=value\n").unwrap();
+
+    let plan = ImageBuildPlan {
+        tag: "test:latest".into(),
+        base_image: None,
+        layers: vec![LayerStrategy::Build {
+            command: "make install".into(),
+            workdir: Some(dir.path().to_string_lossy().to_string()),
+        }],
+        labels: vec![],
+        entrypoint: None,
+    };
+    let config = minimal_config();
+    let entries = test_collect_layer_entries(&plan, &config).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(!entries[0].is_empty(), "should find files in overlay dir");
+}
+
+#[test]
+fn collect_entries_build_strategy_missing_dir() {
+    let plan = ImageBuildPlan {
+        tag: "test:latest".into(),
+        base_image: None,
+        layers: vec![LayerStrategy::Build {
+            command: "make".into(),
+            workdir: Some("/nonexistent/overlay/path/xyz".into()),
+        }],
+        labels: vec![],
+        entrypoint: None,
+    };
+    let config = minimal_config();
+    let entries = test_collect_layer_entries(&plan, &config).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].is_empty(), "missing dir should produce empty entries");
+}
+
+#[test]
+fn collect_entries_derivation_strategy_with_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("bin")).unwrap();
+    std::fs::write(dir.path().join("bin/app"), "#!/bin/sh\nexec main").unwrap();
+
+    let plan = ImageBuildPlan {
+        tag: "test:latest".into(),
+        base_image: None,
+        layers: vec![LayerStrategy::Derivation {
+            store_path: dir.path().to_string_lossy().to_string(),
+        }],
+        labels: vec![],
+        entrypoint: None,
+    };
+    let config = minimal_config();
+    let entries = test_collect_layer_entries(&plan, &config).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(!entries[0].is_empty(), "should find files in store path");
+}
+
+#[test]
+fn collect_entries_derivation_strategy_missing() {
+    let plan = ImageBuildPlan {
+        tag: "test:latest".into(),
+        base_image: None,
+        layers: vec![LayerStrategy::Derivation {
+            store_path: "/nonexistent/store/path/abc".into(),
+        }],
+        labels: vec![],
+        entrypoint: None,
+    };
+    let config = minimal_config();
+    let entries = test_collect_layer_entries(&plan, &config).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].is_empty());
+}
+
+#[test]
 fn cmd_build_with_load_flag_no_runtime() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("forjar.yaml");
