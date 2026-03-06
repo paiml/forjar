@@ -328,11 +328,15 @@ resources:
 - [x] Multi-tier layer stacking (type definition)
 - **Missing for completion**: Runtime overlay → tar conversion; whiteout rewriting against real overlayfs upper directory; integration test with pepita sandbox
 
-### Phase 10: Image Resource Type (FJ-2104) — PARTIAL (CLI wired, no end-to-end build)
+### Phase 10: Image Resource Type (FJ-2104) — PARTIAL (assembler done, CLI wiring in progress)
 - [x] `ResourceType::Image` (enum variant exists)
-- [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation) (type definition)
-- [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved (type definition)
+- [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
+- [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
 - [x] `forjar build` CLI command (command wired, dispatches to build logic)
-- **Missing for completion**: End-to-end `forjar build` producing a loadable OCI image from a `type: image` resource; integration test with `docker load`
+- [x] `assemble_image()` — full OCI image assembly from `ImageBuildPlan` + `LayerEntry` sets (`store/image_assembler.rs`)
+- [x] OCI layout: oci-layout, index.json, manifest.json (Docker compat), blobs/sha256/
+- [x] Config with entrypoint, labels, history entries
+- [x] 10 tests in `tests_image_assembler.rs`
+- **Missing for completion**: Wire `assemble_image()` into `forjar build` CLI; base image layer extraction; integration test with `docker load`
 
 > **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.
