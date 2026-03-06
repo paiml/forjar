@@ -92,6 +92,26 @@ The `core/verus_spec.rs` module contains machine-checked proofs (when compiled w
 3. **Is idempotent** — Applying to an already-converged state is a no-op
 4. **Is monotonic** — Each iteration reduces the diff, never increases it
 
+## Runtime Contracts on Production Code
+
+The most practical verification layer: `debug_assert!` postconditions
+on the 6 critical-path functions. These fire in every `cargo test` run
+and debug build, catching invariant violations with zero release cost.
+
+| Function | Module | Postcondition |
+|----------|--------|---------------|
+| `determine_present_action` | `planner/mod.rs` | Converged + hash match implies NoOp |
+| `hash_desired_state` | `planner/mod.rs` | Determinism (double-hash equality) |
+| `save_lock` | `core/state/mod.rs` | File exists, temp file removed |
+| `build_execution_order` | `core/resolver/dag.rs` | Valid topological order |
+| `build_layer` | `store/layer_builder.rs` | Same inputs produce same BLAKE3 |
+| `assemble_image` | `store/image_assembler.rs` | OCI layout files exist, layer count matches |
+
+These contracts connect theoretical proofs to actual code. The Verus
+model proves "if handler invariant holds, then idempotency holds." The
+`debug_assert!` on `determine_present_action` catches violations of
+that invariant in every test run.
+
 ## Verification Tier Model (FJ-2203)
 
 Forjar tracks verification maturity across six tiers per critical-path function:

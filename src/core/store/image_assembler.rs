@@ -138,6 +138,14 @@ pub fn assemble_image(
     )
     .map_err(|e| format!("write manifest.json: {e}"))?;
 
+    // FJ-2200: Postcondition — valid OCI layout
+    debug_assert!(output_dir.join("oci-layout").exists(), "assemble_image: oci-layout missing");
+    debug_assert!(output_dir.join("index.json").exists(), "assemble_image: index.json missing");
+    debug_assert!(
+        manifest.layers.len() == layer_results.len(),
+        "assemble_image: manifest layer count mismatch"
+    );
+
     Ok(AssembledImage {
         layout_dir: output_dir.to_path_buf(),
         manifest,

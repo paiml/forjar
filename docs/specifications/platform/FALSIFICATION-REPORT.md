@@ -101,10 +101,13 @@
 **Five-Whys Root Cause**: The `contracts` crate's `#[ensures]` macro cannot express postconditions over complex types like `HashMap<String, StateLock>`. Contracts were added to Verus spec wrappers (which use simple model types) but never ported to production functions. See full analysis in 09-provable-design-by-contract.md § Five-Whys.
 
 **Remediation**:
-1. ~~Use `debug_assert!` directly inside production functions~~ ALREADY EXISTS for `determine_present_action` (line 225) and `hash_desired_state` (line 306)
-2. Remaining: ~10 lines in `core/state/mod.rs` for `save_lock` and `build_execution_order`
-3. Spec 09 Phase 13 checkboxes corrected (2026-03-06) to show `[ ]` for uncontracted production functions
-4. The spec wrapper contracts remain as documentation of the intended postconditions
+1. ~~Use `debug_assert!` directly inside production functions~~ DONE for all 4 critical-path functions:
+   - `determine_present_action` (`planner/mod.rs:225-230`)
+   - `hash_desired_state` (`planner/mod.rs:306-310`)
+   - `save_lock` (`core/state/mod.rs:56-57`)
+   - `build_execution_order` (`core/resolver/dag.rs:31-40`)
+2. Spec 09 Phase 13 updated (2026-03-06) to IMPLEMENTED status
+3. OCI functions also contracted: `build_layer` (determinism) and `assemble_image` (OCI layout validity)
 
 ---
 
