@@ -186,4 +186,30 @@ mod tests {
         assert_eq!(results[1].resource_id, "nginx-cfg");
         assert_eq!(results[0].rank, 0.0);
     }
+
+    #[test]
+    fn fts5_search_hyphenated_query() {
+        let (conn, _f) = temp_db();
+        conn.execute(
+            "INSERT INTO machines (name, hostname, transport, first_seen, last_seen) \
+             VALUES ('m1', 'host', 'local', '2026-01-01', '2026-03-06')",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO generations (generation_num, run_id, config_hash, created_at) \
+             VALUES (1, 'r-1', 'hash1', '2026-03-06')",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO resources (resource_id, machine_id, generation_id, resource_type, \
+             status, applied_at, path) VALUES ('bash-aliases', 1, 1, 'file', 'converged', \
+             '2026-03-06', '/home/user/.bash_aliases')",
+            [],
+        ).unwrap();
+        conn.execute("INSERT INTO resources_fts(resources_fts) VALUES('rebuild')", []).unwrap();
+        // Hyphenated query should not crash (FTS5 treats - as NOT operator)
+        let results = fts5_search(&conn, "bash-aliases", 10).unwrap();
+        assert!(!results.is_empty(), "hyphenated query should match");
+        assert_eq!(results[0].resource_id, "bash-aliases");
+    }
 }
