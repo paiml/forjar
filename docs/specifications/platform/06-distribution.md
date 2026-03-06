@@ -196,20 +196,23 @@ forjar query --type image --drift                  # stale deployments
 ## Implementation
 
 ### Phase 11: Distribution (FJ-2105)
-- [x] Distribution target types: `DistTarget` (Load/Push/Far)
-- [x] Push result types: `PushResult`, `PushKind` (Layer/Config/Manifest/Index)
-- [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors
-- [x] Build report: `BuildReport`, `LayerReport`, `DistResult` with `format_summary()`
-- [x] `--load`: pipe OCI tar to `docker load` / `podman load`
-- [x] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT)
-- [x] `--far`: wrap OCI image in FAR archive
-- [x] `--check-existing`: blob existence check
-- [x] Multi-arch: build matrix → OCI Image Index
-- **Deliverable**: `forjar build --push` to registry
+- [x] Distribution target types: `DistTarget` (Load/Push/Far) (type definition)
+- [x] Push result types: `PushResult`, `PushKind` (Layer/Config/Manifest/Index) (type definition)
+- [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors (type definition)
+- [x] Build report: `BuildReport`, `LayerReport`, `DistResult` with `format_summary()` (type + formatting)
+- [x] `--load`: pipe OCI tar to `docker load` / `podman load` (code path exists in `registry_push.rs`)
+- [x] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT) (code path exists in `registry_push.rs`)
+- [x] `--far`: wrap OCI image in FAR archive (builds on existing FAR infrastructure)
+- [x] `--check-existing`: blob existence check (type-level)
+- [x] Multi-arch: build matrix → OCI Image Index (type-level)
+- **Deliverable**: `forjar build --push` to registry — code path exists but depends on Phase 8-10 (container builds) for end-to-end image production
+- **Note**: Registry push logic (`registry_push.rs`) is confirmed by falsification audit. End-to-end flow requires Phases 8-10 to produce actual OCI layers.
 
 ### Phase 12: Build Query/Drift (FJ-2106)
-- [x] Image resources in SQLite `resources` table
-- [x] `forjar query --type image`
-- [x] Image drift detection
-- [x] Build timing in `--timing`
-- **Deliverable**: `forjar query --type image --drift`
+- [x] Image resources in SQLite `resources` table (schema supports `resource_type = 'image'`)
+- [x] `forjar query --type image` (query filter exists)
+- [x] Image drift detection (type-level — `check_image_drift` logic defined)
+- [x] Build timing in `--timing` (uses existing `duration_secs` enrichment)
+- **Deliverable**: `forjar query --type image --drift` — works once images are built and ingested
+
+> **Convention note**: `[x]` means "type or CLI wiring exists in code." End-to-end validation depends on the container build pipeline (Phases 8-10) being completed. See FALSIFICATION-REPORT.md § E8.

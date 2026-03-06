@@ -699,35 +699,37 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 
 ## Implementation
 
-### Phase 13: Runtime Contracts (FJ-2200)
+### Phase 13: Runtime Contracts (FJ-2200) — INCOMPLETE
 - [x] Runtime contract postconditions (using `debug_assert!` — lighter than `contracts` crate)
-- [x] `#[debug_ensures]` on `determine_present_action` — idempotency postcondition (debug_assert! verifying converged + matching hash → NoOp)
-- [x] `debug_assert!` on `hash_desired_state` — determinism
-- [x] `debug_assert!` on `save_lock` — atomicity postcondition
-- [x] `debug_assert!` on `build_execution_order` — valid topological order
-- [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — determinism
-- [x] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — validity
-- [x] Wire `forjar contracts --coverage` command
-- **Deliverable**: All critical-path functions have runtime contracts, coverage report available
+- [ ] `#[debug_ensures]` on `determine_present_action` — **NOT on production function**; postcondition exists only on `spec_determine_present_action()` wrapper in `verus_spec.rs` (see E6 in FALSIFICATION-REPORT.md)
+- [ ] `debug_assert!` on `hash_desired_state` — **NOT on production function**; exists on spec wrapper only
+- [ ] `debug_assert!` on `save_lock` — **NOT on production function**
+- [ ] `debug_assert!` on `build_execution_order` — **NOT on production function**
+- [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — these DO have `#[contract]` macros in `tripwire/hasher.rs` (metadata only, no runtime assertion)
+- [ ] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — **NOT on production functions**
+- [x] Wire `forjar contracts --coverage` command — command exists, reports Level 1 (labeled) for most functions
+- **Deliverable**: ~~All critical-path functions have runtime contracts~~ Spec wrapper functions have contracts; production functions remain uncontracted. See Gap G1 above.
+- **Five-Whys Remediation**: See end of file.
 
-### Phase 14: Kani Real-Code Harnesses (FJ-2201)
-- [x] `proof_planner_idempotency_real` — converged + matching hash → NoOp on bounded Resource (in `kani_proofs.rs`)
-- [x] `proof_handler_invariant_{file,package,service}` — Kani harnesses + runtime tests verify tags/deps don't affect hash (file, package, service in `kani_proofs.rs`)
-- [x] `proof_hash_determinism_real` — `hash_desired_state` on bounded `Resource` with nondeterministic content (in `kani_proofs.rs`)
-- [x] `proof_dag_ordering_real` — Kani harness verifies deterministic ordering + topological property on 3-node bounded DAG (in `kani_proofs.rs`)
-- [x] `proof_layer_determinism` — `build_layer` produces same hashes
-- [x] `proof_store_idempotency` — `store_put` twice is no-op
+### Phase 14: Kani Real-Code Harnesses (FJ-2201) — INCOMPLETE
+- [x] `proof_planner_idempotency_real` — **EXISTS but bounded toy model** (4-byte inputs, does NOT call `determine_present_action`; see E5 in FALSIFICATION-REPORT.md)
+- [x] `proof_handler_invariant_{file,package,service}` — **EXISTS but abstract model** (verifies simplified hash comparison, not real handler code paths)
+- [x] `proof_hash_determinism_real` — **EXISTS but 4-byte bound** (useful but limited)
+- [x] `proof_dag_ordering_real` — **EXISTS but 3-node model** (not real `ForjarConfig`)
+- [x] `proof_layer_determinism` — type-level only
+- [x] `proof_store_idempotency` — type-level only
 - [x] Deprecate abstract-model harnesses (documented in `kani_proofs.rs` with deprecation notice + proof assumptions table)
-- **Deliverable**: `cargo kani` passes on real-code harnesses
+- **Deliverable**: ~~`cargo kani` passes on real-code harnesses~~ Harnesses exist but operate on abstract models with tiny bounds. 4 of 17 harnesses touch real types. None call production functions directly.
+- **Five-Whys Remediation**: See end of file.
 
-### Phase 15: Verus Narrowed Proofs (FJ-2202)
-- [x] Replace toy `ResourceState` with `PlannerState` modeling real dual-hash
-- [x] `proof_idempotency_conditional` — converged + handler invariant → NoOp
-- [x] `proof_apply_then_noop` — apply result + handler invariant → next plan is NoOp
-- [x] `proof_fleet_convergence` — N-resource extension
-- [x] Document proof assumptions and what each tier verifies (table in `kani_proofs.rs`, tier descriptions in `VerificationTier` enum)
+### Phase 15: Verus Narrowed Proofs (FJ-2202) — PARTIAL
+- [x] `PlannerState` type exists modeling dual-hash — but proof operates on the model, not real `StateLock`/`ResourceStatus` types
+- [x] `proof_idempotency_conditional` — **correct for toy model**; does NOT reference production `determine_present_action`
+- [x] `proof_apply_then_noop` — **correct for toy model**; see note above
+- [x] `proof_fleet_convergence` — **correct for toy model** (Seq-based, not HashMap-based)
+- [x] Document proof assumptions — assumptions table exists in `kani_proofs.rs`
 - **Extends**: `src/core/verus_spec.rs`
-- **Deliverable**: Verus proofs cover real hash pipeline (conditional on handler invariant)
+- **Deliverable**: ~~Verus proofs cover real hash pipeline~~ Verus proofs cover a simplified model of the hash pipeline. The model captures the core logic correctly but does not reference production types or functions. See Gap G3 and the "What Verus Proves vs What It Assumes" table above.
 
 ### Phase 16: Structural Enforcement (FJ-2203) -- PARTIAL
 - [x] `HashInvariantCheck` type: pass/fail assertions with deviation_reason
@@ -772,3 +774,37 @@ For Forjar, the practical target is:
 | CLI parsing | None | Low-value target |
 
 This gives the highest confidence where it matters most (idempotency, determinism) without the unsustainable annotation burden of trying to verify everything.
+
+---
+
+## Five-Whys Root Cause Analysis
+
+### Why are runtime contracts on spec wrappers instead of production functions?
+
+1. **Why aren't production functions contracted?** Because `#[ensures]` was added to `spec_*()` wrapper functions in `verus_spec.rs`, not to `determine_present_action()` in `planner/mod.rs`.
+2. **Why were wrappers used?** Because the spec wrappers were written first as Verus proof targets, and contracts were added there for convenience during the formal verification work.
+3. **Why weren't they moved to production code?** Because `determine_present_action` takes `HashMap<String, StateLock>` which the `contracts` crate's `#[ensures]` macro can't easily express postconditions over.
+4. **Why can't the macro handle complex types?** The `contracts` crate only supports simple boolean expressions; the idempotency postcondition requires nested HashMap lookups and equality checks.
+5. **Root cause**: The contract infrastructure was designed for the simple Verus model types, not the real production types with complex ownership and borrowing.
+
+**Remediation**: Use `debug_assert!` directly inside `determine_present_action` after the match arms, rather than proc macro attributes. This is simpler and works with arbitrary Rust types. Estimated: 20 lines of code in `planner/mod.rs`.
+
+### Why are Kani harnesses operating on toy models?
+
+1. **Why don't Kani harnesses call `determine_present_action`?** Because the function takes `HashMap<String, StateLock>` and `Resource` with 30+ fields, exceeding Kani's bounded model checking capacity.
+2. **Why does it exceed capacity?** Kani unrolls all possible values; `Resource` has `Option<String>` fields that explode the state space exponentially.
+3. **Why not constrain the input space?** Bounded generators (`make_bounded_resource`) were created but still too large for Kani to verify in reasonable time.
+4. **Why not use a different tool?** Proptest already covers this space empirically (see `tests_proptest_convergence.rs`). Kani's value-add is exhaustive verification, which is only feasible on small models.
+5. **Root cause**: Fundamental mismatch between Kani's exhaustive bounded verification model and Forjar's complex aggregate types.
+
+**Remediation**: Accept the limitation honestly. Kani proves properties of the abstract model. Proptest provides empirical verification of the concrete implementation. Runtime `debug_assert!` catches violations during integration testing. Together these provide strong (but not exhaustive) assurance. Rename harnesses from `proof_*_real` to `proof_*_model` for honesty.
+
+### Why does the implementation section contradict the gaps section?
+
+1. **Why do Phases 13-15 show `[x]` while Gaps G1-G5 say "uncontracted"?** Because phases were checked off when types and wrapper functions were created, without verifying that production functions were actually contracted.
+2. **Why weren't production functions verified?** Because the implementer treated type creation and spec wrapper annotation as "done."
+3. **Why was this accepted?** Because the spec review compared checkbox counts, not actual code paths.
+4. **Why wasn't actual code audited?** Because the falsification report (E5, E6) identified this gap but remediation was deferred.
+5. **Root cause**: Aspirational spec writing — checkboxes were marked based on intent and type existence rather than runtime verification.
+
+**Remediation**: This document has been updated (2026-03-06) to change `[x]` to `[ ]` for items that exist only as spec wrappers, and to add "(types only)" / "(model only)" qualifiers. Future spec updates must distinguish between "type exists" and "production function contracted."
