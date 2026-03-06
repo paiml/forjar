@@ -7,13 +7,13 @@ use crate::transport;
 use std::path::Path;
 
 /// Test result row for the formatted test summary.
-struct TestRow {
-    resource_id: String,
-    machine: String,
-    resource_type: String,
-    status: String,
-    detail: String,
-    duration_secs: f64,
+pub(crate) struct TestRow {
+    pub(crate) resource_id: String,
+    pub(crate) machine: String,
+    pub(crate) resource_type: String,
+    pub(crate) status: String,
+    pub(crate) detail: String,
+    pub(crate) duration_secs: f64,
 }
 
 /// Execute a single test check and return the result row.
@@ -145,6 +145,38 @@ fn print_test_json(
     Ok(())
 }
 
+/// FJ-2606: Collect test artifacts to a directory.
+pub(crate) fn collect_test_artifacts(
+    results: &[TestRow],
+    artifact_dir: &Path,
+) -> Vec<types::TestArtifact> {
+    let _ = std::fs::create_dir_all(artifact_dir);
+    let mut artifacts = Vec::new();
+    // Write summary JSON
+    let summary_path = artifact_dir.join("test-results.json");
+    let rows: Vec<serde_json::Value> = results
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "resource": r.resource_id, "machine": r.machine,
+                "type": r.resource_type, "status": r.status,
+                "detail": r.detail, "duration_seconds": r.duration_secs,
+            })
+        })
+        .collect();
+    if let Ok(json_str) = serde_json::to_string_pretty(&rows) {
+        let size = json_str.len() as u64;
+        let _ = std::fs::write(&summary_path, &json_str);
+        artifacts.push(types::TestArtifact {
+            name: "test-results.json".into(),
+            path: summary_path.display().to_string(),
+            content_type: Some("application/json".into()),
+            size_bytes: Some(size),
+        });
+    }
+    artifacts
+}
+
 /// FJ-273: Dedicated `forjar test` — runs check scripts with a formatted summary table.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_test(
@@ -248,6 +280,15 @@ pub(crate) fn cmd_test(
 
     let elapsed = t0.elapsed();
 
+    // FJ-2606: Collect test artifacts when verbose
+    if verbose {
+        let artifact_dir = file.parent().unwrap_or(Path::new(".")).join(".forjar-test-artifacts");
+        let artifacts = collect_test_artifacts(&results, &artifact_dir);
+        if !artifacts.is_empty() {
+            eprintln!("Artifacts written to {}", artifact_dir.display());
+        }
+    }
+
     if json {
         print_test_json(&results, total_pass, total_fail, total_skip, &elapsed)?;
     } else {
@@ -259,6 +300,22 @@ pub(crate) fn cmd_test(
     } else {
         Ok(())
     }
+}
+
+/// FJ-2606: Run tests in parallel across machines using thread::scope.
+#[allow(dead_code)]
+pub(crate) fn run_tests_parallel(
+    checks: Vec<(types::Machine, String, String, String, String)>,
+) -> Vec<(TestRow, bool)> {
+    std::thread::scope(|s| {
+        let handles: Vec<_> = checks
+            .into_iter()
+            .map(|(machine, script, rid, mname, rtype)| {
+                s.spawn(move || run_test_check(&machine, &script, &rid, &mname, &rtype))
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    })
 }
 
 /// FJ-2602: Load and report on behavior specs.
