@@ -4,6 +4,29 @@ use super::helpers::*;
 use crate::core::{codegen, parser, resolver, types};
 use std::path::Path;
 
+/// Strip null values, empty arrays, empty maps, and false booleans from a JSON value.
+fn strip_defaults(val: &mut serde_json::Value) {
+    match val {
+        serde_json::Value::Object(map) => {
+            map.retain(|_, v| {
+                !v.is_null()
+                    && *v != serde_json::Value::Bool(false)
+                    && *v != serde_json::json!([])
+                    && *v != serde_json::json!({})
+            });
+            for v in map.values_mut() {
+                strip_defaults(v);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                strip_defaults(v);
+            }
+        }
+        _ => {}
+    }
+}
+
 pub(crate) fn cmd_show(
     file: &Path,
     resource_filter: Option<&str>,
@@ -23,18 +46,18 @@ pub(crate) fn cmd_show(
             .get(resource_id)
             .ok_or_else(|| format!("resource '{resource_id}' not found"))?;
         if json {
-            let output =
-                serde_json::to_string_pretty(resource).map_err(|e| format!("JSON error: {e}"))?;
-            println!("{output}");
+            let mut val = serde_json::to_value(resource).map_err(|e| format!("JSON error: {e}"))?;
+            strip_defaults(&mut val);
+            println!("{}", serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?);
         } else {
             let output =
                 serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {e}"))?;
             println!("{resource_id}:\n{output}");
         }
     } else if json {
-        let output =
-            serde_json::to_string_pretty(&config).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
+        let mut val = serde_json::to_value(&config).map_err(|e| format!("JSON error: {e}"))?;
+        strip_defaults(&mut val);
+        println!("{}", serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?);
     } else {
         let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {e}"))?;
         println!("{output}");

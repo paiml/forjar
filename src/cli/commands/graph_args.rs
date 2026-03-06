@@ -50,7 +50,7 @@ pub struct GraphArgs {
     pub stats: bool,
 
     /// FJ-434: Output graph as JSON adjacency list
-    #[arg(long, name = "json")]
+    #[arg(long = "json")]
     pub json_output: bool,
 
     /// FJ-444: Highlight a resource and its transitive deps in graph output

@@ -358,7 +358,7 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
 /// Validate a single lock file, returning issues found.
 fn validate_single_lock(m: &str, lock: &crate::core::types::StateLock) -> Vec<(String, String)> {
     let mut issues = Vec::new();
-    if lock.schema != "1" {
+    if lock.schema != "1" && lock.schema != "1.0" {
         issues.push((
             m.to_string(),
             format!("unexpected schema version: {}", lock.schema),
