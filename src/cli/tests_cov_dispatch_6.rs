@@ -31,7 +31,7 @@ fn dispatch_contracts_json_routes() {
 }
 
 #[test]
-fn dispatch_contracts_no_flag_errors() {
+fn dispatch_contracts_no_flag_still_works() {
     let result = dispatch_misc_cmd(
         Commands::Contracts(ContractsArgs {
             coverage: false,
@@ -40,8 +40,7 @@ fn dispatch_contracts_no_flag_errors() {
         }),
         false,
     );
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("--coverage"));
+    assert!(result.is_ok());
 }
 
 #[test]

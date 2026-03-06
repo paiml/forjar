@@ -80,7 +80,8 @@ fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) 
     let mut reason = "ok".to_string();
     for (rname, rlock) in &lock.resources {
         let hash = &rlock.hash;
-        if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+        let hex_part = hash.strip_prefix("blake3:").unwrap_or(hash);
+        if hex_part.len() != 64 || !hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
             valid = false;
             reason = format!("invalid hash for resource {rname}");
             break;
@@ -92,7 +93,7 @@ fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) 
             // We flag it but don't fail — the hash is computed from full resource state
         }
     }
-    if lock.generator != "forjar" {
+    if !lock.generator.starts_with("forjar") {
         valid = false;
         reason = format!("unexpected generator: {}", lock.generator);
     }

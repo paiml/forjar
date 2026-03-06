@@ -74,8 +74,20 @@ fn print_status_json(
         })
         .collect();
 
+    // Rebuild global summary from live lock data to avoid stale counts
+    let live_global = if let Some(ref g) = global {
+        let mut g2 = g.clone();
+        for lock in machines {
+            if let Some(ms) = g2.machines.get_mut(&lock.machine) {
+                ms.resources = lock.resources.len();
+            }
+        }
+        Some(g2)
+    } else {
+        None
+    };
     let output = serde_json::json!({
-        "global": global,
+        "global": live_global,
         "machines": machine_values,
     });
     println!(
