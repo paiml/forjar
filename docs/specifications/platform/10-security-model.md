@@ -1,6 +1,6 @@
 # 10: Security Model
 
-> Authorization, content policy, secret management, and privilege boundaries.
+> Authorization, path restrictions, secret management, and privilege boundaries.
 
 **Spec ID**: FJ-2300 | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md)
 
@@ -122,12 +122,15 @@ fn resolve_secrets(content, secret_provider):
 
 ### Secret Providers
 
-| Provider | Config | Resolution |
-|---------|--------|------------|
-| Environment variable | `secrets.provider: env` | `$FORJAR_SECRET_<name>` |
-| File | `secrets.provider: file`, `secrets.path: /run/secrets/` | Read `/run/secrets/<name>` |
-| SOPS | `secrets.provider: sops`, `secrets.file: secrets.enc.yaml` | `sops -d secrets.enc.yaml` |
-| 1Password CLI | `secrets.provider: op` | `op read "op://vault/item/field"` |
+| Provider | Config | Resolution | Status |
+|---------|--------|------------|--------|
+| Environment variable | `secrets.provider: env` | `$FORJAR_SECRET_<name>` | Planned |
+| File | `secrets.provider: file`, `secrets.path: /run/secrets/` | Read `/run/secrets/<name>` | Planned |
+| SOPS | `secrets.provider: sops`, `secrets.file: secrets.enc.yaml` | `sops -d secrets.enc.yaml` | Planned |
+| 1Password CLI | `secrets.provider: op` | `op read "op://vault/item/field"` | Planned |
+| Age encryption | `secrets.provider: age` | Age-encrypted values in config | Implemented |
+
+> **Current status**: Only Age encryption is implemented (`secrets.rs`). The `SecretProvider` enum with `Env`, `File`, `Sops`, `Op` variants exists in `security_types.rs` but dispatch is not wired. Template expansion of `{{ secrets.* }}` references is planned for Phase 6.
 
 ### Redaction
 

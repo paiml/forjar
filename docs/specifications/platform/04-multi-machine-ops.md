@@ -52,10 +52,10 @@ Script execution: `nsenter --target {pid} --mount --pid [--net] -- bash`, piping
 | Primitive | Implementation | Purpose |
 |-----------|---------------|---------|
 | PID namespace | `unshare --pid` | Process isolation; PID 1 = `sleep infinity` |
-| Mount namespace | `unshare --mount` | Filesystem isolation; overlayfs CoW |
+| Mount namespace | `unshare --mount` | Filesystem isolation; mount namespace isolation |
 | Network namespace | `unshare --net` (optional) | Network isolation |
 | Cgroups v2 | `/sys/fs/cgroup/forjar-{name}/` | `memory.max`, `cpu.max`, `cpuset.cpus` |
-| Overlayfs | `mount -t overlay` | Read-only lower + writable upper |
+| Overlayfs | `mount -t overlay` | Read-only lower + writable upper (store sandbox only; pepita transport uses mount namespace without overlayfs) |
 | nsenter | `nsenter --target {pid}` | Enter namespace for script exec |
 
 **Not used**: UTS, IPC, user namespace (fields defined, not implemented), chroot, seccomp BPF (flag only), AppArmor/SELinux.
@@ -65,7 +65,7 @@ Script execution: `nsenter --target {pid} --mount --pid [--net] -- bash`, piping
 | Capability | Docker | Pepita | Firecracker |
 |-----------|--------|--------|-------------|
 | Memory limit | cgroups v1 | cgroups v2 | QEMU config |
-| Filesystem isolation | overlayfs + layers | overlayfs (explicit) | ext4 rootfs |
+| Filesystem isolation | overlayfs + layers | mount namespace (overlayfs planned) | ext4 rootfs |
 | Network isolation | veth + iptables (auto) | netns (manual) | TAP devices |
 | GPU passthrough | `--gpus all`, `--device` | **Host direct** | Not designed for GPU |
 | Cold start | ~500ms-1s | **~10-50ms** | ~100ms |

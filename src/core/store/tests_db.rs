@@ -26,6 +26,9 @@ mod tests {
         assert!(tables.contains(&"resources".to_string()));
         assert!(tables.contains(&"events".to_string()));
         assert!(tables.contains(&"run_logs".to_string()));
+        assert!(tables.contains(&"destroy_log".to_string()));
+        assert!(tables.contains(&"drift_findings".to_string()));
+        assert!(tables.contains(&"ingest_cursor".to_string()));
     }
 
     #[test]
@@ -143,6 +146,9 @@ mod tests {
             .unwrap();
         assert!(indexes.contains(&"idx_resources_machine".to_string()));
         assert!(indexes.contains(&"idx_resources_gen".to_string()));
+        assert!(indexes.contains(&"idx_resources_status".to_string()));
         assert!(indexes.contains(&"idx_events_run".to_string()));
+        assert!(indexes.contains(&"idx_destroy_machine".to_string()));
+        assert!(indexes.contains(&"idx_drift_machine".to_string()));
     }
 }
