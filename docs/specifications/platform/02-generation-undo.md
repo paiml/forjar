@@ -272,7 +272,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 
 ## Implementation
 
-### Phase 2: Extended Generations (FJ-2002) -- PARTIAL
+### Phase 2: Extended Generations (FJ-2002) -- IMPLEMENTED
 - [x] `GenerationMeta` type with config_hash, git_ref, action, parent_generation, operator, forjar_version, bashrs_version
 - [x] `MachineDelta` type for per-machine resource create/update/destroy deltas
 - [x] `get_git_ref()` and `git_is_dirty()` helpers for config recovery
@@ -297,7 +297,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] Undo-resume: record progress, `--resume` picks up
 - **Extends**: `src/cli/destroy.rs:cmd_rollback`
 
-### Phase 5: Undo-Destroy (FJ-2005) -- PARTIAL
+### Phase 5: Undo-Destroy (FJ-2005) -- IMPLEMENTED
 - [x] `DestroyLogEntry` type with JSONL serialization for undo-destroy recovery
 - [x] Pre-destroy state recording: machine, resource_id, pre_hash, config_fragment, reliable_recreate
 - [x] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl` — `write_destroy_log_entry()` captures pre_hash, config_fragment, reliable_recreate

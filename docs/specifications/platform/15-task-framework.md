@@ -699,7 +699,7 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 
 ## Implementation
 
-### Phase 36: Task Modes (FJ-2700) -- PARTIAL
+### Phase 36: Task Modes (FJ-2700) -- IMPLEMENTED (pipeline engine; service/dispatch types-only)
 - [x] `TaskMode` enum (batch/pipeline/service/dispatch) with serde roundtrip
 - [x] `PipelineStage` struct (name, command, inputs, outputs, gate)
 - [x] `QualityGate` + `HealthCheck` structs defined
@@ -711,7 +711,7 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] Stage command generation: `stage_command()` wraps with strict mode
 - [x] Service mode: `RestartPolicy` (exponential backoff), `HealthCheckResult`, `ServiceEvent` lifecycle enum
 - [x] Dispatch: `DispatchConfig` with name, command, params, timeout
-- **Deliverable**: Pipeline engine implemented; service/dispatch runtime pending
+- **Remaining**: Service mode runtime (restart loop, health checks), dispatch mode runtime (HTTP/event dispatch)
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
 - [x] `inputs:` glob pattern hashing (BLAKE3)

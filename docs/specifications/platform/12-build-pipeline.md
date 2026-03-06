@@ -547,7 +547,7 @@ presentar (separate binary)
 - [x] `forjar query --type model --drift` for model integrity monitoring
 - **Deliverable**: Full pull-convert-compile-serve pipeline in forjar recipes
 
-### Phase 21: WASM Deployment (FJ-2402) -- PARTIAL
+### Phase 21: WASM Deployment (FJ-2402) -- IMPLEMENTED
 - [x] WASM types: `WasmOptLevel`, `WasmBuildConfig`, `WasmSizeBudget`, `WasmBuildResult`
 - [x] CDN deploy targets: `CdnTarget` (S3/Cloudflare/Local) with Display
 - [x] Cache policies: `CachePolicy::defaults()` per extension

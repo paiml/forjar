@@ -216,7 +216,7 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 
 ## Implementation
 
-### Phase 17: Security Model (FJ-2300) -- PARTIAL
+### Phase 17: Security Model (FJ-2300) -- IMPLEMENTED
 - [x] Machine-level `allowed_operators` field on Machine struct
 - [x] `is_operator_allowed()` authorization check (empty = no restriction, backward compatible)
 - [x] Known field detection and JSON Schema updated for `allowed_operators`
