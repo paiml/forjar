@@ -337,6 +337,49 @@ For sandbox-built images, `export_overlay_upper()` converts overlayfs upper dire
 2. Create layer tarball from upper directory
 3. Compute DiffID (sha256 of uncompressed layer)
 
+### Registry Push (OCI Distribution v1.1)
+
+`forjar build --push` pushes images to OCI-compliant registries:
+
+```bash
+forjar build -f app.yaml --resource my-image --push
+```
+
+The push protocol follows OCI Distribution Spec v1.1:
+
+1. **HEAD check** — `HEAD /v2/{name}/blobs/{digest}` to skip existing blobs
+2. **Blob upload** — `POST /v2/{name}/blobs/uploads/` → `PUT ?digest=`
+3. **Manifest push** — `PUT /v2/{name}/manifests/{tag}`
+
+`--check-existing` (enabled by default) skips blobs that already exist
+in the registry, making incremental pushes fast.
+
+## Convergence Testing
+
+Convergence verification runs in isolated sandboxes:
+
+```bash
+forjar test convergence config.yaml
+forjar test convergence config.yaml --pairs    # preservation matrix
+forjar test convergence config.yaml --parallel 4
+```
+
+The 6-step convergence cycle: generate scripts → apply → verify state →
+re-apply → verify idempotency → verify preservation.
+
+## Infrastructure Mutation Testing
+
+Mutate target system state to verify drift detection:
+
+```bash
+forjar test mutate config.yaml --sandbox pepita
+forjar test mutate config.yaml --mutations 50
+```
+
+8 mutation operators: delete file, modify content, change permissions,
+stop service, remove package, kill process, unmount filesystem,
+corrupt config. Parallel sandbox execution for throughput.
+
 ## Key Invariants
 
 - **I8**: All shell scripts validated via bashrs before execution

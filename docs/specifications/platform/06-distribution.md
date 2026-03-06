@@ -201,9 +201,9 @@ forjar query --type image --drift                  # stale deployments
 - [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors
 - [x] Build report: `BuildReport`, `LayerReport`, `DistResult` with `format_summary()`
 - [x] `--load`: pipe OCI tar to `docker load` / `podman load`
-- [ ] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT)
+- [x] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT)
 - [x] `--far`: wrap OCI image in FAR archive
-- [ ] `--check-existing`: blob existence check
+- [x] `--check-existing`: blob existence check
 - [x] Multi-arch: build matrix → OCI Image Index
 - **Deliverable**: `forjar build --push` to registry
 
