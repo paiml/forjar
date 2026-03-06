@@ -154,3 +154,44 @@ fn cmd_build_image_resource() {
     let r = cmd_build(&path, "my-img", false, false, false, false);
     assert!(r.is_ok(), "got error: {:?}", r);
 }
+
+#[test]
+fn cmd_build_with_far_flag() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    version: \"2.0\"\n    path: /app/bin\n").unwrap();
+    let r = cmd_build(&path, "img", false, false, true, false);
+    assert!(r.is_ok(), "far flag should succeed: {:?}", r);
+}
+
+#[test]
+fn cmd_build_with_push_flag() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: registry.io/myapp\n    version: \"1.0\"\n    path: /app/bin\n").unwrap();
+    let r = cmd_build(&path, "img", false, true, false, false);
+    assert!(r.is_ok(), "push flag should succeed: {:?}", r);
+}
+
+#[test]
+fn cmd_build_push_with_local_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    path: /app/bin\n").unwrap();
+    // No version → defaults to "latest", no slash in name → docker.io default
+    let r = cmd_build(&path, "img", false, true, false, false);
+    assert!(r.is_ok(), "push with local name: {:?}", r);
+}
+
+#[test]
+fn cmd_build_with_load_flag_no_runtime() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    path: /app/bin\n").unwrap();
+    // --load requires docker or podman; may or may not be available in test env
+    let r = cmd_build(&path, "img", true, false, false, false);
+    // Either succeeds (docker/podman found) or errors with known message
+    if r.is_err() {
+        assert!(r.as_ref().unwrap_err().contains("docker or podman"), "got: {:?}", r);
+    }
+}
