@@ -30,13 +30,49 @@ pub fn check_script(resource: &Resource) -> String {
     "echo 'task=pending'".to_string()
 }
 
+/// Generate pipeline script with inter-stage gate enforcement.
+///
+/// Each stage runs sequentially. If a gate stage fails (non-zero exit),
+/// the pipeline aborts immediately. Non-gate stages log failure but continue.
+fn pipeline_script(resource: &Resource) -> String {
+    let mut script = String::from("set -euo pipefail\n");
+    if let Some(ref dir) = resource.working_dir {
+        script.push_str(&format!("cd '{dir}'\n"));
+    }
+    script.push_str("FORJAR_PIPELINE_OK=0\n");
+    for (i, stage) in resource.stages.iter().enumerate() {
+        let cmd = stage.command.as_deref().unwrap_or("true");
+        let name = if stage.name.is_empty() {
+            format!("stage-{i}")
+        } else {
+            stage.name.clone()
+        };
+        script.push_str(&format!("echo '=== Stage: {name} ==='\n"));
+        if stage.gate {
+            // Gate stage: abort pipeline on failure
+            script.push_str(&format!(
+                "if ! bash -c '{cmd}'; then\n  echo 'GATE FAILED: {name}'\n  exit 1\nfi\n"
+            ));
+        } else {
+            script.push_str(&format!("{cmd}\n"));
+        }
+    }
+    script
+}
+
 /// Generate shell script to execute the task command.
 ///
 /// - Uses `set -euo pipefail` for strict error handling
 /// - Supports `working_dir` to cd before execution
 /// - Supports `timeout` for time-limited execution
+/// - FJ-2700: Pipeline mode generates sequential stages with gate enforcement
 /// - FJ-2704: Runs scatter before command, gather after command
 pub fn apply_script(resource: &Resource) -> String {
+    // FJ-2700: Pipeline tasks with stages get stage-aware script
+    if !resource.stages.is_empty() {
+        return pipeline_script(resource);
+    }
+
     let command = resource.command.as_deref().unwrap_or("true");
 
     let mut script = String::from("set -euo pipefail\n");
@@ -312,5 +348,90 @@ mod tests {
         let script = scatter_script(&r).unwrap();
         // Invalid mapping is skipped — no cp command generated
         assert!(!script.contains("cp"));
+    }
+
+    #[test]
+    fn test_pipeline_stages_basic() {
+        use crate::core::types::PipelineStage;
+        let mut r = make_task_resource("ignored");
+        r.stages = vec![
+            PipelineStage {
+                name: "lint".into(),
+                command: Some("cargo clippy".into()),
+                gate: false,
+                ..Default::default()
+            },
+            PipelineStage {
+                name: "test".into(),
+                command: Some("cargo test".into()),
+                gate: true,
+                ..Default::default()
+            },
+        ];
+        let script = apply_script(&r);
+        assert!(script.contains("=== Stage: lint ==="));
+        assert!(script.contains("=== Stage: test ==="));
+        assert!(script.contains("cargo clippy"));
+        assert!(script.contains("cargo test"));
+    }
+
+    #[test]
+    fn test_pipeline_gate_enforcement() {
+        use crate::core::types::PipelineStage;
+        let mut r = make_task_resource("ignored");
+        r.stages = vec![PipelineStage {
+            name: "qa-gate".into(),
+            command: Some("check_quality".into()),
+            gate: true,
+            ..Default::default()
+        }];
+        let script = apply_script(&r);
+        assert!(script.contains("GATE FAILED: qa-gate"));
+        assert!(script.contains("exit 1"));
+    }
+
+    #[test]
+    fn test_pipeline_non_gate_no_abort() {
+        use crate::core::types::PipelineStage;
+        let mut r = make_task_resource("ignored");
+        r.stages = vec![PipelineStage {
+            name: "optional".into(),
+            command: Some("echo optional".into()),
+            gate: false,
+            ..Default::default()
+        }];
+        let script = apply_script(&r);
+        assert!(script.contains("echo optional"));
+        assert!(!script.contains("GATE FAILED"));
+    }
+
+    #[test]
+    fn test_pipeline_with_working_dir() {
+        use crate::core::types::PipelineStage;
+        let mut r = make_task_resource("ignored");
+        r.working_dir = Some("/opt/ml".into());
+        r.stages = vec![PipelineStage {
+            name: "build".into(),
+            command: Some("make".into()),
+            gate: false,
+            ..Default::default()
+        }];
+        let script = apply_script(&r);
+        assert!(script.contains("cd '/opt/ml'"));
+    }
+
+    #[test]
+    fn test_pipeline_stages_override_command() {
+        use crate::core::types::PipelineStage;
+        let mut r = make_task_resource("this-is-ignored");
+        r.stages = vec![PipelineStage {
+            name: "s1".into(),
+            command: Some("echo stage1".into()),
+            ..Default::default()
+        }];
+        let script = apply_script(&r);
+        // When stages exist, the top-level command is ignored
+        assert!(!script.contains("this-is-ignored"));
+        assert!(script.contains("echo stage1"));
     }
 }

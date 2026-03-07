@@ -3,7 +3,7 @@
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
 > Updated: 2026-03-07 | 46/47 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. 12 spec exaggerations documented (E9-E20). E10+F33 fixed.
+> Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). E10+F33+F34 fixed.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -529,6 +529,14 @@ Spec 11-observability.md describes "structured log format" for run logs. Actual 
 
 ---
 
+### ~~F34: Pipeline stages lack gate enforcement~~ FIXED
+
+Spec 15-task-framework.md describes pipeline tasks with `gate: true` stages that abort the pipeline on failure. `apply_script()` generated the same flat script regardless of stages or gates. Pipeline tasks with stages were treated identically to batch tasks.
+
+**Fix**: Added `pipeline_script()` in `resources/task.rs`. When `resource.stages` is non-empty, generates sequential stage execution with gate enforcement — gate stages use `if ! bash -c '<cmd>'; then echo 'GATE FAILED'; exit 1; fi`. Non-gate stages run directly. 5 new tests cover gate enforcement, non-gate continuation, working_dir, and stage-overrides-command behavior.
+
+---
+
 ### E21: TaskMode does not affect script generation
 
 Spec 15-task-framework.md implies `task_mode` dispatch produces different scripts for different modes (batch/pipeline/service/dispatch). The `TaskMode` enum exists with all 4 variants, but `resources/task.rs` generates identical scripts regardless of mode. The mode is a type-level marker for scheduling/retry semantics, not script differentiation.
@@ -647,4 +655,5 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | 55 | Health check is state-based, not connectivity-based | E19 | DOCUMENTED |
 | 56 | Run log format is YAML+text, not structured JSON | E20 | DOCUMENTED |
 | ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |
-| 58 | TaskMode does not affect script generation | E21 | DOCUMENTED |
+| ~~58~~ | ~~Implement pipeline stage gate enforcement~~ | ~~F34~~ | DONE |
+| 59 | TaskMode batch/service/dispatch no script differentiation | E21 | DOCUMENTED |
