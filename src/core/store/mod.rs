@@ -28,6 +28,7 @@ pub mod kernel_far;
 pub mod layer_builder;
 pub mod lockfile;
 pub mod meta;
+pub mod mutation_container;
 pub mod mutation_runner;
 pub mod overlay_export;
 pub mod path;
