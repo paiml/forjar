@@ -104,10 +104,13 @@ pub(super) fn send_custom_template_notification(
         let rendered = template
             .replace("{{status}}", status)
             .replace("{{config}}", &config.display().to_string());
-        let _ = std::process::Command::new("bash")
+        if let Err(e) = std::process::Command::new("bash")
             .arg("-c")
             .arg(&rendered)
-            .output();
+            .output()
+        {
+            eprintln!("warning: custom notification script error: {e}");
+        }
     }
 }
 pub(super) fn send_custom_webhook_notification(
@@ -134,28 +137,30 @@ pub(super) fn send_custom_headers_notification(
     result: &Result<(), String>,
     config: &Path,
 ) {
-    if let Some(headers_str) = headers {
-        let status = if result.is_ok() { "success" } else { "failure" };
-        let payload = event_json(status, config);
-        // Parse "url|Header1:Value1|Header2:Value2" format
-        let parts: Vec<&str> = headers_str.splitn(2, '|').collect();
-        if !parts.is_empty() {
-            let url = parts[0];
-            let mut args = vec!["-s", "-X", "POST", "-H", "Content-Type: application/json"];
-            let header_parts: Vec<String> = if parts.len() > 1 {
-                parts[1].split('|').map(|h| h.to_string()).collect()
-            } else {
-                Vec::new()
-            };
-            for h in &header_parts {
-                args.push("-H");
-                args.push(h);
-            }
-            args.push("-d");
-            args.push(&payload);
-            args.push(url);
-            let _ = std::process::Command::new("curl").args(&args).output();
+    let Some(headers_str) = headers else { return };
+    let status = if result.is_ok() { "success" } else { "failure" };
+    let payload = event_json(status, config);
+    // Parse "url|Header1:Value1|Header2:Value2" format
+    let (url, extra_headers) = headers_str.split_once('|').unwrap_or((headers_str, ""));
+    let mut args = vec!["-sf", "-X", "POST", "-H", "Content-Type: application/json"];
+    let header_parts: Vec<String> = extra_headers
+        .split('|')
+        .filter(|h| !h.is_empty())
+        .map(|h| h.to_string())
+        .collect();
+    for h in &header_parts {
+        args.push("-H");
+        args.push(h);
+    }
+    args.push("-d");
+    args.push(&payload);
+    args.push(url);
+    match std::process::Command::new("curl").args(&args).output() {
+        Ok(o) if !o.status.success() => {
+            eprintln!("warning: custom webhook failed (exit {})", o.status.code().unwrap_or(-1));
         }
+        Err(e) => eprintln!("warning: custom webhook error: {e}"),
+        _ => {}
     }
 }
 pub(super) fn send_custom_json_notification(
@@ -248,54 +253,42 @@ pub(super) fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
             .output();
     }
 }
+/// Best-effort external command — log errors, don't abort.
+fn try_notify(bin: &str, args: &[&str]) {
+    if let Err(e) = std::process::Command::new(bin).args(args).output() {
+        eprintln!("warning: {bin} notification error: {e}");
+    }
+}
+
 pub(super) fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(topic) = opts.kafka {
         publish_stdin("kcat", &["-P", "-t", topic], msg);
     }
     if let Some(queue) = opts.rabbitmq {
-        let _ = std::process::Command::new("rabbitmqadmin")
-            .args([
-                "publish",
-                "routing_key=forjar",
-                &format!("exchange={queue}"),
-                &format!("payload={msg}"),
-            ])
-            .output();
+        let exchange = format!("exchange={queue}");
+        let payload = format!("payload={msg}");
+        try_notify("rabbitmqadmin", &["publish", "routing_key=forjar", &exchange, &payload]);
     }
     if let Some(subj) = opts.nats {
-        let _ = std::process::Command::new("nats")
-            .args(["pub", subj, msg])
-            .output();
+        try_notify("nats", &["pub", subj, msg]);
     }
     if let Some(topic) = opts.mqtt {
-        let _ = std::process::Command::new("mosquitto_pub")
-            .args(["-t", topic, "-m", msg])
-            .output();
+        try_notify("mosquitto_pub", &["-t", topic, "-m", msg]);
     }
     if let Some(ch) = opts.redis {
-        let _ = std::process::Command::new("redis-cli")
-            .args(["PUBLISH", ch, msg])
-            .output();
+        try_notify("redis-cli", &["PUBLISH", ch, msg]);
     }
     if let Some(ex) = opts.amqp {
-        let _ = std::process::Command::new("amqp-publish")
-            .args(["--exchange", ex, "--body", msg])
-            .output();
+        try_notify("amqp-publish", &["--exchange", ex, "--body", msg]);
     }
     if let Some(dest) = opts.stomp {
-        let _ = std::process::Command::new("stomp-send")
-            .args(["-d", dest, "-m", msg])
-            .output();
+        try_notify("stomp-send", &["-d", dest, "-m", msg]);
     }
     if let Some(ep) = opts.zeromq {
-        let _ = std::process::Command::new("zmq-send")
-            .args(["--endpoint", ep, "--message", msg])
-            .output();
+        try_notify("zmq-send", &["--endpoint", ep, "--message", msg]);
     }
     if let Some(ep) = opts.grpc {
-        let _ = std::process::Command::new("grpcurl")
-            .args(["--plaintext", ep, "--data", msg])
-            .output();
+        try_notify("grpcurl", &["--plaintext", ep, "--data", msg]);
     }
 }
 pub(super) fn send_custom_filter_notification(

@@ -50,12 +50,12 @@ pub(super) fn run_pre_script(script: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Send a webhook notification (fire-and-forget).
+/// Send a webhook notification (best-effort, log errors).
 pub(super) fn send_webhook_before(url: &str, file: &Path) {
     let payload = format!(r#"{{"event":"apply_start","config":"{}"}}"#, file.display());
-    let _ = std::process::Command::new("curl")
+    match std::process::Command::new("curl")
         .args([
-            "-s",
+            "-sf",
             "-X",
             "POST",
             "-H",
@@ -64,7 +64,14 @@ pub(super) fn send_webhook_before(url: &str, file: &Path) {
             &payload,
             url,
         ])
-        .output();
+        .output()
+    {
+        Ok(o) if !o.status.success() => {
+            eprintln!("warning: pre-apply webhook failed (exit {})", o.status.code().unwrap_or(-1));
+        }
+        Err(e) => eprintln!("warning: pre-apply webhook error: {e}"),
+        _ => {}
+    }
 }
 
 /// Run post-flight script (warn on failure, don't abort).
