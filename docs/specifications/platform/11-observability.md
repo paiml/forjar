@@ -494,7 +494,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 
 ## Implementation
 
-### Phase 18: Observability (FJ-2301) -- IMPLEMENTED
+### Phase 18: Observability (FJ-2301) -- PARTIAL (types complete, cmd_logs runtime is stub)
 - [x] Run log types: `RunMeta`, `RunLogEntry`, `ResourceRunStatus`, `RunSummary`
 - [x] Structured log format: delimited sections (SCRIPT, STDOUT, STDERR, RESULT)
 - [x] `generate_run_id()` for unique run identifiers
@@ -502,15 +502,15 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] Retention policy types: `LogRetention` with keep_runs, keep_failed, max_log_size, max_total_size
 - [x] Run log directory: `RunLogPath` path builder for `state/<machine>/runs/<run_id>/`
 - [x] Capture wrapper: `capture_exec_output()` persists ExecOutput to `.log` files in `state/<machine>/runs/<run_id>/` with structured STDOUT/STDERR/RESULT sections
-- [x] `forjar logs` command: `LogFilter` with machine, run, resource, failure, follow, since
-- [x] `forjar logs --follow` for live streaming during apply
+- [x] `forjar logs` command: `LogFilter` with machine, run, resource, failure, follow, since (type exists; CLI accepts `--machine`, `--run`, `--failures`, `--follow`, `--gc`, `--json`)
+- [x] `forjar logs --follow` stub: prints waiting message but does not stream live output
 - [x] Truncation: `LogTruncation` first N + last N bytes for oversized logs
-- [x] `forjar logs --gc`: `LogGcResult` with runs_removed, bytes_freed, mb_freed()
+- [x] `forjar logs --gc` stub: `LogGcResult` types exist; CLI prints message but does not delete files
 - [x] `run_logs` table + FTS5 in state.db for searchable failure history
 - [x] Image build logs: `LayerBuildLog` (per-layer capture), `ImageBuildLog` (collection with `all_succeeded()`, `cached_count()`, `total_log_bytes()`)
 - [x] Log level flags: `-v`, `-vv`, `-vvv`, `--quiet`
 - [x] `-vvv` streams raw output: `VerbosityLevel` enum with `from_count()`, `streams_raw()`
-- [x] `--json` structured output: `StructuredLogOutput` with `log_path` for CI artifact upload
+- [x] `--json` structured output: JSON emitted for all modes (default, gc, follow); content is placeholder (empty logs array)
 - [x] Exit codes: 0/1/2/3/4/10
 - [x] Progress bars: `ProgressConfig` with show_progress, update_interval_ms
 - [x] Doctor diagnostic types: `DoctorReport`, `SystemInfo`, `MachineHealth`, `ToolCheck`, `DoctorIssue`
@@ -518,4 +518,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] `IssueSeverity` enum: `Error`, `Warning`, `Info`
 - [x] `DoctorReport::is_healthy()`, `issue_counts()`, `format_summary()`
 - [x] `forjar doctor` CLI command wiring
-- **Deliverable**: Every script execution is captured to disk; `forjar logs --failed` shows full context for debugging; CI can upload `log_path` artifacts on failure
+- **Deliverable**: Types and CLI flags complete; `forjar doctor` fully functional. `forjar logs` CLI is stub-only — does not read log files from disk, does not populate JSON with real data.
+- **Remaining**: `cmd_logs` needs to read `state/<machine>/runs/` directories, parse log files, and populate real data. Missing CLI flags: `--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`.
+
+> **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.
