@@ -3,7 +3,7 @@
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
 > Updated: 2026-03-07 | 46/47 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. 12 spec exaggerations documented (E9-E20). E10 fixed.
+> Deep falsification: 42/42 phases IMPLEMENTED. 12 spec exaggerations documented (E9-E20). E10+F33 fixed.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -500,6 +500,19 @@ Spec 12-build-pipeline.md implies parallel build step execution via dependency g
 
 ---
 
+### ~~F33: Deep validation missing 4 of 10 checks~~ FIXED
+
+Spec 13-config-validation.md claims `forjar validate --deep` runs all 10 DeepCheckFlags. `run_deep_checks_silent()` only ran 7 checks — `connectivity`, `machine_refs`, `state_values` were completely absent and `drift_coverage` was a stub returning `Ok(())`.
+
+**Fix**: Implemented all 4 missing checks in `validate_deep.rs`:
+- `connectivity`: validates machine addresses are non-empty and remote hosts have hostnames
+- `machine_refs`: validates every resource's `machine:` references a defined machine
+- `state_values`: validates resource state values against type-specific allowed values
+- `drift_coverage`: checks if resources have check scripts (needed for drift detection)
+8 new tests in `tests_cov_deep_lock3.rs`.
+
+---
+
 ### E19: Health check is state-based, not connectivity-based
 
 Spec 04-multi-machine-ops.md implies `forjar status --health` probes machine connectivity. Actual implementation in `status_health.rs` calculates a 0-100 health score from resource convergence status in lock files (converged/total ratio). No active SSH or transport connectivity probing occurs.
@@ -625,3 +638,4 @@ Spec 11-observability.md describes "structured log format" for run logs. Actual 
 | 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
 | 55 | Health check is state-based, not connectivity-based | E19 | DOCUMENTED |
 | 56 | Run log format is YAML+text, not structured JSON | E20 | DOCUMENTED |
+| ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |

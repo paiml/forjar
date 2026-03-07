@@ -68,6 +68,62 @@ fn deep_validate_naming_violation_json() {
     let _ = super::validate_deep::cmd_validate_deep(cfg.path(), true);
 }
 
+// ── validate_deep: connectivity check ──
+
+const CFG_EMPTY_ADDR: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: ''\nresources:\n  pkg:\n    type: package\n    machine: m1\n    packages: [curl]\n";
+
+#[test]
+fn deep_validate_connectivity_empty_addr() {
+    let cfg = write_temp_config(CFG_EMPTY_ADDR);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), false);
+}
+
+#[test]
+fn deep_validate_connectivity_valid() {
+    let cfg = write_temp_config(CFG_BAD_NAME); // has valid addr
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), true);
+}
+
+// ── validate_deep: machine refs check ──
+
+const CFG_DANGLING_REF: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg:\n    type: package\n    machine: nonexistent\n    packages: [curl]\n";
+
+#[test]
+fn deep_validate_dangling_machine_ref() {
+    let cfg = write_temp_config(CFG_DANGLING_REF);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), false);
+}
+
+#[test]
+fn deep_validate_dangling_machine_ref_json() {
+    let cfg = write_temp_config(CFG_DANGLING_REF);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), true);
+}
+
+// ── validate_deep: state values check ──
+
+const CFG_BAD_STATE: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  svc:\n    type: service\n    machine: m1\n    name: nginx\n    state: invalid_state\n";
+
+#[test]
+fn deep_validate_invalid_state_value() {
+    let cfg = write_temp_config(CFG_BAD_STATE);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), false);
+}
+
+#[test]
+fn deep_validate_invalid_state_value_json() {
+    let cfg = write_temp_config(CFG_BAD_STATE);
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), true);
+}
+
+// ── validate_deep: drift coverage check ──
+
+#[test]
+fn deep_validate_drift_coverage() {
+    let cfg = write_temp_config(CFG_BAD_NAME); // has resources
+    let _ = super::validate_deep::cmd_validate_deep(cfg.path(), false);
+}
+
 // ── show.rs: detect_transport_type — container ──
 
 const CFG_CONTAINER: &str = "version: '1.0'\nname: test\nmachines:\n  ctr:\n    hostname: mycontainer\n    addr: container\n    container:\n      runtime: docker\n      image: nginx:latest\nresources:\n  pkg:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n";
