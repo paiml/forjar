@@ -4,12 +4,21 @@ use super::commands::*;
 use super::dispatch_misc::dispatch_misc_cmd;
 use std::path::PathBuf;
 
+fn contracts_config() -> tempfile::NamedTempFile {
+    let mut f = tempfile::NamedTempFile::new().unwrap();
+    use std::io::Write;
+    f.write_all(b"version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  p:\n    type: package\n    machine: m\n    provider: apt\n    packages: [curl]\n").unwrap();
+    f.flush().unwrap();
+    f
+}
+
 #[test]
 fn dispatch_contracts_coverage_routes() {
+    let f = contracts_config();
     let result = dispatch_misc_cmd(
         Commands::Contracts(ContractsArgs {
             coverage: true,
-            file: PathBuf::from("forjar.yaml"),
+            file: f.path().to_path_buf(),
             json: false,
         }),
         false,
@@ -19,10 +28,11 @@ fn dispatch_contracts_coverage_routes() {
 
 #[test]
 fn dispatch_contracts_json_routes() {
+    let f = contracts_config();
     let result = dispatch_misc_cmd(
         Commands::Contracts(ContractsArgs {
             coverage: true,
-            file: PathBuf::from("forjar.yaml"),
+            file: f.path().to_path_buf(),
             json: true,
         }),
         false,
@@ -32,10 +42,11 @@ fn dispatch_contracts_json_routes() {
 
 #[test]
 fn dispatch_contracts_no_flag_still_works() {
+    let f = contracts_config();
     let result = dispatch_misc_cmd(
         Commands::Contracts(ContractsArgs {
             coverage: false,
-            file: PathBuf::from("forjar.yaml"),
+            file: f.path().to_path_buf(),
             json: false,
         }),
         false,

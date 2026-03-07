@@ -15,6 +15,7 @@ mod check_test_runners;
 mod checkpoint;
 pub mod commands;
 mod complexity_analysis;
+mod contracts;
 mod config_merge;
 mod cost_estimate;
 mod cross_machine_deps;

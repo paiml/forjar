@@ -43,32 +43,73 @@ fn sample_fts() -> Vec<FtsResult> {
     }]
 }
 
-// ── cmd_contracts ──
+// ── cmd_contracts (now in contracts.rs) ──
+
+fn write_contracts_config() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("forjar.yaml"), CONTRACTS_YAML).unwrap();
+    dir
+}
+
+const CONTRACTS_YAML: &str = r#"
+version: "1.0"
+name: contracts-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  web-pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [nginx]
+  web-svc:
+    type: service
+    machine: m
+    name: nginx
+    depends_on: [web-pkg]
+"#;
 
 #[test]
-fn contracts_coverage_text() {
-    let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("f.yaml");
-    std::fs::write(&file, "").unwrap();
-    let r = cmd_contracts(true, &file, false);
+fn contracts_coverage_text_real() {
+    let dir = write_contracts_config();
+    let file = dir.path().join("forjar.yaml");
+    let r = super::contracts::cmd_contracts(true, &file, false);
     assert!(r.is_ok());
 }
 
 #[test]
-fn contracts_coverage_json() {
-    let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("f.yaml");
-    std::fs::write(&file, "").unwrap();
-    let r = cmd_contracts(true, &file, true);
+fn contracts_coverage_json_real() {
+    let dir = write_contracts_config();
+    let file = dir.path().join("forjar.yaml");
+    let r = super::contracts::cmd_contracts(true, &file, true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn contracts_no_coverage_flag_still_works() {
+    let dir = write_contracts_config();
+    let file = dir.path().join("forjar.yaml");
+    let r = super::contracts::cmd_contracts(false, &file, false);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn contracts_empty_config() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("f.yaml");
     std::fs::write(&file, "").unwrap();
-    let r = cmd_contracts(false, &file, false);
+    let r = super::contracts::cmd_contracts(true, &file, false);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn contracts_json_empty_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("f.yaml");
+    std::fs::write(&file, "").unwrap();
+    let r = super::contracts::cmd_contracts(true, &file, true);
     assert!(r.is_ok());
 }
 

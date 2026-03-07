@@ -60,7 +60,7 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             coverage,
             file,
             json,
-        }) => cmd_contracts(coverage, &file, json),
+        }) => super::contracts::cmd_contracts(coverage, &file, json),
         Commands::Build(BuildArgs {
             file,
             resource,
@@ -217,36 +217,7 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
     }
 }
 
-/// FJ-2200: Contract coverage report.
-pub(crate) fn cmd_contracts(
-    _coverage: bool,
-    _file: &std::path::Path,
-    json: bool,
-) -> Result<(), String> {
-    let levels = [
-        ("Level 5 (structural)", 1u32),
-        ("Level 4 (proved)", 3),
-        ("Level 3 (bounded)", 8),
-        ("Level 2 (runtime)", 14),
-        ("Level 1 (labeled)", 10),
-        ("Level 0 (unlabeled)", 6),
-    ];
-    let total: u32 = levels.iter().map(|(_, n)| n).sum();
-    if json {
-        let entries: Vec<String> = levels
-            .iter()
-            .map(|(k, v)| format!("  \"{k}\": {v}"))
-            .collect();
-        println!("{{\n  \"total\": {total},\n{}\n}}", entries.join(",\n"));
-    } else {
-        println!("Contract Coverage Report\n========================");
-        println!("Total functions on critical path: {total}");
-        for (label, count) in &levels {
-            println!("  {label:30} {count:>3}");
-        }
-    }
-    Ok(())
-}
+// cmd_contracts moved to contracts.rs (FJ-2200 real implementation)
 
 /// Check if a container runtime binary is available on PATH.
 pub(crate) fn which_runtime(name: &str) -> bool {
