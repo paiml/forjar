@@ -2,8 +2,9 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 46/47 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30), log retention policy wiring (F31), behavior verify assertions (F32), coverage report L0-L2 only (E9).
+> Updated: 2026-03-07 | 46/47 code fixes resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. 10 spec exaggerations documented (E9-E18).
+> Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
 
@@ -427,6 +428,78 @@ Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (converg
 
 ---
 
+### E10: Golden hash test lacks hardcoded expected value
+
+Spec 03-idempotency-drift.md describes a "golden hash test" — a checked-in test with a fixed Resource and its expected `hash_desired_state` output that fails if field ordering changes. Tests exist (`planner/tests_hash.rs`) verifying determinism and field sensitivity, but no test contains a **hardcoded expected hash constant**. Tests only verify relative stability (same input → same output), not absolute stability against a known value.
+
+**Status**: DOCUMENTED — Hash determinism tests are functionally correct. Adding a pinned hash constant would detect serialization ordering changes across Rust versions.
+
+---
+
+### E11: WasmBundle handler delegates entirely to file handler
+
+Spec 05-container-builds.md describes `type: wasm_module` resources. The `WasmBundle` enum variant exists (`resource.rs:433`) and dispatches through codegen, but routes entirely to `resources::file::*` handlers. No WASM-specific validation, building, optimization, or deployment logic exists. Treated identically to a regular file resource.
+
+**Status**: DOCUMENTED — Type exists with correct dispatch wiring. WASM-specific build logic is a future feature.
+
+---
+
+### E12: Multi-arch image builds not implemented
+
+Spec 05-container-builds.md claims `forjar build --platform linux/arm64,linux/amd64` generates multi-arch OCI images. No `--platform` flag exists. Image assembly is hardcoded to `linux/amd64` (`image_assembler.rs:82`). Zero cross-architecture or manifest list logic exists.
+
+**Status**: DOCUMENTED — Single-arch image builds work correctly. Multi-arch is a future feature.
+
+---
+
+### E13: Layer splitting is manual, not automatic
+
+Spec 05-container-builds.md describes an automatic "Layer Assignment Algorithm" that groups resources by type (package/config/app layers). The code supports multiple layers (`image_assembler.rs:54-56`) but expects pre-grouped `plan.layers` from the image resource definition. No automatic splitting by resource type or "popularity sort" algorithm exists.
+
+**Status**: DOCUMENTED — Multi-layer support works. Automatic splitting requires upstream plan generation.
+
+---
+
+### E14: Chunked/resumable uploads not implemented
+
+Spec 06-distribution.md claims OCI Distribution Spec chunked blob upload (PATCH with Content-Range) for layers over 1GB. `registry_push.rs` uses monolithic PUT (`--data-binary`) for all blob uploads. No PATCH requests, Content-Range headers, or size threshold logic exists.
+
+**Status**: DOCUMENTED — Monolithic push works for typical layer sizes. Chunked upload is needed for >1GB layers.
+
+---
+
+### E15: Image drift detection is pseudocode only
+
+Spec 06-distribution.md describes `forjar drift --image` comparing registry manifests against local state. No `--image` flag exists in the drift CLI. No manifest comparison logic exists. Spec acknowledges this depends on container build pipeline completion (Phases 8-10).
+
+**Status**: DOCUMENTED — Resource-level drift detection works. Image drift requires registry integration.
+
+---
+
+### E16: Build cache does not apply to image layer construction
+
+Spec 12-build-pipeline.md implies build caching for image construction. Cache system exists for store derivations (`cache.rs`), but `forjar build` calls `assemble_image()` directly with no cache lookup. Layer builder rebuilds deterministically every time.
+
+**Status**: DOCUMENTED — Derivation cache works. Image layer caching is a future optimization.
+
+---
+
+### E17: BuildMetrics not collected during image builds
+
+Spec 12-build-pipeline.md shows `BuildMetrics` collection during builds. The type exists with comprehensive tests (`build_metrics.rs`), but `BuildMetrics::current()` only collects forjar binary compile-time metadata (CARGO_PKG_VERSION, arch, Rust version). Not populated during `forjar build` image construction.
+
+**Status**: DOCUMENTED — Binary self-metrics work. Image build metrics collection is a future feature.
+
+---
+
+### E18: Image build pipeline is sequential (no concurrent build graph)
+
+Spec 12-build-pipeline.md implies parallel build step execution via dependency graph. Parallel execution exists for convergence/mutation testing, but `forjar build` is entirely sequential: `collect_layer_entries()` → `assemble_image()` → loop over layers. No layer dependency graph or concurrent layer building.
+
+**Status**: DOCUMENTED — Sequential image builds are correct. Parallel layer building is a future optimization.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -519,3 +592,12 @@ Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (converg
 | ~~43~~ | ~~Wire `LogRetention` into `Policy` struct~~ | ~~F31~~ | DONE |
 | ~~44~~ | ~~Implement `file_content` and `port_open` behavior verify assertions~~ | ~~F32~~ | DONE |
 | 45 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
+| 46 | Golden hash test lacks pinned expected value | E10 | DOCUMENTED |
+| 47 | WasmBundle handler delegates to file handler (no WASM-specific logic) | E11 | DOCUMENTED |
+| 48 | Multi-arch image builds not implemented (hardcoded linux/amd64) | E12 | DOCUMENTED |
+| 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
+| 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
+| 51 | Image drift detection is pseudocode only (no --image flag) | E15 | DOCUMENTED |
+| 52 | Build cache does not apply to image layer construction | E16 | DOCUMENTED |
+| 53 | BuildMetrics not collected during image builds | E17 | DOCUMENTED |
+| 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
