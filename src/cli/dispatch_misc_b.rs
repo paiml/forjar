@@ -212,28 +212,64 @@ pub(crate) fn which_runtime(name: &str) -> bool {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_logs(
     state_dir: &std::path::Path, machine: Option<&str>, run: Option<&str>,
-    failures: bool, follow: bool, gc: bool, _json: bool,
+    failures: bool, follow: bool, gc: bool, json: bool,
 ) -> Result<(), String> {
     if gc {
-        println!("Log garbage collection: scanning {}", state_dir.display());
-        println!("  (no logs to clean — state directory is empty or has no runs/)");
-        return Ok(());
+        return cmd_logs_gc(state_dir, json);
     }
     if follow {
-        println!("Follow mode: watching {} for new log entries...", state_dir.display());
-        println!("  (attach to a running `forjar apply` to stream live output)");
-        println!("  Press Ctrl+C to stop.");
-        return Ok(());
+        return cmd_logs_follow(state_dir, json);
     }
     let filter_desc = [
         machine.map(|m| format!("machine={m}")),
         run.map(|r| format!("run={r}")),
         failures.then(|| "failures-only".into()),
     ].into_iter().flatten().collect::<Vec<_>>().join(", ");
-    let filter_str = if filter_desc.is_empty() { "all".into() } else { filter_desc };
-    println!("Logs (filter: {filter_str}):");
-    println!("  state_dir: {}", state_dir.display());
-    println!("  (no run logs found — apply has not been executed with logging enabled)");
+    let filter_str = if filter_desc.is_empty() { "all".to_string() } else { filter_desc };
+    if json {
+        let output = serde_json::json!({
+            "logs": [],
+            "filter": filter_str,
+            "state_dir": state_dir.display().to_string(),
+            "message": "no run logs found"
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        println!("Logs (filter: {filter_str}):");
+        println!("  state_dir: {}", state_dir.display());
+        println!("  (no run logs found — apply has not been executed with logging enabled)");
+    }
+    Ok(())
+}
+
+fn cmd_logs_gc(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    if json {
+        let output = serde_json::json!({
+            "action": "gc",
+            "state_dir": state_dir.display().to_string(),
+            "cleaned": 0
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        println!("Log garbage collection: scanning {}", state_dir.display());
+        println!("  (no logs to clean — state directory is empty or has no runs/)");
+    }
+    Ok(())
+}
+
+fn cmd_logs_follow(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    if json {
+        let output = serde_json::json!({
+            "action": "follow",
+            "state_dir": state_dir.display().to_string(),
+            "status": "waiting"
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        println!("Follow mode: watching {} for new log entries...", state_dir.display());
+        println!("  (attach to a running `forjar apply` to stream live output)");
+        println!("  Press Ctrl+C to stop.");
+    }
     Ok(())
 }
 

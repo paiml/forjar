@@ -35,10 +35,16 @@ pub fn check_script(resource: &Resource) -> String {
 /// - Uses `set -euo pipefail` for strict error handling
 /// - Supports `working_dir` to cd before execution
 /// - Supports `timeout` for time-limited execution
+/// - FJ-2704: Runs scatter before command, gather after command
 pub fn apply_script(resource: &Resource) -> String {
     let command = resource.command.as_deref().unwrap_or("true");
 
     let mut script = String::from("set -euo pipefail\n");
+
+    // FJ-2704: Scatter artifacts to remote paths before execution
+    if let Some(scatter) = scatter_script(resource) {
+        script.push_str(&scatter);
+    }
 
     // Change to working directory if specified
     if let Some(ref dir) = resource.working_dir {
@@ -55,6 +61,11 @@ pub fn apply_script(resource: &Resource) -> String {
     } else {
         script.push_str(command);
         script.push('\n');
+    }
+
+    // FJ-2704: Gather artifacts from remote paths after execution
+    if let Some(gather) = gather_script(resource) {
+        script.push_str(&gather);
     }
 
     script
@@ -260,6 +271,38 @@ mod tests {
         let script = gather_script(&r).unwrap();
         assert!(script.contains("cp -r '/remote/model.bin' '/local/model.bin'"));
         assert!(script.contains("# FJ-2704: gather artifacts"));
+    }
+
+    #[test]
+    fn test_apply_with_scatter_and_gather() {
+        let mut r = make_task_resource("python train.py");
+        r.scatter = vec!["/data/input.csv:/remote/input.csv".to_string()];
+        r.gather = vec!["/remote/model.bin:/local/model.bin".to_string()];
+        let script = apply_script(&r);
+        // Scatter runs before command
+        let scatter_pos = script.find("scatter artifacts").unwrap();
+        let cmd_pos = script.find("python train.py").unwrap();
+        let gather_pos = script.find("gather artifacts").unwrap();
+        assert!(scatter_pos < cmd_pos, "scatter must run before command");
+        assert!(cmd_pos < gather_pos, "gather must run after command");
+    }
+
+    #[test]
+    fn test_apply_scatter_only() {
+        let mut r = make_task_resource("train");
+        r.scatter = vec!["/a:/b".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("scatter artifacts"));
+        assert!(!script.contains("gather artifacts"));
+    }
+
+    #[test]
+    fn test_apply_gather_only() {
+        let mut r = make_task_resource("train");
+        r.gather = vec!["/a:/b".to_string()];
+        let script = apply_script(&r);
+        assert!(!script.contains("scatter artifacts"));
+        assert!(script.contains("gather artifacts"));
     }
 
     #[test]

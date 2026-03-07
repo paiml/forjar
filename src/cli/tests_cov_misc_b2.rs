@@ -115,6 +115,36 @@ fn logs_failures_only() {
     assert!(r.is_ok());
 }
 
+// ── cmd_logs JSON mode ──
+
+#[test]
+fn logs_json_default() {
+    let dir = tempfile::tempdir().unwrap();
+    let r = cmd_logs(dir.path(), None, None, false, false, false, true);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn logs_json_gc() {
+    let dir = tempfile::tempdir().unwrap();
+    let r = cmd_logs(dir.path(), None, None, false, false, true, true);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn logs_json_follow() {
+    let dir = tempfile::tempdir().unwrap();
+    let r = cmd_logs(dir.path(), None, None, false, true, false, true);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn logs_json_with_filters() {
+    let dir = tempfile::tempdir().unwrap();
+    let r = cmd_logs(dir.path(), Some("web1"), Some("run-001"), true, false, false, true);
+    assert!(r.is_ok());
+}
+
 // ── cmd_oci_pack ──
 
 #[test]
