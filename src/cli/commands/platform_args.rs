@@ -319,6 +319,10 @@ pub struct BuildArgs {
     #[arg(long)]
     pub far: bool,
 
+    /// Build inside container sandbox (Docker/Podman)
+    #[arg(long)]
+    pub sandbox: bool,
+
     /// JSON output
     #[arg(long)]
     pub json: bool,

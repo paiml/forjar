@@ -67,8 +67,9 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             load,
             push,
             far,
+            sandbox,
             json,
-        }) => super::build_image::cmd_build(&file, &resource, load, push, far, json),
+        }) => super::build_image::cmd_build(&file, &resource, load, push, far, sandbox, json),
         Commands::Logs(LogsArgs {
             state_dir,
             machine,
@@ -247,8 +248,6 @@ pub(crate) fn cmd_contracts(
     Ok(())
 }
 
-// FJ-2104: Build command delegated to build_image module.
-
 /// Check if a container runtime binary is available on PATH.
 pub(crate) fn which_runtime(name: &str) -> bool {
     std::process::Command::new("which")
@@ -258,8 +257,6 @@ pub(crate) fn which_runtime(name: &str) -> bool {
         .status()
         .is_ok_and(|s| s.success())
 }
-
-// FJ-2301: cmd_logs, cmd_logs_gc, cmd_logs_follow moved to cli/logs.rs
 
 /// FJ-2101: Pack a directory into an OCI image layout.
 pub(crate) fn cmd_oci_pack(
@@ -321,10 +318,10 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
         return cmd_query_health(&state_dir, json);
     }
     if drift && query.is_none() {
-        return cmd_query_drift(&state_dir, json);
+        return super::query_format::cmd_query_drift(&state_dir, json);
     }
     if churn && query.is_none() {
-        return cmd_query_churn(&state_dir, json);
+        return super::query_format::cmd_query_churn(&state_dir, json);
     }
     let needs_enrichment = history || timing || reversibility || git_history;
     let q = match query.as_deref() {
@@ -482,60 +479,4 @@ pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Resul
     Ok(())
 }
 
-/// FJ-2004: Show drifted resources.
-pub(crate) fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
-    use crate::core::store::ingest;
-    let conn = open_state_conn(state_dir)?;
-    let entries = ingest::query_drift(&conn)?;
-
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&entries).unwrap_or_default()
-        );
-    } else if entries.is_empty() {
-        println!("No drift detected");
-    } else {
-        println!(
-            " {:20} {:10} {:10} EXPECTED → ACTUAL",
-            "RESOURCE", "MACHINE", "TYPE"
-        );
-        for e in &entries {
-            println!(
-                " {:20} {:10} {:10} {} → {}",
-                e.resource_id,
-                e.machine,
-                e.resource_type,
-                &e.content_hash[..20.min(e.content_hash.len())],
-                &e.live_hash[..20.min(e.live_hash.len())]
-            );
-        }
-        println!("\n {} drifted resource(s)", entries.len());
-    }
-    Ok(())
-}
-
-/// FJ-2004: Show change frequency (churn).
-pub(crate) fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
-    use crate::core::store::ingest;
-    let conn = open_state_conn(state_dir)?;
-    let entries = ingest::query_churn(&conn)?;
-
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&entries).unwrap_or_default()
-        );
-    } else if entries.is_empty() {
-        println!("No churn data");
-    } else {
-        println!(" {:20} {:>8} {:>8}", "RESOURCE", "EVENTS", "RUNS");
-        for e in &entries {
-            println!(
-                " {:20} {:>8} {:>8}",
-                e.resource_id, e.event_count, e.distinct_runs
-            );
-        }
-    }
-    Ok(())
-}
+// cmd_query_drift and cmd_query_churn moved to query_format.rs

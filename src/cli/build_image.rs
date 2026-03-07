@@ -15,6 +15,7 @@ pub(crate) fn cmd_build(
     load: bool,
     push: bool,
     far: bool,
+    sandbox: bool,
     _json: bool,
 ) -> Result<(), String> {
     let config = super::helpers::parse_and_validate(file)?;
@@ -27,10 +28,14 @@ pub(crate) fn cmd_build(
     }
 
     let plan = build_plan_from_resource(resource, res, &config)?;
-    let layer_entries = collect_layer_entries(&plan, &config)?;
     let output_dir = std::path::Path::new("state/images").join(resource);
     std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
 
+    if sandbox {
+        return cmd_build_sandbox(resource, &plan, &config, &output_dir, load, push, far);
+    }
+
+    let layer_entries = collect_layer_entries(&plan, &config)?;
     let start = std::time::Instant::now();
     let result = crate::core::store::image_assembler::assemble_image(
         &plan,
@@ -72,6 +77,55 @@ pub(crate) fn cmd_build(
     }
     if push {
         cmd_build_push(res, &output_dir)?;
+    }
+    if far {
+        println!("\n--far: would wrap OCI layout in FAR archive");
+    }
+    Ok(())
+}
+
+/// FJ-2103: Build image inside container sandbox (Docker/Podman).
+#[allow(clippy::too_many_arguments)]
+fn cmd_build_sandbox(
+    resource: &str,
+    plan: &ImageBuildPlan,
+    config: &ForjarConfig,
+    output_dir: &std::path::Path,
+    load: bool,
+    push: bool,
+    far: bool,
+) -> Result<(), String> {
+    use crate::core::store::container_build;
+
+    // Generate apply scripts from non-image resources in the config
+    let apply_scripts: Vec<String> = config
+        .resources
+        .iter()
+        .filter(|(_, r)| !matches!(r.resource_type, crate::core::types::ResourceType::Image))
+        .filter_map(|(_, r)| {
+            let resolved =
+                crate::core::resolver::resolve_resource_templates(r, &config.params, &config.machines)
+                    .ok()?;
+            crate::core::codegen::apply_script(&resolved).ok()
+        })
+        .collect();
+
+    println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);
+    println!("  Scripts: {}", apply_scripts.len());
+
+    let result = container_build::build_image_in_container(plan, &apply_scripts, output_dir)?;
+
+    println!("  {}", container_build::format_container_build(&result));
+    println!("  Layout: {}", output_dir.display());
+
+    let res = config.resources.get(resource);
+    if load {
+        println!("\n--load: OCI layout ready at {}", output_dir.display());
+    }
+    if push {
+        if let Some(r) = res {
+            cmd_build_push(r, output_dir)?;
+        }
     }
     if far {
         println!("\n--far: would wrap OCI layout in FAR archive");

@@ -18,6 +18,15 @@
 //! - `proof_dag_ordering_bounded` — 3-node DAG determinism
 //! - `proof_handler_invariant_{file,package,...}` — per resource type hash stability
 //!
+//! ## Production Function Proofs (FJ-2201)
+//!
+//! These call REAL production functions with no abstract models:
+//! - `proof_mutation_grade_monotonic` — `MutationScore::grade()` monotonicity
+//! - `proof_mutation_grade_valid` — `grade()` returns only {A,B,C,F}
+//! - `proof_mutation_score_pct_bounded` — `score_pct()` in [0,100]
+//! - `proof_convergence_pass_rate_bounded` — `pass_rate()` in [0,100]
+//! - `proof_applicable_operators_valid` — operator applicability invariant
+//!
 //! ## Proof Assumptions
 //!
 //! | Proof | Assumes | Verifies |
@@ -448,3 +457,5 @@ fn proof_apply_then_noop() {
         "apply then re-plan must yield NoOp"
     );
 }
+
+// Production function proofs live in kani_production_proofs.rs

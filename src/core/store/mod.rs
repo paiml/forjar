@@ -11,6 +11,7 @@ pub mod closure;
 pub mod conda;
 pub mod contract_coverage;
 pub mod contract_scaffold;
+pub mod container_build;
 pub mod convergence_container;
 pub mod convergence_runner;
 pub mod convert;
@@ -56,6 +57,8 @@ mod tests_bash_provability;
 mod tests_cache;
 #[cfg(test)]
 mod tests_cache_exec;
+#[cfg(test)]
+mod tests_container_build;
 #[cfg(test)]
 mod tests_chunker;
 #[cfg(test)]
