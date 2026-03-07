@@ -1,9 +1,9 @@
 //! Apply notification dispatch helpers — sends apply results to notification channels.
 use std::path::Path;
 pub(super) fn send_webhook(url: &str, payload: &str) {
-    let _ = std::process::Command::new("curl")
+    match std::process::Command::new("curl")
         .args([
-            "-s",
+            "-sf",
             "-X",
             "POST",
             "-H",
@@ -12,12 +12,23 @@ pub(super) fn send_webhook(url: &str, payload: &str) {
             payload,
             url,
         ])
-        .output();
+        .output()
+    {
+        Ok(o) if !o.status.success() => {
+            eprintln!(
+                "warn: webhook to {} failed (exit {})",
+                url,
+                o.status.code().unwrap_or(-1)
+            );
+        }
+        Err(e) => eprintln!("warn: webhook to {url} error: {e}"),
+        _ => {}
+    }
 }
 pub(super) fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
-    let _ = std::process::Command::new("curl")
+    match std::process::Command::new("curl")
         .args([
-            "-s",
+            "-sf",
             "-X",
             "POST",
             "-H",
@@ -28,7 +39,18 @@ pub(super) fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
             payload,
             url,
         ])
-        .output();
+        .output()
+    {
+        Ok(o) if !o.status.success() => {
+            eprintln!(
+                "warn: webhook to {} failed (exit {})",
+                url,
+                o.status.code().unwrap_or(-1)
+            );
+        }
+        Err(e) => eprintln!("warn: webhook to {url} error: {e}"),
+        _ => {}
+    }
 }
 pub(super) fn event_json(status: &str, config: &Path) -> String {
     format!(

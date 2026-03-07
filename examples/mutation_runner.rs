@@ -1,6 +1,6 @@
 //! Example: Infrastructure mutation testing runner.
 //!
-//! Demonstrates mutation test execution with parallel sandboxes.
+//! Demonstrates mutation test execution with local sandbox safety.
 //! Run with: `cargo run --example mutation_runner`
 
 fn main() {
@@ -35,37 +35,48 @@ fn main() {
         );
     }
 
-    // 3. Run mutation suite
+    // 3. Run mutation suite with sandbox-safe file targets
     let targets = vec![
         mutation_runner::MutationTarget {
-            resource_id: "nginx-config".into(),
+            resource_id: "app-config".into(),
             resource_type: "file".into(),
-            apply_script: "echo 'apply nginx config'".into(),
-            drift_script: "echo 'check drift'".into(),
-            expected_hash: "blake3:expected".into(),
+            apply_script: r#"mkdir -p "$FORJAR_SANDBOX/etc/forjar" && echo 'port: 8080' > "$FORJAR_SANDBOX/etc/forjar/app-config""#.into(),
+            drift_script: r#"cat "$FORJAR_SANDBOX/etc/forjar/app-config" 2>/dev/null || echo 'MISSING'"#.into(),
+            expected_hash: String::new(),
+        },
+        mutation_runner::MutationTarget {
+            resource_id: "db-config".into(),
+            resource_type: "file".into(),
+            apply_script: r#"mkdir -p "$FORJAR_SANDBOX/etc/forjar" && echo 'host: localhost' > "$FORJAR_SANDBOX/etc/forjar/db-config""#.into(),
+            drift_script: r#"cat "$FORJAR_SANDBOX/etc/forjar/db-config" 2>/dev/null || echo 'MISSING'"#.into(),
+            expected_hash: String::new(),
         },
         mutation_runner::MutationTarget {
             resource_id: "nginx-svc".into(),
             resource_type: "service".into(),
-            apply_script: "systemctl start nginx".into(),
-            drift_script: "systemctl is-active nginx".into(),
-            expected_hash: "blake3:expected".into(),
-        },
-        mutation_runner::MutationTarget {
-            resource_id: "curl-pkg".into(),
-            resource_type: "package".into(),
-            apply_script: "apt install curl".into(),
-            drift_script: "dpkg -l curl".into(),
-            expected_hash: "blake3:expected".into(),
+            apply_script: r#"mkdir -p "$FORJAR_SANDBOX/run" && echo 'running' > "$FORJAR_SANDBOX/run/nginx-svc.pid""#.into(),
+            drift_script: r#"cat "$FORJAR_SANDBOX/run/nginx-svc.pid" 2>/dev/null || echo 'STOPPED'"#.into(),
+            expected_hash: String::new(),
         },
     ];
 
     println!("\nRunning mutation suite ({} targets)...\n", targets.len());
     let config = mutation_runner::MutationRunConfig {
         parallelism: 2,
+        test_reconvergence: false,
         ..mutation_runner::MutationRunConfig::default()
     };
     let report = mutation_runner::run_mutation_parallel(targets, &config);
 
     print!("{}", mutation_runner::format_mutation_run(&report));
+
+    // Show safety: system operators are rejected locally
+    println!("\nSafety: system operators rejected in local mode:");
+    for op in &[
+        MutationOperator::StopService,
+        MutationOperator::RemovePackage,
+        MutationOperator::KillProcess,
+    ] {
+        println!("  {op}: requires container backend (skipped locally)");
+    }
 }

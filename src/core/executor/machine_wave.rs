@@ -39,8 +39,29 @@ pub(super) fn execute_wave_io(
                 })
             })
             .collect();
-        handles.into_iter().filter_map(|h| h.join().ok()).collect()
+        handles
+            .into_iter()
+            .map(|h| match h.join() {
+                Ok(result) => result,
+                Err(panic_payload) => {
+                    let msg = extract_panic_message(panic_payload);
+                    eprintln!("error: wave execution thread panicked: {msg}");
+                    (0, 0.0, Err(format!("thread panic: {msg}")))
+                }
+            })
+            .collect()
     })
+}
+
+/// Extract a human-readable message from a thread panic payload.
+fn extract_panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        s.to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "thread panicked".to_string()
+    }
 }
 
 /// Run pre_apply hook, returning error string on failure.
