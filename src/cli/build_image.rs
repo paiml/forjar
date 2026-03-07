@@ -47,7 +47,7 @@ pub(crate) fn cmd_build(
         println!("\n--load: piping OCI tarball to `{runtime} load`...");
     }
     if push {
-        cmd_build_push(res)?;
+        cmd_build_push(res, &output_dir)?;
     }
     if far {
         println!("\n--far: would wrap OCI layout in FAR archive");
@@ -167,7 +167,7 @@ pub(crate) fn test_collect_layer_entries(
 }
 
 /// FJ-2105: Handle --push flag for registry push.
-fn cmd_build_push(res: &Resource) -> Result<(), String> {
+fn cmd_build_push(res: &Resource, oci_dir: &std::path::Path) -> Result<(), String> {
     use crate::core::store::registry_push;
 
     let image_name = res.name.as_deref().unwrap_or("app");
@@ -195,7 +195,23 @@ fn cmd_build_push(res: &Resource) -> Result<(), String> {
     println!("  registry: {registry}");
     println!("  name: {name}");
     println!("  tag: {tag}");
-    println!("  check-existing: HEAD /v2/{name}/blobs/{{digest}}");
-    println!("  protocol: POST uploads/ → PUT ?digest= → PUT manifests/{tag}");
+
+    // FJ-2105: Execute actual push via OCI Distribution protocol.
+    // Discover blobs first (local-only), then push them.
+    let blobs = registry_push::discover_blobs(oci_dir)?;
+    if blobs.is_empty() {
+        println!("  no blobs to push");
+        return Ok(());
+    }
+    println!("  blobs: {} to push", blobs.len());
+
+    match registry_push::push_image(oci_dir, &push_config) {
+        Ok(results) => print!("{}", registry_push::format_push_summary(&results)),
+        Err(e) if e.contains("Location header") || e.contains("curl") => {
+            // Registry unreachable — report but don't fail the build
+            println!("  push skipped: registry unreachable ({e})");
+        }
+        Err(e) => return Err(e),
+    }
     Ok(())
 }
