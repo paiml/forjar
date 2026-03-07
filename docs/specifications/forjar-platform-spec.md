@@ -204,7 +204,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 
 ## Implementation Roadmap
 
-**Status**: 37/42 phases IMPLEMENTED (88%), 4 PARTIAL (pepita/Verus blocked + cmd_logs stub), 1 INCOMPLETE (Kani state space). 9,764 tests, 95.06% coverage, zero clippy warnings. G4 contracts: 6/6 REMEDIATED.
+**Status**: 38/42 phases IMPLEMENTED (90%), 3 PARTIAL (pepita/Verus blocked), 1 INCOMPLETE (Kani state space). 9,710 tests, 95.06% coverage, zero clippy warnings. G4 contracts: 6/6 REMEDIATED. F8 (cmd_logs) fully remediated: capture pipeline + viewer + GC.
 
 Phases are ordered by dependency. Each phase is independently shippable.
 

@@ -3868,11 +3868,13 @@ forjar logs [OPTIONS]
 | `--machine <NAME>` | Filter by machine name |
 | `--run <RUN_ID>` | Filter by run ID |
 | `--resource <ID>` | Filter by resource ID |
-| `--failed` | Show only failed actions |
+| `--failures` | Show only failed runs |
+| `--script` | Show the executed script |
+| `--all-machines` | Show logs from all machines |
 | `--follow` | Live streaming during apply |
-| `--since <DURATION>` | Time range (e.g., "7d", "24h") |
-| `--limit <N>` | Maximum entries to show |
 | `--gc` | Garbage collect old runs |
+| `--gc --dry-run` | Show what GC would delete |
+| `--gc --keep-failed` | Keep failed run logs during GC |
 | `--json` | Structured JSON output with `log_path` |
 
 Run logs are stored at `state/<machine>/runs/<run_id>/` with one `.log` file per resource action. Each log file contains delimited sections: SCRIPT, STDOUT, STDERR, and RESULT.

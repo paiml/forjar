@@ -494,7 +494,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 
 ## Implementation
 
-### Phase 18: Observability (FJ-2301) -- PARTIAL (cmd_logs reads run dirs, capture pipeline not wired)
+### Phase 18: Observability (FJ-2301) -- IMPLEMENTED
 - [x] Run log types: `RunMeta`, `RunLogEntry`, `ResourceRunStatus`, `RunSummary`
 - [x] Structured log format: delimited sections (SCRIPT, STDOUT, STDERR, RESULT)
 - [x] `generate_run_id()` for unique run identifiers
@@ -518,7 +518,6 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] `IssueSeverity` enum: `Error`, `Warning`, `Info`
 - [x] `DoctorReport::is_healthy()`, `issue_counts()`, `format_summary()`
 - [x] `forjar doctor` CLI command wiring
-- **Deliverable**: Types, CLI, and `forjar logs` runtime complete. `forjar doctor` fully functional. `cmd_logs` reads run dirs from disk, filters, outputs text/JSON with real data.
-- **Remaining**: Wire `execute_and_capture()` wrapper into `apply` pipeline so runs actually produce log files on disk. Currently log viewer works correctly but no logs are generated during `forjar apply`.
+- **Deliverable**: Full observability pipeline: `apply` writes `state/<machine>/runs/<run_id>/` with `meta.yaml` + `.log` + `.script` per resource; `forjar logs` reads back with filtering; `forjar doctor` diagnostic; GC with `--dry-run` and `--keep-failed`.
 
 > **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.
