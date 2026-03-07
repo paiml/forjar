@@ -3951,9 +3951,9 @@ forjar build -f <FILE> --resource <NAME> [--load] [--push] [--sandbox] [--json]
 |------|---------|-------------|
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `--resource` | required | Resource name (must be `type: image`) |
-| `--load` | false | Load into local Docker daemon after build |
-| `--push` | false | Push to registry after build |
-| `--far` | false | Pack output as FAR archive |
+| `--load` | false | Tar OCI layout and pipe to `docker load` / `podman load` |
+| `--push` | false | Push to registry via OCI Distribution v1.1 |
+| `--far` | false | Wrap OCI layout in FAR archive (zstd + BLAKE3 Merkle) |
 | `--sandbox` | false | Build inside ephemeral container (Docker/Podman) |
 | `--json` | false | JSON output |
 
