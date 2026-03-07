@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 39/40 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26).
+> Updated: 2026-03-07 | 40/41 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27).
 
 ---
 
@@ -355,6 +355,14 @@ The `resolve_secret()` function in `resolver/template.rs` hardcoded the env prov
 
 ---
 
+### ~~F27: `discover_blobs` classifies all blobs as Layer~~ FIXED
+
+`push_image()` in `registry_push.rs` used `discover_blobs()` which marked every blob as `PushKind::Layer`. The OCI Distribution Spec requires distinct handling: layers pushed first, then config blob, then manifest. The code contained a self-admitted comment: "In a real implementation, we'd parse the index.json..."
+
+**Fix**: `discover_blobs()` now parses the `index.json` → manifest chain to classify blobs as `Layer`, `Config`, or `Manifest`. `push_image()` pushes in the correct OCI order (layers → config → manifests). Test verifies classification against a real OCI layout with index → manifest → config + layer.
+
+---
+
 ### ~~F25: Spec 15 uses `mode:` but actual YAML field is `task_mode:`~~ FIXED
 
 All YAML examples in 15-task-framework.md used `mode: batch`, `mode: pipeline`, etc. The actual Resource struct field is `task_mode: Option<TaskMode>` with no `#[serde(rename)]`. The `mode:` field is already occupied by file permissions (`mode: "0644"`). Users following the spec would get silent field drops.
@@ -385,6 +393,7 @@ Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `De
 | WAL mode on state.db | `core/store/db.rs:13` |
 | PRAGMA user_version schema versioning | `core/store/db.rs:113-121` |
 | OCI Image Spec v1.1 compliance | `core/types/oci_types.rs` |
+| Registry push blob classification | `core/store/registry_push.rs:discover_blobs()` |
 | Registry push (OCI Distribution v1.1) | `core/store/registry_push.rs` |
 | `type: image` resource type | `core/types/resource.rs:425` |
 | Three OCI build paths | `LayerBuildPath` enum |
@@ -443,3 +452,4 @@ Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `De
 | 36 | `--telemetry-endpoint` flag parsed but never used — no OTLP export | F22 | DOCUMENTED |
 | ~~37~~ | ~~Fix spec 15 `mode:` → `task_mode:` in all YAML examples~~ | ~~F25~~ | DONE |
 | ~~38~~ | ~~Add 4 missing DeepCheckFlags fields~~ | ~~F26~~ | DONE |
+| ~~39~~ | ~~Fix registry push blob classification (all marked Layer)~~ | ~~F27~~ | DONE |

@@ -4,7 +4,8 @@
 //! blob upload (POST + PUT), and manifest PUT. Uses `curl` via
 //! the transport layer (I8-validated).
 
-use crate::core::types::{PushKind, PushResult};
+use crate::core::types::{OciIndex, OciManifest, PushKind, PushResult};
+use std::collections::HashSet;
 use std::path::Path;
 use std::time::Instant;
 
@@ -209,11 +210,11 @@ pub fn push_manifest(
 /// 2. Push config blob
 /// 3. Push manifest
 pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<PushResult>, String> {
-    let manifest_path = oci_dir.join("blobs").join("sha256");
-    if !manifest_path.exists() {
+    let blobs_dir = oci_dir.join("blobs").join("sha256");
+    if !blobs_dir.is_dir() {
         return Err(format!(
             "OCI blobs directory not found: {}",
-            manifest_path.display()
+            blobs_dir.display()
         ));
     }
 
@@ -225,27 +226,66 @@ pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<Pus
         ));
     }
 
-    // In a real implementation, we'd parse the index.json to find
-    // manifest digests, then parse manifests to find layer/config blobs.
-    // For now, generate the push plan from the OCI layout.
     let blobs = discover_blobs(oci_dir)?;
     let mut results = Vec::new();
 
-    for blob in &blobs {
-        let result = push_blob(config, blob)?;
-        results.push(result);
+    // Push in correct order: layers first, then config, then manifests
+    for kind in [PushKind::Layer, PushKind::Config, PushKind::Manifest] {
+        for blob in blobs.iter().filter(|b| b.kind == kind) {
+            let result = push_blob(config, blob)?;
+            results.push(result);
+        }
     }
 
     Ok(results)
 }
 
-/// Discover all blobs in an OCI layout directory.
+/// Digest classification sets parsed from OCI index.json → manifest chain.
+struct DigestClassification {
+    manifests: HashSet<String>,
+    configs: HashSet<String>,
+}
+
+/// Parse index.json and manifest blobs to classify digests by kind.
+fn classify_digests_from_index(oci_dir: &Path) -> DigestClassification {
+    let mut result = DigestClassification {
+        manifests: HashSet::new(),
+        configs: HashSet::new(),
+    };
+    let index_path = oci_dir.join("index.json");
+    let index_json = match std::fs::read_to_string(&index_path) {
+        Ok(s) => s,
+        Err(_) => return result,
+    };
+    let index: OciIndex = match serde_json::from_str(&index_json) {
+        Ok(i) => i,
+        Err(_) => return result,
+    };
+    let blobs_dir = oci_dir.join("blobs").join("sha256");
+    for m in &index.manifests {
+        result.manifests.insert(m.digest.clone());
+        let hash = m.digest.strip_prefix("sha256:").unwrap_or(&m.digest);
+        let mf_path = blobs_dir.join(hash);
+        if let Ok(mf_json) = std::fs::read_to_string(&mf_path) {
+            if let Ok(manifest) = serde_json::from_str::<OciManifest>(&mf_json) {
+                result.configs.insert(manifest.config.digest.clone());
+            }
+        }
+    }
+    result
+}
+
+/// Discover and classify all blobs in an OCI layout directory.
+///
+/// Parses index.json → manifest → identifies config and layer digests.
+/// Blobs not referenced by any manifest default to Layer kind.
 pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, String> {
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
         return Ok(Vec::new());
     }
 
+    let classification = classify_digests_from_index(oci_dir);
     let mut blobs = Vec::new();
     let entries = std::fs::read_dir(&blobs_dir).map_err(|e| format!("read blobs dir: {e}"))?;
 
@@ -256,12 +296,22 @@ pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, Stri
             continue;
         }
         let name = entry.file_name().to_string_lossy().to_string();
+        let digest = format!("sha256:{name}");
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+
+        let kind = if classification.manifests.contains(&digest) {
+            PushKind::Manifest
+        } else if classification.configs.contains(&digest) {
+            PushKind::Config
+        } else {
+            PushKind::Layer
+        };
+
         blobs.push(BlobDescriptor {
-            digest: format!("sha256:{name}"),
+            digest,
             size,
             path,
-            kind: PushKind::Layer,
+            kind,
         });
     }
 
