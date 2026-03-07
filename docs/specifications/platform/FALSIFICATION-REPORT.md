@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 31/31 resolved (U3 deferred — needs root)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17).
+> Updated: 2026-03-07 | 33/33 resolved (U3 deferred — needs root)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19).
 
 ---
 
@@ -379,3 +379,5 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~29~~ | ~~Execute behavior spec verify commands via bash instead of structural check~~ | F15 | DONE |
 | ~~30~~ | ~~Implement `forjar test coverage` resource-level coverage report~~ | F16 | DONE |
 | ~~31~~ | ~~Replace `forjar contracts --coverage` hardcoded stub with real analysis~~ | F17 | DONE |
+| ~~32~~ | ~~Template validation: validate machine/data namespaces, scan 9 fields~~ | F18 | DONE |
+| ~~33~~ | ~~Overlap detection: port, service name, mount target conflicts~~ | F19 | DONE |
