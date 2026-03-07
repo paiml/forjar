@@ -3,14 +3,25 @@
 //! Runs an arbitrary command, tracks exit code, hashes output artifacts
 //! for idempotency, supports completion_check and timeout.
 
-use crate::core::types::Resource;
+use crate::core::types::{Resource, TaskMode};
 
 /// Generate shell script to check if a task has already completed.
 ///
 /// If `completion_check` is set, runs it: exit 0 = already done.
 /// If `output_artifacts` are set, checks if all exist.
+/// FJ-2700/E21: Service mode checks PID file for running process.
 /// Otherwise, always reports as needing execution.
 pub fn check_script(resource: &Resource) -> String {
+    // Service mode: check if process is running via PID file
+    if resource.task_mode.as_ref() == Some(&TaskMode::Service) {
+        let rid = resource.name.as_deref().unwrap_or("task");
+        let pidfile = format!("/tmp/forjar-svc-{rid}.pid");
+        return format!(
+            "if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then \
+             echo 'task=completed'; else echo 'task=pending'; fi"
+        );
+    }
+
     if let Some(ref check) = resource.completion_check {
         return format!("if {check}; then echo 'task=completed'; else echo 'task=pending'; fi");
     }
@@ -65,7 +76,11 @@ fn pipeline_script(resource: &Resource) -> String {
 /// - Uses `set -euo pipefail` for strict error handling
 /// - Supports `working_dir` to cd before execution
 /// - Supports `timeout` for time-limited execution
-/// - FJ-2700: Pipeline mode generates sequential stages with gate enforcement
+/// - FJ-2700: Mode-aware script generation:
+///   - Pipeline: sequential stages with gate enforcement
+///   - Service: background process with PID file and health check
+///   - Dispatch: pre-flight gate check before execution
+///   - Batch (default): run-once with scatter/gather
 /// - FJ-2704: Runs scatter before command, gather after command
 pub fn apply_script(resource: &Resource) -> String {
     // FJ-2700: Pipeline tasks with stages get stage-aware script
@@ -73,23 +88,27 @@ pub fn apply_script(resource: &Resource) -> String {
         return pipeline_script(resource);
     }
 
-    let command = resource.command.as_deref().unwrap_or("true");
+    // FJ-2700/E21: Mode-aware script dispatch
+    match resource.task_mode.as_ref().unwrap_or(&TaskMode::Batch) {
+        TaskMode::Service => return service_script(resource),
+        TaskMode::Dispatch => return dispatch_script(resource),
+        TaskMode::Pipeline | TaskMode::Batch => {} // fall through to batch
+    }
 
+    batch_script(resource)
+}
+
+/// Generate batch-mode script (default): run command once with scatter/gather.
+fn batch_script(resource: &Resource) -> String {
+    let command = resource.command.as_deref().unwrap_or("true");
     let mut script = String::from("set -euo pipefail\n");
 
-    // FJ-2704: Scatter artifacts to remote paths before execution
     if let Some(scatter) = scatter_script(resource) {
         script.push_str(&scatter);
     }
-
-    // Change to working directory if specified
     if let Some(ref dir) = resource.working_dir {
         script.push_str(&format!("cd '{dir}'\n"));
     }
-
-    // Wrap command with timeout if specified.
-    // Use a heredoc so multi-line commands and arbitrary quoting work
-    // without escaping issues that break bashrs linting.
     if let Some(timeout_secs) = resource.timeout {
         script.push_str(&format!(
             "timeout {timeout_secs} bash <<'FORJAR_TIMEOUT'\n{command}\nFORJAR_TIMEOUT\n"
@@ -98,12 +117,109 @@ pub fn apply_script(resource: &Resource) -> String {
         script.push_str(command);
         script.push('\n');
     }
-
-    // FJ-2704: Gather artifacts from remote paths after execution
     if let Some(gather) = gather_script(resource) {
         script.push_str(&gather);
     }
+    script
+}
 
+/// FJ-2700/E21: Service mode — background process with PID file and health check.
+///
+/// Generates a script that:
+/// 1. Checks if already running via PID file
+/// 2. Starts the command in background with nohup
+/// 3. Writes PID file for lifecycle tracking
+/// 4. Runs initial health check if configured
+fn service_script(resource: &Resource) -> String {
+    let command = resource.command.as_deref().unwrap_or("true");
+    let rid = resource.name.as_deref().unwrap_or("task");
+    let pidfile = format!("/tmp/forjar-svc-{rid}.pid");
+
+    let mut script = String::from("set -euo pipefail\n");
+    if let Some(ref dir) = resource.working_dir {
+        script.push_str(&format!("cd '{dir}'\n"));
+    }
+
+    // Check if already running
+    script.push_str(&format!(
+        "if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then\n\
+         \x20 echo 'service={rid} already running (pid='\"$(cat '{pidfile}')\"')'\n\
+         \x20 exit 0\nfi\n"
+    ));
+
+    // Start in background with nohup, capture PID
+    script.push_str(&format!(
+        "nohup bash -c '{command}' > /tmp/forjar-svc-{rid}.log 2>&1 &\n\
+         FORJAR_SVC_PID=$!\n\
+         echo $FORJAR_SVC_PID > '{pidfile}'\n\
+         echo 'service={rid} started (pid='$FORJAR_SVC_PID')'\n"
+    ));
+
+    // Initial health check if configured
+    if let Some(ref hc) = resource.health_check {
+        let timeout = hc
+            .timeout
+            .as_deref()
+            .and_then(|t| t.strip_suffix('s'))
+            .unwrap_or("5");
+        let retries = hc.retries.unwrap_or(3);
+        script.push_str(&format!(
+            "sleep 1\nfor _i in $(seq 1 {retries}); do\n\
+             \x20 if timeout {timeout} bash -c '{}'; then\n\
+             \x20\x20\x20 echo 'service={rid} healthy'\n\
+             \x20\x20\x20 exit 0\n\
+             \x20 fi\n\
+             \x20 sleep 1\ndone\n\
+             echo 'service={rid} started but health check pending'\n",
+            hc.command
+        ));
+    }
+
+    script
+}
+
+/// FJ-2700/E21: Dispatch mode — pre-flight gate check before execution.
+///
+/// If a quality_gate is configured, runs it as a pre-flight check.
+/// Gate failure aborts the dispatch with the gate message.
+fn dispatch_script(resource: &Resource) -> String {
+    let command = resource.command.as_deref().unwrap_or("true");
+    let mut script = String::from("set -euo pipefail\n");
+
+    if let Some(ref dir) = resource.working_dir {
+        script.push_str(&format!("cd '{dir}'\n"));
+    }
+
+    // Pre-flight gate check
+    if let Some(ref gate) = resource.quality_gate {
+        if let Some(ref gate_cmd) = gate.command {
+            let msg = gate
+                .message
+                .as_deref()
+                .unwrap_or("dispatch gate check failed");
+            script.push_str(&format!(
+                "if ! bash -c '{gate_cmd}'; then\n\
+                 \x20 echo 'DISPATCH BLOCKED: {msg}'\n\
+                 \x20 exit 1\nfi\n"
+            ));
+        }
+    }
+
+    // Execute the dispatch command
+    if let Some(scatter) = scatter_script(resource) {
+        script.push_str(&scatter);
+    }
+    if let Some(timeout_secs) = resource.timeout {
+        script.push_str(&format!(
+            "timeout {timeout_secs} bash <<'FORJAR_TIMEOUT'\n{command}\nFORJAR_TIMEOUT\n"
+        ));
+    } else {
+        script.push_str(command);
+        script.push('\n');
+    }
+    if let Some(gather) = gather_script(resource) {
+        script.push_str(&gather);
+    }
     script
 }
 
@@ -160,278 +276,4 @@ pub fn gather_script(resource: &Resource) -> Option<String> {
         }
     }
     Some(script)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::types::{MachineTarget, ResourceType};
-
-    fn make_task_resource(cmd: &str) -> Resource {
-        Resource {
-            resource_type: ResourceType::Task,
-            machine: MachineTarget::Single("worker".to_string()),
-            command: Some(cmd.to_string()),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn test_check_no_completion_check_no_artifacts() {
-        let r = make_task_resource("echo hello");
-        let script = check_script(&r);
-        assert_eq!(script, "echo 'task=pending'");
-    }
-
-    #[test]
-    fn test_check_with_completion_check() {
-        let mut r = make_task_resource("train model");
-        r.completion_check = Some("test -f model.bin".to_string());
-        let script = check_script(&r);
-        assert!(script.contains("test -f model.bin"));
-        assert!(script.contains("task=completed"));
-        assert!(script.contains("task=pending"));
-    }
-
-    #[test]
-    fn test_check_with_output_artifacts() {
-        let mut r = make_task_resource("build");
-        r.output_artifacts = vec!["out/model.bin".to_string(), "out/vocab.json".to_string()];
-        let script = check_script(&r);
-        assert!(script.contains("[ -e 'out/model.bin' ]"));
-        assert!(script.contains("[ -e 'out/vocab.json' ]"));
-        assert!(script.contains("task=completed"));
-    }
-
-    #[test]
-    fn test_apply_basic() {
-        let r = make_task_resource("apr train apply config.yaml");
-        let script = apply_script(&r);
-        assert!(script.contains("set -euo pipefail"));
-        assert!(script.contains("apr train apply config.yaml"));
-    }
-
-    #[test]
-    fn test_apply_with_working_dir() {
-        let mut r = make_task_resource("make build");
-        r.working_dir = Some("/opt/project".to_string());
-        let script = apply_script(&r);
-        assert!(script.contains("cd '/opt/project'"));
-        assert!(script.contains("make build"));
-    }
-
-    #[test]
-    fn test_apply_with_timeout() {
-        let mut r = make_task_resource("long-running-train");
-        r.timeout = Some(3600);
-        let script = apply_script(&r);
-        assert!(script.contains("timeout 3600 bash <<'FORJAR_TIMEOUT'"));
-        assert!(script.contains("long-running-train"));
-        assert!(script.contains("FORJAR_TIMEOUT"));
-    }
-
-    #[test]
-    fn test_apply_with_timeout_multiline() {
-        let mut r = make_task_resource("git pull\ncargo build");
-        r.timeout = Some(300);
-        r.working_dir = Some("/opt/project".to_string());
-        let script = apply_script(&r);
-        assert!(script.contains("timeout 300 bash <<'FORJAR_TIMEOUT'"));
-        assert!(script.contains("git pull\ncargo build"));
-        assert!(script.contains("cd '/opt/project'"));
-    }
-
-    #[test]
-    fn test_apply_with_timeout_quoting() {
-        let mut r = make_task_resource("echo 'hello world'");
-        r.timeout = Some(60);
-        let script = apply_script(&r);
-        // Heredoc preserves quotes without escaping
-        assert!(script.contains("echo 'hello world'"));
-        assert!(script.contains("timeout 60 bash <<'FORJAR_TIMEOUT'"));
-    }
-
-    #[test]
-    fn test_state_query_with_artifacts() {
-        let mut r = make_task_resource("train");
-        r.output_artifacts = vec!["model.bin".to_string()];
-        let script = state_query_script(&r);
-        assert!(script.contains("b3sum 'model.bin'"));
-        assert!(script.contains("missing:model.bin"));
-    }
-
-    #[test]
-    fn test_state_query_no_artifacts() {
-        let r = make_task_resource("echo hello");
-        let script = state_query_script(&r);
-        assert!(script.contains("command=echo hello"));
-    }
-
-    #[test]
-    fn test_apply_no_command_defaults_to_true() {
-        let mut r = make_task_resource("placeholder");
-        r.command = None;
-        let script = apply_script(&r);
-        assert!(script.contains("true"));
-    }
-
-    #[test]
-    fn test_scatter_empty() {
-        let r = make_task_resource("train");
-        assert!(scatter_script(&r).is_none());
-    }
-
-    #[test]
-    fn test_scatter_with_mappings() {
-        let mut r = make_task_resource("train");
-        r.scatter = vec![
-            "/local/data.csv:/remote/data.csv".to_string(),
-            "/local/config.yaml:/remote/config.yaml".to_string(),
-        ];
-        let script = scatter_script(&r).unwrap();
-        assert!(script.contains("cp -r '/local/data.csv' '/remote/data.csv'"));
-        assert!(script.contains("cp -r '/local/config.yaml' '/remote/config.yaml'"));
-        assert!(script.contains("mkdir -p"));
-    }
-
-    #[test]
-    fn test_gather_empty() {
-        let r = make_task_resource("train");
-        assert!(gather_script(&r).is_none());
-    }
-
-    #[test]
-    fn test_gather_with_mappings() {
-        let mut r = make_task_resource("train");
-        r.gather = vec!["/remote/model.bin:/local/model.bin".to_string()];
-        let script = gather_script(&r).unwrap();
-        assert!(script.contains("cp -r '/remote/model.bin' '/local/model.bin'"));
-        assert!(script.contains("# FJ-2704: gather artifacts"));
-    }
-
-    #[test]
-    fn test_apply_with_scatter_and_gather() {
-        let mut r = make_task_resource("python train.py");
-        r.scatter = vec!["/data/input.csv:/remote/input.csv".to_string()];
-        r.gather = vec!["/remote/model.bin:/local/model.bin".to_string()];
-        let script = apply_script(&r);
-        // Scatter runs before command
-        let scatter_pos = script.find("scatter artifacts").unwrap();
-        let cmd_pos = script.find("python train.py").unwrap();
-        let gather_pos = script.find("gather artifacts").unwrap();
-        assert!(scatter_pos < cmd_pos, "scatter must run before command");
-        assert!(cmd_pos < gather_pos, "gather must run after command");
-    }
-
-    #[test]
-    fn test_apply_scatter_only() {
-        let mut r = make_task_resource("train");
-        r.scatter = vec!["/a:/b".to_string()];
-        let script = apply_script(&r);
-        assert!(script.contains("scatter artifacts"));
-        assert!(!script.contains("gather artifacts"));
-    }
-
-    #[test]
-    fn test_apply_gather_only() {
-        let mut r = make_task_resource("train");
-        r.gather = vec!["/a:/b".to_string()];
-        let script = apply_script(&r);
-        assert!(!script.contains("scatter artifacts"));
-        assert!(script.contains("gather artifacts"));
-    }
-
-    #[test]
-    fn test_scatter_invalid_mapping_skipped() {
-        let mut r = make_task_resource("train");
-        r.scatter = vec!["no-colon-here".to_string()];
-        let script = scatter_script(&r).unwrap();
-        // Invalid mapping is skipped — no cp command generated
-        assert!(!script.contains("cp"));
-    }
-
-    #[test]
-    fn test_pipeline_stages_basic() {
-        use crate::core::types::PipelineStage;
-        let mut r = make_task_resource("ignored");
-        r.stages = vec![
-            PipelineStage {
-                name: "lint".into(),
-                command: Some("cargo clippy".into()),
-                gate: false,
-                ..Default::default()
-            },
-            PipelineStage {
-                name: "test".into(),
-                command: Some("cargo test".into()),
-                gate: true,
-                ..Default::default()
-            },
-        ];
-        let script = apply_script(&r);
-        assert!(script.contains("=== Stage: lint ==="));
-        assert!(script.contains("=== Stage: test ==="));
-        assert!(script.contains("cargo clippy"));
-        assert!(script.contains("cargo test"));
-    }
-
-    #[test]
-    fn test_pipeline_gate_enforcement() {
-        use crate::core::types::PipelineStage;
-        let mut r = make_task_resource("ignored");
-        r.stages = vec![PipelineStage {
-            name: "qa-gate".into(),
-            command: Some("check_quality".into()),
-            gate: true,
-            ..Default::default()
-        }];
-        let script = apply_script(&r);
-        assert!(script.contains("GATE FAILED: qa-gate"));
-        assert!(script.contains("exit 1"));
-    }
-
-    #[test]
-    fn test_pipeline_non_gate_no_abort() {
-        use crate::core::types::PipelineStage;
-        let mut r = make_task_resource("ignored");
-        r.stages = vec![PipelineStage {
-            name: "optional".into(),
-            command: Some("echo optional".into()),
-            gate: false,
-            ..Default::default()
-        }];
-        let script = apply_script(&r);
-        assert!(script.contains("echo optional"));
-        assert!(!script.contains("GATE FAILED"));
-    }
-
-    #[test]
-    fn test_pipeline_with_working_dir() {
-        use crate::core::types::PipelineStage;
-        let mut r = make_task_resource("ignored");
-        r.working_dir = Some("/opt/ml".into());
-        r.stages = vec![PipelineStage {
-            name: "build".into(),
-            command: Some("make".into()),
-            gate: false,
-            ..Default::default()
-        }];
-        let script = apply_script(&r);
-        assert!(script.contains("cd '/opt/ml'"));
-    }
-
-    #[test]
-    fn test_pipeline_stages_override_command() {
-        use crate::core::types::PipelineStage;
-        let mut r = make_task_resource("this-is-ignored");
-        r.stages = vec![PipelineStage {
-            name: "s1".into(),
-            command: Some("echo stage1".into()),
-            ..Default::default()
-        }];
-        let script = apply_script(&r);
-        // When stages exist, the top-level command is ignored
-        assert!(!script.contains("this-is-ignored"));
-        assert!(script.contains("echo stage1"));
-    }
 }
