@@ -1465,9 +1465,10 @@ forjar test all -f forjar.yaml --parallel
 
 | Command | What It Tests |
 |---------|--------------|
-| `forjar test --group behavior` | Behavior-driven specs (`.spec.yaml`) |
+| `forjar test --group behavior` | Behavior-driven specs (`.spec.yaml`) — executes verify commands |
 | `forjar test --group convergence` | Apply-twice idempotency in sandbox |
 | `forjar test --group mutation` | Infrastructure mutation detection |
+| `forjar test --group coverage` | Per-resource coverage level report (L0-L5) |
 | `forjar test` | All resources (check script table) |
 
 ### Test Report
