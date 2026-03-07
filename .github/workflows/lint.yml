@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        features: [default, encryption]
+        features: ["", encryption]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
@@ -36,7 +36,12 @@ jobs:
           key: lint-${{ runner.os }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Clippy
-        run: cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
+        run: |
+          if [ -n "${{ matrix.features }}" ]; then
+            cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
+          else
+            cargo clippy --all-targets -- -D warnings
+          fi
 
       - name: Rustfmt
         run: cargo fmt --all -- --check
