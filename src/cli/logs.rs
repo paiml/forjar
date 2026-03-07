@@ -290,8 +290,10 @@ pub(crate) fn cmd_logs_gc(
     dry_run: bool,
     keep_failed: bool,
     json: bool,
+    retention: Option<&LogRetention>,
 ) -> Result<(), String> {
-    let retention = LogRetention::default();
+    let default_retention = LogRetention::default();
+    let retention = retention.unwrap_or(&default_retention);
     let runs = discover_runs(state_dir, None, None, false);
 
     // Group by machine

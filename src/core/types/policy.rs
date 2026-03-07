@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use super::run_log_types::LogRetention;
 use super::{default_one, default_true};
 
 // ============================================================================
@@ -78,6 +79,10 @@ pub struct Policy {
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
+
+    /// FJ-2301: Log retention policy (gc thresholds for `forjar logs --gc`).
+    #[serde(default)]
+    pub logs: LogRetention,
 }
 
 /// FJ-225: Notification hooks configuration.
@@ -117,6 +122,7 @@ impl Default for Policy {
             security_gate: None,
             deny_paths: vec![],
             notify: NotifyConfig::default(),
+            logs: LogRetention::default(),
         }
     }
 }
