@@ -1378,23 +1378,38 @@ Log storage is bounded by configurable retention:
 Verify drift detection catches real-world infrastructure mutations:
 
 ```bash
-cargo run --example mutation_testing
+cargo run --example mutation_runner
+```
+
+Example output with real sandbox I/O:
+
+```
+Mutation Score: 80% (Grade B)
+  8/10 detected, 0 survived, 2 errored
+  file: 8/8 detected (100%)
+  service: 0/2 detected (0%)    # requires container backend
+
+Safety: system operators rejected in local mode:
+  stop_service: requires container backend (skipped locally)
+  remove_package: requires container backend (skipped locally)
 ```
 
 ### Mutation Operators
 
 Eight mutation operators simulate common infrastructure drift:
 
-| Operator | Targets | What It Tests |
-|----------|---------|---------------|
-| `delete_file` | file | File presence detection |
-| `modify_content` | file | Content hash comparison |
-| `change_permissions` | file | Mode drift detection |
-| `stop_service` | service | Service state detection |
-| `remove_package` | package | Package presence detection |
-| `kill_process` | service | Process recovery |
-| `unmount_filesystem` | mount | Mount state detection |
-| `corrupt_config` | file | Partial content modification |
+| Operator | Targets | Local Safe? | What It Tests |
+|----------|---------|-------------|---------------|
+| `delete_file` | file | Yes | File presence detection |
+| `modify_content` | file | Yes | Content hash comparison |
+| `change_permissions` | file | Yes | Mode drift detection |
+| `corrupt_config` | file | Yes | Partial content modification |
+| `stop_service` | service | No (container) | Service state detection |
+| `remove_package` | package | No (container) | Package presence detection |
+| `kill_process` | service | No (container) | Process recovery |
+| `unmount_filesystem` | mount | No (container) | Mount state detection |
+
+File-scoped operators run in local tempdir sandboxes with real bash execution. System operators require a container backend (Docker/Podman) — they are never executed on the host.
 
 ### Mutation Score
 
@@ -1482,8 +1497,10 @@ Convergence: 3/3 passed (100%)
   [PASS] app-svc/service: converge=true idem=true preserve=true
 
 --- Mutation Tests ---
-Mutation Score: 100% (Grade A)
-  7/7 detected, 0 survived, 0 errored
+Mutation Score: 80% (Grade B)
+  8/10 detected, 0 survived, 2 errored
+  file: 8/8 detected (100%)
+  service: 0/2 errored (requires container backend)
 
 --- Behavior Tests ---
   [PASS] nginx is installed
@@ -1492,14 +1509,20 @@ Mutation Score: 100% (Grade A)
 
 === Combined Test Report ===
   Convergence: 3/3 passed (100%)
-  Mutation:    7/7 detected (grade A)
+  Mutation:    8/10 detected (grade B, 2 need container)
   Behavior:    3/3 passed
   Overall: PASS
 ```
 
 ### Sandbox Isolation
 
-Tests run in isolated sandboxes (Pepita overlay filesystem by default, container fallback):
+Tests run in isolated sandboxes with three execution modes:
+
+| Mode | Backend | How it works |
+|------|---------|-------------|
+| **Local** | `pepita` (fallback) | Tempdir sandbox with `$FORJAR_SANDBOX` env. Real `bash -euo pipefail` execution. |
+| **Container** | `container` | Ephemeral Docker/Podman container per test. Full system operator support. |
+| **Chroot** | `chroot` | Requires root. Falls back to local mode when unavailable. |
 
 ```yaml
 sandbox:
@@ -1507,6 +1530,14 @@ sandbox:
   cleanup: true       # destroy after test
   timeout_secs: 300   # 5-minute timeout
 ```
+
+**Safety model**: When running locally (no container), forjar enforces two safety layers:
+
+1. **Operator-level gate** (`is_safe_for_local`): Only file-scoped mutation operators (DeleteFile, ModifyContent, ChangePermissions, CorruptConfig) run locally. System operators (StopService, RemovePackage, KillProcess, UnmountFilesystem) return an error requiring container backend.
+
+2. **Script-content blocklist** (`UNSAFE_PATTERNS`): Scripts containing `systemctl`, `apt-get`, `pkill`, `mount`, `umount`, `kill`, `shutdown`, `reboot`, `rm -rf /`, `dd if=`, `mkfs`, or `fdisk` are rejected before execution.
+
+All file operations are scoped to `$FORJAR_SANDBOX` (a temporary directory), never system paths. This prevents accidental host modification even when testing infrastructure mutations locally.
 
 ### Coverage Thresholds
 
