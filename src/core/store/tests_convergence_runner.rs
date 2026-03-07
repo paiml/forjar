@@ -300,3 +300,40 @@ fn backend_available_chroot_non_root() {
     let available = backend_available(SandboxBackend::Chroot);
     assert!(!available);
 }
+
+#[test]
+fn detect_container_runtime_finds_something() {
+    // This test env has Docker — detect_container_runtime should find it
+    let rt = super::convergence_container::detect_container_runtime();
+    // Docker is available in this dev env (confirmed by forjar doctor)
+    assert!(rt.is_some(), "expected docker or podman to be available");
+}
+
+#[test]
+fn dispatch_uses_simulated_for_pepita() {
+    use crate::core::types::SandboxBackend;
+    let target = sample_target("dispatch-sim", "file");
+    // Pepita not installed → dispatch should fall back to simulated
+    let result = run_convergence_test_dispatch(&target, SandboxBackend::Pepita);
+    assert!(result.passed(), "simulated mode should pass for valid target");
+}
+
+#[test]
+fn dispatch_uses_simulated_for_chroot() {
+    use crate::core::types::SandboxBackend;
+    let target = sample_target("dispatch-chroot", "file");
+    let result = run_convergence_test_dispatch(&target, SandboxBackend::Chroot);
+    assert!(result.passed(), "chroot unavailable → simulated fallback");
+}
+
+#[test]
+fn parallel_with_backend_simulated() {
+    use crate::core::types::SandboxBackend;
+    let targets = vec![
+        sample_target("par-a", "file"),
+        sample_target("par-b", "package"),
+    ];
+    let results = run_convergence_parallel_with_backend(targets, 2, SandboxBackend::Pepita);
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|r| r.passed()));
+}
