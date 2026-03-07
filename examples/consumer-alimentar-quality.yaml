@@ -1,9 +1,11 @@
 # FJ-2705: alimentar quality pipeline recipe
 # Demonstrates pipeline task mode for data quality scoring.
+version: '1.0'
 name: alimentar-quality-pipeline
 machines:
   data-server:
     hostname: data-server
+    addr: localhost
     transport: local
 
 resources:

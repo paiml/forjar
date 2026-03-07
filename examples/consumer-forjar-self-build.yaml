@@ -1,9 +1,11 @@
 # FJ-2705: forjar self-build pipeline recipe
 # Demonstrates pipeline task mode for building forjar itself.
+version: '1.0'
 name: forjar-self-build
 machines:
   ci-runner:
     hostname: ci-0
+    addr: localhost
     transport: local
 
 resources:
