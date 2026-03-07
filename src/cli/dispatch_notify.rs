@@ -209,9 +209,12 @@ pub(super) fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, co
     if let Some(topic) = opts.ntfy {
         let url = format!("https://ntfy.sh/{topic}");
         let msg = format!("forjar apply {}: {}", status, config.display());
-        let _ = std::process::Command::new("curl")
-            .args(["-s", "-d", &msg, &url])
-            .output();
+        if let Err(e) = std::process::Command::new("curl")
+            .args(["-sf", "-d", &msg, &url])
+            .output()
+        {
+            eprintln!("warning: ntfy notification error: {e}");
+        }
     }
     if let Some(url) = opts.grafana {
         let ts = std::time::SystemTime::now()
