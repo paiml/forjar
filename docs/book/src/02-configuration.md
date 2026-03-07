@@ -91,6 +91,24 @@ machines:
 
 If `cost` is omitted, it defaults to 0. Machines with equal cost maintain their original order.
 
+### Operator Authorization
+
+Restrict which operators can apply changes to a machine using `allowed_operators`:
+
+```yaml
+machines:
+  production:
+    hostname: prod-01
+    addr: 10.0.0.5
+    allowed_operators:
+      - deploy-bot
+      - ops-team
+```
+
+When `allowed_operators` is set, `forjar apply` checks the operator identity against the list before executing. Use `--operator NAME` to specify identity explicitly, or let forjar resolve it from `$USER@hostname`.
+
+If `allowed_operators` is empty or omitted, all operators are permitted (backward compatible).
+
 ### Local Machine
 
 Use `addr: 127.0.0.1` or `addr: localhost` to target the local machine (no SSH):
