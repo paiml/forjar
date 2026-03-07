@@ -457,6 +457,8 @@ mod tests_cov_check_test;
 #[cfg(test)]
 mod tests_cov_misc_b2;
 #[cfg(test)]
+mod tests_logs;
+#[cfg(test)]
 mod tests_cov_dispatch_status2;
 #[cfg(test)]
 mod tests_cov_dispatch_status_b2;
