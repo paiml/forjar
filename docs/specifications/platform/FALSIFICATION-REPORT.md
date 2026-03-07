@@ -428,11 +428,11 @@ Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (converg
 
 ---
 
-### E10: Golden hash test lacks hardcoded expected value
+### ~~E10: Golden hash test lacks hardcoded expected value~~ FIXED
 
-Spec 03-idempotency-drift.md describes a "golden hash test" — a checked-in test with a fixed Resource and its expected `hash_desired_state` output that fails if field ordering changes. Tests exist (`planner/tests_hash.rs`) verifying determinism and field sensitivity, but no test contains a **hardcoded expected hash constant**. Tests only verify relative stability (same input → same output), not absolute stability against a known value.
+Spec 03-idempotency-drift.md describes a "golden hash test" — a checked-in test with a fixed Resource and its expected `hash_desired_state` output that fails if field ordering changes. Tests existed verifying determinism and field sensitivity, but no test contained a **hardcoded expected hash constant**.
 
-**Status**: DOCUMENTED — Hash determinism tests are functionally correct. Adding a pinned hash constant would detect serialization ordering changes across Rust versions.
+**Fix**: Added `test_golden_hash_pinned_value()` in `planner/tests_hash.rs` — constructs a minimal Package resource and asserts the exact BLAKE3 hash. If serialization order changes, this test fails.
 
 ---
 
@@ -592,7 +592,7 @@ Spec 12-build-pipeline.md implies parallel build step execution via dependency g
 | ~~43~~ | ~~Wire `LogRetention` into `Policy` struct~~ | ~~F31~~ | DONE |
 | ~~44~~ | ~~Implement `file_content` and `port_open` behavior verify assertions~~ | ~~F32~~ | DONE |
 | 45 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
-| 46 | Golden hash test lacks pinned expected value | E10 | DOCUMENTED |
+| ~~46~~ | ~~Add pinned golden hash test with hardcoded expected value~~ | ~~E10~~ | DONE |
 | 47 | WasmBundle handler delegates to file handler (no WASM-specific logic) | E11 | DOCUMENTED |
 | 48 | Multi-arch image builds not implemented (hardcoded linux/amd64) | E12 | DOCUMENTED |
 | 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |

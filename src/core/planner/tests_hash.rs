@@ -101,6 +101,28 @@ fn test_fj004_hash_deterministic() {
     assert!(h1.starts_with("blake3:"));
 }
 
+/// E10: Golden hash test — pinned expected value detects field ordering changes.
+#[test]
+fn test_golden_hash_pinned_value() {
+    // Minimal Package resource with only `packages: [curl]` on machine m1.
+    // If hash_desired_state serialization order changes, this test MUST fail.
+    let r = Resource {
+        resource_type: ResourceType::Package,
+        machine: MachineTarget::Single("m1".to_string()),
+        state: None,
+        depends_on: vec![],
+        provider: Some("apt".to_string()),
+        packages: vec!["curl".to_string()],
+        ..Resource::default()
+    };
+    let hash = hash_desired_state(&r);
+    assert_eq!(
+        hash,
+        "blake3:8106dfb610d17486462652c99c0ac5c8e582a34064b75acb22a84fab2efa7f0b",
+        "Golden hash changed — hash_desired_state serialization order may have changed"
+    );
+}
+
 #[test]
 fn test_fj004_hash_includes_all_fields() {
     let r1 = Resource {
