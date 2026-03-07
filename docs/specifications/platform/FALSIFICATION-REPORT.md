@@ -529,6 +529,14 @@ Spec 11-observability.md describes "structured log format" for run logs. Actual 
 
 ---
 
+### E21: TaskMode does not affect script generation
+
+Spec 15-task-framework.md implies `task_mode` dispatch produces different scripts for different modes (batch/pipeline/service/dispatch). The `TaskMode` enum exists with all 4 variants, but `resources/task.rs` generates identical scripts regardless of mode. The mode is a type-level marker for scheduling/retry semantics, not script differentiation.
+
+**Status**: DOCUMENTED — TaskMode is a scheduling hint. Mode-aware script generation (e.g., service mode wrapping in systemd unit, pipeline mode chaining stages) is a future feature.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -639,3 +647,4 @@ Spec 11-observability.md describes "structured log format" for run logs. Actual 
 | 55 | Health check is state-based, not connectivity-based | E19 | DOCUMENTED |
 | 56 | Run log format is YAML+text, not structured JSON | E20 | DOCUMENTED |
 | ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |
+| 58 | TaskMode does not affect script generation | E21 | DOCUMENTED |
