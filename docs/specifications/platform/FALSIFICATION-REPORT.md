@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 40/41 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27).
+> Updated: 2026-03-07 | 43/44 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30).
 
 ---
 
@@ -379,6 +379,30 @@ Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `De
 
 ---
 
+### ~~F28: Events table schema in spec 01 doesn't match actual db.rs~~ FIXED
+
+Spec 01-sqlite-query-engine.md showed the `events` table with `machine_id` (FK), `ts`, `duration_secs REAL`, `action`, `hash`, `error`, `details_json`. Actual `db.rs` schema uses `machine` (TEXT), `timestamp`, `duration_ms INTEGER`, `exit_code`, `stdout_tail`, `stderr_tail`, `details`. 6 of 11 columns had wrong names or types.
+
+**Fix**: Updated spec schema to match actual implementation in `db.rs:70-82`.
+
+---
+
+### ~~F29: `--load` spec claims config-aware runtime detection~~ FIXED
+
+Spec 06-distribution.md claimed `--load` reads `machine.container.runtime` from config with "docker" default. Actual code (`build_image.rs:288-293`) auto-detects from PATH via `which_runtime()`, ignoring config entirely.
+
+**Fix**: Updated spec pseudocode to show PATH-based detection (`which_runtime`).
+
+---
+
+### ~~F30: Spec 12 claims tokio `features = ["full"]`~~ FIXED
+
+Spec 12-build-pipeline.md line 427 showed `tokio = { version = "1.35", features = ["full"] }`. Actual Cargo.toml uses `features = ["rt-multi-thread", "macros"]` (selective, not full).
+
+**Fix**: Updated spec to match actual Cargo.toml.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -407,6 +431,18 @@ Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `De
 | `forjar build` CLI command | `commands/platform_args.rs:281` |
 | Verus proofs exist (compile-gated) | `core/verus_spec.rs` |
 | Four-tier verification structure | All four tiers present |
+| Drift detection (detect_drift, detect_drift_full) | `tripwire/drift/mod.rs:133-198` |
+| Idempotency postcondition with debug_assert | `planner/mod.rs:225-230` |
+| Hash \0-join + BLAKE3 | `planner/mod.rs:295-313` |
+| Auto-remediation via `cmd_apply(force: true)` | `cli/drift.rs:101-150` |
+| lifecycle.ignore_drift skip | `tripwire/drift/mod.rs:229-242` |
+| bashrs 3-level validation (validate/lint/purify) | `core/purifier.rs:19-94` |
+| Transport I8 gate (4 entry points) | `transport/mod.rs:51-206` |
+| `forjar lint` with --json/--strict/--fix | `commands/misc_args.rs:108-129` |
+| Model resource fields (source/path/format/etc) | `core/types/resource.rs:255-270` |
+| WASM types (WasmOptLevel, WasmBuildConfig, etc) | `core/types/wasm_types.rs` |
+| Build metrics (BuildMetrics, SizeThreshold, etc) | `core/types/build_metrics.rs` |
+| Dual-digest layer builder (BLAKE3 + SHA-256) | `core/store/layer_builder.rs:60-117` |
 
 ---
 
@@ -453,3 +489,6 @@ Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `De
 | ~~37~~ | ~~Fix spec 15 `mode:` → `task_mode:` in all YAML examples~~ | ~~F25~~ | DONE |
 | ~~38~~ | ~~Add 4 missing DeepCheckFlags fields~~ | ~~F26~~ | DONE |
 | ~~39~~ | ~~Fix registry push blob classification (all marked Layer)~~ | ~~F27~~ | DONE |
+| ~~40~~ | ~~Fix events table schema in spec 01 to match db.rs~~ | ~~F28~~ | DONE |
+| ~~41~~ | ~~Fix --load runtime detection spec to match PATH detection~~ | ~~F29~~ | DONE |
+| ~~42~~ | ~~Fix tokio features in spec 12 to match Cargo.toml~~ | ~~F30~~ | DONE |

@@ -424,7 +424,7 @@ rust-version = "1.88.0"
 bashrs = "6.64.0"        # Shell purification
 blake3 = "1.8"           # Content-addressed hashing
 serde_yaml_ng = "0.10"   # YAML parsing
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 clap = { version = "4", features = ["derive"] }
 
 [features]
