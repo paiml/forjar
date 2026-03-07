@@ -18,6 +18,8 @@ pub mod service;
 pub mod task;
 #[cfg(test)]
 mod tests_service;
+#[cfg(test)]
+mod tests_task;
 pub mod user;
 
 mod network_b;
