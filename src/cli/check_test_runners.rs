@@ -1,7 +1,8 @@
-//! FJ-2600/FJ-2604: Convergence and mutation test runners.
+//! FJ-2600/FJ-2604: Convergence, mutation, and behavior test runners.
 //!
 //! Extracted from check_test.rs for 500-line limit compliance.
 
+use super::check_test::check_verify_assertions;
 use super::helpers::*;
 use crate::core::types::SandboxBackend;
 use crate::core::{codegen, resolver};
@@ -264,4 +265,120 @@ pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
         report.histogram[2]
     );
     Ok(())
+}
+
+// ── Behavior test runner (extracted from check_test.rs) ──
+
+fn execute_behavior(
+    b: &crate::core::types::BehaviorEntry,
+) -> crate::core::types::BehaviorResult {
+    use crate::core::types::BehaviorResult;
+    let bt0 = std::time::Instant::now();
+
+    if let Some(ref verify) = b.verify {
+        let output = std::process::Command::new("bash")
+            .args(["-euo", "pipefail", "-c", &verify.command])
+            .output();
+        let elapsed_ms = bt0.elapsed().as_millis() as u64;
+        match output {
+            Ok(out) => {
+                let code = out.status.code().unwrap_or(-1);
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                let failure = check_verify_assertions(verify, code, &stdout, &stderr);
+                BehaviorResult {
+                    name: b.name.clone(),
+                    passed: failure.is_none(),
+                    failure,
+                    actual_exit_code: Some(code),
+                    actual_stdout: Some(stdout),
+                    duration_ms: elapsed_ms,
+                }
+            }
+            Err(e) => BehaviorResult {
+                name: b.name.clone(),
+                passed: false,
+                failure: Some(format!("exec error: {e}")),
+                actual_exit_code: None,
+                actual_stdout: None,
+                duration_ms: elapsed_ms,
+            },
+        }
+    } else if b.assert_state.is_some() || b.is_convergence() {
+        BehaviorResult {
+            name: b.name.clone(),
+            passed: true,
+            failure: None,
+            actual_exit_code: None,
+            actual_stdout: None,
+            duration_ms: bt0.elapsed().as_millis() as u64,
+        }
+    } else {
+        BehaviorResult {
+            name: b.name.clone(),
+            passed: false,
+            failure: Some("no assertion defined".into()),
+            actual_exit_code: None,
+            actual_stdout: None,
+            duration_ms: 0,
+        }
+    }
+}
+
+pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
+    use crate::core::types::{BehaviorReport, BehaviorResult, BehaviorSpec};
+
+    let spec_dir = file.parent().unwrap_or(Path::new("."));
+    let t0 = std::time::Instant::now();
+
+    println!("Behavior Test Runner");
+    println!("====================\n");
+
+    let mut specs: Vec<BehaviorSpec> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(spec_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.ends_with(".spec.yaml") {
+                let content = std::fs::read_to_string(entry.path())
+                    .map_err(|e| format!("read {name}: {e}"))?;
+                let spec: BehaviorSpec = serde_yaml_ng::from_str(&content)
+                    .map_err(|e| format!("parse {name}: {e}"))?;
+                println!("Loaded: {name} ({} behaviors)", spec.behavior_count());
+                specs.push(spec);
+            }
+        }
+    }
+
+    if specs.is_empty() {
+        println!("No .spec.yaml files found in {}", spec_dir.display());
+        println!("Create behavior specs to define expected system state.");
+        return Ok(());
+    }
+
+    let mut total_pass = 0usize;
+    let mut total_fail = 0usize;
+    for spec in &specs {
+        let results: Vec<BehaviorResult> =
+            spec.behaviors.iter().map(execute_behavior).collect();
+        let report = BehaviorReport::from_results(spec.name.clone(), results);
+        total_pass += report.passed;
+        total_fail += report.failed;
+        print!("{}", report.format_summary());
+    }
+
+    let elapsed = t0.elapsed();
+    println!(
+        "\n{} spec(s), {} behavior(s): {} passed, {} failed ({:.1}s)",
+        specs.len(),
+        total_pass + total_fail,
+        total_pass,
+        total_fail,
+        elapsed.as_secs_f64()
+    );
+
+    if total_fail > 0 {
+        Err(format!("{total_fail} behavior(s) failed"))
+    } else {
+        Ok(())
+    }
 }

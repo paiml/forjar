@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 45/46 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30), log retention policy wiring (F31), coverage report L0-L2 only (E9).
+> Updated: 2026-03-07 | 46/47 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30), log retention policy wiring (F31), behavior verify assertions (F32), coverage report L0-L2 only (E9).
 
 ---
 
@@ -411,6 +411,14 @@ Spec 11-observability.md claimed `policy.logs` in YAML config controls log reten
 
 ---
 
+### ~~F32: Behavior spec `file_content` and `port_open` assertions silently ignored~~ FIXED
+
+Spec 14-testing-strategy.md lists 7 assertion types for behavior specs: `exit_code`, `stdout`, `stderr_contains`, `file_exists`, `file_content`, `port_open`, `convergence`. The `VerifyCommand` struct defined all fields, but `check_verify_assertions()` only checked 4 (exit_code, stdout, stderr_contains, file_exists). `file_content` and `port_open` fields were silently ignored — specs using them would pass even when they should fail.
+
+**Fix**: Added `file_content` check (exact match or BLAKE3 hash comparison) and `port_open` check (TCP connect with 2s timeout) to `check_verify_assertions()`. 5 new tests cover exact match, mismatch, BLAKE3 match, BLAKE3 mismatch, and port-not-open cases.
+
+---
+
 ### E9: Coverage report only assigns L0-L2 (spec shows L0-L5 examples)
 
 Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (convergence tested), L4 (mutation tested), L5 (preservation tested). The `CoverageLevel` enum defines all 6 levels correctly, but `cmd_test_coverage()` in `check_test_runners.rs` only assigns L0-L2 via static analysis (checks for check scripts and `.spec.yaml` files). Detecting L3-L5 would require tracking historical sandbox test results.
@@ -509,4 +517,5 @@ Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (converg
 | ~~41~~ | ~~Fix --load runtime detection spec to match PATH detection~~ | ~~F29~~ | DONE |
 | ~~42~~ | ~~Fix tokio features in spec 12 to match Cargo.toml~~ | ~~F30~~ | DONE |
 | ~~43~~ | ~~Wire `LogRetention` into `Policy` struct~~ | ~~F31~~ | DONE |
-| 44 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
+| ~~44~~ | ~~Implement `file_content` and `port_open` behavior verify assertions~~ | ~~F32~~ | DONE |
+| 45 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
