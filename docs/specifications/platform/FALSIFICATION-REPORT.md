@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 43/44 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30).
+> Updated: 2026-03-07 | 45/46 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26), registry push blob classification (F27), events table schema fix (F28), --load runtime detection fix (F29), tokio features fix (F30), log retention policy wiring (F31), coverage report L0-L2 only (E9).
 
 ---
 
@@ -403,6 +403,22 @@ Spec 12-build-pipeline.md line 427 showed `tokio = { version = "1.35", features 
 
 ---
 
+### ~~F31: Log retention policy not configurable via `policy.logs`~~ FIXED
+
+Spec 11-observability.md claimed `policy.logs` in YAML config controls log retention (`keep_runs`, `keep_failed`, `max_log_size`, `max_total_size`). `LogRetention` type existed with all fields but was never wired into `Policy` struct. `cmd_logs_gc()` hardcoded `LogRetention::default()`.
+
+**Fix**: Added `logs: LogRetention` field to `Policy` struct (`policy.rs`). Updated `cmd_logs_gc()` to accept `Option<&LogRetention>` parameter. Config values flow through when available; defaults when not.
+
+---
+
+### E9: Coverage report only assigns L0-L2 (spec shows L0-L5 examples)
+
+Spec 14-testing-strategy.md shows `forjar test coverage` output with L3 (convergence tested), L4 (mutation tested), L5 (preservation tested). The `CoverageLevel` enum defines all 6 levels correctly, but `cmd_test_coverage()` in `check_test_runners.rs` only assigns L0-L2 via static analysis (checks for check scripts and `.spec.yaml` files). Detecting L3-L5 would require tracking historical sandbox test results.
+
+**Status**: DOCUMENTED — L0-L2 static detection is accurate. L3-L5 detection requires a test results database, which is a larger feature.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -492,3 +508,5 @@ Spec 12-build-pipeline.md line 427 showed `tokio = { version = "1.35", features 
 | ~~40~~ | ~~Fix events table schema in spec 01 to match db.rs~~ | ~~F28~~ | DONE |
 | ~~41~~ | ~~Fix --load runtime detection spec to match PATH detection~~ | ~~F29~~ | DONE |
 | ~~42~~ | ~~Fix tokio features in spec 12 to match Cargo.toml~~ | ~~F30~~ | DONE |
+| ~~43~~ | ~~Wire `LogRetention` into `Policy` struct~~ | ~~F31~~ | DONE |
+| 44 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |

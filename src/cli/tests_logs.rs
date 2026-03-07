@@ -181,7 +181,7 @@ fn logs_json_resource_with_script() {
 #[test]
 fn gc_empty_state() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs_gc(dir.path(), false, false, false);
+    let r = cmd_logs_gc(dir.path(), false, false, false, None);
     assert!(r.is_ok());
 }
 
@@ -192,7 +192,7 @@ fn gc_dry_run() {
     for i in 0..12 {
         create_run(dir.path(), "intel", &format!("r-{i:03}"), 0);
     }
-    let r = cmd_logs_gc(dir.path(), true, false, false);
+    let r = cmd_logs_gc(dir.path(), true, false, false, None);
     assert!(r.is_ok());
 }
 
@@ -202,7 +202,7 @@ fn gc_actual_delete() {
     for i in 0..12 {
         create_run(dir.path(), "intel", &format!("r-{i:03}"), 0);
     }
-    let r = cmd_logs_gc(dir.path(), false, false, false);
+    let r = cmd_logs_gc(dir.path(), false, false, false, None);
     assert!(r.is_ok());
 }
 
@@ -213,14 +213,14 @@ fn gc_keep_failed() {
         let failed = if i == 0 { 1 } else { 0 };
         create_run(dir.path(), "intel", &format!("r-{i:03}"), failed);
     }
-    let r = cmd_logs_gc(dir.path(), false, true, false);
+    let r = cmd_logs_gc(dir.path(), false, true, false, None);
     assert!(r.is_ok());
 }
 
 #[test]
 fn gc_json_output() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs_gc(dir.path(), false, false, true);
+    let r = cmd_logs_gc(dir.path(), false, false, true, None);
     assert!(r.is_ok());
 }
 
@@ -230,7 +230,7 @@ fn gc_json_dry_run() {
     for i in 0..12 {
         create_run(dir.path(), "intel", &format!("r-{i:03}"), 0);
     }
-    let r = cmd_logs_gc(dir.path(), true, false, true);
+    let r = cmd_logs_gc(dir.path(), true, false, true, None);
     assert!(r.is_ok());
 }
 

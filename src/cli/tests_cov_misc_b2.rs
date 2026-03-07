@@ -136,7 +136,7 @@ fn contracts_without_detail_flag() {
 #[test]
 fn logs_gc_mode() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_gc(dir.path(), false, false, false);
+    let r = super::logs::cmd_logs_gc(dir.path(), false, false, false, None);
     assert!(r.is_ok());
 }
 
@@ -187,7 +187,7 @@ fn logs_json_default() {
 #[test]
 fn logs_json_gc() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_gc(dir.path(), false, false, true);
+    let r = super::logs::cmd_logs_gc(dir.path(), false, false, true, None);
     assert!(r.is_ok());
 }
 
