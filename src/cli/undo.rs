@@ -2,6 +2,7 @@
 
 use super::apply::*;
 use super::helpers::*;
+use super::helpers_state::load_generation_locks;
 use crate::core::types;
 use std::path::Path;
 
@@ -495,33 +496,4 @@ pub(crate) fn cmd_undo_destroy(
     } else {
         Ok(())
     }
-}
-
-/// Load lock files from a generation directory.
-fn load_generation_locks(
-    gen_dir: &Path,
-    machine_filter: Option<&str>,
-) -> std::collections::HashMap<String, types::StateLock> {
-    let mut locks = std::collections::HashMap::new();
-    let Ok(entries) = std::fs::read_dir(gen_dir) else {
-        return locks;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        let lock_path = entry.path().join("state.lock.yaml");
-        if let Ok(content) = std::fs::read_to_string(&lock_path) {
-            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
-                locks.insert(name, lock);
-            }
-        }
-    }
-    locks
 }
