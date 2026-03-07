@@ -4046,3 +4046,33 @@ forjar state-query "nginx" --state-dir state --json
 # Timing statistics
 forjar state-query "converged" --state-dir state --timing
 ```
+
+### `forjar run`
+
+Dispatch-mode task invocation (FJ-2700). Finds a task resource, validates
+parameters, prepares the command with `{{ param }}` substitution, and
+executes via transport.
+
+```bash
+forjar run <TASK> [-f <FILE>] [--param KEY=VALUE ...] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `TASK` | required | Task resource ID to run |
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--param` | none | Parameter overrides (repeatable) |
+| `--json` | false | JSON output (shows prepared command, no execution) |
+
+**Examples:**
+
+```bash
+# Run a task
+forjar run deploy-app -f forjar.yaml
+
+# With parameter overrides
+forjar run deploy-app --param env=production --param version=2.1
+
+# Preview (JSON mode, no execution)
+forjar run deploy-app --param env=staging --json
+```
