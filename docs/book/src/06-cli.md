@@ -3947,6 +3947,9 @@ forjar test --group mutation     # Show mutation operators and report
 forjar test --group convergence  # Report convergence property status
 ```
 
+Mutation and convergence tests auto-detect sandbox backend availability (pepita, docker/podman, chroot).
+When no backend is available, they run in **simulated** mode using hash-based verification.
+
 ### `forjar oci-pack`
 
 Pack a directory into an OCI image layout.
