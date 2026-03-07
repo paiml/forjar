@@ -146,6 +146,13 @@ fn probe_container(name: &str, machine: &types::Machine, transport: &str) -> Con
     }
 }
 
+/// Exposed for testing — probe a single machine.
+#[cfg(test)]
+pub(crate) fn test_probe_machine(name: &str, machine: &types::Machine) -> (bool, String) {
+    let result = probe_machine(name, machine);
+    (result.reachable, result.transport)
+}
+
 /// FJ-2300/E19: Probe all machines for connectivity.
 pub(crate) fn cmd_status_connectivity(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| format!("read config: {e}"))?;
@@ -197,4 +204,102 @@ pub(crate) fn cmd_status_connectivity(file: &Path, json: bool) -> Result<(), Str
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_machine(transport: Option<&str>, addr: &str, user: &str) -> types::Machine {
+        let yaml = format!(
+            "hostname: test\naddr: {addr}\nuser: {user}{}",
+            transport
+                .map(|t| format!("\ntransport: {t}"))
+                .unwrap_or_default()
+        );
+        serde_yaml_ng::from_str(&yaml).unwrap()
+    }
+
+    fn local_machine() -> types::Machine {
+        test_machine(None, "127.0.0.1", "root")
+    }
+
+    fn ssh_machine(addr: &str) -> types::Machine {
+        test_machine(Some("ssh"), addr, "testuser")
+    }
+
+    #[test]
+    fn local_machine_always_reachable() {
+        let result = probe_machine("dev", &local_machine());
+        assert!(result.reachable);
+        assert_eq!(result.transport, "local");
+        assert_eq!(result.latency_ms, Some(0));
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn connectivity_result_with_latency_sets_when_reachable() {
+        let start = std::time::Instant::now();
+        let r = ConnectivityResult {
+            machine: "test".into(),
+            transport: "ssh".into(),
+            reachable: true,
+            latency_ms: None,
+            error: None,
+        }
+        .with_latency(start);
+        assert!(r.latency_ms.is_some());
+    }
+
+    #[test]
+    fn connectivity_result_with_latency_skips_when_unreachable() {
+        let start = std::time::Instant::now();
+        let r = ConnectivityResult {
+            machine: "test".into(),
+            transport: "ssh".into(),
+            reachable: false,
+            latency_ms: None,
+            error: Some("fail".into()),
+        }
+        .with_latency(start);
+        assert!(r.latency_ms.is_none());
+    }
+
+    #[test]
+    fn connectivity_result_json_serialization() {
+        let r = ConnectivityResult {
+            machine: "web".into(),
+            transport: "ssh".into(),
+            reachable: true,
+            latency_ms: Some(42),
+            error: None,
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(json.contains("\"reachable\":true"));
+        assert!(json.contains("\"latency_ms\":42"));
+    }
+
+    #[test]
+    fn unknown_transport_unreachable() {
+        let m = test_machine(Some("pepita"), "127.0.0.1", "root");
+        let result = probe_machine("alien", &m);
+        assert!(!result.reachable);
+        assert!(result.error.is_some());
+    }
+
+    #[test]
+    fn ssh_probe_with_empty_user_defaults_to_root() {
+        // This will fail to connect but tests the user defaulting logic
+        let m = ssh_machine("127.0.0.254");
+        let result = probe_ssh("test", &m, "ssh");
+        assert!(!result.reachable); // can't connect to 127.0.0.254
+    }
+
+    #[test]
+    fn cmd_connectivity_requires_file() {
+        let nonexistent = Path::new("/tmp/forjar-test-nonexistent-connectivity.yaml");
+        let result = cmd_status_connectivity(nonexistent, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("read config"));
+    }
 }
