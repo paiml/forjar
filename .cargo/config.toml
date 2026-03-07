@@ -1,8 +1,6 @@
 # Build configuration for consistent builds across machines
 
 [build]
-# Use all available CPUs for parallel compilation
-jobs = 0
 
 [profile.dev]
 # Faster incremental builds for development
