@@ -421,6 +421,35 @@ The push protocol follows OCI Distribution Spec v1.1:
 `--check-existing` (enabled by default) skips blobs that already exist
 in the registry, making incremental pushes fast.
 
+## Container-Based Builds (Phase 9)
+
+When `--sandbox` is passed to `forjar build`, the entire image build runs
+inside an ephemeral Docker or Podman container:
+
+```bash
+forjar build -f app.yaml --resource my-image --sandbox
+```
+
+**Pipeline:**
+
+1. **Detect runtime** — probe for `docker` or `podman` on PATH
+2. **Start container** — `docker run -d --name forjar-build-<tag> <base> sleep 3600`
+3. **Execute scripts** — `docker exec` runs each resource's apply script
+4. **Extract changes** — `docker diff` lists added files (`A` entries)
+5. **Copy files** — `docker cp` extracts each added file to a staging directory
+6. **Overlay scan** — `scan_overlay_upper()` converts to OCI layer entries
+7. **Assemble image** — `assemble_image()` creates the OCI layout
+8. **Cleanup** — container is force-removed
+
+This approach produces builds identical to `forjar apply` without modifying
+the host. The container is destroyed after build regardless of success/failure.
+
+```bash
+cargo run --example container_build
+```
+
+Implementation: `src/core/store/container_build.rs`
+
 ## Convergence Testing
 
 Convergence verification runs in isolated sandboxes:
