@@ -167,12 +167,14 @@
 
 **Remediation** (2026-03-07):
 1. `convergence_runner.rs`: Added `SandboxBackend` field to `ConvergenceTestConfig`, `RunnerMode` enum, `backend_available()` + `resolve_mode()` dispatch
-2. `mutation_runner.rs`: Added `SandboxBackend` field to `MutationRunConfig`
-3. `check_test.rs`: Both `cmd_test_convergence` and `cmd_test_mutation` now call `resolve_mode()` to print actual mode (simulated vs sandbox)
-4. 6 new tests covering backend detection, mode resolution, and config defaults
-5. Graceful degradation: when backend is unavailable, falls back to simulated mode with clear messaging
+2. `convergence_container.rs`: Real container-based convergence testing — creates ephemeral Docker/Podman containers, runs apply/query scripts, compares state hashes
+3. `mutation_container.rs`: Real container-based mutation testing — baseline, mutate, detect drift, re-converge inside ephemeral containers
+4. `mutation_runner.rs`: Added `SandboxBackend` field to `MutationRunConfig`, `run_mutation_test_dispatch()` for mode-aware routing
+5. `check_test.rs`: Both `cmd_test_convergence` and `cmd_test_mutation` now call `resolve_mode()` to print actual mode (simulated vs sandbox)
+6. 9 new tests covering backend detection, mode resolution, dispatch routing, and config defaults
+7. Graceful degradation: when backend is unavailable, falls back to simulated mode with clear messaging
 
-**Status**: Dispatch path wired. Real sandbox execution still requires pepita/container runtime (blocked on infrastructure, same as Phase 9).
+**Status**: Fully remediated. Container backend (Docker/Podman) executes real convergence and mutation tests in ephemeral containers. Pepita backend falls back to simulated (requires pepita binary). Chroot falls back to simulated (requires root).
 
 ---
 
