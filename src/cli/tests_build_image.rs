@@ -263,6 +263,26 @@ fn collect_entries_derivation_strategy_missing() {
 }
 
 #[test]
+fn cmd_build_far_produces_valid_archive() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    version: \"3.0\"\n    path: /app/bin\n    content: \"#!/bin/sh\\nexec app\"\n").unwrap();
+    let r = cmd_build(&path, "img", false, false, true, false, false);
+    assert!(r.is_ok(), "far build should succeed: {:?}", r);
+    // Verify the FAR file exists and can be decoded
+    let far_path = std::path::Path::new("state/images/img.far");
+    assert!(far_path.exists(), "FAR archive should be created");
+    let file = std::fs::File::open(far_path).unwrap();
+    let reader = std::io::BufReader::new(file);
+    let (manifest, chunks) = crate::core::store::far::decode_far_manifest(reader).unwrap();
+    assert_eq!(manifest.name, "img");
+    assert!(manifest.file_count > 0);
+    assert!(!chunks.is_empty());
+    // Clean up
+    let _ = std::fs::remove_file(far_path);
+}
+
+#[test]
 fn cmd_build_with_load_flag_no_runtime() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("forjar.yaml");
