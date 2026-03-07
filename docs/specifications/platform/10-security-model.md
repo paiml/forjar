@@ -70,7 +70,7 @@ fn check_path_policy(resource, policy):
     Ok(())
 ```
 
-Path policy is **advisory** — it's checked at plan time, not enforced by the OS. A malicious config could disable the policy. For defense-in-depth, combine with OS-level mandatory access control (AppArmor/SELinux profiles for the forjar process).
+Path policy is **advisory** — it's checked at parse time (during `validate_deny_paths()` in `format_validation.rs`), not enforced by the OS. A malicious config could disable the policy. For defense-in-depth, combine with OS-level mandatory access control (AppArmor/SELinux profiles for the forjar process).
 
 ---
 

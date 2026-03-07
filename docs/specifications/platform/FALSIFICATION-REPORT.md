@@ -3,7 +3,7 @@
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
 > Updated: 2026-03-07 | 46/47 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. 10 spec exaggerations documented (E9-E18).
+> Deep falsification: 42/42 phases IMPLEMENTED. 12 spec exaggerations documented (E9-E20). E10 fixed.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -500,6 +500,22 @@ Spec 12-build-pipeline.md implies parallel build step execution via dependency g
 
 ---
 
+### E19: Health check is state-based, not connectivity-based
+
+Spec 04-multi-machine-ops.md implies `forjar status --health` probes machine connectivity. Actual implementation in `status_health.rs` calculates a 0-100 health score from resource convergence status in lock files (converged/total ratio). No active SSH or transport connectivity probing occurs.
+
+**Status**: DOCUMENTED — State-based health scoring works correctly. Active connectivity probing is a future feature.
+
+---
+
+### E20: Run log format is YAML+text, not structured JSON
+
+Spec 11-observability.md describes "structured log format" for run logs. Actual logs on disk use YAML headers (`meta.yaml`) plus human-readable delimited text sections (`=== SCRIPT ===`, `=== STDOUT ===`, `=== STDERR ===`, `=== RESULT ===`). This is structured but not JSON. The `--json` flag produces JSON output at the CLI level, not in log files.
+
+**Status**: DOCUMENTED — Log format is well-structured and parseable. JSON log files would be a future option.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -540,6 +556,12 @@ Spec 12-build-pipeline.md implies parallel build step execution via dependency g
 | WASM types (WasmOptLevel, WasmBuildConfig, etc) | `core/types/wasm_types.rs` |
 | Build metrics (BuildMetrics, SizeThreshold, etc) | `core/types/build_metrics.rs` |
 | Dual-digest layer builder (BLAKE3 + SHA-256) | `core/store/layer_builder.rs:60-117` |
+| Wave execution respects depends_on DAG ordering | `resolver/dag.rs` + `executor/machine_b.rs` |
+| SSH ControlMaster connection reuse | `transport/ssh.rs:1-100` |
+| deny_paths enforced at parse time (stricter than spec) | `parser/format_validation.rs:198-221` |
+| Operator authorization checked before apply | `cli/dispatch_apply.rs:118-131` |
+| Webhook notifications fire on success/failure/drift | `cli/apply_output.rs` + `cli/drift.rs` |
+| Age encryption with ENC[age,...] markers | `core/secrets.rs` |
 
 ---
 
@@ -601,3 +623,5 @@ Spec 12-build-pipeline.md implies parallel build step execution via dependency g
 | 52 | Build cache does not apply to image layer construction | E16 | DOCUMENTED |
 | 53 | BuildMetrics not collected during image builds | E17 | DOCUMENTED |
 | 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
+| 55 | Health check is state-based, not connectivity-based | E19 | DOCUMENTED |
+| 56 | Run log format is YAML+text, not structured JSON | E20 | DOCUMENTED |
