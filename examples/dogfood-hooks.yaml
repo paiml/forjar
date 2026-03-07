@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-hooks
-description: null
+description: "Demonstrates pre_apply and post_apply lifecycle hooks in the policy block."
 params: {}
 machines:
   test-box:

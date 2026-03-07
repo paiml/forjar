@@ -2,6 +2,7 @@
 # Demonstrates `when:` field for conditional resource application.
 version: "1.0"
 name: dogfood-conditions
+description: "Demonstrates conditional resource application using the when: field with arch, param, and role checks."
 
 params:
   env: staging

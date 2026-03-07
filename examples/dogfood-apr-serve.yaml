@@ -4,7 +4,6 @@ description: "Dogfood: aprender inference server deployment on GPU machine"
 
 params:
   model_repo: "TheBloke/Llama-2-7B-GGUF"
-  serve_port: "8080"
 
 machines:
   gpu-box:

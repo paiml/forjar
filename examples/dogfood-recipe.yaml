@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-recipe
-description: null
+description: "Demonstrates the recipe resource type for composing reusable sub-configs with input parameters."
 params: {}
 machines:
   test-box:

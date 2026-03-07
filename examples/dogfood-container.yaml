@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-container
-description: null
+description: "Exercises container transport with file and directory resources in an ephemeral Docker container."
 params: {}
 machines:
   test-box:

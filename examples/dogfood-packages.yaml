@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-packages
-description: null
+description: "Installs apt packages and manages dependent config files and directories."
 params: {}
 machines:
   test-box:

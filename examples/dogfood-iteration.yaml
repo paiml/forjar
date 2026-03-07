@@ -2,6 +2,7 @@
 # Demonstrates `count:` and `for_each:` resource expansion.
 version: "1.0"
 name: dogfood-iteration
+description: "Demonstrates count and for_each resource iteration for expanding repeated resources."
 
 params:
   data_dir: /mnt/data

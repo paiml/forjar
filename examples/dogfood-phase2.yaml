@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-phase2
-description: null
+description: "Exercises phase-2 resource types: user accounts, file sources, cron jobs, and dependency ordering."
 params: {}
 machines:
   test-box:

@@ -2,6 +2,7 @@
 # Demonstrates pipeline task mode for building forjar itself.
 version: '1.0'
 name: forjar-self-build
+description: "Pipeline task mode for building forjar itself through lint, test, coverage, build, and package stages."
 machines:
   ci-runner:
     hostname: ci-0
@@ -10,6 +11,7 @@ machines:
 
 resources:
   build-pipeline:
+    machine: ci-runner
     type: task
     task_mode: pipeline
     stages:

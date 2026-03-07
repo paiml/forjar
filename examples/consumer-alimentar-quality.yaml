@@ -2,6 +2,7 @@
 # Demonstrates pipeline task mode for data quality scoring.
 version: '1.0'
 name: alimentar-quality-pipeline
+description: "Pipeline task mode for alimentar data quality scoring with ingest, validate, and score stages."
 machines:
   data-server:
     hostname: data-server
@@ -10,6 +11,7 @@ machines:
 
 resources:
   quality-pipeline:
+    machine: data-server
     type: task
     task_mode: pipeline
     stages:

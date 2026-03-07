@@ -39,8 +39,7 @@ resources:
     type: model
     machine: [gpu-1, gpu-2, gpu-3]
     name: llama-3.2-3b
-    model_source: local
-    model_path: "{{params.model_path}}"
+    source: "{{params.model_path}}"
     depends_on: [gpu-driver]
     tags: [agent, model]
 
@@ -52,6 +51,7 @@ resources:
     content: |
       name: fleet-agent
       model: llama-3.2-3b
+      fleet_size: {{params.agent_count}}
       server:
         port: {{params.mcp_port}}
     depends_on: [model]

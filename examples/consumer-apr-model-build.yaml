@@ -2,6 +2,7 @@
 # Demonstrates pipeline task mode for model compilation and packaging.
 version: '1.0'
 name: apr-model-build
+description: "Pipeline task mode for apr-cli model compilation, quantization, benchmarking, and packaging."
 machines:
   build-server:
     hostname: build-0
@@ -10,6 +11,7 @@ machines:
 
 resources:
   model-build:
+    machine: build-server
     type: task
     task_mode: pipeline
     stages:

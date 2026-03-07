@@ -2,6 +2,7 @@
 # 2× AMD Radeon Pro W5700X (Navi 10), in-tree amdgpu kernel driver
 version: "1.0"
 name: rocm-qualification
+description: "ROCm GPU qualification config for AMD Radeon Pro W5700X with in-tree amdgpu kernel driver."
 machines:
   intel:
     hostname: intel
