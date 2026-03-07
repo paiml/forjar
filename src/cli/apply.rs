@@ -107,7 +107,7 @@ pub(crate) fn cmd_apply(
         },
     };
 
-    maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
+    maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
 
     // FJ-1388: Record pre-apply generation for rollback-on-failure
     let pre_apply_gen = pre_apply_generation(state_dir);
@@ -228,6 +228,7 @@ fn check_state_integrity(state_dir: &Path, verbose: bool, yes: bool) -> Result<(
 fn maybe_auto_snapshot(
     config: &types::ForjarConfig,
     state_dir: &Path,
+    config_path: Option<&Path>,
     dry_run: bool,
     verbose: bool,
 ) {
@@ -246,7 +247,7 @@ fn maybe_auto_snapshot(
     gc_old_snapshots(state_dir, gens, verbose);
 
     // FJ-1386: Also create a numbered generation for instant rollback
-    match super::generation::create_generation(state_dir) {
+    match super::generation::create_generation(state_dir, config_path) {
         Ok(gen) => {
             if verbose {
                 eprintln!("generation: created gen {gen}");

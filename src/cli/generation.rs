@@ -15,7 +15,13 @@ fn generations_dir(state_dir: &Path) -> PathBuf {
 
 /// Create a new generation from the current state directory contents.
 /// Returns the new generation number.
-pub(crate) fn create_generation(state_dir: &Path) -> Result<u32, String> {
+///
+/// If `config_path` is provided, computes a BLAKE3 hash of the config file
+/// and stores it in the generation metadata for config tracking.
+pub(crate) fn create_generation(
+    state_dir: &Path,
+    config_path: Option<&Path>,
+) -> Result<u32, String> {
     let gen_dir = generations_dir(state_dir);
     std::fs::create_dir_all(&gen_dir).map_err(|e| format!("cannot create generations dir: {e}"))?;
 
@@ -31,6 +37,12 @@ pub(crate) fn create_generation(state_dir: &Path) -> Result<u32, String> {
     let mut meta = GenerationMeta::new(next, crate::tripwire::eventlog::now_iso8601());
     if let Some(git_ref) = crate::core::types::get_git_ref() {
         meta = meta.with_git_ref(git_ref);
+    }
+    if let Some(cfg_path) = config_path {
+        if let Ok(bytes) = std::fs::read(cfg_path) {
+            let hash = blake3::hash(&bytes).to_hex().to_string();
+            meta = meta.with_config_hash(format!("blake3:{hash}"));
+        }
     }
     meta.forjar_version = Some(env!("CARGO_PKG_VERSION").to_string());
     let meta_yaml = meta.to_yaml()?;

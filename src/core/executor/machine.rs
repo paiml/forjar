@@ -61,6 +61,11 @@ pub(crate) fn apply_machine(
 
     let mut trace_session = tracer::TraceSession::start(&run_id);
 
+    // FJ-2002: Compute config hash for provenance tracking
+    let config_hash = serde_yaml_ng::to_string(cfg.config)
+        .ok()
+        .map(|yaml| format!("blake3:{}", blake3::hash(yaml.as_bytes()).to_hex()));
+
     log_tripwire(
         cfg.state_dir,
         machine_name,
@@ -70,7 +75,7 @@ pub(crate) fn apply_machine(
             run_id: run_id.clone(),
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
             operator: Some(get_operator_identity()),
-            config_hash: None,
+            config_hash,
             param_count: Some(cfg.config.params.len() as u32),
         },
     );
