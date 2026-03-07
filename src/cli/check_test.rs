@@ -323,7 +323,39 @@ pub(crate) fn run_tests_parallel(
     })
 }
 
-/// FJ-2602: Load, parse, and run behavior specs.
+/// Check verify assertions against command output. Returns None if all pass.
+fn check_verify_assertions(
+    verify: &crate::core::types::VerifyCommand,
+    code: i32,
+    stdout: &str,
+    stderr: &str,
+) -> Option<String> {
+    let expected_code = verify.exit_code.unwrap_or(0);
+    if code != expected_code {
+        return Some(format!("exit code {code}, expected {expected_code}"));
+    }
+    if let Some(ref expected) = verify.stdout {
+        if stdout.trim() != expected.trim() {
+            return Some(format!(
+                "stdout mismatch: got {:?}, expected {:?}",
+                stdout.trim(),
+                expected.trim()
+            ));
+        }
+    }
+    if let Some(ref expected) = verify.stderr_contains {
+        if !stderr.contains(expected.as_str()) {
+            return Some(format!("stderr missing {:?}", expected));
+        }
+    }
+    if let Some(ref path) = verify.file_exists {
+        if !std::path::Path::new(path).exists() {
+            return Some(format!("file not found: {path}"));
+        }
+    }
+    None
+}
+
 /// Execute a single behavior entry, running verify commands if present.
 fn execute_behavior(
     b: &crate::core::types::BehaviorEntry,
@@ -331,7 +363,6 @@ fn execute_behavior(
     use crate::core::types::BehaviorResult;
     let bt0 = std::time::Instant::now();
 
-    // If verify command is defined, execute it
     if let Some(ref verify) = b.verify {
         let output = std::process::Command::new("bash")
             .args(["-euo", "pipefail", "-c", &verify.command])
@@ -341,19 +372,8 @@ fn execute_behavior(
             Ok(out) => {
                 let code = out.status.code().unwrap_or(-1);
                 let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-                let expected_code = verify.exit_code.unwrap_or(0);
-                let mut failure = None;
-                if code != expected_code {
-                    failure = Some(format!("exit code {code}, expected {expected_code}"));
-                } else if let Some(ref expected_stdout) = verify.stdout {
-                    if stdout.trim() != expected_stdout.trim() {
-                        failure = Some(format!(
-                            "stdout mismatch: got {:?}, expected {:?}",
-                            stdout.trim(),
-                            expected_stdout.trim()
-                        ));
-                    }
-                }
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                let failure = check_verify_assertions(verify, code, &stdout, &stderr);
                 BehaviorResult {
                     name: b.name.clone(),
                     passed: failure.is_none(),
@@ -373,7 +393,6 @@ fn execute_behavior(
             },
         }
     } else if b.assert_state.is_some() || b.is_convergence() {
-        // Structural assertion only (no command to run)
         BehaviorResult {
             name: b.name.clone(),
             passed: true,
