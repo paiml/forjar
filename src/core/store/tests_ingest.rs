@@ -191,8 +191,15 @@ resources:
 
     #[test]
     fn ingest_result_display() {
-        let result = IngestResult { machines: 3, resources: 25, events: 100 };
-        assert_eq!(result.to_string(), "Ingested 3 machines, 25 resources, 100 events");
+        let result = IngestResult {
+            machines: 3,
+            resources: 25,
+            events: 100,
+        };
+        assert_eq!(
+            result.to_string(),
+            "Ingested 3 machines, 25 resources, 100 events"
+        );
     }
 
     #[test]
@@ -279,22 +286,35 @@ resources:
         std::fs::write(
             mdir.join("state.lock.yaml"),
             "schema: '1.0'\nmachine: test\nhostname: test\ngenerated_at: 2026-03-06\nresources:\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         // Create generations directory
         let gens = dir.path().join("generations");
         std::fs::create_dir(&gens).unwrap();
-        std::fs::write(gens.join("gen-1.yaml"), "\
+        std::fs::write(
+            gens.join("gen-1.yaml"),
+            "\
 generation: 1\nrun_id: r-gen1\nconfig_hash: blake3:aabb\n\
-created_at: 2026-03-06T12:00:00Z\ngit_ref: abc123\naction: apply\n").unwrap();
-        std::fs::write(gens.join("gen-2.yaml"), "\
+created_at: 2026-03-06T12:00:00Z\ngit_ref: abc123\naction: apply\n",
+        )
+        .unwrap();
+        std::fs::write(
+            gens.join("gen-2.yaml"),
+            "\
 generation: 2\nrun_id: r-gen2\nconfig_hash: blake3:ccdd\n\
-created_at: 2026-03-06T13:00:00Z\naction: rollback\n").unwrap();
+created_at: 2026-03-06T13:00:00Z\naction: rollback\n",
+        )
+        .unwrap();
 
         ingest_state_dir(&conn, dir.path()).unwrap();
 
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM generations WHERE run_id != 'ingest'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM generations WHERE run_id != 'ingest'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 2);
     }
@@ -325,7 +345,8 @@ created_at: 2026-03-06T13:00:00Z\naction: rollback\n").unwrap();
             "schema: '1.0'\nmachine: test-machine\nhostname: test\ngenerated_at: 2026-03-06\n\
              resources:\n  nginx:\n    type: package\n    status: converged\n    \
              applied_at: 2026-03-06\n    duration_seconds: 0.1\n    hash: blake3:aabb\n",
-        ).unwrap();
+        )
+        .unwrap();
         std::fs::write(mdir.join("events.jsonl"), "").unwrap();
 
         let destroy_log = r#"{"timestamp":"2026-03-06T12:00:00Z","machine":"test-machine","resource_id":"old-pkg","resource_type":"package","pre_hash":"abc123","generation":1,"reliable_recreate":true}
@@ -362,7 +383,8 @@ created_at: 2026-03-06T13:00:00Z\naction: rollback\n").unwrap();
             "schema: '1.0'\nmachine: test-machine\nhostname: test\ngenerated_at: 2026-03-06\n\
              resources:\n  pkg:\n    type: package\n    status: converged\n    \
              applied_at: 2026-03-06\n    duration_seconds: 0.1\n    hash: blake3:cc\n",
-        ).unwrap();
+        )
+        .unwrap();
         std::fs::write(mdir.join("events.jsonl"), "").unwrap();
         std::fs::write(mdir.join("destroy-log.jsonl"), "\n").unwrap();
 

@@ -50,16 +50,18 @@ impl OciManifest {
             annotations: HashMap::new(),
         };
         debug_assert_eq!(result.schema_version, 2, "OCI manifest schema must be 2");
-        debug_assert_eq!(result.layers.len(), layer_count, "layer count must be preserved");
+        debug_assert_eq!(
+            result.layers.len(),
+            layer_count,
+            "layer count must be preserved"
+        );
         // FJ-2200 G4: OCI manifest media type correctness
         debug_assert_eq!(
-            result.media_type,
-            "application/vnd.oci.image.manifest.v1+json",
+            result.media_type, "application/vnd.oci.image.manifest.v1+json",
             "OCI manifest media type must match spec"
         );
         debug_assert_eq!(
-            result.config.media_type,
-            "application/vnd.oci.image.config.v1+json",
+            result.config.media_type, "application/vnd.oci.image.config.v1+json",
             "OCI config media type must match spec"
         );
         result
@@ -139,8 +141,15 @@ impl OciImageConfig {
             },
             history: Vec::new(),
         };
-        debug_assert_eq!(result.rootfs.rootfs_type, "layers", "rootfs type must be layers");
-        debug_assert_eq!(result.layer_count(), id_count, "diff_id count must be preserved");
+        debug_assert_eq!(
+            result.rootfs.rootfs_type, "layers",
+            "rootfs type must be layers"
+        );
+        debug_assert_eq!(
+            result.layer_count(),
+            id_count,
+            "diff_id count must be preserved"
+        );
         result
     }
 
@@ -261,15 +270,9 @@ impl LayerBuildResult {
     /// Convert to an OCI descriptor.
     pub fn to_descriptor(&self) -> OciDescriptor {
         let media_type = match self.compression {
-            LayerCompression::Gzip => {
-                "application/vnd.oci.image.layer.v1.tar+gzip"
-            }
-            LayerCompression::Zstd => {
-                "application/vnd.oci.image.layer.v1.tar+zstd"
-            }
-            LayerCompression::None => {
-                "application/vnd.oci.image.layer.v1.tar"
-            }
+            LayerCompression::Gzip => "application/vnd.oci.image.layer.v1.tar+gzip",
+            LayerCompression::Zstd => "application/vnd.oci.image.layer.v1.tar+zstd",
+            LayerCompression::None => "application/vnd.oci.image.layer.v1.tar",
         };
         OciDescriptor {
             media_type: media_type.into(),
@@ -345,4 +348,3 @@ pub enum DeterminismLevel {
     /// Alias for strict.
     True,
 }
-

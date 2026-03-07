@@ -11,13 +11,17 @@ use forjar::core::types::{
 fn main() {
     // Distribution targets
     let targets = vec![
-        DistTarget::Load { runtime: "docker".into() },
+        DistTarget::Load {
+            runtime: "docker".into(),
+        },
         DistTarget::Push {
             registry: "ghcr.io".into(),
             name: "myorg/training".into(),
             tag: "2.1.0-cuda12.4.1".into(),
         },
-        DistTarget::Far { output_path: "training-image.far".into() },
+        DistTarget::Far {
+            output_path: "training-image.far".into(),
+        },
     ];
 
     println!("=== Distribution Targets ===");

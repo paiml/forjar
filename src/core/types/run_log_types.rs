@@ -184,9 +184,8 @@ pub struct RunLogEntry {
 impl RunLogEntry {
     /// Format as a structured log file with delimited sections.
     pub fn format_log(&self) -> String {
-        let mut out = String::with_capacity(
-            self.script.len() + self.stdout.len() + self.stderr.len() + 512,
-        );
+        let mut out =
+            String::with_capacity(self.script.len() + self.stdout.len() + self.stderr.len() + 512);
 
         out.push_str("=== FORJAR TRANSPORT LOG ===\n");
         out.push_str(&format!("resource: {}\n", self.resource_id));
@@ -299,19 +298,28 @@ mod tests {
     fn run_meta_record_resources() {
         let mut meta = RunMeta::new("r-1".into(), "m".into(), "apply".into());
         meta.record_resource("a", ResourceRunStatus::Noop);
-        meta.record_resource("b", ResourceRunStatus::Converged {
-            exit_code: Some(0),
-            duration_secs: Some(1.5),
-            failed: false,
-        });
-        meta.record_resource("c", ResourceRunStatus::Converged {
-            exit_code: Some(1),
-            duration_secs: Some(0.3),
-            failed: true,
-        });
-        meta.record_resource("d", ResourceRunStatus::Skipped {
-            reason: Some("dep failed".into()),
-        });
+        meta.record_resource(
+            "b",
+            ResourceRunStatus::Converged {
+                exit_code: Some(0),
+                duration_secs: Some(1.5),
+                failed: false,
+            },
+        );
+        meta.record_resource(
+            "c",
+            ResourceRunStatus::Converged {
+                exit_code: Some(1),
+                duration_secs: Some(0.3),
+                failed: true,
+            },
+        );
+        meta.record_resource(
+            "d",
+            ResourceRunStatus::Skipped {
+                reason: Some("dep failed".into()),
+            },
+        );
 
         assert_eq!(meta.summary.total, 4);
         assert_eq!(meta.summary.noop, 1);

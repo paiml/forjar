@@ -15,7 +15,11 @@ fn main() {
 
     // Regular files (new or modified in upper)
     std::fs::create_dir_all(upper.join("etc/nginx")).unwrap();
-    std::fs::write(upper.join("etc/nginx/nginx.conf"), "worker_processes auto;\n").unwrap();
+    std::fs::write(
+        upper.join("etc/nginx/nginx.conf"),
+        "worker_processes auto;\n",
+    )
+    .unwrap();
     std::fs::create_dir_all(upper.join("usr/local/bin")).unwrap();
     std::fs::write(upper.join("usr/local/bin/app"), "#!/bin/sh\nexec /app\n").unwrap();
 
@@ -53,7 +57,12 @@ fn main() {
     // Show regular file entries
     println!("--- Regular File Entries ---");
     for entry in &scan.entries {
-        println!("  {:>6} bytes  {:04o}  {}", entry.content.len(), entry.mode, entry.path);
+        println!(
+            "  {:>6} bytes  {:04o}  {}",
+            entry.content.len(),
+            entry.mode,
+            entry.path
+        );
     }
     println!();
 
@@ -61,15 +70,24 @@ fn main() {
     println!("--- Whiteout → OCI Marker Entries ---");
     let markers = whiteouts_to_entries(&scan.whiteouts);
     for marker in &markers {
-        println!("  {:>6} bytes  {:04o}  {}", marker.content.len(), marker.mode, marker.path);
+        println!(
+            "  {:>6} bytes  {:04o}  {}",
+            marker.content.len(),
+            marker.mode,
+            marker.path
+        );
     }
     println!();
 
     // Merge all entries for layer construction
     println!("--- Merged Layer Entries ---");
     let merged = merge_overlay_entries(&scan);
-    println!("  Total entries: {} (regular) + {} (whiteout markers) = {}",
-        scan.entries.len(), scan.whiteouts.len(), merged.len());
+    println!(
+        "  Total entries: {} (regular) + {} (whiteout markers) = {}",
+        scan.entries.len(),
+        scan.whiteouts.len(),
+        merged.len()
+    );
     for entry in &merged {
         let kind = if entry.content.is_empty() && entry.path.contains(".wh.") {
             "whiteout"
@@ -83,8 +101,12 @@ fn main() {
     // Demonstrate standalone whiteout conversion
     println!("--- Standalone Whiteout Conversion ---");
     let whiteouts = vec![
-        WhiteoutEntry::FileDelete { path: "etc/removed.conf".into() },
-        WhiteoutEntry::FileDelete { path: "usr/bin/old-tool".into() },
+        WhiteoutEntry::FileDelete {
+            path: "etc/removed.conf".into(),
+        },
+        WhiteoutEntry::FileDelete {
+            path: "usr/bin/old-tool".into(),
+        },
         WhiteoutEntry::OpaqueDir { path: "tmp".into() },
     ];
     for w in &whiteouts {

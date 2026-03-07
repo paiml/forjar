@@ -209,11 +209,17 @@ mod tests_includes_hardening {
         assert!(result.is_ok());
         let merged = result.unwrap();
         assert_eq!(
-            merged.include_provenance.get("resource:pkg").map(String::as_str),
+            merged
+                .include_provenance
+                .get("resource:pkg")
+                .map(String::as_str),
             Some(inc.to_str().unwrap())
         );
         assert_eq!(
-            merged.include_provenance.get("machine:web").map(String::as_str),
+            merged
+                .include_provenance
+                .get("machine:web")
+                .map(String::as_str),
             Some(inc.to_str().unwrap())
         );
     }

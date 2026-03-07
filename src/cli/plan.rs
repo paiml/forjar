@@ -141,8 +141,11 @@ fn print_plan_json(
             entry
         })
         .collect();
-    let change_ids: std::collections::HashSet<&str> =
-        plan.changes.iter().map(|c| c.resource_id.as_str()).collect();
+    let change_ids: std::collections::HashSet<&str> = plan
+        .changes
+        .iter()
+        .map(|c| c.resource_id.as_str())
+        .collect();
     let filtered_order: Vec<&str> = plan
         .execution_order
         .iter()

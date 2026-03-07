@@ -323,7 +323,10 @@ fn dispatch_uses_simulated_for_pepita() {
     let target = sample_target("dispatch-sim", "file");
     // Pepita not installed → dispatch should fall back to simulated
     let result = run_convergence_test_dispatch(&target, SandboxBackend::Pepita);
-    assert!(result.passed(), "simulated mode should pass for valid target");
+    assert!(
+        result.passed(),
+        "simulated mode should pass for valid target"
+    );
 }
 
 #[test]

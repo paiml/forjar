@@ -176,7 +176,13 @@ fn read_gen_info(gen_dir: &Path, num: u32) -> GenInfo {
         Ok(meta) => {
             let resource_count = count_lock_resources(&gen_dir.join(num.to_string()));
             let changes = meta.total_changes();
-            GenInfo { num, created_at: meta.created_at, action: meta.action, changes, resource_count }
+            GenInfo {
+                num,
+                created_at: meta.created_at,
+                action: meta.action,
+                changes,
+                resource_count,
+            }
         }
         Err(_) => GenInfo {
             num,
@@ -345,7 +351,7 @@ pub(crate) fn cmd_generation_diff(
     to: u32,
     json: bool,
 ) -> Result<(), String> {
-    use crate::core::types::{GenerationDiff, diff_resource_sets};
+    use crate::core::types::{diff_resource_sets, GenerationDiff};
     let gen_dir = generations_dir(state_dir);
     let from_dir = gen_dir.join(from.to_string());
     let to_dir = gen_dir.join(to.to_string());
@@ -359,7 +365,8 @@ pub(crate) fn cmd_generation_diff(
     let from_locks = load_gen_locks(&from_dir);
     let to_locks = load_gen_locks(&to_dir);
     let all_machines: std::collections::BTreeSet<&str> = from_locks
-        .keys().map(|s| s.as_str())
+        .keys()
+        .map(|s| s.as_str())
         .chain(to_locks.keys().map(|s| s.as_str()))
         .collect();
 
@@ -367,20 +374,28 @@ pub(crate) fn cmd_generation_diff(
     for machine in &all_machines {
         let from_res = lock_to_tuples(from_locks.get(*machine));
         let to_res = lock_to_tuples(to_locks.get(*machine));
-        let from_refs: Vec<(&str, &str, &str)> = from_res.iter()
-            .map(|(a, b, c)| (a.as_str(), b.as_str(), c.as_str())).collect();
-        let to_refs: Vec<(&str, &str, &str)> = to_res.iter()
-            .map(|(a, b, c)| (a.as_str(), b.as_str(), c.as_str())).collect();
+        let from_refs: Vec<(&str, &str, &str)> = from_res
+            .iter()
+            .map(|(a, b, c)| (a.as_str(), b.as_str(), c.as_str()))
+            .collect();
+        let to_refs: Vec<(&str, &str, &str)> = to_res
+            .iter()
+            .map(|(a, b, c)| (a.as_str(), b.as_str(), c.as_str()))
+            .collect();
         let resources = diff_resource_sets(&from_refs, &to_refs);
         diffs.push(GenerationDiff {
-            gen_from: from, gen_to: to,
-            machine: machine.to_string(), resources,
+            gen_from: from,
+            gen_to: to,
+            machine: machine.to_string(),
+            resources,
         });
     }
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&diffs)
-            .map_err(|e| format!("JSON error: {e}"))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&diffs).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         for diff in &diffs {
             print!("{}", diff.format_summary());
@@ -393,13 +408,21 @@ pub(crate) fn cmd_generation_diff(
 }
 
 /// Load locks from a generation directory (all machines).
-fn load_gen_locks(gen_dir: &Path) -> std::collections::HashMap<String, crate::core::types::StateLock> {
+fn load_gen_locks(
+    gen_dir: &Path,
+) -> std::collections::HashMap<String, crate::core::types::StateLock> {
     let mut locks = std::collections::HashMap::new();
-    let Ok(entries) = std::fs::read_dir(gen_dir) else { return locks };
+    let Ok(entries) = std::fs::read_dir(gen_dir) else {
+        return locks;
+    };
     for entry in entries.flatten() {
-        if !entry.path().is_dir() { continue; }
+        if !entry.path().is_dir() {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') { continue; }
+        if name.starts_with('.') {
+            continue;
+        }
         let lock_path = entry.path().join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
@@ -413,9 +436,10 @@ fn load_gen_locks(gen_dir: &Path) -> std::collections::HashMap<String, crate::co
 /// Convert a StateLock to (resource_id, resource_type, hash) tuples.
 fn lock_to_tuples(lock: Option<&crate::core::types::StateLock>) -> Vec<(String, String, String)> {
     let Some(lock) = lock else { return Vec::new() };
-    lock.resources.iter().map(|(id, rl)| {
-        (id.clone(), rl.resource_type.to_string(), rl.hash.clone())
-    }).collect()
+    lock.resources
+        .iter()
+        .map(|(id, rl)| (id.clone(), rl.resource_type.to_string(), rl.hash.clone()))
+        .collect()
 }
 
 /// Print generations as enriched text table (FJ-2002).
@@ -424,12 +448,18 @@ fn print_generations_text(gens: &[(u32, String)], current: Option<u32>, gen_dir:
         let info = read_gen_info(gen_dir, *num);
         let marker = if current == Some(*num) { " *" } else { "" };
         let delta = if info.changes > 0 {
-            format!(" ({} changes, {} resources)", info.changes, info.resource_count)
+            format!(
+                " ({} changes, {} resources)",
+                info.changes, info.resource_count
+            )
         } else if info.resource_count > 0 {
             format!(" ({} resources)", info.resource_count)
         } else {
             String::new()
         };
-        println!("  gen {}{marker} [{}] ({}){delta}", info.num, info.action, info.created_at);
+        println!(
+            "  gen {}{marker} [{}] ({}){delta}",
+            info.num, info.action, info.created_at
+        );
     }
 }

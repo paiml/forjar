@@ -10,10 +10,17 @@ use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerCo
 /// FJ-2104: Build container image from a resource definition.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_build(
-    file: &std::path::Path, resource: &str, load: bool, push: bool, far: bool, _json: bool,
+    file: &std::path::Path,
+    resource: &str,
+    load: bool,
+    push: bool,
+    far: bool,
+    _json: bool,
 ) -> Result<(), String> {
     let config = super::helpers::parse_and_validate(file)?;
-    let res = config.resources.get(resource)
+    let res = config
+        .resources
+        .get(resource)
         .ok_or_else(|| format!("resource '{resource}' not found"))?;
     if !matches!(res.resource_type, crate::core::types::ResourceType::Image) {
         return Err(format!("resource '{resource}' is not type: image"));
@@ -26,24 +33,41 @@ pub(crate) fn cmd_build(
 
     let start = std::time::Instant::now();
     let result = crate::core::store::image_assembler::assemble_image(
-        &plan, &layer_entries, &output_dir, &OciLayerConfig::default(),
+        &plan,
+        &layer_entries,
+        &output_dir,
+        &OciLayerConfig::default(),
     )?;
     let duration = start.elapsed();
 
     println!("\nBuilding {resource} ({})", plan.tag);
     for (i, layer) in result.layers.iter().enumerate() {
-        println!("  Layer {}/{}: {} files, {} -> {} bytes",
-            i + 1, result.layers.len(), layer.file_count,
-            layer.uncompressed_size, layer.compressed_size);
+        println!(
+            "  Layer {}/{}: {} files, {} -> {} bytes",
+            i + 1,
+            result.layers.len(),
+            layer.file_count,
+            layer.uncompressed_size,
+            layer.compressed_size
+        );
     }
-    println!("\n  Image: {} ({} layers, {} bytes)", plan.tag, result.layers.len(), result.total_size);
+    println!(
+        "\n  Image: {} ({} layers, {} bytes)",
+        plan.tag,
+        result.layers.len(),
+        result.total_size
+    );
     println!("  Layout: {}", output_dir.display());
     println!("  Built in {:.1}s", duration.as_secs_f64());
 
     if load {
-        let runtime = if super::dispatch_misc_b::which_runtime("docker") { "docker" }
-            else if super::dispatch_misc_b::which_runtime("podman") { "podman" }
-            else { return Err("--load requires docker or podman".into()); };
+        let runtime = if super::dispatch_misc_b::which_runtime("docker") {
+            "docker"
+        } else if super::dispatch_misc_b::which_runtime("podman") {
+            "podman"
+        } else {
+            return Err("--load requires docker or podman".into());
+        };
         println!("\n--load: piping OCI tarball to `{runtime} load`...");
     }
     if push {
@@ -57,7 +81,9 @@ pub(crate) fn cmd_build(
 
 /// Build an ImageBuildPlan from a resource definition.
 fn build_plan_from_resource(
-    name: &str, res: &Resource, _config: &ForjarConfig,
+    name: &str,
+    res: &Resource,
+    _config: &ForjarConfig,
 ) -> Result<ImageBuildPlan, String> {
     let tag = res.version.as_deref().unwrap_or("latest");
     let image_name = res.name.as_deref().unwrap_or(name);
@@ -65,12 +91,14 @@ fn build_plan_from_resource(
     // Check for base image layers
     let mut layers = Vec::new();
     if let Some(ref base) = res.image {
-        let base_dir = std::path::Path::new("state/images").join(
-            base.replace([':', '/'], "_")
-        );
+        let base_dir = std::path::Path::new("state/images").join(base.replace([':', '/'], "_"));
         if base_dir.exists() {
-            if let Ok(base_layers) = crate::core::store::base_image::extract_base_layers(&base_dir) {
-                println!("  {}", crate::core::store::base_image::format_base_info(base, &base_layers));
+            if let Ok(base_layers) = crate::core::store::base_image::extract_base_layers(&base_dir)
+            {
+                println!(
+                    "  {}",
+                    crate::core::store::base_image::format_base_info(base, &base_layers)
+                );
             }
         }
     }
@@ -91,37 +119,58 @@ fn build_plan_from_resource(
 
 /// Collect LayerEntry sets for each layer in the plan.
 fn collect_layer_entries(
-    plan: &ImageBuildPlan, config: &ForjarConfig,
+    plan: &ImageBuildPlan,
+    config: &ForjarConfig,
 ) -> Result<Vec<Vec<LayerEntry>>, String> {
-    plan.layers.iter()
+    plan.layers
+        .iter()
         .map(|strategy| collect_strategy_entries(strategy, config))
         .collect()
 }
 
 fn collect_strategy_entries(
-    strategy: &LayerStrategy, config: &ForjarConfig,
+    strategy: &LayerStrategy,
+    config: &ForjarConfig,
 ) -> Result<Vec<LayerEntry>, String> {
     match strategy {
         LayerStrategy::Files { paths } => Ok(collect_file_entries(paths, config)),
         LayerStrategy::Packages { names } => {
             let content = names.join("\n");
-            Ok(vec![LayerEntry::file("var/lib/forjar/packages.list", content.as_bytes(), 0o644)])
+            Ok(vec![LayerEntry::file(
+                "var/lib/forjar/packages.list",
+                content.as_bytes(),
+                0o644,
+            )])
         }
-        LayerStrategy::Build { command: _, workdir } => collect_build_entries(workdir.as_deref()),
+        LayerStrategy::Build {
+            command: _,
+            workdir,
+        } => collect_build_entries(workdir.as_deref()),
         LayerStrategy::Derivation { store_path } => collect_derivation_entries(store_path),
     }
 }
 
 fn collect_file_entries(paths: &[String], config: &ForjarConfig) -> Vec<LayerEntry> {
-    paths.iter().map(|path| {
-        if let Some(res) = config.resources.values().find(|r| r.path.as_deref() == Some(path)) {
-            let content = res.content.as_deref().unwrap_or("").as_bytes();
-            let mode = res.mode.as_deref().and_then(|m| u32::from_str_radix(m, 8).ok()).unwrap_or(0o644);
-            LayerEntry::file(path, content, mode)
-        } else {
-            LayerEntry::file(path, b"", 0o644)
-        }
-    }).collect()
+    paths
+        .iter()
+        .map(|path| {
+            if let Some(res) = config
+                .resources
+                .values()
+                .find(|r| r.path.as_deref() == Some(path))
+            {
+                let content = res.content.as_deref().unwrap_or("").as_bytes();
+                let mode = res
+                    .mode
+                    .as_deref()
+                    .and_then(|m| u32::from_str_radix(m, 8).ok())
+                    .unwrap_or(0o644);
+                LayerEntry::file(path, content, mode)
+            } else {
+                LayerEntry::file(path, b"", 0o644)
+            }
+        })
+        .collect()
 }
 
 /// FJ-2103: Scan overlay upper dir for Build layer strategy.
@@ -153,7 +202,9 @@ fn collect_derivation_entries(store_path: &str) -> Result<Vec<LayerEntry>, Strin
 /// Exposed for testing.
 #[cfg(test)]
 pub(crate) fn test_build_plan_from_resource(
-    name: &str, res: &Resource, config: &ForjarConfig,
+    name: &str,
+    res: &Resource,
+    config: &ForjarConfig,
 ) -> Result<ImageBuildPlan, String> {
     build_plan_from_resource(name, res, config)
 }
@@ -161,7 +212,8 @@ pub(crate) fn test_build_plan_from_resource(
 /// Exposed for testing.
 #[cfg(test)]
 pub(crate) fn test_collect_layer_entries(
-    plan: &ImageBuildPlan, config: &ForjarConfig,
+    plan: &ImageBuildPlan,
+    config: &ForjarConfig,
 ) -> Result<Vec<Vec<LayerEntry>>, String> {
     collect_layer_entries(plan, config)
 }

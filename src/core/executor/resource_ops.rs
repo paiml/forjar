@@ -252,8 +252,15 @@ fn capture_exec_output(
     run_capture::ensure_run_dir(&run_dir, rid, ctx.machine_name, "apply");
     let rt = "unknown"; // resource type not available here; log content is primary
     run_capture::capture_output(
-        &run_dir, resource_id, rt, action, ctx.machine_name,
-        "transport", "", output, duration,
+        &run_dir,
+        resource_id,
+        rt,
+        action,
+        ctx.machine_name,
+        "transport",
+        "",
+        output,
+        duration,
     );
 }
 
@@ -272,7 +279,14 @@ fn handle_resource_output(
     // FJ-2301: Capture output to run log directory
     if let Ok(ref out) = output {
         let action_str = format!("{:?}", change.action).to_lowercase();
-        capture_exec_output(ctx, cfg.run_id.as_deref(), &change.resource_id, &action_str, out, duration);
+        capture_exec_output(
+            ctx,
+            cfg.run_id.as_deref(),
+            &change.resource_id,
+            &action_str,
+            out,
+            duration,
+        );
     }
     match output {
         Ok(out) if out.success() => {
@@ -296,8 +310,16 @@ fn handle_resource_output(
                 machine,
                 duration,
             );
-            update_run_meta(ctx, cfg.run_id.as_deref(), &change.resource_id,
-                ResourceRunStatus::Converged { exit_code: Some(0), duration_secs: Some(duration), failed: false });
+            update_run_meta(
+                ctx,
+                cfg.run_id.as_deref(),
+                &change.resource_id,
+                ResourceRunStatus::Converged {
+                    exit_code: Some(0),
+                    duration_secs: Some(duration),
+                    failed: false,
+                },
+            );
             Ok(ResourceOutcome::Converged)
         }
         Ok(out) => {
@@ -309,8 +331,16 @@ fn handle_resource_output(
                 duration,
                 &error,
             );
-            update_run_meta(ctx, cfg.run_id.as_deref(), &change.resource_id,
-                ResourceRunStatus::Converged { exit_code: Some(out.exit_code), duration_secs: Some(duration), failed: true });
+            update_run_meta(
+                ctx,
+                cfg.run_id.as_deref(),
+                &change.resource_id,
+                ResourceRunStatus::Converged {
+                    exit_code: Some(out.exit_code),
+                    duration_secs: Some(duration),
+                    failed: true,
+                },
+            );
             Ok(ResourceOutcome::Failed { should_stop })
         }
         Err(e) => {
@@ -328,7 +358,12 @@ fn handle_resource_output(
 }
 
 /// Update meta.yaml with resource status after execution.
-fn update_run_meta(ctx: &RecordCtx, run_id: Option<&str>, resource_id: &str, status: ResourceRunStatus) {
+fn update_run_meta(
+    ctx: &RecordCtx,
+    run_id: Option<&str>,
+    resource_id: &str,
+    status: ResourceRunStatus,
+) {
     if let Some(rid) = run_id {
         let dir = run_capture::run_dir(ctx.state_dir, ctx.machine_name, rid);
         run_capture::update_meta_resource(&dir, resource_id, status);

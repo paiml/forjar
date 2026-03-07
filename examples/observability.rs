@@ -39,8 +39,14 @@ fn main() {
     };
     let small = "short log";
     let large = "ABCDEFGHIJ__this_is_the_middle_section_that_gets_cut__KLMNOPQRST";
-    println!("  Small log truncated: {}", trunc.should_truncate(small.len()));
-    println!("  Large log truncated: {}", trunc.should_truncate(large.len()));
+    println!(
+        "  Small log truncated: {}",
+        trunc.should_truncate(small.len())
+    );
+    println!(
+        "  Large log truncated: {}",
+        trunc.should_truncate(large.len())
+    );
     let truncated = trunc.truncate(large);
     println!("  Result:\n{truncated}");
 
@@ -49,8 +55,14 @@ fn main() {
     let path = RunLogPath::new("state", "intel", "r-abc123");
     println!("  Run dir:      {}", path.run_dir());
     println!("  Meta:         {}", path.meta_path());
-    println!("  Apply log:    {}", path.resource_log("nginx-pkg", "apply"));
-    println!("  Check log:    {}", path.resource_log("nginx-svc", "check"));
+    println!(
+        "  Apply log:    {}",
+        path.resource_log("nginx-pkg", "apply")
+    );
+    println!(
+        "  Check log:    {}",
+        path.resource_log("nginx-svc", "check")
+    );
 
     // GC result
     println!("\n=== Log GC ===");

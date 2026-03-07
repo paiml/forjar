@@ -15,8 +15,14 @@ fn main() {
     let config = ConvergenceTestConfig::default();
     let mode = convergence_runner::resolve_mode(config.backend);
     println!("Backend: {} (mode: {mode})", config.backend);
-    println!("Pepita available: {}", convergence_runner::backend_available(SandboxBackend::Pepita));
-    println!("Docker available: {}", convergence_runner::backend_available(SandboxBackend::Container));
+    println!(
+        "Pepita available: {}",
+        convergence_runner::backend_available(SandboxBackend::Pepita)
+    );
+    println!(
+        "Docker available: {}",
+        convergence_runner::backend_available(SandboxBackend::Container)
+    );
     println!();
 
     // 1. Create test targets
@@ -28,11 +34,17 @@ fn main() {
     ];
 
     // 2. Run convergence tests (parallel, 2 sandboxes)
-    println!("Running {} convergence tests (parallelism=2)...\n", targets.len());
+    println!(
+        "Running {} convergence tests (parallelism=2)...\n",
+        targets.len()
+    );
     let results = convergence_runner::run_convergence_parallel(targets, 2);
 
     // 3. Print report
-    print!("{}", convergence_runner::format_convergence_report(&results));
+    print!(
+        "{}",
+        convergence_runner::format_convergence_report(&results)
+    );
 
     // 4. Show summary
     let summary = ConvergenceSummary::from_results(&results);

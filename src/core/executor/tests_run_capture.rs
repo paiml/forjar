@@ -14,11 +14,7 @@ fn make_output(exit_code: i32, stdout: &str, stderr: &str) -> ExecOutput {
 
 #[test]
 fn run_dir_path() {
-    let dir = run_capture::run_dir(
-        std::path::Path::new("/state"),
-        "intel",
-        "r-abc123",
-    );
+    let dir = run_capture::run_dir(std::path::Path::new("/state"), "intel", "r-abc123");
     assert_eq!(dir, std::path::PathBuf::from("/state/intel/runs/r-abc123"));
 }
 
@@ -52,8 +48,15 @@ fn capture_output_writes_log_and_script() {
 
     let output = make_output(0, "installed ok\n", "");
     run_capture::capture_output(
-        &dir, "nginx", "package", "apply", "intel",
-        "ssh", "apt-get install -y nginx", &output, 1.5,
+        &dir,
+        "nginx",
+        "package",
+        "apply",
+        "intel",
+        "ssh",
+        "apt-get install -y nginx",
+        &output,
+        1.5,
     );
 
     let log = std::fs::read_to_string(dir.join("nginx.apply.log")).unwrap();
@@ -77,8 +80,15 @@ fn capture_output_failure() {
 
     let output = make_output(100, "", "E: Unable to locate package foo\n");
     run_capture::capture_output(
-        &dir, "bad-pkg", "package", "apply", "intel",
-        "ssh", "apt-get install -y foo", &output, 0.8,
+        &dir,
+        "bad-pkg",
+        "package",
+        "apply",
+        "intel",
+        "ssh",
+        "apt-get install -y foo",
+        &output,
+        0.8,
     );
 
     let log = std::fs::read_to_string(dir.join("bad-pkg.apply.log")).unwrap();
@@ -91,8 +101,15 @@ fn capture_output_nonexistent_dir_noop() {
     let output = make_output(0, "ok", "");
     // Should not panic even if directory doesn't exist
     run_capture::capture_output(
-        std::path::Path::new("/nonexistent/dir"), "res", "file", "apply",
-        "m", "local", "echo ok", &output, 0.1,
+        std::path::Path::new("/nonexistent/dir"),
+        "res",
+        "file",
+        "apply",
+        "m",
+        "local",
+        "echo ok",
+        &output,
+        0.1,
     );
 }
 
@@ -102,11 +119,15 @@ fn update_meta_resource_success() {
     let dir = tmp.path().join("intel/runs/r-003");
     run_capture::ensure_run_dir(&dir, "r-003", "intel", "apply");
 
-    run_capture::update_meta_resource(&dir, "nginx", ResourceRunStatus::Converged {
-        exit_code: Some(0),
-        duration_secs: Some(1.5),
-        failed: false,
-    });
+    run_capture::update_meta_resource(
+        &dir,
+        "nginx",
+        ResourceRunStatus::Converged {
+            exit_code: Some(0),
+            duration_secs: Some(1.5),
+            failed: false,
+        },
+    );
 
     let meta_str = std::fs::read_to_string(dir.join("meta.yaml")).unwrap();
     let meta: crate::core::types::RunMeta = serde_yaml_ng::from_str(&meta_str).unwrap();
@@ -121,11 +142,15 @@ fn update_meta_resource_failure() {
     let dir = tmp.path().join("intel/runs/r-004");
     run_capture::ensure_run_dir(&dir, "r-004", "intel", "apply");
 
-    run_capture::update_meta_resource(&dir, "bad-pkg", ResourceRunStatus::Converged {
-        exit_code: Some(100),
-        duration_secs: Some(0.5),
-        failed: true,
-    });
+    run_capture::update_meta_resource(
+        &dir,
+        "bad-pkg",
+        ResourceRunStatus::Converged {
+            exit_code: Some(100),
+            duration_secs: Some(0.5),
+            failed: true,
+        },
+    );
 
     let meta_str = std::fs::read_to_string(dir.join("meta.yaml")).unwrap();
     let meta: crate::core::types::RunMeta = serde_yaml_ng::from_str(&meta_str).unwrap();
@@ -152,13 +177,25 @@ fn update_meta_resource_multiple() {
     let dir = tmp.path().join("intel/runs/r-006");
     run_capture::ensure_run_dir(&dir, "r-006", "intel", "apply");
 
-    run_capture::update_meta_resource(&dir, "nginx", ResourceRunStatus::Converged {
-        exit_code: Some(0), duration_secs: Some(1.0), failed: false,
-    });
+    run_capture::update_meta_resource(
+        &dir,
+        "nginx",
+        ResourceRunStatus::Converged {
+            exit_code: Some(0),
+            duration_secs: Some(1.0),
+            failed: false,
+        },
+    );
     run_capture::update_meta_resource(&dir, "config", ResourceRunStatus::Noop);
-    run_capture::update_meta_resource(&dir, "bad", ResourceRunStatus::Converged {
-        exit_code: Some(1), duration_secs: Some(0.3), failed: true,
-    });
+    run_capture::update_meta_resource(
+        &dir,
+        "bad",
+        ResourceRunStatus::Converged {
+            exit_code: Some(1),
+            duration_secs: Some(0.3),
+            failed: true,
+        },
+    );
 
     let meta_str = std::fs::read_to_string(dir.join("meta.yaml")).unwrap();
     let meta: crate::core::types::RunMeta = serde_yaml_ng::from_str(&meta_str).unwrap();

@@ -141,10 +141,7 @@ pub enum AuthzResult {
     /// Operator is authorized (or no restriction configured).
     Allowed,
     /// Operator is not in the allowed list.
-    Denied {
-        operator: String,
-        machine: String,
-    },
+    Denied { operator: String, machine: String },
 }
 
 impl AuthzResult {
@@ -159,7 +156,10 @@ impl fmt::Display for AuthzResult {
         match self {
             Self::Allowed => write!(f, "allowed"),
             Self::Denied { operator, machine } => {
-                write!(f, "operator '{operator}' not authorized for machine '{machine}'")
+                write!(
+                    f,
+                    "operator '{operator}' not authorized for machine '{machine}'"
+                )
             }
         }
     }

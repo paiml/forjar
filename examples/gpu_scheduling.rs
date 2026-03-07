@@ -34,11 +34,10 @@ fn main() {
 
     // Barrier task for multi-machine synchronization
     println!("\n=== Barrier Task ===");
-    let mut barrier = BarrierTask::new("sync-training", vec![
-        "gpu-0".into(),
-        "gpu-1".into(),
-        "gpu-2".into(),
-    ]);
+    let mut barrier = BarrierTask::new(
+        "sync-training",
+        vec!["gpu-0".into(), "gpu-1".into(), "gpu-2".into()],
+    );
     barrier.timeout_secs = 300;
     println!("  {barrier}");
 

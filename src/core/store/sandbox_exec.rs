@@ -411,7 +411,9 @@ pub fn oci_layout_plan(output_dir: &std::path::Path, tag: &str) -> Vec<SandboxSt
 }
 
 /// FJ-2105: Build a multi-arch OCI Image Index from per-platform manifests.
-pub fn multi_arch_index(platforms: &[crate::core::types::ArchBuild]) -> crate::core::types::OciIndex {
+pub fn multi_arch_index(
+    platforms: &[crate::core::types::ArchBuild],
+) -> crate::core::types::OciIndex {
     use crate::core::types::{OciDescriptor, OciIndex};
     let manifests: Vec<OciDescriptor> = platforms
         .iter()
@@ -420,9 +422,12 @@ pub fn multi_arch_index(platforms: &[crate::core::types::ArchBuild]) -> crate::c
                 media_type: "application/vnd.oci.image.manifest.v1+json".into(),
                 digest: digest.clone(),
                 size: 0,
-                annotations: [("org.opencontainers.image.platform".into(), p.platform.clone())]
-                    .into_iter()
-                    .collect(),
+                annotations: [(
+                    "org.opencontainers.image.platform".into(),
+                    p.platform.clone(),
+                )]
+                .into_iter()
+                .collect(),
             })
         })
         .collect();
@@ -446,7 +451,9 @@ pub fn gzip_compress(data: &[u8]) -> Result<Vec<u8>, String> {
     use flate2::Compression;
     use std::io::Write;
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(data).map_err(|e| format!("gzip write: {e}"))?;
+    encoder
+        .write_all(data)
+        .map_err(|e| format!("gzip write: {e}"))?;
     encoder.finish().map_err(|e| format!("gzip finish: {e}"))
 }
 

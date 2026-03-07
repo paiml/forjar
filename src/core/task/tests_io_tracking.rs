@@ -113,12 +113,20 @@ fn should_skip_no_cache() {
 
 #[test]
 fn should_skip_cache_match() {
-    assert!(should_skip_cached(true, Some("blake3:abc"), Some("blake3:abc")));
+    assert!(should_skip_cached(
+        true,
+        Some("blake3:abc"),
+        Some("blake3:abc")
+    ));
 }
 
 #[test]
 fn should_skip_cache_mismatch() {
-    assert!(!should_skip_cached(true, Some("blake3:abc"), Some("blake3:def")));
+    assert!(!should_skip_cached(
+        true,
+        Some("blake3:abc"),
+        Some("blake3:def")
+    ));
 }
 
 #[test]

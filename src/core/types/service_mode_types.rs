@@ -125,10 +125,19 @@ impl fmt::Display for ServiceEvent {
         match self {
             Self::Started { pid, at } => write!(f, "[{at}] started (pid {pid})"),
             Self::HealthOk { at } => write!(f, "[{at}] health: ok"),
-            Self::HealthFail { exit_code, consecutive, at } => {
-                write!(f, "[{at}] health: fail (exit={exit_code}, consecutive={consecutive})")
+            Self::HealthFail {
+                exit_code,
+                consecutive,
+                at,
+            } => {
+                write!(
+                    f,
+                    "[{at}] health: fail (exit={exit_code}, consecutive={consecutive})"
+                )
             }
-            Self::Restarted { restart_count, at, .. } => {
+            Self::Restarted {
+                restart_count, at, ..
+            } => {
                 write!(f, "[{at}] restarted (#{restart_count})")
             }
             Self::Stopped { reason, at } => write!(f, "[{at}] stopped: {reason}"),
@@ -227,9 +236,7 @@ impl GpuMemoryInfo {
     /// Utilization percentage.
     pub fn utilization_pct(&self) -> Option<f64> {
         match (self.used_bytes, self.total_bytes) {
-            (Some(used), Some(total)) if total > 0 => {
-                Some(used as f64 / total as f64 * 100.0)
-            }
+            (Some(used), Some(total)) if total > 0 => Some(used as f64 / total as f64 * 100.0),
             _ => None,
         }
     }

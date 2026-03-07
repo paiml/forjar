@@ -50,7 +50,10 @@ fn main() {
     ];
     println!("=== Secret References ===");
     for r in &refs {
-        println!("  {} -> {} in {}.{}", r.template, r.name, r.resource_id, r.field);
+        println!(
+            "  {} -> {} in {}.{}",
+            r.template, r.name, r.resource_id, r.field
+        );
     }
     println!();
 

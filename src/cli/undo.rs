@@ -31,7 +31,11 @@ pub(super) fn diff_machine_locks(
         }
     }
     if let Some(cl) = current_lock {
-        for rid in cl.resources.keys().filter(|r| !target_lock.resources.contains_key(*r)) {
+        for rid in cl
+            .resources
+            .keys()
+            .filter(|r| !target_lock.resources.contains_key(*r))
+        {
             changes.push(format!("  - {rid} ({machine}): will be destroyed"));
         }
     }
@@ -43,9 +47,12 @@ pub(super) fn compute_undo_diff(
     current_locks: &std::collections::HashMap<String, types::StateLock>,
     target_locks: &std::collections::HashMap<String, types::StateLock>,
 ) -> Vec<String> {
-    target_locks.iter().flat_map(|(machine, target_lock)| {
-        diff_machine_locks(machine, current_locks.get(machine), target_lock)
-    }).collect()
+    target_locks
+        .iter()
+        .flat_map(|(machine, target_lock)| {
+            diff_machine_locks(machine, current_locks.get(machine), target_lock)
+        })
+        .collect()
 }
 
 /// FJ-2003: Pre-flight SSH connectivity check for multi-machine undo.
@@ -56,13 +63,16 @@ fn preflight_ssh_check(
     config: &types::ForjarConfig,
     machine_filter: Option<&str>,
 ) -> Result<(), String> {
-    let machines: Vec<(&String, &types::Machine)> = config.machines.iter()
+    let machines: Vec<(&String, &types::Machine)> = config
+        .machines
+        .iter()
         .filter(|(name, _)| machine_filter.is_none_or(|f| name.as_str() == f))
         .collect();
 
     let mut unreachable = Vec::new();
     for (name, machine) in &machines {
-        let is_local = machine.addr == "localhost" || machine.addr == "127.0.0.1"
+        let is_local = machine.addr == "localhost"
+            || machine.addr == "127.0.0.1"
             || machine.transport.as_deref() == Some("local");
         if is_local || machine.is_container_transport() {
             println!("  ✓ {name}: local/container (skip SSH)");
@@ -70,7 +80,14 @@ fn preflight_ssh_check(
         }
         let host = &machine.addr;
         let status = std::process::Command::new("ssh")
-            .args(["-o", "ConnectTimeout=5", "-o", "BatchMode=yes", host, "true"])
+            .args([
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "BatchMode=yes",
+                host,
+                "true",
+            ])
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
@@ -85,8 +102,11 @@ fn preflight_ssh_check(
     if unreachable.is_empty() {
         Ok(())
     } else {
-        Err(format!("pre-flight failed: {} machine(s) unreachable: {}",
-            unreachable.len(), unreachable.join(", ")))
+        Err(format!(
+            "pre-flight failed: {} machine(s) unreachable: {}",
+            unreachable.len(),
+            unreachable.join(", ")
+        ))
     }
 }
 
@@ -109,15 +129,20 @@ pub(super) fn read_undo_progress(state_dir: &Path, machine: &str) -> Option<type
 
 /// Initialize undo progress for all affected resources.
 pub(super) fn init_undo_progress(
-    current: u32, target: u32, changes: &[String],
+    current: u32,
+    target: u32,
+    changes: &[String],
 ) -> types::UndoProgress {
     let mut resources = std::collections::HashMap::new();
     for c in changes {
         let rid = c.split_whitespace().nth(1).unwrap_or("unknown");
-        resources.insert(rid.to_string(), types::ResourceProgress {
-            status: types::ResourceProgressStatus::Pending,
-            at: None,
-        });
+        resources.insert(
+            rid.to_string(),
+            types::ResourceProgress {
+                status: types::ResourceProgressStatus::Pending,
+                at: None,
+            },
+        );
     }
     types::UndoProgress {
         generation_from: current,
@@ -142,7 +167,9 @@ pub(crate) fn cmd_undo(
         .ok_or("no generations found — run `forjar apply` first")?;
 
     if current < generations {
-        return Err(format!("cannot undo {generations} generation(s): only {current} exist"));
+        return Err(format!(
+            "cannot undo {generations} generation(s): only {current} exist"
+        ));
     }
     let target = current - generations;
 
@@ -152,16 +179,16 @@ pub(crate) fn cmd_undo(
         return Err(format!("generation {target} does not exist"));
     }
 
-    let meta_content = std::fs::read_to_string(target_gen_dir.join(".generation.yaml"))
-        .unwrap_or_default();
+    let meta_content =
+        std::fs::read_to_string(target_gen_dir.join(".generation.yaml")).unwrap_or_default();
     println!("Undo: generation {current} → {target}");
     if let Ok(meta) = types::GenerationMeta::from_yaml(&meta_content) {
         print_undo_meta(&meta);
     }
 
-    let current_locks = super::helpers_state::load_machine_locks(
-        &current_config, state_dir, machine_filter,
-    ).unwrap_or_default();
+    let current_locks =
+        super::helpers_state::load_machine_locks(&current_config, state_dir, machine_filter)
+            .unwrap_or_default();
     let target_locks = load_generation_locks(&target_gen_dir, machine_filter);
     let changes = compute_undo_diff(&current_locks, &target_locks);
 
@@ -170,7 +197,9 @@ pub(crate) fn cmd_undo(
         return Ok(());
     }
     println!("\nChanges ({} resource(s)):", changes.len());
-    for c in &changes { println!("{c}"); }
+    for c in &changes {
+        println!("{c}");
+    }
 
     if dry_run {
         println!("\nDry run: {} change(s) would be applied.", changes.len());
@@ -193,10 +222,38 @@ pub(crate) fn cmd_undo(
     super::generation::rollback_to_generation(state_dir, target, true)?;
     println!("\nRe-applying config to converge to generation {target}...");
     let result = cmd_apply(
-        file, state_dir, machine_filter, None, None, None,
-        true, false, false, &[], false, None, false, false,
-        None, None, false, false, None, false, false, 0, true,
-        false, None, false, None, None, None, false, None, false,
+        file,
+        state_dir,
+        machine_filter,
+        None,
+        None,
+        None,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        None,
+        false,
+        false,
+        None,
+        None,
+        false,
+        false,
+        None,
+        false,
+        false,
+        0,
+        true,
+        false,
+        None,
+        false,
+        None,
+        None,
+        None,
+        false,
+        None,
+        false,
     );
 
     // Mark progress completed or partial
@@ -223,7 +280,9 @@ pub(crate) fn cmd_undo_resume(
     yes: bool,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
-    let machines: Vec<String> = config.machines.keys()
+    let machines: Vec<String> = config
+        .machines
+        .keys()
         .filter(|&m| machine_filter.is_none_or(|f| m == f))
         .cloned()
         .collect();
@@ -254,10 +313,38 @@ pub(crate) fn cmd_undo_resume(
 
     println!("\nRe-applying config to complete undo...");
     cmd_apply(
-        file, state_dir, machine_filter, None, None, None,
-        true, false, false, &[], false, None, false, false,
-        None, None, false, false, None, false, false, 0, true,
-        false, None, false, None, None, None, false, None, false,
+        file,
+        state_dir,
+        machine_filter,
+        None,
+        None,
+        None,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        None,
+        false,
+        false,
+        None,
+        None,
+        false,
+        false,
+        None,
+        false,
+        false,
+        0,
+        true,
+        false,
+        None,
+        false,
+        None,
+        None,
+        None,
+        false,
+        None,
+        false,
     )
 }
 
@@ -272,7 +359,8 @@ pub(crate) fn cmd_undo_destroy(
     let content = std::fs::read_to_string(&log_path)
         .map_err(|_| "no destroy-log.jsonl found — nothing to undo")?;
 
-    let entries: Vec<types::DestroyLogEntry> = content.lines()
+    let entries: Vec<types::DestroyLogEntry> = content
+        .lines()
         .filter_map(|line| types::DestroyLogEntry::from_jsonl(line).ok())
         .filter(|e| machine_filter.is_none_or(|m| e.machine == m))
         .collect();
@@ -284,19 +372,29 @@ pub(crate) fn cmd_undo_destroy(
     let reliable: Vec<_> = entries.iter().filter(|e| e.reliable_recreate).collect();
     let unreliable: Vec<_> = entries.iter().filter(|e| !e.reliable_recreate).collect();
 
-    println!("Undo-destroy: {} entries ({} reliable, {} best-effort)",
-        entries.len(), reliable.len(), unreliable.len());
+    println!(
+        "Undo-destroy: {} entries ({} reliable, {} best-effort)",
+        entries.len(),
+        reliable.len(),
+        unreliable.len()
+    );
 
     for e in &reliable {
         println!("  + {} ({}, {})", e.resource_id, e.resource_type, e.machine);
     }
     for e in &unreliable {
         let marker = if force { "+" } else { "?" };
-        println!("  {marker} {} ({}, {}) — unreliable recreate", e.resource_id, e.resource_type, e.machine);
+        println!(
+            "  {marker} {} ({}, {}) — unreliable recreate",
+            e.resource_id, e.resource_type, e.machine
+        );
     }
 
     if !unreliable.is_empty() && !force {
-        println!("\n{} unreliable resources skipped. Use --force to attempt.", unreliable.len());
+        println!(
+            "\n{} unreliable resources skipped. Use --force to attempt.",
+            unreliable.len()
+        );
     }
 
     if dry_run {
@@ -316,14 +414,20 @@ pub(crate) fn cmd_undo_destroy(
     let mut failed = 0u32;
     for entry in &replay_set {
         let Some(ref fragment) = entry.config_fragment else {
-            eprintln!("  SKIP {}: no config_fragment in destroy log", entry.resource_id);
+            eprintln!(
+                "  SKIP {}: no config_fragment in destroy log",
+                entry.resource_id
+            );
             failed += 1;
             continue;
         };
         let resource: types::Resource = match serde_yaml_ng::from_str(fragment) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("  SKIP {}: cannot parse config_fragment: {e}", entry.resource_id);
+                eprintln!(
+                    "  SKIP {}: cannot parse config_fragment: {e}",
+                    entry.resource_id
+                );
                 failed += 1;
                 continue;
             }
@@ -333,17 +437,20 @@ pub(crate) fn cmd_undo_destroy(
         let machine_config = format!(
             "version: '1.0'\nname: undo-destroy-replay\nmachines:\n  {machine_name}:\n    hostname: {machine_name}\n    addr: 127.0.0.1\nresources: {{}}\n"
         );
-        let mut config: types::ForjarConfig = match crate::core::parser::parse_config(&machine_config) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("  SKIP {}: config error: {e}", entry.resource_id);
-                failed += 1;
-                continue;
-            }
-        };
+        let mut config: types::ForjarConfig =
+            match crate::core::parser::parse_config(&machine_config) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("  SKIP {}: config error: {e}", entry.resource_id);
+                    failed += 1;
+                    continue;
+                }
+            };
         config.resources.insert(entry.resource_id.clone(), resource);
 
-        let script = match crate::core::codegen::apply_script(config.resources.get(&entry.resource_id).unwrap()) {
+        let script = match crate::core::codegen::apply_script(
+            config.resources.get(&entry.resource_id).unwrap(),
+        ) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("  FAIL {}: codegen error: {e}", entry.resource_id);
@@ -353,7 +460,10 @@ pub(crate) fn cmd_undo_destroy(
         };
 
         let Some(machine) = config.machines.get(machine_name) else {
-            eprintln!("  SKIP {}: machine '{machine_name}' not in config", entry.resource_id);
+            eprintln!(
+                "  SKIP {}: machine '{machine_name}' not in config",
+                entry.resource_id
+            );
             failed += 1;
             continue;
         };
@@ -364,7 +474,12 @@ pub(crate) fn cmd_undo_destroy(
                 replayed += 1;
             }
             Ok(out) => {
-                eprintln!("  FAIL {}: exit {}: {}", entry.resource_id, out.exit_code, out.stderr.trim());
+                eprintln!(
+                    "  FAIL {}: exit {}: {}",
+                    entry.resource_id,
+                    out.exit_code,
+                    out.stderr.trim()
+                );
                 failed += 1;
             }
             Err(e) => {
@@ -388,12 +503,18 @@ fn load_generation_locks(
     machine_filter: Option<&str>,
 ) -> std::collections::HashMap<String, types::StateLock> {
     let mut locks = std::collections::HashMap::new();
-    let Ok(entries) = std::fs::read_dir(gen_dir) else { return locks };
+    let Ok(entries) = std::fs::read_dir(gen_dir) else {
+        return locks;
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') { continue; }
+        if name.starts_with('.') {
+            continue;
+        }
         if let Some(filter) = machine_filter {
-            if name != filter { continue; }
+            if name != filter {
+                continue;
+            }
         }
         let lock_path = entry.path().join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {

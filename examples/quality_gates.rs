@@ -33,8 +33,14 @@ fn main() {
     let good_output = r#"{"grade":"A","score":95.5}"#;
     let bad_output = r#"{"grade":"D","score":42.0}"#;
 
-    println!("JSON grade=A: {:?}", evaluate_gate(&json_gate, 0, good_output));
-    println!("JSON grade=D: {:?}\n", evaluate_gate(&json_gate, 0, bad_output));
+    println!(
+        "JSON grade=A: {:?}",
+        evaluate_gate(&json_gate, 0, good_output)
+    );
+    println!(
+        "JSON grade=D: {:?}\n",
+        evaluate_gate(&json_gate, 0, bad_output)
+    );
 
     // Gate 3: Numeric minimum gate
     let coverage_gate = QualityGate {

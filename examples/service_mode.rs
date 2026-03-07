@@ -122,10 +122,7 @@ fn main() {
         timeout_secs: Some(300),
     };
 
-    let prepared = prepare_dispatch(
-        &config,
-        &[("tag".into(), "v1.2.3".into())],
-    );
+    let prepared = prepare_dispatch(&config, &[("tag".into(), "v1.2.3".into())]);
     println!("  Prepared: {}", prepared.command);
     println!("  Timeout: {:?}s", prepared.timeout_secs);
 

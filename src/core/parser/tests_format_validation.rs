@@ -230,7 +230,10 @@ resources:
 "#;
     let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let errors = validate_formats(&config);
-    assert!(errors.len() >= 4, "expected errors for all 5 fields: {errors:?}");
+    assert!(
+        errors.len() >= 4,
+        "expected errors for all 5 fields: {errors:?}"
+    );
 }
 
 #[test]
@@ -328,8 +331,15 @@ resources:
 "#;
     let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let errors = validate_formats(&config);
-    let deny_errors: Vec<_> = errors.iter().filter(|e| e.message.contains("denied")).collect();
-    assert_eq!(deny_errors.len(), 2, "should deny /etc/shadow and /root/.bashrc: {deny_errors:?}");
+    let deny_errors: Vec<_> = errors
+        .iter()
+        .filter(|e| e.message.contains("denied"))
+        .collect();
+    assert_eq!(
+        deny_errors.len(),
+        2,
+        "should deny /etc/shadow and /root/.bashrc: {deny_errors:?}"
+    );
 }
 
 #[test]

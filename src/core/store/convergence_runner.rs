@@ -250,9 +250,7 @@ pub fn run_convergence_parallel_with_backend(
         std::thread::scope(|s| {
             let handles: Vec<_> = chunk
                 .iter()
-                .map(|target| {
-                    s.spawn(|| run_convergence_test_dispatch(target, backend))
-                })
+                .map(|target| s.spawn(|| run_convergence_test_dispatch(target, backend)))
                 .collect();
 
             for handle in handles {

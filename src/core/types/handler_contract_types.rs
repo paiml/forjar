@@ -77,7 +77,11 @@ impl HashInvariantCheck {
 impl fmt::Display for HashInvariantCheck {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let status = if self.passed { "PASS" } else { "FAIL" };
-        write!(f, "[{status}] {} ({})", self.resource_id, self.resource_type)?;
+        write!(
+            f,
+            "[{status}] {} ({})",
+            self.resource_id, self.resource_type
+        )?;
         if let Some(ref reason) = self.deviation_reason {
             write!(f, " — {reason}")?;
         }
@@ -146,7 +150,10 @@ impl HandlerAuditReport {
             out.push_str(&format!("  {check}\n"));
         }
         for exempt in &self.exemptions {
-            out.push_str(&format!("  [EXEMPT] {} — {}\n", exempt.handler, exempt.reason));
+            out.push_str(&format!(
+                "  [EXEMPT] {} — {}\n",
+                exempt.handler, exempt.reason
+            ));
         }
         out
     }

@@ -73,5 +73,8 @@ fn main() {
         git_history: true,
         ..Default::default()
     };
-    println!("  With history+drift+timing+git: {}", enriched.any_enabled());
+    println!(
+        "  With history+drift+timing+git: {}",
+        enriched.any_enabled()
+    );
 }

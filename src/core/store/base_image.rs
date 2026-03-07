@@ -41,10 +41,9 @@ pub struct BaseImageLayers {
 pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String> {
     // 1. Read and parse index.json
     let index_path = layout_dir.join("index.json");
-    let index_data = std::fs::read(&index_path)
-        .map_err(|e| format!("read index.json: {e}"))?;
-    let index: OciIndex = serde_json::from_slice(&index_data)
-        .map_err(|e| format!("parse index.json: {e}"))?;
+    let index_data = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
+    let index: OciIndex =
+        serde_json::from_slice(&index_data).map_err(|e| format!("parse index.json: {e}"))?;
 
     if index.manifests.is_empty() {
         return Err("index.json has no manifests".into());
@@ -53,13 +52,13 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
     // 2. Read the first manifest
     let manifest_desc = &index.manifests[0];
     let manifest_data = read_blob(layout_dir, &manifest_desc.digest)?;
-    let manifest: OciManifest = serde_json::from_slice(&manifest_data)
-        .map_err(|e| format!("parse manifest: {e}"))?;
+    let manifest: OciManifest =
+        serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
 
     // 3. Read the image config
     let config_data = read_blob(layout_dir, &manifest.config.digest)?;
-    let config: OciImageConfig = serde_json::from_slice(&config_data)
-        .map_err(|e| format!("parse image config: {e}"))?;
+    let config: OciImageConfig =
+        serde_json::from_slice(&config_data).map_err(|e| format!("parse image config: {e}"))?;
 
     // 4. Validate layer count matches diff_ids
     if manifest.layers.len() != config.rootfs.diff_ids.len() {
@@ -86,8 +85,7 @@ fn read_blob(layout_dir: &Path, digest: &str) -> Result<Vec<u8>, String> {
         .strip_prefix("sha256:")
         .ok_or_else(|| format!("unsupported digest algorithm: {digest}"))?;
     let blob_path = layout_dir.join(format!("blobs/sha256/{hex}"));
-    std::fs::read(&blob_path)
-        .map_err(|e| format!("read blob {digest}: {e}"))
+    std::fs::read(&blob_path).map_err(|e| format!("read blob {digest}: {e}"))
 }
 
 /// Verify that all base image layer blobs exist in the layout directory.
@@ -98,7 +96,10 @@ pub fn verify_base_blobs(layout_dir: &Path, layers: &BaseImageLayers) -> Vec<Str
         .layers
         .iter()
         .filter(|layer| {
-            let hex = layer.digest.strip_prefix("sha256:").unwrap_or(&layer.digest);
+            let hex = layer
+                .digest
+                .strip_prefix("sha256:")
+                .unwrap_or(&layer.digest);
             !layout_dir.join(format!("blobs/sha256/{hex}")).exists()
         })
         .map(|layer| layer.digest.clone())
@@ -119,7 +120,10 @@ pub fn copy_base_blobs(
 
     let mut bytes_copied: u64 = 0;
     for layer in &layers.layers {
-        let hex = layer.digest.strip_prefix("sha256:").unwrap_or(&layer.digest);
+        let hex = layer
+            .digest
+            .strip_prefix("sha256:")
+            .unwrap_or(&layer.digest);
         let dst_path = dst_blobs.join(hex);
         if dst_path.exists() {
             continue;
@@ -184,7 +188,8 @@ mod tests {
         std::fs::write(
             dir.join("index.json"),
             serde_json::to_vec_pretty(&index).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         std::fs::write(dir.join("oci-layout"), r#"{"imageLayoutVersion":"1.0.0"}"#).unwrap();
     }
@@ -223,7 +228,9 @@ mod tests {
         create_test_layout(dir.path());
         let mut layers = extract_base_layers(dir.path()).unwrap();
         // Add a fake layer that doesn't exist
-        layers.layers.push(OciDescriptor::gzip_layer("sha256:nonexistent".into(), 100));
+        layers
+            .layers
+            .push(OciDescriptor::gzip_layer("sha256:nonexistent".into(), 100));
         let missing = verify_base_blobs(dir.path(), &layers);
         assert_eq!(missing.len(), 1);
         assert!(missing[0].contains("nonexistent"));
@@ -280,8 +287,16 @@ mod tests {
     #[test]
     fn extract_base_layers_empty_index() {
         let dir = tempfile::tempdir().unwrap();
-        let index = OciIndex { schema_version: 2, manifests: vec![], annotations: std::collections::HashMap::new() };
-        std::fs::write(dir.path().join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
+        let index = OciIndex {
+            schema_version: 2,
+            manifests: vec![],
+            annotations: std::collections::HashMap::new(),
+        };
+        std::fs::write(
+            dir.path().join("index.json"),
+            serde_json::to_vec(&index).unwrap(),
+        )
+        .unwrap();
         let result = extract_base_layers(dir.path());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no manifests"));

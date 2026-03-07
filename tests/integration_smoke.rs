@@ -241,7 +241,12 @@ fn state_query_succeeds() {
 #[test]
 fn oci_pack_missing_dir_fails() {
     let out = forjar()
-        .args(["oci-pack", "/tmp/forjar-no-such-dir-999", "--tag", "test:v1"])
+        .args([
+            "oci-pack",
+            "/tmp/forjar-no-such-dir-999",
+            "--tag",
+            "test:v1",
+        ])
         .output()
         .expect("failed to run");
     assert!(!out.status.success(), "oci-pack should fail on missing dir");

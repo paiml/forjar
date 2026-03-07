@@ -28,7 +28,9 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Model => Ok(resources::model::check_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::check_script(resource)),
         ResourceType::Task => Ok(resources::task::check_script(resource)),
-        ResourceType::WasmBundle | ResourceType::Image => Ok(resources::file::check_script(resource)),
+        ResourceType::WasmBundle | ResourceType::Image => {
+            Ok(resources::file::check_script(resource))
+        }
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -54,7 +56,9 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Model => Ok(resources::model::apply_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::apply_script(resource)),
         ResourceType::Task => Ok(resources::task::apply_script(resource)),
-        ResourceType::WasmBundle | ResourceType::Image => Ok(resources::file::apply_script(resource)),
+        ResourceType::WasmBundle | ResourceType::Image => {
+            Ok(resources::file::apply_script(resource))
+        }
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -92,7 +96,9 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Model => Ok(resources::model::state_query_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::state_query_script(resource)),
         ResourceType::Task => Ok(resources::task::state_query_script(resource)),
-        ResourceType::WasmBundle | ResourceType::Image => Ok(resources::file::state_query_script(resource)),
+        ResourceType::WasmBundle | ResourceType::Image => {
+            Ok(resources::file::state_query_script(resource))
+        }
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }

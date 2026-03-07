@@ -3,7 +3,7 @@
 //! Replaces the stub in dispatch_misc_b.rs with actual file I/O.
 //! Reads `meta.yaml` and `*.log` files from the run directory structure.
 
-use crate::core::types::{RunMeta, LogRetention};
+use crate::core::types::{LogRetention, RunMeta};
 use std::path::Path;
 
 /// A discovered run on disk.
@@ -97,7 +97,10 @@ fn discover_runs(
 
     // Sort by started_at descending (most recent first)
     runs.sort_by(|a, b| {
-        b.meta.started_at.as_deref().unwrap_or("")
+        b.meta
+            .started_at
+            .as_deref()
+            .unwrap_or("")
             .cmp(a.meta.started_at.as_deref().unwrap_or(""))
     });
     runs
@@ -170,8 +173,14 @@ fn print_logs_text(
     for run in runs {
         let meta = &run.meta;
         let started = meta.started_at.as_deref().unwrap_or("unknown");
-        let gen = meta.generation.map(|g| format!(", gen {g}")).unwrap_or_default();
-        println!("\nRun {} ({}{}) on {}", run.run_id, started, gen, run.machine);
+        let gen = meta
+            .generation
+            .map(|g| format!(", gen {g}"))
+            .unwrap_or_default();
+        println!(
+            "\nRun {} ({}{}) on {}",
+            run.run_id, started, gen, run.machine
+        );
         print_run_summary(&meta.summary);
 
         if let Some(res_id) = resource_filter {
@@ -182,7 +191,9 @@ fn print_logs_text(
                 let status = meta.resources.get(res_id);
                 let status_str = match status {
                     Some(crate::core::types::ResourceRunStatus::Noop) => "noop",
-                    Some(crate::core::types::ResourceRunStatus::Converged { failed: true, .. }) => "FAILED",
+                    Some(crate::core::types::ResourceRunStatus::Converged {
+                        failed: true, ..
+                    }) => "FAILED",
                     Some(crate::core::types::ResourceRunStatus::Converged { .. }) => "converged",
                     Some(crate::core::types::ResourceRunStatus::Skipped { .. }) => "skipped",
                     None => "unknown",
@@ -266,7 +277,10 @@ fn print_logs_json(
     }
 
     let output = serde_json::json!({ "runs": entries });
-    println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&output).unwrap_or_default()
+    );
     Ok(())
 }
 
@@ -303,7 +317,10 @@ pub(crate) fn cmd_logs_gc(
             let size = dir_size(&run.run_dir);
             if dry_run {
                 if !json {
-                    println!("  would delete: {}/{} ({} bytes)", machine, run.run_id, size);
+                    println!(
+                        "  would delete: {}/{} ({} bytes)",
+                        machine, run.run_id, size
+                    );
                 }
             } else {
                 let _ = std::fs::remove_dir_all(&run.run_dir);
@@ -320,12 +337,21 @@ pub(crate) fn cmd_logs_gc(
             "deleted_runs": total_deleted,
             "freed_bytes": total_cleaned,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else if total_deleted == 0 {
-        println!("Log garbage collection: nothing to clean (within retention: {} runs/machine)", retention.keep_runs);
+        println!(
+            "Log garbage collection: nothing to clean (within retention: {} runs/machine)",
+            retention.keep_runs
+        );
     } else {
         let verb = if dry_run { "would delete" } else { "deleted" };
-        println!("Log garbage collection: {} {} runs, {} bytes freed", verb, total_deleted, total_cleaned);
+        println!(
+            "Log garbage collection: {} {} runs, {} bytes freed",
+            verb, total_deleted, total_cleaned
+        );
     }
     Ok(())
 }
@@ -341,7 +367,10 @@ pub(crate) fn cmd_logs_follow(state_dir: &Path, json: bool) -> Result<(), String
                 "status": "no_runs",
                 "message": "no run logs found to follow",
             });
-            println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).unwrap_or_default()
+            );
         } else {
             println!("Follow mode: no run logs found.");
             println!("  Start `forjar apply` in another terminal to generate logs.");
@@ -358,7 +387,10 @@ pub(crate) fn cmd_logs_follow(state_dir: &Path, json: bool) -> Result<(), String
             "machine": latest.machine,
             "run_dir": latest.run_dir.display().to_string(),
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!(
             "Follow mode: watching {}/{} ({})",

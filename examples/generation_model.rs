@@ -8,7 +8,7 @@
 //! ```
 
 use forjar::core::types::{
-    DestroyLogEntry, GenerationMeta, MachineDelta, get_git_ref, git_is_dirty,
+    get_git_ref, git_is_dirty, DestroyLogEntry, GenerationMeta, MachineDelta,
 };
 
 fn main() {
@@ -27,18 +27,24 @@ fn demo_generation_meta() {
     meta.operator = Some("noah@workstation".into());
     meta.forjar_version = Some("1.1.1".into());
 
-    meta.record_machine("intel", MachineDelta {
-        created: vec!["zshrc".into()],
-        updated: vec!["stack-tools".into(), "gitconfig".into()],
-        destroyed: vec![],
-        unchanged: 14,
-    });
-    meta.record_machine("jetson", MachineDelta {
-        created: vec![],
-        updated: vec![],
-        destroyed: vec![],
-        unchanged: 8,
-    });
+    meta.record_machine(
+        "intel",
+        MachineDelta {
+            created: vec!["zshrc".into()],
+            updated: vec!["stack-tools".into(), "gitconfig".into()],
+            destroyed: vec![],
+            unchanged: 14,
+        },
+    );
+    meta.record_machine(
+        "jetson",
+        MachineDelta {
+            created: vec![],
+            updated: vec![],
+            destroyed: vec![],
+            unchanged: 8,
+        },
+    );
 
     let yaml = meta.to_yaml().unwrap();
     println!("{yaml}");
@@ -61,11 +67,14 @@ fn demo_undo_chain() {
 
     for gen in [&gen0, &gen1, &gen2] {
         let action = if gen.is_undo() { "UNDO" } else { "APPLY" };
-        let parent = gen.parent_generation
+        let parent = gen
+            .parent_generation
             .map(|p| format!(" (reverts to gen {p})"))
             .unwrap_or_default();
-        println!("  Gen {}: [{action}] {}{parent}",
-            gen.generation, gen.created_at);
+        println!(
+            "  Gen {}: [{action}] {}{parent}",
+            gen.generation, gen.created_at
+        );
     }
     println!();
 }
@@ -97,9 +106,15 @@ fn demo_destroy_log() {
     ];
 
     for entry in &entries {
-        let reliable = if entry.reliable_recreate { "reliable" } else { "best-effort" };
-        println!("  {} ({}) — {} [{reliable}]",
-            entry.resource_id, entry.resource_type, entry.pre_hash);
+        let reliable = if entry.reliable_recreate {
+            "reliable"
+        } else {
+            "best-effort"
+        };
+        println!(
+            "  {} ({}) — {} [{reliable}]",
+            entry.resource_id, entry.resource_type, entry.pre_hash
+        );
     }
 
     println!("\n  JSONL format:");

@@ -75,7 +75,8 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
         );
     }
 
-    let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
+    let mut script =
+        String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
     emit_nvidia_driver_install(&mut script, resource);
     emit_cuda_toolkit(&mut script, resource);
     emit_nvidia_post_install(&mut script, resource);

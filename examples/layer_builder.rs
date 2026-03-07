@@ -18,14 +18,26 @@ fn main() {
     let config_entries = vec![
         LayerEntry::dir("etc/", 0o755),
         LayerEntry::dir("etc/app/", 0o755),
-        LayerEntry::file("etc/app/config.yaml", b"port: 8080\nlog_level: info\n", 0o644),
-        LayerEntry::file("etc/app/secrets.env", b"DB_URL=postgres://localhost/app\n", 0o600),
+        LayerEntry::file(
+            "etc/app/config.yaml",
+            b"port: 8080\nlog_level: info\n",
+            0o644,
+        ),
+        LayerEntry::file(
+            "etc/app/secrets.env",
+            b"DB_URL=postgres://localhost/app\n",
+            0o600,
+        ),
     ];
     let layer_config = OciLayerConfig::default();
     let (result1, data1) = build_layer(&config_entries, &layer_config).unwrap();
     println!("  Files:       {}", result1.file_count);
     println!("  Uncompressed: {} bytes", result1.uncompressed_size);
-    println!("  Compressed:   {} bytes ({:.0}%)", result1.compressed_size, result1.compression_ratio());
+    println!(
+        "  Compressed:   {} bytes ({:.0}%)",
+        result1.compressed_size,
+        result1.compression_ratio()
+    );
     println!("  DiffID:       {}", result1.diff_id);
     println!("  Digest:       {}", result1.digest);
     println!("  Store hash:   {}", result1.store_hash);
@@ -42,7 +54,11 @@ fn main() {
     let (result2, data2) = build_layer(&app_entries, &layer_config).unwrap();
     println!("  Files:       {}", result2.file_count);
     println!("  Uncompressed: {} bytes", result2.uncompressed_size);
-    println!("  Compressed:   {} bytes ({:.0}%)", result2.compressed_size, result2.compression_ratio());
+    println!(
+        "  Compressed:   {} bytes ({:.0}%)",
+        result2.compressed_size,
+        result2.compression_ratio()
+    );
     println!("  DiffID:       {}", result2.diff_id);
 
     // 3. Determinism verification
@@ -56,8 +72,16 @@ fn main() {
     // 4. Order independence
     println!("\n--- Order Independence Check ---");
     let reversed = vec![
-        LayerEntry::file("etc/app/secrets.env", b"DB_URL=postgres://localhost/app\n", 0o600),
-        LayerEntry::file("etc/app/config.yaml", b"port: 8080\nlog_level: info\n", 0o644),
+        LayerEntry::file(
+            "etc/app/secrets.env",
+            b"DB_URL=postgres://localhost/app\n",
+            0o600,
+        ),
+        LayerEntry::file(
+            "etc/app/config.yaml",
+            b"port: 8080\nlog_level: info\n",
+            0o644,
+        ),
         LayerEntry::dir("etc/app/", 0o755),
         LayerEntry::dir("etc/", 0o755),
     ];
@@ -75,8 +99,16 @@ fn main() {
 
     // 6. Compression comparison
     println!("\n--- Compression Comparison ---");
-    let big_entries = vec![LayerEntry::file("data/big.txt", &vec![b'A'; 100_000], 0o644)];
-    for comp in [OciCompression::None, OciCompression::Gzip, OciCompression::Zstd] {
+    let big_entries = vec![LayerEntry::file(
+        "data/big.txt",
+        &vec![b'A'; 100_000],
+        0o644,
+    )];
+    for comp in [
+        OciCompression::None,
+        OciCompression::Gzip,
+        OciCompression::Zstd,
+    ] {
         let cfg = OciLayerConfig {
             compression: comp,
             deterministic: true,
@@ -84,15 +116,17 @@ fn main() {
             sort_order: TarSortOrder::Lexicographic,
         };
         let (r, _) = build_layer(&big_entries, &cfg).unwrap();
-        println!("  {comp:5}: {} -> {} bytes ({:.0}%)", r.uncompressed_size, r.compressed_size, r.compression_ratio());
+        println!(
+            "  {comp:5}: {} -> {} bytes ({:.0}%)",
+            r.uncompressed_size,
+            r.compressed_size,
+            r.compression_ratio()
+        );
     }
 
     // 7. OCI image assembly
     println!("\n--- OCI Image Assembly ---");
-    let layers = vec![
-        (result1.clone(), data1),
-        (result2.clone(), data2),
-    ];
+    let layers = vec![(result1.clone(), data1), (result2.clone(), data2)];
     let diff_ids = vec![result1.diff_id.clone(), result2.diff_id.clone()];
     let image_config = OciImageConfig::linux_amd64(diff_ids);
     let config_json = serde_json::to_vec_pretty(&image_config).unwrap();
@@ -110,8 +144,14 @@ fn main() {
     let dir = tempfile::tempdir().unwrap();
     write_oci_layout(dir.path(), &layers, &config_json).unwrap();
     println!("  OCI layout:      {}", dir.path().display());
-    println!("  oci-layout:      {}", dir.path().join("oci-layout").exists());
-    println!("  blobs/sha256/:   {}", dir.path().join("blobs/sha256").is_dir());
+    println!(
+        "  oci-layout:      {}",
+        dir.path().join("oci-layout").exists()
+    );
+    println!(
+        "  blobs/sha256/:   {}",
+        dir.path().join("blobs/sha256").is_dir()
+    );
 
     println!("\n=== Done: 2 layers, 1 OCI image, fully content-addressed ===");
 }

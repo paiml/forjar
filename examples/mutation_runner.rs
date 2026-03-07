@@ -29,7 +29,10 @@ fn main() {
         MutationOperator::StopService,
         MutationOperator::RemovePackage,
     ] {
-        println!("  {op}: {}", mutation_runner::mutation_script(*op, "example"));
+        println!(
+            "  {op}: {}",
+            mutation_runner::mutation_script(*op, "example")
+        );
     }
 
     // 3. Run mutation suite

@@ -45,7 +45,11 @@ fn main() {
     };
 
     println!("=== Layer Build Results ===");
-    for (name, layer) in [("system", &system_layer), ("config", &config_layer), ("app", &app_layer)] {
+    for (name, layer) in [
+        ("system", &system_layer),
+        ("config", &config_layer),
+        ("app", &app_layer),
+    ] {
         println!(
             "  {name}: {} files, {:.1} MB compressed ({:.0}% ratio), path: {:?}",
             layer.file_count,

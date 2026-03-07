@@ -80,7 +80,11 @@ impl LayerBuildLog {
 impl fmt::Display for LayerBuildLog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.cached {
-            write!(f, "  Layer {}: {} (cached)", self.layer_index, self.layer_name)
+            write!(
+                f,
+                "  Layer {}: {} (cached)",
+                self.layer_index, self.layer_name
+            )
         } else {
             let status = if self.succeeded() { "ok" } else { "FAIL" };
             write!(
@@ -138,7 +142,11 @@ impl ImageBuildLog {
 
 impl fmt::Display for ImageBuildLog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Build: {} ({:.1}s)", self.image_ref, self.total_duration_secs)?;
+        writeln!(
+            f,
+            "Build: {} ({:.1}s)",
+            self.image_ref, self.total_duration_secs
+        )?;
         for layer in &self.layers {
             writeln!(f, "{layer}")?;
         }
@@ -242,8 +250,14 @@ mod tests {
         let log = ImageBuildLog {
             image_ref: "x".into(),
             layers: vec![
-                LayerBuildLog { log_bytes: 1000, ..LayerBuildLog::new("a", 0, 1.0) },
-                LayerBuildLog { log_bytes: 2000, ..LayerBuildLog::new("b", 1, 2.0) },
+                LayerBuildLog {
+                    log_bytes: 1000,
+                    ..LayerBuildLog::new("a", 0, 1.0)
+                },
+                LayerBuildLog {
+                    log_bytes: 2000,
+                    ..LayerBuildLog::new("b", 1, 2.0)
+                },
             ],
             manifest_log: None,
             push_log: None,

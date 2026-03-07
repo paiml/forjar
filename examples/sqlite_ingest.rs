@@ -9,7 +9,10 @@ use forjar::core::store::ingest;
 use std::path::Path;
 
 fn main() {
-    println!("=== FJ-2001: SQLite Ingest Pipeline (Schema v{}) ===\n", db::SCHEMA_VERSION);
+    println!(
+        "=== FJ-2001: SQLite Ingest Pipeline (Schema v{}) ===\n",
+        db::SCHEMA_VERSION
+    );
 
     // Open in-memory database
     let conn = db::open_state_db(Path::new(":memory:")).expect("open db");
@@ -82,10 +85,24 @@ fn show_schema_tables(conn: &rusqlite::Connection) {
     let tables: Vec<_> = rows.iter().filter(|(_, t)| t == "table").collect();
     let indexes: Vec<_> = rows.iter().filter(|(_, t)| t == "index").collect();
     println!("\nSchema objects:");
-    println!("  Tables ({}): {}", tables.len(),
-        tables.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join(", "));
-    println!("  Indexes ({}): {}", indexes.len(),
-        indexes.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join(", "));
+    println!(
+        "  Tables ({}): {}",
+        tables.len(),
+        tables
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    println!(
+        "  Indexes ({}): {}",
+        indexes.len(),
+        indexes
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 }
 
 fn show_destroy_log(conn: &rusqlite::Connection) {

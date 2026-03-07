@@ -46,20 +46,42 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             json,
         }) => super::impact_analysis::cmd_impact(&file, &resource, json),
         Commands::DriftPredict(DriftPredictArgs {
-            state_dir, machine, limit, json,
+            state_dir,
+            machine,
+            limit,
+            json,
         }) => super::drift_predict::cmd_drift_predict(&state_dir, machine.as_deref(), limit, json),
-        Commands::ModelEval(ModelEvalArgs { file, resource, json }) => {
-            super::model_eval::cmd_model_eval(&file, resource.as_deref(), json)
-        }
-        Commands::Contracts(ContractsArgs { coverage, file, json }) => {
-            cmd_contracts(coverage, &file, json)
-        }
-        Commands::Build(BuildArgs { file, resource, load, push, far, json }) => {
-            super::build_image::cmd_build(&file, &resource, load, push, far, json)
-        }
+        Commands::ModelEval(ModelEvalArgs {
+            file,
+            resource,
+            json,
+        }) => super::model_eval::cmd_model_eval(&file, resource.as_deref(), json),
+        Commands::Contracts(ContractsArgs {
+            coverage,
+            file,
+            json,
+        }) => cmd_contracts(coverage, &file, json),
+        Commands::Build(BuildArgs {
+            file,
+            resource,
+            load,
+            push,
+            far,
+            json,
+        }) => super::build_image::cmd_build(&file, &resource, load, push, far, json),
         Commands::Logs(LogsArgs {
-            state_dir, machine, run, resource, failures, script, all_machines, follow, gc,
-            dry_run, keep_failed, json,
+            state_dir,
+            machine,
+            run,
+            resource,
+            failures,
+            script,
+            all_machines,
+            follow,
+            gc,
+            dry_run,
+            keep_failed,
+            json,
         }) => {
             if gc {
                 return super::logs::cmd_logs_gc(&state_dir, dry_run, keep_failed, json);
@@ -68,13 +90,22 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
                 return super::logs::cmd_logs_follow(&state_dir, json);
             }
             super::logs::cmd_logs(
-                &state_dir, machine.as_deref(), run.as_deref(), resource.as_deref(),
-                failures, script, all_machines, json,
+                &state_dir,
+                machine.as_deref(),
+                run.as_deref(),
+                resource.as_deref(),
+                failures,
+                script,
+                all_machines,
+                json,
             )
         }
-        Commands::OciPack(OciPackArgs { dir, tag, output, json }) => {
-            cmd_oci_pack(&dir, &tag, &output, json)
-        }
+        Commands::OciPack(OciPackArgs {
+            dir,
+            tag,
+            output,
+            json,
+        }) => cmd_oci_pack(&dir, &tag, &output, json),
         Commands::StateQuery(args) => dispatch_state_query(args),
         other => dispatch_infra_cmd(other),
     }
@@ -138,9 +169,12 @@ pub(super) fn dispatch_generation(sub: GenerationCmd) -> Result<(), String> {
             generation::gc_generations(&state_dir, keep, true);
             Ok(())
         }
-        GenerationCmd::Diff { from, to, state_dir, json } => {
-            generation::cmd_generation_diff(&state_dir, from, to, json)
-        }
+        GenerationCmd::Diff {
+            from,
+            to,
+            state_dir,
+            json,
+        } => generation::cmd_generation_diff(&state_dir, from, to, json),
     }
 }
 
@@ -183,7 +217,11 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
 }
 
 /// FJ-2200: Contract coverage report.
-pub(crate) fn cmd_contracts(_coverage: bool, _file: &std::path::Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_contracts(
+    _coverage: bool,
+    _file: &std::path::Path,
+    json: bool,
+) -> Result<(), String> {
     let levels = [
         ("Level 5 (structural)", 1u32),
         ("Level 4 (proved)", 3),
@@ -194,7 +232,8 @@ pub(crate) fn cmd_contracts(_coverage: bool, _file: &std::path::Path, json: bool
     ];
     let total: u32 = levels.iter().map(|(_, n)| n).sum();
     if json {
-        let entries: Vec<String> = levels.iter()
+        let entries: Vec<String> = levels
+            .iter()
             .map(|(k, v)| format!("  \"{k}\": {v}"))
             .collect();
         println!("{{\n  \"total\": {total},\n{}\n}}", entries.join(",\n"));
@@ -224,7 +263,10 @@ pub(crate) fn which_runtime(name: &str) -> bool {
 
 /// FJ-2101: Pack a directory into an OCI image layout.
 pub(crate) fn cmd_oci_pack(
-    dir: &std::path::Path, tag: &str, output: &std::path::Path, json: bool,
+    dir: &std::path::Path,
+    tag: &str,
+    output: &std::path::Path,
+    json: bool,
 ) -> Result<(), String> {
     if !dir.is_dir() {
         return Err(format!("directory '{}' does not exist", dir.display()));
@@ -237,9 +279,13 @@ pub(crate) fn cmd_oci_pack(
         "annotations": { "org.opencontainers.image.ref.name": tag }
     });
     if json {
-        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-            "source": dir, "tag": tag, "output": output, "manifest": manifest
-        })).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "source": dir, "tag": tag, "output": output, "manifest": manifest
+            }))
+            .unwrap_or_default()
+        );
     } else {
         println!("OCI Pack: {} -> {}", dir.display(), output.display());
         println!("  tag: {tag}");
@@ -253,16 +299,33 @@ pub(crate) fn cmd_oci_pack(
 /// Route state-query subcommand to the right handler.
 fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     let QueryArgs {
-        query, state_dir, resource_type, history, drift, health,
-        timing, churn, reversibility, git_history, json, csv, sql,
+        query,
+        state_dir,
+        resource_type,
+        history,
+        drift,
+        health,
+        timing,
+        churn,
+        reversibility,
+        git_history,
+        json,
+        csv,
+        sql,
     } = args;
     if sql {
         super::query_format::print_sql(query.as_deref().unwrap_or("*"), resource_type.as_deref());
         return Ok(());
     }
-    if health { return cmd_query_health(&state_dir, json); }
-    if drift && query.is_none() { return cmd_query_drift(&state_dir, json); }
-    if churn && query.is_none() { return cmd_query_churn(&state_dir, json); }
+    if health {
+        return cmd_query_health(&state_dir, json);
+    }
+    if drift && query.is_none() {
+        return cmd_query_drift(&state_dir, json);
+    }
+    if churn && query.is_none() {
+        return cmd_query_churn(&state_dir, json);
+    }
     let needs_enrichment = history || timing || reversibility || git_history;
     let q = match query.as_deref() {
         Some(q) => Some(q),
@@ -270,8 +333,16 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
         None => return Err("query term required (e.g. forjar state-query \"nginx\")".into()),
     };
     cmd_query_state(
-        q, &state_dir, resource_type.as_deref(),
-        history, drift, timing, reversibility, git_history, json, csv,
+        q,
+        &state_dir,
+        resource_type.as_deref(),
+        history,
+        drift,
+        timing,
+        reversibility,
+        git_history,
+        json,
+        csv,
     )
 }
 
@@ -292,12 +363,19 @@ pub(crate) fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::C
 /// FJ-2001: Query state database with live ingest + FTS5 search.
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
-    query: Option<&str>, state_dir: &std::path::Path, resource_type: Option<&str>,
-    history: bool, _drift: bool, timing: bool, reversibility: bool, git_history: bool,
-    json: bool, csv: bool,
+    query: Option<&str>,
+    state_dir: &std::path::Path,
+    resource_type: Option<&str>,
+    history: bool,
+    _drift: bool,
+    timing: bool,
+    reversibility: bool,
+    git_history: bool,
+    json: bool,
+    csv: bool,
 ) -> Result<(), String> {
-    use crate::core::store::db;
     use super::query_format as qf;
+    use crate::core::store::db;
 
     let conn = open_state_conn(state_dir)?;
     let mut results = match query {
@@ -314,16 +392,28 @@ fn cmd_query_state(
     } else if csv {
         qf::print_csv(&results);
     } else {
-        print_table_results(display_query, &conn, &results, history, timing, reversibility)?;
-        if git_history { qf::print_git_history(display_query, &results)?; }
+        print_table_results(
+            display_query,
+            &conn,
+            &results,
+            history,
+            timing,
+            reversibility,
+        )?;
+        if git_history {
+            qf::print_git_history(display_query, &results)?;
+        }
     }
     Ok(())
 }
 
 pub(crate) fn print_table_results(
-    query: &str, conn: &rusqlite::Connection,
+    query: &str,
+    conn: &rusqlite::Connection,
     results: &[crate::core::store::db::FtsResult],
-    history: bool, timing: bool, reversibility: bool,
+    history: bool,
+    timing: bool,
+    reversibility: bool,
 ) -> Result<(), String> {
     use super::query_format as qf;
     if results.is_empty() {
@@ -332,13 +422,23 @@ pub(crate) fn print_table_results(
     }
     println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
     for r in results {
-        println!(" {:20} {:10} {:10} {}",
-            r.resource_id, r.resource_type, r.status,
-            r.path.as_deref().unwrap_or("—"));
+        println!(
+            " {:20} {:10} {:10} {}",
+            r.resource_id,
+            r.resource_type,
+            r.status,
+            r.path.as_deref().unwrap_or("—")
+        );
     }
-    if history { qf::print_history(conn, results)?; }
-    if timing { qf::print_timing_stats(conn, results)?; }
-    if reversibility { qf::print_reversibility(conn, results)?; }
+    if history {
+        qf::print_history(conn, results)?;
+    }
+    if timing {
+        qf::print_timing_stats(conn, results)?;
+    }
+    if reversibility {
+        qf::print_reversibility(conn, results)?;
+    }
     println!("\n {} result(s)", results.len());
     Ok(())
 }
@@ -351,19 +451,33 @@ pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Resul
     let health = ingest::query_health(&conn)?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&health).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&health).unwrap_or_default()
+        );
     } else if health.machines.is_empty() {
         println!("No machines found in {}", state_dir.display());
     } else {
-        println!(" {:10} {:>10} {:>10} {:>8} {:>8}", "MACHINE", "RESOURCES", "CONVERGED", "DRIFTED", "FAILED");
+        println!(
+            " {:10} {:>10} {:>10} {:>8} {:>8}",
+            "MACHINE", "RESOURCES", "CONVERGED", "DRIFTED", "FAILED"
+        );
         for m in &health.machines {
-            println!(" {:10} {:>10} {:>10} {:>8} {:>8}",
-                m.name, m.resources, m.converged, m.drifted, m.failed);
+            println!(
+                " {:10} {:>10} {:>10} {:>8} {:>8}",
+                m.name, m.resources, m.converged, m.drifted, m.failed
+            );
         }
         println!(" {}", "─".repeat(56));
-        println!(" {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
-            "TOTAL", health.total_resources, health.total_converged,
-            health.total_drifted, health.total_failed, health.health_pct());
+        println!(
+            " {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
+            "TOTAL",
+            health.total_resources,
+            health.total_converged,
+            health.total_drifted,
+            health.total_failed,
+            health.health_pct()
+        );
     }
     Ok(())
 }
@@ -375,16 +489,26 @@ pub(crate) fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result
     let entries = ingest::query_drift(&conn)?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&entries).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).unwrap_or_default()
+        );
     } else if entries.is_empty() {
         println!("No drift detected");
     } else {
-        println!(" {:20} {:10} {:10} EXPECTED → ACTUAL", "RESOURCE", "MACHINE", "TYPE");
+        println!(
+            " {:20} {:10} {:10} EXPECTED → ACTUAL",
+            "RESOURCE", "MACHINE", "TYPE"
+        );
         for e in &entries {
-            println!(" {:20} {:10} {:10} {} → {}",
-                e.resource_id, e.machine, e.resource_type,
+            println!(
+                " {:20} {:10} {:10} {} → {}",
+                e.resource_id,
+                e.machine,
+                e.resource_type,
                 &e.content_hash[..20.min(e.content_hash.len())],
-                &e.live_hash[..20.min(e.live_hash.len())]);
+                &e.live_hash[..20.min(e.live_hash.len())]
+            );
         }
         println!("\n {} drifted resource(s)", entries.len());
     }
@@ -398,13 +522,19 @@ pub(crate) fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result
     let entries = ingest::query_churn(&conn)?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&entries).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).unwrap_or_default()
+        );
     } else if entries.is_empty() {
         println!("No churn data");
     } else {
         println!(" {:20} {:>8} {:>8}", "RESOURCE", "EVENTS", "RUNS");
         for e in &entries {
-            println!(" {:20} {:>8} {:>8}", e.resource_id, e.event_count, e.distinct_runs);
+            println!(
+                " {:20} {:>8} {:>8}",
+                e.resource_id, e.event_count, e.distinct_runs
+            );
         }
     }
     Ok(())

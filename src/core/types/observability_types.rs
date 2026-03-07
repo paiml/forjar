@@ -172,9 +172,7 @@ impl LogTruncation {
         let omitted = log.len() - self.first_bytes - self.last_bytes;
         let first = &log[..self.first_bytes];
         let last = &log[log.len() - self.last_bytes..];
-        format!(
-            "{first}\n\n--- TRUNCATED ({omitted} bytes omitted) ---\n\n{last}"
-        )
+        format!("{first}\n\n--- TRUNCATED ({omitted} bytes omitted) ---\n\n{last}")
     }
 }
 

@@ -41,22 +41,34 @@ pub struct GenerationDiff {
 impl GenerationDiff {
     /// Number of added resources.
     pub fn added_count(&self) -> usize {
-        self.resources.iter().filter(|r| r.action == DiffAction::Added).count()
+        self.resources
+            .iter()
+            .filter(|r| r.action == DiffAction::Added)
+            .count()
     }
 
     /// Number of modified resources.
     pub fn modified_count(&self) -> usize {
-        self.resources.iter().filter(|r| r.action == DiffAction::Modified).count()
+        self.resources
+            .iter()
+            .filter(|r| r.action == DiffAction::Modified)
+            .count()
     }
 
     /// Number of removed resources.
     pub fn removed_count(&self) -> usize {
-        self.resources.iter().filter(|r| r.action == DiffAction::Removed).count()
+        self.resources
+            .iter()
+            .filter(|r| r.action == DiffAction::Removed)
+            .count()
     }
 
     /// Number of unchanged resources.
     pub fn unchanged_count(&self) -> usize {
-        self.resources.iter().filter(|r| r.action == DiffAction::Unchanged).count()
+        self.resources
+            .iter()
+            .filter(|r| r.action == DiffAction::Unchanged)
+            .count()
     }
 
     /// Total number of changes (added + modified + removed).
@@ -237,10 +249,7 @@ pub fn diff_resource_sets(
             } else {
                 diffs.push(
                     ResourceDiff::modified(id, ty)
-                        .with_hashes(
-                            Some(old_hash.to_string()),
-                            Some(new_hash.to_string()),
-                        )
+                        .with_hashes(Some(old_hash.to_string()), Some(new_hash.to_string()))
                         .with_detail("hash changed"),
                 );
             }
@@ -327,8 +336,7 @@ mod tests {
             machine: "intel".into(),
             resources: vec![
                 ResourceDiff::added("new-pkg", "package"),
-                ResourceDiff::modified("config", "file")
-                    .with_detail("content changed"),
+                ResourceDiff::modified("config", "file").with_detail("content changed"),
                 ResourceDiff::removed("old-svc", "service"),
             ],
         };

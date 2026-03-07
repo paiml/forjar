@@ -63,7 +63,11 @@ fn main() {
             ("maintainer".into(), "team@example.com".into()),
             ("version".into(), "1.2.3".into()),
         ],
-        entrypoint: Some(vec!["/usr/sbin/nginx".into(), "-g".into(), "daemon off;".into()]),
+        entrypoint: Some(vec![
+            "/usr/sbin/nginx".into(),
+            "-g".into(),
+            "daemon off;".into(),
+        ]),
     };
     println!("  Tag:    {}", plan.tag);
     println!("  Base:   {:?}", plan.base_image);
@@ -72,7 +76,11 @@ fn main() {
 
     // Base image reference
     println!("\n=== Base Image Resolution ===");
-    for ref_str in ["ubuntu:22.04", "ghcr.io/org/app:v1", "localhost:5000/myimage"] {
+    for ref_str in [
+        "ubuntu:22.04",
+        "ghcr.io/org/app:v1",
+        "localhost:5000/myimage",
+    ] {
         let img = BaseImageRef::new(ref_str);
         println!("  {} -> registry: {}", ref_str, img.registry());
     }
@@ -110,9 +118,16 @@ fn main() {
         tag: "app:latest".into(),
         base_image: Some("ubuntu:22.04".into()),
         layers: vec![
-            LayerStrategy::Packages { names: vec!["nginx".into(), "curl".into()] },
-            LayerStrategy::Build { command: "make install".into(), workdir: Some("/src".into()) },
-            LayerStrategy::Files { paths: vec!["/etc/app/config.yaml".into()] },
+            LayerStrategy::Packages {
+                names: vec!["nginx".into(), "curl".into()],
+            },
+            LayerStrategy::Build {
+                command: "make install".into(),
+                workdir: Some("/src".into()),
+            },
+            LayerStrategy::Files {
+                paths: vec!["/etc/app/config.yaml".into()],
+            },
         ],
         labels: vec![("maintainer".into(), "team@example.com".into())],
         entrypoint: None,

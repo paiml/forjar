@@ -241,7 +241,10 @@ impl MutationReport {
     pub fn from_results(results: Vec<MutationResult>) -> Self {
         let total = results.len();
         let detected = results.iter().filter(|r| r.detected).count();
-        let survived = results.iter().filter(|r| !r.detected && r.error.is_none()).count();
+        let survived = results
+            .iter()
+            .filter(|r| !r.detected && r.error.is_none())
+            .count();
         let errored = results.iter().filter(|r| r.error.is_some()).count();
 
         let undetected: Vec<MutationResult> = results
@@ -312,7 +315,10 @@ mod tests {
     fn mutation_operator_display() {
         assert_eq!(MutationOperator::DeleteFile.to_string(), "delete_file");
         assert_eq!(MutationOperator::StopService.to_string(), "stop_service");
-        assert_eq!(MutationOperator::RemovePackage.to_string(), "remove_package");
+        assert_eq!(
+            MutationOperator::RemovePackage.to_string(),
+            "remove_package"
+        );
     }
 
     #[test]
@@ -326,8 +332,14 @@ mod tests {
     #[test]
     fn mutation_operator_applicable_types() {
         assert_eq!(MutationOperator::DeleteFile.applicable_types(), &["file"]);
-        assert_eq!(MutationOperator::StopService.applicable_types(), &["service"]);
-        assert_eq!(MutationOperator::RemovePackage.applicable_types(), &["package"]);
+        assert_eq!(
+            MutationOperator::StopService.applicable_types(),
+            &["service"]
+        );
+        assert_eq!(
+            MutationOperator::RemovePackage.applicable_types(),
+            &["package"]
+        );
     }
 
     #[test]
@@ -393,16 +405,36 @@ mod tests {
 
     #[test]
     fn mutation_score_grade_boundaries() {
-        let grade_a = MutationScore { total: 10, detected: 9, survived: 1, errored: 0 };
+        let grade_a = MutationScore {
+            total: 10,
+            detected: 9,
+            survived: 1,
+            errored: 0,
+        };
         assert_eq!(grade_a.grade(), 'A');
 
-        let grade_b = MutationScore { total: 10, detected: 8, survived: 2, errored: 0 };
+        let grade_b = MutationScore {
+            total: 10,
+            detected: 8,
+            survived: 2,
+            errored: 0,
+        };
         assert_eq!(grade_b.grade(), 'B');
 
-        let grade_c = MutationScore { total: 10, detected: 6, survived: 4, errored: 0 };
+        let grade_c = MutationScore {
+            total: 10,
+            detected: 6,
+            survived: 4,
+            errored: 0,
+        };
         assert_eq!(grade_c.grade(), 'C');
 
-        let grade_f = MutationScore { total: 10, detected: 5, survived: 5, errored: 0 };
+        let grade_f = MutationScore {
+            total: 10,
+            detected: 5,
+            survived: 5,
+            errored: 0,
+        };
         assert_eq!(grade_f.grade(), 'F');
     }
 

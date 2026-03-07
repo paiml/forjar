@@ -7,16 +7,15 @@ pub mod base_image;
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;
-pub mod convergence_container;
-pub mod convergence_runner;
-pub mod db;
 pub mod closure;
-pub mod ingest;
 pub mod conda;
 pub mod contract_coverage;
 pub mod contract_scaffold;
+pub mod convergence_container;
+pub mod convergence_runner;
 pub mod convert;
 pub mod convert_exec;
+pub mod db;
 pub mod derivation;
 pub mod derivation_exec;
 pub mod far;
@@ -24,6 +23,7 @@ pub mod gc;
 pub mod gc_exec;
 pub mod hf_config;
 pub mod image_assembler;
+pub mod ingest;
 pub mod kernel_far;
 pub mod layer_builder;
 pub mod lockfile;
@@ -59,15 +59,7 @@ mod tests_cache_exec;
 #[cfg(test)]
 mod tests_chunker;
 #[cfg(test)]
-mod tests_db;
-#[cfg(test)]
-mod tests_db_bench;
-#[cfg(test)]
-mod tests_ingest;
-#[cfg(test)]
 mod tests_closure;
-#[cfg(test)]
-mod tests_convergence_runner;
 #[cfg(test)]
 mod tests_conda;
 #[cfg(test)]
@@ -75,11 +67,17 @@ mod tests_contract_coverage;
 #[cfg(test)]
 mod tests_contract_scaffold;
 #[cfg(test)]
+mod tests_convergence_runner;
+#[cfg(test)]
 mod tests_convert;
 #[cfg(test)]
 mod tests_convert_exec;
 #[cfg(test)]
 mod tests_cov_exec;
+#[cfg(test)]
+mod tests_db;
+#[cfg(test)]
+mod tests_db_bench;
 #[cfg(test)]
 mod tests_derivation;
 #[cfg(test)]
@@ -114,6 +112,8 @@ mod tests_gc_exec;
 mod tests_hf_config;
 #[cfg(test)]
 mod tests_image_assembler;
+#[cfg(test)]
+mod tests_ingest;
 #[cfg(test)]
 mod tests_kernel_far;
 #[cfg(test)]

@@ -178,7 +178,11 @@ pub fn success_rate(state: &DispatchState) -> f64 {
     if state.invocations.is_empty() {
         return 0.0;
     }
-    let ok = state.invocations.iter().filter(|i| i.exit_code == 0).count();
+    let ok = state
+        .invocations
+        .iter()
+        .filter(|i| i.exit_code == 0)
+        .count();
     (ok as f64 / state.invocations.len() as f64) * 100.0
 }
 
@@ -209,10 +213,7 @@ mod tests {
             params: vec![("target".into(), "debug".into())],
             timeout_secs: None,
         };
-        let prepared = prepare_dispatch(
-            &config,
-            &[("target".into(), "release".into())],
-        );
+        let prepared = prepare_dispatch(&config, &[("target".into(), "release".into())]);
         // Config params apply first, then overrides. Since the placeholder
         // was already replaced by config params, override doesn't match.
         // This tests the precedence model.
@@ -227,10 +228,7 @@ mod tests {
             params: vec![],
             timeout_secs: Some(60),
         };
-        let prepared = prepare_dispatch(
-            &config,
-            &[("suite".into(), "integration".into())],
-        );
+        let prepared = prepare_dispatch(&config, &[("suite".into(), "integration".into())]);
         assert_eq!(prepared.command, "test integration");
         assert_eq!(prepared.timeout_secs, Some(60));
     }
@@ -328,8 +326,18 @@ mod tests {
     fn success_rate_all_pass() {
         let state = DispatchState {
             invocations: vec![
-                DispatchInvocation { timestamp: "t1".into(), exit_code: 0, duration_ms: 100, caller: None },
-                DispatchInvocation { timestamp: "t2".into(), exit_code: 0, duration_ms: 200, caller: None },
+                DispatchInvocation {
+                    timestamp: "t1".into(),
+                    exit_code: 0,
+                    duration_ms: 100,
+                    caller: None,
+                },
+                DispatchInvocation {
+                    timestamp: "t2".into(),
+                    exit_code: 0,
+                    duration_ms: 200,
+                    caller: None,
+                },
             ],
             total_invocations: 2,
         };
@@ -346,10 +354,30 @@ mod tests {
     fn success_rate_mixed() {
         let state = DispatchState {
             invocations: vec![
-                DispatchInvocation { timestamp: "t1".into(), exit_code: 0, duration_ms: 100, caller: None },
-                DispatchInvocation { timestamp: "t2".into(), exit_code: 1, duration_ms: 200, caller: None },
-                DispatchInvocation { timestamp: "t3".into(), exit_code: 0, duration_ms: 300, caller: None },
-                DispatchInvocation { timestamp: "t4".into(), exit_code: 2, duration_ms: 400, caller: None },
+                DispatchInvocation {
+                    timestamp: "t1".into(),
+                    exit_code: 0,
+                    duration_ms: 100,
+                    caller: None,
+                },
+                DispatchInvocation {
+                    timestamp: "t2".into(),
+                    exit_code: 1,
+                    duration_ms: 200,
+                    caller: None,
+                },
+                DispatchInvocation {
+                    timestamp: "t3".into(),
+                    exit_code: 0,
+                    duration_ms: 300,
+                    caller: None,
+                },
+                DispatchInvocation {
+                    timestamp: "t4".into(),
+                    exit_code: 2,
+                    duration_ms: 400,
+                    caller: None,
+                },
             ],
             total_invocations: 4,
         };

@@ -48,7 +48,10 @@ pub(crate) fn cmd_show(
         if json {
             let mut val = serde_json::to_value(resource).map_err(|e| format!("JSON error: {e}"))?;
             strip_defaults(&mut val);
-            println!("{}", serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?
+            );
         } else {
             let output =
                 serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {e}"))?;
@@ -57,7 +60,10 @@ pub(crate) fn cmd_show(
     } else if json {
         let mut val = serde_json::to_value(&config).map_err(|e| format!("JSON error: {e}"))?;
         strip_defaults(&mut val);
-        println!("{}", serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {e}"))?;
         println!("{output}");

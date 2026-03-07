@@ -89,13 +89,23 @@ fn main() {
         min_branch_pct: Some(80.0),
         enforce: true,
     };
-    println!("  95.91% line, 85% branch: {}", threshold.check(95.91, Some(85.0)));
-    println!("  94.00% line, 85% branch: {}", threshold.check(94.0, Some(85.0)));
+    println!(
+        "  95.91% line, 85% branch: {}",
+        threshold.check(95.91, Some(85.0))
+    );
+    println!(
+        "  94.00% line, 85% branch: {}",
+        threshold.check(94.0, Some(85.0))
+    );
 
     // Coverage badge
     println!("\n=== Coverage Badge ===");
     for pct in [98.0, 92.0, 85.0, 72.0, 63.0, 45.0] {
         let badge = CoverageBadge::from_pct(pct);
-        println!("  {pct:.0}% -> {} ({})", badge.color, BadgeColor::from_pct(pct));
+        println!(
+            "  {pct:.0}% -> {} ({})",
+            badge.color,
+            BadgeColor::from_pct(pct)
+        );
     }
 }

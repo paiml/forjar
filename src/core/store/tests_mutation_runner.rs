@@ -145,10 +145,7 @@ fn run_mutation_test_empty_script_errors() {
 
 #[test]
 fn run_mutation_suite_file_targets() {
-    let targets = vec![
-        file_target("config-a"),
-        file_target("config-b"),
-    ];
+    let targets = vec![file_target("config-a"), file_target("config-b")];
     let config = MutationRunConfig::default();
     let report = run_mutation_suite(&targets, &config);
 
@@ -160,10 +157,7 @@ fn run_mutation_suite_file_targets() {
 
 #[test]
 fn run_mutation_suite_mixed_types() {
-    let targets = vec![
-        file_target("app-config"),
-        service_target("nginx"),
-    ];
+    let targets = vec![file_target("app-config"), service_target("nginx")];
     let config = MutationRunConfig::default();
     let report = run_mutation_suite(&targets, &config);
 
@@ -258,10 +252,7 @@ fn dispatch_uses_simulated_for_chroot() {
 
 #[test]
 fn parallel_dispatch_with_backend() {
-    let targets = vec![
-        file_target("par-a"),
-        service_target("par-svc"),
-    ];
+    let targets = vec![file_target("par-a"), service_target("par-svc")];
     let config = MutationRunConfig {
         parallelism: 2,
         ..MutationRunConfig::default()

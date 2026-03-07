@@ -47,10 +47,7 @@ pub fn plan_service_action(
 
     // Check if we've exceeded max restarts
     if state.restart_count > 0 && !policy.should_restart(state.restart_count) {
-        return ServiceAction::Stop(format!(
-            "max restarts ({}) exceeded",
-            policy.max_restarts
-        ));
+        return ServiceAction::Stop(format!("max restarts ({}) exceeded", policy.max_restarts));
     }
 
     // Consecutive failures exceed health check retries → restart
@@ -175,7 +172,11 @@ pub fn apply_start(pid: u32, timestamp: &str) -> (ServiceState, ServiceEvent) {
 }
 
 /// Apply stop to the service state.
-pub fn apply_stop(state: &ServiceState, reason: &str, timestamp: &str) -> (ServiceState, ServiceEvent) {
+pub fn apply_stop(
+    state: &ServiceState,
+    reason: &str,
+    timestamp: &str,
+) -> (ServiceState, ServiceEvent) {
     let new_state = ServiceState {
         pid: None,
         healthy: false,
@@ -247,4 +248,3 @@ pub(crate) fn parse_interval(interval: Option<&str>) -> f64 {
         s.parse::<f64>().unwrap_or(30.0)
     }
 }
-

@@ -64,6 +64,12 @@ fn demo_coverage_report() {
     let report = CoverageReport::from_entries(entries);
     print!("{}", report.format_report());
 
-    println!("Meets L1 threshold: {}", report.meets_threshold(CoverageLevel::L1));
-    println!("Meets L2 threshold: {}", report.meets_threshold(CoverageLevel::L2));
+    println!(
+        "Meets L1 threshold: {}",
+        report.meets_threshold(CoverageLevel::L1)
+    );
+    println!(
+        "Meets L2 threshold: {}",
+        report.meets_threshold(CoverageLevel::L2)
+    );
 }

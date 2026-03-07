@@ -273,35 +273,65 @@ fn build_resource_schema(stage_schema: serde_json::Value) -> serde_json::Value {
     props.insert("when".into(), s("string"));
     props.insert("arch".into(), arr_s());
     // Package fields
-    props.insert("provider".into(), serde_json::json!({ "type": "string", "enum": ["apt","cargo","uv"] }));
+    props.insert(
+        "provider".into(),
+        serde_json::json!({ "type": "string", "enum": ["apt","cargo","uv"] }),
+    );
     props.insert("packages".into(), arr_s());
     // File fields
-    for k in ["path", "content", "source", "owner", "group", "mode", "name"] {
+    for k in [
+        "path", "content", "source", "owner", "group", "mode", "name",
+    ] {
         props.insert(k.into(), s("string"));
     }
     props.insert("enabled".into(), s("boolean"));
     // Cron / task / service
-    for k in ["schedule", "command", "image", "completion_check", "protocol", "action"] {
+    for k in [
+        "schedule",
+        "command",
+        "image",
+        "completion_check",
+        "protocol",
+        "action",
+    ] {
         props.insert(k.into(), s("string"));
     }
     props.insert("ports".into(), arr_s());
     props.insert("volumes".into(), arr_s());
     // FJ-2700 task framework
-    props.insert("task_mode".into(), serde_json::json!({ "type": "string", "enum": ["batch","pipeline","service","dispatch"] }));
-    props.insert("stages".into(), serde_json::json!({ "type": "array", "items": stage_schema }));
+    props.insert(
+        "task_mode".into(),
+        serde_json::json!({ "type": "string", "enum": ["batch","pipeline","service","dispatch"] }),
+    );
+    props.insert(
+        "stages".into(),
+        serde_json::json!({ "type": "array", "items": stage_schema }),
+    );
     props.insert("task_inputs".into(), arr_s());
-    props.insert("cache".into(), serde_json::json!({ "type": "boolean", "default": false }));
+    props.insert(
+        "cache".into(),
+        serde_json::json!({ "type": "boolean", "default": false }),
+    );
     props.insert("gpu_device".into(), s("integer"));
     props.insert("restart_delay".into(), s("integer"));
     props.insert("timeout".into(), s("integer"));
-    props.insert("restart".into(), serde_json::json!({ "type": "string", "enum": ["always","on_failure","never"] }));
+    props.insert(
+        "restart".into(),
+        serde_json::json!({ "type": "string", "enum": ["always","on_failure","never"] }),
+    );
     props.insert("output_artifacts".into(), arr_s());
-    props.insert("port".into(), serde_json::json!({ "type": ["string","integer"] }));
+    props.insert(
+        "port".into(),
+        serde_json::json!({ "type": ["string","integer"] }),
+    );
     // Notify hooks
     for k in ["on_success", "on_failure", "on_drift"] {
         props.insert(k.into(), s("string"));
     }
-    props.insert("inputs".into(), serde_json::json!({ "type": "object", "additionalProperties": true }));
+    props.insert(
+        "inputs".into(),
+        serde_json::json!({ "type": "object", "additionalProperties": true }),
+    );
     // FJ-2704: Distributed coordination
     props.insert("gather".into(), arr_s());
     props.insert("scatter".into(), arr_s());

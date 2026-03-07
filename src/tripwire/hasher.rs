@@ -99,7 +99,10 @@ pub fn composite_hash(components: &[&str]) -> String {
         hasher.update(b"\0");
     }
     let result = format!("blake3:{}", hasher.finalize().to_hex());
-    debug_assert!(result.starts_with("blake3:"), "composite_hash: missing prefix");
+    debug_assert!(
+        result.starts_with("blake3:"),
+        "composite_hash: missing prefix"
+    );
     debug_assert_eq!(result.len(), 71, "composite_hash: unexpected length");
     result
 }

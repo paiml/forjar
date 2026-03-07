@@ -3,7 +3,7 @@
 //! Called after `exec_script_retry` in `execute_resource()` to write
 //! `.log` and `.script` files into `state/<machine>/runs/<run_id>/`.
 
-use crate::core::types::{RunLogEntry, RunMeta, ResourceRunStatus};
+use crate::core::types::{ResourceRunStatus, RunLogEntry, RunMeta};
 use crate::transport::ExecOutput;
 use std::path::{Path, PathBuf};
 
@@ -74,16 +74,11 @@ pub fn capture_output(
 }
 
 /// Update meta.yaml with resource status after execution.
-pub fn update_meta_resource(
-    run_dir: &Path,
-    resource_id: &str,
-    status: ResourceRunStatus,
-) {
+pub fn update_meta_resource(run_dir: &Path, resource_id: &str, status: ResourceRunStatus) {
     let meta_path = run_dir.join("meta.yaml");
     let mut meta = match std::fs::read_to_string(&meta_path) {
-        Ok(content) => serde_yaml_ng::from_str::<RunMeta>(&content).unwrap_or_else(|_| {
-            RunMeta::new("unknown".into(), "unknown".into(), "apply".into())
-        }),
+        Ok(content) => serde_yaml_ng::from_str::<RunMeta>(&content)
+            .unwrap_or_else(|_| RunMeta::new("unknown".into(), "unknown".into(), "apply".into())),
         Err(_) => return,
     };
     meta.record_resource(resource_id, status);

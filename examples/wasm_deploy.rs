@@ -4,9 +4,7 @@
 //! cargo run --example wasm_deploy
 //! ```
 
-use forjar::core::types::{
-    CachePolicy, CdnTarget, WasmBuildResult, WasmOptLevel, WasmSizeBudget,
-};
+use forjar::core::types::{CachePolicy, CdnTarget, WasmBuildResult, WasmOptLevel, WasmSizeBudget};
 
 fn main() {
     // Optimization levels

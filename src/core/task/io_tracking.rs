@@ -137,8 +137,8 @@ fn expand_glob(pattern: &str, base_dir: &Path) -> Result<Vec<String>, String> {
         format!("{}/{pattern}", base_dir.display())
     };
 
-    let paths = glob::glob(&full_pattern)
-        .map_err(|e| format!("invalid glob pattern '{pattern}': {e}"))?;
+    let paths =
+        glob::glob(&full_pattern).map_err(|e| format!("invalid glob pattern '{pattern}': {e}"))?;
 
     let mut result = Vec::new();
     for entry in paths {

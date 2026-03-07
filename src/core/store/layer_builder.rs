@@ -64,12 +64,10 @@ pub fn build_layer(
     let mut sorted_entries: Vec<&LayerEntry> = entries.iter().collect();
     match config.sort_order {
         TarSortOrder::Lexicographic => sorted_entries.sort_by(|a, b| a.path.cmp(&b.path)),
-        TarSortOrder::DirectoryFirst => sorted_entries.sort_by(|a, b| {
-            match (a.is_dir, b.is_dir) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.path.cmp(&b.path),
-            }
+        TarSortOrder::DirectoryFirst => sorted_entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.path.cmp(&b.path),
         }),
     }
 
@@ -160,7 +158,10 @@ pub fn write_oci_layout(
 
     // Write layer blobs
     for (result, data) in layers {
-        let hex = result.digest.strip_prefix("sha256:").unwrap_or(&result.digest);
+        let hex = result
+            .digest
+            .strip_prefix("sha256:")
+            .unwrap_or(&result.digest);
         std::fs::write(output_dir.join(format!("blobs/sha256/{hex}")), data)
             .map_err(|e| format!("write layer blob: {e}"))?;
     }
@@ -179,7 +180,9 @@ pub fn write_oci_layout(
         "write_oci_layout: oci-layout missing"
     );
     debug_assert!(
-        output_dir.join(format!("blobs/sha256/{config_hex}")).exists(),
+        output_dir
+            .join(format!("blobs/sha256/{config_hex}"))
+            .exists(),
         "write_oci_layout: config blob missing"
     );
 
@@ -197,9 +200,17 @@ fn build_tar(entries: &[&LayerEntry], config: &OciLayerConfig) -> Result<Vec<u8>
         header.set_mode(entry.mode);
         header.set_uid(0);
         header.set_gid(0);
-        header.set_mtime(if config.deterministic { config.epoch_mtime } else { 0 });
-        header.set_username("root").map_err(|e| format!("set username: {e}"))?;
-        header.set_groupname("root").map_err(|e| format!("set groupname: {e}"))?;
+        header.set_mtime(if config.deterministic {
+            config.epoch_mtime
+        } else {
+            0
+        });
+        header
+            .set_username("root")
+            .map_err(|e| format!("set username: {e}"))?;
+        header
+            .set_groupname("root")
+            .map_err(|e| format!("set groupname: {e}"))?;
 
         if entry.is_dir {
             header.set_entry_type(tar::EntryType::Directory);
@@ -234,8 +245,8 @@ fn compress_layer(
             Ok((compressed, LayerCompression::Gzip))
         }
         crate::core::types::OciCompression::Zstd => {
-            let compressed = zstd::encode_all(uncompressed, 3)
-                .map_err(|e| format!("zstd compress: {e}"))?;
+            let compressed =
+                zstd::encode_all(uncompressed, 3).map_err(|e| format!("zstd compress: {e}"))?;
             Ok((compressed, LayerCompression::Zstd))
         }
     }

@@ -44,9 +44,10 @@ pub fn evaluate_gate(gate: &QualityGate, exit_code: i32, stdout: &str) -> GateRe
 
     // Exit code gate: command must exit 0 to pass
     if exit_code != 0 {
-        let msg = gate.message.clone().unwrap_or_else(|| {
-            format!("gate failed: command exited with code {exit_code}")
-        });
+        let msg = gate
+            .message
+            .clone()
+            .unwrap_or_else(|| format!("gate failed: command exited with code {exit_code}"));
         return GateResult::Fail(action, msg);
     }
 
@@ -76,7 +77,9 @@ fn evaluate_json_gate(gate: &QualityGate, stdout: &str, action: GateAction) -> G
         Err(e) => {
             return GateResult::Fail(
                 action,
-                gate.message.clone().unwrap_or_else(|| format!("gate: invalid JSON output: {e}")),
+                gate.message
+                    .clone()
+                    .unwrap_or_else(|| format!("gate: invalid JSON output: {e}")),
             );
         }
     };
@@ -146,16 +149,13 @@ fn evaluate_regex_gate(
             } else {
                 GateResult::Fail(
                     action,
-                    message
-                        .map(String::from)
-                        .unwrap_or_else(|| format!("gate: stdout did not match pattern '{pattern}'")),
+                    message.map(String::from).unwrap_or_else(|| {
+                        format!("gate: stdout did not match pattern '{pattern}'")
+                    }),
                 )
             }
         }
-        Err(e) => GateResult::Fail(
-            action,
-            format!("gate: invalid regex '{pattern}': {e}"),
-        ),
+        Err(e) => GateResult::Fail(action, format!("gate: invalid regex '{pattern}': {e}")),
     }
 }
 
