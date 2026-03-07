@@ -239,6 +239,50 @@ fn test_behavior_mode_no_assertion() {
     assert!(r.is_err());
 }
 
+#[test]
+fn test_behavior_mode_verify_stderr_contains() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("stderr.spec.yaml"),
+        "name: stderr-test\nconfig: forjar.yaml\nbehaviors:\n  - name: stderr check\n    verify:\n      command: echo warning >&2\n      stderr_contains: warning\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn test_behavior_mode_verify_file_exists() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    let target = dir.path().join("exists.txt");
+    std::fs::write(&target, "data").unwrap();
+    std::fs::write(
+        dir.path().join("file.spec.yaml"),
+        &format!("name: file-test\nconfig: forjar.yaml\nbehaviors:\n  - name: file present\n    verify:\n      command: \"true\"\n      file_exists: {}\n", target.display()),
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn test_behavior_mode_verify_file_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("missing.spec.yaml"),
+        "name: missing-test\nconfig: forjar.yaml\nbehaviors:\n  - name: file missing\n    verify:\n      command: \"true\"\n      file_exists: /nonexistent/path/file.txt\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_err());
+}
+
 /// F16: `forjar test coverage` now reports resource-level coverage.
 #[test]
 fn test_coverage_mode_basic() {
