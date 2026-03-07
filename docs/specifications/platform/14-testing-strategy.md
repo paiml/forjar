@@ -632,8 +632,9 @@ Every CI test run produces:
 - [x] Sandbox integration for real convergence verification (simulated mode)
 - [x] Hash stability (CONV-001), plan convergence (CONV-002), hash sensitivity (CONV-006)
 - [x] CLI dispatches to `convergence_runner.rs` — builds targets from config, runs parallel tests
+- [x] `ConvergenceTestConfig` with `SandboxBackend` field — dispatches via `resolve_mode()`
 - **Deliverable**: 6 proptest convergence properties verified (CONV-001 through CONV-006)
-- **Remaining**: Sandbox mode (real exec vs simulated) requires pepita infrastructure
+- **Remaining**: Real sandbox mode requires pepita/container infrastructure (dispatch wired, falls back to simulated)
 
 ### Phase 29: Idempotency Verification (FJ-2601) -- DONE
 - [x] Plan idempotency test (CONV-005: plan twice, second identical)
