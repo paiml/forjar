@@ -100,15 +100,18 @@ fn build_summary(rows: Vec<ContractRow>) -> ContractSummary {
     // Known #[contract] annotations in the codebase (compile-time source truth).
     let proved = 10; // 3 codegen + 3 hasher + 4 core
     let total = rows.len() as u32;
-    ContractSummary { rows, l0, l1, l2, proved, total }
+    ContractSummary {
+        rows,
+        l0,
+        l1,
+        l2,
+        proved,
+        total,
+    }
 }
 
 /// FJ-2200: Real contract coverage report.
-pub(crate) fn cmd_contracts(
-    coverage: bool,
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(), String> {
     let mut rows: Vec<ContractRow> = Vec::new();
 
     // Gracefully handle missing/empty config — still report codebase contracts.
@@ -146,9 +149,15 @@ fn print_text(s: &ContractSummary, detail: bool) {
     println!("  core pipeline:    4 (validate, expand, atomic_write, topo_sort)");
 
     if detail {
-        println!("\n{:<25} {:<10} {:<14} {:>5} {:>5} {:>5}",
-            bold("RESOURCE"), bold("TYPE"), bold("LEVEL"),
-            bold("CHK"), bold("APL"), bold("HSH"));
+        println!(
+            "\n{:<25} {:<10} {:<14} {:>5} {:>5} {:>5}",
+            bold("RESOURCE"),
+            bold("TYPE"),
+            bold("LEVEL"),
+            bold("CHK"),
+            bold("APL"),
+            bold("HSH")
+        );
         println!("{}", dim(&"-".repeat(68)));
         for r in &s.rows {
             let level_str = match r.level {
@@ -157,33 +166,50 @@ fn print_text(s: &ContractSummary, detail: bool) {
                 ContractLevel::L0Unlabeled => red(r.level.label()),
             };
             let yn = |b: bool| if b { "yes" } else { "—" };
-            println!("{:<25} {:<10} {:<14} {:>5} {:>5} {:>5}",
-                r.resource_id, r.resource_type, level_str,
-                yn(r.has_check), yn(r.has_apply), yn(r.has_hash));
+            println!(
+                "{:<25} {:<10} {:<14} {:>5} {:>5} {:>5}",
+                r.resource_id,
+                r.resource_type,
+                level_str,
+                yn(r.has_check),
+                yn(r.has_apply),
+                yn(r.has_hash)
+            );
         }
         println!("{}", dim(&"-".repeat(68)));
     }
 
     if s.total > 0 {
         let pct = ((s.l1 + s.l2) as f64 / s.total as f64) * 100.0;
-        println!("\nContract coverage: {pct:.0}% ({} of {} resources have check scripts)",
-            s.l1 + s.l2, s.total);
+        println!(
+            "\nContract coverage: {pct:.0}% ({} of {} resources have check scripts)",
+            s.l1 + s.l2,
+            s.total
+        );
     }
 }
 
 fn print_json(s: &ContractSummary) {
-    let entries: Vec<serde_json::Value> = s.rows.iter().map(|r| {
-        serde_json::json!({
-            "resource": r.resource_id,
-            "type": r.resource_type,
-            "level": r.level.rank(),
-            "level_label": r.level.label(),
-            "has_check": r.has_check,
-            "has_apply": r.has_apply,
-            "has_hash": r.has_hash,
+    let entries: Vec<serde_json::Value> = s
+        .rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "resource": r.resource_id,
+                "type": r.resource_type,
+                "level": r.level.rank(),
+                "level_label": r.level.label(),
+                "has_check": r.has_check,
+                "has_apply": r.has_apply,
+                "has_hash": r.has_hash,
+            })
         })
-    }).collect();
-    let pct = if s.total > 0 { ((s.l1 + s.l2) as f64 / s.total as f64) * 100.0 } else { 0.0 };
+        .collect();
+    let pct = if s.total > 0 {
+        ((s.l1 + s.l2) as f64 / s.total as f64) * 100.0
+    } else {
+        0.0
+    };
     let report = serde_json::json!({
         "total_resources": s.total,
         "level_0_unlabeled": s.l0,
@@ -193,5 +219,8 @@ fn print_json(s: &ContractSummary) {
         "coverage_pct": pct,
         "resources": entries,
     });
-    println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).unwrap_or_default()
+    );
 }

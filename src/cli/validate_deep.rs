@@ -187,9 +187,8 @@ fn check_drift_coverage_silent(config: &types::ForjarConfig) -> Result<(), Strin
     let mut total = 0usize;
     for res in config.resources.values() {
         total += 1;
-        let resolved =
-            resolver::resolve_resource_templates(res, &config.params, &config.machines)
-                .unwrap_or_else(|_| res.clone());
+        let resolved = resolver::resolve_resource_templates(res, &config.params, &config.machines)
+            .unwrap_or_else(|_| res.clone());
         if codegen::check_script(&resolved).is_err() {
             uncovered += 1;
         }

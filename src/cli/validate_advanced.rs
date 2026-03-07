@@ -276,7 +276,10 @@ fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, S
         if let Some(ref state) = resource.state {
             let rtype = format!("{:?}", resource.resource_type);
             if !is_valid_state_for_type(state, &rtype) {
-                issues.push((name.clone(), format!("state '{state}' invalid for type {rtype}")));
+                issues.push((
+                    name.clone(),
+                    format!("state '{state}' invalid for type {rtype}"),
+                ));
             }
         }
     }

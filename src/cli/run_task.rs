@@ -47,7 +47,10 @@ pub(crate) fn cmd_run(
         .ok_or_else(|| format!("resource '{task_id}' not found in config"))?;
 
     if resource.resource_type != types::ResourceType::Task {
-        return Err(format!("resource '{task_id}' is not a task (type: {:?})", resource.resource_type));
+        return Err(format!(
+            "resource '{task_id}' is not a task (type: {:?})",
+            resource.resource_type
+        ));
     }
 
     let overrides = parse_params(param_strings)?;
@@ -57,12 +60,15 @@ pub(crate) fn cmd_run(
     let script = dispatch::dispatch_script(&prepared);
 
     if json {
-        println!("{}", serde_json::json!({
-            "task": task_id,
-            "command": prepared.command,
-            "script": script,
-            "timeout_secs": prepared.timeout_secs,
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "task": task_id,
+                "command": prepared.command,
+                "script": script,
+                "timeout_secs": prepared.timeout_secs,
+            })
+        );
         return Ok(());
     }
 
@@ -95,7 +101,10 @@ pub(crate) fn cmd_run(
             if !out.stderr.is_empty() {
                 eprintln!("{}", out.stderr);
             }
-            Err(format!("task '{task_id}' failed with exit {}", out.exit_code))
+            Err(format!(
+                "task '{task_id}' failed with exit {}",
+                out.exit_code
+            ))
         }
         Err(e) => Err(format!("task '{task_id}' execution error: {e}")),
     }

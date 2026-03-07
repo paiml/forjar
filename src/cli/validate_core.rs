@@ -45,15 +45,10 @@ fn check_templates_resolve(config: &types::ForjarConfig, errors: &mut Vec<String
     let mut params = config.params.clone();
     for (key, ds) in &config.data {
         let val = ds.default.clone().unwrap_or_default();
-        params.insert(
-            format!("__data__{key}"),
-            serde_yaml_ng::Value::String(val),
-        );
+        params.insert(format!("__data__{key}"), serde_yaml_ng::Value::String(val));
     }
     for (id, resource) in &config.resources {
-        if let Err(e) =
-            resolver::resolve_resource_templates(resource, &params, &config.machines)
-        {
+        if let Err(e) = resolver::resolve_resource_templates(resource, &params, &config.machines) {
             errors.push(format!("{id}: template error: {e}"));
         }
     }

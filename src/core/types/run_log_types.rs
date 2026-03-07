@@ -223,6 +223,35 @@ impl RunLogEntry {
     }
 }
 
+impl RunLogEntry {
+    /// FJ-2301/E20: Format as structured JSON for machine-parseable output.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use forjar::core::types::RunLogEntry;
+    ///
+    /// let entry = RunLogEntry {
+    ///     resource_id: "pkg".into(), resource_type: "package".into(),
+    ///     action: "apply".into(), machine: "web".into(), transport: "ssh".into(),
+    ///     script: "apt install nginx".into(), script_hash: "blake3:abc".into(),
+    ///     stdout: "ok".into(), stderr: String::new(), exit_code: 0,
+    ///     duration_secs: 0.5, started_at: "t0".into(), finished_at: "t1".into(),
+    /// };
+    /// let json = entry.format_json();
+    /// assert!(json.contains("\"resource_id\":\"pkg\""));
+    /// assert!(json.contains("\"exit_code\":0"));
+    /// ```
+    pub fn format_json(&self) -> String {
+        serde_json::to_string(self).unwrap_or_else(|_| self.format_log())
+    }
+
+    /// Format as pretty-printed JSON.
+    pub fn format_json_pretty(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| self.format_log())
+    }
+}
+
 impl fmt::Display for RunLogEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.format_log())

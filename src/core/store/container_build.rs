@@ -49,14 +49,8 @@ pub fn build_image_in_container(
     let runtime = detect_container_runtime()
         .ok_or_else(|| "no container runtime (docker/podman) available".to_string())?;
 
-    let base_image = plan
-        .base_image
-        .as_deref()
-        .unwrap_or("debian:bookworm-slim");
-    let container_name = format!(
-        "forjar-build-{}",
-        plan.tag.replace([':', '/'], "-")
-    );
+    let base_image = plan.base_image.as_deref().unwrap_or("debian:bookworm-slim");
+    let container_name = format!("forjar-build-{}", plan.tag.replace([':', '/'], "-"));
 
     // Step 1: Start container from base image
     start_container(&runtime, &container_name, base_image)?;
@@ -78,8 +72,7 @@ pub fn build_image_in_container(
         std::process::id(),
     );
     let extract_dir = std::env::temp_dir().join(format!("forjar-build-{unique_id}"));
-    std::fs::create_dir_all(&extract_dir)
-        .map_err(|e| format!("create extract dir: {e}"))?;
+    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create extract dir: {e}"))?;
     let changed = extract_changes(&runtime, &container_name, &extract_dir);
     cleanup_container(&runtime, &container_name);
     let changed_files = changed?;
@@ -95,15 +88,19 @@ pub fn build_image_in_container(
     let layer_entries = vec![entries];
     let mut build_plan = plan.clone();
     if build_plan.layers.is_empty() {
-        build_plan.layers.push(crate::core::types::LayerStrategy::Files {
-            paths: vec!["(container diff)".into()],
-        });
+        build_plan
+            .layers
+            .push(crate::core::types::LayerStrategy::Files {
+                paths: vec!["(container diff)".into()],
+            });
     }
     // Ensure plan layers match entry count
     while build_plan.layers.len() < layer_entries.len() {
-        build_plan.layers.push(crate::core::types::LayerStrategy::Files {
-            paths: vec!["(container diff)".into()],
-        });
+        build_plan
+            .layers
+            .push(crate::core::types::LayerStrategy::Files {
+                paths: vec!["(container diff)".into()],
+            });
     }
     while build_plan.layers.len() > layer_entries.len() {
         build_plan.layers.pop();
@@ -125,15 +122,17 @@ pub fn build_image_in_container(
 }
 
 /// Start an ephemeral container from a base image.
-fn start_container(
-    runtime: &str,
-    container_name: &str,
-    base_image: &str,
-) -> Result<(), String> {
+fn start_container(runtime: &str, container_name: &str, base_image: &str) -> Result<(), String> {
     let output = Command::new(runtime)
         .args([
-            "run", "-d", "--rm", "--name", container_name,
-            base_image, "sleep", "300",
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            container_name,
+            base_image,
+            "sleep",
+            "300",
         ])
         .output()
         .map_err(|e| format!("container start: {e}"))?;
@@ -146,11 +145,7 @@ fn start_container(
 }
 
 /// Execute apply scripts inside a running container.
-fn execute_scripts(
-    runtime: &str,
-    container_name: &str,
-    scripts: &[String],
-) -> Result<(), String> {
+fn execute_scripts(runtime: &str, container_name: &str, scripts: &[String]) -> Result<(), String> {
     use std::io::Write;
     use std::process::Stdio;
 

@@ -299,7 +299,8 @@ fn discover_blobs_classifies_from_index() {
     std::fs::write(blobs_dir.join(&layer_hash), layer_data).unwrap();
 
     // Create config blob
-    let config_json = r#"{"architecture":"amd64","os":"linux","rootfs":{"type":"layers","diff_ids":[]}}"#;
+    let config_json =
+        r#"{"architecture":"amd64","os":"linux","rootfs":{"type":"layers","diff_ids":[]}}"#;
     let config_hash = blake3::hash(config_json.as_bytes()).to_hex().to_string();
     std::fs::write(blobs_dir.join(&config_hash), config_json.as_bytes()).unwrap();
 
@@ -325,12 +326,21 @@ fn discover_blobs_classifies_from_index() {
     let blobs = discover_blobs(dir.path()).unwrap();
     assert_eq!(blobs.len(), 3);
 
-    let layer = blobs.iter().find(|b| b.digest.contains(&layer_hash)).unwrap();
+    let layer = blobs
+        .iter()
+        .find(|b| b.digest.contains(&layer_hash))
+        .unwrap();
     assert_eq!(layer.kind, PushKind::Layer);
 
-    let config = blobs.iter().find(|b| b.digest.contains(&config_hash)).unwrap();
+    let config = blobs
+        .iter()
+        .find(|b| b.digest.contains(&config_hash))
+        .unwrap();
     assert_eq!(config.kind, PushKind::Config);
 
-    let manifest = blobs.iter().find(|b| b.digest.contains(&manifest_hash)).unwrap();
+    let manifest = blobs
+        .iter()
+        .find(|b| b.digest.contains(&manifest_hash))
+        .unwrap();
     assert_eq!(manifest.kind, PushKind::Manifest);
 }

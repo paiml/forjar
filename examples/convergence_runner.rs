@@ -57,9 +57,8 @@ fn make_target(id: &str, rtype: &str, content: &str) -> ConvergenceTarget {
         r#"mkdir -p "$FORJAR_SANDBOX/etc/forjar" && echo '{content}' > "$FORJAR_SANDBOX/etc/forjar/{id}""#
     );
     // Query: read the file back
-    let query_script = format!(
-        r#"cat "$FORJAR_SANDBOX/etc/forjar/{id}" 2>/dev/null || echo 'MISSING'"#
-    );
+    let query_script =
+        format!(r#"cat "$FORJAR_SANDBOX/etc/forjar/{id}" 2>/dev/null || echo 'MISSING'"#);
     ConvergenceTarget {
         resource_id: id.into(),
         resource_type: rtype.into(),

@@ -53,9 +53,7 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
     // Use $FORJAR_SANDBOX prefix for sandbox-aware paths (double-quoted for expansion)
     match operator {
         MutationOperator::DeleteFile => {
-            format!(
-                r#"rm -f "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#
-            )
+            format!(r#"rm -f "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#)
         }
         MutationOperator::ModifyContent => {
             format!(
@@ -77,9 +75,7 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
             format!("pkill -f '{resource_id}' 2>/dev/null; true")
         }
         MutationOperator::UnmountFilesystem => {
-            format!(
-                r#"umount "${{FORJAR_SANDBOX:-}}/mnt/{resource_id}" 2>/dev/null; true"#
-            )
+            format!(r#"umount "${{FORJAR_SANDBOX:-}}/mnt/{resource_id}" 2>/dev/null; true"#)
         }
         MutationOperator::CorruptConfig => {
             format!(
@@ -207,8 +203,7 @@ fn run_mutation_in_sandbox(
     }
 
     // Step 2: Capture baseline state
-    let baseline_hash = local_apply(&target.drift_script, sandbox_dir)
-        .unwrap_or_default();
+    let baseline_hash = local_apply(&target.drift_script, sandbox_dir).unwrap_or_default();
 
     // Step 3: Apply mutation
     let mutation_cmd = mutation_script(operator, &target.resource_id);

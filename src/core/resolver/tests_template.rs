@@ -359,4 +359,3 @@ fn test_fj131_resolve_unknown_template_type() {
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("unknown template variable"));
 }
-

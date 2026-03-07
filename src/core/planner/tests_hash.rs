@@ -117,8 +117,7 @@ fn test_golden_hash_pinned_value() {
     };
     let hash = hash_desired_state(&r);
     assert_eq!(
-        hash,
-        "blake3:8106dfb610d17486462652c99c0ac5c8e582a34064b75acb22a84fab2efa7f0b",
+        hash, "blake3:8106dfb610d17486462652c99c0ac5c8e582a34064b75acb22a84fab2efa7f0b",
         "Golden hash changed — hash_desired_state serialization order may have changed"
     );
 }

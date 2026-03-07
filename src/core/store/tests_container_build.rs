@@ -115,9 +115,9 @@ fn format_container_build_output() {
     std::fs::create_dir_all(output_dir.path().join("blobs/sha256")).unwrap();
 
     // Build a minimal image to get a ContainerBuildResult for formatting
-    let layer_entries = vec![vec![
-        crate::core::store::layer_builder::LayerEntry::file("test.txt", b"hello", 0o644),
-    ]];
+    let layer_entries = vec![vec![crate::core::store::layer_builder::LayerEntry::file(
+        "test.txt", b"hello", 0o644,
+    )]];
     let image = crate::core::store::image_assembler::assemble_image(
         &plan,
         &layer_entries,

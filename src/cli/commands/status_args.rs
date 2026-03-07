@@ -142,6 +142,9 @@ pub struct StatusArgs {
     /// FJ-542: Composite health score (0-100) across all machines
     #[arg(long)]
     pub health_score: bool,
+    /// FJ-2300/E19: Active machine connectivity probing
+    #[arg(long)]
+    pub connectivity: bool,
     /// FJ-547: One-line per machine summary for dashboards
     #[arg(long)]
     pub executive_summary: bool,

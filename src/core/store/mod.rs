@@ -9,9 +9,9 @@ pub mod cache_exec;
 pub mod chunker;
 pub mod closure;
 pub mod conda;
+pub mod container_build;
 pub mod contract_coverage;
 pub mod contract_scaffold;
-pub mod container_build;
 pub mod convergence_container;
 pub mod convergence_runner;
 pub mod convert;
@@ -59,13 +59,13 @@ mod tests_cache;
 #[cfg(test)]
 mod tests_cache_exec;
 #[cfg(test)]
-mod tests_container_build;
-#[cfg(test)]
 mod tests_chunker;
 #[cfg(test)]
 mod tests_closure;
 #[cfg(test)]
 mod tests_conda;
+#[cfg(test)]
+mod tests_container_build;
 #[cfg(test)]
 mod tests_contract_coverage;
 #[cfg(test)]

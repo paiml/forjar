@@ -29,9 +29,7 @@ fn service_target(id: &str) -> MutationTarget {
         apply_script: format!(
             "mkdir -p \"$FORJAR_SANDBOX/run\" && echo 'running' > \"$FORJAR_SANDBOX/run/{id}.pid\""
         ),
-        drift_script: format!(
-            "cat \"$FORJAR_SANDBOX/run/{id}.pid\" 2>/dev/null || echo 'STOPPED'"
-        ),
+        drift_script: format!("cat \"$FORJAR_SANDBOX/run/{id}.pid\" 2>/dev/null || echo 'STOPPED'"),
         expected_hash: String::new(),
     }
 }
@@ -45,7 +43,10 @@ fn unsafe_operators_skipped_in_local_mode() {
     };
     // StopService is unsafe for local execution
     let result = run_mutation_test(&target, MutationOperator::StopService, &config);
-    assert!(result.error.is_some(), "StopService should be rejected locally");
+    assert!(
+        result.error.is_some(),
+        "StopService should be rejected locally"
+    );
     assert!(
         result.error.as_ref().unwrap().contains("container backend"),
         "error should explain container requirement"
@@ -183,7 +184,10 @@ fn run_mutation_test_detects_delete() {
     let config = MutationRunConfig::default();
     let result = run_mutation_test(&target, MutationOperator::DeleteFile, &config);
     // DeleteFile removes the file; drift script output changes from content to "MISSING"
-    assert!(result.detected, "DeleteFile should be detected by drift script");
+    assert!(
+        result.detected,
+        "DeleteFile should be detected by drift script"
+    );
     assert!(result.is_killed());
     assert!(result.error.is_none());
 }
@@ -229,7 +233,10 @@ fn run_mutation_suite_file_targets() {
     assert_eq!(report.score.total, 8);
     // Real execution: DeleteFile and ModifyContent always detectable,
     // ChangePermissions and CorruptConfig depend on file existence in sandbox
-    assert!(report.score.detected >= 4, "at least DeleteFile+ModifyContent per target");
+    assert!(
+        report.score.detected >= 4,
+        "at least DeleteFile+ModifyContent per target"
+    );
 }
 
 #[test]
@@ -279,7 +286,10 @@ fn run_mutation_parallel_multiple() {
     // 2 file targets * 4 ops + 1 service target * 2 ops = 10
     assert_eq!(report.score.total, 10);
     // Real execution: at least DeleteFile+ModifyContent detected per file target
-    assert!(report.score.detected >= 4, "at least 4 detected from file targets");
+    assert!(
+        report.score.detected >= 4,
+        "at least 4 detected from file targets"
+    );
 }
 
 #[test]
@@ -336,7 +346,10 @@ fn dispatch_uses_local_for_chroot() {
         ..MutationRunConfig::default()
     };
     let result = run_mutation_test_dispatch(&target, MutationOperator::DeleteFile, &config);
-    assert!(result.detected, "chroot unavailable → local execution detects deletion");
+    assert!(
+        result.detected,
+        "chroot unavailable → local execution detects deletion"
+    );
 }
 
 #[test]
@@ -369,7 +382,10 @@ fn parallel_dispatch_with_backend() {
     // file: 4 ops + service: 2 ops = 6
     assert_eq!(report.score.total, 6);
     // At least file mutations detected
-    assert!(report.score.detected >= 2, "at least DeleteFile+ModifyContent");
+    assert!(
+        report.score.detected >= 2,
+        "at least DeleteFile+ModifyContent"
+    );
 }
 
 #[test]

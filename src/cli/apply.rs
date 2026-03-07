@@ -284,7 +284,6 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
     }
 }
 
-
 /// FJ-1380: Check convergence budget — warn/fail if apply exceeded time budget.
 fn check_convergence_budget(
     config: &types::ForjarConfig,

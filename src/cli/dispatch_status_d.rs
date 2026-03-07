@@ -140,9 +140,17 @@ pub(super) fn dispatch_status_cmd_tail(args: StatusArgs) -> Result<(), String> {
         fleet_resource_quality_score,
         machine_resource_drift_pattern_classification,
         fleet_resource_convergence_window_analysis,
+        connectivity,
         ..
     } = args;
     let m = machine.as_deref();
+    // FJ-2300/E19: Active machine connectivity probing
+    if connectivity {
+        if let Some(ref f) = file {
+            return super::status_connectivity::cmd_status_connectivity(f, json);
+        }
+        return Err("--connectivity requires -f <config file>".to_string());
+    }
     if let Some(r) = try_status_phases_94_96(
         &state_dir,
         m,
