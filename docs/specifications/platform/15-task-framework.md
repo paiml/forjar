@@ -738,8 +738,9 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - **Deliverable**: Two training tasks run on GPU 0 and GPU 1 simultaneously
 
 ### Phase 40: Distributed Coordination (FJ-2704) -- IMPLEMENTED
-- [x] `gather:` — collect artifacts from multiple machines
-- [x] `scatter:` — distribute artifacts to multiple machines
+- [x] `gather:` — collect artifacts from multiple machines (`gather_script()` in `resources/task.rs`)
+- [x] `scatter:` — distribute artifacts to multiple machines (`scatter_script()` in `resources/task.rs`)
+- [x] `apply_script()` composes scatter (before command) + gather (after command) — verified with integration tests
 - [x] `machine: [list]` fan-out execution (MachineTarget::Multiple)
 - [x] Barrier via `depends_on` multi-machine task: `BarrierTask` with `mark_complete()`, `is_satisfied()`, `pending_machines()`, `progress_pct()`
 - **Deliverable**: Federated learning manifest collection across 3 nodes
