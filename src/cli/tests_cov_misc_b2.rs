@@ -113,6 +113,24 @@ fn contracts_json_empty_config() {
     assert!(r.is_ok());
 }
 
+#[test]
+fn contracts_with_task_resource_l1() {
+    let dir = tempfile::tempdir().unwrap();
+    let yaml = "version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  setup:\n    type: task\n    machine: m\n    command: echo setup\n";
+    std::fs::write(dir.path().join("forjar.yaml"), yaml).unwrap();
+    let file = dir.path().join("forjar.yaml");
+    let r = super::contracts::cmd_contracts(true, &file, false);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn contracts_without_detail_flag() {
+    let dir = write_contracts_config();
+    let file = dir.path().join("forjar.yaml");
+    let r = super::contracts::cmd_contracts(false, &file, false);
+    assert!(r.is_ok());
+}
+
 // ── cmd_logs (delegated to cli/logs.rs) ──
 
 #[test]
