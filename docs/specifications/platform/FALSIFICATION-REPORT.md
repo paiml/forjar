@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 21/22 resolved (U3 deferred — needs root; F8 partially remediated — cmd_logs reads runs, capture not wired)
+> Updated: 2026-03-07 | 22/22 resolved (U3 deferred — needs root)
 
 ---
 
@@ -134,7 +134,7 @@
 
 ---
 
-### F8: `cmd_logs` was a stub — types existed, runtime did not — PARTIALLY REMEDIATED
+### F8: `cmd_logs` was a stub — types existed, runtime did not — REMEDIATED
 
 **Spec claim** (11-observability.md, Phase 18):
 > `forjar logs` CLI command reads structured logs with filtering, JSON output, and garbage collection.
@@ -149,7 +149,7 @@
 5. All CLI flags added: `--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`
 6. 27 integration tests with real tempdir run directories
 
-**Remaining**: The `execute_and_capture()` wrapper is not yet called from the `apply` pipeline, so no run logs are actually generated during `forjar apply`. The log viewer works correctly against the expected directory structure — it just has no data to read until capture is wired in.
+**Fully remediated** (2026-03-07): `run_capture.rs` wired into `execute_resource()` → `handle_resource_output()`. Every `forjar apply` now generates `state/<machine>/runs/<run_id>/` with `meta.yaml`, `.log`, and `.script` files. `cmd_logs` reads them back with filtering.
 
 ---
 
@@ -258,4 +258,4 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~19~~ | ~~Add PARTIAL convention note to spec 05, 06~~ | E8 | DONE |
 | ~~20~~ | ~~Implement `cmd_logs` runtime (read log files, real JSON data)~~ | F8 | DONE |
 | ~~21~~ | ~~Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`)~~ | F8 | DONE |
-| 22 | Wire `execute_and_capture()` into apply pipeline to generate run logs | F8 | OPEN |
+| ~~22~~ | ~~Wire `execute_and_capture()` into apply pipeline to generate run logs~~ | F8 | DONE |
