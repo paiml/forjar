@@ -45,7 +45,9 @@ forjar build -f config.yaml --resource my-app --far
 
 ### Build Caching (E16)
 
-Forjar computes a BLAKE3 hash over all layer inputs (file paths, content, permissions). On subsequent builds, if the input hash matches the cached value, the rebuild is skipped entirely.
+Forjar computes a BLAKE3 hash over all layer inputs (file paths,
+content, permissions). On subsequent builds, if the input hash
+matches the cached value, the rebuild is skipped entirely.
 
 ```
 $ forjar build -f config.yaml --resource my-app
@@ -134,7 +136,9 @@ state/<machine>/runs/<run-id>/
   <resource>.script      # Raw script
 ```
 
-The JSON log includes: resource_id, resource_type, action, machine, transport, script, script_hash (BLAKE3), stdout, stderr, exit_code, duration_secs, timestamps.
+The JSON log includes: resource_id, resource_type, action,
+machine, transport, script, script_hash (BLAKE3), stdout, stderr,
+exit_code, duration_secs, timestamps.
 
 ## Task Mode Script Generation (E21)
 
