@@ -1,6 +1,7 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
-use super::task_types::{PipelineStage, TaskMode};
+use super::service_mode_types::RestartPolicy;
+use super::task_types::{HealthCheck, PipelineStage, QualityGate, TaskMode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -332,6 +333,15 @@ pub struct Resource {
     /// Restart delay in seconds (mode: service).
     #[serde(default)]
     pub restart_delay: Option<u64>,
+    /// Quality gate (mode: batch/pipeline) — fail-fast on exit code or parsed output.
+    #[serde(default)]
+    pub quality_gate: Option<QualityGate>,
+    /// Health check (mode: service) — periodic liveness probe with retry/backoff.
+    #[serde(default)]
+    pub health_check: Option<HealthCheck>,
+    /// Restart policy (mode: service) — max restarts, exponential backoff.
+    #[serde(default)]
+    pub restart_policy: Option<RestartPolicy>,
 
     // -- FJ-2704: Distributed coordination --
     /// Gather artifacts from remote machines after execution.
