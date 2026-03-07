@@ -4,7 +4,8 @@
 //! Implements apply → verify → re-apply → verify idempotency cycle
 //! in isolated sandboxes (pepita namespace or container).
 
-use crate::core::store::sandbox::{SandboxConfig, SandboxLevel};
+use crate::core::store::sandbox::SandboxLevel;
+use crate::core::types::SandboxBackend;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -54,8 +55,10 @@ impl fmt::Display for ConvergenceResult {
 /// Configuration for convergence testing.
 #[derive(Debug, Clone)]
 pub struct ConvergenceTestConfig {
-    /// Sandbox configuration for isolated testing.
-    pub sandbox: SandboxConfig,
+    /// Sandbox backend to use (pepita, container, chroot).
+    pub backend: SandboxBackend,
+    /// Sandbox isolation level.
+    pub level: SandboxLevel,
     /// Whether to test pairwise preservation.
     pub test_pairs: bool,
     /// Maximum number of parallel sandboxes.
@@ -65,17 +68,63 @@ pub struct ConvergenceTestConfig {
 impl Default for ConvergenceTestConfig {
     fn default() -> Self {
         Self {
-            sandbox: SandboxConfig {
-                level: SandboxLevel::Minimal,
-                memory_mb: 1024,
-                cpus: 2.0,
-                timeout: 300,
-                bind_mounts: Vec::new(),
-                env: Vec::new(),
-            },
+            backend: SandboxBackend::Pepita,
+            level: SandboxLevel::Minimal,
             test_pairs: false,
             parallelism: 4,
         }
+    }
+}
+
+/// Execution mode for the convergence runner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunnerMode {
+    /// Simulated execution (hash-based, no real sandbox).
+    Simulated,
+    /// Real sandbox execution via backend.
+    Sandbox,
+}
+
+impl fmt::Display for RunnerMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Simulated => write!(f, "simulated"),
+            Self::Sandbox => write!(f, "sandbox"),
+        }
+    }
+}
+
+/// Check if a sandbox backend is available on this system.
+pub fn backend_available(backend: SandboxBackend) -> bool {
+    match backend {
+        SandboxBackend::Pepita => std::path::Path::new("/usr/local/bin/pepita").exists(),
+        SandboxBackend::Container => {
+            std::process::Command::new("docker")
+                .arg("--version")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+                || std::process::Command::new("podman")
+                    .arg("--version")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false)
+        }
+        SandboxBackend::Chroot => {
+            // chroot requires root — check via /proc
+            std::fs::read_to_string("/proc/self/status")
+                .map(|s| s.lines().any(|l| l.starts_with("Uid:\t0\t")))
+                .unwrap_or(false)
+        }
+    }
+}
+
+/// Determine the runner mode based on backend availability.
+pub fn resolve_mode(backend: SandboxBackend) -> RunnerMode {
+    if backend_available(backend) {
+        RunnerMode::Sandbox
+    } else {
+        RunnerMode::Simulated
     }
 }
 

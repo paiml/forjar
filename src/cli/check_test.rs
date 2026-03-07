@@ -383,13 +383,17 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
 /// FJ-2604: Run mutation testing against stack resources.
 pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
     use crate::core::store::mutation_runner::{
-        self, MutationRunConfig, MutationTarget, RunnerMode,
+        self, MutationRunConfig, MutationTarget,
     };
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
+    let run_config = MutationRunConfig::default();
 
-    println!("Mutation Test Runner (mode: {})", RunnerMode::Simulated);
+    let mode = crate::core::store::convergence_runner::resolve_mode(
+        run_config.backend,
+    );
+    println!("Mutation Test Runner (mode: {mode})");
     println!("====================");
     println!("Stack: {} ({} resources)\n", config.name, config.resources.len());
 
@@ -415,7 +419,6 @@ pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
 
     println!("Targets: {} resources with applicable operators\n", targets.len());
 
-    let run_config = MutationRunConfig::default();
     let report = mutation_runner::run_mutation_parallel(targets, &run_config);
     let elapsed = t0.elapsed();
 
@@ -434,11 +437,13 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
     use crate::core::store::convergence_runner::{
         self, ConvergenceSummary, ConvergenceTarget,
     };
+    use crate::core::types::SandboxBackend;
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
 
-    println!("Convergence Test Runner (simulated)");
+    let mode = convergence_runner::resolve_mode(SandboxBackend::Pepita);
+    println!("Convergence Test Runner (mode: {mode})");
     println!("===================================");
     println!("Stack: {} ({} resources)\n", config.name, config.resources.len());
 

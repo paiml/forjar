@@ -4,12 +4,14 @@
 //! apply mutation, detect drift, re-converge, verify. Bridges MutationOperator
 //! types to real (or simulated) sandbox execution.
 
-use crate::core::types::{MutationOperator, MutationReport, MutationResult};
+use crate::core::types::{MutationOperator, MutationReport, MutationResult, SandboxBackend};
 use std::fmt;
 
 /// Configuration for a mutation test run.
 #[derive(Debug, Clone)]
 pub struct MutationRunConfig {
+    /// Sandbox backend to use (pepita, container, chroot).
+    pub backend: SandboxBackend,
     /// Maximum mutations per resource (default: 50).
     pub mutations_per_resource: usize,
     /// Maximum parallel sandboxes (default: 4).
@@ -21,6 +23,7 @@ pub struct MutationRunConfig {
 impl Default for MutationRunConfig {
     fn default() -> Self {
         Self {
+            backend: SandboxBackend::Pepita,
             mutations_per_resource: 50,
             parallelism: 4,
             test_reconvergence: true,
