@@ -200,10 +200,20 @@ fn build_plan_from_resource(
         }
     }
 
-    // Add user layers
-    layers.push(LayerStrategy::Files {
-        paths: res.path.iter().cloned().collect(),
-    });
+    // E13: Automatic layer splitting by file type.
+    // Config files go to a separate layer for better cache reuse.
+    let all_paths: Vec<String> = res.path.iter().cloned().collect();
+    let (config_paths, app_paths) = split_paths_by_type(&all_paths);
+
+    if !config_paths.is_empty() && !app_paths.is_empty() {
+        // Two layers: app binaries first (changes less), config on top (changes more)
+        layers.push(LayerStrategy::Files { paths: app_paths });
+        layers.push(LayerStrategy::Files {
+            paths: config_paths,
+        });
+    } else {
+        layers.push(LayerStrategy::Files { paths: all_paths });
+    }
 
     Ok(ImageBuildPlan {
         tag: format!("{image_name}:{tag}"),
@@ -296,6 +306,36 @@ fn collect_derivation_entries(store_path: &str) -> Result<Vec<LayerEntry>, Strin
     }
 }
 
+/// E13: Split file paths into config and app layers.
+///
+/// Config files (yaml, toml, json, conf, cfg, ini, env, properties)
+/// go to a separate layer from application binaries. This provides
+/// better cache reuse since configs change more frequently than binaries.
+fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
+    let config_exts = [
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".json",
+        ".conf",
+        ".cfg",
+        ".ini",
+        ".env",
+        ".properties",
+    ];
+    let mut config_paths = Vec::new();
+    let mut app_paths = Vec::new();
+    for path in paths {
+        let lower = path.to_lowercase();
+        if config_exts.iter().any(|ext| lower.ends_with(ext)) {
+            config_paths.push(path.clone());
+        } else {
+            app_paths.push(path.clone());
+        }
+    }
+    (config_paths, app_paths)
+}
+
 /// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
 fn compute_layer_input_hash(layer_entries: &[Vec<LayerEntry>]) -> String {
     let mut hasher = blake3::Hasher::new();
@@ -349,6 +389,12 @@ pub(crate) fn test_collect_layer_entries(
     config: &ForjarConfig,
 ) -> Result<Vec<Vec<LayerEntry>>, String> {
     collect_layer_entries(plan, config)
+}
+
+/// Exposed for testing.
+#[cfg(test)]
+pub(crate) fn test_split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
+    split_paths_by_type(paths)
 }
 
 // Distribution functions (load/push/far) extracted to build_distribution.rs.
