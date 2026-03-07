@@ -476,19 +476,30 @@ Spec 06-distribution.md describes `forjar drift --image` comparing registry mani
 
 ---
 
-### E16: Build cache does not apply to image layer construction
+### ~~E16: Build cache does not apply to image layer construction~~ FIXED
 
-Spec 12-build-pipeline.md implies build caching for image construction. Cache system exists for store derivations (`cache.rs`), but `forjar build` calls `assemble_image()` directly with no cache lookup. Layer builder rebuilds deterministically every time.
+Spec 12-build-pipeline.md implies build caching for image construction. Previously `forjar build` called `assemble_image()` directly with no cache lookup.
 
-**Status**: DOCUMENTED — Derivation cache works. Image layer caching is a future optimization.
+**Fix** (2026-03-07):
+1. `compute_layer_input_hash()` computes BLAKE3 hash over all layer entry paths, content, and modes
+2. `check_build_cache()` reads `build-cache.hash` from output dir and compares with current input hash
+3. On cache hit: prints "CACHED", skips rebuild, proceeds directly to load/push/far distribution
+4. `write_build_cache()` persists the input hash after successful build
+5. Implementation: `cli/build_image.rs`
 
 ---
 
-### E17: BuildMetrics not collected during image builds
+### ~~E17: BuildMetrics not collected during image builds~~ FIXED
 
-Spec 12-build-pipeline.md shows `BuildMetrics` collection during builds. The type exists with comprehensive tests (`build_metrics.rs`), but `BuildMetrics::current()` only collects forjar binary compile-time metadata (CARGO_PKG_VERSION, arch, Rust version). Not populated during `forjar build` image construction.
+Spec 12-build-pipeline.md shows `BuildMetrics` collection during builds. The `BuildMetrics` type existed for binary self-metrics, but image builds had no metrics collection.
 
-**Status**: DOCUMENTED — Binary self-metrics work. Image build metrics collection is a future feature.
+**Fix** (2026-03-07):
+1. New `ImageBuildMetrics` struct captures: tag, layer count, total size, per-layer metrics, duration, timestamp, forjar version, target arch
+2. New `LayerMetric` struct: file_count, uncompressed_size, compressed_size
+3. `cmd_build()` collects metrics after `assemble_image()` and writes `build-metrics.json` to the output directory
+4. `ImageBuildMetrics::write_to()` persists as pretty-printed JSON
+5. 2 new tests: serde roundtrip + write-to-tempdir
+6. Implementation: `core/types/build_metrics.rs` + `cli/build_image.rs`
 
 ---
 
@@ -513,19 +524,29 @@ Spec 13-config-validation.md claims `forjar validate --deep` runs all 10 DeepChe
 
 ---
 
-### E19: Health check is state-based, not connectivity-based
+### ~~E19: Health check is state-based, not connectivity-based~~ FIXED
 
-Spec 04-multi-machine-ops.md implies `forjar status --health` probes machine connectivity. Actual implementation in `status_health.rs` calculates a 0-100 health score from resource convergence status in lock files (converged/total ratio). No active SSH or transport connectivity probing occurs.
+Spec 04-multi-machine-ops.md implies `forjar status --health` probes machine connectivity. State-based health scoring in `status_health.rs` remains (0-100 score from convergence ratio), but now complemented by active connectivity probing.
 
-**Status**: DOCUMENTED — State-based health scoring works correctly. Active connectivity probing is a future feature.
+**Fix** (2026-03-07):
+1. New `forjar status --connectivity -f config.yaml` probes each machine's transport
+2. SSH machines: `ssh -o ConnectTimeout=5 -o BatchMode=yes user@addr true` with latency timing
+3. Container machines: `docker exec <name> true` (or podman, respecting `runtime` field)
+4. Local machines: always reachable (0ms latency)
+5. Outputs text (colored reachable/unreachable) or `--json` structured results
+6. Implementation: `cli/status_connectivity.rs` (193 lines)
 
 ---
 
-### E20: Run log format is YAML+text, not structured JSON
+### ~~E20: Run log format is YAML+text, not structured JSON~~ FIXED
 
-Spec 11-observability.md describes "structured log format" for run logs. Actual logs on disk use YAML headers (`meta.yaml`) plus human-readable delimited text sections (`=== SCRIPT ===`, `=== STDOUT ===`, `=== STDERR ===`, `=== RESULT ===`). This is structured but not JSON. The `--json` flag produces JSON output at the CLI level, not in log files.
+Spec 11-observability.md describes "structured log format" for run logs. Previously logs were YAML+text only.
 
-**Status**: DOCUMENTED — Log format is well-structured and parseable. JSON log files would be a future option.
+**Fix** (2026-03-07):
+1. `RunLogEntry.format_json()` and `format_json_pretty()` produce structured JSON
+2. `capture_output()` now writes dual-format: `.log` (human-readable) + `.json` (machine-parseable)
+3. `update_meta_resource()` writes `meta.json` alongside `meta.yaml`
+4. Implementation: `core/types/run_log_types.rs` + `core/executor/run_capture.rs`
 
 ---
 
@@ -549,11 +570,19 @@ Spec describes `config_hash` field on `GenerationMeta` for config tracking — e
 
 ---
 
-### E21: TaskMode does not affect script generation
+### ~~E21: TaskMode does not affect script generation~~ FIXED
 
-Spec 15-task-framework.md implies `task_mode` dispatch produces different scripts for different modes (batch/pipeline/service/dispatch). The `TaskMode` enum exists with all 4 variants, but `resources/task.rs` generates identical scripts regardless of mode. The mode is a type-level marker for scheduling/retry semantics, not script differentiation.
+Spec 15-task-framework.md implies `task_mode` dispatch produces different scripts for different modes (batch/pipeline/service/dispatch).
 
-**Status**: DOCUMENTED — TaskMode is a scheduling hint. Mode-aware script generation (e.g., service mode wrapping in systemd unit, pipeline mode chaining stages) is a future feature.
+**Fix** (2026-03-07):
+1. `apply_script()` now dispatches on `resource.task_mode` to generate mode-specific scripts
+2. **Service mode**: nohup background process, PID file at `/tmp/forjar-svc-{name}.pid`, health check retry loop
+3. **Dispatch mode**: Pre-flight quality gate check (`quality_gate.command`), `DISPATCH BLOCKED` on failure
+4. **Batch mode**: Existing behavior (direct command execution)
+5. **Pipeline mode**: Stage-based execution with gate enforcement (existing `pipeline_script()`)
+6. `check_script()` for service mode verifies PID file via `kill -0`
+7. 8 new tests in `resources/tests_task.rs` cover all modes
+8. Implementation: `resources/task.rs` (279 lines after test extraction)
 
 ---
 
@@ -663,12 +692,12 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
 | 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
 | 51 | Image drift detection is pseudocode only (no --image flag) | E15 | DOCUMENTED |
-| 52 | Build cache does not apply to image layer construction | E16 | DOCUMENTED |
-| 53 | BuildMetrics not collected during image builds | E17 | DOCUMENTED |
+| 52 | ~~Build cache does not apply to image layer construction~~ | E16 | FIXED |
+| 53 | ~~BuildMetrics not collected during image builds~~ | E17 | FIXED |
 | 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
-| 55 | Health check is state-based, not connectivity-based | E19 | DOCUMENTED |
-| 56 | Run log format is YAML+text, not structured JSON | E20 | DOCUMENTED |
+| 55 | ~~Health check is state-based, not connectivity-based~~ | E19 | FIXED |
+| 56 | ~~Run log format is YAML+text, not structured JSON~~ | E20 | FIXED |
 | ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |
 | ~~58~~ | ~~Implement pipeline stage gate enforcement~~ | ~~F34~~ | DONE |
-| 59 | TaskMode batch/service/dispatch no script differentiation | E21 | DOCUMENTED |
+| 59 | ~~TaskMode batch/service/dispatch no script differentiation~~ | E21 | FIXED |
 | ~~60~~ | ~~Generation config_hash + provenance tracking~~ | ~~F35~~ | DONE |
