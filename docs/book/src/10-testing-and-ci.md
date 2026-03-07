@@ -1124,7 +1124,34 @@ Falsification tests complement, but do not replace, deterministic unit tests. Th
 |-----------|-----------|---------|-------|
 | Unit | `test_fj003_resolve_params` | Known scenario verification | Fixed inputs |
 | Falsification | `falsify_b3_001_hash_prefix` | Property violation search | Random inputs |
+| Golden | `test_golden_hash_pinned_value` | Serialization stability | Pinned expected output |
 | Integration | `test_fj036_codegen_*_validates` | Cross-module contract | Constructed fixtures |
+
+### Golden Hash Tests
+
+A golden hash test pins the exact output of `hash_desired_state` for a known Resource. If the serialization order changes (e.g., a new Rust version reorders struct fields), the pinned hash breaks immediately:
+
+```rust
+#[test]
+fn test_golden_hash_pinned_value() {
+    let r = Resource {
+        resource_type: ResourceType::Package,
+        machine: MachineTarget::Single("m1".to_string()),
+        provider: Some("apt".to_string()),
+        packages: vec!["curl".to_string()],
+        ..Resource::default()
+    };
+    assert_eq!(
+        hash_desired_state(&r),
+        "blake3:8106dfb610d17486...2efa7f0b",
+        "Golden hash changed"
+    );
+}
+```
+
+```bash
+cargo run --example golden_hash
+```
 
 ## Coverage Workflow
 
@@ -1321,8 +1348,11 @@ behaviors:
 | Stdout | `verify.stdout` | Expected stdout content |
 | Stderr | `verify.stderr_contains` | Expected substring in stderr |
 | File | `verify.file_exists` | Path must exist on target |
-| Port | `verify.port_open` | TCP port accepting connections |
+| Content | `verify.file_content` | Exact match or `blake3:<hash>` for content verification |
+| Port | `verify.port_open` | TCP port accepting connections on 127.0.0.1 |
 | Convergence | `type: convergence` | Second apply is no-op |
+
+`file_content` supports two modes: exact text comparison (`file_content: "expected text"`) or BLAKE3 hash verification (`file_content: "blake3:8106dfb6..."`). The hash mode is useful for binary files or large configs where exact text comparison is impractical.
 
 ### Soft Assertions
 
