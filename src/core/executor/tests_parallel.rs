@@ -242,6 +242,7 @@ fn test_fj012_resource_filter() {
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     // Resource filter doesn't match — everything skipped
@@ -298,6 +299,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);
@@ -368,6 +370,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

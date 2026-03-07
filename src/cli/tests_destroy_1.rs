@@ -251,6 +251,7 @@ resources:
             rollback_on_failure: true,
             max_parallel: None,
             trace: false,
+            run_id: None,
         };
         assert!(cfg.rollback_on_failure);
     }

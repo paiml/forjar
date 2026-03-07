@@ -7,6 +7,7 @@ mod helpers;
 mod machine;
 mod machine_wave;
 mod resource_ops;
+pub(crate) mod run_capture;
 mod strategies;
 
 mod machine_b;
@@ -42,6 +43,8 @@ mod tests_localhost2;
 mod tests_parallel;
 #[cfg(test)]
 mod tests_rolling;
+#[cfg(test)]
+mod tests_run_capture;
 #[cfg(test)]
 mod tests_waves;
 
@@ -110,6 +113,8 @@ pub struct ApplyConfig<'a> {
     pub max_parallel: Option<usize>,
     /// FJ-1397: Debug trace mode — print generated scripts before execution
     pub trace: bool,
+    /// FJ-2301: Run ID for log capture (None = no capture)
+    pub run_id: Option<String>,
 }
 
 /// Load existing locks for machines matching the filter.

@@ -330,6 +330,7 @@ pub(crate) fn cmd_apply_from_plan(
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: Some(crate::core::types::generate_run_id()),
     };
 
     let results = executor::apply(&cfg)?;

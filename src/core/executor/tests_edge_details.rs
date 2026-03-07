@@ -325,6 +325,7 @@ resources:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     // Dry run returns a single result
@@ -374,6 +375,7 @@ resources:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     // Only the tagged resource should be applied

@@ -53,6 +53,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -118,6 +119,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 2);
@@ -182,6 +184,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 3);
@@ -240,6 +243,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     // First apply
     let results1 = apply(&cfg).unwrap();
@@ -345,6 +349,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     apply(&cfg).unwrap();
 

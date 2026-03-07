@@ -66,6 +66,7 @@ resources: {}
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     // No resources → no machines collected → empty results
@@ -95,6 +96,7 @@ fn test_fj131_apply_machine_filter_no_match() {
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert!(
@@ -329,6 +331,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
