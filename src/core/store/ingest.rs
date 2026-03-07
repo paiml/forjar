@@ -31,6 +31,8 @@ impl std::fmt::Display for IngestResult {
 ///
 /// Scans `state_dir` for subdirectories, each representing a machine.
 /// Parses `state.lock.yaml` for resources and `events.jsonl` for events.
+/// FJ-2001/F3: Uses `ingest_cursor` table to skip unchanged lock files
+/// and resume events from the last ingested offset.
 pub fn ingest_state_dir(conn: &Connection, state_dir: &Path) -> Result<IngestResult, String> {
     let mut result = IngestResult {
         machines: 0,
@@ -64,12 +66,30 @@ pub fn ingest_state_dir(conn: &Connection, state_dir: &Path) -> Result<IngestRes
         let machine_id = upsert_machine(conn, &machine_name, &lock_path)?;
         result.machines += 1;
 
-        result.resources += ingest_lock_file(conn, machine_id, gen_id, &lock_path)?;
+        // F3: Check cursor — skip lock file re-ingest if hash unchanged
+        let lock_bytes = std::fs::read(&lock_path).unwrap_or_default();
+        let lock_hash = blake3::hash(&lock_bytes).to_hex().to_string();
+        let cursor = read_cursor(conn, machine_id);
+        let lock_changed = cursor.as_ref().is_none_or(|c| c.1 != lock_hash);
 
-        let events_path = path.join("events.jsonl");
-        if events_path.exists() {
-            result.events += ingest_events(conn, &machine_name, &events_path)?;
+        if lock_changed {
+            result.resources += ingest_lock_file(conn, machine_id, gen_id, &lock_path)?;
         }
+
+        // F3: Resume events from last offset
+        let events_path = path.join("events.jsonl");
+        let event_offset = cursor.as_ref().map_or(0, |c| c.0);
+        if events_path.exists() {
+            result.events += ingest_events_from(conn, &machine_name, &events_path, event_offset)?;
+        }
+
+        // Update cursor with new hash and event count
+        let new_event_offset = if events_path.exists() {
+            count_lines(&events_path)
+        } else {
+            0
+        };
+        update_cursor(conn, machine_id, new_event_offset, &lock_hash);
 
         // F7: Ingest destroy-log.jsonl → destroy_log table
         let destroy_path = path.join("destroy-log.jsonl");
@@ -223,12 +243,48 @@ fn ingest_lock_file(
     Ok(count)
 }
 
-/// Parse events.jsonl and insert event rows.
-fn ingest_events(conn: &Connection, machine: &str, events_path: &Path) -> Result<usize, String> {
+/// F3: Read the ingest cursor for a machine. Returns (last_event_offset, last_lock_hash).
+fn read_cursor(conn: &Connection, machine_id: i64) -> Option<(usize, String)> {
+    conn.query_row(
+        "SELECT last_event_offset, last_lock_hash FROM ingest_cursor WHERE machine_id = ?1",
+        [machine_id],
+        |row| {
+            let offset: i64 = row.get(0)?;
+            let hash: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
+            Ok((offset as usize, hash))
+        },
+    )
+    .ok()
+}
+
+/// F3: Update the ingest cursor after successful ingest.
+fn update_cursor(conn: &Connection, machine_id: i64, event_offset: usize, lock_hash: &str) {
+    let _ = conn.execute(
+        "INSERT INTO ingest_cursor (machine_id, last_event_offset, last_lock_hash) \
+         VALUES (?1, ?2, ?3) \
+         ON CONFLICT(machine_id) DO UPDATE SET last_event_offset = ?2, last_lock_hash = ?3",
+        rusqlite::params![machine_id, event_offset as i64, lock_hash],
+    );
+}
+
+/// Count lines in a file (for event offset tracking).
+fn count_lines(path: &Path) -> usize {
+    std::fs::read_to_string(path)
+        .map(|s| s.lines().count())
+        .unwrap_or(0)
+}
+
+/// Parse events.jsonl and insert event rows, skipping first `offset` lines.
+fn ingest_events_from(
+    conn: &Connection,
+    machine: &str,
+    events_path: &Path,
+    offset: usize,
+) -> Result<usize, String> {
     let content = std::fs::read_to_string(events_path).map_err(|e| format!("read events: {e}"))?;
 
     let mut count = 0;
-    for line in content.lines() {
+    for line in content.lines().skip(offset) {
         if line.trim().is_empty() {
             continue;
         }

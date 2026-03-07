@@ -136,14 +136,39 @@ resources:
         let (conn, _f) = temp_db();
         let state_dir = create_state_dir();
         ingest_state_dir(&conn, state_dir.path()).unwrap();
-        // Second ingest should replace, not duplicate
+        // F3: Second ingest skips unchanged lock files (cursor optimization)
         let result2 = ingest_state_dir(&conn, state_dir.path()).unwrap();
-        assert_eq!(result2.resources, 2);
+        assert_eq!(result2.resources, 0, "unchanged lock file should be skipped");
 
+        // DB still has all resources from first ingest
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM resources", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn ingest_cursor_incremental() {
+        let (conn, _f) = temp_db();
+        let state_dir = create_state_dir();
+
+        // First ingest: all resources
+        let r1 = ingest_state_dir(&conn, state_dir.path()).unwrap();
+        assert_eq!(r1.resources, 2);
+
+        // Second ingest: skipped (lock unchanged)
+        let r2 = ingest_state_dir(&conn, state_dir.path()).unwrap();
+        assert_eq!(r2.resources, 0, "unchanged lock should be skipped");
+
+        // Modify lock file to trigger re-ingest
+        let lock_path = state_dir.path().join("test-machine").join("state.lock.yaml");
+        let mut content = std::fs::read_to_string(&lock_path).unwrap();
+        content.push_str("\n  new-resource:\n    type: package\n    status: converged\n");
+        std::fs::write(&lock_path, content).unwrap();
+
+        // Third ingest: re-ingests modified lock file
+        let r3 = ingest_state_dir(&conn, state_dir.path()).unwrap();
+        assert!(r3.resources > 0, "modified lock should trigger re-ingest");
     }
 
     #[test]
