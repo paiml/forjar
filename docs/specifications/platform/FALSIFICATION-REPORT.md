@@ -436,11 +436,18 @@ Spec 03-idempotency-drift.md describes a "golden hash test" — a checked-in tes
 
 ---
 
-### E11: WasmBundle handler delegates entirely to file handler
+### ~~E11: WasmBundle handler delegates entirely to file handler~~ FIXED
 
-Spec 05-container-builds.md describes `type: wasm_module` resources. The `WasmBundle` enum variant exists (`resource.rs:433`) and dispatches through codegen, but routes entirely to `resources::file::*` handlers. No WASM-specific validation, building, optimization, or deployment logic exists. Treated identically to a regular file resource.
+Spec 05-container-builds.md describes `type: wasm_module` resources. Previously dispatched entirely to `resources::file::*` handlers with no WASM-specific logic.
 
-**Status**: DOCUMENTED — Type exists with correct dispatch wiring. WASM-specific build logic is a future feature.
+**Fix** (2026-03-08):
+1. New `resources/wasm_bundle.rs` handler with WASM-specific logic
+2. `check_script()` validates WASM magic bytes (`\0asm` = `0061736d`), reports file size
+3. `apply_script()` deploys via source copy, validates WASM after deployment
+4. `state_query_script()` delegates to check for drift detection
+5. Codegen dispatch updated: check/apply/state_query all route to `wasm_bundle::*`
+6. 6 unit tests
+7. Supports mode/owner/group, source copy, inline content
 
 ---
 
@@ -694,7 +701,7 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | ~~44~~ | ~~Implement `file_content` and `port_open` behavior verify assertions~~ | ~~F32~~ | DONE |
 | 45 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
 | ~~46~~ | ~~Add pinned golden hash test with hardcoded expected value~~ | ~~E10~~ | DONE |
-| 47 | WasmBundle handler delegates to file handler (no WASM-specific logic) | E11 | DOCUMENTED |
+| ~~47~~ | ~~WasmBundle handler delegates to file handler (no WASM-specific logic)~~ | E11 | FIXED |
 | 48 | Multi-arch image builds not implemented (hardcoded linux/amd64) | E12 | DOCUMENTED |
 | 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
 | 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
