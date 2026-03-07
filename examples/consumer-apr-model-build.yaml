@@ -1,9 +1,11 @@
 # FJ-2705: apr-cli model build pipeline recipe
 # Demonstrates pipeline task mode for model compilation and packaging.
+version: '1.0'
 name: apr-model-build
 machines:
   build-server:
     hostname: build-0
+    addr: localhost
     transport: local
 
 resources:

@@ -1,9 +1,11 @@
 # FJ-2705: batuta agent lifecycle recipe
 # Demonstrates service task mode for long-running agent processes.
+version: '1.0'
 name: batuta-agent-lifecycle
 machines:
   agent-host:
     hostname: agent-0
+    addr: localhost
     transport: local
 
 resources:

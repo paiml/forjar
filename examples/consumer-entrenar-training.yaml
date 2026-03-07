@@ -1,9 +1,11 @@
 # FJ-2705: entrenar training job recipe
 # Demonstrates pipeline + GPU task mode for ML training.
+version: '1.0'
 name: entrenar-training-job
 machines:
   gpu-node:
     hostname: gpu-0
+    addr: localhost
     transport: local
 
 resources:
