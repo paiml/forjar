@@ -114,6 +114,95 @@ fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> 
     }
 }
 
+fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<(), String> {
+    let mut issues = 0usize;
+    for (name, machine) in &config.machines {
+        if machine.addr.is_empty() {
+            issues += 1;
+            continue;
+        }
+        let is_remote = machine.addr != "container"
+            && machine.addr != "localhost"
+            && machine.addr != "127.0.0.1";
+        if is_remote && machine.hostname.is_empty() && !name.is_empty() {
+            issues += 1;
+        }
+    }
+    if issues == 0 {
+        Ok(())
+    } else {
+        Err(format!("{issues} machine connectivity issue(s)"))
+    }
+}
+
+fn check_machine_refs_silent(config: &types::ForjarConfig) -> Result<(), String> {
+    let mut missing = 0usize;
+    for (_, res) in &config.resources {
+        for m in res.machine.to_vec() {
+            if !config.machines.contains_key(&m) {
+                missing += 1;
+            }
+        }
+    }
+    if missing == 0 {
+        Ok(())
+    } else {
+        Err(format!("{missing} dangling machine reference(s)"))
+    }
+}
+
+fn check_state_values_silent(config: &types::ForjarConfig) -> Result<(), String> {
+    use crate::core::types::ResourceType;
+    let mut issues = 0usize;
+    for res in config.resources.values() {
+        if let Some(ref state) = res.state {
+            let valid = match res.resource_type {
+                ResourceType::File => {
+                    matches!(state.as_str(), "file" | "directory" | "symlink" | "absent")
+                }
+                ResourceType::Service => matches!(
+                    state.as_str(),
+                    "running" | "stopped" | "enabled" | "disabled"
+                ),
+                ResourceType::Mount => {
+                    matches!(state.as_str(), "mounted" | "unmounted" | "absent")
+                }
+                _ => true,
+            };
+            if !valid {
+                issues += 1;
+            }
+        }
+    }
+    if issues == 0 {
+        Ok(())
+    } else {
+        Err(format!("{issues} invalid state value(s)"))
+    }
+}
+
+fn check_drift_coverage_silent(config: &types::ForjarConfig) -> Result<(), String> {
+    use crate::core::codegen;
+    let mut uncovered = 0usize;
+    let mut total = 0usize;
+    for res in config.resources.values() {
+        total += 1;
+        let resolved =
+            resolver::resolve_resource_templates(res, &config.params, &config.machines)
+                .unwrap_or_else(|_| res.clone());
+        if codegen::check_script(&resolved).is_err() {
+            uncovered += 1;
+        }
+    }
+    if total == 0 || uncovered == 0 {
+        Ok(())
+    } else {
+        Err(format!(
+            "{uncovered}/{total} resources lack drift detection (no check script)"
+        ))
+    }
+}
+
 fn check_exhaustive_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut issues = Vec::new();
     super::validate_core::check_resource_refs_silent(config, &mut issues);
@@ -146,7 +235,10 @@ fn run_deep_checks_silent(
         ("circular-deps", check_cycles_silent(config)),
         ("secrets", check_secrets_silent(file)),
         ("naming", check_naming_silent(config)),
-        ("drift-coverage", Ok(())),
+        ("connectivity", check_connectivity_silent(config)),
+        ("machine-refs", check_machine_refs_silent(config)),
+        ("state-values", check_state_values_silent(config)),
+        ("drift-coverage", check_drift_coverage_silent(config)),
         ("idempotency", check_idempotency_silent(config)),
         ("exhaustive", check_exhaustive_silent(config)),
     ]
