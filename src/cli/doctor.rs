@@ -309,6 +309,41 @@ fn output_doctor_checks(checks: &[DoctorCheck], json: bool) {
     }
 }
 
+/// FJ-2603: Check sandbox backend availability for `forjar test`.
+fn check_sandbox_backends() -> DoctorCheck {
+    use crate::core::store::convergence_runner::backend_available;
+    use crate::core::types::SandboxBackend;
+
+    let pepita = backend_available(SandboxBackend::Pepita);
+    let container = backend_available(SandboxBackend::Container);
+    let chroot = backend_available(SandboxBackend::Chroot);
+
+    let mut available = Vec::new();
+    if pepita {
+        available.push("pepita");
+    }
+    if container {
+        available.push("container");
+    }
+    if chroot {
+        available.push("chroot");
+    }
+
+    if available.is_empty() {
+        DoctorCheck {
+            name: "sandbox".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "no sandbox backends available (forjar test runs in simulated mode)".to_string(),
+        }
+    } else {
+        DoctorCheck {
+            name: "sandbox".to_string(),
+            status: DoctorStatus::Pass,
+            detail: format!("backends: {}", available.join(", ")),
+        }
+    }
+}
+
 // FJ-251: forjar doctor — pre-flight system checker
 pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
     let mut checks: Vec<DoctorCheck> = Vec::new();
@@ -379,6 +414,7 @@ pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(
 
     checks.extend(check_state_dir(fix));
     checks.push(check_git());
+    checks.push(check_sandbox_backends());
 
     output_doctor_checks(&checks, json);
 
