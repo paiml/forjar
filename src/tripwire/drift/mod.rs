@@ -194,6 +194,7 @@ pub fn detect_drift_full(
 ) -> Vec<DriftFinding> {
     let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources);
     findings.extend(detect_nonfile_drift(lock, machine, resources));
+    findings.extend(detect_image_drift(lock, machine, resources));
     findings
 }
 
@@ -224,6 +225,93 @@ fn detect_nonfile_drift(
         }
     }
     findings
+}
+
+/// FJ-2106/E15: Check all image-type resources for drift.
+///
+/// For each converged image resource, compares the manifest digest stored
+/// in the lock file against the running container's image digest
+/// (via `docker inspect`).
+fn detect_image_drift(
+    lock: &StateLock,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<DriftFinding> {
+    let mut findings = Vec::new();
+    for (id, rl) in &lock.resources {
+        if rl.status != ResourceStatus::Converged || rl.resource_type != ResourceType::Image {
+            continue;
+        }
+        if should_ignore_drift(id, resources) {
+            continue;
+        }
+        let expected_digest = match rl.details.get("manifest_digest") {
+            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
+            _ => continue,
+        };
+        let container_name = match rl.details.get("container_name") {
+            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
+            _ => continue,
+        };
+        if let Some(f) = check_image_drift(id, container_name, expected_digest, machine) {
+            findings.push(f);
+        }
+    }
+    findings
+}
+
+/// FJ-2106/E15: Check a single image resource for drift.
+///
+/// Runs `docker inspect <container> --format '{{.Image}}'` on the target
+/// machine and compares the actual image digest to the expected manifest
+/// digest from the build.
+pub fn check_image_drift(
+    resource_id: &str,
+    container_name: &str,
+    expected_digest: &str,
+    machine: &Machine,
+) -> Option<DriftFinding> {
+    let script = format!(
+        "docker inspect {container_name} --format '{{{{.Image}}}}' 2>/dev/null || echo 'NOT_RUNNING'"
+    );
+    match crate::transport::exec_script(machine, &script) {
+        Ok(out) if out.success() => {
+            let actual = out.stdout.trim().to_string();
+            if actual == "NOT_RUNNING" {
+                Some(DriftFinding {
+                    resource_id: resource_id.to_string(),
+                    resource_type: ResourceType::Image,
+                    expected_hash: expected_digest.to_string(),
+                    actual_hash: "NOT_RUNNING".to_string(),
+                    detail: format!("container {container_name} is not running"),
+                })
+            } else if actual != expected_digest {
+                Some(DriftFinding {
+                    resource_id: resource_id.to_string(),
+                    resource_type: ResourceType::Image,
+                    expected_hash: expected_digest.to_string(),
+                    actual_hash: actual,
+                    detail: "deployed image differs from built image".to_string(),
+                })
+            } else {
+                None
+            }
+        }
+        Ok(out) => Some(DriftFinding {
+            resource_id: resource_id.to_string(),
+            resource_type: ResourceType::Image,
+            expected_hash: expected_digest.to_string(),
+            actual_hash: "ERROR".to_string(),
+            detail: format!("docker inspect failed: {}", out.stderr.trim()),
+        }),
+        Err(e) => Some(DriftFinding {
+            resource_id: resource_id.to_string(),
+            resource_type: ResourceType::Image,
+            expected_hash: expected_digest.to_string(),
+            actual_hash: "ERROR".to_string(),
+            detail: format!("transport error: {e}"),
+        }),
+    }
 }
 
 /// FJ-1220: Check if a resource's lifecycle rules say to ignore drift.
@@ -316,6 +404,8 @@ mod tests_edge_fj132_b;
 mod tests_fj036;
 #[cfg(test)]
 mod tests_full;
+#[cfg(test)]
+mod tests_image_drift;
 #[cfg(test)]
 mod tests_lifecycle;
 #[cfg(test)]

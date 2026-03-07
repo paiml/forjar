@@ -225,3 +225,64 @@ pub(crate) fn build_resource_details(
 
     details
 }
+
+/// FJ-242: Two-phase copia delta sync for large file sources.
+/// Phase 1: Execute signature script on remote to get per-block BLAKE3 hashes.
+/// Phase 2: Compute delta locally, transfer only changed blocks.
+/// Falls back to full base64 transfer for new files (no remote state to diff).
+pub(crate) fn copia_apply_file(
+    machine: &Machine,
+    resource: &Resource,
+    timeout_secs: Option<u64>,
+) -> Result<transport::ExecOutput, String> {
+    let path = resource.path.as_deref().unwrap_or("/dev/null");
+    let source = resource.source.as_deref().unwrap_or("");
+
+    // Phase 1: Get remote file block signatures
+    let sig_script = copia::signature_script(path);
+    let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
+
+    if !sig_output.success() {
+        return Err(format!(
+            "copia signature failed: {}",
+            sig_output.stderr.trim()
+        ));
+    }
+
+    let remote_sigs = copia::parse_signatures(&sig_output.stdout)?;
+
+    let owner = resource.owner.as_deref();
+    let group = resource.group.as_deref();
+    let mode = resource.mode.as_deref();
+
+    match remote_sigs {
+        None => {
+            // New file — full transfer via base64
+            let script = copia::full_transfer_script(path, source, owner, group, mode)?;
+            transport::exec_script_timeout(machine, &script, timeout_secs)
+        }
+        Some(sigs) => {
+            // Read local source file
+            let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
+
+            // Compute delta
+            let delta = copia::compute_delta(&new_data, &sigs);
+
+            // Generate and execute patch script
+            let script = copia::patch_script(path, &delta, owner, group, mode);
+            transport::exec_script_timeout(machine, &script, timeout_secs)
+        }
+    }
+}
+
+/// Log a tripwire event if tripwire is enabled.
+pub(crate) fn log_tripwire(
+    state_dir: &std::path::Path,
+    machine: &str,
+    tripwire: bool,
+    event: ProvenanceEvent,
+) {
+    if tripwire {
+        let _ = eventlog::append_event(state_dir, machine, event);
+    }
+}

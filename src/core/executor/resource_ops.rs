@@ -52,6 +52,14 @@ pub(crate) fn record_success(
         );
     }
 
+    // FJ-2701: Store task input hash for cache-based skip on next run
+    if resolved.cache && !resolved.task_inputs.is_empty() {
+        let base_dir = ctx.state_dir.parent().unwrap_or(ctx.state_dir);
+        if let Ok(Some(hash)) = crate::core::task::hash_inputs(&resolved.task_inputs, base_dir) {
+            details.insert("input_hash".to_string(), serde_yaml_ng::Value::String(hash));
+        }
+    }
+
     ctx.lock.resources.insert(
         resource_id.to_string(),
         ResourceLock {
@@ -201,6 +209,16 @@ fn execute_resource(
         }
     }
 
+    // FJ-2701: Task input caching — skip execution if inputs unchanged
+    if resolved.cache && !resolved.task_inputs.is_empty() {
+        if let Some(cached) = check_task_input_cache(&change.resource_id, resolved, ctx) {
+            if cfg.trace {
+                eprintln!("[TRACE] {} cached: {}", change.resource_id, cached);
+            }
+            return Ok(ResourceOutcome::Unchanged);
+        }
+    }
+
     let ssh_retries = cfg.config.policy.ssh_retries;
     let output = if resolved.resource_type == ResourceType::File
         && resolved
@@ -235,6 +253,30 @@ fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Op
         )),
         Err(e) => Some(format!("pre_apply hook error: {e}")),
         _ => None,
+    }
+}
+
+/// FJ-2701: Check if task inputs are unchanged since last successful run.
+///
+/// Returns Some(message) if the task should be skipped (cache hit).
+fn check_task_input_cache(
+    resource_id: &str,
+    resource: &Resource,
+    ctx: &RecordCtx,
+) -> Option<String> {
+    let base_dir = ctx.state_dir.parent().unwrap_or(ctx.state_dir);
+    let current_hash = crate::core::task::hash_inputs(&resource.task_inputs, base_dir).ok()??;
+    let stored_hash = ctx
+        .lock
+        .resources
+        .get(resource_id)
+        .and_then(|rl| rl.details.get("input_hash"))
+        .and_then(|v| v.as_str());
+
+    if crate::core::task::should_skip_cached(true, Some(&current_hash), stored_hash) {
+        Some(format!("inputs unchanged (hash: {:.16}...)", current_hash))
+    } else {
+        None
     }
 }
 
@@ -420,65 +462,4 @@ pub(crate) fn apply_single_resource(
     )?;
 
     execute_resource(cfg, change, resource, &resolved, machine, ctx)
-}
-
-/// FJ-242: Two-phase copia delta sync for large file sources.
-/// Phase 1: Execute signature script on remote to get per-block BLAKE3 hashes.
-/// Phase 2: Compute delta locally, transfer only changed blocks.
-/// Falls back to full base64 transfer for new files (no remote state to diff).
-pub(crate) fn copia_apply_file(
-    machine: &Machine,
-    resource: &Resource,
-    timeout_secs: Option<u64>,
-) -> Result<transport::ExecOutput, String> {
-    let path = resource.path.as_deref().unwrap_or("/dev/null");
-    let source = resource.source.as_deref().unwrap_or("");
-
-    // Phase 1: Get remote file block signatures
-    let sig_script = copia::signature_script(path);
-    let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
-
-    if !sig_output.success() {
-        return Err(format!(
-            "copia signature failed: {}",
-            sig_output.stderr.trim()
-        ));
-    }
-
-    let remote_sigs = copia::parse_signatures(&sig_output.stdout)?;
-
-    let owner = resource.owner.as_deref();
-    let group = resource.group.as_deref();
-    let mode = resource.mode.as_deref();
-
-    match remote_sigs {
-        None => {
-            // New file — full transfer via base64
-            let script = copia::full_transfer_script(path, source, owner, group, mode)?;
-            transport::exec_script_timeout(machine, &script, timeout_secs)
-        }
-        Some(sigs) => {
-            // Read local source file
-            let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
-
-            // Compute delta
-            let delta = copia::compute_delta(&new_data, &sigs);
-
-            // Generate and execute patch script
-            let script = copia::patch_script(path, &delta, owner, group, mode);
-            transport::exec_script_timeout(machine, &script, timeout_secs)
-        }
-    }
-}
-
-/// Log a tripwire event if tripwire is enabled.
-pub(crate) fn log_tripwire(
-    state_dir: &std::path::Path,
-    machine: &str,
-    tripwire: bool,
-    event: ProvenanceEvent,
-) {
-    if tripwire {
-        let _ = eventlog::append_event(state_dir, machine, event);
-    }
 }

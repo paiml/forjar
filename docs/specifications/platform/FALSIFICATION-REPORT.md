@@ -468,11 +468,18 @@ Spec 06-distribution.md claims OCI Distribution Spec chunked blob upload (PATCH 
 
 ---
 
-### E15: Image drift detection is pseudocode only
+### ~~E15: Image drift detection is pseudocode only~~ FIXED
 
-Spec 06-distribution.md describes `forjar drift --image` comparing registry manifests against local state. No `--image` flag exists in the drift CLI. No manifest comparison logic exists. Spec acknowledges this depends on container build pipeline completion (Phases 8-10).
+Spec 06-distribution.md describes `forjar drift --image` comparing registry manifests against local state. Previously no manifest comparison logic existed.
 
-**Status**: DOCUMENTED — Resource-level drift detection works. Image drift requires registry integration.
+**Fix** (2026-03-08):
+1. `check_image_drift()` runs `docker inspect <container> --format '{{.Image}}'` on target machine
+2. Compares actual image digest to expected `manifest_digest` from state lock
+3. Reports drift for: digest mismatch, container not running, transport errors
+4. `detect_image_drift()` iterates all converged Image resources, respects `lifecycle.ignore_drift`
+5. Wired into `detect_drift_full()` alongside file and non-file drift detection
+6. 7 unit tests in `tests_image_drift.rs`
+7. Implementation: `tripwire/drift/mod.rs`
 
 ---
 
@@ -691,7 +698,7 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | 48 | Multi-arch image builds not implemented (hardcoded linux/amd64) | E12 | DOCUMENTED |
 | 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
 | 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
-| 51 | Image drift detection is pseudocode only (no --image flag) | E15 | DOCUMENTED |
+| ~~51~~ | ~~Image drift detection is pseudocode only (no --image flag)~~ | E15 | FIXED |
 | 52 | ~~Build cache does not apply to image layer construction~~ | E16 | FIXED |
 | 53 | ~~BuildMetrics not collected during image builds~~ | E17 | FIXED |
 | 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
