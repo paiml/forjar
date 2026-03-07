@@ -479,6 +479,38 @@ forjar check -f forjar.yaml --json
 
 Exits non-zero if any check fails. Useful for pre-flight validation in CI/CD pipelines before running `apply`.
 
+### `forjar doctor`
+
+Pre-flight system diagnostic. Checks that all required tools and infrastructure are available.
+
+```bash
+forjar doctor [-f <FILE>] [--json] [--fix] [--network]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | none | Config file (enables SSH/container checks) |
+| `--json` | false | JSON output |
+| `--fix` | false | Auto-fix issues (e.g., create missing state dir) |
+| `--network` | false | Test SSH connectivity to all machines |
+
+Checks performed:
+- **bash**: Bash shell available
+- **ssh**: SSH client available (when config has SSH machines)
+- **container**: Docker/Podman runtime available (when config has containers)
+- **age**: age identity file exists (when config has encrypted secrets)
+- **state-dir**: State directory exists and is writable
+- **git**: Git available
+- **sandbox**: Sandbox backends available for `forjar test` (pepita, docker/podman, chroot)
+
+```bash
+forjar doctor                         # basic checks
+forjar doctor -f forjar.yaml          # include config-aware checks
+forjar doctor -f forjar.yaml --fix    # auto-fix what we can
+forjar doctor --network               # test SSH to all machines
+forjar doctor --json                  # JSON output for tooling
+```
+
 ### `forjar fmt`
 
 Format (normalize) a forjar.yaml config file.
