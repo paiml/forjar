@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 23/23 resolved (U3 deferred — needs root)
-> Final: 42/42 phases IMPLEMENTED. Container OCI builds, Kani production proofs, Verus strategy shift.
+> Updated: 2026-03-07 | 28/28 resolved (U3 deferred — needs root)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14).
 
 ---
 
@@ -179,6 +179,67 @@
 
 ---
 
+### F10: Mutation drift detection was hardcoded to true (fake 100% score) — FIXED
+
+**Spec claim** (14-testing-strategy.md):
+> Mutation testing detects drift by comparing pre/post-mutation state hashes.
+
+**Reality** (before fix): `run_mutation_test()` used `simulate_apply()` stubs that returned `detected: true` for all mutations. The "100% mutation score" was fabricated — no real file I/O, no actual drift detection.
+
+**Five-whys root cause**: When `SandboxBackend` dispatch was added (F9), the simulated mode kept using hash-based stubs. Nobody noticed because the mutation score always looked "perfect."
+
+**Fix** (2026-03-07): `mutation_runner.rs` now creates real tempdir sandboxes, runs apply/mutation/drift scripts via `bash -euo pipefail`, and detects drift by comparing BLAKE3 hashes of script output before vs after mutation. Real scores: file mutations detected 100% (8/8), system mutations properly errored (2/2).
+
+---
+
+### F11: Convergence testing was simulated hashing (no real I/O) — FIXED
+
+**Spec claim** (14-testing-strategy.md):
+> Convergence tests verify apply-verify-reapply-verify cycle.
+
+**Reality** (before fix): `run_convergence_test()` hashed the script text itself and compared against `expected_hash`. No scripts were ever executed. "Convergence" was string comparison, not behavior verification.
+
+**Fix** (2026-03-07): `convergence_runner.rs` now creates real tempdir sandboxes with `$FORJAR_SANDBOX` env, executes scripts via bash, and verifies convergence (actual state matches expected), idempotency (second apply produces same state), and preservation (state persists without re-apply).
+
+---
+
+### F12: P0 SAFETY — Host system commands executed without sandboxing — FIXED
+
+**Spec claim** (14-testing-strategy.md, 10-security-model.md):
+> All test execution is sandboxed. System operators require container backend.
+
+**Reality** (before fix): When local execution was added (F10/F11), scripts like `systemctl stop nginx` and `apt-get remove -y curl` were executed directly on the host system via `bash -euo pipefail`. Users were prompted for sudo access to restart nginx.
+
+**Five-whys root cause**: The safety model assumed simulated mode (no real execution). When real execution was added, no safety gates were implemented — the code went from "never executes" to "executes everything" with no intermediate check.
+
+**Fix** (2026-03-07): Defense-in-depth with two layers:
+1. `mutation_runner.rs`: `is_safe_for_local()` blocks system operators (StopService, RemovePackage, KillProcess, UnmountFilesystem) with clear error message requiring container backend.
+2. `convergence_runner.rs`: `UNSAFE_PATTERNS` blocklist rejects scripts containing `systemctl`, `apt-get`, `pkill`, `mount`, `umount`, `kill`, etc. before bash execution.
+
+---
+
+### F13: Webhook errors silently swallowed — FIXED
+
+**Spec claim** (11-observability.md):
+> Structured error reporting for all operations.
+
+**Reality** (before fix): `send_webhook()` in `dispatch_notify.rs` used `let _ = Command::new("curl")...` — discarding both execution errors and non-zero exit codes silently.
+
+**Fix** (2026-03-07): Changed to `match` with `eprintln!` warnings for failed webhooks (non-zero exit) and execution errors. Curl flag changed from `-s` to `-sf` (fail on HTTP errors).
+
+---
+
+### F14: Thread panics silently dropped in wave execution — FIXED
+
+**Spec claim** (04-multi-machine-ops.md):
+> Wave execution handles errors per-resource with structured reporting.
+
+**Reality** (before fix): `execute_wave_io()` in `machine_wave.rs` used `.filter_map(|h| h.join().ok())` — silently dropping any thread that panicked. A panic in one resource's apply would cause that resource to vanish from results with no error reported.
+
+**Fix** (2026-03-07): Replaced with explicit panic handling via `extract_panic_message()`. Panicked threads return `Err("thread panic: <message>")` results and log to stderr. No results are silently dropped.
+
+---
+
 ## Stale Claims (Code Has Changed)
 
 ### ~~S1: L4 "Destroy State Cleanup Bug"~~ FIXED (spec updated)
@@ -286,3 +347,8 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~21~~ | ~~Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`)~~ | F8 | DONE |
 | ~~22~~ | ~~Wire `execute_and_capture()` into apply pipeline to generate run logs~~ | F8 | DONE |
 | ~~23~~ | ~~Wire `SandboxBackend` dispatch into convergence/mutation runners~~ | F9 | DONE |
+| ~~24~~ | ~~Replace fake mutation drift detection with real sandbox I/O~~ | F10 | DONE |
+| ~~25~~ | ~~Replace simulated convergence hashing with real script execution~~ | F11 | DONE |
+| ~~26~~ | ~~Add host-protection safety guards (is_safe_for_local, UNSAFE_PATTERNS)~~ | F12 | DONE |
+| ~~27~~ | ~~Log webhook errors instead of silently discarding~~ | F13 | DONE |
+| ~~28~~ | ~~Handle thread panics in wave execution instead of dropping~~ | F14 | DONE |
