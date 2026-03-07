@@ -74,13 +74,28 @@ Every build writes `build-metrics.json` to the output directory:
 }
 ```
 
+### Automatic Layer Splitting (E13)
+
+Forjar automatically separates config files from application binaries
+into distinct OCI layers. Config files (`.yaml`, `.toml`, `.json`,
+`.conf`, `.cfg`, `.ini`, `.env`, `.properties`) go to a top layer
+that changes frequently, while binaries go to a lower layer that
+changes rarely. This improves registry push efficiency — only the
+changed layer needs uploading.
+
 ### Registry Push (FJ-2105)
 
 Implements OCI Distribution v1.1 protocol:
 1. Discover blobs in OCI layout
 2. Check existing blobs on registry (HEAD request)
-3. Upload missing blobs (PUT)
+3. Upload missing blobs — monolithic PUT for < 64 MB, chunked
+   PATCH + PUT for >= 64 MB (E14)
 4. Upload manifest
+
+**Chunked uploads (E14)**: Large layers use OCI chunked upload
+protocol — 16 MB PATCH chunks with `Content-Range` headers,
+following `Location` header between chunks, finalized with PUT
+including the blob digest.
 
 ## Image Drift Detection (E15)
 

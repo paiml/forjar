@@ -466,19 +466,30 @@ Spec 05-container-builds.md claims multi-arch image builds. Previously hardcoded
 
 ---
 
-### E13: Layer splitting is manual, not automatic
+### ~~E13: Layer splitting is manual, not automatic~~ FIXED
 
-Spec 05-container-builds.md describes an automatic "Layer Assignment Algorithm" that groups resources by type (package/config/app layers). The code supports multiple layers (`image_assembler.rs:54-56`) but expects pre-grouped `plan.layers` from the image resource definition. No automatic splitting by resource type or "popularity sort" algorithm exists.
+Spec 05-container-builds.md describes an automatic "Layer Assignment Algorithm" that groups resources by type (package/config/app layers). Previously the code expected pre-grouped `plan.layers` with no automatic splitting.
 
-**Status**: DOCUMENTED — Multi-layer support works. Automatic splitting requires upstream plan generation.
+**Fix** (2026-03-08):
+1. `split_paths_by_type()` in `build_image.rs` classifies paths by file extension
+2. Config files (.yaml, .toml, .json, .conf, .cfg, .ini, .env, .properties) → config layer
+3. All other paths → app layer (binaries, scripts)
+4. When both types present: app binaries first (changes less), config on top (changes more)
+5. 6 tests verify split logic: mixed, no-configs, all-configs, empty, single-path, trigger-two
 
 ---
 
-### E14: Chunked/resumable uploads not implemented
+### ~~E14: Chunked/resumable uploads not implemented~~ FIXED
 
-Spec 06-distribution.md claims OCI Distribution Spec chunked blob upload (PATCH with Content-Range) for layers over 1GB. `registry_push.rs` uses monolithic PUT (`--data-binary`) for all blob uploads. No PATCH requests, Content-Range headers, or size threshold logic exists.
+Spec 06-distribution.md claims OCI Distribution Spec chunked blob upload (PATCH with Content-Range) for layers over 1GB. Previously `registry_push.rs` used monolithic PUT for all uploads.
 
-**Status**: DOCUMENTED — Monolithic push works for typical layer sizes. Chunked upload is needed for >1GB layers.
+**Fix** (2026-03-08):
+1. `CHUNKED_UPLOAD_THRESHOLD = 64MB` — blobs at or above this use chunked protocol
+2. `CHUNK_SIZE = 16MB` — each PATCH request sends one chunk with Content-Range header
+3. `push_blob_chunked()` follows OCI Distribution Spec v1.1: PATCH per chunk, follow Location header, PUT to finalize with digest
+4. `push_blob_monolithic()` retained for blobs < 64MB (simpler, faster)
+5. `push_blob()` dispatches based on `blob.size >= CHUNKED_UPLOAD_THRESHOLD`
+6. 4 tests verify constants and dispatch thresholds
 
 ---
 
@@ -710,8 +721,8 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | ~~46~~ | ~~Add pinned golden hash test with hardcoded expected value~~ | ~~E10~~ | DONE |
 | ~~47~~ | ~~WasmBundle handler delegates to file handler (no WASM-specific logic)~~ | E11 | FIXED |
 | ~~48~~ | ~~Multi-arch image builds not implemented (hardcoded linux/amd64)~~ | E12 | FIXED |
-| 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
-| 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
+| 49 | ~~Layer splitting is manual, not automatic~~ | E13 | FIXED |
+| 50 | ~~Chunked/resumable uploads not implemented~~ | E14 | FIXED |
 | ~~51~~ | ~~Image drift detection is pseudocode only (no --image flag)~~ | E15 | FIXED |
 | 52 | ~~Build cache does not apply to image layer construction~~ | E16 | FIXED |
 | 53 | ~~BuildMetrics not collected during image builds~~ | E17 | FIXED |
