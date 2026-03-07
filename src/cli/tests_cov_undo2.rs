@@ -184,7 +184,7 @@ fn setup_gen_state(state_dir: &std::path::Path) {
 fn create_generation_basic() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    let gen = super::generation::create_generation(d.path()).unwrap();
+    let gen = super::generation::create_generation(d.path(), None).unwrap();
     assert_eq!(gen, 0);
     assert!(d.path().join("generations/0").exists());
     assert!(d.path().join("generations/current").exists());
@@ -194,8 +194,8 @@ fn create_generation_basic() {
 fn create_generation_increments() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    let g0 = super::generation::create_generation(d.path()).unwrap();
-    let g1 = super::generation::create_generation(d.path()).unwrap();
+    let g0 = super::generation::create_generation(d.path(), None).unwrap();
+    let g1 = super::generation::create_generation(d.path(), None).unwrap();
     assert_eq!(g0, 0);
     assert_eq!(g1, 1);
 }
@@ -218,8 +218,8 @@ fn list_generations_empty_json() {
 fn list_generations_with_data() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    super::generation::create_generation(d.path()).unwrap();
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     let r = super::generation::list_generations(d.path(), false);
     assert!(r.is_ok());
 }
@@ -228,7 +228,7 @@ fn list_generations_with_data() {
 fn list_generations_with_data_json() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     let r = super::generation::list_generations(d.path(), true);
     assert!(r.is_ok());
 }
@@ -245,8 +245,8 @@ fn current_generation_none() {
 fn current_generation_after_create() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    super::generation::create_generation(d.path()).unwrap();
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     let cur = super::generation::current_generation(&d.path().join("generations"));
     assert_eq!(cur, Some(1));
 }
@@ -262,7 +262,7 @@ fn gc_generations_keeps_recent() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
     for _ in 0..5 {
-        super::generation::create_generation(d.path()).unwrap();
+        super::generation::create_generation(d.path(), None).unwrap();
     }
     super::generation::gc_generations(d.path(), 2, true);
     assert!(!d.path().join("generations/0").exists());
@@ -276,7 +276,7 @@ fn gc_generations_keeps_recent() {
 fn gc_generations_nothing_to_gc() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     super::generation::gc_generations(d.path(), 10, false);
     assert!(d.path().join("generations/0").exists());
 }
@@ -302,10 +302,10 @@ fn rollback_to_generation_missing() {
 fn rollback_to_generation_success() {
     let d = tempfile::tempdir().unwrap();
     setup_gen_state(d.path());
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     // Modify state after gen 0
     std::fs::write(d.path().join("web1/state.lock.yaml"), "modified").unwrap();
-    super::generation::create_generation(d.path()).unwrap();
+    super::generation::create_generation(d.path(), None).unwrap();
     // Rollback to gen 0
     let r = super::generation::rollback_to_generation(d.path(), 0, true);
     assert!(r.is_ok());

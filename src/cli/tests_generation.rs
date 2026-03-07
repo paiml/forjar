@@ -21,7 +21,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        let gen = create_generation(&state_dir).unwrap();
+        let gen = create_generation(&state_dir, None).unwrap();
         assert_eq!(gen, 0);
 
         // Generation directory exists with state copy
@@ -41,7 +41,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        let g0 = create_generation(&state_dir).unwrap();
+        let g0 = create_generation(&state_dir, None).unwrap();
         assert_eq!(g0, 0);
 
         // Modify state
@@ -51,7 +51,7 @@ mod tests {
         )
         .unwrap();
 
-        let g1 = create_generation(&state_dir).unwrap();
+        let g1 = create_generation(&state_dir, None).unwrap();
         assert_eq!(g1, 1);
 
         // Current points to latest
@@ -69,12 +69,12 @@ mod tests {
         let state_dir = setup_state(dir.path());
 
         // Gen 0: original state
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         // Modify state and create gen 1
         let lock_path = state_dir.join("m1").join("state.lock.yaml");
         std::fs::write(&lock_path, "version: 2").unwrap();
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         assert_eq!(std::fs::read_to_string(&lock_path).unwrap(), "version: 2");
 
@@ -90,7 +90,7 @@ mod tests {
     fn test_rollback_requires_yes() {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         let result = rollback_to_generation(&state_dir, 0, false);
         assert!(result.is_err());
@@ -101,7 +101,7 @@ mod tests {
     fn test_rollback_nonexistent_generation() {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         let result = rollback_to_generation(&state_dir, 99, true);
         assert!(result.is_err());
@@ -123,8 +123,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        create_generation(&state_dir).unwrap();
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         list_generations(&state_dir, false).unwrap();
         list_generations(&state_dir, true).unwrap();
@@ -136,7 +136,7 @@ mod tests {
         let state_dir = setup_state(dir.path());
 
         for _ in 0..5 {
-            create_generation(&state_dir).unwrap();
+            create_generation(&state_dir, None).unwrap();
         }
 
         let gen_dir = state_dir.join("generations");
@@ -158,8 +158,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        create_generation(&state_dir).unwrap();
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         gc_generations(&state_dir, 5, false);
 
@@ -179,7 +179,7 @@ mod tests {
             std::fs::write(md.join("state.lock.yaml"), format!("machine: {m}")).unwrap();
         }
 
-        let gen = create_generation(&state_dir).unwrap();
+        let gen = create_generation(&state_dir, None).unwrap();
         assert_eq!(gen, 0);
 
         let gen_path = state_dir.join("generations").join("0");
@@ -193,10 +193,42 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        create_generation(&state_dir).unwrap();
+        create_generation(&state_dir, None).unwrap();
 
         // Verify generations/ was not recursively copied into itself
         let gen_path = state_dir.join("generations").join("0");
         assert!(!gen_path.join("generations").exists());
+    }
+
+    #[test]
+    fn test_generation_with_config_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+
+        // Write a config file to hash
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: '1.0'\nname: test\n").unwrap();
+
+        let gen = create_generation(&state_dir, Some(&config_path)).unwrap();
+        assert_eq!(gen, 0);
+
+        // Verify config_hash is in generation metadata
+        let meta_path = state_dir.join("generations").join("0").join(".generation.yaml");
+        let meta_content = std::fs::read_to_string(meta_path).unwrap();
+        assert!(meta_content.contains("config_hash:"), "metadata should contain config_hash field, got:\n{meta_content}");
+        assert!(meta_content.contains("blake3:"), "config_hash should use blake3 prefix");
+    }
+
+    #[test]
+    fn test_generation_without_config_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+
+        create_generation(&state_dir, None).unwrap();
+
+        // Without config path, config_hash should not be present
+        let meta_path = state_dir.join("generations").join("0").join(".generation.yaml");
+        let meta_content = std::fs::read_to_string(meta_path).unwrap();
+        assert!(!meta_content.contains("config_hash"), "metadata should not contain config_hash when no path given");
     }
 }

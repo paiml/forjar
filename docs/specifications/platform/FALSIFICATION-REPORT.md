@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 46/47 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). E10+F33+F34 fixed.
+> Updated: 2026-03-07 | 47/48 code fixes resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). E10+F33+F34+F35 fixed.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -537,6 +537,18 @@ Spec 15-task-framework.md describes pipeline tasks with `gate: true` stages that
 
 ---
 
+### ~~F35: Generation metadata `config_hash` never populated~~ FIXED
+
+Spec describes `config_hash` field on `GenerationMeta` for config tracking — enables "which config version produced this generation?" audit trail. `GenerationMeta` had `with_config_hash()` builder and `config_hash: Option<String>` field, but `create_generation()` never computed or set it. Provenance event `ApplyStarted` also had `config_hash: None` hardcoded.
+
+**Fix** (2026-03-07):
+1. `create_generation()` now accepts `config_path: Option<&Path>` — reads file, computes BLAKE3 hash, stores as `blake3:<hex>` in `.generation.yaml`
+2. `apply_machine()` computes config hash from serialized `ForjarConfig` and passes to provenance `ApplyStarted` event
+3. `cmd_apply()` passes config file path through `maybe_auto_snapshot()` to `create_generation()`
+4. 2 new tests verify config_hash presence/absence in generation metadata
+
+---
+
 ### E21: TaskMode does not affect script generation
 
 Spec 15-task-framework.md implies `task_mode` dispatch produces different scripts for different modes (batch/pipeline/service/dispatch). The `TaskMode` enum exists with all 4 variants, but `resources/task.rs` generates identical scripts regardless of mode. The mode is a type-level marker for scheduling/retry semantics, not script differentiation.
@@ -591,6 +603,8 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | Operator authorization checked before apply | `cli/dispatch_apply.rs:118-131` |
 | Webhook notifications fire on success/failure/drift | `cli/apply_output.rs` + `cli/drift.rs` |
 | Age encryption with ENC[age,...] markers | `core/secrets.rs` |
+| Generation config_hash tracking (BLAKE3 of config file) | `cli/generation.rs:32-38` |
+| Provenance config_hash tracking (serialized config hash) | `executor/machine.rs:65-76` |
 
 ---
 
@@ -657,3 +671,4 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |
 | ~~58~~ | ~~Implement pipeline stage gate enforcement~~ | ~~F34~~ | DONE |
 | 59 | TaskMode batch/service/dispatch no script differentiation | E21 | DOCUMENTED |
+| ~~60~~ | ~~Generation config_hash + provenance tracking~~ | ~~F35~~ | DONE |
