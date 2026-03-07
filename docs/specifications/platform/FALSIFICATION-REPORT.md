@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 22/22 resolved (U3 deferred — needs root)
+> Updated: 2026-03-07 | 23/23 resolved (U3 deferred — needs root)
 
 ---
 
@@ -153,6 +153,29 @@
 
 ---
 
+### F9: `SandboxBackend` declared but never dispatched — REMEDIATED
+
+**Spec claim** (14-testing-strategy.md, Phase 31):
+> Convergence and mutation runners execute in isolated sandboxes (pepita, container, or chroot).
+
+**Five-whys root cause**:
+1. Why dead code? Runners use `simulate_apply()` stubs, never real sandbox
+2. Why stubs only? No bridge from `SandboxBackend` → `sandbox_run::execute_sandbox_plan()`
+3. Why no bridge? Two independent `SandboxConfig` types diverged during parallel development
+4. Why two types? `store/sandbox.rs` (build-time, FJ-1315) and `test_runner_types.rs` (test-time, FJ-2603) created independently
+5. Why not unified? No cross-cutting review between store and test-runner subsystems
+
+**Remediation** (2026-03-07):
+1. `convergence_runner.rs`: Added `SandboxBackend` field to `ConvergenceTestConfig`, `RunnerMode` enum, `backend_available()` + `resolve_mode()` dispatch
+2. `mutation_runner.rs`: Added `SandboxBackend` field to `MutationRunConfig`
+3. `check_test.rs`: Both `cmd_test_convergence` and `cmd_test_mutation` now call `resolve_mode()` to print actual mode (simulated vs sandbox)
+4. 6 new tests covering backend detection, mode resolution, and config defaults
+5. Graceful degradation: when backend is unavailable, falls back to simulated mode with clear messaging
+
+**Status**: Dispatch path wired. Real sandbox execution still requires pepita/container runtime (blocked on infrastructure, same as Phase 9).
+
+---
+
 ## Stale Claims (Code Has Changed)
 
 ### ~~S1: L4 "Destroy State Cleanup Bug"~~ FIXED (spec updated)
@@ -259,3 +282,4 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~20~~ | ~~Implement `cmd_logs` runtime (read log files, real JSON data)~~ | F8 | DONE |
 | ~~21~~ | ~~Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`)~~ | F8 | DONE |
 | ~~22~~ | ~~Wire `execute_and_capture()` into apply pipeline to generate run logs~~ | F8 | DONE |
+| ~~23~~ | ~~Wire `SandboxBackend` dispatch into convergence/mutation runners~~ | F9 | DONE |

@@ -254,4 +254,49 @@ fn convergence_test_config_default() {
     let config = ConvergenceTestConfig::default();
     assert_eq!(config.parallelism, 4);
     assert!(!config.test_pairs);
+    assert_eq!(config.backend, crate::core::types::SandboxBackend::Pepita);
+}
+
+#[test]
+fn runner_mode_display() {
+    assert_eq!(RunnerMode::Simulated.to_string(), "simulated");
+    assert_eq!(RunnerMode::Sandbox.to_string(), "sandbox");
+}
+
+#[test]
+fn runner_mode_equality() {
+    assert_eq!(RunnerMode::Simulated, RunnerMode::Simulated);
+    assert_ne!(RunnerMode::Simulated, RunnerMode::Sandbox);
+}
+
+#[test]
+fn resolve_mode_returns_simulated_without_pepita() {
+    // In CI/test env, pepita binary is not installed
+    use crate::core::types::SandboxBackend;
+    let mode = resolve_mode(SandboxBackend::Pepita);
+    // pepita binary not installed in test env → simulated
+    assert_eq!(mode, RunnerMode::Simulated);
+}
+
+#[test]
+fn resolve_mode_chroot_non_root() {
+    // Tests run as non-root → chroot unavailable
+    use crate::core::types::SandboxBackend;
+    let mode = resolve_mode(SandboxBackend::Chroot);
+    assert_eq!(mode, RunnerMode::Simulated);
+}
+
+#[test]
+fn backend_available_pepita_not_installed() {
+    use crate::core::types::SandboxBackend;
+    // Pepita binary not present in test env
+    let available = backend_available(SandboxBackend::Pepita);
+    assert!(!available);
+}
+
+#[test]
+fn backend_available_chroot_non_root() {
+    use crate::core::types::SandboxBackend;
+    let available = backend_available(SandboxBackend::Chroot);
+    assert!(!available);
 }

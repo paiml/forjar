@@ -220,6 +220,7 @@ fn mutation_run_config_default() {
     assert_eq!(config.mutations_per_resource, 50);
     assert_eq!(config.parallelism, 4);
     assert!(config.test_reconvergence);
+    assert_eq!(config.backend, crate::core::types::SandboxBackend::Pepita);
 }
 
 #[test]

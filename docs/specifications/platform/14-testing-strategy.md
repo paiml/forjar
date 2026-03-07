@@ -656,7 +656,11 @@ Every CI test run produces:
 - [x] `SandboxBackend` enum: Pepita, Container, Chroot
 - [x] `SandboxPhase` lifecycle: Created → Applied → Verified → Destroyed
 - [x] Parallel sandbox execution
+- [x] `backend_available()` detection (pepita binary, docker/podman, root check)
+- [x] `resolve_mode()` dispatch: Sandbox if backend available, Simulated fallback
+- [x] Both convergence and mutation runners use `SandboxBackend` in config
 - **Deliverable**: Tests run in isolated sandboxes with real system state
+- **Remaining**: Real sandbox execution requires pepita/container runtime (graceful fallback to simulated mode implemented)
 
 ### Phase 32: Infrastructure Mutation Testing (FJ-2604) -- IMPLEMENTED
 - [x] Mutation operator types: `MutationOperator` enum (8 operators with resource type applicability)
@@ -667,8 +671,9 @@ Every CI test run produces:
 - [x] Mutation runner with parallel sandbox execution (`run_mutation_parallel`)
 - [x] CLI dispatches to `mutation_runner.rs` — builds targets from config, reports score/grade
 - [x] Undetected mutation reporting in CLI
+- [x] `SandboxBackend` in `MutationRunConfig` — dispatches via `resolve_mode()`
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
-- **Remaining**: Sandbox mode (real exec vs simulated) requires pepita infrastructure
+- **Remaining**: Real sandbox mode requires pepita/container infrastructure (dispatch wired, falls back to simulated)
 
 ### Phase 33: Coverage Model (FJ-2605) -- IMPLEMENTED
 - [x] Five-level resource coverage tracking (L0-L5)
