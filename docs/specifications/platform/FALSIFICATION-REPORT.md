@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 28/28 resolved (U3 deferred — needs root)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14).
+> Updated: 2026-03-07 | 29/29 resolved (U3 deferred — needs root)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15).
 
 ---
 
@@ -229,6 +229,19 @@
 
 ---
 
+### F15: Behavior specs were structural-only (never executed verify commands) — FIXED
+
+**Spec claim** (14-testing-strategy.md, Phase 30):
+> `forjar test behavior` executes YAML behavior specs
+
+**Reality** (before fix): `cmd_test_behavior()` checked whether `assert_state`, `has_verify()`, or `is_convergence()` fields existed on each behavior entry — purely structural validation. Verify commands were never executed via bash. Every spec with a `verify:` field passed automatically.
+
+**Five-whys root cause**: The behavior runner was implemented as a spec-loading demo during the type system phase. The `VerifyCommand` type was added with a `command` field but the execution loop never called `bash`. Nobody tested with specs that should fail.
+
+**Fix** (2026-03-07): Added `execute_behavior()` function that runs `verify.command` via `bash -euo pipefail`, compares exit code and stdout against expected values. 4 new tests cover pass, fail, stdout mismatch, and no-assertion cases.
+
+---
+
 ### F14: Thread panics silently dropped in wave execution — FIXED
 
 **Spec claim** (04-multi-machine-ops.md):
@@ -352,3 +365,4 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~26~~ | ~~Add host-protection safety guards (is_safe_for_local, UNSAFE_PATTERNS)~~ | F12 | DONE |
 | ~~27~~ | ~~Log webhook errors instead of silently discarding~~ | F13 | DONE |
 | ~~28~~ | ~~Handle thread panics in wave execution instead of dropping~~ | F14 | DONE |
+| ~~29~~ | ~~Execute behavior spec verify commands via bash instead of structural check~~ | F15 | DONE |

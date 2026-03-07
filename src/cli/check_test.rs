@@ -323,6 +323,76 @@ pub(crate) fn run_tests_parallel(
 }
 
 /// FJ-2602: Load, parse, and run behavior specs.
+/// Execute a single behavior entry, running verify commands if present.
+fn execute_behavior(
+    b: &crate::core::types::BehaviorEntry,
+) -> crate::core::types::BehaviorResult {
+    use crate::core::types::BehaviorResult;
+    let bt0 = std::time::Instant::now();
+
+    // If verify command is defined, execute it
+    if let Some(ref verify) = b.verify {
+        let output = std::process::Command::new("bash")
+            .args(["-euo", "pipefail", "-c", &verify.command])
+            .output();
+        let elapsed_ms = bt0.elapsed().as_millis() as u64;
+        match output {
+            Ok(out) => {
+                let code = out.status.code().unwrap_or(-1);
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let expected_code = verify.exit_code.unwrap_or(0);
+                let mut failure = None;
+                if code != expected_code {
+                    failure = Some(format!("exit code {code}, expected {expected_code}"));
+                } else if let Some(ref expected_stdout) = verify.stdout {
+                    if stdout.trim() != expected_stdout.trim() {
+                        failure = Some(format!(
+                            "stdout mismatch: got {:?}, expected {:?}",
+                            stdout.trim(),
+                            expected_stdout.trim()
+                        ));
+                    }
+                }
+                BehaviorResult {
+                    name: b.name.clone(),
+                    passed: failure.is_none(),
+                    failure,
+                    actual_exit_code: Some(code),
+                    actual_stdout: Some(stdout),
+                    duration_ms: elapsed_ms,
+                }
+            }
+            Err(e) => BehaviorResult {
+                name: b.name.clone(),
+                passed: false,
+                failure: Some(format!("exec error: {e}")),
+                actual_exit_code: None,
+                actual_stdout: None,
+                duration_ms: elapsed_ms,
+            },
+        }
+    } else if b.assert_state.is_some() || b.is_convergence() {
+        // Structural assertion only (no command to run)
+        BehaviorResult {
+            name: b.name.clone(),
+            passed: true,
+            failure: None,
+            actual_exit_code: None,
+            actual_stdout: None,
+            duration_ms: bt0.elapsed().as_millis() as u64,
+        }
+    } else {
+        BehaviorResult {
+            name: b.name.clone(),
+            passed: false,
+            failure: Some("no assertion defined".into()),
+            actual_exit_code: None,
+            actual_stdout: None,
+            duration_ms: 0,
+        }
+    }
+}
+
 pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
     use crate::core::types::{BehaviorReport, BehaviorResult, BehaviorSpec};
 
@@ -359,21 +429,7 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
         let results: Vec<BehaviorResult> = spec
             .behaviors
             .iter()
-            .map(|b| {
-                let passed = b.assert_state.is_some() || b.has_verify() || b.is_convergence();
-                BehaviorResult {
-                    name: b.name.clone(),
-                    passed,
-                    failure: if passed {
-                        None
-                    } else {
-                        Some("no assertion defined".into())
-                    },
-                    actual_exit_code: None,
-                    actual_stdout: None,
-                    duration_ms: 0,
-                }
-            })
+            .map(execute_behavior)
             .collect();
         let report = BehaviorReport::from_results(spec.name.clone(), results);
         total_pass += report.passed;

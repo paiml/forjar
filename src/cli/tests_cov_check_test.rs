@@ -182,6 +182,63 @@ fn test_row_clone() {
     assert_eq!(row.duration_secs, 0.5);
 }
 
+/// F15: Behavior specs now actually execute verify commands.
+#[test]
+fn test_behavior_mode_with_verify_command() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("check.spec.yaml"),
+        "name: verify-test\nconfig: forjar.yaml\nbehaviors:\n  - name: echo works\n    verify:\n      command: echo hello\n      stdout: hello\n  - name: true exits 0\n    verify:\n      command: \"true\"\n      exit_code: 0\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn test_behavior_mode_verify_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("fail.spec.yaml"),
+        "name: fail-test\nconfig: forjar.yaml\nbehaviors:\n  - name: bad exit\n    verify:\n      command: \"false\"\n      exit_code: 0\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_err());
+}
+
+#[test]
+fn test_behavior_mode_verify_stdout_mismatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("mismatch.spec.yaml"),
+        "name: mismatch-test\nconfig: forjar.yaml\nbehaviors:\n  - name: wrong output\n    verify:\n      command: echo wrong\n      stdout: expected\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_err());
+}
+
+#[test]
+fn test_behavior_mode_no_assertion() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(
+        dir.path().join("empty.spec.yaml"),
+        "name: no-assert\nconfig: forjar.yaml\nbehaviors:\n  - name: nothing defined\n",
+    )
+    .unwrap();
+    let r = cmd_test_behavior(&config_path);
+    assert!(r.is_err());
+}
+
 impl Clone for TestRow {
     fn clone(&self) -> Self {
         TestRow {

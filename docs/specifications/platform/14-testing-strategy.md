@@ -649,9 +649,9 @@ Every CI test run produces:
 - [x] Assertion types: state, verify.command, verify.stdout, verify.stderr_contains, convergence, port_open, file_exists
 - [x] Soft assertions: `BehaviorReport::from_results()` collects all failures
 - [x] Retry config: `VerifyCommand.retries` and `retry_delay_secs` fields
-- [x] `forjar test behavior` CLI — parses .spec.yaml files, validates specs, reports per-behavior pass/fail
-- **Deliverable**: `forjar test behavior` executes YAML behavior specs
-- **Remaining**: Command execution against real machines (currently validates spec structure)
+- [x] `forjar test behavior` CLI — parses .spec.yaml files, executes verify commands via bash, reports per-behavior pass/fail
+- [x] `execute_behavior()` — runs `verify.command` via `bash -euo pipefail`, compares exit code and stdout
+- **Deliverable**: `forjar test behavior` executes YAML behavior specs with real command verification
 
 ### Phase 31: Sandbox Testing Infrastructure (FJ-2603) — IMPLEMENTED
 - [x] `SandboxConfig` with backend, cleanup, timeout, capture_overlay
