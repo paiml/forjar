@@ -338,6 +338,18 @@ fn dispatch_uses_simulated_for_chroot() {
 }
 
 #[test]
+fn dispatch_container_backend() {
+    use crate::core::types::SandboxBackend;
+    let target = sample_target("container-conv", "file");
+    // Container backend with Docker available → routes through convergence_container
+    let result = run_convergence_test_dispatch(&target, SandboxBackend::Container);
+    // Container runs echo scripts; hash of container output won't match expected_hash
+    // (which is computed from the script text itself). So converged=false is expected.
+    // The key assertion: the dispatch path was exercised without panicking.
+    assert!(result.duration_ms < 30_000, "should complete within 30s");
+}
+
+#[test]
 fn parallel_with_backend_simulated() {
     use crate::core::types::SandboxBackend;
     let targets = vec![

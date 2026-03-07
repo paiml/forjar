@@ -3980,6 +3980,7 @@ forjar test --group convergence  # Report convergence property status
 ```
 
 Mutation and convergence tests auto-detect sandbox backend availability (pepita, docker/podman, chroot).
+When Docker or Podman is available, tests run inside **ephemeral containers** with real I/O.
 When no backend is available, they run in **simulated** mode using hash-based verification.
 
 ### `forjar oci-pack`

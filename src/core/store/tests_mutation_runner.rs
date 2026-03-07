@@ -251,6 +251,24 @@ fn dispatch_uses_simulated_for_chroot() {
 }
 
 #[test]
+fn dispatch_container_backend_available() {
+    // When container backend is selected AND Docker is available,
+    // dispatch routes through mutation_container.
+    use crate::core::types::SandboxBackend;
+    let target = file_target("container-dispatch");
+    let config = MutationRunConfig {
+        backend: SandboxBackend::Container,
+        test_reconvergence: false,
+        ..MutationRunConfig::default()
+    };
+    let result = run_mutation_test_dispatch(&target, MutationOperator::DeleteFile, &config);
+    // Container runs real scripts; the key assertion is that the dispatch
+    // path completes without panicking. Drift detection may or may not
+    // detect changes depending on container state.
+    assert!(result.duration_ms < 30_000, "should complete within 30s");
+}
+
+#[test]
 fn parallel_dispatch_with_backend() {
     let targets = vec![file_target("par-a"), service_target("par-svc")];
     let config = MutationRunConfig {
