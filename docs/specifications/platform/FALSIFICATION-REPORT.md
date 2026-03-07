@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 29/29 resolved (U3 deferred — needs root)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15).
+> Updated: 2026-03-07 | 30/30 resolved (U3 deferred — needs root)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16).
 
 ---
 
@@ -229,6 +229,17 @@
 
 ---
 
+### F16: `forjar test coverage` command did not exist — FIXED
+
+**Spec claim** (14-testing-strategy.md):
+> `forjar test coverage <config>` reports per-resource coverage levels (L0-L5)
+
+**Reality** (before fix): No `cmd_test_coverage` function existed. The spec described a coverage report command but only types (`CoverageReport`, `ResourceCoverage`, `CoverageLevel`) were implemented.
+
+**Fix** (2026-03-07): Added `cmd_test_coverage()` in `check_test_runners.rs` that scans config resources, discovers `.spec.yaml` behavior specs, checks which resources have check scripts, and reports per-resource coverage levels (L0-L2). Wired into `forjar test --group coverage`. 2 tests added.
+
+---
+
 ### F15: Behavior specs were structural-only (never executed verify commands) — FIXED
 
 **Spec claim** (14-testing-strategy.md, Phase 30):
@@ -366,3 +377,4 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~27~~ | ~~Log webhook errors instead of silently discarding~~ | F13 | DONE |
 | ~~28~~ | ~~Handle thread panics in wave execution instead of dropping~~ | F14 | DONE |
 | ~~29~~ | ~~Execute behavior spec verify commands via bash instead of structural check~~ | F15 | DONE |
+| ~~30~~ | ~~Implement `forjar test coverage` resource-level coverage report~~ | F16 | DONE |

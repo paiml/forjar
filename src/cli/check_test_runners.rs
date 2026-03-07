@@ -184,3 +184,84 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
         Ok(())
     }
 }
+
+/// Discover resources referenced by `.spec.yaml` behavior specs in a directory.
+fn discover_spec_resources(spec_dir: &Path) -> std::collections::HashSet<String> {
+    let mut result = std::collections::HashSet::new();
+    let entries = match std::fs::read_dir(spec_dir) {
+        Ok(e) => e,
+        Err(_) => return result,
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.ends_with(".spec.yaml") {
+            continue;
+        }
+        let content = match std::fs::read_to_string(entry.path()) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let spec: crate::core::types::BehaviorSpec = match serde_yaml_ng::from_str(&content) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        for r in spec.referenced_resources() {
+            result.insert(r.to_string());
+        }
+    }
+    result
+}
+
+/// FJ-2602: Resource-level coverage report.
+pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
+    use crate::core::types::{CoverageLevel, CoverageReport, ResourceCoverage};
+
+    let config = parse_and_validate(file)?;
+    let spec_dir = file.parent().unwrap_or(Path::new("."));
+    let spec_resources = discover_spec_resources(spec_dir);
+
+    let execution_order = resolver::build_execution_order(&config)?;
+    let entries: Vec<ResourceCoverage> = execution_order
+        .iter()
+        .filter_map(|rid| {
+            let resource = config.resources.get(rid)?;
+            let resolved =
+                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+                    .unwrap_or_else(|_| resource.clone());
+            let has_check = codegen::check_script(&resolved).is_ok();
+            let has_spec = spec_resources.contains(rid);
+            let level = match (has_spec, has_check) {
+                (true, true) => CoverageLevel::L2,
+                (_, true) => CoverageLevel::L1,
+                _ => CoverageLevel::L0,
+            };
+            let rtype = format!("{:?}", resource.resource_type).to_lowercase();
+            Some(ResourceCoverage {
+                resource_id: rid.clone(),
+                level,
+                resource_type: rtype,
+            })
+        })
+        .collect();
+
+    let report = CoverageReport::from_entries(entries);
+    println!("Resource Coverage Report");
+    println!("========================");
+    for entry in &report.resources {
+        println!(
+            "  {}: {} ({})",
+            entry.resource_id,
+            entry.level.label(),
+            entry.resource_type
+        );
+    }
+    println!(
+        "\nMin: {}, Avg: {:.1}, L0: {}, L1: {}, L2: {}",
+        report.min_level.label(),
+        report.avg_level,
+        report.histogram[0],
+        report.histogram[1],
+        report.histogram[2]
+    );
+    Ok(())
+}

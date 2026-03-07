@@ -194,6 +194,7 @@ pub(crate) fn cmd_test(
         Some("behavior") => return cmd_test_behavior(file),
         Some("mutation") => return cmd_test_mutation(file, runner_opts),
         Some("convergence") => return cmd_test_convergence(file, runner_opts),
+        Some("coverage") => return super::check_test_runners::cmd_test_coverage(file),
         _ => {}
     }
 
