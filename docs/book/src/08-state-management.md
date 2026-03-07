@@ -1373,3 +1373,18 @@ forjar undo --resume --yes
 ```
 
 Resume reads `state/<machine>/undo-progress.yaml`, identifies pending and failed resources, and re-applies. Running `--resume` on a completed undo is a no-op.
+
+### Generation Metadata
+
+Each generation stores a `.generation.yaml` file with config tracking:
+
+```yaml
+generation: 5
+created_at: '2026-03-07T10:30:00Z'
+config_hash: 'blake3:a1b2c3d4e5f6...'
+git_ref: '6fbcb806'
+forjar_version: '1.1.1'
+action: apply
+```
+
+The `config_hash` is a BLAKE3 hash of the config file used to create the generation, enabling "which config produced this state?" auditing. The `git_ref` captures the git HEAD at apply time for config recovery via `git show`.
