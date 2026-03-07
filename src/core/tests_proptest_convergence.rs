@@ -23,32 +23,31 @@ fn arb_convergent_type() -> impl Strategy<Value = ResourceType> {
 
 /// Strategy for generating a minimal convergent resource.
 fn arb_convergent_resource() -> impl Strategy<Value = (String, Resource)> {
-    (arb_convergent_type(), "[a-z]{3,8}")
-        .prop_map(|(rtype, name)| {
-            let mut r = Resource {
-                resource_type: rtype.clone(),
-                machine: MachineTarget::Single("localhost".to_string()),
-                name: Some(name.clone()),
-                ..Resource::default()
-            };
-            match rtype {
-                ResourceType::Package => {
-                    r.packages = vec![name.clone()];
-                    r.provider = Some("apt".to_string());
-                }
-                ResourceType::File => {
-                    r.path = Some(format!("/tmp/{name}"));
-                    r.content = Some("managed".to_string());
-                    r.mode = Some("0644".to_string());
-                    r.owner = Some("root".to_string());
-                }
-                ResourceType::Service => {
-                    r.state = Some("running".to_string());
-                }
-                _ => {}
+    (arb_convergent_type(), "[a-z]{3,8}").prop_map(|(rtype, name)| {
+        let mut r = Resource {
+            resource_type: rtype.clone(),
+            machine: MachineTarget::Single("localhost".to_string()),
+            name: Some(name.clone()),
+            ..Resource::default()
+        };
+        match rtype {
+            ResourceType::Package => {
+                r.packages = vec![name.clone()];
+                r.provider = Some("apt".to_string());
             }
-            (name, r)
-        })
+            ResourceType::File => {
+                r.path = Some(format!("/tmp/{name}"));
+                r.content = Some("managed".to_string());
+                r.mode = Some("0644".to_string());
+                r.owner = Some("root".to_string());
+            }
+            ResourceType::Service => {
+                r.state = Some("running".to_string());
+            }
+            _ => {}
+        }
+        (name, r)
+    })
 }
 
 /// Build a minimal ForjarConfig for plan testing.
@@ -64,9 +63,9 @@ fn make_config(resources: Vec<(String, Resource)>) -> ForjarConfig {
         policy: Policy::default(),
         policies: vec![],
         moved: vec![],
-            secrets: Default::default(),
+        secrets: Default::default(),
         includes: vec![],
-            include_provenance: HashMap::new(),
+        include_provenance: HashMap::new(),
         data: indexmap::IndexMap::new(),
         checks: indexmap::IndexMap::new(),
     };

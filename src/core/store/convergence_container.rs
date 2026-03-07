@@ -21,11 +21,7 @@ pub fn detect_container_runtime() -> Option<String> {
 }
 
 /// Execute a script inside an ephemeral container and return stdout.
-fn container_exec(
-    runtime: &str,
-    container_name: &str,
-    script: &str,
-) -> Result<String, String> {
+fn container_exec(runtime: &str, container_name: &str, script: &str) -> Result<String, String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
 
@@ -43,9 +39,7 @@ fn container_exec(
             .map_err(|e| format!("stdin write: {e}"))?;
     }
 
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("wait: {e}"))?;
+    let output = child.wait_with_output().map_err(|e| format!("wait: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -111,8 +105,7 @@ pub fn run_convergence_test_container(target: &ConvergenceTarget) -> Convergence
     }
 
     // Step 4: Query state after first apply
-    let state_after_first =
-        container_exec(&runtime, &container_name, &target.state_query_script);
+    let state_after_first = container_exec(&runtime, &container_name, &target.state_query_script);
     let first_hash = state_after_first.as_ref().map(|s| {
         let refs = [s.as_str()];
         crate::tripwire::hasher::composite_hash(&refs)
@@ -127,8 +120,7 @@ pub fn run_convergence_test_container(target: &ConvergenceTarget) -> Convergence
     let idempotent = second_apply.is_ok();
 
     // Step 6: Query state after second apply — should be unchanged
-    let state_after_second =
-        container_exec(&runtime, &container_name, &target.state_query_script);
+    let state_after_second = container_exec(&runtime, &container_name, &target.state_query_script);
     let second_hash = state_after_second.as_ref().ok().map(|s| {
         let refs = [s.as_str()];
         crate::tripwire::hasher::composite_hash(&refs)

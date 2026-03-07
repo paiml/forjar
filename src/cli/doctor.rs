@@ -333,7 +333,8 @@ fn check_sandbox_backends() -> DoctorCheck {
         DoctorCheck {
             name: "sandbox".to_string(),
             status: DoctorStatus::Warn,
-            detail: "no sandbox backends available (forjar test runs in simulated mode)".to_string(),
+            detail: "no sandbox backends available (forjar test runs in simulated mode)"
+                .to_string(),
         }
     } else {
         DoctorCheck {

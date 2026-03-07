@@ -18,8 +18,7 @@ fn verify_machine_sig(
     if !lock_path.exists() {
         return Ok(None);
     }
-    let content =
-        std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
+    let content = std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
     let expected_sig = hasher::hash_string(&format!("{content}{key}"));
     let sig_path = state_dir.join(m).join("lock.sig");
     let actual_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
@@ -186,8 +185,7 @@ pub(crate) fn cmd_lock_rotate_keys(
         if !lock_path.exists() {
             continue;
         }
-        let content =
-            std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
+        let content = std::fs::read_to_string(&lock_path).map_err(|e| format!("read lock: {e}"))?;
         let sig_path = state_dir.join(m).join("lock.sig");
         let old_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
         let expected_old = hasher::hash_string(&format!("{content}{old_key}"));
@@ -197,8 +195,7 @@ pub(crate) fn cmd_lock_rotate_keys(
             ));
         }
         let new_sig = hasher::hash_string(&format!("{content}{new_key}"));
-        std::fs::write(&sig_path, &new_sig)
-            .map_err(|e| format!("Failed to write sig: {e}"))?;
+        std::fs::write(&sig_path, &new_sig).map_err(|e| format!("Failed to write sig: {e}"))?;
         rotated += 1;
     }
     if json {
@@ -295,12 +292,19 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
         // requires the signing key — use lock-verify-sig for key-based checks)
         let sig_hash = sig_content.strip_prefix("blake3:").unwrap_or(&sig_content);
         if sig_hash.len() == 64 && sig_hash.chars().all(|c| c.is_ascii_hexdigit()) {
-            chain_results.push((m.clone(), true, "signature present and well-formed".to_string()));
+            chain_results.push((
+                m.clone(),
+                true,
+                "signature present and well-formed".to_string(),
+            ));
         } else {
             chain_results.push((
                 m.clone(),
                 false,
-                format!("malformed signature: {}", &sig_content[..sig_content.len().min(20)]),
+                format!(
+                    "malformed signature: {}",
+                    &sig_content[..sig_content.len().min(20)]
+                ),
             ));
         }
     }

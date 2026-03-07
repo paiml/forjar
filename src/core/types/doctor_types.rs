@@ -58,9 +58,15 @@ impl DoctorReport {
 
     fn format_system_section(&self, out: &mut String) {
         out.push_str("System:\n");
-        out.push_str(&format!("  forjar version: {}\n", self.system.forjar_version));
+        out.push_str(&format!(
+            "  forjar version: {}\n",
+            self.system.forjar_version
+        ));
         let status = self.system.dir_status();
-        out.push_str(&format!("  state directory: {} ({status})\n", self.system.state_dir));
+        out.push_str(&format!(
+            "  state directory: {} ({status})\n",
+            self.system.state_dir
+        ));
         if let Some(db_size) = self.system.db_size_bytes {
             let mb = db_size as f64 / (1024.0 * 1024.0);
             out.push_str(&format!("  state.db: {mb:.1}MB"));

@@ -7,8 +7,7 @@
 //! ```
 
 use forjar::core::types::{
-    BehaviorEntry, BehaviorReport, BehaviorResult, BehaviorSpec, ConvergenceAssert,
-    VerifyCommand,
+    BehaviorEntry, BehaviorReport, BehaviorResult, BehaviorSpec, ConvergenceAssert, VerifyCommand,
 };
 
 fn main() {

@@ -46,9 +46,15 @@ fn build_layer_determinism() {
     let (r1, d1) = build_layer(&entries, &config).unwrap();
     let (r2, d2) = build_layer(&entries, &config).unwrap();
 
-    assert_eq!(r1.digest, r2.digest, "compressed digest must be deterministic");
+    assert_eq!(
+        r1.digest, r2.digest,
+        "compressed digest must be deterministic"
+    );
     assert_eq!(r1.diff_id, r2.diff_id, "DiffID must be deterministic");
-    assert_eq!(r1.store_hash, r2.store_hash, "BLAKE3 hash must be deterministic");
+    assert_eq!(
+        r1.store_hash, r2.store_hash,
+        "BLAKE3 hash must be deterministic"
+    );
     assert_eq!(d1, d2, "compressed bytes must be identical");
 }
 
@@ -165,11 +171,17 @@ fn write_oci_layout_creates_structure() {
 
     // Layer blob exists
     let layer_hex = result.digest.strip_prefix("sha256:").unwrap();
-    assert!(dir.path().join(format!("blobs/sha256/{layer_hex}")).exists());
+    assert!(dir
+        .path()
+        .join(format!("blobs/sha256/{layer_hex}"))
+        .exists());
 
     // Config blob exists
     let config_digest = compute_dual_digest(config_json);
-    assert!(dir.path().join(format!("blobs/sha256/{}", config_digest.sha256)).exists());
+    assert!(dir
+        .path()
+        .join(format!("blobs/sha256/{}", config_digest.sha256))
+        .exists());
 }
 
 #[test]

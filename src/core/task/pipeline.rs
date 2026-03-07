@@ -74,10 +74,7 @@ pub fn should_skip_stage(
         return false;
     }
 
-    let prev = previous_state
-        .stages
-        .iter()
-        .find(|s| s.name == stage.name);
+    let prev = previous_state.stages.iter().find(|s| s.name == stage.name);
 
     let prev = match prev {
         Some(s) if s.status == StageStatus::Passed => s,
@@ -393,8 +390,14 @@ mod tests {
     #[test]
     fn plan_pipeline_no_cache() {
         let stages = vec![
-            PipelineStage { name: "a".into(), ..Default::default() },
-            PipelineStage { name: "b".into(), ..Default::default() },
+            PipelineStage {
+                name: "a".into(),
+                ..Default::default()
+            },
+            PipelineStage {
+                name: "b".into(),
+                ..Default::default()
+            },
         ];
         let plan = plan_pipeline(&stages, &PipelineState::default(), false, Path::new("."));
         assert_eq!(plan.len(), 2);
@@ -415,7 +418,10 @@ mod tests {
 
     #[test]
     fn should_skip_no_inputs() {
-        let stage = PipelineStage { name: "a".into(), ..Default::default() };
+        let stage = PipelineStage {
+            name: "a".into(),
+            ..Default::default()
+        };
         let state = PipelineState::default();
         assert!(!should_skip_stage(&stage, &state, true, Path::new(".")));
     }

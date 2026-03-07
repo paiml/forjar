@@ -37,9 +37,7 @@ fn main() {
             module: "core::state".into(),
             contract_id: Some("execution-safety-v1".into()),
             tier: VerificationTier::Runtime,
-            verified_by: vec![
-                "debug_assert!(file exists, temp removed)".into(),
-            ],
+            verified_by: vec!["debug_assert!(file exists, temp removed)".into()],
         },
         ContractEntry {
             function: "build_execution_order".into(),
@@ -56,18 +54,14 @@ fn main() {
             module: "core::store".into(),
             contract_id: Some("oci-layer-v1".into()),
             tier: VerificationTier::Runtime,
-            verified_by: vec![
-                "debug_assert!(same BLAKE3 on rebuild)".into(),
-            ],
+            verified_by: vec!["debug_assert!(same BLAKE3 on rebuild)".into()],
         },
         ContractEntry {
             function: "assemble_image".into(),
             module: "core::store".into(),
             contract_id: Some("oci-manifest-v1".into()),
             tier: VerificationTier::Runtime,
-            verified_by: vec![
-                "debug_assert!(OCI layout validity)".into(),
-            ],
+            verified_by: vec!["debug_assert!(OCI layout validity)".into()],
         },
     ];
 
@@ -113,12 +107,20 @@ fn main() {
     println!("\nTier Distribution:");
     println!("  Runtime (L2): {} functions", hist[2]);
     println!("  Bounded (L3): {} functions", hist[3]);
-    println!("  At or above Runtime: {}/{}", report.at_or_above(VerificationTier::Runtime), report.total_functions);
+    println!(
+        "  At or above Runtime: {}/{}",
+        report.at_or_above(VerificationTier::Runtime),
+        report.total_functions
+    );
 
     // Show each entry with its verifiers
     println!("\nDetailed Contracts:");
     for entry in &report.entries {
-        println!("  {} [{}]", entry, entry.contract_id.as_deref().unwrap_or("-"));
+        println!(
+            "  {} [{}]",
+            entry,
+            entry.contract_id.as_deref().unwrap_or("-")
+        );
         for v in &entry.verified_by {
             println!("    verified: {v}");
         }

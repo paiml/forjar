@@ -3,12 +3,8 @@
 //! Shows how all three test modes work together, producing a combined report
 //! suitable for CI gates.
 
-use forjar::core::store::convergence_runner::{
-    self, ConvergenceSummary, ConvergenceTarget,
-};
-use forjar::core::store::mutation_runner::{
-    self, MutationRunConfig, MutationTarget,
-};
+use forjar::core::store::convergence_runner::{self, ConvergenceSummary, ConvergenceTarget};
+use forjar::core::store::mutation_runner::{self, MutationRunConfig, MutationTarget};
 use forjar::core::types::{BehaviorReport, BehaviorResult};
 
 fn main() {
@@ -18,22 +14,49 @@ fn main() {
     // --- Phase 1: Convergence ---
     println!("--- Convergence Tests ---");
     let conv_targets = vec![
-        conv_target("nginx-config", "file", "install nginx-config", "check nginx-config"),
-        conv_target("curl-pkg", "package", "apt-get install curl", "dpkg -l curl"),
-        conv_target("app-svc", "service", "systemctl enable app", "systemctl is-active app"),
+        conv_target(
+            "nginx-config",
+            "file",
+            "install nginx-config",
+            "check nginx-config",
+        ),
+        conv_target(
+            "curl-pkg",
+            "package",
+            "apt-get install curl",
+            "dpkg -l curl",
+        ),
+        conv_target(
+            "app-svc",
+            "service",
+            "systemctl enable app",
+            "systemctl is-active app",
+        ),
     ];
     let conv_results = convergence_runner::run_convergence_parallel(conv_targets, 4);
     let conv_summary = ConvergenceSummary::from_results(&conv_results);
-    print!("{}", convergence_runner::format_convergence_report(&conv_results));
+    print!(
+        "{}",
+        convergence_runner::format_convergence_report(&conv_results)
+    );
 
     // --- Phase 2: Mutation ---
     println!("\n--- Mutation Tests ---");
     let mut_targets = vec![
         mut_target("nginx-config", "file", "install", "check", "hash1"),
         mut_target("curl-pkg", "package", "apt install", "dpkg -l", "hash2"),
-        mut_target("app-svc", "service", "systemctl enable", "systemctl is-active", "hash3"),
+        mut_target(
+            "app-svc",
+            "service",
+            "systemctl enable",
+            "systemctl is-active",
+            "hash3",
+        ),
     ];
-    let mut_config = MutationRunConfig { mutations_per_resource: 3, ..Default::default() };
+    let mut_config = MutationRunConfig {
+        mutations_per_resource: 3,
+        ..Default::default()
+    };
     let mut_report = mutation_runner::run_mutation_parallel(mut_targets, &mut_config);
     print!("{}", mutation_runner::format_mutation_run(&mut_report));
 
@@ -71,12 +94,22 @@ fn main() {
     // --- Combined Report ---
     let elapsed = t0.elapsed();
     println!("\n=== Combined Test Report ===");
-    println!("  Convergence: {}/{} passed ({:.0}%)",
-        conv_summary.passed, conv_summary.total, conv_summary.pass_rate());
-    println!("  Mutation:    {}/{} detected (grade {})",
-        mut_report.score.detected, mut_report.score.total, mut_report.score.grade());
-    println!("  Behavior:    {}/{} passed",
-        behavior_report.passed, behavior_report.total);
+    println!(
+        "  Convergence: {}/{} passed ({:.0}%)",
+        conv_summary.passed,
+        conv_summary.total,
+        conv_summary.pass_rate()
+    );
+    println!(
+        "  Mutation:    {}/{} detected (grade {})",
+        mut_report.score.detected,
+        mut_report.score.total,
+        mut_report.score.grade()
+    );
+    println!(
+        "  Behavior:    {}/{} passed",
+        behavior_report.passed, behavior_report.total
+    );
 
     let all_pass = conv_summary.passed == conv_summary.total
         && mut_report.score.grade() != 'F'

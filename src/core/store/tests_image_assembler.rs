@@ -52,7 +52,13 @@ fn assemble_two_layer_image() {
 #[test]
 fn assemble_creates_oci_layout() {
     let dir = tempfile::tempdir().unwrap();
-    let result = assemble_image(&test_plan(), &test_entries(), dir.path(), &OciLayerConfig::default()).unwrap();
+    let result = assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+    )
+    .unwrap();
 
     // OCI layout files
     assert!(dir.path().join("oci-layout").exists());
@@ -70,46 +76,86 @@ fn assemble_creates_oci_layout() {
 #[test]
 fn assemble_index_json_valid() {
     let dir = tempfile::tempdir().unwrap();
-    assemble_image(&test_plan(), &test_entries(), dir.path(), &OciLayerConfig::default()).unwrap();
+    assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+    )
+    .unwrap();
 
     let index: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.path().join("index.json")).unwrap())
             .unwrap();
     assert_eq!(index["schemaVersion"], 2);
     assert_eq!(index["manifests"].as_array().unwrap().len(), 1);
-    assert!(index["manifests"][0]["digest"].as_str().unwrap().starts_with("sha256:"));
+    assert!(index["manifests"][0]["digest"]
+        .as_str()
+        .unwrap()
+        .starts_with("sha256:"));
 }
 
 #[test]
 fn assemble_docker_compat_manifest() {
     let dir = tempfile::tempdir().unwrap();
-    assemble_image(&test_plan(), &test_entries(), dir.path(), &OciLayerConfig::default()).unwrap();
+    assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+    )
+    .unwrap();
 
     let docker: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.path().join("manifest.json")).unwrap())
             .unwrap();
     let entry = &docker[0];
     assert_eq!(entry["RepoTags"][0], "test/myapp:v1.0");
-    assert!(entry["Config"].as_str().unwrap().starts_with("blobs/sha256/"));
+    assert!(entry["Config"]
+        .as_str()
+        .unwrap()
+        .starts_with("blobs/sha256/"));
     assert_eq!(entry["Layers"].as_array().unwrap().len(), 2);
 }
 
 #[test]
 fn assemble_sets_entrypoint_and_labels() {
     let dir = tempfile::tempdir().unwrap();
-    let result = assemble_image(&test_plan(), &test_entries(), dir.path(), &OciLayerConfig::default()).unwrap();
+    let result = assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+    )
+    .unwrap();
 
-    assert_eq!(result.config.config.entrypoint, vec!["/usr/local/bin/myapp"]);
-    assert_eq!(result.config.config.labels.get("maintainer").unwrap(), "test@example.com");
+    assert_eq!(
+        result.config.config.entrypoint,
+        vec!["/usr/local/bin/myapp"]
+    );
+    assert_eq!(
+        result.config.config.labels.get("maintainer").unwrap(),
+        "test@example.com"
+    );
 }
 
 #[test]
 fn assemble_history_entries() {
     let dir = tempfile::tempdir().unwrap();
-    let result = assemble_image(&test_plan(), &test_entries(), dir.path(), &OciLayerConfig::default()).unwrap();
+    let result = assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+    )
+    .unwrap();
 
     assert_eq!(result.config.history.len(), 2);
-    assert!(result.config.history[0].created_by.as_ref().unwrap().contains("files"));
+    assert!(result.config.history[0]
+        .created_by
+        .as_ref()
+        .unwrap()
+        .contains("files"));
     assert!(!result.config.history[0].empty_layer);
 }
 
@@ -136,9 +182,11 @@ fn assemble_mismatch_layer_count() {
     let plan = test_plan(); // 2 layers
     let entries = vec![vec![LayerEntry::file("a", b"a", 0o644)]]; // 1 entry set
 
-    let err = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default())
-        .unwrap_err();
-    assert!(err.contains("mismatch"), "error should mention mismatch: {err}");
+    let err = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default()).unwrap_err();
+    assert!(
+        err.contains("mismatch"),
+        "error should mention mismatch: {err}"
+    );
 }
 
 #[test]
@@ -172,7 +220,11 @@ fn assemble_no_entrypoint_no_labels() {
         labels: vec![],
         entrypoint: None,
     };
-    let entries = vec![vec![LayerEntry::file("usr/sbin/nginx", b"nginx-bin", 0o755)]];
+    let entries = vec![vec![LayerEntry::file(
+        "usr/sbin/nginx",
+        b"nginx-bin",
+        0o755,
+    )]];
 
     let result = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default()).unwrap();
     assert!(result.config.config.entrypoint.is_empty());

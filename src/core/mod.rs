@@ -28,6 +28,8 @@ mod scoring_b;
 #[cfg(test)]
 mod tests_compliance;
 #[cfg(test)]
+mod tests_kani_proofs;
+#[cfg(test)]
 mod tests_proptest_convergence;
 #[cfg(test)]
 mod tests_proptest_handlers;
@@ -43,8 +45,6 @@ mod tests_scoring;
 mod tests_scoring_b;
 #[cfg(all(test, feature = "encryption"))]
 mod tests_secrets;
-#[cfg(test)]
-mod tests_kani_proofs;
 #[cfg(test)]
 mod tests_security_scanner;
 mod verus_spec;

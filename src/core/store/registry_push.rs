@@ -41,7 +41,15 @@ pub struct BlobDescriptor {
 pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<bool, String> {
     let url = format!("https://{registry}/v2/{name}/blobs/{digest}");
     let output = std::process::Command::new("curl")
-        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "--head", &url])
+        .args([
+            "-s",
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            "--head",
+            &url,
+        ])
         .output()
         .map_err(|e| format!("curl HEAD: {e}"))?;
 
@@ -58,9 +66,7 @@ pub fn head_check_command(registry: &str, name: &str, digest: &str) -> String {
 
 /// Generate the curl command for initiating a blob upload.
 pub fn upload_initiate_command(registry: &str, name: &str) -> String {
-    format!(
-        "curl -s -X POST -D - 'https://{registry}/v2/{name}/blobs/uploads/'"
-    )
+    format!("curl -s -X POST -D - 'https://{registry}/v2/{name}/blobs/uploads/'")
 }
 
 /// Generate the curl command for completing a blob upload.
@@ -84,10 +90,7 @@ pub fn manifest_put_command(registry: &str, name: &str, tag: &str, manifest_path
 /// 1. Optionally HEAD-check if blob exists (skip if `check_existing` and exists)
 /// 2. POST to initiate upload
 /// 3. PUT to complete upload with digest
-pub fn push_blob(
-    config: &RegistryPushConfig,
-    blob: &BlobDescriptor,
-) -> Result<PushResult, String> {
+pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<PushResult, String> {
     let start = Instant::now();
 
     // Step 1: Check if blob already exists
@@ -107,8 +110,15 @@ pub fn push_blob(
     // Step 2: Initiate upload
     let initiate_output = std::process::Command::new("curl")
         .args([
-            "-s", "-X", "POST", "-D", "-",
-            &format!("https://{}/v2/{}/blobs/uploads/", config.registry, config.name),
+            "-s",
+            "-X",
+            "POST",
+            "-D",
+            "-",
+            &format!(
+                "https://{}/v2/{}/blobs/uploads/",
+                config.registry, config.name
+            ),
         ])
         .output()
         .map_err(|e| format!("blob upload initiate: {e}"))?;
@@ -121,9 +131,13 @@ pub fn push_blob(
     let blob_path = blob.path.display().to_string();
     let output = std::process::Command::new("curl")
         .args([
-            "-s", "-X", "PUT",
-            "-H", "Content-Type: application/octet-stream",
-            "--data-binary", &format!("@{blob_path}"),
+            "-s",
+            "-X",
+            "PUT",
+            "-H",
+            "Content-Type: application/octet-stream",
+            "--data-binary",
+            &format!("@{blob_path}"),
             &format!("{upload_url}?digest={}", blob.digest),
         ])
         .output()
@@ -157,9 +171,13 @@ pub fn push_manifest(
 
     let output = std::process::Command::new("curl")
         .args([
-            "-s", "-X", "PUT",
-            "-H", "Content-Type: application/vnd.oci.image.manifest.v1+json",
-            "-d", manifest_json,
+            "-s",
+            "-X",
+            "PUT",
+            "-H",
+            "Content-Type: application/vnd.oci.image.manifest.v1+json",
+            "-d",
+            manifest_json,
             &format!(
                 "https://{}/v2/{}/manifests/{}",
                 config.registry, config.name, config.tag
@@ -190,18 +208,21 @@ pub fn push_manifest(
 /// 1. Push layer blobs (skip existing via HEAD check)
 /// 2. Push config blob
 /// 3. Push manifest
-pub fn push_image(
-    oci_dir: &Path,
-    config: &RegistryPushConfig,
-) -> Result<Vec<PushResult>, String> {
+pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<PushResult>, String> {
     let manifest_path = oci_dir.join("blobs").join("sha256");
     if !manifest_path.exists() {
-        return Err(format!("OCI blobs directory not found: {}", manifest_path.display()));
+        return Err(format!(
+            "OCI blobs directory not found: {}",
+            manifest_path.display()
+        ));
     }
 
     let index_path = oci_dir.join("index.json");
     if !index_path.exists() {
-        return Err(format!("OCI index.json not found: {}", index_path.display()));
+        return Err(format!(
+            "OCI index.json not found: {}",
+            index_path.display()
+        ));
     }
 
     // In a real implementation, we'd parse the index.json to find
@@ -226,8 +247,7 @@ pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, Stri
     }
 
     let mut blobs = Vec::new();
-    let entries = std::fs::read_dir(&blobs_dir)
-        .map_err(|e| format!("read blobs dir: {e}"))?;
+    let entries = std::fs::read_dir(&blobs_dir).map_err(|e| format!("read blobs dir: {e}"))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("read blob entry: {e}"))?;
@@ -307,7 +327,10 @@ pub fn format_push_summary(results: &[PushResult]) -> String {
             PushKind::Manifest => "manifest",
             PushKind::Index => "index",
         };
-        out.push_str(&format!("  [{status}] {kind}: {} ({} bytes)\n", r.digest, r.size));
+        out.push_str(&format!(
+            "  [{status}] {kind}: {} ({} bytes)\n",
+            r.digest, r.size
+        ));
     }
 
     out

@@ -209,8 +209,7 @@ impl DestroyLogEntry {
 
     /// Parse from a JSONL line.
     pub fn from_jsonl(line: &str) -> Result<Self, String> {
-        serde_json::from_str(line)
-            .map_err(|e| format!("cannot parse destroy log entry: {e}"))
+        serde_json::from_str(line).map_err(|e| format!("cannot parse destroy log entry: {e}"))
     }
 }
 
@@ -250,12 +249,15 @@ mod tests {
         let mut meta = GenerationMeta::new(5, "2026-03-05T14:30:00Z".into());
         meta.config_hash = Some("blake3:abc".into());
         meta.operator = Some("noah@host".into());
-        meta.record_machine("intel", MachineDelta {
-            created: vec!["pkg-a".into()],
-            updated: vec!["config-b".into()],
-            destroyed: vec![],
-            unchanged: 10,
-        });
+        meta.record_machine(
+            "intel",
+            MachineDelta {
+                created: vec!["pkg-a".into()],
+                updated: vec!["config-b".into()],
+                destroyed: vec![],
+                unchanged: 10,
+            },
+        );
 
         let yaml = meta.to_yaml().unwrap();
         let parsed = GenerationMeta::from_yaml(&yaml).unwrap();
@@ -268,18 +270,24 @@ mod tests {
     #[test]
     fn generation_meta_total_changes() {
         let mut meta = GenerationMeta::new(1, "ts".into());
-        meta.record_machine("a", MachineDelta {
-            created: vec!["x".into()],
-            updated: vec!["y".into()],
-            destroyed: vec![],
-            unchanged: 5,
-        });
-        meta.record_machine("b", MachineDelta {
-            created: vec![],
-            updated: vec![],
-            destroyed: vec!["z".into()],
-            unchanged: 3,
-        });
+        meta.record_machine(
+            "a",
+            MachineDelta {
+                created: vec!["x".into()],
+                updated: vec!["y".into()],
+                destroyed: vec![],
+                unchanged: 5,
+            },
+        );
+        meta.record_machine(
+            "b",
+            MachineDelta {
+                created: vec![],
+                updated: vec![],
+                destroyed: vec!["z".into()],
+                unchanged: 3,
+            },
+        );
         assert_eq!(meta.total_changes(), 3);
     }
 

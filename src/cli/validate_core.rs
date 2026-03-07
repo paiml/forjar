@@ -197,10 +197,7 @@ fn find_unresolved_content_params(
 }
 
 /// Check resource references: machines and dependencies.
-pub(crate) fn check_resource_refs_silent(
-    config: &types::ForjarConfig,
-    issues: &mut Vec<String>,
-) {
+pub(crate) fn check_resource_refs_silent(config: &types::ForjarConfig, issues: &mut Vec<String>) {
     check_resource_refs(config, issues);
 }
 fn check_resource_refs(config: &types::ForjarConfig, issues: &mut Vec<String>) {
@@ -223,10 +220,7 @@ fn check_resource_refs(config: &types::ForjarConfig, issues: &mut Vec<String>) {
 }
 
 /// Check for orphaned params (defined but never used).
-pub(crate) fn check_orphaned_params_silent(
-    config: &types::ForjarConfig,
-    issues: &mut Vec<String>,
-) {
+pub(crate) fn check_orphaned_params_silent(config: &types::ForjarConfig, issues: &mut Vec<String>) {
     check_orphaned_params(config, issues);
 }
 fn check_orphaned_params(config: &types::ForjarConfig, issues: &mut Vec<String>) {

@@ -266,9 +266,15 @@ fn proof_dag_ordering_bounded() {
 
     // Verify topological property: if edge exists, source < target in order
     let pos = |node: u8| order1.iter().position(|&n| n == node).unwrap();
-    if dep_01 { assert!(pos(0) < pos(1)); }
-    if dep_02 { assert!(pos(0) < pos(2)); }
-    if dep_12 { assert!(pos(1) < pos(2)); }
+    if dep_01 {
+        assert!(pos(0) < pos(1));
+    }
+    if dep_02 {
+        assert!(pos(0) < pos(2));
+    }
+    if dep_12 {
+        assert!(pos(1) < pos(2));
+    }
 }
 
 /// FJ-2201: Handler invariant for file resources.
@@ -390,7 +396,10 @@ fn proof_idempotency_conditional() {
     if is_converged && handler_invariant {
         // Planner decision: converged + hash match → NoOp
         let needs_apply = stored != desired;
-        assert!(!needs_apply, "converged + handler invariant must yield NoOp");
+        assert!(
+            !needs_apply,
+            "converged + handler invariant must yield NoOp"
+        );
     }
 }
 
@@ -416,7 +425,10 @@ fn proof_fleet_convergence() {
             all_noop = false;
         }
     }
-    assert!(all_noop, "fleet with all converged resources must be all-NoOp");
+    assert!(
+        all_noop,
+        "fleet with all converged resources must be all-NoOp"
+    );
 }
 
 /// FJ-2202: Apply-then-NoOp — after apply, next plan must be NoOp.
@@ -429,8 +441,10 @@ fn proof_apply_then_noop() {
     let config_hash: u32 = kani::any();
     // Apply: executor stores hash_desired_state as lock hash
     let stored_hash = config_hash; // handler invariant
-    // Re-plan: compute desired hash again
+                                   // Re-plan: compute desired hash again
     let desired_hash = config_hash; // determinism
-    assert_eq!(stored_hash, desired_hash, "apply then re-plan must yield NoOp");
+    assert_eq!(
+        stored_hash, desired_hash,
+        "apply then re-plan must yield NoOp"
+    );
 }
-

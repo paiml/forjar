@@ -316,7 +316,12 @@ mod tests {
 
     #[test]
     fn task_mode_serde_roundtrip() {
-        for mode in [TaskMode::Batch, TaskMode::Pipeline, TaskMode::Service, TaskMode::Dispatch] {
+        for mode in [
+            TaskMode::Batch,
+            TaskMode::Pipeline,
+            TaskMode::Service,
+            TaskMode::Dispatch,
+        ] {
             let yaml = serde_yaml_ng::to_string(&mode).unwrap();
             let parsed: TaskMode = serde_yaml_ng::from_str(&yaml).unwrap();
             assert_eq!(mode, parsed);
@@ -380,8 +385,20 @@ retries: 3
     fn pipeline_state_serde() {
         let state = PipelineState {
             stages: vec![
-                StageState { name: "lint".into(), status: StageStatus::Passed, exit_code: Some(0), duration_ms: Some(1200), input_hash: None },
-                StageState { name: "test".into(), status: StageStatus::Failed, exit_code: Some(1), duration_ms: Some(5000), input_hash: None },
+                StageState {
+                    name: "lint".into(),
+                    status: StageStatus::Passed,
+                    exit_code: Some(0),
+                    duration_ms: Some(1200),
+                    input_hash: None,
+                },
+                StageState {
+                    name: "test".into(),
+                    status: StageStatus::Failed,
+                    exit_code: Some(1),
+                    duration_ms: Some(5000),
+                    input_hash: None,
+                },
             ],
             status: StageStatus::Failed,
             last_completed: Some(0),
@@ -436,7 +453,10 @@ retries: 3
     fn gpu_schedule_assign() {
         let mut schedule = GpuSchedule::new(4);
         schedule.assign("big-model", vec![0, 1, 2, 3]);
-        assert_eq!(schedule.cuda_visible_devices("big-model"), Some("0,1,2,3".into()));
+        assert_eq!(
+            schedule.cuda_visible_devices("big-model"),
+            Some("0,1,2,3".into())
+        );
         assert!(schedule.fully_utilized());
         assert_eq!(schedule.assigned_device_count(), 4);
     }
@@ -457,7 +477,10 @@ retries: 3
 
     #[test]
     fn barrier_task_lifecycle() {
-        let mut barrier = BarrierTask::new("sync-all", vec!["intel".into(), "jetson".into(), "lambda".into()]);
+        let mut barrier = BarrierTask::new(
+            "sync-all",
+            vec!["intel".into(), "jetson".into(), "lambda".into()],
+        );
         assert!(!barrier.is_satisfied());
         assert_eq!(barrier.pending_machines().len(), 3);
         assert!((barrier.progress_pct() - 0.0).abs() < 0.01);

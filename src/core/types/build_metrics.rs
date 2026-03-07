@@ -49,9 +49,7 @@ impl BuildMetrics {
     pub fn current() -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            target: std::env::consts::ARCH.to_string()
-                + "-"
-                + std::env::consts::OS,
+            target: std::env::consts::ARCH.to_string() + "-" + std::env::consts::OS,
             profile: if cfg!(debug_assertions) {
                 "debug".into()
             } else {
@@ -83,7 +81,10 @@ impl BuildMetrics {
 
     /// Format a human-readable summary.
     pub fn format_summary(&self) -> String {
-        let mut out = format!("Build: {} ({} {})\n", self.version, self.target, self.profile);
+        let mut out = format!(
+            "Build: {} ({} {})\n",
+            self.version, self.target, self.profile
+        );
         if let Some(size) = self.binary_size {
             let mb = size as f64 / (1024.0 * 1024.0);
             out.push_str(&format!("  Binary size: {mb:.1} MB ({size} bytes)\n"));
@@ -112,7 +113,7 @@ impl Default for SizeThreshold {
     fn default() -> Self {
         Self {
             max_bytes: 10 * 1024 * 1024, // 10 MB
-            max_growth_pct: 10.0,          // 10%
+            max_growth_pct: 10.0,        // 10%
         }
     }
 }

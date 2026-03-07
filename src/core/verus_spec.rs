@@ -379,8 +379,16 @@ mod tests {
     fn test_fleet_convergence() {
         let mut fleet = FleetPlannerState {
             resources: vec![
-                PlannerState { desired_hash: "a".into(), stored_hash: None, converged: false },
-                PlannerState { desired_hash: "b".into(), stored_hash: Some("old".into()), converged: true },
+                PlannerState {
+                    desired_hash: "a".into(),
+                    stored_hash: None,
+                    converged: false,
+                },
+                PlannerState {
+                    desired_hash: "b".into(),
+                    stored_hash: Some("old".into()),
+                    converged: true,
+                },
             ],
         };
         assert_eq!(fleet.pending_count(), 2);

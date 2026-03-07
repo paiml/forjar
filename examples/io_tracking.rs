@@ -53,12 +53,20 @@ fn demo_cache_skip() {
     let hash_a = "blake3:abc123";
     let hash_b = "blake3:def456";
 
-    println!("cache=false, same hash: skip={}",
-        should_skip_cached(false, Some(hash_a), Some(hash_a)));
-    println!("cache=true, same hash:  skip={}",
-        should_skip_cached(true, Some(hash_a), Some(hash_a)));
-    println!("cache=true, diff hash:  skip={}",
-        should_skip_cached(true, Some(hash_a), Some(hash_b)));
-    println!("cache=true, no stored:  skip={}",
-        should_skip_cached(true, Some(hash_a), None));
+    println!(
+        "cache=false, same hash: skip={}",
+        should_skip_cached(false, Some(hash_a), Some(hash_a))
+    );
+    println!(
+        "cache=true, same hash:  skip={}",
+        should_skip_cached(true, Some(hash_a), Some(hash_a))
+    );
+    println!(
+        "cache=true, diff hash:  skip={}",
+        should_skip_cached(true, Some(hash_a), Some(hash_b))
+    );
+    println!(
+        "cache=true, no stored:  skip={}",
+        should_skip_cached(true, Some(hash_a), None)
+    );
 }

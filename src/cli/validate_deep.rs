@@ -4,7 +4,6 @@ use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
 
-
 fn check_templates_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut unresolved = 0usize;
     for res in config.resources.values() {
@@ -50,8 +49,15 @@ fn check_cycles_silent(config: &types::ForjarConfig) -> Result<(), String> {
 
 fn check_secrets_silent(file: &Path) -> Result<(), String> {
     let patterns = [
-        "password:", "secret:", "api_key:", "token:", "private_key:", "aws_secret", "AKIA",
-        "ghp_", "sk-",
+        "password:",
+        "secret:",
+        "api_key:",
+        "token:",
+        "private_key:",
+        "aws_secret",
+        "AKIA",
+        "ghp_",
+        "sk-",
     ];
     let content = std::fs::read_to_string(file).unwrap_or_default();
     let mut count = 0usize;

@@ -4,9 +4,7 @@
 //! cargo run --example validation_output
 //! ```
 
-use forjar::core::types::{
-    DeepCheckFlags, FieldSuggestion, ValidateOutput, ValidationFinding,
-};
+use forjar::core::types::{DeepCheckFlags, FieldSuggestion, ValidateOutput, ValidationFinding};
 
 fn main() {
     // Build validation findings
@@ -54,7 +52,11 @@ fn main() {
         FieldSuggestion::new("foobar", "provider", 5),
     ];
     for s in &suggestions {
-        let show = if s.should_suggest() { "SUGGEST" } else { "skip" };
+        let show = if s.should_suggest() {
+            "SUGGEST"
+        } else {
+            "skip"
+        };
         println!("  [{show}] {s}");
     }
     println!();
@@ -78,5 +80,8 @@ fn main() {
         secrets: true,
         ..Default::default()
     };
-    println!("  Partial (templates+secrets): any_enabled={}", partial.any_enabled());
+    println!(
+        "  Partial (templates+secrets): any_enabled={}",
+        partial.any_enabled()
+    );
 }

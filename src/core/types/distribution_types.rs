@@ -48,7 +48,11 @@ impl DistTarget {
     pub fn description(&self) -> String {
         match self {
             Self::Load { runtime } => format!("{runtime} load"),
-            Self::Push { registry, name, tag } => format!("{registry}/{name}:{tag}"),
+            Self::Push {
+                registry,
+                name,
+                tag,
+            } => format!("{registry}/{name}:{tag}"),
             Self::Far { output_path } => format!("FAR → {output_path}"),
         }
     }
@@ -222,7 +226,9 @@ mod tests {
 
     #[test]
     fn dist_target_load_description() {
-        let t = DistTarget::Load { runtime: "docker".into() };
+        let t = DistTarget::Load {
+            runtime: "docker".into(),
+        };
         assert_eq!(t.description(), "docker load");
     }
 
@@ -238,7 +244,9 @@ mod tests {
 
     #[test]
     fn dist_target_far_description() {
-        let t = DistTarget::Far { output_path: "/tmp/out.far".into() };
+        let t = DistTarget::Far {
+            output_path: "/tmp/out.far".into(),
+        };
         assert_eq!(t.description(), "FAR → /tmp/out.far");
     }
 

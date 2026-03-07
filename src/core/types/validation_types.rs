@@ -237,11 +237,7 @@ pub struct FieldSuggestion {
 
 impl FieldSuggestion {
     /// Create a new suggestion.
-    pub fn new(
-        unknown: impl Into<String>,
-        known: impl Into<String>,
-        distance: usize,
-    ) -> Self {
+    pub fn new(unknown: impl Into<String>, known: impl Into<String>, distance: usize) -> Self {
         Self {
             unknown: unknown.into(),
             known: known.into(),
@@ -368,8 +364,7 @@ mod tests {
 
     #[test]
     fn validation_finding_warning() {
-        let f = ValidationFinding::warning("unknown field 'packges'")
-            .for_resource("db");
+        let f = ValidationFinding::warning("unknown field 'packges'").for_resource("db");
         assert!(f.is_warning());
         assert!(!f.is_error());
     }

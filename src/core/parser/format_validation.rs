@@ -168,9 +168,7 @@ pub(crate) fn validate_cron_field(field: &str, min: u32, max: u32) -> Result<(),
             continue;
         }
         if let Some(step) = part.strip_prefix("*/") {
-            let n: u32 = step
-                .parse()
-                .map_err(|_| format!("invalid step '{step}'"))?;
+            let n: u32 = step.parse().map_err(|_| format!("invalid step '{step}'"))?;
             if n == 0 || n > max {
                 return Err(format!("step {n} out of range (1-{max})"));
             }

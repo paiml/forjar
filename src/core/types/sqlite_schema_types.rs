@@ -188,8 +188,7 @@ impl IngestCursor {
 
     /// Mark a generation as ingested.
     pub fn mark_ingested(&mut self, machine: &str, generation: u32, count: u64) {
-        self.last_generation
-            .insert(machine.to_string(), generation);
+        self.last_generation.insert(machine.to_string(), generation);
         self.total_ingested += count;
     }
 }

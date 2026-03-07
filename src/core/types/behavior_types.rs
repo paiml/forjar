@@ -211,10 +211,7 @@ impl BehaviorReport {
             out.push('\n');
         }
 
-        out.push_str(&format!(
-            "\n{}/{} passed",
-            self.passed, self.total
-        ));
+        out.push_str(&format!("\n{}/{} passed", self.passed, self.total));
         if self.failed > 0 {
             out.push_str(&format!(", {} FAILED", self.failed));
         }

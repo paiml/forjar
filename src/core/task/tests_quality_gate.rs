@@ -24,7 +24,10 @@ fn exit_code_nonzero_fails() {
 
 #[test]
 fn exit_code_custom_message() {
-    let g = QualityGate { message: Some("lint failed".into()), ..gate() };
+    let g = QualityGate {
+        message: Some("lint failed".into()),
+        ..gate()
+    };
     match evaluate_gate(&g, 1, "") {
         GateResult::Fail(_, msg) => assert_eq!(msg, "lint failed"),
         _ => panic!("expected Fail"),
@@ -54,7 +57,10 @@ fn json_threshold_fail() {
         ..gate()
     };
     let stdout = r#"{"grade":"C","score":70}"#;
-    assert!(matches!(evaluate_gate(&g, 0, stdout), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, stdout),
+        GateResult::Fail(_, _)
+    ));
 }
 
 #[test]
@@ -78,7 +84,10 @@ fn json_min_fail() {
         ..gate()
     };
     let stdout = r#"{"coverage":90.0}"#;
-    assert!(matches!(evaluate_gate(&g, 0, stdout), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, stdout),
+        GateResult::Fail(_, _)
+    ));
 }
 
 #[test]
@@ -89,7 +98,10 @@ fn json_missing_field_fails() {
         threshold: vec!["A".into()],
         ..gate()
     };
-    assert!(matches!(evaluate_gate(&g, 0, r#"{"other":"val"}"#), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, r#"{"other":"val"}"#),
+        GateResult::Fail(_, _)
+    ));
 }
 
 #[test]
@@ -99,7 +111,10 @@ fn json_invalid_output_fails() {
         field: Some("x".into()),
         ..gate()
     };
-    assert!(matches!(evaluate_gate(&g, 0, "not json"), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, "not json"),
+        GateResult::Fail(_, _)
+    ));
 }
 
 // ── Regex stdout gates ──
@@ -119,7 +134,10 @@ fn regex_no_match_fails() {
         regex: Some(r"PASS".into()),
         ..gate()
     };
-    assert!(matches!(evaluate_gate(&g, 0, "tests: FAIL"), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, "tests: FAIL"),
+        GateResult::Fail(_, _)
+    ));
 }
 
 #[test]
@@ -128,14 +146,20 @@ fn regex_invalid_pattern_fails() {
         regex: Some(r"[invalid".into()),
         ..gate()
     };
-    assert!(matches!(evaluate_gate(&g, 0, "anything"), GateResult::Fail(_, _)));
+    assert!(matches!(
+        evaluate_gate(&g, 0, "anything"),
+        GateResult::Fail(_, _)
+    ));
 }
 
 // ── on_fail actions ──
 
 #[test]
 fn on_fail_warn() {
-    let g = QualityGate { on_fail: Some("warn".into()), ..gate() };
+    let g = QualityGate {
+        on_fail: Some("warn".into()),
+        ..gate()
+    };
     match evaluate_gate(&g, 1, "") {
         GateResult::Fail(action, _) => assert_eq!(action, GateAction::Warn),
         _ => panic!("expected Fail"),
@@ -144,7 +168,10 @@ fn on_fail_warn() {
 
 #[test]
 fn on_fail_skip_dependents() {
-    let g = QualityGate { on_fail: Some("skip_dependents".into()), ..gate() };
+    let g = QualityGate {
+        on_fail: Some("skip_dependents".into()),
+        ..gate()
+    };
     match evaluate_gate(&g, 1, "") {
         GateResult::Fail(action, _) => assert_eq!(action, GateAction::SkipDependents),
         _ => panic!("expected Fail"),

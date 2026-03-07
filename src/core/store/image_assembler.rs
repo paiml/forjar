@@ -3,7 +3,9 @@
 //! Connects the layer builder (FJ-2102) with OCI types (FJ-2101) to produce
 //! loadable OCI images from `type: image` resource definitions.
 
-use crate::core::store::layer_builder::{build_layer, compute_dual_digest, write_oci_layout, LayerEntry};
+use crate::core::store::layer_builder::{
+    build_layer, compute_dual_digest, write_oci_layout, LayerEntry,
+};
 use crate::core::types::{
     ImageBuildPlan, LayerBuildResult, LayerStrategy, OciDescriptor, OciHistoryEntry,
     OciImageConfig, OciIndex, OciLayerConfig, OciManifest,
@@ -64,9 +66,14 @@ pub fn assemble_image(
     }
 
     // Collect diff_ids and descriptors
-    let diff_ids: Vec<String> = built_layers.iter().map(|(r, _)| r.diff_id.clone()).collect();
-    let layer_descriptors: Vec<OciDescriptor> =
-        built_layers.iter().map(|(r, _)| r.to_descriptor()).collect();
+    let diff_ids: Vec<String> = built_layers
+        .iter()
+        .map(|(r, _)| r.diff_id.clone())
+        .collect();
+    let layer_descriptors: Vec<OciDescriptor> = built_layers
+        .iter()
+        .map(|(r, _)| r.to_descriptor())
+        .collect();
     let layer_results: Vec<LayerBuildResult> =
         built_layers.iter().map(|(r, _)| r.clone()).collect();
     let total_size: u64 = built_layers.iter().map(|(r, _)| r.compressed_size).sum();
@@ -139,8 +146,14 @@ pub fn assemble_image(
     .map_err(|e| format!("write manifest.json: {e}"))?;
 
     // FJ-2200: Postcondition — valid OCI layout
-    debug_assert!(output_dir.join("oci-layout").exists(), "assemble_image: oci-layout missing");
-    debug_assert!(output_dir.join("index.json").exists(), "assemble_image: index.json missing");
+    debug_assert!(
+        output_dir.join("oci-layout").exists(),
+        "assemble_image: oci-layout missing"
+    );
+    debug_assert!(
+        output_dir.join("index.json").exists(),
+        "assemble_image: index.json missing"
+    );
     debug_assert!(
         manifest.layers.len() == layer_results.len(),
         "assemble_image: manifest layer count mismatch"

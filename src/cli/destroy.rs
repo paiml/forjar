@@ -73,8 +73,7 @@ pub(crate) fn cleanup_succeeded_entries(
         let Ok(content) = std::fs::read_to_string(&lock_path) else {
             continue;
         };
-        let Ok(mut lock) =
-            serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content)
+        let Ok(mut lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content)
         else {
             continue;
         };

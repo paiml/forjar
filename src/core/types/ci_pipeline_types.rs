@@ -113,10 +113,7 @@ pub struct MsrvCheck {
 impl MsrvCheck {
     /// Create from a version string.
     pub fn new(version: &str) -> Self {
-        let parts: Vec<u32> = version
-            .split('.')
-            .filter_map(|p| p.parse().ok())
-            .collect();
+        let parts: Vec<u32> = version.split('.').filter_map(|p| p.parse().ok()).collect();
         Self {
             required: version.to_string(),
             major: parts.first().copied().unwrap_or(0),
@@ -127,10 +124,7 @@ impl MsrvCheck {
 
     /// Check if a given version satisfies the MSRV.
     pub fn satisfies(&self, actual: &str) -> bool {
-        let parts: Vec<u32> = actual
-            .split('.')
-            .filter_map(|p| p.parse().ok())
-            .collect();
+        let parts: Vec<u32> = actual.split('.').filter_map(|p| p.parse().ok()).collect();
         let (a_major, a_minor, a_patch) = (
             parts.first().copied().unwrap_or(0),
             parts.get(1).copied().unwrap_or(0),
@@ -321,7 +315,9 @@ mod tests {
         };
         let vars = c.env_vars();
         assert!(vars.iter().any(|(k, _)| k == "CARGO_INCREMENTAL"));
-        assert!(vars.iter().any(|(k, v)| k == "SOURCE_DATE_EPOCH" && v == "1234567890"));
+        assert!(vars
+            .iter()
+            .any(|(k, v)| k == "SOURCE_DATE_EPOCH" && v == "1234567890"));
     }
 
     #[test]
@@ -370,7 +366,9 @@ mod tests {
     fn feature_matrix_cargo_commands() {
         let m = FeatureMatrix::new(vec!["encryption"]);
         let cmds = m.cargo_commands();
-        assert!(cmds.iter().any(|c| c.contains("--no-default-features") && !c.contains("--features")));
+        assert!(cmds
+            .iter()
+            .any(|c| c.contains("--no-default-features") && !c.contains("--features")));
         assert!(cmds.iter().any(|c| c.contains("--features encryption")));
     }
 

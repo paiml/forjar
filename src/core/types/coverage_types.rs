@@ -59,7 +59,6 @@ impl CoverageLevel {
     }
 }
 
-
 impl fmt::Display for CoverageLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "L{} ({})", self.value(), self.label())
@@ -234,8 +233,12 @@ mod tests {
     #[test]
     fn coverage_level_serde_roundtrip() {
         for level in [
-            CoverageLevel::L0, CoverageLevel::L1, CoverageLevel::L2,
-            CoverageLevel::L3, CoverageLevel::L4, CoverageLevel::L5,
+            CoverageLevel::L0,
+            CoverageLevel::L1,
+            CoverageLevel::L2,
+            CoverageLevel::L3,
+            CoverageLevel::L4,
+            CoverageLevel::L5,
         ] {
             let json = serde_json::to_string(&level).unwrap();
             let parsed: CoverageLevel = serde_json::from_str(&json).unwrap();

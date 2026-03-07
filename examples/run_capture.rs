@@ -38,13 +38,23 @@ fn main() {
         stderr: String::new(),
     };
     run_capture::capture_output(
-        &dir, "nginx-pkg", "package", "apply", machine,
-        "ssh", "apt-get install -y nginx", &ok_output, 1.2,
+        &dir,
+        "nginx-pkg",
+        "package",
+        "apply",
+        machine,
+        "ssh",
+        "apt-get install -y nginx",
+        &ok_output,
+        1.2,
     );
     run_capture::update_meta_resource(
-        &dir, "nginx-pkg",
+        &dir,
+        "nginx-pkg",
         ResourceRunStatus::Converged {
-            exit_code: Some(0), duration_secs: Some(1.2), failed: false,
+            exit_code: Some(0),
+            duration_secs: Some(1.2),
+            failed: false,
         },
     );
     println!("  Captured: nginx-pkg.apply.log (success, 1.2s)");
@@ -56,13 +66,23 @@ fn main() {
         stderr: "E: Unable to locate package cargo-watch\n".into(),
     };
     run_capture::capture_output(
-        &dir, "cargo-tools", "package", "apply", machine,
-        "ssh", "apt-get install -y cargo-watch", &fail_output, 0.8,
+        &dir,
+        "cargo-tools",
+        "package",
+        "apply",
+        machine,
+        "ssh",
+        "apt-get install -y cargo-watch",
+        &fail_output,
+        0.8,
     );
     run_capture::update_meta_resource(
-        &dir, "cargo-tools",
+        &dir,
+        "cargo-tools",
         ResourceRunStatus::Converged {
-            exit_code: Some(100), duration_secs: Some(0.8), failed: true,
+            exit_code: Some(100),
+            duration_secs: Some(0.8),
+            failed: true,
         },
     );
     println!("  Captured: cargo-tools.apply.log (FAILED, exit 100)\n");

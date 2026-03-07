@@ -319,7 +319,11 @@ impl fmt::Display for BundleSizeDrift {
         }
         if let Some(prev) = self.previous_bytes {
             let p = prev / 1024;
-            let pct = if prev > 0 { ((cur as f64 - p as f64) / p as f64 * 100.0) as i32 } else { 0 };
+            let pct = if prev > 0 {
+                ((cur as f64 - p as f64) / p as f64 * 100.0) as i32
+            } else {
+                0
+            };
             write!(f, " (prev: {p} KB, {pct:+}%)")?;
         }
         Ok(())
@@ -468,7 +472,10 @@ optimize: true
         assert!(d.exceeds_budget && !d.is_ok());
         assert!(d.to_string().contains("BUDGET EXCEEDED"));
         // Growth >20% (within budget)
-        let big = WasmSizeBudget { core_kb: 200, ..Default::default() };
+        let big = WasmSizeBudget {
+            core_kb: 200,
+            ..Default::default()
+        };
         let d = BundleSizeDrift::check(&big, 130 * 1024, Some(100 * 1024));
         assert!(!d.exceeds_budget && d.exceeds_growth_limit && !d.is_ok());
         // No previous

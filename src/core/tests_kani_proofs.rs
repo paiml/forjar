@@ -98,7 +98,11 @@ fn test_handler_invariant_service_runtime() {
     let mut r2 = r.clone();
     r2.tags = vec!["production".into()];
     r2.depends_on = vec!["nginx-pkg".into()];
-    assert_eq!(h_base, hash_desired_state(&r2), "tags/deps must not affect service hash");
+    assert_eq!(
+        h_base,
+        hash_desired_state(&r2),
+        "tags/deps must not affect service hash"
+    );
 }
 
 #[test]

@@ -44,7 +44,12 @@ fn demo_pipeline_plan() {
         },
     ];
 
-    let plan = plan_pipeline(&stages, &PipelineState::default(), true, &std::path::Path::new("."));
+    let plan = plan_pipeline(
+        &stages,
+        &PipelineState::default(),
+        true,
+        &std::path::Path::new("."),
+    );
     for entry in &plan {
         let gate = if entry.is_gate { " [GATE]" } else { "" };
         let skip = if entry.skip { " (cached)" } else { "" };

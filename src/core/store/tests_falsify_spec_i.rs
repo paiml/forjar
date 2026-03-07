@@ -313,7 +313,10 @@ fn falsify_i22_multiple_secrets() {
 #[test]
 fn falsify_j04_core_bench_exists() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    assert!(root.join("benches/core_bench.rs").exists(), "benches/core_bench.rs must exist");
+    assert!(
+        root.join("benches/core_bench.rs").exists(),
+        "benches/core_bench.rs must exist"
+    );
 }
 
 /// J-05: Store bench has criterion_group and criterion_main macros.

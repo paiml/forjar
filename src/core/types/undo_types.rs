@@ -83,10 +83,7 @@ impl UndoPlan {
             "Undo: generation {} → {}\n",
             self.generation_from, self.generation_to
         );
-        out.push_str(&format!(
-            "Machines: {}\n",
-            self.machines.join(", ")
-        ));
+        out.push_str(&format!("Machines: {}\n", self.machines.join(", ")));
         out.push_str(&format!(
             "Actions: {} destroy, {} create, {} update\n",
             self.destroy_count(),
@@ -106,10 +103,7 @@ impl UndoPlan {
                 UndoAction::Update => "UPDATE",
             };
             let rev = if a.reversible { "" } else { " [IRREVERSIBLE]" };
-            out.push_str(&format!(
-                "  [{tag}] {}/{}{rev}\n",
-                a.machine, a.resource_id
-            ));
+            out.push_str(&format!("  [{tag}] {}/{}{rev}\n", a.machine, a.resource_id));
         }
         out
     }

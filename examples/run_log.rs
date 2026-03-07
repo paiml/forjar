@@ -6,9 +6,7 @@
 //! cargo run --example run_log
 //! ```
 
-use forjar::core::types::{
-    LogRetention, ResourceRunStatus, RunLogEntry, RunMeta, generate_run_id,
-};
+use forjar::core::types::{generate_run_id, LogRetention, ResourceRunStatus, RunLogEntry, RunMeta};
 
 fn main() {
     demo_run_id();
@@ -59,7 +57,8 @@ fn demo_run_meta() {
 
     println!("  Run: {run_id}");
     println!("  Machine: {}", meta.machine);
-    println!("  Summary: {} total, {} converged, {} noop, {} failed, {} skipped",
+    println!(
+        "  Summary: {} total, {} converged, {} noop, {} failed, {} skipped",
         meta.summary.total,
         meta.summary.converged,
         meta.summary.noop,
@@ -96,6 +95,12 @@ fn demo_retention() {
     let retention = LogRetention::default();
     println!("  keep_runs: {}", retention.keep_runs);
     println!("  keep_failed: {}", retention.keep_failed);
-    println!("  max_log_size: {} MB", retention.max_log_size / 1024 / 1024);
-    println!("  max_total_size: {} MB", retention.max_total_size / 1024 / 1024);
+    println!(
+        "  max_log_size: {} MB",
+        retention.max_log_size / 1024 / 1024
+    );
+    println!(
+        "  max_total_size: {} MB",
+        retention.max_total_size / 1024 / 1024
+    );
 }

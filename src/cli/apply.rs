@@ -100,7 +100,11 @@ pub(crate) fn cmd_apply(
         rollback_on_failure,
         max_parallel,
         trace: verbose,
-        run_id: if dry_run { None } else { Some(crate::core::types::generate_run_id()) },
+        run_id: if dry_run {
+            None
+        } else {
+            Some(crate::core::types::generate_run_id())
+        },
     };
 
     maybe_auto_snapshot(&config, state_dir, dry_run, verbose);

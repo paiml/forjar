@@ -172,7 +172,10 @@ impl ContractCoverageReport {
     pub fn format_summary(&self) -> String {
         let hist = self.histogram();
         let mut out = String::from("Contract Coverage Report\n========================\n");
-        out.push_str(&format!("Total functions on critical path: {}\n", self.total_functions));
+        out.push_str(&format!(
+            "Total functions on critical path: {}\n",
+            self.total_functions
+        ));
         for (i, &count) in hist.iter().enumerate().rev() {
             let tier = match i {
                 5 => "structural",

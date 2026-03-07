@@ -1,8 +1,6 @@
 //! Demonstrates FJ-2003 generation diff types and cross-generation comparison.
 
-use forjar::core::types::{
-    diff_resource_sets, DiffAction, GenerationDiff, ResourceDiff,
-};
+use forjar::core::types::{diff_resource_sets, DiffAction, GenerationDiff, ResourceDiff};
 
 fn main() {
     // Build a diff manually
@@ -14,10 +12,7 @@ fn main() {
         resources: vec![
             ResourceDiff::added("monitoring-agent", "package"),
             ResourceDiff::modified("bash-aliases", "file")
-                .with_hashes(
-                    Some("blake3:aaa111".into()),
-                    Some("blake3:bbb222".into()),
-                )
+                .with_hashes(Some("blake3:aaa111".into()), Some("blake3:bbb222".into()))
                 .with_detail("content changed"),
             ResourceDiff::removed("legacy-cron", "service"),
             ResourceDiff::unchanged("nginx-pkg", "package"),
@@ -34,8 +29,8 @@ fn main() {
         ("legacy-cron", "service", "blake3:ddd"),
     ];
     let gen8_resources = vec![
-        ("bash-aliases", "file", "blake3:aaa_new"),  // modified
-        ("nginx-pkg", "package", "blake3:bbb"),       // unchanged
+        ("bash-aliases", "file", "blake3:aaa_new"),    // modified
+        ("nginx-pkg", "package", "blake3:bbb"),        // unchanged
         ("nginx-conf", "file", "blake3:ccc"),          // unchanged
         ("monitoring-agent", "package", "blake3:eee"), // added
     ];

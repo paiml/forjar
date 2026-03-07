@@ -52,7 +52,14 @@ pub fn scan_overlay_upper(upper_dir: &Path, strip_prefix: &Path) -> Result<Overl
     let mut total_bytes: u64 = 0;
     let mut file_count: usize = 0;
 
-    walk_dir(upper_dir, strip_prefix, &mut entries, &mut whiteouts, &mut total_bytes, &mut file_count)?;
+    walk_dir(
+        upper_dir,
+        strip_prefix,
+        &mut entries,
+        &mut whiteouts,
+        &mut total_bytes,
+        &mut file_count,
+    )?;
 
     Ok(OverlayScan {
         entries,
@@ -70,8 +77,8 @@ fn walk_dir(
     total_bytes: &mut u64,
     file_count: &mut usize,
 ) -> Result<(), String> {
-    let read_dir = std::fs::read_dir(dir)
-        .map_err(|e| format!("read_dir {}: {e}", dir.display()))?;
+    let read_dir =
+        std::fs::read_dir(dir).map_err(|e| format!("read_dir {}: {e}", dir.display()))?;
 
     for entry in read_dir {
         let entry = entry.map_err(|e| format!("dir entry: {e}"))?;
@@ -79,14 +86,16 @@ fn walk_dir(
         let file_name = entry.file_name().to_string_lossy().to_string();
 
         // Compute container-relative path
-        let rel_path = path.strip_prefix(strip_prefix)
+        let rel_path = path
+            .strip_prefix(strip_prefix)
             .map_err(|e| format!("strip prefix: {e}"))?
             .to_string_lossy()
             .to_string();
 
         // Check for OCI-style whiteout markers (.wh.*)
         if let Some(suffix) = file_name.strip_prefix(".wh.") {
-            let parent = path.parent()
+            let parent = path
+                .parent()
                 .and_then(|p| p.strip_prefix(strip_prefix).ok())
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
@@ -106,10 +115,17 @@ fn walk_dir(
         }
 
         if path.is_dir() {
-            walk_dir(&path, strip_prefix, entries, whiteouts, total_bytes, file_count)?;
+            walk_dir(
+                &path,
+                strip_prefix,
+                entries,
+                whiteouts,
+                total_bytes,
+                file_count,
+            )?;
         } else if path.is_file() {
-            let content = std::fs::read(&path)
-                .map_err(|e| format!("read {}: {e}", path.display()))?;
+            let content =
+                std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
             let mode = file_mode(&path);
             *total_bytes += content.len() as u64;
             *file_count += 1;
@@ -202,7 +218,9 @@ mod tests {
         assert_eq!(scan.whiteouts.len(), 1);
         assert_eq!(
             scan.whiteouts[0],
-            WhiteoutEntry::FileDelete { path: "etc/old.conf".into() }
+            WhiteoutEntry::FileDelete {
+                path: "etc/old.conf".into()
+            }
         );
     }
 
@@ -216,7 +234,9 @@ mod tests {
         assert_eq!(scan.whiteouts.len(), 1);
         assert_eq!(
             scan.whiteouts[0],
-            WhiteoutEntry::OpaqueDir { path: "var/cache".into() }
+            WhiteoutEntry::OpaqueDir {
+                path: "var/cache".into()
+            }
         );
     }
 
@@ -236,8 +256,12 @@ mod tests {
     #[test]
     fn whiteouts_to_entries_conversion() {
         let whiteouts = vec![
-            WhiteoutEntry::FileDelete { path: "etc/old.conf".into() },
-            WhiteoutEntry::OpaqueDir { path: "var/cache".into() },
+            WhiteoutEntry::FileDelete {
+                path: "etc/old.conf".into(),
+            },
+            WhiteoutEntry::OpaqueDir {
+                path: "var/cache".into(),
+            },
         ];
         let entries = whiteouts_to_entries(&whiteouts);
         assert_eq!(entries.len(), 2);
@@ -291,7 +315,9 @@ mod tests {
         assert_eq!(scan.whiteouts.len(), 1);
         assert_eq!(
             scan.whiteouts[0],
-            WhiteoutEntry::FileDelete { path: "rootfile".into() }
+            WhiteoutEntry::FileDelete {
+                path: "rootfile".into()
+            }
         );
     }
 

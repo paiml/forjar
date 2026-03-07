@@ -4,9 +4,7 @@
 //! cargo run --example mutation_testing
 //! ```
 
-use forjar::core::types::{
-    MutationOperator, MutationReport, MutationResult, MutationScore,
-};
+use forjar::core::types::{MutationOperator, MutationReport, MutationResult, MutationScore};
 
 fn main() {
     // Mutation operators
@@ -103,11 +101,36 @@ fn main() {
     // Score calculation demo
     println!("=== Score Grades ===");
     let scores = vec![
-        MutationScore { total: 10, detected: 10, survived: 0, errored: 0 },
-        MutationScore { total: 10, detected: 9, survived: 1, errored: 0 },
-        MutationScore { total: 10, detected: 8, survived: 2, errored: 0 },
-        MutationScore { total: 10, detected: 6, survived: 4, errored: 0 },
-        MutationScore { total: 10, detected: 5, survived: 5, errored: 0 },
+        MutationScore {
+            total: 10,
+            detected: 10,
+            survived: 0,
+            errored: 0,
+        },
+        MutationScore {
+            total: 10,
+            detected: 9,
+            survived: 1,
+            errored: 0,
+        },
+        MutationScore {
+            total: 10,
+            detected: 8,
+            survived: 2,
+            errored: 0,
+        },
+        MutationScore {
+            total: 10,
+            detected: 6,
+            survived: 4,
+            errored: 0,
+        },
+        MutationScore {
+            total: 10,
+            detected: 5,
+            survived: 5,
+            errored: 0,
+        },
     ];
     for s in &scores {
         println!("  {:.0}% -> Grade {}", s.score_pct(), s.grade());

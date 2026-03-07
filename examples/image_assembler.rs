@@ -23,10 +23,17 @@ fn main() {
             },
         ],
         labels: vec![
-            ("org.opencontainers.image.source".into(), "https://github.com/example/myapp".into()),
+            (
+                "org.opencontainers.image.source".into(),
+                "https://github.com/example/myapp".into(),
+            ),
             ("org.opencontainers.image.version".into(), "1.0.0".into()),
         ],
-        entrypoint: Some(vec!["/usr/local/bin/myapp".into(), "--config".into(), "/etc/app/config.yaml".into()]),
+        entrypoint: Some(vec![
+            "/usr/local/bin/myapp".into(),
+            "--config".into(),
+            "/etc/app/config.yaml".into(),
+        ]),
     };
 
     // Prepare file entries for each layer
@@ -35,8 +42,16 @@ fn main() {
         vec![
             LayerEntry::dir("etc/", 0o755),
             LayerEntry::dir("etc/app/", 0o755),
-            LayerEntry::file("etc/app/config.yaml", b"port: 8080\nlog_level: info\nworkers: 4\n", 0o644),
-            LayerEntry::file("etc/app/secrets.env", b"DB_URL=postgres://db:5432/app\nAPI_KEY=change-me\n", 0o600),
+            LayerEntry::file(
+                "etc/app/config.yaml",
+                b"port: 8080\nlog_level: info\nworkers: 4\n",
+                0o644,
+            ),
+            LayerEntry::file(
+                "etc/app/secrets.env",
+                b"DB_URL=postgres://db:5432/app\nAPI_KEY=change-me\n",
+                0o600,
+            ),
         ],
         // Layer 1: application binary
         vec![
@@ -60,8 +75,13 @@ fn main() {
     // Report
     println!("--- Build Report ---");
     for (i, layer) in result.layers.iter().enumerate() {
-        println!("  Layer {i}: {} files, {} -> {} bytes ({:.0}% compressed)",
-            layer.file_count, layer.uncompressed_size, layer.compressed_size, layer.compression_ratio());
+        println!(
+            "  Layer {i}: {} files, {} -> {} bytes ({:.0}% compressed)",
+            layer.file_count,
+            layer.uncompressed_size,
+            layer.compressed_size,
+            layer.compression_ratio()
+        );
         println!("    DiffID: {}", layer.diff_id);
         println!("    Digest: {}", layer.digest);
     }
@@ -86,13 +106,19 @@ fn main() {
     println!("  blobs/sha256/: {} blobs", blobs.len());
 
     // Verify Docker compat
-    let docker: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(dir.path().join("manifest.json")).unwrap(),
-    ).unwrap();
+    let docker: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("manifest.json")).unwrap())
+            .unwrap();
     println!("\n--- Docker Compat ---");
     println!("  RepoTags: {}", docker[0]["RepoTags"][0]);
-    println!("  Layers:   {}", docker[0]["Layers"].as_array().unwrap().len());
+    println!(
+        "  Layers:   {}",
+        docker[0]["Layers"].as_array().unwrap().len()
+    );
 
     println!("\n=== Image ready: {} ===", plan.tag);
-    println!("  To load: tar -cf - -C {} . | docker load", dir.path().display());
+    println!(
+        "  To load: tar -cf - -C {} . | docker load",
+        dir.path().display()
+    );
 }

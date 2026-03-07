@@ -52,9 +52,7 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
             format!("rm -f '/etc/forjar/{resource_id}' 2>/dev/null; true")
         }
         MutationOperator::ModifyContent => {
-            format!(
-                "echo 'MUTATED_CONTENT' >> '/etc/forjar/{resource_id}' 2>/dev/null; true"
-            )
+            format!("echo 'MUTATED_CONTENT' >> '/etc/forjar/{resource_id}' 2>/dev/null; true")
         }
         MutationOperator::ChangePermissions => {
             format!("chmod 000 '/etc/forjar/{resource_id}' 2>/dev/null; true")
@@ -72,9 +70,7 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
             format!("umount '/mnt/{resource_id}' 2>/dev/null; true")
         }
         MutationOperator::CorruptConfig => {
-            format!(
-                "sed -i 's/^/#CORRUPTED /' '/etc/forjar/{resource_id}' 2>/dev/null; true"
-            )
+            format!("sed -i 's/^/#CORRUPTED /' '/etc/forjar/{resource_id}' 2>/dev/null; true")
         }
     }
 }

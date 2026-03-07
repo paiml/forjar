@@ -12,7 +12,10 @@ use forjar::core::store::db;
 use forjar::core::store::ingest;
 
 fn main() {
-    println!("=== SQLite Schema Benchmark (v{}) ===\n", db::SCHEMA_VERSION);
+    println!(
+        "=== SQLite Schema Benchmark (v{}) ===\n",
+        db::SCHEMA_VERSION
+    );
 
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("bench.db");
@@ -72,7 +75,10 @@ fn main() {
         let results = db::fts5_search(&conn, query, 50).expect("search");
         let query_us = t1.elapsed().as_micros();
         let pass = if query_us < 50_000 { "PASS" } else { "FAIL" };
-        println!("  [{pass}] \"{query}\": {} results in {query_us}us (target: <50ms)", results.len());
+        println!(
+            "  [{pass}] \"{query}\": {} results in {query_us}us (target: <50ms)",
+            results.len()
+        );
     }
 
     // U2: DB size
@@ -80,12 +86,20 @@ fn main() {
     let size = std::fs::metadata(&db_path).expect("stat").len();
     let pass = if size < 1_048_576 { "PASS" } else { "FAIL" };
     println!("\n--- U2: Database Size ---");
-    println!("  [{pass}] state.db = {} bytes ({:.1} KB, target: <1MB)", size, size as f64 / 1024.0);
+    println!(
+        "  [{pass}] state.db = {} bytes ({:.1} KB, target: <1MB)",
+        size,
+        size as f64 / 1024.0
+    );
 
     // Health check
     let conn = db::open_state_db(&db_path).expect("reopen");
     let health = ingest::query_health(&conn).expect("health");
     println!("\n--- Health ---");
-    println!("  Machines: {}, Resources: {}, Health: {:.0}%",
-        health.machines.len(), health.total_resources, health.health_pct());
+    println!(
+        "  Machines: {}, Resources: {}, Health: {:.0}%",
+        health.machines.len(),
+        health.total_resources,
+        health.health_pct()
+    );
 }

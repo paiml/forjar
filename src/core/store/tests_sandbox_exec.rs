@@ -243,7 +243,11 @@ mod tests {
         assert!(steps[0].description.contains("whiteout"));
         assert!(steps[1].description.contains("tarball"));
         assert!(steps[2].description.contains("DiffID"));
-        assert!(steps[1].command.as_ref().unwrap().contains("/out/layer.tar"));
+        assert!(steps[1]
+            .command
+            .as_ref()
+            .unwrap()
+            .contains("/out/layer.tar"));
     }
 
     // ── multi-input overlay ────────────────────────────────────
@@ -282,7 +286,9 @@ mod tests {
         assert_eq!(index.manifests.len(), 2);
         assert_eq!(index.manifests[0].digest, "sha256:amd64digest");
         assert_eq!(index.manifests[1].digest, "sha256:arm64digest");
-        assert!(index.manifests[0].annotations.contains_key("org.opencontainers.image.platform"));
+        assert!(index.manifests[0]
+            .annotations
+            .contains_key("org.opencontainers.image.platform"));
     }
 
     #[test]
@@ -308,7 +314,7 @@ mod tests {
         let data = b"forjar test data for compression";
         let compressed = gzip_compress(data).unwrap();
         assert!(compressed.len() < data.len() + 50); // gzip has headers
-        // Decompress and verify
+                                                     // Decompress and verify
         use flate2::read::GzDecoder;
         use std::io::Read;
         let mut decoder = GzDecoder::new(&compressed[..]);
@@ -322,7 +328,11 @@ mod tests {
         let steps = oci_layout_plan(Path::new("/tmp/oci-out"), "myapp:1.0");
         assert_eq!(steps.len(), 4);
         assert!(steps[0].command.as_ref().unwrap().contains("mkdir"));
-        assert!(steps[1].command.as_ref().unwrap().contains("imageLayoutVersion"));
+        assert!(steps[1]
+            .command
+            .as_ref()
+            .unwrap()
+            .contains("imageLayoutVersion"));
         assert!(steps[2].command.as_ref().unwrap().contains("index.json"));
         assert!(steps[3].command.as_ref().unwrap().contains("RepoTags"));
         assert!(steps[3].command.as_ref().unwrap().contains("myapp:1.0"));

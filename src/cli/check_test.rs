@@ -282,7 +282,10 @@ pub(crate) fn cmd_test(
 
     // FJ-2606: Collect test artifacts when verbose
     if verbose {
-        let artifact_dir = file.parent().unwrap_or(Path::new(".")).join(".forjar-test-artifacts");
+        let artifact_dir = file
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(".forjar-test-artifacts");
         let artifacts = collect_test_artifacts(&results, &artifact_dir);
         if !artifacts.is_empty() {
             eprintln!("Artifacts written to {}", artifact_dir.display());
@@ -335,8 +338,8 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
             if name.ends_with(".spec.yaml") {
                 let content = std::fs::read_to_string(entry.path())
                     .map_err(|e| format!("read {name}: {e}"))?;
-                let spec: BehaviorSpec = serde_yaml_ng::from_str(&content)
-                    .map_err(|e| format!("parse {name}: {e}"))?;
+                let spec: BehaviorSpec =
+                    serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {name}: {e}"))?;
                 println!("Loaded: {name} ({} behaviors)", spec.behavior_count());
                 specs.push(spec);
             }
@@ -352,17 +355,25 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
     let mut total_pass = 0usize;
     let mut total_fail = 0usize;
     for spec in &specs {
-        let results: Vec<BehaviorResult> = spec.behaviors.iter().map(|b| {
-            let passed = b.assert_state.is_some() || b.has_verify() || b.is_convergence();
-            BehaviorResult {
-                name: b.name.clone(),
-                passed,
-                failure: if passed { None } else { Some("no assertion defined".into()) },
-                actual_exit_code: None,
-                actual_stdout: None,
-                duration_ms: 0,
-            }
-        }).collect();
+        let results: Vec<BehaviorResult> = spec
+            .behaviors
+            .iter()
+            .map(|b| {
+                let passed = b.assert_state.is_some() || b.has_verify() || b.is_convergence();
+                BehaviorResult {
+                    name: b.name.clone(),
+                    passed,
+                    failure: if passed {
+                        None
+                    } else {
+                        Some("no assertion defined".into())
+                    },
+                    actual_exit_code: None,
+                    actual_stdout: None,
+                    duration_ms: 0,
+                }
+            })
+            .collect();
         let report = BehaviorReport::from_results(spec.name.clone(), results);
         total_pass += report.passed;
         total_fail += report.failed;
@@ -370,8 +381,14 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
     }
 
     let elapsed = t0.elapsed();
-    println!("\n{} spec(s), {} behavior(s): {} passed, {} failed ({:.1}s)",
-        specs.len(), total_pass + total_fail, total_pass, total_fail, elapsed.as_secs_f64());
+    println!(
+        "\n{} spec(s), {} behavior(s): {} passed, {} failed ({:.1}s)",
+        specs.len(),
+        total_pass + total_fail,
+        total_pass,
+        total_fail,
+        elapsed.as_secs_f64()
+    );
 
     if total_fail > 0 {
         Err(format!("{total_fail} behavior(s) failed"))
@@ -382,27 +399,28 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
 
 /// FJ-2604: Run mutation testing against stack resources.
 pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
-    use crate::core::store::mutation_runner::{
-        self, MutationRunConfig, MutationTarget,
-    };
+    use crate::core::store::mutation_runner::{self, MutationRunConfig, MutationTarget};
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
     let run_config = MutationRunConfig::default();
 
-    let mode = crate::core::store::convergence_runner::resolve_mode(
-        run_config.backend,
-    );
+    let mode = crate::core::store::convergence_runner::resolve_mode(run_config.backend);
     println!("Mutation Test Runner (mode: {mode})");
     println!("====================");
-    println!("Stack: {} ({} resources)\n", config.name, config.resources.len());
+    println!(
+        "Stack: {} ({} resources)\n",
+        config.name,
+        config.resources.len()
+    );
 
     let execution_order = resolver::build_execution_order(&config)?;
     let targets: Vec<MutationTarget> = execution_order
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved = resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
+            let resolved =
+                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
             let script = codegen::apply_script(&resolved).ok()?;
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
             let refs = [script.as_str()];
@@ -417,7 +435,10 @@ pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
         })
         .collect();
 
-    println!("Targets: {} resources with applicable operators\n", targets.len());
+    println!(
+        "Targets: {} resources with applicable operators\n",
+        targets.len()
+    );
 
     let report = mutation_runner::run_mutation_parallel(targets, &run_config);
     let elapsed = t0.elapsed();
@@ -426,7 +447,10 @@ pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
     if report.score.grade() == 'F' {
-        Err(format!("mutation score {:.0}% (grade F)", report.score.score_pct()))
+        Err(format!(
+            "mutation score {:.0}% (grade F)",
+            report.score.score_pct()
+        ))
     } else {
         Ok(())
     }
@@ -445,14 +469,19 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
     let mode = convergence_runner::resolve_mode(test_config.backend);
     println!("Convergence Test Runner (mode: {mode})");
     println!("===================================");
-    println!("Stack: {} ({} resources)\n", config.name, config.resources.len());
+    println!(
+        "Stack: {} ({} resources)\n",
+        config.name,
+        config.resources.len()
+    );
 
     let execution_order = resolver::build_execution_order(&config)?;
     let targets: Vec<ConvergenceTarget> = execution_order
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved = resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
+            let resolved =
+                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
             let apply = codegen::apply_script(&resolved).ok()?;
             let check = codegen::check_script(&resolved).unwrap_or_default();
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
@@ -472,16 +501,24 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
     println!("Targets: {} resources\n", targets.len());
 
     let results = convergence_runner::run_convergence_parallel_with_backend(
-        targets, test_config.parallelism, test_config.backend,
+        targets,
+        test_config.parallelism,
+        test_config.backend,
     );
     let summary = ConvergenceSummary::from_results(&results);
     let elapsed = t0.elapsed();
 
-    print!("{}", convergence_runner::format_convergence_report(&results));
+    print!(
+        "{}",
+        convergence_runner::format_convergence_report(&results)
+    );
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
     if summary.passed < summary.total {
-        Err(format!("{} convergence failure(s)", summary.total - summary.passed))
+        Err(format!(
+            "{} convergence failure(s)",
+            summary.total - summary.passed
+        ))
     } else {
         Ok(())
     }

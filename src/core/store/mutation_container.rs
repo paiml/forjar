@@ -8,11 +8,7 @@ use super::mutation_runner::{mutation_script, MutationRunConfig, MutationTarget}
 use crate::core::types::{MutationOperator, MutationResult};
 
 /// Execute a script inside a container and return stdout.
-fn container_exec(
-    runtime: &str,
-    container_name: &str,
-    script: &str,
-) -> Result<String, String> {
+fn container_exec(runtime: &str, container_name: &str, script: &str) -> Result<String, String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
 
@@ -30,9 +26,7 @@ fn container_exec(
             .map_err(|e| format!("stdin write: {e}"))?;
     }
 
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("wait: {e}"))?;
+    let output = child.wait_with_output().map_err(|e| format!("wait: {e}"))?;
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
@@ -77,8 +71,14 @@ pub fn run_mutation_test_container(
     // Start ephemeral container
     let run = Command::new(&runtime)
         .args([
-            "run", "-d", "--rm", "--name", &container_name,
-            "debian:bookworm-slim", "sleep", "300",
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            &container_name,
+            "debian:bookworm-slim",
+            "sleep",
+            "300",
         ])
         .output();
 
@@ -89,7 +89,9 @@ pub fn run_mutation_test_container(
         if !o.status.success() {
             let stderr = String::from_utf8_lossy(&o.stderr);
             return err_result(
-                target, operator, start,
+                target,
+                operator,
+                start,
                 &format!("container start failed: {}", stderr.trim()),
             );
         }
@@ -97,13 +99,15 @@ pub fn run_mutation_test_container(
 
     // Step 1: Apply baseline
     if let Err(e) = container_exec(&runtime, &container_name, &target.apply_script) {
-        let _ = Command::new(&runtime).args(["rm", "-f", &container_name]).output();
+        let _ = Command::new(&runtime)
+            .args(["rm", "-f", &container_name])
+            .output();
         return err_result(target, operator, start, &format!("baseline apply: {e}"));
     }
 
     // Step 2: Capture baseline state
-    let baseline_state = container_exec(&runtime, &container_name, &target.drift_script)
-        .unwrap_or_default();
+    let baseline_state =
+        container_exec(&runtime, &container_name, &target.drift_script).unwrap_or_default();
     let baseline_hash = {
         let refs = [baseline_state.as_str()];
         crate::tripwire::hasher::composite_hash(&refs)
@@ -114,8 +118,8 @@ pub fn run_mutation_test_container(
     let _ = container_exec(&runtime, &container_name, &mutation_cmd);
 
     // Step 4: Detect drift (compare state after mutation to baseline)
-    let mutated_state = container_exec(&runtime, &container_name, &target.drift_script)
-        .unwrap_or_default();
+    let mutated_state =
+        container_exec(&runtime, &container_name, &target.drift_script).unwrap_or_default();
     let mutated_hash = {
         let refs = [mutated_state.as_str()];
         crate::tripwire::hasher::composite_hash(&refs)

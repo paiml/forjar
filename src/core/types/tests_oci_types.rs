@@ -35,10 +35,7 @@ fn oci_descriptor_zstd_media_type() {
 
 #[test]
 fn oci_image_config_linux_amd64() {
-    let cfg = OciImageConfig::linux_amd64(vec![
-        "sha256:diff1".into(),
-        "sha256:diff2".into(),
-    ]);
+    let cfg = OciImageConfig::linux_amd64(vec!["sha256:diff1".into(), "sha256:diff2".into()]);
     assert_eq!(cfg.architecture, "amd64");
     assert_eq!(cfg.os, "linux");
     assert_eq!(cfg.layer_count(), 2);
@@ -160,6 +157,12 @@ tag: latest
 #[test]
 fn manifest_media_type_contract() {
     let manifest = OciManifest::new("sha256:test".into(), vec![]);
-    assert_eq!(manifest.media_type, "application/vnd.oci.image.manifest.v1+json");
-    assert_eq!(manifest.config.media_type, "application/vnd.oci.image.config.v1+json");
+    assert_eq!(
+        manifest.media_type,
+        "application/vnd.oci.image.manifest.v1+json"
+    );
+    assert_eq!(
+        manifest.config.media_type,
+        "application/vnd.oci.image.config.v1+json"
+    );
 }
