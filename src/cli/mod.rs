@@ -131,6 +131,7 @@ mod recipe_registry;
 mod recipe_signing;
 mod remote_state;
 mod repro_proof;
+mod run_task;
 mod runtime_invariants;
 mod saga_coordinator;
 mod sbom;

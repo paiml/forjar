@@ -282,3 +282,5 @@ mod tests_extract;
 mod tests_generation;
 #[cfg(test)]
 mod tests_stack_diff;
+#[cfg(test)]
+mod tests_run_task;
