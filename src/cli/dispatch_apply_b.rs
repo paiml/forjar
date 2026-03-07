@@ -210,6 +210,9 @@ fn apply_backups(args: &ApplyArgs) {
 
 /// Execute the main apply, notifications, and post-apply hooks.
 fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
+    // FJ-2300: Operator authorization check
+    check_operator_auth(&args.file, args.operator.as_deref())?;
+
     let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
 
     if let Some(limit) = args.cost_limit {

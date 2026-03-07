@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 34/34 resolved (U3 deferred — needs root)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20).
+> Updated: 2026-03-07 | 35/35 resolved (U3 deferred — needs root)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21).
 
 ---
 
@@ -314,6 +314,16 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 
 ---
 
+### ~~F21: `allowed_operators` authorization never enforced~~ FIXED
+
+Spec §10-security-model claims `--operator` flag and `is_operator_allowed()` check are IMPLEMENTED (Phase 17). The `is_operator_allowed()` method existed on `Machine` (`config.rs:464`) and `OperatorIdentity` type existed in `security_types.rs`, but:
+- No `--operator` CLI flag existed on any `*_args.rs` struct
+- `is_operator_allowed()` was never called in production apply code (only in unit tests)
+
+**Resolved**: Added `--operator` flag to `ApplyArgs`. `check_operator_auth()` in `dispatch_apply.rs` resolves `OperatorIdentity` (from flag or env) and checks every machine's `allowed_operators` list. Denied operators receive error before apply executes. 5 tests in `tests_operator_auth.rs`.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -382,3 +392,4 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~32~~ | ~~Template validation: validate machine/data namespaces, scan 9 fields~~ | F18 | DONE |
 | ~~33~~ | ~~Overlap detection: port, service name, mount target conflicts~~ | F19 | DONE |
 | ~~34~~ | ~~Implement `forjar run` dispatch-mode task invocation~~ | F20 | DONE |
+| ~~35~~ | ~~Wire `--operator` flag and `is_operator_allowed()` into apply pipeline~~ | F21 | DONE |

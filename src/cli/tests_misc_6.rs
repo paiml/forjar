@@ -196,6 +196,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { backup, .. }) => assert!(backup),
@@ -384,6 +385,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { exclude, .. }) => {

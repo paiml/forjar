@@ -197,6 +197,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { abort_on_drift, .. }) => assert!(abort_on_drift),
@@ -385,6 +386,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

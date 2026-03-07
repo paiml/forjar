@@ -284,3 +284,5 @@ mod tests_generation;
 mod tests_stack_diff;
 #[cfg(test)]
 mod tests_run_task;
+#[cfg(test)]
+mod tests_operator_auth;

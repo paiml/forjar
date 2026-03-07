@@ -197,6 +197,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -388,6 +389,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { metrics_port, .. }) => assert_eq!(metrics_port, Some(9090)),

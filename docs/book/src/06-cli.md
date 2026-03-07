@@ -164,6 +164,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--report` | false | Print per-resource timing report after apply |
 | `--check` | false | Run check scripts instead of apply (exit 0=converged, non-zero=needs changes) |
 | `--force-unlock` | false | Remove a stale state lock and proceed (use when a previous apply was interrupted) |
+| `--operator` | `$USER@hostname` | Operator identity for authorization (checked against `allowed_operators` on machines) |
 
 State locking: When apply starts, forjar creates `state/.forjar.lock` containing the current PID. If another apply is already running against the same state directory, the command exits with an error suggesting `--force-unlock`. Stale locks (PID no longer running, detected via `/proc/<pid>`) are reported but not automatically removed. The lock file is removed on completion.
 
