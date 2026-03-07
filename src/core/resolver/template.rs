@@ -6,8 +6,12 @@ use std::collections::HashMap;
 ///
 /// Default (env): `FORJAR_SECRET_<KEY>` (uppercase, hyphens → underscores).
 /// File provider: reads `/run/secrets/<key>` (or configured path prefix).
-pub(super) fn resolve_secret(key: &str) -> Result<String, String> {
-    resolve_secret_with_provider(key, None, None)
+pub(super) fn resolve_secret(key: &str, secrets_cfg: &SecretsConfig) -> Result<String, String> {
+    resolve_secret_with_provider(
+        key,
+        secrets_cfg.provider.as_deref(),
+        secrets_cfg.path.as_deref(),
+    )
 }
 
 /// Resolve secret with explicit provider config.
@@ -52,6 +56,7 @@ fn resolve_variable<'a>(
     key: &str,
     params: &HashMap<String, serde_yaml_ng::Value>,
     machines: &'a indexmap::IndexMap<String, Machine>,
+    secrets_cfg: &SecretsConfig,
 ) -> Result<Cow<'a, str>, String> {
     if let Some(param_key) = key.strip_prefix("params.") {
         return Ok(Cow::Owned(
@@ -62,7 +67,7 @@ fn resolve_variable<'a>(
         ));
     }
     if let Some(secret_key) = key.strip_prefix("secrets.") {
-        return Ok(Cow::Owned(resolve_secret(secret_key)?));
+        return Ok(Cow::Owned(resolve_secret(secret_key, secrets_cfg)?));
     }
     if key.starts_with("machine.") {
         return resolve_machine_ref(key, machines);
@@ -110,6 +115,16 @@ pub fn resolve_template(
     params: &HashMap<String, serde_yaml_ng::Value>,
     machines: &indexmap::IndexMap<String, Machine>,
 ) -> Result<String, String> {
+    resolve_template_with_secrets(template, params, machines, &SecretsConfig::default())
+}
+
+/// Resolve all template variables with explicit secrets configuration.
+pub fn resolve_template_with_secrets(
+    template: &str,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+    secrets_cfg: &SecretsConfig,
+) -> Result<String, String> {
     let mut result = template.to_string();
     let mut start = 0;
 
@@ -121,7 +136,7 @@ pub fn resolve_template(
         let close = open + close + 2;
         let key = result[open + 2..close - 2].trim();
 
-        let value = resolve_variable(key, params, machines)?;
+        let value = resolve_variable(key, params, machines, secrets_cfg)?;
         result.replace_range(open..close, &value);
         start = open + value.len();
     }
