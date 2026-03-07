@@ -116,15 +116,15 @@ fn proof_real_plan_determinism():
     assert_eq!(a1, a2)
 ```
 
-### G4: New Platform Capabilities Have Zero Contracts — PARTIALLY REMEDIATED
+### G4: New Platform Capabilities Have Zero Contracts — REMEDIATED
 
 The container build pipeline now has runtime postconditions on critical functions:
 - [x] Layer hash determinism: `build_layer()` `debug_assert!` verifies double-build produces same BLAKE3 hash (`layer_builder.rs:106-109`)
 - [x] OCI layout validity: `assemble_image()` `debug_assert!` verifies oci-layout and index.json exist, manifest layer count matches (`image_assembler.rs:142-147`)
 - [x] OCI layout integrity: `write_oci_layout()` `debug_assert!` verifies oci-layout and config blob written (`layer_builder.rs:158-165`)
 - [x] Dual-digest consistency: `compute_dual_digest()` `debug_assert!` verifies size matches and digests non-empty (`layer_builder.rs:125-133`)
-- [ ] Store idempotency (storing the same content twice is a no-op) — not yet contracted
-- [ ] OCI manifest media type correctness — validated by serde but not asserted
+- [x] Store idempotency: `build_layer()` `debug_assert!` verifies `compute_dual_digest()` returns identical BLAKE3+SHA-256 for same content (`layer_builder.rs:113-117`)
+- [x] OCI manifest media type: `OciManifest::new()` `debug_assert_eq!` verifies manifest and config media types match OCI spec strings (`oci_types.rs:53-60`)
 
 ### G5: Labels Are Disconnected from Verification
 

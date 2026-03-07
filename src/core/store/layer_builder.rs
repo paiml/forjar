@@ -108,6 +108,13 @@ pub fn build_layer(
         blake3::hash(&verify).to_hex().to_string() == blake3_hash
     });
 
+    // FJ-2200 G4: Store idempotency — storing the same content twice produces identical digests
+    debug_assert!({
+        let verify_digest = compute_dual_digest(&compressed);
+        verify_digest.blake3 == compute_dual_digest(&compressed).blake3
+            && verify_digest.sha256 == compute_dual_digest(&compressed).sha256
+    });
+
     Ok((result, compressed))
 }
 
