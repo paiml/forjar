@@ -3,6 +3,7 @@
 #![allow(unused_imports)]
 use super::fleet_reporting::*;
 use super::check_test::*;
+use super::check_test_runners::RunnerOpts;
 use super::destroy::*;
 use super::apply_output::*;
 
@@ -98,27 +99,27 @@ mod tests {
     #[test]
     fn test_cmd_test() {
         let f = write_cfg(CFG);
-        let _ = cmd_test(f.path(), None, None, None, None, false, false);
+        let _ = cmd_test(f.path(), None, None, None, None, false, false, &RunnerOpts::default());
     }
     #[test]
     fn test_cmd_test_json() {
         let f = write_cfg(CFG);
-        let _ = cmd_test(f.path(), None, None, None, None, true, false);
+        let _ = cmd_test(f.path(), None, None, None, None, true, false, &RunnerOpts::default());
     }
     #[test]
     fn test_cmd_test_machine() {
         let f = write_cfg(CFG);
-        let _ = cmd_test(f.path(), Some("m1"), None, None, None, false, false);
+        let _ = cmd_test(f.path(), Some("m1"), None, None, None, false, false, &RunnerOpts::default());
     }
     #[test]
     fn test_cmd_test_resource() {
         let f = write_cfg(CFG);
-        let _ = cmd_test(f.path(), None, Some("pkg"), None, None, false, false);
+        let _ = cmd_test(f.path(), None, Some("pkg"), None, None, false, false, &RunnerOpts::default());
     }
     #[test]
     fn test_cmd_test_verbose() {
         let f = write_cfg(CFG);
-        let _ = cmd_test(f.path(), None, None, None, None, false, true);
+        let _ = cmd_test(f.path(), None, None, None, None, false, true, &RunnerOpts::default());
     }
 
     // destroy.rs

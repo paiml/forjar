@@ -108,6 +108,22 @@ pub struct TestArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// Sandbox backend: pepita, container, chroot
+    #[arg(long, default_value = "pepita")]
+    pub sandbox: String,
+
+    /// Parallelism level for test execution
+    #[arg(long, default_value = "4")]
+    pub parallel: usize,
+
+    /// Enable pairwise preservation matrix (convergence tests)
+    #[arg(long)]
+    pub pairs: bool,
+
+    /// Max mutations per resource (mutation tests)
+    #[arg(long, default_value = "50")]
+    pub mutations: usize,
 }
 
 /// CLI arguments for the `inventory` command.

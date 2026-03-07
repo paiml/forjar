@@ -1,5 +1,6 @@
 //! Coverage tests: dispatch_notify channels, secrets, check, doctor.
 use super::check::*;
+use super::check_test_runners::RunnerOpts;
 use super::doctor::*;
 #[cfg(feature = "encryption")]
 use super::secrets::*;
@@ -133,22 +134,22 @@ resources:
     fn test_cmd_test_variants() {
         let d = tempfile::tempdir().unwrap();
         let c = check_cfg(d.path());
-        let _ = cmd_test(&c, None, None, None, None, false, false);
-        let _ = cmd_test(&c, None, None, None, None, true, false);
-        let _ = cmd_test(&c, None, None, None, None, false, true);
-        let _ = cmd_test(&c, None, None, Some("base"), None, false, false);
-        let _ = cmd_test(&c, None, Some("cfg1"), None, None, false, false);
-        let _ = cmd_test(&c, Some("local"), None, None, None, false, false);
-        let _ = cmd_test(&c, None, None, None, Some("web"), false, false);
-        let _ = cmd_test(&c, None, None, None, Some("web"), true, false);
-        let _ = cmd_test(&c, None, None, None, None, true, true);
+        let _ = cmd_test(&c, None, None, None, None, false, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, None, None, true, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, None, None, false, true, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, Some("base"), None, false, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, Some("cfg1"), None, None, false, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, Some("local"), None, None, None, false, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, None, Some("web"), false, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, None, Some("web"), true, false, &RunnerOpts::default());
+        let _ = cmd_test(&c, None, None, None, None, true, true, &RunnerOpts::default());
     }
     #[test]
     fn test_cmd_test_invalid() {
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("bad.yaml");
         std::fs::write(&f, "invalid: [[[").unwrap();
-        assert!(cmd_test(&f, None, None, None, None, false, false).is_err());
+        assert!(cmd_test(&f, None, None, None, None, false, false, &RunnerOpts::default()).is_err());
     }
 
     // doctor.rs

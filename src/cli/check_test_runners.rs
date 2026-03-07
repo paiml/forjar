@@ -3,16 +3,57 @@
 //! Extracted from check_test.rs for 500-line limit compliance.
 
 use super::helpers::*;
+use crate::core::types::SandboxBackend;
 use crate::core::{codegen, resolver};
 use std::path::Path;
 
+/// Options passed from CLI to test runners.
+pub(crate) struct RunnerOpts {
+    pub sandbox: SandboxBackend,
+    pub parallel: usize,
+    pub pairs: bool,
+    pub mutations: usize,
+}
+
+impl Default for RunnerOpts {
+    fn default() -> Self {
+        Self {
+            sandbox: SandboxBackend::Pepita,
+            parallel: 4,
+            pairs: false,
+            mutations: 50,
+        }
+    }
+}
+
+impl RunnerOpts {
+    pub fn from_args(sandbox: &str, parallel: usize, pairs: bool, mutations: usize) -> Self {
+        let sandbox = match sandbox {
+            "container" => SandboxBackend::Container,
+            "chroot" => SandboxBackend::Chroot,
+            _ => SandboxBackend::Pepita,
+        };
+        Self {
+            sandbox,
+            parallel,
+            pairs,
+            mutations,
+        }
+    }
+}
+
 /// FJ-2604: Run mutation testing against stack resources.
-pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
+pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), String> {
     use crate::core::store::mutation_runner::{self, MutationRunConfig, MutationTarget};
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
-    let run_config = MutationRunConfig::default();
+    let run_config = MutationRunConfig {
+        backend: opts.sandbox,
+        mutations_per_resource: opts.mutations,
+        parallelism: opts.parallel,
+        ..MutationRunConfig::default()
+    };
 
     let mode = crate::core::store::convergence_runner::resolve_mode(run_config.backend);
     println!("Mutation Test Runner (mode: {mode})");
@@ -68,14 +109,19 @@ pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
 }
 
 /// FJ-2600: Run convergence testing against stack resources.
-pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
+pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(), String> {
     use crate::core::store::convergence_runner::{
         self, ConvergenceSummary, ConvergenceTarget, ConvergenceTestConfig,
     };
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
-    let test_config = ConvergenceTestConfig::default();
+    let test_config = ConvergenceTestConfig {
+        parallelism: opts.parallel,
+        test_pairs: opts.pairs,
+        backend: opts.sandbox,
+        ..ConvergenceTestConfig::default()
+    };
 
     let mode = convergence_runner::resolve_mode(test_config.backend);
     println!("Convergence Test Runner (mode: {mode})");

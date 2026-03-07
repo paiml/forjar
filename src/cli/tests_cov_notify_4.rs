@@ -3,6 +3,7 @@
 
 #![allow(unused_imports)]
 use super::check::*;
+use super::check_test_runners::RunnerOpts;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
 use super::doctor::*;
@@ -133,42 +134,42 @@ resources:
     fn test_cmd_test_basic() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, None, None, false, false);
+        let _ = cmd_test(&config, None, None, None, None, false, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_json() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, None, None, true, false);
+        let _ = cmd_test(&config, None, None, None, None, true, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_verbose() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, None, None, false, true);
+        let _ = cmd_test(&config, None, None, None, None, false, true, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_with_tag_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, Some("base"), None, false, false);
+        let _ = cmd_test(&config, None, None, Some("base"), None, false, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_with_resource_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, Some("cfg1"), None, None, false, false);
+        let _ = cmd_test(&config, None, Some("cfg1"), None, None, false, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_with_machine_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, Some("local"), None, None, None, false, false);
+        let _ = cmd_test(&config, Some("local"), None, None, None, false, false, &RunnerOpts::default());
     }
 
     #[test]
@@ -176,14 +177,14 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
         // No resources have resource_group set, so all skip
-        let _ = cmd_test(&config, None, None, None, Some("web"), false, false);
+        let _ = cmd_test(&config, None, None, None, Some("web"), false, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_with_nonexistent_resource_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, Some("nonexistent"), None, None, false, false);
+        let _ = cmd_test(&config, None, Some("nonexistent"), None, None, false, false, &RunnerOpts::default());
     }
 
     #[test]
@@ -191,7 +192,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("bad.yaml");
         std::fs::write(&file, "invalid: [[[").unwrap();
-        let result = cmd_test(&file, None, None, None, None, false, false);
+        let result = cmd_test(&file, None, None, None, None, false, false, &RunnerOpts::default());
         assert!(result.is_err());
     }
 }

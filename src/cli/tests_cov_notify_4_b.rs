@@ -3,6 +3,7 @@
 
 #![allow(unused_imports)]
 use super::check::*;
+use super::check_test_runners::RunnerOpts;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
 use super::doctor::*;
@@ -333,6 +334,7 @@ resources:
             None,
             false,
             false,
+            &RunnerOpts::default(),
         );
     }
 
@@ -340,13 +342,13 @@ resources:
     fn test_cmd_test_json_with_group_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, None, Some("nonexistent"), true, false);
+        let _ = cmd_test(&config, None, None, None, Some("nonexistent"), true, false, &RunnerOpts::default());
     }
 
     #[test]
     fn test_cmd_test_verbose_json() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, None, None, None, None, true, true);
+        let _ = cmd_test(&config, None, None, None, None, true, true, &RunnerOpts::default());
     }
 }
