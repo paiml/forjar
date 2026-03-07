@@ -197,6 +197,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 3),
@@ -385,6 +386,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 0),

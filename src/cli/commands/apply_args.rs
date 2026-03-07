@@ -682,4 +682,7 @@ pub struct ApplyArgs {
     /// FJ-1240: Encrypt state lock files with age (requires FORJAR_AGE_KEY)
     #[arg(long)]
     pub encrypt_state: bool,
+    /// FJ-2300: Operator identity for authorization (default: $USER@hostname)
+    #[arg(long)]
+    pub operator: Option<String>,
 }

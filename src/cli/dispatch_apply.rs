@@ -115,4 +115,19 @@ pub(super) fn check_cost_limit(
     Ok(())
 }
 
+/// FJ-2300: Check operator authorization against all machines in config.
+pub(super) fn check_operator_auth(file: &Path, operator: Option<&str>) -> Result<(), String> {
+    let config = super::helpers::parse_and_validate(file)?;
+    let identity = types::OperatorIdentity::resolve(operator);
+    for (name, m) in &config.machines {
+        if !m.is_operator_allowed(&identity.name) {
+            return Err(format!(
+                "operator '{}' not authorized for machine '{name}'",
+                identity.name
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(super) use super::dispatch_apply_b::*;

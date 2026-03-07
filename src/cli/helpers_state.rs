@@ -141,3 +141,28 @@ pub(super) fn load_generation_locks(
     }
     locks
 }
+
+/// FJ-1388: Get the current generation number before apply starts.
+pub(super) fn pre_apply_generation(state_dir: &std::path::Path) -> Option<u32> {
+    let gen_dir = state_dir.join("generations");
+    super::generation::current_generation(&gen_dir)
+}
+
+/// FJ-1388: Rollback to pre-apply generation on failure.
+pub(super) fn maybe_rollback_generation(
+    rollback_on_failure: bool,
+    state_dir: &std::path::Path,
+    pre_apply_gen: Option<u32>,
+    verbose: bool,
+) {
+    if !rollback_on_failure {
+        return;
+    }
+    let Some(gen) = pre_apply_gen else { return };
+    eprintln!("rollback: restoring state to generation {gen}");
+    if let Err(e) = super::generation::rollback_to_generation(state_dir, gen, true) {
+        eprintln!("warning: generation rollback failed: {e}");
+    } else if verbose {
+        eprintln!("rollback: restored to generation {gen}");
+    }
+}

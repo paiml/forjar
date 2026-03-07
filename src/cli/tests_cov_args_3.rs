@@ -199,6 +199,7 @@ mod tests {
             notify_custom_severity_filter: Some("error".to_string()),
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
             trace: false,
         };
         let debug = format!("{args:?}");
@@ -387,6 +388,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            operator: None,
         };
         let debug = format!("{args:?}");
         assert!(debug.contains("ApplyArgs"));
