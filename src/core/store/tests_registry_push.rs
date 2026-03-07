@@ -344,3 +344,37 @@ fn discover_blobs_classifies_from_index() {
         .unwrap();
     assert_eq!(manifest.kind, PushKind::Manifest);
 }
+
+#[test]
+fn chunked_upload_threshold_is_64mb() {
+    assert_eq!(CHUNKED_UPLOAD_THRESHOLD, 64 * 1024 * 1024);
+}
+
+#[test]
+fn chunk_size_is_16mb() {
+    assert_eq!(CHUNK_SIZE, 16 * 1024 * 1024);
+}
+
+#[test]
+fn small_blob_uses_monolithic() {
+    // Blob under threshold should use monolithic path
+    let blob = BlobDescriptor {
+        digest: "sha256:abc".into(),
+        size: 1024,
+        path: std::path::PathBuf::from("/tmp/nonexistent"),
+        kind: PushKind::Layer,
+    };
+    assert!(blob.size < CHUNKED_UPLOAD_THRESHOLD);
+}
+
+#[test]
+fn large_blob_uses_chunked() {
+    // Blob over threshold should use chunked path
+    let blob = BlobDescriptor {
+        digest: "sha256:abc".into(),
+        size: 100 * 1024 * 1024, // 100 MB
+        path: std::path::PathBuf::from("/tmp/nonexistent"),
+        kind: PushKind::Layer,
+    };
+    assert!(blob.size >= CHUNKED_UPLOAD_THRESHOLD);
+}

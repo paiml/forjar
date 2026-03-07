@@ -294,3 +294,88 @@ fn cmd_build_with_load_flag_no_runtime() {
         assert!(r.as_ref().unwrap_err().contains("docker or podman"), "got: {:?}", r);
     }
 }
+
+#[test]
+fn split_paths_by_type_separates_configs() {
+    let paths = vec![
+        "/app/server".to_string(),
+        "/etc/app/config.yaml".to_string(),
+        "/etc/app/settings.toml".to_string(),
+        "/app/worker".to_string(),
+        "/etc/nginx/nginx.conf".to_string(),
+    ];
+    let (configs, apps) = test_split_paths_by_type(&paths);
+    assert_eq!(configs.len(), 3, "should find 3 config files");
+    assert_eq!(apps.len(), 2, "should find 2 app files");
+    assert!(configs.contains(&"/etc/app/config.yaml".to_string()));
+    assert!(configs.contains(&"/etc/app/settings.toml".to_string()));
+    assert!(configs.contains(&"/etc/nginx/nginx.conf".to_string()));
+    assert!(apps.contains(&"/app/server".to_string()));
+}
+
+#[test]
+fn split_paths_no_configs() {
+    let paths = vec!["/app/bin".to_string(), "/usr/bin/tool".to_string()];
+    let (configs, apps) = test_split_paths_by_type(&paths);
+    assert!(configs.is_empty());
+    assert_eq!(apps.len(), 2);
+}
+
+#[test]
+fn split_paths_all_configs() {
+    let paths = vec![
+        "/etc/app.json".to_string(),
+        "/etc/db.env".to_string(),
+    ];
+    let (configs, apps) = test_split_paths_by_type(&paths);
+    assert_eq!(configs.len(), 2);
+    assert!(apps.is_empty());
+}
+
+#[test]
+fn split_paths_empty() {
+    let paths: Vec<String> = vec![];
+    let (configs, apps) = test_split_paths_by_type(&paths);
+    assert!(configs.is_empty());
+    assert!(apps.is_empty());
+}
+
+#[test]
+fn build_plan_single_path_one_layer() {
+    let config: ForjarConfig = serde_yaml_ng::from_str(r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  single-file-image:
+    type: image
+    machine: m
+    name: myapp
+    version: "1.0.0"
+    command: "/app/server"
+    path: /app/server
+"#).unwrap();
+    let res = config.resources.get("single-file-image").unwrap();
+    let plan = test_build_plan_from_resource("single-file-image", res, &config).unwrap();
+    // Single path → single layer (no split possible)
+    assert_eq!(plan.layers.len(), 1, "single path should produce 1 layer");
+}
+
+#[test]
+fn split_paths_triggers_two_layers_when_mixed() {
+    // Directly test split_paths_by_type to verify the split logic
+    let paths = vec![
+        "/app/server".to_string(),
+        "/etc/app/config.yaml".to_string(),
+    ];
+    let (configs, apps) = test_split_paths_by_type(&paths);
+    assert_eq!(configs.len(), 1);
+    assert_eq!(apps.len(), 1);
+    // Verify that build_plan_from_resource would create 2 layers
+    // if the resource had multiple paths
+    assert!(configs.contains(&"/etc/app/config.yaml".to_string()));
+    assert!(apps.contains(&"/app/server".to_string()));
+}

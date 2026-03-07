@@ -86,11 +86,17 @@ pub fn manifest_put_command(registry: &str, name: &str, tag: &str, manifest_path
     )
 }
 
+/// E14: Chunk size for chunked uploads (64 MB).
+pub(crate) const CHUNKED_UPLOAD_THRESHOLD: u64 = 64 * 1024 * 1024;
+/// E14: Chunk size for PATCH uploads (16 MB).
+pub(crate) const CHUNK_SIZE: u64 = 16 * 1024 * 1024;
+
 /// Push a single blob to the registry.
 ///
 /// 1. Optionally HEAD-check if blob exists (skip if `check_existing` and exists)
 /// 2. POST to initiate upload
-/// 3. PUT to complete upload with digest
+/// 3. For blobs < 64MB: monolithic PUT
+///    For blobs >= 64MB: chunked PATCH + PUT (E14)
 pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<PushResult, String> {
     let start = Instant::now();
 
@@ -109,26 +115,45 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
     }
 
     // Step 2: Initiate upload
-    let initiate_output = std::process::Command::new("curl")
+    let upload_url = initiate_upload(&config.registry, &config.name)?;
+
+    // Step 3: Upload blob (monolithic or chunked based on size)
+    if blob.size >= CHUNKED_UPLOAD_THRESHOLD {
+        push_blob_chunked(&upload_url, blob)?;
+    } else {
+        push_blob_monolithic(&upload_url, blob)?;
+    }
+
+    Ok(PushResult {
+        kind: blob.kind,
+        digest: blob.digest.clone(),
+        size: blob.size,
+        existed: false,
+        duration_secs: start.elapsed().as_secs_f64(),
+    })
+}
+
+/// Initiate a blob upload session. Returns the upload URL from Location header.
+fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
+    let output = std::process::Command::new("curl")
         .args([
             "-s",
             "-X",
             "POST",
             "-D",
             "-",
-            &format!(
-                "https://{}/v2/{}/blobs/uploads/",
-                config.registry, config.name
-            ),
+            &format!("https://{registry}/v2/{name}/blobs/uploads/"),
         ])
         .output()
         .map_err(|e| format!("blob upload initiate: {e}"))?;
 
-    let headers = String::from_utf8_lossy(&initiate_output.stdout);
-    let upload_url = parse_location_header(&headers)
-        .ok_or_else(|| "no Location header in upload response".to_string())?;
+    let headers = String::from_utf8_lossy(&output.stdout);
+    parse_location_header(&headers)
+        .ok_or_else(|| "no Location header in upload response".to_string())
+}
 
-    // Step 3: Complete upload
+/// Monolithic PUT upload for small blobs (< 64 MB).
+fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
     let blob_path = blob.path.display().to_string();
     let output = std::process::Command::new("curl")
         .args([
@@ -150,14 +175,82 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
             String::from_utf8_lossy(&output.stderr)
         ));
     }
+    Ok(())
+}
 
-    Ok(PushResult {
-        kind: blob.kind,
-        digest: blob.digest.clone(),
-        size: blob.size,
-        existed: false,
-        duration_secs: start.elapsed().as_secs_f64(),
-    })
+/// E14: Chunked PATCH upload for large blobs (>= 64 MB).
+///
+/// OCI Distribution Spec v1.1 chunked upload protocol:
+/// 1. PATCH with Content-Range for each chunk
+/// 2. PUT to complete with final digest
+fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
+    let blob_path = blob.path.display().to_string();
+    let total_size = blob.size;
+    let mut offset: u64 = 0;
+    let mut current_url = upload_url.to_string();
+
+    while offset < total_size {
+        let end = std::cmp::min(offset + CHUNK_SIZE, total_size) - 1;
+        let range = format!("{offset}-{end}");
+
+        let output = std::process::Command::new("curl")
+            .args([
+                "-s",
+                "-X",
+                "PATCH",
+                "-D",
+                "-",
+                "-H",
+                "Content-Type: application/octet-stream",
+                "-H",
+                &format!("Content-Range: {range}"),
+                "-H",
+                &format!("Content-Length: {}", end - offset + 1),
+                "-r",
+                &range,
+                "--data-binary",
+                &format!("@{blob_path}"),
+                &current_url,
+            ])
+            .output()
+            .map_err(|e| format!("chunked upload PATCH: {e}"))?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "chunked upload failed at range {range}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        // Follow Location header for next chunk URL
+        let headers = String::from_utf8_lossy(&output.stdout);
+        if let Some(loc) = parse_location_header(&headers) {
+            current_url = loc;
+        }
+
+        offset = end + 1;
+    }
+
+    // Complete the upload with PUT + digest
+    let output = std::process::Command::new("curl")
+        .args([
+            "-s",
+            "-X",
+            "PUT",
+            "-H",
+            "Content-Type: application/octet-stream",
+            &format!("{current_url}?digest={}", blob.digest),
+        ])
+        .output()
+        .map_err(|e| format!("chunked upload finalize: {e}"))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "chunked upload finalize failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(())
 }
 
 /// Push a manifest to the registry.
