@@ -201,12 +201,12 @@ forjar query --type image --drift                  # stale deployments
 - [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors (type definition)
 - [x] Build report: `BuildReport`, `LayerReport`, `DistResult` with `format_summary()` (type + formatting)
 - [x] `--load`: pipe OCI tar to `docker load` / `podman load` (code path exists in `registry_push.rs`)
-- [x] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT) (code path exists in `registry_push.rs`)
+- [x] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT) — `cmd_build_push()` in `build_image.rs` calls `push_image()` from `registry_push.rs`; graceful fallback when registry unreachable
 - [x] `--far`: wrap OCI image in FAR archive (builds on existing FAR infrastructure)
-- [x] `--check-existing`: blob existence check (type-level)
+- [x] `--check-existing`: blob existence check via `check_blob_exists()` HEAD request
 - [x] Multi-arch: build matrix → OCI Image Index (type-level)
-- **Deliverable**: `forjar build --push` to registry — code path exists but depends on Phase 8-10 (container builds) for end-to-end image production
-- **Note**: Registry push logic (`registry_push.rs`) is confirmed by falsification audit. End-to-end flow requires Phases 8-10 to produce actual OCI layers.
+- **Deliverable**: `forjar build --push` assembles image → discovers blobs → pushes to registry via OCI Distribution v1.1
+- **Note**: End-to-end push wired (2026-03-07): `cmd_build_push()` → `discover_blobs()` → `push_image()` → `push_blob()` per blob. Graceful fallback when registry is unreachable.
 
 ### Phase 12: Build Query/Drift (FJ-2106) -- IMPLEMENTED
 - [x] Image resources in SQLite `resources` table (schema supports `resource_type = 'image'`)
