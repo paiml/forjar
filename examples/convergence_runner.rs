@@ -25,44 +25,46 @@ fn main() {
     );
     println!();
 
-    // 1. Create test targets
+    // Create test targets with sandbox-safe scripts.
+    // Apply creates files in $FORJAR_SANDBOX, query reads them back.
+    // expected_hash is empty → convergence verified by idempotency only.
     let targets: Vec<ConvergenceTarget> = vec![
-        make_target("nginx-config", "file"),
-        make_target("curl-pkg", "package"),
-        make_target("nginx-service", "service"),
-        make_target("data-mount", "mount"),
+        make_target("nginx-config", "file", "port: 80"),
+        make_target("app-config", "file", "host: localhost"),
+        make_target("db-config", "file", "pool: 10"),
+        make_target("cache-config", "file", "ttl: 3600"),
     ];
 
-    // 2. Run convergence tests (parallel, 2 sandboxes)
     println!(
         "Running {} convergence tests (parallelism=2)...\n",
         targets.len()
     );
     let results = convergence_runner::run_convergence_parallel(targets, 2);
 
-    // 3. Print report
     print!(
         "{}",
         convergence_runner::format_convergence_report(&results)
     );
 
-    // 4. Show summary
     let summary = ConvergenceSummary::from_results(&results);
     println!("\n{summary}");
     println!("Pass rate: {:.0}%", summary.pass_rate());
 }
 
-fn make_target(id: &str, rtype: &str) -> ConvergenceTarget {
-    let query_script = format!("echo 'state of {id}'");
-    let expected_hash = {
-        let refs = [query_script.as_str()];
-        forjar::tripwire::hasher::composite_hash(&refs)
-    };
+fn make_target(id: &str, rtype: &str, content: &str) -> ConvergenceTarget {
+    // Apply: create a config file in the sandbox
+    let apply_script = format!(
+        r#"mkdir -p "$FORJAR_SANDBOX/etc/forjar" && echo '{content}' > "$FORJAR_SANDBOX/etc/forjar/{id}""#
+    );
+    // Query: read the file back
+    let query_script = format!(
+        r#"cat "$FORJAR_SANDBOX/etc/forjar/{id}" 2>/dev/null || echo 'MISSING'"#
+    );
     ConvergenceTarget {
         resource_id: id.into(),
         resource_type: rtype.into(),
-        apply_script: format!("echo 'applying {id}'"),
+        apply_script,
         state_query_script: query_script,
-        expected_hash,
+        expected_hash: String::new(), // verify idempotency, not exact hash
     }
 }

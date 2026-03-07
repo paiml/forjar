@@ -11,6 +11,7 @@ mod bundle;
 mod cbom;
 mod check;
 mod check_test;
+mod check_test_runners;
 mod checkpoint;
 pub mod commands;
 mod complexity_analysis;

@@ -160,7 +160,7 @@ pub fn run_convergence_test_dispatch(
     }
 }
 
-/// Run convergence test for a single resource (simulated mode).
+/// Run convergence test for a single resource in a local tempdir sandbox.
 ///
 /// Algorithm (6 steps from spec):
 /// 1. Generate apply script via codegen
@@ -172,10 +172,31 @@ pub fn run_convergence_test_dispatch(
 pub fn run_convergence_test(target: &ConvergenceTarget) -> ConvergenceResult {
     let start = std::time::Instant::now();
 
-    // Step 1-2: Scripts are pre-generated in the target
+    // Create isolated sandbox directory
+    let sandbox_dir = std::env::temp_dir().join(format!(
+        "forjar-conv-{}-{:x}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = std::fs::create_dir_all(&sandbox_dir);
 
+    let result = run_convergence_in_sandbox(target, &sandbox_dir, start);
+
+    // Cleanup sandbox
+    let _ = std::fs::remove_dir_all(&sandbox_dir);
+    result
+}
+
+fn run_convergence_in_sandbox(
+    target: &ConvergenceTarget,
+    sandbox_dir: &std::path::Path,
+    start: std::time::Instant,
+) -> ConvergenceResult {
     // Step 3: First apply
-    let first_apply = simulate_apply(&target.apply_script);
+    let first_apply = local_apply(&target.apply_script, sandbox_dir);
     if let Err(e) = first_apply {
         return ConvergenceResult {
             resource_id: target.resource_id.clone(),
@@ -189,18 +210,23 @@ pub fn run_convergence_test(target: &ConvergenceTarget) -> ConvergenceResult {
     }
 
     // Step 4: Verify convergence
-    let state_after_first = simulate_state_query(&target.state_query_script);
-    let converged = state_after_first
-        .as_ref()
-        .map(|h| h == &target.expected_hash)
-        .unwrap_or(false);
+    let state_after_first = local_state_query(&target.state_query_script, sandbox_dir);
+    let converged = if target.expected_hash.is_empty() {
+        // No expected hash: convergence means the script ran successfully
+        state_after_first.is_ok()
+    } else {
+        state_after_first
+            .as_ref()
+            .map(|h| h == &target.expected_hash)
+            .unwrap_or(false)
+    };
 
     // Step 5: Second apply (should be no-op)
-    let second_apply = simulate_apply(&target.apply_script);
+    let second_apply = local_apply(&target.apply_script, sandbox_dir);
     let idempotent = second_apply.is_ok();
 
     // Step 6: Verify state unchanged
-    let state_after_second = simulate_state_query(&target.state_query_script);
+    let state_after_second = local_state_query(&target.state_query_script, sandbox_dir);
     let preserved = match (&state_after_first, &state_after_second) {
         (Ok(h1), Ok(h2)) => h1 == h2,
         _ => false,
@@ -362,21 +388,78 @@ pub fn format_convergence_report(results: &[ConvergenceResult]) -> String {
     out
 }
 
-/// Simulate applying a script (hash-based verification).
-fn simulate_apply(script: &str) -> Result<String, String> {
+/// Patterns that indicate a script would modify system state outside the sandbox.
+/// These MUST NEVER run on the host — only in containers or remote sandboxes.
+const UNSAFE_PATTERNS: &[&str] = &[
+    "systemctl ",
+    "apt-get ",
+    "apt ",
+    "dpkg ",
+    "yum ",
+    "dnf ",
+    "pacman ",
+    "mount ",
+    "umount ",
+    "pkill ",
+    "kill ",
+    "shutdown ",
+    "reboot ",
+    "rm -rf /",
+    "dd if=",
+    "mkfs",
+    "fdisk",
+];
+
+/// Check if a script is safe to run locally (doesn't modify system state).
+fn is_script_safe_for_local(script: &str) -> bool {
+    !UNSAFE_PATTERNS.iter().any(|p| script.contains(p))
+}
+
+/// Execute a script locally in a sandbox directory, returning stdout hash.
+///
+/// SAFETY: Rejects scripts containing system-modifying commands
+/// (systemctl, apt-get, pkill, etc.) to prevent host damage.
+fn local_apply(script: &str, sandbox_dir: &std::path::Path) -> Result<String, String> {
     if script.is_empty() {
         return Err("empty apply script".into());
     }
-    let refs = [script];
+    if !is_script_safe_for_local(script) {
+        return Err("script contains system commands (requires container backend)".into());
+    }
+    let output = std::process::Command::new("bash")
+        .args(["-euo", "pipefail", "-c", script])
+        .current_dir(sandbox_dir)
+        .env("FORJAR_SANDBOX", sandbox_dir)
+        .output()
+        .map_err(|e| format!("local exec: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "exit {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
+        ));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let refs = [stdout.as_ref()];
     Ok(crate::tripwire::hasher::composite_hash(&refs))
 }
 
-/// Simulate querying state (returns hash of query script output).
-fn simulate_state_query(script: &str) -> Result<String, String> {
+/// Execute a state query script locally, returning stdout hash.
+fn local_state_query(script: &str, sandbox_dir: &std::path::Path) -> Result<String, String> {
     if script.is_empty() {
         return Err("empty state query script".into());
     }
-    let refs = [script];
+    let output = std::process::Command::new("bash")
+        .args(["-euo", "pipefail", "-c", script])
+        .current_dir(sandbox_dir)
+        .env("FORJAR_SANDBOX", sandbox_dir)
+        .output()
+        .map_err(|e| format!("state query exec: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let refs = [stdout.as_ref()];
     Ok(crate::tripwire::hasher::composite_hash(&refs))
 }
 

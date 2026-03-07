@@ -3,9 +3,12 @@
 use super::convergence_runner::*;
 
 fn sample_target(id: &str, rtype: &str) -> ConvergenceTarget {
+    // Scripts produce deterministic output when run via bash
     let query_script = format!("echo 'query {id}'");
+    // expected_hash = hash of the stdout output of running the query script
+    let expected_output = format!("query {id}\n");
     let expected_hash = {
-        let refs = [query_script.as_str()];
+        let refs = [expected_output.as_str()];
         crate::tripwire::hasher::composite_hash(&refs)
     };
     ConvergenceTarget {
@@ -350,6 +353,53 @@ fn dispatch_container_backend() {
     // (which is computed from the script text itself). So converged=false is expected.
     // The key assertion: the dispatch path was exercised without panicking.
     assert!(result.duration_ms < 30_000, "should complete within 30s");
+}
+
+#[test]
+fn local_apply_rejects_unsafe_scripts() {
+    // Scripts with system commands should be rejected
+    let target = ConvergenceTarget {
+        resource_id: "unsafe-pkg".into(),
+        resource_type: "package".into(),
+        apply_script: "apt-get install nginx".into(),
+        state_query_script: "dpkg -l nginx".into(),
+        expected_hash: String::new(),
+    };
+    let result = run_convergence_test(&target);
+    // Apply should fail because apt-get is blocked
+    assert!(result.error.is_some(), "unsafe script should be rejected");
+    assert!(
+        result.error.as_ref().unwrap().contains("system commands"),
+        "error should explain safety rejection"
+    );
+}
+
+#[test]
+fn local_apply_accepts_safe_scripts() {
+    let target = ConvergenceTarget {
+        resource_id: "safe-echo".into(),
+        resource_type: "file".into(),
+        apply_script: "echo 'safe content'".into(),
+        state_query_script: "echo 'safe query'".into(),
+        expected_hash: String::new(),
+    };
+    let result = run_convergence_test(&target);
+    assert!(result.error.is_none(), "safe script should be accepted");
+    assert!(result.converged, "echo script should converge");
+    assert!(result.idempotent, "echo script should be idempotent");
+}
+
+#[test]
+fn local_apply_rejects_systemctl() {
+    let target = ConvergenceTarget {
+        resource_id: "svc".into(),
+        resource_type: "service".into(),
+        apply_script: "systemctl start nginx".into(),
+        state_query_script: "systemctl is-active nginx".into(),
+        expected_hash: String::new(),
+    };
+    let result = run_convergence_test(&target);
+    assert!(!result.converged, "systemctl should not converge locally");
 }
 
 #[test]

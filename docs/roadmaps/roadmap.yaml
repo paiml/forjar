@@ -675,3 +675,36 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-041
+  github_issue: null
+  item_type: task
+  title: 'FJ-2200: Remediate E5/E6 — update falsification report, rename Kani harnesses'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-06T18:18:29Z
+  updated: 2026-03-06T18:18:33.245782883+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-042
+  github_issue: null
+  item_type: task
+  title: Platform spec deep runtime implementation
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-06T18:57:58Z
+  updated: 2026-03-06T18:58:02.329102872+00:00
+  spec: null
+  acceptance_criteria:
+  - Implement all PARTIAL phases in forjar-platform-spec.md with real runtime code, not stubs. Embrace deep tough work first.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

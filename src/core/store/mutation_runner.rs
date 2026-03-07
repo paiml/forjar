@@ -46,16 +46,26 @@ pub struct MutationTarget {
 }
 
 /// Generate the mutation script for a given operator and resource.
+///
+/// Scripts use `$FORJAR_SANDBOX` prefix when set (local sandbox mode),
+/// falling back to absolute paths for container/remote execution.
 pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String {
+    // Use $FORJAR_SANDBOX prefix for sandbox-aware paths (double-quoted for expansion)
     match operator {
         MutationOperator::DeleteFile => {
-            format!("rm -f '/etc/forjar/{resource_id}' 2>/dev/null; true")
+            format!(
+                r#"rm -f "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#
+            )
         }
         MutationOperator::ModifyContent => {
-            format!("echo 'MUTATED_CONTENT' >> '/etc/forjar/{resource_id}' 2>/dev/null; true")
+            format!(
+                r#"echo 'MUTATED_CONTENT' >> "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#
+            )
         }
         MutationOperator::ChangePermissions => {
-            format!("chmod 000 '/etc/forjar/{resource_id}' 2>/dev/null; true")
+            format!(
+                r#"chmod 000 "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#
+            )
         }
         MutationOperator::StopService => {
             format!("systemctl stop '{resource_id}' 2>/dev/null; true")
@@ -67,10 +77,14 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
             format!("pkill -f '{resource_id}' 2>/dev/null; true")
         }
         MutationOperator::UnmountFilesystem => {
-            format!("umount '/mnt/{resource_id}' 2>/dev/null; true")
+            format!(
+                r#"umount "${{FORJAR_SANDBOX:-}}/mnt/{resource_id}" 2>/dev/null; true"#
+            )
         }
         MutationOperator::CorruptConfig => {
-            format!("sed -i 's/^/#CORRUPTED /' '/etc/forjar/{resource_id}' 2>/dev/null; true")
+            format!(
+                r#"sed -i 's/^/#CORRUPTED /' "${{FORJAR_SANDBOX:-}}/etc/forjar/{resource_id}" 2>/dev/null; true"#
+            )
         }
     }
 }
@@ -112,15 +126,26 @@ pub fn run_mutation_test_dispatch(
     }
 }
 
-/// Run a single mutation test (simulated mode).
+/// Check if a mutation operator is safe for local (non-container) execution.
 ///
-/// Algorithm (from spec):
-/// 1. Apply baseline in sandbox
-/// 2. Apply mutation
-/// 3. Run drift detection
-/// 4. Assert drift was detected
-/// 5. Re-converge (if configured)
-/// 6. Verify convergence
+/// Only file-scoped operators that work within $FORJAR_SANDBOX are safe.
+/// System operators (systemctl, apt-get, pkill, umount) MUST NEVER run
+/// on the host — they require a container or remote sandbox.
+fn is_safe_for_local(operator: MutationOperator) -> bool {
+    matches!(
+        operator,
+        MutationOperator::DeleteFile
+            | MutationOperator::ModifyContent
+            | MutationOperator::ChangePermissions
+            | MutationOperator::CorruptConfig
+    )
+}
+
+/// Run a single mutation test in a local tempdir sandbox.
+///
+/// Only file-scoped operators run locally. System operators (StopService,
+/// RemovePackage, KillProcess, UnmountFilesystem) are skipped with an
+/// error indicating they require a container backend.
 pub fn run_mutation_test(
     target: &MutationTarget,
     operator: MutationOperator,
@@ -128,9 +153,48 @@ pub fn run_mutation_test(
 ) -> MutationResult {
     let start = std::time::Instant::now();
 
+    // SAFETY: Never run system-scoped mutations on the host
+    if !is_safe_for_local(operator) {
+        return MutationResult {
+            resource_id: target.resource_id.clone(),
+            resource_type: target.resource_type.clone(),
+            operator,
+            detected: false,
+            reconverged: None,
+            duration_ms: start.elapsed().as_millis() as u64,
+            error: Some(format!(
+                "{operator} requires container backend (unsafe for local execution)"
+            )),
+        };
+    }
+
+    // Create isolated sandbox directory
+    let sandbox_dir = std::env::temp_dir().join(format!(
+        "forjar-mut-{}-{:x}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let _ = std::fs::create_dir_all(&sandbox_dir);
+
+    let result = run_mutation_in_sandbox(target, operator, config, &sandbox_dir, start);
+
+    // Cleanup sandbox
+    let _ = std::fs::remove_dir_all(&sandbox_dir);
+    result
+}
+
+fn run_mutation_in_sandbox(
+    target: &MutationTarget,
+    operator: MutationOperator,
+    config: &MutationRunConfig,
+    sandbox_dir: &std::path::Path,
+    start: std::time::Instant,
+) -> MutationResult {
     // Step 1: Apply baseline
-    let baseline = simulate_apply(&target.apply_script);
-    if let Err(e) = baseline {
+    if let Err(e) = local_apply(&target.apply_script, sandbox_dir) {
         return MutationResult {
             resource_id: target.resource_id.clone(),
             resource_type: target.resource_type.clone(),
@@ -142,16 +206,20 @@ pub fn run_mutation_test(
         };
     }
 
-    // Step 2: Apply mutation
+    // Step 2: Capture baseline state
+    let baseline_hash = local_apply(&target.drift_script, sandbox_dir)
+        .unwrap_or_default();
+
+    // Step 3: Apply mutation
     let mutation_cmd = mutation_script(operator, &target.resource_id);
-    let _ = simulate_apply(&mutation_cmd);
+    let _ = local_apply(&mutation_cmd, sandbox_dir);
 
-    // Step 3: Detect drift
-    let detected = simulate_drift_detection(&target.drift_script, &target.expected_hash);
+    // Step 4: Detect drift (real comparison)
+    let detected = local_drift_detection(&target.drift_script, &baseline_hash, sandbox_dir);
 
-    // Step 4-6: Re-convergence
+    // Step 5-6: Re-convergence
     let reconverged = if config.test_reconvergence && detected {
-        let reapply = simulate_apply(&target.apply_script);
+        let reapply = local_apply(&target.apply_script, sandbox_dir);
         Some(reapply.is_ok())
     } else {
         None
@@ -242,24 +310,59 @@ pub fn format_mutation_run(report: &MutationReport) -> String {
     out
 }
 
-/// Simulate applying a script (returns hash).
-fn simulate_apply(script: &str) -> Result<String, String> {
+/// Execute a script locally in a sandbox directory, returning stdout hash.
+///
+/// SAFETY: Only executes scripts scoped to the sandbox directory.
+/// System-modifying commands are blocked by the `is_safe_for_local` gate
+/// at the caller level (`run_mutation_test`).
+fn local_apply(script: &str, sandbox_dir: &std::path::Path) -> Result<String, String> {
     if script.is_empty() {
         return Err("empty script".into());
     }
-    let refs = [script];
+    let output = std::process::Command::new("bash")
+        .args(["-euo", "pipefail", "-c", script])
+        .current_dir(sandbox_dir)
+        .env("FORJAR_SANDBOX", sandbox_dir)
+        .output()
+        .map_err(|e| format!("local exec: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "exit {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
+        ));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let refs = [stdout.as_ref()];
     Ok(crate::tripwire::hasher::composite_hash(&refs))
 }
 
-/// Simulate drift detection.
+/// Detect drift by running the drift script locally and comparing output hash.
 ///
-/// In a real implementation, this would run the drift script in the sandbox
-/// and compare actual vs expected hash. Here we simulate by checking if
-/// the mutation changed the state.
-fn simulate_drift_detection(_drift_script: &str, _expected_hash: &str) -> bool {
-    // Simulated: mutations are always detected in test mode
-    // Real implementation would compare hashes after mutation
-    true
+/// Executes the drift script in a tempdir sandbox via `bash -euo pipefail`,
+/// hashes the stdout output, and compares against the baseline hash.
+fn local_drift_detection(
+    drift_script: &str,
+    baseline_hash: &str,
+    sandbox_dir: &std::path::Path,
+) -> bool {
+    let output = std::process::Command::new("bash")
+        .args(["-euo", "pipefail", "-c", drift_script])
+        .current_dir(sandbox_dir)
+        .env("FORJAR_SANDBOX", sandbox_dir)
+        .output();
+
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let refs = [stdout.as_ref()];
+            let current_hash = crate::tripwire::hasher::composite_hash(&refs);
+            current_hash != baseline_hash
+        }
+        Err(_) => true, // execution failure = drift detected
+    }
 }
 
 // RunnerMode lives in convergence_runner.rs (single source of truth)
