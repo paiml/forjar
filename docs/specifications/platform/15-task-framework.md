@@ -95,9 +95,12 @@ resources:
     working_dir: /opt/app
 ```
 
-Existing fields preserved. `mode` defaults to `batch` for backward compatibility.
+Existing fields preserved. `task_mode` defaults to `batch` for backward compatibility.
 
-### Mode: batch (Default)
+> **Note**: The YAML field is `task_mode:`, not `mode:`, because `mode:` is already
+> used for file permission mode (e.g., `mode: "0644"`) on the Resource type.
+
+### task_mode: batch (Default)
 
 Run-once tasks that converge to "completed" state.
 
@@ -105,7 +108,7 @@ Run-once tasks that converge to "completed" state.
 resources:
   db-migrate:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alembic upgrade head"
     completion_check: "alembic current | grep -q head"
     output_artifacts: [/var/lib/app/alembic.stamp]
@@ -120,7 +123,7 @@ resources:
 - `output_artifacts` hashed via BLAKE3 → drift detection if artifacts change
 - No `completion_check` and no `output_artifacts` → always re-runs (current behavior)
 
-### Mode: pipeline
+### task_mode: pipeline
 
 Ordered multi-stage execution with inter-stage gates.
 
@@ -128,7 +131,7 @@ Ordered multi-stage execution with inter-stage gates.
 resources:
   model-build:
     type: task
-    mode: pipeline
+    task_mode: pipeline
     stages:
       - name: pull
         command: "apr pull '{{inputs.model_source}}'"
@@ -165,15 +168,15 @@ for each stage S in pipeline:
 
 **Content-addressed caching**: Each stage's inputs are hashed. If input hashes match the previous run, the stage is skipped. This gives Make-like incremental builds using forjar's BLAKE3 store.
 
-### Mode: service
+### task_mode: service
 
-Long-running tasks with health checks and restart policy. Distinct from `type: service` (which manages systemd units) — `mode: service` is for forjar-managed processes.
+Long-running tasks with health checks and restart policy. Distinct from `type: service` (which manages systemd units) — `task_mode: service` is for forjar-managed processes.
 
 ```yaml
 resources:
   inference-server:
     type: task
-    mode: service
+    task_mode: service
     command: "apr serve --model /opt/models/llama.gguf --port 8080"
     health_check:
       command: "curl -sf http://localhost:8080/health"
@@ -192,11 +195,11 @@ resources:
 - `forjar destroy` stops the process
 - State tracked via PID file + health check status
 
-**When to use `mode: service` vs `type: service`**:
+**When to use `task_mode: service` vs `type: service`**:
 - `type: service` → manages systemd/launchd units (production, survives reboot)
-- `mode: service` → forjar-managed process (development, testing, ephemeral)
+- `task_mode: service` → forjar-managed process (development, testing, ephemeral)
 
-### Mode: dispatch
+### task_mode: dispatch
 
 Parameterized tasks triggered on-demand via `forjar run`.
 
@@ -204,7 +207,7 @@ Parameterized tasks triggered on-demand via `forjar run`.
 resources:
   deploy:
     type: task
-    mode: dispatch
+    task_mode: dispatch
     command: "deploy.sh {{dispatch.version}} {{dispatch.env}}"
     params:
       version: { type: string, required: true }
@@ -231,13 +234,13 @@ forjar run deploy --param version=1.2.3 --param env=production
 resources:
   build-binary:
     type: task
-    mode: batch
+    task_mode: batch
     command: "cargo build --release --locked"
-    inputs:
+    task_inputs:
       - src/**/*.rs        # Glob patterns
       - Cargo.toml
       - Cargo.lock
-    outputs:
+    output_artifacts:
       - target/release/forjar
     cache: true
 ```
@@ -247,7 +250,7 @@ resources:
 fn should_skip_task(task, state_lock):
     if not task.cache:
         return false
-    for input_glob in task.inputs:
+    for input_glob in task.task_inputs:
         for file in glob(input_glob):
             current_hash = blake3(file)
             if current_hash != state_lock.input_hashes[file]:
@@ -281,7 +284,7 @@ Quality gates conditionally block downstream execution based on task output.
 resources:
   data-quality:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alimentar quality score data.parquet --json"
     gate:
       parse: json
@@ -291,7 +294,7 @@ resources:
 
   train-model:
     type: task
-    mode: batch
+    task_mode: batch
     command: "entrenar train config.yaml"
     depends_on: [data-quality]   # Only runs if data-quality gate passes
 ```
@@ -324,18 +327,18 @@ GPU-consuming tasks need device assignment without a scheduler.
 resources:
   train-adapter-0:
     type: task
-    mode: batch
+    task_mode: batch
     command: "entrenar train config.yaml --adapter 0"
     gpu_device: 0
-    gpu_memory: 16384      # MB — informational, not enforced by forjar
+    gpu_memory_limit_mb: 16384      # Informational, not enforced by forjar
     depends_on: [download-model]
 
   train-adapter-1:
     type: task
-    mode: batch
+    task_mode: batch
     command: "entrenar train config.yaml --adapter 1"
     gpu_device: 1
-    gpu_memory: 16384
+    gpu_memory_limit_mb: 16384
     depends_on: [download-model]
 ```
 
@@ -362,7 +365,7 @@ resources:
   # Stage 1: Fan-out — run on all workers
   generate-manifests:
     type: task
-    mode: batch
+    task_mode: batch
     machine: [worker-1, worker-2, worker-3]
     command: "alimentar fed manifest local.parquet -o /tmp/manifest.json --node-id {{machine.hostname}}"
     output_artifacts: [/tmp/manifest.json]
@@ -370,7 +373,7 @@ resources:
   # Stage 2: Gather — collect artifacts to coordinator
   collect-manifests:
     type: task
-    mode: batch
+    task_mode: batch
     machine: coordinator
     command: "alimentar fed plan /tmp/manifests/*.json -o /tmp/plan.json"
     depends_on: [generate-manifests]
@@ -382,7 +385,7 @@ resources:
   # Stage 3: Fan-out again — distribute plan to all workers
   execute-splits:
     type: task
-    mode: batch
+    task_mode: batch
     machine: [worker-1, worker-2, worker-3]
     command: "alimentar fed split local.parquet /tmp/plan.json --node-id {{machine.hostname}}"
     depends_on: [collect-manifests]
@@ -420,13 +423,13 @@ Forjar moves files and runs commands. The consumers handle their own coordinatio
 resources:
   ingest-data:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alimentar convert raw.csv data.parquet"
     output_artifacts: [data.parquet]
 
   quality-gate:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alimentar quality score data.parquet --json --profile ml-training"
     depends_on: [ingest-data]
     gate:
@@ -436,7 +439,7 @@ resources:
 
   drift-check:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alimentar drift detect reference.parquet data.parquet --json"
     depends_on: [ingest-data]
     gate:
@@ -453,17 +456,17 @@ resources:
 resources:
   prepare-data:
     type: task
-    mode: batch
+    task_mode: batch
     command: "alimentar convert corpus.jsonl train.parquet"
     output_artifacts: [train.parquet]
 
   train-model:
     type: task
-    mode: batch
+    task_mode: batch
     machine: gpu-node-1
     command: "entrenar train config.yaml --checkpoint-dir /opt/checkpoints"
     gpu_device: 0
-    gpu_memory: 24576
+    gpu_memory_limit_mb: 24576
     timeout: 86400          # 24 hours
     depends_on: [prepare-data]
     output_artifacts: [/opt/checkpoints/best/model.safetensors]
@@ -473,7 +476,7 @@ resources:
 
   evaluate-model:
     type: task
-    mode: batch
+    task_mode: batch
     command: "entrenar eval /opt/checkpoints/best/model.safetensors --json"
     depends_on: [train-model]
     gate:
@@ -489,7 +492,7 @@ resources:
 resources:
   model-pipeline:
     type: task
-    mode: pipeline
+    task_mode: pipeline
     stages:
       - name: pull
         command: "apr pull '{{inputs.model_source}}'"
@@ -517,7 +520,7 @@ resources:
 
   inference-server:
     type: task
-    mode: service
+    task_mode: service
     command: "apr serve --model /opt/models/model.apr --port 8080 --workers 4"
     depends_on: [model-pipeline]
     gpu_device: 0
@@ -541,7 +544,7 @@ resources:
 
   agent-service:
     type: task
-    mode: service
+    task_mode: service
     command: "batuta agent run --manifest /etc/batuta/agent.toml --daemon"
     depends_on: [agent-model, nvidia-driver]
     gpu_device: 0
@@ -556,7 +559,7 @@ resources:
 
   agent-pool:
     type: task
-    mode: dispatch
+    task_mode: dispatch
     command: "batuta agent run --manifest /etc/batuta/pool.toml --query '{{dispatch.query}}'"
     depends_on: [agent-service]
     params:
@@ -570,7 +573,7 @@ resources:
 resources:
   build:
     type: task
-    mode: pipeline
+    task_mode: pipeline
     stages:
       - name: check
         command: "cargo fmt --check && cargo clippy -- -D warnings"
@@ -626,7 +629,7 @@ resources:
     status: Converged
     hash: "pipeline:abc123"
     details:
-      mode: pipeline
+      task_mode: pipeline
       stages:
         pull:
           status: cached
@@ -654,7 +657,7 @@ resources:
     status: Converged
     hash: "service:def456"
     details:
-      mode: service
+      task_mode: service
       pid: 12345
       started_at: "2026-03-05T14:30:00Z"
       health_checks_passed: 147

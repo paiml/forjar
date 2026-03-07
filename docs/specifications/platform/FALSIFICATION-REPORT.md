@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 37/38 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24).
+> Updated: 2026-03-07 | 39/40 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24), task framework field name fix (F25), deep check flags completion (F26).
 
 ---
 
@@ -355,6 +355,22 @@ The `resolve_secret()` function in `resolver/template.rs` hardcoded the env prov
 
 ---
 
+### ~~F25: Spec 15 uses `mode:` but actual YAML field is `task_mode:`~~ FIXED
+
+All YAML examples in 15-task-framework.md used `mode: batch`, `mode: pipeline`, etc. The actual Resource struct field is `task_mode: Option<TaskMode>` with no `#[serde(rename)]`. The `mode:` field is already occupied by file permissions (`mode: "0644"`). Users following the spec would get silent field drops.
+
+**Fix**: Replaced all `mode:` → `task_mode:` in spec YAML examples (30+ occurrences). Also fixed `gpu_memory:` → `gpu_memory_limit_mb:` and `inputs:`/`outputs:` → `task_inputs:`/`output_artifacts:` at resource level (pipeline stage fields are correctly `inputs:`/`outputs:`). Added clarifying note explaining why the field is `task_mode:` not `mode:`.
+
+---
+
+### ~~F26: `DeepCheckFlags` missing 4 of 10 spec-claimed fields~~ FIXED
+
+Spec 13-config-validation.md §"All Deep Checks" lists 10 `--check-*` flags. `DeepCheckFlags` struct only had 6 fields: `templates`, `circular_deps`, `connectivity`, `secrets`, `overlaps`, `naming`. Missing: `machine_refs`, `state_values`, `drift_coverage`, `idempotency`.
+
+**Fix**: Added 4 missing fields to `DeepCheckFlags`, updated `exhaustive()` constructor and `any_enabled()` method. The CLI flags and implementation functions already existed (`validate_safety.rs:cmd_validate_check_machine_refs`, `cmd_validate_check_state_values`; `validate_args.rs:check_idempotency`, `check_drift_coverage`). Tests updated to cover all 10 fields.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -425,3 +441,5 @@ The `resolve_secret()` function in `resolver/template.rs` hardcoded the env prov
 | ~~34~~ | ~~Implement `forjar run` dispatch-mode task invocation~~ | F20 | DONE |
 | ~~35~~ | ~~Wire `--operator` flag and `is_operator_allowed()` into apply pipeline~~ | F21 | DONE |
 | 36 | `--telemetry-endpoint` flag parsed but never used — no OTLP export | F22 | DOCUMENTED |
+| ~~37~~ | ~~Fix spec 15 `mode:` → `task_mode:` in all YAML examples~~ | ~~F25~~ | DONE |
+| ~~38~~ | ~~Add 4 missing DeepCheckFlags fields~~ | ~~F26~~ | DONE |
