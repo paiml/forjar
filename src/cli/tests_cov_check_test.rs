@@ -317,3 +317,88 @@ impl Clone for TestRow {
         }
     }
 }
+
+// ── Verify assertion tests ──
+
+fn make_verify(overrides: impl FnOnce(&mut crate::core::types::VerifyCommand)) -> crate::core::types::VerifyCommand {
+    let mut v = crate::core::types::VerifyCommand {
+        command: "true".into(),
+        exit_code: Some(0),
+        stdout: None,
+        stderr_contains: None,
+        file_exists: None,
+        file_content: None,
+        port_open: None,
+        retries: None,
+        retry_delay_secs: None,
+    };
+    overrides(&mut v);
+    v
+}
+
+#[test]
+fn verify_file_content_exact_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.txt");
+    std::fs::write(&path, "hello world\n").unwrap();
+    let v = make_verify(|v| {
+        v.file_exists = Some(path.display().to_string());
+        v.file_content = Some("hello world".into());
+    });
+    let r = check_verify_assertions(&v, 0, "", "");
+    assert!(r.is_none(), "expected pass, got: {r:?}");
+}
+
+#[test]
+fn verify_file_content_mismatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.txt");
+    std::fs::write(&path, "wrong content").unwrap();
+    let v = make_verify(|v| {
+        v.file_exists = Some(path.display().to_string());
+        v.file_content = Some("expected content".into());
+    });
+    let r = check_verify_assertions(&v, 0, "", "");
+    assert!(r.is_some());
+    assert!(r.unwrap().contains("mismatch"));
+}
+
+#[test]
+fn verify_file_content_blake3() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("data.bin");
+    let data = b"test data for hashing";
+    std::fs::write(&path, data).unwrap();
+    let hash = blake3::hash(data).to_hex().to_string();
+    let v = make_verify(|v| {
+        v.file_exists = Some(path.display().to_string());
+        v.file_content = Some(format!("blake3:{hash}"));
+    });
+    let r = check_verify_assertions(&v, 0, "", "");
+    assert!(r.is_none(), "expected pass, got: {r:?}");
+}
+
+#[test]
+fn verify_file_content_blake3_mismatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("data.bin");
+    std::fs::write(&path, b"actual data").unwrap();
+    let v = make_verify(|v| {
+        v.file_exists = Some(path.display().to_string());
+        v.file_content = Some("blake3:0000000000000000".into());
+    });
+    let r = check_verify_assertions(&v, 0, "", "");
+    assert!(r.is_some());
+    assert!(r.unwrap().contains("hash mismatch"));
+}
+
+#[test]
+fn verify_port_not_open() {
+    // Port 1 is almost certainly not open
+    let v = make_verify(|v| {
+        v.port_open = Some(1);
+    });
+    let r = check_verify_assertions(&v, 0, "", "");
+    assert!(r.is_some());
+    assert!(r.unwrap().contains("not open"));
+}

@@ -323,156 +323,100 @@ pub(crate) fn run_tests_parallel(
     })
 }
 
+/// Check file content against expected (exact or BLAKE3 hash).
+fn check_file_content(path: &str, expected_content: &str) -> Option<String> {
+    let actual = match std::fs::read_to_string(path) {
+        Ok(a) => a,
+        Err(e) => return Some(format!("cannot read {path}: {e}")),
+    };
+    if let Some(expected_hash) = expected_content.strip_prefix("blake3:") {
+        let actual_hash = blake3::hash(actual.as_bytes()).to_hex().to_string();
+        if actual_hash != expected_hash {
+            return Some(format!(
+                "file content hash mismatch: got blake3:{}, expected {expected_content}",
+                &actual_hash[..16]
+            ));
+        }
+    } else if actual.trim() != expected_content.trim() {
+        return Some(format!("file content mismatch in {path}"));
+    }
+    None
+}
+
+/// Check that a TCP port is open on localhost.
+fn check_port_open(port: u16) -> Option<String> {
+    use std::net::TcpStream;
+    let addr = format!("127.0.0.1:{port}");
+    let timeout = std::time::Duration::from_secs(2);
+    if TcpStream::connect_timeout(&addr.parse().unwrap(), timeout).is_err() {
+        return Some(format!("port {port} not open on 127.0.0.1"));
+    }
+    None
+}
+
+fn check_exit_code(verify: &crate::core::types::VerifyCommand, code: i32) -> Option<String> {
+    let expected = verify.exit_code.unwrap_or(0);
+    if code != expected {
+        return Some(format!("exit code {code}, expected {expected}"));
+    }
+    None
+}
+
+fn check_stdout(verify: &crate::core::types::VerifyCommand, stdout: &str) -> Option<String> {
+    let expected = verify.stdout.as_ref()?;
+    if stdout.trim() != expected.trim() {
+        return Some(format!(
+            "stdout mismatch: got {:?}, expected {:?}",
+            stdout.trim(),
+            expected.trim()
+        ));
+    }
+    None
+}
+
+fn check_stderr(verify: &crate::core::types::VerifyCommand, stderr: &str) -> Option<String> {
+    let expected = verify.stderr_contains.as_ref()?;
+    if !stderr.contains(expected.as_str()) {
+        return Some(format!("stderr missing {:?}", expected));
+    }
+    None
+}
+
+fn check_file_exists(verify: &crate::core::types::VerifyCommand) -> Option<String> {
+    let path = verify.file_exists.as_ref()?;
+    if !std::path::Path::new(path).exists() {
+        return Some(format!("file not found: {path}"));
+    }
+    None
+}
+
+fn check_file_content_assertion(verify: &crate::core::types::VerifyCommand) -> Option<String> {
+    let expected_content = verify.file_content.as_ref()?;
+    let path = verify.file_exists.as_ref()?;
+    check_file_content(path, expected_content)
+}
+
+fn check_port_assertion(verify: &crate::core::types::VerifyCommand) -> Option<String> {
+    check_port_open(verify.port_open?)
+}
+
 /// Check verify assertions against command output. Returns None if all pass.
-fn check_verify_assertions(
+pub(crate) fn check_verify_assertions(
     verify: &crate::core::types::VerifyCommand,
     code: i32,
     stdout: &str,
     stderr: &str,
 ) -> Option<String> {
-    let expected_code = verify.exit_code.unwrap_or(0);
-    if code != expected_code {
-        return Some(format!("exit code {code}, expected {expected_code}"));
-    }
-    if let Some(ref expected) = verify.stdout {
-        if stdout.trim() != expected.trim() {
-            return Some(format!(
-                "stdout mismatch: got {:?}, expected {:?}",
-                stdout.trim(),
-                expected.trim()
-            ));
-        }
-    }
-    if let Some(ref expected) = verify.stderr_contains {
-        if !stderr.contains(expected.as_str()) {
-            return Some(format!("stderr missing {:?}", expected));
-        }
-    }
-    if let Some(ref path) = verify.file_exists {
-        if !std::path::Path::new(path).exists() {
-            return Some(format!("file not found: {path}"));
-        }
-    }
-    None
+    None.or_else(|| check_exit_code(verify, code))
+        .or_else(|| check_stdout(verify, stdout))
+        .or_else(|| check_stderr(verify, stderr))
+        .or_else(|| check_file_exists(verify))
+        .or_else(|| check_file_content_assertion(verify))
+        .or_else(|| check_port_assertion(verify))
 }
 
 /// Execute a single behavior entry, running verify commands if present.
-fn execute_behavior(
-    b: &crate::core::types::BehaviorEntry,
-) -> crate::core::types::BehaviorResult {
-    use crate::core::types::BehaviorResult;
-    let bt0 = std::time::Instant::now();
-
-    if let Some(ref verify) = b.verify {
-        let output = std::process::Command::new("bash")
-            .args(["-euo", "pipefail", "-c", &verify.command])
-            .output();
-        let elapsed_ms = bt0.elapsed().as_millis() as u64;
-        match output {
-            Ok(out) => {
-                let code = out.status.code().unwrap_or(-1);
-                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                let failure = check_verify_assertions(verify, code, &stdout, &stderr);
-                BehaviorResult {
-                    name: b.name.clone(),
-                    passed: failure.is_none(),
-                    failure,
-                    actual_exit_code: Some(code),
-                    actual_stdout: Some(stdout),
-                    duration_ms: elapsed_ms,
-                }
-            }
-            Err(e) => BehaviorResult {
-                name: b.name.clone(),
-                passed: false,
-                failure: Some(format!("exec error: {e}")),
-                actual_exit_code: None,
-                actual_stdout: None,
-                duration_ms: elapsed_ms,
-            },
-        }
-    } else if b.assert_state.is_some() || b.is_convergence() {
-        BehaviorResult {
-            name: b.name.clone(),
-            passed: true,
-            failure: None,
-            actual_exit_code: None,
-            actual_stdout: None,
-            duration_ms: bt0.elapsed().as_millis() as u64,
-        }
-    } else {
-        BehaviorResult {
-            name: b.name.clone(),
-            passed: false,
-            failure: Some("no assertion defined".into()),
-            actual_exit_code: None,
-            actual_stdout: None,
-            duration_ms: 0,
-        }
-    }
-}
-
-pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
-    use crate::core::types::{BehaviorReport, BehaviorResult, BehaviorSpec};
-
-    let spec_dir = file.parent().unwrap_or(Path::new("."));
-    let t0 = std::time::Instant::now();
-
-    println!("Behavior Test Runner");
-    println!("====================\n");
-
-    let mut specs: Vec<BehaviorSpec> = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(spec_dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.ends_with(".spec.yaml") {
-                let content = std::fs::read_to_string(entry.path())
-                    .map_err(|e| format!("read {name}: {e}"))?;
-                let spec: BehaviorSpec =
-                    serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {name}: {e}"))?;
-                println!("Loaded: {name} ({} behaviors)", spec.behavior_count());
-                specs.push(spec);
-            }
-        }
-    }
-
-    if specs.is_empty() {
-        println!("No .spec.yaml files found in {}", spec_dir.display());
-        println!("Create behavior specs to define expected system state.");
-        return Ok(());
-    }
-
-    let mut total_pass = 0usize;
-    let mut total_fail = 0usize;
-    for spec in &specs {
-        let results: Vec<BehaviorResult> = spec
-            .behaviors
-            .iter()
-            .map(execute_behavior)
-            .collect();
-        let report = BehaviorReport::from_results(spec.name.clone(), results);
-        total_pass += report.passed;
-        total_fail += report.failed;
-        print!("{}", report.format_summary());
-    }
-
-    let elapsed = t0.elapsed();
-    println!(
-        "\n{} spec(s), {} behavior(s): {} passed, {} failed ({:.1}s)",
-        specs.len(),
-        total_pass + total_fail,
-        total_pass,
-        total_fail,
-        elapsed.as_secs_f64()
-    );
-
-    if total_fail > 0 {
-        Err(format!("{total_fail} behavior(s) failed"))
-    } else {
-        Ok(())
-    }
-}
-
-// cmd_test_mutation and cmd_test_convergence extracted to check_test_runners.rs (500-line limit)
-pub(crate) use super::check_test_runners::{cmd_test_convergence, cmd_test_mutation};
+// Behavior, mutation, and convergence runners extracted to check_test_runners.rs (500-line limit)
+pub(crate) use super::check_test_runners::{
+    cmd_test_behavior, cmd_test_convergence, cmd_test_mutation,
+};
