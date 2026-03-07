@@ -57,8 +57,20 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::Build(BuildArgs { file, resource, load, push, far, json }) => {
             super::build_image::cmd_build(&file, &resource, load, push, far, json)
         }
-        Commands::Logs(LogsArgs { state_dir, machine, run, failures, follow, gc, json }) => {
-            cmd_logs(&state_dir, machine.as_deref(), run.as_deref(), failures, follow, gc, json)
+        Commands::Logs(LogsArgs {
+            state_dir, machine, run, resource, failures, script, all_machines, follow, gc,
+            dry_run, keep_failed, json,
+        }) => {
+            if gc {
+                return super::logs::cmd_logs_gc(&state_dir, dry_run, keep_failed, json);
+            }
+            if follow {
+                return super::logs::cmd_logs_follow(&state_dir, json);
+            }
+            super::logs::cmd_logs(
+                &state_dir, machine.as_deref(), run.as_deref(), resource.as_deref(),
+                failures, script, all_machines, json,
+            )
         }
         Commands::OciPack(OciPackArgs { dir, tag, output, json }) => {
             cmd_oci_pack(&dir, &tag, &output, json)
@@ -208,70 +220,7 @@ pub(crate) fn which_runtime(name: &str) -> bool {
         .is_ok_and(|s| s.success())
 }
 
-/// FJ-2300: Log viewer with optional follow mode.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn cmd_logs(
-    state_dir: &std::path::Path, machine: Option<&str>, run: Option<&str>,
-    failures: bool, follow: bool, gc: bool, json: bool,
-) -> Result<(), String> {
-    if gc {
-        return cmd_logs_gc(state_dir, json);
-    }
-    if follow {
-        return cmd_logs_follow(state_dir, json);
-    }
-    let filter_desc = [
-        machine.map(|m| format!("machine={m}")),
-        run.map(|r| format!("run={r}")),
-        failures.then(|| "failures-only".into()),
-    ].into_iter().flatten().collect::<Vec<_>>().join(", ");
-    let filter_str = if filter_desc.is_empty() { "all".to_string() } else { filter_desc };
-    if json {
-        let output = serde_json::json!({
-            "logs": [],
-            "filter": filter_str,
-            "state_dir": state_dir.display().to_string(),
-            "message": "no run logs found"
-        });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
-    } else {
-        println!("Logs (filter: {filter_str}):");
-        println!("  state_dir: {}", state_dir.display());
-        println!("  (no run logs found — apply has not been executed with logging enabled)");
-    }
-    Ok(())
-}
-
-fn cmd_logs_gc(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
-    if json {
-        let output = serde_json::json!({
-            "action": "gc",
-            "state_dir": state_dir.display().to_string(),
-            "cleaned": 0
-        });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
-    } else {
-        println!("Log garbage collection: scanning {}", state_dir.display());
-        println!("  (no logs to clean — state directory is empty or has no runs/)");
-    }
-    Ok(())
-}
-
-fn cmd_logs_follow(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
-    if json {
-        let output = serde_json::json!({
-            "action": "follow",
-            "state_dir": state_dir.display().to_string(),
-            "status": "waiting"
-        });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
-    } else {
-        println!("Follow mode: watching {} for new log entries...", state_dir.display());
-        println!("  (attach to a running `forjar apply` to stream live output)");
-        println!("  Press Ctrl+C to stop.");
-    }
-    Ok(())
-}
+// FJ-2301: cmd_logs, cmd_logs_gc, cmd_logs_follow moved to cli/logs.rs
 
 /// FJ-2101: Pack a directory into an OCI image layout.
 pub(crate) fn cmd_oci_pack(

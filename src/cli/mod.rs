@@ -103,6 +103,7 @@ mod iso_export;
 mod lineage;
 mod lint;
 mod lock_audit;
+mod logs;
 mod lock_core;
 mod lock_lifecycle;
 mod lock_merge;

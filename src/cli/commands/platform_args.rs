@@ -259,9 +259,21 @@ pub struct LogsArgs {
     #[arg(long)]
     pub run: Option<String>,
 
+    /// Filter by resource ID
+    #[arg(long)]
+    pub resource: Option<String>,
+
     /// Show only failures
     #[arg(long)]
     pub failures: bool,
+
+    /// Show the executed script
+    #[arg(long)]
+    pub script: bool,
+
+    /// Show logs from all machines
+    #[arg(long)]
+    pub all_machines: bool,
 
     /// Follow mode — stream live during apply
     #[arg(long)]
@@ -270,6 +282,14 @@ pub struct LogsArgs {
     /// Garbage-collect old logs
     #[arg(long)]
     pub gc: bool,
+
+    /// Dry-run for --gc (show what would be deleted)
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Keep failed run logs during --gc
+    #[arg(long)]
+    pub keep_failed: bool,
 
     /// JSON output
     #[arg(long)]

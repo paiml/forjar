@@ -71,47 +71,47 @@ fn contracts_no_coverage_flag_still_works() {
     assert!(r.is_ok());
 }
 
-// ── cmd_logs ──
+// ── cmd_logs (delegated to cli/logs.rs) ──
 
 #[test]
 fn logs_gc_mode() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, false, true, false);
+    let r = super::logs::cmd_logs_gc(dir.path(), false, false, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_follow_mode() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, true, false, false);
+    let r = super::logs::cmd_logs_follow(dir.path(), false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_default_all() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, false, false, false);
+    let r = super::logs::cmd_logs(dir.path(), None, None, None, false, false, false, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_with_machine_filter() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), Some("web1"), None, false, false, false, false);
+    let r = super::logs::cmd_logs(dir.path(), Some("web1"), None, None, false, false, false, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_with_run_filter() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, Some("run-001"), false, false, false, false);
+    let r = super::logs::cmd_logs(dir.path(), None, Some("run-001"), None, false, false, false, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_failures_only() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), Some("web1"), Some("run-001"), true, false, false, false);
+    let r = super::logs::cmd_logs(dir.path(), Some("web1"), Some("run-001"), None, true, false, false, false);
     assert!(r.is_ok());
 }
 
@@ -120,28 +120,28 @@ fn logs_failures_only() {
 #[test]
 fn logs_json_default() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, false, false, true);
+    let r = super::logs::cmd_logs(dir.path(), None, None, None, false, false, false, true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_json_gc() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, false, true, true);
+    let r = super::logs::cmd_logs_gc(dir.path(), false, false, true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_json_follow() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), None, None, false, true, false, true);
+    let r = super::logs::cmd_logs_follow(dir.path(), true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_json_with_filters() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs(dir.path(), Some("web1"), Some("run-001"), true, false, false, true);
+    let r = super::logs::cmd_logs(dir.path(), Some("web1"), Some("run-001"), None, true, false, false, true);
     assert!(r.is_ok());
 }
 
