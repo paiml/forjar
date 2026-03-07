@@ -17,7 +17,9 @@ fn proof_blake3_idempotency() {
 }
 ```
 
-Six proof harnesses are included:
+21 proof harnesses across two modules:
+
+**Abstract model proofs** (`src/core/kani_proofs.rs`):
 
 | Harness | Property |
 |---------|----------|
@@ -27,6 +29,20 @@ Six proof harnesses are included:
 | `proof_status_transition_monotonic` | Status transitions are monotonic (never regress) |
 | `proof_plan_determinism` | Same input produces same plan |
 | `proof_topo_sort_stability` | Topological sort is stable |
+
+**Production function proofs** (`src/core/kani_production_proofs.rs`):
+
+| Harness | Function Under Test |
+|---------|---------------------|
+| `proof_mutation_grade_monotonic` | `MutationScore::grade()` |
+| `proof_applicable_operators_valid` | `applicable_operators()` |
+| `proof_contract_tier_ordering` | `VerificationTier::Ord` |
+| `proof_lock_roundtrip` | `LockEntry` serialization |
+| `proof_purity_level_lattice` | `PurityLevel` ordering |
+
+Production function proofs call **real production code** under bounded
+symbolic inputs, not abstract models. This catches actual implementation
+bugs rather than proving properties of a separate model.
 
 Run with: `cargo kani --harness proof_blake3_idempotency`
 

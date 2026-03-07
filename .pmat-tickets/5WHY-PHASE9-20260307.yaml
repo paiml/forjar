@@ -1,0 +1,34 @@
+# Five-Whys Root Cause Analysis: Phase 9 Container Builds
+# Filed per Toyota Way methodology
+
+ticket_id: "5WHY-PHASE9-20260307"
+category: "five-whys"
+created_at: "2026-03-07T00:00:00Z"
+status: "resolved"
+phase: 9
+
+description: |
+  Phase 9 (container-based OCI builds) was marked "externally blocked"
+  on pepita sandbox. Five-whys analysis revealed this was a P0 defect excuse.
+
+five_whys:
+  why_1: "Container OCI builds were not working"
+  why_2: "Implementation required pepita sandbox which is not available"
+  why_3: "pepita was treated as the only sandbox backend"
+  why_4: "Docker/Podman was not considered as a build backend"
+  why_5: "No five-whys analysis was applied to find alternative paths"
+
+root_cause: |
+  Treated external dependency (pepita) as a hard blocker instead of
+  implementing the same capability with available tools (Docker/Podman).
+  Docker diff + cp provides identical filesystem extraction.
+
+resolution:
+  action: "Implemented container_build.rs using Docker diff + cp pipeline"
+  files_changed:
+    - src/core/store/container_build.rs
+    - src/core/store/tests_container_build.rs
+    - src/cli/build_image.rs (--sandbox flag)
+    - src/cli/commands/platform_args.rs
+  completed_at: "2026-03-07T00:00:00Z"
+  commit: "80f1ecf"

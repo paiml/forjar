@@ -3943,7 +3943,7 @@ Reports how many critical-path functions are verified at each level (structural,
 Build a container image from an `image` resource definition.
 
 ```bash
-forjar build -f <FILE> --resource <NAME> [--load] [--push] [--json]
+forjar build -f <FILE> --resource <NAME> [--load] [--push] [--sandbox] [--json]
 ```
 
 | Flag | Default | Description |
@@ -3952,7 +3952,15 @@ forjar build -f <FILE> --resource <NAME> [--load] [--push] [--json]
 | `--resource` | required | Resource name (must be `type: image`) |
 | `--load` | false | Load into local Docker daemon after build |
 | `--push` | false | Push to registry after build |
+| `--far` | false | Pack output as FAR archive |
+| `--sandbox` | false | Build inside ephemeral container (Docker/Podman) |
 | `--json` | false | JSON output |
+
+**Container sandbox builds** (`--sandbox`): starts an ephemeral Docker/Podman
+container from the base image, executes resource scripts inside it, extracts
+filesystem changes via `docker diff` + `docker cp`, and assembles the result
+into an OCI image layout. This produces builds identical to production without
+modifying the host system.
 
 ### `forjar test`
 
