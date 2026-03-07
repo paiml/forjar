@@ -82,6 +82,48 @@ Implements OCI Distribution v1.1 protocol:
 3. Upload missing blobs (PUT)
 4. Upload manifest
 
+## Image Drift Detection (E15)
+
+Forjar extends drift detection to deployed container images.
+When a resource of type `image` is converged, forjar stores the
+manifest digest. On `forjar drift`, it runs `docker inspect` on
+the target machine and compares the actual image digest to the
+expected one.
+
+```
+$ forjar drift -f config.yaml
+Checking builder (3 resources)...
+  app-server: OK
+  web-frontend: DRIFTED — deployed image differs from built image
+  worker: DRIFTED — container not running
+```
+
+Drift scenarios detected:
+- **Digest mismatch**: someone pushed a different image to the container
+- **Container not running**: expected container has stopped
+- **Transport error**: machine unreachable
+
+## Task Input Caching (FJ-2701)
+
+Task resources with `cache: true` and `task_inputs` patterns use
+BLAKE3 hashing to skip re-execution when inputs haven't changed.
+
+```yaml
+resources:
+  build-app:
+    type: task
+    cache: true
+    task_inputs:
+      - "src/**/*.rs"
+      - Cargo.toml
+    command: "cargo build --release"
+```
+
+On apply, forjar hashes all files matching the input patterns. If
+the hash matches the stored value from the last successful run, the
+task is skipped. The input hash is persisted in the state lock's
+resource details.
+
 ## Machine Connectivity Probing (E19)
 
 Active transport probing verifies machine reachability before applying changes.

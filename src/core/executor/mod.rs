@@ -69,9 +69,9 @@ pub(crate) use helpers::{
     apply_and_record_outcome, build_resource_details, compute_resource_waves,
 };
 pub(crate) use machine::apply_machine;
+pub(crate) use helpers::{copia_apply_file, log_tripwire};
 pub(crate) use resource_ops::{
-    apply_single_resource, copia_apply_file, log_tripwire, record_failure, record_success,
-    RecordCtx, ResourceOutcome,
+    apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,
 };
 pub(crate) use strategies::{
     apply_machines_parallel, apply_machines_rolling, apply_machines_sequential,
