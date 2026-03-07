@@ -49,6 +49,9 @@ pub(crate) fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Resu
 }
 
 /// Scan text for unresolved template variables.
+///
+/// Only checks `params.*` references (other namespaces like `secrets.*`,
+/// `machine.*`, `data.*`, and `func()` are runtime-resolved).
 pub(super) fn find_undefined_vars(
     field: &str,
     name: &str,
@@ -59,6 +62,15 @@ pub(super) fn find_undefined_vars(
     while let Some(start) = rest.find("{{") {
         if let Some(end) = rest[start..].find("}}") {
             let var = rest[start + 2..start + end].trim();
+            // Skip non-params namespaces — they are runtime-resolved
+            if var.starts_with("secrets.")
+                || var.starts_with("machine.")
+                || var.starts_with("data.")
+                || var.contains('(')
+            {
+                rest = &rest[start + end + 2..];
+                continue;
+            }
             let key = var.strip_prefix("params.").unwrap_or(var);
             if !params.contains(key) {
                 undefined.push((name.to_string(), key.to_string()));

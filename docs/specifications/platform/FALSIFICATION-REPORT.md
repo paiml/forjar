@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 35/36 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21).
+> Updated: 2026-03-07 | 36/37 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23).
 
 ---
 
@@ -332,6 +332,16 @@ Spec §11-observability (FJ-563) claims OTLP trace export is implemented. The `-
 - The value is silently discarded after parsing
 
 **Status**: DOCUMENTED — implementing full OTLP export requires HTTP client + protobuf serialization. Flag exists as a placeholder for future work.
+
+---
+
+### ~~F23: `find_undefined_vars` falsely flags non-params namespaces~~ FIXED
+
+The FJ-691 `--check-template-vars` validator (`validate_paths.rs:find_undefined_vars`) stripped `params.` prefix if present but checked **all** variables against the params set. This caused false positives for valid `{{secrets.*}}`, `{{machine.*}}`, `{{data.*}}`, and `{{func()}}` template references — they would be flagged as "undefined" even though the template expander (`resolver/template.rs:resolve_variable`) handles all 5 namespaces correctly.
+
+**Fix**: Added namespace guards to `find_undefined_vars` that skip `secrets.*`, `machine.*`, `data.*`, and function-call variables (containing `(`). Only `params.*` and bare variables are checked against the params set.
+
+**Tests**: 8 new tests in `tests_cov_validate3_d.rs` — unit tests for each namespace skip + defined/undefined params + mixed-namespace field + integration test with config using non-params templates.
 
 ---
 
