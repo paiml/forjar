@@ -41,7 +41,7 @@ fn assemble_two_layer_image() {
     let entries = test_entries();
     let config = OciLayerConfig::default();
 
-    let result = assemble_image(&plan, &entries, dir.path(), &config).unwrap();
+    let result = assemble_image(&plan, &entries, dir.path(), &config, None).unwrap();
 
     assert_eq!(result.layers.len(), 2);
     assert!(result.total_size > 0);
@@ -57,6 +57,7 @@ fn assemble_creates_oci_layout() {
         &test_entries(),
         dir.path(),
         &OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 
@@ -81,6 +82,7 @@ fn assemble_index_json_valid() {
         &test_entries(),
         dir.path(),
         &OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 
@@ -103,6 +105,7 @@ fn assemble_docker_compat_manifest() {
         &test_entries(),
         dir.path(),
         &OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 
@@ -126,6 +129,7 @@ fn assemble_sets_entrypoint_and_labels() {
         &test_entries(),
         dir.path(),
         &OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 
@@ -147,6 +151,7 @@ fn assemble_history_entries() {
         &test_entries(),
         dir.path(),
         &OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 
@@ -167,8 +172,8 @@ fn assemble_determinism() {
     let entries = test_entries();
     let config = OciLayerConfig::default();
 
-    let r1 = assemble_image(&plan, &entries, dir1.path(), &config).unwrap();
-    let r2 = assemble_image(&plan, &entries, dir2.path(), &config).unwrap();
+    let r1 = assemble_image(&plan, &entries, dir1.path(), &config, None).unwrap();
+    let r2 = assemble_image(&plan, &entries, dir2.path(), &config, None).unwrap();
 
     for (l1, l2) in r1.layers.iter().zip(r2.layers.iter()) {
         assert_eq!(l1.digest, l2.digest, "layer digests must match");
@@ -182,7 +187,14 @@ fn assemble_mismatch_layer_count() {
     let plan = test_plan(); // 2 layers
     let entries = vec![vec![LayerEntry::file("a", b"a", 0o644)]]; // 1 entry set
 
-    let err = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default()).unwrap_err();
+    let err = assemble_image(
+        &plan,
+        &entries,
+        dir.path(),
+        &OciLayerConfig::default(),
+        None,
+    )
+    .unwrap_err();
     assert!(
         err.contains("mismatch"),
         "error should mention mismatch: {err}"
@@ -203,7 +215,14 @@ fn assemble_single_layer_scratch() {
     };
     let entries = vec![vec![LayerEntry::file("app", b"binary", 0o755)]];
 
-    let result = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default()).unwrap();
+    let result = assemble_image(
+        &plan,
+        &entries,
+        dir.path(),
+        &OciLayerConfig::default(),
+        None,
+    )
+    .unwrap();
     assert_eq!(result.layers.len(), 1);
     assert_eq!(result.config.layer_count(), 1);
 }
@@ -226,7 +245,44 @@ fn assemble_no_entrypoint_no_labels() {
         0o755,
     )]];
 
-    let result = assemble_image(&plan, &entries, dir.path(), &OciLayerConfig::default()).unwrap();
+    let result = assemble_image(
+        &plan,
+        &entries,
+        dir.path(),
+        &OciLayerConfig::default(),
+        None,
+    )
+    .unwrap();
     assert!(result.config.config.entrypoint.is_empty());
     assert!(result.config.config.labels.is_empty());
+}
+
+#[test]
+fn assemble_with_target_arch() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+        Some("arm64"),
+    )
+    .unwrap();
+    assert_eq!(result.config.architecture, "arm64");
+    assert_eq!(result.config.os, "linux");
+}
+
+#[test]
+fn assemble_default_arch_is_amd64() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = assemble_image(
+        &test_plan(),
+        &test_entries(),
+        dir.path(),
+        &OciLayerConfig::default(),
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.config.architecture, "amd64");
+    assert_eq!(result.config.os, "linux");
 }

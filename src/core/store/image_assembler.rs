@@ -38,6 +38,7 @@ pub fn assemble_image(
     layer_entries: &[Vec<LayerEntry>],
     output_dir: &Path,
     layer_config: &OciLayerConfig,
+    target_arch: Option<&str>,
 ) -> Result<AssembledImage, String> {
     if plan.layers.len() != layer_entries.len() {
         return Err(format!(
@@ -78,8 +79,9 @@ pub fn assemble_image(
         built_layers.iter().map(|(r, _)| r.clone()).collect();
     let total_size: u64 = built_layers.iter().map(|(r, _)| r.compressed_size).sum();
 
-    // Build image config
-    let mut config = OciImageConfig::linux_amd64(diff_ids);
+    // Build image config (E12: support target architecture)
+    let arch = target_arch.unwrap_or("amd64");
+    let mut config = OciImageConfig::for_arch(arch, "linux", diff_ids);
     config.history = history;
     if let Some(ref ep) = plan.entrypoint {
         config.config.entrypoint = ep.clone();

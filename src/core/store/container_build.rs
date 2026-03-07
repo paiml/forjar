@@ -111,6 +111,7 @@ pub fn build_image_in_container(
         &layer_entries,
         output_dir,
         &OciLayerConfig::default(),
+        None,
     )?;
 
     Ok(ContainerBuildResult {

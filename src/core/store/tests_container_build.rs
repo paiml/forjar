@@ -123,6 +123,7 @@ fn format_container_build_output() {
         &layer_entries,
         output_dir.path(),
         &crate::core::types::OciLayerConfig::default(),
+        None,
     )
     .unwrap();
 

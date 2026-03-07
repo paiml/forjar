@@ -451,11 +451,18 @@ Spec 05-container-builds.md describes `type: wasm_module` resources. Previously 
 
 ---
 
-### E12: Multi-arch image builds not implemented
+### ~~E12: Multi-arch image builds not implemented~~ FIXED
 
-Spec 05-container-builds.md claims `forjar build --platform linux/arm64,linux/amd64` generates multi-arch OCI images. No `--platform` flag exists. Image assembly is hardcoded to `linux/amd64` (`image_assembler.rs:82`). Zero cross-architecture or manifest list logic exists.
+Spec 05-container-builds.md claims multi-arch image builds. Previously hardcoded to `linux/amd64`.
 
-**Status**: DOCUMENTED — Single-arch image builds work correctly. Multi-arch is a future feature.
+**Fix** (2026-03-08):
+1. `OciImageConfig::for_arch(arch, os, diff_ids)` — configurable architecture constructor
+2. `assemble_image()` accepts `target_arch: Option<&str>` parameter
+3. `None` defaults to "amd64" (backward compatible)
+4. `Some("arm64")` produces linux/arm64 images
+5. All callers updated (CLI, container build, examples, 12+ test files)
+6. 2 new tests: `assemble_with_target_arch`, `assemble_default_arch_is_amd64`
+7. Full multi-arch manifest index support is type-level only (`ArchBuild`)
 
 ---
 
@@ -702,7 +709,7 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | 45 | Coverage report L0-L2 only (L3-L5 need test result DB) | E9 | DOCUMENTED |
 | ~~46~~ | ~~Add pinned golden hash test with hardcoded expected value~~ | ~~E10~~ | DONE |
 | ~~47~~ | ~~WasmBundle handler delegates to file handler (no WASM-specific logic)~~ | E11 | FIXED |
-| 48 | Multi-arch image builds not implemented (hardcoded linux/amd64) | E12 | DOCUMENTED |
+| ~~48~~ | ~~Multi-arch image builds not implemented (hardcoded linux/amd64)~~ | E12 | FIXED |
 | 49 | Layer splitting is manual, not automatic (no resource-type algorithm) | E13 | DOCUMENTED |
 | 50 | Chunked/resumable uploads not implemented (monolithic PUT only) | E14 | DOCUMENTED |
 | ~~51~~ | ~~Image drift detection is pseudocode only (no --image flag)~~ | E15 | FIXED |
