@@ -22,6 +22,7 @@ pub mod do330;
 pub mod ferrocene;
 pub mod flight_grade;
 mod kani_proofs;
+mod kani_production_proofs;
 pub mod mcdc;
 pub mod repro_build;
 mod scoring_b;

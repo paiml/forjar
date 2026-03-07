@@ -345,6 +345,7 @@ fn dispatch_build_missing_config_errors() {
             load: false,
             push: false,
             far: false,
+            sandbox: false,
             json: false,
         }),
         false,

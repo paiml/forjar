@@ -1,6 +1,7 @@
 //! Coverage tests for cli/dispatch_misc_b.rs — contracts, logs, oci-pack, query functions.
 
 use super::dispatch_misc_b::*;
+use super::query_format::{cmd_query_churn, cmd_query_drift};
 use crate::core::store::db::{self, FtsResult};
 
 fn setup_state_dir() -> tempfile::TempDir {

@@ -223,3 +223,61 @@ pub(crate) fn print_sql(query: &str, resource_type: Option<&str>) {
     }
     println!("ORDER BY rank LIMIT 50;");
 }
+
+/// FJ-2004: Show drifted resources.
+pub(crate) fn cmd_query_drift(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    use crate::core::store::ingest;
+    let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
+    let entries = ingest::query_drift(&conn)?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).unwrap_or_default()
+        );
+    } else if entries.is_empty() {
+        println!("No drift detected");
+    } else {
+        println!(
+            " {:20} {:10} {:10} EXPECTED → ACTUAL",
+            "RESOURCE", "MACHINE", "TYPE"
+        );
+        for e in &entries {
+            println!(
+                " {:20} {:10} {:10} {} → {}",
+                e.resource_id,
+                e.machine,
+                e.resource_type,
+                &e.content_hash[..20.min(e.content_hash.len())],
+                &e.live_hash[..20.min(e.live_hash.len())]
+            );
+        }
+        println!("\n {} drifted resource(s)", entries.len());
+    }
+    Ok(())
+}
+
+/// FJ-2004: Show change frequency (churn).
+pub(crate) fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    use crate::core::store::ingest;
+    let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
+    let entries = ingest::query_churn(&conn)?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).unwrap_or_default()
+        );
+    } else if entries.is_empty() {
+        println!("No churn data");
+    } else {
+        println!(" {:20} {:>8} {:>8}", "RESOURCE", "EVENTS", "RUNS");
+        for e in &entries {
+            println!(
+                " {:20} {:>8} {:>8}",
+                e.resource_id, e.event_count, e.distinct_runs
+            );
+        }
+    }
+    Ok(())
+}
