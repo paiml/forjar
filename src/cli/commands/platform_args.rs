@@ -401,3 +401,22 @@ pub struct QueryArgs {
     #[arg(long)]
     pub sql: bool,
 }
+
+/// FJ-2700: CLI arguments for `run` (dispatch mode task invocation).
+#[derive(clap::Args, Debug)]
+pub struct RunArgs {
+    /// Task resource ID to run
+    pub task: String,
+
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Parameter overrides (key=value)
+    #[arg(long = "param", value_name = "KEY=VALUE")]
+    pub params: Vec<String>,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}

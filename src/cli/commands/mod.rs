@@ -494,4 +494,6 @@ pub enum Commands {
     /// FJ-2001: Query state database (requires rusqlite)
     #[command(name = "state-query")]
     StateQuery(QueryArgs),
+    /// FJ-2700: Run a dispatch-mode task with param overrides
+    Run(RunArgs),
 }

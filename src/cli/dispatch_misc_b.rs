@@ -108,6 +108,9 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             json,
         }) => cmd_oci_pack(&dir, &tag, &output, json),
         Commands::StateQuery(args) => dispatch_state_query(args),
+        Commands::Run(RunArgs { task, file, params, json }) => {
+            super::run_task::cmd_run(&file, &task, &params, json)
+        }
         other => dispatch_infra_cmd(other),
     }
 }
