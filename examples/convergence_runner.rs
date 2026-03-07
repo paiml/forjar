@@ -4,11 +4,20 @@
 //! Run with: `cargo run --example convergence_runner`
 
 use forjar::core::store::convergence_runner::{
-    self, ConvergenceSummary, ConvergenceTarget,
+    self, ConvergenceSummary, ConvergenceTarget, ConvergenceTestConfig,
 };
+use forjar::core::types::SandboxBackend;
 
 fn main() {
     println!("=== Convergence Verification (FJ-2600/FJ-2603) ===\n");
+
+    // Show backend detection
+    let config = ConvergenceTestConfig::default();
+    let mode = convergence_runner::resolve_mode(config.backend);
+    println!("Backend: {} (mode: {mode})", config.backend);
+    println!("Pepita available: {}", convergence_runner::backend_available(SandboxBackend::Pepita));
+    println!("Docker available: {}", convergence_runner::backend_available(SandboxBackend::Container));
+    println!();
 
     // 1. Create test targets
     let targets: Vec<ConvergenceTarget> = vec![

@@ -4,10 +4,16 @@
 //! Run with: `cargo run --example mutation_runner`
 
 fn main() {
+    use forjar::core::store::convergence_runner;
     use forjar::core::store::mutation_runner;
     use forjar::core::types::MutationOperator;
 
     println!("=== Infrastructure Mutation Testing (FJ-2604) ===\n");
+
+    // Show backend detection
+    let run_config = mutation_runner::MutationRunConfig::default();
+    let mode = convergence_runner::resolve_mode(run_config.backend);
+    println!("Backend: {} (mode: {mode})\n", run_config.backend);
 
     // 1. Show applicable operators per resource type
     for rtype in &["file", "service", "package", "mount"] {
@@ -59,6 +65,4 @@ fn main() {
     let report = mutation_runner::run_mutation_parallel(targets, &config);
 
     print!("{}", mutation_runner::format_mutation_run(&report));
-
-    println!("Mode: {}", mutation_runner::RunnerMode::Simulated);
 }
