@@ -407,4 +407,89 @@ mod tests {
         let f = write_temp_config(&basic_config());
         assert!(cmd_validate_check_duplicate_paths(f.path(), true).is_ok());
     }
+
+    // ======================================================================
+    // find_undefined_vars: namespace-aware template validation (F23)
+    // ======================================================================
+
+    #[test]
+    fn test_find_undefined_vars_skips_secrets() {
+        let params = std::collections::HashSet::new();
+        let mut undef = Vec::new();
+        find_undefined_vars("{{secrets.db_password}}", "r", &params, &mut undef);
+        assert!(undef.is_empty(), "secrets.* should be skipped");
+    }
+
+    #[test]
+    fn test_find_undefined_vars_skips_machine() {
+        let params = std::collections::HashSet::new();
+        let mut undef = Vec::new();
+        find_undefined_vars("{{machine.web.addr}}", "r", &params, &mut undef);
+        assert!(undef.is_empty(), "machine.* should be skipped");
+    }
+
+    #[test]
+    fn test_find_undefined_vars_skips_data() {
+        let params = std::collections::HashSet::new();
+        let mut undef = Vec::new();
+        find_undefined_vars("{{data.hosts}}", "r", &params, &mut undef);
+        assert!(undef.is_empty(), "data.* should be skipped");
+    }
+
+    #[test]
+    fn test_find_undefined_vars_skips_func() {
+        let params = std::collections::HashSet::new();
+        let mut undef = Vec::new();
+        find_undefined_vars("{{timestamp()}}", "r", &params, &mut undef);
+        assert!(undef.is_empty(), "func() should be skipped");
+    }
+
+    #[test]
+    fn test_find_undefined_vars_catches_undefined_param() {
+        let params = std::collections::HashSet::new();
+        let mut undef = Vec::new();
+        find_undefined_vars("{{params.missing}}", "r", &params, &mut undef);
+        assert_eq!(undef.len(), 1);
+        assert_eq!(undef[0], ("r".to_string(), "missing".to_string()));
+    }
+
+    #[test]
+    fn test_find_undefined_vars_passes_defined_param() {
+        let mut params = std::collections::HashSet::new();
+        params.insert("port".to_string());
+        let mut undef = Vec::new();
+        find_undefined_vars("{{params.port}}", "r", &params, &mut undef);
+        assert!(undef.is_empty());
+    }
+
+    #[test]
+    fn test_find_undefined_vars_mixed_namespaces() {
+        let mut params = std::collections::HashSet::new();
+        params.insert("env".to_string());
+        let mut undef = Vec::new();
+        let field = "host={{machine.web.addr}} pass={{secrets.pw}} e={{params.env}} d={{data.f}}";
+        find_undefined_vars(field, "r", &params, &mut undef);
+        assert!(undef.is_empty(), "all valid namespaces should pass");
+    }
+
+    #[test]
+    fn test_template_vars_with_nonparams_namespaces() {
+        let yaml = concat!(
+            "version: \"1.0\"\n",
+            "name: t\n",
+            "machines:\n",
+            "  m:\n",
+            "    hostname: m\n",
+            "    addr: 127.0.0.1\n",
+            "resources:\n",
+            "  cfg:\n",
+            "    type: file\n",
+            "    machine: m\n",
+            "    path: /etc/app.conf\n",
+            "    content: \"host={{machine.m.addr}} secret={{secrets.key}}\"\n",
+        );
+        let f = write_temp_config(yaml);
+        let result = cmd_validate_check_template_vars(f.path(), false);
+        assert!(result.is_ok(), "non-params namespaces should not flag");
+    }
 }
