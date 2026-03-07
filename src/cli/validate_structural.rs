@@ -4,11 +4,11 @@ use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
 
-/// Scan a text for unresolved `{{params.KEY}}` references.
-fn find_unresolved_params(
+/// Scan text for unresolved template references across all namespaces.
+fn find_unresolved_templates(
     text: &str,
     name: &str,
-    params: &std::collections::HashMap<String, serde_yaml_ng::Value>,
+    config: &types::ForjarConfig,
     unresolved: &mut Vec<(String, String)>,
 ) {
     let mut start = 0;
@@ -16,16 +16,36 @@ fn find_unresolved_params(
         let abs_pos = start + pos + 2;
         if let Some(end) = text[abs_pos..].find("}}") {
             let var = text[abs_pos..abs_pos + end].trim();
-            if let Some(stripped) = var.strip_prefix("params.") {
-                if !params.contains_key(stripped) {
-                    unresolved.push((name.to_string(), var.to_string()));
-                }
-            }
+            check_template_var(var, name, config, unresolved);
             start = abs_pos + end + 2;
         } else {
             break;
         }
     }
+}
+
+/// Validate a single template variable against the config.
+fn check_template_var(
+    var: &str, rname: &str, config: &types::ForjarConfig,
+    unresolved: &mut Vec<(String, String)>,
+) {
+    let bad = if let Some(k) = var.strip_prefix("params.") {
+        !config.params.contains_key(k)
+    } else if var.starts_with("machine.") {
+        var.split('.').nth(1).is_some_and(|m| !config.machines.contains_key(m))
+    } else if let Some(k) = var.strip_prefix("data.") {
+        !config.params.contains_key(&format!("__data__{k}"))
+    } else {
+        false // secrets.* and func() are runtime-resolved
+    };
+    if bad { unresolved.push((rname.to_string(), var.to_string())); }
+}
+
+/// Collect all templateable string fields from a resource.
+fn resource_template_fields(res: &types::Resource) -> Vec<&str> {
+    [&res.content, &res.path, &res.target, &res.owner, &res.name,
+     &res.command, &res.image, &res.source, &res.schedule]
+        .iter().filter_map(|o| o.as_deref()).collect()
 }
 
 // ── FJ-421: validate --check-templates ──
@@ -35,11 +55,8 @@ pub(crate) fn cmd_validate_check_templates(file: &Path, json: bool) -> Result<()
     let mut unresolved: Vec<(String, String)> = Vec::new();
 
     for (name, res) in &config.resources {
-        if let Some(ref content) = res.content {
-            find_unresolved_params(content, name, &config.params, &mut unresolved);
-        }
-        if let Some(ref path_str) = res.path {
-            find_unresolved_params(path_str, name, &config.params, &mut unresolved);
+        for field in resource_template_fields(res) {
+            find_unresolved_templates(field, name, &config, &mut unresolved);
         }
     }
 

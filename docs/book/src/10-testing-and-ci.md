@@ -1470,6 +1470,31 @@ forjar test all -f forjar.yaml --parallel
 | `forjar test --group mutation` | Infrastructure mutation detection |
 | `forjar test --group coverage` | Per-resource coverage level report (L0-L5) |
 | `forjar test` | All resources (check script table) |
+| `forjar contracts --coverage` | Per-resource contract level analysis (L0-L2) |
+
+### Contract Coverage
+
+The `contracts` command analyzes each resource's verification level:
+
+```bash
+forjar contracts --coverage -f forjar.yaml
+```
+
+Output:
+```
+Contract Coverage Report
+========================
+Resources analyzed: 5
+  Level 2 (runtime — check+apply+hash):   4
+  Level 1 (labeled — check script only):   1
+  Level 0 (unlabeled — no check script):   0
+
+Codebase #[contract] annotations: 10
+
+Contract coverage: 100% (5 of 5 resources have check scripts)
+```
+
+Use `--json` for machine-readable output in CI pipelines.
 
 ### Test Report
 

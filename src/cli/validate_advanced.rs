@@ -165,23 +165,40 @@ fn find_resource_overlaps(config: &types::ForjarConfig) -> Vec<(String, String, 
         for j in (i + 1)..names.len() {
             let ra = &config.resources[names[i]];
             let rb = &config.resources[names[j]];
-            let ma = ra.machine.to_vec();
-            let mb = rb.machine.to_vec();
-            let shared: Vec<&String> = ma.iter().filter(|m| mb.contains(m)).collect();
+            let shared = shared_machines(ra, rb);
             if shared.is_empty() {
                 continue;
             }
-            let same_type = std::mem::discriminant(&ra.resource_type)
-                == std::mem::discriminant(&rb.resource_type);
-            let same_path = ra.path.is_some() && ra.path == rb.path;
-            if same_type && same_path {
+            if resources_conflict(ra, rb) {
                 for m in shared {
-                    overlaps.push((names[i].clone(), names[j].clone(), m.clone()));
+                    overlaps.push((names[i].clone(), names[j].clone(), m));
                 }
             }
         }
     }
     overlaps
+}
+
+/// Find machines shared between two resources.
+fn shared_machines(ra: &types::Resource, rb: &types::Resource) -> Vec<String> {
+    let ma = ra.machine.to_vec();
+    let mb = rb.machine.to_vec();
+    ma.iter().filter(|m| mb.contains(m)).cloned().collect()
+}
+
+/// Check if two resources conflict on the same machine.
+fn resources_conflict(ra: &types::Resource, rb: &types::Resource) -> bool {
+    let same_type =
+        std::mem::discriminant(&ra.resource_type) == std::mem::discriminant(&rb.resource_type);
+    // Same path (file, mount target, etc.)
+    let same_path = ra.path.is_some() && ra.path == rb.path;
+    // Same port (network resources)
+    let same_port = ra.port.is_some() && ra.port == rb.port;
+    // Same service name
+    let same_name = ra.name.is_some() && ra.name == rb.name;
+    // Same mount target
+    let same_target = ra.target.is_some() && ra.target == rb.target;
+    same_type && (same_path || same_port || same_name || same_target)
 }
 
 /// FJ-813: Enforce tag conventions (required tags, naming rules).
@@ -255,33 +272,28 @@ pub(crate) fn cmd_validate_check_resource_state_consistency(
 
 fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut issues = Vec::new();
-    let pkg_states = ["present", "absent", "latest"];
-    let svc_states = ["running", "stopped", "enabled", "disabled"];
-    let file_states = ["present", "absent", "directory"];
     for (name, resource) in &config.resources {
-        let rtype = format!("{:?}", resource.resource_type);
-        let state = match resource.state.as_deref() {
-            Some(s) => s,
-            None => continue,
-        };
-        let valid = if rtype.contains("Package") {
-            pkg_states.contains(&state)
-        } else if rtype.contains("Service") {
-            svc_states.contains(&state)
-        } else if rtype.contains("File") || rtype.contains("Template") {
-            file_states.contains(&state)
-        } else {
-            true
-        };
-        if !valid {
-            issues.push((
-                name.clone(),
-                format!("state '{state}' invalid for type {rtype}"),
-            ));
+        if let Some(ref state) = resource.state {
+            let rtype = format!("{:?}", resource.resource_type);
+            if !is_valid_state_for_type(state, &rtype) {
+                issues.push((name.clone(), format!("state '{state}' invalid for type {rtype}")));
+            }
         }
     }
     issues.sort();
     issues
+}
+
+fn is_valid_state_for_type(state: &str, rtype: &str) -> bool {
+    if rtype.contains("Package") {
+        ["present", "absent", "latest"].contains(&state)
+    } else if rtype.contains("Service") {
+        ["running", "stopped", "enabled", "disabled"].contains(&state)
+    } else if rtype.contains("File") || rtype.contains("Template") {
+        ["present", "absent", "directory"].contains(&state)
+    } else {
+        true
+    }
 }
 
 /// FJ-821: Verify all depends_on targets actually exist as resources.
