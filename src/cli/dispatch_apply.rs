@@ -67,7 +67,10 @@ pub(super) fn send_webhook_before(url: &str, file: &Path) {
         .output()
     {
         Ok(o) if !o.status.success() => {
-            eprintln!("warning: pre-apply webhook failed (exit {})", o.status.code().unwrap_or(-1));
+            eprintln!(
+                "warning: pre-apply webhook failed (exit {})",
+                o.status.code().unwrap_or(-1)
+            );
         }
         Err(e) => eprintln!("warning: pre-apply webhook error: {e}"),
         _ => {}

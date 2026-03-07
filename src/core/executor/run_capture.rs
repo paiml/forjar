@@ -69,6 +69,10 @@ pub fn capture_output(
     let log_path = run_dir.join(format!("{resource_id}.{action}.log"));
     let _ = std::fs::write(log_path, log_content);
 
+    // FJ-2301/E20: Also write structured JSON log for machine-parseable output
+    let json_path = run_dir.join(format!("{resource_id}.{action}.json"));
+    let _ = std::fs::write(json_path, entry.format_json());
+
     let script_path = run_dir.join(format!("{resource_id}.script"));
     let _ = std::fs::write(script_path, script);
 }
@@ -83,4 +87,7 @@ pub fn update_meta_resource(run_dir: &Path, resource_id: &str, status: ResourceR
     };
     meta.record_resource(resource_id, status);
     let _ = serde_yaml_ng::to_string(&meta).map(|yaml| std::fs::write(&meta_path, yaml));
+    // FJ-2301/E20: Also write meta.json for structured access
+    let _ = serde_json::to_string_pretty(&meta)
+        .map(|json| std::fs::write(run_dir.join("meta.json"), json));
 }

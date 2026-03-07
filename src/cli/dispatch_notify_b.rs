@@ -157,7 +157,10 @@ pub(super) fn send_custom_headers_notification(
     args.push(url);
     match std::process::Command::new("curl").args(&args).output() {
         Ok(o) if !o.status.success() => {
-            eprintln!("warning: custom webhook failed (exit {})", o.status.code().unwrap_or(-1));
+            eprintln!(
+                "warning: custom webhook failed (exit {})",
+                o.status.code().unwrap_or(-1)
+            );
         }
         Err(e) => eprintln!("warning: custom webhook error: {e}"),
         _ => {}
@@ -267,7 +270,10 @@ pub(super) fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(queue) = opts.rabbitmq {
         let exchange = format!("exchange={queue}");
         let payload = format!("payload={msg}");
-        try_notify("rabbitmqadmin", &["publish", "routing_key=forjar", &exchange, &payload]);
+        try_notify(
+            "rabbitmqadmin",
+            &["publish", "routing_key=forjar", &exchange, &payload],
+        );
     }
     if let Some(subj) = opts.nats {
         try_notify("nats", &["pub", subj, msg]);

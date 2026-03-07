@@ -151,7 +151,10 @@ pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMa
     let mut resolved = indexmap::IndexMap::new();
     for (k, output) in &config.outputs {
         let value = super::resolver::resolve_template_with_secrets(
-            &output.value, &config.params, &config.machines, &config.secrets,
+            &output.value,
+            &config.params,
+            &config.machines,
+            &config.secrets,
         )
         .unwrap_or_else(|_| output.value.clone());
         resolved.insert(k.clone(), value);

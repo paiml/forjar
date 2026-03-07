@@ -1,7 +1,7 @@
 schema: '1.0'
-name: nvidia-gpu-server
-last_apply: 2026-03-02T08:19:22Z
-generator: forjar 1.0.0
+name: dogfood-packages
+last_apply: 2026-03-06T14:21:42Z
+generator: forjar 1.1.1
 machines:
   user-host:
     resources: 7
@@ -13,3 +13,8 @@ machines:
     converged: 0
     failed: 0
     last_apply: 2026-03-02T08:19:22Z
+  test-box:
+    resources: 3
+    converged: 0
+    failed: 0
+    last_apply: 2026-03-06T14:21:42Z

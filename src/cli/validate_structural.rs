@@ -26,26 +26,43 @@ fn find_unresolved_templates(
 
 /// Validate a single template variable against the config.
 fn check_template_var(
-    var: &str, rname: &str, config: &types::ForjarConfig,
+    var: &str,
+    rname: &str,
+    config: &types::ForjarConfig,
     unresolved: &mut Vec<(String, String)>,
 ) {
     let bad = if let Some(k) = var.strip_prefix("params.") {
         !config.params.contains_key(k)
     } else if var.starts_with("machine.") {
-        var.split('.').nth(1).is_some_and(|m| !config.machines.contains_key(m))
+        var.split('.')
+            .nth(1)
+            .is_some_and(|m| !config.machines.contains_key(m))
     } else if let Some(k) = var.strip_prefix("data.") {
         !config.data.contains_key(k) && !config.params.contains_key(&format!("__data__{k}"))
     } else {
         false // secrets.* and func() are runtime-resolved
     };
-    if bad { unresolved.push((rname.to_string(), var.to_string())); }
+    if bad {
+        unresolved.push((rname.to_string(), var.to_string()));
+    }
 }
 
 /// Collect all templateable string fields from a resource.
 fn resource_template_fields(res: &types::Resource) -> Vec<&str> {
-    [&res.content, &res.path, &res.target, &res.owner, &res.name,
-     &res.command, &res.image, &res.source, &res.schedule]
-        .iter().filter_map(|o| o.as_deref()).collect()
+    [
+        &res.content,
+        &res.path,
+        &res.target,
+        &res.owner,
+        &res.name,
+        &res.command,
+        &res.image,
+        &res.source,
+        &res.schedule,
+    ]
+    .iter()
+    .filter_map(|o| o.as_deref())
+    .collect()
 }
 
 // ── FJ-421: validate --check-templates ──

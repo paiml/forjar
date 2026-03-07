@@ -10,7 +10,9 @@ fn resolve_opt(
     secrets: &SecretsConfig,
 ) -> Result<Option<String>, String> {
     match field {
-        Some(val) => Ok(Some(resolve_template_with_secrets(val, params, machines, secrets)?)),
+        Some(val) => Ok(Some(resolve_template_with_secrets(
+            val, params, machines, secrets,
+        )?)),
         None => Ok(None),
     }
 }

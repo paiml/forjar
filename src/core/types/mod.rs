@@ -8,8 +8,6 @@ mod build_metrics;
 mod ci_pipeline_types;
 mod config;
 mod container_build_types;
-#[cfg(test)]
-mod tests_container_build;
 mod contract_tier_types;
 mod coverage_types;
 mod distribution_types;
@@ -19,8 +17,6 @@ mod generation_types;
 mod handler_contract_types;
 mod image_log_types;
 mod mutation_types;
-#[cfg(test)]
-mod tests_mutation;
 mod observability_types;
 mod oci_types;
 mod policy;
@@ -28,20 +24,24 @@ mod query_types;
 pub mod refinement;
 mod resource;
 mod run_log_types;
-#[cfg(test)]
-mod tests_run_log;
 mod security_types;
 mod service_mode_types;
 mod sqlite_schema_types;
 mod state_types;
 mod task_types;
+mod test_runner_types;
+#[cfg(test)]
+mod tests_container_build;
+#[cfg(test)]
+mod tests_mutation;
+#[cfg(test)]
+mod tests_run_log;
 #[cfg(test)]
 mod tests_task;
-mod test_runner_types;
-mod undo_types;
-mod validation_types;
 #[cfg(test)]
 mod tests_validation_types;
+mod undo_types;
+mod validation_types;
 mod wasm_types;
 
 pub use behavior_types::*;

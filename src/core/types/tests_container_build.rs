@@ -31,9 +31,7 @@ fn dual_digest_formats() {
     assert_eq!(d.oci_digest(), "sha256:deadbeef01234567");
     assert_eq!(d.forjar_digest(), "blake3:abcdef0123456789");
     let s = d.to_string();
-    assert!(
-        s.contains("blake3:abcdef01") && s.contains("sha256:deadbeef") && s.contains("4096B")
-    );
+    assert!(s.contains("blake3:abcdef01") && s.contains("sha256:deadbeef") && s.contains("4096B"));
 }
 
 #[test]

@@ -13,15 +13,6 @@ resources:
     hash: blake3:70dec067bc235d58877f7024b4b90a29b2f908e8cabef3bf9963fe3f20ddb677
     details:
       live_hash: blake3:b618c90ceb17995200203f663b29e6a4652b14de931a5d239674ccfa68c6ca1a
-  nvidia-gpu:
-    type: gpu
-    status: converged
-    applied_at: 2026-03-02T08:19:16Z
-    duration_seconds: 0.565282941
-    hash: blake3:7f6c4bc6b90a1167e8e06b57a686c2cb39f04891f1eab8da50df825c45b7ece0
-    details:
-      live_hash: blake3:f62eecf46a2a40150265d4986a97def35169a176f74bde29cb407cfdf3e3c42c
-      service_name: nvidia-gpu0
   gpu-health-cron:
     type: cron
     status: converged
@@ -39,3 +30,12 @@ resources:
     hash: blake3:054b305231e65aef4fbf5754e762a1b75712edb8bab59bf55578ce91e3e6d66a
     details:
       live_hash: blake3:07899e8e9852d59a4ac95650628a7ba2c4cfe834e82fe087e1bec15fb79c6d77
+  nvidia-gpu:
+    type: gpu
+    status: converged
+    applied_at: 2026-03-02T08:19:16Z
+    duration_seconds: 0.565282941
+    hash: blake3:7f6c4bc6b90a1167e8e06b57a686c2cb39f04891f1eab8da50df825c45b7ece0
+    details:
+      service_name: nvidia-gpu0
+      live_hash: blake3:f62eecf46a2a40150265d4986a97def35169a176f74bde29cb407cfdf3e3c42c

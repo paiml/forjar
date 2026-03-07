@@ -138,7 +138,10 @@ resources:
         ingest_state_dir(&conn, state_dir.path()).unwrap();
         // F3: Second ingest skips unchanged lock files (cursor optimization)
         let result2 = ingest_state_dir(&conn, state_dir.path()).unwrap();
-        assert_eq!(result2.resources, 0, "unchanged lock file should be skipped");
+        assert_eq!(
+            result2.resources, 0,
+            "unchanged lock file should be skipped"
+        );
 
         // DB still has all resources from first ingest
         let count: i64 = conn
@@ -161,7 +164,10 @@ resources:
         assert_eq!(r2.resources, 0, "unchanged lock should be skipped");
 
         // Modify lock file to trigger re-ingest
-        let lock_path = state_dir.path().join("test-machine").join("state.lock.yaml");
+        let lock_path = state_dir
+            .path()
+            .join("test-machine")
+            .join("state.lock.yaml");
         let mut content = std::fs::read_to_string(&lock_path).unwrap();
         content.push_str("\n  new-resource:\n    type: package\n    status: converged\n");
         std::fs::write(&lock_path, content).unwrap();

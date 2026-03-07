@@ -63,6 +63,7 @@ mod tests {
             cost_estimate: false,
             staleness_report: None,
             health_score: false,
+                connectivity: false,
             executive_summary: false,
             audit_trail: false,
             resource_graph: false,

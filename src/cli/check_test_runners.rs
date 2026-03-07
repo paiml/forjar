@@ -269,9 +269,7 @@ pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
 
 // ── Behavior test runner (extracted from check_test.rs) ──
 
-fn execute_behavior(
-    b: &crate::core::types::BehaviorEntry,
-) -> crate::core::types::BehaviorResult {
+fn execute_behavior(b: &crate::core::types::BehaviorEntry) -> crate::core::types::BehaviorResult {
     use crate::core::types::BehaviorResult;
     let bt0 = std::time::Instant::now();
 
@@ -341,8 +339,8 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
             if name.ends_with(".spec.yaml") {
                 let content = std::fs::read_to_string(entry.path())
                     .map_err(|e| format!("read {name}: {e}"))?;
-                let spec: BehaviorSpec = serde_yaml_ng::from_str(&content)
-                    .map_err(|e| format!("parse {name}: {e}"))?;
+                let spec: BehaviorSpec =
+                    serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {name}: {e}"))?;
                 println!("Loaded: {name} ({} behaviors)", spec.behavior_count());
                 specs.push(spec);
             }
@@ -358,8 +356,7 @@ pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
     let mut total_pass = 0usize;
     let mut total_fail = 0usize;
     for spec in &specs {
-        let results: Vec<BehaviorResult> =
-            spec.behaviors.iter().map(execute_behavior).collect();
+        let results: Vec<BehaviorResult> = spec.behaviors.iter().map(execute_behavior).collect();
         let report = BehaviorReport::from_results(spec.name.clone(), results);
         total_pass += report.passed;
         total_fail += report.failed;

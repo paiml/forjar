@@ -96,9 +96,12 @@ fn cmd_build_sandbox(
         .iter()
         .filter(|(_, r)| !matches!(r.resource_type, crate::core::types::ResourceType::Image))
         .filter_map(|(_, r)| {
-            let resolved =
-                crate::core::resolver::resolve_resource_templates(r, &config.params, &config.machines)
-                    .ok()?;
+            let resolved = crate::core::resolver::resolve_resource_templates(
+                r,
+                &config.params,
+                &config.machines,
+            )
+            .ok()?;
             crate::core::codegen::apply_script(&resolved).ok()
         })
         .collect();
@@ -349,9 +352,7 @@ fn cmd_build_far(resource: &str, oci_dir: &std::path::Path) -> Result<(), String
     let writer = std::io::BufWriter::new(file);
     encode_far(&manifest, &chunks, writer)?;
 
-    let far_size = std::fs::metadata(&far_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let far_size = std::fs::metadata(&far_path).map(|m| m.len()).unwrap_or(0);
     println!("\n--far: {}", far_path.display());
     println!(
         "  {} files, {} bytes -> {} bytes FAR",
