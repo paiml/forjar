@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 36/37 resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23).
+> Updated: 2026-03-07 | 37/38 resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21), template var namespace fix (F23), secrets provider wiring (F24).
 
 ---
 
@@ -342,6 +342,16 @@ The FJ-691 `--check-template-vars` validator (`validate_paths.rs:find_undefined_
 **Fix**: Added namespace guards to `find_undefined_vars` that skip `secrets.*`, `machine.*`, `data.*`, and function-call variables (containing `(`). Only `params.*` and bare variables are checked against the params set.
 
 **Tests**: 8 new tests in `tests_cov_validate3_d.rs` — unit tests for each namespace skip + defined/undefined params + mixed-namespace field + integration test with config using non-params templates.
+
+---
+
+### ~~F24: `resolve_secret()` ignores `secrets:` config block~~ FIXED
+
+The `resolve_secret()` function in `resolver/template.rs` hardcoded the env provider — it called `resolve_secret_with_provider(key, None, None)` regardless of the `secrets:` config block on `ForjarConfig`. A config with `secrets: { provider: file, path: /run/secrets }` would still resolve from environment variables.
+
+**Fix**: Added `secrets_cfg: &SecretsConfig` parameter to `resolve_secret()`, `resolve_variable()`, and introduced `resolve_template_with_secrets()` / `resolve_resource_templates_with_secrets()` variants. Executor (`resource_ops.rs`, `machine_b.rs`) and state output resolution now pass `config.secrets` through the chain. Backward-compatible wrappers preserve all existing call sites.
+
+**Tests**: 2 new tests for file provider via `resolve_secret()`, split `tests_template.rs` into `_b.rs`. 9,873 tests pass.
 
 ---
 
