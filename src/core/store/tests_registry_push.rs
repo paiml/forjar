@@ -285,3 +285,52 @@ fn push_result_index_kind() {
     let summary = format_push_summary(&[r]);
     assert!(summary.contains("[push] index"));
 }
+
+/// F27: discover_blobs classifies config/layer/manifest from index.json chain.
+#[test]
+fn discover_blobs_classifies_from_index() {
+    let dir = tempfile::tempdir().unwrap();
+    let blobs_dir = dir.path().join("blobs/sha256");
+    std::fs::create_dir_all(&blobs_dir).unwrap();
+
+    // Create layer blob
+    let layer_data = b"layer tarball data";
+    let layer_hash = blake3::hash(layer_data).to_hex().to_string();
+    std::fs::write(blobs_dir.join(&layer_hash), layer_data).unwrap();
+
+    // Create config blob
+    let config_json = r#"{"architecture":"amd64","os":"linux","rootfs":{"type":"layers","diff_ids":[]}}"#;
+    let config_hash = blake3::hash(config_json.as_bytes()).to_hex().to_string();
+    std::fs::write(blobs_dir.join(&config_hash), config_json.as_bytes()).unwrap();
+
+    // Create manifest referencing config + layer
+    let manifest_json = format!(
+        r#"{{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{{"mediaType":"application/vnd.oci.image.config.v1+json","digest":"sha256:{config_hash}","size":{config_size}}},"layers":[{{"mediaType":"application/vnd.oci.image.layer.v1.tar+gzip","digest":"sha256:{layer_hash}","size":{layer_size}}}]}}"#,
+        config_hash = config_hash,
+        config_size = config_json.len(),
+        layer_hash = layer_hash,
+        layer_size = layer_data.len(),
+    );
+    let manifest_hash = blake3::hash(manifest_json.as_bytes()).to_hex().to_string();
+    std::fs::write(blobs_dir.join(&manifest_hash), manifest_json.as_bytes()).unwrap();
+
+    // Create index.json referencing manifest
+    let index_json = format!(
+        r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{manifest_hash}","size":{manifest_size}}}]}}"#,
+        manifest_hash = manifest_hash,
+        manifest_size = manifest_json.len(),
+    );
+    std::fs::write(dir.path().join("index.json"), index_json.as_bytes()).unwrap();
+
+    let blobs = discover_blobs(dir.path()).unwrap();
+    assert_eq!(blobs.len(), 3);
+
+    let layer = blobs.iter().find(|b| b.digest.contains(&layer_hash)).unwrap();
+    assert_eq!(layer.kind, PushKind::Layer);
+
+    let config = blobs.iter().find(|b| b.digest.contains(&config_hash)).unwrap();
+    assert_eq!(config.kind, PushKind::Config);
+
+    let manifest = blobs.iter().find(|b| b.digest.contains(&manifest_hash)).unwrap();
+    assert_eq!(manifest.kind, PushKind::Manifest);
+}
