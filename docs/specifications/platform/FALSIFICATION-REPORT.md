@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 19/21 resolved (U3 deferred — needs root; F8 open — cmd_logs stub)
+> Updated: 2026-03-07 | 21/22 resolved (U3 deferred — needs root; F8 partially remediated — cmd_logs reads runs, capture not wired)
 
 ---
 
@@ -134,28 +134,22 @@
 
 ---
 
-### F8: `cmd_logs` is a stub — types exist, runtime does not
+### F8: `cmd_logs` was a stub — types existed, runtime did not — PARTIALLY REMEDIATED
 
 **Spec claim** (11-observability.md, Phase 18):
 > `forjar logs` CLI command reads structured logs with filtering, JSON output, and garbage collection.
 
-**Reality**: `cmd_logs()` in `cli/logs.rs` constructs a `LogEntry` with hardcoded placeholder data (empty strings, `Utc::now()` timestamps). It does NOT:
-- Read log files from `state/<machine>/runs/` directories
-- Parse existing log content
-- Populate JSON with real run data
-- Support `--resource`, `--script`, `--all-machines` filters
-- Implement `--gc`, `--gc --dry-run`, `--gc --keep-failed`
-- Implement `--follow` (live tail)
+**Original finding** (2026-03-07): `cmd_logs()` was a stub returning placeholder data with no file I/O.
 
-The `LogEntry`, `LogFilter`, `LogGcPolicy` types are fully defined and well-structured. The CLI argument parsing (`LogsArgs`) accepts flags. But the runtime bridge between "parse args" and "read files" is missing entirely.
+**Remediation** (2026-03-07): `cli/logs.rs` created with real runtime:
+1. `discover_runs()` scans `state/<machine>/runs/<run_id>/meta.yaml` — reads, deserializes, filters
+2. `read_log_file()` / `read_script_file()` read `.log` and `.script` files
+3. `cmd_logs_gc()` applies `LogRetention` policy with `--dry-run` and `--keep-failed`
+4. `cmd_logs_follow()` finds most recent run directory
+5. All CLI flags added: `--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`
+6. 27 integration tests with real tempdir run directories
 
-**Root Cause**: Types were designed top-down from the spec, and the implementation phase marked `[x]` when types compiled. No integration test verifies that `cmd_logs` returns data from actual log files.
-
-**Resolution**: Phase 18 downgraded from IMPLEMENTED to PARTIAL in 11-observability.md (2026-03-07). Implementation requires:
-1. Read `state/<machine>/runs/<run-id>/` directory structure
-2. Parse log files (stdout/stderr capture from `exec_script`)
-3. Apply `LogFilter` predicates to real entries
-4. Wire `--gc` to actual file deletion with `--dry-run` and `--keep-failed` modes
+**Remaining**: The `execute_and_capture()` wrapper is not yet called from the `apply` pipeline, so no run logs are actually generated during `forjar apply`. The log viewer works correctly against the expected directory structure — it just has no data to read until capture is wired in.
 
 ---
 
@@ -262,5 +256,6 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~17~~ | ~~Add `debug_assert!` to `hash_desired_state` (production code)~~ | ~~E6~~ | DONE (already exists: `planner/mod.rs:306-310`) |
 | ~~18~~ | ~~Correct spec 09 Phase 13-15 checkboxes~~ | E7 | DONE |
 | ~~19~~ | ~~Add PARTIAL convention note to spec 05, 06~~ | E8 | DONE |
-| 20 | Implement `cmd_logs` runtime (read log files, real JSON data) | F8 | OPEN |
-| 21 | Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`) | F8 | OPEN |
+| ~~20~~ | ~~Implement `cmd_logs` runtime (read log files, real JSON data)~~ | F8 | DONE |
+| ~~21~~ | ~~Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`)~~ | F8 | DONE |
+| 22 | Wire `execute_and_capture()` into apply pipeline to generate run logs | F8 | OPEN |

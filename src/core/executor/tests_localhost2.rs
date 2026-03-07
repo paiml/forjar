@@ -51,6 +51,7 @@ policy:
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg).unwrap();
     // At least one resource should converge even if one fails
@@ -204,6 +205,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     apply(&cfg).unwrap();
 
@@ -226,6 +228,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         rollback_on_failure: false,
         max_parallel: None,
         trace: false,
+        run_id: None,
     };
     let results = apply(&cfg2).unwrap();
     assert_eq!(results[0].machine, "dry-run");
