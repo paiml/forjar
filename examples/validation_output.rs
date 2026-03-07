@@ -74,6 +74,10 @@ fn main() {
     println!("    secrets={}", exhaustive.secrets);
     println!("    overlaps={}", exhaustive.overlaps);
     println!("    naming={}", exhaustive.naming);
+    println!("    machine_refs={}", exhaustive.machine_refs);
+    println!("    state_values={}", exhaustive.state_values);
+    println!("    drift_coverage={}", exhaustive.drift_coverage);
+    println!("    idempotency={}", exhaustive.idempotency);
 
     let partial = DeepCheckFlags {
         templates: true,

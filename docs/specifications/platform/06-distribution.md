@@ -43,11 +43,13 @@ Building training-image (myregistry.io/training:2.1.0-cuda12.4.1)
 
 ## Local Load
 
-`--load` pipes the OCI tar to `docker load` / `podman load` (detected from `container.runtime`):
+`--load` pipes the OCI tar to `docker load` / `podman load` (auto-detected from PATH):
 
 ```
-fn load_image(oci_dir, machine):
-    let runtime = machine.container.as_ref().map(|c| &c.runtime).unwrap_or("docker")
+fn load_image(oci_dir):
+    let runtime = which_runtime("docker") ? "docker"
+                : which_runtime("podman") ? "podman"
+                : error("--load requires docker or podman on PATH")
     let tar = create_oci_tar(oci_dir)
     exec_script(local, format!("{runtime} load"), stdin=tar)
 ```

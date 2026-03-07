@@ -61,16 +61,16 @@ CREATE TABLE resources (
 
 CREATE TABLE events (
     id          INTEGER PRIMARY KEY,
-    machine_id  INTEGER NOT NULL REFERENCES machines(id),
     run_id      TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    machine     TEXT NOT NULL,
     event_type  TEXT NOT NULL,
-    resource_id TEXT,
-    ts          TEXT NOT NULL,
-    action      TEXT,
-    duration_secs REAL,
-    hash        TEXT,
-    error       TEXT,
-    details_json TEXT NOT NULL DEFAULT '{}'
+    timestamp   TEXT NOT NULL,
+    duration_ms INTEGER,
+    exit_code   INTEGER,
+    stdout_tail TEXT,
+    stderr_tail TEXT,
+    details     TEXT
 );
 
 CREATE TABLE drift_findings (
