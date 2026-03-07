@@ -21,6 +21,10 @@ resources:                # Required. Infrastructure resources
   resource-id:
     type: ...
 
+secrets:                  # Optional. Secret provider config
+  provider: env           #   "env" (default) or "file"
+  path: /run/secrets      #   Path prefix for file provider
+
 policy:                   # Optional. Execution policy
   failure: stop_on_first
   tripwire: true
@@ -541,6 +545,22 @@ forjar apply -f forjar.yaml --state-dir state/
 If a secret is missing, forjar exits with a clear error message naming the expected environment variable.
 
 Secrets are never written to forjar.yaml, state files, or git. They exist only in memory during apply.
+
+### Secret Provider Configuration
+
+By default, secrets resolve from environment variables. Configure a different
+provider with the `secrets:` top-level block:
+
+```yaml
+# File-based secrets (e.g., Kubernetes secrets volume)
+secrets:
+  provider: file
+  path: /run/secrets
+```
+
+With `provider: file`, `{{secrets.db-password}}` reads `/run/secrets/db-password`.
+
+The `secrets:` block is optional — when omitted, the default `env` provider is used.
 
 ### Age-Encrypted Secrets (FJ-200)
 
