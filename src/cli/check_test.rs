@@ -187,12 +187,13 @@ pub(crate) fn cmd_test(
     group_filter: Option<&str>,
     json: bool,
     verbose: bool,
+    runner_opts: &super::check_test_runners::RunnerOpts,
 ) -> Result<(), String> {
     // FJ-2602/2604: Dispatch to specialized test modes via --group
     match group_filter {
         Some("behavior") => return cmd_test_behavior(file),
-        Some("mutation") => return cmd_test_mutation(file),
-        Some("convergence") => return cmd_test_convergence(file),
+        Some("mutation") => return cmd_test_mutation(file, runner_opts),
+        Some("convergence") => return cmd_test_convergence(file, runner_opts),
         _ => {}
     }
 

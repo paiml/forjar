@@ -128,33 +128,6 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             }
             Ok(())
         }
-        Commands::Output(OutputArgs { file, key, json }) => cmd_output(&file, key.as_deref(), json),
-        Commands::Policy(PolicyArgs { file, json }) => cmd_policy(&file, json),
-        Commands::Workspace(sub) => super::dispatch_misc_b::dispatch_workspace(sub),
-        Commands::Secrets(sub) => super::dispatch_misc_b::dispatch_secrets(sub),
-        Commands::Doctor(DoctorArgs {
-            file,
-            json,
-            fix,
-            network,
-        }) => {
-            if network {
-                return cmd_doctor_network(file.as_deref(), json);
-            }
-            cmd_doctor(file.as_deref(), json, fix)
-        }
-        Commands::Completion(CompletionArgs { shell }) => cmd_completion(shell),
-        Commands::Schema => cmd_schema(),
-        Commands::Watch(WatchArgs {
-            file: _,
-            state_dir,
-            interval: _,
-            apply: _,
-            yes: _,
-        }) => {
-            // Watch mode: simplified to status polling
-            cmd_anomaly(&state_dir, None, 3, false)
-        }
         Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,
@@ -432,15 +405,25 @@ fn dispatch_misc_core(cmd: Commands, verbose: bool) -> Result<(), String> {
             tag,
             group,
             json,
-        }) => cmd_test(
-            &file,
-            machine.as_deref(),
-            resource.as_deref(),
-            tag.as_deref(),
-            group.as_deref(),
-            json,
-            verbose,
-        ),
+            sandbox,
+            parallel,
+            pairs,
+            mutations,
+        }) => {
+            let opts = super::check_test_runners::RunnerOpts::from_args(
+                &sandbox, parallel, pairs, mutations,
+            );
+            cmd_test(
+                &file,
+                machine.as_deref(),
+                resource.as_deref(),
+                tag.as_deref(),
+                group.as_deref(),
+                json,
+                verbose,
+                &opts,
+            )
+        }
         Commands::Workspace(sub) => super::dispatch_misc_b::dispatch_workspace(sub),
         Commands::Secrets(sub) => super::dispatch_misc_b::dispatch_secrets(sub),
         Commands::Snapshot(sub) => super::dispatch_misc_b::dispatch_snapshot(sub),

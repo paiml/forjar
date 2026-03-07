@@ -60,6 +60,10 @@ mod tests {
             tag: None,
             group: None,
             json: false,
+            sandbox: "pepita".to_string(),
+            parallel: 4,
+            pairs: false,
+            mutations: 50,
         };
         let _ = format!("{a:?}");
     }

@@ -242,6 +242,10 @@ resources:
             tag: None,
             group: None,
             json: true,
+            sandbox: "pepita".to_string(),
+            parallel: 4,
+            pairs: false,
+            mutations: 50,
         });
         match cmd {
             Commands::Test(TestArgs { json, machine, .. }) => {
@@ -269,6 +273,10 @@ resources:
                 tag: None,
                 group: None,
                 json: false,
+                sandbox: "pepita".to_string(),
+                parallel: 4,
+                pairs: false,
+                mutations: 50,
             }),
             0,
             true,
@@ -294,6 +302,10 @@ resources:
                 tag: None,
                 group: None,
                 json: true,
+                sandbox: "pepita".to_string(),
+                parallel: 4,
+                pairs: false,
+                mutations: 50,
             }),
             0,
             true,
@@ -311,6 +323,10 @@ resources:
                 tag: None,
                 group: None,
                 json: false,
+                sandbox: "pepita".to_string(),
+                parallel: 4,
+                pairs: false,
+                mutations: 50,
             }),
             0,
             true,
@@ -331,6 +347,10 @@ resources:
             tag: None,
             group: Some("database".to_string()),
             json: false,
+            sandbox: "pepita".to_string(),
+            parallel: 4,
+            pairs: false,
+            mutations: 50,
         });
         match cmd {
             Commands::Test(TestArgs { group, .. }) => {

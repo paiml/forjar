@@ -1,6 +1,7 @@
 //! Coverage tests for cli/check_test.rs — print functions, artifacts, behavior/mutation/convergence.
 
 use super::check_test::*;
+use super::check_test_runners::RunnerOpts;
 use std::io::Write;
 
 fn sample_rows() -> Vec<TestRow> {
@@ -154,14 +155,14 @@ fn test_behavior_mode_with_spec_file() {
 #[test]
 fn test_mutation_mode() {
     let f = write_temp_config(BASIC_YAML);
-    let r = cmd_test_mutation(f.path());
+    let r = cmd_test_mutation(f.path(), &RunnerOpts::default());
     assert!(r.is_ok());
 }
 
 #[test]
 fn test_convergence_mode() {
     let f = write_temp_config(BASIC_YAML);
-    let r = cmd_test_convergence(f.path());
+    let r = cmd_test_convergence(f.path(), &RunnerOpts::default());
     assert!(r.is_ok());
 }
 
