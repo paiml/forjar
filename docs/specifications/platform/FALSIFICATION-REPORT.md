@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-06 | 19/19 resolved (U3 deferred — needs root)
+> Updated: 2026-03-07 | 19/21 resolved (U3 deferred — needs root; F8 open — cmd_logs stub)
 
 ---
 
@@ -134,6 +134,31 @@
 
 ---
 
+### F8: `cmd_logs` is a stub — types exist, runtime does not
+
+**Spec claim** (11-observability.md, Phase 18):
+> `forjar logs` CLI command reads structured logs with filtering, JSON output, and garbage collection.
+
+**Reality**: `cmd_logs()` in `cli/logs.rs` constructs a `LogEntry` with hardcoded placeholder data (empty strings, `Utc::now()` timestamps). It does NOT:
+- Read log files from `state/<machine>/runs/` directories
+- Parse existing log content
+- Populate JSON with real run data
+- Support `--resource`, `--script`, `--all-machines` filters
+- Implement `--gc`, `--gc --dry-run`, `--gc --keep-failed`
+- Implement `--follow` (live tail)
+
+The `LogEntry`, `LogFilter`, `LogGcPolicy` types are fully defined and well-structured. The CLI argument parsing (`LogsArgs`) accepts flags. But the runtime bridge between "parse args" and "read files" is missing entirely.
+
+**Root Cause**: Types were designed top-down from the spec, and the implementation phase marked `[x]` when types compiled. No integration test verifies that `cmd_logs` returns data from actual log files.
+
+**Resolution**: Phase 18 downgraded from IMPLEMENTED to PARTIAL in 11-observability.md (2026-03-07). Implementation requires:
+1. Read `state/<machine>/runs/<run-id>/` directory structure
+2. Parse log files (stdout/stderr capture from `exec_script`)
+3. Apply `LogFilter` predicates to real entries
+4. Wire `--gc` to actual file deletion with `--dry-run` and `--keep-failed` modes
+
+---
+
 ## Stale Claims (Code Has Changed)
 
 ### ~~S1: L4 "Destroy State Cleanup Bug"~~ FIXED (spec updated)
@@ -237,3 +262,5 @@ No benchmark measures pepita startup latency. Requires root/CAP_SYS_ADMIN — ca
 | ~~17~~ | ~~Add `debug_assert!` to `hash_desired_state` (production code)~~ | ~~E6~~ | DONE (already exists: `planner/mod.rs:306-310`) |
 | ~~18~~ | ~~Correct spec 09 Phase 13-15 checkboxes~~ | E7 | DONE |
 | ~~19~~ | ~~Add PARTIAL convention note to spec 05, 06~~ | E8 | DONE |
+| 20 | Implement `cmd_logs` runtime (read log files, real JSON data) | F8 | OPEN |
+| 21 | Add missing LogsArgs CLI flags (`--resource`, `--script`, `--all-machines`, `--gc --dry-run`, `--gc --keep-failed`) | F8 | OPEN |
