@@ -5,7 +5,6 @@
 //! types to real (or simulated) sandbox execution.
 
 use crate::core::types::{MutationOperator, MutationReport, MutationResult, SandboxBackend};
-use std::fmt;
 
 /// Configuration for a mutation test run.
 #[derive(Debug, Clone)]
@@ -99,7 +98,25 @@ pub fn applicable_operators(resource_type: &str) -> Vec<MutationOperator> {
         .collect()
 }
 
-/// Run a single mutation test.
+/// Run a mutation test with mode dispatch.
+///
+/// When a container runtime is available and the backend is Container,
+/// runs inside a real ephemeral container. Otherwise falls back to simulated.
+pub fn run_mutation_test_dispatch(
+    target: &MutationTarget,
+    operator: MutationOperator,
+    config: &MutationRunConfig,
+) -> MutationResult {
+    let mode = super::convergence_runner::resolve_mode(config.backend);
+    match (mode, config.backend) {
+        (super::convergence_runner::RunnerMode::Sandbox, SandboxBackend::Container) => {
+            super::mutation_container::run_mutation_test_container(target, operator, config)
+        }
+        _ => run_mutation_test(target, operator, config),
+    }
+}
+
+/// Run a single mutation test (simulated mode).
 ///
 /// Algorithm (from spec):
 /// 1. Apply baseline in sandbox
@@ -200,7 +217,7 @@ pub fn run_mutation_parallel(
                         let operators = applicable_operators(&target.resource_type);
                         let mut results = Vec::new();
                         for op in operators {
-                            results.push(run_mutation_test(target, op, config));
+                            results.push(run_mutation_test_dispatch(target, op, config));
                         }
                         results
                     })
@@ -249,20 +266,4 @@ fn simulate_drift_detection(_drift_script: &str, _expected_hash: &str) -> bool {
     true
 }
 
-/// Simulation status for the mutation runner.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RunnerMode {
-    /// Simulated execution (hash-based, no real sandbox).
-    Simulated,
-    /// Real sandbox execution (pepita/container).
-    Sandbox,
-}
-
-impl fmt::Display for RunnerMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Simulated => write!(f, "simulated"),
-            Self::Sandbox => write!(f, "sandbox"),
-        }
-    }
-}
+// RunnerMode lives in convergence_runner.rs (single source of truth)

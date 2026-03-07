@@ -1,5 +1,6 @@
 //! Tests for infrastructure mutation runner (FJ-2604).
 
+use super::convergence_runner::RunnerMode;
 use super::mutation_runner::*;
 use crate::core::types::MutationOperator;
 
@@ -233,6 +234,42 @@ fn runner_mode_display() {
 fn runner_mode_equality() {
     assert_eq!(RunnerMode::Simulated, RunnerMode::Simulated);
     assert_ne!(RunnerMode::Simulated, RunnerMode::Sandbox);
+}
+
+#[test]
+fn dispatch_uses_simulated_for_pepita() {
+    let target = file_target("dispatch-sim");
+    let config = MutationRunConfig::default(); // Pepita backend, not installed
+    let result = run_mutation_test_dispatch(&target, MutationOperator::DeleteFile, &config);
+    assert!(result.detected, "simulated mode should detect mutations");
+    assert!(result.error.is_none());
+}
+
+#[test]
+fn dispatch_uses_simulated_for_chroot() {
+    let target = file_target("dispatch-chroot");
+    let config = MutationRunConfig {
+        backend: crate::core::types::SandboxBackend::Chroot,
+        ..MutationRunConfig::default()
+    };
+    let result = run_mutation_test_dispatch(&target, MutationOperator::DeleteFile, &config);
+    assert!(result.detected, "chroot unavailable -> simulated fallback");
+}
+
+#[test]
+fn parallel_dispatch_with_backend() {
+    let targets = vec![
+        file_target("par-a"),
+        service_target("par-svc"),
+    ];
+    let config = MutationRunConfig {
+        parallelism: 2,
+        ..MutationRunConfig::default()
+    };
+    let report = run_mutation_parallel(targets, &config);
+    // file: 4 ops + service: 2 ops = 6
+    assert_eq!(report.score.total, 6);
+    assert_eq!(report.score.detected, 6);
 }
 
 #[test]
