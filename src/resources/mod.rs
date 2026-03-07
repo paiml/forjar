@@ -21,6 +21,7 @@ mod tests_service;
 #[cfg(test)]
 mod tests_task;
 pub mod user;
+pub mod wasm_bundle;
 
 mod network_b;
 #[cfg(test)]
