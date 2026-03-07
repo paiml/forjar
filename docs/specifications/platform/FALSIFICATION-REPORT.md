@@ -2,7 +2,7 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 35/35 resolved (U3 deferred — needs root)
+> Updated: 2026-03-07 | 35/36 resolved (U3 deferred — needs root, F22 documented)
 > Deep falsification: 42/42 phases IMPLEMENTED. P0 safety fix (F12), real sandbox I/O (F10-F11), error handling (F13-F14), behavior spec execution (F15), resource coverage report (F16), real contract analysis (F17), template multi-namespace (F18), overlap port/service/mount (F19), dispatch-mode `forjar run` (F20), operator authorization enforcement (F21).
 
 ---
@@ -324,6 +324,17 @@ Spec §10-security-model claims `--operator` flag and `is_operator_allowed()` ch
 
 ---
 
+### F22: `--telemetry-endpoint` flag is parsed but never used
+
+Spec §11-observability (FJ-563) claims OTLP trace export is implemented. The `--telemetry-endpoint` flag exists on `ApplyArgs` (`apply_args.rs:386`) and is parsed by clap, but:
+- No production code references `args.telemetry_endpoint` in the dispatch or apply pipeline
+- No OTLP/HTTP export logic exists anywhere in the codebase
+- The value is silently discarded after parsing
+
+**Status**: DOCUMENTED — implementing full OTLP export requires HTTP client + protobuf serialization. Flag exists as a placeholder for future work.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -393,3 +404,4 @@ Spec §10-security-model claims `--operator` flag and `is_operator_allowed()` ch
 | ~~33~~ | ~~Overlap detection: port, service name, mount target conflicts~~ | F19 | DONE |
 | ~~34~~ | ~~Implement `forjar run` dispatch-mode task invocation~~ | F20 | DONE |
 | ~~35~~ | ~~Wire `--operator` flag and `is_operator_allowed()` into apply pipeline~~ | F21 | DONE |
+| 36 | `--telemetry-endpoint` flag parsed but never used — no OTLP export | F22 | DOCUMENTED |
