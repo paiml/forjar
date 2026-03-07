@@ -91,7 +91,7 @@
 
 ---
 
-### E6: Runtime contracts are on spec wrappers, not production code — PARTIALLY REMEDIATED
+### E6: Runtime contracts are on spec wrappers, not production code — REMEDIATED
 
 **Spec claim** (09-provable-design-by-contract.md):
 > All critical-path functions have `#[ensures]` contracts
@@ -107,7 +107,8 @@
    - `save_lock` (`core/state/mod.rs:56-57`)
    - `build_execution_order` (`core/resolver/dag.rs:31-40`)
 2. Spec 09 Phase 13 updated (2026-03-06) to IMPLEMENTED status
-3. OCI functions also contracted: `build_layer` (determinism) and `assemble_image` (OCI layout validity)
+3. OCI functions also contracted: `build_layer` (determinism), `assemble_image` (OCI layout validity), `compute_dual_digest` (consistency), `write_oci_layout` (integrity)
+4. G4 fully remediated: store idempotency contract + OCI manifest media type assertions added (2026-03-07)
 
 ---
 

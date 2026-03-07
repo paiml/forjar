@@ -95,7 +95,7 @@ The `core/verus_spec.rs` module contains machine-checked proofs (when compiled w
 ## Runtime Contracts on Production Code
 
 The most practical verification layer: `debug_assert!` postconditions
-on the 6 critical-path functions. These fire in every `cargo test` run
+on 9 critical-path functions. These fire in every `cargo test` run
 and debug build, catching invariant violations with zero release cost.
 
 | Function | Module | Postcondition |
@@ -104,8 +104,11 @@ and debug build, catching invariant violations with zero release cost.
 | `hash_desired_state` | `planner/mod.rs` | Determinism (double-hash equality) |
 | `save_lock` | `core/state/mod.rs` | File exists, temp file removed |
 | `build_execution_order` | `core/resolver/dag.rs` | Valid topological order |
-| `build_layer` | `store/layer_builder.rs` | Same inputs produce same BLAKE3 |
+| `build_layer` | `store/layer_builder.rs` | Same inputs produce same BLAKE3; store idempotency |
 | `assemble_image` | `store/image_assembler.rs` | OCI layout files exist, layer count matches |
+| `compute_dual_digest` | `store/layer_builder.rs` | Size matches, digests non-empty |
+| `write_oci_layout` | `store/layer_builder.rs` | oci-layout and config blob exist |
+| `OciManifest::new` | `types/oci_types.rs` | Media types match OCI spec strings |
 
 These contracts connect theoretical proofs to actual code. The Verus
 model proves "if handler invariant holds, then idempotency holds." The
