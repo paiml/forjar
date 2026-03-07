@@ -412,8 +412,9 @@ pub(crate) fn apply_single_resource(
         );
     }
 
-    let resolved =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)?;
+    let resolved = resolver::resolve_resource_templates_with_secrets(
+        resource, &cfg.config.params, &cfg.config.machines, &cfg.config.secrets,
+    )?;
 
     execute_resource(cfg, change, resource, &resolved, machine, ctx)
 }

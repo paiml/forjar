@@ -204,10 +204,11 @@ fn prepare_wave_resources(
             );
         }
 
-        let resolved = resolver::resolve_resource_templates(
+        let resolved = resolver::resolve_resource_templates_with_secrets(
             resource,
             &cfg.config.params,
             &cfg.config.machines,
+            &cfg.config.secrets,
         )?;
         let use_copia = resolved.resource_type == ResourceType::File
             && resolved

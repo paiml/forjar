@@ -13,9 +13,9 @@ pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves};
 pub use data::resolve_data_sources;
-pub use resource::resolve_resource_templates;
+pub use resource::{resolve_resource_templates, resolve_resource_templates_with_secrets};
 pub use template::resolve_template;
-pub use template::{redact_secrets, resolve_secret_with_provider};
+pub use template::{redact_secrets, resolve_secret_with_provider, resolve_template_with_secrets};
 
 #[cfg(test)]
 pub(super) use crate::core::types::*;
@@ -40,5 +40,7 @@ mod tests_resource_b;
 mod tests_staleness;
 #[cfg(test)]
 mod tests_template;
+#[cfg(test)]
+mod tests_template_b;
 #[cfg(test)]
 mod tests_waves;

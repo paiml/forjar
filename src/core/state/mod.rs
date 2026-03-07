@@ -150,9 +150,10 @@ pub fn update_global_lock(
 pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMap<String, String> {
     let mut resolved = indexmap::IndexMap::new();
     for (k, output) in &config.outputs {
-        let value =
-            super::resolver::resolve_template(&output.value, &config.params, &config.machines)
-                .unwrap_or_else(|_| output.value.clone());
+        let value = super::resolver::resolve_template_with_secrets(
+            &output.value, &config.params, &config.machines, &config.secrets,
+        )
+        .unwrap_or_else(|_| output.value.clone());
         resolved.insert(k.clone(), value);
     }
     resolved
