@@ -102,6 +102,30 @@ mod tests {
         assert!(cmd_validate_check_resource_overlap(f.path(), true).is_ok());
     }
 
+    #[test]
+    fn test_resource_overlap_port() {
+        let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: network\n    port: '8080'\n    action: allow\n  b:\n    machine: m1\n    type: network\n    port: '8080'\n    action: deny\n"));
+        assert!(cmd_validate_check_resource_overlap(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_resource_overlap_service_name() {
+        let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: service\n    name: nginx\n  b:\n    machine: m1\n    type: service\n    name: nginx\n"));
+        assert!(cmd_validate_check_resource_overlap(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_resource_overlap_mount_target() {
+        let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: mount\n    path: /dev/sda1\n    target: /data\n  b:\n    machine: m1\n    type: mount\n    path: /dev/sdb1\n    target: /data\n"));
+        assert!(cmd_validate_check_resource_overlap(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_resource_overlap_different_machines_no_conflict() {
+        let f = write_cfg("version: '1.0'\nname: t\nmachines:\n  m1:\n    hostname: m1\n    addr: 10.0.0.1\n  m2:\n    hostname: m2\n    addr: 10.0.0.2\nresources:\n  a:\n    machine: m1\n    type: service\n    name: nginx\n  b:\n    machine: m2\n    type: service\n    name: nginx\n");
+        assert!(cmd_validate_check_resource_overlap(f.path(), false).is_ok());
+    }
+
     // FJ-813: resource tags
     #[test]
     fn test_resource_tags_ok() {

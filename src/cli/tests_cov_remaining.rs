@@ -186,6 +186,27 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_cov_check_templates_machine_ref_valid() {
+        let yaml = "version: \"1.0\"\nname: t\nmachines:\n  web:\n    hostname: web\n    addr: 10.0.0.1\nresources:\n  cfg:\n    type: file\n    machine: web\n    path: /tmp/test\n    content: \"addr={{machine.web.addr}}\"\n";
+        let f = write_temp_config(yaml);
+        assert!(cmd_validate_check_templates(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_cov_check_templates_machine_ref_invalid() {
+        let yaml = "version: \"1.0\"\nname: t\nmachines:\n  web:\n    hostname: web\n    addr: 10.0.0.1\nresources:\n  cfg:\n    type: file\n    machine: web\n    path: /tmp/test\n    content: \"addr={{machine.nonexistent.addr}}\"\n";
+        let f = write_temp_config(yaml);
+        assert!(cmd_validate_check_templates(f.path(), false).is_err());
+    }
+
+    #[test]
+    fn test_cov_check_templates_multiple_fields() {
+        let yaml = "version: \"1.0\"\nname: t\nparams:\n  app: myapp\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  cfg:\n    type: file\n    machine: m\n    path: /opt/{{params.app}}/config\n    content: hello\n    owner: root\n";
+        let f = write_temp_config(yaml);
+        assert!(cmd_validate_check_templates(f.path(), false).is_ok());
+    }
+
     // ========================================================================
     // 2. validate_structural: cmd_validate_check_secrets
     // ========================================================================
