@@ -64,6 +64,7 @@ pub(crate) fn cmd_build(
         &layer_entries,
         &output_dir,
         &OciLayerConfig::default(),
+        None, // E12: default to host architecture
     )?;
     let duration = start.elapsed();
 

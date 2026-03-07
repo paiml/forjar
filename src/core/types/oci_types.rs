@@ -128,6 +128,20 @@ pub struct OciImageConfig {
 }
 
 impl OciImageConfig {
+    /// Create a config for the specified architecture.
+    pub fn for_arch(arch: &str, os: &str, diff_ids: Vec<String>) -> Self {
+        Self {
+            architecture: arch.into(),
+            os: os.into(),
+            config: OciRuntimeConfig::default(),
+            rootfs: OciRootfs {
+                rootfs_type: "layers".into(),
+                diff_ids,
+            },
+            history: Vec::new(),
+        }
+    }
+
     /// Create a minimal Linux amd64 config.
     pub fn linux_amd64(diff_ids: Vec<String>) -> Self {
         let id_count = diff_ids.len();

@@ -70,7 +70,7 @@ fn main() {
     println!("  Layers: {}", plan.layers.len());
     println!("  Output: {}\n", dir.path().display());
 
-    let result = assemble_image(&plan, &layer_entries, dir.path(), &config).unwrap();
+    let result = assemble_image(&plan, &layer_entries, dir.path(), &config, None).unwrap();
 
     // Report
     println!("--- Build Report ---");
