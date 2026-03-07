@@ -1,7 +1,7 @@
 //! Coverage tests for cli/check_test.rs — print functions, artifacts, behavior/mutation/convergence.
 
 use super::check_test::*;
-use super::check_test_runners::RunnerOpts;
+use super::check_test_runners::{cmd_test_coverage, RunnerOpts};
 use std::io::Write;
 
 fn sample_rows() -> Vec<TestRow> {
@@ -237,6 +237,28 @@ fn test_behavior_mode_no_assertion() {
     .unwrap();
     let r = cmd_test_behavior(&config_path);
     assert!(r.is_err());
+}
+
+/// F16: `forjar test coverage` now reports resource-level coverage.
+#[test]
+fn test_coverage_mode_basic() {
+    let f = write_temp_config(BASIC_YAML);
+    let r = cmd_test_coverage(f.path());
+    assert!(r.is_ok());
+}
+
+#[test]
+fn test_coverage_mode_with_behavior_specs() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, BASIC_YAML).unwrap();
+    std::fs::write(
+        dir.path().join("pkg.spec.yaml"),
+        "name: pkg-spec\nconfig: forjar.yaml\nbehaviors:\n  - name: installed\n    resource: pkg\n    state: present\n",
+    )
+    .unwrap();
+    let r = cmd_test_coverage(&config_path);
+    assert!(r.is_ok());
 }
 
 impl Clone for TestRow {
