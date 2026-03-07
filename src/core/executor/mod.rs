@@ -7,7 +7,7 @@ mod helpers;
 mod machine;
 mod machine_wave;
 mod resource_ops;
-pub(crate) mod run_capture;
+pub mod run_capture;
 mod strategies;
 
 mod machine_b;

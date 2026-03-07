@@ -8,12 +8,12 @@ use crate::transport::ExecOutput;
 use std::path::{Path, PathBuf};
 
 /// Compute the run directory path.
-pub(crate) fn run_dir(state_dir: &Path, machine_name: &str, run_id: &str) -> PathBuf {
+pub fn run_dir(state_dir: &Path, machine_name: &str, run_id: &str) -> PathBuf {
     state_dir.join(machine_name).join("runs").join(run_id)
 }
 
 /// Ensure the run directory exists and write meta.yaml if it doesn't exist yet.
-pub(crate) fn ensure_run_dir(dir: &Path, run_id: &str, machine_name: &str, command: &str) {
+pub fn ensure_run_dir(dir: &Path, run_id: &str, machine_name: &str, command: &str) {
     if dir.exists() {
         return;
     }
@@ -31,7 +31,7 @@ pub(crate) fn ensure_run_dir(dir: &Path, run_id: &str, machine_name: &str, comma
 /// Writes `<resource_id>.<action>.log` with structured sections,
 /// and `<resource_id>.script` with the raw script.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn capture_output(
+pub fn capture_output(
     run_dir: &Path,
     resource_id: &str,
     resource_type: &str,
@@ -74,7 +74,7 @@ pub(crate) fn capture_output(
 }
 
 /// Update meta.yaml with resource status after execution.
-pub(crate) fn update_meta_resource(
+pub fn update_meta_resource(
     run_dir: &Path,
     resource_id: &str,
     status: ResourceRunStatus,
