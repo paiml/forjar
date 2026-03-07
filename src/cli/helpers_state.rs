@@ -112,3 +112,32 @@ pub(crate) fn simple_glob_match(pattern: &str, text: &str) -> bool {
         (false, false) => text == pattern,
     }
 }
+
+/// Load lock files from a generation directory, optionally filtered by machine.
+pub(super) fn load_generation_locks(
+    gen_dir: &std::path::Path,
+    machine_filter: Option<&str>,
+) -> std::collections::HashMap<String, crate::core::types::StateLock> {
+    let mut locks = std::collections::HashMap::new();
+    let Ok(entries) = std::fs::read_dir(gen_dir) else {
+        return locks;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        let lock_path = entry.path().join("state.lock.yaml");
+        if let Ok(content) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+                locks.insert(name, lock);
+            }
+        }
+    }
+    locks
+}

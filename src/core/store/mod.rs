@@ -39,6 +39,7 @@ pub mod profile;
 pub mod provider;
 pub mod provider_exec;
 pub mod purity;
+pub mod query;
 pub mod reference;
 pub mod registry_push;
 pub mod repro_score;
