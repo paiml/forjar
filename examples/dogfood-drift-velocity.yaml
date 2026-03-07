@@ -2,6 +2,7 @@
 # Exercises: trigger refs, param type safety, topological depth, weak links
 version: "1.0"
 name: drift-velocity-demo
+description: "Exercises trigger refs, param type safety, topological depth, and weak link detection."
 
 params:
   app_port:
@@ -25,7 +26,7 @@ resources:
     type: file
     machine: web
     path: /tmp/config
-    content: "port={{app_port}}"
+    content: "port={{ params.app_port }}"
     depends_on: [base_dir]
 
   schema:
@@ -46,7 +47,7 @@ resources:
     type: file
     machine: web
     path: /tmp/app
-    content: "dir={{data_dir}}"
+    content: "dir={{ params.data_dir }}"
     depends_on: [migrations]
 
   healthcheck:

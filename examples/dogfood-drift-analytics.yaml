@@ -11,6 +11,7 @@
 
 version: "1.0"
 name: drift-analytics
+description: "Exercises drift analytics validators: content hash consistency, dependency refs, longest path, and strongly connected detection."
 
 machines:
   analytics:
@@ -26,22 +27,22 @@ resources:
   base_dir:
     type: file
     machine: analytics
-    path: "{{data_dir}}"
+    path: "{{ params.data_dir }}"
     content: ""
     tags: [infra]
 
   config:
     type: file
     machine: analytics
-    path: "{{data_dir}}/config.yaml"
-    content: "log_level: {{log_level}}\ndata_dir: {{data_dir}}\n"
+    path: "{{ params.data_dir }}/config.yaml"
+    content: "log_level: {{ params.log_level }}\ndata_dir: {{ params.data_dir }}\n"
     depends_on: [base_dir]
     tags: [config]
 
   schema:
     type: file
     machine: analytics
-    path: "{{data_dir}}/schema.sql"
+    path: "{{ params.data_dir }}/schema.sql"
     content: "CREATE TABLE IF NOT EXISTS events (id INT, ts TIMESTAMP);\n"
     depends_on: [base_dir]
     tags: [data]
@@ -49,7 +50,7 @@ resources:
   migrations:
     type: file
     machine: analytics
-    path: "{{data_dir}}/migrations/001.sql"
+    path: "{{ params.data_dir }}/migrations/001.sql"
     content: "ALTER TABLE events ADD COLUMN source TEXT;\n"
     depends_on: [schema]
     tags: [data]
@@ -57,7 +58,7 @@ resources:
   app:
     type: file
     machine: analytics
-    path: "{{data_dir}}/app.sh"
+    path: "{{ params.data_dir }}/app.sh"
     content: "#!/bin/bash\necho 'analytics engine'\n"
     depends_on: [config, migrations]
     tags: [app]
@@ -66,7 +67,7 @@ resources:
   monitor:
     type: file
     machine: analytics
-    path: "{{data_dir}}/monitor.sh"
+    path: "{{ params.data_dir }}/monitor.sh"
     content: "#!/bin/bash\necho 'health check'\n"
     depends_on: [app]
     tags: [ops]

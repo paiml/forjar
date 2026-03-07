@@ -2,6 +2,7 @@
 # Demonstrates service task mode for long-running agent processes.
 version: '1.0'
 name: batuta-agent-lifecycle
+description: "Service task mode for a long-running batuta agent with health checks and restart policy."
 machines:
   agent-host:
     hostname: agent-0
@@ -10,6 +11,7 @@ machines:
 
 resources:
   agent-service:
+    machine: agent-host
     type: task
     task_mode: service
     command: "batuta agent serve --config agent.yaml --port 8080"
@@ -24,6 +26,7 @@ resources:
       backoff_cap_secs: 60
 
   agent-monitor:
+    machine: agent-host
     type: task
     task_mode: dispatch
     command: "batuta agent status --json"

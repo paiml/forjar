@@ -2,6 +2,7 @@
 # Demonstrates `outputs:` block for computed values.
 version: "1.0"
 name: dogfood-outputs
+description: "Demonstrates the outputs block for exporting computed values from params and machine attributes."
 
 params:
   data_dir: /mnt/data
@@ -23,6 +24,7 @@ resources:
     content: |
       data_dir: {{params.data_dir}}
       port: {{params.app_port}}
+      domain: {{params.domain}}
 
 outputs:
   data_directory:

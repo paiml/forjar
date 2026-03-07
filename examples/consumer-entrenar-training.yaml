@@ -2,6 +2,7 @@
 # Demonstrates pipeline + GPU task mode for ML training.
 version: '1.0'
 name: entrenar-training-job
+description: "GPU pipeline task mode for ML training with data preparation, training, and evaluation stages."
 machines:
   gpu-node:
     hostname: gpu-0
@@ -10,6 +11,7 @@ machines:
 
 resources:
   training-pipeline:
+    machine: gpu-node
     type: task
     task_mode: pipeline
     gpu_device: 0

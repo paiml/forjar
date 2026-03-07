@@ -1,6 +1,6 @@
 version: '1.0'
 name: dogfood-crossarch
-description: null
+description: "Tests cross-architecture resource filtering with x86_64 and aarch64 containers."
 params: {}
 machines:
   x86-box:

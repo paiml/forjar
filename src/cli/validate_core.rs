@@ -41,9 +41,18 @@ fn check_paths_absolute(config: &types::ForjarConfig, errors: &mut Vec<String>) 
 
 /// Check that template vars resolve.
 fn check_templates_resolve(config: &types::ForjarConfig, errors: &mut Vec<String>) {
+    // Inject data source defaults so {{data.*}} templates resolve during validation
+    let mut params = config.params.clone();
+    for (key, ds) in &config.data {
+        let val = ds.default.clone().unwrap_or_default();
+        params.insert(
+            format!("__data__{key}"),
+            serde_yaml_ng::Value::String(val),
+        );
+    }
     for (id, resource) in &config.resources {
         if let Err(e) =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+            resolver::resolve_resource_templates(resource, &params, &config.machines)
         {
             errors.push(format!("{id}: template error: {e}"));
         }
@@ -53,12 +62,17 @@ fn check_templates_resolve(config: &types::ForjarConfig, errors: &mut Vec<String
 /// Warn on unused params.
 fn check_unused_params(config: &types::ForjarConfig, errors: &mut Vec<String>) {
     let mut used_params = std::collections::HashSet::new();
+    // Serialize resources and machines to search for param references
+    let mut haystack = String::new();
     for resource in config.resources.values() {
-        let yaml = serde_yaml_ng::to_string(resource).unwrap_or_default();
-        for key in config.params.keys() {
-            if yaml.contains(&format!("params.{key}")) {
-                used_params.insert(key.clone());
-            }
+        haystack.push_str(&serde_yaml_ng::to_string(resource).unwrap_or_default());
+    }
+    for machine in config.machines.values() {
+        haystack.push_str(&serde_yaml_ng::to_string(machine).unwrap_or_default());
+    }
+    for key in config.params.keys() {
+        if haystack.contains(&format!("params.{key}")) {
+            used_params.insert(key.clone());
         }
     }
     for key in config.params.keys() {

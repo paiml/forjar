@@ -2,9 +2,6 @@ version: "1.0"
 name: dogfood-repartir
 description: "Dogfood: repartir worker deployment on compute nodes"
 
-params:
-  worker_port: "9000"
-
 machines:
   worker-1:
     hostname: worker-1

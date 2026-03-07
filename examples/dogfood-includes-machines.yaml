@@ -1,6 +1,7 @@
 # FJ-254: Included machines file for dogfood-includes.yaml
 version: "1.0"
 name: included-machines
+description: "Shared machine definitions included by dogfood-includes.yaml to test config merging."
 
 params:
   region: us-east-1
@@ -8,10 +9,11 @@ params:
 
 machines:
   test-box:
-    hostname: test-box
+    hostname: "{{ params.hostname }}"
     addr: container
     transport: container
     arch: x86_64
+    roles: ["{{ params.region }}"]
     container:
       image: ubuntu:22.04
 

@@ -3,6 +3,7 @@
 # replace, env, b3sum, join, split, and nested calls.
 version: "1.0"
 name: dogfood-template-funcs
+description: "Demonstrates template functions: upper, lower, trim, default, replace, b3sum, join, and nested calls."
 
 params:
   hostname: "  My-Server  "

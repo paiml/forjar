@@ -6,6 +6,7 @@
 
 version: "1.0"
 name: ci-build-pipeline
+description: "CI build pipeline demonstrating pipeline, batch, and service task modes with quality gates."
 machines:
   build-server:
     hostname: build-server

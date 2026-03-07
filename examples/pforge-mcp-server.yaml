@@ -24,6 +24,7 @@ resources:
     machine: server
     provider: cargo
     packages: [pforge-runtime]
+    version: "{{ params.pforge_version }}"
     tags: [agent, infrastructure]
 
   # Phase 2: Write MCP server configuration

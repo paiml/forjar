@@ -3,6 +3,7 @@
 # Machines are defined in a separate include.
 version: "1.0"
 name: dogfood-includes
+description: "Demonstrates config includes for merging machines and params from separate YAML files."
 
 includes:
   - dogfood-includes-machines.yaml
