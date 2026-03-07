@@ -143,7 +143,24 @@ pub struct ConvergenceTarget {
     pub expected_hash: String,
 }
 
-/// Run convergence test for a single resource.
+/// Run convergence test with mode dispatch.
+///
+/// In Sandbox mode with container backend available, runs inside a real
+/// ephemeral container. Otherwise falls back to simulated (hash-based).
+pub fn run_convergence_test_dispatch(
+    target: &ConvergenceTarget,
+    backend: SandboxBackend,
+) -> ConvergenceResult {
+    let mode = resolve_mode(backend);
+    match (mode, backend) {
+        (RunnerMode::Sandbox, SandboxBackend::Container) => {
+            super::convergence_container::run_convergence_test_container(target)
+        }
+        _ => run_convergence_test(target),
+    }
+}
+
+/// Run convergence test for a single resource (simulated mode).
 ///
 /// Algorithm (6 steps from spec):
 /// 1. Generate apply script via codegen
@@ -203,9 +220,23 @@ pub fn run_convergence_test(target: &ConvergenceTarget) -> ConvergenceResult {
 /// Run convergence tests in parallel sandboxes.
 ///
 /// Each target gets its own sandbox. Results are collected and returned.
+/// Uses simulated mode by default (call `run_convergence_parallel_with_backend`
+/// for sandbox-aware dispatch).
 pub fn run_convergence_parallel(
     targets: Vec<ConvergenceTarget>,
     parallelism: usize,
+) -> Vec<ConvergenceResult> {
+    run_convergence_parallel_with_backend(targets, parallelism, SandboxBackend::Pepita)
+}
+
+/// Run convergence tests in parallel with explicit backend selection.
+///
+/// When the backend is available, tests run in real sandboxes.
+/// Otherwise falls back to simulated (hash-based) mode.
+pub fn run_convergence_parallel_with_backend(
+    targets: Vec<ConvergenceTarget>,
+    parallelism: usize,
+    backend: SandboxBackend,
 ) -> Vec<ConvergenceResult> {
     if targets.is_empty() {
         return Vec::new();
@@ -220,7 +251,7 @@ pub fn run_convergence_parallel(
             let handles: Vec<_> = chunk
                 .iter()
                 .map(|target| {
-                    s.spawn(|| run_convergence_test(target))
+                    s.spawn(|| run_convergence_test_dispatch(target, backend))
                 })
                 .collect();
 
@@ -338,7 +369,6 @@ fn simulate_apply(script: &str) -> Result<String, String> {
     if script.is_empty() {
         return Err("empty apply script".into());
     }
-    // Compute deterministic hash of the script to simulate execution
     let refs = [script];
     Ok(crate::tripwire::hasher::composite_hash(&refs))
 }
@@ -351,3 +381,5 @@ fn simulate_state_query(script: &str) -> Result<String, String> {
     let refs = [script];
     Ok(crate::tripwire::hasher::composite_hash(&refs))
 }
+
+// Container sandbox execution lives in convergence_container.rs

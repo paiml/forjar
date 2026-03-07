@@ -7,6 +7,7 @@ pub mod base_image;
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;
+pub mod convergence_container;
 pub mod convergence_runner;
 pub mod db;
 pub mod closure;

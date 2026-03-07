@@ -471,7 +471,9 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
 
     println!("Targets: {} resources\n", targets.len());
 
-    let results = convergence_runner::run_convergence_parallel(targets, test_config.parallelism);
+    let results = convergence_runner::run_convergence_parallel_with_backend(
+        targets, test_config.parallelism, test_config.backend,
+    );
     let summary = ConvergenceSummary::from_results(&results);
     let elapsed = t0.elapsed();
 
