@@ -435,14 +435,14 @@ pub(crate) fn cmd_test_mutation(file: &Path) -> Result<(), String> {
 /// FJ-2600: Run convergence testing against stack resources.
 pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
     use crate::core::store::convergence_runner::{
-        self, ConvergenceSummary, ConvergenceTarget,
+        self, ConvergenceSummary, ConvergenceTarget, ConvergenceTestConfig,
     };
-    use crate::core::types::SandboxBackend;
 
     let config = parse_and_validate(file)?;
     let t0 = std::time::Instant::now();
+    let test_config = ConvergenceTestConfig::default();
 
-    let mode = convergence_runner::resolve_mode(SandboxBackend::Pepita);
+    let mode = convergence_runner::resolve_mode(test_config.backend);
     println!("Convergence Test Runner (mode: {mode})");
     println!("===================================");
     println!("Stack: {} ({} resources)\n", config.name, config.resources.len());
@@ -471,7 +471,7 @@ pub(crate) fn cmd_test_convergence(file: &Path) -> Result<(), String> {
 
     println!("Targets: {} resources\n", targets.len());
 
-    let results = convergence_runner::run_convergence_parallel(targets, 4);
+    let results = convergence_runner::run_convergence_parallel(targets, test_config.parallelism);
     let summary = ConvergenceSummary::from_results(&results);
     let elapsed = t0.elapsed();
 
