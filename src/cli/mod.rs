@@ -6,6 +6,7 @@ mod apply;
 mod apply_helpers;
 mod apply_output;
 mod apply_variants;
+mod build_distribution;
 mod build_image;
 mod bundle;
 mod cbom;

@@ -100,6 +100,48 @@ impl BuildMetrics {
     }
 }
 
+/// FJ-2403/E17: Image build metrics collected during `forjar build`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageBuildMetrics {
+    /// Image tag (e.g., "myapp:latest").
+    pub tag: String,
+    /// Number of layers in the built image.
+    pub layer_count: usize,
+    /// Total compressed image size in bytes.
+    pub total_size: u64,
+    /// Per-layer metrics.
+    pub layers: Vec<LayerMetric>,
+    /// Build duration in seconds.
+    pub duration_secs: f64,
+    /// ISO 8601 timestamp of the build.
+    pub built_at: String,
+    /// Forjar version used for the build.
+    pub forjar_version: String,
+    /// Build target architecture.
+    pub target_arch: String,
+}
+
+/// Per-layer build metric.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayerMetric {
+    /// Number of files in the layer.
+    pub file_count: u32,
+    /// Uncompressed layer size in bytes.
+    pub uncompressed_size: u64,
+    /// Compressed layer size in bytes.
+    pub compressed_size: u64,
+}
+
+impl ImageBuildMetrics {
+    /// Write metrics to `build-metrics.json` in the output directory.
+    pub fn write_to(&self, dir: &std::path::Path) -> Result<(), String> {
+        let path = dir.join("build-metrics.json");
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| format!("serialize build metrics: {e}"))?;
+        std::fs::write(path, json).map_err(|e| format!("write build metrics: {e}"))
+    }
+}
+
 /// FJ-2403: Binary size threshold for regression detection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SizeThreshold {
@@ -256,5 +298,61 @@ mod tests {
         prev.binary_size = Some(7_000_000);
         let violations = t.check(&current, Some(&prev));
         assert_eq!(violations.len(), 2);
+    }
+
+    #[test]
+    fn image_build_metrics_serde_roundtrip() {
+        let m = ImageBuildMetrics {
+            tag: "myapp:v1".into(),
+            layer_count: 2,
+            total_size: 1024,
+            layers: vec![
+                LayerMetric {
+                    file_count: 3,
+                    uncompressed_size: 2000,
+                    compressed_size: 800,
+                },
+                LayerMetric {
+                    file_count: 1,
+                    uncompressed_size: 500,
+                    compressed_size: 224,
+                },
+            ],
+            duration_secs: 1.5,
+            built_at: "2026-03-07T00:00:00Z".into(),
+            forjar_version: "0.1.0".into(),
+            target_arch: "x86_64".into(),
+        };
+        let json = serde_json::to_string(&m).unwrap();
+        let parsed: ImageBuildMetrics = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.tag, "myapp:v1");
+        assert_eq!(parsed.layer_count, 2);
+        assert_eq!(parsed.layers.len(), 2);
+        assert_eq!(parsed.layers[0].file_count, 3);
+    }
+
+    #[test]
+    fn image_build_metrics_write_to_tempdir() {
+        let dir = std::env::temp_dir().join("forjar-test-ibm");
+        let _ = std::fs::create_dir_all(&dir);
+        let m = ImageBuildMetrics {
+            tag: "test:latest".into(),
+            layer_count: 1,
+            total_size: 512,
+            layers: vec![LayerMetric {
+                file_count: 2,
+                uncompressed_size: 512,
+                compressed_size: 256,
+            }],
+            duration_secs: 0.3,
+            built_at: "2026-03-07T00:00:00Z".into(),
+            forjar_version: env!("CARGO_PKG_VERSION").into(),
+            target_arch: "x86_64".into(),
+        };
+        m.write_to(&dir).unwrap();
+        let content = std::fs::read_to_string(dir.join("build-metrics.json")).unwrap();
+        assert!(content.contains("test:latest"));
+        assert!(content.contains("512"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
