@@ -2,8 +2,8 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 47/48 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). E10+F33+F34+F35 fixed.
+> Updated: 2026-03-07 | 48/49 code fixes resolved (U3 deferred — needs root, F22 documented)
+> Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -32,9 +32,9 @@
 
 ---
 
-### ~~F3: Incremental ingest with cursor not implemented~~ PARTIALLY FIXED
+### ~~F3: Incremental ingest with cursor not implemented~~ FIXED
 
-**Resolved**: `ingest_cursor` table now exists in the SQLite schema (`db.rs`). The `IngestCursor` type in `sqlite_schema_types.rs` provides `is_ingested()`/`mark_ingested()` methods. Wiring into `ingest_state_dir()` for actual mtime/hash skip is deferred to Phase 6 (optimization).
+**Resolved**: `ingest_cursor` table exists in SQLite schema (`db.rs`). The `IngestCursor` type provides `is_ingested()`/`mark_ingested()` methods. Now fully wired: `ingest_state_dir()` computes BLAKE3 hash of each lock file, compares against `last_lock_hash` in cursor, and skips re-ingest when unchanged. Events use `last_event_offset` to resume from the last ingested line. Cursor updated after each machine's ingest. Test `ingest_cursor_incremental` verifies skip-on-unchanged and re-ingest-on-modified behavior.
 
 ---
 
