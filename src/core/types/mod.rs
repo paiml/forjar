@@ -40,6 +40,8 @@ mod tests_task;
 mod test_runner_types;
 mod undo_types;
 mod validation_types;
+#[cfg(test)]
+mod tests_validation_types;
 mod wasm_types;
 
 pub use behavior_types::*;
