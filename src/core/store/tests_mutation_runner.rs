@@ -299,8 +299,10 @@ fn format_mutation_run_output() {
     let report = run_mutation_suite(&targets, &config);
     let output = format_mutation_run(&report);
     assert!(
-        output.contains("Grade A") || output.contains("Grade B")
-            || output.contains("Grade C") || output.contains("Grade F"),
+        output.contains("Grade A")
+            || output.contains("Grade B")
+            || output.contains("Grade C")
+            || output.contains("Grade F"),
         "output should contain a grade: {output}"
     );
     assert!(output.contains("targets"));
