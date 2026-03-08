@@ -840,11 +840,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Spec stale: test count 8365→10075, test files 525→658, CI workflows 11→14 — update 14-testing-strategy.md'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T13:13:25Z
-  updated: 2026-03-08T13:13:25Z
+  updated: 2026-03-08T13:38:49.127388418+00:00
   spec: null
   acceptance_criteria: []
   phases: []
