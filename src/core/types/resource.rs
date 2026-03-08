@@ -372,6 +372,11 @@ pub struct Resource {
     /// Build script for derivation resources.
     #[serde(default)]
     pub script: Option<String>,
+
+    // -- Build fields (FJ-33: cross-compile build→deploy) --
+    /// Machine that performs the build (distinct from deploy target in `machine`).
+    #[serde(default)]
+    pub build_machine: Option<String>,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

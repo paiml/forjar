@@ -119,6 +119,11 @@ fn apply_apt_absent(resource: &Resource) -> String {
     )
 }
 
+/// FJ-51: Cargo binary cache — skip recompilation when cached binary exists.
+///
+/// Cache layout: `$FORJAR_CACHE_DIR/<pkg>-<version>-<arch>/bin/`
+/// Default cache dir: `~/.forjar/cache/cargo`
+/// Disable: `FORJAR_NO_CARGO_CACHE=1`
 fn apply_cargo_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
@@ -126,9 +131,9 @@ fn apply_cargo_present(resource: &Resource) -> String {
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match (source, version) {
+            // Local path installs — no caching, always rebuild
             (Some(s), _) => format!("cargo install --force --locked --path '{s}'"),
-            (None, Some(v)) => format!("cargo install --force --locked '{p}@{v}'"),
-            (None, None) => format!("cargo install --force --locked '{p}'"),
+            (None, ver) => cargo_cached_install(p, ver),
         })
         .collect();
     // Limit build parallelism to avoid OOM on high-core-count machines.
@@ -150,8 +155,41 @@ fn apply_cargo_present(resource: &Resource) -> String {
            [ \"$_half\" -gt 8 ] && _half=8\n\
            export CARGO_BUILD_JOBS=$_half\n\
          fi\n\
+         _CARGO_BIN=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"\n\
          {}",
         installs.join("\n")
+    )
+}
+
+/// Generate a cached cargo install script for a single crate.
+///
+/// On cache hit: copy pre-built binaries from cache, skip compilation entirely.
+/// On cache miss: `cargo install --root <staging>`, then populate cache + install.
+fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
+    let ver_tag = version.unwrap_or("latest");
+    let install_arg = match version {
+        Some(v) => format!("'{pkg}@{v}'"),
+        None => format!("'{pkg}'"),
+    };
+    format!(
+        "_CACHE_KEY=\"{pkg}-{ver_tag}-$(uname -m)\"\n\
+         _CACHE_DIR=\"${{FORJAR_CACHE_DIR:-$HOME/.forjar/cache/cargo}}/$_CACHE_KEY\"\n\
+         if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
+            [ -d \"$_CACHE_DIR/bin\" ] && \
+            ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
+           cp \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
+           echo \"forjar: cache-hit {pkg} [$_CACHE_KEY]\"\n\
+         else\n\
+           _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
+           cargo install --force --locked --root \"$_STAGING\" {install_arg}\n\
+           if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ]; then\n\
+             mkdir -p \"$_CACHE_DIR\"\n\
+             cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
+           fi\n\
+           cp \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
+           rm -rf \"$_STAGING\"\n\
+           echo \"forjar: cached {pkg} [$_CACHE_KEY]\"\n\
+         fi"
     )
 }
 

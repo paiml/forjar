@@ -92,6 +92,7 @@ fn make_service_resource(name: &str, state: &str) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

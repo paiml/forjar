@@ -99,6 +99,7 @@ mod tests {
             script: None,
             gather: vec![],
             scatter: vec![],
+            build_machine: None,
         }
     }
 

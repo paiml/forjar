@@ -23,6 +23,7 @@ pub(super) fn validate_resource_type(
         ResourceType::Recipe => validate_recipe(id, resource, errors),
         ResourceType::Task => validate_task(id, resource, errors),
         ResourceType::WasmBundle | ResourceType::Image => validate_file(id, resource, errors),
+        ResourceType::Build => validate_build(id, resource, errors),
     }
 }
 
@@ -343,5 +344,30 @@ fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
                 ),
             });
         }
+    }
+}
+
+fn validate_build(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    if resource.build_machine.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (build) has no build_machine — specify which machine performs the build"),
+        });
+    }
+    if resource.command.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (build) has no command — specify the build command"),
+        });
+    }
+    if resource.source.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (build) has no source — specify the artifact path on the build machine"),
+        });
+    }
+    if resource.target.is_none() {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{id}' (build) has no target — specify where to deploy the artifact"
+            ),
+        });
     }
 }

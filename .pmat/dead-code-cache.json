@@ -1,35 +1,9 @@
 {
-  "tree_hash": "a6f649c7a2bd97d6f518989d2d30fbfed15911be",
+  "tree_hash": "5e9dea870de71bc50a09259d4292dcde44931660",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-08T13:25:43.644057053Z",
+  "timestamp": "2026-03-08T13:39:33.415635144Z",
   "report": {
     "files_with_dead_code": [
-      {
-        "file_path": "src/cli/saga_coordinator.rs",
-        "dead_items": [
-          {
-            "name": "SagaStepStatus",
-            "kind": "Suppressed",
-            "line": 23,
-            "column": 1,
-            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 2.4390243902439024
-      },
-      {
-        "file_path": "src/cli/remote_state.rs",
-        "dead_items": [
-          {
-            "name": "StateBackend",
-            "kind": "Suppressed",
-            "line": 10,
-            "column": 1,
-            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 3.3333333333333335
-      },
       {
         "file_path": "src/cli/infra_query_live.rs",
         "dead_items": [
@@ -44,6 +18,19 @@
         "file_dead_percentage": 2.877697841726619
       },
       {
+        "file_path": "src/cli/saga_coordinator.rs",
+        "dead_items": [
+          {
+            "name": "SagaStepStatus",
+            "kind": "Suppressed",
+            "line": 23,
+            "column": 1,
+            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 2.4390243902439024
+      },
+      {
         "file_path": "src/core/task/mod.rs",
         "dead_items": [
           {
@@ -55,6 +42,19 @@
           }
         ],
         "file_dead_percentage": 21.052631578947366
+      },
+      {
+        "file_path": "src/cli/remote_state.rs",
+        "dead_items": [
+          {
+            "name": "StateBackend",
+            "kind": "Suppressed",
+            "line": 10,
+            "column": 1,
+            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 3.3333333333333335
       }
     ],
     "total_dead_items": 4,

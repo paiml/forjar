@@ -95,6 +95,7 @@ fn make_gpu_resource(name: &str) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

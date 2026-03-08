@@ -185,6 +185,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     };
     let machine = Machine {
         hostname: "localhost".to_string(),

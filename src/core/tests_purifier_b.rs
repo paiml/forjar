@@ -91,6 +91,7 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
