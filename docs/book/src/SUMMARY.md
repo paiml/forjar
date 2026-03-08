@@ -23,3 +23,4 @@
 - [Platform Features](./20-platform-features.md)
 - [Recipe Quality Scoring](./21-recipe-quality-score.md)
 - [Provisioning & Image Generation](./22-provisioning.md)
+- [Query Engine Enrichments](./23-query-enrichments.md)
