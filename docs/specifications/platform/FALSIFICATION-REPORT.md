@@ -2,13 +2,14 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-08 | 48/49 code fixes resolved (U3 deferred — needs root, F22 documented)
+> Updated: 2026-03-08 | 49/49 code fixes resolved (U3 deferred — needs root). F22 OTLP export FIXED.
 > Coverage: 95.16% (9972 tests), all quality gates passing
 > Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
 > Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass. Total entries: 54.
 > Quality (2026-03-08): CB-506 (10 string panics), CB-121 (2 lock poisoning) fixed. 4 files split under 500-line limit. FJ-2803 Popperian falsification added to spec.
 > Provisioning (2026-03-08): Spec 17 (FJ-33/49/51/52/54/1424) — 6/6 features verified IMPLEMENTED. Zero gaps. 3 examples added, book ch22, cookbook section.
 > Secret providers (2026-03-08): FJ-2300 — all 4 providers (env, file, sops, op) wired in resolver dispatch. 6 new tests. Example updated.
+> OTLP export (2026-03-08): FJ-563 — --telemetry-endpoint now wired through apply pipeline. OTLP/HTTP JSON export via curl. 13 tests.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -336,14 +337,14 @@ Spec §10-security-model claims `--operator` flag and `is_operator_allowed()` ch
 
 ---
 
-### F22: `--telemetry-endpoint` flag is parsed but never used
+### ~~F22: `--telemetry-endpoint` flag is parsed but never used~~ FIXED
 
-Spec §11-observability (FJ-563) claims OTLP trace export is implemented. The `--telemetry-endpoint` flag exists on `ApplyArgs` (`apply_args.rs:386`) and is parsed by clap, but:
-- No production code references `args.telemetry_endpoint` in the dispatch or apply pipeline
-- No OTLP/HTTP export logic exists anywhere in the codebase
-- The value is silently discarded after parsing
-
-**Status**: DOCUMENTED — implementing full OTLP export requires HTTP client + protobuf serialization. Flag exists as a placeholder for future work.
+**Resolved**: `--telemetry-endpoint` is now wired through the apply pipeline:
+- `dispatch_apply_b.rs` passes `args.telemetry_endpoint` to `cmd_apply()`
+- After apply completes, `otlp_export::export_from_state_dir()` reads trace.jsonl and POSTs OTLP/HTTP JSON
+- `tripwire/otlp_export.rs` converts `TraceSpan` → OTLP JSON with proper attributes, status codes, nanosecond timestamps
+- Uses `curl` for HTTP transport (no new Rust dependencies)
+- 13 unit tests. Example `otlp_export.rs` demonstrates the JSON payload.
 
 ---
 
@@ -787,7 +788,7 @@ Spec (line 71) claimed "If `state.db` is deleted, `forjar ingest` rebuilds it fr
 | ~~33~~ | ~~Overlap detection: port, service name, mount target conflicts~~ | F19 | DONE |
 | ~~34~~ | ~~Implement `forjar run` dispatch-mode task invocation~~ | F20 | DONE |
 | ~~35~~ | ~~Wire `--operator` flag and `is_operator_allowed()` into apply pipeline~~ | F21 | DONE |
-| 36 | `--telemetry-endpoint` flag parsed but never used — no OTLP export | F22 | DOCUMENTED |
+| ~~36~~ | ~~`--telemetry-endpoint` flag parsed but never used — no OTLP export~~ | ~~F22~~ | DONE |
 | ~~37~~ | ~~Fix spec 15 `mode:` → `task_mode:` in all YAML examples~~ | ~~F25~~ | DONE |
 | ~~38~~ | ~~Add 4 missing DeepCheckFlags fields~~ | ~~F26~~ | DONE |
 | ~~39~~ | ~~Fix registry push blob classification (all marked Layer)~~ | ~~F27~~ | DONE |

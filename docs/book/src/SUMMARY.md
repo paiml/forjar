@@ -25,3 +25,4 @@
 - [Provisioning & Image Generation](./22-provisioning.md)
 - [Query Engine Enrichments](./23-query-enrichments.md)
 - [Secret Providers](./24-secret-providers.md)
+- [OTLP Observability](./25-otlp-observability.md)
