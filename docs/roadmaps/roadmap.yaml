@@ -728,11 +728,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'CB-506/CB-121: Fix 10 string byte indexing panics + 2 lock poisoning patterns'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-08T10:55:02Z
-  updated: 2026-03-08T10:55:05.884496584+00:00
+  updated: 2026-03-08T11:37:46.079936829+00:00
   spec: null
   acceptance_criteria: []
   phases: []
