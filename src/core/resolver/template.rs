@@ -4,13 +4,17 @@ use std::collections::HashMap;
 
 /// FJ-2300: Resolve a secret value using the configured provider.
 ///
-/// Default (env): `FORJAR_SECRET_<KEY>` (uppercase, hyphens → underscores).
-/// File provider: reads `/run/secrets/<key>` (or configured path prefix).
+/// Providers:
+/// - `env` (default): `FORJAR_SECRET_<KEY>` (uppercase, hyphens → underscores)
+/// - `file`: reads `<path>/<key>` (default path: `/run/secrets/`)
+/// - `sops`: runs `sops -d --extract '["<key>"]' <file>` to decrypt
+/// - `op`: runs `op read "op://forjar/<key>"` (or custom vault via path)
 pub(super) fn resolve_secret(key: &str, secrets_cfg: &SecretsConfig) -> Result<String, String> {
     resolve_secret_with_provider(
         key,
         secrets_cfg.provider.as_deref(),
         secrets_cfg.path.as_deref(),
+        secrets_cfg.file.as_deref(),
     )
 }
 
@@ -19,23 +23,60 @@ pub fn resolve_secret_with_provider(
     key: &str,
     provider: Option<&str>,
     path_prefix: Option<&str>,
+    sops_file: Option<&str>,
 ) -> Result<String, String> {
     match provider.unwrap_or("env") {
-        "file" => {
-            let prefix = path_prefix.unwrap_or("/run/secrets");
-            let path = std::path::Path::new(prefix).join(key);
-            std::fs::read_to_string(&path)
-                .map(|s| s.trim_end().to_string())
-                .map_err(|e| format!("secret '{key}' not found at {}: {e}", path.display()))
-        }
-        _ => {
-            // Default: env provider
-            let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
-            std::env::var(&env_key).map_err(|_| {
-                format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
-            })
-        }
+        "file" => resolve_secret_file(key, path_prefix),
+        "sops" => resolve_secret_sops(key, sops_file),
+        "op" => resolve_secret_op(key, path_prefix),
+        _ => resolve_secret_env(key),
     }
+}
+
+/// Resolve from environment variable `FORJAR_SECRET_<KEY>`.
+fn resolve_secret_env(key: &str) -> Result<String, String> {
+    let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
+    std::env::var(&env_key).map_err(|_| {
+        format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
+    })
+}
+
+/// Resolve from a file at `<prefix>/<key>`.
+fn resolve_secret_file(key: &str, path_prefix: Option<&str>) -> Result<String, String> {
+    let prefix = path_prefix.unwrap_or("/run/secrets");
+    let path = std::path::Path::new(prefix).join(key);
+    std::fs::read_to_string(&path)
+        .map(|s| s.trim_end().to_string())
+        .map_err(|e| format!("secret '{key}' not found at {}: {e}", path.display()))
+}
+
+/// Resolve via `sops -d --extract '["<key>"]' <file>`.
+fn resolve_secret_sops(key: &str, sops_file: Option<&str>) -> Result<String, String> {
+    let file = sops_file.unwrap_or("secrets.enc.yaml");
+    let output = std::process::Command::new("sops")
+        .args(["-d", "--extract", &format!("[\"{key}\"]"), file])
+        .output()
+        .map_err(|e| format!("sops: failed to execute: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("sops: decrypt '{key}' from {file}: {stderr}"));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Resolve via 1Password CLI: `op read "op://<vault>/<key>"`.
+fn resolve_secret_op(key: &str, vault: Option<&str>) -> Result<String, String> {
+    let vault = vault.unwrap_or("forjar");
+    let ref_path = format!("op://{vault}/{key}");
+    let output = std::process::Command::new("op")
+        .args(["read", &ref_path])
+        .output()
+        .map_err(|e| format!("op: failed to execute: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("op: read '{ref_path}': {stderr}"));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// FJ-2300: Redact secret values from a string.
