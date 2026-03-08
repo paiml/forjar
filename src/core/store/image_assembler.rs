@@ -48,23 +48,44 @@ pub fn assemble_image(
         ));
     }
 
-    // Build each layer
-    let mut built_layers: Vec<(LayerBuildResult, Vec<u8>)> = Vec::new();
-    let mut history: Vec<OciHistoryEntry> = Vec::new();
+    // E18: Build layers concurrently when multiple layers exist.
+    let built_layers: Vec<(LayerBuildResult, Vec<u8>)> = if layer_entries.len() > 1 {
+        let results: Vec<Result<(LayerBuildResult, Vec<u8>), String>> = std::thread::scope(|s| {
+            let handles: Vec<_> = layer_entries
+                .iter()
+                .enumerate()
+                .map(|(i, entries)| {
+                    s.spawn(move || {
+                        build_layer(entries, layer_config)
+                            .map_err(|e| format!("layer {i} build failed: {e}"))
+                    })
+                })
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        results.into_iter().collect::<Result<Vec<_>, _>>()?
+    } else {
+        // Single layer: no thread overhead
+        layer_entries
+            .iter()
+            .enumerate()
+            .map(|(i, entries)| {
+                build_layer(entries, layer_config)
+                    .map_err(|e| format!("layer {i} build failed: {e}"))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    };
 
-    for (i, (strategy, entries)) in plan.layers.iter().zip(layer_entries.iter()).enumerate() {
-        let (result, data) = build_layer(entries, layer_config)
-            .map_err(|e| format!("layer {i} build failed: {e}"))?;
-
-        history.push(OciHistoryEntry {
+    let history: Vec<OciHistoryEntry> = plan
+        .layers
+        .iter()
+        .map(|strategy| OciHistoryEntry {
             created: None,
             created_by: Some(strategy_description(strategy)),
             empty_layer: false,
             comment: None,
-        });
-
-        built_layers.push((result, data));
-    }
+        })
+        .collect();
 
     // Collect diff_ids and descriptors
     let diff_ids: Vec<String> = built_layers

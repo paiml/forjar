@@ -74,6 +74,13 @@ Every build writes `build-metrics.json` to the output directory:
 }
 ```
 
+### Parallel Layer Building (E18)
+
+When an image has multiple layers, forjar builds them concurrently
+using `std::thread::scope`. Each layer's tar creation and gzip
+compression runs in its own thread. Single-layer images skip thread
+overhead. This scales linearly with layer count on multi-core machines.
+
 ### Automatic Layer Splitting (E13)
 
 Forjar automatically separates config files from application binaries
