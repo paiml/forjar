@@ -149,6 +149,12 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 |---|-----------|---------|-------|-------------|
 | 16 | [Recipe Quality Score](platform/16-recipe-quality-score.md) | FJ-2800–FJ-2803 | ~250 | ForjarScore v2: two-tier grading, 8 dimensions, Popperian falsification |
 
+### Provisioning
+
+| # | Component | Spec ID | Lines | Description |
+|---|-----------|---------|-------|-------------|
+| 17 | [Provisioning and Image Generation](platform/17-provisioning.md) | FJ-33, FJ-49, FJ-51, FJ-52, FJ-54 | ~300 | Cross-compile build, bootstrap, cargo cache, autoinstall ISO, Android Magisk |
+
 ### Cross-Cutting
 
 | # | Component | Spec ID | Lines | Description |
@@ -179,6 +185,12 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | apr model provider | Pull/cache models via `apr pull` (`resources/model.rs`) | Production |
 | Task resources | Batch execution with completion_check + artifacts (`resources/task.rs`) | Production |
 | Wave parallelism | DAG-respecting parallel execution (`executor/machine_wave.rs`) | Production |
+| Cross-compile build | SSH+SCP build-deploy pipeline (`resources/build.rs`) | Production |
+| Cargo binary cache | Architecture-aware crate cache (`resources/package.rs`) | Production |
+| Machine bootstrap | SSH key + sudo setup (`cli/bootstrap_cmd.rs`) | Production |
+| Autoinstall ISO | Ubuntu user-data + xorriso repack (`cli/image_cmd.rs`) | Production |
+| Android Magisk | Module ZIP for rooted devices (`cli/image_android.rs`) | Production |
+| Cross-machine deps | Dependency analysis across machines (`cli/cross_machine_deps.rs`) | Production |
 
 ## What This Spec Adds
 
@@ -205,12 +217,18 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | Task modes | `mode: batch\|pipeline\|service\|dispatch` | [15](platform/15-task-framework.md) |
 | Quality gates | JSON/regex/threshold gates block downstream tasks | [15](platform/15-task-framework.md) |
 | Consumer integration | alimentar, entrenar, apr-cli, batuta reference recipes | [15](platform/15-task-framework.md) |
+| Cross-compile build | `type: build` with `build_machine`, `source`, `target` | [17](platform/17-provisioning.md) |
+| Cargo binary cache | `~/.forjar/cache/cargo/<pkg>-<ver>-<arch>/` | [17](platform/17-provisioning.md) |
+| Machine bootstrap | `forjar bootstrap -f config.yaml --machine X` | [17](platform/17-provisioning.md) |
+| Autoinstall ISO | `forjar image --base ubuntu.iso -f config.yaml` | [17](platform/17-provisioning.md) |
+| Android Magisk | `forjar image --android -f config.yaml` | [17](platform/17-provisioning.md) |
+| Cross-machine deps | `forjar cross-deps -f config.yaml [--json]` | [17](platform/17-provisioning.md) |
 
 ---
 
 ## Implementation Roadmap
 
-**Status**: 42/42 phases IMPLEMENTED (100%). 9,972 tests, 95.16% coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Platform spec gaps E16–E21 closed (2026-03-07). Re-audit 2026-03-08: 5 new findings (S3-S5, E22, F36).
+**Status**: 48/48 phases IMPLEMENTED (100%). 10,087 tests, 95.01% coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Phases 43-48 added 2026-03-08: cross-compile build, bootstrap, cargo cache, autoinstall ISO, Android image, cross-machine deps.
 
 Phases are ordered by dependency. Each phase is independently shippable.
 
@@ -258,6 +276,12 @@ Phases are ordered by dependency. Each phase is independently shippable.
 | 40 | FJ-2704 | Distributed Coordination | Phase 36 | gather/scatter/fan-out primitives |
 | 41 | FJ-2705 | Consumer Integration | Phases 36-40 | alimentar, entrenar, apr-cli, batuta recipes |
 | 42 | FJ-2706 | Task State Model | Phase 36 | Pipeline/service/dispatch state tracking |
+| 43 | FJ-33 | Build Resource | — | Cross-compile on build_machine, deploy to target |
+| 44 | FJ-49 | Machine Bootstrap | — | SSH key + sudo setup for new machines |
+| 45 | FJ-51 | Cargo Binary Cache | — | Architecture-aware cargo install caching |
+| 46 | FJ-52 | Autoinstall ISO | — | Ubuntu user-data + xorriso ISO repacking |
+| 47 | FJ-54 | Android Image | Phase 46 | Magisk module ZIP for rooted devices |
+| 48 | FJ-1424 | Cross-Machine Deps | — | Dependency analysis across machine boundaries |
 
 ---
 
