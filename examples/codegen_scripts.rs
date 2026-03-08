@@ -97,6 +97,7 @@ fn base(rt: ResourceType) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

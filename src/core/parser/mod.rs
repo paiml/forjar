@@ -158,13 +158,19 @@ fn check_sudo_inference(
     if resource.resource_type != ResourceType::File {
         return; // Only applies to file resources
     }
-    // Check if the machine is local with user=root — sudo not needed
+    // Check if the machine user is root — sudo not needed
+    let mut any_machine_resolved = false;
     for machine_name in resource.machine.to_vec() {
         if let Some(machine) = config.machines.get(&machine_name) {
+            any_machine_resolved = true;
             if machine.user == "root" {
                 return; // Running as root, sudo not needed
             }
         }
+    }
+    // If no machine could be resolved from config, skip the check
+    if !any_machine_resolved {
+        return;
     }
     let needs_sudo = resource.owner.as_deref() == Some("root")
         || resource

@@ -74,6 +74,7 @@ resources:
     path: /etc/app/db.conf
     content: "host=10.0.0.2"
     depends_on: [db-pkg]
+    sudo: true
 "#,
         );
         let result = cmd_cross_deps(&p, true);

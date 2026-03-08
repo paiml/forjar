@@ -5,6 +5,7 @@
 //! 2. An "apply" script that converges to desired state
 //! 3. A "hash" function that computes the BLAKE3 of observable state
 
+pub mod build;
 pub mod cron;
 pub mod docker;
 pub mod file;
@@ -25,6 +26,8 @@ pub mod wasm_bundle;
 
 mod network_b;
 #[cfg(test)]
+mod tests_build;
+#[cfg(test)]
 mod tests_docker;
 #[cfg(test)]
 mod tests_docker_b;
@@ -42,5 +45,7 @@ mod tests_mount_b;
 mod tests_package;
 #[cfg(test)]
 mod tests_package_b;
+#[cfg(test)]
+mod tests_package_c;
 #[cfg(test)]
 mod tests_user;

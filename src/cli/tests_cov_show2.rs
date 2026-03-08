@@ -7,7 +7,7 @@ fn write_temp_config(yaml: &str) -> tempfile::NamedTempFile {
     f
 }
 
-const CONFIG: &str = "version: '1.0'\nname: test\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n  my-config:\n    type: file\n    path: /etc/app.conf\n    content: hello\n    requires:\n      - nginx\n";
+const CONFIG: &str = "version: '1.0'\nname: test\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n  my-config:\n    type: file\n    path: /etc/app.conf\n    content: hello\n    depends_on:\n      - nginx\n";
 
 const CONFIG2: &str = "version: '1.0'\nname: test2\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n      - nginx-extras\n";
 

@@ -22,6 +22,7 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         types::ResourceType::Recipe => 1,
         types::ResourceType::WasmBundle => 1,
         types::ResourceType::Image => 1,
+        types::ResourceType::Build => 5,
     }
 }
 

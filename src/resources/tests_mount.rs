@@ -92,6 +92,7 @@ pub(super) fn make_mount_resource() -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

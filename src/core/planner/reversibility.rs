@@ -54,6 +54,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::Recipe => Reversibility::Irreversible,
         // WasmBundle/Image are re-deployable files
         ResourceType::WasmBundle | ResourceType::Image => Reversibility::Reversible,
+        // Build output is re-buildable
+        ResourceType::Build => Reversibility::Reversible,
     }
 }
 

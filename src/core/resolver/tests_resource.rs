@@ -120,6 +120,7 @@ fn test_fj003_resolve_all_fields() {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -281,6 +282,7 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

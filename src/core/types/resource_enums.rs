@@ -44,6 +44,8 @@ pub enum ResourceType {
     WasmBundle,
     /// FJ-2101: OCI container image resource.
     Image,
+    /// FJ-33: Cross-compile build→deploy pipeline.
+    Build,
 }
 
 impl fmt::Display for ResourceType {
@@ -64,6 +66,7 @@ impl fmt::Display for ResourceType {
             Self::Task => write!(f, "task"),
             Self::WasmBundle => write!(f, "wasm_bundle"),
             Self::Image => write!(f, "image"),
+            Self::Build => write!(f, "build"),
         }
     }
 }
@@ -139,6 +142,7 @@ mod tests {
             (ResourceType::Task, "task"),
             (ResourceType::WasmBundle, "wasm_bundle"),
             (ResourceType::Image, "image"),
+            (ResourceType::Build, "build"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

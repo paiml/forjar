@@ -125,6 +125,7 @@ fn main() {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     })
     .unwrap();
 

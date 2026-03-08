@@ -95,6 +95,7 @@ fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

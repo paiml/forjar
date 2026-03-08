@@ -92,6 +92,7 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
@@ -145,7 +146,9 @@ fn test_fj006_cargo_install() {
     let mut r = make_apt_resource(&["batuta"]);
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("cargo install --force --locked 'batuta'"));
+    // FJ-51: crate installs use --root staging for cache integration
+    assert!(script.contains("cargo install --force --locked --root"));
+    assert!(script.contains("'batuta'"));
 }
 
 /// PMAT-007: cargo install must use --force for idempotent convergence.

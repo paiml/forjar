@@ -93,6 +93,7 @@ pub fn make_package() -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
@@ -187,6 +188,7 @@ pub fn make_file() -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
@@ -281,6 +283,7 @@ pub fn make_service() -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
@@ -375,5 +378,6 @@ pub fn make_mount() -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }

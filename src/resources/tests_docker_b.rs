@@ -92,6 +92,7 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

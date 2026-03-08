@@ -116,6 +116,7 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

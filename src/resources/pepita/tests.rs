@@ -96,6 +96,7 @@ fn make_pepita_resource(name: &str) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

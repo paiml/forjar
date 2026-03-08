@@ -92,6 +92,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 

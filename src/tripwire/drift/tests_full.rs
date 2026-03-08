@@ -257,6 +257,7 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         script: None,
         gather: vec![],
         scatter: vec![],
+        build_machine: None,
     }
 }
 
