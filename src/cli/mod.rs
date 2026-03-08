@@ -15,6 +15,7 @@ mod check;
 mod check_test;
 mod check_test_runners;
 mod checkpoint;
+pub(crate) mod colors;
 pub mod commands;
 mod complexity_analysis;
 mod config_merge;

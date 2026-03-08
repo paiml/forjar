@@ -2,7 +2,7 @@
 
 > Idempotent convergence, full-stack undo, sub-second query, and optimized container builds.
 
-**Status**: Draft | **Date**: 2026-03-08 | **Spec IDs**: FJ-2000 through FJ-2803
+**Status**: Draft | **Date**: 2026-03-08 | **Spec IDs**: FJ-2000 through FJ-3040
 
 ---
 
@@ -154,6 +154,18 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | # | Component | Spec ID | Lines | Description |
 |---|-----------|---------|-------|-------------|
 | 17 | [Provisioning and Image Generation](platform/17-provisioning.md) | FJ-33, FJ-49, FJ-51, FJ-52, FJ-54 | ~300 | Cross-compile build, bootstrap, cargo cache, autoinstall ISO, Android Magisk |
+
+### Benchmark & UX
+
+| # | Component | Spec ID | Lines | Description |
+|---|-----------|---------|-------|-------------|
+| 18 | [Benchmark Framework & Colorized Output UX](platform/18-benchmark-ux-polish.md) | FJ-2900–FJ-2920 | ~350 | Semantic color system, OutputWriter abstraction, Criterion.rs benchmark gates |
+
+### Defect Analysis
+
+| # | Component | Spec ID | Lines | Description |
+|---|-----------|---------|-------|-------------|
+| 19 | [Defect Analysis — Five Whys](platform/19-defect-analysis.md) | FJ-3000–FJ-3040 | ~400 | 5 production defects: exit code safety (P0), graduated force, runtime score, nohup lint |
 
 ### Cross-Cutting
 

@@ -1,55 +1,11 @@
-//! Shared CLI helpers: color, parsing, state utilities.
+//! Shared CLI helpers: color re-exports, parsing, state utilities.
 
 use crate::core::{parser, types};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Global flag.
-pub(crate) static NO_COLOR: AtomicBool = AtomicBool::new(false);
-
-pub(crate) fn color_enabled() -> bool {
-    !NO_COLOR.load(Ordering::Relaxed)
-}
-
-pub(crate) fn green(s: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[32m{s}\x1b[0m")
-    } else {
-        s.to_string()
-    }
-}
-
-pub(crate) fn red(s: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[31m{s}\x1b[0m")
-    } else {
-        s.to_string()
-    }
-}
-
-pub(crate) fn yellow(s: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[33m{s}\x1b[0m")
-    } else {
-        s.to_string()
-    }
-}
-
-pub(crate) fn dim(s: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[2m{s}\x1b[0m")
-    } else {
-        s.to_string()
-    }
-}
-
-pub(crate) fn bold(s: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[1m{s}\x1b[0m")
-    } else {
-        s.to_string()
-    }
-}
+// Re-export color system from colors.rs for backward compatibility.
+// All callers that `use super::helpers::*` continue to work unchanged.
+pub(crate) use super::colors::{bold, color_enabled, dim, green, red, yellow, NO_COLOR};
 
 /// Parse, validate, and expand recipes in a forjar config file.
 pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
