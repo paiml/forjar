@@ -28,6 +28,7 @@ mod tests {
             &output,
             &["packages".to_string()],
             false,
+            false,
         )
         .unwrap();
 
@@ -50,6 +51,7 @@ mod tests {
             Some("local"),
             &output,
             &["packages".to_string()],
+            false,
             false,
         )
         .unwrap();
@@ -75,6 +77,7 @@ mod tests {
             &output,
             &["services".to_string()],
             false,
+            false,
         )
         .unwrap();
 
@@ -94,6 +97,7 @@ mod tests {
             Some("user-box"),
             &output,
             &["users".to_string()],
+            false,
             false,
         )
         .unwrap();
@@ -115,6 +119,7 @@ mod tests {
             &output,
             &["files".to_string()],
             false,
+            false,
         )
         .unwrap();
 
@@ -134,6 +139,7 @@ mod tests {
             Some("cron-box"),
             &output,
             &["cron".to_string()],
+            false,
             false,
         )
         .unwrap();
@@ -159,6 +165,7 @@ mod tests {
                 "users".to_string(),
             ],
             false,
+            false,
         )
         .unwrap();
 
@@ -179,6 +186,7 @@ mod tests {
             &output,
             &["packages".to_string()],
             true, // verbose
+            false,
         )
         .unwrap();
 
@@ -196,6 +204,7 @@ mod tests {
             None, // name derived from addr
             &output,
             &["packages".to_string()],
+            false,
             false,
         )
         .unwrap();
@@ -216,6 +225,7 @@ mod tests {
             None,
             &output,
             &["packages".to_string()],
+            false,
             false,
         )
         .unwrap();

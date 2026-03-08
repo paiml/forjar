@@ -61,6 +61,7 @@ fn dispatch_import_routes() {
             name: None,
             output: PathBuf::from("/tmp/import-test.yaml"),
             scan: vec!["file".to_string()],
+            smart: false,
         }),
         false,
     );

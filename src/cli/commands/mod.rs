@@ -496,4 +496,6 @@ pub enum Commands {
     StateQuery(QueryArgs),
     /// FJ-2700: Run a dispatch-mode task with param overrides
     Run(RunArgs),
+    /// FJ-49: Bootstrap a new machine for forjar management
+    Bootstrap(BootstrapArgs),
 }

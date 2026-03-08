@@ -1,5 +1,6 @@
 //! Misc command dispatch — routes remaining simple commands to handlers.
 
+use super::bootstrap_cmd;
 use super::check::*;
 use super::destroy::*;
 use super::diff_cmd::*;
@@ -27,7 +28,6 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::StateReconstruct(..)
         | Commands::Anomaly(..)
         | Commands::Trace(..)) => dispatch_misc_state(cmd),
-
         cmd @ (Commands::Show(..)
         | Commands::Diff(..)
         | Commands::StackDiff(..)
@@ -46,7 +46,6 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Export(..)
         | Commands::Undo(..)
         | Commands::UndoDestroy(..)) => dispatch_misc_fleet(cmd, verbose),
-
         cmd @ (Commands::Check(..)
         | Commands::Fmt(..)
         | Commands::Lint(..)
@@ -54,7 +53,6 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Mcp(..)
         | Commands::Bench(..)
         | Commands::Watch(..)) => dispatch_misc_tools(cmd, verbose),
-
         cmd @ (Commands::Import(..)
         | Commands::Suggest(..)
         | Commands::Template(..)
@@ -64,13 +62,18 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Inventory(..)
         | Commands::Output(..)
         | Commands::Policy(..)) => dispatch_misc_ops(cmd, verbose),
-
+        Commands::Bootstrap(a) => bootstrap_cmd::cmd_bootstrap(
+            &a.addr,
+            &a.user,
+            a.password_stdin,
+            a.ssh_key.as_deref(),
+            a.hostname.as_deref(),
+            a.skip_key_if_working,
+        ),
         other => dispatch_misc_core(other, verbose),
     }
 }
-
 use super::commands::*;
-
 /// State, history, and observe commands.
 fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
     match cmd {
@@ -347,7 +350,16 @@ fn dispatch_misc_ops(cmd: Commands, verbose: bool) -> Result<(), String> {
             name,
             output,
             scan,
-        }) => cmd_import(&addr, &user, name.as_deref(), &output, &scan, verbose),
+            smart,
+        }) => cmd_import(
+            &addr,
+            &user,
+            name.as_deref(),
+            &output,
+            &scan,
+            verbose,
+            smart,
+        ),
         Commands::Suggest(SuggestArgs { file, json }) => cmd_suggest(&file, json),
         Commands::Template(TemplateArgs { recipe, vars, json }) => {
             cmd_template(&recipe, &vars, json)

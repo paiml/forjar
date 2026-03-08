@@ -4,20 +4,40 @@ use crate::core::types;
 use crate::transport;
 use std::path::Path;
 
-fn scan_packages(machine: &types::Machine, machine_name: &str, verbose: bool) -> (String, usize) {
+fn scan_packages(
+    machine: &types::Machine,
+    machine_name: &str,
+    verbose: bool,
+    smart: bool,
+) -> (String, usize) {
     let mut yaml = String::new();
     let mut count = 0;
     if verbose {
         eprintln!("Scanning installed packages on {}...", machine.addr);
     }
-    let script = "dpkg-query -W -f='${Package}\\n' 2>/dev/null | sort | head -100";
+
+    // Smart mode: only manually installed packages (not auto-installed deps)
+    let script = if smart {
+        "apt-mark showmanual 2>/dev/null | sort"
+    } else {
+        "dpkg-query -W -f='${Package}\\n' 2>/dev/null | sort | head -100"
+    };
+
+    // Smart mode: get base system packages to exclude
+    let base_packages: std::collections::HashSet<String> = if smart {
+        get_base_manifest_packages(machine, verbose)
+    } else {
+        std::collections::HashSet::new()
+    };
+
     match transport::exec_script(machine, script) {
         Ok(output) => {
             let packages: Vec<&str> = output
                 .stdout
                 .lines()
                 .filter(|l| !l.is_empty())
-                .take(50)
+                .filter(|l| !smart || !base_packages.contains(*l))
+                .take(if smart { 200 } else { 50 })
                 .collect();
             if !packages.is_empty() {
                 yaml.push_str("  imported-packages:\n");
@@ -200,6 +220,36 @@ fn scan_cron(machine: &types::Machine, machine_name: &str, verbose: bool) -> (St
     (yaml, count)
 }
 
+/// Get packages from the Ubuntu base manifest (base system packages to exclude in smart mode).
+fn get_base_manifest_packages(
+    machine: &types::Machine,
+    verbose: bool,
+) -> std::collections::HashSet<String> {
+    let script =
+        "cat /usr/share/ubuntu-manifest/*.manifest 2>/dev/null | awk '{print $1}' | sort -u";
+    match transport::exec_script(machine, script) {
+        Ok(output) => {
+            let pkgs: std::collections::HashSet<String> = output
+                .stdout
+                .lines()
+                .filter(|l| !l.is_empty())
+                .map(|l| l.split(':').next().unwrap_or(l).to_string()) // strip :amd64 suffix
+                .collect();
+            if verbose {
+                eprintln!("  Base manifest: {} packages excluded", pkgs.len());
+            }
+            pkgs
+        }
+        Err(_) => {
+            if verbose {
+                eprintln!("  No base manifest found, using apt-mark only");
+            }
+            std::collections::HashSet::new()
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_import(
     addr: &str,
     user: &str,
@@ -207,6 +257,7 @@ pub(crate) fn cmd_import(
     output: &Path,
     scan: &[String],
     verbose: bool,
+    smart: bool,
 ) -> Result<(), String> {
     let machine_name = name.unwrap_or_else(|| {
         if addr == "localhost" || addr == "127.0.0.1" {
@@ -216,19 +267,7 @@ pub(crate) fn cmd_import(
         }
     });
 
-    let machine = types::Machine {
-        hostname: machine_name.to_string(),
-        addr: addr.to_string(),
-        user: user.to_string(),
-        arch: "x86_64".to_string(),
-        ssh_key: None,
-        roles: vec![],
-        transport: None,
-        container: None,
-        pepita: None,
-        cost: 0,
-        allowed_operators: vec![],
-    };
+    let machine = types::Machine::ssh(machine_name, addr, user);
 
     let scan_set: std::collections::HashSet<&str> = scan.iter().map(|s| s.as_str()).collect();
 
@@ -236,7 +275,7 @@ pub(crate) fn cmd_import(
     let mut resource_count = 0;
 
     if scan_set.contains("packages") {
-        let (yaml, count) = scan_packages(&machine, machine_name, verbose);
+        let (yaml, count) = scan_packages(&machine, machine_name, verbose, smart);
         resources_yaml.push_str(&yaml);
         resource_count += count;
     }

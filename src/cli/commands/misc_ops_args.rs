@@ -320,3 +320,31 @@ pub struct TemplateArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// CLI arguments for the `bootstrap` command (FJ-49).
+#[derive(clap::Args, Debug)]
+pub struct BootstrapArgs {
+    /// Machine address (IP or hostname)
+    #[arg(long)]
+    pub addr: String,
+
+    /// SSH user
+    #[arg(long, default_value = "root")]
+    pub user: String,
+
+    /// Read password from stdin (for SSH key copy and sudo setup)
+    #[arg(long)]
+    pub password_stdin: bool,
+
+    /// SSH public key to copy (default: ~/.ssh/id_ed25519.pub)
+    #[arg(long)]
+    pub ssh_key: Option<String>,
+
+    /// Set machine hostname
+    #[arg(long)]
+    pub hostname: Option<String>,
+
+    /// Skip key copy if SSH key auth already works
+    #[arg(long)]
+    pub skip_key_if_working: bool,
+}

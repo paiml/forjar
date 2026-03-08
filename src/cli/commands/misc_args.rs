@@ -124,6 +124,10 @@ pub struct ImportArgs {
     /// What to scan
     #[arg(long, value_delimiter = ',', default_value = "packages,files,services")]
     pub scan: Vec<String>,
+
+    /// Smart filter: only include manually installed packages (not base system)
+    #[arg(long)]
+    pub smart: bool,
 }
 
 /// CLI arguments for the `show` command.
