@@ -4,7 +4,7 @@ use super::*;
 use crate::core::types::{PolicyRuleType, PolicyViolation};
 
 /// Check if a resource has a given field set (non-None, non-empty).
-fn resource_has_field(resource: &Resource, field: &str) -> bool {
+pub(crate) fn resource_has_field(resource: &Resource, field: &str) -> bool {
     match field {
         "owner" => resource.owner.is_some(),
         "group" => resource.group.is_some(),
@@ -29,7 +29,7 @@ fn resource_has_field(resource: &Resource, field: &str) -> bool {
 }
 
 /// Get a string representation of a resource field for condition checks.
-fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
+pub(crate) fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
     match field {
         "owner" => resource.owner.clone(),
         "group" => resource.group.clone(),
