@@ -63,6 +63,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     // All 3 machines should converge (2 in first batch, 1 in second)
@@ -127,6 +129,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);
@@ -179,6 +183,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -260,6 +266,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);

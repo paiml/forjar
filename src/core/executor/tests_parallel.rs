@@ -247,6 +247,8 @@ fn test_fj012_resource_filter() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     // Resource filter doesn't match — everything skipped
@@ -304,6 +306,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);
@@ -375,6 +379,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

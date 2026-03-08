@@ -29,6 +29,8 @@ fn test_fj129_apply_then_drift_no_change() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     apply(&cfg).unwrap();
 
@@ -69,6 +71,8 @@ fn test_fj129_apply_then_drift_after_modification() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     apply(&cfg).unwrap();
 
@@ -117,6 +121,8 @@ fn test_fj129_apply_drift_reapply_cycle() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -152,6 +158,8 @@ fn test_fj129_apply_drift_reapply_cycle() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_converged, 1);
@@ -214,6 +222,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 2);
@@ -290,6 +300,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r1 = apply(&cfg_a).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -321,6 +333,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r2 = apply(&cfg_b).unwrap();
     assert_eq!(
@@ -361,6 +375,8 @@ fn test_fj129_event_log_full_lifecycle() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     apply(&cfg).unwrap();
 

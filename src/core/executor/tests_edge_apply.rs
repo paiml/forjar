@@ -26,6 +26,8 @@ fn test_fj012_apply_result_duration_positive() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     for r in &results {
@@ -264,6 +266,8 @@ fn test_fj012_apply_with_timeout() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -313,6 +317,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     // Resource should be skipped due to arch mismatch

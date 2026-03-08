@@ -144,6 +144,8 @@ fn run_drift_remediation(
         None,  // exclude
         false, // sequential
         None,  // telemetry_endpoint
+        false, // refresh
+        None,  // force_tag
     )?;
     if !json {
         println!("Remediation complete.");

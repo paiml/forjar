@@ -29,6 +29,8 @@ fn test_fj012_apply_force_noop_reapplies() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -53,6 +55,8 @@ fn test_fj012_apply_force_noop_reapplies() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(
@@ -103,6 +107,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);
@@ -154,6 +160,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);

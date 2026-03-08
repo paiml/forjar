@@ -50,6 +50,8 @@ resources:
                 tag: None,
                 group: None,
                 force: false,
+                refresh: false,
+                force_tag: None,
                 dry_run: true,
                 no_tripwire: false,
                 params: vec![],

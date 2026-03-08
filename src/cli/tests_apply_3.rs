@@ -48,6 +48,8 @@ resources:
                 tag: None,
                 group: None,
                 force: false,
+                refresh: false,
+                force_tag: None,
                 dry_run: true,
                 no_tripwire: false,
                 params: vec![],
@@ -286,6 +288,8 @@ resources:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -366,6 +370,8 @@ resources:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();

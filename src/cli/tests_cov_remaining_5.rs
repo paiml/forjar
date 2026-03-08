@@ -128,6 +128,8 @@ mod tests {
             None,
             false,
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         );
         let result = cmd_destroy(&cfg, &state, None, true, true);
         assert!(result.is_ok());
