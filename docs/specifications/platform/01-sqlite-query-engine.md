@@ -159,42 +159,54 @@ Each resource type maps to specific FTS5 columns:
 
 ---
 
-## Query CLI (forjar query)
+## Query CLI
 
-Modeled after `pmat query` — same UX, sub-second, enrichment flags.
+Two query commands serve different purposes:
 
-### Core Queries
+- **`forjar query`** — infrastructure query (live state, pattern matching on resources)
+- **`forjar state-query`** — SQLite-backed FTS5 query engine (historical data, enrichments)
+
+### Core Queries (forjar state-query)
 
 ```bash
-forjar query "bash"                           # FTS5 search across all resources
-forjar query "bash" --machine intel           # filter to machine
-forjar query --type package                   # filter by resource type
-forjar query --status drifted                 # find drifted resources
-forjar query "cargo-tools" --history          # generation history for resource
-forjar query --run r-c7d16accaf62             # events for a run
-forjar query --since "7d" --machine intel     # last 7 days on intel
-forjar query --health                         # stack-wide health summary
-forjar query --drift                          # current drift findings
-forjar query --drift --age ">1h"              # drift older than 1 hour
-forjar query "gitconfig" --all-machines       # cross-machine search
-forjar query --diff-machines intel jetson     # compare machine configs
+forjar state-query "bash"                       # FTS5 search across all resources
+forjar state-query "bash" --type package        # filter by resource type
+forjar state-query --health                     # stack-wide health summary
+forjar state-query --drift                      # current drift findings
+forjar state-query "cargo-tools" --history      # generation history for resource
+forjar state-query --timing                     # duration stats (avg, p50, p95, p99)
+forjar state-query --churn                      # change frequency across generations
+forjar state-query -G "deploy fix"              # fuse with git log (RRF ranking)
+forjar state-query --reversibility              # reversibility classification
+forjar state-query --sql                        # show the SQL query
 ```
 
-### Enrichment Flags
+### Implemented Enrichment Flags
+
+| Flag | Status | Description | Source |
+|------|--------|-------------|--------|
+| `--history` | DONE | Generation history for matched resources | `generations` + `resources` JOIN |
+| `--drift` | DONE | Drift findings | `drift_findings` table |
+| `--timing` | DONE | Duration stats (avg, p50, p95, p99) | `resources.duration_secs` |
+| `--churn` | DONE | Change frequency across generations | `resources` GROUP BY |
+| `-G` / `--git-history` | DONE | Fuse with git log (RRF ranking) | `git log` + RRF |
+| `--reversibility` | DONE | Reversibility classification | `resources.reversibility` |
+| `--json` / `--csv` / `--sql` | DONE | Output format | All queries |
+| `--health` | DONE | Stack-wide health summary | Aggregate query |
+
+### Planned Enrichment Flags
 
 | Flag | Description | Source |
 |------|-------------|--------|
-| `--history` | Generation history for matched resources | `generations` + `resources` JOIN |
-| `--drift` | Drift findings | `drift_findings` table |
 | `--events` | Recent events | `events` table |
-| `--timing` | Duration stats (avg, p50, p95, p99) | `resources.duration_secs` |
-| `--churn` | Change frequency across generations | `resources` GROUP BY |
-| `--timing` sample rule | Min 5 data points for percentiles; fewer shows raw values | `resources.duration_secs` |
 | `--failures` | Failure history and errors | `events WHERE type=resource_failed` |
-| `-G` / `--git-history` | Fuse with git log (RRF ranking) | `git log` + RRF |
 | `--destroy-log` | Destroy history | `destroy_log` table |
-| `--reversibility` | Reversibility classification | `resources.reversibility` |
-| `--json` / `--csv` / `--sql` | Output format | All queries |
+| `--since` | Time-based filter | `events.timestamp` |
+| `--run` | Events for a specific run | `events.run_id` |
+| `--status` | Filter by resource status | `resources.status` |
+| `--age` | Filter by drift age | `drift_findings.detected_at` |
+| `--all-machines` | Cross-machine search | All machines |
+| `--diff-machines` | Compare machine configs | Machine diff |
 
 ### Output Examples
 
