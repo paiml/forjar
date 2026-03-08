@@ -38,6 +38,8 @@ mod tests_misc_4;
 #[cfg(test)]
 mod tests_policy;
 #[cfg(test)]
+mod tests_sudo_inference;
+#[cfg(test)]
 mod tests_triggers;
 #[cfg(test)]
 mod tests_unknown_fields;
@@ -119,6 +121,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     for (id, resource) in &config.resources {
         validation::validate_resource_refs(config, id, resource, &mut errors);
         resource_types::validate_resource_type(id, resource, &mut errors);
+        check_sudo_inference(id, resource, config, &mut errors);
     }
 
     for (key, machine) in &config.machines {
@@ -129,6 +132,57 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     errors.extend(format_validation::validate_formats(config));
 
     errors
+}
+
+/// Paths that require root/sudo for writes.
+const PRIVILEGED_PREFIXES: &[&str] = &[
+    "/etc/",
+    "/usr/lib/systemd/",
+    "/boot/",
+    "/var/lib/",
+    "/opt/",
+    "/usr/local/bin/",
+    "/usr/local/sbin/",
+];
+
+/// Warn when a file resource writes to a privileged path or has owner:root without sudo.
+fn check_sudo_inference(
+    id: &str,
+    resource: &Resource,
+    config: &ForjarConfig,
+    errors: &mut Vec<ValidationError>,
+) {
+    if resource.sudo {
+        return; // Already has sudo
+    }
+    if resource.resource_type != ResourceType::File {
+        return; // Only applies to file resources
+    }
+    // Check if the machine is local with user=root — sudo not needed
+    for machine_name in resource.machine.to_vec() {
+        if let Some(machine) = config.machines.get(&machine_name) {
+            if machine.user == "root" {
+                return; // Running as root, sudo not needed
+            }
+        }
+    }
+    let needs_sudo = resource.owner.as_deref() == Some("root")
+        || resource
+            .path
+            .as_deref()
+            .is_some_and(|p| PRIVILEGED_PREFIXES.iter().any(|pfx| p.starts_with(pfx)));
+    if needs_sudo {
+        let reason = if resource.owner.as_deref() == Some("root") {
+            "owner: root"
+        } else {
+            "privileged path"
+        };
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{id}' has {reason} but no sudo: true — add sudo: true or the write will fail with permission denied"
+            ),
+        });
+    }
 }
 
 /// Validate YAML for unknown fields and return warnings.
