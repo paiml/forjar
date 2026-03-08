@@ -216,3 +216,48 @@ fn test_fj1315_sandbox_level_json_roundtrip() {
     let parsed: SandboxConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(cfg.level, parsed.level);
 }
+
+#[test]
+fn test_fj1315_validate_empty_target_mount() {
+    let mut cfg = preset_profile("full").unwrap();
+    cfg.bind_mounts.push(BindMount {
+        source: "/data".to_string(),
+        target: String::new(),
+        readonly: true,
+    });
+    let errors = validate_config(&cfg);
+    assert!(errors.iter().any(|e| e.contains("target")));
+}
+
+#[test]
+fn test_fj1315_validate_negative_cpus() {
+    let mut cfg = preset_profile("full").unwrap();
+    cfg.cpus = -1.0;
+    let errors = validate_config(&cfg);
+    assert!(errors.iter().any(|e| e.contains("cpus")));
+}
+
+#[test]
+fn test_fj1315_cgroup_path_short_hash() {
+    let path = cgroup_path("abc");
+    assert!(path.starts_with("/sys/fs/cgroup/forjar-build-"));
+    assert!(path.contains("abc"));
+}
+
+#[test]
+fn test_fj1315_validate_multiple_errors() {
+    let cfg = SandboxConfig {
+        level: SandboxLevel::Full,
+        memory_mb: 0,
+        cpus: 0.0,
+        timeout: 0,
+        bind_mounts: vec![BindMount {
+            source: String::new(),
+            target: String::new(),
+            readonly: true,
+        }],
+        env: Vec::new(),
+    };
+    let errors = validate_config(&cfg);
+    assert!(errors.len() >= 5, "expected 5+ errors, got: {errors:?}");
+}

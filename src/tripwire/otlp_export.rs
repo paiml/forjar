@@ -339,4 +339,146 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 0);
     }
+
+    #[test]
+    fn test_build_attributes_without_content_hash() {
+        let span = TraceSpan {
+            trace_id: "a".repeat(32),
+            span_id: "b".repeat(16),
+            parent_span_id: None,
+            name: "apply:test".into(),
+            start_time: "2026-03-08T12:00:00Z".into(),
+            duration_us: 1000,
+            exit_code: 0,
+            resource_type: "file".into(),
+            machine: "web".into(),
+            action: "update".into(),
+            content_hash: None,
+            logical_clock: 5,
+        };
+        let attrs = build_attributes(&span);
+        assert_eq!(attrs.len(), 5); // No content_hash => 5 attrs
+        assert!(attrs.iter().all(|a| a["key"] != "forjar.content_hash"));
+    }
+
+    #[test]
+    fn test_build_attributes_with_content_hash() {
+        let span = TraceSpan {
+            trace_id: "a".repeat(32),
+            span_id: "b".repeat(16),
+            parent_span_id: None,
+            name: "apply:test".into(),
+            start_time: "2026-03-08T12:00:00Z".into(),
+            duration_us: 1000,
+            exit_code: 0,
+            resource_type: "file".into(),
+            machine: "web".into(),
+            action: "create".into(),
+            content_hash: Some("blake3:abc".into()),
+            logical_clock: 1,
+        };
+        let attrs = build_attributes(&span);
+        assert_eq!(attrs.len(), 6); // With content_hash => 6 attrs
+        let hash_attr = attrs
+            .iter()
+            .find(|a| a["key"] == "forjar.content_hash")
+            .unwrap();
+        assert_eq!(hash_attr["value"]["stringValue"], "blake3:abc");
+    }
+
+    #[test]
+    fn test_attr_str_structure() {
+        let a = attr_str("key1", "val1");
+        assert_eq!(a["key"], "key1");
+        assert_eq!(a["value"]["stringValue"], "val1");
+    }
+
+    #[test]
+    fn test_attr_int_structure() {
+        let a = attr_int("key2", 42);
+        assert_eq!(a["key"], "key2");
+        assert_eq!(a["value"]["intValue"], "42");
+    }
+
+    #[test]
+    fn test_iso8601_missing_seconds() {
+        // Time with only HH:MM, no seconds
+        let nanos = iso8601_to_nanos("2020-01-01T01:30Z");
+        let expected = (18262 * 86400 + 3600 + 1800) as u64 * 1_000_000_000;
+        assert_eq!(nanos, expected);
+    }
+
+    #[test]
+    fn test_iso8601_bad_date_format() {
+        assert_eq!(iso8601_to_nanos("2020-01"), 0);
+        assert_eq!(iso8601_to_nanos("not-a-date"), 0);
+    }
+
+    #[test]
+    fn test_ymd_to_epoch_days_leap_year() {
+        // 2024 is a leap year; Mar 1 = day 60 after Jan 1
+        assert_eq!(ymd_to_epoch_days(2024, 3, 1), 19783);
+    }
+
+    #[test]
+    fn test_ymd_to_epoch_days_pre_epoch() {
+        // Dates before 1970 should give negative
+        assert!(ymd_to_epoch_days(1969, 12, 31) < 0);
+    }
+
+    #[test]
+    fn test_spans_to_otlp_json_multiple_spans() {
+        let spans: Vec<TraceSpan> = (0..3)
+            .map(|i| TraceSpan {
+                trace_id: "a".repeat(32),
+                span_id: format!("{:016x}", i),
+                parent_span_id: None,
+                name: format!("apply:res-{i}"),
+                start_time: "2026-03-08T12:00:00Z".into(),
+                duration_us: 1000,
+                exit_code: 0,
+                resource_type: "package".into(),
+                machine: "web".into(),
+                action: "create".into(),
+                content_hash: None,
+                logical_clock: i as u64,
+            })
+            .collect();
+        let json = spans_to_otlp_json(&spans, "test");
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let otlp_spans = &parsed["resourceSpans"][0]["scopeSpans"][0]["spans"];
+        assert_eq!(otlp_spans.as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_spans_parent_span_id_empty_when_none() {
+        let spans = vec![TraceSpan {
+            trace_id: "a".repeat(32),
+            span_id: "b".repeat(16),
+            parent_span_id: None,
+            name: "root".into(),
+            start_time: "2026-03-08T12:00:00Z".into(),
+            duration_us: 100,
+            exit_code: 0,
+            resource_type: "file".into(),
+            machine: "m".into(),
+            action: "create".into(),
+            content_hash: None,
+            logical_clock: 0,
+        }];
+        let json = spans_to_otlp_json(&spans, "svc");
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let otlp_span = &parsed["resourceSpans"][0]["scopeSpans"][0]["spans"][0];
+        assert_eq!(otlp_span["parentSpanId"], "");
+    }
+
+    #[test]
+    fn test_export_from_state_dir_with_non_dir_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create a file (not a directory) in state dir — should be skipped
+        std::fs::write(dir.path().join("not-a-machine.txt"), "data").unwrap();
+        let result = export_from_state_dir(dir.path(), "http://localhost:4318", "forjar");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0);
+    }
 }
