@@ -25,9 +25,7 @@ fn main() {
         } else if *actual == "NOT_RUNNING" {
             println!("  {name}: DRIFTED — container not running (expected {expected})");
         } else {
-            println!(
-                "  {name}: DRIFTED — deployed={actual}, expected={expected}"
-            );
+            println!("  {name}: DRIFTED — deployed={actual}, expected={expected}");
         }
     }
 

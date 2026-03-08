@@ -1,0 +1,420 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Formal Verification &amp; Provability - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="formal-verification--provability"><a class="header" href="#formal-verification--provability">Formal Verification &amp; Provability</a></h1>
+<p>Forjar provides formal verification capabilities for safety-critical and high-assurance environments. This chapter covers the verification tools, proof frameworks, and certification paths available.</p>
+<h2 id="kani-bounded-model-checking"><a class="header" href="#kani-bounded-model-checking">Kani Bounded Model Checking</a></h2>
+<p>Forjar includes <a href="https://model-checking.github.io/kani/">Kani</a> proof harnesses for critical algorithms. These verify properties like idempotency, collision resistance, and determinism under bounded symbolic execution.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// From src/core/kani_proofs.rs
+#[kani::proof]
+fn proof_blake3_idempotency() {
+    let data: [u8; 16] = kani::any();
+    let h1 = blake3::hash(&amp;data);
+    let h2 = blake3::hash(&amp;data);
+    assert_eq!(h1, h2);  // Same input always produces same hash
+}
+<span class="boring">}</span></code></pre></pre>
+<p>21 proof harnesses across two modules:</p>
+<p><strong>Abstract model proofs</strong> (<code>src/core/kani_proofs.rs</code>):</p>
+<div class="table-wrapper"><table><thead><tr><th>Harness</th><th>Property</th></tr></thead><tbody>
+<tr><td><code>proof_blake3_idempotency</code></td><td>Hashing is deterministic</td></tr>
+<tr><td><code>proof_blake3_collision_resistance</code></td><td>Different inputs produce different hashes</td></tr>
+<tr><td><code>proof_converged_state_is_noop</code></td><td>Re-applying a converged state changes nothing</td></tr>
+<tr><td><code>proof_status_transition_monotonic</code></td><td>Status transitions are monotonic (never regress)</td></tr>
+<tr><td><code>proof_plan_determinism</code></td><td>Same input produces same plan</td></tr>
+<tr><td><code>proof_topo_sort_stability</code></td><td>Topological sort is stable</td></tr>
+</tbody></table>
+</div>
+<p><strong>Production function proofs</strong> (<code>src/core/kani_production_proofs.rs</code>):</p>
+<div class="table-wrapper"><table><thead><tr><th>Harness</th><th>Function Under Test</th></tr></thead><tbody>
+<tr><td><code>proof_mutation_grade_monotonic</code></td><td><code>MutationScore::grade()</code></td></tr>
+<tr><td><code>proof_applicable_operators_valid</code></td><td><code>applicable_operators()</code></td></tr>
+<tr><td><code>proof_contract_tier_ordering</code></td><td><code>VerificationTier::Ord</code></td></tr>
+<tr><td><code>proof_lock_roundtrip</code></td><td><code>LockEntry</code> serialization</td></tr>
+<tr><td><code>proof_purity_level_lattice</code></td><td><code>PurityLevel</code> ordering</td></tr>
+</tbody></table>
+</div>
+<p>Production function proofs call <strong>real production code</strong> under bounded
+symbolic inputs, not abstract models. This catches actual implementation
+bugs rather than proving properties of a separate model.</p>
+<p>Run with: <code>cargo kani --harness proof_blake3_idempotency</code></p>
+<h2 id="tla-execution-specification"><a class="header" href="#tla-execution-specification">TLA+ Execution Specification</a></h2>
+<p>The file <code>docs/specifications/ForjarExecution.tla</code> provides a complete TLA+ model of the plan-apply protocol.</p>
+<p><strong>Safety properties verified:</strong></p>
+<ul>
+<li><code>SafetyDependencyOrder</code> — Resources applied only after dependencies converge</li>
+<li><code>SafetyNoRegression</code> — Converged resources never revert to pending</li>
+</ul>
+<p><strong>Liveness properties verified:</strong></p>
+<ul>
+<li><code>LivenessAllConverge</code> — All resources eventually converge</li>
+<li><code>LivenessTermination</code> — The protocol terminates</li>
+</ul>
+<p><strong>Idempotency property:</strong></p>
+<ul>
+<li>Re-running apply on a fully converged state produces no changes</li>
+</ul>
+<h2 id="sat-based-dependency-resolution"><a class="header" href="#sat-based-dependency-resolution">SAT-Based Dependency Resolution</a></h2>
+<p>The <code>planner/sat_deps.rs</code> module provides a DPLL SAT solver for dependency conflict detection.</p>
+<pre><code class="language-yaml"># If resource A depends on B, and B depends on C,
+# but C conflicts with A, the SAT solver detects this:
+resources:
+  - name: A
+    depends_on: [B]
+  - name: B
+    depends_on: [C]
+  - name: C
+    conflicts_with: [A]  # Unsatisfiable!
+</code></pre>
+<p>The solver converts dependency graphs to CNF (conjunctive normal form) and uses unit propagation to detect conflicts before apply begins.</p>
+<h2 id="alloy-structural-verification"><a class="header" href="#alloy-structural-verification">Alloy Structural Verification</a></h2>
+<p>The <code>docs/specifications/ForjarDependencyGraph.als</code> provides an Alloy model verifying structural properties of dependency graphs:</p>
+<ul>
+<li><strong>No self-loops</strong> — Resources cannot depend on themselves</li>
+<li><strong>No cycles</strong> — Dependency graphs are always DAGs</li>
+<li><strong>Unique names</strong> — Resource names are unique within a config</li>
+<li><strong>Topological ordering</strong> — A valid total order always exists</li>
+</ul>
+<h2 id="mcdc-coverage-analysis"><a class="header" href="#mcdc-coverage-analysis">MC/DC Coverage Analysis</a></h2>
+<p>For DO-178C DAL-A compliance, forjar provides Modified Condition/Decision Coverage analysis via <code>core/mcdc.rs</code>.</p>
+<pre><code class="language-bash"># Generate MC/DC test pairs for a 3-condition AND decision
+forjar qualify --mcdc --conditions 3 --operator and
+</code></pre>
+<p>MC/DC ensures every condition independently affects the decision outcome, required for the highest airborne software assurance level.</p>
+<h2 id="verus-verified-reconciliation-loop"><a class="header" href="#verus-verified-reconciliation-loop">Verus-Verified Reconciliation Loop</a></h2>
+<p>The <code>core/verus_spec.rs</code> module contains machine-checked proofs (when compiled with the Verus toolchain) that the observe-diff-apply reconciliation loop:</p>
+<ol>
+<li><strong>Terminates</strong> — The loop always reaches a fixed point</li>
+<li><strong>Converges</strong> — After sufficient iterations, all resources match desired state</li>
+<li><strong>Is idempotent</strong> — Applying to an already-converged state is a no-op</li>
+<li><strong>Is monotonic</strong> — Each iteration reduces the diff, never increases it</li>
+</ol>
+<h2 id="runtime-contracts-on-production-code"><a class="header" href="#runtime-contracts-on-production-code">Runtime Contracts on Production Code</a></h2>
+<p>The most practical verification layer: <code>debug_assert!</code> postconditions
+on 9 critical-path functions. These fire in every <code>cargo test</code> run
+and debug build, catching invariant violations with zero release cost.</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Module</th><th>Postcondition</th></tr></thead><tbody>
+<tr><td><code>determine_present_action</code></td><td><code>planner/mod.rs</code></td><td>Converged + hash match implies NoOp</td></tr>
+<tr><td><code>hash_desired_state</code></td><td><code>planner/mod.rs</code></td><td>Determinism (double-hash equality)</td></tr>
+<tr><td><code>save_lock</code></td><td><code>core/state/mod.rs</code></td><td>File exists, temp file removed</td></tr>
+<tr><td><code>build_execution_order</code></td><td><code>core/resolver/dag.rs</code></td><td>Valid topological order</td></tr>
+<tr><td><code>build_layer</code></td><td><code>store/layer_builder.rs</code></td><td>Same inputs produce same BLAKE3; store idempotency</td></tr>
+<tr><td><code>assemble_image</code></td><td><code>store/image_assembler.rs</code></td><td>OCI layout files exist, layer count matches</td></tr>
+<tr><td><code>compute_dual_digest</code></td><td><code>store/layer_builder.rs</code></td><td>Size matches, digests non-empty</td></tr>
+<tr><td><code>write_oci_layout</code></td><td><code>store/layer_builder.rs</code></td><td>oci-layout and config blob exist</td></tr>
+<tr><td><code>OciManifest::new</code></td><td><code>types/oci_types.rs</code></td><td>Media types match OCI spec strings</td></tr>
+</tbody></table>
+</div>
+<p>These contracts connect theoretical proofs to actual code. The Verus
+model proves "if handler invariant holds, then idempotency holds." The
+<code>debug_assert!</code> on <code>determine_present_action</code> catches violations of
+that invariant in every test run.</p>
+<h2 id="verification-tier-model-fj-2203"><a class="header" href="#verification-tier-model-fj-2203">Verification Tier Model (FJ-2203)</a></h2>
+<p>Forjar tracks verification maturity across six tiers per critical-path function:</p>
+<div class="table-wrapper"><table><thead><tr><th>Tier</th><th>Label</th><th>What It Proves</th></tr></thead><tbody>
+<tr><td>L0</td><td>Unlabeled</td><td>No contract annotation</td></tr>
+<tr><td>L1</td><td>Labeled</td><td><code>#[contract]</code> macro present, no verification</td></tr>
+<tr><td>L2</td><td>Runtime</td><td><code>#[ensures]</code> / <code>debug_assert!</code> active</td></tr>
+<tr><td>L3</td><td>Bounded</td><td>Kani harness covers this function</td></tr>
+<tr><td>L4</td><td>Proved</td><td>Verus spec with proof block (machine-checked)</td></tr>
+<tr><td>L5</td><td>Structural</td><td>Trait + executor enforcement (unbreakable)</td></tr>
+</tbody></table>
+</div>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use forjar::core::types::{ContractCoverageReport, VerificationTier};
+
+// Query coverage at a tier
+let report = ContractCoverageReport::default();
+let bounded_or_above = report.at_or_above(VerificationTier::Bounded);
+<span class="boring">}</span></code></pre></pre>
+<p>Handler invariants are tracked per resource type. Exempt handlers (like <code>task</code> — imperative by nature) are documented with justification.</p>
+<h2 id="proof-obligation-taxonomy"><a class="header" href="#proof-obligation-taxonomy">Proof Obligation Taxonomy</a></h2>
+<p>Forjar classifies proof obligations by type (<code>core/compliance.rs</code>):</p>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td>Idempotency</td><td>Re-apply produces same state</td><td><code>apply(apply(s)) == apply(s)</code></td></tr>
+<tr><td>Convergence</td><td>System reaches desired state</td><td>All resources eventually <code>Converged</code></td></tr>
+<tr><td>Safety</td><td>No harmful transitions</td><td>Dependencies satisfied before apply</td></tr>
+<tr><td>Determinism</td><td>Same inputs produce same outputs</td><td>Plan is deterministic</td></tr>
+<tr><td>Bounded</td><td>Resource consumption is bounded</td><td>Memory usage is predictable</td></tr>
+</tbody></table>
+</div>
+<h2 id="do-330-tool-qualification"><a class="header" href="#do-330-tool-qualification">DO-330 Tool Qualification</a></h2>
+<p>For avionics supply chains, <code>core/do330.rs</code> generates qualification packages:</p>
+<pre><code class="language-bash">forjar qualify --do330 --tql 5
+</code></pre>
+<p>Output includes:</p>
+<ul>
+<li>Requirements traceability matrix (requirement → test case mapping)</li>
+<li>Structural coverage evidence (line, branch, MC/DC)</li>
+<li>Tool qualification level justification (TQL-1 through TQL-5)</li>
+</ul>
+<h2 id="flight-grade-execution"><a class="header" href="#flight-grade-execution">Flight-Grade Execution</a></h2>
+<p>The <code>core/flight_grade.rs</code> module provides a <code>no_std</code>-compatible execution model:</p>
+<ul>
+<li><strong>No dynamic allocation</strong> — All data in fixed-size arrays on the stack</li>
+<li><strong>No unbounded loops</strong> — All iterations bounded by <code>MAX_RESOURCES</code> (256)</li>
+<li><strong>No panic paths</strong> — All operations return <code>Result</code></li>
+<li><strong>Deterministic memory</strong> — Stack usage is compile-time predictable</li>
+</ul>
+<pre><code class="language-bash"># Check if a configuration is flight-grade compliant
+forjar qualify --flight-grade -f config.yaml
+</code></pre>
+<h2 id="ferrocene-certification"><a class="header" href="#ferrocene-certification">Ferrocene Certification</a></h2>
+<p>Forjar supports the <a href="https://ferrocene.dev/">Ferrocene</a> safety-certified Rust toolchain for ISO 26262 and DO-178C environments.</p>
+<pre><code class="language-bash"># Generate certification evidence
+forjar certify --standard iso26262
+
+# Source compliance check (no unsafe, no forbidden attributes)
+forjar certify --check-source src/
+</code></pre>
+<p>See <code>core/ferrocene.rs</code> for the full certification evidence model including ASIL levels (QM through D) and DAL levels (E through A).</p>
+<h2 id="reproducible-builds"><a class="header" href="#reproducible-builds">Reproducible Builds</a></h2>
+<p>Binary reproducibility is verified via <code>core/repro_build.rs</code>:</p>
+<pre><code class="language-bash"># Check build environment for reproducibility
+forjar qualify --repro-check
+
+# Generate reproducibility evidence
+forjar qualify --repro-evidence --binary target/release/forjar
+</code></pre>
+<p>Required settings for reproducible builds:</p>
+<ul>
+<li><code>SOURCE_DATE_EPOCH</code> set</li>
+<li><code>CARGO_INCREMENTAL=0</code></li>
+<li><code>codegen-units = 1</code> in <code>[profile.release]</code></li>
+<li><code>lto = true</code></li>
+<li><code>panic = "abort"</code></li>
+</ul>
+<h2 id="dual-hash-plannerstate-model"><a class="header" href="#dual-hash-plannerstate-model">Dual-Hash PlannerState Model</a></h2>
+<p>The real planner uses two hashes: a plan-time <code>hash_desired_state</code> and an executor-time stored hash. The <strong>handler invariant</strong> bridges them:</p>
+<blockquote>
+<p>∀ r: handler(r).stored_hash == hash_desired_state(r)</p>
+</blockquote>
+<p>The <code>PlannerState</code> model in <code>verus_spec.rs</code> captures this dual-hash domain:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct PlannerState {
+    pub desired_hash: String,     // plan-time hash
+    pub stored_hash: Option&lt;String&gt;,  // executor lock hash
+    pub converged: bool,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Under the handler invariant, three Kani proofs verify idempotency:</p>
+<ul>
+<li><code>proof_idempotency_conditional</code>: converged + handler invariant → NoOp</li>
+<li><code>proof_apply_then_noop</code>: apply stores matching hash → next plan is NoOp</li>
+<li><code>proof_fleet_convergence</code>: N converged resources → all-NoOp fleet plan</li>
+</ul>
+<p>Additional proofs cover the OCI build pipeline:</p>
+<ul>
+<li><code>proof_layer_determinism</code>: same files produce same layer digest</li>
+<li><code>proof_store_idempotency</code>: content-addressable put is idempotent</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="12-store.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="14-state-safety.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="12-store.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="14-state-safety.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

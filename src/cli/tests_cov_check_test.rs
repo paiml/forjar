@@ -128,7 +128,7 @@ fn test_collect_artifacts_with_data() {
     assert_eq!(artifacts.len(), 1);
     assert_eq!(artifacts[0].name, "test-results.json");
     assert!(artifacts[0].size_bytes.unwrap() > 0);
-    let content = std::fs::read_to_string(&artifact_dir.join("test-results.json")).unwrap();
+    let content = std::fs::read_to_string(artifact_dir.join("test-results.json")).unwrap();
     assert!(content.contains("nginx-pkg"));
     assert!(content.contains("FAIL"));
 }
@@ -262,7 +262,7 @@ fn test_behavior_mode_verify_file_exists() {
     std::fs::write(&target, "data").unwrap();
     std::fs::write(
         dir.path().join("file.spec.yaml"),
-        &format!("name: file-test\nconfig: forjar.yaml\nbehaviors:\n  - name: file present\n    verify:\n      command: \"true\"\n      file_exists: {}\n", target.display()),
+        format!("name: file-test\nconfig: forjar.yaml\nbehaviors:\n  - name: file present\n    verify:\n      command: \"true\"\n      file_exists: {}\n", target.display()),
     )
     .unwrap();
     let r = cmd_test_behavior(&config_path);

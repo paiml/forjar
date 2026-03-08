@@ -436,11 +436,13 @@ resources:
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
         let log_path = state_dir.join("destroy-log.jsonl");
-        let mut resource = types::Resource::default();
-        resource.resource_type = types::ResourceType::File;
-        resource.machine = types::MachineTarget::Single("local".into());
-        resource.path = Some("/tmp/test.txt".into());
-        resource.content = Some("hello".into());
+        let resource = types::Resource {
+            resource_type: types::ResourceType::File,
+            machine: types::MachineTarget::Single("local".into()),
+            path: Some("/tmp/test.txt".into()),
+            content: Some("hello".into()),
+            ..Default::default()
+        };
         write_destroy_log_entry(&log_path, "f1", &resource, "local", &Default::default());
         let content = std::fs::read_to_string(&log_path).unwrap();
         let entry = types::DestroyLogEntry::from_jsonl(content.lines().next().unwrap()).unwrap();

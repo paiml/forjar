@@ -1,0 +1,1258 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>State Management - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="state-management"><a class="header" href="#state-management">State Management</a></h1>
+<p>Forjar uses a file-based state system to track what has been applied to each machine. This enables idempotent applies, drift detection, and rollback.</p>
+<h2 id="state-directory-layout"><a class="header" href="#state-directory-layout">State Directory Layout</a></h2>
+<pre><code>state/
+  forjar.lock.yaml            # Global lock — summary of all machines
+  intel/
+    state.lock.yaml            # Per-machine lock — resource hashes and status
+    events.jsonl               # Provenance event log — append-only audit trail
+    trace.jsonl                # W3C trace spans from apply (FJ-050)
+  web-server/
+    state.lock.yaml
+    events.jsonl
+    trace.jsonl
+</code></pre>
+<p>Each machine gets its own subdirectory. The state directory defaults to <code>state/</code> but can be overridden with <code>--state-dir</code>.</p>
+<h2 id="lock-files"><a class="header" href="#lock-files">Lock Files</a></h2>
+<h3 id="global-lock-forjarlockyaml"><a class="header" href="#global-lock-forjarlockyaml">Global Lock (<code>forjar.lock.yaml</code>)</a></h3>
+<p>Summarizes the most recent apply across all machines:</p>
+<pre><code class="language-yaml">schema: '1.0'
+name: my-infrastructure
+last_apply: 2026-02-25T14:00:00Z
+generator: forjar 0.1.0
+machines:
+  intel:
+    resources: 16
+    converged: 16
+    failed: 0
+    last_apply: 2026-02-25T14:00:00Z
+  web-server:
+    resources: 8
+    converged: 7
+    failed: 1
+    last_apply: 2026-02-25T14:00:05Z
+</code></pre>
+<h3 id="per-machine-lock-statemachinestatelockyaml"><a class="header" href="#per-machine-lock-statemachinestatelockyaml">Per-Machine Lock (<code>state/{machine}/state.lock.yaml</code>)</a></h3>
+<p>Records the full state of every managed resource on a machine:</p>
+<pre><code class="language-yaml">schema: '1.0'
+machine: intel
+hostname: mac-server
+generated_at: 2026-02-16T16:44:39Z
+generator: forjar 0.1.0
+blake3_version: '1.8'
+resources:
+  bash-aliases:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:55Z
+    duration_seconds: 0.54
+    hash: blake3:43b33ddd15c866b0d54f2144e8b66d96b88082...
+    details:
+      path: /home/noah/.bash_aliases
+      content_hash: blake3:aae3de54118cd67a57432145e96802...
+      live_hash: blake3:22035c315c17dcc46d45a57a0b97d003...
+      mode: '0644'
+      owner: noah
+  cargo-tools:
+    type: package
+    status: converged
+    applied_at: 2026-02-16T16:32:57Z
+    duration_seconds: 0.85
+    hash: blake3:c5fc7e8c095d8dc1ea5c245829bdab6fd0c4...
+    details:
+      live_hash: blake3:18a03cb3b066ae1b7f8e9a803a51b196...
+</code></pre>
+<h3 id="resource-lock-fields"><a class="header" href="#resource-lock-fields">Resource Lock Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>type</code></td><td>Resource type (file, package, service, mount, etc.)</td></tr>
+<tr><td><code>status</code></td><td><code>converged</code>, <code>failed</code>, or <code>drifted</code></td></tr>
+<tr><td><code>applied_at</code></td><td>ISO 8601 timestamp of last apply</td></tr>
+<tr><td><code>duration_seconds</code></td><td>How long the apply took</td></tr>
+<tr><td><code>hash</code></td><td>BLAKE3 hash of the resource's desired configuration</td></tr>
+<tr><td><code>details.path</code></td><td>File path (file resources)</td></tr>
+<tr><td><code>details.content_hash</code></td><td>BLAKE3 hash of file content on disk</td></tr>
+<tr><td><code>details.live_hash</code></td><td>BLAKE3 hash of state query output (for drift comparison)</td></tr>
+<tr><td><code>details.mode</code></td><td>File permissions</td></tr>
+<tr><td><code>details.owner</code></td><td>File owner</td></tr>
+</tbody></table>
+</div>
+<h2 id="blake3-content-hashing"><a class="header" href="#blake3-content-hashing">BLAKE3 Content Hashing</a></h2>
+<p>Forjar uses BLAKE3 for all content hashing. BLAKE3 is:</p>
+<ul>
+<li><strong>Fast</strong>: 4x faster than SHA-256, SIMD-accelerated</li>
+<li><strong>Deterministic</strong>: Same content always produces the same hash</li>
+<li><strong>Collision-resistant</strong>: 256-bit output, cryptographically secure</li>
+</ul>
+<p>Hashes are stored with a <code>blake3:</code> prefix for clarity:</p>
+<pre><code>blake3:43b33ddd15c866b0d54f2144e8b66d96b88082178f02052b914f1d2fbeb08060
+</code></pre>
+<h3 id="what-gets-hashed"><a class="header" href="#what-gets-hashed">What Gets Hashed</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Resource Type</th><th>Hash Source</th></tr></thead><tbody>
+<tr><td>File</td><td>File content on disk (<code>content_hash</code>)</td></tr>
+<tr><td>Directory</td><td>Recursive directory listing</td></tr>
+<tr><td>Package</td><td>Output of package query command</td></tr>
+<tr><td>Service</td><td><code>systemctl is-active</code> + <code>systemctl is-enabled</code></td></tr>
+<tr><td>Mount</td><td><code>mountpoint</code> + <code>findmnt</code> output</td></tr>
+<tr><td>User</td><td><code>/etc/passwd</code> entry + group membership</td></tr>
+<tr><td>Docker</td><td><code>docker inspect</code> output</td></tr>
+<tr><td>Cron</td><td>Crontab entry for user</td></tr>
+<tr><td>Network</td><td><code>ufw status</code> output</td></tr>
+</tbody></table>
+</div>
+<h2 id="drift-detection"><a class="header" href="#drift-detection">Drift Detection</a></h2>
+<p>Drift detection compares the current live state against the recorded lock state.</p>
+<h3 id="file-resources"><a class="header" href="#file-resources">File Resources</a></h3>
+<p>For file resources, forjar re-hashes the file on disk and compares the BLAKE3 hash against <code>details.content_hash</code>:</p>
+<pre><code class="language-bash"># Check for drift
+forjar drift -f forjar.yaml
+
+# Machine-specific
+forjar drift -f forjar.yaml -m web-server
+
+# CI mode — exit non-zero on any drift
+forjar drift -f forjar.yaml --tripwire
+
+# Auto-fix drift
+forjar drift -f forjar.yaml --auto-remediate
+</code></pre>
+<h3 id="non-file-resources"><a class="header" href="#non-file-resources">Non-File Resources</a></h3>
+<p>For packages, services, mounts, and other resource types, forjar re-runs the resource's <code>state_query_script</code> via transport and compares the BLAKE3 hash of the output against <code>details.live_hash</code>.</p>
+<h2 id="event-log"><a class="header" href="#event-log">Event Log</a></h2>
+<p>The event log (<code>events.jsonl</code>) is an append-only audit trail recording every operation. Each line is a JSON object:</p>
+<pre><code class="language-json">{"ts":"2026-02-16T16:32:54Z","event":"apply_started","machine":"intel","run_id":"r-c732cf4bbc73","forjar_version":"0.1.0"}
+{"ts":"2026-02-16T16:32:54Z","event":"resource_started","machine":"intel","resource":"bash-aliases","action":"CREATE"}
+{"ts":"2026-02-16T16:32:55Z","event":"resource_converged","machine":"intel","resource":"bash-aliases","duration_seconds":0.54,"hash":"blake3:43b33..."}
+{"ts":"2026-02-16T16:44:39Z","event":"apply_completed","machine":"intel","run_id":"r-c732cf4bbc73","resources_converged":16,"resources_unchanged":0,"resources_failed":0,"total_seconds":10.5}
+</code></pre>
+<h3 id="event-types"><a class="header" href="#event-types">Event Types</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>apply_started</code></td><td>Begin of an apply run (includes run_id, forjar_version)</td></tr>
+<tr><td><code>resource_started</code></td><td>Resource apply begins (includes action: CREATE/UPDATE)</td></tr>
+<tr><td><code>resource_converged</code></td><td>Resource successfully applied (includes duration, hash)</td></tr>
+<tr><td><code>resource_failed</code></td><td>Resource apply failed (includes error message)</td></tr>
+<tr><td><code>apply_completed</code></td><td>End of apply run (includes summary counts)</td></tr>
+<tr><td><code>drift_detected</code></td><td>Drift found (includes expected/actual hash)</td></tr>
+</tbody></table>
+</div>
+<h3 id="querying-history"><a class="header" href="#querying-history">Querying History</a></h3>
+<pre><code class="language-bash"># View recent apply history
+forjar history
+
+# Last 20 events
+forjar history -n 20
+
+# JSON output for scripting
+forjar history --json
+
+# Detect anomalies in event patterns
+forjar anomaly --min-events 1
+</code></pre>
+<h2 id="composite-hashing"><a class="header" href="#composite-hashing">Composite Hashing</a></h2>
+<p>Forjar uses composite hashing to create a single fingerprint for each resource's desired configuration. The composite hash combines the resource type with all relevant fields:</p>
+<pre><code>composite_hash("file", path, content, owner, group, mode) → blake3:a1b2c3...
+</code></pre>
+<p>This means the hash changes when <strong>any</strong> field changes — not just content. For example, changing a file's <code>mode</code> from <code>0644</code> to <code>0755</code> produces a different composite hash even though the file content is identical.</p>
+<h3 id="hash-stability"><a class="header" href="#hash-stability">Hash Stability</a></h3>
+<p>Hash comparison drives the planner's decision logic:</p>
+<div class="table-wrapper"><table><thead><tr><th>Previous Hash</th><th>Current Hash</th><th>Action</th></tr></thead><tbody>
+<tr><td>None (new)</td><td>blake3:abc...</td><td>CREATE</td></tr>
+<tr><td>blake3:abc...</td><td>blake3:abc...</td><td>SKIP (converged)</td></tr>
+<tr><td>blake3:abc...</td><td>blake3:xyz...</td><td>UPDATE</td></tr>
+</tbody></table>
+</div>
+<p>This prevents unnecessary re-applies. If you re-run <code>forjar apply</code> with no config changes, every resource is skipped because the composite hashes match.</p>
+<h3 id="hashing-by-resource-type"><a class="header" href="#hashing-by-resource-type">Hashing by Resource Type</a></h3>
+<p>Each resource type contributes different fields to its composite hash:</p>
+<pre><code>File:    hash(type, path, content, source, owner, group, mode)
+Package: hash(type, provider, packages, version)
+Service: hash(type, name, state, enabled, restart_on)
+Mount:   hash(type, path, source, fs_type, options, state)
+User:    hash(type, name, uid, shell, home, groups, ssh_keys)
+Docker:  hash(type, name, image, ports, env, volumes, restart)
+Cron:    hash(type, name, schedule, command, owner)
+Network: hash(type, port, protocol, action, from_addr)
+</code></pre>
+<h2 id="bashrs-script-validation-in-state-pipeline"><a class="header" href="#bashrs-script-validation-in-state-pipeline">Bashrs Script Validation in State Pipeline</a></h2>
+<p>Forjar enforces shell safety through bashrs purification (FJ-036). Every shell script that forjar generates passes through a validation pipeline before execution. This validation is part of the state management lifecycle because the scripts that produce state transitions must themselves be correct.</p>
+<h3 id="where-validation-fits"><a class="header" href="#where-validation-fits">Where Validation Fits</a></h3>
+<p>The apply pipeline follows this sequence:</p>
+<pre><code>1. Config parse     → forjar.yaml → Resource structs
+2. Codegen          → Resource → shell scripts (check, apply, state_query)
+3. Script validation → purifier::validate_script() — lint for errors
+4. Transport exec   → run script on target machine via local or SSH
+5. Hash &amp; store     → BLAKE3 hash output, write to state.lock.yaml
+</code></pre>
+<p>Step 3 is the bashrs gate. If a generated script contains Error-severity lint diagnostics, the apply is aborted before any changes reach the target machine. Warning-severity diagnostics are permitted because generated scripts may use patterns that trigger informational warnings (for example, <code>read</code> without <code>-r</code>).</p>
+<h3 id="validation-levels"><a class="header" href="#validation-levels">Validation Levels</a></h3>
+<p>The purifier module (<code>src/core/purifier.rs</code>) provides three levels of shell safety:</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Behavior</th><th>Use Case</th></tr></thead><tbody>
+<tr><td><code>validate_script(script)</code></td><td>Lint-only, fails on Error severity</td><td>Pre-execution gate in apply pipeline</td></tr>
+<tr><td><code>lint_script(script)</code></td><td>Full lint pass, returns all diagnostics</td><td>Diagnostic reporting, CI checks</td></tr>
+<tr><td><code>purify_script(script)</code></td><td>Parse, purify AST, reformat, validate</td><td>Strongest guarantee, injection prevention</td></tr>
+</tbody></table>
+</div>
+<h3 id="code-example"><a class="header" href="#code-example">Code Example</a></h3>
+<p>The following shows how codegen output flows through validation before execution and state capture:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use forjar::core::{codegen, purifier};
+use forjar::core::types::Resource;
+
+fn apply_resource_with_validation(resource: &amp;Resource) -&gt; Result&lt;String, String&gt; {
+    // Step 1: Generate the apply script from the resource definition
+    let script = codegen::apply_script(resource)?;
+
+    // Step 2: Validate through bashrs linter (errors only)
+    purifier::validate_script(&amp;script)?;
+
+    // Step 3: Execute the validated script via transport
+    let output = transport::execute(&amp;script)?;
+
+    // Step 4: Hash the output for state storage
+    let hash = blake3_hash(&amp;output);
+
+    // The hash is stored in state.lock.yaml as the resource's live_hash
+    Ok(hash)
+}
+<span class="boring">}</span></code></pre></pre>
+<p>For the strongest safety guarantee, use <code>purify_script()</code> which parses the shell into an AST, applies purification transforms (proper quoting, injection prevention, deterministic ordering), reformats the AST back to shell, and validates the result:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Full purification pipeline: parse → purify AST → reformat → validate
+let purified = purifier::purify_script(&amp;script)?;
+// purified is now safe to execute — injection vectors removed
+<span class="boring">}</span></code></pre></pre>
+<h3 id="state-query-scripts"><a class="header" href="#state-query-scripts">State Query Scripts</a></h3>
+<p>State query scripts are also validated before execution. These scripts capture the live state of a resource (for example, <code>dpkg -l curl</code> for a package or <code>systemctl is-active nginx</code> for a service). The BLAKE3 hash of the state query output becomes the <code>live_hash</code> stored in the lock file. If the state query script itself were malformed, the captured hash would be meaningless.</p>
+<pre><code>codegen::state_query_script(resource)
+  → purifier::validate_script(script)
+  → transport::execute(script)
+  → blake3::hash(output)
+  → store as details.live_hash in state.lock.yaml
+</code></pre>
+<p>This ensures that every hash recorded in the state lock was produced by a validated script, maintaining the integrity of drift detection.</p>
+<h2 id="atomic-writes"><a class="header" href="#atomic-writes">Atomic Writes</a></h2>
+<p>Lock files are written atomically using a write-then-rename pattern:</p>
+<ol>
+<li>Write to <code>state.lock.yaml.tmp</code></li>
+<li>Rename to <code>state.lock.yaml</code></li>
+</ol>
+<p>This prevents partial writes from corrupting state if forjar is interrupted. The rename is atomic on all POSIX filesystems — either the old or new state is visible, never a partial write.</p>
+<h2 id="state-inspection"><a class="header" href="#state-inspection">State Inspection</a></h2>
+<h3 id="show-command"><a class="header" href="#show-command">Show Command</a></h3>
+<p>View the current state of a specific resource or machine:</p>
+<pre><code class="language-bash"># Show all resources on a machine
+forjar show -f forjar.yaml -m intel
+
+# JSON output for scripting
+forjar show -f forjar.yaml --json
+
+# Filter by resource
+forjar show -f forjar.yaml -r bash-aliases
+</code></pre>
+<h3 id="status-command"><a class="header" href="#status-command">Status Command</a></h3>
+<p>Quick summary of all machines:</p>
+<pre><code class="language-bash">forjar status -f forjar.yaml --state-dir state
+</code></pre>
+<p>Output shows per-machine counts: converged, failed, and drifted resources.</p>
+<h3 id="diff-command"><a class="header" href="#diff-command">Diff Command</a></h3>
+<p>Compare two state directories to see what changed between applies:</p>
+<pre><code class="language-bash"># Compare current state with a backup
+forjar diff state/ state-backup/
+
+# Compare before and after an apply
+cp -r state/ /tmp/state-before/
+forjar apply -f forjar.yaml
+forjar diff /tmp/state-before/ state/
+</code></pre>
+<h2 id="recovery"><a class="header" href="#recovery">Recovery</a></h2>
+<h3 id="partial-apply-failure"><a class="header" href="#partial-apply-failure">Partial Apply Failure</a></h3>
+<p>If <code>forjar apply</code> fails midway (jidoka — stop on first failure):</p>
+<ol>
+<li>Successfully converged resources are recorded in the lock with <code>status: converged</code></li>
+<li>The failed resource is recorded with <code>status: failed</code> and error details</li>
+<li>Remaining resources are not attempted (no cascading damage)</li>
+</ol>
+<p>Re-running <code>forjar apply</code> will:</p>
+<ul>
+<li><strong>Skip</strong> converged resources (hash matches)</li>
+<li><strong>Retry</strong> the failed resource</li>
+<li><strong>Continue</strong> with remaining resources</li>
+</ul>
+<pre><code class="language-bash"># View what failed
+forjar status -f forjar.yaml
+
+# Retry
+forjar apply -f forjar.yaml
+
+# Force re-apply everything (including converged)
+forjar apply -f forjar.yaml --force
+</code></pre>
+<h3 id="corrupted-lock-file"><a class="header" href="#corrupted-lock-file">Corrupted Lock File</a></h3>
+<p>If a lock file becomes corrupted or desynchronized:</p>
+<pre><code class="language-bash"># Option 1: Delete and rebuild from scratch
+rm state/{machine}/state.lock.yaml
+forjar apply -f forjar.yaml --force
+
+# Option 2: Delete a single machine's state
+rm -rf state/web-server/
+forjar apply -f forjar.yaml -m web-server
+
+# Option 3: Import current live state
+forjar import -f forjar.yaml -m web-server --state-dir state
+</code></pre>
+<h3 id="selective-force-apply"><a class="header" href="#selective-force-apply">Selective Force Apply</a></h3>
+<p>Force re-apply specific resources without touching others:</p>
+<pre><code class="language-bash"># Re-apply only tagged resources
+forjar apply -f forjar.yaml --force --tag web
+
+# Re-apply a single resource
+forjar apply -f forjar.yaml --force -r nginx-config
+</code></pre>
+<h3 id="rollback"><a class="header" href="#rollback">Rollback</a></h3>
+<p>To revert to a previous configuration:</p>
+<pre><code class="language-bash"># Preview what would change
+forjar rollback --dry-run
+
+# Rollback to previous version
+forjar rollback
+
+# Rollback 3 versions back
+forjar rollback -n 3
+</code></pre>
+<p>Rollback reads the previous <code>forjar.yaml</code> from git history and re-applies it with <code>--force</code>.</p>
+<h2 id="git-integration"><a class="header" href="#git-integration">Git Integration</a></h2>
+<p>State files are designed to be committed to git:</p>
+<pre><code class="language-bash"># After a successful apply
+forjar apply -f forjar.yaml --auto-commit
+
+# Or manually
+git add state/
+git commit -m "forjar: apply 2026-02-25"
+</code></pre>
+<p>This enables:</p>
+<ul>
+<li><strong>Audit trail</strong>: Git history shows every state change</li>
+<li><strong>Rollback</strong>: <code>forjar rollback</code> reads previous configs from git</li>
+<li><strong>Diff</strong>: <code>forjar diff state-v1/ state-v2/</code> compares state snapshots</li>
+<li><strong>Team collaboration</strong>: State is shared via the repository</li>
+</ul>
+<h3 id="state-in-monorepos"><a class="header" href="#state-in-monorepos">State in Monorepos</a></h3>
+<p>For teams managing multiple environments from one repo:</p>
+<pre><code>infra/
+  forjar.yaml            # Production config
+  forjar-staging.yaml    # Staging config
+  state/
+    prod-web/            # Production state
+    staging-web/         # Staging state
+</code></pre>
+<p>Each environment uses a separate <code>--state-dir</code> or separate machine names. State files never conflict because they're keyed by machine name.</p>
+<h3 id="state-cleanup"><a class="header" href="#state-cleanup">State Cleanup</a></h3>
+<p>Over time, event logs grow. To manage size:</p>
+<pre><code class="language-bash"># Check event log sizes
+du -sh state/*/events.jsonl
+
+# Archive old events (keep last 1000 lines per machine)
+for f in state/*/events.jsonl; do
+  tail -1000 "$f" &gt; "$f.tmp" &amp;&amp; mv "$f.tmp" "$f"
+done
+</code></pre>
+<p>Lock files are small (typically &lt; 10KB) and do not grow over time — they represent current state only.</p>
+<h2 id="state-file-internals"><a class="header" href="#state-file-internals">State File Internals</a></h2>
+<h3 id="lock-file-schema"><a class="header" href="#lock-file-schema">Lock File Schema</a></h3>
+<p>Every lock file follows this schema:</p>
+<pre><code class="language-yaml">schema: '1.0'                    # Lock file format version
+machine: web-server              # Machine key from config
+hostname: web1                   # Machine hostname
+generated_at: 2026-02-25T14:00:00Z  # ISO 8601 UTC timestamp
+generator: forjar 0.1.0         # Generator string
+blake3_version: '1.8'           # BLAKE3 library version
+resources:                       # Map of resource_id → ResourceLock
+  resource-name:
+    type: file                   # Resource type
+    status: converged            # converged | failed | drifted | unknown
+    applied_at: 2026-02-25T14:00:01Z
+    duration_seconds: 0.54
+    hash: blake3:...             # Composite hash of desired state
+    details:                     # Type-specific metadata
+      path: /etc/nginx/nginx.conf
+      content_hash: blake3:...   # Hash of actual file contents
+      live_hash: blake3:...      # Hash of state_query output
+</code></pre>
+<h3 id="state-lock-schema-reference"><a class="header" href="#state-lock-schema-reference">State Lock Schema Reference</a></h3>
+<p>The following tables document every field in the <code>StateLock</code> and <code>ResourceLock</code> Rust structs (defined in <code>src/core/types.rs</code>). These structs are serialized directly to YAML for the per-machine lock files.</p>
+<h4 id="statelock-fields"><a class="header" href="#statelock-fields">StateLock Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Rust Type</th><th>YAML Key</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>schema</code></td><td><code>String</code></td><td><code>schema</code></td><td>(required)</td><td>Lock file format version, currently <code>"1.0"</code></td></tr>
+<tr><td><code>machine</code></td><td><code>String</code></td><td><code>machine</code></td><td>(required)</td><td>Machine key from the forjar.yaml config</td></tr>
+<tr><td><code>hostname</code></td><td><code>String</code></td><td><code>hostname</code></td><td>(required)</td><td>Machine hostname as declared in config</td></tr>
+<tr><td><code>generated_at</code></td><td><code>String</code></td><td><code>generated_at</code></td><td>(required)</td><td>ISO 8601 UTC timestamp of lock generation</td></tr>
+<tr><td><code>generator</code></td><td><code>String</code></td><td><code>generator</code></td><td>(required)</td><td>Generator string, e.g. <code>"forjar 0.1.0"</code></td></tr>
+<tr><td><code>blake3_version</code></td><td><code>String</code></td><td><code>blake3_version</code></td><td>(required)</td><td>BLAKE3 library version used for hashing, e.g. <code>"1.8"</code></td></tr>
+<tr><td><code>resources</code></td><td><code>IndexMap&lt;String, ResourceLock&gt;</code></td><td><code>resources</code></td><td>(required)</td><td>Ordered map of resource ID to resource lock entry</td></tr>
+</tbody></table>
+</div>
+<h4 id="resourcelock-fields"><a class="header" href="#resourcelock-fields">ResourceLock Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Rust Type</th><th>YAML Key</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>resource_type</code></td><td><code>ResourceType</code></td><td><code>type</code></td><td>(required)</td><td>Resource type enum: <code>file</code>, <code>package</code>, <code>service</code>, <code>mount</code>, <code>user</code>, <code>docker</code>, <code>cron</code>, <code>network</code></td></tr>
+<tr><td><code>status</code></td><td><code>ResourceStatus</code></td><td><code>status</code></td><td>(required)</td><td>Convergence status: <code>converged</code>, <code>failed</code>, <code>drifted</code>, or <code>unknown</code></td></tr>
+<tr><td><code>applied_at</code></td><td><code>Option&lt;String&gt;</code></td><td><code>applied_at</code></td><td><code>null</code></td><td>ISO 8601 timestamp of last apply, absent if never applied</td></tr>
+<tr><td><code>duration_seconds</code></td><td><code>Option&lt;f64&gt;</code></td><td><code>duration_seconds</code></td><td><code>null</code></td><td>Wall-clock duration of last apply in seconds</td></tr>
+<tr><td><code>hash</code></td><td><code>String</code></td><td><code>hash</code></td><td>(required)</td><td>BLAKE3 composite hash of the resource's desired state</td></tr>
+<tr><td><code>details</code></td><td><code>HashMap&lt;String, Value&gt;</code></td><td><code>details</code></td><td><code>{}</code></td><td>Resource-type-specific metadata (path, content_hash, live_hash, etc.)</td></tr>
+</tbody></table>
+</div>
+<h4 id="globallock-fields"><a class="header" href="#globallock-fields">GlobalLock Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Rust Type</th><th>YAML Key</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>schema</code></td><td><code>String</code></td><td><code>schema</code></td><td>(required)</td><td>Lock file format version, currently <code>"1.0"</code></td></tr>
+<tr><td><code>name</code></td><td><code>String</code></td><td><code>name</code></td><td>(required)</td><td>Infrastructure name from forjar.yaml</td></tr>
+<tr><td><code>last_apply</code></td><td><code>String</code></td><td><code>last_apply</code></td><td>(required)</td><td>ISO 8601 timestamp of the most recent apply</td></tr>
+<tr><td><code>generator</code></td><td><code>String</code></td><td><code>generator</code></td><td>(required)</td><td>Generator string, e.g. <code>"forjar 0.1.0"</code></td></tr>
+<tr><td><code>machines</code></td><td><code>IndexMap&lt;String, MachineSummary&gt;</code></td><td><code>machines</code></td><td>(required)</td><td>Ordered map of machine name to summary</td></tr>
+</tbody></table>
+</div>
+<h4 id="machinesummary-fields"><a class="header" href="#machinesummary-fields">MachineSummary Fields</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Rust Type</th><th>YAML Key</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>resources</code></td><td><code>usize</code></td><td><code>resources</code></td><td>(required)</td><td>Total number of managed resources</td></tr>
+<tr><td><code>converged</code></td><td><code>usize</code></td><td><code>converged</code></td><td>(required)</td><td>Number of resources successfully applied</td></tr>
+<tr><td><code>failed</code></td><td><code>usize</code></td><td><code>failed</code></td><td>(required)</td><td>Number of resources that failed to apply</td></tr>
+<tr><td><code>last_apply</code></td><td><code>String</code></td><td><code>last_apply</code></td><td>(required)</td><td>ISO 8601 timestamp of the machine's last apply</td></tr>
+</tbody></table>
+</div>
+<h4 id="resourcestatus-enum"><a class="header" href="#resourcestatus-enum">ResourceStatus Enum</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Value</th><th>Rust Variant</th><th>Display</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>converged</code></td><td><code>ResourceStatus::Converged</code></td><td><code>CONVERGED</code></td><td>Resource matches desired state</td></tr>
+<tr><td><code>failed</code></td><td><code>ResourceStatus::Failed</code></td><td><code>FAILED</code></td><td>Last apply attempt failed</td></tr>
+<tr><td><code>drifted</code></td><td><code>ResourceStatus::Drifted</code></td><td><code>DRIFTED</code></td><td>Live state differs from recorded state</td></tr>
+<tr><td><code>unknown</code></td><td><code>ResourceStatus::Unknown</code></td><td><code>UNKNOWN</code></td><td>No prior state recorded</td></tr>
+</tbody></table>
+</div>
+<h3 id="status-lifecycle"><a class="header" href="#status-lifecycle">Status Lifecycle</a></h3>
+<p>Resources transition through these statuses:</p>
+<pre><code>                  ┌──────────┐
+    first apply → │ converged │ ← successful re-apply
+                  └─────┬─────┘
+                        │
+                  drift detected
+                        │
+                  ┌─────▼─────┐
+                  │  drifted   │
+                  └─────┬─────┘
+                        │
+                  re-apply (--force)
+                        │
+                  ┌─────▼─────┐
+                  │ converged  │
+                  └────────────┘
+
+    apply failure → ┌──────┐
+                    │ failed│ → retry → converged
+                    └──────┘
+
+    no prior state → ┌─────────┐
+                     │ unknown  │ → first apply → converged
+                     └──────────┘
+</code></pre>
+<h3 id="details-by-resource-type"><a class="header" href="#details-by-resource-type">Details by Resource Type</a></h3>
+<p>Each resource type stores different metadata in the <code>details</code> map:</p>
+<div class="table-wrapper"><table><thead><tr><th>Resource Type</th><th>Details Fields</th></tr></thead><tbody>
+<tr><td><strong>File</strong></td><td><code>path</code>, <code>content_hash</code>, <code>live_hash</code>, <code>owner</code>, <code>group</code>, <code>mode</code></td></tr>
+<tr><td><strong>Package</strong></td><td><code>live_hash</code></td></tr>
+<tr><td><strong>Service</strong></td><td><code>service_name</code>, <code>live_hash</code></td></tr>
+<tr><td><strong>Mount</strong></td><td><code>mount_path</code>, <code>live_hash</code></td></tr>
+<tr><td><strong>User</strong></td><td><code>username</code>, <code>live_hash</code></td></tr>
+<tr><td><strong>Docker</strong></td><td><code>container_name</code>, <code>live_hash</code></td></tr>
+<tr><td><strong>Cron</strong></td><td><code>cron_name</code>, <code>live_hash</code></td></tr>
+<tr><td><strong>Network</strong></td><td><code>live_hash</code></td></tr>
+</tbody></table>
+</div>
+<p>The <code>live_hash</code> is the BLAKE3 hash of the <code>state_query_script</code> output at apply time. During drift detection, forjar re-runs the state query and compares the new output hash against <code>live_hash</code>.</p>
+<h3 id="global-lock-schema"><a class="header" href="#global-lock-schema">Global Lock Schema</a></h3>
+<p>The global lock (<code>forjar.lock.yaml</code>) aggregates per-machine summaries:</p>
+<pre><code class="language-yaml">schema: '1.0'
+name: my-infrastructure          # Config name
+last_apply: 2026-02-25T14:00:00Z
+generator: forjar 0.1.0
+machines:
+  web-server:
+    resources: 8                 # Total resource count
+    converged: 7                 # Successfully applied
+    failed: 1                    # Failed to apply
+    last_apply: 2026-02-25T14:00:05Z
+</code></pre>
+<h2 id="state-consistency-guarantees"><a class="header" href="#state-consistency-guarantees">State Consistency Guarantees</a></h2>
+<h3 id="atomic-write-protocol"><a class="header" href="#atomic-write-protocol">Atomic Write Protocol</a></h3>
+<p>Forjar ensures lock files are never corrupted, even during crashes:</p>
+<pre><code>1. Serialize ResourceLock → YAML string
+2. Write to state.lock.yaml.tmp (temp file)
+3. fsync() to flush to disk
+4. rename() temp → state.lock.yaml (atomic on POSIX)
+</code></pre>
+<p>If forjar crashes between steps 2 and 4, the temp file remains and the original lock is untouched. On the next apply, forjar reads the intact original lock.</p>
+<h3 id="partial-apply-state"><a class="header" href="#partial-apply-state">Partial Apply State</a></h3>
+<p>When jidoka stops execution after a failure:</p>
+<pre><code>Resources:  A(ok) → B(ok) → C(FAIL) → D(skipped) → E(skipped)
+
+Lock file after partial apply:
+  A: status: converged, hash: blake3:...
+  B: status: converged, hash: blake3:...
+  C: status: failed, hash: blake3:...
+  D: (not present — never attempted)
+  E: (not present — never attempted)
+</code></pre>
+<p>On the next <code>forjar apply</code>:</p>
+<ul>
+<li>A and B are <strong>skipped</strong> (hashes match)</li>
+<li>C is <strong>retried</strong> (status is failed)</li>
+<li>D and E are <strong>attempted</strong> for the first time</li>
+</ul>
+<p>This means partial applies are always safe to re-run.</p>
+<h3 id="event-log-durability"><a class="header" href="#event-log-durability">Event Log Durability</a></h3>
+<p>The event log (<code>events.jsonl</code>) is append-only:</p>
+<pre><code>1. Serialize event → JSON string
+2. Open events.jsonl with O_APPEND
+3. Write JSON line + newline
+4. Close file
+</code></pre>
+<p><code>O_APPEND</code> guarantees atomic appends on POSIX — even concurrent writers produce valid JSONL. Events are never modified or deleted by forjar.</p>
+<h2 id="concurrent-access-protection"><a class="header" href="#concurrent-access-protection">Concurrent Access Protection</a></h2>
+<p>Forjar's state files are designed to be safe under concurrent access, even though forjar itself does not use file locking. Safety comes from two mechanisms: atomic writes for lock files and append-only semantics for event logs.</p>
+<h3 id="lock-file-atomicity"><a class="header" href="#lock-file-atomicity">Lock File Atomicity</a></h3>
+<p>The <code>state::save_lock()</code> function (in <code>src/core/state.rs</code>) writes lock files using a temp-file-and-rename pattern:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Simplified from src/core/state.rs
+pub fn save_lock(state_dir: &amp;Path, lock: &amp;StateLock) -&gt; Result&lt;(), String&gt; {
+    let path = lock_file_path(state_dir, &amp;lock.machine);
+    let yaml = serde_yaml_ng::to_string(lock)?;
+
+    // Write to temporary file first
+    let tmp_path = path.with_extension("lock.yaml.tmp");
+    std::fs::write(&amp;tmp_path, &amp;yaml)?;
+
+    // Atomic rename — either old or new content is visible, never partial
+    std::fs::rename(&amp;tmp_path, &amp;path)?;
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>rename()</code> system call is atomic on all POSIX filesystems. This means that any process reading the lock file will see either the complete old version or the complete new version. There is no window where a partial write is visible.</p>
+<p>If two forjar processes write to the same machine's lock file simultaneously, the last rename wins. The result is always a valid, complete lock file. No corruption occurs because neither process can produce a partial write through rename.</p>
+<h3 id="event-log-append-safety"><a class="header" href="#event-log-append-safety">Event Log Append Safety</a></h3>
+<p>The event log uses <code>OpenOptions::new().append(true)</code> which maps to the POSIX <code>O_APPEND</code> flag:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Simplified from src/tripwire/eventlog.rs
+let mut file = std::fs::OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&amp;path)?;
+use std::io::Write;
+writeln!(file, "{}", json)?;
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>O_APPEND</code> flag guarantees that each write positions the file offset at the end of the file atomically before writing. This means concurrent appenders produce interleaved but never overlapping writes. Each JSON line remains intact.</p>
+<h3 id="concurrent-machine-safety"><a class="header" href="#concurrent-machine-safety">Concurrent Machine Safety</a></h3>
+<p>Each machine has its own subdirectory under the state directory:</p>
+<pre><code>state/
+  machine-a/state.lock.yaml    # Only written by machine-a apply
+  machine-a/events.jsonl        # Only appended by machine-a events
+  machine-b/state.lock.yaml    # Independent — no conflict with machine-a
+  machine-b/events.jsonl
+</code></pre>
+<p>Because lock files are keyed by machine name and stored in separate directories, applying to different machines concurrently (for example, with <code>policy.parallel_machines: true</code>) never causes cross-machine file conflicts. Each machine's state is fully isolated.</p>
+<h3 id="what-is-not-protected"><a class="header" href="#what-is-not-protected">What Is Not Protected</a></h3>
+<p>Forjar does not implement advisory or mandatory file locking. Running two <code>forjar apply</code> commands against the same machine simultaneously can result in a last-write-wins scenario for the lock file. The lock file will be valid (atomic rename guarantees this), but it may reflect only one of the two applies. To avoid this:</p>
+<ul>
+<li>Do not run concurrent applies against the same machine</li>
+<li>Use CI/CD serialization (job queues) for production applies</li>
+<li>The event log will contain entries from both runs, providing a full audit trail even in the race condition case</li>
+</ul>
+<h2 id="advanced-state-operations"><a class="header" href="#advanced-state-operations">Advanced State Operations</a></h2>
+<h3 id="comparing-states-over-time"><a class="header" href="#comparing-states-over-time">Comparing States Over Time</a></h3>
+<p>Use <code>forjar diff</code> to see what changed between applies:</p>
+<pre><code class="language-bash"># Save a snapshot before changing config
+cp -r state/ /tmp/state-before/
+
+# Make config changes and apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# See what changed
+forjar diff /tmp/state-before/ state/
+</code></pre>
+<p>Output:</p>
+<pre><code>DIFF: 2 change(s)
+
+  web-server/nginx-config:
+    status: converged → converged
+    hash: blake3:a1b2... → blake3:c3d4...
+    detail: content changed
+
+  web-server/new-resource:
+    status: (none) → converged
+    detail: added
+</code></pre>
+<h3 id="importing-live-state"><a class="header" href="#importing-live-state">Importing Live State</a></h3>
+<p>If you're adopting forjar on an existing machine, import the current state without making changes:</p>
+<pre><code class="language-bash">forjar import -f forjar.yaml -m web-server --state-dir state/
+</code></pre>
+<p>This runs state_query scripts to capture the current live hashes and creates a lock file without applying anything. Subsequent <code>forjar apply</code> runs will only change resources whose desired state differs from what was captured.</p>
+<h3 id="state-directory-per-environment"><a class="header" href="#state-directory-per-environment">State Directory Per Environment</a></h3>
+<p>For multi-environment setups, use separate state directories:</p>
+<pre><code class="language-bash"># Staging
+forjar apply -f staging.yaml --state-dir state-staging/
+
+# Production
+forjar apply -f production.yaml --state-dir state-production/
+
+# Compare staging vs production
+forjar diff state-staging/ state-production/
+</code></pre>
+<h3 id="programmatic-state-access"><a class="header" href="#programmatic-state-access">Programmatic State Access</a></h3>
+<p>Lock files are plain YAML — parse them with any YAML library:</p>
+<pre><code class="language-python">import yaml
+
+with open("state/web-server/state.lock.yaml") as f:
+    lock = yaml.safe_load(f)
+
+for name, resource in lock["resources"].items():
+    if resource["status"] == "failed":
+        print(f"FAILED: {name}")
+</code></pre>
+<pre><code class="language-bash"># jq-style queries with yq
+yq '.resources | to_entries[] | select(.value.status == "failed") | .key' \
+  state/web-server/state.lock.yaml
+</code></pre>
+<h2 id="state-internals"><a class="header" href="#state-internals">State Internals</a></h2>
+<h3 id="atomic-writes-1"><a class="header" href="#atomic-writes-1">Atomic Writes</a></h3>
+<p>Lock files are written atomically using a temp-file-and-rename pattern:</p>
+<ol>
+<li>Write to <code>state/{machine}/state.lock.yaml.tmp</code></li>
+<li>Flush and sync to disk</li>
+<li>Rename <code>*.tmp</code> → <code>state.lock.yaml</code> (atomic on POSIX)</li>
+</ol>
+<p>This ensures a power failure or crash never leaves a corrupted lock file. The worst case is a stale-but-valid previous lock file.</p>
+<h3 id="hash-computation"><a class="header" href="#hash-computation">Hash Computation</a></h3>
+<p>Each resource's <code>hash</code> field is the BLAKE3 hash of its <strong>desired state</strong> — all configuration fields that affect what should be applied. This includes:</p>
+<div class="table-wrapper"><table><thead><tr><th>Resource Type</th><th>Fields Hashed</th></tr></thead><tbody>
+<tr><td>File</td><td>path, content/source, owner, group, mode, state</td></tr>
+<tr><td>Package</td><td>packages list, provider, version, state</td></tr>
+<tr><td>Service</td><td>name, enabled, state</td></tr>
+<tr><td>Mount</td><td>path, target, fs_type, options, state</td></tr>
+<tr><td>User</td><td>name, uid, shell, home, groups, system_user, ssh_authorized_keys</td></tr>
+<tr><td>Cron</td><td>name, schedule, command</td></tr>
+<tr><td>Docker</td><td>name, image, ports, environment, volumes, restart</td></tr>
+<tr><td>Network</td><td>name, port, protocol, action, from_addr</td></tr>
+</tbody></table>
+</div>
+<p>The hash format is <code>blake3:&lt;hex&gt;</code> (e.g., <code>blake3:a1b2c3d4...</code>). When the desired-state hash matches the stored hash, the resource is skipped (unchanged).</p>
+<h3 id="content-hash-vs-desired-state-hash"><a class="header" href="#content-hash-vs-desired-state-hash">Content Hash vs Desired-State Hash</a></h3>
+<p>Two different hashes serve different purposes:</p>
+<ul>
+<li><strong><code>hash</code></strong>: Hash of the desired state in the config file. Changes when you edit your <code>forjar.yaml</code>.</li>
+<li><strong><code>content_hash</code></strong> (in details): Hash of the actual file content on disk. Changes when someone modifies the file on the machine.</li>
+</ul>
+<p>Drift detection compares <code>content_hash</code> against the live file to detect out-of-band changes. The <code>hash</code> field determines whether a new apply is needed.</p>
+<h3 id="live-hash"><a class="header" href="#live-hash">Live Hash</a></h3>
+<p>For non-file resources (packages, services, etc.), the <code>live_hash</code> in details captures the hash of the <code>state_query_script</code> output at apply time. This enables drift detection for all resource types:</p>
+<pre><code class="language-yaml">resources:
+  nginx-svc:
+    type: service
+    status: converged
+    hash: "blake3:abc..."
+    details:
+      live_hash: "blake3:def..."
+</code></pre>
+<p>On drift check, forjar re-runs the state query script and compares the new output hash against the stored <code>live_hash</code>. Any difference indicates configuration drift.</p>
+<h2 id="event-log-deep-dive"><a class="header" href="#event-log-deep-dive">Event Log Deep Dive</a></h2>
+<h3 id="event-schema"><a class="header" href="#event-schema">Event Schema</a></h3>
+<p>Each line in <code>events.jsonl</code> is a self-contained JSON object:</p>
+<pre><code class="language-json">{
+  "timestamp": "2026-02-25T14:30:00.123Z",
+  "event": "resource_converged",
+  "resource_id": "nginx-conf",
+  "resource_type": "file",
+  "hash": "blake3:abc123...",
+  "duration_seconds": 0.42,
+  "machine": "web-01"
+}
+</code></pre>
+<h3 id="event-types-1"><a class="header" href="#event-types-1">Event Types</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Event</th><th>When</th><th>Key Fields</th></tr></thead><tbody>
+<tr><td><code>resource_converged</code></td><td>Apply succeeded</td><td>resource_id, hash, duration</td></tr>
+<tr><td><code>resource_failed</code></td><td>Apply failed</td><td>resource_id, error, duration</td></tr>
+<tr><td><code>resource_skipped</code></td><td>Hash unchanged</td><td>resource_id, reason</td></tr>
+<tr><td><code>drift_detected</code></td><td>Drift check found changes</td><td>resource_id, expected_hash, actual_hash</td></tr>
+</tbody></table>
+</div>
+<h3 id="log-rotation"><a class="header" href="#log-rotation">Log Rotation</a></h3>
+<p>Event logs grow indefinitely by design — they're an audit trail. For large deployments, manage with standard log rotation:</p>
+<pre><code class="language-bash"># Rotate logs older than 90 days
+find state/ -name "events.jsonl" -exec sh -c '
+  tail -n 10000 "$1" &gt; "$1.tmp" &amp;&amp; mv "$1.tmp" "$1"
+' _ {} \;
+</code></pre>
+<p>Or archive to a centralized logging system:</p>
+<pre><code class="language-bash"># Ship to your log aggregator
+for f in state/*/events.jsonl; do
+  machine=$(basename $(dirname "$f"))
+  cat "$f" | jq -c '. + {machine: "'$machine'"}' | \
+    curl -X POST -d @- https://logs.example.com/ingest
+done
+</code></pre>
+<h2 id="state-recovery"><a class="header" href="#state-recovery">State Recovery</a></h2>
+<h3 id="rebuilding-from-scratch"><a class="header" href="#rebuilding-from-scratch">Rebuilding from Scratch</a></h3>
+<p>If state files are lost, <code>forjar import</code> reconstructs them from live machine state:</p>
+<pre><code class="language-bash"># Re-import all machines
+forjar import -f forjar.yaml --state-dir state/
+
+# Verify reconstruction
+forjar drift -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Import runs <code>state_query_script</code> for each resource and captures the current live state. The resulting lock file reflects what is actually deployed, not what the config says should be deployed.</p>
+<h3 id="handling-conflicts"><a class="header" href="#handling-conflicts">Handling Conflicts</a></h3>
+<p>When the lock file says a resource is converged but drift detection finds changes:</p>
+<ol>
+<li><strong>If the config hasn't changed</strong>: Someone modified the machine out-of-band. Run <code>forjar apply</code> to reconverge.</li>
+<li><strong>If the config changed</strong>: Run <code>forjar apply</code> — the new desired-state hash will trigger a re-apply.</li>
+<li><strong>If you want to accept the drift</strong>: Run <code>forjar import</code> to capture the current state as the new baseline.</li>
+</ol>
+<h3 id="state-file-compatibility"><a class="header" href="#state-file-compatibility">State File Compatibility</a></h3>
+<p>Lock files include a <code>schema</code> field for forward compatibility:</p>
+<pre><code class="language-yaml">schema: '1.0'
+</code></pre>
+<p>Forjar validates the schema version on load. Future versions may introduce <code>schema: '2.0'</code> with migration support.</p>
+<h2 id="migration-guide"><a class="header" href="#migration-guide">Migration Guide</a></h2>
+<p>When a new version of forjar changes the lock file format, the <code>schema</code> field drives forward compatibility. This section describes what happens during version transitions and how to handle them.</p>
+<h3 id="schema-version-contract"><a class="header" href="#schema-version-contract">Schema Version Contract</a></h3>
+<p>Every lock file begins with a <code>schema</code> field:</p>
+<pre><code class="language-yaml">schema: '1.0'
+</code></pre>
+<p>Forjar checks this field when loading a lock file. The behavior depends on the relationship between the lock file's schema version and the running forjar version's expected schema:</p>
+<div class="table-wrapper"><table><thead><tr><th>Lock Schema</th><th>Forjar Expected</th><th>Behavior</th></tr></thead><tbody>
+<tr><td><code>1.0</code></td><td><code>1.0</code></td><td>Normal operation, no migration needed</td></tr>
+<tr><td><code>1.0</code></td><td><code>2.0</code></td><td>Auto-migrate: forjar reads the old format and writes the new format on next save</td></tr>
+<tr><td><code>2.0</code></td><td><code>1.0</code></td><td>Error: forjar refuses to load a lock file from a newer schema it does not understand</td></tr>
+<tr><td>Missing</td><td>Any</td><td>Error: malformed lock file, must be rebuilt</td></tr>
+</tbody></table>
+</div>
+<h3 id="what-triggers-a-format-change"><a class="header" href="#what-triggers-a-format-change">What Triggers a Format Change</a></h3>
+<p>Lock file format changes are reserved for structural changes to the schema itself. The following do not require a schema version bump:</p>
+<ul>
+<li>Adding new resource types (the <code>type</code> field is an enum that extends without breaking existing entries)</li>
+<li>Adding new keys to the <code>details</code> map (details is a <code>HashMap&lt;String, Value&gt;</code> and tolerates unknown keys)</li>
+<li>Adding new event types to the event log (JSONL consumers ignore unknown event tags)</li>
+</ul>
+<p>A schema version bump would be required for:</p>
+<ul>
+<li>Renaming or removing existing top-level fields (<code>machine</code>, <code>hostname</code>, <code>resources</code>, etc.)</li>
+<li>Changing the structure of <code>ResourceLock</code> (for example, splitting <code>hash</code> into separate fields)</li>
+<li>Changing the serialization format from YAML to another format</li>
+</ul>
+<h3 id="upgrade-procedure"><a class="header" href="#upgrade-procedure">Upgrade Procedure</a></h3>
+<p>When upgrading forjar to a version with a new lock schema:</p>
+<pre><code class="language-bash"># 1. Back up current state
+cp -r state/ state-backup-$(date +%Y%m%d)/
+
+# 2. Upgrade forjar binary
+cargo install forjar
+
+# 3. Run apply — forjar auto-migrates lock files on write
+forjar apply -f forjar.yaml
+
+# 4. Verify the migrated state
+forjar status -f forjar.yaml
+forjar drift -f forjar.yaml
+</code></pre>
+<p>The apply command reads the old-format lock, builds the in-memory <code>StateLock</code> struct, and writes it back in the new format. No separate migration command is needed because the Rust structs always reflect the current schema, and <code>serde</code> handles deserialization of the old format through default values and optional fields.</p>
+<h3 id="downgrade-considerations"><a class="header" href="#downgrade-considerations">Downgrade Considerations</a></h3>
+<p>Downgrading forjar to an older version after a schema migration is not supported. The older binary will refuse to load lock files with a schema version it does not recognize. If you need to downgrade:</p>
+<pre><code class="language-bash"># Restore from backup
+rm -rf state/
+cp -r state-backup-20260225/ state/
+
+# Or rebuild state from scratch with the older version
+rm -rf state/
+forjar apply -f forjar.yaml --force
+</code></pre>
+<h3 id="event-log-compatibility"><a class="header" href="#event-log-compatibility">Event Log Compatibility</a></h3>
+<p>The event log (<code>events.jsonl</code>) does not have a schema version. Each line is a self-contained JSON object with an <code>event</code> field that identifies its type. Consumers should ignore unknown event types rather than failing. This design means the event log format is forward-compatible indefinitely — new event types can be added without breaking existing log parsers.</p>
+<h2 id="output-persistence-and-cross-stack-data-flow"><a class="header" href="#output-persistence-and-cross-stack-data-flow">Output Persistence and Cross-Stack Data Flow</a></h2>
+<p>Forjar persists resolved output values in the global lock file, enabling cross-stack data flow between independent configurations.</p>
+<h3 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h3>
+<p>When a config declares <code>outputs:</code>, forjar resolves the template expressions and stores them in <code>forjar.lock.yaml</code> after every successful apply:</p>
+<pre><code class="language-yaml"># forjar.yaml (producer)
+outputs:
+  db_host:
+    value: "{{machines.db.addr}}"
+    description: "Database server address"
+  api_port:
+    value: "{{params.port}}"
+    description: "API server port"
+</code></pre>
+<p>After apply, the global lock includes:</p>
+<pre><code class="language-yaml"># state/forjar.lock.yaml
+schema: '1.0'
+name: database-stack
+last_apply: 2026-03-01T14:00:00Z
+generator: forjar 1.1.1
+machines:
+  db:
+    resources: 5
+    converged: 5
+    failed: 0
+    last_apply: 2026-03-01T14:00:00Z
+outputs:
+  db_host: 10.0.0.5
+  api_port: "8080"
+</code></pre>
+<h3 id="consuming-outputs"><a class="header" href="#consuming-outputs">Consuming Outputs</a></h3>
+<p>Another config reads these outputs via the <code>forjar-state</code> data source:</p>
+<pre><code class="language-yaml"># forjar.yaml (consumer)
+data:
+  db:
+    type: forjar-state
+    state_dir: ../database-stack/state
+    outputs:
+      - db_host
+    max_staleness: 24h    # warn if producer hasn't applied in 24 hours
+</code></pre>
+<p>The <code>max_staleness</code> field triggers a warning if the producer's <code>last_apply</code> timestamp is older than the threshold. Supported units: <code>s</code> (seconds), <code>m</code> (minutes), <code>h</code> (hours), <code>d</code> (days).</p>
+<h3 id="viewing-outputs"><a class="header" href="#viewing-outputs">Viewing Outputs</a></h3>
+<pre><code class="language-bash"># Show all resolved outputs
+forjar output -f forjar.yaml
+
+# Show a specific output
+forjar output -f forjar.yaml --key db_host
+
+# JSON output for scripting
+forjar output -f forjar.yaml --json
+</code></pre>
+<h2 id="state-integrity-verification"><a class="header" href="#state-integrity-verification">State Integrity Verification</a></h2>
+<p>Forjar writes a BLAKE3 sidecar file (<code>.b3</code>) alongside every lock file. Before apply, integrity is verified automatically.</p>
+<h3 id="sidecar-files"><a class="header" href="#sidecar-files">Sidecar Files</a></h3>
+<p>After writing <code>state.lock.yaml</code>, forjar also writes <code>state.lock.yaml.b3</code> containing the BLAKE3 hash of the lock file contents. This enables detection of tampering or corruption.</p>
+<pre><code>state/
+  forjar.lock.yaml        # Global lock
+  forjar.lock.yaml.b3     # BLAKE3 hash sidecar
+  web/
+    state.lock.yaml        # Per-machine lock
+    state.lock.yaml.b3     # BLAKE3 hash sidecar
+</code></pre>
+<h3 id="pre-apply-verification"><a class="header" href="#pre-apply-verification">Pre-Apply Verification</a></h3>
+<p>Before every apply, forjar checks:</p>
+<ol>
+<li>All lock files are valid YAML (catches corruption)</li>
+<li>Lock file content matches its <code>.b3</code> sidecar hash (catches tampering)</li>
+</ol>
+<p>Missing sidecars produce a warning (backward-compatible with older state). Hash mismatches produce an error and block apply unless <code>--yes</code> is used.</p>
+<h3 id="manual-verification"><a class="header" href="#manual-verification">Manual Verification</a></h3>
+<pre><code class="language-bash"># Verify lock file integrity
+forjar lock-verify --state-dir state
+
+# Override integrity check
+forjar apply -f forjar.yaml --yes
+</code></pre>
+<h2 id="event-sourced-state-reconstruction"><a class="header" href="#event-sourced-state-reconstruction">Event-Sourced State Reconstruction</a></h2>
+<p>Forjar can reconstruct the state of any machine at any point in time by replaying the event log.</p>
+<h3 id="usage"><a class="header" href="#usage">Usage</a></h3>
+<pre><code class="language-bash"># Reconstruct state at a specific timestamp
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z
+
+# JSON output
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z --json
+
+# Custom state directory
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z --state-dir state
+</code></pre>
+<h3 id="how-it-works-1"><a class="header" href="#how-it-works-1">How It Works</a></h3>
+<p>The <code>state-reconstruct</code> command reads <code>state/&lt;machine&gt;/events.jsonl</code> and replays events chronologically up to the specified timestamp:</p>
+<ul>
+<li><code>resource_converged</code> events set the resource to converged with its hash</li>
+<li><code>resource_failed</code> events set the resource to failed with error details</li>
+<li><code>drift_detected</code> events update the resource to drifted status</li>
+</ul>
+<p>The result is a <code>StateLock</code> representing the machine's state at that moment.</p>
+<h3 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h3>
+<ul>
+<li><strong>Point-in-time recovery</strong>: Understand what was deployed at a specific moment</li>
+<li><strong>Audit</strong>: Verify what resources were active during an incident</li>
+<li><strong>Debugging</strong>: Compare reconstructed state at two timestamps to find what changed</li>
+</ul>
+<h2 id="sqlite-query-engine"><a class="header" href="#sqlite-query-engine">SQLite Query Engine</a></h2>
+<p>Forjar can ingest flat-file state into a SQLite database for sub-second queries across the entire stack (FJ-2001).</p>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use forjar::core::types::SqliteConfig;
+
+let config = SqliteConfig::default();
+// DB at state/forjar.db, WAL mode, FTS5 enabled, 8MB cache
+<span class="boring">}</span></code></pre></pre>
+<p>The database is configured with WAL mode for concurrent reads, FTS5 for full-text search, and tuned PRAGMAs (busy_timeout, mmap, cache_size).</p>
+<h3 id="schema"><a class="header" href="#schema">Schema</a></h3>
+<p>The schema (version 2) creates core tables, derived tables, and FTS5 indexes:</p>
+<div class="table-wrapper"><table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>machines</code></td><td>Machine inventory with transport metadata</td></tr>
+<tr><td><code>resources</code></td><td>Resource state per machine and generation</td></tr>
+<tr><td><code>generations</code></td><td>Generation metadata with config hashes</td></tr>
+<tr><td><code>events</code></td><td>Apply/converge/destroy event log</td></tr>
+<tr><td><code>run_logs</code></td><td>Per-resource execution logs</td></tr>
+<tr><td><code>destroy_log</code></td><td>Destroyed resource records (ingested from <code>destroy-log.jsonl</code>)</td></tr>
+<tr><td><code>drift_findings</code></td><td>Drift detection results with expected vs actual hashes</td></tr>
+<tr><td><code>ingest_cursor</code></td><td>Per-machine ingest bookkeeping for incremental updates</td></tr>
+<tr><td><code>resources_fts</code></td><td>FTS5 full-text search (porter tokenizer, no raw JSON)</td></tr>
+<tr><td><code>events_fts</code></td><td>FTS5 search over events</td></tr>
+<tr><td><code>run_logs_fts</code></td><td>FTS5 search over run logs</td></tr>
+</tbody></table>
+</div>
+<p>Twelve indexes cover the common query patterns (by machine, type, status, generation, run_id, path, drift, destroy).</p>
+<h3 id="incremental-ingest"><a class="header" href="#incremental-ingest">Incremental Ingest</a></h3>
+<p>The <code>IngestCursor</code> tracks which generations have been ingested per machine, enabling incremental ingest without re-processing:</p>
+<pre><code>Ingest: 120 resources, 8 generations, 45 run logs from 3 machines (1.23s)
+</code></pre>
+<h3 id="query-enrichments"><a class="header" href="#query-enrichments">Query Enrichments</a></h3>
+<p>The <code>QueryEnrichments</code> flags control which additional data is joined into query results:</p>
+<div class="table-wrapper"><table><thead><tr><th>Flag</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--history</code></td><td>Generation history</td></tr>
+<tr><td><code>--drift</code></td><td>Drift findings</td></tr>
+<tr><td><code>--timing</code></td><td>Duration statistics</td></tr>
+<tr><td><code>--churn</code></td><td>Change frequency</td></tr>
+<tr><td><code>--health</code></td><td>Health summary</td></tr>
+<tr><td><code>--reversibility</code></td><td>Reversibility analysis</td></tr>
+<tr><td><code>-G</code></td><td>Git history fusion via RRF</td></tr>
+</tbody></table>
+</div>
+<h2 id="generation-diff"><a class="header" href="#generation-diff">Generation Diff</a></h2>
+<p>Compare resources across generations to see what changed:</p>
+<pre><code class="language-bash">forjar diff --generation 5 8
+</code></pre>
+<p>Output:</p>
+<pre><code>Diff: generation 5 → 8 (intel)
+1 added, 1 modified, 1 removed, 2 unchanged
+  + monitoring-agent (package)
+  ~ bash-aliases (file) — hash changed
+  - legacy-cron (service)
+</code></pre>
+<p>Each resource is classified as added (<code>+</code>), modified (<code>~</code>), removed (<code>-</code>), or unchanged. Modified resources show old and new BLAKE3 hashes for auditing.</p>
+<p>Use <code>--json</code> for machine-readable output in CI pipelines.</p>
+<h2 id="task-state-model"><a class="header" href="#task-state-model">Task State Model</a></h2>
+<p>Task resources (<code>type: task</code>) use extended state tracking beyond simple converged/failed status. Each task mode stores different state:</p>
+<h3 id="pipeline-state"><a class="header" href="#pipeline-state">Pipeline State</a></h3>
+<p>Pipeline tasks track per-stage status in the lock file:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>stages[].name</code></td><td>Stage name</td></tr>
+<tr><td><code>stages[].status</code></td><td><code>pending</code>, <code>running</code>, <code>passed</code>, <code>failed</code>, <code>skipped</code></td></tr>
+<tr><td><code>stages[].exit_code</code></td><td>Command exit code</td></tr>
+<tr><td><code>stages[].duration_ms</code></td><td>Execution time</td></tr>
+<tr><td><code>stages[].input_hash</code></td><td>BLAKE3 hash of inputs (for cache skip)</td></tr>
+<tr><td><code>last_completed</code></td><td>Index of last passed stage</td></tr>
+</tbody></table>
+</div>
+<h3 id="service-state"><a class="header" href="#service-state">Service State</a></h3>
+<p>Long-running service tasks track health:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>pid</code></td><td>Process ID (if running)</td></tr>
+<tr><td><code>healthy</code></td><td>Last health check result</td></tr>
+<tr><td><code>consecutive_failures</code></td><td>Consecutive failed health checks</td></tr>
+<tr><td><code>restart_count</code></td><td>Total restarts since initial start</td></tr>
+</tbody></table>
+</div>
+<h3 id="dispatch-state"><a class="header" href="#dispatch-state">Dispatch State</a></h3>
+<p>Parameterized tasks track invocation history:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>invocations[]</code></td><td>Recent invocations with timestamp, exit_code, duration, caller</td></tr>
+<tr><td><code>total_invocations</code></td><td>Lifetime invocation count</td></tr>
+</tbody></table>
+</div>
+<h3 id="gpu-scheduling"><a class="header" href="#gpu-scheduling">GPU Scheduling</a></h3>
+<p>Multi-GPU tasks use <code>GpuSchedule</code> for device assignment:</p>
+<pre><code>CUDA_VISIBLE_DEVICES=0  train-a
+CUDA_VISIBLE_DEVICES=1  train-b
+CUDA_VISIBLE_DEVICES=0  train-c  (round-robin wraps)
+</code></pre>
+<h3 id="barrier-tasks"><a class="header" href="#barrier-tasks">Barrier Tasks</a></h3>
+<p>Cross-machine synchronization uses <code>BarrierTask</code>:</p>
+<pre><code>barrier/sync-training: waiting for gpu-1, gpu-2 (33%)
+barrier/sync-training: SATISFIED
+</code></pre>
+<p>All task state is stored in <code>state/&lt;machine&gt;/state.lock.yaml</code> under the task resource's <code>details</code> map, maintaining compatibility with the existing lock file schema.</p>
+<h2 id="destroy-log"><a class="header" href="#destroy-log">Destroy Log</a></h2>
+<p>When <code>forjar destroy</code> removes resources, it writes a destroy log to <code>state/destroy-log.jsonl</code> for undo-destroy recovery:</p>
+<pre><code class="language-jsonl">{"timestamp":"2026-03-05T14:30:00Z","machine":"web-01","resource_id":"nginx-config","resource_type":"file","pre_hash":"blake3:abc123","generation":5,"config_fragment":"type: file\npath: /etc/nginx/nginx.conf\n","reliable_recreate":true}
+</code></pre>
+<p>Each entry records the pre-destroy state: the resource's hash, config fragment, and whether it can be reliably recreated. Resources with inline <code>content:</code> are flagged as <code>reliable_recreate: true</code>.</p>
+<p>On partial destroy failure, only succeeded resource entries are removed from the lock file. Failed resources keep their lock entries so the next <code>forjar apply</code> can re-converge them.</p>
+<h3 id="undo-destroy-replay"><a class="header" href="#undo-destroy-replay">Undo-Destroy Replay</a></h3>
+<p><code>forjar undo-destroy</code> reads the destroy log and replays entries to recreate destroyed resources:</p>
+<pre><code class="language-bash"># Preview what would be recreated
+forjar undo-destroy --dry-run
+
+# Replay reliable entries only
+forjar undo-destroy --yes
+
+# Include unreliable entries (best-effort)
+forjar undo-destroy --force --yes
+
+# Filter to specific machine
+forjar undo-destroy --machine web-01 --yes
+</code></pre>
+<p>The replay process:</p>
+<ol>
+<li>Reads <code>destroy-log.jsonl</code> entries, filtering by machine if specified</li>
+<li>Classifies entries as <strong>reliable</strong> (<code>config_fragment</code> + <code>reliable_recreate: true</code>) or <strong>unreliable</strong></li>
+<li>For each entry: deserializes <code>config_fragment</code> to a <code>Resource</code>, generates a convergence script via <code>codegen::apply_script()</code>, and executes via <code>transport::exec_script()</code></li>
+<li>Reports replayed/failed counts</li>
+</ol>
+<p>Without <code>--force</code>, unreliable entries are skipped. Entries without <code>config_fragment</code> are always skipped (no way to reconstruct).</p>
+<h2 id="force-re-apply"><a class="header" href="#force-re-apply">Force Re-Apply</a></h2>
+<p><code>forjar apply --force</code> bypasses the planner's hash comparison, forcing all resources to be re-applied even if their config hasn't changed. This is essential for:</p>
+<ul>
+<li><strong>Secret rotation</strong>: When <code>{{ secrets.PASSWORD }}</code> resolves to a new value but the template hash is unchanged</li>
+<li><strong>External state recovery</strong>: When the target machine's state was modified outside forjar</li>
+<li><strong>Drift remediation</strong>: When you want to re-converge everything regardless of planner state</li>
+</ul>
+<p>Without <code>--force</code>, the planner uses BLAKE3 hash comparison for O(1) idempotency checks. With <code>--force</code>, it treats every resource as needing re-application.</p>
+<h2 id="active-undo"><a class="header" href="#active-undo">Active Undo</a></h2>
+<p><code>forjar undo</code> reverts to a previous generation by restoring lock files and re-applying. Unlike <code>rollback</code> (which reads config from git history), <code>undo</code> operates on the generation snapshots in <code>state/generations/</code>.</p>
+<pre><code class="language-bash"># Preview changes
+forjar undo --dry-run
+
+# Undo last apply
+forjar undo --yes
+
+# Undo last 3 generations
+forjar undo --generations 3 --yes
+</code></pre>
+<p>The undo process:</p>
+<ol>
+<li>Reads the target generation's lock files and metadata</li>
+<li>Computes a resource diff (creates, updates, destroys)</li>
+<li>In dry-run mode, prints the diff and exits</li>
+<li>Writes <code>undo-progress.yaml</code> per machine for resume support</li>
+<li>Restores lock files from the target generation</li>
+<li>Re-applies the current config with <code>--force</code> to converge</li>
+<li>Updates progress status to <code>completed</code> or <code>partial</code></li>
+</ol>
+<h3 id="undo-resume"><a class="header" href="#undo-resume">Undo Resume</a></h3>
+<p>If an undo fails partway (e.g., SSH timeout), use <code>--resume</code> to pick up where it left off:</p>
+<pre><code class="language-bash">forjar undo --resume --yes
+</code></pre>
+<p>Resume reads <code>state/&lt;machine&gt;/undo-progress.yaml</code>, identifies pending and failed resources, and re-applies. Running <code>--resume</code> on a completed undo is a no-op.</p>
+<h3 id="generation-metadata"><a class="header" href="#generation-metadata">Generation Metadata</a></h3>
+<p>Each generation stores a <code>.generation.yaml</code> file with config tracking:</p>
+<pre><code class="language-yaml">generation: 5
+created_at: '2026-03-07T10:30:00Z'
+config_hash: 'blake3:a1b2c3d4e5f6...'
+git_ref: '6fbcb806'
+forjar_version: '1.1.1'
+action: apply
+</code></pre>
+<p>The <code>config_hash</code> is a BLAKE3 hash of the config file used to create the generation, enabling "which config produced this state?" auditing. The <code>git_ref</code> captures the git HEAD at apply time for config recovery via <code>git show</code>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="07-cookbook.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="09-drift-and-tripwire.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="07-cookbook.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="09-drift-and-tripwire.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

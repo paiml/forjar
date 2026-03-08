@@ -1,0 +1,1233 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Architecture - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<h2 id="data-flow"><a class="header" href="#data-flow">Data Flow</a></h2>
+<pre><code>forjar.yaml
+    │
+    ▼
+┌─────────┐
+│ parser   │  Parse YAML, validate schema
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ recipe   │  Load recipes, validate inputs, expand into resources
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ resolver │  Resolve {{params.X}} templates, build dependency DAG
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ planner  │  Diff desired state vs BLAKE3 lock → execution plan
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ codegen  │  Generate shell scripts per resource type
+└────┬─────┘
+     │
+     ▼
+┌──────────┐
+│ purifier │  bashrs validation + purification (FJ-036)
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ executor │  Run scripts via local bash, SSH, or container exec
+└────┬─────┘
+     │
+     ▼
+┌─────────┐
+│ state    │  Atomic lock file write, event log append
+└─────────┘
+</code></pre>
+<h2 id="module-map"><a class="header" href="#module-map">Module Map</a></h2>
+<pre><code>src/
+  main.rs                CLI entry point
+  lib.rs                 Library root
+  build.rs               Compile-time contract binding verification
+  cli/
+    mod.rs               27 subcommands (init through workspace)
+  mcp/
+    mod.rs               MCP server via pforge — 9 tool handlers (FJ-063)
+  core/
+    types.rs             All serde types (ForjarConfig, Resource, StateLock, etc.)
+    parser.rs            YAML parsing, validation, recipe + resource expansion
+    resolver.rs          Template resolution + Kahn's topological sort
+    planner.rs           Desired-state diffing via BLAKE3 hash comparison
+    codegen.rs           Shell script generation (dispatches to resources/)
+    purifier.rs          bashrs shell validation + purification (FJ-036)
+    executor.rs          Orchestration loop (the main apply logic)
+    state.rs             Lock file load/save (atomic write via temp+rename)
+    recipe.rs            Recipe loading, input validation, namespaced expansion
+    migrate.rs           Docker-to-pepita resource migration (FJ-044)
+    conditions.rs        When-expression evaluation for conditional resources (FJ-202)
+    secrets.rs           Age-encrypted secrets — ENC[age,...] markers, identity mgmt (FJ-200)
+  resources/
+    mod.rs               Resource type registry
+    package.rs           apt/cargo/uv package management
+    file.rs              File, directory, symlink, absent
+    service.rs           systemd service management
+    mount.rs             NFS/bind mount management
+    user.rs              User/group management (useradd/usermod)
+    docker.rs            Docker container lifecycle
+    cron.rs              Crontab scheduled tasks
+    network.rs           Firewall rules (ufw)
+    pepita.rs            Kernel namespace isolation (FJ-040)
+  transport/
+    mod.rs               Transport dispatch (container &gt; local &gt; SSH)
+    local.rs             Local bash execution
+    ssh.rs               SSH execution (stdin pipe, no libssh2)
+    container.rs         Container execution (docker/podman exec -i)
+  tripwire/
+    hasher.rs            BLAKE3 file/directory/string hashing
+    drift.rs             Drift detection (hash comparison)
+    eventlog.rs          Append-only JSONL provenance log
+    tracer.rs            Renacer-compatible trace provenance (FJ-050)
+    anomaly.rs           ML-inspired drift anomaly detection (FJ-051)
+</code></pre>
+<h2 id="dag-resolution"><a class="header" href="#dag-resolution">DAG Resolution</a></h2>
+<p>Forjar uses <strong>Kahn's algorithm</strong> for topological sort with <strong>alphabetical tie-breaking</strong> to ensure deterministic execution order.</p>
+<pre><code>Input:  resources with depends_on edges
+Output: linear execution order (deterministic)
+
+Algorithm:
+1. Build in-degree map from depends_on edges
+2. Initialize min-heap with zero-degree nodes (sorted alphabetically)
+3. While heap is not empty:
+   a. Pop minimum node (alphabetical)
+   b. Append to execution order
+   c. Decrement in-degree of all dependents
+   d. Push newly zero-degree nodes to heap
+4. If |order| != |nodes|: cycle detected → error
+</code></pre>
+<h3 id="worked-example"><a class="header" href="#worked-example">Worked Example</a></h3>
+<p>Given these resources:</p>
+<pre><code class="language-yaml">resources:
+  packages:    { depends_on: [] }
+  config:      { depends_on: [packages] }
+  service:     { depends_on: [config] }
+  firewall:    { depends_on: [] }
+  monitoring:  { depends_on: [service, firewall] }
+</code></pre>
+<p>Step-by-step:</p>
+<pre><code>Initial in-degrees:  packages=0, config=1, service=1, firewall=0, monitoring=2
+Heap (degree 0):     [firewall, packages]    ← alphabetical
+
+Pop "firewall" → order: [firewall]
+  monitoring: 2→1
+Heap: [packages]
+
+Pop "packages" → order: [firewall, packages]
+  config: 1→0 → push to heap
+Heap: [config]
+
+Pop "config" → order: [firewall, packages, config]
+  service: 1→0 → push to heap
+Heap: [service]
+
+Pop "service" → order: [firewall, packages, config, service]
+  monitoring: 1→0 → push to heap
+Heap: [monitoring]
+
+Pop "monitoring" → order: [firewall, packages, config, service, monitoring]
+
+Final: firewall → packages → config → service → monitoring
+</code></pre>
+<p>This is deterministic — the same config always produces the same order. Alphabetical tie-breaking means <code>firewall</code> runs before <code>packages</code> even though both have zero dependencies.</p>
+<h3 id="cycle-detection"><a class="header" href="#cycle-detection">Cycle Detection</a></h3>
+<p>If resources form a cycle (<code>A → B → C → A</code>), Kahn's algorithm detects this when the output length doesn't match the input count. The error message includes the cycle participants:</p>
+<pre><code>Error: dependency cycle detected involving: A, B, C
+</code></pre>
+<h2 id="template-resolution"><a class="header" href="#template-resolution">Template Resolution</a></h2>
+<p>Templates use <code>{{...}}</code> syntax and are resolved before codegen:</p>
+<div class="table-wrapper"><table><thead><tr><th>Template</th><th>Source</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>{{params.X}}</code></td><td><code>params:</code> block in config</td><td><code>{{params.env}}</code> → <code>production</code></td></tr>
+<tr><td><code>{{secrets.X}}</code></td><td><code>FORJAR_SECRET_*</code> env vars</td><td><code>{{secrets.db-pass}}</code> → <code>hunter2</code></td></tr>
+<tr><td><code>{{machine.NAME.FIELD}}</code></td><td>Machine properties</td><td><code>{{machine.web.addr}}</code> → <code>10.0.0.5</code></td></tr>
+</tbody></table>
+</div>
+<p>Resolution is applied to all string fields — content, path, name, command, port, image, environment variables, and more. Templates that don't match any known pattern are passed through unchanged.</p>
+<h2 id="blake3-content-addressing"><a class="header" href="#blake3-content-addressing">BLAKE3 Content Addressing</a></h2>
+<p>Every resource's desired state is hashed to a BLAKE3 composite digest. All relevant fields are included:</p>
+<pre><code>hash = blake3(type + "\0" + state + "\0" + provider + "\0" + packages + "\0"
+            + path + "\0" + content + "\0" + name + "\0" + owner + "\0"
+            + mode + "\0" + image + "\0" + ports + "\0" + command + "\0"
+            + schedule + "\0" + port + "\0" + protocol + ...)
+</code></pre>
+<p>Format: <code>"blake3:{64 hex chars}"</code> (71 characters total)</p>
+<p>This hash is stored in the lock file. On the next <code>apply</code>, the planner computes the hash of the desired state and compares:</p>
+<ul>
+<li><strong>Match</strong>: Skip (no-op)</li>
+<li><strong>Mismatch</strong>: Update (re-apply)</li>
+<li><strong>Missing</strong>: Create (first apply)</li>
+</ul>
+<p>No API calls needed. Just local hash comparison. Changing any field — content, permissions, image tag, port number, cron schedule — produces a different hash and triggers an update.</p>
+<h2 id="content-addressed-store-fj-1300-series"><a class="header" href="#content-addressed-store-fj-1300-series">Content-Addressed Store (FJ-1300 series)</a></h2>
+<p>The Nix-compatible reproducible package management system extends BLAKE3 content addressing into a full store model. Every build output is placed under a deterministic path derived from its inputs:</p>
+<pre><code>/var/lib/forjar/store/&lt;blake3-hash&gt;/
+├── meta.yaml          # Input manifest, provenance, timestamps
+└── content/           # Actual build output
+</code></pre>
+<p><strong>Store path derivation</strong> (<code>src/core/store/path.rs</code>): <code>store_path = composite_hash([recipe_hash, sorted_input_hashes, arch, provider])</code>. Identical inputs always produce the same store path.</p>
+<p><strong>Purity classification</strong> (<code>src/core/store/purity.rs</code>): 4-level model classifying each resource:</p>
+<div class="table-wrapper"><table><thead><tr><th>Level</th><th>Name</th><th>Criteria</th></tr></thead><tbody>
+<tr><td>0</td><td>Pure</td><td>Version pinned + store + sandbox</td></tr>
+<tr><td>1</td><td>Pinned</td><td>Version-locked, no sandbox</td></tr>
+<tr><td>2</td><td>Constrained</td><td>Provider-scoped, floating version</td></tr>
+<tr><td>3</td><td>Impure</td><td>curl|bash or unconstrained access</td></tr>
+</tbody></table>
+</div>
+<p>Monotonicity invariant: a resource's purity level is at least as impure as its least-pure transitive dependency.</p>
+<p><strong>Input closure</strong> (<code>src/core/store/closure.rs</code>): transitive input closure — the full set of inputs contributing to a store hash. Identical closures produce identical store paths (determinism invariant). Cycle-safe graph traversal with deduplication.</p>
+<p><strong>Lock file</strong> (<code>src/core/store/lockfile.rs</code>): <code>forjar.inputs.lock.yaml</code> pins all resolved inputs (provider, version, BLAKE3 hash). Supports staleness detection and completeness checking for CI gates.</p>
+<p><strong>Reference scanning</strong> (<code>src/core/store/reference.rs</code>): conservative scan of store entry outputs for BLAKE3 hash patterns, building the reachability graph needed by garbage collection.</p>
+<p><strong>Garbage collection</strong> (<code>src/core/store/gc.rs</code>): mark-and-sweep starting from GC roots (profile generations, lock file pins, <code>.gc-roots/</code> symlinks), following references in <code>meta.yaml</code> transitively. Unreachable entries are reported as dead.</p>
+<p><strong>Reproducibility score</strong> (<code>src/core/store/repro_score.rs</code>): 0-100 composite weighted by purity levels (50%), store coverage (30%), and lock coverage (20%). Per-resource breakdown with A-F grading.</p>
+<p><strong>FAR format</strong> (<code>src/core/store/far.rs</code>): Forjar ARchive — BLAKE3 verified streaming, zstd compression, content-defined chunking, inline provenance. Binary layout: magic → manifest → chunk table → chunks → signature.</p>
+<p><strong>Build sandbox</strong> (<code>src/core/store/sandbox.rs</code>): Configuration for isolated store builds. 4 isolation levels (Full/NetworkOnly/Minimal/None) with resource limits (memory, CPUs, timeout), bind mounts, and environment variables. Preset profiles: <code>full</code> (no network, seccomp BPF), <code>network-only</code> (filesystem isolation only), <code>minimal</code> (PID/mount namespaces), <code>gpu</code> (network + GPU device passthrough). Extends pepita namespace isolation.</p>
+<p><strong>Binary cache</strong> (<code>src/core/store/cache.rs</code>): SSH-only cache transport — sovereign, no HTTP client crate. Substitution protocol: check local store → check SSH cache sources (in order) → build from scratch. Configuration supports multiple cache sources (SSH/local), auto-push, and entry verification by re-hashing.</p>
+<p><strong>Universal provider import</strong> (<code>src/core/store/provider.rs</code>): Any external tool seeds the forjar store. 8 providers: apt, cargo, uv, nix, docker, tofu, terraform, apr. Each shells out to its native CLI, captures outputs, BLAKE3-hashes them. After import, all store entries are provider-agnostic and distribute identically via SSH.</p>
+<p><strong>Store derivations</strong> (<code>src/core/store/derivation.rs</code>): Take store entries as inputs, transform inside a pepita sandbox, produce a new store entry. <code>type: derivation</code> + <code>inputs:</code> (store hashes or resource refs) + <code>script:</code> (bashrs-purified shell). Closure hashing ensures identical inputs → identical store paths. DAG validation prevents cycles. Derivation purity derived from sandbox config level.</p>
+<p><strong>Upstream diff/sync</strong> (<code>src/core/store/store_diff.rs</code>): Compares store entries against their origin provenance (recorded in <code>meta.yaml</code>). Builds sync plans: re-import leaf nodes, replay derivation chains bottom-up. Generates upstream check commands per provider.</p>
+<p><strong>Recipe conversion</strong> (<code>src/core/store/convert.rs</code>): Implements the 5-step conversion ladder for making recipes reproducible: (1) add version pins, (2) enable store, (3) generate lock file, (4) add sandbox (manual), (5) replace curl|bash (manual). Projects purity improvement from automated steps.</p>
+<p><strong>Tripwire pin integration</strong> (<code>src/core/store/pin_tripwire.rs</code>): Extends tripwire upstream detection for lock file awareness. Checks lock file freshness and completeness before apply. Severity levels: Info (all fresh), Warning (stale/missing pins), Error (CI strict mode blocks apply).</p>
+<p><strong>Validation</strong> (<code>src/core/store/validate.rs</code>): Implements <code>forjar validate --check-recipe-purity</code> and <code>--check-reproducibility-score</code>. Purity validation with minimum level gates. Reproducibility score validation with minimum score thresholds. Formatted reports for CLI output.</p>
+<h3 id="store-cli-commands"><a class="header" href="#store-cli-commands">Store CLI Commands</a></h3>
+<p>The store library modules are exposed through 5 CLI command families:</p>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>Subcommands</th><th>Spec</th><th>Module</th></tr></thead><tbody>
+<tr><td><code>forjar pin</code></td><td><code>--update</code>, <code>--check</code></td><td>FJ-1311–1313</td><td><code>store_pin.rs</code></td></tr>
+<tr><td><code>forjar cache</code></td><td><code>list</code>, <code>push</code>, <code>pull</code>, <code>verify</code></td><td>FJ-1323–1324</td><td><code>store_cache.rs</code></td></tr>
+<tr><td><code>forjar store</code></td><td><code>gc</code>, <code>list</code>, <code>diff</code>, <code>sync</code></td><td>FJ-1327, FJ-1345</td><td><code>store_ops.rs</code></td></tr>
+<tr><td><code>forjar archive</code></td><td><code>pack</code>, <code>unpack</code>, <code>inspect</code>, <code>verify</code></td><td>FJ-1346</td><td><code>store_archive.rs</code></td></tr>
+<tr><td><code>forjar convert</code></td><td><code>--reproducible</code></td><td>FJ-1328</td><td><code>store_convert.rs</code></td></tr>
+</tbody></table>
+</div>
+<p>| <code>forjar store-import</code> | <code>--list-providers</code> | FJ-1333 | <code>store_import.rs</code> |</p>
+<p>All commands dispatched through <code>dispatch_store.rs</code>. Args defined in <code>commands/store_args.rs</code>.</p>
+<h3 id="store-runtime-executors"><a class="header" href="#store-runtime-executors">Store Runtime Executors</a></h3>
+<p>Three executor modules bridge the gap between store data models and actual build execution:</p>
+<div class="table-wrapper"><table><thead><tr><th>Module</th><th>Spec</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>sandbox_exec.rs</code></td><td>FJ-1316</td><td>10-step sandbox lifecycle (namespace, overlay, cgroup, seccomp, build, hash, store, cleanup)</td></tr>
+<tr><td><code>substitution.rs</code></td><td>FJ-1322</td><td>Full protocol: local store → SSH cache → build fallback → auto-push</td></tr>
+<tr><td><code>derivation_exec.rs</code></td><td>FJ-1342</td><td>Derivation plan + simulate + DAG execution with store-hit skipping</td></tr>
+</tbody></table>
+</div>
+<p>All produce plans/simulations (dry-run-first) without executing I/O directly.</p>
+<p>See <code>cargo run --example store_reproducibility</code> for store model demos (16 sections) and <code>cargo run --example store_executors</code> for executor demos (8 sections).</p>
+<h2 id="shell-purification-fj-036"><a class="header" href="#shell-purification-fj-036">Shell Purification (FJ-036)</a></h2>
+<p>Every shell script forjar generates passes through the <strong>bashrs</strong> purification pipeline. This enforces Invariant I8: no raw shell execution.</p>
+<h3 id="three-safety-levels"><a class="header" href="#three-safety-levels">Three Safety Levels</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Level</th><th>Function</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><strong>Validate</strong></td><td><code>purifier::validate_script()</code></td><td>Lint-based check; fails on Error-severity diagnostics</td></tr>
+<tr><td><strong>Lint</strong></td><td><code>purifier::lint_script()</code></td><td>Full diagnostic pass; returns all findings with severity</td></tr>
+<tr><td><strong>Purify</strong></td><td><code>purifier::purify_script()</code></td><td>Parse → purify AST → reformat (strongest guarantee)</td></tr>
+</tbody></table>
+</div>
+<h3 id="bashrs-integration-points"><a class="header" href="#bashrs-integration-points">bashrs Integration Points</a></h3>
+<ol>
+<li><strong><code>core/purifier.rs</code></strong> — Thin wrapper around <code>bashrs::linter</code>, <code>bashrs::validation</code>, <code>bashrs::bash_parser</code>, and <code>bashrs::bash_transpiler</code></li>
+<li><strong><code>forjar lint</code></strong> — Runs bashrs linter on all generated scripts (check, apply, state_query) and reports SEC/DET/IDEM violations</li>
+<li><strong><code>examples/shell_purifier.rs</code></strong> — Demonstrates all three safety levels</li>
+</ol>
+<h3 id="diagnostic-categories"><a class="header" href="#diagnostic-categories">Diagnostic Categories</a></h3>
+<p>bashrs diagnostics follow ShellCheck conventions with additional categories:</p>
+<div class="table-wrapper"><table><thead><tr><th>Prefix</th><th>Meaning</th><th>Example</th></tr></thead><tbody>
+<tr><td><strong>SEC</strong></td><td>Security violation (injection, unquoted vars)</td><td>SEC002: Unquoted variable</td></tr>
+<tr><td><strong>DET</strong></td><td>Non-determinism (date, random, pid)</td><td>DET001: Non-deterministic command</td></tr>
+<tr><td><strong>IDEM</strong></td><td>Idempotency violation (creates without checking)</td><td>IDEM001: Non-idempotent operation</td></tr>
+<tr><td><strong>SC</strong></td><td>ShellCheck-equivalent rules</td><td>SC2162: read without -r</td></tr>
+</tbody></table>
+</div>
+<h3 id="example-validating-generated-scripts"><a class="header" href="#example-validating-generated-scripts">Example: Validating Generated Scripts</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use forjar::core::{codegen, purifier};
+
+let script = codegen::check_script(&amp;resource).unwrap();
+match purifier::validate_script(&amp;script) {
+    Ok(()) =&gt; println!("Script is clean"),
+    Err(e) =&gt; eprintln!("Lint errors: {e}"),
+}
+
+// Full purification (parse → purify → reformat)
+let purified = purifier::purify_script(&amp;script).unwrap();
+<span class="boring">}</span></code></pre></pre>
+<h3 id="known-patterns"><a class="header" href="#known-patterns">Known Patterns</a></h3>
+<p>The <code>$SUDO</code> privilege escalation idiom intentionally uses unquoted expansion:</p>
+<pre><code class="language-bash">SUDO=""
+[ "$(id -u)" -ne 0 ] &amp;&amp; SUDO="sudo"
+$SUDO apt-get install -y curl    # $SUDO disappears when empty
+</code></pre>
+<p>This triggers SEC002 but is a safe, standard shell pattern. bashrs reports it as a known warning in <code>forjar lint</code> output.</p>
+<h2 id="transport"><a class="header" href="#transport">Transport</a></h2>
+<p>All three transports share the same mechanism: pipe a shell script to bash stdin, capture stdout/stderr/exit_code. Transport selection is automatic based on machine configuration.</p>
+<h3 id="selection-priority"><a class="header" href="#selection-priority">Selection Priority</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Priority</th><th>Condition</th><th>Transport</th></tr></thead><tbody>
+<tr><td>1</td><td><code>transport: container</code> or <code>addr: container</code></td><td>Container exec</td></tr>
+<tr><td>2</td><td><code>addr: 127.0.0.1</code> or <code>addr: localhost</code></td><td>Local bash</td></tr>
+<tr><td>3</td><td>Any other address</td><td>SSH</td></tr>
+</tbody></table>
+</div>
+<h3 id="local-execution"><a class="header" href="#local-execution">Local Execution</a></h3>
+<p>For machines with <code>addr: 127.0.0.1</code> or <code>addr: localhost</code>:</p>
+<pre><code>bash &lt;&lt;&lt; "generated script piped to stdin"
+</code></pre>
+<h3 id="ssh-execution"><a class="header" href="#ssh-execution">SSH Execution</a></h3>
+<p>For remote machines:</p>
+<pre><code>ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
+    [-i key_path] user@addr bash &lt;&lt;&lt; "script piped to stdin"
+</code></pre>
+<h3 id="container-execution"><a class="header" href="#container-execution">Container Execution</a></h3>
+<p>For container machines (<code>transport: container</code>):</p>
+<pre><code>docker exec -i &lt;container-name&gt; bash &lt;&lt;&lt; "script piped to stdin"
+</code></pre>
+<p>The executor manages container lifecycle automatically:</p>
+<ol>
+<li><code>ensure_container</code> — inspect, create if needed (<code>docker run -d --name &lt;name&gt; --init &lt;image&gt; sleep infinity</code>)</li>
+<li><code>exec_container</code> — pipe script to <code>docker exec -i &lt;name&gt; bash</code></li>
+<li><code>cleanup_container</code> — <code>docker rm -f &lt;name&gt;</code> (ephemeral mode only, runs even on failure)</li>
+</ol>
+<p>Scripts are piped to <code>stdin</code> (not passed as arguments) to avoid:</p>
+<ul>
+<li>Argument length limits</li>
+<li>Shell metacharacter injection</li>
+<li>Command-line visibility in <code>ps</code></li>
+</ul>
+<h3 id="container-lifecycle"><a class="header" href="#container-lifecycle">Container Lifecycle</a></h3>
+<p>The executor manages the full container lifecycle during <code>apply</code>:</p>
+<pre><code>apply_machine("test-box")
+    │
+    ├── ensure_container()
+    │   ├── docker inspect -f '{{.State.Running}}' forjar-test-box
+    │   │   ├── "true" → container already running, skip creation
+    │   │   └── failure/false → create new container
+    │   │       └── docker run -d --name forjar-test-box [--init] [--privileged] ubuntu:22.04 sleep infinity
+    │   └── return Ok(())
+    │
+    ├── for resource in execution_order:
+    │   └── exec_container()
+    │       └── docker exec -i forjar-test-box bash &lt;&lt;&lt; "check/apply script"
+    │
+    └── cleanup_container()  (ephemeral only, runs even on failure)
+        └── docker rm -f forjar-test-box
+</code></pre>
+<p><strong>Ephemeral containers</strong> (<code>ephemeral: true</code>, the default) are created fresh for each apply run and destroyed afterward. This guarantees a clean environment for CI/CD testing.</p>
+<p><strong>Attached containers</strong> (<code>ephemeral: false</code>) persist between applies. The executor verifies the container is running but does not destroy it. Use this for long-lived dev environments.</p>
+<p><strong>Container naming</strong>: If <code>container.name</code> is set, that name is used directly. Otherwise, the name is derived as <code>forjar-{machine-key}</code> (e.g., machine key <code>test-box</code> becomes <code>forjar-test-box</code>).</p>
+<p><strong>Runtime selection</strong>: Set <code>container.runtime</code> to <code>docker</code> (default) or <code>podman</code>. The runtime binary is used for all lifecycle operations (inspect, run, exec, rm).</p>
+<p><strong>Flags</strong>:</p>
+<ul>
+<li><code>--init</code> (default: true) — adds a PID 1 init process for proper signal handling and zombie reaping</li>
+<li><code>--privileged</code> (default: false) — grants full host capabilities (needed for systemd-in-container testing)</li>
+</ul>
+<h2 id="atomic-state"><a class="header" href="#atomic-state">Atomic State</a></h2>
+<p>Lock files are written atomically:</p>
+<ol>
+<li>Serialize to YAML</li>
+<li>Write to <code>state/{machine}/state.lock.yaml.tmp</code></li>
+<li><code>rename()</code> to <code>state/{machine}/state.lock.yaml</code></li>
+</ol>
+<p>On POSIX systems, <code>rename()</code> is atomic within the same filesystem. A crash during write leaves either the old lock or the new lock — never a corrupted file.</p>
+<h2 id="provenance-event-log"><a class="header" href="#provenance-event-log">Provenance Event Log</a></h2>
+<p>Every apply operation appends events to <code>state/{machine}/events.jsonl</code>:</p>
+<pre><code class="language-json">{"ts":"2026-02-16T14:00:00Z","event":"apply_started","machine":"gpu-box","run_id":"r-abc123","forjar_version":"0.1.0"}
+{"ts":"2026-02-16T14:00:01Z","event":"resource_started","machine":"gpu-box","resource":"base-packages","action":"CREATE"}
+{"ts":"2026-02-16T14:00:03Z","event":"resource_converged","machine":"gpu-box","resource":"base-packages","duration_seconds":2.1,"hash":"blake3:a7f2c9..."}
+{"ts":"2026-02-16T14:00:03Z","event":"apply_completed","machine":"gpu-box","run_id":"r-abc123","resources_converged":1,"resources_unchanged":0,"resources_failed":0,"total_seconds":3.0}
+</code></pre>
+<p>Append-only. Never modified. Git-friendly.</p>
+<h3 id="event-types"><a class="header" href="#event-types">Event Types</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Fields</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>apply_started</code></td><td><code>machine</code>, <code>run_id</code>, <code>forjar_version</code></td><td>Apply run begins</td></tr>
+<tr><td><code>resource_started</code></td><td><code>machine</code>, <code>resource</code>, <code>action</code></td><td>Resource execution begins</td></tr>
+<tr><td><code>resource_converged</code></td><td><code>machine</code>, <code>resource</code>, <code>duration_seconds</code>, <code>hash</code></td><td>Resource applied successfully</td></tr>
+<tr><td><code>resource_unchanged</code></td><td><code>machine</code>, <code>resource</code>, <code>hash</code></td><td>Resource already at desired state</td></tr>
+<tr><td><code>resource_failed</code></td><td><code>machine</code>, <code>resource</code>, <code>error</code></td><td>Resource execution failed</td></tr>
+<tr><td><code>apply_completed</code></td><td><code>machine</code>, <code>run_id</code>, <code>resources_converged</code>, <code>resources_unchanged</code>, <code>resources_failed</code>, <code>total_seconds</code></td><td>Apply run ends</td></tr>
+</tbody></table>
+</div>
+<p>Every event has a <code>ts</code> field (ISO 8601 UTC timestamp, e.g., <code>2026-02-25T14:30:00Z</code>).</p>
+<h3 id="querying-events"><a class="header" href="#querying-events">Querying Events</a></h3>
+<pre><code class="language-bash"># Last 20 events
+forjar history -n 20
+
+# JSON output for dashboards
+forjar history --json | jq '.events[] | {ts: .ts, event: .event}'
+
+# Anomaly detection (z-score on resource churn)
+forjar anomaly --state-dir state --json | jq '.anomalies'
+</code></pre>
+<h2 id="provable-contracts"><a class="header" href="#provable-contracts">Provable Contracts</a></h2>
+<p>Forjar integrates with the <code>provable-contracts</code> framework for formal invariant verification. Ten core functions are annotated with <code>#[contract]</code> attributes that bind them to YAML contract equations.</p>
+<h3 id="verification-layers"><a class="header" href="#verification-layers">Verification Layers</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Layer</th><th>Mechanism</th><th>When</th></tr></thead><tbody>
+<tr><td>Compile-time</td><td><code>build.rs</code> verifies all 13 bindings</td><td>Every <code>cargo build</code></td></tr>
+<tr><td>Falsification</td><td>15 proptest-based tests</td><td>Every <code>cargo test</code></td></tr>
+<tr><td>Model checking</td><td>Kani harnesses (Deferred)</td><td><code>cargo kani</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="contract-coverage"><a class="header" href="#contract-coverage">Contract Coverage</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Contract</th><th>Invariants</th><th>Functions</th></tr></thead><tbody>
+<tr><td><code>blake3-state-v1</code></td><td>I3: Content addressing</td><td><code>hash_string</code>, <code>hash_file</code>, <code>composite_hash</code></td></tr>
+<tr><td><code>dag-ordering-v1</code></td><td>I5: Topological sort</td><td><code>build_execution_order</code></td></tr>
+<tr><td><code>execution-safety-v1</code></td><td>I4, I7: Atomicity + Jidoka</td><td><code>save_lock</code></td></tr>
+<tr><td><code>recipe-determinism-v1</code></td><td>I11, I12: Expansion + validation</td><td><code>validate_inputs</code>, <code>expand_recipe</code></td></tr>
+<tr><td><code>codegen-dispatch-v1</code></td><td>I2: Dispatch completeness</td><td><code>check_script</code>, <code>apply_script</code>, <code>state_query_script</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="annotation-example"><a class="header" href="#annotation-example">Annotation Example</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use provable_contracts_macros::contract;
+
+#[contract("blake3-state-v1", equation = "hash_string")]
+pub fn hash_string(input: &amp;str) -&gt; String {
+    let hash = blake3::hash(input.as_bytes());
+    format!("blake3:{}", hash.to_hex())
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>build.rs</code> reads <code>binding.yaml</code> and sets <code>CONTRACT_*</code> env vars consumed by the proc macro at compile time. Missing bindings produce compile warnings.</p>
+<h2 id="error-handling-architecture"><a class="header" href="#error-handling-architecture">Error Handling Architecture</a></h2>
+<p>Forjar uses a layered error model — each layer validates its scope and returns descriptive errors to the layer above:</p>
+<pre><code>CLI Layer (cli/mod.rs)
+  ├── parse_and_validate() → config or error string
+  ├── apply() → Vec&lt;ApplyResult&gt; or error string
+  └── user-facing error formatting + exit codes
+
+Parser Layer (parser.rs)
+  ├── YAML parse errors → "cannot read" / "invalid YAML"
+  ├── Structural validation → Vec&lt;ValidationError&gt;
+  └── Compound error formatting: "validation errors:\n  - error1\n  - error2"
+
+Executor Layer (executor.rs)
+  ├── Transport errors → "transport error: {details}"
+  ├── Script failures → "exit code {N}: {stderr}"
+  └── Jidoka (stop-on-first) vs continue-independent policy
+
+State Layer (state.rs)
+  ├── Read errors → "cannot read {path}: {io_error}"
+  ├── YAML parse errors → "invalid lock file {path}: {parse_error}"
+  └── Write errors → "cannot write" / "cannot rename"
+</code></pre>
+<h3 id="validation-error-accumulation"><a class="header" href="#validation-error-accumulation">Validation Error Accumulation</a></h3>
+<p>The parser collects ALL validation errors before reporting, rather than stopping at the first error. This gives users a complete picture:</p>
+<pre><code class="language-bash">$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+</code></pre>
+<h3 id="jidoka-stop-on-first"><a class="header" href="#jidoka-stop-on-first">Jidoka (Stop-on-First)</a></h3>
+<p>Named after the Toyota Production System principle of "stop and fix," the default failure policy halts execution on the first resource failure:</p>
+<pre><code>FailurePolicy::StopOnFirst  (default)
+  → First resource fails → stop applying → preserve partial state
+  → Event log records: resource_failed, then apply_completed
+
+FailurePolicy::ContinueIndependent
+  → First resource fails → continue with non-dependent resources
+  → All independent resources still get applied
+  → Final apply_completed shows converged + failed counts
+</code></pre>
+<p>This prevents cascading failures. A failed package install won't trigger service restarts or mount operations that depend on it.</p>
+<h2 id="testing-architecture"><a class="header" href="#testing-architecture">Testing Architecture</a></h2>
+<p>Forjar's test suite validates every layer independently and in integration:</p>
+<h3 id="test-categories"><a class="header" href="#test-categories">Test Categories</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Count</th><th>Location</th><th>What It Tests</th></tr></thead><tbody>
+<tr><td>Unit tests</td><td>~1400</td><td><code>#[cfg(test)]</code> in each module</td><td>Individual functions</td></tr>
+<tr><td>Falsification tests</td><td>~15</td><td><code>proptest!</code> blocks</td><td>Invariant properties with random input</td></tr>
+<tr><td>Integration tests</td><td>~80</td><td><code>executor.rs</code> tests</td><td>Full apply→drift→reapply cycles</td></tr>
+<tr><td>Contract tests</td><td>13</td><td><code>build.rs</code> binding verification</td><td>Compile-time invariants</td></tr>
+<tr><td>Examples</td><td>19</td><td><code>examples/*.rs</code></td><td>Runnable API demonstrations</td></tr>
+</tbody></table>
+</div>
+<h3 id="script-safety-testing"><a class="header" href="#script-safety-testing">Script Safety Testing</a></h3>
+<p>Every resource handler generates three script types, and every script is tested:</p>
+<pre><code>check_script(resource)       → precondition verification
+apply_script(resource)       → state convergence
+state_query_script(resource) → live state query for drift
+
+Tests verify:
+  ✓ All scripts begin with set -euo pipefail
+  ✓ SUDO detection: SUDO="" ; [ "$(id -u)" -ne 0 ] &amp;&amp; SUDO="sudo"
+  ✓ Heredoc quoting prevents variable expansion: &lt;&lt;'FORJAR_EOF'
+  ✓ All resource fields appear in generated scripts
+  ✓ Absent state produces cleanup commands
+</code></pre>
+<h3 id="drift-detection-testing"><a class="header" href="#drift-detection-testing">Drift Detection Testing</a></h3>
+<p>The test suite includes end-to-end drift validation:</p>
+<pre><code>1. Apply a file resource (creates file on disk)
+2. Verify detect_drift returns empty (no drift)
+3. Tamper with the file content externally
+4. Verify detect_drift finds the change
+5. Force re-apply to fix the drift
+6. Verify detect_drift returns empty again
+</code></pre>
+<p>This cycle runs in isolated temp directories and verifies the full BLAKE3 hashing pipeline from apply through drift detection.</p>
+<h2 id="security-model"><a class="header" href="#security-model">Security Model</a></h2>
+<h3 id="script-injection-prevention"><a class="header" href="#script-injection-prevention">Script Injection Prevention</a></h3>
+<p>All generated scripts use defensive patterns to prevent injection:</p>
+<pre><code class="language-bash"># Heredoc with single quotes prevents variable expansion
+cat &lt;&lt;'FORJAR_EOF' &gt; /etc/config
+user-provided content here — $VARS and $(commands) are literal
+FORJAR_EOF
+
+# Values are single-quoted in commands
+chown 'user':'group' '/path/to/file'
+systemctl start 'service-name'
+</code></pre>
+<p>Scripts are piped to <code>stdin</code> (not passed as arguments) to avoid:</p>
+<ul>
+<li><strong>Argument length limits</strong> — scripts can be arbitrarily long</li>
+<li><strong>Shell metacharacter injection</strong> — no interpretation of special chars in <code>ps</code> output</li>
+<li><strong>Command-line visibility</strong> — secrets in scripts aren't visible in process listings</li>
+</ul>
+<h3 id="secret-handling"><a class="header" href="#secret-handling">Secret Handling</a></h3>
+<p>Secrets flow through environment variables, never stored in config:</p>
+<pre><code>FORJAR_SECRET_DB_PASSWORD → {{secrets.db-password}} → resolved at template time
+</code></pre>
+<p>The resolution happens in memory. Resolved values appear in generated scripts (which are piped to stdin), but never in:</p>
+<ul>
+<li>Config files on disk</li>
+<li>Lock files (only hashes are stored)</li>
+<li>Event logs (only event metadata)</li>
+<li>Command-line arguments</li>
+</ul>
+<h3 id="transport-security"><a class="header" href="#transport-security">Transport Security</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Transport</th><th>Authentication</th><th>Encryption</th></tr></thead><tbody>
+<tr><td>Local</td><td>Process user</td><td>N/A (same machine)</td></tr>
+<tr><td>SSH</td><td>Key-based (BatchMode=yes)</td><td>SSH tunnel</td></tr>
+<tr><td>Container</td><td>Docker socket</td><td>N/A (same host)</td></tr>
+</tbody></table>
+</div>
+<p>SSH connections use <code>StrictHostKeyChecking=accept-new</code> (accept on first connection, reject changes) and <code>ConnectTimeout=5</code> to prevent hanging on unreachable hosts.</p>
+<h2 id="concurrency-model"><a class="header" href="#concurrency-model">Concurrency Model</a></h2>
+<h3 id="per-machine-sequential-execution"><a class="header" href="#per-machine-sequential-execution">Per-Machine Sequential Execution</a></h3>
+<p>Within a single machine, resources execute sequentially in dependency order. This is by design — resource operations are not thread-safe on the target machine (e.g., two concurrent <code>apt-get install</code> calls would conflict).</p>
+<h3 id="cross-machine-parallelism"><a class="header" href="#cross-machine-parallelism">Cross-Machine Parallelism</a></h3>
+<p>When <code>--parallel</code> is specified, machines execute concurrently. Each machine gets its own thread with an independent execution context:</p>
+<pre><code>Machine A: pkg → config → service  (sequential)
+Machine B: pkg → config → service  (sequential, concurrent with A)
+Machine C: user → ssh-keys         (sequential, concurrent with A and B)
+</code></pre>
+<h3 id="state-isolation"><a class="header" href="#state-isolation">State Isolation</a></h3>
+<p>Each machine has its own:</p>
+<ul>
+<li>Lock file (<code>state/{machine}/state.lock.yaml</code>)</li>
+<li>Event log (<code>state/{machine}/events.jsonl</code>)</li>
+<li>Transport connection (separate SSH session per machine)</li>
+</ul>
+<p>No shared mutable state between machines during apply.</p>
+<h2 id="kernel-isolation-fj-040"><a class="header" href="#kernel-isolation-fj-040">Kernel Isolation (FJ-040)</a></h2>
+<h3 id="pepita-resource-architecture"><a class="header" href="#pepita-resource-architecture">Pepita Resource Architecture</a></h3>
+<p>The pepita resource type provides bare-metal kernel isolation using Linux primitives. Unlike Docker (which requires a container runtime), pepita generates shell scripts that directly interact with kernel interfaces:</p>
+<pre><code>forjar.yaml (type: pepita)
+    │
+    ▼
+┌─────────┐
+│ codegen  │  Generate isolation scripts
+└────┬─────┘
+     │
+     ▼
+┌────────────────────────────────────────┐
+│ Kernel Interfaces                      │
+│                                        │
+│  cgroups v2 ─── memory.max, cpuset    │
+│  overlayfs  ─── lowerdir/upperdir     │
+│  netns      ─── ip netns add/exec     │
+│  chroot     ─── mkdir + chroot(2)     │
+│  seccomp    ─── syscall filtering     │
+└────────────────────────────────────────┘
+</code></pre>
+<h3 id="isolation-feature-matrix"><a class="header" href="#isolation-feature-matrix">Isolation Feature Matrix</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>Kernel Interface</th><th>Apply Script</th><th>Teardown Script</th></tr></thead><tbody>
+<tr><td>Memory limits</td><td>cgroups v2 <code>memory.max</code></td><td><code>echo &lt;bytes&gt; &gt; cgroup/memory.max</code></td><td><code>rmdir cgroup/</code></td></tr>
+<tr><td>CPU binding</td><td>cgroups v2 <code>cpuset.cpus</code></td><td><code>echo &lt;cpus&gt; &gt; cgroup/cpuset.cpus</code></td><td><code>rmdir cgroup/</code></td></tr>
+<tr><td>Filesystem</td><td>overlayfs</td><td><code>mount -t overlay</code></td><td><code>umount &lt;merged&gt;</code></td></tr>
+<tr><td>Network</td><td>network namespaces</td><td><code>ip netns add</code></td><td><code>ip netns del</code></td></tr>
+<tr><td>Filesystem root</td><td>chroot</td><td><code>mkdir -p &lt;dir&gt;</code></td><td><code>rm -rf &lt;dir&gt;</code></td></tr>
+<tr><td>Syscall filter</td><td>seccomp-bpf</td><td>Informational flag</td><td>—</td></tr>
+</tbody></table>
+</div>
+<h3 id="design-decision-shell-scripts-vs-pepita-crate"><a class="header" href="#design-decision-shell-scripts-vs-pepita-crate">Design Decision: Shell Scripts vs pepita Crate</a></h3>
+<p>Forjar generates shell scripts for isolation (matching the architecture of all other resource types) rather than linking the pepita crate directly. This ensures:</p>
+<ol>
+<li><strong>Uniform execution model</strong> — all resources are shell scripts piped through transport</li>
+<li><strong>Auditability</strong> — generated scripts can be reviewed before apply</li>
+<li><strong>Transport agnostic</strong> — isolation scripts work over SSH, container exec, or local bash</li>
+<li><strong>No runtime dependency</strong> — the pepita crate is not required at apply time</li>
+</ol>
+<p>The pepita crate's types (<code>JailerConfig</code>, <code>MicroVm</code>) inform the resource schema design but aren't linked as a runtime dependency.</p>
+<h2 id="trace-provenance-fj-050"><a class="header" href="#trace-provenance-fj-050">Trace Provenance (FJ-050)</a></h2>
+<p>The tracer module (<code>tripwire/tracer.rs</code>) generates renacer-compatible trace records during apply execution. Each apply run produces a trace session with W3C-compatible identifiers and causal ordering.</p>
+<h3 id="trace-structure"><a class="header" href="#trace-structure">Trace Structure</a></h3>
+<pre><code>TraceSession (one per apply run)
+├── trace_id: 32-char hex (W3C format)
+├── run_span_id: 16-char hex (root span)
+├── logical_clock: Lamport counter
+│
+├── TraceSpan: apply:nginx-config  (clock=1)
+├── TraceSpan: apply:app-service   (clock=2)
+├── TraceSpan: apply:db-mount      (clock=3)
+└── Root span: forjar:apply        (clock=4, aggregates child results)
+</code></pre>
+<h3 id="key-design-decisions"><a class="header" href="#key-design-decisions">Key Design Decisions</a></h3>
+<ol>
+<li>
+<p><strong>Deterministic IDs</strong> — Trace and span IDs are derived from run_id using FNV-1a hash, not random UUIDs. Same run_id always produces the same trace_id, enabling reproducible debugging.</p>
+</li>
+<li>
+<p><strong>Lamport logical clock</strong> — Each span gets a monotonically increasing clock value. This provides causal ordering even when wall-clock timestamps are unreliable across machines.</p>
+</li>
+<li>
+<p><strong>JSONL output</strong> — Trace spans are written to <code>state/{machine}/trace.jsonl</code> as newline-delimited JSON, compatible with renacer's SpanRecord schema for external analysis tools.</p>
+</li>
+<li>
+<p><strong>No runtime dependency</strong> — The tracer is a pure-Rust implementation inspired by renacer's API but does not link the renacer crate.</p>
+</li>
+</ol>
+<h3 id="span-fields"><a class="header" href="#span-fields">Span Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>trace_id</code></td><td>string</td><td>W3C trace ID (32 hex chars)</td></tr>
+<tr><td><code>span_id</code></td><td>string</td><td>Span ID (16 hex chars)</td></tr>
+<tr><td><code>parent_span_id</code></td><td>string?</td><td>Parent span (root span for children)</td></tr>
+<tr><td><code>name</code></td><td>string</td><td><code>apply:{resource_id}</code> or <code>forjar:apply</code></td></tr>
+<tr><td><code>start_time</code></td><td>string</td><td>ISO 8601 timestamp</td></tr>
+<tr><td><code>duration_us</code></td><td>u64</td><td>Duration in microseconds</td></tr>
+<tr><td><code>exit_code</code></td><td>i32</td><td>0 = success</td></tr>
+<tr><td><code>resource_type</code></td><td>string</td><td>file, package, service, etc.</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine</td></tr>
+<tr><td><code>action</code></td><td>string</td><td>create, update, delete, noop</td></tr>
+<tr><td><code>content_hash</code></td><td>string?</td><td>BLAKE3 hash after apply</td></tr>
+<tr><td><code>logical_clock</code></td><td>u64</td><td>Lamport clock value</td></tr>
+</tbody></table>
+</div>
+<h2 id="anomaly-detection-fj-051"><a class="header" href="#anomaly-detection-fj-051">Anomaly Detection (FJ-051)</a></h2>
+<p>The anomaly module (<code>tripwire/anomaly.rs</code>) provides ML-inspired statistical analysis of infrastructure drift patterns, inspired by the aprender crate's algorithms.</p>
+<h3 id="detection-algorithms"><a class="header" href="#detection-algorithms">Detection Algorithms</a></h3>
+<p><strong>ADWIN (Adaptive Windowing)</strong> — Detects concept drift in streaming data. Maintains a sliding window of observations and tests whether the distribution has shifted by comparing means across window splits. Based on Bifet &amp; Gavalda 2007.</p>
+<pre><code>Window: [0.0, 0.0, 0.0, ..., 1.0, 1.0, 1.0]
+         ├── left half ──┤  ├── right half ──┤
+         mean_left ≈ 0.0     mean_right ≈ 1.0
+
+Epsilon bound: √((1/2m) × ln(2/δ))
+If |mean_left - mean_right| &gt; epsilon → drift detected
+</code></pre>
+<p><strong>Isolation Scoring</strong> — Rank-based anomaly scores combined with z-score magnitude. For each resource metric, computes what fraction of the population is closer to the mean than the target value. Higher score = more anomalous.</p>
+<p><strong>EWMA Z-Score</strong> — Exponentially weighted moving average with z-score for streaming anomaly detection. Recent observations get more weight, making it sensitive to recent drift while being robust to historical patterns.</p>
+<h3 id="detection-pipeline"><a class="header" href="#detection-pipeline">Detection Pipeline</a></h3>
+<pre><code>Event log (events.jsonl)
+    │
+    ▼
+Count per resource: (converge_count, fail_count, drift_count)
+    │
+    ├── Isolation score on converge frequency → high churn detection
+    ├── Isolation score on failure frequency  → high failure rate
+    └── Drift event count                     → direct flagging
+    │
+    ▼
+Sorted AnomalyFindings (score descending)
+</code></pre>
+<h3 id="drift-status"><a class="header" href="#drift-status">Drift Status</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Status</th><th>Threshold</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>Stable</td><td>score ≤ 0.5</td><td>Normal behavior</td></tr>
+<tr><td>Warning</td><td>0.5 &lt; score ≤ 0.8</td><td>Monitor closely</td></tr>
+<tr><td>Drift</td><td>score &gt; 0.8</td><td>Investigate immediately</td></tr>
+</tbody></table>
+</div>
+<h2 id="extension-points"><a class="header" href="#extension-points">Extension Points</a></h2>
+<h3 id="resource-type-registry"><a class="header" href="#resource-type-registry">Resource Type Registry</a></h3>
+<p>Adding a new resource type requires:</p>
+<ol>
+<li>
+<p>Create <code>src/resources/new_type.rs</code> with three functions:</p>
+<ul>
+<li><code>check_script(resource) → String</code></li>
+<li><code>apply_script(resource) → String</code></li>
+<li><code>state_query_script(resource) → String</code></li>
+</ul>
+</li>
+<li>
+<p>Add the type to <code>ResourceType</code> enum in <code>types.rs</code></p>
+</li>
+<li>
+<p>Add dispatch arms in <code>codegen.rs</code> for all three functions</p>
+</li>
+<li>
+<p>Add validation rules in <code>parser.rs</code></p>
+</li>
+<li>
+<p>The contract system (<code>build.rs</code>) will flag missing dispatch arms at compile time</p>
+</li>
+</ol>
+<h3 id="custom-transport"><a class="header" href="#custom-transport">Custom Transport</a></h3>
+<p>Adding a new transport follows the same pattern as container:</p>
+<ol>
+<li>Create <code>src/transport/new_transport.rs</code> with <code>exec_script(machine, script) → Result</code></li>
+<li>Add dispatch in <code>transport/mod.rs</code></li>
+<li>Add validation in <code>parser.rs</code> for the new transport type</li>
+</ol>
+<h2 id="error-handling-strategy"><a class="header" href="#error-handling-strategy">Error Handling Strategy</a></h2>
+<h3 id="error-accumulation"><a class="header" href="#error-accumulation">Error Accumulation</a></h3>
+<p>Validation collects ALL errors before reporting. This is critical for UX — users should see every problem at once, not play whack-a-mole:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Parser validates all resources, collecting errors
+let mut errors: Vec&lt;String&gt; = Vec::new();
+for (id, resource) in &amp;config.resources {
+    if let Err(e) = validate_resource(id, resource) {
+        errors.push(e);
+    }
+}
+if !errors.is_empty() {
+    return Err(format!("validation errors:\n  - {}", errors.join("\n  - ")));
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="error-propagation-by-phase"><a class="header" href="#error-propagation-by-phase">Error Propagation by Phase</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Phase</th><th>Error Behavior</th></tr></thead><tbody>
+<tr><td>Parse</td><td>Fail immediately on invalid YAML syntax</td></tr>
+<tr><td>Validate</td><td>Accumulate all errors, report together</td></tr>
+<tr><td>Resolve</td><td>Fail on first unresolvable template (future: accumulate)</td></tr>
+<tr><td>Plan</td><td>Pure computation, cannot fail (returns empty plan for unknown states)</td></tr>
+<tr><td>Apply</td><td>Configurable via policy: <code>stop_on_first</code> or <code>continue_independent</code></td></tr>
+<tr><td>Drift</td><td>Accumulate all findings, report together</td></tr>
+</tbody></table>
+</div>
+<h3 id="failure-policy-deep-dive"><a class="header" href="#failure-policy-deep-dive">Failure Policy Deep Dive</a></h3>
+<p><strong>stop_on_first</strong> (default, Jidoka-inspired):</p>
+<pre><code>Resource A → Converged
+Resource B → Failed ← STOP HERE
+Resource C → Skipped (never attempted)
+</code></pre>
+<p>Partial state is saved — A's lock entry is written, B is marked Failed, C has no entry.</p>
+<p><strong>continue_independent</strong>:</p>
+<pre><code>Resource A → Converged
+Resource B → Failed
+Resource C → Converged (C doesn't depend on B, so it continues)
+Resource D → Skipped (D depends on B, which failed)
+</code></pre>
+<p>Only resources in the failed resource's dependency subtree are skipped. Independent branches continue executing.</p>
+<h2 id="data-flow-1"><a class="header" href="#data-flow-1">Data Flow</a></h2>
+<h3 id="apply-data-flow"><a class="header" href="#apply-data-flow">Apply Data Flow</a></h3>
+<p>The complete data flow during <code>forjar apply</code>:</p>
+<pre><code>forjar.yaml
+    │
+    ▼
+Parse (YAML → ForjarConfig)
+    │
+    ▼
+Validate (structural checks, accumulate errors)
+    │
+    ▼
+Expand Recipes (type: recipe → expanded resources)
+    │
+    ▼
+Resolve Templates ({{params.X}}, {{secrets.X}}, {{machine.X.Y}})
+    │
+    ▼
+Build DAG (Kahn's topological sort)
+    │
+    ▼
+Plan (compare hash_desired vs lock_hash → Create/Update/NoOp/Destroy)
+    │
+    ▼
+For each machine:
+    │
+    ├── Load lock (state/{machine}/state.lock.yaml)
+    │
+    ├── For each resource (in topo order):
+    │   ├── Codegen: check_script → apply_script → state_query_script
+    │   ├── Transport: exec_script(machine, script)
+    │   ├── Hash: blake3(applied state)
+    │   └── Record: lock entry + event log
+    │
+    ├── Save lock (atomic write)
+    └── Update global lock
+</code></pre>
+<h3 id="state-file-hierarchy"><a class="header" href="#state-file-hierarchy">State File Hierarchy</a></h3>
+<pre><code>state/
+├── forjar.lock.yaml          # Global lock: machine summaries
+├── web-server/
+│   ├── state.lock.yaml       # Per-machine: resource hashes + status
+│   ├── events.jsonl          # Append-only event log
+│   └── trace.jsonl           # W3C trace spans + Lamport clocks
+├── db-server/
+│   ├── state.lock.yaml
+│   ├── events.jsonl
+│   └── trace.jsonl
+└── cache-server/
+    ├── state.lock.yaml
+    ├── events.jsonl
+    └── trace.jsonl
+</code></pre>
+<h2 id="design-decisions"><a class="header" href="#design-decisions">Design Decisions</a></h2>
+<h3 id="why-shell-scripts"><a class="header" href="#why-shell-scripts">Why Shell Scripts?</a></h3>
+<p>Forjar generates shell scripts rather than using a remote API or agent. This is a deliberate design choice:</p>
+<ol>
+<li><strong>Zero dependencies on target</strong> — Needs only <code>bash</code> and standard Unix utilities. No agent, no runtime, no package manager.</li>
+<li><strong>Auditable</strong> — Every action is a readable shell command. Run <code>forjar plan --show-scripts</code> to see exactly what will execute.</li>
+<li><strong>Transportable</strong> — Same script works over SSH, inside containers, or locally. The transport layer just pipes stdin.</li>
+<li><strong>Debuggable</strong> — If something fails, you can copy the script and run it manually on the target machine.</li>
+</ol>
+<h3 id="why-blake3"><a class="header" href="#why-blake3">Why BLAKE3?</a></h3>
+<p>BLAKE3 was chosen over SHA-256 for:</p>
+<ul>
+<li><strong>Speed</strong>: 4-14x faster depending on hardware (SIMD-accelerated)</li>
+<li><strong>Streaming</strong>: Built-in streaming support with constant memory</li>
+<li><strong>Deterministic</strong>: No initialization vector variations</li>
+<li><strong>Modern</strong>: Released 2020, security-audited, no known weaknesses</li>
+</ul>
+<h3 id="why-yaml"><a class="header" href="#why-yaml">Why YAML?</a></h3>
+<p>Despite YAML's complexity pitfalls, it was chosen because:</p>
+<ul>
+<li>Infrastructure engineers already know YAML from Kubernetes, Ansible, Docker Compose</li>
+<li>Multi-line strings (for <code>content</code> fields) are natural</li>
+<li>Comments are supported (unlike JSON)</li>
+<li>Mature Rust parsing ecosystem (serde_yaml_ng)</li>
+</ul>
+<h3 id="why-not-hclnixtoml"><a class="header" href="#why-not-hclnixtoml">Why Not HCL/Nix/TOML?</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Format</th><th>Why Not</th></tr></thead><tbody>
+<tr><td>HCL</td><td>Terraform lock-in perception; complex interpolation syntax</td></tr>
+<tr><td>Nix</td><td>Steep learning curve; requires Nix toolchain</td></tr>
+<tr><td>TOML</td><td>Poor multi-line string support; awkward for nested structures</td></tr>
+<tr><td>JSON</td><td>No comments; verbose; poor ergonomics for human editing</td></tr>
+</tbody></table>
+</div>
+<h2 id="transport-layer"><a class="header" href="#transport-layer">Transport Layer</a></h2>
+<h3 id="transport-abstraction"><a class="header" href="#transport-abstraction">Transport Abstraction</a></h3>
+<p>All four transports share a single interface:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn exec_script(machine: &amp;Machine, script: &amp;str) -&gt; Result&lt;ScriptOutput, String&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>The dispatch logic (priority order):</p>
+<ol>
+<li><strong>Pepita</strong> (<code>transport == "pepita"</code>): <code>nsenter --target &lt;pid&gt; --mount --pid --net -- bash</code></li>
+<li><strong>Container</strong> (<code>transport == "container"</code>): <code>docker exec -i &lt;name&gt; bash</code></li>
+<li><strong>Local</strong> (<code>addr == "127.0.0.1"</code> or <code>"localhost"</code>): Direct <code>bash -c</code></li>
+<li><strong>SSH</strong> (everything else): <code>ssh -o StrictHostKeyChecking=no user@addr bash</code></li>
+</ol>
+<h3 id="script-piping-pattern"><a class="header" href="#script-piping-pattern">Script Piping Pattern</a></h3>
+<p>Every transport uses the same mechanism — pipe the script to bash's stdin:</p>
+<pre><code>echo "#!/bin/bash\nset -euo pipefail\n&lt;script&gt;" | bash
+</code></pre>
+<p>This is critical for:</p>
+<ul>
+<li><strong>Security</strong>: No script files left on target machines</li>
+<li><strong>Atomicity</strong>: Entire script executes in one process</li>
+<li><strong>Cleanup</strong>: No artifacts to remove after execution</li>
+</ul>
+<h3 id="container-lifecycle-1"><a class="header" href="#container-lifecycle-1">Container Lifecycle</a></h3>
+<p>Container transport has an additional lifecycle:</p>
+<pre><code>ensure_container() → exec_script() → cleanup_container()
+</code></pre>
+<ul>
+<li><strong>Ephemeral</strong> (default): Container created before first resource, destroyed after all resources complete</li>
+<li><strong>Attached</strong>: Container must already be running, not destroyed after</li>
+</ul>
+<h3 id="pepita-namespace-lifecycle"><a class="header" href="#pepita-namespace-lifecycle">Pepita Namespace Lifecycle</a></h3>
+<p>Pepita transport uses Linux kernel namespaces (zero Docker dependency):</p>
+<pre><code>ensure_namespace() → exec_pepita() → cleanup_namespace()
+</code></pre>
+<ul>
+<li><strong>ensure_namespace</strong>: <code>unshare --fork --pid --mount --net --mount-proc -- sleep infinity</code>, writes PID to <code>/run/forjar/&lt;name&gt;.pid</code>, applies cgroup v2 limits</li>
+<li><strong>exec_pepita</strong>: <code>nsenter --target &lt;pid&gt; --mount --pid [--net] -- bash</code> with script piped to stdin</li>
+<li><strong>cleanup_namespace</strong>: <code>kill -9 &lt;pid&gt;</code>, removes PID file and cgroup directory</li>
+<li><strong>Ephemeral</strong> (default): Namespace destroyed after apply</li>
+<li><strong>Persistent</strong> (<code>ephemeral: false</code>): Namespace left running</li>
+</ul>
+<p>Requires <code>CAP_SYS_ADMIN</code> or root.</p>
+<h3 id="copia-delta-sync-fj-242"><a class="header" href="#copia-delta-sync-fj-242">Copia Delta Sync (FJ-242)</a></h3>
+<p>For file resources with <code>source:</code> fields pointing to files &gt; 1MB, the executor uses a two-phase delta sync protocol instead of full base64 transfer:</p>
+<pre><code>Phase 1: signature_script(path) → transport → parse remote block hashes
+Phase 2: compute_delta(local, remote) → patch_script(path, delta) → transport
+</code></pre>
+<p>The algorithm:</p>
+<ol>
+<li><strong>Signature</strong>: Execute a shell script on the remote that outputs BLAKE3 hashes for each 4KB block of the existing file</li>
+<li><strong>Delta</strong>: Compare local file blocks against remote hashes — matching blocks produce <code>Copy</code> ops, differing blocks produce <code>Literal</code> ops</li>
+<li><strong>Patch</strong>: Generate a shell script that reconstructs the file using <code>dd</code> for copied blocks and <code>base64 -d</code> for literal blocks, then atomically replaces the file via temp+mv</li>
+</ol>
+<p>Falls back to full base64 for new files (signature returns <code>NEW_FILE</code>) or files ≤ 1MB (overhead not worth it). Critical for deploying 4-7GB GGUF model files where fine-tuning changes ~2% of blocks.</p>
+<p>Module: <code>src/copia/mod.rs</code> (no external dependencies — uses blake3 and base64 already in Cargo.toml).</p>
+<h3 id="ssh-multiplexing"><a class="header" href="#ssh-multiplexing">SSH Multiplexing</a></h3>
+<p>For multi-resource machines, SSH connections are reused via <code>ControlMaster</code>:</p>
+<pre><code>ssh -o ControlMaster=auto -o ControlPath=/tmp/forjar-%h -o ControlPersist=60
+</code></pre>
+<p>This avoids the TCP+SSH handshake overhead per resource.</p>
+<h2 id="concurrency-model-1"><a class="header" href="#concurrency-model-1">Concurrency Model</a></h2>
+<h3 id="sequential-by-default"><a class="header" href="#sequential-by-default">Sequential by Default</a></h3>
+<p>Resources are applied in topological order (from DAG) within each machine. Cross-machine parallelism is supported via the <code>parallel</code> policy:</p>
+<pre><code class="language-yaml">policy:
+  parallel: true       # Apply machines in parallel
+  failure: continue    # Don't stop on first failure
+</code></pre>
+<h3 id="error-accumulation-1"><a class="header" href="#error-accumulation-1">Error Accumulation</a></h3>
+<p>When <code>failure: continue_independent</code> is set, forjar collects all errors and reports them together:</p>
+<pre><code>✗ web: 2 failed, 3 converged
+  - nginx-conf: permission denied
+  - ssl-cert: file not found
+✓ db: 5 converged
+</code></pre>
+<p>The executor tracks which resources depend on failed ones and skips them transitively.</p>
+<h2 id="contract-system"><a class="header" href="#contract-system">Contract System</a></h2>
+<h3 id="compile-time-verification"><a class="header" href="#compile-time-verification">Compile-Time Verification</a></h3>
+<p>Forjar uses <code>provable_contracts_macros</code> to verify bindings at compile time:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[contract("dag-ordering-v1", equation = "topological_sort")]
+pub fn build_execution_order(config: &amp;ForjarConfig) -&gt; Result&lt;Vec&lt;String&gt;, String&gt; { ... }
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>build.rs</code> script verifies all 13 contract bindings exist and are correctly annotated. This ensures:</p>
+<ul>
+<li>Critical algorithms (DAG sort, hash computation, script generation) are marked</li>
+<li>Refactoring doesn't accidentally remove or rename contracted functions</li>
+<li>CI catches contract violations before deployment</li>
+</ul>
+<h3 id="current-contracts"><a class="header" href="#current-contracts">Current Contracts</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Contract</th><th>Equation</th><th>Function</th></tr></thead><tbody>
+<tr><td>dag-ordering-v1</td><td>topological_sort</td><td><code>build_execution_order</code></td></tr>
+<tr><td>state-lock-v1</td><td>atomic_update</td><td><code>update_lock</code></td></tr>
+<tr><td>hash-desired-v1</td><td>composite_hash</td><td><code>hash_desired_state</code></td></tr>
+<tr><td>hash-file-v1</td><td>blake3_file</td><td><code>hash_file</code></td></tr>
+<tr><td>codegen-v1</td><td>check_script</td><td><code>check_script</code></td></tr>
+<tr><td>codegen-v1</td><td>apply_script</td><td><code>apply_script</code></td></tr>
+<tr><td>codegen-v1</td><td>state_query</td><td><code>state_query_script</code></td></tr>
+<tr><td>drift-v1</td><td>detect_drift</td><td><code>detect_drift</code></td></tr>
+<tr><td>exec-v1</td><td>apply_machine</td><td><code>apply_machine</code></td></tr>
+<tr><td>parse-v1</td><td>validate</td><td><code>validate_config</code></td></tr>
+<tr><td>transport-v1</td><td>exec_script</td><td><code>exec_script</code></td></tr>
+<tr><td>eventlog-v1</td><td>append_event</td><td><code>append_event</code></td></tr>
+<tr><td>plan-v1</td><td>plan</td><td><code>plan</code></td></tr>
+<tr><td>mcp-v1</td><td>forjar_validate</td><td><code>ValidateHandler</code></td></tr>
+<tr><td>mcp-v1</td><td>forjar_plan</td><td><code>PlanHandler</code></td></tr>
+<tr><td>mcp-v1</td><td>forjar_drift</td><td><code>DriftHandler</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="mcp-integration-fj-063"><a class="header" href="#mcp-integration-fj-063">MCP Integration (FJ-063)</a></h2>
+<p>Forjar exposes its operations as MCP (Model Context Protocol) tools via the
+pforge framework. This enables AI agents and LLM-powered tools to manage
+infrastructure through the same validated pipeline as the CLI.</p>
+<h3 id="architecture-1"><a class="header" href="#architecture-1">Architecture</a></h3>
+<pre><code>┌─────────────────────────────────┐
+│  AI Agent (Claude, etc.)        │
+│  MCP Client                     │
+└──────────┬──────────────────────┘
+           │ MCP Protocol (stdio)
+           ▼
+┌─────────────────────────────────┐
+│  pforge McpServer               │
+│  └── pmcp protocol handler      │
+│  └── HandlerRegistry (O(1))     │
+└──────────┬──────────────────────┘
+           │ dispatch(tool, params)
+           ▼
+┌─────────────────────────────────┐
+│  forjar MCP Handlers (9)        │
+│  ├── ValidateHandler            │
+│  ├── PlanHandler                │
+│  ├── DriftHandler               │
+│  ├── LintHandler                │
+│  ├── GraphHandler               │
+│  ├── ShowHandler                │
+│  ├── StatusHandler              │
+│  ├── TraceHandler               │
+│  └── AnomalyHandler            │
+└──────────┬──────────────────────┘
+           │ calls forjar core
+           ▼
+┌─────────────────────────────────┐
+│  parser → resolver → planner    │
+│  → codegen → executor           │
+└─────────────────────────────────┘
+</code></pre>
+<h3 id="tool-registry"><a class="header" href="#tool-registry">Tool Registry</a></h3>
+<p>Each handler implements the pforge <code>Handler</code> trait with typed input/output:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[async_trait]
+impl Handler for ValidateHandler {
+    type Input = ValidateInput;    // { path: String }
+    type Output = ValidateOutput;  // { valid, resource_count, errors }
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&amp;self, input: Self::Input) -&gt; Result&lt;Self::Output&gt; {
+        let config = parser::parse_and_validate(&amp;PathBuf::from(&amp;input.path))?;
+        Ok(ValidateOutput { valid: true, ... })
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p>JSON Schema is auto-generated from the Rust types via <code>schemars</code>, enabling
+MCP clients to discover tool parameters without documentation.</p>
+<h3 id="available-tools"><a class="header" href="#available-tools">Available Tools</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Tool</th><th>Description</th><th>Input</th></tr></thead><tbody>
+<tr><td><code>forjar_validate</code></td><td>Validate forjar.yaml</td><td><code>{ path }</code></td></tr>
+<tr><td><code>forjar_plan</code></td><td>Show execution plan</td><td><code>{ path, state_dir?, resource?, tag? }</code></td></tr>
+<tr><td><code>forjar_drift</code></td><td>Detect configuration drift</td><td><code>{ path, state_dir?, machine? }</code></td></tr>
+<tr><td><code>forjar_lint</code></td><td>Lint config + shell safety</td><td><code>{ path }</code></td></tr>
+<tr><td><code>forjar_graph</code></td><td>Generate dependency graph</td><td><code>{ path, format? }</code></td></tr>
+<tr><td><code>forjar_show</code></td><td>Show resolved config</td><td><code>{ path, resource? }</code></td></tr>
+<tr><td><code>forjar_status</code></td><td>Show state from locks</td><td><code>{ state_dir?, machine? }</code></td></tr>
+<tr><td><code>forjar_trace</code></td><td>View trace provenance data</td><td><code>{ state_dir?, machine? }</code></td></tr>
+<tr><td><code>forjar_anomaly</code></td><td>ML-inspired anomaly detection</td><td><code>{ state_dir?, machine?, min_events? }</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="starting-the-mcp-server"><a class="header" href="#starting-the-mcp-server">Starting the MCP Server</a></h3>
+<pre><code class="language-bash">forjar mcp
+</code></pre>
+<p>This starts a stdio MCP server using pforge's McpServer. Configure in
+your MCP client (e.g., Claude Desktop, VS Code) with:</p>
+<pre><code class="language-json">{
+  "mcpServers": {
+    "forjar": {
+      "command": "forjar",
+      "args": ["mcp"]
+    }
+  }
+}
+</code></pre>
+<h2 id="container-build-pipeline-fj-2101"><a class="header" href="#container-build-pipeline-fj-2101">Container Build Pipeline (FJ-2101)</a></h2>
+<p>Forjar builds OCI-compliant container images using a layered assembly pipeline:</p>
+<pre><code>ImageBuildPlan
+    │
+    ▼
+┌──────────────┐
+│ Base Image    │  Pull + extract (or scratch)
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ Layer Builder │  Deterministic tar (sorted, epoch mtime)
+│              │  Dual digest: BLAKE3 (internal) + SHA-256 (OCI)
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ Layer Cache   │  Content-addressed via BLAKE3 store
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ OCI Layout    │  manifest.json + blobs/sha256/
+└──────────────┘
+</code></pre>
+<p><strong>Layer strategies:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Source</th><th>Use Case</th></tr></thead><tbody>
+<tr><td>Packages</td><td>Package manager</td><td>System dependencies</td></tr>
+<tr><td>Files</td><td>File paths</td><td>Configuration files</td></tr>
+<tr><td>Build</td><td>Shell command + overlay diff</td><td>Application builds</td></tr>
+<tr><td>Derivation</td><td>Store derivation output</td><td>Nix-style hermetic builds</td></tr>
+</tbody></table>
+</div>
+<p><strong>Overlay-to-OCI whiteout conversion</strong>: When building from overlay filesystem diffs, deleted files are converted to OCI whiteout markers (<code>.wh.&lt;name&gt;</code>) and opaque directories (<code>.wh..wh..opq</code>).</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="04-recipes.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="06-cli.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="04-recipes.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="06-cli.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

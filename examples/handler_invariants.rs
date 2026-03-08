@@ -10,10 +10,12 @@ use forjar::core::types::{Resource, ResourceType};
 
 fn main() {
     // File resource: content determines hash, not metadata
-    let mut file = Resource::default();
-    file.resource_type = ResourceType::File;
-    file.path = Some("/etc/app.conf".into());
-    file.content = Some("port=8080".into());
+    let mut file = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/app.conf".into()),
+        content: Some("port=8080".into()),
+        ..Default::default()
+    };
 
     let base_hash = hash_desired_state(&file);
     println!("File base hash:      {base_hash}");
@@ -29,9 +31,11 @@ fn main() {
     assert_eq!(base_hash, dep_hash, "depends_on must not affect hash");
 
     // Package resource: packages list determines hash
-    let mut pkg = Resource::default();
-    pkg.resource_type = ResourceType::Package;
-    pkg.packages = vec!["nginx".into(), "certbot".into()];
+    let pkg = Resource {
+        resource_type: ResourceType::Package,
+        packages: vec!["nginx".into(), "certbot".into()],
+        ..Default::default()
+    };
 
     let pkg_hash = hash_desired_state(&pkg);
     println!("\nPackage hash:        {pkg_hash}");

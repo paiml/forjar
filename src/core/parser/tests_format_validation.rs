@@ -1,7 +1,5 @@
 //! Tests for FJ-2501 format validation (mode, port, path, owner, cron).
 
-#![cfg(test)]
-
 use super::format_validation::*;
 use crate::core::types::ForjarConfig;
 

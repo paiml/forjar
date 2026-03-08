@@ -1,7 +1,6 @@
 //! Tests for FJ-2701 input/output tracking.
 
 use super::io_tracking::*;
-use std::io::Write;
 
 #[test]
 fn hash_inputs_empty_patterns() {

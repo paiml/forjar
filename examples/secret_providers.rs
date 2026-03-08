@@ -14,6 +14,7 @@ fn main() {
     demo_redaction();
 }
 
+#[allow(clippy::disallowed_methods)]
 fn demo_env_provider() {
     println!("=== FJ-2300: Env Secret Provider ===\n");
 

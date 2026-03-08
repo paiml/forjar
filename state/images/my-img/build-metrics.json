@@ -1,0 +1,16 @@
+{
+  "tag": "myapp:1.0",
+  "layer_count": 1,
+  "total_size": 94,
+  "layers": [
+    {
+      "file_count": 1,
+      "uncompressed_size": 1536,
+      "compressed_size": 94
+    }
+  ],
+  "duration_secs": 0.001464818,
+  "built_at": "2026-03-07T22:36:19Z",
+  "forjar_version": "1.1.1",
+  "target_arch": "x86_64"
+}

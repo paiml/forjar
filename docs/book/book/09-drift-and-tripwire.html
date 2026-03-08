@@ -1,0 +1,1045 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Drift Detection &amp; Tripwire - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="drift-detection--tripwire"><a class="header" href="#drift-detection--tripwire">Drift Detection &amp; Tripwire</a></h1>
+<p>Drift detection is forjar's mechanism for discovering unauthorized changes — modifications made to managed infrastructure outside of <code>forjar apply</code>. This chapter covers how drift detection works, how to use it, and how to integrate it into your workflow.</p>
+<h2 id="how-drift-detection-works"><a class="header" href="#how-drift-detection-works">How Drift Detection Works</a></h2>
+<p>Every <code>forjar apply</code> records a BLAKE3 hash of each resource's state in the lock file (<code>state/{machine}/state.lock.yaml</code>). Drift detection re-checks the live state and compares it to the recorded hash.</p>
+<h3 id="file-resources"><a class="header" href="#file-resources">File Resources</a></h3>
+<p>For file resources, forjar computes a BLAKE3 hash of the file contents on disk:</p>
+<pre><code># Lock file entry (after apply)
+config-file:
+  type: file
+  status: converged
+  hash: "blake3:7f83b1657ff1fc53b..."
+  details:
+    path: /etc/nginx/nginx.conf
+    content_hash: "blake3:7f83b1657ff1fc53b..."
+</code></pre>
+<p>During drift detection, forjar re-reads the file and computes <code>blake3(file_contents)</code>. If the hash differs, drift is reported.</p>
+<ul>
+<li><strong>Files</strong>: BLAKE3 of file contents</li>
+<li><strong>Directories</strong>: BLAKE3 of sorted <code>(relative_path, file_hash)</code> pairs</li>
+<li><strong>Symlinks</strong>: Skipped during directory hashing</li>
+</ul>
+<h3 id="non-file-resources"><a class="header" href="#non-file-resources">Non-File Resources</a></h3>
+<p>For packages, services, mounts, users, cron jobs, docker containers, and network rules, forjar re-runs the resource's <code>state_query_script</code> via transport and compares the BLAKE3 hash of the output to the <code>live_hash</code> stored at apply time.</p>
+<pre><code># Lock file entry with live_hash
+nginx-service:
+  type: service
+  status: converged
+  hash: "blake3:a1b2c3..."
+  details:
+    service_name: nginx
+    live_hash: "blake3:d4e5f6..."
+</code></pre>
+<p>The <code>state_query_script</code> captures the current state:</p>
+<pre><code class="language-bash"># Service state query
+systemctl show 'nginx' --property=ActiveState,SubState,UnitFileState 2&gt;/dev/null || echo 'MISSING'
+
+# Package state query
+dpkg-query -W -f='${Package}=${Version}\n' curl htop 2&gt;/dev/null || echo 'MISSING'
+
+# User state query
+id 'deploy' &gt;/dev/null 2&gt;&amp;1 &amp;&amp; {
+  echo "user=deploy"
+  echo "uid=$(id -u 'deploy')"
+  echo "shell=$(getent passwd 'deploy' | cut -d: -f7)"
+} || echo 'user=MISSING'
+</code></pre>
+<h2 id="using-drift-detection"><a class="header" href="#using-drift-detection">Using Drift Detection</a></h2>
+<h3 id="basic-drift-check"><a class="header" href="#basic-drift-check">Basic Drift Check</a></h3>
+<pre><code class="language-bash"># Check all machines for drift
+forjar drift -f forjar.yaml
+
+# Check a specific machine
+forjar drift -f forjar.yaml -m web-server
+
+# Dry run — list what would be checked without connecting
+forjar drift -f forjar.yaml --dry-run
+</code></pre>
+<p>Output shows each finding with expected vs actual hash:</p>
+<pre><code>DRIFT DETECTED: 2 finding(s)
+
+  web-server/config-file:
+    expected: blake3:7f83b1657ff1fc53b...
+    actual:   blake3:9a4e2d1c3b5f7a8e0...
+    detail:   /etc/nginx/nginx.conf content changed
+
+  web-server/nginx-service:
+    expected: blake3:d4e5f6789abc012...
+    actual:   blake3:1a2b3c4d5e6f789...
+    detail:   service state changed
+</code></pre>
+<h3 id="json-output"><a class="header" href="#json-output">JSON Output</a></h3>
+<p>For scripting and CI integration:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --json
+</code></pre>
+<pre><code class="language-json">{
+  "drift_count": 2,
+  "findings": [
+    {
+      "machine": "web-server",
+      "resource": "config-file",
+      "expected": "blake3:7f83b...",
+      "actual": "blake3:9a4e2...",
+      "detail": "/etc/nginx/nginx.conf content changed"
+    }
+  ]
+}
+</code></pre>
+<h3 id="tripwire-mode"><a class="header" href="#tripwire-mode">Tripwire Mode</a></h3>
+<p>Use <code>--tripwire</code> to exit non-zero on any drift — ideal for CI/cron:</p>
+<pre><code class="language-bash"># Exit code 1 if any drift detected
+forjar drift -f forjar.yaml --tripwire
+
+# Use in CI pipeline
+forjar drift -f forjar.yaml --tripwire || notify-slack "Drift detected!"
+</code></pre>
+<h3 id="alert-commands"><a class="header" href="#alert-commands">Alert Commands</a></h3>
+<p>Run a custom command when drift is detected:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --alert-cmd "slack-notify.sh"
+</code></pre>
+<p>The alert command receives <code>$FORJAR_DRIFT_COUNT</code> as an environment variable.</p>
+<h3 id="auto-remediation"><a class="header" href="#auto-remediation">Auto-Remediation</a></h3>
+<p>Automatically re-apply all resources to restore desired state:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --auto-remediate
+</code></pre>
+<p>This is equivalent to detecting drift and then running <code>forjar apply --force</code>. Use with caution — verify the config is still correct before auto-remediating.</p>
+<h2 id="scheduled-drift-detection"><a class="header" href="#scheduled-drift-detection">Scheduled Drift Detection</a></h2>
+<h3 id="cron-based-monitoring"><a class="header" href="#cron-based-monitoring">Cron-Based Monitoring</a></h3>
+<p>Add a cron job to check for drift periodically:</p>
+<pre><code class="language-bash"># Check every 15 minutes, alert on drift
+*/15 * * * * cd /opt/infra &amp;&amp; forjar drift -f forjar.yaml --tripwire --alert-cmd "/opt/scripts/drift-alert.sh" &gt;&gt; /var/log/forjar-drift.log 2&gt;&amp;1
+</code></pre>
+<h3 id="systemd-timer"><a class="header" href="#systemd-timer">Systemd Timer</a></h3>
+<p>For systemd-based scheduling:</p>
+<pre><code class="language-ini"># /etc/systemd/system/forjar-drift.service
+[Unit]
+Description=Forjar drift detection
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/infra
+ExecStart=/usr/local/bin/forjar drift -f forjar.yaml --tripwire --alert-cmd "/opt/scripts/alert.sh"
+
+# /etc/systemd/system/forjar-drift.timer
+[Unit]
+Description=Run forjar drift check every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target
+</code></pre>
+<h2 id="drift-investigation-workflow"><a class="header" href="#drift-investigation-workflow">Drift Investigation Workflow</a></h2>
+<p>When drift is detected, follow this workflow to diagnose and resolve:</p>
+<pre><code class="language-bash"># 1. Detect drift
+forjar drift -f forjar.yaml --json &gt; /tmp/drift-report.json
+
+# 2. Inspect findings
+cat /tmp/drift-report.json | jq '.findings[] | {resource: .resource, detail: .detail}'
+
+# 3. Check event history for the drifted resource
+forjar history -m web-server -n 20 | grep config-file
+
+# 4. Compare expected vs actual
+forjar show -f forjar.yaml -r config-file --json | jq '.content'
+ssh web-server "cat /etc/nginx/nginx.conf"
+
+# 5. Decide: remediate or accept
+# Option A: Restore desired state
+forjar apply -f forjar.yaml --force -r config-file
+
+# Option B: Update config to match live state
+# Edit forjar.yaml, then apply
+</code></pre>
+<h3 id="root-cause-analysis"><a class="header" href="#root-cause-analysis">Root Cause Analysis</a></h3>
+<p>Common drift causes and their signatures:</p>
+<div class="table-wrapper"><table><thead><tr><th>Pattern</th><th>Likely Cause</th><th>Resolution</th></tr></thead><tbody>
+<tr><td>Single file drifts repeatedly</td><td>Manual edits by operators</td><td>Add comment "Managed by forjar — do not edit"</td></tr>
+<tr><td>Package version changes</td><td>Auto-updates (unattended-upgrades)</td><td>Pin version in config</td></tr>
+<tr><td>Service state toggles</td><td>External monitoring restarts</td><td>Coordinate with monitoring team</td></tr>
+<tr><td>Multiple resources drift together</td><td>Ansible/puppet overlap</td><td>Remove competing tool</td></tr>
+<tr><td>Drift only on one machine</td><td>SSH'd in and made changes</td><td>Audit SSH access logs</td></tr>
+</tbody></table>
+</div>
+<h2 id="anomaly-detection"><a class="header" href="#anomaly-detection">Anomaly Detection</a></h2>
+<p>Beyond simple drift, <code>forjar anomaly</code> analyzes event history to find resources with suspicious patterns using ML-inspired algorithms from the aprender ecosystem.</p>
+<pre><code class="language-bash">forjar anomaly --state-dir state
+</code></pre>
+<h3 id="what-it-detects"><a class="header" href="#what-it-detects">What It Detects</a></h3>
+<p><strong>High churn</strong> — Resources that converge abnormally often, detected via rank-based isolation scoring. A resource with a converge count far from the population norm receives a high isolation score. This suggests the resource is being externally modified and re-converged repeatedly.</p>
+<p><strong>High failure rate</strong> — Resources with disproportionately many failures, detected via isolation scoring on failure counts. Indicates a persistent configuration problem or unreliable handler.</p>
+<p><strong>Drift events</strong> — Any resource that has had drift detected in its history is automatically flagged with a minimum score of 0.7.</p>
+<h3 id="detection-algorithms"><a class="header" href="#detection-algorithms">Detection Algorithms</a></h3>
+<p><strong>ADWIN (Adaptive Windowing)</strong> — For streaming analysis, forjar uses an ADWIN detector that maintains a sliding window of observations and tests for distribution shifts. Based on Bifet &amp; Gavalda 2007, this adapts its window size automatically to detect both abrupt and gradual drift.</p>
+<p><strong>Isolation Scoring</strong> — Each resource's metrics are scored against the population using a combination of rank-based scoring (robust to outliers) and z-score magnitude. Score range: 0.0 (normal) to 1.0 (extreme anomaly).</p>
+<p><strong>EWMA Z-Score</strong> — Exponentially weighted moving average z-score gives more weight to recent observations. Useful for detecting recent regressions without being thrown off by historical patterns.</p>
+<pre><code>ANOMALIES: 2 finding(s)
+
+  web-server/app-config:
+    type: high_churn
+    converge_count: 47
+    z_score: 3.92
+
+  db-server/mysql-config:
+    type: high_failure_rate
+    total_events: 10
+    failures: 4
+    rate: 40%
+</code></pre>
+<h3 id="json-output-for-monitoring"><a class="header" href="#json-output-for-monitoring">JSON Output for Monitoring</a></h3>
+<pre><code class="language-bash"># All anomalies
+forjar anomaly --json | jq '.anomalies'
+
+# Only high-churn resources
+forjar anomaly --json | jq '.anomalies[] | select(.type == "high_churn")'
+
+# Resources with failure rate &gt; 30%
+forjar anomaly --json | jq '.anomalies[] | select(.type == "high_failure_rate" and .rate &gt; 30)'
+</code></pre>
+<h3 id="responding-to-anomalies"><a class="header" href="#responding-to-anomalies">Responding to Anomalies</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Anomaly Type</th><th>Investigation</th><th>Fix</th></tr></thead><tbody>
+<tr><td>High churn</td><td>Check who/what is modifying the resource between applies</td><td>Lock down SSH, add file immutability, or increase check interval</td></tr>
+<tr><td>High failure rate</td><td>Check resource error logs in events.jsonl</td><td>Fix underlying issue (package repo, permissions, network)</td></tr>
+<tr><td>Drift detected</td><td>Compare expected vs actual hash</td><td>Re-apply or update config to match reality</td></tr>
+</tbody></table>
+</div>
+<h2 id="trace-provenance"><a class="header" href="#trace-provenance">Trace Provenance</a></h2>
+<p>Every <code>forjar apply</code> generates a renacer-compatible trace session that records the causal ordering and timing of resource applications. Traces are stored as JSONL at <code>state/{machine}/trace.jsonl</code>.</p>
+<h3 id="trace-structure"><a class="header" href="#trace-structure">Trace Structure</a></h3>
+<p>Each apply run creates a trace session with:</p>
+<ul>
+<li><strong>Trace ID</strong> — W3C-compatible 32-char hex identifier, deterministically derived from the run ID</li>
+<li><strong>Root span</strong> — <code>forjar:apply</code> span covering the entire run</li>
+<li><strong>Child spans</strong> — One <code>apply:{resource_id}</code> span per resource, linked to the root via parent_span_id</li>
+<li><strong>Lamport clock</strong> — Monotonically increasing logical clock for causal ordering</li>
+</ul>
+<h3 id="reading-traces"><a class="header" href="#reading-traces">Reading Traces</a></h3>
+<pre><code class="language-bash"># View trace for a machine
+cat state/web-server/trace.jsonl | jq .
+
+# Find slowest resources (&gt;1 second)
+cat state/web-server/trace.jsonl | jq 'select(.duration_us &gt; 1000000) | {name, duration_us}'
+
+# Find failed resources
+cat state/web-server/trace.jsonl | jq 'select(.exit_code != 0)'
+
+# Reconstruct causal order
+cat state/web-server/trace.jsonl | jq -s 'sort_by(.logical_clock) | .[] | {name, logical_clock, action}'
+</code></pre>
+<h3 id="trace-fields"><a class="header" href="#trace-fields">Trace Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>trace_id</code></td><td>W3C trace ID (32 hex chars, same for all spans in a run)</td></tr>
+<tr><td><code>span_id</code></td><td>Unique span ID (16 hex chars)</td></tr>
+<tr><td><code>parent_span_id</code></td><td>Root span ID (null for root span)</td></tr>
+<tr><td><code>name</code></td><td><code>apply:{resource_id}</code> or <code>forjar:apply</code></td></tr>
+<tr><td><code>duration_us</code></td><td>Duration in microseconds</td></tr>
+<tr><td><code>exit_code</code></td><td>0 = success, non-zero = failure</td></tr>
+<tr><td><code>logical_clock</code></td><td>Lamport clock value for causal ordering</td></tr>
+<tr><td><code>content_hash</code></td><td>BLAKE3 hash after apply (if available)</td></tr>
+</tbody></table>
+</div>
+<h2 id="event-log"><a class="header" href="#event-log">Event Log</a></h2>
+<p>Every <code>forjar apply</code> and drift check writes to the event log at <code>state/{machine}/events.jsonl</code>. This is an append-only audit trail.</p>
+<h3 id="event-types"><a class="header" href="#event-types">Event Types</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>apply_started</code></td><td>Apply run begins (includes run_id, forjar version)</td></tr>
+<tr><td><code>resource_started</code></td><td>Individual resource apply begins</td></tr>
+<tr><td><code>resource_converged</code></td><td>Resource successfully converged (includes hash, duration)</td></tr>
+<tr><td><code>resource_failed</code></td><td>Resource apply failed (includes error message)</td></tr>
+<tr><td><code>apply_completed</code></td><td>Apply run finishes (includes summary counts)</td></tr>
+</tbody></table>
+</div>
+<h3 id="reading-event-logs"><a class="header" href="#reading-event-logs">Reading Event Logs</a></h3>
+<pre><code class="language-bash"># Show last 10 events
+forjar history --state-dir state
+
+# Show events for a specific machine
+forjar history -m web-server -n 20
+
+# JSON output for parsing
+forjar history --json | jq '.events[] | select(.event == "resource_failed")'
+</code></pre>
+<h3 id="manual-log-inspection"><a class="header" href="#manual-log-inspection">Manual Log Inspection</a></h3>
+<pre><code class="language-bash"># Raw event log
+cat state/web-server/events.jsonl | jq .
+
+# Find all failures
+cat state/web-server/events.jsonl | jq 'select(.event == "resource_failed")'
+
+# Count events by type
+cat state/web-server/events.jsonl | jq -r '.event' | sort | uniq -c
+</code></pre>
+<h2 id="blake3-hashing"><a class="header" href="#blake3-hashing">BLAKE3 Hashing</a></h2>
+<p>Forjar uses BLAKE3 for all content hashing. BLAKE3 is:</p>
+<ul>
+<li><strong>Fast</strong>: ~4x faster than SHA-256 on modern hardware</li>
+<li><strong>Deterministic</strong>: Same input always produces the same hash</li>
+<li><strong>Streaming</strong>: Handles files of any size with constant memory (64KB buffer)</li>
+</ul>
+<p>Hash format: <code>blake3:{64 hex chars}</code> (71 characters total).</p>
+<h3 id="hash-verification"><a class="header" href="#hash-verification">Hash Verification</a></h3>
+<pre><code class="language-bash"># Verify a file's BLAKE3 hash matches the lock
+b3sum /etc/nginx/nginx.conf
+# Compare to: state/web-server/state.lock.yaml → config-file.details.content_hash
+</code></pre>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ol>
+<li>
+<p><strong>Run drift checks before every apply</strong> — <code>forjar drift</code> before <code>forjar apply</code> shows what changed since the last apply.</p>
+</li>
+<li>
+<p><strong>Use <code>--tripwire</code> in CI</strong> — Catches unauthorized changes before they accumulate.</p>
+</li>
+<li>
+<p><strong>Monitor anomalies weekly</strong> — <code>forjar anomaly</code> identifies resources that need attention.</p>
+</li>
+<li>
+<p><strong>Keep state in git</strong> — <code>forjar apply --auto-commit</code> commits state after each apply, giving you a full history of infrastructure changes.</p>
+</li>
+<li>
+<p><strong>Use <code>--alert-cmd</code> for production</strong> — Don't just log drift; alert your team.</p>
+</li>
+<li>
+<p><strong>Review before remediating</strong> — <code>forjar drift --json</code> lets you review what changed before running <code>--auto-remediate</code>.</p>
+</li>
+</ol>
+<h2 id="drift-detection-internals"><a class="header" href="#drift-detection-internals">Drift Detection Internals</a></h2>
+<h3 id="hash-comparison-pipeline"><a class="header" href="#hash-comparison-pipeline">Hash Comparison Pipeline</a></h3>
+<p>The drift detection pipeline follows this sequence for each resource in the lock file:</p>
+<pre><code>For each resource in state.lock.yaml:
+  1. Skip if status != Converged (failed/drifted resources are excluded)
+  2. Determine resource type:
+     ├── File resource:
+     │   a. Read details.path from lock
+     │   b. Read details.content_hash from lock
+     │   c. Compute blake3(file_contents) on disk
+     │   d. Compare: lock hash vs live hash
+     │   e. If different → DriftFinding { resource_id, detail: "content changed" }
+     │
+     └── Non-file resource (service, package, user, etc.):
+         a. Read details.live_hash from lock
+         b. Re-run state_query_script via transport (local/SSH/container)
+         c. Compute blake3(script_stdout)
+         d. Compare: lock live_hash vs current output hash
+         e. If different → DriftFinding { resource_id, detail: "state changed" }
+</code></pre>
+<h3 id="directory-drift-detection"><a class="header" href="#directory-drift-detection">Directory Drift Detection</a></h3>
+<p>Directory resources use composite hashing — all files in the directory are included:</p>
+<pre><code>hash_directory(path):
+  1. Walk directory recursively (sorted by path)
+  2. Skip symlinks
+  3. For each regular file: compute blake3(contents)
+  4. Concatenate: "relative_path\0hash\0" for all files
+  5. Final hash = blake3(concatenated string)
+</code></pre>
+<p>This means adding, removing, or modifying any file inside a managed directory triggers drift detection.</p>
+<h3 id="skip-conditions"><a class="header" href="#skip-conditions">Skip Conditions</a></h3>
+<p>Drift detection skips resources in these cases:</p>
+<div class="table-wrapper"><table><thead><tr><th>Condition</th><th>Reason</th></tr></thead><tbody>
+<tr><td><code>status == Failed</code></td><td>Resource never converged — no baseline to compare</td></tr>
+<tr><td><code>status == Unknown</code></td><td>No previous state recorded</td></tr>
+<tr><td>Missing <code>path</code> (file resources)</td><td>Cannot hash without a path</td></tr>
+<tr><td>Missing <code>content_hash</code> (file resources)</td><td>No baseline hash to compare</td></tr>
+<tr><td>Missing <code>live_hash</code> (non-file resources)</td><td>No baseline to compare</td></tr>
+<tr><td>Non-string hash values</td><td>Corrupt or malformed lock entry</td></tr>
+</tbody></table>
+</div>
+<h3 id="full-vs-local-drift-detection"><a class="header" href="#full-vs-local-drift-detection">Full vs Local Drift Detection</a></h3>
+<p>Forjar provides two drift detection modes:</p>
+<pre><code class="language-bash"># Local-only (fast): checks files on the local filesystem
+forjar drift -f forjar.yaml --state-dir ./state
+
+# Full (via transport): re-runs state_query_script on remote machines
+forjar drift -f forjar.yaml --state-dir ./state --full
+</code></pre>
+<p>Local drift checks only file resources (because they're on disk). Full drift uses the transport layer to re-query all resource types via their state_query scripts.</p>
+<h2 id="operational-workflows"><a class="header" href="#operational-workflows">Operational Workflows</a></h2>
+<h3 id="pre-deploy-drift-check"><a class="header" href="#pre-deploy-drift-check">Pre-Deploy Drift Check</a></h3>
+<p>Before applying new changes, check for unauthorized modifications:</p>
+<pre><code class="language-bash">#!/bin/bash
+# pre-deploy.sh — run before forjar apply
+
+echo "=== Checking for drift ==="
+drift_output=$(forjar drift -f forjar.yaml --state-dir ./state --json 2&gt;&amp;1)
+drift_count=$(echo "$drift_output" | jq '.findings | length')
+
+if [ "$drift_count" -gt 0 ]; then
+    echo "WARNING: $drift_count resources have drifted:"
+    echo "$drift_output" | jq -r '.findings[] | "  - \(.resource_id): \(.detail)"'
+    echo ""
+    echo "Options:"
+    echo "  1. Review changes: forjar drift --json | jq '.findings'"
+    echo "  2. Accept drift: forjar apply --force"
+    echo "  3. Remediate: forjar drift --auto-remediate"
+    exit 1
+fi
+
+echo "No drift detected. Safe to apply."
+forjar apply -f forjar.yaml --state-dir ./state
+</code></pre>
+<h3 id="ci-drift-monitoring"><a class="header" href="#ci-drift-monitoring">CI Drift Monitoring</a></h3>
+<p>Add a scheduled CI job to detect drift between deploys:</p>
+<pre><code class="language-yaml"># .github/workflows/drift-monitor.yml
+name: Drift Monitor
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install forjar
+        run: cargo install --path .
+      - name: Check drift
+        run: |
+          forjar drift -f forjar.yaml --state-dir ./state --json &gt; drift.json
+          FINDINGS=$(jq '.findings | length' drift.json)
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::warning::$FINDINGS resources have drifted"
+            jq -r '.findings[] | "::warning::\(.resource_id): \(.detail)"' drift.json
+          fi
+</code></pre>
+<h3 id="multi-machine-drift-report"><a class="header" href="#multi-machine-drift-report">Multi-Machine Drift Report</a></h3>
+<p>For fleets with many machines, generate a summary report:</p>
+<pre><code class="language-bash"># drift-report.sh — weekly drift summary
+echo "=== Fleet Drift Report $(date -I) ==="
+
+for machine_dir in state/*/; do
+    machine=$(basename "$machine_dir")
+    lock_file="$machine_dir/state.lock.yaml"
+
+    if [ ! -f "$lock_file" ]; then
+        echo "  $machine: no lock file (never applied)"
+        continue
+    fi
+
+    # Count resources by status
+    converged=$(grep -c "status: converged" "$lock_file" 2&gt;/dev/null || echo 0)
+    failed=$(grep -c "status: failed" "$lock_file" 2&gt;/dev/null || echo 0)
+
+    echo "  $machine: $converged converged, $failed failed"
+done
+
+echo ""
+echo "=== Anomaly Detection ==="
+forjar anomaly --state-dir state --json | jq -r '.anomalies[] | "  ⚠ \(.resource): \(.type) (z-score: \(.z_score))"'
+</code></pre>
+<h2 id="drift-detection-architecture"><a class="header" href="#drift-detection-architecture">Drift Detection Architecture</a></h2>
+<h3 id="hashing-strategy"><a class="header" href="#hashing-strategy">Hashing Strategy</a></h3>
+<p>Forjar uses a two-tier hashing approach to balance precision with performance:</p>
+<p><strong>Tier 1: Desired State Hash</strong> (<code>hash</code> field in lock)</p>
+<p>The desired state hash captures the intent — what the resource <em>should</em> be. It's computed from the resource definition in <code>forjar.yaml</code>:</p>
+<pre><code>hash = blake3(
+    type + name + state + path + content + source + owner + group +
+    mode + target + packages + provider + version + image + ports +
+    volumes + environment + restart + command + schedule + shell +
+    home + from_addr + protocol + action + fs_type + options + restart_on
+)
+</code></pre>
+<p>This hash changes when you modify the config file. The planner uses it to determine whether a resource needs re-applying (Create vs NoOp).</p>
+<p><strong>Tier 2: Live State Hash</strong> (<code>live_hash</code> field in details)</p>
+<p>The live state hash captures reality — what the resource <em>actually is</em>. It's computed from the resource's state query output:</p>
+<pre><code>live_hash = blake3(state_query_script_stdout)
+</code></pre>
+<p>This hash changes when someone or something modifies the live system. Drift detection uses it to determine whether reality still matches the last known state.</p>
+<h3 id="hash-collision-safety"><a class="header" href="#hash-collision-safety">Hash Collision Safety</a></h3>
+<p>BLAKE3 produces 256-bit (32-byte) hashes, giving a collision probability of approximately 1 in 2^128 for random inputs. This is effectively zero for infrastructure management purposes — you're more likely to have a cosmic ray flip a bit in your CPU than encounter a BLAKE3 collision.</p>
+<h3 id="streaming-hashing"><a class="header" href="#streaming-hashing">Streaming Hashing</a></h3>
+<p>For file resources, forjar uses a 64KB streaming buffer to compute BLAKE3 hashes without loading entire files into memory:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Simplified hashing pipeline
+let mut hasher = blake3::Hasher::new();
+let mut buf = [0u8; 65536];
+loop {
+    let n = reader.read(&amp;mut buf)?;
+    if n == 0 { break; }
+    hasher.update(&amp;buf[..n]);
+}
+format!("blake3:{}", hasher.finalize().to_hex())
+<span class="boring">}</span></code></pre></pre>
+<p>This handles multi-gigabyte files efficiently with constant memory usage.</p>
+<h2 id="event-log-internals"><a class="header" href="#event-log-internals">Event Log Internals</a></h2>
+<h3 id="log-format"><a class="header" href="#log-format">Log Format</a></h3>
+<p>Events are stored as newline-delimited JSON (JSONL) at <code>state/{machine}/events.jsonl</code>. Each line is a self-contained JSON object:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:00Z","event":"apply_started","run_id":"a1b2c3","version":"0.1.0"}
+{"ts":"2026-01-15T10:30:01Z","event":"resource_started","resource":"nginx-pkg","type":"package"}
+{"ts":"2026-01-15T10:30:03Z","event":"resource_converged","resource":"nginx-pkg","hash":"blake3:abc...","duration_seconds":2.1}
+{"ts":"2026-01-15T10:30:05Z","event":"apply_completed","resources_converged":1,"resources_failed":0}
+</code></pre>
+<h3 id="event-schema"><a class="header" href="#event-schema">Event Schema</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Present In</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>ISO 8601</td><td>All events</td><td>Timestamp with timezone</td></tr>
+<tr><td><code>event</code></td><td>string</td><td>All events</td><td>Event type identifier</td></tr>
+<tr><td><code>run_id</code></td><td>string</td><td><code>apply_started</code></td><td>Unique run identifier</td></tr>
+<tr><td><code>version</code></td><td>string</td><td><code>apply_started</code></td><td>Forjar version</td></tr>
+<tr><td><code>resource</code></td><td>string</td><td>Resource events</td><td>Resource ID</td></tr>
+<tr><td><code>type</code></td><td>string</td><td><code>resource_started</code></td><td>Resource type</td></tr>
+<tr><td><code>hash</code></td><td>string</td><td><code>resource_converged</code></td><td>BLAKE3 hash after apply</td></tr>
+<tr><td><code>duration_seconds</code></td><td>float</td><td><code>resource_converged</code></td><td>Wall-clock time</td></tr>
+<tr><td><code>error</code></td><td>string</td><td><code>resource_failed</code></td><td>Error message</td></tr>
+<tr><td><code>resources_converged</code></td><td>int</td><td><code>apply_completed</code></td><td>Count</td></tr>
+<tr><td><code>resources_failed</code></td><td>int</td><td><code>apply_completed</code></td><td>Count</td></tr>
+</tbody></table>
+</div>
+<h3 id="log-rotation"><a class="header" href="#log-rotation">Log Rotation</a></h3>
+<p>Event logs grow over time. Forjar does not automatically rotate logs — use standard tools:</p>
+<pre><code class="language-bash"># Rotate logs older than 90 days
+find state/ -name "events.jsonl" -mtime +90 -exec truncate -s 0 {} \;
+
+# Archive and compress
+for f in state/*/events.jsonl; do
+    machine=$(basename $(dirname "$f"))
+    cp "$f" "archive/${machine}-$(date -I).jsonl"
+    gzip "archive/${machine}-$(date -I).jsonl"
+    truncate -s 0 "$f"
+done
+</code></pre>
+<h3 id="log-analysis-queries"><a class="header" href="#log-analysis-queries">Log Analysis Queries</a></h3>
+<p>Common analysis patterns using <code>jq</code>:</p>
+<pre><code class="language-bash"># Average convergence time per resource type
+cat state/web/events.jsonl | \
+  jq -s '[.[] | select(.event == "resource_converged")] |
+         group_by(.type) |
+         map({type: .[0].type, avg_seconds: ([.[].duration_seconds] | add / length)})'
+
+# Find slowest resources (&gt;5s)
+cat state/web/events.jsonl | \
+  jq 'select(.event == "resource_converged" and .duration_seconds &gt; 5)'
+
+# Count failures by resource
+cat state/web/events.jsonl | \
+  jq -s '[.[] | select(.event == "resource_failed")] |
+         group_by(.resource) |
+         map({resource: .[0].resource, failures: length})'
+
+# Timeline of a specific run
+RUN_ID="a1b2c3"
+cat state/web/events.jsonl | \
+  jq "select(.run_id == \"$RUN_ID\" or .event == \"apply_started\")"
+</code></pre>
+<h2 id="tripwire-integration"><a class="header" href="#tripwire-integration">Tripwire Integration</a></h2>
+<h3 id="what-is-tripwire-mode"><a class="header" href="#what-is-tripwire-mode">What is Tripwire Mode?</a></h3>
+<p>Tripwire mode turns drift detection into a binary signal: <strong>clean</strong> (exit 0) or <strong>drifted</strong> (exit 1). This is designed for CI/CD gates and monitoring systems that need a clear pass/fail signal.</p>
+<pre><code class="language-bash"># CI gate: block deploy if drift detected
+forjar drift -f forjar.yaml --tripwire
+if [ $? -ne 0 ]; then
+    echo "Drift detected — resolve before deploying"
+    exit 1
+fi
+</code></pre>
+<h3 id="tripwire-vs-anomaly-detection"><a class="header" href="#tripwire-vs-anomaly-detection">Tripwire vs Anomaly Detection</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>Tripwire</th><th>Anomaly</th></tr></thead><tbody>
+<tr><td><strong>Focus</strong></td><td>Current state deviation</td><td>Historical patterns</td></tr>
+<tr><td><strong>Signal</strong></td><td>Binary (drifted/clean)</td><td>Scored (z-score, rate)</td></tr>
+<tr><td><strong>Speed</strong></td><td>Fast (single check)</td><td>Slower (history analysis)</td></tr>
+<tr><td><strong>Use case</strong></td><td>CI gate, cron alert</td><td>Weekly review, capacity planning</td></tr>
+<tr><td><strong>Data needed</strong></td><td>Lock file + live state</td><td>Event log history</td></tr>
+</tbody></table>
+</div>
+<p>Use tripwire for real-time alerts. Use anomaly detection for trend analysis and root cause investigation.</p>
+<h3 id="provenance-chain"><a class="header" href="#provenance-chain">Provenance Chain</a></h3>
+<p>The combination of lock files, event logs, and drift detection creates a complete provenance chain:</p>
+<pre><code>1. Config change → git commit → forjar plan → hash comparison
+2. forjar apply → event log → lock file update
+3. Drift check → live hash vs lock hash → finding report
+4. Anomaly scan → event pattern analysis → churn/failure alerts
+</code></pre>
+<p>Every change to infrastructure is traceable:</p>
+<ul>
+<li><strong>Who</strong> changed it: git history + event log</li>
+<li><strong>What</strong> changed: BLAKE3 hash comparison</li>
+<li><strong>When</strong> it changed: event timestamps</li>
+<li><strong>Whether</strong> it drifted: drift detection findings</li>
+</ul>
+<h2 id="advanced-drift-patterns"><a class="header" href="#advanced-drift-patterns">Advanced Drift Patterns</a></h2>
+<h3 id="incremental-drift-detection"><a class="header" href="#incremental-drift-detection">Incremental Drift Detection</a></h3>
+<p>For large fleets, check drift incrementally by machine or tag:</p>
+<pre><code class="language-bash"># Check one machine at a time (reduces blast radius)
+for machine in web db cache monitor; do
+    echo "Checking $machine..."
+    forjar drift -f forjar.yaml -m "$machine" --json &gt; "/tmp/drift-$machine.json"
+    count=$(jq '.findings | length' "/tmp/drift-$machine.json")
+    if [ "$count" -gt 0 ]; then
+        echo "  DRIFT: $count finding(s) on $machine"
+    else
+        echo "  CLEAN"
+    fi
+done
+
+# Check by tag for targeted verification
+forjar drift -f forjar.yaml --tag critical --tripwire
+</code></pre>
+<h3 id="drift-suppression"><a class="header" href="#drift-suppression">Drift Suppression</a></h3>
+<p>Some drift is expected — for example, log files that rotate or tmp directories that grow. Handle expected drift by:</p>
+<ol>
+<li><strong>Not managing volatile paths</strong>: Don't declare resources for files that change legitimately</li>
+<li><strong>Using <code>state: directory</code></strong>: Directory resources check existence, not contents</li>
+<li><strong>Separate configs</strong>: Split volatile resources into a separate config with relaxed monitoring</li>
+</ol>
+<h3 id="drift-metrics-for-prometheus"><a class="header" href="#drift-metrics-for-prometheus">Drift Metrics for Prometheus</a></h3>
+<p>Export drift data to Prometheus for monitoring dashboards:</p>
+<pre><code class="language-bash">#!/bin/bash
+# drift-exporter.sh — run as a cron job
+METRICS_FILE="/var/lib/prometheus/node-exporter/forjar_drift.prom"
+
+drift_json=$(forjar drift -f forjar.yaml --json 2&gt;/dev/null)
+drift_count=$(echo "$drift_json" | jq '.findings | length')
+last_check=$(date +%s)
+
+cat &gt; "$METRICS_FILE" &lt;&lt;EOF
+# HELP forjar_drift_findings_total Number of resources with detected drift
+# TYPE forjar_drift_findings_total gauge
+forjar_drift_findings_total $drift_count
+# HELP forjar_drift_last_check_timestamp_seconds Unix timestamp of last drift check
+# TYPE forjar_drift_last_check_timestamp_seconds gauge
+forjar_drift_last_check_timestamp_seconds $last_check
+EOF
+</code></pre>
+<h2 id="drift-detection-internals-1"><a class="header" href="#drift-detection-internals-1">Drift Detection Internals</a></h2>
+<h3 id="two-tier-hash-architecture"><a class="header" href="#two-tier-hash-architecture">Two-Tier Hash Architecture</a></h3>
+<p>Forjar uses two types of hashes for drift detection:</p>
+<p><strong>Tier 1: Desired-State Hash</strong> (<code>hash</code> field in lock)</p>
+<ul>
+<li>Computed from configuration fields (path, content, mode, owner, etc.)</li>
+<li>Changes only when you edit <code>forjar.yaml</code></li>
+<li>Used by the planner to decide if a resource needs re-applying</li>
+</ul>
+<p><strong>Tier 2: Live-State Hash</strong> (<code>content_hash</code> or <code>live_hash</code> in details)</p>
+<ul>
+<li>Computed from actual state on the target machine</li>
+<li>Changes when someone modifies the machine out-of-band</li>
+<li>Used by drift detection to find unauthorized changes</li>
+</ul>
+<h3 id="file-drift-detection-flow"><a class="header" href="#file-drift-detection-flow">File Drift Detection Flow</a></h3>
+<pre><code>1. Load lock file → get content_hash for each file resource
+2. For each converged file:
+   a. Read actual file on target (via transport)
+   b. Compute BLAKE3 hash of actual content
+   c. Compare with stored content_hash
+   d. If different → DriftFinding
+</code></pre>
+<p>For local machines, file hashing is done directly. For SSH and container targets, the hash is computed remotely via a state_query script.</p>
+<h3 id="non-file-drift-detection"><a class="header" href="#non-file-drift-detection">Non-File Drift Detection</a></h3>
+<p>Services, packages, mounts, and other resource types don't have file content to hash. Instead, forjar:</p>
+<ol>
+<li>Re-runs the <code>state_query_script</code> for the resource type</li>
+<li>Hashes the script output (stdout)</li>
+<li>Compares with the stored <code>live_hash</code></li>
+</ol>
+<p>This catches changes like:</p>
+<ul>
+<li>Package version upgrades</li>
+<li>Service state changes (started → stopped)</li>
+<li>Mount option modifications</li>
+<li>Firewall rule deletions</li>
+</ul>
+<h3 id="drift-finding-structure"><a class="header" href="#drift-finding-structure">Drift Finding Structure</a></h3>
+<p>Each drift finding contains:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>resource_id</code></td><td>Name of the drifted resource</td></tr>
+<tr><td><code>resource_type</code></td><td>File, Package, Service, etc.</td></tr>
+<tr><td><code>expected_hash</code></td><td>Hash from last successful apply</td></tr>
+<tr><td><code>actual_hash</code></td><td>Hash of current live state</td></tr>
+<tr><td><code>detail</code></td><td>Human-readable description</td></tr>
+</tbody></table>
+</div>
+<h3 id="when-drift-is-not-detected"><a class="header" href="#when-drift-is-not-detected">When Drift is Not Detected</a></h3>
+<p>Drift detection has known limitations:</p>
+<ul>
+<li><strong>Permissions-only changes</strong>: If file content is identical but permissions changed, drift is only detected for file resources with a mode field</li>
+<li><strong>Symlink targets</strong>: A symlink pointing to a different file but same content appears unchanged</li>
+<li><strong>Service restart without state change</strong>: A service that crashed and restarted may report the same state</li>
+<li><strong>New resources</strong>: Resources added to config but never applied don't appear in drift results</li>
+</ul>
+<h3 id="drift-vs-anomaly"><a class="header" href="#drift-vs-anomaly">Drift vs Anomaly</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Drift</th><th>Anomaly</th></tr></thead><tbody>
+<tr><td>What it checks</td><td>Current state vs. last apply</td><td>Event patterns over time</td></tr>
+<tr><td>Data source</td><td>Live machine state</td><td>events.jsonl history</td></tr>
+<tr><td>Detects</td><td>Unauthorized changes</td><td>Flaky resources, regressions</td></tr>
+<tr><td>Frequency</td><td>On-demand or scheduled</td><td>Continuous monitoring</td></tr>
+<tr><td>Example finding</td><td>"File content changed"</td><td>"Resource failed 5 times in 7 days"</td></tr>
+</tbody></table>
+</div>
+<h2 id="drift-detection-under-bashrs"><a class="header" href="#drift-detection-under-bashrs">Drift Detection Under bashrs</a></h2>
+<p>Forjar integrates with bashrs (FJ-036) for shell script purification, and this has a direct impact on how drift detection works for non-file resources. Understanding the interaction between purification and hashing is important for operators who need to reason about when drift will and will not be detected.</p>
+<h3 id="how-purification-affects-state-query-scripts"><a class="header" href="#how-purification-affects-state-query-scripts">How Purification Affects State Query Scripts</a></h3>
+<p>For non-file resources (packages, services, mounts, users, cron jobs, docker containers, network rules), drift detection re-runs the resource's <code>state_query_script</code> via transport and compares the BLAKE3 hash of the output to the <code>live_hash</code> stored at apply time. The state_query_script is generated by <code>codegen::state_query_script()</code> and, like all generated scripts, passes through the bashrs validation gate before execution.</p>
+<p>The key property of bashrs purification is <strong>determinism</strong>: given the same resource definition, the purifier always produces the same output. The pipeline is:</p>
+<pre><code>Resource definition → codegen → raw script → bashrs validate → execute → stdout → BLAKE3 hash
+</code></pre>
+<p>Because codegen is deterministic and bashrs validation does not modify the script (it only checks for errors), the same resource definition always generates the same state_query_script, which produces the same query against the target machine. This means the <code>live_hash</code> depends solely on the actual state of the machine, not on any non-deterministic property of the script generation pipeline.</p>
+<h3 id="identical-purification-means-identical-hashes"><a class="header" href="#identical-purification-means-identical-hashes">Identical Purification Means Identical Hashes</a></h3>
+<p>If two resources share the same resource type and configuration (for example, two package resources that install <code>curl</code> via apt), their generated state_query scripts will be character-for-character identical after passing through codegen. When executed against two machines in the same state, they produce the same stdout and therefore the same BLAKE3 hash.</p>
+<p>This has practical implications for drift detection:</p>
+<ol>
+<li>
+<p><strong>No false drift from script regeneration</strong> -- Re-running <code>forjar drift</code> at a later time regenerates the state_query_script from the config. Because codegen is deterministic, the regenerated script is identical to the one used during <code>forjar apply</code>. The script output depends only on the target machine's state, so no false drift is introduced by the regeneration step.</p>
+</li>
+<li>
+<p><strong>Config changes trigger plan updates, not drift</strong> -- If you modify a resource definition in <code>forjar.yaml</code>, the desired-state hash (<code>hash</code> field in the lock) changes. This is detected by the planner during <code>forjar plan</code> as an Update action, not by drift detection. Drift detection only compares the live-state hash against the stored <code>live_hash</code>.</p>
+</li>
+<li>
+<p><strong>bashrs DET diagnostics flag non-deterministic commands</strong> -- The bashrs linter includes DET-prefixed rules (e.g., DET001) that flag commands like <code>date</code>, <code>$RANDOM</code>, and <code>$$</code> in generated scripts. Forjar's codegen does not use non-deterministic commands in state_query scripts, which is essential for reliable drift detection. If a future handler introduced <code>date</code> into a state_query, bashrs would flag it, and the resulting hash would differ between runs even with no actual state change.</p>
+</li>
+</ol>
+<h3 id="purification-and-the-two-tier-hash-architecture"><a class="header" href="#purification-and-the-two-tier-hash-architecture">Purification and the Two-Tier Hash Architecture</a></h3>
+<p>Recall that forjar uses two hash tiers:</p>
+<ul>
+<li><strong>Tier 1 (desired-state hash)</strong>: Computed from resource configuration fields. Unaffected by bashrs because it does not involve script content.</li>
+<li><strong>Tier 2 (live-state hash)</strong>: Computed from the stdout of executing the state_query_script on the target. Indirectly affected by bashrs because the script must pass validation before execution.</li>
+</ul>
+<p>bashrs purification strengthens Tier 2 by ensuring that the scripts used to query live state are free of Error-severity issues (injection, unsafe patterns). A script that fails bashrs validation is rejected before execution, which means a corrupt or malformed state_query would halt the drift check rather than silently produce an incorrect hash.</p>
+<h3 id="when-bashrs-blocks-drift-detection"><a class="header" href="#when-bashrs-blocks-drift-detection">When bashrs Blocks Drift Detection</a></h3>
+<p>If a generated state_query_script fails bashrs validation (Error-severity diagnostic), the drift check for that resource is skipped with an error rather than producing a false-negative result. This can happen in two scenarios:</p>
+<ol>
+<li>
+<p><strong>Bug in a codegen handler</strong> -- A new resource handler might generate shell that triggers an Error-severity bashrs rule. This would be caught by <code>forjar lint</code> before deployment and by the validation gate during <code>forjar apply</code>.</p>
+</li>
+<li>
+<p><strong>bashrs rule upgrade</strong> -- A new version of bashrs might reclassify a pattern from Warning to Error severity. After upgrading, previously-passing scripts could fail validation. Running <code>forjar lint</code> after a bashrs upgrade catches these reclassifications.</p>
+</li>
+</ol>
+<p>In both cases, the correct response is to fix the generated script or adjust the resource definition, then re-apply to re-establish the baseline <code>live_hash</code>.</p>
+<h2 id="event-log-format-reference"><a class="header" href="#event-log-format-reference">Event Log Format Reference</a></h2>
+<p>The event log is an append-only JSONL (newline-delimited JSON) file stored at <code>state/{machine}/events.jsonl</code>. Each line is a self-contained JSON object that can be parsed independently. The <code>TimestampedEvent</code> wrapper adds a <code>ts</code> field to every event, and <code>#[serde(flatten)]</code> inlines the event-specific fields.</p>
+<h3 id="common-fields"><a class="header" href="#common-fields">Common Fields</a></h3>
+<p>Every event in the log contains these fields:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>ISO 8601 timestamp in UTC (<code>YYYY-MM-DDTHH:MM:SSZ</code>)</td></tr>
+<tr><td><code>event</code></td><td>string</td><td>Event type discriminator (see variants below)</td></tr>
+</tbody></table>
+</div>
+<p>The <code>event</code> field is produced by <code>#[serde(tag = "event", rename_all = "snake_case")]</code> on the <code>ProvenanceEvent</code> enum, so variants like <code>ApplyStarted</code> serialize as <code>"apply_started"</code>.</p>
+<h3 id="event-variants"><a class="header" href="#event-variants">Event Variants</a></h3>
+<h4 id="apply_started"><a class="header" href="#apply_started"><code>apply_started</code></a></h4>
+<p>Emitted at the beginning of a <code>forjar apply</code> run. Marks the start of a convergence session.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"apply_started"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>run_id</code></td><td>string</td><td>Unique run identifier (<code>r-</code> prefix + 12 hex digits)</td></tr>
+<tr><td><code>forjar_version</code></td><td>string</td><td>Forjar binary version (e.g., <code>"0.1.0"</code>)</td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:00Z","event":"apply_started","machine":"web-01","run_id":"r-01a2b3c4d5e6","forjar_version":"0.1.0"}
+</code></pre>
+<h4 id="resource_started"><a class="header" href="#resource_started"><code>resource_started</code></a></h4>
+<p>Emitted when forjar begins applying an individual resource within a run.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"resource_started"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>resource</code></td><td>string</td><td>Resource ID (e.g., <code>"nginx-config"</code>)</td></tr>
+<tr><td><code>action</code></td><td>string</td><td>Planned action: <code>"CREATE"</code>, <code>"UPDATE"</code>, or <code>"DESTROY"</code></td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:01Z","event":"resource_started","machine":"web-01","resource":"nginx-config","action":"UPDATE"}
+</code></pre>
+<h4 id="resource_converged"><a class="header" href="#resource_converged"><code>resource_converged</code></a></h4>
+<p>Emitted when a resource is successfully applied and reaches its desired state.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"resource_converged"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>resource</code></td><td>string</td><td>Resource ID</td></tr>
+<tr><td><code>duration_seconds</code></td><td>float</td><td>Wall-clock time spent applying this resource</td></tr>
+<tr><td><code>hash</code></td><td>string</td><td>BLAKE3 desired-state hash after convergence</td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:03Z","event":"resource_converged","machine":"web-01","resource":"nginx-config","duration_seconds":1.8,"hash":"blake3:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"}
+</code></pre>
+<h4 id="resource_failed"><a class="header" href="#resource_failed"><code>resource_failed</code></a></h4>
+<p>Emitted when a resource apply fails (non-zero exit code from apply script, transport error, or validation failure).</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"resource_failed"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>resource</code></td><td>string</td><td>Resource ID</td></tr>
+<tr><td><code>error</code></td><td>string</td><td>Error message describing the failure</td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:04Z","event":"resource_failed","machine":"web-01","resource":"bad-pkg","error":"apt-get failed: E: Unable to locate package nonexistent"}
+</code></pre>
+<h4 id="apply_completed"><a class="header" href="#apply_completed"><code>apply_completed</code></a></h4>
+<p>Emitted at the end of a <code>forjar apply</code> run. Provides summary counts.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"apply_completed"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>run_id</code></td><td>string</td><td>Run identifier (matches the corresponding <code>apply_started</code>)</td></tr>
+<tr><td><code>resources_converged</code></td><td>integer</td><td>Number of resources successfully converged</td></tr>
+<tr><td><code>resources_unchanged</code></td><td>integer</td><td>Number of resources that were already in desired state</td></tr>
+<tr><td><code>resources_failed</code></td><td>integer</td><td>Number of resources that failed to converge</td></tr>
+<tr><td><code>total_seconds</code></td><td>float</td><td>Total wall-clock time for the entire apply run</td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T10:30:05Z","event":"apply_completed","machine":"web-01","run_id":"r-01a2b3c4d5e6","resources_converged":3,"resources_unchanged":2,"resources_failed":1,"total_seconds":4.7}
+</code></pre>
+<h4 id="drift_detected"><a class="header" href="#drift_detected"><code>drift_detected</code></a></h4>
+<p>Emitted by <code>forjar drift</code> when a resource's live state does not match its stored hash.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>ts</code></td><td>string</td><td>Timestamp</td></tr>
+<tr><td><code>event</code></td><td><code>"drift_detected"</code></td><td>Event discriminator</td></tr>
+<tr><td><code>machine</code></td><td>string</td><td>Target machine name</td></tr>
+<tr><td><code>resource</code></td><td>string</td><td>Resource ID</td></tr>
+<tr><td><code>expected_hash</code></td><td>string</td><td>BLAKE3 hash from the lock file</td></tr>
+<tr><td><code>actual_hash</code></td><td>string</td><td>BLAKE3 hash of the current live state</td></tr>
+</tbody></table>
+</div>
+<p>Example:</p>
+<pre><code class="language-json">{"ts":"2026-01-15T14:00:00Z","event":"drift_detected","machine":"web-01","resource":"config-file","expected_hash":"blake3:7f83b165...","actual_hash":"blake3:9a4e2d1c..."}
+</code></pre>
+<h3 id="run-id-format"><a class="header" href="#run-id-format">Run ID Format</a></h3>
+<p>Run IDs are generated by <code>eventlog::generate_run_id()</code> using the current time in nanoseconds, masked to 48 bits and formatted as 12 hex digits with an <code>r-</code> prefix:</p>
+<pre><code>r-01a2b3c4d5e6
+^  ^^^^^^^^^^^^
+|  12 hex digits (48-bit timestamp-derived)
+prefix
+</code></pre>
+<p>Run IDs are unique within a single machine's event log. They correlate <code>apply_started</code> with <code>apply_completed</code> events and can be used to reconstruct the full timeline of a single apply session.</p>
+<h3 id="log-file-properties"><a class="header" href="#log-file-properties">Log File Properties</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>
+<tr><td>Format</td><td>JSONL (one JSON object per line, newline-terminated)</td></tr>
+<tr><td>Encoding</td><td>UTF-8</td></tr>
+<tr><td>Location</td><td><code>state/{machine}/events.jsonl</code></td></tr>
+<tr><td>Write mode</td><td>Append-only (<code>O_APPEND</code>)</td></tr>
+<tr><td>Rotation</td><td>Not automatic; use external tools (logrotate, cron)</td></tr>
+<tr><td>Concurrency</td><td>Single-writer (forjar holds no file locks; do not run concurrent applies to the same machine)</td></tr>
+</tbody></table>
+</div>
+<h3 id="parsing-the-event-log"><a class="header" href="#parsing-the-event-log">Parsing the Event Log</a></h3>
+<p>Each line is independently parseable as JSON. Tools like <code>jq</code> can process the log without loading it entirely into memory:</p>
+<pre><code class="language-bash"># Stream-parse: extract all failed resources
+jq -c 'select(.event == "resource_failed")' state/web-01/events.jsonl
+
+# Correlate a run: find all events for a specific run_id
+RUN="r-01a2b3c4d5e6"
+jq -c "select(.run_id == \"$RUN\" or .event == \"resource_started\")" state/web-01/events.jsonl
+
+# Compute average convergence time per resource
+jq -s '
+  [.[] | select(.event == "resource_converged")] |
+  group_by(.resource) |
+  map({resource: .[0].resource, avg_s: ([.[].duration_seconds] | add / length)})
+' state/web-01/events.jsonl
+</code></pre>
+<p>Because the log is append-only and each line is self-contained, it is safe to truncate or archive old entries without invalidating the remaining content. The <code>forjar history</code> and <code>forjar anomaly</code> commands parse this log to provide higher-level reporting.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="08-state-management.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="10-testing-and-ci.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="08-state-management.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="10-testing-and-ci.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

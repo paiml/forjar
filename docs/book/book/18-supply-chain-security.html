@@ -1,0 +1,413 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Supply Chain Security &amp; Resilience - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="supply-chain-security--resilience"><a class="header" href="#supply-chain-security--resilience">Supply Chain Security &amp; Resilience</a></h1>
+<p>Forjar provides a comprehensive supply chain security toolkit: SLSA provenance attestation, Merkle DAG lineage, SBOM/CBOM generation, privilege analysis, fault injection testing, and security scanning — all built into the CLI with no external dependencies.</p>
+<h2 id="convergence-proofs"><a class="header" href="#convergence-proofs">Convergence Proofs</a></h2>
+<p>Verify that your configuration can converge from any state:</p>
+<pre><code class="language-bash">forjar prove -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Convergence Proof: my-stack
+------------------------------------------------------------------------
+[PASS] codegen-completeness: all resources produce check/apply/state_query scripts
+[PASS] dag-acyclicity: DAG is acyclic (8 resources)
+[PASS] state-coverage: 0/8 resources have state entries (0%)
+[PASS] hash-determinism: 8 resources: state_query scripts are deterministic
+[PASS] idempotency-structure: 8/8 apply scripts use set -euo pipefail (100%)
+------------------------------------------------------------------------
+5/5 proofs passed
+</code></pre>
+<p>The five proof obligations:</p>
+<div class="table-wrapper"><table><thead><tr><th>Proof</th><th>What It Checks</th></tr></thead><tbody>
+<tr><td>codegen-completeness</td><td>Every resource type produces valid check/apply/state_query scripts</td></tr>
+<tr><td>dag-acyclicity</td><td>No cycles in the dependency graph</td></tr>
+<tr><td>state-coverage</td><td>State entries match declared resources</td></tr>
+<tr><td>hash-determinism</td><td>BLAKE3 hashes are deterministic (same resource → same hash)</td></tr>
+<tr><td>idempotency-structure</td><td>Apply scripts use <code>set -euo pipefail</code> for safe execution</td></tr>
+</tbody></table>
+</div>
+<h2 id="slsa-provenance-attestation"><a class="header" href="#slsa-provenance-attestation">SLSA Provenance Attestation</a></h2>
+<p>Generate <a href="https://slsa.dev/">SLSA</a> provenance attestation for audit trails:</p>
+<pre><code class="language-bash">forjar provenance -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>SLSA Provenance Attestation
+
+  Subject:     my-stack
+  Timestamp:   1772640004
+  Config hash: blake3:b0f54ff8c40ae094
+  Plan hash:   blake3:7951f597ac2f6c00
+
+  State hashes:
+    * forjar.lock blake3:83f87e171d97f13c
+
+  Materials (3 resources):
+    - nginx-pkg   9a0178c657a6fe76
+    - nginx-conf  4f87c4ef88c01663
+    - nginx-svc   5c3a03db545d2875
+</code></pre>
+<p>Every resource is content-addressed with BLAKE3. The attestation includes config hash, plan hash, and per-resource material hashes — providing a complete chain of custody.</p>
+<pre><code class="language-bash">forjar provenance -f forjar.yaml --json  # Machine-readable for CI
+</code></pre>
+<h2 id="merkle-dag-lineage"><a class="header" href="#merkle-dag-lineage">Merkle DAG Lineage</a></h2>
+<p>Visualize the content-addressed dependency tree:</p>
+<pre><code class="language-bash">forjar lineage -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Merkle DAG Lineage
+
+  Config:      my-stack
+  Merkle root: c30932ad738e65e2
+  Nodes:       3
+
+  * nginx-pkg     9a0178c657a6fe76
+  * nginx-conf    4f87c4ef88c01663 &lt;- [nginx-pkg]
+  * nginx-svc     5c3a03db545d2875 &lt;- [nginx-conf]
+</code></pre>
+<p>Each node's hash incorporates its own content plus its dependencies' hashes, forming a Merkle DAG. Any change to a leaf propagates hash changes upward — making tampering detectable.</p>
+<h2 id="security-scanning"><a class="header" href="#security-scanning">Security Scanning</a></h2>
+<p>Static security scan of your configuration:</p>
+<pre><code class="language-bash">forjar security-scan -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Security Scan Results
+------------------------------------------------------------
+  [HIGH] SS-3 (nginx-site) — mode 0644 allows world access
+  [MED ] SS-4 (nginx-enable) — externally-sourced file has no integrity check
+------------------------------------------------------------
+Summary: 0 critical, 2 high, 1 medium, 0 low (3 total)
+</code></pre>
+<p>Checks include:</p>
+<ul>
+<li><strong>SS-1</strong>: Root-owned files with write permissions</li>
+<li><strong>SS-2</strong>: Services running without resource limits</li>
+<li><strong>SS-3</strong>: World-readable sensitive files</li>
+<li><strong>SS-4</strong>: External content without integrity verification</li>
+<li><strong>SS-5</strong>: Unencrypted secrets in config</li>
+</ul>
+<pre><code class="language-bash">forjar security-scan -f forjar.yaml --json  # For CI gatekeeping
+</code></pre>
+<h2 id="privilege-analysis"><a class="header" href="#privilege-analysis">Privilege Analysis</a></h2>
+<p>Audit minimum privileges required per resource:</p>
+<pre><code class="language-bash">forjar privilege-analysis -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Privilege Analysis
+
+  8 Requires elevated privileges:
+    ! firewall-https (network) — network-config
+    ! nginx-service (service) — service-control
+    ! nginx-pkg (package) — package-manager
+    ! nginx-conf (file) — system-write
+
+  Summary: 4/4 resources need root
+</code></pre>
+<p>Categories: <code>package-manager</code>, <code>service-control</code>, <code>system-write</code>, <code>network-config</code>, <code>user-management</code>.</p>
+<h2 id="sbom--cbom-generation"><a class="header" href="#sbom--cbom-generation">SBOM &amp; CBOM Generation</a></h2>
+<p>Generate Software Bill of Materials and Cryptographic Bill of Materials:</p>
+<pre><code class="language-bash">forjar sbom -f forjar.yaml -s state/            # Software BOM
+forjar cbom -f forjar.yaml                       # Cryptographic BOM
+</code></pre>
+<p>SBOM output includes every managed package with version, provider, and machine. CBOM documents all cryptographic algorithms and key materials in the configuration.</p>
+<p>Both support <code>--json</code> for integration with vulnerability scanners and compliance tools.</p>
+<h2 id="fault-injection-testing"><a class="header" href="#fault-injection-testing">Fault Injection Testing</a></h2>
+<p>Simulate infrastructure failures before they happen:</p>
+<pre><code class="language-bash">forjar fault-inject -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Fault Injection Report
+======================
+Total: 15 | Passed: 14 | Failed: 1
+
+[PASS] nginx-pkg: network-timeout (transport)
+[PASS] nginx-pkg: idempotency-check (convergence)
+[PASS] nginx-conf: permission-denied (filesystem)
+[PASS] nginx-conf: disk-full (filesystem)
+[PASS] nginx-conf: dep-failure-cascade (dependency)
+[FAIL] nginx-conf: idempotency-check (convergence)
+       Expected: Check script returns 0 on second apply
+</code></pre>
+<p>Five fault categories:</p>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Simulates</th></tr></thead><tbody>
+<tr><td>network-timeout</td><td>SSH/transport connection failures</td></tr>
+<tr><td>permission-denied</td><td>File system permission errors</td></tr>
+<tr><td>disk-full</td><td>Out of disk space during write</td></tr>
+<tr><td>dep-failure-cascade</td><td>Upstream dependency failure propagation</td></tr>
+<tr><td>idempotency-check</td><td>Second apply should be a no-op</td></tr>
+</tbody></table>
+</div>
+<h2 id="runtime-invariant-monitors"><a class="header" href="#runtime-invariant-monitors">Runtime Invariant Monitors</a></h2>
+<p>Verify structural invariants hold for your configuration:</p>
+<pre><code class="language-bash">forjar invariants -f forjar.yaml --json
+</code></pre>
+<p>Checks DAG structure, resource naming conventions, dependency completeness, and other structural properties that must hold before apply.</p>
+<h2 id="cost-estimation"><a class="header" href="#cost-estimation">Cost Estimation</a></h2>
+<p>Estimate apply time before committing:</p>
+<pre><code class="language-bash">forjar cost-estimate -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Cost Estimation
+
+  Stack:     my-stack
+  Resources: 4
+  Machines:  1
+  Est. time: 44s (sequential)
+
+  M nginx-pkg (Package) ~30s [package-management]
+  L nginx-conf (File) ~2s [file-management]
+  L nginx-enable (File) ~2s [file-management]
+  M nginx-svc (Service) ~10s [service-management]
+</code></pre>
+<p>Estimates are based on static analysis of resource types and complexity. Actual apply time varies by network and system load.</p>
+<h2 id="reproducibility-proofs"><a class="header" href="#reproducibility-proofs">Reproducibility Proofs</a></h2>
+<p>Generate training and build reproducibility certificates:</p>
+<pre><code class="language-bash">forjar repro-proof -f forjar.yaml -s state/ --json
+</code></pre>
+<p>Verifies that the configuration + state + content hashes form a reproducible deployment — the same inputs will always produce the same infrastructure state.</p>
+<h2 id="secret-management-fj-2300"><a class="header" href="#secret-management-fj-2300">Secret Management (FJ-2300)</a></h2>
+<p>Forjar resolves secrets at apply time without storing them in state files:</p>
+<pre><code class="language-yaml">resources:
+  db-config:
+    type: file
+    path: /etc/app/db.yaml
+    content: |
+      host: db.internal
+      password: {{ secrets.db_password }}
+</code></pre>
+<p>Four secret provider backends are supported:</p>
+<div class="table-wrapper"><table><thead><tr><th>Provider</th><th>Resolution</th></tr></thead><tbody>
+<tr><td><code>env</code> (default)</td><td><code>$FORJAR_SECRET_&lt;name&gt;</code></td></tr>
+<tr><td><code>file</code></td><td>Read from <code>/run/secrets/&lt;name&gt;</code></td></tr>
+<tr><td><code>sops</code></td><td><code>sops -d secrets.enc.yaml</code></td></tr>
+<tr><td><code>op</code></td><td>1Password CLI <code>op read</code></td></tr>
+</tbody></table>
+</div>
+<p><strong>Key behavior</strong>: <code>hash_desired_state</code> hashes the template (<code>{{ secrets.db_password }}</code>), not the resolved value. This means secret rotation requires <code>forjar apply --force</code>.</p>
+<p>Path policies restrict writes to sensitive system paths:</p>
+<pre><code class="language-yaml">policy:
+  deny_paths:
+    - /etc/shadow
+    - /etc/sudoers.d/*
+</code></pre>
+<p><code>forjar validate --check-secrets</code> scans for hardcoded credentials in resource content fields.</p>
+<h2 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h2>
+<p>All commands support <code>--json</code> for pipeline integration:</p>
+<pre><code class="language-bash"># Gate: block deploy if security findings are critical
+forjar security-scan -f forjar.yaml --json | jq -e '.findings | map(select(.severity == "critical")) | length == 0'
+
+# Gate: block deploy if blast radius exceeds threshold
+forjar impact -f forjar.yaml -r db-pkg --json | jq -e '.risk != "critical"'
+
+# Gate: verify all convergence proofs pass
+forjar prove -f forjar.yaml --json | jq -e '.passed == .total'
+
+# Audit: generate provenance for compliance
+forjar provenance -f forjar.yaml --json &gt; provenance.json
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="17-operational-intelligence.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="19-competitive-positioning.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="17-operational-intelligence.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="19-competitive-positioning.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

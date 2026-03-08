@@ -1,0 +1,17 @@
+{
+  "architecture": "amd64",
+  "os": "linux",
+  "config": {},
+  "rootfs": {
+    "type": "layers",
+    "diff_ids": [
+      "sha256:e2a6d1f0dbbae41d2020fdb613e9b53605ef4b74508b6d41eeff688f2184103b"
+    ]
+  },
+  "history": [
+    {
+      "created_by": "forjar: files /app/bin",
+      "empty_layer": false
+    }
+  ]
+}

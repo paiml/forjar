@@ -1,0 +1,28 @@
+schema: '1.0'
+machine: test-box
+hostname: test-box
+generated_at: 2026-03-06T14:21:42Z
+generator: forjar 1.1.1
+blake3_version: '1.8'
+resources:
+  data-dir:
+    type: file
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:1d9899018ca9b3afba5ba3684323b3d1fc050ded55681bf6f54a97816468a548
+    details: {}
+  dev-tools:
+    type: package
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:8c3c137f415676b3b737d3ec66f14767959dd89c7b5a87f2973a44acf07b3759
+    details: {}
+  tool-config:
+    type: file
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:989b65e7f1c1739d9589d20b2246d82d7c51d6056219db488fd4f7a6666eabba
+    details: {}

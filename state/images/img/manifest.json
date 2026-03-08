@@ -1,0 +1,11 @@
+[
+  {
+    "RepoTags": [
+      "myapp:2.0"
+    ],
+    "Config": "blobs/sha256/2f475e552c0d48c30730af078bd0e4ac5284346f60aa4fec2c1183ed907e138c",
+    "Layers": [
+      "blobs/sha256/eab282b72bfb1dc84095a8aa5d0207a217efb0024b198c86eae34f337f8d0b5b"
+    ]
+  }
+]

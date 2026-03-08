@@ -29,9 +29,11 @@ fn test_machine() -> Machine {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 

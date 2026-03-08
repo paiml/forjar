@@ -126,6 +126,7 @@ fn test_secret_file_provider_missing() {
 }
 
 #[test]
+#[allow(clippy::disallowed_methods)]
 fn test_secret_env_provider_explicit() {
     std::env::set_var("FORJAR_SECRET_TEST_KEY_2300", "env-secret");
     let result = super::template::resolve_secret_with_provider("test_key_2300", Some("env"), None);

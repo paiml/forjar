@@ -140,20 +140,26 @@ fn layer_strategy_serde() {
 #[test]
 fn layer_strategy_from_resource() {
     use crate::core::types::{Resource, ResourceType};
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::Package;
-    r.packages = vec!["nginx".into(), "curl".into()];
+    let r = Resource {
+        resource_type: ResourceType::Package,
+        packages: vec!["nginx".into(), "curl".into()],
+        ..Default::default()
+    };
     let ls = LayerStrategy::from_resource(&r).unwrap();
     assert!(matches!(ls, LayerStrategy::Packages { names } if names.len() == 2));
 
-    let mut r2 = Resource::default();
-    r2.resource_type = ResourceType::File;
-    r2.path = Some("/etc/app.conf".into());
+    let r2 = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/app.conf".into()),
+        ..Default::default()
+    };
     let ls2 = LayerStrategy::from_resource(&r2).unwrap();
     assert!(matches!(ls2, LayerStrategy::Files { paths } if paths[0] == "/etc/app.conf"));
 
-    let mut r3 = Resource::default();
-    r3.resource_type = ResourceType::Service;
+    let r3 = Resource {
+        resource_type: ResourceType::Service,
+        ..Default::default()
+    };
     assert!(LayerStrategy::from_resource(&r3).is_none());
 }
 

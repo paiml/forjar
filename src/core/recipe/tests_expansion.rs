@@ -426,7 +426,7 @@ proptest! {
         );
 
         let expanded = expand_recipe(
-            "nfs", &recipe, &machine, &inputs, &[dep.clone()],
+            "nfs", &recipe, &machine, &inputs, std::slice::from_ref(&dep),
         ).unwrap();
 
         let first_key = expanded.keys().next().unwrap();

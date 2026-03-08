@@ -37,9 +37,11 @@ fn cuda_machine() -> Machine {
             env: [("CUDA_VISIBLE_DEVICES".to_string(), "0".to_string())]
                 .into_iter()
                 .collect(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 
@@ -65,9 +67,11 @@ fn rocm_machine() -> Machine {
             env: [("ROCR_VISIBLE_DEVICES".to_string(), "0".to_string())]
                 .into_iter()
                 .collect(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 

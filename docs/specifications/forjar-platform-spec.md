@@ -204,7 +204,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 
 ## Implementation Roadmap
 
-**Status**: 42/42 phases IMPLEMENTED (100%). 9,895 tests, 95%+ coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational.
+**Status**: 42/42 phases IMPLEMENTED (100%). 9,819 tests, 95%+ coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Platform spec gaps E16–E21 closed (2026-03-07).
 
 Phases are ordered by dependency. Each phase is independently shippable.
 
