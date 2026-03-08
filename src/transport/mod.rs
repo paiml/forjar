@@ -56,9 +56,11 @@ fn validate_before_exec(script: &str) -> Result<(), String> {
 
 /// Strip opaque data payloads that bashrs should not lint.
 ///
-/// Handles two forjar codegen patterns:
+/// Handles three forjar codegen patterns:
 /// 1. `echo '<base64>' | base64 -d > '<path>'` — binary file deployment
 /// 2. `cat > '<path>' <<'FORJAR_EOF'\n...\nFORJAR_EOF` — text file deployment
+/// 3. Copia delta patch temp file operations (`rm -f "$TMPFILE"`, `mv "$TMPFILE" ...`)
+///    which use absolute paths that trigger bashrs SEC010 false positives
 fn strip_data_payloads(script: &str) -> String {
     // Phase 1: strip base64 blobs
     let re_b64 = regex::Regex::new(r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'")
@@ -70,11 +72,24 @@ fn strip_data_payloads(script: &str) -> String {
     // Phase 2: strip heredoc payloads (FORJAR_EOF delimiters)
     let re_heredoc =
         regex::Regex::new(r"(?s)<<'FORJAR_EOF'\n.*?\nFORJAR_EOF").expect("heredoc regex is valid");
-    re_heredoc
+    let pass2 = re_heredoc
         .replace_all(
             &pass1,
             "<<'FORJAR_EOF'\n# payload stripped for lint\nFORJAR_EOF",
         )
+        .into_owned();
+
+    // Phase 3: strip forjar-generated copia delta temp file operations
+    // These use TMPFILE variable for atomic file replacement and always
+    // reference absolute paths, which triggers bashrs SEC010 false positives.
+    let re_copia_rm = regex::Regex::new(r#"rm -f "\$TMPFILE""#).expect("copia rm regex is valid");
+    let pass3 = re_copia_rm
+        .replace_all(&pass2, "# forjar-copia: tmpfile cleanup stripped")
+        .into_owned();
+    let re_copia_mv =
+        regex::Regex::new(r#"mv "\$TMPFILE" '[^']+'"#).expect("copia mv regex is valid");
+    re_copia_mv
+        .replace_all(&pass3, "# forjar-copia: atomic replace stripped")
         .into_owned()
 }
 
