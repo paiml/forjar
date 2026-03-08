@@ -148,6 +148,106 @@ resources:
     }
 
     #[test]
+    fn test_fault_inject_timeout_scenario() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  deploy:
+    type: task
+    machine: local
+    command: "deploy.sh"
+    timeout: 60
+    completion_check: "test -f /tmp/deployed"
+"#,
+        );
+        let result = cmd_fault_inject(&p, None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fault_inject_artifacts_scenario() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  build:
+    type: file
+    machine: local
+    path: /tmp/output
+    content: "data"
+    output_artifacts:
+      - app.bin
+"#,
+        );
+        let result = cmd_fault_inject(&p, None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fault_inject_task_no_idempotency() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  run:
+    type: task
+    machine: local
+    command: "echo hello"
+"#,
+        );
+        // Task without completion_check or content fails idempotency check
+        let result = cmd_fault_inject(&p, None, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fault_inject_sudo_permission() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  system:
+    type: file
+    machine: local
+    path: /usr/local/bin/app
+    content: "binary"
+    sudo: true
+"#,
+        );
+        let result = cmd_fault_inject(&p, None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_fault_scenario_serde() {
         let s = FaultScenario {
             name: "test".to_string(),

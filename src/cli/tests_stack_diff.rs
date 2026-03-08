@@ -132,6 +132,168 @@ outputs:
     }
 
     #[test]
+    fn test_stack_diff_resource_field_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m
+    path: /etc/app.conf
+    content: "port=8080"
+    mode: "0644"
+    owner: "root"
+    tags: [config]
+"#;
+        let modified = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m
+    path: /etc/app-new.conf
+    content: "port=9090"
+    mode: "0600"
+    owner: "app"
+    tags: [config, production]
+    version: "2.0"
+"#;
+        let f1 = write_yaml(dir.path(), "base.yaml", base);
+        let f2 = write_yaml(dir.path(), "mod.yaml", modified);
+        cmd_stack_diff(&f1, &f2, false).unwrap();
+    }
+
+    #[test]
+    fn test_stack_diff_output_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources: {}
+outputs:
+  url:
+    value: "http://old.example.com"
+  removed_output:
+    value: "gone"
+"#;
+        let modified = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources: {}
+outputs:
+  url:
+    value: "http://new.example.com"
+  added_output:
+    value: "new"
+"#;
+        let f1 = write_yaml(dir.path(), "base.yaml", base);
+        let f2 = write_yaml(dir.path(), "mod.yaml", modified);
+        cmd_stack_diff(&f1, &f2, true).unwrap();
+    }
+
+    #[test]
+    fn test_stack_diff_param_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+params:
+  old_key: "old_value"
+  shared: "same"
+"#;
+        let modified = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+params:
+  shared: "same"
+  new_key: "new_value"
+"#;
+        let f1 = write_yaml(dir.path(), "base.yaml", base);
+        let f2 = write_yaml(dir.path(), "mod.yaml", modified);
+        cmd_stack_diff(&f1, &f2, false).unwrap();
+    }
+
+    #[test]
+    fn test_stack_diff_machine_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = r#"
+version: "1.0"
+name: test
+machines:
+  web:
+    hostname: web
+    addr: 10.0.0.1
+  db:
+    hostname: db
+    addr: 10.0.0.2
+resources: {}
+"#;
+        let modified = r#"
+version: "1.0"
+name: test
+machines:
+  web:
+    hostname: web
+    addr: 10.0.0.1
+resources: {}
+"#;
+        let f1 = write_yaml(dir.path(), "base.yaml", base);
+        let f2 = write_yaml(dir.path(), "mod.yaml", modified);
+        cmd_stack_diff(&f1, &f2, true).unwrap();
+    }
+
+    #[test]
+    fn test_stack_diff_machine_arch_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 10.0.0.1
+    arch: x86_64
+resources: {}
+"#;
+        let modified = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 10.0.0.1
+    arch: aarch64
+resources: {}
+"#;
+        let f1 = write_yaml(dir.path(), "base.yaml", base);
+        let f2 = write_yaml(dir.path(), "mod.yaml", modified);
+        cmd_stack_diff(&f1, &f2, false).unwrap();
+    }
+
+    #[test]
     fn test_stack_diff_empty_configs() {
         let dir = tempfile::tempdir().unwrap();
         let empty = r#"
