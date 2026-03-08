@@ -263,6 +263,47 @@ resources:
     }
 
     #[test]
+    fn test_fj2920_score_via_output_writer() {
+        use crate::cli::output::TestWriter;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: writer-test
+description: "Test OutputWriter adoption"
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: "hello"
+    mode: "0644"
+    owner: root
+"#,
+        )
+        .unwrap();
+        let sd = dir.path().join("state");
+        std::fs::create_dir_all(&sd).unwrap();
+        let mut w = TestWriter::new();
+        let _ = cmd_score_with_writer(&file, "qualified", "strong", 0, true, &sd, &mut w);
+        let json_out = w.stdout_text();
+        assert!(
+            json_out.contains("composite"),
+            "JSON score output should be captured by TestWriter: {json_out:?}"
+        );
+        assert!(
+            json_out.contains("grade"),
+            "should contain grade: {json_out:?}"
+        );
+    }
+
+    #[test]
     fn test_fj3020_score_no_events_still_works() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("forjar.yaml");

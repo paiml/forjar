@@ -13,6 +13,27 @@ pub(crate) fn cmd_score(
     json: bool,
     state_dir: &Path,
 ) -> Result<(), String> {
+    cmd_score_with_writer(
+        file,
+        status,
+        idempotency,
+        budget_ms,
+        json,
+        state_dir,
+        &mut super::output::StdoutWriter,
+    )
+}
+
+/// Inner score with injectable OutputWriter (FJ-2920).
+pub(crate) fn cmd_score_with_writer(
+    file: &Path,
+    status: &str,
+    idempotency: &str,
+    budget_ms: u64,
+    json: bool,
+    state_dir: &Path,
+    out: &mut dyn super::output::OutputWriter,
+) -> Result<(), String> {
     // FJ-3020: Build runtime data from events.jsonl
     let runtime = build_runtime_data(state_dir);
 
@@ -37,7 +58,7 @@ pub(crate) fn cmd_score(
                 )
             })
             .collect();
-        println!(
+        out.result(&format!(
             "{{\"composite\":{},\"grade\":\"{}\",\"static_grade\":\"{}\",\"runtime_grade\":{},\"hard_fail\":{},\"dimensions\":[{}]}}",
             result.composite,
             result.grade,
@@ -45,10 +66,11 @@ pub(crate) fn cmd_score(
             result.runtime_grade.map_or("null".to_string(), |g| format!("\"{g}\"")),
             result.hard_fail,
             dims.join(","),
-        );
+        ));
     } else {
-        print!("{}", scoring::format_score_report(&result));
+        out.result(&scoring::format_score_report(&result));
     }
+    out.flush();
 
     // Exit 0 for A-C static grade, exit 1 for D-F
     if result.static_grade == 'D' || result.static_grade == 'F' {
