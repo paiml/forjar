@@ -1060,3 +1060,53 @@ jq -s '
 ```
 
 Because the log is append-only and each line is self-contained, it is safe to truncate or archive old entries without invalidating the remaining content. The `forjar history` and `forjar anomaly` commands parse this log to provide higher-level reporting.
+
+## Tamper-Evident Chain Hashing (FJ-1386)
+
+Beyond simple drift detection, forjar provides tamper-evident chain hashing on event logs. Each event line's BLAKE3 hash incorporates the hash of the previous line, creating a hash chain. Modifying or removing any event invalidates all subsequent chain hashes.
+
+### How Chain Hashing Works
+
+```
+genesis → H("genesis:line_1") → H("prev_hash:line_2") → ... → final_chain_hash
+```
+
+The chain starts from a "genesis" seed. Each subsequent line's hash is computed as `blake3("previous_hash:line_content")`. The final chain hash summarizes the entire log's integrity.
+
+### Chain Sidecar Files
+
+After each apply, forjar writes a `.chain` sidecar file alongside each `events.jsonl`:
+
+```
+state/web-01/events.jsonl       # the event log
+state/web-01/events.chain       # the chain hash (single line)
+```
+
+### Verifying Chain Integrity
+
+```bash
+# Verify all machines' event log chains
+forjar verify-chains --state-dir state
+
+# Example output
+web-01: 47 lines, verified: 47, chain: blake3:9a4e2d...
+db-01:  23 lines, verified: 23, chain: blake3:7f83b1...
+```
+
+If any event has been tampered with (inserted, deleted, or modified), verification reports the failure:
+
+```
+web-01: chain hash mismatch at line 23
+  stored:   blake3:abc123...
+  computed: blake3:def456...
+```
+
+### Properties
+
+| Property | Guarantee |
+|----------|-----------|
+| **Append-only integrity** | Inserting, deleting, or modifying any line changes the final hash |
+| **Deterministic** | Same events always produce the same chain hash |
+| **Blank line tolerance** | Empty lines in the JSONL are skipped (no effect on hash) |
+| **Genesis seed** | Empty logs hash to `"genesis"` |
+| **No sidecar = no verification** | If no `.chain` file exists, all lines pass (backward compatible) |
