@@ -142,6 +142,51 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
     warnings
 }
 
+/// FJ-3000: Detect semicolon-chained commands in task resources.
+///
+/// Semicolons mask exit codes — `cmd1 ; cmd2` runs cmd2 even if cmd1 fails.
+/// Under `set -euo pipefail`, only the last command's exit code matters.
+/// Warns users to use `&&` or multiline `|` instead.
+pub(crate) fn lint_semicolon_chains(config: &types::ForjarConfig) -> Vec<String> {
+    let mut warnings = Vec::new();
+    for (id, resource) in &config.resources {
+        if resource.resource_type != types::ResourceType::Task {
+            continue;
+        }
+        if let Some(ref cmd) = resource.command {
+            // Skip multiline commands (already using heredoc/script style)
+            if cmd.contains('\n') {
+                continue;
+            }
+            // Detect bare semicolons (not inside quotes)
+            if has_bare_semicolon(cmd) {
+                warnings.push(format!(
+                    "task '{id}': command uses ';' which masks exit codes — \
+                     use '&&' to fail fast or multiline '|' block"
+                ));
+            }
+        }
+    }
+    warnings
+}
+
+/// Check if a command string contains a bare semicolon (not inside quotes).
+pub(crate) fn has_bare_semicolon(cmd: &str) -> bool {
+    let mut in_single = false;
+    let mut in_double = false;
+    let mut prev = '\0';
+    for ch in cmd.chars() {
+        match ch {
+            '\'' if !in_double && prev != '\\' => in_single = !in_single,
+            '"' if !in_single && prev != '\\' => in_double = !in_double,
+            ';' if !in_single && !in_double => return true,
+            _ => {}
+        }
+        prev = ch;
+    }
+    false
+}
+
 fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     let mut script_errors = 0usize;
@@ -219,6 +264,7 @@ pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Resu
     if strict {
         warnings.extend(lint_strict_rules(&config));
     }
+    warnings.extend(lint_semicolon_chains(&config));
     warnings.extend(lint_scripts(&config));
 
     if json {

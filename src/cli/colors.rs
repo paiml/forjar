@@ -2,6 +2,9 @@
 //!
 //! All CLI handlers should use these for consistent colorized output.
 //! The global `NO_COLOR` flag (set by `--no-color` or `$NO_COLOR` env) disables all ANSI.
+//!
+//! Many helpers are pre-built for FJ-2910 adoption across the codebase.
+#![allow(dead_code)]
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

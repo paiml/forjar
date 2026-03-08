@@ -178,6 +178,96 @@ resources:
         }
     }
 
+    // ── FJ-3000: Semicolon chain lint ────────────────────────
+
+    #[test]
+    fn test_fj3000_lint_semicolon_chain_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: semi
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  deploy:
+    type: task
+    machine: m1
+    command: "cd /app ; make build ; make install"
+"#,
+        )
+        .unwrap();
+        let result = cmd_lint(&config, true, false, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj3000_lint_semicolon_no_warn_on_ampersand() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: semi-ok
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  deploy:
+    type: task
+    machine: m1
+    command: "cd /app && make build && make install"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_semicolon_chains(&cfg);
+        assert!(warnings.is_empty(), "no warnings for && chains");
+    }
+
+    #[test]
+    fn test_fj3000_lint_semicolon_quoted_ignored() {
+        // Semicolons inside quotes should NOT trigger
+        assert!(!has_bare_semicolon("echo 'hello; world'"));
+        assert!(!has_bare_semicolon(r#"echo "hello; world""#));
+        // But bare semicolons should
+        assert!(has_bare_semicolon("cmd1 ; cmd2"));
+        assert!(has_bare_semicolon("cmd1;cmd2"));
+    }
+
+    #[test]
+    fn test_fj3000_lint_semicolon_skips_non_task() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: semi-file
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    content: "a;b;c"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_semicolon_chains(&cfg);
+        assert!(warnings.is_empty(), "file resources should not be linted");
+    }
+
     #[test]
     fn test_fj374_lint_rules_flag() {
         let cmd = Commands::Lint(LintArgs {
