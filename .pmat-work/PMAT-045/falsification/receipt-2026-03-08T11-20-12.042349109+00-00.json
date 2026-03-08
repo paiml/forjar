@@ -1,0 +1,196 @@
+{
+  "id": "019ccd2d-1e0a-7b70-9156-d51794231f86",
+  "git_sha": "426482758c1a414bbfe51fb2536e201bbd748201",
+  "timestamp": "2026-03-08T11:20:12.042349109+00:00",
+  "trigger": "WorkComplete",
+  "work_item_id": "PMAT-045",
+  "verdicts": [
+    {
+      "hypothesis": "All baseline files still exist",
+      "method": "ManifestIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "All 958 files present",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "The falsifier is active and detecting (Meta-Check)",
+      "method": "MetaFalsification",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Detected dummy gaming pattern correctly",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No coverage exclusion gaming",
+      "method": "CoverageGaming",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No gaming patterns found in 1135 files",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changed lines are covered",
+      "method": "DifferentialCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "755 changed files (coverage check requires llvm-cov data)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Total coverage >= 95%",
+      "method": "AbsoluteCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No coverage data (run 'make coverage' to establish baseline), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "TDG score >= baseline",
+      "method": "TdgRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No TDG data (baseline: 0.0)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No function exceeds complexity 20",
+      "method": "ComplexityRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Complexity check passed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No vulnerable dependencies added",
+      "method": "SupplyChainIntegrity",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Deny cache too old (7996 min). Run 'cargo deny check' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "No file exceeds 500 lines",
+      "method": "FileSizeRegression",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "3 file(s) exceed 500 lines: src/cli/commands/status_args.rs (680 lines), src/cli/commands/validate_args.rs (507 lines), src/cli/commands/apply_args.rs (688 lines)",
+      "evidence_summary": "FileList([\"src/cli/commands/status_args.rs\", \"src/cli/commands/validate_args.rs\", \"src/cli/commands/apply_args.rs\"])"
+    },
+    {
+      "hypothesis": "Spec & Roadmap Quality",
+      "method": "SpecQuality",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No spec file found (optional)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changes pushed",
+      "method": "GitHubSync",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "6 unpushed commit(s), 8 uncommitted file(s)",
+      "evidence_summary": "GitState { unpushed_commits: 6, dirty_files: 8 }"
+    },
+    {
+      "hypothesis": "All examples compile and run",
+      "method": "ExamplesCompile",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No examples cache (run 'cargo build --examples' to populate)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "pmat-book validation passes",
+      "method": "BookValidation",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "pmat-book not found (skipping validation)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new SATD markers (TODO/FIXME/HACK)",
+      "method": "SatdDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No new SATD markers (0 existing)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new dead code introduced",
+      "method": "DeadCodeDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No dead code detected",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All files have >= 95% coverage",
+      "method": "PerFileCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No per-file coverage data (run 'make coverage'), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "make lint passes",
+      "method": "LintPass",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Lint cache too old (7992 min). Run 'make lint' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "All match arm variants have test coverage",
+      "method": "VariantCoverage",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "340 untested match variant(s): src/cli/agent_registry.rs::CodeAssistant, src/cli/agent_registry.rs::DataAnalyst, src/cli/agent_registry.rs::SecurityAuditor, src/cli/agent_registry.rs::CustomerSupport, src/cli/agent_registry.rs::Custom, src/cli/dispatch.rs::Init(InitArgs { path, src/cli/dispatch.rs::Validate(args, src/cli/dispatch.rs::Apply, src/cli/dispatch.rs::Status, src/cli/dispatch.rs::Graph",
+      "evidence_summary": "FileList([\"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/privilege_analysis.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/cli/store_import.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/do330.rs\", \"src/core/do330.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/parser/unknown_fields.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/proof_obligation.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/planner/reversibility.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/pin_resolve.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/provider.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/store_diff.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/store/sync_exec.rs\", \"src/core/task/pipeline.rs\", \"src/core/task/pipeline.rs\", \"src/core/types/handler_contract_types.rs\", \"src/core/types/handler_contract_types.rs\", \"src/core/types/handler_contract_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/mutation_types.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/resource_enums.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\"])"
+    },
+    {
+      "hypothesis": "No fix-after-fix chains exceed limit",
+      "method": "FixChainLimit",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No fix chains > 3 consecutive commits",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Cross-crate integration tests pass",
+      "method": "CrossCrateParity",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No cross-crate config (create .pmat-work/cross-crate.json to enable)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No performance regressions detected",
+      "method": "RegressionGate",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No benchmark cache (run benchmarks to populate .pmat-metrics/benchmark-status.json)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No incomplete proofs (sorry) introduced",
+      "method": "FormalProofVerification",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No .lean files with sorry found",
+      "evidence_summary": null
+    }
+  ],
+  "overrides": [],
+  "summary": {
+    "total": 22,
+    "passed": 17,
+    "failed": 5,
+    "warnings": 0,
+    "overridden": 0,
+    "allows_completion": false,
+    "health_score": 0.7727272727272727
+  },
+  "content_hash": "ffacdc6c774df27998279b65dc9faabcf6e0cd5142fb6b914555b7bb0c6d7775"
+}
