@@ -824,11 +824,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Falsification gap: Dalla Palma correlation test missing — spec 16 claims r≥0.5 threshold but zero code exists'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T13:13:24Z
-  updated: 2026-03-08T13:13:24Z
+  updated: 2026-03-08T13:38:01.210582993+00:00
   spec: null
   acceptance_criteria: []
   phases: []
