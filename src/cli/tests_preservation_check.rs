@@ -100,6 +100,83 @@ resources:
     }
 
     #[test]
+    fn test_preservation_service_name_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(dir.path(), r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  web-a:
+    type: service
+    machine: local
+    name: nginx
+  web-b:
+    type: service
+    machine: local
+    name: nginx
+"#);
+        let result = cmd_preservation(&p, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_preservation_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(dir.path(), r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: /tmp/a
+  b:
+    type: file
+    machine: local
+    path: /tmp/b
+  c:
+    type: package
+    machine: local
+    provider: apt
+    packages: [curl]
+"#);
+        let result = cmd_preservation(&p, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_preservation_text_with_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_config(dir.path(), r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: /tmp/x
+  b:
+    type: file
+    machine: local
+    path: /tmp/x
+"#);
+        let result = cmd_preservation(&p, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_preservation_package_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let p = write_config(dir.path(), r#"

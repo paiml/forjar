@@ -99,6 +99,113 @@ resources:
     }
 
     #[test]
+    fn test_fj1415_cost_task_with_timeout() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: task-cost
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  deploy:
+    type: task
+    machine: m
+    command: "deploy.sh"
+    timeout: 120
+"#,
+        );
+        cmd_cost_estimate(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj1415_cost_docker_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: docker-cost
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  web:
+    type: docker
+    machine: m
+    name: nginx
+    image: "nginx:latest"
+"#,
+        );
+        cmd_cost_estimate(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj1415_cost_mount_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: mount-cost
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  data-vol:
+    type: mount
+    machine: m
+    path: /mnt/data
+    source: /dev/sda1
+"#,
+        );
+        cmd_cost_estimate(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj1415_cost_mixed_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: full-stack
+machines:
+  app:
+    hostname: app
+    addr: 10.0.0.1
+  db:
+    hostname: db
+    addr: 10.0.0.2
+resources:
+  pkg:
+    type: package
+    machine: app
+    provider: apt
+    packages: [curl]
+  conf:
+    type: file
+    machine: app
+    path: /etc/app.conf
+  svc:
+    type: service
+    machine: app
+    name: myapp
+  backup:
+    type: task
+    machine: db
+    command: "pg_dump"
+"#,
+        );
+        cmd_cost_estimate(&file, true).unwrap();
+    }
+
+    #[test]
     fn test_fj1415_cost_dispatch() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_config(

@@ -90,6 +90,128 @@ resources:
     }
 
     #[test]
+    fn test_fj1416_eval_with_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: filter
+machines:
+  gpu:
+    hostname: gpu
+    addr: 127.0.0.1
+resources:
+  eval-a:
+    type: model
+    machine: gpu
+    name: model-a
+  eval-b:
+    type: model
+    machine: gpu
+    name: model-b
+"#,
+        );
+        cmd_model_eval(&file, Some("eval-a"), false).unwrap();
+    }
+
+    #[test]
+    fn test_fj1416_eval_json_with_model() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: json-model
+machines:
+  gpu:
+    hostname: gpu
+    addr: 127.0.0.1
+resources:
+  model:
+    type: model
+    machine: gpu
+    name: bert
+    command: "python eval.py"
+    completion_check: "test -f results.json"
+"#,
+        );
+        cmd_model_eval(&file, None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj1416_eval_missing_artifacts() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: missing
+machines:
+  gpu:
+    hostname: gpu
+    addr: 127.0.0.1
+resources:
+  eval:
+    type: task
+    machine: gpu
+    command: "python eval.py"
+    tags: [eval]
+    output_artifacts:
+      - nonexistent_results.json
+"#,
+        );
+        let result = cmd_model_eval(&file, None, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj1416_eval_benchmark_tag() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: benchmark
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  bench:
+    type: task
+    machine: m
+    command: "cargo bench"
+    tags: [benchmark]
+"#,
+        );
+        cmd_model_eval(&file, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj1416_eval_resource_group() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: eval-group
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  quality-gate:
+    type: task
+    machine: m
+    command: "pytest"
+    resource_group: evaluation
+"#,
+        );
+        cmd_model_eval(&file, None, true).unwrap();
+    }
+
+    #[test]
     fn test_fj1416_eval_dispatch() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_config(
