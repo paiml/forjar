@@ -27,6 +27,7 @@ mod dataset_lineage;
 mod destroy;
 mod diff_cmd;
 pub mod dispatch;
+mod dispatch_analysis;
 mod dispatch_apply;
 mod dispatch_apply_b;
 mod dispatch_graph;

@@ -1,4 +1,3 @@
-//! CLI command definitions, argument structs, and subcommand dispatch.
 mod apply_args;
 mod graph_args;
 mod lock_core_args;
@@ -425,7 +424,6 @@ pub enum Commands {
     /// FJ-1424: Cross-machine dependency analysis
     #[command(name = "cross-deps")]
     CrossDeps(CrossDepsArgs),
-
     /// FJ-1425: Remote state backend operations
     #[command(name = "state-backend")]
     StateBackend(StateBackendArgs),
@@ -491,13 +489,13 @@ pub enum Commands {
     /// FJ-2101: Pack directory into OCI image layout
     #[command(name = "oci-pack")]
     OciPack(OciPackArgs),
-    /// FJ-2001: Query state database (requires rusqlite)
+    /// FJ-2001: Query state database
     #[command(name = "state-query")]
     StateQuery(QueryArgs),
-    /// FJ-2700: Run a dispatch-mode task with param overrides
+    /// FJ-2700: Run a dispatch-mode task
     Run(RunArgs),
-    /// FJ-49: Bootstrap a new machine for forjar management
+    /// FJ-49: Bootstrap machine for forjar management
     Bootstrap(BootstrapArgs),
-    /// FJ-52: Generate bootable autoinstall ISO or user-data
+    /// FJ-52: Generate autoinstall ISO or user-data
     Image(ImageArgs),
 }
