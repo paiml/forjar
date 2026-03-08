@@ -8,6 +8,7 @@
 > Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass. Total entries: 54.
 > Quality (2026-03-08): CB-506 (10 string panics), CB-121 (2 lock poisoning) fixed. 4 files split under 500-line limit. FJ-2803 Popperian falsification added to spec.
 > Provisioning (2026-03-08): Spec 17 (FJ-33/49/51/52/54/1424) — 6/6 features verified IMPLEMENTED. Zero gaps. 3 examples added, book ch22, cookbook section.
+> Secret providers (2026-03-08): FJ-2300 — all 4 providers (env, file, sops, op) wired in resolver dispatch. 6 new tests. Example updated.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -68,9 +69,15 @@
 
 ---
 
-### ~~E3: Secret providers are type definitions only~~ FIXED (spec corrected)
+### ~~E3: Secret providers are type definitions only~~ FIXED (fully implemented)
 
-**Resolved**: Spec updated to show implementation status per provider. Age encryption marked as implemented, others as planned. Main spec table updated to "Age encryption (env/file/SOPS planned)". Status note added to 10-security-model.md.
+**Resolved**: All 4 secret providers are now wired in the resolver dispatch (`resolver/template.rs`):
+- `env` (default): reads `$FORJAR_SECRET_<KEY>` environment variable
+- `file`: reads `<path>/<key>` from filesystem (default: `/run/secrets/`)
+- `sops`: runs `sops -d --extract '["<key>"]' <file>` (default: `secrets.enc.yaml`)
+- `op`: runs `op read "op://<vault>/<key>"` (default vault: `forjar`)
+
+`SecretsConfig` now includes `file: Option<String>` for SOPS encrypted file path. 6 tests added for sops/op/unknown provider paths. Example `secret_providers.rs` demonstrates all 4 providers.
 
 ---
 

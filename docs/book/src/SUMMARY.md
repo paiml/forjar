@@ -24,3 +24,4 @@
 - [Recipe Quality Scoring](./21-recipe-quality-score.md)
 - [Provisioning & Image Generation](./22-provisioning.md)
 - [Query Engine Enrichments](./23-query-enrichments.md)
+- [Secret Providers](./24-secret-providers.md)
