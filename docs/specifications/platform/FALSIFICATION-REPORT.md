@@ -535,11 +535,16 @@ Spec 12-build-pipeline.md shows `BuildMetrics` collection during builds. The `Bu
 
 ---
 
-### E18: Image build pipeline is sequential (no concurrent build graph)
+### ~~E18: Image build pipeline is sequential (no concurrent build graph)~~ FIXED
 
-Spec 12-build-pipeline.md implies parallel build step execution via dependency graph. Parallel execution exists for convergence/mutation testing, but `forjar build` is entirely sequential: `collect_layer_entries()` → `assemble_image()` → loop over layers. No layer dependency graph or concurrent layer building.
+Spec 12-build-pipeline.md implies parallel build step execution via dependency graph. Previously `assemble_image()` built layers sequentially in a for loop.
 
-**Status**: DOCUMENTED — Sequential image builds are correct. Parallel layer building is a future optimization.
+**Fix** (2026-03-08):
+1. `assemble_image()` uses `std::thread::scope` to build layers concurrently when >1 layer
+2. Each layer's `build_layer()` (tar creation + compression) runs in its own thread
+3. Single-layer images skip thread overhead with direct sequential path
+4. History entries generated from plan strategies independently (no data dependency)
+5. All 12 existing image assembler tests pass including determinism test
 
 ---
 
@@ -726,7 +731,7 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | ~~51~~ | ~~Image drift detection is pseudocode only (no --image flag)~~ | E15 | FIXED |
 | 52 | ~~Build cache does not apply to image layer construction~~ | E16 | FIXED |
 | 53 | ~~BuildMetrics not collected during image builds~~ | E17 | FIXED |
-| 54 | Image build pipeline is sequential (no concurrent build graph) | E18 | DOCUMENTED |
+| 54 | ~~Image build pipeline is sequential~~ | E18 | FIXED |
 | 55 | ~~Health check is state-based, not connectivity-based~~ | E19 | FIXED |
 | 56 | ~~Run log format is YAML+text, not structured JSON~~ | E20 | FIXED |
 | ~~57~~ | ~~Implement 4 missing deep validation checks~~ | ~~F33~~ | DONE |
