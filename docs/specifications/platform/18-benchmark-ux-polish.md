@@ -500,7 +500,7 @@ Rules:
 ### Phase 18b: OutputWriter (FJ-2920)
 - [x] Create `src/cli/output.rs` with `OutputWriter` trait
 - [x] Implement `StdoutWriter`, `TestWriter`, `NullWriter`
-- [ ] Adopt in `cmd_bench` (NullWriter eliminates I/O overhead)
+- [x] Adopt in `cmd_bench` (NullWriter eliminates I/O overhead)
 - [x] Adopt in `cmd_score` (TestWriter enables output assertions)
 - [x] Adopt in `cmd_lint` (TestWriter enables output assertions)
 - [ ] Adopt in `cmd_doctor` (TestWriter enables output assertions)
