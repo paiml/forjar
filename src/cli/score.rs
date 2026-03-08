@@ -16,6 +16,7 @@ pub(crate) fn cmd_score(
         idempotency: idempotency.to_string(),
         budget_ms,
         runtime: None,
+        raw_yaml: None, // compute_from_file reads the file
     };
 
     let result = scoring::compute_from_file(file, &input)?;
@@ -32,9 +33,11 @@ pub(crate) fn cmd_score(
             })
             .collect();
         println!(
-            "{{\"composite\":{},\"grade\":\"{}\",\"hard_fail\":{},\"dimensions\":[{}]}}",
+            "{{\"composite\":{},\"grade\":\"{}\",\"static_grade\":\"{}\",\"runtime_grade\":{},\"hard_fail\":{},\"dimensions\":[{}]}}",
             result.composite,
             result.grade,
+            result.static_grade,
+            result.runtime_grade.map_or("null".to_string(), |g| format!("\"{g}\"")),
             result.hard_fail,
             dims.join(","),
         );
@@ -42,8 +45,8 @@ pub(crate) fn cmd_score(
         print!("{}", scoring::format_score_report(&result));
     }
 
-    // Exit 0 for A-C, exit 1 for D-F
-    if result.grade == 'D' || result.grade == 'F' {
+    // Exit 0 for A-C static grade, exit 1 for D-F
+    if result.static_grade == 'D' || result.static_grade == 'F' {
         Err(format!("grade {} — below threshold", result.grade))
     } else {
         Ok(())

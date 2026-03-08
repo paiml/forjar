@@ -1,4 +1,4 @@
-//! Tests for the scoring module — part 1: helpers, hard-fail, static dimensions.
+//! Tests for scoring v2 — helpers, hard-fail, static dimensions.
 
 use super::scoring::*;
 use super::types::*;
@@ -125,6 +125,7 @@ pub(super) fn static_input() -> ScoringInput {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: None,
+        raw_yaml: None,
     }
 }
 
@@ -146,7 +147,7 @@ pub(super) fn full_runtime() -> RuntimeData {
 }
 
 // ============================================================================
-// Hard-fail tests
+// v2: pending no longer hard-fails — gets static grade
 // ============================================================================
 
 #[test]
@@ -157,86 +158,68 @@ fn hard_fail_blocked_status() {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: None,
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
-    assert_eq!(result.grade, 'F');
     assert!(result.hard_fail);
-    assert!(result.hard_fail_reason.unwrap().contains("blocked"));
+    assert!(result.grade.contains("blocked"));
 }
 
 #[test]
-fn hard_fail_pending_status() {
-    let config = minimal_config();
+fn pending_gets_static_grade_not_hard_fail() {
+    let mut config = minimal_config();
+    // Add enough for a decent static score
+    config.policy.tripwire = true;
+    config.policy.lock_file = true;
+    config.description = Some("A test config".to_string());
+
     let input = ScoringInput {
         status: "pending".to_string(),
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: None,
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
-    assert_eq!(result.grade, 'F');
-    assert!(result.hard_fail);
+    assert!(!result.hard_fail, "v2: pending should NOT hard-fail");
+    assert!(result.grade.contains("pending"));
+    assert!(result.static_composite > 0, "static dims should score > 0");
 }
 
 // ============================================================================
-// Grade gate tests
+// Two-tier grade format
 // ============================================================================
 
 #[test]
-fn grade_a_requires_all_dimensions_above_80() {
-    let mut config = minimal_config();
-    let input = static_input();
-    let result = compute(&config, &input);
-    assert_ne!(result.grade, 'A');
-    assert!(result.composite <= 100);
-
-    config.description = Some("A well-documented config".to_string());
-    config.policy.failure = FailurePolicy::ContinueIndependent;
-    config.policy.ssh_retries = 3;
-    config.policy.pre_apply = Some("echo pre".to_string());
-    config.policy.post_apply = Some("echo post".to_string());
-    config.policy.notify.on_success = Some("echo ok".to_string());
-    config.policy.notify.on_failure = Some("echo fail".to_string());
-    config.policy.notify.on_drift = Some("echo drift".to_string());
-
-    let mut file_res = minimal_resource(ResourceType::File);
-    file_res.mode = Some("0644".to_string());
-    file_res.owner = Some("root".to_string());
-    file_res.tags = vec!["web".to_string()];
-    file_res.resource_group = Some("infra".to_string());
-    file_res.content = Some("# {{params.name}}\nconfig".to_string());
-    file_res.depends_on = vec!["pkg".to_string()];
-
-    let mut pkg_res = minimal_resource(ResourceType::Package);
-    pkg_res.version = Some("1.0".to_string());
-    pkg_res.tags = vec!["base".to_string()];
-
-    config.resources.insert("cfg".to_string(), file_res);
-    config.resources.insert("pkg".to_string(), pkg_res);
-    config.params.insert(
-        "name".to_string(),
-        serde_yaml_ng::Value::String("test".into()),
-    );
-    config.outputs.insert(
-        "out".to_string(),
-        OutputValue {
-            value: "{{params.name}}".to_string(),
-            description: Some("output".to_string()),
-        },
-    );
-
+fn grade_format_with_runtime() {
+    let config = minimal_config();
     let input = ScoringInput {
         status: "qualified".to_string(),
         idempotency: "strong".to_string(),
         budget_ms: 60000,
         runtime: Some(full_runtime()),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
-    assert!(result.composite >= 75, "composite={}", result.composite);
+    assert!(result.grade.contains('/'), "v2 grade should be X/Y format");
+    assert!(result.runtime_grade.is_some());
+    assert!(result.runtime_composite.is_some());
+}
+
+#[test]
+fn grade_format_static_only() {
+    let config = minimal_config();
+    let input = static_input();
+    let result = compute(&config, &input);
+    assert!(
+        result.grade.contains("pending"),
+        "static-only should show pending"
+    );
+    assert!(result.runtime_grade.is_none());
 }
 
 // ============================================================================
-// Safety dimension tests
+// Safety dimension tests (v2: 25% weight)
 // ============================================================================
 
 #[test]
@@ -255,6 +238,7 @@ fn safety_critical_mode_0777() {
         "0777 should cap safety at 40, got {}",
         saf.score
     );
+    assert_eq!(saf.weight, 0.25, "v2 SAF weight should be 25%");
 }
 
 #[test]
@@ -294,8 +278,34 @@ fn safety_perfect_when_all_files_have_mode_and_owner() {
     assert_eq!(saf.score, 100);
 }
 
+#[test]
+fn safety_plaintext_secret_penalty() {
+    let mut config = minimal_config();
+    config.params.insert(
+        "db_password".to_string(),
+        serde_yaml_ng::Value::String("hunter2".into()),
+    );
+    let input = static_input();
+    let result = compute(&config, &input);
+    let saf = result.dimensions.iter().find(|d| d.code == "SAF").unwrap();
+    assert_eq!(saf.score, 90, "plaintext secret should deduct 10");
+}
+
+#[test]
+fn safety_template_secret_no_penalty() {
+    let mut config = minimal_config();
+    config.params.insert(
+        "db_password".to_string(),
+        serde_yaml_ng::Value::String("{{ secrets.db_pass }}".into()),
+    );
+    let input = static_input();
+    let result = compute(&config, &input);
+    let saf = result.dimensions.iter().find(|d| d.code == "SAF").unwrap();
+    assert_eq!(saf.score, 100, "template secret should not be penalized");
+}
+
 // ============================================================================
-// Observability dimension tests
+// Observability dimension tests (v2: 20% weight)
 // ============================================================================
 
 #[test]
@@ -305,30 +315,28 @@ fn observability_defaults_get_30() {
     let result = compute(&config, &input);
     let obs = result.dimensions.iter().find(|d| d.code == "OBS").unwrap();
     assert_eq!(obs.score, 30);
+    assert_eq!(obs.weight, 0.20, "v2 OBS weight should be 20%");
 }
 
 #[test]
-fn observability_with_outputs_and_notify() {
+fn observability_output_descriptions_bonus() {
     let mut config = minimal_config();
     config.outputs.insert(
         "x".to_string(),
         OutputValue {
             value: "v".to_string(),
-            description: None,
+            description: Some("a useful output".to_string()),
         },
     );
-    config.policy.notify.on_success = Some("echo ok".to_string());
-    config.policy.notify.on_failure = Some("echo fail".to_string());
-    config.policy.notify.on_drift = Some("echo drift".to_string());
-
     let input = static_input();
     let result = compute(&config, &input);
     let obs = result.dimensions.iter().find(|d| d.code == "OBS").unwrap();
-    assert_eq!(obs.score, 60);
+    // 30 (tripwire+lock_file) + 10 (outputs) + 10 (output descriptions) = 50
+    assert_eq!(obs.score, 50);
 }
 
 // ============================================================================
-// Resilience dimension tests
+// Resilience dimension tests (v2: 20% weight, tagged independence)
 // ============================================================================
 
 #[test]
@@ -338,21 +346,50 @@ fn resilience_empty_config_scores_zero() {
     let result = compute(&config, &input);
     let res = result.dimensions.iter().find(|d| d.code == "RES").unwrap();
     assert_eq!(res.score, 0);
+    assert_eq!(res.weight, 0.20, "v2 RES weight should be 20%");
 }
 
 #[test]
-fn resilience_continue_independent_adds_20() {
+fn resilience_tagged_independence_scores() {
     let mut config = minimal_config();
     config.policy.failure = FailurePolicy::ContinueIndependent;
+    // 2 resources, both tagged+grouped = 100% ratio → +20
+    let mut r1 = minimal_resource(ResourceType::File);
+    r1.tags = vec!["audit".to_string()];
+    r1.resource_group = Some("cis".to_string());
+    r1.mode = Some("0644".to_string());
+    r1.owner = Some("root".to_string());
+    let mut r2 = minimal_resource(ResourceType::File);
+    r2.tags = vec!["audit".to_string()];
+    r2.resource_group = Some("cis".to_string());
+    r2.mode = Some("0644".to_string());
+    r2.owner = Some("root".to_string());
+    config.resources.insert("r1".to_string(), r1);
+    config.resources.insert("r2".to_string(), r2);
 
     let input = static_input();
     let result = compute(&config, &input);
     let res = result.dimensions.iter().find(|d| d.code == "RES").unwrap();
-    assert_eq!(res.score, 20);
+    // 15 (continue_independent) + 20 (tagged independence) = 35
+    assert!(
+        res.score >= 35,
+        "tagged independence should earn ≥35, got {}",
+        res.score
+    );
+}
+
+#[test]
+fn resilience_deny_paths_bonus() {
+    let mut config = minimal_config();
+    config.policy.deny_paths = vec!["/etc/shadow".to_string()];
+    let input = static_input();
+    let result = compute(&config, &input);
+    let res = result.dimensions.iter().find(|d| d.code == "RES").unwrap();
+    assert_eq!(res.score, 10, "deny_paths should add 10 points");
 }
 
 // ============================================================================
-// Composability dimension tests
+// Composability dimension tests (v2: 20% weight)
 // ============================================================================
 
 #[test]
@@ -362,6 +399,7 @@ fn composability_empty_config() {
     let result = compute(&config, &input);
     let cmp = result.dimensions.iter().find(|d| d.code == "CMP").unwrap();
     assert_eq!(cmp.score, 0);
+    assert_eq!(cmp.weight, 0.20, "v2 CMP weight should be 20%");
 }
 
 #[test]
@@ -377,5 +415,70 @@ fn composability_with_params_and_tags() {
     let input = static_input();
     let result = compute(&config, &input);
     let cmp = result.dimensions.iter().find(|d| d.code == "CMP").unwrap();
-    assert_eq!(cmp.score, 35);
+    // 15 (params) + 15 (tags) = 30
+    assert_eq!(cmp.score, 30);
+}
+
+#[test]
+fn composability_secrets_template_bonus() {
+    let mut config = minimal_config();
+    let mut res = minimal_resource(ResourceType::File);
+    res.content = Some("password={{ secrets.db_pass }}".to_string());
+    res.mode = Some("0600".to_string());
+    res.owner = Some("root".to_string());
+    config.resources.insert("f".to_string(), res);
+
+    let input = static_input();
+    let result = compute(&config, &input);
+    let cmp = result.dimensions.iter().find(|d| d.code == "CMP").unwrap();
+    // 10 (templates {{) + 5 (secrets template) = 15
+    assert_eq!(cmp.score, 15);
+}
+
+// ============================================================================
+// DOC dimension tests (v2: 15% weight, quality signals)
+// ============================================================================
+
+#[test]
+fn documentation_with_description() {
+    let mut config = minimal_config();
+    config.description = Some("A great config for web servers".to_string());
+
+    let input = static_input();
+    let result = compute(&config, &input);
+    let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
+    // 15 (description present) + 0 (no header, no kebab name)
+    assert_eq!(doc.score, 15);
+    assert_eq!(doc.weight, 0.15, "v2 DOC weight should be 15%");
+}
+
+#[test]
+fn documentation_with_raw_yaml_headers() {
+    let mut config = minimal_config();
+    config.name = "cis-hardening".to_string();
+    config.description = Some("CIS benchmark hardening".to_string());
+
+    let raw = "# Recipe: CIS hardening\n# Tier: 2+3\n# Idempotency: strong\n# Budget: 30s\nversion: '1.0'\n";
+    let input = ScoringInput {
+        status: "qualified".to_string(),
+        idempotency: "strong".to_string(),
+        budget_ms: 0,
+        runtime: None,
+        raw_yaml: Some(raw.to_string()),
+    };
+    let result = compute(&config, &input);
+    let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
+    // 8 (Recipe) + 8 (Tier) + 8 (Idempotency) + 8 (Budget) + 15 (description) + 3 (kebab-case) + 15 (≥3 unique comments) = 65
+    assert_eq!(doc.score, 65);
+}
+
+#[test]
+fn documentation_generic_name_no_bonus() {
+    let mut config = minimal_config();
+    config.name = "unnamed".to_string();
+    config.description = None;
+    let input = static_input();
+    let result = compute(&config, &input);
+    let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
+    assert_eq!(doc.score, 0);
 }

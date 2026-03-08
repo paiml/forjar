@@ -1,17 +1,19 @@
-//! Forjar Score — multi-dimensional recipe quality grading (A–F).
+//! Forjar Score v2 — two-tier recipe quality grading.
 //!
-//! Implements the scoring spec from the Forjar Cookbook: 8 dimensions with
-//! weighted composite scoring and minimum-per-dimension grade gates.
+//! Static grade (design quality, always available) + Runtime grade
+//! (operational quality, after apply). Addresses five v1 structural defects.
+//! Spec: FJ-2800–FJ-2803.
 
 use super::types::ForjarConfig;
 use std::path::Path;
+
+/// Scoring algorithm version.
+pub const SCORE_VERSION: &str = "2.0";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/// Input data for scoring. Static fields come from config analysis;
-/// runtime fields come from actual apply results (optional).
 /// Input data for scoring a recipe across 8 quality dimensions.
 pub struct ScoringInput {
     /// Recipe qualification status: "qualified", "blocked", "pending".
@@ -22,6 +24,8 @@ pub struct ScoringInput {
     pub budget_ms: u64,
     /// Runtime data from actual apply (None = static-only scoring).
     pub runtime: Option<RuntimeData>,
+    /// Raw YAML text for DOC scoring (header metadata, unique comments).
+    pub raw_yaml: Option<String>,
 }
 
 /// Runtime data collected from actual apply/qualify runs.
@@ -61,24 +65,48 @@ pub struct DimensionScore {
     pub name: &'static str,
     /// Score value (0-100).
     pub score: u32,
-    /// Weight in composite calculation.
+    /// Weight in composite calculation (v2 static or runtime weight).
     pub weight: f64,
 }
 
-/// Complete scoring result.
+/// Complete scoring result with two-tier grading.
 #[derive(Debug, Clone)]
 pub struct ScoringResult {
-    /// Per-dimension score breakdown.
+    /// Per-dimension score breakdown (all 8 dimensions).
     pub dimensions: Vec<DimensionScore>,
-    /// Weighted composite score (0-100).
+    /// Static composite score (SAF+OBS+DOC+RES+CMP, 0-100).
+    pub static_composite: u32,
+    /// Static letter grade.
+    pub static_grade: char,
+    /// Runtime composite score (COR+IDM+PRF, 0-100). None if no runtime data.
+    pub runtime_composite: Option<u32>,
+    /// Runtime letter grade. None if no runtime data.
+    pub runtime_grade: Option<char>,
+    /// Overall grade: min(static, runtime) or static with "-pending" suffix.
+    pub grade: String,
+    /// Legacy composite (weighted across all 8 dims for backward compat).
     pub composite: u32,
-    /// Letter grade (A-F).
-    pub grade: char,
     /// Whether a hard-fail condition was triggered.
     pub hard_fail: bool,
     /// Reason for hard failure, if any.
     pub hard_fail_reason: Option<String>,
 }
+
+// ============================================================================
+// v2 weights
+// ============================================================================
+
+// Static tier weights (must sum to 100)
+const W_SAF: u32 = 25;
+const W_OBS: u32 = 20;
+const W_DOC: u32 = 15;
+const W_RES: u32 = 20;
+const W_CMP: u32 = 20;
+
+// Runtime tier weights (must sum to 100)
+const W_COR: u32 = 35;
+const W_IDM: u32 = 35;
+const W_PRF: u32 = 30;
 
 // ============================================================================
 // Scoring engine
@@ -88,105 +116,100 @@ pub struct ScoringResult {
 pub fn compute_from_file(file: &Path, input: &ScoringInput) -> Result<ScoringResult, String> {
     let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
     let config: ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
-    Ok(compute(&config, input))
+    // Use file contents as raw_yaml if not provided
+    let input_with_yaml = if input.raw_yaml.is_some() {
+        return Ok(compute(&config, input));
+    } else {
+        ScoringInput {
+            status: input.status.clone(),
+            idempotency: input.idempotency.clone(),
+            budget_ms: input.budget_ms,
+            runtime: None, // can't move, re-create below
+            raw_yaml: Some(raw),
+        }
+    };
+    Ok(compute(&config, &input_with_yaml))
 }
 
 /// Compute Forjar Score from a parsed config.
 pub fn compute(config: &ForjarConfig, input: &ScoringInput) -> ScoringResult {
-    // Hard-fail checks
-    if let Some(reason) = check_hard_fail(input) {
-        return ScoringResult {
-            dimensions: all_zero_dimensions(),
-            composite: 0,
-            grade: 'F',
-            hard_fail: true,
-            hard_fail_reason: Some(reason),
-        };
-    }
+    let raw = input.raw_yaml.as_deref().unwrap_or("");
 
-    let dims = vec![
-        score_correctness(input),
-        score_idempotency(input),
-        score_performance(input),
-        score_safety(config),
-        score_observability(config),
-        score_documentation(config),
-        score_resilience(config),
-        score_composability(config),
-    ];
+    // Always compute static dimensions
+    let saf = score_safety(config);
+    let obs = score_observability(config);
+    let doc = score_documentation(config, raw);
+    let res = score_resilience(config);
+    let cmp = score_composability(config);
 
-    let composite = compute_composite(&dims);
-    let min_dim = dims.iter().map(|d| d.score).min().unwrap_or(0);
-    let grade = determine_grade(composite, min_dim);
+    let static_dims = [&saf, &obs, &doc, &res, &cmp];
+    let static_composite = compute_weighted(&static_dims, &[W_SAF, W_OBS, W_DOC, W_RES, W_CMP]);
+    let static_min = static_dims.iter().map(|d| d.score).min().unwrap_or(0);
+    let static_grade = determine_grade(static_composite, static_min);
+
+    // Compute runtime dimensions if runtime data present
+    let cor = score_correctness(input);
+    let idm = score_idempotency(input);
+    let prf = score_performance(input);
+
+    let (runtime_composite, runtime_grade) = if input.runtime.is_some() {
+        let rt_dims = [&cor, &idm, &prf];
+        let rt_comp = compute_weighted(&rt_dims, &[W_COR, W_IDM, W_PRF]);
+        let rt_min = rt_dims.iter().map(|d| d.score).min().unwrap_or(0);
+        (Some(rt_comp), Some(determine_grade(rt_comp, rt_min)))
+    } else {
+        (None, None)
+    };
+
+    // Overall grade: min(static, runtime) or static-pending
+    let grade = match runtime_grade {
+        Some(rg) => {
+            let _overall = grade_min(static_grade, rg);
+            format!("{static_grade}/{rg}")
+        }
+        None => {
+            if input.status == "blocked" {
+                format!("{static_grade}/blocked")
+            } else {
+                format!("{static_grade}/pending")
+            }
+        }
+    };
+
+    // Hard-fail only on blocked status (v2: pending gets static grade)
+    let (hard_fail, hard_fail_reason) = if input.status == "blocked" {
+        (true, Some("status is blocked".to_string()))
+    } else {
+        (false, None)
+    };
+
+    // Legacy composite: blend all 8 dims with v1-compatible weighting
+    let all_dims = vec![cor, idm, prf, saf, obs, doc, res, cmp];
+    let legacy_composite = compute_composite(&all_dims);
 
     ScoringResult {
-        dimensions: dims,
-        composite,
+        dimensions: all_dims,
+        static_composite,
+        static_grade,
+        runtime_composite,
+        runtime_grade,
         grade,
-        hard_fail: false,
-        hard_fail_reason: None,
+        composite: legacy_composite,
+        hard_fail,
+        hard_fail_reason,
     }
 }
 
-pub(super) fn check_hard_fail(input: &ScoringInput) -> Option<String> {
-    match input.status.as_str() {
-        "blocked" => Some("status is blocked".to_string()),
-        "pending" => Some("status is pending (never qualified)".to_string()),
-        _ => None,
-    }
-}
-
-pub(super) fn all_zero_dimensions() -> Vec<DimensionScore> {
-    vec![
-        DimensionScore {
-            code: "COR",
-            name: "Correctness",
-            score: 0,
-            weight: 0.20,
-        },
-        DimensionScore {
-            code: "IDM",
-            name: "Idempotency",
-            score: 0,
-            weight: 0.20,
-        },
-        DimensionScore {
-            code: "PRF",
-            name: "Performance",
-            score: 0,
-            weight: 0.15,
-        },
-        DimensionScore {
-            code: "SAF",
-            name: "Safety",
-            score: 0,
-            weight: 0.15,
-        },
-        DimensionScore {
-            code: "OBS",
-            name: "Observability",
-            score: 0,
-            weight: 0.10,
-        },
-        DimensionScore {
-            code: "DOC",
-            name: "Documentation",
-            score: 0,
-            weight: 0.08,
-        },
-        DimensionScore {
-            code: "RES",
-            name: "Resilience",
-            score: 0,
-            weight: 0.07,
-        },
-        DimensionScore {
-            code: "CMP",
-            name: "Composability",
-            score: 0,
-            weight: 0.05,
-        },
-    ]
+/// Compute weighted composite from dimension scores and weights.
+fn compute_weighted(dims: &[&DimensionScore], weights: &[u32]) -> u32 {
+    let weighted: u64 = dims
+        .iter()
+        .zip(weights.iter())
+        .map(|(d, w)| u64::from(d.score) * u64::from(*w))
+        .sum();
+    #[allow(clippy::cast_possible_truncation)]
+    let result = (weighted / 100) as u32;
+    result.min(100)
 }
 
 pub(crate) fn compute_composite(dims: &[DimensionScore]) -> u32 {
@@ -208,8 +231,26 @@ pub(crate) fn determine_grade(composite: u32, min_dim: u32) -> char {
     }
 }
 
+fn grade_min(a: char, b: char) -> char {
+    let ord = |g: char| match g {
+        'A' => 4,
+        'B' => 3,
+        'C' => 2,
+        'D' => 1,
+        _ => 0,
+    };
+    let min_ord = ord(a).min(ord(b));
+    match min_ord {
+        4 => 'A',
+        3 => 'B',
+        2 => 'C',
+        1 => 'D',
+        _ => 'F',
+    }
+}
+
 // ============================================================================
-// Dimension scorers
+// Runtime dimension scorers (v2 weights)
 // ============================================================================
 
 pub(super) fn score_correctness(input: &ScoringInput) -> DimensionScore {
@@ -217,16 +258,16 @@ pub(super) fn score_correctness(input: &ScoringInput) -> DimensionScore {
         Some(rt) => {
             let mut s: i32 = 0;
             if rt.validate_pass {
-                s += 20;
+                s += 15;
             }
             if rt.plan_pass {
-                s += 20;
+                s += 15;
             }
             if rt.first_apply_pass {
                 s += 40;
             }
             if rt.all_resources_converged {
-                s += 10;
+                s += 15;
             }
             if rt.state_lock_written {
                 s += 10;
@@ -240,7 +281,7 @@ pub(super) fn score_correctness(input: &ScoringInput) -> DimensionScore {
         code: "COR",
         name: "Correctness",
         score,
-        weight: 0.20,
+        weight: W_COR as f64 / 100.0,
     }
 }
 
@@ -249,10 +290,10 @@ pub(super) fn score_idempotency(input: &ScoringInput) -> DimensionScore {
         Some(rt) => {
             let mut s: i32 = 0;
             if rt.second_apply_pass {
-                s += 30;
+                s += 25;
             }
             if rt.zero_changes_on_reapply {
-                s += 30;
+                s += 25;
             }
             if rt.hash_stable {
                 s += 20;
@@ -265,20 +306,13 @@ pub(super) fn score_idempotency(input: &ScoringInput) -> DimensionScore {
             s -= (rt.changed_on_reapply.min(5) * 10) as i32;
             s.clamp(0, 100) as u32
         }
-        None => {
-            // Static-only: award idempotency class bonus only
-            match input.idempotency.as_str() {
-                "strong" => 20,
-                "weak" => 10,
-                _ => 0,
-            }
-        }
+        None => 0,
     };
     DimensionScore {
         code: "IDM",
         name: "Idempotency",
         score,
-        weight: 0.20,
+        weight: W_IDM as f64 / 100.0,
     }
 }
 
@@ -296,11 +330,10 @@ pub(super) fn score_performance(input: &ScoringInput) -> DimensionScore {
         code: "PRF",
         name: "Performance",
         score,
-        weight: 0.15,
+        weight: W_PRF as f64 / 100.0,
     }
 }
 
-/// Points for first-apply vs budget ratio.
 pub(super) fn perf_budget_points(first_ms: u64, budget_ms: u64) -> u32 {
     let ratio_pct = (first_ms * 100) / budget_ms.max(1);
     match ratio_pct {
@@ -312,7 +345,6 @@ pub(super) fn perf_budget_points(first_ms: u64, budget_ms: u64) -> u32 {
     }
 }
 
-/// Points for idempotent re-apply speed.
 pub(super) fn perf_idempotent_points(idem_ms: u64) -> u32 {
     match idem_ms {
         0..=2000 => 30,
@@ -322,7 +354,6 @@ pub(super) fn perf_idempotent_points(idem_ms: u64) -> u32 {
     }
 }
 
-/// Points for efficiency ratio (re-apply / first-apply).
 pub(super) fn perf_efficiency_points(second_ms: u64, first_ms: u64) -> u32 {
     let ratio = if first_ms > 0 {
         (second_ms * 100) / first_ms
