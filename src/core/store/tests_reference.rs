@@ -121,3 +121,44 @@ fn test_fj1304_scan_file_adjacent_hashes() {
     let refs = scan_file_refs(content.as_bytes(), &known);
     assert_eq!(refs.len(), 2);
 }
+
+#[test]
+fn test_fj1304_scan_file_truncated_hash_at_end() {
+    // blake3: prefix at end of file but hash is truncated (end > len)
+    let content = b"blake3:abcdef";
+    let known = known_set(&[HASH_A]);
+    let refs = scan_file_refs(content, &known);
+    assert!(refs.is_empty());
+}
+
+#[test]
+fn test_fj1304_scan_file_hash_exactly_at_end() {
+    // Hash at exactly the last position in the content
+    let content = format!("prefix {HASH_A}");
+    let known = known_set(&[HASH_A]);
+    let refs = scan_file_refs(content.as_bytes(), &known);
+    assert_eq!(refs.len(), 1);
+}
+
+#[test]
+fn test_fj1304_scan_file_prefix_only() {
+    // Just "blake3:" with no hex chars after
+    let content = b"some text blake3: end";
+    let known = known_set(&[HASH_A]);
+    let refs = scan_file_refs(content, &known);
+    assert!(refs.is_empty());
+}
+
+#[test]
+fn test_fj1304_scan_directory_file_in_subdir_with_no_refs() {
+    let dir = tempfile::tempdir().unwrap();
+    // A file with no references
+    std::fs::write(dir.path().join("plain.txt"), "no hashes here").unwrap();
+    // A subdir with a file
+    let sub = dir.path().join("sub");
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::write(sub.join("also-plain.txt"), "nothing").unwrap();
+    let known = known_set(&[HASH_A]);
+    let refs = scan_directory_refs(dir.path(), &known).unwrap();
+    assert!(refs.is_empty());
+}
