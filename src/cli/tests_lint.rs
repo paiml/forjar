@@ -268,6 +268,117 @@ resources:
         assert!(warnings.is_empty(), "file resources should not be linted");
     }
 
+    // ── FJ-3030: nohup LD_LIBRARY_PATH lint ─────────────────
+
+    #[test]
+    fn test_fj3030_lint_nohup_ld_path_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: nohup-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  serve:
+    type: task
+    machine: m1
+    command: "nohup /opt/llama/llama-server --port 8080 &"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_nohup_ld_path(&cfg);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("LD_LIBRARY_PATH"));
+    }
+
+    #[test]
+    fn test_fj3030_lint_nohup_with_ld_path_no_warn() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: nohup-ok
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  serve:
+    type: task
+    machine: m1
+    command: "LD_LIBRARY_PATH=/opt/llama nohup /opt/llama/llama-server --port 8080 &"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_nohup_ld_path(&cfg);
+        assert!(warnings.is_empty());
+    }
+
+    // ── FJ-3040: nohup sleep health check race lint ──────
+
+    #[test]
+    fn test_fj3040_lint_nohup_sleep_health_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: race-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  serve:
+    type: task
+    machine: m1
+    command: "nohup /opt/server --port 8080 & sleep 15; curl -sf http://localhost:8080/health"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_nohup_sleep_health(&cfg);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("health_check"));
+    }
+
+    #[test]
+    fn test_fj3040_lint_nohup_no_sleep_no_warn() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: no-race
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  serve:
+    type: task
+    machine: m1
+    task_mode: service
+    command: "/opt/server --port 8080"
+"#,
+        )
+        .unwrap();
+        let cfg = parse_and_validate(&config).unwrap();
+        let warnings = lint_nohup_sleep_health(&cfg);
+        assert!(warnings.is_empty());
+    }
+
     #[test]
     fn test_fj374_lint_rules_flag() {
         let cmd = Commands::Lint(LintArgs {
