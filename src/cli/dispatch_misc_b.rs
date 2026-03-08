@@ -334,6 +334,11 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
         json,
         csv,
         sql,
+        events,
+        failures,
+        since,
+        status,
+        run,
     } = args;
     if sql {
         super::query_format::print_sql(query.as_deref().unwrap_or("*"), resource_type.as_deref());
@@ -341,6 +346,17 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     }
     if health {
         return cmd_query_health(&state_dir, json);
+    }
+    if events {
+        return super::query_format::cmd_query_events(
+            &state_dir,
+            since.as_deref(),
+            run.as_deref(),
+            json,
+        );
+    }
+    if failures {
+        return super::query_format::cmd_query_failures(&state_dir, since.as_deref(), json);
     }
     if drift && query.is_none() {
         return super::query_format::cmd_query_drift(&state_dir, json);
@@ -351,13 +367,14 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     let needs_enrichment = history || timing || reversibility || git_history;
     let q = match query.as_deref() {
         Some(q) => Some(q),
-        None if needs_enrichment => None, // list all resources
+        None if needs_enrichment => None,
         None => return Err("query term required (e.g. forjar state-query \"nginx\")".into()),
     };
     cmd_query_state(
         q,
         &state_dir,
         resource_type.as_deref(),
+        status.as_deref(),
         history,
         drift,
         timing,
@@ -388,6 +405,7 @@ fn cmd_query_state(
     query: Option<&str>,
     state_dir: &std::path::Path,
     resource_type: Option<&str>,
+    status_filter: Option<&str>,
     history: bool,
     _drift: bool,
     timing: bool,
@@ -406,6 +424,9 @@ fn cmd_query_state(
     };
     if let Some(rtype) = resource_type {
         results.retain(|r| r.resource_type == rtype);
+    }
+    if let Some(status) = status_filter {
+        results.retain(|r| r.status == status);
     }
 
     let display_query = query.unwrap_or("*");

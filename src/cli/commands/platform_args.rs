@@ -400,6 +400,26 @@ pub struct QueryArgs {
     /// Show the SQL query that would be executed
     #[arg(long)]
     pub sql: bool,
+
+    /// Show recent events for matched resources
+    #[arg(long)]
+    pub events: bool,
+
+    /// Show failure history (failed events only)
+    #[arg(long)]
+    pub failures: bool,
+
+    /// Filter events since timestamp (ISO 8601 or relative like "1h", "7d")
+    #[arg(long)]
+    pub since: Option<String>,
+
+    /// Filter by resource status (converged, drifted, failed)
+    #[arg(long)]
+    pub status: Option<String>,
+
+    /// Filter events by run ID
+    #[arg(long)]
+    pub run: Option<String>,
 }
 
 /// FJ-2700: CLI arguments for `run` (dispatch mode task invocation).
