@@ -40,6 +40,7 @@ fn test_fj1325_collect_roots_deduplicates() {
 }
 
 #[test]
+#[cfg(unix)]
 fn test_fj1325_collect_roots_gc_dir() {
     let dir = tempfile::tempdir().unwrap();
     let gc_dir = dir.path().join(".gc-roots");
@@ -141,6 +142,7 @@ fn test_fj1326_mark_sweep_missing_meta_still_works() {
 }
 
 #[test]
+#[cfg(unix)]
 fn test_fj1325_gc_root_from_symlink_integration() {
     // Integration test: symlink target → collected root → mark live
     let dir = tempfile::tempdir().unwrap();
