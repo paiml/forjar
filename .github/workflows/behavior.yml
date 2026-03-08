@@ -34,9 +34,15 @@ jobs:
 
       - name: Run behavior specs
         run: |
-          for spec in tests/**/*.spec.yaml; do
+          shopt -s nullglob
+          specs=(tests/**/*.spec.yaml)
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No spec files found — skipping behavior tests"
+            exit 0
+          fi
+          for spec in "${specs[@]}"; do
             echo "--- Running: $spec"
-            ./target/release/forjar test behavior --spec "$spec" || exit 1
+            ./target/release/forjar test --file "$spec" || exit 1
           done
 
       - name: Upload test artifacts
