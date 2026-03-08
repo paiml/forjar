@@ -203,7 +203,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | Container builds | `forjar build --resource img [--push\|--load\|--far]` | [05](platform/05-container-builds.md) |
 | Image resource | `type: image` with `layers:` array | [05](platform/05-container-builds.md) |
 | Provable contracts | `forjar contracts --coverage` + 4-tier verification | [09](platform/09-provable-design-by-contract.md) |
-| Secret management | `{{ secrets.* }}` with Age encryption (env/file/SOPS planned) | [10](platform/10-security-model.md) |
+| Secret management | `{{ secrets.* }}` with 4 providers (env/file/sops/op) | [10](platform/10-security-model.md) |
 | Structured output | `--json`, exit codes, `forjar doctor` | [11](platform/11-observability.md) |
 | bashrs spec | I8 invariant documented, `forjar lint --bashrs-version` | [12](platform/12-build-pipeline.md) |
 | apr compilation | `apr compile` integration, model drift detection | [12](platform/12-build-pipeline.md) |
