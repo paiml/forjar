@@ -7,11 +7,13 @@ on:
     paths:
       - "src/**"
       - "tests/**/*.spec.yaml"
+      - ".cargo/config.toml"
       - ".github/workflows/behavior.yml"
   pull_request:
     paths:
       - "src/**"
       - "tests/**/*.spec.yaml"
+  workflow_dispatch:
 
 concurrency:
   group: behavior-${{ github.ref }}

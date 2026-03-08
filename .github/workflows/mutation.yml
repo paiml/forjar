@@ -7,11 +7,13 @@ on:
     paths:
       - "src/**"
       - "mutants.toml"
+      - ".cargo/config.toml"
       - ".github/workflows/mutation.yml"
   pull_request:
     paths:
       - "src/**"
       - "mutants.toml"
+  workflow_dispatch:
 
 concurrency:
   group: mutation-${{ github.ref }}
