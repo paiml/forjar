@@ -116,3 +116,66 @@ impl MachineTarget {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resource_type_display_all_variants() {
+        let cases = [
+            (ResourceType::Package, "package"),
+            (ResourceType::File, "file"),
+            (ResourceType::Service, "service"),
+            (ResourceType::Mount, "mount"),
+            (ResourceType::User, "user"),
+            (ResourceType::Docker, "docker"),
+            (ResourceType::Pepita, "pepita"),
+            (ResourceType::Network, "network"),
+            (ResourceType::Cron, "cron"),
+            (ResourceType::Recipe, "recipe"),
+            (ResourceType::Model, "model"),
+            (ResourceType::Gpu, "gpu"),
+            (ResourceType::Task, "task"),
+            (ResourceType::WasmBundle, "wasm_bundle"),
+            (ResourceType::Image, "image"),
+        ];
+        for (variant, expected) in &cases {
+            assert_eq!(variant.to_string(), *expected);
+        }
+    }
+
+    #[test]
+    fn test_resource_type_default() {
+        assert_eq!(ResourceType::default(), ResourceType::Package);
+    }
+
+    #[test]
+    fn test_resource_type_serde_roundtrip() {
+        let yaml = "\"file\"";
+        let rt: ResourceType = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(rt, ResourceType::File);
+        let serialized = serde_yaml_ng::to_string(&rt).unwrap();
+        assert!(serialized.trim() == "file");
+    }
+
+    #[test]
+    fn test_machine_target_single() {
+        let t = MachineTarget::Single("web".to_string());
+        assert_eq!(t.to_string(), "web");
+        assert_eq!(t.to_vec(), vec!["web"]);
+    }
+
+    #[test]
+    fn test_machine_target_multiple() {
+        let t = MachineTarget::Multiple(vec!["a".into(), "b".into()]);
+        assert_eq!(t.to_string(), "[a, b]");
+        assert_eq!(t.to_vec(), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_machine_target_default() {
+        let d = MachineTarget::default();
+        assert_eq!(d.to_vec(), vec!["localhost"]);
+    }
+}
