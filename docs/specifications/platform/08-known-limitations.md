@@ -59,7 +59,7 @@ This is a deliberate design choice, not a missing feature. Distributed 2PC adds 
 
 ## L5: CQRS Integrity Depends on Flat Files
 
-`state.db` is a derived read model that can be fully reconstructed from flat files. If corrupted or deleted, `forjar ingest` rebuilds it from:
+`state.db` is a derived read model that can be fully reconstructed from flat files. If corrupted or deleted, it is automatically rebuilt on the next `forjar apply` or `forjar query` (via internal `ingest_state()`) from:
 - `state/<machine>/state.lock.yaml` — resources table
 - `state/<machine>/events.jsonl` — events table
 - `state/<machine>/destroy-log.jsonl` — destroy_log table
@@ -130,7 +130,7 @@ This system does not parse or execute Dockerfiles. Users with existing Dockerfil
 
 L5 states that no write-side data may exist only in SQLite. But there is no compile-time or runtime enforcement preventing a developer from writing directly to `state.db`. The invariant is a documented policy.
 
-**Mitigation**: The `state.db` write path should be a single module (`core/store/db.rs`) that only accepts data from the ingest pipeline. Direct SQL INSERT/UPDATE outside this module should be flagged by code review. A `forjar ingest --verify` command can compare state.db contents against flat files and report any orphaned rows.
+**Mitigation**: The `state.db` write path should be a single module (`core/store/db.rs`) that only accepts data from the ingest pipeline. Direct SQL INSERT/UPDATE outside this module should be flagged by code review. A future `--verify` flag on query commands could compare state.db contents against flat files and report any orphaned rows.
 
 ---
 
@@ -166,7 +166,7 @@ The spec introduces new state files (`destroy-log.jsonl`), new generation metada
 1. **Missing files are empty**: If `destroy-log.jsonl` doesn't exist, `destroy_log` table is empty (not an error)
 2. **Unknown YAML fields are ignored**: `serde_yaml_ng` deserialization uses `#[serde(default)]` for all new fields. Old lock files work with new Forjar.
 3. **Schema version in state.db**: `PRAGMA user_version` stores the schema version. On ingest, if version < current, run migrations. If version > current (downgrade), refuse with a clear error.
-4. **No automatic downgrade**: Upgrading is safe (migrations run). Downgrading requires `forjar ingest --rebuild` which reconstructs state.db from flat files using the old schema.
+4. **No automatic downgrade**: Upgrading is safe (migrations run). Downgrading requires deleting `state.db` and letting it auto-rebuild from flat files using the current schema on next command invocation.
 
 ---
 

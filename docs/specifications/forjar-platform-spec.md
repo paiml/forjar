@@ -68,7 +68,7 @@ This specification covers five capabilities that close the gap between "good IaC
 
 ### Core Principles
 
-1. **CQRS**: YAML/JSONL flat files are the source of truth. SQLite is a derived read model. If `state.db` is deleted, `forjar ingest` rebuilds it from flat files.
+1. **CQRS**: YAML/JSONL flat files are the source of truth. SQLite is a derived read model. If `state.db` is deleted, it is automatically rebuilt from flat files on the next `forjar apply` or `forjar query` (via internal `ingest_state()`).
 2. **Content-addressed**: BLAKE3 for internal store and drift detection. SHA-256 for OCI compatibility. Both digests computed per artifact (BLAKE3 for store addressing, SHA-256 for OCI manifests).
 3. **Idempotent by construction**: Observe-diff-act reconciliation with hash comparison. Second apply is always a no-op — zero remote I/O, zero mutations (state files are read and hashes recomputed, but no convergence actions execute).
 4. **Transport-agnostic**: Same YAML works across pepita, Docker, local, and SSH. Transport is dispatched at runtime.
@@ -181,7 +181,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | Sub-second query | `forjar query "bash" --health --drift --timing` | [01](platform/01-sqlite-query-engine.md) |
 | Active undo | `forjar undo [--machine X] [--dry-run]` | [02](platform/02-generation-undo.md) |
 | Undo destroy | `forjar undo-destroy [--machine X]` | [02](platform/02-generation-undo.md) |
-| Generation diff | `forjar diff --generation 3 7` | [02](platform/02-generation-undo.md) |
+| Generation diff | `forjar generation diff 3 7` | [02](platform/02-generation-undo.md) |
 | Container builds | `forjar build --resource img [--push\|--load\|--far]` | [05](platform/05-container-builds.md) |
 | Image resource | `type: image` with `layers:` array | [05](platform/05-container-builds.md) |
 | Provable contracts | `forjar contracts --coverage` + 4-tier verification | [09](platform/09-provable-design-by-contract.md) |
@@ -193,9 +193,9 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | Unknown field detection | Typo warnings, "did you mean?" suggestions | [13](platform/13-config-validation.md) |
 | Deep validation | `forjar validate --deep` for templates, deps, overlaps | [13](platform/13-config-validation.md) |
 | LSP enrichment | Real-time structural validation + autocompletion | [13](platform/13-config-validation.md) |
-| Convergence testing | `forjar test convergence` with preservation matrix | [14](platform/14-testing-strategy.md) |
+| Convergence testing | `forjar test --pairs` with preservation matrix | [14](platform/14-testing-strategy.md) |
 | Behavior specs | `.spec.yaml` with verify commands + soft assertions | [14](platform/14-testing-strategy.md) |
-| Infrastructure mutation | `forjar test mutate` with mutation score grading | [14](platform/14-testing-strategy.md) |
+| Infrastructure mutation | `forjar test --mutations N` with mutation score grading | [14](platform/14-testing-strategy.md) |
 | Task modes | `mode: batch\|pipeline\|service\|dispatch` | [15](platform/15-task-framework.md) |
 | Quality gates | JSON/regex/threshold gates block downstream tasks | [15](platform/15-task-framework.md) |
 | Consumer integration | alimentar, entrenar, apr-cli, batuta reference recipes | [15](platform/15-task-framework.md) |
@@ -204,14 +204,14 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 
 ## Implementation Roadmap
 
-**Status**: 42/42 phases IMPLEMENTED (100%). 9,819 tests, 95%+ coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Platform spec gaps E16–E21 closed (2026-03-07).
+**Status**: 42/42 phases IMPLEMENTED (100%). 9,972 tests, 95.16% coverage, zero clippy warnings. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Platform spec gaps E16–E21 closed (2026-03-07). Re-audit 2026-03-08: 5 new findings (S3-S5, E22, F36).
 
 Phases are ordered by dependency. Each phase is independently shippable.
 
 | Phase | Spec ID | Component | Depends On | Deliverable |
 |-------|---------|-----------|------------|-------------|
 | 1 | FJ-2001 | SQLite Foundation | — | `forjar query "bash"` in <100ms |
-| 2 | FJ-2002 | Extended Generations | Phase 1 | `forjar diff --generation 3 7` |
+| 2 | FJ-2002 | Extended Generations | Phase 1 | `forjar generation diff 3 7` |
 | 3 | FJ-2003 | Stack Undo | Phase 2 | `forjar undo --dry-run` across fleet |
 | 4 | FJ-2004 | Query Enrichments | Phase 1 | `--health`, `--drift`, `--timing`, `-G` flags |
 | 5 | FJ-2005 | Undo-Destroy | Phase 3 | `destroy → undo-destroy` round-trip |

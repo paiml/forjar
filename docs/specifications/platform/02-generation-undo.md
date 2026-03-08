@@ -97,8 +97,8 @@ forjar undo-destroy --machine intel
 # Tasks/Users/Networks/Models/Recipes skipped unless --force.
 
 # --- NEW: Generation Diff ---
-forjar diff --generation 3 7
-forjar diff --generation 3 7 --machine intel
+forjar generation diff 3 7
+forjar generation diff 3 7 --machine intel
 ```
 
 ---
@@ -281,7 +281,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML) — enriches with git_ref, forjar_version via builder pattern
 - [x] Populate SQLite `generations` table from `state/generations/` on ingest
 - [x] Enrich `forjar generations` with resource count, delta, action type
-- [x] `forjar diff --generation 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
+- [x] `forjar generation diff 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
 - **Extends**: `src/cli/generation.rs`
 
 ### Phase 3: Stack Undo (FJ-2003) -- IMPLEMENTED
