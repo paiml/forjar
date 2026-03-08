@@ -2,7 +2,7 @@
 
 > Idempotent convergence, full-stack undo, sub-second query, and optimized container builds.
 
-**Status**: Draft | **Date**: 2026-03-05 | **Spec IDs**: FJ-2000 through FJ-2706
+**Status**: Draft | **Date**: 2026-03-08 | **Spec IDs**: FJ-2000 through FJ-2803
 
 ---
 
@@ -142,6 +142,12 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | # | Component | Spec ID | Lines | Description |
 |---|-----------|---------|-------|-------------|
 | 15 | [Task Framework](platform/15-task-framework.md) | FJ-2700–FJ-2706 | ~550 | Task modes (batch/pipeline/service/dispatch), quality gates, GPU targeting, distributed coordination, consumer integration |
+
+### Quality Scoring
+
+| # | Component | Spec ID | Lines | Description |
+|---|-----------|---------|-------|-------------|
+| 16 | [Recipe Quality Score](platform/16-recipe-quality-score.md) | FJ-2800–FJ-2803 | ~250 | ForjarScore v2: two-tier grading, 8 dimensions, Popperian falsification |
 
 ### Cross-Cutting
 
@@ -288,182 +294,15 @@ New Forjar versions must handle old state files, and old versions must not corru
 
 ## Recipe Quality Score (ForjarScore v2)
 
-> Spec ID: FJ-2800 | Status: PROPOSED | Replaces: ForjarScore v1
+> Spec ID: FJ-2800–FJ-2803 | Status: PROPOSED | Replaces: ForjarScore v1
 
-Recipe quality scoring for the forjar-cookbook. Measures recipe design quality (static analysis) and operational quality (runtime verification) independently, replacing the v1 system where runtime-dependent dimensions zeroed out the score for unqualified recipes.
+Two-tier recipe quality scoring: Static grade (design quality, always available) + Runtime grade (operational quality, after apply). Addresses five v1 structural defects: cliff at pending, 55% runtime wall, zero variance, RES architecture bias, DOC volume-over-quality.
 
-### Problem Statement (v1 Defects)
+See full specification: [`platform/16-recipe-quality-score.md`](platform/16-recipe-quality-score.md)
 
-ForjarScore v1 has five structural defects identified via falsification:
+**Static dimensions**: SAF(25%), OBS(20%), DOC(15%), RES(20%), CMP(20%). **Runtime dimensions**: COR(35%), IDM(35%), PRF(30%). Display: `A/A`, `A/pending`, `B/F`.
 
-1. **Cliff at pending/blocked**: `composite=0` for any non-qualified recipe. Two recipes with SAF=100 and SAF=40 both score F. Zero signal for design quality before runtime qualification.
-2. **55% runtime wall**: COR(20%) + IDM(20%) + PRF(15%) = 55% requires containers. Maximum static-only score = 45 points → always grade D. Well-designed recipes cannot score above D without runtime data.
-3. **Zero variance among qualified recipes**: Every qualified strong-idempotency recipe scores 94. Every weak-idempotency recipe scores 93. The score cannot distinguish a 3-resource trivial recipe from a 13-resource multi-machine topology.
-4. **RES penalizes correct architecture**: CIS hardening recipes (independently-applicable controls via `--tag`) score RES=20 because <30% resources have `depends_on`. Independent resources are the correct design for tagged control sets.
-5. **DOC rewards volume over quality**: 40 points for ≥15% comment ratio. Copy-pasted `# Deploy managed configuration file` scores identically to thoughtful explanations. Self-documenting recipes with clear names and descriptions are penalized.
-
-### v2 Design: Two-Tier Grading
-
-Score recipes on two independent axes:
-
-```
-┌─────────────────────────────────────────────────────┐
-│  ForjarScore v2                                      │
-│                                                      │
-│  Static Grade (design quality)     ── always available│
-│    SAF  Safety           25%                         │
-│    OBS  Observability    20%                         │
-│    DOC  Documentation    15%                         │
-│    RES  Resilience       20%                         │
-│    CMP  Composability    20%                         │
-│                                                      │
-│  Runtime Grade (operational quality) ── after apply  │
-│    COR  Correctness      35%                         │
-│    IDM  Idempotency      35%                         │
-│    PRF  Performance      30%                         │
-│                                                      │
-│  Overall = min(static_grade, runtime_grade)           │
-│  If runtime not available: Overall = static_grade     │
-│  with suffix: A → A-pending, B → B-pending           │
-└─────────────────────────────────────────────────────┘
-```
-
-**Key change**: Static grade is always computed and always meaningful. A recipe with SAF=100, OBS=90, DOC=85, RES=80, CMP=95 earns **static grade A** before any container runs. Runtime grade elevates or constrains the overall grade after qualification.
-
-### Static Dimensions (v2)
-
-#### SAF — Safety (25%)
-
-Starts at 100, deductions applied. Unchanged from v1 except:
-
-| Check | Deduction | Notes |
-|-------|-----------|-------|
-| `mode: 0777` | -30 (critical) | Hard cap at 40 on any critical |
-| File without explicit `mode` | -5 | |
-| File without explicit `owner` | -3 | |
-| Package without version pin | -3 per package | |
-| `curl\|bash` pipe pattern | -30 (critical) | Same-line pipe to shell |
-| Secrets in plaintext params | -10 per secret | Param name matches `password`, `token`, `secret`, `key` with non-template value |
-
-#### OBS — Observability (20%)
-
-| Feature | Points |
-|---------|--------|
-| `tripwire: true` | +15 |
-| `lock_file: true` | +15 |
-| `outputs:` section | +10 |
-| File mode coverage (% with explicit mode) | 0-15 proportional |
-| File owner coverage (% with explicit owner) | 0-15 proportional |
-| Notify hooks (on_success/on_failure/on_drift) | `(count × 20) / 3` |
-| Output descriptions present | +10 (NEW) |
-
-#### DOC — Documentation (15%)
-
-Replace comment-ratio volume metric with quality signals:
-
-| Feature | Points | Notes |
-|---------|--------|-------|
-| Header metadata: `Recipe:` | +8 | First 5 lines |
-| Header metadata: `Tier:` | +8 | |
-| Header metadata: `Idempotency:` | +8 | |
-| Header metadata: `Budget:` | +8 (NEW) | |
-| `description:` field present | +15 | |
-| Name is kebab-case | +3 | |
-| Unique inline comments (≥3 distinct) | +15 (NEW) | Deduplicated — copy-paste doesn't count |
-| Output `description:` fields (≥50% have descriptions) | +10 (NEW) | |
-| Param documentation (≥3 params with non-empty values) | +10 (NEW) | |
-
-**Removed**: Raw comment-ratio metric (15% → 40 points). Replaced with unique-comment check that rewards distinct explanations.
-
-#### RES — Resilience (20%)
-
-Context-aware scoring that doesn't penalize correct architecture:
-
-| Feature | Points | Notes |
-|---------|--------|-------|
-| `failure: continue_independent` | +15 | |
-| `ssh_retries > 1` | +10 | |
-| Dependency DAG ratio (≥50% with `depends_on`) | +20 | |
-| **OR** Tagged independent resources (≥50% with `tags` and `resource_group`) | +20 (NEW) | Either deep DAG or tagged independence scores — not both required |
-| `pre_apply:` present | +8 | |
-| `post_apply:` present | +8 | |
-| `deny_paths:` present | +10 (NEW) | Security-conscious policy |
-| Multi-machine with `parallel_machines: true` | +5 (NEW) | Fleet-aware |
-
-**Key change**: A recipe with tagged independent controls (like CIS hardening) earns the same resilience points as one with deep dependency chains. The scoring recognizes that tagged independence IS a resilience pattern — it enables selective application and blast radius control.
-
-#### CMP — Composability (20%)
-
-| Feature | Points |
-|---------|--------|
-| `params:` section | +15 |
-| Template usage (`{{...}}` in resources) | +10 |
-| `includes:` present | +10 |
-| Resources have `tags` | +15 |
-| Resources have `resource_group` | +15 |
-| Multiple machines | +10 |
-| Multiple includes (recipe nesting) | +10 |
-| Secrets via `{{ secrets.* }}` template | +5 (NEW) |
-
-### Runtime Dimensions (v2)
-
-#### COR — Correctness (35%)
-
-| Event | Points |
-|-------|--------|
-| `forjar validate` passes | +15 |
-| `forjar plan` passes | +15 |
-| First `forjar apply` passes | +40 |
-| All resources converged | +15 |
-| State lock written | +10 |
-| Warnings | -2 per (max -10) |
-
-#### IDM — Idempotency (35%)
-
-| Event | Points |
-|-------|--------|
-| Second apply passes | +25 |
-| Zero changes on re-apply | +25 |
-| Hash stable across applies | +20 |
-| Idempotency class bonus | strong: +20, weak: +10, eventual: 0 |
-| Changed resources | -10 per |
-
-#### PRF — Performance (30%)
-
-| Metric | Points |
-|--------|--------|
-| First apply ≤ 50% of budget | +40 |
-| First apply ≤ 100% of budget | +25 |
-| Idempotent apply ≤ 2s | +30 |
-| Efficiency ratio ≤ 5% | +20 |
-| Efficiency ratio ≤ 10% | +15 |
-
-### Grade Thresholds (v2)
-
-| Grade | Static | Runtime | Overall |
-|-------|--------|---------|---------|
-| A | composite ≥ 90, min ≥ 80 | composite ≥ 90, min ≥ 80 | min(static, runtime) |
-| B | composite ≥ 75, min ≥ 60 | composite ≥ 75, min ≥ 60 | |
-| C | composite ≥ 60, min ≥ 40 | composite ≥ 60, min ≥ 40 | |
-| D | composite ≥ 40 | composite ≥ 40 | |
-| F | < 40 | < 40 | |
-
-**Display format**: `A/A` (static/runtime), `A/pending`, `B/F` (good design, bad runtime).
-
-### Migration from v1
-
-1. All existing qualified recipes retain their A-grade (runtime data unchanged)
-2. Pending/blocked recipes gain a meaningful static grade instead of F
-3. CSV format adds `static_grade` and `runtime_grade` columns alongside `grade` (overall)
-4. `score_version` column changes from `1.0` to `2.0`
-5. Backward compatible: v1 `grade` column = overall grade
-
-### Implementation
-
-- **Location**: `forjar-cookbook/crates/cookbook-qualify/src/score/`
-- **Spec ID**: FJ-2800 (scoring model), FJ-2801 (static dimensions), FJ-2802 (runtime dimensions)
-- **Tests**: Each dimension function has unit tests with boundary conditions
-- **CLI**: `cookbook-runner score --file recipe.yaml` reports both grades
+Includes Popperian falsification criteria per dimension (FJ-2803): explicit rejection tests, boundary conditions, construct validity checks, cross-dimension discrimination requirement (σ ≥ 5), monotonicity invariant, and mutation testing schedule for the scorer itself. Grounded in Konala et al. (2025), Dalla Palma et al. (2022, AUC-PR=0.93), Groce et al. (ASE 2018, mutation-as-falsification), and Hatton (1997, U-shaped fault density).
 
 ---
 
@@ -482,3 +321,9 @@ Context-aware scoring that doesn't penalize correct architecture:
 - [Buildah — daemonless container builds](https://github.com/containers/buildah)
 - [ko — fast Go container images](https://ko.build/)
 - pmat context.db — 7 tables, 2 FTS5 virtual tables, 15 indexes, sub-second on 5K+ functions
+- [Konala et al. (2025) — 9-Dimension IaC Quality Framework, ISO 25010-aligned](https://arxiv.org/abs/2501.07001)
+- [Dalla Palma et al. (2022) — AnsibleMetrics: Defect Prediction from IaC Static Metrics (AUC-PR 0.93)](https://doi.org/10.1007/s10664-021-10062-w)
+- [Rahman et al. (ICSE 2019) — Seven Pains in Developing Practical IaC Security Smells](https://doi.org/10.1109/ICSE.2019.00033)
+- [Groce et al. (ASE 2018) — Mutation-as-Falsification](https://doi.org/10.1145/3238147.3238192)
+- [Hatton (1997) — U-Shaped Fault Density Curve, Falsified Module Size Hypothesis](https://doi.org/10.1109/32.585504)
+- [Popper (1959) — The Logic of Scientific Discovery](https://en.wikipedia.org/wiki/The_Logic_of_Scientific_Discovery)
