@@ -679,11 +679,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-2200: Remediate E5/E6 — update falsification report, rename Kani harnesses'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-06T18:18:29Z
-  updated: 2026-03-07T12:48:57.731741081+00:00
+  updated: 2026-03-08T11:41:09.607681540+00:00
   spec: null
   acceptance_criteria: []
   phases: []
