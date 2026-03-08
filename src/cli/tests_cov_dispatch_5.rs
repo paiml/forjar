@@ -391,6 +391,7 @@ fn dispatch_bench_routes() {
         Commands::Bench(BenchArgs {
             iterations: 1,
             json: false,
+            compare: false,
         }),
         false,
     );

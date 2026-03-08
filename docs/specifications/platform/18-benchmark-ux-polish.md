@@ -511,8 +511,8 @@ Rules:
 - [x] Parameterize by config size (5/20/100 resources)
 - [x] Expand `forjar bench` to 6 targets (validate, plan, drift, blake3 4KB, topo sort, blake3 1MB)
 - [x] Colorize bench output (pass/fail against targets, duration coloring)
-- [ ] Add `--compare` flag to compare against stored baseline
-- [ ] Add percentile stats (p50, p95) to JSON output
-- [ ] Create `benchmarks/RESULTS.md` with auto-update markers
-- [ ] Create `make bench-update` target
+- [x] Add `--compare` flag to compare against stored baseline
+- [x] Add percentile stats (p50, p95) to JSON output
+- [x] Create `benchmarks/RESULTS.md` with auto-update markers
+- [x] Create `make bench-update` target
 - **Deliverable**: `cargo bench` with quality gates; `forjar bench` with rich colorized output

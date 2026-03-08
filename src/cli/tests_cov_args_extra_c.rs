@@ -250,6 +250,7 @@ mod tests {
         let a = BenchArgs {
             iterations: 1000,
             json: false,
+            compare: false,
         };
         let _ = format!("{a:?}");
     }

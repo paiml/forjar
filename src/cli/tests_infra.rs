@@ -18,13 +18,13 @@ mod tests {
 
     #[test]
     fn test_fj139_cmd_bench_runs() {
-        let result = cmd_bench(10, false);
+        let result = cmd_bench(10, false, false);
         assert!(result.is_ok(), "bench should succeed: {result:?}");
     }
 
     #[test]
     fn test_fj139_cmd_bench_json() {
-        let result = cmd_bench(10, true);
+        let result = cmd_bench(10, true, false);
         assert!(result.is_ok(), "bench JSON should succeed: {result:?}");
     }
 
@@ -281,7 +281,7 @@ mod tests {
         use crate::cli::infra_bench::cmd_bench_with_writer;
         // NullWriter discards all output — benchmark runs but produces no output
         let mut w = NullWriter;
-        let result = cmd_bench_with_writer(1, true, &mut w);
+        let result = cmd_bench_with_writer(1, true, false, &mut w);
         assert!(result.is_ok());
     }
 
@@ -290,7 +290,7 @@ mod tests {
         use crate::cli::output::TestWriter;
         use crate::cli::infra_bench::cmd_bench_with_writer;
         let mut w = TestWriter::new();
-        cmd_bench_with_writer(1, true, &mut w).unwrap();
+        cmd_bench_with_writer(1, true, false, &mut w).unwrap();
         let json_out = w.stdout_text();
         assert!(
             json_out.contains("\"name\""),
@@ -300,6 +300,27 @@ mod tests {
             json_out.contains("\"status\""),
             "should contain status: {json_out:?}"
         );
+    }
+
+    #[test]
+    fn test_fj2900_bench_percentiles_in_json() {
+        use crate::cli::output::TestWriter;
+        use crate::cli::infra_bench::cmd_bench_with_writer;
+        let mut w = TestWriter::new();
+        cmd_bench_with_writer(5, true, false, &mut w).unwrap();
+        let json_out = w.stdout_text();
+        assert!(json_out.contains("\"p50_us\""), "should contain p50: {json_out:?}");
+        assert!(json_out.contains("\"p95_us\""), "should contain p95: {json_out:?}");
+    }
+
+    #[test]
+    fn test_fj2900_bench_compare_no_baseline() {
+        use crate::cli::output::TestWriter;
+        use crate::cli::infra_bench::cmd_bench_with_writer;
+        let mut w = TestWriter::new();
+        // --compare with no RESULTS.md should still succeed
+        let result = cmd_bench_with_writer(1, false, true, &mut w);
+        assert!(result.is_ok());
     }
 
 }

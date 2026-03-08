@@ -329,7 +329,11 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
                 cmd_mcp()
             }
         }
-        Commands::Bench(BenchArgs { iterations, json }) => cmd_bench(iterations, json),
+        Commands::Bench(BenchArgs {
+            iterations,
+            json,
+            compare,
+        }) => cmd_bench(iterations, json, compare),
         Commands::Watch(WatchArgs {
             file,
             state_dir,
