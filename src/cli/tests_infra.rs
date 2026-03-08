@@ -273,4 +273,33 @@ mod tests {
         assert!(lock_db.resources.contains_key("pkg"));
     }
 
+    // ── FJ-2920: OutputWriter adoption for bench ──
+
+    #[test]
+    fn test_fj2920_bench_with_null_writer() {
+        use crate::cli::output::NullWriter;
+        use crate::cli::infra_bench::cmd_bench_with_writer;
+        // NullWriter discards all output — benchmark runs but produces no output
+        let mut w = NullWriter;
+        let result = cmd_bench_with_writer(1, true, &mut w);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj2920_bench_with_test_writer() {
+        use crate::cli::output::TestWriter;
+        use crate::cli::infra_bench::cmd_bench_with_writer;
+        let mut w = TestWriter::new();
+        cmd_bench_with_writer(1, true, &mut w).unwrap();
+        let json_out = w.stdout_text();
+        assert!(
+            json_out.contains("\"name\""),
+            "JSON bench output: {json_out:?}"
+        );
+        assert!(
+            json_out.contains("\"status\""),
+            "should contain status: {json_out:?}"
+        );
+    }
+
 }
