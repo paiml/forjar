@@ -43,6 +43,8 @@ resources:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
 
     let results = apply(&cfg).unwrap();
@@ -106,6 +108,8 @@ resources:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
 
     let _results = apply(&cfg).unwrap();
@@ -158,6 +162,8 @@ resources:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
 
     let _results = apply(&cfg).unwrap();

@@ -75,6 +75,8 @@ resources:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         )
         .unwrap();
     }
@@ -140,6 +142,8 @@ policy:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         )
         .unwrap();
 
@@ -202,6 +206,8 @@ resources: {}
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -239,6 +245,8 @@ resources:
                 tag: None,
                 group: None,
                 force: false,
+                refresh: false,
+                force_tag: None,
                 dry_run: true,
                 no_tripwire: false,
                 params: vec![],

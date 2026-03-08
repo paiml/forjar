@@ -25,9 +25,17 @@ pub struct ApplyArgs {
     #[arg(short, long)]
     pub group: Option<String>,
 
-    /// Force re-apply all resources
+    /// Force re-apply all resources (nuclear — prefer --refresh or --force-tag)
     #[arg(long)]
     pub force: bool,
+
+    /// FJ-3010: Re-run check scripts, only re-apply what fails (softer than --force)
+    #[arg(long)]
+    pub refresh: bool,
+
+    /// FJ-3010: Force only resources matching this tag (e.g., --force-tag service)
+    #[arg(long)]
+    pub force_tag: Option<String>,
 
     /// Show what would be executed without running
     #[arg(long)]

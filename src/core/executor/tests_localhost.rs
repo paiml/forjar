@@ -67,6 +67,8 @@ resources: {}
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     // No resources → no machines collected → empty results
@@ -97,6 +99,8 @@ fn test_fj131_apply_machine_filter_no_match() {
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert!(
@@ -336,6 +340,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

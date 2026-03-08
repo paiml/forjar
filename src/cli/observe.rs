@@ -346,6 +346,8 @@ fn run_watch_apply(config: &types::ForjarConfig, state_dir: &Path) {
         max_parallel: None,
         trace: false,
         run_id: Some(crate::core::types::generate_run_id()),
+        refresh: false,
+        force_tag: None,
     };
     match executor::apply(&cfg) {
         Ok(results) => {

@@ -43,6 +43,8 @@ pub(crate) fn cmd_apply(
     exclude: Option<&str>,
     _sequential: bool,
     telemetry_endpoint: Option<&str>,
+    refresh: bool,
+    force_tag: Option<&str>,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -106,6 +108,8 @@ pub(crate) fn cmd_apply(
         } else {
             Some(crate::core::types::generate_run_id())
         },
+        refresh,
+        force_tag,
     };
 
     maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);

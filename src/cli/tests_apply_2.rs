@@ -63,6 +63,8 @@ mod tests {
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         )
         .unwrap();
     }
@@ -133,6 +135,8 @@ policies:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -201,6 +205,8 @@ policy:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -245,6 +251,8 @@ resources:
                 tag: None,
                 group: None,
                 force: false,
+                refresh: false,
+                force_tag: None,
                 dry_run: false,
                 no_tripwire: false,
                 params: vec![],

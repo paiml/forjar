@@ -49,6 +49,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
 
@@ -115,6 +117,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r1 = apply(&cfg1).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -140,6 +144,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_unchanged, 1);
@@ -165,6 +171,8 @@ policy:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let r3 = apply(&cfg3).unwrap();
     assert_eq!(
@@ -291,6 +299,8 @@ resources:
         max_parallel: None,
         trace: false,
         run_id: None,
+        refresh: false,
+        force_tag: None,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].machine, "dry-run");

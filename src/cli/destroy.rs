@@ -313,7 +313,9 @@ pub(crate) fn cmd_rollback(
         false,
         None,
         false,
-        None, // telemetry_endpoint
+        None,  // telemetry_endpoint
+        false, // refresh
+        None,  // force_tag
     )
 }
 

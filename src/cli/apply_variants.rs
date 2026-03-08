@@ -90,7 +90,9 @@ pub(crate) fn cmd_apply_canary_machine(
         false,
         None,
         false,
-        None, // telemetry_endpoint
+        None,  // telemetry_endpoint
+        false, // refresh
+        None,  // force_tag
     )?;
 
     println!("\n{} Canary '{}' succeeded.", green("✓"), canary);
@@ -145,7 +147,9 @@ pub(crate) fn cmd_apply_canary_machine(
             false,
             None,
             false,
-            None, // telemetry_endpoint
+            None,  // telemetry_endpoint
+            false, // refresh
+            None,  // force_tag
         )?;
     }
 
@@ -333,6 +337,8 @@ pub(crate) fn cmd_apply_from_plan(
         max_parallel: None,
         trace: false,
         run_id: Some(crate::core::types::generate_run_id()),
+        refresh: false,
+        force_tag: None,
     };
 
     let results = executor::apply(&cfg)?;

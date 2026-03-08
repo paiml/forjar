@@ -26,6 +26,8 @@ mod tests {
             tag: None,
             group: None,
             force: false,
+            refresh: false,
+            force_tag: None,
             dry_run: false,
             no_tripwire: false,
             params: vec![],

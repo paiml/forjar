@@ -25,6 +25,8 @@ mod tests {
             tag: None,
             group: None,
             force: false,
+            refresh: false,
+            force_tag: None,
             dry_run: false,
             no_tripwire: false,
             params: vec![],
@@ -230,6 +232,8 @@ mod tests {
             tag: None,
             group: None,
             force: false,
+            refresh: false,
+            force_tag: None,
             dry_run: false,
             no_tripwire: false,
             params: vec![],
@@ -472,6 +476,8 @@ resources:
             None,  // exclude
             false, // sequential
             None, // telemetry_endpoint
+            false, // refresh
+            None, // force_tag
         );
         assert!(result.is_ok());
     }

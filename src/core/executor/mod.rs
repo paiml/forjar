@@ -119,6 +119,10 @@ pub struct ApplyConfig<'a> {
     pub trace: bool,
     /// FJ-2301: Run ID for log capture (None = no capture)
     pub run_id: Option<String>,
+    /// FJ-3010: Refresh mode — re-run check scripts, only re-apply what fails
+    pub refresh: bool,
+    /// FJ-3010: Selective force — only force resources matching this tag
+    pub force_tag: Option<&'a str>,
 }
 
 /// Load existing locks for machines matching the filter.
@@ -171,6 +175,34 @@ fn rollback_on_failure(
     }
 }
 
+/// FJ-3010: Build locks with entries removed for resources matching force_tag.
+///
+/// Resources tagged with `force_tag` get their lock entry stripped (forcing re-apply).
+/// All other resources keep their lock entries (hash comparison works normally).
+fn selective_force_locks(
+    locks: &HashMap<String, StateLock>,
+    config: &ForjarConfig,
+    tag: &str,
+) -> HashMap<String, StateLock> {
+    // Collect resource IDs that match the force tag
+    let forced_ids: std::collections::HashSet<&str> = config
+        .resources
+        .iter()
+        .filter(|(_, r)| r.tags.iter().any(|t| t == tag))
+        .map(|(id, _)| id.as_str())
+        .collect();
+
+    let mut result = HashMap::new();
+    for (machine, lock) in locks {
+        let mut new_lock = lock.clone();
+        new_lock
+            .resources
+            .retain(|rid, _| !forced_ids.contains(rid.as_str()));
+        result.insert(machine.clone(), new_lock);
+    }
+    result
+}
+
 /// Execute the apply loop.
 pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();
@@ -194,10 +226,15 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         HashMap::new()
     };
 
-    // FJ-2300: --force bypasses hash comparison — all resources re-applied
-    // (used for secret rotation where template values changed but hash is same)
+    // FJ-2300/FJ-3010: Force mode selection
+    // --force: nuclear — empty locks, all resources re-applied
+    // --force-tag: selective — empty locks only for resources matching tag
+    // --refresh: re-run checks but use real locks (planner plans normally,
+    //   check scripts re-evaluate live state during execution)
     let plan_locks = if cfg.force {
         HashMap::new()
+    } else if let Some(tag) = cfg.force_tag {
+        selective_force_locks(&locks, cfg.config, tag)
     } else {
         locks.clone()
     };
