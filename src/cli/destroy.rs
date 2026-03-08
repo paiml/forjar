@@ -313,6 +313,7 @@ pub(crate) fn cmd_rollback(
         false,
         None,
         false,
+        None, // telemetry_endpoint
     )
 }
 

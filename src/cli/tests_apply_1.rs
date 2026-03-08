@@ -83,6 +83,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
         assert!(target.exists());
@@ -121,6 +122,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
     }
@@ -184,6 +186,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
     }
@@ -246,6 +249,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }

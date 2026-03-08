@@ -42,6 +42,7 @@ pub(crate) fn cmd_apply(
     confirm_destructive: bool,
     exclude: Option<&str>,
     _sequential: bool,
+    telemetry_endpoint: Option<&str>,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -153,6 +154,20 @@ pub(crate) fn cmd_apply(
         // FJ-1388: Generation-based rollback on failure
         maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
         return Err(format!("{total_failed} resource(s) failed"));
+    }
+
+    // FJ-563: OTLP trace export (post-apply, non-blocking)
+    if let Some(endpoint) = telemetry_endpoint {
+        match crate::tripwire::otlp_export::export_from_state_dir(state_dir, endpoint, &config.name)
+        {
+            Ok(n) if n > 0 => {
+                if verbose {
+                    eprintln!("OTLP: exported {n} spans to {endpoint}");
+                }
+            }
+            Err(e) => eprintln!("warning: OTLP export failed: {e}"),
+            _ => {}
+        }
     }
 
     apply_post_actions(

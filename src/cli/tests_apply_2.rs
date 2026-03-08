@@ -62,6 +62,7 @@ mod tests {
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
     }
@@ -131,6 +132,7 @@ policies:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -198,6 +200,7 @@ policy:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly

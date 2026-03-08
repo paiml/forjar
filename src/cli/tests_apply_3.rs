@@ -285,6 +285,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -364,6 +365,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();

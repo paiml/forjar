@@ -471,6 +471,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }

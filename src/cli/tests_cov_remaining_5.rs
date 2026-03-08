@@ -127,6 +127,7 @@ mod tests {
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         let result = cmd_destroy(&cfg, &state, None, true, true);
         assert!(result.is_ok());

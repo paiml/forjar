@@ -105,6 +105,7 @@ resources:
             true, // confirm_destructive
             None,
             false,
+            None, // telemetry_endpoint
         );
         // This will either fail on "aborted by user" or stdin error
         assert!(result.is_err());
@@ -173,6 +174,7 @@ resources:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
         assert!(t1.exists());
@@ -243,6 +245,7 @@ resources:
             false,
             Some("db*"), // exclude — remove db-config
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
         assert!(t1.exists());
@@ -289,6 +292,7 @@ resources:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -351,6 +355,7 @@ resources:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }

@@ -74,6 +74,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
     }
@@ -138,6 +139,7 @@ policy:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
 
@@ -199,6 +201,7 @@ resources: {}
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
