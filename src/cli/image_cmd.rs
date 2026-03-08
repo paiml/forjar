@@ -133,7 +133,7 @@ pub fn cmd_image_iso(
 }
 
 /// Resolve the target machine from config.
-pub(crate) fn resolve_machine<'a>(
+pub fn resolve_machine<'a>(
     config: &'a crate::core::types::ForjarConfig,
     machine_name: Option<&str>,
 ) -> Result<(String, &'a crate::core::types::Machine), String> {
@@ -157,7 +157,7 @@ pub(crate) fn resolve_machine<'a>(
 }
 
 /// Generate Ubuntu autoinstall user-data YAML.
-pub(crate) fn generate_user_data(
+pub fn generate_user_data(
     _name: &str,
     machine: &crate::core::types::Machine,
     disk: &str,
@@ -248,7 +248,7 @@ pub(crate) fn generate_user_data(
 }
 
 /// Read SSH public key file (tries .pub extension).
-pub(crate) fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
+pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
     let Some(key_path) = ssh_key else {
         return Ok(Vec::new());
     };
@@ -272,7 +272,7 @@ pub(crate) fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, Str
 }
 
 /// Expand ~ to $HOME in a path string.
-pub(crate) fn expand_tilde(path: &str) -> String {
+pub fn expand_tilde(path: &str) -> String {
     if let Some(rest) = path.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
             return format!("{home}/{rest}");
@@ -282,7 +282,7 @@ pub(crate) fn expand_tilde(path: &str) -> String {
 }
 
 /// Generate the late-command that installs the forjar-firstboot systemd service.
-pub(crate) fn firstboot_service_command() -> String {
+pub fn firstboot_service_command() -> String {
     let unit = r#"[Unit]
 Description=Forjar First Boot Convergence
 After=network-online.target
