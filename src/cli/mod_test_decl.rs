@@ -129,6 +129,8 @@ mod tests_cov_dispatch_3_b;
 #[cfg(test)]
 mod tests_cov_dispatch_4;
 #[cfg(test)]
+mod tests_cov_dispatch_4b;
+#[cfg(test)]
 mod tests_cov_dispatch_5;
 #[cfg(test)]
 mod tests_cov_dispatch_6;
