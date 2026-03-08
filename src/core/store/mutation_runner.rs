@@ -285,13 +285,16 @@ pub fn run_mutation_parallel(
 
             for handle in handles {
                 if let Ok(results) = handle.join() {
-                    all_results.lock().unwrap().extend(results);
+                    all_results
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .extend(results);
                 }
             }
         });
     }
 
-    MutationReport::from_results(all_results.into_inner().unwrap())
+    MutationReport::from_results(all_results.into_inner().unwrap_or_else(|e| e.into_inner()))
 }
 
 /// Format a mutation run summary.

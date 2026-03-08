@@ -106,8 +106,8 @@ pub fn decrypt_marker(
         .decode(inner)
         .map_err(|e| format!("base64 decode error: {e}"))?;
 
-    let decryptor =
-        age::Decryptor::new(&encrypted[..]).map_err(|e| format!("age decryptor error: {e}"))?;
+    let decryptor = age::Decryptor::new(encrypted.as_slice())
+        .map_err(|e| format!("age decryptor error: {e}"))?;
 
     let mut reader = decryptor
         .decrypt(identities.iter().map(|i| i as &dyn age::Identity))

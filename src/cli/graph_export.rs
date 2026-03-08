@@ -205,7 +205,7 @@ pub(super) fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
     let max_len = names.iter().map(|n| n.len()).max().unwrap_or(0);
     print!("{:width$} ", "", width = max_len);
     for n in names {
-        print!("{} ", &n[..1]);
+        print!("{} ", n.chars().next().unwrap_or(' '));
     }
     println!();
     for (i, name) in names.iter().enumerate() {
