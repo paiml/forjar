@@ -25,20 +25,21 @@ Recent academic work highlights both the need and the difficulty:
 
 Forjar has a strong testing foundation:
 
-| Metric | Current |
+| Metric | Current (March 2026) |
 |--------|---------|
-| Unit tests | 8,365 |
-| Test files | 525 (`tests_*.rs`) |
+| Unit tests | 10,075 |
+| Test files | 658 (`tests_*.rs`) |
 | Integration tests | 3 (`tests/`) |
-| Property-based tests | 13+ proptest files |
+| Property-based tests | 14 proptest files |
 | Falsification specs | 10 files (`tests_falsify_spec_[a-j].rs`) |
+| Kani proof harnesses | 23 |
 | Benchmarks | 3 Criterion harnesses |
 | Coverage threshold | 95% lines |
-| Mutation testing | cargo-mutants configured |
-| CI workflows | 11 (lint, coverage, miri, stress, bench, audit, MSRV, release) |
+| Mutation testing | cargo-mutants configured (`mutants.toml`) |
+| CI workflows | 14 (lint, coverage, miri, stress, bench, audit, MSRV, release, behavior, convergence, mutation, nightly, post-release, ci) |
 | Pre-commit hooks | Complexity, file size, SATD |
 
-**What's missing**: No infrastructure-level testing. All 8,365 tests verify Rust code behavior, not whether a resource actually converges on a real (or simulated) system. No convergence property testing. No idempotency verification beyond the Verus model. No behavior-driven infrastructure specs.
+**What was missing** (pre-platform-spec): No infrastructure-level testing. All unit tests verified Rust code behavior, not whether a resource actually converges on a real (or simulated) system. The platform spec phases 28-35 addressed this with convergence, behavior, sandbox, and mutation testing frameworks.
 
 ---
 
