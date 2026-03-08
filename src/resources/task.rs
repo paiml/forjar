@@ -5,6 +5,28 @@
 
 use crate::core::types::{Resource, TaskMode};
 
+/// Extract absolute binary path from a command string.
+///
+/// Handles: `nohup /path/bin ...`, `sudo /path/bin`, `/path/bin --args`,
+/// `LD_LIBRARY_PATH=/foo nohup /path/bin ...`.
+pub(crate) fn extract_absolute_binary(cmd: &str) -> Option<&str> {
+    for token in cmd.split_whitespace() {
+        // Skip env var assignments
+        if token.contains('=') && !token.starts_with('/') {
+            continue;
+        }
+        // Skip shell builtins and prefixes
+        if matches!(token, "nohup" | "sudo" | "bash" | "sh" | "env" | "exec") {
+            continue;
+        }
+        if token.starts_with('/') {
+            return Some(token);
+        }
+        break;
+    }
+    None
+}
+
 /// Generate shell script to check if a task has already completed.
 ///
 /// If `completion_check` is set, runs it: exit 0 = already done.
@@ -13,11 +35,22 @@ use crate::core::types::{Resource, TaskMode};
 /// Otherwise, always reports as needing execution.
 pub fn check_script(resource: &Resource) -> String {
     // Service mode: check if process is running via PID file
+    // FJ-3030: also inject ldd check for absolute-path binaries
     if resource.task_mode.as_ref() == Some(&TaskMode::Service) {
         let rid = resource.name.as_deref().unwrap_or("task");
         let pidfile = format!("/tmp/forjar-svc-{rid}.pid");
+        let ldd_check = extract_absolute_binary(resource.command.as_deref().unwrap_or(""))
+            .map(|bin| {
+                format!(
+                    "if command -v ldd >/dev/null 2>&1 && [ -f '{bin}' ]; then \
+                     if ldd '{bin}' 2>&1 | grep -q 'not found'; then \
+                     echo 'task=ldd-fail'; exit 1; fi; fi; "
+                )
+            })
+            .unwrap_or_default();
         return format!(
-            "if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then \
+            "{ldd_check}\
+             if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then \
              echo 'task=completed'; else echo 'task=pending'; fi"
         );
     }

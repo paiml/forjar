@@ -427,3 +427,50 @@ fn test_fj3000_pid_check_before_health_probe() {
         "PID check must precede health probe"
     );
 }
+
+// ── FJ-3030: ldd check injection ──
+
+#[test]
+fn test_fj3030_service_check_ldd_absolute_path() {
+    let mut r = make_task_resource("/opt/llama/llama-server --port 8080");
+    r.task_mode = Some(TaskMode::Service);
+    r.name = Some("llama".into());
+    let script = check_script(&r);
+    assert!(
+        script.contains("ldd"),
+        "service check for absolute binary must inject ldd"
+    );
+    assert!(
+        script.contains("/opt/llama/llama-server"),
+        "must check the actual binary"
+    );
+    assert!(script.contains("not found"), "must grep for missing .so");
+    assert!(script.contains("ldd-fail"), "must report ldd failure");
+}
+
+#[test]
+fn test_fj3030_service_check_no_ldd_relative_cmd() {
+    let mut r = make_task_resource("python server.py");
+    r.task_mode = Some(TaskMode::Service);
+    r.name = Some("api".into());
+    let script = check_script(&r);
+    assert!(!script.contains("ldd"), "relative commands skip ldd check");
+}
+
+#[test]
+fn test_fj3030_extract_absolute_binary() {
+    assert_eq!(
+        extract_absolute_binary("/usr/bin/nginx"),
+        Some("/usr/bin/nginx")
+    );
+    assert_eq!(
+        extract_absolute_binary("nohup /opt/bin/srv"),
+        Some("/opt/bin/srv")
+    );
+    assert_eq!(
+        extract_absolute_binary("LD_LIBRARY_PATH=/opt/lib nohup /opt/bin/srv"),
+        Some("/opt/bin/srv")
+    );
+    assert_eq!(extract_absolute_binary("python server.py"), None);
+    assert_eq!(extract_absolute_binary("echo hello"), None);
+}

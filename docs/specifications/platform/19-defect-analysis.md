@@ -404,29 +404,29 @@ Fix #68 first — it's a correctness bug. #67's health check polling becomes the
 ## Implementation Phases
 
 ### Phase 19a: P0 — Exit Code Safety (FJ-3000)
-- [ ] bashrs lint: warn on `;`-chained commands in task `command:` fields
-- [ ] Codegen: inject PID capture for `nohup` task commands
-- [ ] Codegen: generate polling health check with PID liveness verification
-- [ ] Tests: false-success scenario (stale process on port, new process fails to start)
+- [x] bashrs lint: warn on `;`-chained commands in task `command:` fields
+- [x] Codegen: inject PID capture for `nohup` task commands
+- [x] Codegen: generate polling health check with PID liveness verification
+- [x] Tests: false-success scenario (stale process on port, new process fails to start)
 - **Deliverable**: `forjar apply` never reports success when PID died
 
 ### Phase 19b: P1 — Graduated Force (FJ-3010)
-- [ ] `--refresh` flag: re-run check scripts, only re-apply failures
-- [ ] `--force-tag <TAG>`: selective force by tag
-- [ ] `--force` remains as nuclear option (current behavior)
-- [ ] Document graduated force in `forjar apply --help`
+- [x] `--refresh` flag: re-run check scripts, only re-apply failures
+- [x] `--force-tag <TAG>`: selective force by tag
+- [x] `--force` remains as nuclear option (current behavior)
+- [x] Document graduated force in `forjar apply --help`
 - **Deliverable**: `forjar apply --refresh` doesn't kill running services
 
 ### Phase 19c: P1 — Runtime Score Bridge (FJ-3020)
-- [ ] `build_runtime_data()` reads last 2 apply events from `events.jsonl`
-- [ ] `cmd_score()` passes runtime data when available
-- [ ] Show qualification guidance when runtime is None
-- [ ] Tests: score after 1 apply (COR only), after 2 applies (COR+IDM+PRF)
+- [x] `build_runtime_data()` reads last 2 apply events from `events.jsonl`
+- [x] `cmd_score()` passes runtime data when available
+- [x] Show qualification guidance when runtime is None
+- [x] Tests: score after 1 apply (COR only), after 2 applies (COR+IDM+PRF)
 - **Deliverable**: `forjar score` shows earned runtime grade after apply
 
 ### Phase 19d: P2 — Lint Rules (FJ-3030, FJ-3040)
-- [ ] FJ-3030: lint rule for `nohup <absolute-path>` with `.so` in dirname
-- [ ] FJ-3040: lint rule for `nohup ... & sleep N; curl` anti-pattern
-- [ ] `ldd` check injection in task check scripts
-- [ ] Health check field support for task resources (`task_mode: service`)
+- [x] FJ-3030: lint rule for `nohup <absolute-path>` with `.so` in dirname
+- [x] FJ-3040: lint rule for `nohup ... & sleep N; curl` anti-pattern
+- [x] `ldd` check injection in task check scripts
+- [x] Health check field support for task resources (`task_mode: service`)
 - **Deliverable**: `forjar lint --strict` catches both patterns
