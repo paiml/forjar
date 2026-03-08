@@ -26,9 +26,10 @@ test:
 bench:
 	cargo bench
 
-# Run benchmarks and update README table
+# Run benchmarks and update benchmarks/RESULTS.md
 bench-update:
-	./scripts/update_bench_table.sh
+	cargo run --release --bin forjar -- bench --iterations 1000 --json \
+		| python3 scripts/bench_update.py > benchmarks/RESULTS.md
 
 # Build debug binary
 build:
@@ -72,6 +73,7 @@ help:
 	@echo "  lint          - Run clippy linter"
 	@echo "  test          - Run tests"
 	@echo "  bench         - Run benchmarks"
+	@echo "  bench-update  - Run benchmarks and update benchmarks/RESULTS.md"
 	@echo "  build         - Build debug binary"
 	@echo "  build-release - Build optimized release binary"
 	@echo "  run           - Run the application"

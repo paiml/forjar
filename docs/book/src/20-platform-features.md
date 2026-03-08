@@ -307,3 +307,42 @@ forjar commands are pipe-safe:
 forjar lint --json config.yaml | jq '.findings'
 forjar score --json config.yaml | jq '.grade'
 ```
+
+## Performance Benchmarks (FJ-2900)
+
+`forjar bench` runs inline micro-benchmarks for core operations with percentile
+stats and baseline comparison.
+
+### Running Benchmarks
+
+```bash
+forjar bench --iterations 1000              # colorized table with p50/p95
+forjar bench --iterations 1000 --json       # JSON with p50_us, p95_us fields
+forjar bench --compare                      # compare against benchmarks/RESULTS.md
+```
+
+### JSON Output Fields
+
+```json
+{
+  "name": "validate (3m, 20r)",
+  "avg_us": 1052.2,
+  "p50_us": 974.0,
+  "p95_us": 1289.0,
+  "status": "pass",
+  "baseline_avg_us": 936.5,
+  "delta_pct": 15.3
+}
+```
+
+`baseline_avg_us` and `delta_pct` appear only when `--compare` is used and a
+baseline exists in `benchmarks/RESULTS.md`.
+
+### Updating the Baseline
+
+```bash
+make bench-update    # runs bench with 1000 iterations, writes RESULTS.md
+```
+
+The `RESULTS.md` file uses `<!-- BENCH-TABLE-START -->` / `<!-- BENCH-TABLE-END -->`
+markers so `--compare` can parse it automatically.

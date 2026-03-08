@@ -121,6 +121,7 @@ resources:
             Commands::Bench(BenchArgs {
                 iterations: 2,
                 json: false,
+                compare: false,
             }),
             false,
         );
@@ -133,6 +134,7 @@ resources:
             Commands::Bench(BenchArgs {
                 iterations: 2,
                 json: true,
+                compare: false,
             }),
             false,
         );

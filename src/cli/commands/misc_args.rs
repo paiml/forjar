@@ -344,6 +344,10 @@ pub struct BenchArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// Compare against stored baseline in benchmarks/RESULTS.md
+    #[arg(long)]
+    pub compare: bool,
 }
 
 /// CLI arguments for the `output` command.
