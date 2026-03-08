@@ -145,7 +145,7 @@ fn test_fj006_cargo_install() {
     let mut r = make_apt_resource(&["batuta"]);
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("cargo install --force 'batuta'"));
+    assert!(script.contains("cargo install --force --locked 'batuta'"));
 }
 
 /// PMAT-007: cargo install must use --force for idempotent convergence.
