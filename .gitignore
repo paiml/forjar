@@ -4,3 +4,17 @@
 .vscode/
 .idea/
 infra/
+
+# Generated outputs
+docs/book/book/
+__pycache__/
+lcov.info
+
+# PMAT caches
+.pmat/bug-hunter-cache/
+
+# State artifacts
+state/images/
+state/state.db
+state/*/trace.jsonl
+state/*/events.jsonl
