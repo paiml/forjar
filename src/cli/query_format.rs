@@ -281,3 +281,73 @@ pub(crate) fn cmd_query_churn(state_dir: &std::path::Path, json: bool) -> Result
     }
     Ok(())
 }
+
+/// Print table results for state query.
+pub(crate) fn print_table_results(
+    query: &str,
+    conn: &rusqlite::Connection,
+    results: &[FtsResult],
+    history: bool,
+    timing: bool,
+    reversibility: bool,
+) -> Result<(), String> {
+    if results.is_empty() {
+        println!("No results for \"{query}\"");
+        return Ok(());
+    }
+    println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
+    for r in results {
+        let p = r.path.as_deref().unwrap_or("—");
+        println!(
+            " {:20} {:10} {:10} {p}",
+            r.resource_id, r.resource_type, r.status
+        );
+    }
+    if history {
+        print_history(conn, results)?;
+    }
+    if timing {
+        print_timing_stats(conn, results)?;
+    }
+    if reversibility {
+        print_reversibility(conn, results)?;
+    }
+    println!("\n {} result(s)", results.len());
+    Ok(())
+}
+
+/// FJ-2001: Health summary across all machines.
+pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
+    let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
+    let health = ingest::query_health(&conn)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&health).unwrap_or_default()
+        );
+    } else if health.machines.is_empty() {
+        println!("No machines found in {}", state_dir.display());
+    } else {
+        println!(
+            " {:10} {:>10} {:>10} {:>8} {:>8}",
+            "MACHINE", "RESOURCES", "CONVERGED", "DRIFTED", "FAILED"
+        );
+        for m in &health.machines {
+            println!(
+                " {:10} {:>10} {:>10} {:>8} {:>8}",
+                m.name, m.resources, m.converged, m.drifted, m.failed
+            );
+        }
+        println!(" {}", "─".repeat(56));
+        println!(
+            " {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
+            "TOTAL",
+            health.total_resources,
+            health.total_converged,
+            health.total_drifted,
+            health.total_failed,
+            health.health_pct()
+        );
+    }
+    Ok(())
+}
