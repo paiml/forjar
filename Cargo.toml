@@ -84,6 +84,10 @@ harness = false
 name = "copia_bench"
 harness = false
 
+[[bench]]
+name = "cli_bench"
+harness = false
+
 [features]
 encryption = ["dep:age"]
 container-test = []

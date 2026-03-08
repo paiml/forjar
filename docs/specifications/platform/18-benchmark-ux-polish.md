@@ -487,29 +487,30 @@ Rules:
 ## Implementation
 
 ### Phase 18a: Color System (FJ-2910)
-- [ ] Create `src/cli/colors.rs` with ANSI constants and semantic helpers
-- [ ] Move `NO_COLOR` from `helpers.rs` to `colors.rs`
-- [ ] Add `grade()`, `pct()`, `delta()`, `score_frac()`, `duration()` helpers
-- [ ] Add `pass()`, `fail()`, `warn()`, `skip()` icon helpers
-- [ ] Add `header()`, `rule()`, `separator()`, `path()` structural helpers
-- [ ] Re-export from `helpers.rs` for backward compatibility
-- [ ] Replace inline ANSI codes across codebase with semantic helpers
-- [ ] Standardize icons across all commands
+- [x] Create `src/cli/colors.rs` with ANSI constants and semantic helpers
+- [x] Move `NO_COLOR` from `helpers.rs` to `colors.rs`
+- [x] Add `grade()`, `pct()`, `delta()`, `score_frac()`, `duration()` helpers
+- [x] Add `pass()`, `fail()`, `warn()`, `skip()` icon helpers
+- [x] Add `header()`, `rule()`, `separator()`, `path()` structural helpers
+- [x] Re-export from `helpers.rs` for backward compatibility
+- [x] Replace inline ANSI codes across codebase with semantic helpers
+- [x] Standardize icons across all commands
 - **Deliverable**: All CLI output uses semantic color helpers; `--no-color` disables everything
 
 ### Phase 18b: OutputWriter (FJ-2920)
-- [ ] Create `src/cli/output.rs` with `OutputWriter` trait
-- [ ] Implement `StdoutWriter`, `TestWriter`, `NullWriter`
+- [x] Create `src/cli/output.rs` with `OutputWriter` trait
+- [x] Implement `StdoutWriter`, `TestWriter`, `NullWriter`
 - [ ] Adopt in `cmd_bench` (NullWriter eliminates I/O overhead)
-- [ ] Adopt in `cmd_score` (TestWriter enables output assertions)
+- [x] Adopt in `cmd_score` (TestWriter enables output assertions)
+- [x] Adopt in `cmd_lint` (TestWriter enables output assertions)
 - [ ] Adopt in `cmd_doctor` (TestWriter enables output assertions)
 - **Deliverable**: Test coverage for command output content; benchmark accuracy improved
 
 ### Phase 18c: Benchmark Framework (FJ-2900)
-- [ ] Create `benches/cli_bench.rs` with Criterion.rs groups: validate, plan, codegen, blake3
-- [ ] Parameterize by config size (5/20/100 resources)
-- [ ] Expand `forjar bench` to 8+ targets (add codegen, score, topo sort)
-- [ ] Colorize bench output (pass/fail against targets, duration coloring)
+- [x] Create `benches/cli_bench.rs` with Criterion.rs groups: codegen, score, pipeline
+- [x] Parameterize by config size (5/20/100 resources)
+- [x] Expand `forjar bench` to 6 targets (validate, plan, drift, blake3 4KB, topo sort, blake3 1MB)
+- [x] Colorize bench output (pass/fail against targets, duration coloring)
 - [ ] Add `--compare` flag to compare against stored baseline
 - [ ] Add percentile stats (p50, p95) to JSON output
 - [ ] Create `benchmarks/RESULTS.md` with auto-update markers
