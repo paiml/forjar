@@ -294,7 +294,7 @@ New Forjar versions must handle old state files, and old versions must not corru
 
 ## Recipe Quality Score (ForjarScore v2)
 
-> Spec ID: FJ-2800–FJ-2803 | Status: PROPOSED | Replaces: ForjarScore v1
+> Spec ID: FJ-2800–FJ-2803 | Status: IMPLEMENTED | Replaces: ForjarScore v1
 
 Two-tier recipe quality scoring: Static grade (design quality, always available) + Runtime grade (operational quality, after apply). Addresses five v1 structural defects: cliff at pending, 55% runtime wall, zero variance, RES architecture bias, DOC volume-over-quality.
 

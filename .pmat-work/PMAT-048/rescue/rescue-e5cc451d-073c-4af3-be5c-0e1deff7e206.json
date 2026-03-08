@@ -1,0 +1,21 @@
+{
+  "rescue_id": "e5cc451d-073c-4af3-be5c-0e1deff7e206",
+  "work_item_id": "PMAT-048",
+  "timestamp": "2026-03-08T13:26:26.899730813Z",
+  "violated_clause": "No file exceeds 500 lines",
+  "strategy": {
+    "ManualIntervention": {
+      "guidance": "Split large files using extract-module refactoring. Target files exceeding the line limit."
+    }
+  },
+  "diagnosis": {
+    "summary": "Manual intervention required: Split large files using extract-module refactoring. Target files exceeding the line limit.",
+    "suggested_actions": [
+      "Split large files using extract-module refactoring. Target files exceeding the line limit.",
+      "Re-run: pmat work complete <id>"
+    ],
+    "generated_artifacts": []
+  },
+  "outcome": "ManualActionRequired",
+  "retry_allowed": true
+}
