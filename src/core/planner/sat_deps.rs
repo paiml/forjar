@@ -279,4 +279,178 @@ mod tests {
         // 1 implication clause + 2 unit clauses = 3 clauses
         assert_eq!(problem.clauses.len(), 3);
     }
+
+    #[test]
+    fn test_unsatisfiable_contradiction() {
+        // Manually construct a contradictory problem: A must be true AND false
+        let mut var_names = BTreeMap::new();
+        var_names.insert(1, "A".into());
+        let problem = SatProblem {
+            num_vars: 1,
+            clauses: vec![vec![1], vec![-1]], // A AND !A
+            var_names,
+        };
+        let result = solve(&problem);
+        assert!(
+            matches!(result, SatResult::Unsatisfiable { .. }),
+            "contradictory clauses should be unsatisfiable"
+        );
+    }
+
+    #[test]
+    fn test_unsatisfiable_conflict_clause_names() {
+        let mut var_names = BTreeMap::new();
+        var_names.insert(1, "pkg-a".into());
+        var_names.insert(2, "pkg-b".into());
+        let problem = SatProblem {
+            num_vars: 2,
+            // pkg-a required, !pkg-a||pkg-b, !pkg-b
+            clauses: vec![vec![1], vec![-1, 2], vec![-2]],
+            var_names,
+        };
+        let result = solve(&problem);
+        match result {
+            SatResult::Unsatisfiable { conflict_clause } => {
+                assert!(!conflict_clause.is_empty());
+            }
+            _ => panic!("expected unsatisfiable"),
+        }
+    }
+
+    #[test]
+    fn test_unknown_var_in_unsat_result() {
+        let var_names = BTreeMap::new(); // empty — no var names
+        let result = build_unsat_result(&[vec![1, -2]], &var_names);
+        if let SatResult::Unsatisfiable { conflict_clause } = result {
+            // Should produce "v1" and "!v2" fallback names
+            assert!(conflict_clause.iter().any(|c| c.starts_with("v")));
+        } else {
+            panic!("expected unsatisfiable");
+        }
+    }
+
+    #[test]
+    fn test_empty_clauses_unsat_result() {
+        let var_names = BTreeMap::new();
+        let result = build_unsat_result(&[], &var_names);
+        if let SatResult::Unsatisfiable { conflict_clause } = result {
+            assert!(conflict_clause.is_empty());
+        } else {
+            panic!("expected unsatisfiable");
+        }
+    }
+
+    #[test]
+    fn test_dpll_backtracking() {
+        // 3 variables, complex clauses requiring backtracking
+        let mut var_names = BTreeMap::new();
+        var_names.insert(1, "X".into());
+        var_names.insert(2, "Y".into());
+        var_names.insert(3, "Z".into());
+        let problem = SatProblem {
+            num_vars: 3,
+            clauses: vec![
+                vec![1, 2],  // X OR Y
+                vec![-1, 3], // !X OR Z
+                vec![2, -3], // Y OR !Z
+                vec![1, -2], // X OR !Y
+            ],
+            var_names,
+        };
+        let result = solve(&problem);
+        assert!(matches!(result, SatResult::Satisfiable { .. }));
+    }
+
+    #[test]
+    fn test_has_empty_clause() {
+        // When all literals in a clause are assigned to the opposite
+        let assignment: Vec<Option<bool>> = vec![None, Some(false)]; // var 1 = false
+        let clauses = vec![vec![1i32]]; // clause requires var 1 = true
+        assert!(has_empty_clause(&clauses, &assignment));
+    }
+
+    #[test]
+    fn test_clause_satisfied() {
+        let assignment: Vec<Option<bool>> = vec![None, Some(true), Some(false)];
+        // var 1 = true, var 2 = false
+        assert!(clause_satisfied(&[1], &assignment)); // var 1 is true
+        assert!(!clause_satisfied(&[-1], &assignment)); // !var1 is false
+        assert!(clause_satisfied(&[-2], &assignment)); // !var2 is true (var2=false)
+        assert!(!clause_satisfied(&[2], &assignment)); // var2 is false
+    }
+
+    #[test]
+    fn test_all_satisfied_empty() {
+        let assignment: Vec<Option<bool>> = vec![None];
+        assert!(all_satisfied(&[], &assignment));
+    }
+
+    #[test]
+    fn test_pick_unassigned_all_assigned() {
+        let assignment: Vec<Option<bool>> = vec![None, Some(true), Some(false)];
+        assert_eq!(pick_unassigned(&assignment, 2), None);
+    }
+
+    #[test]
+    fn test_pick_unassigned_first() {
+        let assignment: Vec<Option<bool>> = vec![None, None, Some(true)];
+        assert_eq!(pick_unassigned(&assignment, 2), Some(1));
+    }
+
+    #[test]
+    fn test_simplify_clauses() {
+        let assignment: Vec<Option<bool>> = vec![None, Some(true)]; // var 1 = true
+        let clauses = vec![vec![1], vec![-1, 2]]; // [1] is satisfied, [-1,2] is not
+        let simplified = simplify_clauses(&clauses, &assignment);
+        assert_eq!(simplified.len(), 1); // Only [-1, 2] remains
+    }
+
+    #[test]
+    fn test_deps_with_unknown_resources() {
+        // Dependency references a resource not in the list — should be skipped
+        let resources = vec!["A".into()];
+        let deps = vec![("A".into(), "MISSING".into())];
+        let problem = build_sat_problem(&resources, &deps);
+        // Only unit clause for A, no implication (MISSING not in var_map)
+        assert_eq!(problem.clauses.len(), 1);
+    }
+
+    #[test]
+    fn test_many_resources_satisfiable() {
+        let resources: Vec<String> = (0..10).map(|i| format!("r{i}")).collect();
+        let deps: Vec<(String, String)> = (1..10)
+            .map(|i| (format!("r{i}"), format!("r{}", i - 1)))
+            .collect();
+        let problem = build_sat_problem(&resources, &deps);
+        let result = solve(&problem);
+        if let SatResult::Satisfiable { assignment } = result {
+            assert_eq!(assignment.len(), 10);
+            assert!(assignment.values().all(|&v| v));
+        } else {
+            panic!("linear chain should be satisfiable");
+        }
+    }
+
+    #[test]
+    fn test_unsat_result_negative_literal_formatting() {
+        let mut var_names = BTreeMap::new();
+        var_names.insert(1, "svc".into());
+        let result = build_unsat_result(&[vec![-1]], &var_names);
+        if let SatResult::Unsatisfiable { conflict_clause } = result {
+            assert_eq!(conflict_clause, vec!["!svc"]);
+        }
+    }
+
+    #[test]
+    fn test_propagate_units_assigns_unit_clause() {
+        // Unit clause [1] assigns var 1 = true
+        let clauses = vec![vec![1], vec![-1, 2]];
+        let mut assignment: Vec<Option<bool>> = vec![None, None, None];
+        let result = propagate_units(&clauses, &mut assignment);
+        assert_eq!(assignment[1], Some(true));
+        // After assigning var1=true, clause [1] is satisfied and removed.
+        // [-1, 2] may still be present (not fully propagated by unit prop alone).
+        // The remaining clauses should be a subset.
+        assert!(result.len() <= clauses.len());
+    }
 }
