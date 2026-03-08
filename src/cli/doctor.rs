@@ -19,6 +19,7 @@ enum DoctorStatus {
 }
 
 impl DoctorStatus {
+    #[allow(dead_code)]
     fn label(&self) -> &'static str {
         match self {
             DoctorStatus::Pass => "pass",
@@ -269,44 +270,45 @@ fn check_git() -> DoctorCheck {
     }
 }
 
-fn output_doctor_checks(checks: &[DoctorCheck], json: bool) {
+fn output_doctor_checks_to(
+    checks: &[DoctorCheck],
+    json: bool,
+    out: &mut dyn super::output::OutputWriter,
+) {
     if json {
-        println!("[");
-        for (i, c) in checks.iter().enumerate() {
-            let comma = if i + 1 < checks.len() { "," } else { "" };
-            println!(
-                "  {{\"name\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}{}",
-                c.name,
-                c.status.json_label(),
-                c.detail.replace('\"', "\\\""),
-                comma
-            );
-        }
-        println!("]");
+        let items: Vec<String> = checks
+            .iter()
+            .map(|c| {
+                format!(
+                    "  {{\"name\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}",
+                    c.name,
+                    c.status.json_label(),
+                    c.detail.replace('\"', "\\\"")
+                )
+            })
+            .collect();
+        out.result(&format!("[{}]", items.join(",\n")));
     } else {
         for c in checks {
-            println!("[{:>4}] {}: {}", c.status.label(), c.name, c.detail);
+            let msg = format!("{}: {}", c.name, c.detail);
+            match c.status {
+                DoctorStatus::Pass => out.success(&msg),
+                DoctorStatus::Warn => out.warning(&msg),
+                DoctorStatus::Fail => out.error(&msg),
+            }
         }
-        let pass_count = checks
-            .iter()
-            .filter(|c| c.status == DoctorStatus::Pass)
-            .count();
-        let warn_count = checks
-            .iter()
-            .filter(|c| c.status == DoctorStatus::Warn)
-            .count();
-        let fail_count = checks
-            .iter()
-            .filter(|c| c.status == DoctorStatus::Fail)
-            .count();
-        println!(
-            "\n{} checks: {} pass, {} warn, {} fail",
-            checks.len(),
-            pass_count,
-            warn_count,
-            fail_count
-        );
+        let (mut p, mut w, mut f) = (0, 0, 0);
+        checks.iter().for_each(|c| match c.status {
+            DoctorStatus::Pass => p += 1,
+            DoctorStatus::Warn => w += 1,
+            DoctorStatus::Fail => f += 1,
+        });
+        out.result(&format!(
+            "\n{} checks: {p} pass, {w} warn, {f} fail",
+            checks.len()
+        ));
     }
+    out.flush();
 }
 
 /// FJ-2603: Check sandbox backend availability for `forjar test`.
@@ -347,10 +349,17 @@ fn check_sandbox_backends() -> DoctorCheck {
 
 // FJ-251: forjar doctor — pre-flight system checker
 pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
-    let mut checks: Vec<DoctorCheck> = Vec::new();
+    cmd_doctor_with_writer(file, json, fix, &mut super::output::StdoutWriter)
+}
 
-    checks.push(check_bash());
-
+/// Inner doctor with injectable OutputWriter (FJ-2920).
+pub(crate) fn cmd_doctor_with_writer(
+    file: Option<&Path>,
+    json: bool,
+    fix: bool,
+    out: &mut dyn super::output::OutputWriter,
+) -> Result<(), String> {
+    let mut checks = vec![check_bash()];
     let config: Option<types::ForjarConfig> = if let Some(f) = file {
         match parser::parse_and_validate(f) {
             Ok(c) => Some(c),
@@ -396,7 +405,6 @@ pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(
     if has_ssh_machines {
         checks.push(check_ssh());
     }
-
     if has_container_machines {
         let runtime = config
             .as_ref()
@@ -417,7 +425,7 @@ pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(
     checks.push(check_git());
     checks.push(check_sandbox_backends());
 
-    output_doctor_checks(&checks, json);
+    output_doctor_checks_to(&checks, json, out);
 
     let has_failures = checks.iter().any(|c| c.status == DoctorStatus::Fail);
     if has_failures {

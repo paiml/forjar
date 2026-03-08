@@ -25,6 +25,7 @@ pub(crate) fn cmd_score(
 }
 
 /// Inner score with injectable OutputWriter (FJ-2920).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_score_with_writer(
     file: &Path,
     status: &str,

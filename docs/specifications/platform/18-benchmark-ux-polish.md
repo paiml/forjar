@@ -503,7 +503,7 @@ Rules:
 - [x] Adopt in `cmd_bench` (NullWriter eliminates I/O overhead)
 - [x] Adopt in `cmd_score` (TestWriter enables output assertions)
 - [x] Adopt in `cmd_lint` (TestWriter enables output assertions)
-- [ ] Adopt in `cmd_doctor` (TestWriter enables output assertions)
+- [x] Adopt in `cmd_doctor` (TestWriter enables output assertions)
 - **Deliverable**: Test coverage for command output content; benchmark accuracy improved
 
 ### Phase 18c: Benchmark Framework (FJ-2900)
