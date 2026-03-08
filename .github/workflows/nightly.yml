@@ -1,0 +1,143 @@
+# Nightly binary builds — cross-compiled for Linux, macOS, and Windows
+# Builds at 4am UTC daily; skips if no commits in the last 24 hours.
+# Manual trigger via workflow_dispatch is always allowed.
+#
+# Closes #39
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Gate: skip if no commits in the last 24h ─────────────
+  check-activity:
+    runs-on: ubuntu-latest
+    outputs:
+      has_commits: ${{ steps.check.outputs.has_commits }}
+      sha_short: ${{ steps.check.outputs.sha_short }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for recent commits
+        id: check
+        run: |
+          RECENT=$(git log --oneline --since="24 hours ago" | head -1)
+          if [ -n "$RECENT" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "has_commits=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            echo "No commits in the last 24 hours — skipping nightly build."
+          fi
+          echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+  # ── Build: cross-compile for 4 targets ───────────────────
+  build:
+    needs: check-activity
+    if: needs.check-activity.outputs.has_commits == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: x86_64-apple-darwin
+            runner: macos-latest
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary (unix)
+        if: matrix.runner != 'windows-latest'
+        run: |
+          tar -czf forjar-${{ matrix.target }}.tar.gz \
+            -C target/${{ matrix.target }}/release forjar
+
+      - name: Package binary (windows)
+        if: matrix.runner == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "target/${{ matrix.target }}/release/forjar.exe" `
+            -DestinationPath "forjar-${{ matrix.target }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forjar-${{ matrix.target }}
+          path: |
+            forjar-*.tar.gz
+            forjar-*.zip
+          retention-days: 5
+
+  # ── Release: create/update nightly pre-release ───────────
+  release:
+    needs: [check-activity, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: forjar-*
+          merge-multiple: true
+          path: artifacts
+
+      - name: Generate SHA256SUMS
+        working-directory: artifacts
+        run: |
+          sha256sum forjar-*.tar.gz forjar-*.zip > SHA256SUMS
+          echo "=== SHA256SUMS ==="
+          cat SHA256SUMS
+
+      - name: Delete existing nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Create nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly Build
+          prerelease: true
+          make_latest: false
+          body: |
+            Automated nightly build from `main` branch.
+
+            **Date:** ${{ github.run_id && format('{0}', github.event.repository.updated_at) || 'N/A' }}
+            **Commit:** ${{ needs.check-activity.outputs.sha_short }} (${{ github.sha }})
+
+            > This is a pre-release build and may be unstable.
+          files: |
+            artifacts/forjar-*.tar.gz
+            artifacts/forjar-*.zip
+            artifacts/SHA256SUMS
