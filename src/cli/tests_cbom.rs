@@ -128,6 +128,102 @@ resources:
     }
 
     #[test]
+    fn test_fj1400_cbom_age_encryption_in_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            r#"version: '1.0'
+name: age-test
+machines:
+  local:
+    hostname: localhost
+    addr: localhost
+resources:
+  secret:
+    type: file
+    machine: local
+    path: /etc/app/secret.env
+    content: "-----BEGIN AGE ENCRYPTED FILE-----\ndata\n-----END AGE ENCRYPTED FILE-----"
+"#,
+        )
+        .unwrap();
+        let result = super::super::cbom::cmd_cbom(&config_path, &state_dir, true);
+        assert!(result.is_ok(), "age cbom: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_fj1400_cbom_age_encryption_in_params() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            r#"version: '1.0'
+name: age-params
+machines:
+  local:
+    hostname: localhost
+    addr: localhost
+params:
+  db_password: "age-encryption.org/v1\nencrypted-data"
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = super::super::cbom::cmd_cbom(&config_path, &state_dir, false);
+        assert!(result.is_ok(), "age params cbom: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_fj1400_cbom_ssh_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            r#"version: '1.0'
+name: ssh-test
+machines:
+  prod:
+    hostname: prod.example.com
+    addr: 10.0.0.1
+    ssh_key: ~/.ssh/id_ed25519
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = super::super::cbom::cmd_cbom(&config_path, &state_dir, true);
+        assert!(result.is_ok(), "ssh cbom: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_fj1400_cbom_state_with_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        let machine_dir = state_dir.join("prod");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            "version: '1.0'\nname: lock-test\nmachines:\n  prod:\n    hostname: prod\n    addr: 10.0.0.1\nresources: {}\n",
+        )
+        .unwrap();
+        // Write a lock file
+        std::fs::write(
+            machine_dir.join("lock.yaml"),
+            "schema: 1\nmachine: prod\nhostname: prod\ngenerated_at: now\ngenerator: test\nblake3_version: '1.0'\nresources:\n  pkg:\n    resource_type: Package\n    status: Converged\n    applied_at: now\n    duration_seconds: 0.1\n    hash: abc123def456\n    details: {}\n",
+        )
+        .unwrap();
+        let result = super::super::cbom::cmd_cbom(&config_path, &state_dir, false);
+        assert!(result.is_ok(), "state cbom: {:?}", result.err());
+    }
+
+    #[test]
     fn test_fj1400_cbom_dispatch() {
         use crate::cli::commands::{CbomArgs, Commands};
         let cmd = Commands::Cbom(CbomArgs {
