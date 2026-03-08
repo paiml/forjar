@@ -252,7 +252,7 @@ fn demo_derivation_store_hit() {
     let plan = plan_derivation(
         &deriv,
         &BTreeMap::new(),
-        &[closure.clone()],
+        std::slice::from_ref(&closure),
         Path::new("/var/lib/forjar/store"),
     )
     .unwrap();

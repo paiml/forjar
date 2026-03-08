@@ -1,0 +1,1426 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Recipes - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="recipes"><a class="header" href="#recipes">Recipes</a></h1>
+<p>Recipes are reusable, parameterized resource patterns. Think Homebrew formulae for infrastructure.</p>
+<h2 id="recipe-file-format"><a class="header" href="#recipe-file-format">Recipe File Format</a></h2>
+<p>Recipe files live in <code>recipes/</code> next to your <code>forjar.yaml</code>:</p>
+<pre><code class="language-yaml"># recipes/web-server.yaml
+recipe:
+  name: web-server
+  version: "1.0"
+  description: "Nginx web server with config"
+  inputs:
+    domain:
+      type: string
+      description: "Server domain name"
+    port:
+      type: int
+      default: 80
+      min: 1
+      max: 65535
+    log_level:
+      type: enum
+      choices: [error, warn, info, debug]
+      default: warn
+
+resources:
+  nginx-pkg:
+    type: package
+    provider: apt
+    packages: [nginx]
+
+  site-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.domain}}"
+    content: |
+      server {
+        listen {{inputs.port}};
+        server_name {{inputs.domain}};
+        error_log /var/log/nginx/error.log {{inputs.log_level}};
+        root /var/www/{{inputs.domain}};
+      }
+    owner: root
+    group: root
+    mode: "0644"
+    depends_on: [nginx-pkg]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [site-config]
+    depends_on: [site-config]
+</code></pre>
+<h2 id="input-types"><a class="header" href="#input-types">Input Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Constraints</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>string</code></td><td>—</td><td><code>domain: "example.com"</code></td></tr>
+<tr><td><code>int</code></td><td><code>min</code>, <code>max</code></td><td><code>port: 8080</code></td></tr>
+<tr><td><code>bool</code></td><td>—</td><td><code>ssl: true</code></td></tr>
+<tr><td><code>path</code></td><td>Must start with <code>/</code></td><td><code>cert: /etc/ssl/cert.pem</code></td></tr>
+<tr><td><code>enum</code></td><td><code>choices</code></td><td><code>log_level: warn</code></td></tr>
+</tbody></table>
+</div>
+<p>All inputs support:</p>
+<ul>
+<li><code>default: value</code> (used when input not provided)</li>
+<li><code>description: "..."</code> (documentation)</li>
+</ul>
+<h2 id="using-recipes"><a class="header" href="#using-recipes">Using Recipes</a></h2>
+<p>Reference a recipe in your <code>forjar.yaml</code>:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: production
+
+machines:
+  web1:
+    hostname: web1
+    addr: 10.0.0.1
+
+resources:
+  base-tools:
+    type: package
+    machine: web1
+    provider: apt
+    packages: [curl, jq]
+
+  web:
+    type: recipe
+    machine: web1
+    recipe: web-server
+    depends_on:
+      - base-tools
+    inputs:
+      domain: example.com
+      port: 443
+      log_level: info
+</code></pre>
+<h2 id="how-expansion-works"><a class="header" href="#how-expansion-works">How Expansion Works</a></h2>
+<p>When forjar loads the config (via <code>validate</code>, <code>plan</code>, <code>apply</code>, <code>drift</code>, etc.):</p>
+<ol>
+<li>Config YAML is parsed and validated</li>
+<li>Recipe resources (<code>type: recipe</code>) are detected</li>
+<li>Recipe file is loaded from <code>recipes/{name}.yaml</code> relative to the config</li>
+<li>Inputs are type-checked against declared types</li>
+<li>Missing inputs get default values; required inputs without defaults produce errors</li>
+<li>Resources are expanded with namespace prefix: <code>web/nginx-pkg</code>, <code>web/site-config</code>, <code>web/nginx-svc</code></li>
+<li><code>{{inputs.X}}</code> templates are resolved with validated values</li>
+<li>External <code>depends_on</code> from the recipe resource are injected into the first expanded resource</li>
+<li>Internal <code>depends_on</code> references are namespaced automatically</li>
+<li>Expanded resources replace the recipe resource in the config</li>
+</ol>
+<p>The expansion happens in the <code>parse_and_validate</code> pipeline, so all downstream commands (plan, apply, drift, graph) see the fully expanded resources.</p>
+<h2 id="viewing-expanded-resources"><a class="header" href="#viewing-expanded-resources">Viewing Expanded Resources</a></h2>
+<pre><code class="language-bash"># Show expanded plan
+forjar plan -f forjar.yaml --state-dir state/
+
+# Show dependency graph (Mermaid format)
+forjar graph -f forjar.yaml
+
+# Validate config (shows expanded resource count)
+forjar validate -f forjar.yaml
+</code></pre>
+<h2 id="namespacing"><a class="header" href="#namespacing">Namespacing</a></h2>
+<p>Recipe resources are namespaced by the resource ID that references them:</p>
+<pre><code class="language-yaml">resources:
+  web:
+    type: recipe
+    recipe: web-server
+    inputs: { domain: example.com }
+</code></pre>
+<p>Expanded resources: <code>web/nginx-pkg</code>, <code>web/site-config</code>, <code>web/nginx-svc</code>.</p>
+<p>Internal <code>depends_on</code> and <code>restart_on</code> references are also namespaced automatically.</p>
+<h2 id="composition"><a class="header" href="#composition">Composition</a></h2>
+<p>Recipes can require other recipes:</p>
+<pre><code class="language-yaml"># recipes/app-stack.yaml
+recipe:
+  name: app-stack
+  version: "1.0"
+  requires:
+    - recipe: web-server
+    - recipe: database
+
+  inputs:
+    app_name:
+      type: string
+
+resources:
+  app-config:
+    type: file
+    path: "/etc/{{inputs.app_name}}/config.yaml"
+    content: "name: {{inputs.app_name}}"
+</code></pre>
+<h2 id="sharing-recipes"><a class="header" href="#sharing-recipes">Sharing Recipes</a></h2>
+<p>Recipes are plain YAML files. Share them via:</p>
+<ul>
+<li><strong>Git</strong>: Check recipes into your repo under <code>recipes/</code></li>
+<li><strong>Git submodules</strong>: Reference a shared recipe repository</li>
+<li><strong>Copy</strong>: Just copy the YAML file</li>
+</ul>
+<p>No package manager needed. No registry. Just files.</p>
+<h2 id="step-by-step-writing-a-recipe"><a class="header" href="#step-by-step-writing-a-recipe">Step-by-Step: Writing a Recipe</a></h2>
+<p>Walk through creating a "monitoring agent" recipe from scratch.</p>
+<h3 id="1-create-the-recipe-file"><a class="header" href="#1-create-the-recipe-file">1. Create the recipe file</a></h3>
+<pre><code class="language-yaml"># recipes/monitoring.yaml
+recipe:
+  name: monitoring
+  version: "1.0"
+  description: "Node exporter + Prometheus scrape endpoint"
+  inputs:
+    metrics_port:
+      type: int
+      default: 9100
+      min: 1024
+      max: 65535
+    retention_days:
+      type: int
+      default: 7
+</code></pre>
+<h3 id="2-define-resources-inside-the-recipe"><a class="header" href="#2-define-resources-inside-the-recipe">2. Define resources inside the recipe</a></h3>
+<pre><code class="language-yaml">resources:
+  node-exporter-pkg:
+    type: package
+    provider: apt
+    packages: [prometheus-node-exporter]
+
+  config:
+    type: file
+    path: /etc/default/prometheus-node-exporter
+    content: |
+      ARGS="--web.listen-address=:{{inputs.metrics_port}}"
+    mode: "0644"
+    depends_on: [node-exporter-pkg]
+
+  service:
+    type: service
+    name: prometheus-node-exporter
+    state: running
+    enabled: true
+    restart_on: [config]
+    depends_on: [config]
+
+  firewall:
+    type: network
+    port: "{{inputs.metrics_port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [service]
+</code></pre>
+<h3 id="3-use-the-recipe-in-your-config"><a class="header" href="#3-use-the-recipe-in-your-config">3. Use the recipe in your config</a></h3>
+<pre><code class="language-yaml">version: "1.0"
+name: fleet
+machines:
+  web1: { hostname: web1, addr: 10.0.0.1 }
+  web2: { hostname: web2, addr: 10.0.0.2 }
+  db1:  { hostname: db1,  addr: 10.0.0.3 }
+
+resources:
+  web1-mon:
+    type: recipe
+    machine: web1
+    recipe: monitoring
+    inputs: { metrics_port: 9100 }
+
+  web2-mon:
+    type: recipe
+    machine: web2
+    recipe: monitoring
+    inputs: { metrics_port: 9100 }
+
+  db-mon:
+    type: recipe
+    machine: db1
+    recipe: monitoring
+    inputs: { metrics_port: 9200, retention_days: 30 }
+</code></pre>
+<h3 id="4-verify-expansion"><a class="header" href="#4-verify-expansion">4. Verify expansion</a></h3>
+<pre><code class="language-bash"># Validate the config (recipes are expanded during validation)
+forjar validate -f forjar.yaml
+
+# See the full dependency graph
+forjar graph -f forjar.yaml
+
+# Preview the plan
+forjar plan -f forjar.yaml --state-dir state/
+</code></pre>
+<p>The expanded resources will be:</p>
+<ul>
+<li><code>web1-mon/node-exporter-pkg</code></li>
+<li><code>web1-mon/config</code></li>
+<li><code>web1-mon/service</code></li>
+<li><code>web1-mon/firewall</code></li>
+<li><code>web2-mon/node-exporter-pkg</code> (same pattern)</li>
+<li><code>db-mon/node-exporter-pkg</code> (with port 9200)</li>
+</ul>
+<h3 id="5-test-locally"><a class="header" href="#5-test-locally">5. Test locally</a></h3>
+<pre><code class="language-bash"># Use a container transport for safe testing
+# Add to machines:
+#   test:
+#     hostname: test
+#     addr: container
+#     transport: container
+#     container:
+#       runtime: docker
+#       image: ubuntu:22.04
+
+forjar apply -f forjar.yaml --state-dir state/
+forjar drift -f forjar.yaml --state-dir state/
+</code></pre>
+<h2 id="input-validation"><a class="header" href="#input-validation">Input Validation</a></h2>
+<p>Forjar validates recipe inputs at parse time, before any resources are applied.</p>
+<h3 id="type-checking-rules"><a class="header" href="#type-checking-rules">Type Checking Rules</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Input Type</th><th>Validation</th><th>Error Example</th></tr></thead><tbody>
+<tr><td><code>string</code></td><td>Any non-null string value</td><td><code>input 'domain' expected string, got null</code></td></tr>
+<tr><td><code>int</code></td><td>Must parse as integer, must satisfy <code>min</code>/<code>max</code></td><td><code>input 'port' value 70000 exceeds max 65535</code></td></tr>
+<tr><td><code>bool</code></td><td>Must be <code>true</code> or <code>false</code></td><td><code>input 'ssl' expected bool, got 'yes'</code></td></tr>
+<tr><td><code>path</code></td><td>Must start with <code>/</code></td><td><code>input 'cert' path must be absolute, got 'cert.pem'</code></td></tr>
+<tr><td><code>enum</code></td><td>Must be one of <code>choices</code></td><td><code>input 'level' must be one of [error, warn, info, debug], got 'verbose'</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="missing-input-handling"><a class="header" href="#missing-input-handling">Missing Input Handling</a></h3>
+<p>When a recipe input is not provided by the caller:</p>
+<ol>
+<li>If the input has a <code>default:</code> value, it is used automatically</li>
+<li>If the input has no default, forjar reports a validation error</li>
+</ol>
+<pre><code>Error: recipe 'web-server' input 'domain' is required but not provided
+</code></pre>
+<h3 id="extra-input-detection"><a class="header" href="#extra-input-detection">Extra Input Detection</a></h3>
+<p>Inputs not declared in the recipe are flagged as warnings:</p>
+<pre><code>Warning: recipe 'web-server' received unknown input 'typo_domain' — ignored
+</code></pre>
+<h2 id="debugging-recipes"><a class="header" href="#debugging-recipes">Debugging Recipes</a></h2>
+<h3 id="expansion-tracing"><a class="header" href="#expansion-tracing">Expansion Tracing</a></h3>
+<p>Use <code>forjar show</code> to inspect individual expanded resources:</p>
+<pre><code class="language-bash"># Show a specific expanded resource as JSON
+forjar show -f forjar.yaml -r web/nginx-pkg --json
+
+# List all expanded resources from the plan
+forjar plan -f forjar.yaml --state-dir state/
+</code></pre>
+<h3 id="common-errors"><a class="header" href="#common-errors">Common Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead><tbody>
+<tr><td><code>recipe file not found: recipes/X.yaml</code></td><td>Recipe YAML doesn't exist</td><td>Create <code>recipes/X.yaml</code> relative to <code>forjar.yaml</code></td></tr>
+<tr><td><code>input 'Y' is required but not provided</code></td><td>Missing required input with no default</td><td>Add <code>Y:</code> to <code>inputs:</code> block</td></tr>
+<tr><td><code>input 'Y' value Z exceeds max</code></td><td>Int input out of range</td><td>Use a value within min/max bounds</td></tr>
+<tr><td><code>resource 'web' has type 'recipe' but no recipe name</code></td><td>Missing <code>recipe:</code> field</td><td>Add <code>recipe: &lt;name&gt;</code> to the resource</td></tr>
+<tr><td><code>circular dependency: web/a → web/b → web/a</code></td><td>Cycle in recipe's internal deps</td><td>Fix <code>depends_on</code> inside the recipe file</td></tr>
+</tbody></table>
+</div>
+<h3 id="recipe-file-discovery"><a class="header" href="#recipe-file-discovery">Recipe File Discovery</a></h3>
+<p>Forjar searches for recipe files in this order:</p>
+<ol>
+<li><code>recipes/{name}.yaml</code> relative to the config file's directory</li>
+<li>The current working directory's <code>recipes/</code> folder</li>
+</ol>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ul>
+<li><strong>One concern per recipe</strong>: A recipe for "monitoring", not "monitoring + logging + alerting"</li>
+<li><strong>Sensible defaults</strong>: Every input should have a default unless it's truly unique per use</li>
+<li><strong>Document inputs</strong>: The <code>description</code> field shows up in error messages and validation output</li>
+<li><strong>Test expansion</strong>: Run <code>forjar validate</code> after adding a recipe to catch input type mismatches early</li>
+<li><strong>Namespace awareness</strong>: External <code>depends_on</code> uses plain IDs; internal uses are auto-namespaced</li>
+<li><strong>Version your recipes</strong>: Increment <code>recipe.version</code> when inputs or behavior change</li>
+<li><strong>Test locally first</strong>: Use container transport to verify recipe expansion end-to-end before deploying to production</li>
+</ul>
+<h2 id="advanced-recipe-patterns"><a class="header" href="#advanced-recipe-patterns">Advanced Recipe Patterns</a></h2>
+<h3 id="multi-service-recipe"><a class="header" href="#multi-service-recipe">Multi-Service Recipe</a></h3>
+<p>A recipe can compose multiple services with internal dependencies:</p>
+<pre><code class="language-yaml"># recipes/app-stack.yaml
+recipe:
+  name: app-stack
+  version: "2.0"
+  description: "Full application stack: nginx + app + redis"
+  inputs:
+    app_name:
+      type: string
+      description: "Application name (used for paths and service names)"
+    app_port:
+      type: int
+      default: 8080
+    redis_port:
+      type: int
+      default: 6379
+
+resources:
+  packages:
+    type: package
+    provider: apt
+    packages: [nginx, redis-server]
+
+  app-dir:
+    type: file
+    state: directory
+    path: "/opt/{{inputs.app_name}}"
+    mode: "0755"
+    depends_on: [packages]
+
+  nginx-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.app_name}}"
+    content: |
+      upstream app {
+        server 127.0.0.1:{{inputs.app_port}};
+      }
+      server {
+        listen 80;
+        location / { proxy_pass http://app; }
+      }
+    depends_on: [packages]
+
+  redis-config:
+    type: file
+    path: /etc/redis/redis.conf
+    content: |
+      bind 127.0.0.1
+      port {{inputs.redis_port}}
+      maxmemory 256mb
+    depends_on: [packages]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    restart_on: [nginx-config]
+    depends_on: [nginx-config]
+
+  redis-svc:
+    type: service
+    name: redis-server
+    state: running
+    restart_on: [redis-config]
+    depends_on: [redis-config]
+</code></pre>
+<p>Use it:</p>
+<pre><code class="language-yaml">resources:
+  my-app:
+    type: recipe
+    machine: web-server
+    recipe: app-stack
+    inputs:
+      app_name: myapp
+      app_port: 3000
+</code></pre>
+<p>This expands to 6 resources with the correct dependency chain: <code>my-app/packages</code> → <code>my-app/app-dir</code> → ... → <code>my-app/nginx-svc</code>.</p>
+<h3 id="ssltls-certificate-recipe"><a class="header" href="#ssltls-certificate-recipe">SSL/TLS Certificate Recipe</a></h3>
+<p>A recipe that manages TLS certificates with renewal logic:</p>
+<pre><code class="language-yaml"># recipes/tls-cert.yaml
+recipe:
+  name: tls-cert
+  version: "1.0"
+  description: "TLS certificate with auto-renewal via certbot"
+  inputs:
+    domain:
+      type: string
+      description: "Domain name for the certificate"
+    email:
+      type: string
+      description: "Email for Let's Encrypt notifications"
+    webroot:
+      type: path
+      default: /var/www/html
+      description: "Webroot for ACME challenge"
+
+resources:
+  certbot-pkg:
+    type: package
+    provider: apt
+    packages: [certbot]
+
+  cert-dir:
+    type: file
+    state: directory
+    path: "/etc/letsencrypt/live/{{inputs.domain}}"
+    mode: "0700"
+    depends_on: [certbot-pkg]
+
+  renewal-cron:
+    type: cron
+    name: "certbot-renew-{{inputs.domain}}"
+    schedule: "0 3 * * 1"
+    command: "certbot renew --webroot -w {{inputs.webroot}} --quiet"
+    owner: root
+    depends_on: [certbot-pkg]
+</code></pre>
+<h3 id="gpu-inference-server-recipe-fj-243"><a class="header" href="#gpu-inference-server-recipe-fj-243">GPU Inference Server Recipe (FJ-243)</a></h3>
+<p>A production recipe for deploying ML model inference on GPU machines:</p>
+<pre><code class="language-yaml"># recipes/apr-inference-server.yaml
+recipe:
+  name: apr-inference-server
+  version: "1.0"
+  inputs:
+    model_source:
+      type: string
+      description: "HuggingFace repo ID or URL"
+    model_format:
+      type: enum
+      choices: [gguf, safetensors, apr]
+      default: gguf
+    quantization:
+      type: string
+      default: q4_k_m
+    port:
+      type: int
+      default: 8080
+    workers:
+      type: int
+      default: 1
+    gpu_device:
+      type: int
+      default: 0
+    user:
+      type: string
+      default: apr
+
+resources:
+  gpu-driver:
+    type: gpu
+    driver_version: "550"
+    cuda_version: "12.4"
+    persistence_mode: true
+
+  model-download:
+    type: model
+    name: "{{inputs.model_source}}"
+    source: "{{inputs.model_source}}"
+    format: "{{inputs.model_format}}"
+    path: "/opt/apr/models/{{inputs.model_format}}"
+    depends_on: [gpu-driver]
+
+  apr-systemd-unit:
+    type: file
+    path: /etc/systemd/system/apr-serve.service
+    content: |
+      [Unit]
+      Description=Aprender Inference Server
+      After=network.target
+      [Service]
+      ExecStart=/usr/local/bin/apr serve --model /opt/apr/models/{{inputs.model_format}} --port {{inputs.port}}
+      [Install]
+      WantedBy=multi-user.target
+    depends_on: [model-download]
+
+  apr-serve:
+    type: service
+    name: apr-serve
+    state: running
+    enabled: true
+    restart_on: [apr-systemd-unit, model-download]
+
+  apr-firewall:
+    type: network
+    port: "{{inputs.port}}"
+    protocol: tcp
+    action: allow
+</code></pre>
+<p>Usage in <code>forjar.yaml</code>:</p>
+<pre><code class="language-yaml">resources:
+  inference:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs:
+      model_source: "TheBloke/Llama-2-7B-GGUF"
+      model_format: gguf
+      port: 8080
+</code></pre>
+<p>This expands to 8 resources (gpu driver, model download, service account, data directory, systemd unit, service, firewall, health check) with correct dependency ordering.</p>
+<h3 id="recipe-with-external-dependencies"><a class="header" href="#recipe-with-external-dependencies">Recipe with External Dependencies</a></h3>
+<p>Recipes can declare dependencies on resources outside the recipe:</p>
+<pre><code class="language-yaml"># forjar.yaml
+resources:
+  base-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [curl, jq]
+
+  web:
+    type: recipe
+    machine: web
+    recipe: web-server
+    depends_on: [base-packages]
+    inputs:
+      domain: example.com
+</code></pre>
+<p>The <code>depends_on: [base-packages]</code> on the recipe resource makes ALL expanded resources depend on <code>base-packages</code>. This is the mechanism for cross-recipe dependencies.</p>
+<h3 id="reusing-recipes-across-machines"><a class="header" href="#reusing-recipes-across-machines">Reusing Recipes Across Machines</a></h3>
+<p>The same recipe can be instantiated multiple times with different parameters:</p>
+<pre><code class="language-yaml">resources:
+  staging-web:
+    type: recipe
+    machine: staging
+    recipe: web-server
+    inputs:
+      domain: staging.example.com
+      port: 8080
+      log_level: debug
+
+  production-web:
+    type: recipe
+    machine: production
+    recipe: web-server
+    inputs:
+      domain: www.example.com
+      port: 80
+      log_level: error
+</code></pre>
+<p>Each instantiation creates a namespaced set of resources: <code>staging-web/nginx-pkg</code>, <code>staging-web/site-config</code>, etc. This prevents ID collisions.</p>
+<h3 id="recipe-expansion-order"><a class="header" href="#recipe-expansion-order">Recipe Expansion Order</a></h3>
+<p>The expansion pipeline processes recipes in this order:</p>
+<pre><code>1. Load forjar.yaml
+2. For each recipe resource:
+   a. Load recipes/{name}.yaml
+   b. Validate inputs against declared schema
+   c. Resolve {{inputs.X}} templates in resource fields
+   d. Namespace resource IDs: "{parent-id}/{resource-id}"
+   e. Set machine field from parent recipe resource
+   f. Add external depends_on to first resource in chain
+3. Replace recipe resources with expanded resources
+4. Validate expanded config (deps, machines, types)
+</code></pre>
+<h2 id="recipe-testing"><a class="header" href="#recipe-testing">Recipe Testing</a></h2>
+<h3 id="unit-testing-a-recipe"><a class="header" href="#unit-testing-a-recipe">Unit Testing a Recipe</a></h3>
+<p>Test a recipe in isolation using a container machine:</p>
+<pre><code class="language-yaml"># test-web-server.yaml
+version: "1.0"
+name: test-web-server-recipe
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+
+resources:
+  web:
+    type: recipe
+    machine: test
+    recipe: web-server
+    inputs:
+      domain: test.local
+      port: 8080
+      log_level: debug
+</code></pre>
+<pre><code class="language-bash"># Validate recipe expansion
+forjar validate -f test-web-server.yaml
+
+# Apply to container
+forjar apply -f test-web-server.yaml --state-dir /tmp/recipe-test
+
+# Check for drift (should be clean immediately after apply)
+forjar drift -f test-web-server.yaml --state-dir /tmp/recipe-test
+</code></pre>
+<h3 id="recipe-ci-pipeline"><a class="header" href="#recipe-ci-pipeline">Recipe CI Pipeline</a></h3>
+<p>Add recipe validation to CI:</p>
+<pre><code class="language-yaml"># .github/workflows/recipe-test.yml
+name: Recipe Tests
+on: [pull_request]
+jobs:
+  validate-recipes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build forjar
+        run: cargo build --release
+      - name: Validate all configs that use recipes
+        run: |
+          for config in examples/*.yaml; do
+            echo "Validating $config..."
+            ./target/release/forjar validate -f "$config"
+          done
+      - name: Test recipe expansion
+        run: |
+          ./target/release/forjar plan -f examples/recipe-example.yaml --state-dir /tmp/state
+</code></pre>
+<h3 id="recipe-development-workflow"><a class="header" href="#recipe-development-workflow">Recipe Development Workflow</a></h3>
+<p>The recommended workflow for creating and iterating on recipes:</p>
+<pre><code>1. Write recipe YAML in recipes/
+2. Create a test config with container machine
+3. forjar validate -f test-config.yaml
+4. forjar plan -f test-config.yaml --state-dir /tmp/test
+5. forjar apply -f test-config.yaml --state-dir /tmp/test
+6. forjar drift -f test-config.yaml --state-dir /tmp/test
+7. Iterate on recipe, re-apply until clean
+8. Move test config inputs to production config
+</code></pre>
+<h2 id="recipe-internals"><a class="header" href="#recipe-internals">Recipe Internals</a></h2>
+<h3 id="input-type-coercion"><a class="header" href="#input-type-coercion">Input Type Coercion</a></h3>
+<p>Recipe inputs are type-checked at parse time. The coercion rules:</p>
+<div class="table-wrapper"><table><thead><tr><th>Declared Type</th><th>YAML Value</th><th>Result</th></tr></thead><tbody>
+<tr><td><code>string</code></td><td><code>"hello"</code></td><td><code>"hello"</code></td></tr>
+<tr><td><code>string</code></td><td><code>42</code></td><td><code>"42"</code> (auto-coerced)</td></tr>
+<tr><td><code>int</code></td><td><code>42</code></td><td><code>42</code></td></tr>
+<tr><td><code>int</code></td><td><code>"42"</code></td><td>Error: expected int</td></tr>
+<tr><td><code>bool</code></td><td><code>true</code></td><td><code>true</code></td></tr>
+<tr><td><code>bool</code></td><td><code>"yes"</code></td><td>Error: expected bool</td></tr>
+<tr><td><code>path</code></td><td><code>"/etc/app"</code></td><td><code>"/etc/app"</code></td></tr>
+<tr><td><code>path</code></td><td><code>"relative/path"</code></td><td>Error: must be absolute</td></tr>
+<tr><td><code>enum</code></td><td><code>"warn"</code></td><td><code>"warn"</code> (if in choices)</td></tr>
+<tr><td><code>enum</code></td><td><code>"verbose"</code></td><td>Error: not in choices</td></tr>
+</tbody></table>
+</div>
+<h3 id="template-resolution-order"><a class="header" href="#template-resolution-order">Template Resolution Order</a></h3>
+<p>Templates inside recipes are resolved in two passes:</p>
+<p><strong>Pass 1: Recipe-level</strong> (<code>{{inputs.X}}</code>)</p>
+<ul>
+<li>Resolved during recipe expansion</li>
+<li>Uses values from the calling config's <code>inputs:</code> block</li>
+<li>Results in concrete values before the resource enters the main config</li>
+</ul>
+<p><strong>Pass 2: Config-level</strong> (<code>{{params.X}}</code>, <code>{{secrets.X}}</code>, <code>{{machine.X.Y}}</code>)</p>
+<ul>
+<li>Resolved during the main template resolution phase</li>
+<li>Uses the calling config's <code>params:</code>, <code>secrets</code>, and <code>machines:</code> blocks</li>
+<li>Happens after recipe expansion</li>
+</ul>
+<p>This means a recipe can mix both template types:</p>
+<pre><code class="language-yaml"># In a recipe resource
+content: |
+  app_name={{inputs.app_name}}
+  environment={{params.env}}
+  db_host={{machine.db.addr}}
+  api_key={{secrets.api-key}}
+</code></pre>
+<p><code>{{inputs.app_name}}</code> is resolved in Pass 1. The rest are resolved in Pass 2.</p>
+<h3 id="namespace-collision-prevention"><a class="header" href="#namespace-collision-prevention">Namespace Collision Prevention</a></h3>
+<p>Recipe namespacing prevents ID collisions when the same recipe is used multiple times:</p>
+<pre><code class="language-yaml">resources:
+  web1-stack:
+    type: recipe
+    machine: web1
+    recipe: web-server
+    inputs: { domain: a.com }
+  web2-stack:
+    type: recipe
+    machine: web2
+    recipe: web-server
+    inputs: { domain: b.com }
+</code></pre>
+<p>Expanded IDs:</p>
+<ul>
+<li><code>web1-stack/nginx-pkg</code> (machine: web1)</li>
+<li><code>web1-stack/site-config</code> (machine: web1)</li>
+<li><code>web2-stack/nginx-pkg</code> (machine: web2)</li>
+<li><code>web2-stack/site-config</code> (machine: web2)</li>
+</ul>
+<p>Internal <code>depends_on</code> and <code>restart_on</code> references are also namespaced. If the recipe has <code>depends_on: [nginx-pkg]</code>, it becomes <code>depends_on: [web1-stack/nginx-pkg]</code> after expansion.</p>
+<h3 id="recipe-file-resolution"><a class="header" href="#recipe-file-resolution">Recipe File Resolution</a></h3>
+<p>Forjar searches for recipe files relative to the config file's directory:</p>
+<pre><code>forjar.yaml          ← config file
+recipes/
+  web-server.yaml    ← found via "recipe: web-server"
+  database.yaml      ← found via "recipe: database"
+  monitoring.yaml    ← found via "recipe: monitoring"
+</code></pre>
+<p>If <code>forjar.yaml</code> is at <code>/opt/infra/forjar.yaml</code>, then <code>recipe: web-server</code> loads <code>/opt/infra/recipes/web-server.yaml</code>.</p>
+<h2 id="recipe-anti-patterns"><a class="header" href="#recipe-anti-patterns">Recipe Anti-Patterns</a></h2>
+<h3 id="avoid-recipes-without-inputs"><a class="header" href="#avoid-recipes-without-inputs">Avoid: Recipes Without Inputs</a></h3>
+<pre><code class="language-yaml"># BAD — recipe with no parameterization (just use regular resources)
+recipe:
+  name: static-config
+  version: "1.0"
+  # No inputs — this recipe does the same thing every time
+
+# GOOD — add inputs for the parts that vary
+recipe:
+  name: configurable-stack
+  inputs:
+    app_name: { type: string }
+    port: { type: int, default: 8080 }
+</code></pre>
+<p>If a recipe has zero inputs, it's just adding indirection. Use regular resources instead.</p>
+<h3 id="avoid-deeply-nested-dependencies"><a class="header" href="#avoid-deeply-nested-dependencies">Avoid: Deeply Nested Dependencies</a></h3>
+<pre><code class="language-yaml"># BAD — 10-resource chain with serial dependencies
+resources:
+  step-1: { depends_on: [] }
+  step-2: { depends_on: [step-1] }
+  step-3: { depends_on: [step-2] }
+  # ... 7 more steps ...
+
+# GOOD — use parallel-safe dependency structure
+resources:
+  packages: {}
+  config-a: { depends_on: [packages] }
+  config-b: { depends_on: [packages] }
+  service-a: { depends_on: [config-a] }
+  service-b: { depends_on: [config-b] }
+</code></pre>
+<p>Prefer wide DAGs (many resources depending on one) over deep chains (serial sequences). Wide DAGs enable future parallel execution.</p>
+<h3 id="avoid-environment-specific-recipes"><a class="header" href="#avoid-environment-specific-recipes">Avoid: Environment-Specific Recipes</a></h3>
+<pre><code class="language-yaml"># BAD — separate recipes for each environment
+recipe: web-server-production
+recipe: web-server-staging
+
+# GOOD — one recipe, parameterize differences
+recipe: web-server
+inputs:
+  log_level: { type: enum, choices: [error, warn, info, debug] }
+  port: { type: int }
+</code></pre>
+<p>Use inputs to handle environment differences, not separate recipe files.</p>
+<h2 id="recipe-testing-with-bashrs"><a class="header" href="#recipe-testing-with-bashrs">Recipe Testing with bashrs</a></h2>
+<p>Every resource forjar manages produces shell scripts (check, apply, state_query). When
+those resources originate from a recipe, the generated scripts carry the same shell
+safety requirements as any other resource. bashrs validates recipe-generated scripts
+through the same purification pipeline described in the architecture chapter.</p>
+<h3 id="why-recipe-scripts-need-validation"><a class="header" href="#why-recipe-scripts-need-validation">Why Recipe Scripts Need Validation</a></h3>
+<p>Recipes introduce an extra layer of template expansion. A recipe's <code>{{inputs.X}}</code>
+values are injected into shell script templates before execution. If an input contains
+shell metacharacters, whitespace, or unexpected values, the resulting script could
+break or behave unsafely. bashrs catches these problems statically.</p>
+<h3 id="validating-recipe-scripts-with-forjar-lint"><a class="header" href="#validating-recipe-scripts-with-forjar-lint">Validating Recipe Scripts with <code>forjar lint</code></a></h3>
+<p>The <code>forjar lint</code> command generates scripts for all resources -- including expanded
+recipe resources -- and passes each through the bashrs linter:</p>
+<pre><code class="language-bash">forjar lint -f forjar.yaml
+</code></pre>
+<p>Sample output for a config using the <code>web-server</code> recipe:</p>
+<pre><code>  warn: bashrs: web/nginx-pkg/apply [SC2086] Double quote to prevent globbing
+  warn: bashrs: web/site-config/apply [SC2059] Use %s with printf
+  warn: bashrs script lint: 0 error(s), 2 warning(s) across 3 resources
+No lint errors found.
+</code></pre>
+<p>The resource IDs in the output use the namespaced form (<code>web/nginx-pkg</code>,
+<code>web/site-config</code>) so you can trace each diagnostic back to the recipe resource that
+produced it.</p>
+<h3 id="auditing-expanded-scripts"><a class="header" href="#auditing-expanded-scripts">Auditing Expanded Scripts</a></h3>
+<p>Write the generated scripts to disk for manual review:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --output-dir /tmp/audit/
+ls /tmp/audit/web-server/
+</code></pre>
+<p>Output:</p>
+<pre><code>web/nginx-pkg.check.sh
+web/nginx-pkg.apply.sh
+web/nginx-pkg.state_query.sh
+web/site-config.check.sh
+web/site-config.apply.sh
+web/site-config.state_query.sh
+web/nginx-svc.check.sh
+web/nginx-svc.apply.sh
+web/nginx-svc.state_query.sh
+</code></pre>
+<p>Each script is a standalone shell file. Open any of them to see exactly what would
+execute on the target machine after recipe expansion and template resolution.</p>
+<h3 id="the-purification-pipeline-for-recipe-scripts"><a class="header" href="#the-purification-pipeline-for-recipe-scripts">The Purification Pipeline for Recipe Scripts</a></h3>
+<p>When <code>forjar apply</code> runs, recipe-generated scripts pass through this pipeline:</p>
+<pre><code>1. Recipe expansion     — {{inputs.X}} resolved from caller's inputs block
+2. Template resolution  — {{params.X}}, {{secrets.X}} resolved from config
+3. Script generation    — codegen produces check/apply/state_query shell
+4. bashrs validation    — validate_script() checks for Error-severity issues
+5. Transport execution  — script piped to bash on target machine
+</code></pre>
+<p>If step 4 fails, the resource is marked as failed, execution halts for that machine
+(Jidoka), and the error is recorded in the event log.</p>
+<h3 id="testing-recipe-inputs-for-shell-safety"><a class="header" href="#testing-recipe-inputs-for-shell-safety">Testing Recipe Inputs for Shell Safety</a></h3>
+<p>When writing a recipe, test it with edge-case inputs to verify that the generated
+scripts remain valid shell:</p>
+<pre><code class="language-yaml"># test-edge-cases.yaml
+version: "1.0"
+name: recipe-edge-test
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+
+resources:
+  # Test with spaces in domain (should produce valid shell)
+  edge-web:
+    type: recipe
+    machine: test
+    recipe: web-server
+    inputs:
+      domain: "my site.example.com"
+      port: 8080
+      log_level: debug
+</code></pre>
+<p>Run lint to check whether the expanded scripts handle the space correctly:</p>
+<pre><code class="language-bash">forjar lint -f test-edge-cases.yaml
+</code></pre>
+<p>If bashrs reports errors, the recipe's template needs quoting fixes in its resource
+definitions. For example, ensure file paths in the recipe use single-quoted heredocs
+rather than unquoted variable expansion.</p>
+<h3 id="ci-integration-for-recipe-script-validation"><a class="header" href="#ci-integration-for-recipe-script-validation">CI Integration for Recipe Script Validation</a></h3>
+<p>Add bashrs validation to your recipe CI pipeline:</p>
+<pre><code class="language-yaml"># .github/workflows/recipe-lint.yml
+name: Recipe Script Lint
+on: [pull_request]
+jobs:
+  lint-recipes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build forjar
+        run: cargo build --release
+      - name: Lint all configs (includes bashrs script checks)
+        run: |
+          for config in examples/*.yaml; do
+            echo "Linting $config..."
+            ./target/release/forjar lint -f "$config" --json | \
+              jq -e '.warnings_count == 0' || echo "WARN: $config has lint findings"
+          done
+      - name: Fail on script errors
+        run: |
+          for config in examples/*.yaml; do
+            # --json output includes bashrs diagnostics
+            errors=$(./target/release/forjar lint -f "$config" --json | \
+              jq '.warnings | map(select(startswith("bashrs") and contains("Error"))) | length')
+            if [ "$errors" -gt 0 ]; then
+              echo "ERROR: $config has $errors bashrs errors"
+              exit 1
+            fi
+          done
+</code></pre>
+<p>This catches recipe script problems before they reach production machines.</p>
+<h2 id="recipe-composition-patterns"><a class="header" href="#recipe-composition-patterns">Recipe Composition Patterns</a></h2>
+<p>Recipes become powerful when composed together to build complete infrastructure stacks.
+This section covers patterns for combining multiple recipes into cohesive deployments.</p>
+<h3 id="pattern-1-web-stack-package--config--service"><a class="header" href="#pattern-1-web-stack-package--config--service">Pattern 1: Web Stack (Package + Config + Service)</a></h3>
+<p>The most common composition is a web application stack built from three focused
+recipes:</p>
+<pre><code class="language-yaml"># recipes/base-packages.yaml
+recipe:
+  name: base-packages
+  version: "1.0"
+  description: "Common packages for all machines"
+  inputs:
+    extras:
+      type: string
+      default: ""
+      description: "Space-separated list of additional packages"
+
+resources:
+  core:
+    type: package
+    provider: apt
+    packages: [curl, jq, htop, unzip]
+</code></pre>
+<pre><code class="language-yaml"># recipes/nginx-site.yaml
+recipe:
+  name: nginx-site
+  version: "1.0"
+  description: "Nginx virtual host with optional SSL"
+  inputs:
+    domain:
+      type: string
+    port:
+      type: int
+      default: 80
+    upstream_port:
+      type: int
+      default: 8080
+
+resources:
+  nginx-pkg:
+    type: package
+    provider: apt
+    packages: [nginx]
+
+  site-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.domain}}"
+    content: |
+      upstream app {
+        server 127.0.0.1:{{inputs.upstream_port}};
+      }
+      server {
+        listen {{inputs.port}};
+        server_name {{inputs.domain}};
+        location / { proxy_pass http://app; }
+      }
+    owner: root
+    mode: "0644"
+    depends_on: [nginx-pkg]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [site-config]
+    depends_on: [site-config]
+</code></pre>
+<pre><code class="language-yaml"># recipes/app-service.yaml
+recipe:
+  name: app-service
+  version: "1.0"
+  description: "Systemd-managed application service"
+  inputs:
+    app_name:
+      type: string
+    app_port:
+      type: int
+      default: 8080
+    app_binary:
+      type: path
+      default: /usr/local/bin/app
+
+resources:
+  app-dir:
+    type: file
+    state: directory
+    path: "/opt/{{inputs.app_name}}"
+    mode: "0755"
+
+  unit-file:
+    type: file
+    path: "/etc/systemd/system/{{inputs.app_name}}.service"
+    content: |
+      [Unit]
+      Description={{inputs.app_name}}
+      After=network.target
+
+      [Service]
+      ExecStart={{inputs.app_binary}} --port {{inputs.app_port}}
+      WorkingDirectory=/opt/{{inputs.app_name}}
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    mode: "0644"
+    depends_on: [app-dir]
+
+  app-svc:
+    type: service
+    name: "{{inputs.app_name}}"
+    state: running
+    enabled: true
+    restart_on: [unit-file]
+    depends_on: [unit-file]
+</code></pre>
+<p>Compose them in <code>forjar.yaml</code>:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: web-stack
+machines:
+  web1:
+    hostname: web1
+    addr: 10.0.0.1
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+
+  app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [base]
+    inputs:
+      app_name: myapi
+      app_port: 3000
+      app_binary: /usr/local/bin/myapi
+
+  frontend:
+    type: recipe
+    machine: web1
+    recipe: nginx-site
+    depends_on: [app]
+    inputs:
+      domain: api.example.com
+      port: 80
+      upstream_port: 3000
+</code></pre>
+<p>The resulting DAG:</p>
+<pre><code>base/core
+  |
+  v
+app/app-dir -&gt; app/unit-file -&gt; app/app-svc
+                                     |
+                                     v
+                          frontend/nginx-pkg -&gt; frontend/site-config -&gt; frontend/nginx-svc
+</code></pre>
+<p>The <code>depends_on</code> on each recipe resource creates a sequential chain: base packages
+install first, then the application deploys, then nginx configures itself as a reverse
+proxy.</p>
+<h3 id="pattern-2-layered-infrastructure-base--role--app"><a class="header" href="#pattern-2-layered-infrastructure-base--role--app">Pattern 2: Layered Infrastructure (Base + Role + App)</a></h3>
+<p>Separate concerns into layers that apply in order:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: production
+machines:
+  web1: { hostname: web1, addr: 10.0.0.1, user: deploy }
+  web2: { hostname: web2, addr: 10.0.0.2, user: deploy }
+  db1:  { hostname: db1,  addr: 10.0.0.3, user: deploy }
+
+resources:
+  # Layer 1: Base (all machines)
+  web1-base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+  web2-base:
+    type: recipe
+    machine: web2
+    recipe: base-packages
+    inputs: {}
+  db1-base:
+    type: recipe
+    machine: db1
+    recipe: base-packages
+    inputs: {}
+
+  # Layer 2: Role-specific recipes
+  web1-nginx:
+    type: recipe
+    machine: web1
+    recipe: nginx-site
+    depends_on: [web1-base]
+    inputs:
+      domain: www.example.com
+      upstream_port: 3000
+  web2-nginx:
+    type: recipe
+    machine: web2
+    recipe: nginx-site
+    depends_on: [web2-base]
+    inputs:
+      domain: www.example.com
+      upstream_port: 3000
+
+  # Layer 3: Application-specific resources
+  web1-app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [web1-nginx]
+    inputs:
+      app_name: frontend
+      app_port: 3000
+  web2-app:
+    type: recipe
+    machine: web2
+    recipe: app-service
+    depends_on: [web2-nginx]
+    inputs:
+      app_name: frontend
+      app_port: 3000
+</code></pre>
+<p>Each layer depends on the one below it. The base recipe runs on every machine. The
+role recipe (nginx) runs only on web servers. The app recipe runs last.</p>
+<h3 id="pattern-3-sidecar-composition-app--monitoring--logging"><a class="header" href="#pattern-3-sidecar-composition-app--monitoring--logging">Pattern 3: Sidecar Composition (App + Monitoring + Logging)</a></h3>
+<p>Attach cross-cutting concerns as sibling recipes that share a common base dependency:</p>
+<pre><code class="language-yaml">resources:
+  base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+
+  app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [base]
+    inputs:
+      app_name: myapi
+      app_port: 3000
+
+  monitoring:
+    type: recipe
+    machine: web1
+    recipe: monitoring
+    depends_on: [base]
+    inputs:
+      metrics_port: 9100
+
+  logging:
+    type: recipe
+    machine: web1
+    recipe: logging
+    depends_on: [base]
+    inputs:
+      log_path: /var/log/myapi
+      retention_days: 14
+</code></pre>
+<p>The dependency graph is wide, not deep:</p>
+<pre><code>        base/core
+       /    |    \
+      v     v     v
+    app  monitoring  logging
+</code></pre>
+<p>The app, monitoring, and logging recipes all depend on <code>base</code> but not on each other.
+This is the preferred structure: it enables future parallel execution and keeps each
+recipe independently testable.</p>
+<h3 id="pattern-4-sovereign-ai-stack-multi-machine-composition"><a class="header" href="#pattern-4-sovereign-ai-stack-multi-machine-composition">Pattern 4: Sovereign AI Stack (Multi-Machine Composition)</a></h3>
+<p>The most complex composition: GPU inference + distributed workers + observability across multiple machines:</p>
+<pre><code class="language-yaml"># examples/dogfood-sovereign-stack.yaml
+machines:
+  gpu-box:       { addr: container, roles: [gpu-compute] }
+  worker-1:      { addr: container, roles: [worker] }
+  monitor:       { addr: container, roles: [observability] }
+
+resources:
+  observability:
+    type: recipe
+    machine: monitor
+    recipe: renacer-observability
+    inputs: { grafana_port: 3000, jaeger_port: 16686 }
+
+  worker:
+    type: recipe
+    machine: worker-1
+    recipe: repartir-worker
+    inputs: { listen_port: 9000, tls_cert: certs/cert.pem, tls_key: certs/key.pem }
+
+  inference:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs: { model_source: "TheBloke/Llama-2-7B-GGUF", port: 8080 }
+
+  coordination:
+    type: recipe
+    machine: monitor
+    recipe: sovereign-ai-stack
+    inputs: { model_source: "TheBloke/Llama-2-7B-GGUF", api_port: 8080 }
+</code></pre>
+<p>This expands to <strong>33 resources</strong> across 3 machines with <code>parallel_machines: true</code>:</p>
+<pre><code>gpu-box (8 resources):   GPU driver → model → systemd unit → service → firewall
+worker-1 (10 resources): TLS certs → config → systemd unit → service → firewall
+monitor (15 resources):  Jaeger → Grafana → renacer → coordination → health cron
+</code></pre>
+<h3 id="composition-guidelines"><a class="header" href="#composition-guidelines">Composition Guidelines</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Guideline</th><th>Rationale</th></tr></thead><tbody>
+<tr><td>Use <code>depends_on</code> on recipe resources to define inter-recipe ordering</td><td>External deps are injected into the first expanded resource</td></tr>
+<tr><td>Keep recipes independent when possible</td><td>Wide DAGs are faster and easier to debug than deep chains</td></tr>
+<tr><td>One recipe per concern (packages, config, service)</td><td>Smaller recipes compose more flexibly than monolithic ones</td></tr>
+<tr><td>Use consistent input naming across recipes</td><td><code>app_name</code>, <code>port</code>, <code>domain</code> reappearing across recipes reduces cognitive load</td></tr>
+<tr><td>Test composed stacks with container transport</td><td>Validates the full expansion and dependency chain before production</td></tr>
+</tbody></table>
+</div>
+<h3 id="verifying-composition"><a class="header" href="#verifying-composition">Verifying Composition</a></h3>
+<p>After composing recipes, verify the expanded dependency graph:</p>
+<pre><code class="language-bash"># Visualize the full DAG (Mermaid format)
+forjar graph -f forjar.yaml
+
+# Validate all recipe inputs and expansions
+forjar validate -f forjar.yaml
+
+# Preview the plan to see resource ordering
+forjar plan -f forjar.yaml --state-dir state/
+
+# Lint all generated scripts (includes bashrs checks)
+forjar lint -f forjar.yaml
+</code></pre>
+<p>The graph command is particularly useful for composed stacks. It shows every expanded
+resource and its dependency edges, making it straightforward to verify that the
+execution order matches your intent.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="03-resources.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="05-architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="03-resources.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="05-architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

@@ -1,7 +1,5 @@
 //! Tests: FJ-2702 quality gate evaluation + FJ-2703 GPU env targeting.
 
-#![cfg(test)]
-
 use super::quality_gate::*;
 use crate::core::types::QualityGate;
 

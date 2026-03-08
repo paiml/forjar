@@ -1,0 +1,470 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Agent Infrastructure &amp; pforge - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="agent-infrastructure--pforge-integration"><a class="header" href="#agent-infrastructure--pforge-integration">Agent Infrastructure &amp; pforge Integration</a></h1>
+<p>Forjar manages AI agent infrastructure using its standard resource types: <code>package</code> for
+dependencies, <code>file</code> for configuration, <code>service</code> for processes, <code>model</code> for ML artifacts,
+<code>gpu</code> for hardware, and <code>task</code> for orchestration steps.</p>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
+<p>Forjar converges the infrastructure layer. Agent tools compose on top:</p>
+<pre><code>batuta (AgentOps)    ─── agent lifecycle, tool routing, dispatch
+apr-cli (LLMOps)     ─── model pull/convert/compile/serve
+pforge               ─── MCP server framework, tool registry
+  ↓ all call ↓
+forjar               ─── converge packages, files, services, GPU, models
+</code></pre>
+<p>Forjar does NOT manage agent logic, tool permissions, or MCP protocol details.
+Those are pforge/batuta responsibilities. Forjar ensures the infrastructure converges.</p>
+<h2 id="mcp-server-deployment"><a class="header" href="#mcp-server-deployment">MCP Server Deployment</a></h2>
+<p>Deploy MCP servers as standard forjar resources:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: mcp-servers
+
+machines:
+  agent-host:
+    hostname: agent-01
+    addr: 10.0.0.50
+
+resources:
+  # Install Node.js for MCP servers
+  node-runtime:
+    type: package
+    machine: agent-host
+    provider: apt
+    packages: [nodejs, npm]
+
+  # Deploy MCP server config
+  mcp-config:
+    type: file
+    machine: agent-host
+    path: /etc/pforge/mcp-servers.json
+    content: |
+      {
+        "servers": [
+          {"name": "filesystem", "command": "npx @anthropic/mcp-server-filesystem /data"},
+          {"name": "sqlite", "command": "npx @anthropic/mcp-server-sqlite /data/app.db"}
+        ]
+      }
+    mode: "0644"
+    depends_on: [node-runtime]
+
+  # pforge agent service
+  pforge-service:
+    type: service
+    machine: agent-host
+    name: pforge-agent
+    state: running
+    enabled: true
+    restart_on: [mcp-config]
+    depends_on: [mcp-config]
+</code></pre>
+<h2 id="pforge-configuration-via-file-resources"><a class="header" href="#pforge-configuration-via-file-resources">pforge Configuration via File Resources</a></h2>
+<p>Deploy pforge agent configurations as file resources:</p>
+<pre><code class="language-yaml">resources:
+  pforge-config:
+    type: file
+    machine: agent-host
+    path: /etc/pforge/config.yaml
+    content: |
+      name: ops-agent
+      model: claude-sonnet-4-6
+      mcp_servers:
+        - name: filesystem
+          command: npx @anthropic/mcp-server-filesystem /data
+        - name: database
+          command: npx @anthropic/mcp-server-sqlite /data/app.db
+      tools:
+        allow: [read_file, write_file, query]
+        deny: [delete_file, drop_table]
+    mode: "0600"
+    owner: pforge
+</code></pre>
+<h2 id="gpu-accelerated-agent-with-local-model"><a class="header" href="#gpu-accelerated-agent-with-local-model">GPU-Accelerated Agent with Local Model</a></h2>
+<p>A complete stack: GPU drivers, local model, and inference agent:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: gpu-agent
+
+machines:
+  gpu-node:
+    hostname: gpu-01
+    addr: 10.0.0.50
+
+resources:
+  # GPU infrastructure
+  gpu-setup:
+    type: gpu
+    machine: gpu-node
+    gpu_backend: nvidia
+    driver_version: "550"
+    cuda_version: "12.4"
+
+  # Download and verify model
+  llama-model:
+    type: model
+    machine: gpu-node
+    name: llama-3.2-1b
+    source: /models/llama-3.2-1b.gguf
+    format: gguf
+    quantization: q4_k_m
+    checksum: "blake3:a1b2c3..."
+    depends_on: [gpu-setup]
+
+  # Install pforge
+  pforge-pkg:
+    type: package
+    machine: gpu-node
+    provider: cargo
+    packages: [pforge-runtime]
+
+  # Agent config pointing to local model
+  agent-config:
+    type: file
+    machine: gpu-node
+    path: /etc/pforge/agent.yaml
+    content: |
+      name: local-inference-agent
+      model_path: /models/llama-3.2-1b.gguf
+      gpu: true
+    depends_on: [llama-model]
+
+  # Run agent as service
+  agent-service:
+    type: service
+    machine: gpu-node
+    name: pforge-agent
+    state: running
+    enabled: true
+    restart_on: [agent-config, llama-model]
+    depends_on: [pforge-pkg, agent-config]
+
+  # Health verification
+  health-check:
+    type: task
+    machine: gpu-node
+    command: "curl -sf http://localhost:8080/health"
+    depends_on: [agent-service]
+    timeout: 30
+</code></pre>
+<h2 id="multi-agent-fleet"><a class="header" href="#multi-agent-fleet">Multi-Agent Fleet</a></h2>
+<p>Deploy agent configurations across multiple machines:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: agent-fleet
+
+machines:
+  agent-01:
+    hostname: agent-01
+    addr: 10.0.1.1
+  agent-02:
+    hostname: agent-02
+    addr: 10.0.1.2
+  agent-03:
+    hostname: agent-03
+    addr: 10.0.1.3
+
+resources:
+  # Deploy config to ALL agents
+  agent-config:
+    type: file
+    machine: [agent-01, agent-02, agent-03]
+    path: /etc/pforge/config.yaml
+    content: |
+      name: fleet-agent
+      model: claude-sonnet-4-6
+    mode: "0600"
+
+  # Start service on ALL agents
+  agent-service:
+    type: service
+    machine: [agent-01, agent-02, agent-03]
+    name: pforge-agent
+    state: running
+    enabled: true
+    restart_on: [agent-config]
+    depends_on: [agent-config]
+
+policy:
+  parallel_machines: true
+  serial: 1            # Rolling deploy: 1 machine at a time
+  max_fail_percentage: 33
+</code></pre>
+<h2 id="agent-health-monitoring"><a class="header" href="#agent-health-monitoring">Agent Health Monitoring</a></h2>
+<p>Monitor agent fleet health using forjar's built-in commands:</p>
+<pre><code class="language-bash"># Check agent service status across fleet
+forjar status -f agent-fleet.yaml
+
+# Detect drifted configurations
+forjar drift -f agent-fleet.yaml
+
+# Plan and verify before rolling out config changes
+forjar plan -f agent-fleet.yaml
+forjar apply -f agent-fleet.yaml
+</code></pre>
+<p>Drift detection catches:</p>
+<ul>
+<li>Configuration file modifications (BLAKE3 hash mismatch)</li>
+<li>Model file corruption or unauthorized changes</li>
+<li>Service stopped or disabled</li>
+<li>Package version changes</li>
+</ul>
+<h2 id="batuta-integration"><a class="header" href="#batuta-integration">batuta Integration</a></h2>
+<p>batuta (AgentOps) orchestrates agent lifecycle on forjar-converged infrastructure:</p>
+<pre><code class="language-bash"># batuta workflow:
+forjar apply -f agent-infra.yaml       # converge infrastructure
+batuta deploy --agent ops-agent        # register agent with batuta
+batuta dispatch ops-agent --task "analyze logs" --param date=today
+batuta status --fleet                  # monitor agent fleet
+</code></pre>
+<p>Forjar owns infrastructure convergence. batuta owns agent dispatch, tool routing,
+and coordination. The boundary is clean: forjar ensures files, services, and models
+are in the desired state; batuta decides what the agent does.</p>
+<h2 id="agent-recipe"><a class="header" href="#agent-recipe">Agent Recipe</a></h2>
+<p>Use forjar recipes for reusable agent deployment patterns:</p>
+<pre><code class="language-yaml"># recipes/pforge-agent.yaml
+recipe:
+  name: pforge-agent
+  version: "1.0"
+  description: Deploy a pforge MCP agent
+  inputs:
+    agent_name:
+      type: string
+      required: true
+    model:
+      type: string
+      default: "claude-sonnet-4-6"
+    port:
+      type: string
+      default: "8080"
+
+resources:
+  config:
+    type: file
+    path: "/etc/pforge/{{inputs.agent_name}}.yaml"
+    content: |
+      name: {{inputs.agent_name}}
+      model: {{inputs.model}}
+      port: {{inputs.port}}
+
+  service:
+    type: service
+    name: "pforge-{{inputs.agent_name}}"
+    state: running
+    enabled: true
+    restart_on: [config]
+    depends_on: [config]
+</code></pre>
+<p>Use the recipe:</p>
+<pre><code class="language-yaml">resources:
+  my-agent:
+    type: recipe
+    recipe: recipes/pforge-agent.yaml
+    inputs:
+      agent_name: ops-agent
+      model: claude-sonnet-4-6
+      port: "8080"
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="15-dataops-mlops.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="17-operational-intelligence.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="15-dataops-mlops.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="17-operational-intelligence.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

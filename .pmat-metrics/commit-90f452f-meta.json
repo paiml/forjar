@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-038",
+  "prompt": "V2 spec batch 5: stack diff, output persistence, security scanner, policy engine",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-04T12:20:29.312771199Z"
+}

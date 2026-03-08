@@ -1,0 +1,11 @@
+schema: '1.0'
+pins:
+  data-dir:
+    provider: file
+    hash: blake3:12d0cf111e853942d53010f66d494595f273d65be905e14b4243da01ee4b7108
+  dev-tools:
+    provider: apt
+    hash: blake3:55fcf8f87f9b43ce27c8bfc9b1f0f407c9cde9d1817c31ad93a0be5ce5b9d437
+  tool-config:
+    provider: file
+    hash: blake3:9ebf3db2d7c6970f1f6758c276b2b7050482d37bf423702bb04f9fd8800a4071

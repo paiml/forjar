@@ -248,7 +248,7 @@ fn falsify_l13_seven_execution_modules() {
 /// L-14: Module file existence — all 12 phases have implementation modules.
 #[test]
 fn falsify_l14_all_phase_modules_exist() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let _root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let modules = [
         "src/core/store/path.rs",
         "src/core/store/meta.rs",

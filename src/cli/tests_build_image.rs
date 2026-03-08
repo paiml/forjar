@@ -2,7 +2,6 @@
 
 use super::build_image::*;
 use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy};
-use std::io::Write;
 
 fn make_config_with_image() -> ForjarConfig {
     serde_yaml_ng::from_str(r#"
@@ -290,8 +289,8 @@ fn cmd_build_with_load_flag_no_runtime() {
     // --load requires docker or podman; may or may not be available in test env
     let r = cmd_build(&path, "img", true, false, false, false, false);
     // Either succeeds (docker/podman found) or errors with known message
-    if r.is_err() {
-        assert!(r.as_ref().unwrap_err().contains("docker or podman"), "got: {:?}", r);
+    if let Err(e) = &r {
+        assert!(e.contains("docker or podman"), "got: {:?}", r);
     }
 }
 

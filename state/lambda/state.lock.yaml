@@ -1,0 +1,49 @@
+schema: '1.0'
+machine: lambda
+hostname: lambda
+generated_at: 2026-03-06T14:12:14Z
+generator: forjar 1.1.1
+blake3_version: '1.8'
+resources:
+  build-apr-lambda:
+    type: task
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:91ce5a2d8a23f1ef76028ef4e9fbf96d0fdd28884416b21657753964bb644283
+    details: {}
+  data-sync-lambda:
+    type: task
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:080ee51aeb61799ec6bdad849a99723230541f569cb70f7ace83d6fb7642f533
+    details: {}
+  gpu-check-lambda:
+    type: task
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:5ed8bcf44dbddb673a6a532dd9673d6fc40b060282359394a7cf8236bb6f0764
+    details: {}
+  model-sync-lambda:
+    type: task
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:82b0f76250091fe21665488bc4edd53e56e1d11c0a10dda0519639280b629b1c
+    details: {}
+  training-output-lambda:
+    type: file
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:4417c4f52797c7d880f7420894576e9250defa6470f2d9ffac259e9841afb378
+    details: {}
+  training-worker:
+    type: task
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:c95f713b17a6b92ec16439a6510d885e012615b7371bd2d2638fd2911ad85819
+    details: {}

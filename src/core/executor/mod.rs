@@ -68,8 +68,8 @@ pub use helpers::collect_machines;
 pub(crate) use helpers::{
     apply_and_record_outcome, build_resource_details, compute_resource_waves,
 };
-pub(crate) use machine::apply_machine;
 pub(crate) use helpers::{copia_apply_file, log_tripwire};
+pub(crate) use machine::apply_machine;
 pub(crate) use resource_ops::{
     apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,
 };

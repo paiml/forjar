@@ -180,7 +180,7 @@ mod tests {
         let result = simulate_derivation(
             &deriv,
             &BTreeMap::new(),
-            &[closure.clone()],
+            std::slice::from_ref(&closure),
             Path::new("/store"),
         )
         .unwrap();

@@ -1,0 +1,222 @@
+{
+  "id": "019cb8ca-f60c-7241-8a02-cc3f97148b0e",
+  "git_sha": "e34d6a6a29e0769fc1deb60d2b4b389f2dcb5611",
+  "timestamp": "2026-03-04T12:20:34.956402935+00:00",
+  "trigger": "WorkComplete",
+  "work_item_id": "PMAT-039",
+  "verdicts": [
+    {
+      "hypothesis": "All baseline files still exist",
+      "method": "ManifestIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "All 872 files present",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "The falsifier is active and detecting (Meta-Check)",
+      "method": "MetaFalsification",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Detected dummy gaming pattern correctly",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No coverage exclusion gaming",
+      "method": "CoverageGaming",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No gaming patterns found in 937 files",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changed lines are covered",
+      "method": "DifferentialCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "403 changed files (coverage check requires llvm-cov data)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Total coverage >= 95%",
+      "method": "AbsoluteCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No coverage data (run 'make coverage' to establish baseline), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "TDG score >= baseline",
+      "method": "TdgRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No TDG data (baseline: 0.0)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No function exceeds complexity 20",
+      "method": "ComplexityRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Complexity check passed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No vulnerable dependencies added",
+      "method": "SupplyChainIntegrity",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Deny cache too old (2296 min). Run 'cargo deny check' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "No file exceeds 500 lines",
+      "method": "FileSizeRegression",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "2 file(s) exceed 500 lines: src/cli/commands/status_args.rs (676 lines), src/cli/commands/apply_args.rs (684 lines)",
+      "evidence_summary": "FileList([\"src/cli/commands/status_args.rs\", \"src/cli/commands/apply_args.rs\"])"
+    },
+    {
+      "hypothesis": "Spec & Roadmap Quality",
+      "method": "SpecQuality",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No spec file found (optional)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changes pushed",
+      "method": "GitHubSync",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "41 unpushed commit(s), 11 uncommitted file(s)",
+      "evidence_summary": "GitState { unpushed_commits: 41, dirty_files: 11 }"
+    },
+    {
+      "hypothesis": "All examples compile and run",
+      "method": "ExamplesCompile",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No examples cache (run 'cargo build --examples' to populate)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "pmat-book validation passes",
+      "method": "BookValidation",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "pmat-book not found (skipping validation)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new SATD markers (TODO/FIXME/HACK)",
+      "method": "SatdDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No new SATD markers (0 existing)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new dead code introduced",
+      "method": "DeadCodeDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No dead code detected",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All files have >= 95% coverage",
+      "method": "PerFileCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No per-file coverage data (run 'make coverage'), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "make lint passes",
+      "method": "LintPass",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Lint cache too old (2293 min). Run 'make lint' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "All match arm variants have test coverage",
+      "method": "VariantCoverage",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "194 untested match variant(s): src/cli/agent_registry.rs::CodeAssistant, src/cli/agent_registry.rs::DataAnalyst, src/cli/agent_registry.rs::SecurityAuditor, src/cli/agent_registry.rs::CustomerSupport, src/cli/agent_registry.rs::Custom, src/cli/dispatch_misc.rs::Fmt(FmtArgs { file, check, src/cli/dispatch_misc.rs::Migrate(MigrateArgs { file, output, src/cli/dispatch_misc.rs::Bench(BenchArgs { iterations, json, src/cli/dispatch_misc.rs::Output(OutputArgs { file, key, json, src/cli/dispatch_misc.rs::Policy(PolicyArgs { file, json",
+      "evidence_summary": "FileList([\"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/agent_registry.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_misc_b.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/dispatch_platform.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/graph_resilience.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/impact_analysis.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/infra_query_live.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/plan.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/state_import_brownfield.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_cost.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/cli/status_resources.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/codegen/dispatch.rs\", \"src/core/do330.rs\", \"src/core/do330.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/parser/resource_types.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/planner/mod.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/recipe/validation_types.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/resource.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/core/types/state_types.rs\", \"src/resources/file.rs\", \"src/resources/file.rs\", \"src/resources/file.rs\", \"src/resources/file.rs\", \"src/resources/file.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\"])"
+    },
+    {
+      "hypothesis": "No fix-after-fix chains exceed limit",
+      "method": "FixChainLimit",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No fix chains > 3 consecutive commits",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Cross-crate integration tests pass",
+      "method": "CrossCrateParity",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No cross-crate config (create .pmat-work/cross-crate.json to enable)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No performance regressions detected",
+      "method": "RegressionGate",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No benchmark cache (run benchmarks to populate .pmat-metrics/benchmark-status.json)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No incomplete proofs (sorry) introduced",
+      "method": "FormalProofVerification",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No .lean files with sorry found",
+      "evidence_summary": null
+    }
+  ],
+  "overrides": [
+    {
+      "claim_id": "supply-chain",
+      "ticket": "PMAT-029",
+      "reason": "Override approved via --override-claims (ticket: PMAT-029)"
+    },
+    {
+      "claim_id": "file-size",
+      "ticket": "PMAT-029",
+      "reason": "Override approved via --override-claims (ticket: PMAT-029)"
+    },
+    {
+      "claim_id": "github-sync",
+      "ticket": "PMAT-029",
+      "reason": "Override approved via --override-claims (ticket: PMAT-029)"
+    },
+    {
+      "claim_id": "lint",
+      "ticket": "PMAT-029",
+      "reason": "Override approved via --override-claims (ticket: PMAT-029)"
+    },
+    {
+      "claim_id": "variant-coverage",
+      "ticket": "PMAT-029",
+      "reason": "Override approved via --override-claims (ticket: PMAT-029)"
+    }
+  ],
+  "summary": {
+    "total": 22,
+    "passed": 17,
+    "failed": 5,
+    "warnings": 0,
+    "overridden": 5,
+    "allows_completion": true,
+    "health_score": 0.7727272727272727
+  },
+  "content_hash": "c5be09b963206f2ab804388320a2435d9afb76d37c06b9e667c91b83748f3ec0"
+}

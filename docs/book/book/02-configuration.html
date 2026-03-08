@@ -1,0 +1,1231 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Configuration Reference - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="configuration-reference"><a class="header" href="#configuration-reference">Configuration Reference</a></h1>
+<p>The <code>forjar.yaml</code> file is the single source of truth for your infrastructure.</p>
+<h2 id="top-level-schema"><a class="header" href="#top-level-schema">Top-Level Schema</a></h2>
+<pre><code class="language-yaml">version: "1.0"           # Required. Must be "1.0"
+name: my-infra            # Required. Human-readable name
+description: "..."        # Optional
+
+params:                   # Optional. Global parameters for templates
+  key: value
+
+machines:                 # Required. Machine inventory
+  machine-id:
+    hostname: ...
+    addr: ...
+
+resources:                # Required. Infrastructure resources
+  resource-id:
+    type: ...
+
+secrets:                  # Optional. Secret provider config
+  provider: env           #   "env" (default) or "file"
+  path: /run/secrets      #   Path prefix for file provider
+
+policy:                   # Optional. Execution policy
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
+
+includes:                 # Optional. Merge other config files
+  - base.yaml
+  - overrides.yaml
+</code></pre>
+<h2 id="config-includes"><a class="header" href="#config-includes">Config Includes</a></h2>
+<p>Split large configs into multiple files using <code>includes:</code>:</p>
+<pre><code class="language-yaml"># main.yaml
+version: "1.0"
+name: production
+includes:
+  - machines.yaml
+  - packages.yaml
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: "env={{params.env}}"
+</code></pre>
+<p>Merge rules:</p>
+<ul>
+<li><code>params</code>, <code>machines</code>, <code>resources</code>, <code>outputs</code>, <code>data</code> — merge by key (later overrides earlier)</li>
+<li><code>policy</code> — replaced wholesale from the last include</li>
+<li><code>policies</code> — concatenated (all rules apply)</li>
+<li>Includes are resolved relative to the main config file's directory</li>
+<li>Includes are single-level (included files' <code>includes</code> are not processed)</li>
+</ul>
+<h2 id="machines"><a class="header" href="#machines">Machines</a></h2>
+<p>Each machine entry defines a target host:</p>
+<pre><code class="language-yaml">machines:
+  gpu-box:
+    hostname: lambda          # Required. Machine hostname
+    addr: 192.168.50.100      # Required. IP or DNS name
+    user: noah                # Optional. Default: root
+    arch: x86_64              # Optional. Default: x86_64
+    ssh_key: ~/.ssh/id_ed25519  # Optional. SSH private key path
+    roles: [gpu-compute]      # Optional. Informational tags
+    cost: 10                  # Optional. Cost weight (default: 0, lower = preferred)
+</code></pre>
+<h3 id="cost-aware-scheduling"><a class="header" href="#cost-aware-scheduling">Cost-Aware Scheduling</a></h3>
+<p>Machines with a lower <code>cost</code> value are applied first. This is useful when you have a mix of cheap on-prem machines and expensive cloud instances — forjar will converge cheaper machines first:</p>
+<pre><code class="language-yaml">machines:
+  on-prem:
+    hostname: rack-01
+    addr: 192.168.1.10
+    cost: 1               # cheap, runs first
+  cloud-gpu:
+    hostname: gpu-instance
+    addr: 10.0.0.50
+    cost: 100             # expensive, runs last
+</code></pre>
+<p>If <code>cost</code> is omitted, it defaults to 0. Machines with equal cost maintain their original order.</p>
+<h3 id="operator-authorization"><a class="header" href="#operator-authorization">Operator Authorization</a></h3>
+<p>Restrict which operators can apply changes to a machine using <code>allowed_operators</code>:</p>
+<pre><code class="language-yaml">machines:
+  production:
+    hostname: prod-01
+    addr: 10.0.0.5
+    allowed_operators:
+      - deploy-bot
+      - ops-team
+</code></pre>
+<p>When <code>allowed_operators</code> is set, <code>forjar apply</code> checks the operator identity against the list before executing. Use <code>--operator NAME</code> to specify identity explicitly, or let forjar resolve it from <code>$USER@hostname</code>.</p>
+<p>If <code>allowed_operators</code> is empty or omitted, all operators are permitted (backward compatible).</p>
+<h3 id="local-machine"><a class="header" href="#local-machine">Local Machine</a></h3>
+<p>Use <code>addr: 127.0.0.1</code> or <code>addr: localhost</code> to target the local machine (no SSH):</p>
+<pre><code class="language-yaml">machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+</code></pre>
+<h3 id="container-machine"><a class="header" href="#container-machine">Container Machine</a></h3>
+<p>Use <code>transport: container</code> to execute inside a Docker or Podman container:</p>
+<pre><code class="language-yaml">machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker       # docker | podman (default: docker)
+      image: ubuntu:22.04   # Required for ephemeral containers
+      name: forjar-test     # Auto-generated from key if omitted
+      ephemeral: true       # Destroy after apply (default: true)
+      privileged: false     # --privileged flag (default: false)
+      init: true            # --init for PID 1 reaping (default: true)
+</code></pre>
+<p>Container transport uses the same stdin-pipe mechanism as local and SSH (<code>docker exec -i &lt;name&gt; bash</code>). The container lifecycle is managed automatically:</p>
+<ol>
+<li><strong>ensure</strong> -- create and start the container if not already running</li>
+<li><strong>exec</strong> -- pipe generated scripts to bash inside the container</li>
+<li><strong>cleanup</strong> -- remove the container after apply (ephemeral mode only)</li>
+</ol>
+<p>Container machines are useful for:</p>
+<ul>
+<li>Local dogfooding and development without polluting the host</li>
+<li>CI integration testing of package, service, and mount resources</li>
+<li>Isolated environments that can be recreated on every run</li>
+</ul>
+<h2 id="machine-configuration-reference"><a class="header" href="#machine-configuration-reference">Machine Configuration Reference</a></h2>
+<h3 id="machine-fields"><a class="header" href="#machine-fields">Machine Fields</a></h3>
+<p>Every machine entry supports the following fields:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>hostname</code></td><td>string</td><td>required</td><td>Machine hostname (used in display output and container naming)</td></tr>
+<tr><td><code>addr</code></td><td>string</td><td>required</td><td>Network address: IP, DNS name, <code>127.0.0.1</code>/<code>localhost</code> for local, or <code>container</code> for container transport</td></tr>
+<tr><td><code>user</code></td><td>string</td><td><code>root</code></td><td>SSH user for remote connections. Ignored for local and container transport.</td></tr>
+<tr><td><code>arch</code></td><td>string</td><td><code>x86_64</code></td><td>CPU architecture. Used for <code>arch:</code> filtering on resources. Must be one of: <code>x86_64</code>, <code>aarch64</code>, <code>armv7l</code>, <code>riscv64</code>, <code>s390x</code>, <code>ppc64le</code>.</td></tr>
+<tr><td><code>ssh_key</code></td><td>string</td><td>--</td><td>Path to SSH private key file. Supports <code>~</code> expansion. Ignored for local and container transport.</td></tr>
+<tr><td><code>roles</code></td><td>[string]</td><td>[]</td><td>Informational tags for the machine. Not used in execution logic; useful for documentation and filtering.</td></tr>
+<tr><td><code>transport</code></td><td>string</td><td>--</td><td>Explicit transport override: <code>container</code> or <code>pepita</code>. When omitted, transport is inferred: <code>127.0.0.1</code>/<code>localhost</code> uses local, everything else uses SSH.</td></tr>
+<tr><td><code>container</code></td><td>object</td><td>--</td><td>Container configuration block. Required when <code>transport: container</code>. See below.</td></tr>
+<tr><td><code>pepita</code></td><td>object</td><td>--</td><td>Pepita kernel namespace configuration. Required when <code>transport: pepita</code>. See below.</td></tr>
+<tr><td><code>cost</code></td><td>integer</td><td>0</td><td>Relative cost weight for scheduling order. Lower values are applied first. Useful for prioritizing cheap on-prem machines over expensive cloud instances.</td></tr>
+</tbody></table>
+</div>
+<h3 id="container-transport-fields"><a class="header" href="#container-transport-fields">Container Transport Fields</a></h3>
+<p>The <code>container:</code> block configures how forjar manages the container lifecycle. All fields have sensible defaults, so a minimal container machine only needs <code>image</code>:</p>
+<pre><code class="language-yaml">machines:
+  minimal-container:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+</code></pre>
+<p>Full field reference:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>runtime</code></td><td>string</td><td><code>docker</code></td><td>Container runtime executable. Must be <code>docker</code> or <code>podman</code>. Forjar calls <code>&lt;runtime&gt; run</code>, <code>&lt;runtime&gt; exec</code>, <code>&lt;runtime&gt; stop</code>, and <code>&lt;runtime&gt; rm</code> using this value.</td></tr>
+<tr><td><code>image</code></td><td>string</td><td>--</td><td>OCI image to use when creating the container. Required when <code>ephemeral: true</code>. For non-ephemeral containers that already exist, this can be omitted.</td></tr>
+<tr><td><code>name</code></td><td>string</td><td><code>forjar-&lt;hostname&gt;</code></td><td>Container name passed to <code>--name</code>. When omitted, forjar generates it from the machine key as <code>forjar-&lt;hostname&gt;</code>. Must be unique across all container machines.</td></tr>
+<tr><td><code>ephemeral</code></td><td>bool</td><td><code>true</code></td><td>When true, the container is destroyed (<code>docker rm -f</code>) after apply completes. When false, the container persists between runs. Ephemeral containers guarantee a clean state on every apply.</td></tr>
+<tr><td><code>privileged</code></td><td>bool</td><td><code>false</code></td><td>When true, passes <code>--privileged</code> to <code>docker run</code>. Required for resources that need raw device access (e.g., mount resources, certain service configurations). Use sparingly -- it disables most container security isolation.</td></tr>
+<tr><td><code>init</code></td><td>bool</td><td><code>true</code></td><td>When true, passes <code>--init</code> to <code>docker run</code>, which runs <code>tini</code> as PID 1 inside the container. This ensures proper signal forwarding and zombie process reaping. Recommended for all containers that run services.</td></tr>
+</tbody></table>
+</div>
+<h3 id="transport-inference"><a class="header" href="#transport-inference">Transport Inference</a></h3>
+<p>When <code>transport</code> is not explicitly set, forjar infers it from the <code>addr</code> field:</p>
+<div class="table-wrapper"><table><thead><tr><th><code>addr</code> Value</th><th>Inferred Transport</th><th>Mechanism</th></tr></thead><tbody>
+<tr><td><code>127.0.0.1</code></td><td>local</td><td>Direct shell execution (<code>bash -c</code>)</td></tr>
+<tr><td><code>localhost</code></td><td>local</td><td>Direct shell execution (<code>bash -c</code>)</td></tr>
+<tr><td><code>container</code></td><td>container</td><td><code>docker exec -i &lt;name&gt; bash</code></td></tr>
+<tr><td>anything else</td><td>SSH</td><td><code>ssh -i &lt;key&gt; &lt;user&gt;@&lt;addr&gt; bash</code></td></tr>
+</tbody></table>
+</div>
+<p>You can override this inference by setting <code>transport</code> explicitly. For example, to SSH into localhost (useful for testing SSH transport):</p>
+<pre><code class="language-yaml">machines:
+  ssh-local:
+    hostname: local-via-ssh
+    addr: 127.0.0.1
+    transport: ssh            # Force SSH even for localhost
+    ssh_key: ~/.ssh/id_ed25519
+</code></pre>
+<h3 id="container-lifecycle-examples"><a class="header" href="#container-lifecycle-examples">Container Lifecycle Examples</a></h3>
+<p><strong>Ephemeral CI testing</strong> -- container created fresh, destroyed after apply:</p>
+<pre><code class="language-yaml">machines:
+  ci-test:
+    hostname: ci-test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+      init: true
+</code></pre>
+<p><strong>Persistent development container</strong> -- container survives between runs:</p>
+<pre><code class="language-yaml">machines:
+  dev-box:
+    hostname: dev-box
+    addr: container
+    transport: container
+    container:
+      runtime: podman
+      image: fedora:39
+      name: forjar-dev
+      ephemeral: false
+      init: true
+</code></pre>
+<p><strong>Privileged container for mount testing:</strong></p>
+<pre><code class="language-yaml">machines:
+  mount-test:
+    hostname: mount-test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      privileged: true
+      init: true
+</code></pre>
+<h3 id="gpu-container-transport"><a class="header" href="#gpu-container-transport">GPU Container Transport</a></h3>
+<p>For GPU workloads (model QA, inference testing), containers need device passthrough and vendor-specific configuration. Forjar supports NVIDIA CUDA, AMD ROCm, and Intel GPU passthrough.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>gpus</code></td><td>string</td><td>--</td><td>NVIDIA GPU passthrough via <code>--gpus</code>. Values: <code>"all"</code>, <code>"device=0"</code>, <code>"device=0,1"</code>. Requires NVIDIA Container Toolkit on the host.</td></tr>
+<tr><td><code>devices</code></td><td>[string]</td><td><code>[]</code></td><td>Device passthrough via <code>--device</code>. For AMD ROCm: <code>["/dev/kfd", "/dev/dri"]</code>. For Intel: <code>["/dev/dri"]</code>.</td></tr>
+<tr><td><code>group_add</code></td><td>[string]</td><td><code>[]</code></td><td>Additional groups via <code>--group-add</code>. AMD ROCm requires <code>["video", "render"]</code> for GPU device access.</td></tr>
+<tr><td><code>env</code></td><td>map</td><td><code>{}</code></td><td>Environment variables via <code>--env</code>. Common: <code>CUDA_VISIBLE_DEVICES</code>, <code>ROCR_VISIBLE_DEVICES</code>.</td></tr>
+</tbody></table>
+</div>
+<p><strong>NVIDIA CUDA container:</strong></p>
+<pre><code class="language-yaml">machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    roles: [gpu, cuda]
+    container:
+      runtime: docker
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      gpus: all
+      env:
+        CUDA_VISIBLE_DEVICES: "0,1"
+</code></pre>
+<p><strong>AMD ROCm container:</strong></p>
+<pre><code class="language-yaml">machines:
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    roles: [gpu, rocm]
+    container:
+      runtime: docker
+      image: rocm/dev-ubuntu-22.04:6.1
+      devices:
+        - /dev/kfd
+        - /dev/dri
+      group_add:
+        - video
+        - render
+      env:
+        ROCR_VISIBLE_DEVICES: "0"
+</code></pre>
+<p><strong>Multi-vendor GPU fleet</strong> -- test the same workload across GPU vendors:</p>
+<pre><code class="language-yaml"># CUDA + ROCm side by side, parallel apply
+machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    container:
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      gpus: all
+      env: { CUDA_VISIBLE_DEVICES: "0" }
+
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    container:
+      image: rocm/dev-ubuntu-22.04:6.1
+      devices: [/dev/kfd, /dev/dri]
+      group_add: [video, render]
+      env: { ROCR_VISIBLE_DEVICES: "0" }
+
+policy:
+  parallel_machines: true    # Test both vendors concurrently
+</code></pre>
+<h3 id="pepita-transport-fields"><a class="header" href="#pepita-transport-fields">Pepita Transport Fields</a></h3>
+<p>The <code>pepita:</code> block configures kernel namespace execution. Requires <code>CAP_SYS_ADMIN</code> or root. Zero Docker dependency.</p>
+<pre><code class="language-yaml">machines:
+  ns-box:
+    hostname: ns-box
+    addr: pepita
+    transport: pepita
+    pepita:
+      rootfs: "debootstrap:jammy"
+      memory_mb: 1024
+      cpus: 4.0
+      network: isolated
+      filesystem: overlay
+      ephemeral: true
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>rootfs</code></td><td>string</td><td>required</td><td>Root filesystem: path or <code>debootstrap:&lt;suite&gt;</code></td></tr>
+<tr><td><code>memory_mb</code></td><td>integer</td><td>--</td><td>cgroup v2 memory limit in MB</td></tr>
+<tr><td><code>cpus</code></td><td>float</td><td>--</td><td>cgroup v2 CPU limit (e.g., <code>2.0</code> = 2 cores)</td></tr>
+<tr><td><code>network</code></td><td>string</td><td><code>isolated</code></td><td>Network mode: <code>isolated</code> (new netns) or <code>host</code></td></tr>
+<tr><td><code>filesystem</code></td><td>string</td><td><code>overlay</code></td><td>Filesystem mode: <code>overlay</code> or <code>bind</code></td></tr>
+<tr><td><code>ephemeral</code></td><td>bool</td><td><code>true</code></td><td>Destroy namespace after apply</td></tr>
+</tbody></table>
+</div>
+<p>Transport dispatch priority: <strong>pepita &gt; container &gt; local &gt; SSH</strong>.</p>
+<h2 id="resources"><a class="header" href="#resources">Resources</a></h2>
+<p>Resources declare the desired state of infrastructure components. Each resource has a unique ID and a <code>type</code>.</p>
+<pre><code class="language-yaml">resources:
+  resource-id:
+    type: package|file|service|mount|user|docker|cron|network
+    machine: machine-id       # Single machine or list
+    state: ...                # Desired state (type-specific)
+    depends_on: [other-id]    # Execution ordering
+    arch: [x86_64, aarch64]   # Optional. Only apply to matching architectures
+    tags: [web, critical]     # Optional. Labels for selective filtering
+</code></pre>
+<h3 id="machine-targeting"><a class="header" href="#machine-targeting">Machine Targeting</a></h3>
+<p>Target a single machine or multiple:</p>
+<pre><code class="language-yaml"># Single
+machine: gpu-box
+
+# Multiple
+machine: [gpu-box, edge-node]
+</code></pre>
+<h3 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h3>
+<p>Use <code>depends_on</code> to enforce execution order:</p>
+<pre><code class="language-yaml">resources:
+  packages:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [nginx]
+
+  config:
+    type: file
+    machine: m1
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    depends_on: [packages]
+
+  service:
+    type: service
+    machine: m1
+    name: nginx
+    state: running
+    depends_on: [config]
+</code></pre>
+<p>Forjar builds a DAG from dependencies and executes in topological order (Kahn's algorithm with alphabetical tie-breaking for determinism).</p>
+<h3 id="architecture-filtering"><a class="header" href="#architecture-filtering">Architecture Filtering</a></h3>
+<p>Resources can be restricted to specific CPU architectures using the <code>arch</code> field:</p>
+<pre><code class="language-yaml">resources:
+  gpu-driver:
+    type: package
+    machine: [x86-box, arm-box]
+    provider: apt
+    packages: [nvidia-driver]
+    arch: [x86_64]          # Only install on x86_64 machines
+
+  arm-firmware:
+    type: file
+    machine: [x86-box, arm-box]
+    path: /etc/arm-firmware.conf
+    content: "..."
+    arch: [aarch64]         # Only deploy on ARM machines
+</code></pre>
+<p>When <code>arch</code> is omitted or empty, the resource applies to all architectures. When specified, forjar skips the resource during both <code>plan</code> and <code>apply</code> if the target machine's <code>arch</code> doesn't match.</p>
+<p>Recognized architectures: <code>x86_64</code>, <code>aarch64</code>, <code>armv7l</code>, <code>riscv64</code>, <code>s390x</code>, <code>ppc64le</code>.</p>
+<h3 id="resource-tags"><a class="header" href="#resource-tags">Resource Tags</a></h3>
+<p>Tags allow selective filtering of resources during <code>plan</code>, <code>apply</code>, and <code>check</code>:</p>
+<pre><code class="language-yaml">resources:
+  web-config:
+    type: file
+    machine: web-server
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    tags: [web, critical]
+
+  db-config:
+    type: file
+    machine: db-server
+    path: /etc/postgres/pg.conf
+    content: "..."
+    tags: [db, critical]
+</code></pre>
+<p>Use <code>--tag</code> on the CLI to filter:</p>
+<pre><code class="language-bash"># Only apply resources tagged "web"
+forjar apply -f forjar.yaml --tag web
+
+# Plan only critical resources
+forjar plan -f forjar.yaml --tag critical
+
+# Check only db resources
+forjar check -f forjar.yaml --tag db
+</code></pre>
+<p>When <code>--tag</code> is omitted, all resources are included. When specified, only resources with that tag are planned/applied/checked. Resources without any tags are excluded when <code>--tag</code> is used.</p>
+<h2 id="parameters"><a class="header" href="#parameters">Parameters</a></h2>
+<p>Global parameters can be referenced in any string field:</p>
+<pre><code class="language-yaml">params:
+  env: production
+  data_dir: /mnt/data
+
+resources:
+  data-dir:
+    type: file
+    state: directory
+    path: "{{params.data_dir}}"
+    machine: m1
+
+  config:
+    type: file
+    machine: m1
+    path: /etc/app/env
+    content: "ENVIRONMENT={{params.env}}"
+</code></pre>
+<h2 id="secrets"><a class="header" href="#secrets">Secrets</a></h2>
+<p>Secrets are resolved from environment variables at apply time. Use <code>{{secrets.KEY}}</code> in any string field:</p>
+<pre><code class="language-yaml">resources:
+  db-config:
+    type: file
+    machine: m1
+    path: /etc/app/database.conf
+    content: |
+      host=db.internal
+      password={{secrets.db-password}}
+    mode: "0600"
+</code></pre>
+<p>The secret key is normalized to an environment variable: <code>{{secrets.db-password}}</code> reads from <code>FORJAR_SECRET_DB_PASSWORD</code> (uppercase, hyphens become underscores).</p>
+<pre><code class="language-bash"># Set secrets before apply
+export FORJAR_SECRET_DB_PASSWORD="hunter2"
+export FORJAR_SECRET_API_KEY="sk-live-abc123"
+
+forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>If a secret is missing, forjar exits with a clear error message naming the expected environment variable.</p>
+<p>Secrets are never written to forjar.yaml, state files, or git. They exist only in memory during apply.</p>
+<h3 id="secret-provider-configuration"><a class="header" href="#secret-provider-configuration">Secret Provider Configuration</a></h3>
+<p>By default, secrets resolve from environment variables. Configure a different
+provider with the <code>secrets:</code> top-level block:</p>
+<pre><code class="language-yaml"># File-based secrets (e.g., Kubernetes secrets volume)
+secrets:
+  provider: file
+  path: /run/secrets
+</code></pre>
+<p>With <code>provider: file</code>, <code>{{secrets.db-password}}</code> reads <code>/run/secrets/db-password</code>.</p>
+<p>The <code>secrets:</code> block is optional — when omitted, the default <code>env</code> provider is used.</p>
+<h3 id="age-encrypted-secrets-fj-200"><a class="header" href="#age-encrypted-secrets-fj-200">Age-Encrypted Secrets (FJ-200)</a></h3>
+<p>For secrets that need to be committed to git, use age encryption. Values are stored as <code>ENC[age,...]</code> markers in forjar.yaml and decrypted at resolve time.</p>
+<pre><code class="language-bash"># Generate an age identity (keypair)
+forjar secrets keygen &gt; identity.txt
+
+# Encrypt a value
+forjar secrets encrypt "my-db-password" -r age1abc...
+
+# Paste the ENC[age,...] marker into your YAML
+</code></pre>
+<pre><code class="language-yaml">resources:
+  db-config:
+    type: file
+    machine: m1
+    path: /etc/app/database.conf
+    content: |
+      host=db.internal
+      password=ENC[age,YWdlLWVuY3J5cH...]
+    mode: "0600"
+</code></pre>
+<p>At apply time, forjar decrypts markers using the identity from <code>FORJAR_AGE_KEY</code> env var or <code>--identity</code> flag:</p>
+<pre><code class="language-bash">export FORJAR_AGE_KEY="AGE-SECRET-KEY-1..."
+forjar apply -f forjar.yaml
+</code></pre>
+<p>Both approaches coexist — <code>{{secrets.key}}</code> for env-var secrets, <code>ENC[age,...]</code> for encrypted-at-rest.</p>
+<p>CLI commands:</p>
+<ul>
+<li><code>forjar secrets keygen</code> — generate a new age identity</li>
+<li><code>forjar secrets encrypt VALUE -r RECIPIENT</code> — encrypt a value</li>
+<li><code>forjar secrets decrypt MARKER</code> — decrypt a marker</li>
+<li><code>forjar secrets view -f FILE</code> — decrypt and display all secrets in a file</li>
+<li><code>forjar secrets rekey -f FILE -r NEW_RECIPIENT</code> — re-encrypt with new keys</li>
+</ul>
+<h2 id="policy"><a class="header" href="#policy">Policy</a></h2>
+<pre><code class="language-yaml">policy:
+  failure: stop_on_first      # stop_on_first | continue_independent
+  parallel_machines: false     # Concurrent machine execution
+  parallel_resources: false    # Execute independent resources within machines concurrently
+  tripwire: true               # Enable provenance event logging
+  lock_file: true              # Persist BLAKE3 state after apply
+  serial: 2                    # Rolling deploy: 2 machines per batch
+  max_fail_percentage: 20      # Abort if &gt;20% of machines fail
+  ssh_retries: 3               # Retry SSH on transient failure (default 1 = no retry, max 4)
+  pre_apply: "echo 'validating...' &amp;&amp; ./scripts/check-env.sh"
+  post_apply: "echo 'done!' &amp;&amp; ./scripts/notify-slack.sh"
+</code></pre>
+<h3 id="ssh-retry"><a class="header" href="#ssh-retry">SSH Retry</a></h3>
+<p>Retry transient SSH failures (connection refused, timeout, broken pipe) with exponential backoff:</p>
+<pre><code class="language-yaml">policy:
+  ssh_retries: 3    # Up to 3 attempts (200ms, 400ms backoff between retries)
+</code></pre>
+<p>Backoff schedule: 200ms × 2^attempt. Default 1 (no retry). Capped at 4. Non-SSH targets (local, container) are never retried.</p>
+<h3 id="failure-policies"><a class="header" href="#failure-policies">Failure Policies</a></h3>
+<ul>
+<li><strong>stop_on_first</strong> (default): Jidoka. Stop immediately on first failure. Partial state preserved.</li>
+<li><strong>continue_independent</strong>: Continue applying resources that don't depend on the failed one.</li>
+</ul>
+<h3 id="apply-hooks"><a class="header" href="#apply-hooks">Apply Hooks</a></h3>
+<p>Run local shell commands before and after apply:</p>
+<pre><code class="language-yaml">policy:
+  pre_apply: "echo 'Pre-flight check' &amp;&amp; ./validate.sh"
+  post_apply: "echo 'Apply complete' &amp;&amp; date"
+</code></pre>
+<ul>
+<li><strong>pre_apply</strong>: Runs before any resources are applied. If the command exits non-zero, the apply is <strong>aborted</strong>. Use for pre-flight validation, environment checks, or approval gates.</li>
+<li><strong>post_apply</strong>: Runs after a successful apply. Informational only — a non-zero exit logs a warning but does not change the apply's exit code. Use for notifications, logging, or cleanup.</li>
+</ul>
+<p>Hooks are skipped during <code>--dry-run</code>.</p>
+<h3 id="rolling-deploys"><a class="header" href="#rolling-deploys">Rolling Deploys</a></h3>
+<p>For fleets with many machines, use <code>serial</code> and <code>max_fail_percentage</code> to control rollout:</p>
+<pre><code class="language-yaml">policy:
+  serial: 3                   # Apply to 3 machines at a time
+  max_fail_percentage: 20     # Abort if &gt;20% of machines fail
+  parallel_machines: true     # Machines within each batch run concurrently
+</code></pre>
+<ul>
+<li><strong>serial</strong>: Number of machines per batch. After each batch converges, the next batch begins. Without <code>serial</code>, all machines are applied at once (or sequentially if <code>parallel_machines: false</code>).</li>
+<li><strong>max_fail_percentage</strong>: Cumulative failure threshold (0–100). After each batch, forjar checks the overall failure rate across all machines processed so far. If it exceeds the threshold, the rollout is aborted with an error. Machines not yet started are left untouched.</li>
+<li>When <code>serial</code> is combined with <code>parallel_machines: true</code>, <code>serial</code> controls the batch size and <code>parallel_machines</code> controls whether machines within each batch run concurrently.</li>
+</ul>
+<h2 id="cross-machine-references"><a class="header" href="#cross-machine-references">Cross-Machine References</a></h2>
+<p>Use <code>{{machine.NAME.FIELD}}</code> to reference properties of other machines in templates:</p>
+<pre><code class="language-yaml">params:
+  app_port: "8080"
+
+machines:
+  db:
+    hostname: db-primary
+    addr: 10.0.0.5
+  web:
+    hostname: web-frontend
+    addr: 10.0.0.10
+
+resources:
+  db-config:
+    type: file
+    machine: web
+    path: /etc/app/database.conf
+    content: |
+      db_host={{machine.db.addr}}
+      db_hostname={{machine.db.hostname}}
+</code></pre>
+<p>Available machine fields: <code>addr</code>, <code>hostname</code>, <code>user</code>, <code>arch</code>.</p>
+<h2 id="template-syntax-reference"><a class="header" href="#template-syntax-reference">Template Syntax Reference</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Syntax</th><th>Source</th><th>Example</th><th>Resolved Value</th></tr></thead><tbody>
+<tr><td><code>{{params.X}}</code></td><td><code>params:</code> block</td><td><code>{{params.env}}</code></td><td><code>production</code></td></tr>
+<tr><td><code>{{secrets.X}}</code></td><td><code>FORJAR_SECRET_*</code> env vars</td><td><code>{{secrets.db-pass}}</code></td><td>env value</td></tr>
+<tr><td><code>{{machine.NAME.FIELD}}</code></td><td>Machine properties</td><td><code>{{machine.db.addr}}</code></td><td><code>10.0.0.5</code></td></tr>
+<tr><td><code>{{func(args)}}</code></td><td>Built-in functions</td><td><code>{{upper(params.env)}}</code></td><td><code>PRODUCTION</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="template-functions"><a class="header" href="#template-functions">Template Functions</a></h3>
+<p>9 built-in functions for string transformation. Arguments can be quoted literals, <code>params.*</code> references, <code>machine.*</code> references, or nested function calls.</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Signature</th><th>Example</th><th>Result</th></tr></thead><tbody>
+<tr><td><code>upper</code></td><td><code>upper(val)</code></td><td><code>{{upper(params.env)}}</code></td><td><code>PRODUCTION</code></td></tr>
+<tr><td><code>lower</code></td><td><code>lower(val)</code></td><td><code>{{lower(params.name)}}</code></td><td><code>my-server</code></td></tr>
+<tr><td><code>trim</code></td><td><code>trim(val)</code></td><td><code>{{trim(params.host)}}</code></td><td><code>web-1</code></td></tr>
+<tr><td><code>default</code></td><td><code>default(val, fallback)</code></td><td><code>{{default(params.opt, "none")}}</code></td><td>value or <code>none</code></td></tr>
+<tr><td><code>replace</code></td><td><code>replace(val, old, new)</code></td><td><code>{{replace(params.name, "-", "_")}}</code></td><td><code>my_server</code></td></tr>
+<tr><td><code>env</code></td><td><code>env(name)</code></td><td><code>{{env("HOME")}}</code></td><td><code>/home/noah</code></td></tr>
+<tr><td><code>b3sum</code></td><td><code>b3sum(val)</code></td><td><code>{{b3sum(params.secret)}}</code></td><td>BLAKE3 hex hash</td></tr>
+<tr><td><code>join</code></td><td><code>join(val, sep)</code></td><td><code>{{join(params.tags, "|")}}</code></td><td><code>web|api|gpu</code></td></tr>
+<tr><td><code>split</code></td><td><code>split(val, sep)</code></td><td><code>{{split(params.csv, ",")}}</code></td><td>first element</td></tr>
+</tbody></table>
+</div>
+<p><strong>Nested calls:</strong> Functions compose — <code>{{upper(trim(params.hostname))}}</code> trims then uppercases. <code>{{upper(replace(lower(params.greeting), " ", "_"))}}</code> chains three functions.</p>
+<p>Templates are resolved in all string fields: <code>content</code>, <code>path</code>, <code>source</code>, <code>target</code>, <code>owner</code>, <code>group</code>, <code>mode</code>, <code>name</code>, <code>options</code>, <code>command</code>, <code>schedule</code>, <code>port</code>, <code>protocol</code>, <code>action</code>, <code>from_addr</code>, <code>image</code>, <code>shell</code>, <code>home</code>, <code>restart</code>, <code>version</code>. List fields are also resolved: <code>ports</code>, <code>environment</code>, <code>volumes</code>, <code>packages</code>.</p>
+<p>Unresolved templates (no matching param/secret/machine) pass through unchanged — they are not treated as errors.</p>
+<h2 id="validation-rules"><a class="header" href="#validation-rules">Validation Rules</a></h2>
+<p><code>forjar validate</code> checks your config for errors before apply. These rules are enforced:</p>
+<h3 id="machine-validation"><a class="header" href="#machine-validation">Machine Validation</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Rule</th><th>Error If Violated</th></tr></thead><tbody>
+<tr><td>Valid architecture</td><td><code>arch</code> must be one of: <code>x86_64</code>, <code>aarch64</code>, <code>armv7l</code>, <code>riscv64</code>, <code>s390x</code>, <code>ppc64le</code></td></tr>
+<tr><td>Container transport</td><td><code>transport: container</code> requires a <code>container:</code> block</td></tr>
+<tr><td>Ephemeral image</td><td><code>ephemeral: true</code> requires <code>container.image</code></td></tr>
+<tr><td>Container runtime</td><td><code>container.runtime</code> must be <code>docker</code> or <code>podman</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="resource-validation"><a class="header" href="#resource-validation">Resource Validation</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Required Fields</th><th>Additional Rules</th></tr></thead><tbody>
+<tr><td><code>package</code></td><td><code>provider</code>, <code>packages</code> (non-empty)</td><td>—</td></tr>
+<tr><td><code>file</code></td><td><code>path</code></td><td>Cannot have both <code>content</code> and <code>source</code>. State must be <code>file</code>/<code>directory</code>/<code>symlink</code>/<code>absent</code>. Symlink requires <code>target</code>.</td></tr>
+<tr><td><code>service</code></td><td><code>name</code></td><td>State must be <code>running</code>/<code>stopped</code>/<code>enabled</code>/<code>disabled</code>.</td></tr>
+<tr><td><code>mount</code></td><td><code>source</code>, <code>path</code></td><td>State must be <code>mounted</code>/<code>unmounted</code>/<code>absent</code>.</td></tr>
+<tr><td><code>user</code></td><td><code>name</code></td><td>State must be <code>present</code>/<code>absent</code>.</td></tr>
+<tr><td><code>docker</code></td><td><code>name</code>, <code>image</code> (unless absent)</td><td>State must be <code>running</code>/<code>stopped</code>/<code>absent</code>.</td></tr>
+<tr><td><code>cron</code></td><td><code>name</code>, <code>schedule</code>, <code>command</code> (unless absent)</td><td>Schedule must have exactly 5 fields (min hour dom mon dow). State must be <code>present</code>/<code>absent</code>.</td></tr>
+<tr><td><code>network</code></td><td><code>port</code></td><td>State must be <code>present</code>/<code>absent</code>. Protocol must be <code>tcp</code>/<code>udp</code>. Action must be <code>allow</code>/<code>deny</code>/<code>reject</code>.</td></tr>
+</tbody></table>
+</div>
+<h3 id="dependency-validation"><a class="header" href="#dependency-validation">Dependency Validation</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Rule</th><th>Error</th></tr></thead><tbody>
+<tr><td>Unknown machine</td><td>Resource references a machine not in <code>machines:</code></td></tr>
+<tr><td>Unknown dependency</td><td><code>depends_on</code> references a resource that doesn't exist</td></tr>
+<tr><td>Self-dependency</td><td>Resource depends on itself</td></tr>
+<tr><td>Circular dependency</td><td>Cycle detected in dependency graph (e.g., A → B → C → A)</td></tr>
+</tbody></table>
+</div>
+<h3 id="unknown-field-detection-fj-2500"><a class="header" href="#unknown-field-detection-fj-2500">Unknown Field Detection (FJ-2500)</a></h3>
+<p>Forjar uses two-pass YAML parsing to detect typos in config files. After serde deserializes
+into typed structs, the raw YAML is walked and keys are compared against known field sets.
+Unknown fields produce warnings with Levenshtein-based "did you mean?" suggestions.</p>
+<p><strong>Why this matters</strong>: Without unknown field detection, YAML typos are silently ignored.
+For example, <code>packges: [nginx]</code> silently becomes an empty list because serde defaults
+the <code>packages</code> field to <code>[]</code> and drops the unknown <code>packges</code> key.</p>
+<pre><code class="language-bash"># Default: warnings to stderr (non-blocking)
+forjar validate --file forjar.yaml
+
+# Strict mode: unknown fields are hard errors
+forjar validate --file forjar.yaml --deny-unknown-fields
+</code></pre>
+<p>Example output:</p>
+<pre><code>warning: unknown field 'packges' at 'resources.pkg.packges' -- did you mean 'packages'?
+warning: unknown field 'tranport' at 'machines.web.tranport' -- did you mean 'transport'?
+</code></pre>
+<p>Detection covers all config structs: <code>ForjarConfig</code>, <code>Resource</code>, <code>Machine</code>, <code>Policy</code>,
+<code>ContainerConfig</code>, <code>PepitaTransportConfig</code>, <code>DataSource</code>, <code>PolicyRule</code>, <code>CheckBlock</code>,
+<code>MovedEntry</code>, <code>LifecycleRules</code>, <code>NotifyConfig</code>, and <code>OutputValue</code>.</p>
+<h2 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h2>
+<p>A full config exercising multiple features:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: production-stack
+description: "Web + DB servers with monitoring"
+
+params:
+  env: production
+  app_port: "8080"
+
+machines:
+  web:
+    hostname: web-01
+    addr: 10.0.0.10
+    ssh_key: ~/.ssh/deploy_ed25519
+    roles: [frontend]
+    cost: 1
+  db:
+    hostname: db-01
+    addr: 10.0.0.20
+    ssh_key: ~/.ssh/deploy_ed25519
+    roles: [database]
+    cost: 1
+
+resources:
+  base-packages:
+    type: package
+    machine: [web, db]
+    provider: apt
+    packages: [curl, htop, jq]
+    tags: [base]
+
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.env
+    content: |
+      ENVIRONMENT={{params.env}}
+      PORT={{params.app_port}}
+      DB_HOST={{machine.db.addr}}
+      DB_PASSWORD={{secrets.db-password}}
+    mode: "0600"
+    owner: www-data
+    depends_on: [base-packages]
+    tags: [web, critical]
+
+  nginx:
+    type: service
+    machine: web
+    name: nginx
+    state: running
+    restart_on: [app-config]
+    depends_on: [app-config]
+    tags: [web]
+
+  firewall:
+    type: network
+    machine: web
+    port: "{{params.app_port}}"
+    protocol: tcp
+    action: allow
+    name: app-http
+    tags: [web, security]
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
+  pre_apply: "echo 'Deploying {{params.env}}...'"
+  post_apply: "echo 'Deploy complete at $(date)'"
+</code></pre>
+<h2 id="configuration-validation"><a class="header" href="#configuration-validation">Configuration Validation</a></h2>
+<p>Forjar validates configs at multiple levels before any machine is touched.</p>
+<h3 id="structural-validation"><a class="header" href="#structural-validation">Structural Validation</a></h3>
+<p>These checks run during <code>forjar validate</code>:</p>
+<div class="table-wrapper"><table><thead><tr><th>Check</th><th>Example Error</th></tr></thead><tbody>
+<tr><td>Version must be "1.0"</td><td><code>version must be "1.0"</code></td></tr>
+<tr><td>Resource references valid machine</td><td><code>resource 'X' references unknown machine 'Y'</code></td></tr>
+<tr><td>Dependencies reference valid resources</td><td><code>resource 'X' depends on unknown resource 'Y'</code></td></tr>
+<tr><td>No self-dependencies</td><td><code>resource 'X' depends on itself</code></td></tr>
+<tr><td>No circular dependencies</td><td><code>dependency cycle detected involving: A, B, C</code></td></tr>
+<tr><td>Package has provider</td><td><code>resource 'X' (package) has no provider</code></td></tr>
+<tr><td>Package has packages list</td><td><code>resource 'X' (package) has no packages</code></td></tr>
+<tr><td>File doesn't have both content and source</td><td><code>resource 'X' (file) has both content and source</code></td></tr>
+<tr><td>Symlink has target</td><td><code>resource 'X' (file) state=symlink requires a target</code></td></tr>
+<tr><td>Service has valid state</td><td><code>resource 'X' (service) state 'Y' invalid</code></td></tr>
+<tr><td>Mount has valid state</td><td><code>resource 'X' (mount) state 'Y' invalid</code></td></tr>
+<tr><td>Cron has schedule</td><td><code>resource 'X' (cron) missing schedule</code></td></tr>
+<tr><td>Network has valid protocol</td><td><code>resource 'X' (network) protocol must be tcp or udp</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="error-accumulation"><a class="header" href="#error-accumulation">Error Accumulation</a></h3>
+<p>Validation collects ALL errors before reporting — it doesn't stop at the first error:</p>
+<pre><code class="language-bash">$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+</code></pre>
+<p>This gives you a complete picture of what needs fixing, rather than a whack-a-mole experience.</p>
+<h3 id="recipe-validation"><a class="header" href="#recipe-validation">Recipe Validation</a></h3>
+<p>When recipes are present, additional validation occurs:</p>
+<div class="table-wrapper"><table><thead><tr><th>Check</th><th>Example Error</th></tr></thead><tbody>
+<tr><td>Recipe file exists</td><td><code>recipe file not found: recipes/X.yaml</code></td></tr>
+<tr><td>Required inputs provided</td><td><code>recipe 'X' input 'Y' is required but not provided</code></td></tr>
+<tr><td>Input types match</td><td><code>recipe 'X' input 'Y' expected int, got string</code></td></tr>
+<tr><td>Int inputs within bounds</td><td><code>recipe 'X' input 'Y' value 70000 exceeds max 65535</code></td></tr>
+<tr><td>Enum inputs in choices</td><td><code>recipe 'X' input 'Y' must be one of [a, b, c]</code></td></tr>
+<tr><td>Path inputs absolute</td><td><code>recipe 'X' input 'Y' path must be absolute</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="minimal-configuration"><a class="header" href="#minimal-configuration">Minimal Configuration</a></h2>
+<p>The smallest valid config:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: minimal
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  test:
+    type: file
+    machine: m
+    path: /tmp/test.txt
+    content: "hello"
+</code></pre>
+<p>Or using the implicit localhost (no machines block needed):</p>
+<pre><code class="language-yaml">version: "1.0"
+name: minimal
+machines: {}
+resources:
+  test:
+    type: file
+    machine: localhost
+    path: /tmp/test.txt
+    content: "hello"
+</code></pre>
+<h2 id="configuration-anti-patterns"><a class="header" href="#configuration-anti-patterns">Configuration Anti-Patterns</a></h2>
+<h3 id="avoid-hardcoded-secrets"><a class="header" href="#avoid-hardcoded-secrets">Avoid: Hardcoded Secrets</a></h3>
+<pre><code class="language-yaml"># BAD — secrets in plain text
+resources:
+  db-config:
+    content: "password=hunter2"
+
+# GOOD — use secret references
+resources:
+  db-config:
+    content: "password={{secrets.db-password}}"
+</code></pre>
+<h3 id="avoid-implicit-dependencies"><a class="header" href="#avoid-implicit-dependencies">Avoid: Implicit Dependencies</a></h3>
+<pre><code class="language-yaml"># BAD — config file needs nginx installed, but no depends_on
+resources:
+  nginx-pkg:
+    type: package
+    packages: [nginx]
+  nginx-conf:
+    type: file
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    # Missing: depends_on: [nginx-pkg]
+</code></pre>
+<p>Without <code>depends_on</code>, alphabetical tie-breaking determines order — <code>nginx-conf</code> runs before <code>nginx-pkg</code> because "c" &lt; "p". The config file write would fail if the directory doesn't exist yet.</p>
+<h3 id="avoid-overly-broad-multi-machine-targeting"><a class="header" href="#avoid-overly-broad-multi-machine-targeting">Avoid: Overly Broad Multi-Machine Targeting</a></h3>
+<pre><code class="language-yaml"># BAD — all machines get the same config
+resources:
+  config:
+    type: file
+    machine: [web, db, cache, monitor]
+    content: "..."
+
+# GOOD — use recipes for machine-specific configs
+resources:
+  web-stack:
+    type: recipe
+    machine: web
+    recipe: web-server
+  db-stack:
+    type: recipe
+    machine: db
+    recipe: database
+</code></pre>
+<h2 id="template-resolution"><a class="header" href="#template-resolution">Template Resolution</a></h2>
+<h3 id="how-templates-work"><a class="header" href="#how-templates-work">How Templates Work</a></h3>
+<p>Forjar resolves <code>{{...}}</code> templates in two passes during the planning phase — before any scripts are generated.</p>
+<p><strong>Template types:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Syntax</th><th>Source</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>{{params.key}}</code></td><td><code>params:</code> block</td><td><code>{{params.domain}}</code> → <code>example.com</code></td></tr>
+<tr><td><code>{{secrets.key}}</code></td><td>Environment variable</td><td><code>{{secrets.db-pass}}</code> → <code>FORJAR_SECRET_DB_PASS</code></td></tr>
+<tr><td><code>{{machine.name.field}}</code></td><td>Machine inventory</td><td><code>{{machine.web.addr}}</code> → <code>192.168.1.10</code></td></tr>
+<tr><td><code>{{func(args)}}</code></td><td>Built-in functions</td><td><code>{{upper(params.env)}}</code> → <code>PRODUCTION</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="parameter-types"><a class="header" href="#parameter-types">Parameter Types</a></h3>
+<p>Params are YAML values coerced to strings during template resolution:</p>
+<pre><code class="language-yaml">params:
+  domain: example.com       # String → "example.com"
+  port: 8080                 # Integer → "8080"
+  debug: true                # Boolean → "true"
+  ratio: 0.75                # Float → "0.75"
+</code></pre>
+<h3 id="secret-resolution"><a class="header" href="#secret-resolution">Secret Resolution</a></h3>
+<p>Secrets are never stored in config files. Instead, they reference environment variables:</p>
+<pre><code class="language-yaml">resources:
+  db-config:
+    type: file
+    path: /etc/myapp/db.conf
+    content: |
+      host=db.internal
+      password={{secrets.db-password}}
+</code></pre>
+<p>At apply time, forjar looks for <code>FORJAR_SECRET_DB_PASSWORD</code> (uppercase, hyphens become underscores). If the variable is not set, the apply fails with a clear error message pointing to the expected variable name.</p>
+<pre><code class="language-bash"># Set secrets before apply
+export FORJAR_SECRET_DB_PASSWORD="hunter2"
+export FORJAR_SECRET_API_TOKEN="sk-live-abc123"
+forjar apply -f production.yaml --state-dir state/
+</code></pre>
+<h3 id="machine-field-references"><a class="header" href="#machine-field-references">Machine Field References</a></h3>
+<p>Access any machine field in templates:</p>
+<pre><code class="language-yaml">machines:
+  primary-db:
+    hostname: db-01
+    addr: 10.0.1.50
+    user: postgres
+    arch: x86_64
+
+resources:
+  db-proxy-config:
+    type: file
+    machine: web
+    path: /etc/pgbouncer/pgbouncer.ini
+    content: |
+      [databases]
+      mydb = host={{machine.primary-db.addr}} port=5432 user={{machine.primary-db.user}}
+</code></pre>
+<p>Available machine fields: <code>hostname</code>, <code>addr</code>, <code>user</code>, <code>arch</code>, <code>ssh_key</code>.</p>
+<h3 id="template-error-handling"><a class="header" href="#template-error-handling">Template Error Handling</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Error</th><th>When</th><th>Message</th></tr></thead><tbody>
+<tr><td>Unknown param</td><td><code>{{params.missing}}</code></td><td><code>unknown param: missing</code></td></tr>
+<tr><td>Missing secret</td><td><code>{{secrets.key}}</code> without env var</td><td><code>secret 'key' not found (set env var FORJAR_SECRET_KEY ...)</code></td></tr>
+<tr><td>Unknown machine</td><td><code>{{machine.bogus.addr}}</code></td><td><code>unknown machine: bogus</code></td></tr>
+<tr><td>Invalid field</td><td><code>{{machine.web.cost}}</code></td><td><code>unknown machine field: cost</code></td></tr>
+<tr><td>Unclosed template</td><td><code>{{params.name</code></td><td><code>unclosed template at position N</code></td></tr>
+<tr><td>Unknown type</td><td><code>{{foobar.baz}}</code></td><td><code>unknown template variable type: foobar</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="configuration-validation-pipeline"><a class="header" href="#configuration-validation-pipeline">Configuration Validation Pipeline</a></h2>
+<p>Forjar validates configs through a multi-stage pipeline before any machine is touched. The <code>forjar validate</code> command runs the first two stages. The <code>forjar plan</code> and <code>forjar apply</code> commands run all four.</p>
+<pre><code>forjar.yaml
+    |
+    v
+[Stage 1: Parser]         YAML deserialization -&gt; ForjarConfig struct
+    |                      Fails on malformed YAML, unknown fields, wrong types
+    v
+[Stage 2: Validator]       Structural + semantic checks (accumulates ALL errors)
+    |                      Fails on missing fields, bad references, cycles
+    v
+[Stage 3: Recipe Expander] Inline recipe resources, validate inputs
+    |                      Fails on missing recipe files, type mismatches
+    v
+[Stage 4: Resolver]        Template resolution + DAG construction
+    |                      Fails on missing params/secrets/machines, unclosed templates
+    v
+[Stage 5: Purifier]        bashrs lint on generated scripts (Invariant I8)
+                           Fails on Error-severity shell diagnostics
+</code></pre>
+<h3 id="stage-1-parser-parserparse_config"><a class="header" href="#stage-1-parser-parserparse_config">Stage 1: Parser (<code>parser::parse_config</code>)</a></h3>
+<p>The parser deserializes YAML into Rust structs using <code>serde_yaml_ng</code>. This stage catches:</p>
+<ul>
+<li>Malformed YAML syntax (unclosed quotes, bad indentation, tab characters)</li>
+<li>Unknown or misspelled top-level keys</li>
+<li>Type mismatches (e.g., <code>version: 1.0</code> as float instead of string <code>"1.0"</code>)</li>
+<li>Missing required fields in the YAML schema</li>
+</ul>
+<pre><code class="language-bash">$ forjar validate -f broken.yaml
+YAML parse error: machines.web: missing field `hostname` at line 5 column 3
+</code></pre>
+<p>The parser produces a <code>ForjarConfig</code> struct containing <code>machines</code>, <code>resources</code>, <code>params</code>, and <code>policy</code> -- all strongly typed.</p>
+<h3 id="stage-2-validator-parservalidate_config"><a class="header" href="#stage-2-validator-parservalidate_config">Stage 2: Validator (<code>parser::validate_config</code>)</a></h3>
+<p>The validator performs cross-reference and constraint checks on the parsed config. It accumulates ALL errors before reporting, so you see every problem at once rather than fixing them one at a time.</p>
+<p><strong>Machine validation:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Check</th><th>Error Example</th></tr></thead><tbody>
+<tr><td>Version must be <code>"1.0"</code></td><td><code>version must be "1.0", got "2.0"</code></td></tr>
+<tr><td>Name must be non-empty</td><td><code>name must not be empty</code></td></tr>
+<tr><td>Architecture must be recognized</td><td><code>machine 'gpu' has invalid arch 'arm64' (expected: x86_64, aarch64, ...)</code></td></tr>
+<tr><td>Container transport requires container block</td><td><code>machine 'test' has transport=container but no container config</code></td></tr>
+<tr><td>Ephemeral containers require an image</td><td><code>machine 'test' container is ephemeral but has no image</code></td></tr>
+<tr><td>Container runtime must be docker or podman</td><td><code>machine 'test' container runtime 'lxc' invalid (expected: docker, podman)</code></td></tr>
+</tbody></table>
+</div>
+<p><strong>Resource validation (per type):</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Checks</th></tr></thead><tbody>
+<tr><td><code>package</code></td><td>Must have <code>provider</code>. Must have non-empty <code>packages</code> list.</td></tr>
+<tr><td><code>file</code></td><td>Must have <code>path</code>. Cannot have both <code>content</code> and <code>source</code>. State must be <code>file</code>/<code>directory</code>/<code>symlink</code>/<code>absent</code>. Symlink requires <code>target</code>.</td></tr>
+<tr><td><code>service</code></td><td>Must have <code>name</code>. State must be <code>running</code>/<code>stopped</code>/<code>enabled</code>/<code>disabled</code>.</td></tr>
+<tr><td><code>mount</code></td><td>Must have <code>source</code> and <code>path</code>. State must be <code>mounted</code>/<code>unmounted</code>/<code>absent</code>.</td></tr>
+<tr><td><code>user</code></td><td>Must have <code>name</code>. State must be <code>present</code>/<code>absent</code>.</td></tr>
+<tr><td><code>docker</code></td><td>Must have <code>name</code>. Must have <code>image</code> (unless state=absent). State must be <code>running</code>/<code>stopped</code>/<code>absent</code>.</td></tr>
+<tr><td><code>cron</code></td><td>Must have <code>name</code>, <code>schedule</code>, <code>command</code> (unless state=absent). Schedule must have exactly 5 fields. State must be <code>present</code>/<code>absent</code>.</td></tr>
+<tr><td><code>network</code></td><td>Must have <code>port</code>. Protocol must be <code>tcp</code>/<code>udp</code>. Action must be <code>allow</code>/<code>deny</code>/<code>reject</code>. State must be <code>present</code>/<code>absent</code>.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Dependency validation:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Check</th><th>Error</th></tr></thead><tbody>
+<tr><td>Resource references a valid machine</td><td><code>resource 'X' references unknown machine 'Y'</code></td></tr>
+<tr><td><code>depends_on</code> targets exist</td><td><code>resource 'X' depends on unknown resource 'Y'</code></td></tr>
+<tr><td>No self-dependencies</td><td><code>resource 'X' depends on itself</code></td></tr>
+<tr><td>No cycles</td><td><code>dependency cycle detected involving: A, B, C</code></td></tr>
+</tbody></table>
+</div>
+<p>All errors are collected into a list and returned together:</p>
+<pre><code class="language-bash">$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+</code></pre>
+<h3 id="stage-3-recipe-expander-parserexpand_recipes"><a class="header" href="#stage-3-recipe-expander-parserexpand_recipes">Stage 3: Recipe Expander (<code>parser::expand_recipes</code>)</a></h3>
+<p>If any resource has <code>type: recipe</code>, the expander loads the referenced recipe file, validates the provided inputs against the recipe's input schema, and inlines the expanded resources into the config. This stage catches:</p>
+<ul>
+<li>Missing recipe file on disk</li>
+<li>Required recipe inputs not provided</li>
+<li>Input type mismatches (string where int expected)</li>
+<li>Integer inputs outside declared min/max bounds</li>
+<li>Enum inputs not in the declared choices list</li>
+<li>Path inputs that are not absolute</li>
+</ul>
+<h3 id="stage-4-resolver-resolverresolve_templates--resolverbuild_execution_order"><a class="header" href="#stage-4-resolver-resolverresolve_templates--resolverbuild_execution_order">Stage 4: Resolver (<code>resolver::resolve_templates</code> + <code>resolver::build_execution_order</code>)</a></h3>
+<p>The resolver performs two tasks:</p>
+<p><strong>Template resolution</strong> -- replaces <code>{{params.X}}</code>, <code>{{secrets.X}}</code>, and <code>{{machine.NAME.FIELD}}</code> with concrete values. Errors at this stage:</p>
+<div class="table-wrapper"><table><thead><tr><th>Error</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>unknown param: X</code></td><td><code>{{params.X}}</code> references a key not in the <code>params:</code> block</td></tr>
+<tr><td><code>secret 'X' not found (set env var FORJAR_SECRET_X)</code></td><td><code>{{secrets.X}}</code> but the environment variable is not set</td></tr>
+<tr><td><code>unknown machine: X</code></td><td><code>{{machine.X.addr}}</code> references a machine not in the inventory</td></tr>
+<tr><td><code>unknown machine field: cost</code></td><td><code>{{machine.web.cost}}</code> references a field not available for templating</td></tr>
+<tr><td><code>unclosed template at position N</code></td><td><code>{{params.name</code> without closing <code>}}</code></td></tr>
+</tbody></table>
+</div>
+<p><strong>DAG construction</strong> -- builds a Directed Acyclic Graph from <code>depends_on</code> edges and computes a topological sort using Kahn's algorithm with alphabetical tie-breaking for deterministic execution order.</p>
+<h3 id="stage-5-purifier-purifiervalidate_script"><a class="header" href="#stage-5-purifier-purifiervalidate_script">Stage 5: Purifier (<code>purifier::validate_script</code>)</a></h3>
+<p>After codegen produces check, apply, and state_query scripts for each resource, the purifier validates them through the bashrs linter. Scripts must pass with zero Error-severity diagnostics. Warning-level findings (such as the <code>$SUDO</code> unquoted variable pattern in package/user/cron/network handlers) are acceptable and do not block execution.</p>
+<p>This stage is Invariant I8: no raw shell execution. All generated shell is bashrs-validated before being piped to any transport.</p>
+<h3 id="running-validation"><a class="header" href="#running-validation">Running Validation</a></h3>
+<pre><code class="language-bash"># Validate only (stages 1-3, no secrets needed)
+forjar validate -f forjar.yaml
+
+# Plan (stages 1-5, secrets needed if templates reference them)
+forjar plan -f forjar.yaml --state-dir state/
+
+# Both report errors and exit non-zero on failure
+</code></pre>
+<p>On success, <code>forjar validate</code> prints:</p>
+<pre><code>OK: production-stack (2 machines, 12 resources)
+</code></pre>
+<h3 id="common-validation-errors"><a class="header" href="#common-validation-errors">Common Validation Errors</a></h3>
+<pre><code>error: resource 'nginx-conf' depends on unknown 'nginx-package'
+  hint: available resources: nginx-pkg, ssl-cert, firewall
+
+error: dependency cycle detected involving: a, b, c
+  hint: resource 'a' depends_on 'b', 'b' depends_on 'c', 'c' depends_on 'a'
+
+error: resource 'db-config' references unknown machine 'database'
+  hint: available machines: web, db, cache
+</code></pre>
+<h2 id="multi-file-configuration"><a class="header" href="#multi-file-configuration">Multi-File Configuration</a></h2>
+<h3 id="splitting-large-configs"><a class="header" href="#splitting-large-configs">Splitting Large Configs</a></h3>
+<p>For large infrastructures, split configs by concern:</p>
+<pre><code class="language-bash"># Apply multiple config files
+forjar apply -f machines.yaml -f web-resources.yaml -f db-resources.yaml
+
+# Or use shell glob
+forjar apply -f configs/*.yaml
+</code></pre>
+<p>Each file is parsed and merged. Machines from all files form a unified inventory, and resources from all files are combined into a single execution plan.</p>
+<h3 id="config-organization-patterns"><a class="header" href="#config-organization-patterns">Config Organization Patterns</a></h3>
+<p><strong>By machine role:</strong></p>
+<pre><code>configs/
+  machines.yaml          # All machine definitions
+  web.yaml               # Web server resources
+  database.yaml          # Database resources
+  monitoring.yaml        # Monitoring resources
+</code></pre>
+<p><strong>By environment:</strong></p>
+<pre><code>configs/
+  base.yaml              # Shared resources
+  staging.yaml           # Staging overrides
+  production.yaml        # Production machines + resources
+</code></pre>
+<p><strong>By team:</strong></p>
+<pre><code>configs/
+  infra/machines.yaml    # Platform team owns machines
+  app/web-deploy.yaml    # App team owns deployments
+  security/firewall.yaml # Security team owns rules
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="01-getting-started.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="03-resources.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="01-getting-started.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="03-resources.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

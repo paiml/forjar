@@ -148,7 +148,7 @@ fn probe_container(name: &str, machine: &types::Machine, transport: &str) -> Con
 
 /// Exposed for testing — probe a single machine.
 #[cfg(test)]
-pub(crate) fn test_probe_machine(name: &str, machine: &types::Machine) -> (bool, String) {
+pub(crate) fn _test_probe_machine(name: &str, machine: &types::Machine) -> (bool, String) {
     let result = probe_machine(name, machine);
     (result.reachable, result.transport)
 }

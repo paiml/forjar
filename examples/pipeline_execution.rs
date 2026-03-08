@@ -48,7 +48,7 @@ fn demo_pipeline_plan() {
         &stages,
         &PipelineState::default(),
         true,
-        &std::path::Path::new("."),
+        std::path::Path::new("."),
     );
     for entry in &plan {
         let gate = if entry.is_gate { " [GATE]" } else { "" };

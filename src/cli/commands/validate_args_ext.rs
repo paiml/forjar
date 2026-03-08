@@ -1,0 +1,255 @@
+    /// FJ-849: Verify resources match machine capabilities
+    #[arg(long)]
+    pub check_resource_machine_affinity: bool,
+
+    /// FJ-853: Score drift risk per resource based on type + deps
+    #[arg(long)]
+    pub check_resource_drift_risk: bool,
+
+    /// FJ-857: Verify all resources have required tags
+    #[arg(long)]
+    pub check_resource_tag_coverage: bool,
+
+    /// FJ-861: Verify lifecycle hook references are valid
+    #[arg(long)]
+    pub check_resource_lifecycle_hooks: bool,
+
+    /// FJ-865: Verify provider version compatibility
+    #[arg(long)]
+    pub check_resource_provider_version: bool,
+
+    /// FJ-869: Enforce naming patterns across resources
+    #[arg(long)]
+    pub check_resource_naming_convention: bool,
+
+    /// FJ-873: Verify resources are idempotent-safe
+    #[arg(long)]
+    pub check_resource_idempotency: bool,
+    /// FJ-877: Verify resources have descriptions or comments
+    #[arg(long)]
+    pub check_resource_documentation: bool,
+    /// FJ-881: Verify all resources have assigned owners
+    #[arg(long)]
+    pub check_resource_ownership: bool,
+    /// FJ-885: Detect secrets accidentally exposed in resource content
+    #[arg(long)]
+    pub check_resource_secret_exposure: bool,
+    /// FJ-889: Enforce tag naming standards across resources
+    #[arg(long)]
+    pub check_resource_tag_standards: bool,
+    /// FJ-893: Detect resources that could enable privilege escalation
+    #[arg(long)]
+    pub check_resource_privilege_escalation: bool,
+    /// FJ-897: Verify resources can be safely updated without downtime
+    #[arg(long)]
+    pub check_resource_update_safety: bool,
+    /// FJ-901: Detect config inconsistencies across machines
+    #[arg(long)]
+    pub check_resource_cross_machine_consistency: bool,
+    /// FJ-905: Verify resources pin explicit versions
+    #[arg(long)]
+    pub check_resource_version_pinning: bool,
+    /// FJ-909: Verify all dependencies exist and are reachable
+    #[arg(long)]
+    pub check_resource_dependency_completeness: bool,
+    /// FJ-913: Verify all resources declare explicit states
+    #[arg(long)]
+    pub check_resource_state_coverage: bool,
+    /// FJ-917: Verify resources can be safely rolled back
+    #[arg(long)]
+    pub check_resource_rollback_safety: bool,
+    /// FJ-921: Score resource configuration maturity
+    #[arg(long)]
+    pub check_resource_config_maturity: bool,
+    /// FJ-925: Verify dependency ordering is topologically valid
+    #[arg(long)]
+    pub check_resource_dependency_ordering: bool,
+    /// FJ-929: Ensure all resources have required tag categories
+    #[arg(long)]
+    pub check_resource_tag_completeness: bool,
+    /// FJ-933: Enforce naming conventions via configurable regex patterns
+    #[arg(long)]
+    pub check_resource_naming_standards: bool,
+    /// FJ-937: Detect asymmetric dependency declarations
+    #[arg(long)]
+    pub check_resource_dependency_symmetry: bool,
+    /// FJ-941: Detect circular alias references in resource configs
+    #[arg(long)]
+    pub check_resource_circular_alias: bool,
+    /// FJ-945: Warn when dependency chains exceed a threshold
+    #[arg(long)]
+    pub check_resource_dependency_depth_limit: bool,
+    /// FJ-949: Detect parameters defined but never referenced in templates
+    #[arg(long)]
+    pub check_resource_unused_params: bool,
+    /// FJ-953: Warn when machines have unbalanced resource counts
+    #[arg(long)]
+    pub check_resource_machine_balance: bool,
+    /// FJ-957: Verify content hashes match declared checksums
+    #[arg(long)]
+    pub check_resource_content_hash_consistency: bool,
+    /// FJ-961: Ensure all referenced dependencies exist in the resource set
+    #[arg(long)]
+    pub check_resource_dependency_refs: bool,
+    /// FJ-965: Ensure all trigger references point to existing resources
+    #[arg(long)]
+    pub check_resource_trigger_refs: bool,
+    /// FJ-969: Validate parameter types match expected usage patterns
+    #[arg(long)]
+    pub check_resource_param_type_safety: bool,
+    /// FJ-973: Validate environment variable references match declared params
+    #[arg(long)]
+    pub check_resource_env_consistency: bool,
+    /// FJ-977: Validate secret resources have rotation policies defined
+    #[arg(long)]
+    pub check_resource_secret_rotation: bool,
+    /// FJ-981: Verify resources define all lifecycle stages
+    #[arg(long)]
+    pub check_resource_lifecycle_completeness: bool,
+    /// FJ-985: Verify resource types are compatible with declared providers
+    #[arg(long)]
+    pub check_resource_provider_compatibility: bool,
+    /// FJ-989: Enforce naming conventions on resource names
+    #[arg(long)]
+    pub check_resource_naming_convention_strict: bool,
+    /// FJ-993: Warn if resources lack idempotency annotations or markers
+    #[arg(long)]
+    pub check_resource_idempotency_annotations: bool,
+    /// FJ-997: Warn if resource content exceeds size threshold
+    #[arg(long)]
+    pub check_resource_content_size_limit: bool,
+    /// FJ-1001: Warn if any resource exceeds max fan-in or fan-out
+    #[arg(long)]
+    pub check_resource_dependency_fan_limit: bool,
+    /// FJ-1014: Warn if GPU resources reference mismatched backends within a stack
+    #[arg(long)]
+    pub check_resource_gpu_backend_consistency: bool,
+    /// FJ-1018: Validate when-field expressions for syntactic correctness
+    #[arg(long)]
+    pub check_resource_when_condition_syntax: bool,
+    /// FJ-1022: Warn if side-effect resources lack lifecycle hooks
+    #[arg(long)]
+    pub check_resource_lifecycle_hook_coverage: bool,
+    /// FJ-1025: Warn if resources contain encrypted secrets needing rotation
+    #[arg(long)]
+    pub check_resource_secret_rotation_age: bool,
+    /// FJ-1028: Warn if dependency chains exceed max depth limit (configurable)
+    #[arg(long)]
+    pub check_resource_dependency_chain_depth: bool,
+    /// FJ-1030: Warn if recipe resources reference undefined inputs
+    #[arg(long)]
+    pub check_recipe_input_completeness: bool,
+    /// FJ-1033: Warn if resources have duplicate content across different machines
+    #[arg(long)]
+    pub check_resource_cross_machine_content_duplicates: bool,
+    /// FJ-1036: Warn if resources reference machines not defined in config
+    #[arg(long)]
+    pub check_resource_machine_reference_validity: bool,
+    /// FJ-1038: Detect correlated failures across resources
+    #[arg(long)]
+    pub check_resource_health_correlation: bool,
+    /// FJ-1041: Identify redundant dependency chains
+    #[arg(long)]
+    pub check_dependency_optimization: bool,
+    /// FJ-1044: Identify resource consolidation opportunities
+    #[arg(long)]
+    pub check_resource_consolidation_opportunities: bool,
+    /// FJ-1046: Validate resources have proper compliance tags
+    #[arg(long)]
+    pub check_resource_compliance_tags: bool,
+    /// FJ-1049: Validate resources have rollback coverage
+    #[arg(long)]
+    pub check_resource_rollback_coverage: bool,
+    /// FJ-1052: Validate dependency balance across resources
+    #[arg(long)]
+    pub check_resource_dependency_balance: bool,
+    /// FJ-1054: Warn if secrets are referenced outside intended machine scope
+    #[arg(long)]
+    pub check_resource_secret_scope: bool,
+    /// FJ-1057: Warn if deprecated resources are still depended upon
+    #[arg(long)]
+    pub check_resource_deprecation_usage: bool,
+    /// FJ-1060: Warn if conditional resources lack when clause coverage
+    #[arg(long)]
+    pub check_resource_when_condition_coverage: bool,
+    /// FJ-1062: Warn if bidirectional dependency patterns exist
+    #[arg(long)]
+    pub check_resource_dependency_symmetry_deep: bool,
+    /// FJ-1065: Warn if tags don't follow namespace conventions
+    #[arg(long)]
+    pub check_resource_tag_namespace: bool,
+    /// FJ-1068: Warn if machines have too many resources
+    #[arg(long)]
+    pub check_resource_machine_capacity: bool,
+    /// FJ-1070: Warn if resource dependency fan-out exceeds limit
+    #[arg(long)]
+    pub check_resource_dependency_fan_out_limit: bool,
+    /// FJ-1073: Warn if resources lack required tag keys
+    #[arg(long)]
+    pub check_resource_tag_required_keys: bool,
+    /// FJ-1076: Score drift risk based on type, content, and dependency count
+    #[arg(long)]
+    pub check_resource_content_drift_risk: bool,
+    /// FJ-1078: Warn if circular dependency chains exist
+    #[arg(long)]
+    pub check_resource_circular_dependency_depth: bool,
+    /// FJ-1081: Detect orphan resources unreachable from any root
+    #[arg(long)]
+    pub check_resource_orphan_detection_deep: bool,
+    /// FJ-1084: Warn if all resources use a single provider type
+    #[arg(long)]
+    pub check_resource_provider_diversity: bool,
+    /// FJ-1086: Warn if resources in different stages share dependencies
+    #[arg(long)]
+    pub check_resource_dependency_isolation: bool,
+    /// FJ-1089: Warn if tag values are inconsistent across similar resources
+    #[arg(long)]
+    pub check_resource_tag_value_consistency: bool,
+    /// FJ-1092: Warn if resources are unevenly distributed across machines
+    #[arg(long)]
+    pub check_resource_machine_distribution_balance: bool,
+    /// FJ-1094: Warn if version-pinned dependencies are outdated
+    #[arg(long)]
+    pub check_resource_dependency_version_drift: bool,
+    /// FJ-1097: Warn if resource names exceed character limit
+    #[arg(long)]
+    pub check_resource_naming_length_limit: bool,
+    /// FJ-1100: Warn if machines lack expected resource type coverage
+    #[arg(long)]
+    pub check_resource_type_coverage_per_machine: bool,
+    /// FJ-1102: Warn if dependency chain depths vary wildly
+    #[arg(long)]
+    pub check_resource_dependency_depth_variance: bool,
+    /// FJ-1105: Warn if tag keys don't follow naming conventions
+    #[arg(long)]
+    pub check_resource_tag_key_naming: bool,
+    /// FJ-1108: Warn if resource content exceeds size threshold
+    #[arg(long)]
+    pub check_resource_content_length_limit: bool,
+    /// FJ-1110: Verify all declared dependencies exist
+    #[arg(long)]
+    pub check_resource_dependency_completeness_audit: bool,
+    /// FJ-1113: Warn if machines lack expected resource types
+    #[arg(long)]
+    pub check_resource_machine_coverage_gap: bool,
+    /// FJ-1116: Warn if file paths exceed directory depth limit
+    #[arg(long)]
+    pub check_resource_path_depth_limit: bool,
+    /// FJ-1118: Verify dependency ordering consistency
+    #[arg(long)]
+    pub check_resource_dependency_ordering_consistency: bool,
+    /// FJ-1121: Validate tag value format
+    #[arg(long)]
+    pub check_resource_tag_value_format: bool,
+    /// FJ-1124: Check resource provider version pinning
+    #[arg(long)]
+    pub check_resource_provider_version_pinning: bool,
+    /// FJ-1306: Report per-resource purity levels
+    #[arg(long)]
+    pub check_recipe_purity: bool,
+    /// FJ-1329: Output reproducibility score (0-100)
+    #[arg(long)]
+    pub check_reproducibility_score: bool,
+    /// FJ-2500: Reject configs with unknown YAML fields (typo detection)
+    #[arg(long)]
+    pub deny_unknown_fields: bool,

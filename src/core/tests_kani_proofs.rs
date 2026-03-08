@@ -53,17 +53,33 @@ fn test_handler_invariant_file_runtime() {
     use crate::core::planner::hash_desired_state;
     use crate::core::types::{Resource, ResourceType};
 
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::File;
-    r.path = Some("/etc/test.conf".into());
-    r.content = Some("key=value".into());
+    let r = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/test.conf".into()),
+        content: Some("key=value".into()),
+        ..Default::default()
+    };
     let h_base = hash_desired_state(&r);
 
-    r.tags = vec!["web".into()];
-    assert_eq!(h_base, hash_desired_state(&r), "tags must not affect hash");
+    let r_tags = Resource {
+        tags: vec!["web".into()],
+        ..r.clone()
+    };
+    assert_eq!(
+        h_base,
+        hash_desired_state(&r_tags),
+        "tags must not affect hash"
+    );
 
-    r.depends_on = vec!["dep".into()];
-    assert_eq!(h_base, hash_desired_state(&r), "deps must not affect hash");
+    let r_deps = Resource {
+        depends_on: vec!["dep".into()],
+        ..r_tags
+    };
+    assert_eq!(
+        h_base,
+        hash_desired_state(&r_deps),
+        "deps must not affect hash"
+    );
 }
 
 #[test]
@@ -71,12 +87,16 @@ fn test_handler_invariant_package_runtime() {
     use crate::core::planner::hash_desired_state;
     use crate::core::types::{Resource, ResourceType};
 
-    let mut r1 = Resource::default();
-    r1.resource_type = ResourceType::Package;
-    r1.packages = vec!["nginx".into()];
+    let r1 = Resource {
+        resource_type: ResourceType::Package,
+        packages: vec!["nginx".into()],
+        ..Default::default()
+    };
 
-    let mut r2 = r1.clone();
-    r2.tags = vec!["web".into()];
+    let r2 = Resource {
+        tags: vec!["web".into()],
+        ..r1.clone()
+    };
 
     assert_eq!(
         hash_desired_state(&r1),
@@ -90,14 +110,18 @@ fn test_handler_invariant_service_runtime() {
     use crate::core::planner::hash_desired_state;
     use crate::core::types::{Resource, ResourceType};
 
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::Service;
-    r.name = Some("nginx".into());
+    let r = Resource {
+        resource_type: ResourceType::Service,
+        name: Some("nginx".into()),
+        ..Default::default()
+    };
     let h_base = hash_desired_state(&r);
 
-    let mut r2 = r.clone();
-    r2.tags = vec!["production".into()];
-    r2.depends_on = vec!["nginx-pkg".into()];
+    let r2 = Resource {
+        tags: vec!["production".into()],
+        depends_on: vec!["nginx-pkg".into()],
+        ..r.clone()
+    };
     assert_eq!(
         h_base,
         hash_desired_state(&r2),

@@ -1,0 +1,2440 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Getting Started - The Forjar Book</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Forjar Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paiml/forjar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>Build from source (requires Rust 1.85+):</p>
+<pre><code class="language-bash">git clone https://github.com/paiml/forjar.git
+cd forjar
+cargo install --path .
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">forjar --help
+</code></pre>
+<p>You should see forjar's 79 subcommands: <code>init</code>, <code>validate</code>, <code>plan</code>, <code>apply</code>, <code>drift</code>, <code>status</code>, <code>history</code>, <code>destroy</code>, <code>import</code>, <code>show</code>, <code>graph</code>, <code>check</code>, <code>diff</code>, <code>fmt</code>, <code>lint</code>, <code>rollback</code>, <code>anomaly</code>, <code>trace</code>, <code>migrate</code>, <code>mcp</code>, <code>bench</code>, <code>state-list</code>, <code>state-mv</code>, <code>state-rm</code>, <code>output</code>, <code>policy</code>, <code>workspace</code>, <code>secrets</code>, <code>doctor</code>, <code>completion</code>, <code>lock</code>, <code>snapshot</code>, <code>schema</code>, <code>watch</code>, <code>explain</code>, <code>env</code>, <code>test</code>, <code>inventory</code>, <code>retry-failed</code>, <code>rolling</code>, <code>canary</code>, <code>audit</code>, <code>plan-compact</code>, <code>compliance</code>, <code>export</code>, <code>suggest</code>, <code>compare</code>, <code>lock-prune</code>, <code>env-diff</code>, <code>template</code>, <code>lock-info</code>, <code>lock-compact</code>, <code>lock-verify</code>, <code>lock-export</code>, <code>lock-gc</code>, <code>lock-diff</code>, <code>lock-merge</code>, <code>lock-rebase</code>, <code>lock-sign</code>, <code>lock-verify-sig</code>, <code>lock-compact-all</code>, <code>lock-audit-trail</code>, <code>lock-rotate-keys</code>, <code>lock-backup</code>, <code>lock-verify-chain</code>, <code>lock-stats</code>, <code>lock-audit</code>, <code>lock-compress</code>, <code>lock-defrag</code>, <code>lock-normalize</code>, <code>lock-validate</code>, <code>lock-verify-hmac</code>, <code>lock-archive</code>, <code>lock-snapshot</code>, <code>lock-repair</code>.</p>
+<h2 id="your-first-project"><a class="header" href="#your-first-project">Your First Project</a></h2>
+<pre><code class="language-bash">forjar init my-infra
+cd my-infra
+</code></pre>
+<p>This creates:</p>
+<ul>
+<li><code>forjar.yaml</code> — configuration file (desired state)</li>
+<li><code>state/</code> — directory for lock files and event logs</li>
+</ul>
+<h2 id="core-concepts"><a class="header" href="#core-concepts">Core Concepts</a></h2>
+<p>Before writing your first config, here are the key ideas behind forjar:</p>
+<div class="table-wrapper"><table><thead><tr><th>Concept</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><strong>Desired state</strong></td><td>What you declare in <code>forjar.yaml</code> — forjar converges machines to match</td></tr>
+<tr><td><strong>Lock file</strong></td><td>BLAKE3-hashed record of what was actually applied, stored in <code>state/</code></td></tr>
+<tr><td><strong>Idempotency</strong></td><td>Apply only runs when desired state hash differs from lock file</td></tr>
+<tr><td><strong>Jidoka</strong></td><td>Stops on first failure per machine, preserves partial state</td></tr>
+<tr><td><strong>Provenance</strong></td><td>Every apply is logged to <code>state/{machine}/events.jsonl</code></td></tr>
+<tr><td><strong>DAG ordering</strong></td><td>Resources execute in dependency order (topological sort with alphabetical tie-breaking)</td></tr>
+<tr><td><strong>Drift detection</strong></td><td>Compare live machine state against lock files to find unauthorized changes</td></tr>
+</tbody></table>
+</div>
+<h2 id="define-a-machine"><a class="header" href="#define-a-machine">Define a Machine</a></h2>
+<p>Edit <code>forjar.yaml</code>:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: my-infra
+
+machines:
+  web-server:
+    hostname: web1
+    addr: 192.168.1.100
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  base-packages:
+    type: package
+    machine: web-server
+    provider: apt
+    packages: [curl, htop, git]
+</code></pre>
+<p>Every forjar config needs:</p>
+<ul>
+<li><strong>version</strong> — always <code>"1.0"</code> for now</li>
+<li><strong>name</strong> — a human-readable project name</li>
+<li><strong>machines</strong> — at least one target machine</li>
+<li><strong>resources</strong> — at least one resource to manage</li>
+</ul>
+<h2 id="validate-before-you-apply"><a class="header" href="#validate-before-you-apply">Validate Before You Apply</a></h2>
+<p>Always validate your config before running it against real machines:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>Config valid: 1 machines, 1 resources (0 warnings)
+</code></pre>
+<p>Validation catches problems cheaply — no SSH connections needed:</p>
+<ul>
+<li>YAML syntax errors</li>
+<li>Missing required fields</li>
+<li>Invalid resource states</li>
+<li>Circular dependencies</li>
+<li>Unknown machine references</li>
+</ul>
+<h2 id="preview-changes"><a class="header" href="#preview-changes">Preview Changes</a></h2>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Output:</p>
+<pre><code>Planning: my-infra (1 resources)
+
+web-server:
+  + base-packages: install curl, htop, git
+
+Plan: 1 to add, 0 to change, 0 to destroy, 0 unchanged.
+</code></pre>
+<p>The <code>+</code> symbol means "create" — this resource doesn't exist in the lock file yet.</p>
+<p>Plan symbols:</p>
+<ul>
+<li><code>+</code> Create (new resource)</li>
+<li><code>~</code> Update (desired state changed since last apply)</li>
+<li><code>-</code> Destroy (resource has <code>state: absent</code>)</li>
+<li><code> </code> Unchanged (hash matches lock file)</li>
+</ul>
+<h2 id="apply"><a class="header" href="#apply">Apply</a></h2>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Forjar will:</p>
+<ol>
+<li>SSH to the machine using the configured key</li>
+<li>Run <code>apt-get install -y curl htop git</code></li>
+<li>Record the state in <code>state/web-server/state.lock.yaml</code></li>
+<li>Append events to <code>state/web-server/events.jsonl</code></li>
+</ol>
+<h2 id="verify-idempotency"><a class="header" href="#verify-idempotency">Verify Idempotency</a></h2>
+<p>Run apply again:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Output:</p>
+<pre><code>web-server: 0 converged, 1 unchanged, 0 failed (0.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+</code></pre>
+<p>The BLAKE3 hash of the desired state matches the lock file — nothing to do.</p>
+<h2 id="check-for-drift"><a class="header" href="#check-for-drift">Check for Drift</a></h2>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --state-dir state/
+</code></pre>
+<p>If someone manually changes the machine (e.g., removes a package), drift detection will flag it. Use <code>--tripwire</code> in CI to exit non-zero on drift:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --state-dir state/ --tripwire
+</code></pre>
+<h2 id="adding-more-resources"><a class="header" href="#adding-more-resources">Adding More Resources</a></h2>
+<p>Here's a more complete config with multiple resource types and dependencies:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: web-stack
+
+machines:
+  web1:
+    hostname: web1
+    addr: 10.0.0.1
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  # Install packages first
+  nginx-pkg:
+    type: package
+    machine: web1
+    provider: apt
+    packages: [nginx]
+
+  # Write config file after package is installed
+  site-config:
+    type: file
+    machine: web1
+    path: /etc/nginx/sites-enabled/mysite
+    content: |
+      server {
+        listen 80;
+        server_name example.com;
+        root /var/www/html;
+      }
+    owner: root
+    group: root
+    mode: "0644"
+    depends_on: [nginx-pkg]
+
+  # Start service after config is in place
+  nginx-svc:
+    type: service
+    machine: web1
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [site-config]
+    depends_on: [site-config]
+</code></pre>
+<p>Key patterns:</p>
+<ul>
+<li><strong><code>depends_on</code></strong> ensures ordering: nginx-pkg installs before site-config writes, which happens before nginx-svc starts</li>
+<li><strong><code>restart_on</code></strong> tells the service to restart when the config file changes</li>
+<li><strong><code>owner</code>/<code>group</code>/<code>mode</code></strong> set file permissions</li>
+</ul>
+<h3 id="lifecycle-hooks"><a class="header" href="#lifecycle-hooks">Lifecycle Hooks</a></h3>
+<p>Any resource can declare <code>pre_apply</code> and <code>post_apply</code> shell commands that run on the target machine before and after the main apply script:</p>
+<pre><code class="language-yaml">resources:
+  site-config:
+    type: file
+    machine: web1
+    path: /etc/nginx/sites-enabled/mysite
+    content: |
+      server { listen 80; server_name example.com; }
+    pre_apply: "cp /etc/nginx/sites-enabled/mysite /tmp/mysite.bak"
+    post_apply: "systemctl reload nginx"
+    depends_on: [nginx-pkg]
+</code></pre>
+<ul>
+<li><strong><code>pre_apply</code></strong>: Runs before the resource is applied. If it exits non-zero, the resource is skipped entirely (the main apply script does not run). Use this to back up files, check preconditions, or acquire locks.</li>
+<li><strong><code>post_apply</code></strong>: Runs after a successful apply. If it exits non-zero, the resource is marked as failed. Use this to restart services, send notifications, or run smoke tests.</li>
+</ul>
+<h2 id="visualize-dependencies"><a class="header" href="#visualize-dependencies">Visualize Dependencies</a></h2>
+<pre><code class="language-bash">forjar graph -f forjar.yaml
+</code></pre>
+<p>Output (Mermaid format):</p>
+<pre><code>graph TD
+  nginx-pkg --&gt; site-config
+  site-config --&gt; nginx-svc
+</code></pre>
+<p>Paste into a GitHub markdown file or render with mermaid-cli.</p>
+<h2 id="filtering"><a class="header" href="#filtering">Filtering</a></h2>
+<p>Target a specific machine, resource, or tag:</p>
+<pre><code class="language-bash"># Plan for one machine only
+forjar plan -f forjar.yaml -m web1
+
+# Apply a single resource
+forjar apply -f forjar.yaml -r nginx-pkg
+
+# Apply only resources tagged "web"
+forjar apply -f forjar.yaml -t web
+</code></pre>
+<p>To use tags, add them to your resources:</p>
+<pre><code class="language-yaml">resources:
+  nginx-pkg:
+    type: package
+    machine: web1
+    provider: apt
+    packages: [nginx]
+    tags: [web, core]
+</code></pre>
+<h2 id="dry-run"><a class="header" href="#dry-run">Dry Run</a></h2>
+<p>Preview exactly what would happen without touching any machine:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --dry-run
+</code></pre>
+<h2 id="view-state"><a class="header" href="#view-state">View State</a></h2>
+<p>See what forjar currently knows about your machines:</p>
+<pre><code class="language-bash"># Current lock file state
+forjar status --state-dir state/
+
+# Apply history
+forjar history --state-dir state/ -n 5
+
+# Full resolved config (recipes expanded, templates resolved)
+forjar show -f forjar.yaml
+</code></pre>
+<h2 id="audit-generated-scripts"><a class="header" href="#audit-generated-scripts">Audit Generated Scripts</a></h2>
+<p>For security review, write the scripts forjar would execute to a directory:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --output-dir /tmp/audit/
+ls /tmp/audit/
+</code></pre>
+<p>This writes check, apply, and state_query scripts for every resource. Review them before running apply.</p>
+<h2 id="using-parameters"><a class="header" href="#using-parameters">Using Parameters</a></h2>
+<p>Pass runtime values without hardcoding them in the config:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: my-app
+params:
+  env: staging
+
+machines:
+  app1:
+    hostname: app1
+    addr: 10.0.0.1
+resources:
+  app-config:
+    type: file
+    machine: app1
+    path: /etc/myapp/config.yaml
+    content: "environment: {{params.env}}"
+</code></pre>
+<p>Override at runtime:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml -p env=production
+</code></pre>
+<h2 id="using-secrets"><a class="header" href="#using-secrets">Using Secrets</a></h2>
+<p>Reference secrets without storing them in YAML:</p>
+<pre><code class="language-yaml">resources:
+  db-config:
+    type: file
+    machine: app1
+    path: /etc/myapp/db.conf
+    content: "password={{secrets.db-password}}"
+</code></pre>
+<p>Set the corresponding environment variable:</p>
+<pre><code class="language-bash">export FORJAR_SECRET_DB_PASSWORD="s3cret"
+forjar apply -f forjar.yaml
+</code></pre>
+<p>Secret key normalization: <code>db-password</code> → <code>FORJAR_SECRET_DB_PASSWORD</code> (uppercase, hyphens become underscores).</p>
+<h2 id="cross-architecture-support"><a class="header" href="#cross-architecture-support">Cross-Architecture Support</a></h2>
+<p>Manage mixed fleets with architecture filtering:</p>
+<pre><code class="language-yaml">machines:
+  x86-box:
+    hostname: x86
+    addr: 10.0.0.1
+    arch: x86_64
+  arm-box:
+    hostname: arm
+    addr: 10.0.0.2
+    arch: aarch64
+
+resources:
+  # Only applies to x86_64 machines
+  intel-microcode:
+    type: package
+    machine: [x86-box, arm-box]
+    provider: apt
+    packages: [intel-microcode]
+    arch: [x86_64]
+</code></pre>
+<p>The <code>intel-microcode</code> resource only applies to <code>x86-box</code> — it's silently skipped on <code>arm-box</code>.</p>
+<h2 id="container-testing"><a class="header" href="#container-testing">Container Testing</a></h2>
+<p>You don't need real machines to test your configs. Use container transport to test locally with Docker:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: dev-test
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true         # destroy after apply
+      init: true              # PID 1 reaping
+
+resources:
+  base-packages:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [curl, htop, git]
+
+  welcome-msg:
+    type: file
+    machine: test-box
+    path: /etc/motd
+    content: "Welcome to the test box!"
+    mode: "0644"
+    depends_on: [base-packages]
+</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash"># Validate first
+forjar validate -f forjar.yaml
+
+# Apply to a fresh container
+forjar apply -f forjar.yaml --state-dir state/
+
+# Check state
+forjar status --state-dir state/
+
+# Re-apply — should be a no-op
+forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>With <code>ephemeral: true</code>, the container is created fresh and destroyed after each apply — giving you a clean environment every time.</p>
+<h2 id="what-happens-under-the-hood"><a class="header" href="#what-happens-under-the-hood">What Happens Under the Hood</a></h2>
+<p>When you run <code>forjar apply</code>, here's exactly what happens:</p>
+<pre><code>1. Parse YAML          → Load forjar.yaml, validate schema
+2. Expand Recipes      → Resolve recipe resources into concrete resources
+3. Resolve Templates   → Replace {{params.X}}, {{secrets.X}}, {{machine.X.Y}}
+4. Build DAG           → Topological sort with alphabetical tie-breaking
+5. Plan                → Compare BLAKE3 hashes: desired vs lock file
+6. Generate Scripts    → Create check/apply/state_query shell scripts
+7. Execute             → Pipe scripts to bash on each machine (local/SSH/container)
+8. Record State        → Atomic write to state.lock.yaml + append events.jsonl
+</code></pre>
+<h3 id="script-generation"><a class="header" href="#script-generation">Script Generation</a></h3>
+<p>For every resource, forjar generates three shell scripts:</p>
+<div class="table-wrapper"><table><thead><tr><th>Script</th><th>Purpose</th><th>Example</th></tr></thead><tbody>
+<tr><td><strong>check</strong></td><td>Verify preconditions</td><td><code>dpkg -s curl &gt; /dev/null 2&gt;&amp;1</code></td></tr>
+<tr><td><strong>apply</strong></td><td>Converge to desired state</td><td><code>apt-get install -y curl htop git</code></td></tr>
+<tr><td><strong>state_query</strong></td><td>Capture live state for drift detection</td><td><code>dpkg-query -W -f='${Package}=${Version}\n' curl htop git</code></td></tr>
+</tbody></table>
+</div>
+<p>All scripts begin with <code>set -euo pipefail</code> for strict error handling, and include automatic <code>sudo</code> detection:</p>
+<pre><code class="language-bash">SUDO="" ; [ "$(id -u)" -ne 0 ] &amp;&amp; SUDO="sudo"
+</code></pre>
+<h3 id="transport-selection"><a class="header" href="#transport-selection">Transport Selection</a></h3>
+<p>Forjar automatically selects how to execute scripts based on machine config:</p>
+<div class="table-wrapper"><table><thead><tr><th>Machine Address</th><th>Transport</th><th>Command</th></tr></thead><tbody>
+<tr><td><code>container</code> or <code>transport: container</code></td><td>Container</td><td><code>docker exec -i &lt;name&gt; bash</code></td></tr>
+<tr><td><code>127.0.0.1</code> or <code>localhost</code></td><td>Local</td><td><code>bash</code></td></tr>
+<tr><td>Any other address</td><td>SSH</td><td><code>ssh user@addr bash</code></td></tr>
+</tbody></table>
+</div>
+<p>Scripts are always piped to <code>stdin</code> — never passed as command-line arguments. This avoids shell metacharacter injection and argument length limits.</p>
+<h2 id="auditing-scripts-before-apply"><a class="header" href="#auditing-scripts-before-apply">Auditing Scripts Before Apply</a></h2>
+<p>For security-sensitive environments, inspect the generated scripts before running them:</p>
+<pre><code class="language-bash"># Write scripts to a directory for review
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# Review the generated scripts
+ls /tmp/audit/
+# web-server/
+#   base-packages.check.sh
+#   base-packages.apply.sh
+#   base-packages.state_query.sh
+#   site-config.check.sh
+#   site-config.apply.sh
+#   ...
+</code></pre>
+<p>Every script is a plain shell file — no hidden behavior.</p>
+<h2 id="bashrs-purification-overview"><a class="header" href="#bashrs-purification-overview">bashrs Purification Overview</a></h2>
+<p>Forjar does not blindly execute shell commands. Every generated script passes through
+<a href="https://crates.io/crates/bashrs">bashrs</a>, a Rust-native shell analysis library that
+parses, lints, and optionally rewrites shell code before it reaches any machine.</p>
+<h3 id="why-shell-safety-matters"><a class="header" href="#why-shell-safety-matters">Why Shell Safety Matters</a></h3>
+<p>Configuration management tools generate shell scripts from user-supplied YAML. Without
+validation, a mistyped path, an unquoted variable, or a missing error guard can cause
+silent data loss or partial convergence. bashrs closes that gap by treating generated
+shell as untrusted input and proving it safe before execution.</p>
+<h3 id="three-levels-of-safety"><a class="header" href="#three-levels-of-safety">Three Levels of Safety</a></h3>
+<p>Forjar's purifier (<code>src/core/purifier.rs</code>) exposes three functions, each stricter than
+the last:</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>What It Does</th><th>When It Fails</th></tr></thead><tbody>
+<tr><td><code>validate_script()</code></td><td>Runs the bashrs linter; fails on Error-severity diagnostics only</td><td>Syntax errors, unsafe constructs</td></tr>
+<tr><td><code>lint_script()</code></td><td>Full linter pass; returns all diagnostics (errors and warnings)</td><td>Never fails -- returns a diagnostic list</td></tr>
+<tr><td><code>purify_script()</code></td><td>Parse to AST, purify (quoting, injection prevention), reformat, then validate</td><td>Parse failures, purification errors, post-purification lint errors</td></tr>
+</tbody></table>
+</div>
+<p>During <code>forjar apply</code>, every check, apply, and state_query script is validated through
+<code>validate_script()</code> before being piped to the target machine. If validation fails, the
+resource is marked as failed and execution halts (Jidoka).</p>
+<h3 id="running-forjar-lint-for-script-diagnostics"><a class="header" href="#running-forjar-lint-for-script-diagnostics">Running <code>forjar lint</code> for Script Diagnostics</a></h3>
+<p>The <code>forjar lint</code> command runs all standard config checks <em>and</em> generates every
+resource's shell scripts, feeding each through the bashrs linter:</p>
+<pre><code class="language-bash">forjar lint -f forjar.yaml
+</code></pre>
+<p>Sample output:</p>
+<pre><code>  warn: bashrs: base-packages/apply [SC2086] Double quote to prevent globbing
+  warn: bashrs: base-packages/apply [SC2059] Use %s with printf
+  warn: bashrs script lint: 0 error(s), 2 warning(s) across 3 resources
+No lint errors found.
+</code></pre>
+<p>Warnings are informational -- they do not block apply. Errors are blockers. To get
+machine-readable output, pass <code>--json</code>:</p>
+<pre><code class="language-bash">forjar lint -f forjar.yaml --json
+</code></pre>
+<p>This produces a JSON object with a <code>warnings</code> array and a <code>warnings_count</code> field,
+suitable for CI integration.</p>
+<h3 id="inspecting-purified-output"><a class="header" href="#inspecting-purified-output">Inspecting Purified Output</a></h3>
+<p>To see what bashrs does to a generated script, audit the scripts first, then run them
+through the purifier example:</p>
+<pre><code class="language-bash"># 1. Write generated scripts to disk
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# 2. Inspect a specific script
+cat /tmp/audit/web-server/base-packages.apply.sh
+</code></pre>
+<p>The generated script will already begin with <code>set -euo pipefail</code> and include the
+<code>SUDO</code> auto-detection preamble. bashrs validates that these guards are syntactically
+correct and that no downstream commands bypass them.</p>
+<h2 id="first-drift-detection"><a class="header" href="#first-drift-detection">First Drift Detection</a></h2>
+<p>After your first successful <code>forjar apply</code>, you have a lock file recording what was
+applied. This walkthrough shows how drift detection catches unauthorized changes.</p>
+<h3 id="step-1-start-with-a-clean-apply"><a class="header" href="#step-1-start-with-a-clean-apply">Step 1: Start with a Clean Apply</a></h3>
+<p>Apply your config to establish the baseline:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Confirm everything is converged:</p>
+<pre><code class="language-bash">forjar status --state-dir state/
+</code></pre>
+<p>At this point, the lock file in <code>state/{machine}/state.lock.yaml</code> contains a BLAKE3
+hash of every managed resource's desired state.</p>
+<h3 id="step-2-simulate-a-manual-change"><a class="header" href="#step-2-simulate-a-manual-change">Step 2: Simulate a Manual Change</a></h3>
+<p>Suppose someone edits a managed file directly on the target machine. For a local or
+container test, you can simulate this:</p>
+<pre><code class="language-bash"># If using container transport:
+docker exec test-box sh -c 'echo "rogue line" &gt;&gt; /etc/nginx/sites-enabled/mysite'
+
+# If using local transport (managing localhost):
+echo "rogue line" &gt;&gt; /etc/nginx/sites-enabled/mysite
+</code></pre>
+<p>This modifies a file that forjar manages, without going through <code>forjar apply</code>.</p>
+<h3 id="step-3-run-drift-detection"><a class="header" href="#step-3-run-drift-detection">Step 3: Run Drift Detection</a></h3>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --state-dir state/
+</code></pre>
+<p>Output:</p>
+<pre><code>DRIFT DETECTED: 1 finding(s)
+
+web-server:
+  site-config (file):
+    expected: blake3:7f83b1657ff1fc53b...
+    actual:   blake3:a9c4e2d18f03bb7e1...
+    path: /etc/nginx/sites-enabled/mysite
+
+Summary: 1 drifted, 2 unchanged.
+</code></pre>
+<p>Forjar re-reads the file on the target machine, computes a fresh BLAKE3 hash, and
+compares it to the hash stored in the lock file. The mismatch is reported with both
+hashes so you can audit exactly what changed.</p>
+<h3 id="step-4-understand-the-report"><a class="header" href="#step-4-understand-the-report">Step 4: Understand the Report</a></h3>
+<p>Each drift finding includes:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><strong>Resource ID</strong></td><td>The resource name from your config (e.g., <code>site-config</code>)</td></tr>
+<tr><td><strong>Type</strong></td><td>Resource type (<code>file</code>, <code>service</code>, <code>package</code>, etc.)</td></tr>
+<tr><td><strong>Expected hash</strong></td><td>BLAKE3 hash recorded during the last successful apply</td></tr>
+<tr><td><strong>Actual hash</strong></td><td>BLAKE3 hash computed from the live machine state</td></tr>
+<tr><td><strong>Details</strong></td><td>Resource-specific context (file path, service name, etc.)</td></tr>
+</tbody></table>
+</div>
+<p>For non-file resources (packages, services, mounts), forjar re-runs the
+<code>state_query_script</code> on the machine and hashes its output. If someone manually stopped
+a service or removed a package, the query output will differ from the stored hash.</p>
+<h3 id="step-5-resolve-the-drift"><a class="header" href="#step-5-resolve-the-drift">Step 5: Resolve the Drift</a></h3>
+<p>You have two options:</p>
+<p><strong>Option A: Re-apply to restore desired state</strong></p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<p>This overwrites the manual change with the declared desired state. The lock file hash
+is updated to match.</p>
+<p><strong>Option B: Accept the change and update config</strong></p>
+<p>If the manual change was intentional, update <code>forjar.yaml</code> to reflect the new desired
+state, then apply:</p>
+<pre><code class="language-bash">$EDITOR forjar.yaml   # update the resource definition
+forjar apply -f forjar.yaml --state-dir state/
+</code></pre>
+<h3 id="step-6-automate-with-tripwire-mode"><a class="header" href="#step-6-automate-with-tripwire-mode">Step 6: Automate with Tripwire Mode</a></h3>
+<p>For CI or cron-based monitoring, use <code>--tripwire</code> to exit non-zero when drift is
+found:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --state-dir state/ --tripwire
+echo $?   # 0 = no drift, 1 = drift detected
+</code></pre>
+<p>This integrates into any CI pipeline or monitoring system that checks exit codes.</p>
+<h2 id="local-development-workflow"><a class="header" href="#local-development-workflow">Local Development Workflow</a></h2>
+<p>A typical development cycle:</p>
+<pre><code class="language-bash"># 1. Initialize project
+forjar init my-infra &amp;&amp; cd my-infra
+
+# 2. Edit config
+$EDITOR forjar.yaml
+
+# 3. Validate (catches errors without SSH)
+forjar validate -f forjar.yaml
+
+# 4. Preview changes
+forjar plan -f forjar.yaml --state-dir state/
+
+# 5. Visualize dependencies
+forjar graph -f forjar.yaml
+
+# 6. Apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# 7. Verify idempotency
+forjar apply -f forjar.yaml --state-dir state/
+
+# 8. Check for drift later
+forjar drift -f forjar.yaml --state-dir state/
+
+# 9. Commit state for audit trail
+git add state/ forjar.yaml &amp;&amp; git commit -m "forjar: initial apply"
+</code></pre>
+<h3 id="lint-and-format"><a class="header" href="#lint-and-format">Lint and Format</a></h3>
+<p>Keep your config clean:</p>
+<pre><code class="language-bash"># Format YAML consistently
+forjar fmt -f forjar.yaml
+
+# Check for style issues and common mistakes
+forjar lint -f forjar.yaml
+</code></pre>
+<h3 id="troubleshooting-a-failed-apply"><a class="header" href="#troubleshooting-a-failed-apply">Troubleshooting a Failed Apply</a></h3>
+<p>When a resource fails:</p>
+<pre><code class="language-bash"># See what failed
+forjar status --state-dir state/
+
+# Check event log for error details
+forjar history --state-dir state/ -n 10
+
+# Fix the config and retry — only the failed resource re-runs
+forjar apply -f forjar.yaml --state-dir state/
+
+# Force re-apply everything if needed
+forjar apply -f forjar.yaml --state-dir state/ --force
+</code></pre>
+<h2 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h2>
+<p>A complete forjar project looks like this:</p>
+<pre><code>my-infra/
+  forjar.yaml               # Main config (desired state)
+  recipes/                   # Reusable resource patterns
+    web-server.yaml
+    monitoring.yaml
+  state/                     # Managed by forjar (commit to git)
+    forjar.lock.yaml         # Global lock summary
+    web-server/
+      state.lock.yaml        # Per-machine resource hashes
+      events.jsonl           # Append-only audit trail
+    db-server/
+      state.lock.yaml
+      events.jsonl
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>File</th><th>Purpose</th><th>Git?</th></tr></thead><tbody>
+<tr><td><code>forjar.yaml</code></td><td>Desired state declaration</td><td>Yes</td></tr>
+<tr><td><code>recipes/*.yaml</code></td><td>Reusable templates</td><td>Yes</td></tr>
+<tr><td><code>state/*.lock.yaml</code></td><td>Lock files (current state)</td><td>Yes</td></tr>
+<tr><td><code>state/*/events.jsonl</code></td><td>Audit log</td><td>Yes</td></tr>
+</tbody></table>
+</div>
+<h2 id="multi-machine-example"><a class="header" href="#multi-machine-example">Multi-Machine Example</a></h2>
+<p>A realistic config managing a web server and database:</p>
+<pre><code class="language-yaml">version: "1.0"
+name: production
+
+params:
+  env: production
+
+machines:
+  web:
+    hostname: web1
+    addr: 10.0.0.1
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+  db:
+    hostname: db1
+    addr: 10.0.0.2
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  # Web server
+  web-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx, certbot]
+
+  web-config:
+    type: file
+    machine: web
+    path: /etc/nginx/sites-enabled/app
+    content: |
+      server {
+        listen 80;
+        server_name app.example.com;
+        root /var/www/app;
+      }
+    owner: root
+    mode: "0644"
+    depends_on: [web-packages]
+
+  web-service:
+    type: service
+    machine: web
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [web-config]
+    depends_on: [web-config]
+
+  # Database server
+  db-packages:
+    type: package
+    machine: db
+    provider: apt
+    packages: [postgresql-16]
+
+  db-service:
+    type: service
+    machine: db
+    name: postgresql
+    state: running
+    enabled: true
+    depends_on: [db-packages]
+
+  # Deploy user on both machines
+  deploy-user:
+    type: user
+    machine: [web, db]
+    name: deploy
+    shell: /bin/bash
+    home: /home/deploy
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... deploy@laptop"
+</code></pre>
+<p>Apply:</p>
+<pre><code class="language-bash"># Preview all changes
+forjar plan -f forjar.yaml --state-dir state/
+
+# Apply to web only
+forjar apply -f forjar.yaml --state-dir state/ -m web
+
+# Apply everything
+forjar apply -f forjar.yaml --state-dir state/
+
+# Check for drift across the fleet
+forjar drift -f forjar.yaml --state-dir state/
+</code></pre>
+<h2 id="understanding-the-apply-lifecycle"><a class="header" href="#understanding-the-apply-lifecycle">Understanding the Apply Lifecycle</a></h2>
+<p>When you run <code>forjar apply</code>, the following steps happen in order:</p>
+<h3 id="1-parse-and-validate"><a class="header" href="#1-parse-and-validate">1. Parse and Validate</a></h3>
+<p>Config files are loaded, YAML is parsed, and structural validation runs. This catches typos, missing fields, and invalid references immediately — before any machine is touched.</p>
+<h3 id="2-template-resolution"><a class="header" href="#2-template-resolution">2. Template Resolution</a></h3>
+<p>All <code>{{params.key}}</code>, <code>{{secrets.key}}</code>, and <code>{{machine.name.field}}</code> templates are resolved to concrete values. Missing params or secrets cause an immediate error.</p>
+<h3 id="3-recipe-expansion"><a class="header" href="#3-recipe-expansion">3. Recipe Expansion</a></h3>
+<p>Recipe resources are replaced with their expanded child resources. Namespacing prevents ID collisions (e.g., <code>web/nginx-conf</code>). Dependencies are rewritten to use namespaced IDs.</p>
+<h3 id="4-dag-construction"><a class="header" href="#4-dag-construction">4. DAG Construction</a></h3>
+<p>A directed acyclic graph is built from <code>depends_on</code> edges. Cycles are detected and reported. Kahn's algorithm computes a topological execution order with alphabetical tie-breaking for determinism.</p>
+<h3 id="5-script-generation"><a class="header" href="#5-script-generation">5. Script Generation</a></h3>
+<p>For each resource, three shell scripts are generated:</p>
+<ul>
+<li><strong>check</strong>: Determines if the resource is already in the desired state</li>
+<li><strong>apply</strong>: Converges the resource to the desired state</li>
+<li><strong>state_query</strong>: Captures live state for drift detection</li>
+</ul>
+<h3 id="6-transport-and-execution"><a class="header" href="#6-transport-and-execution">6. Transport and Execution</a></h3>
+<p>Scripts are piped to <code>bash</code> on the target machine via the appropriate transport (local, SSH, or container exec). Check runs first — if it returns 0 (already converged), apply is skipped.</p>
+<h3 id="7-state-recording"><a class="header" href="#7-state-recording">7. State Recording</a></h3>
+<p>Results are written to the state directory:</p>
+<ul>
+<li>Per-machine lock files with resource hashes and status</li>
+<li>Global lock file summarizing the fleet</li>
+<li>Event log entries for auditing</li>
+</ul>
+<h3 id="8-drift-detection-optional"><a class="header" href="#8-drift-detection-optional">8. Drift Detection (Optional)</a></h3>
+<p>After apply, or on a schedule, <code>forjar drift</code> re-checks each resource:</p>
+<ul>
+<li><strong>Files</strong>: BLAKE3 hash of actual content vs. stored hash</li>
+<li><strong>Other types</strong>: Re-run state_query and compare output hash</li>
+</ul>
+<h2 id="key-concepts"><a class="header" href="#key-concepts">Key Concepts</a></h2>
+<h3 id="idempotency"><a class="header" href="#idempotency">Idempotency</a></h3>
+<p>Every forjar operation is idempotent. Running <code>apply</code> twice with the same config produces the same result. The check script prevents redundant work — if a file already has the right content, it's not rewritten.</p>
+<h3 id="content-hashing"><a class="header" href="#content-hashing">Content Hashing</a></h3>
+<p>Forjar uses BLAKE3 hashing for all integrity checks. The <code>hash</code> field in lock files represents the desired-state hash (computed from config fields). The <code>content_hash</code> field represents the actual file content on disk.</p>
+<h3 id="transport-abstraction"><a class="header" href="#transport-abstraction">Transport Abstraction</a></h3>
+<p>All three transports (local, SSH, container) share the same interface: pipe a shell script to <code>bash</code> stdin, capture stdout/stderr/exit_code. This means any resource type works on any transport without modification.</p>
+<pre><code>Local:     bash -c 'script'
+SSH:       ssh user@host bash
+Container: docker exec -i name bash
+</code></pre>
+<h3 id="state-as-truth"><a class="header" href="#state-as-truth">State as Truth</a></h3>
+<p>The state directory is the single source of truth for what was last applied. Without state, forjar treats every resource as new and applies everything. With state, only changed resources are applied.</p>
+<h2 id="comparison-with-other-tools"><a class="header" href="#comparison-with-other-tools">Comparison with Other Tools</a></h2>
+<h3 id="forjar-vs-ansible"><a class="header" href="#forjar-vs-ansible">Forjar vs Ansible</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Forjar</th><th>Ansible</th></tr></thead><tbody>
+<tr><td>Language</td><td>Rust (single binary)</td><td>Python + deps</td></tr>
+<tr><td>Config format</td><td>YAML</td><td>YAML + Jinja2</td></tr>
+<tr><td>Agent required</td><td>No (bash only)</td><td>No (Python on target)</td></tr>
+<tr><td>State tracking</td><td>BLAKE3 hash files</td><td>No built-in state</td></tr>
+<tr><td>Drift detection</td><td>Yes (file + service)</td><td>No native drift</td></tr>
+<tr><td>Speed</td><td>Fast (parallel BLAKE3)</td><td>Slower (Python overhead)</td></tr>
+</tbody></table>
+</div>
+<h3 id="forjar-vs-terraform"><a class="header" href="#forjar-vs-terraform">Forjar vs Terraform</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Forjar</th><th>Terraform</th></tr></thead><tbody>
+<tr><td>Focus</td><td>Machine configuration</td><td>Cloud infrastructure</td></tr>
+<tr><td>State</td><td>Local file-based</td><td>Remote state backends</td></tr>
+<tr><td>Resources</td><td>Packages, files, services</td><td>Cloud APIs (AWS, GCP)</td></tr>
+<tr><td>Transport</td><td>SSH / container / local</td><td>Provider APIs</td></tr>
+<tr><td>Language</td><td>YAML</td><td>HCL</td></tr>
+</tbody></table>
+</div>
+<h3 id="forjar-vs-chefpuppet"><a class="header" href="#forjar-vs-chefpuppet">Forjar vs Chef/Puppet</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th>Forjar</th><th>Chef/Puppet</th></tr></thead><tbody>
+<tr><td>Architecture</td><td>Agentless</td><td>Agent-based</td></tr>
+<tr><td>State</td><td>BLAKE3 hashes</td><td>Agent catalog</td></tr>
+<tr><td>DSL</td><td>YAML</td><td>Ruby / Puppet DSL</td></tr>
+<tr><td>Binary size</td><td>~5 MB</td><td>100+ MB runtime</td></tr>
+<tr><td>Learning curve</td><td>YAML + bash</td><td>Custom DSL</td></tr>
+</tbody></table>
+</div>
+<h2 id="trace-provenance"><a class="header" href="#trace-provenance">Trace Provenance</a></h2>
+<p>After any apply, forjar records trace spans (W3C-compatible) showing exactly what happened and when. Use <code>forjar trace</code> to audit:</p>
+<pre><code class="language-bash"># View all traces grouped by trace_id
+forjar trace --state-dir state/
+
+# Filter to a specific machine
+forjar trace --state-dir state/ -m web-server
+
+# JSON output for SIEM integration or scripting
+forjar trace --state-dir state/ --json
+</code></pre>
+<p>Example output:</p>
+<pre><code>Trace b3a7f9e1 (3 spans):
+  clock=1 → check:nginx-pkg          127µs
+  clock=2 → apply:nginx-pkg          1.2s
+  clock=3 → check:site-config        89µs
+</code></pre>
+<p>Each span records the resource, operation (check/apply), duration, and a Lamport logical clock for causal ordering. Traces are stored in <code>state/{machine}/trace.jsonl</code> and survive across sessions.</p>
+<h2 id="migrate-docker-to-pepita"><a class="header" href="#migrate-docker-to-pepita">Migrate Docker to Pepita</a></h2>
+<p>If you have Docker container resources and want to migrate to native kernel isolation (pepita), use <code>forjar migrate</code>:</p>
+<pre><code class="language-bash"># Preview migration (dry run — nothing changes)
+forjar migrate -f forjar.yaml
+
+# Pipe to a new file for review
+forjar migrate -f forjar.yaml &gt; forjar-migrated.yaml
+</code></pre>
+<p>The migrate command converts Docker resources to pepita resources:</p>
+<ul>
+<li><code>docker</code> → <code>pepita</code> type</li>
+<li><code>image</code> → overlay filesystem config</li>
+<li><code>ports</code> → network namespace rules</li>
+<li><code>volumes</code> → bind mount overlays</li>
+<li><code>environment</code> → preserved as-is</li>
+</ul>
+<p>Non-Docker resources pass through unchanged. Review the output before replacing your config.</p>
+<h2 id="performance-benchmarking"><a class="header" href="#performance-benchmarking">Performance Benchmarking</a></h2>
+<p>Use <code>forjar bench</code> to verify that your setup meets the spec §9 performance targets:</p>
+<pre><code class="language-bash"># Quick benchmark (default 1000 iterations)
+forjar bench
+
+# High-precision run
+forjar bench --iterations 10000
+
+# JSON output for CI tracking
+forjar bench --json
+</code></pre>
+<p>Example output:</p>
+<pre><code>Forjar Performance Benchmarks (1000 iterations)
+
+  Operation                         Average       Target
+  --------------------------------------------------------
+  validate (3m, 20r)                 62.1µs       &lt; 10ms
+  plan (3m, 20r)                     84.0µs         &lt; 2s
+  drift (100 resources)             356.0µs         &lt; 1s
+  blake3 hash (4KB)                   1.2µs        &lt; 1µs
+</code></pre>
+<p>For deeper analysis with statistical confidence intervals, use Criterion benchmarks:</p>
+<pre><code class="language-bash">cargo bench
+</code></pre>
+<h2 id="faq"><a class="header" href="#faq">FAQ</a></h2>
+<p><strong>Q: Can forjar manage cloud resources (EC2, S3)?</strong>
+A: No. Forjar manages machine configuration, not cloud infrastructure. Use Terraform for cloud resources and forjar for what runs on those machines.</p>
+<p><strong>Q: Does forjar support Windows?</strong>
+A: Not currently. Forjar generates bash scripts and targets Unix-like systems. Windows support (PowerShell generation) may be considered in a future version.</p>
+<p><strong>Q: Can I use forjar with Docker containers?</strong>
+A: Yes! Container transport (<code>transport: container</code>) lets you apply resources inside Docker or Podman containers. This is ideal for testing and CI.</p>
+<p><strong>Q: How does forjar handle secrets?</strong>
+A: Secrets are never stored in config files. Use <code>{{secrets.key}}</code> templates that resolve from environment variables at apply time (<code>FORJAR_SECRET_KEY</code>).</p>
+<p><strong>Q: What happens if an apply fails halfway?</strong>
+A: State is recorded per-resource. Successfully applied resources are marked as converged, failed ones as failed. Re-running apply only retries failed resources.</p>
+<h2 id="testing-resources"><a class="header" href="#testing-resources">Testing Resources</a></h2>
+<p>Use <code>forjar test</code> to run check scripts and see a summary table:</p>
+<pre><code class="language-bash">forjar test -f forjar.yaml
+</code></pre>
+<p>Output:</p>
+<pre><code>RESOURCE               TYPE  MACHINE  STATUS  DURATION
+--------------------------------------------------------------------------
+nginx-pkg              package  web     pass      0.003s
+nginx-conf             file     web     pass      0.002s
+nginx-svc              service  web     FAIL      0.001s
+  exit 1
+--------------------------------------------------------------------------
+2 pass, 1 fail, 0 skip (0.006s)
+</code></pre>
+<p>JSON output for CI: <code>forjar test -f forjar.yaml --json</code></p>
+<h2 id="apply-timing"><a class="header" href="#apply-timing">Apply Timing</a></h2>
+<p>See where time is spent during apply with <code>--timing</code>:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --timing
+</code></pre>
+<p>Output includes a timing breakdown:</p>
+<pre><code>Timing Breakdown
+----------------------------------------
+  Parse + resolve           0.001s
+  Apply                     2.345s
+----------------------------------------
+  Total                     2.346s
+</code></pre>
+<h2 id="unified-diff-in-plan"><a class="header" href="#unified-diff-in-plan">Unified Diff in Plan</a></h2>
+<p>When resources are being updated, <code>forjar plan</code> shows a unified diff:</p>
+<pre><code>local:
+  ~ config: update (state changed)
+    ---
+    - host: staging.example.com
+    + host: production.example.com
+    - port: 8080
+    + port: 443
+    ---
+</code></pre>
+<h2 id="ascii-dependency-graph"><a class="header" href="#ascii-dependency-graph">ASCII Dependency Graph</a></h2>
+<p>Use <code>forjar graph --format ascii</code> for a terminal-friendly view:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --format ascii
+</code></pre>
+<p>Output:</p>
+<pre><code>Dependency Graph
+
+  * data-dir (file, gpu-box)
+  * app-config (file, gpu-box) &lt;- [data-dir]
+  * app-service (service, gpu-box) &lt;- [app-config]
+
+3 resources in execution order.
+</code></pre>
+<p>Also available: <code>--format mermaid</code> (default) and <code>--format dot</code> (Graphviz).</p>
+<h2 id="resource-groups"><a class="header" href="#resource-groups">Resource Groups</a></h2>
+<p>Organize resources into groups for selective operations:</p>
+<pre><code class="language-yaml">resources:
+  web-config:
+    type: file
+    machine: local
+    path: /etc/app/web.conf
+    content: "listen 8080"
+    resource_group: web
+  db-config:
+    type: file
+    machine: local
+    path: /etc/app/db.conf
+    content: "port 5432"
+    resource_group: database
+</code></pre>
+<p>Apply only a specific group:</p>
+<pre><code class="language-bash">forjar apply --group web --yes         # Only web resources
+forjar test --group database           # Only database resources
+</code></pre>
+<h2 id="strict-validation"><a class="header" href="#strict-validation">Strict Validation</a></h2>
+<p>Extended validation catches issues before apply:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --strict
+</code></pre>
+<p>Strict mode checks: file paths are absolute, template variables resolve, no circular dependencies, and depends_on targets exist.</p>
+<h2 id="apply-retry"><a class="header" href="#apply-retry">Apply Retry</a></h2>
+<p>Retry failed resources with exponential backoff (useful for transient failures):</p>
+<pre><code class="language-bash">forjar apply --yes --retry 3     # Up to 3 retries (1s, 2s, 4s backoff)
+</code></pre>
+<h2 id="history-filtering"><a class="header" href="#history-filtering">History Filtering</a></h2>
+<p>Filter history to recent events:</p>
+<pre><code class="language-bash">forjar history --since 24h       # Last 24 hours
+forjar history --since 7d        # Last 7 days
+</code></pre>
+<h2 id="targeted-planning"><a class="header" href="#targeted-planning">Targeted Planning</a></h2>
+<p>Plan a single resource and its transitive dependencies:</p>
+<pre><code class="language-bash">forjar plan --target app-config  # Plans app-config + its deps only
+</code></pre>
+<h2 id="apply-confirmation"><a class="header" href="#apply-confirmation">Apply Confirmation</a></h2>
+<p>By default, apply prompts before making changes:</p>
+<pre><code>Apply 5 change(s) (3 create, 2 update, 0 destroy)? [y/N]
+</code></pre>
+<p>Use <code>--yes</code> to skip the prompt (CI/automation mode).</p>
+<h2 id="doctor-auto-fix"><a class="header" href="#doctor-auto-fix">Doctor Auto-Fix</a></h2>
+<p>Auto-fix common issues:</p>
+<pre><code class="language-bash">forjar doctor --fix              # Creates state dir, removes stale locks
+</code></pre>
+<h2 id="parallel-apply"><a class="header" href="#parallel-apply">Parallel Apply</a></h2>
+<p>Override the config-level <code>parallel_resources</code> policy for a single run:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --parallel    # Force parallel wave execution
+</code></pre>
+<h2 id="diff-single-resource"><a class="header" href="#diff-single-resource">Diff Single Resource</a></h2>
+<p>Focus diff output on a specific resource:</p>
+<pre><code class="language-bash">forjar diff --from state-v1 --to state-v2 --resource web-config
+</code></pre>
+<h2 id="enriched-status-json"><a class="header" href="#enriched-status-json">Enriched Status JSON</a></h2>
+<p>Pass <code>-f</code> to include resource_group, tags, and depends_on in status output:</p>
+<pre><code class="language-bash">forjar status --state-dir state --json -f forjar.yaml
+</code></pre>
+<h2 id="dry-run-json-plan"><a class="header" href="#dry-run-json-plan">Dry-Run JSON Plan</a></h2>
+<p>Get a machine-readable plan for CI integration:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --dry-run --json | jq '.changes[] | .action'
+</code></pre>
+<h2 id="graph-filtering"><a class="header" href="#graph-filtering">Graph Filtering</a></h2>
+<p>Filter graph output to specific machines or resource groups:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --machine web         # Only web machine resources
+forjar graph -f forjar.yaml --group frontend       # Only frontend group
+</code></pre>
+<h2 id="validate-json-output"><a class="header" href="#validate-json-output">Validate JSON Output</a></h2>
+<p>Machine-readable validation results for CI/editor integration:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --json --strict
+</code></pre>
+<h2 id="structured-history"><a class="header" href="#structured-history">Structured History</a></h2>
+<p>JSON history with summary counts and time filtering:</p>
+<pre><code class="language-bash">forjar history --state-dir state --json --since 24h
+</code></pre>
+<h2 id="script-metadata-headers"><a class="header" href="#script-metadata-headers">Script Metadata Headers</a></h2>
+<p>Exported scripts include resource metadata in comment headers:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --output-dir scripts/
+head -6 scripts/web-cfg.apply.sh
+# forjar: web-cfg (my-project)
+# machine: web-server
+# type: file
+# group: frontend
+# tags: web, critical
+# depends_on: base-packages
+</code></pre>
+<h2 id="enhanced-apply-json-ci-pipelines"><a class="header" href="#enhanced-apply-json-ci-pipelines">Enhanced Apply JSON (CI Pipelines)</a></h2>
+<p>The <code>apply --json</code> output includes project name and total duration for CI:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --json --yes 2&gt;/dev/null
+# { "name": "home-lab", "total_duration_seconds": 1.23, "applied": 5, ... }
+</code></pre>
+<h2 id="enriched-plan-json"><a class="header" href="#enriched-plan-json">Enriched Plan JSON</a></h2>
+<p>Plan JSON now includes resource metadata — group, tags, and dependencies:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --json
+# Each change includes: resource_group, tags, depends_on
+</code></pre>
+<h2 id="drift-json-with-machine-count"><a class="header" href="#drift-json-with-machine-count">Drift JSON with Machine Count</a></h2>
+<p>Drift JSON output includes <code>machines_checked</code> for CI dashboards:</p>
+<pre><code class="language-bash">forjar drift -f forjar.yaml --state-dir state --json
+# { "machines_checked": 3, "drifted": 1, "clean": 2, ... }
+</code></pre>
+<h2 id="status-summary-dashboard"><a class="header" href="#status-summary-dashboard">Status Summary Dashboard</a></h2>
+<p>One-line status for monitoring dashboards:</p>
+<pre><code class="language-bash">forjar status --state-dir state --summary
+# home-lab: 12 converged, 0 failed, 1 drifted
+</code></pre>
+<h2 id="per-resource-timeout"><a class="header" href="#per-resource-timeout">Per-Resource Timeout</a></h2>
+<p>Override global timeout for specific long-running applies:</p>
+<pre><code class="language-bash"># Global timeout is 30s, but allow 120s per resource
+forjar apply -f forjar.yaml --timeout 30 --resource-timeout 120
+</code></pre>
+<h2 id="check-json-for-ci-gates"><a class="header" href="#check-json-for-ci-gates">Check JSON for CI Gates</a></h2>
+<p>Machine-readable check results with pass/fail summary:</p>
+<pre><code class="language-bash">forjar check -f forjar.yaml --json
+# { "name": "home-lab", "all_passed": true, "total": 5, "pass": 5, "fail": 0, ... }
+</code></pre>
+<h2 id="environment-json-debug"><a class="header" href="#environment-json-debug">Environment JSON Debug</a></h2>
+<p>Full resolved environment for debugging CI issues:</p>
+<pre><code class="language-bash">forjar env --json
+# { "config_name": "home-lab", "resolved_params": { "data_dir": "/mnt/data" },
+#   "machine_names": ["gpu-box"], "resource_names": ["base-packages", ...] }
+</code></pre>
+<h2 id="explain-json-for-tooling"><a class="header" href="#explain-json-for-tooling">Explain JSON for Tooling</a></h2>
+<p>Machine-readable resource detail for tooling integration:</p>
+<pre><code class="language-bash">forjar explain cfg --json
+# { "resource": "cfg", "type": "file", "machine": "local",
+#   "transport": "local", "apply_script": "...", "check_script": "..." }
+</code></pre>
+<h2 id="rollback-on-failure"><a class="header" href="#rollback-on-failure">Rollback on Failure</a></h2>
+<p>Auto-restore previous state when any resource fails during apply:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --rollback-on-failure
+# On failure: restores last-known-good lock files automatically
+</code></pre>
+<h2 id="strict-validation-enhancements"><a class="header" href="#strict-validation-enhancements">Strict Validation Enhancements</a></h2>
+<p>Lint-grade validation catches unused params, missing descriptions, and duplicate tags:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --strict
+# WARN: unused param 'old_port' (not referenced by any resource)
+# WARN: missing project description
+</code></pre>
+<h2 id="plan-cost-estimation"><a class="header" href="#plan-cost-estimation">Plan Cost Estimation</a></h2>
+<p>Show estimated change cost before applying — weighted by resource type, with destructive action warnings:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --cost
+# Estimated cost: 12 units (3 packages × 3, 2 files × 1, 1 service × 3)
+# WARNING: High destructive cost (15 units) — review carefully
+</code></pre>
+<h2 id="max-parallel-execution"><a class="header" href="#max-parallel-execution">Max Parallel Execution</a></h2>
+<p>Cap concurrent resource execution per wave to prevent resource exhaustion:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --max-parallel 4
+# Executes at most 4 resources concurrently per wave
+</code></pre>
+<h2 id="live-status-watch"><a class="header" href="#live-status-watch">Live Status Watch</a></h2>
+<p>Live-updating status dashboard that refreshes on interval:</p>
+<pre><code class="language-bash">forjar status --state-dir state --watch 5
+# Refreshes every 5 seconds (Ctrl+C to stop)
+</code></pre>
+<h2 id="webhook-notifications"><a class="header" href="#webhook-notifications">Webhook Notifications</a></h2>
+<p>POST JSON results to a webhook URL after apply completes:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify https://hooks.example.com/forjar
+# POSTs: { "name": "home-lab", "total_converged": 5, "total_failed": 0, "duration_ms": 1234 }
+</code></pre>
+<h2 id="fleet-inventory"><a class="header" href="#fleet-inventory">Fleet Inventory</a></h2>
+<p>List all machines with connection status — SSH reachability probe for remote machines:</p>
+<pre><code class="language-bash">forjar inventory -f forjar.yaml
+#   ● gpu-box (lambda) [192.168.50.100] — reachable via ssh (5 resources)
+#   ● local (localhost) [127.0.0.1] — reachable via local (3 resources)
+#   ✗ db-box (postgres) [10.0.0.50] — unreachable via ssh (2 resources)
+
+forjar inventory -f forjar.yaml --json
+# [{ "name": "gpu-box", "status": "reachable", "transport": "ssh", "resources": 5 }, ...]
+</code></pre>
+<h2 id="rolling-deployment"><a class="header" href="#rolling-deployment">Rolling Deployment</a></h2>
+<p>Apply to N machines at a time — stop on first failure for safe fleet-wide updates:</p>
+<pre><code class="language-bash">forjar rolling -f forjar.yaml --batch-size 2
+# Rolling deploy: 6 machines in 3 batch(es) of 2
+# --- Batch 1/3: web-1, web-2 ---
+# --- Batch 2/3: web-3, web-4 ---
+# --- Batch 3/3: web-5, web-6 ---
+</code></pre>
+<h2 id="canary-deployment"><a class="header" href="#canary-deployment">Canary Deployment</a></h2>
+<p>Apply to one machine first, then roll out to the rest:</p>
+<pre><code class="language-bash">forjar canary -f forjar.yaml --machine web-1
+# === Canary Phase: applying to 'web-1' ===
+# ✓ Canary 'web-1' succeeded.
+# === Fleet Phase: applying to 5 remaining machine(s) ===
+
+# Auto-proceed for CI (skip confirmation):
+forjar canary -f forjar.yaml --machine web-1 --auto-proceed
+</code></pre>
+<h2 id="retry-failed-resources"><a class="header" href="#retry-failed-resources">Retry Failed Resources</a></h2>
+<p>Re-run only resources that failed in the last apply — no re-running converged resources:</p>
+<pre><code class="language-bash">forjar retry-failed -f forjar.yaml
+# Retrying 2 failed resource(s):
+#   gpu-box → cuda-driver
+#   gpu-box → model-download
+# ✓ Retried 2 resource(s) successfully.
+</code></pre>
+<h2 id="dry-expand-validation"><a class="header" href="#dry-expand-validation">Dry Expand Validation</a></h2>
+<p>Show the fully expanded config after template resolution — debug template issues without applying:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --dry-expand
+# Outputs complete YAML with all {{params.key}} resolved
+</code></pre>
+<h2 id="subset-apply"><a class="header" href="#subset-apply">Subset Apply</a></h2>
+<p>Apply only resources matching a glob pattern — fine-grained targeting:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --subset "web-*"
+# Only applies resources whose ID matches web-* (e.g., web-config, web-service)
+</code></pre>
+<h2 id="plan-what-if"><a class="header" href="#plan-what-if">Plan What-If</a></h2>
+<p>Show plan with hypothetical param override — preview changes without modifying config:</p>
+<pre><code class="language-bash">forjar plan -f forjar.yaml --what-if port=9090
+# [what-if] Hypothetical params: port=9090
+# Shows plan as if params.port were 9090
+</code></pre>
+<h2 id="confirm-destructive"><a class="header" href="#confirm-destructive">Confirm Destructive</a></h2>
+<p>Require explicit confirmation for destroy actions — safety gate for production:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --confirm-destructive
+# WARNING: 2 resource(s) will be DESTROYED. Use --yes to confirm.
+# Blocks without --yes flag
+</code></pre>
+<h2 id="stale-resource-detection"><a class="header" href="#stale-resource-detection">Stale Resource Detection</a></h2>
+<p>Find resources not updated in N days — identify abandoned infrastructure:</p>
+<pre><code class="language-bash">forjar status --state-dir state --stale 30
+#   ⚠ gpu-box → old-model (not updated in 30+ days)
+# 1 stale resource(s) found
+</code></pre>
+<h2 id="lint-auto-fix"><a class="header" href="#lint-auto-fix">Lint Auto-Fix</a></h2>
+<p>Auto-fix common lint issues — sort resource keys for consistency:</p>
+<pre><code class="language-bash">forjar lint -f forjar.yaml --fix
+# Wrote normalized config to forjar.yaml
+</code></pre>
+<h2 id="audit-trail"><a class="header" href="#audit-trail">Audit Trail</a></h2>
+<p>View the full audit trail from event logs — who applied what, when:</p>
+<pre><code class="language-bash">forjar audit --state-dir state
+forjar audit --state-dir state --machine gpu-box -n 50
+forjar audit --state-dir state --json
+</code></pre>
+<h2 id="pre-apply-backup"><a class="header" href="#pre-apply-backup">Pre-Apply Backup</a></h2>
+<p>Automatically snapshot state before apply for easy rollback:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --backup
+# Creates snapshot "pre-apply-20260226-143022" before applying
+</code></pre>
+<h2 id="network-diagnostics"><a class="header" href="#network-diagnostics">Network Diagnostics</a></h2>
+<p>Test SSH connectivity to all machines with latency reporting:</p>
+<pre><code class="language-bash">forjar doctor --network -f forjar.yaml
+forjar doctor --network -f forjar.yaml --json
+</code></pre>
+<h2 id="compact-plan-output"><a class="header" href="#compact-plan-output">Compact Plan Output</a></h2>
+<p>One-line-per-resource plan output for large configs:</p>
+<pre><code class="language-bash">forjar plan-compact -f forjar.yaml
+# + base-packages    (create)
+# ~ app-config       (update)
+# - old-service      (destroy)
+</code></pre>
+<h2 id="exclude-resources"><a class="header" href="#exclude-resources">Exclude Resources</a></h2>
+<p>Exclude resources matching a glob pattern from apply (inverse of --subset):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --exclude "test-*"
+forjar apply -f forjar.yaml --exclude "*-staging"
+</code></pre>
+<h2 id="health-score"><a class="header" href="#health-score">Health Score</a></h2>
+<p>Aggregate convergence health score (0-100) from lock file state:</p>
+<pre><code class="language-bash">forjar status --health --state-dir state
+forjar status --health --state-dir state --json
+</code></pre>
+<h2 id="sequential-execution"><a class="header" href="#sequential-execution">Sequential Execution</a></h2>
+<p>Force sequential resource execution for debugging ordering issues:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --sequential
+</code></pre>
+<h2 id="diff-only-preview"><a class="header" href="#diff-only-preview">Diff-Only Preview</a></h2>
+<p>Show what would change without generating scripts (faster than --dry-run):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --diff-only
+</code></pre>
+<h2 id="compliance-checks"><a class="header" href="#compliance-checks">Compliance Checks</a></h2>
+<p>Validate infrastructure against policy rules — file modes, owners, service configs:</p>
+<pre><code class="language-bash">forjar compliance -f forjar.yaml
+forjar compliance -f forjar.yaml --json
+</code></pre>
+<h2 id="state-export"><a class="header" href="#state-export">State Export</a></h2>
+<p>Export state to external formats for interoperability:</p>
+<pre><code class="language-bash">forjar export --state-dir state --format csv
+forjar export --state-dir state --format terraform
+forjar export --state-dir state --format ansible
+forjar export --state-dir state --format csv -o state.csv
+</code></pre>
+<h2 id="slack-notifications"><a class="header" href="#slack-notifications">Slack Notifications</a></h2>
+<p>Post apply results to Slack via webhook:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-slack https://hooks.slack.com/services/...
+</code></pre>
+<h2 id="impact-analysis"><a class="header" href="#impact-analysis">Impact Analysis</a></h2>
+<p>Show transitive dependents of a resource (what breaks if this changes):</p>
+<pre><code class="language-bash">forjar graph --affected base-packages -f forjar.yaml
+</code></pre>
+<h2 id="drift-details"><a class="header" href="#drift-details">Drift Details</a></h2>
+<p>Show detailed drift report with per-resource status:</p>
+<pre><code class="language-bash">forjar status --drift-details --state-dir state
+forjar status --drift-details --state-dir state --json
+</code></pre>
+<h2 id="cost-limit"><a class="header" href="#cost-limit">Cost Limit</a></h2>
+<p>Abort apply if too many resources would change (safety guardrail):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --cost-limit 10
+# Error: Cost limit exceeded: 15 changes planned, limit is 10
+</code></pre>
+<h2 id="resource-history"><a class="header" href="#resource-history">Resource History</a></h2>
+<p>Show change history for a specific resource across all applies:</p>
+<pre><code class="language-bash">forjar history --resource base-packages --state-dir state
+forjar history --resource app-config --state-dir state --json
+</code></pre>
+<h2 id="script-preview"><a class="header" href="#script-preview">Script Preview</a></h2>
+<p>Show generated scripts before execution (audit what will run):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --preview
+</code></pre>
+<h2 id="config-suggestions"><a class="header" href="#config-suggestions">Config Suggestions</a></h2>
+<p>Analyze config and suggest improvements:</p>
+<pre><code class="language-bash">forjar suggest -f forjar.yaml
+forjar suggest -f forjar.yaml --json
+</code></pre>
+<h2 id="config-comparison"><a class="header" href="#config-comparison">Config Comparison</a></h2>
+<p>Compare two config files and show differences:</p>
+<pre><code class="language-bash">forjar compare config-v1.yaml config-v2.yaml
+forjar compare prod.yaml staging.yaml --json
+</code></pre>
+<h2 id="convergence-timeline"><a class="header" href="#convergence-timeline">Convergence Timeline</a></h2>
+<p>Show resource convergence timeline with timestamps:</p>
+<pre><code class="language-bash">forjar status --timeline --state-dir state
+forjar status --timeline --state-dir state --json
+</code></pre>
+<h2 id="output-scripts"><a class="header" href="#output-scripts">Output Scripts</a></h2>
+<p>Write generated scripts to directory for manual review:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --output-scripts /tmp/review
+ls /tmp/review/  # base-packages.sh, app-config.sh, ...
+</code></pre>
+<h2 id="lock-pruning"><a class="header" href="#lock-pruning">Lock Pruning</a></h2>
+<p>Remove lock entries for resources no longer in config:</p>
+<pre><code class="language-bash">forjar lock-prune -f forjar.yaml --state-dir state         # dry-run
+forjar lock-prune -f forjar.yaml --state-dir state --yes   # actually prune
+</code></pre>
+<h2 id="environment-comparison"><a class="header" href="#environment-comparison">Environment Comparison</a></h2>
+<p>Compare environments (workspaces) for cross-environment drift:</p>
+<pre><code class="language-bash">forjar env-diff staging production --state-dir state
+forjar env-diff dev staging --state-dir state --json
+</code></pre>
+<h2 id="resume-failed-apply"><a class="header" href="#resume-failed-apply">Resume Failed Apply</a></h2>
+<p>Resume from last failed resource instead of re-running everything:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --resume
+</code></pre>
+<h2 id="template-preview"><a class="header" href="#template-preview">Template Preview</a></h2>
+<p>Expand a recipe template to stdout without applying:</p>
+<pre><code class="language-bash">forjar template recipes/dev-tools.yaml --var user=noah --var shell=zsh
+forjar template recipes/dev-tools.yaml --var user=noah --json
+</code></pre>
+<h2 id="changes-since-commit"><a class="header" href="#changes-since-commit">Changes Since Commit</a></h2>
+<p>Show resources changed since a git commit:</p>
+<pre><code class="language-bash">forjar status --changes-since abc123 --state-dir state
+</code></pre>
+<h2 id="critical-path-analysis"><a class="header" href="#critical-path-analysis">Critical Path Analysis</a></h2>
+<p>Highlight the longest dependency chain (bottleneck identification):</p>
+<pre><code class="language-bash">forjar graph --critical-path -f forjar.yaml
+</code></pre>
+<h2 id="status-grouping"><a class="header" href="#status-grouping">Status Grouping</a></h2>
+<p>Group status output by dimension:</p>
+<pre><code class="language-bash">forjar status --summary-by machine --state-dir state
+forjar status --summary-by type --state-dir state
+forjar status --summary-by status --state-dir state --json
+</code></pre>
+<h2 id="max-failures-override"><a class="header" href="#max-failures-override">Max Failures Override</a></h2>
+<p>Allow N failures before stopping (override jidoka for partial deploys):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --max-failures 3
+</code></pre>
+<h2 id="prometheus-metrics"><a class="header" href="#prometheus-metrics">Prometheus Metrics</a></h2>
+<p>Expose resource metrics in Prometheus exposition format:</p>
+<pre><code class="language-bash">forjar status --prometheus --state-dir state
+# forjar_resources_total 42
+# forjar_resources_converged 40
+# forjar_resources_failed 1
+# forjar_resources_drifted 1
+</code></pre>
+<h2 id="lock-file-info"><a class="header" href="#lock-file-info">Lock File Info</a></h2>
+<p>Show lock file metadata:</p>
+<pre><code class="language-bash">forjar lock-info --state-dir state
+forjar lock-info --state-dir state --json
+</code></pre>
+<h2 id="reverse-dependency-graph"><a class="header" href="#reverse-dependency-graph">Reverse Dependency Graph</a></h2>
+<p>Show what depends on each resource:</p>
+<pre><code class="language-bash">forjar graph --reverse -f forjar.yaml
+</code></pre>
+<h2 id="expired-resources"><a class="header" href="#expired-resources">Expired Resources</a></h2>
+<p>Show resources whose lock entry is older than a duration:</p>
+<pre><code class="language-bash">forjar status --expired 7d --state-dir state
+forjar status --expired 24h --state-dir state --json
+</code></pre>
+<h2 id="exhaustive-validation"><a class="header" href="#exhaustive-validation">Exhaustive Validation</a></h2>
+<p>Deep validation of all cross-references, machine existence, and param usage:</p>
+<pre><code class="language-bash">forjar validate --exhaustive -f forjar.yaml
+forjar validate --exhaustive --json -f forjar.yaml
+</code></pre>
+<h2 id="resource-count"><a class="header" href="#resource-count">Resource Count</a></h2>
+<p>Quick dashboard metric — resource count by status:</p>
+<pre><code class="language-bash">forjar status --count --state-dir state
+forjar status --count --json --state-dir state
+</code></pre>
+<h2 id="email-notifications"><a class="header" href="#email-notifications">Email Notifications</a></h2>
+<p>Send apply results via email (requires sendmail):</p>
+<pre><code class="language-bash">forjar apply --notify-email admin@example.com -f forjar.yaml
+</code></pre>
+<h2 id="graph-depth-limit"><a class="header" href="#graph-depth-limit">Graph Depth Limit</a></h2>
+<p>Limit graph traversal depth for focused visualization:</p>
+<pre><code class="language-bash">forjar graph --depth 2 -f forjar.yaml
+forjar graph --depth 1 --format dot -f forjar.yaml
+</code></pre>
+<h2 id="lock-compact"><a class="header" href="#lock-compact">Lock Compact</a></h2>
+<p>Compact event logs by removing historical entries:</p>
+<pre><code class="language-bash">forjar lock-compact --state-dir state          # dry-run
+forjar lock-compact --state-dir state --yes    # actually compact
+forjar lock-compact --state-dir state --json   # JSON output
+</code></pre>
+<h2 id="skip-resources"><a class="header" href="#skip-resources">Skip Resources</a></h2>
+<p>Skip a specific resource during apply:</p>
+<pre><code class="language-bash">forjar apply --skip legacy-config -f forjar.yaml
+</code></pre>
+<h2 id="status-output-format"><a class="header" href="#status-output-format">Status Output Format</a></h2>
+<p>Choose between table, JSON, or CSV output for status:</p>
+<pre><code class="language-bash">forjar status --format table --state-dir state
+forjar status --format json --state-dir state
+forjar status --format csv --state-dir state
+</code></pre>
+<h2 id="policy-file-validation"><a class="header" href="#policy-file-validation">Policy File Validation</a></h2>
+<p>Validate config against external policy rules (OPA-style YAML):</p>
+<pre><code class="language-bash">forjar validate --policy-file policy.yaml -f forjar.yaml
+forjar validate --policy-file policy.yaml --json -f forjar.yaml
+</code></pre>
+<h2 id="status-anomalies"><a class="header" href="#status-anomalies">Status Anomalies</a></h2>
+<p>Detect anomalous resource states (failed, drifted, missing timestamps):</p>
+<pre><code class="language-bash">forjar status --anomalies --state-dir state
+forjar status --anomalies --json --state-dir state
+</code></pre>
+<h2 id="snapshot-before-apply"><a class="header" href="#snapshot-before-apply">Snapshot Before Apply</a></h2>
+<p>Create a named snapshot before apply:</p>
+<pre><code class="language-bash">forjar apply --snapshot-before v1-backup -f forjar.yaml
+</code></pre>
+<h2 id="clustered-graph"><a class="header" href="#clustered-graph">Clustered Graph</a></h2>
+<p>Group resources by machine in graph output:</p>
+<pre><code class="language-bash">forjar graph --cluster -f forjar.yaml
+forjar graph --cluster --format dot -f forjar.yaml
+</code></pre>
+<h2 id="lock-verify"><a class="header" href="#lock-verify">Lock Verify</a></h2>
+<p>Verify lock file integrity (BLAKE3 checksums):</p>
+<pre><code class="language-bash">forjar lock-verify --state-dir state
+forjar lock-verify --state-dir state --json
+</code></pre>
+<h2 id="concurrency-limit"><a class="header" href="#concurrency-limit">Concurrency Limit</a></h2>
+<p>Set a global concurrency limit across all machines:</p>
+<pre><code class="language-bash">forjar apply --concurrency 4 -f forjar.yaml
+</code></pre>
+<h2 id="diff-from-snapshot"><a class="header" href="#diff-from-snapshot">Diff From Snapshot</a></h2>
+<p>Compare current state against a named snapshot:</p>
+<pre><code class="language-bash">forjar status --diff-from v1-backup --state-dir state
+forjar status --diff-from v1-backup --json --state-dir state
+</code></pre>
+<h2 id="webhook-before-apply"><a class="header" href="#webhook-before-apply">Webhook Before Apply</a></h2>
+<p>POST to a webhook URL before apply starts:</p>
+<pre><code class="language-bash">forjar apply --webhook-before https://hooks.example.com/notify -f forjar.yaml
+</code></pre>
+<h2 id="check-connectivity"><a class="header" href="#check-connectivity">Check Connectivity</a></h2>
+<p>Test SSH connectivity to all machines during validation:</p>
+<pre><code class="language-bash">forjar validate --check-connectivity -f forjar.yaml
+forjar validate --check-connectivity --json -f forjar.yaml
+</code></pre>
+<h2 id="resources-by-type"><a class="header" href="#resources-by-type">Resources by Type</a></h2>
+<p>Group status output by resource type:</p>
+<pre><code class="language-bash">forjar status --resources-by-type --state-dir state
+forjar status --resources-by-type --json --state-dir state
+</code></pre>
+<h2 id="rollback-snapshot"><a class="header" href="#rollback-snapshot">Rollback Snapshot</a></h2>
+<p>Auto-rollback to a named snapshot on apply failure:</p>
+<pre><code class="language-bash">forjar apply --rollback-snapshot v1-safe -f forjar.yaml
+</code></pre>
+<h2 id="graph-orphans"><a class="header" href="#graph-orphans">Graph Orphans</a></h2>
+<p>Show resources with no dependencies and no dependents:</p>
+<pre><code class="language-bash">forjar graph --orphans -f forjar.yaml
+</code></pre>
+<h2 id="lock-export"><a class="header" href="#lock-export">Lock Export</a></h2>
+<p>Export lock file data in alternative formats:</p>
+<pre><code class="language-bash">forjar lock-export --state-dir state --format json
+forjar lock-export --state-dir state --format csv
+forjar lock-export --state-dir state --format yaml
+</code></pre>
+<h2 id="machines-only"><a class="header" href="#machines-only">Machines Only</a></h2>
+<p>Show only machine-level summary without resource details:</p>
+<pre><code class="language-bash">forjar status --machines-only --state-dir state
+forjar status --machines-only --json --state-dir state
+</code></pre>
+<h2 id="check-templates"><a class="header" href="#check-templates">Check Templates</a></h2>
+<p>Validate all template expressions resolve correctly:</p>
+<pre><code class="language-bash">forjar validate --check-templates -f forjar.yaml
+forjar validate --check-templates --json -f forjar.yaml
+</code></pre>
+<h2 id="stale-resources"><a class="header" href="#stale-resources">Stale Resources</a></h2>
+<p>Show resources whose lock entries haven't been updated recently:</p>
+<pre><code class="language-bash">forjar status --stale-resources --state-dir state
+forjar status --stale-resources --json --state-dir state
+</code></pre>
+<h2 id="multi-tag-filter"><a class="header" href="#multi-tag-filter">Multi-Tag Filter</a></h2>
+<p>Filter apply to resources matching specific tags:</p>
+<pre><code class="language-bash">forjar apply --tags networking --tags security -f forjar.yaml
+forjar apply --tags database -f forjar.yaml --state-dir state
+</code></pre>
+<h2 id="graph-stats"><a class="header" href="#graph-stats">Graph Stats</a></h2>
+<p>Show DAG statistics — node count, edge count, depth, and width:</p>
+<pre><code class="language-bash">forjar graph --stats -f forjar.yaml
+forjar graph --stats --json -f forjar.yaml
+</code></pre>
+<h2 id="lock-gc"><a class="header" href="#lock-gc">Lock GC</a></h2>
+<p>Garbage-collect orphaned lock entries not present in current config:</p>
+<pre><code class="language-bash">forjar lock-gc -f forjar.yaml --state-dir state
+forjar lock-gc -f forjar.yaml --state-dir state --yes  # skip confirmation
+forjar lock-gc -f forjar.yaml --state-dir state --json
+</code></pre>
+<h2 id="log-file"><a class="header" href="#log-file">Log File</a></h2>
+<p>Write apply output to a log file:</p>
+<pre><code class="language-bash">forjar apply --log-file /var/log/forjar/apply.log -f forjar.yaml
+</code></pre>
+<h2 id="health-threshold"><a class="header" href="#health-threshold">Health Threshold</a></h2>
+<p>Filter status to resources above a failure-rate threshold:</p>
+<pre><code class="language-bash">forjar status --health-threshold 50 --state-dir state
+forjar status --health-threshold 25 --json --state-dir state
+</code></pre>
+<h2 id="apply-comment"><a class="header" href="#apply-comment">Apply Comment</a></h2>
+<p>Attach an audit note to the apply run (stored in event log):</p>
+<pre><code class="language-bash">forjar apply --comment "deploy v2.1 hotfix" -f forjar.yaml
+forjar apply --comment "scheduled maintenance" -f forjar.yaml --state-dir state
+</code></pre>
+<h2 id="strict-dependencies"><a class="header" href="#strict-dependencies">Strict Dependencies</a></h2>
+<p>Verify that dependency ordering matches resource declaration order:</p>
+<pre><code class="language-bash">forjar validate --strict-deps -f forjar.yaml
+forjar validate --strict-deps --json -f forjar.yaml
+</code></pre>
+<h2 id="status-json-lines"><a class="header" href="#status-json-lines">Status JSON Lines</a></h2>
+<p>Output status as newline-delimited JSON (NDJSON) for stream processing:</p>
+<pre><code class="language-bash">forjar status --json-lines --state-dir state
+forjar status --json-lines --machine gpu-box --state-dir state
+</code></pre>
+<h2 id="only-changed"><a class="header" href="#only-changed">Only Changed</a></h2>
+<p>Apply only resources whose config hash changed since last apply:</p>
+<pre><code class="language-bash">forjar apply --only-changed -f forjar.yaml --state-dir state
+</code></pre>
+<h2 id="graph-json"><a class="header" href="#graph-json">Graph JSON</a></h2>
+<p>Output dependency graph as a JSON adjacency list:</p>
+<pre><code class="language-bash">forjar graph --json -f forjar.yaml
+</code></pre>
+<h2 id="lock-diff"><a class="header" href="#lock-diff">Lock Diff</a></h2>
+<p>Compare two lock file directories and show resource-level differences:</p>
+<pre><code class="language-bash">forjar lock-diff state-v1 state-v2
+forjar lock-diff state-v1 state-v2 --json
+</code></pre>
+<h2 id="pre-script"><a class="header" href="#pre-script">Pre-Script</a></h2>
+<p>Run a script before apply starts (pre-flight checks):</p>
+<pre><code class="language-bash">forjar apply --pre-script ./preflight.sh -f forjar.yaml
+</code></pre>
+<h2 id="status-since"><a class="header" href="#status-since">Status Since</a></h2>
+<p>Show only resources changed within a time duration:</p>
+<pre><code class="language-bash">forjar status --since 1h --state-dir state
+forjar status --since 7d --json --state-dir state
+</code></pre>
+<h2 id="check-secrets"><a class="header" href="#check-secrets">Check Secrets</a></h2>
+<p>Scan config for hardcoded secrets or credentials:</p>
+<pre><code class="language-bash">forjar validate --check-secrets -f forjar.yaml
+forjar validate --check-secrets --json -f forjar.yaml
+</code></pre>
+<h2 id="status-export"><a class="header" href="#status-export">Status Export</a></h2>
+<p>Export status report to a file:</p>
+<pre><code class="language-bash">forjar status --export /tmp/report.json --state-dir state
+forjar status --export /tmp/report.json --json --state-dir state
+</code></pre>
+<h2 id="notify-webhook"><a class="header" href="#notify-webhook">Notify Webhook</a></h2>
+<p>POST structured apply results to any webhook URL:</p>
+<pre><code class="language-bash">forjar apply --notify-webhook https://hooks.example.com/forjar -f forjar.yaml
+</code></pre>
+<h2 id="graph-highlight"><a class="header" href="#graph-highlight">Graph Highlight</a></h2>
+<p>Highlight a resource and its transitive dependencies in graph output:</p>
+<pre><code class="language-bash">forjar graph --highlight web-server -f forjar.yaml
+forjar graph --highlight web-server --format dot -f forjar.yaml
+</code></pre>
+<h2 id="lock-merge"><a class="header" href="#lock-merge">Lock Merge</a></h2>
+<p>Merge two lock file directories (right takes precedence on conflicts):</p>
+<pre><code class="language-bash">forjar lock-merge state-team-a state-team-b --output state-merged
+forjar lock-merge state-team-a state-team-b --output state-merged --json
+</code></pre>
+<h2 id="post-script"><a class="header" href="#post-script">Post Script</a></h2>
+<p>Run a script after apply completes:</p>
+<pre><code class="language-bash">forjar apply --post-script ./postflight.sh -f forjar.yaml
+</code></pre>
+<h2 id="dry-run-json"><a class="header" href="#dry-run-json">Dry Run JSON</a></h2>
+<p>Output dry-run results as structured JSON for CI pipelines:</p>
+<pre><code class="language-bash">forjar apply --dry-run-json -f forjar.yaml --state-dir state
+</code></pre>
+<h2 id="approval-required"><a class="header" href="#approval-required">Approval Required</a></h2>
+<p>Require explicit approval before destructive changes:</p>
+<pre><code class="language-bash">forjar apply --approval-required -f forjar.yaml
+</code></pre>
+<h2 id="check-idempotency"><a class="header" href="#check-idempotency">Check Idempotency</a></h2>
+<p>Verify all resources produce idempotent scripts:</p>
+<pre><code class="language-bash">forjar validate --check-idempotency -f forjar.yaml
+forjar validate --check-idempotency --json -f forjar.yaml
+</code></pre>
+<h2 id="status-compact"><a class="header" href="#status-compact">Status Compact</a></h2>
+<p>Minimal one-line-per-machine output for large fleets:</p>
+<pre><code class="language-bash">forjar status --compact --state-dir state
+forjar status --compact --json --state-dir state
+</code></pre>
+<h2 id="canary-percent"><a class="header" href="#canary-percent">Canary Percent</a></h2>
+<p>Apply to N% of machines first, then the rest (gradual rollout):</p>
+<pre><code class="language-bash">forjar apply --canary-percent 25 -f forjar.yaml
+</code></pre>
+<h2 id="graph-prune"><a class="header" href="#graph-prune">Graph Prune</a></h2>
+<p>Show graph with a resource and its subtree removed:</p>
+<pre><code class="language-bash">forjar graph --prune web-server -f forjar.yaml
+forjar graph --prune web-server --format dot -f forjar.yaml
+</code></pre>
+<h2 id="lock-rebase"><a class="header" href="#lock-rebase">Lock Rebase</a></h2>
+<p>Rebase lock file from one config version to another:</p>
+<pre><code class="language-bash">forjar lock-rebase old-state -f forjar.yaml --output new-state
+forjar lock-rebase old-state -f forjar.yaml --output new-state --json
+</code></pre>
+<h2 id="status-alerts"><a class="header" href="#status-alerts">Status Alerts</a></h2>
+<p>Show resources in alert state (failed, drifted, or stale):</p>
+<pre><code class="language-bash">forjar status --alerts --state-dir state
+forjar status --alerts --json --state-dir state
+</code></pre>
+<h2 id="environment-overlay"><a class="header" href="#environment-overlay">Environment Overlay</a></h2>
+<p>Apply using a named environment config overlay:</p>
+<pre><code class="language-bash">forjar apply --env-name staging -f forjar.yaml
+forjar apply --env-name production -f forjar.yaml
+</code></pre>
+<h2 id="check-drift-coverage"><a class="header" href="#check-drift-coverage">Check Drift Coverage</a></h2>
+<p>Verify all resources have drift detection configured:</p>
+<pre><code class="language-bash">forjar validate --check-drift-coverage -f forjar.yaml
+forjar validate --check-drift-coverage --json -f forjar.yaml
+</code></pre>
+<h2 id="diff-lock"><a class="header" href="#diff-lock">Diff Lock</a></h2>
+<p>Diff current lock against a saved lock snapshot:</p>
+<pre><code class="language-bash">forjar status --diff-lock old-state --state-dir state
+</code></pre>
+<h2 id="graph-layers"><a class="header" href="#graph-layers">Graph Layers</a></h2>
+<p>Show graph organized by dependency layers (depth levels):</p>
+<pre><code class="language-bash">forjar graph --layers -f forjar.yaml
+</code></pre>
+<h2 id="lock-sign"><a class="header" href="#lock-sign">Lock Sign</a></h2>
+<p>Cryptographically sign lock files with BLAKE3:</p>
+<pre><code class="language-bash">forjar lock-sign --state-dir state --key my-signing-key
+forjar lock-sign --state-dir state --key my-signing-key --json
+</code></pre>
+<h2 id="status-compliance"><a class="header" href="#status-compliance">Status Compliance</a></h2>
+<p>Check compliance against a named policy:</p>
+<pre><code class="language-bash">forjar status --compliance soc2 --state-dir state
+forjar status --compliance hipaa --json --state-dir state
+</code></pre>
+<h2 id="apply-batch-size"><a class="header" href="#apply-batch-size">Apply Batch Size</a></h2>
+<p>Process resources in batches for memory-bounded execution:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --batch-size 10
+forjar apply -f forjar.yaml --batch-size 5 --state-dir state
+</code></pre>
+<h2 id="validate-check-cycles-deep"><a class="header" href="#validate-check-cycles-deep">Validate Check Cycles Deep</a></h2>
+<p>Detect indirect circular dependencies via transitive closure:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-cycles-deep
+forjar validate -f forjar.yaml --check-cycles-deep --json
+</code></pre>
+<h2 id="status-histogram"><a class="header" href="#status-histogram">Status Histogram</a></h2>
+<p>Show resource status distribution as an ASCII histogram:</p>
+<pre><code class="language-bash">forjar status --histogram --state-dir state
+forjar status --histogram --json --state-dir state
+</code></pre>
+<h2 id="apply-notify-teams"><a class="header" href="#apply-notify-teams">Apply Notify Teams</a></h2>
+<p>Send apply results to Microsoft Teams webhook:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-teams https://outlook.office.com/webhook/...
+</code></pre>
+<h2 id="graph-critical-resources"><a class="header" href="#graph-critical-resources">Graph Critical Resources</a></h2>
+<p>Identify resources with the most dependents (bottleneck analysis):</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --critical-resources
+</code></pre>
+<h2 id="lock-verify-sig"><a class="header" href="#lock-verify-sig">Lock Verify Sig</a></h2>
+<p>Verify lock file signature against a signing key:</p>
+<pre><code class="language-bash">forjar lock-verify-sig --state-dir state --key my-signing-key
+forjar lock-verify-sig --state-dir state --key my-signing-key --json
+</code></pre>
+<h2 id="apply-abort-on-drift"><a class="header" href="#apply-abort-on-drift">Apply Abort on Drift</a></h2>
+<p>Abort apply if drift is detected before execution (safety gate):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --abort-on-drift
+</code></pre>
+<h2 id="status-dependency-health"><a class="header" href="#status-dependency-health">Status Dependency Health</a></h2>
+<p>Show health score weighted by dependency position (risk analysis):</p>
+<pre><code class="language-bash">forjar status --dependency-health --state-dir state
+forjar status --dependency-health --json --state-dir state
+</code></pre>
+<h2 id="apply-dry-run-summary"><a class="header" href="#apply-dry-run-summary">Apply Dry Run Summary</a></h2>
+<p>Show a one-line summary of what would change per machine:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --dry-run-summary
+</code></pre>
+<h2 id="validate-check-naming"><a class="header" href="#validate-check-naming">Validate Check Naming</a></h2>
+<p>Enforce kebab-case resource naming conventions:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-naming
+forjar validate -f forjar.yaml --check-naming --json
+</code></pre>
+<h2 id="status-top-failures"><a class="header" href="#status-top-failures">Status Top Failures</a></h2>
+<p>Show the most frequently failing resources:</p>
+<pre><code class="language-bash">forjar status --top-failures --state-dir state
+forjar status --top-failures --json --state-dir state
+</code></pre>
+<h2 id="apply-notify-discord"><a class="header" href="#apply-notify-discord">Apply Notify Discord</a></h2>
+<p>Send apply results to a Discord webhook:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-discord https://discord.com/api/webhooks/...
+</code></pre>
+<h2 id="graph-weight"><a class="header" href="#graph-weight">Graph Weight</a></h2>
+<p>Show edge weights based on dependency strength:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --weight
+forjar graph -f forjar.yaml --weight --format dot
+</code></pre>
+<h2 id="lock-compact-all"><a class="header" href="#lock-compact-all">Lock Compact All</a></h2>
+<p>Compact all machine lock files in one operation:</p>
+<pre><code class="language-bash">forjar lock-compact-all --state-dir state --yes
+forjar lock-compact-all --state-dir state --yes --json
+</code></pre>
+<h2 id="apply-rollback-on-threshold"><a class="header" href="#apply-rollback-on-threshold">Apply Rollback on Threshold</a></h2>
+<p>Auto-rollback if more than N resources fail:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --rollback-on-threshold 3
+</code></pre>
+<h2 id="status-convergence-rate"><a class="header" href="#status-convergence-rate">Status Convergence Rate</a></h2>
+<p>Show convergence percentage across resources:</p>
+<pre><code class="language-bash">forjar status --convergence-rate --state-dir state
+forjar status --convergence-rate --json --state-dir state
+</code></pre>
+<h2 id="apply-metrics-port"><a class="header" href="#apply-metrics-port">Apply Metrics Port</a></h2>
+<p>Expose apply metrics on an HTTP port for Prometheus scraping:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --metrics-port 9090
+</code></pre>
+<h2 id="validate-check-overlaps"><a class="header" href="#validate-check-overlaps">Validate Check Overlaps</a></h2>
+<p>Detect resources targeting the same path/port on the same machine:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-overlaps
+forjar validate -f forjar.yaml --check-overlaps --json
+</code></pre>
+<h2 id="status-drift-summary"><a class="header" href="#status-drift-summary">Status Drift Summary</a></h2>
+<p>Show one-line per-machine drift count and percentage:</p>
+<pre><code class="language-bash">forjar status --drift-summary --state-dir state
+forjar status --drift-summary --json --state-dir state
+</code></pre>
+<h2 id="apply-notify-opsgenie"><a class="header" href="#apply-notify-opsgenie">Apply Notify OpsGenie</a></h2>
+<p>Send apply alerts to OpsGenie:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-opsgenie &lt;api-key&gt;
+</code></pre>
+<h2 id="graph-subgraph"><a class="header" href="#graph-subgraph">Graph Subgraph</a></h2>
+<p>Extract and display a resource's dependency subgraph:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --subgraph my-resource
+forjar graph -f forjar.yaml --subgraph my-resource --format dot
+</code></pre>
+<h2 id="lock-audit-trail"><a class="header" href="#lock-audit-trail">Lock Audit Trail</a></h2>
+<p>Show full audit trail of lock file changes with timestamps:</p>
+<pre><code class="language-bash">forjar lock-audit-trail --state-dir state
+forjar lock-audit-trail --state-dir state --machine gpu-box --json
+</code></pre>
+<h2 id="apply-circuit-breaker"><a class="header" href="#apply-circuit-breaker">Apply Circuit Breaker</a></h2>
+<p>Pause apply after N consecutive failures:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --circuit-breaker 5
+</code></pre>
+<h2 id="status-resource-age"><a class="header" href="#status-resource-age">Status Resource Age</a></h2>
+<p>Show age of each resource since last successful apply:</p>
+<pre><code class="language-bash">forjar status --resource-age --state-dir state
+forjar status --resource-age --json --state-dir state
+</code></pre>
+<h2 id="apply-require-approval"><a class="header" href="#apply-require-approval">Apply Require Approval</a></h2>
+<p>Require named approvers before apply proceeds:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --require-approval "alice,bob"
+</code></pre>
+<h2 id="validate-check-limits"><a class="header" href="#validate-check-limits">Validate Check Limits</a></h2>
+<p>Enforce resource count limits per machine/type:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-limits
+forjar validate -f forjar.yaml --check-limits --json
+</code></pre>
+<h2 id="status-sla-report"><a class="header" href="#status-sla-report">Status SLA Report</a></h2>
+<p>Show SLA compliance based on convergence:</p>
+<pre><code class="language-bash">forjar status --sla-report --state-dir state
+forjar status --sla-report --json --state-dir state
+</code></pre>
+<h2 id="apply-notify-datadog"><a class="header" href="#apply-notify-datadog">Apply Notify Datadog</a></h2>
+<p>Send apply events to Datadog:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-datadog &lt;api-key&gt;
+</code></pre>
+<h2 id="graph-impact-radius"><a class="header" href="#graph-impact-radius">Graph Impact Radius</a></h2>
+<p>Show blast radius of changing a resource:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --impact-radius base-packages
+</code></pre>
+<h2 id="lock-rotate-keys"><a class="header" href="#lock-rotate-keys">Lock Rotate Keys</a></h2>
+<p>Rotate all lock file signing keys:</p>
+<pre><code class="language-bash">forjar lock-rotate-keys --state-dir state --old-key old-key --new-key new-key
+forjar lock-rotate-keys --state-dir state --old-key old --new-key new --json
+</code></pre>
+<h2 id="apply-change-window"><a class="header" href="#apply-change-window">Apply Change Window</a></h2>
+<p>Restrict applies to defined maintenance windows:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --change-window "0 2 * * SAT"
+</code></pre>
+<h2 id="status-compliance-report"><a class="header" href="#status-compliance-report">Status Compliance Report</a></h2>
+<p>Generate a full compliance report:</p>
+<pre><code class="language-bash">forjar status --compliance-report pci-dss --state-dir state
+forjar status --compliance-report soc2 --json --state-dir state
+</code></pre>
+<h3 id="canary-machine-deploy"><a class="header" href="#canary-machine-deploy">Canary Machine Deploy</a></h3>
+<p>Apply to a single machine first as a canary before the rest of the fleet:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --canary-machine gpu-box
+</code></pre>
+<h3 id="complexity-check"><a class="header" href="#complexity-check">Complexity Check</a></h3>
+<p>Warn on resources with high dependency fan-out or fan-in:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-complexity
+forjar validate -f forjar.yaml --check-complexity --json
+</code></pre>
+<h3 id="mean-time-to-recovery"><a class="header" href="#mean-time-to-recovery">Mean Time To Recovery</a></h3>
+<p>Show MTTR per resource based on event log analysis:</p>
+<pre><code class="language-bash">forjar status --mttr --state-dir state
+forjar status --mttr --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="new-relic-notification"><a class="header" href="#new-relic-notification">New Relic Notification</a></h3>
+<p>Send apply events to New Relic:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-newrelic NRJS-your-key-here
+</code></pre>
+<h3 id="dependency-matrix"><a class="header" href="#dependency-matrix">Dependency Matrix</a></h3>
+<p>Export resource dependency matrix as CSV or JSON:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --dependency-matrix
+forjar graph -f forjar.yaml --dependency-matrix --json
+</code></pre>
+<h3 id="lock-backup"><a class="header" href="#lock-backup">Lock Backup</a></h3>
+<p>Create a timestamped backup of all lock files:</p>
+<pre><code class="language-bash">forjar lock-backup --state-dir state
+forjar lock-backup --state-dir state --json
+</code></pre>
+<h3 id="apply-max-duration"><a class="header" href="#apply-max-duration">Apply Max Duration</a></h3>
+<p>Abort apply if it exceeds a time limit (seconds):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --max-duration 300
+</code></pre>
+<h3 id="status-trend"><a class="header" href="#status-trend">Status Trend</a></h3>
+<p>Show status trend over the last N events:</p>
+<pre><code class="language-bash">forjar status --trend 20 --state-dir state
+forjar status --trend 50 --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="grafana-notification"><a class="header" href="#grafana-notification">Grafana Notification</a></h3>
+<p>Send apply annotations to Grafana for dashboard integration:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-grafana https://grafana.example.com/api/annotations
+</code></pre>
+<h3 id="security-check"><a class="header" href="#security-check">Security Check</a></h3>
+<p>Scan for insecure permissions, ports, or user configurations:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-security
+forjar validate -f forjar.yaml --check-security --json
+</code></pre>
+<h3 id="failure-prediction"><a class="header" href="#failure-prediction">Failure Prediction</a></h3>
+<p>Predict next failure based on historical patterns:</p>
+<pre><code class="language-bash">forjar status --prediction --state-dir state
+forjar status --prediction --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="resource-rate-limiting"><a class="header" href="#resource-rate-limiting">Resource Rate Limiting</a></h3>
+<p>Apply at most N resources per minute:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --rate-limit-resources 10
+</code></pre>
+<h3 id="graph-hotspots"><a class="header" href="#graph-hotspots">Graph Hotspots</a></h3>
+<p>Highlight resources with most changes and failures:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --hotspots
+</code></pre>
+<h3 id="checkpoint-interval"><a class="header" href="#checkpoint-interval">Checkpoint Interval</a></h3>
+<p>Save intermediate state during long applies for resumability:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --checkpoint-interval 60
+</code></pre>
+<h3 id="capacity-planning"><a class="header" href="#capacity-planning">Capacity Planning</a></h3>
+<p>Show resource utilization vs limits per machine:</p>
+<pre><code class="language-bash">forjar status --capacity --state-dir state
+forjar status --capacity --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="victorops-notification"><a class="header" href="#victorops-notification">VictorOps Notification</a></h3>
+<p>Send apply events to VictorOps/Splunk On-Call:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-victorops your-api-key
+</code></pre>
+<h3 id="deprecation-check"><a class="header" href="#deprecation-check">Deprecation Check</a></h3>
+<p>Warn on deprecated resource fields or types:</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-deprecation
+forjar validate -f forjar.yaml --check-deprecation --json
+</code></pre>
+<h3 id="cost-estimate"><a class="header" href="#cost-estimate">Cost Estimate</a></h3>
+<p>Estimate resource cost based on type complexity:</p>
+<pre><code class="language-bash">forjar status --cost-estimate --state-dir state
+forjar status --cost-estimate --json --state-dir state
+</code></pre>
+<h3 id="bluegreen-deployment"><a class="header" href="#bluegreen-deployment">Blue/Green Deployment</a></h3>
+<p>Deploy with blue/green machine pairs:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --blue-green web-blue
+</code></pre>
+<h3 id="graph-timeline"><a class="header" href="#graph-timeline">Graph Timeline</a></h3>
+<p>Show resource application order as ASCII timeline:</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --timeline-graph
+</code></pre>
+<h3 id="lock-chain-verification"><a class="header" href="#lock-chain-verification">Lock Chain Verification</a></h3>
+<p>Verify full chain of custody from lock signatures:</p>
+<pre><code class="language-bash">forjar lock-verify-chain --state-dir state
+forjar lock-verify-chain --state-dir state --json
+</code></pre>
+<h3 id="dry-run-cost"><a class="header" href="#dry-run-cost">Dry Run Cost</a></h3>
+<p>Show estimated changes without applying:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --dry-run-cost
+</code></pre>
+<h3 id="staleness-report"><a class="header" href="#staleness-report">Staleness Report</a></h3>
+<p>Show resources not applied within a configurable window:</p>
+<pre><code class="language-bash">forjar status --staleness-report 7d --state-dir state
+forjar status --staleness-report 30d --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="check-drift-risk"><a class="header" href="#check-drift-risk">Check Drift Risk</a></h3>
+<p>Score drift risk based on resource volatility:</p>
+<pre><code class="language-bash">forjar validate --check-drift-risk -f forjar.yaml
+forjar validate --check-drift-risk -f forjar.yaml --json
+</code></pre>
+<h3 id="ms-teams-adaptive-cards"><a class="header" href="#ms-teams-adaptive-cards">MS Teams Adaptive Cards</a></h3>
+<p>Send rich Adaptive Card notifications to Microsoft Teams:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-msteams-adaptive https://outlook.office.com/webhook/...
+</code></pre>
+<h3 id="progressive-rollout"><a class="header" href="#progressive-rollout">Progressive Rollout</a></h3>
+<p>Apply changes to a percentage of machines progressively:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --progressive 25
+forjar apply -f forjar.yaml --progressive 50
+</code></pre>
+<h3 id="approval-webhook"><a class="header" href="#approval-webhook">Approval Webhook</a></h3>
+<p>Require external approval via webhook before applying:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --approval-webhook https://api.example.com/approve
+</code></pre>
+<h3 id="health-score-1"><a class="header" href="#health-score-1">Health Score</a></h3>
+<p>Get a composite health score (0-100) across all machines:</p>
+<pre><code class="language-bash">forjar status --health-score --state-dir state
+forjar status --health-score --state-dir state --json
+</code></pre>
+<h3 id="executive-summary"><a class="header" href="#executive-summary">Executive Summary</a></h3>
+<p>One-line per machine summary for dashboards:</p>
+<pre><code class="language-bash">forjar status --executive-summary --state-dir state
+forjar status --executive-summary --state-dir state --json
+</code></pre>
+<h3 id="what-if-analysis"><a class="header" href="#what-if-analysis">What-If Analysis</a></h3>
+<p>Simulate removing a resource and show transitive impact:</p>
+<pre><code class="language-bash">forjar graph --what-if base-packages -f forjar.yaml
+forjar graph --what-if base-packages -f forjar.yaml --json
+</code></pre>
+<h3 id="lock-stats"><a class="header" href="#lock-stats">Lock Stats</a></h3>
+<p>Show lock file statistics (sizes, ages, resource counts):</p>
+<pre><code class="language-bash">forjar lock-stats --state-dir state
+forjar lock-stats --state-dir state --json
+</code></pre>
+<h3 id="check-compliance"><a class="header" href="#check-compliance">Check Compliance</a></h3>
+<p>Validate resources against a compliance policy (CIS, SOC2, HIPAA):</p>
+<pre><code class="language-bash">forjar validate --check-compliance CIS -f forjar.yaml
+forjar validate --check-compliance SOC2 -f forjar.yaml --json
+forjar validate --check-compliance HIPAA -f forjar.yaml
+</code></pre>
+<h3 id="incident-notification"><a class="header" href="#incident-notification">Incident Notification</a></h3>
+<p>POST incidents to PagerDuty/Opsgenie on apply failure:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-incident ROUTING_KEY_123
+</code></pre>
+<h3 id="audit-trail-1"><a class="header" href="#audit-trail-1">Audit Trail</a></h3>
+<p>Show full audit trail with who/what/when for each change:</p>
+<pre><code class="language-bash">forjar status --audit-trail --state-dir state
+forjar status --audit-trail --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="sign-off"><a class="header" href="#sign-off">Sign-Off</a></h3>
+<p>Require named sign-off before apply proceeds:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --sign-off noah
+</code></pre>
+<h3 id="blast-radius"><a class="header" href="#blast-radius">Blast Radius</a></h3>
+<p>Show all resources transitively affected by a change to a target:</p>
+<pre><code class="language-bash">forjar graph --blast-radius base-packages -f forjar.yaml
+forjar graph --blast-radius base-packages -f forjar.yaml --json
+</code></pre>
+<h3 id="lock-audit"><a class="header" href="#lock-audit">Lock Audit</a></h3>
+<p>Verify lock file integrity and detect tampering:</p>
+<pre><code class="language-bash">forjar lock-audit --state-dir state
+forjar lock-audit --state-dir state --json
+</code></pre>
+<h3 id="check-portability"><a class="header" href="#check-portability">Check Portability</a></h3>
+<p>Check resources for platform-specific assumptions:</p>
+<pre><code class="language-bash">forjar validate --check-portability -f forjar.yaml
+forjar validate --check-portability -f forjar.yaml --json
+</code></pre>
+<h3 id="aws-sns-notification"><a class="header" href="#aws-sns-notification">AWS SNS Notification</a></h3>
+<p>Publish apply events to AWS SNS topic:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-sns arn:aws:sns:us-east-1:123456789:forjar-events
+</code></pre>
+<h3 id="opentelemetry-spans"><a class="header" href="#opentelemetry-spans">OpenTelemetry Spans</a></h3>
+<p>POST OpenTelemetry spans for apply execution tracing:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --telemetry-endpoint https://otel.example.com/v1/traces
+</code></pre>
+<h3 id="runbook-link"><a class="header" href="#runbook-link">Runbook Link</a></h3>
+<p>Attach runbook URL to apply for audit trail:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --runbook https://wiki.example.com/runbook/deploy
+</code></pre>
+<h3 id="resource-graph"><a class="header" href="#resource-graph">Resource Graph</a></h3>
+<p>Show resource dependency graph from live state:</p>
+<pre><code class="language-bash">forjar status --resource-graph --state-dir state
+forjar status --resource-graph --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="drift-velocity"><a class="header" href="#drift-velocity">Drift Velocity</a></h3>
+<p>Show drift rate over time:</p>
+<pre><code class="language-bash">forjar status --drift-velocity --state-dir state
+forjar status --drift-velocity --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="change-impact"><a class="header" href="#change-impact">Change Impact</a></h3>
+<p>Show direct and indirect impact of changing a resource:</p>
+<pre><code class="language-bash">forjar graph --change-impact base-packages -f forjar.yaml
+forjar graph --change-impact base-packages -f forjar.yaml --json
+</code></pre>
+<h3 id="lock-compress"><a class="header" href="#lock-compress">Lock Compress</a></h3>
+<p>Compress old lock files by minifying YAML:</p>
+<pre><code class="language-bash">forjar lock-compress --state-dir state
+forjar lock-compress --state-dir state --json
+</code></pre>
+<h3 id="check-resource-limits"><a class="header" href="#check-resource-limits">Check Resource Limits</a></h3>
+<p>Validate resource counts don't exceed per-machine limits:</p>
+<pre><code class="language-bash">forjar validate --check-resource-limits -f forjar.yaml
+forjar validate --check-resource-limits -f forjar.yaml --json
+</code></pre>
+<h3 id="gcp-pubsub-notification"><a class="header" href="#gcp-pubsub-notification">GCP Pub/Sub Notification</a></h3>
+<p>Publish apply events to Google Cloud Pub/Sub:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-pubsub projects/my-proj/topics/forjar-events
+</code></pre>
+<h3 id="fleet-strategy"><a class="header" href="#fleet-strategy">Fleet Strategy</a></h3>
+<p>Fleet-wide rollout strategy (parallel, rolling, canary):</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --fleet-strategy rolling
+forjar apply -f forjar.yaml --fleet-strategy canary
+</code></pre>
+<h3 id="pre-check-script"><a class="header" href="#pre-check-script">Pre-Check Script</a></h3>
+<p>Run validation script before apply proceeds:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --pre-check /usr/local/bin/pre-deploy.sh
+</code></pre>
+<h3 id="fleet-overview"><a class="header" href="#fleet-overview">Fleet Overview</a></h3>
+<p>Aggregated fleet summary across all machines:</p>
+<pre><code class="language-bash">forjar status --fleet-overview --state-dir state
+forjar status --fleet-overview --state-dir state --json
+</code></pre>
+<h3 id="machine-health"><a class="header" href="#machine-health">Machine Health</a></h3>
+<p>Per-machine health details with resource breakdown:</p>
+<pre><code class="language-bash">forjar status --machine-health --state-dir state
+forjar status --machine-health --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="resource-types-graph"><a class="header" href="#resource-types-graph">Resource Types Graph</a></h3>
+<p>Show graph colored/grouped by resource type:</p>
+<pre><code class="language-bash">forjar graph --resource-types -f forjar.yaml
+forjar graph --resource-types -f forjar.yaml --json
+</code></pre>
+<h3 id="lock-defrag"><a class="header" href="#lock-defrag">Lock Defrag</a></h3>
+<p>Defragment lock files (reorder resources alphabetically):</p>
+<pre><code class="language-bash">forjar lock-defrag --state-dir state
+forjar lock-defrag --state-dir state --json
+</code></pre>
+<h3 id="check-unused-resources"><a class="header" href="#check-unused-resources">Check Unused Resources</a></h3>
+<p>Detect resources not referenced by any dependency chain:</p>
+<pre><code class="language-bash">forjar validate --check-unused -f forjar.yaml
+forjar validate --check-unused -f forjar.yaml --json
+</code></pre>
+<h3 id="aws-eventbridge-notification"><a class="header" href="#aws-eventbridge-notification">AWS EventBridge Notification</a></h3>
+<p>Publish apply events to AWS EventBridge:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-eventbridge custom-bus
+</code></pre>
+<h3 id="dry-run-graph"><a class="header" href="#dry-run-graph">Dry Run Graph</a></h3>
+<p>Show execution graph without applying:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --dry-run-graph
+</code></pre>
+<h3 id="post-check-script"><a class="header" href="#post-check-script">Post-Check Script</a></h3>
+<p>Run validation script after apply completes:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --post-check /usr/local/bin/verify.sh
+</code></pre>
+<h3 id="config-drift"><a class="header" href="#config-drift">Config Drift</a></h3>
+<p>Compare running state against declared config:</p>
+<pre><code class="language-bash">forjar status --config-drift --state-dir state
+forjar status --config-drift --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="convergence-time"><a class="header" href="#convergence-time">Convergence Time</a></h3>
+<p>Show average time to convergence per resource:</p>
+<pre><code class="language-bash">forjar status --convergence-time --state-dir state
+forjar status --convergence-time --machine gpu-box --json --state-dir state
+</code></pre>
+<h3 id="topological-levels"><a class="header" href="#topological-levels">Topological Levels</a></h3>
+<p>Show resources grouped by topological depth level:</p>
+<pre><code class="language-bash">forjar graph --topological-levels -f forjar.yaml
+forjar graph --topological-levels -f forjar.yaml --json
+</code></pre>
+<h3 id="lock-normalize"><a class="header" href="#lock-normalize">Lock Normalize</a></h3>
+<p>Normalize lock file format for consistency:</p>
+<pre><code class="language-bash">forjar lock-normalize --state-dir state
+forjar lock-normalize --state-dir state --json
+</code></pre>
+<h3 id="advanced-orchestration-fj-590fj-597"><a class="header" href="#advanced-orchestration-fj-590fj-597">Advanced Orchestration (FJ-590→FJ-597)</a></h3>
+<p><strong>Dependency validation</strong> catches unresolved references before apply:</p>
+<pre><code class="language-bash">forjar validate --check-dependencies -f forjar.yaml
+forjar validate --check-dependencies -f forjar.yaml --json
+</code></pre>
+<p><strong>Resource timeline</strong> shows event log history:</p>
+<pre><code class="language-bash">forjar status --resource-timeline --state-dir state
+forjar status --resource-timeline --state-dir state --json
+</code></pre>
+<p><strong>Error summary</strong> aggregates failures across machines:</p>
+<pre><code class="language-bash">forjar status --error-summary --state-dir state
+forjar status --error-summary --state-dir state --json
+</code></pre>
+<p><strong>Execution order</strong> shows the flattened DAG sort:</p>
+<pre><code class="language-bash">forjar graph --execution-order -f forjar.yaml
+forjar graph --execution-order -f forjar.yaml --json
+</code></pre>
+<p><strong>Lock validate</strong> checks lock file integrity:</p>
+<pre><code class="language-bash">forjar lock-validate --state-dir state
+forjar lock-validate --state-dir state --json
+</code></pre>
+<p><strong>Kafka notifications</strong> stream apply events:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-kafka my-topic
+</code></pre>
+<h3 id="security-hardening--audit-fj-600fj-607"><a class="header" href="#security-hardening--audit-fj-600fj-607">Security Hardening &amp; Audit (FJ-600→FJ-607)</a></h3>
+<p><strong>Permission validation</strong> checks for insecure file modes and ownership:</p>
+<pre><code class="language-bash">forjar validate --check-permissions -f forjar.yaml
+forjar validate --check-permissions -f forjar.yaml --json
+</code></pre>
+<p><strong>Security posture</strong> shows security-relevant resource states:</p>
+<pre><code class="language-bash">forjar status --security-posture --state-dir state
+forjar status --security-posture --state-dir state --json
+</code></pre>
+<p><strong>Security boundaries</strong> highlights resources crossing security zones:</p>
+<pre><code class="language-bash">forjar graph --security-boundaries -f forjar.yaml
+forjar graph --security-boundaries -f forjar.yaml --json
+</code></pre>
+<p><strong>HMAC verification</strong> checks lock file signatures:</p>
+<pre><code class="language-bash">forjar lock-verify-hmac --state-dir state
+forjar lock-verify-hmac --state-dir state --json
+</code></pre>
+<p><strong>Pre-flight checks</strong> gate apply with a validation script:</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --pre-flight "bash /path/to/check.sh"
+</code></pre>
+<h3 id="resource-intelligence--analytics-fj-610fj-617"><a class="header" href="#resource-intelligence--analytics-fj-610fj-617">Resource Intelligence &amp; Analytics (FJ-610→FJ-617)</a></h3>
+<p><strong>Deep idempotency analysis</strong> detects non-idempotent patterns:</p>
+<pre><code class="language-bash">forjar validate --check-idempotency-deep -f forjar.yaml
+forjar validate --check-idempotency-deep -f forjar.yaml --json
+</code></pre>
+<p><strong>Resource cost</strong> estimates complexity by resource type:</p>
+<pre><code class="language-bash">forjar status --resource-cost --state-dir state
+forjar status --resource-cost --state-dir state --json
+</code></pre>
+<p><strong>Drift forecast</strong> predicts drift risk based on resource types:</p>
+<pre><code class="language-bash">forjar status --drift-forecast --state-dir state
+forjar status --drift-forecast --state-dir state --json
+</code></pre>
+<p><strong>Resource age</strong> shows when resources were last applied:</p>
+<pre><code class="language-bash">forjar graph --resource-age -f forjar.yaml
+forjar graph --resource-age -f forjar.yaml --json
+</code></pre>
+<p><strong>Lock archive</strong> archives event logs to compressed storage:</p>
+<pre><code class="language-bash">forjar lock-archive --state-dir state
+forjar lock-archive --state-dir state --json
+</code></pre>
+<h3 id="workflow-automation--pipelines-fj-620fj-627"><a class="header" href="#workflow-automation--pipelines-fj-620fj-627">Workflow Automation &amp; Pipelines (FJ-620→FJ-627)</a></h3>
+<p><strong>Machine reachability</strong> validates machine addresses before apply:</p>
+<pre><code class="language-bash">forjar validate --check-machine-reachability -f forjar.yaml
+forjar validate --check-machine-reachability -f forjar.yaml --json
+</code></pre>
+<p><strong>Pipeline status</strong> shows CI/CD integration health:</p>
+<pre><code class="language-bash">forjar status --pipeline-status --state-dir state
+forjar status --pipeline-status --state-dir state --json
+</code></pre>
+<p><strong>Parallel groups</strong> shows which resources can run concurrently:</p>
+<pre><code class="language-bash">forjar graph --parallel-groups -f forjar.yaml
+forjar graph --parallel-groups -f forjar.yaml --json
+</code></pre>
+<p><strong>Lock snapshots</strong> create point-in-time recovery points:</p>
+<pre><code class="language-bash">forjar lock-snapshot --state-dir state
+forjar lock-snapshot --state-dir state --json
+</code></pre>
+<p><strong>Resource dependencies</strong> from runtime state:</p>
+<pre><code class="language-bash">forjar status --resource-dependencies --state-dir state
+</code></pre>
+<h3 id="advanced-diagnostics--debugging-fj-630fj-637"><a class="header" href="#advanced-diagnostics--debugging-fj-630fj-637">Advanced Diagnostics &amp; Debugging (FJ-630→FJ-637)</a></h3>
+<p><strong>Circular reference detection</strong> catches circular deps:</p>
+<pre><code class="language-bash">forjar validate --check-circular-refs -f forjar.yaml
+forjar validate --check-circular-refs -f forjar.yaml --json
+</code></pre>
+<p><strong>Diagnostic report</strong> provides comprehensive health analysis:</p>
+<pre><code class="language-bash">forjar status --diagnostic --state-dir state
+forjar status --diagnostic --state-dir state --json
+</code></pre>
+<p><strong>Critical chain</strong> shows the longest dependency path:</p>
+<pre><code class="language-bash">forjar graph --critical-chain -f forjar.yaml
+forjar graph --critical-chain -f forjar.yaml --json
+</code></pre>
+<p><strong>Lock repair</strong> fixes corrupted lock files:</p>
+<pre><code class="language-bash">forjar lock-repair --state-dir state
+forjar lock-repair --state-dir state --json
+</code></pre>
+<h3 id="phase-50--production-readiness--polish-fj-640fj-647"><a class="header" href="#phase-50--production-readiness--polish-fj-640fj-647">Phase 50 — Production Readiness &amp; Polish (FJ-640→FJ-647)</a></h3>
+<p><strong>MQTT Notification</strong> (FJ-640): Publish apply events to MQTT brokers for IoT integration.</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-mqtt "infra/events"
+</code></pre>
+<p><strong>Naming Convention Validation</strong> (FJ-641): Enforce kebab-case naming conventions across all resources.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-naming-conventions
+forjar validate -f forjar.yaml --check-naming-conventions --json
+</code></pre>
+<p><strong>Resource Uptime</strong> (FJ-642): Show resource uptime based on convergence history.</p>
+<pre><code class="language-bash">forjar status --uptime --state-dir state
+forjar status --uptime --state-dir state --json
+</code></pre>
+<p><strong>Confirmation Message</strong> (FJ-643): Custom confirmation message before apply.</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --confirmation-message "Deploying to production"
+</code></pre>
+<p><strong>Dependency Depth</strong> (FJ-644): Show max dependency depth per resource for complexity analysis.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --dependency-depth
+forjar graph -f forjar.yaml --dependency-depth --json
+</code></pre>
+<p><strong>Lock History</strong> (FJ-645): Show lock file change history with diffs for audit trail.</p>
+<pre><code class="language-bash">forjar lock-history --state-dir state
+forjar lock-history --state-dir state --json --limit 50
+</code></pre>
+<p><strong>Summary Only</strong> (FJ-646): Show only summary output, no per-resource details.</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --summary-only
+</code></pre>
+<p><strong>Recommendations</strong> (FJ-647): State-based recommendations for improving infrastructure health.</p>
+<pre><code class="language-bash">forjar status --recommendations --state-dir state
+forjar status --recommendations --state-dir state --json
+</code></pre>
+<h3 id="phase-51--environment--configuration-management-fj-650fj-657"><a class="header" href="#phase-51--environment--configuration-management-fj-650fj-657">Phase 51 — Environment &amp; Configuration Management (FJ-650→FJ-657)</a></h3>
+<p><strong>Redis Notification</strong> (FJ-650): Publish apply events to Redis pub/sub.</p>
+<pre><code class="language-bash">forjar apply -f forjar.yaml --notify-redis "infra:events"
+</code></pre>
+<p><strong>Orphan Detection</strong> (FJ-654): Find resources with no dependents or dependencies.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --orphan-detection
+forjar graph -f forjar.yaml --orphan-detection --json
+</code></pre>
+<p><strong>Machine Summary</strong> (FJ-657): Per-machine resource count and health overview.</p>
+<pre><code class="language-bash">forjar status --machine-summary --state-dir state
+forjar status --machine-summary --state-dir state --json
+</code></pre>
+<h3 id="phase-52--compliance--policy-automation-fj-660fj-667"><a class="header" href="#phase-52--compliance--policy-automation-fj-660fj-667">Phase 52 — Compliance &amp; Policy Automation (FJ-660→FJ-667)</a></h3>
+<p><strong>Owner Consistency</strong> (FJ-661): Detect mixed ownership across resources on the same machine.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-owner-consistency
+forjar validate -f forjar.yaml --check-owner-consistency --json
+</code></pre>
+<p><strong>Cross-Machine Dependencies</strong> (FJ-664): Visualize dependencies that span multiple machines.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --cross-machine-deps
+forjar graph -f forjar.yaml --cross-machine-deps --json
+</code></pre>
+<p><strong>Lock Age</strong> (FJ-667): Show when each lock file entry was last updated.</p>
+<pre><code class="language-bash">forjar status --lock-age --state-dir state
+forjar status --lock-age --state-dir state --json
+</code></pre>
+<h3 id="phase-53--multi-environment--secrets-management-fj-670fj-677"><a class="header" href="#phase-53--multi-environment--secrets-management-fj-670fj-677">Phase 53 — Multi-Environment &amp; Secrets Management (FJ-670→FJ-677)</a></h3>
+<p><strong>Path Conflict Detection</strong> (FJ-671): Detect overlapping file paths across resources.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-path-conflicts
+forjar validate -f forjar.yaml --check-path-conflicts --json
+</code></pre>
+<p><strong>Machine Groups</strong> (FJ-674): Group resources by machine in graph output.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --machine-groups
+forjar graph -f forjar.yaml --machine-groups --json
+</code></pre>
+<p><strong>Lock Integrity</strong> (FJ-675): Validate lock file structural integrity.</p>
+<pre><code class="language-bash">forjar lock-integrity --state-dir state
+forjar lock-integrity --state-dir state --json
+</code></pre>
+<p><strong>Hash Verification</strong> (FJ-677): Verify BLAKE3 hashes in lock files.</p>
+<pre><code class="language-bash">forjar status --hash-verify --state-dir state
+forjar status --hash-verify --state-dir state --json
+</code></pre>
+<h3 id="phase-54--observability--telemetry-deep-dive-fj-680fj-687"><a class="header" href="#phase-54--observability--telemetry-deep-dive-fj-680fj-687">Phase 54 — Observability &amp; Telemetry Deep Dive (FJ-680→FJ-687)</a></h3>
+<p><strong>Service Dependency Validation</strong> (FJ-681): Validate service dependency chains are satisfiable.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-service-deps
+forjar validate -f forjar.yaml --check-service-deps --json
+</code></pre>
+<p><strong>Resource Size Estimation</strong> (FJ-682): Show estimated resource sizes (file bytes, package count).</p>
+<pre><code class="language-bash">forjar status --resource-size --state-dir state
+forjar status --resource-size --state-dir state --json
+</code></pre>
+<p><strong>Resource Clusters</strong> (FJ-684): Identify tightly-coupled resource clusters in dependency graph.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --resource-clusters
+forjar graph -f forjar.yaml --resource-clusters --json
+</code></pre>
+<p><strong>Lock Rehash</strong> (FJ-685): Recompute all lock file hashes from current state.</p>
+<pre><code class="language-bash">forjar lock-rehash --state-dir state
+forjar lock-rehash --state-dir state --json
+</code></pre>
+<p><strong>Drift Details All</strong> (FJ-687): Show drift details for all machines at once.</p>
+<pre><code class="language-bash">forjar status --drift-details-all --state-dir state
+forjar status --drift-details-all --state-dir state --json
+</code></pre>
+<h3 id="phase-55--advanced-workflow--pipeline-integration-fj-690fj-697"><a class="header" href="#phase-55--advanced-workflow--pipeline-integration-fj-690fj-697">Phase 55 — Advanced Workflow &amp; Pipeline Integration (FJ-690→FJ-697)</a></h3>
+<p><strong>Template Variable Validation</strong> (FJ-691): Validate all template variables are defined.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-template-vars
+forjar validate -f forjar.yaml --check-template-vars --json
+</code></pre>
+<p><strong>Last Apply Duration</strong> (FJ-692): Show duration of last apply per resource.</p>
+<pre><code class="language-bash">forjar status --last-apply-duration --state-dir state
+forjar status --last-apply-duration --state-dir state --json
+</code></pre>
+<p><strong>Fan-Out Metrics</strong> (FJ-694): Show resource fan-out metrics (how many resources depend on each).</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --fan-out
+forjar graph -f forjar.yaml --fan-out --json
+</code></pre>
+<p><strong>Lock Restore</strong> (FJ-695): Restore lock state from a named snapshot.</p>
+<pre><code class="language-bash">forjar lock-restore --state-dir state --name my-snapshot
+forjar lock-restore --state-dir state --json
+</code></pre>
+<p><strong>Config Hash</strong> (FJ-697): Show hash of current config for change detection.</p>
+<pre><code class="language-bash">forjar status --config-hash --state-dir state
+forjar status --config-hash --state-dir state --json
+</code></pre>
+<h3 id="phase-56--security-hardening--audit-trail-fj-700fj-707"><a class="header" href="#phase-56--security-hardening--audit-trail-fj-700fj-707">Phase 56 — Security Hardening &amp; Audit Trail (FJ-700→FJ-707)</a></h3>
+<p><strong>Mode Consistency Validation</strong> (FJ-701): Validate file mode consistency across resources.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-mode-consistency
+forjar validate -f forjar.yaml --check-mode-consistency --json
+</code></pre>
+<p><strong>Leaf Resources</strong> (FJ-704): Identify leaf resources with no dependents in the DAG.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --leaf-resources
+forjar graph -f forjar.yaml --leaf-resources --json
+</code></pre>
+<p><strong>Lock Schema Verification</strong> (FJ-705): Validate lock file schema version compatibility.</p>
+<pre><code class="language-bash">forjar lock-verify-schema --state-dir state
+forjar lock-verify-schema --state-dir state --json
+</code></pre>
+<p><strong>Convergence History</strong> (FJ-707): Show convergence trend over time.</p>
+<pre><code class="language-bash">forjar status --convergence-history --state-dir state
+forjar status --convergence-history --state-dir state --json
+</code></pre>
+<h3 id="phase-57--fleet-management--multi-machine-orchestration-fj-710fj-717"><a class="header" href="#phase-57--fleet-management--multi-machine-orchestration-fj-710fj-717">Phase 57 — Fleet Management &amp; Multi-Machine Orchestration (FJ-710→FJ-717)</a></h3>
+<p><strong>Group Consistency Validation</strong> (FJ-711): Validate user/group consistency across resources.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-group-consistency
+forjar validate -f forjar.yaml --check-group-consistency --json
+</code></pre>
+<p><strong>Reverse Dependencies</strong> (FJ-714): Show reverse dependency graph (who depends on me).</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --reverse-deps
+forjar graph -f forjar.yaml --reverse-deps --json
+</code></pre>
+<p><strong>Lock Tagging</strong> (FJ-715): Add metadata tags to lock files.</p>
+<pre><code class="language-bash">forjar lock-tag --state-dir state --name env --value prod
+forjar lock-tag --state-dir state --name env --value prod --json
+</code></pre>
+<p><strong>Drift Trend</strong> (FJ-717): Show drift trend over time.</p>
+<pre><code class="language-bash">forjar status --drift-trend --state-dir state
+forjar status --drift-trend --state-dir state --json
+</code></pre>
+<h3 id="phase-58--configuration-validation--schema-evolution-fj-720fj-727"><a class="header" href="#phase-58--configuration-validation--schema-evolution-fj-720fj-727">Phase 58 — Configuration Validation &amp; Schema Evolution (FJ-720→FJ-727)</a></h3>
+<p><strong>Mount Point Validation</strong> (FJ-721): Validate mount point paths don't conflict.</p>
+<pre><code class="language-bash">forjar validate -f forjar.yaml --check-mount-points
+forjar validate -f forjar.yaml --check-mount-points --json
+</code></pre>
+<p><strong>Failed Resources</strong> (FJ-722): Show only failed resources across all machines.</p>
+<pre><code class="language-bash">forjar status --failed-resources --state-dir state
+forjar status --failed-resources --state-dir state --json
+</code></pre>
+<p><strong>Depth-First Traversal</strong> (FJ-724): Show depth-first traversal order of dependency graph.</p>
+<pre><code class="language-bash">forjar graph -f forjar.yaml --depth-first
+forjar graph -f forjar.yaml --depth-first --json
+</code></pre>
+<p><strong>Lock Schema Migration</strong> (FJ-725): Migrate lock file schema between versions.</p>
+<pre><code class="language-bash">forjar lock-migrate --state-dir state --from-version 0.9
+forjar lock-migrate --state-dir state --from-version 0.9 --json
+</code></pre>
+<p><strong>Resource Types Summary</strong> (FJ-727): Show count per resource type across machines.</p>
+<pre><code class="language-bash">forjar status --resource-types-summary --state-dir state
+forjar status --resource-types-summary --state-dir state --json
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="02-configuration.html">Configuration Reference</a> — Complete <code>forjar.yaml</code> schema</li>
+<li><a href="03-resources.html">Resource Types</a> — All 9 resource types with examples</li>
+<li><a href="04-recipes.html">Recipes</a> — Reusable parameterized infrastructure patterns</li>
+<li><a href="06-cli.html">CLI Reference</a> — Every command and flag</li>
+<li><a href="11-troubleshooting.html">Troubleshooting</a> — Common errors and fixes</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="02-configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="02-configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
