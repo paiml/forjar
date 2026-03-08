@@ -227,6 +227,187 @@ resources:
 }
 
 #[test]
+fn test_fj220_has_field_all_fields() {
+    use crate::core::parser::policy::resource_has_field;
+    let mut r = Resource::default();
+
+    // Initially nothing set
+    assert!(!resource_has_field(&r, "owner"));
+    assert!(!resource_has_field(&r, "group"));
+    assert!(!resource_has_field(&r, "mode"));
+    assert!(!resource_has_field(&r, "tags"));
+    assert!(!resource_has_field(&r, "path"));
+    assert!(!resource_has_field(&r, "content"));
+    assert!(!resource_has_field(&r, "source"));
+    assert!(!resource_has_field(&r, "name"));
+    assert!(!resource_has_field(&r, "provider"));
+    assert!(!resource_has_field(&r, "packages"));
+    assert!(!resource_has_field(&r, "depends_on"));
+    assert!(!resource_has_field(&r, "shell"));
+    assert!(!resource_has_field(&r, "home"));
+    assert!(!resource_has_field(&r, "schedule"));
+    assert!(!resource_has_field(&r, "command"));
+    assert!(!resource_has_field(&r, "image"));
+    assert!(!resource_has_field(&r, "state"));
+    assert!(!resource_has_field(&r, "when"));
+    assert!(!resource_has_field(&r, "nonexistent"));
+
+    // Set each field
+    r.owner = Some("root".into());
+    assert!(resource_has_field(&r, "owner"));
+    r.group = Some("root".into());
+    assert!(resource_has_field(&r, "group"));
+    r.mode = Some("0644".into());
+    assert!(resource_has_field(&r, "mode"));
+    r.tags = vec!["web".into()];
+    assert!(resource_has_field(&r, "tags"));
+    r.path = Some("/etc/app".into());
+    assert!(resource_has_field(&r, "path"));
+    r.content = Some("data".into());
+    assert!(resource_has_field(&r, "content"));
+    r.source = Some("/src".into());
+    assert!(resource_has_field(&r, "source"));
+    r.name = Some("nginx".into());
+    assert!(resource_has_field(&r, "name"));
+    r.provider = Some("apt".into());
+    assert!(resource_has_field(&r, "provider"));
+    r.packages = vec!["curl".into()];
+    assert!(resource_has_field(&r, "packages"));
+    r.depends_on = vec!["dep1".into()];
+    assert!(resource_has_field(&r, "depends_on"));
+    r.shell = Some("/bin/bash".into());
+    assert!(resource_has_field(&r, "shell"));
+    r.home = Some("/home/user".into());
+    assert!(resource_has_field(&r, "home"));
+    r.schedule = Some("0 * * * *".into());
+    assert!(resource_has_field(&r, "schedule"));
+    r.command = Some("echo hi".into());
+    assert!(resource_has_field(&r, "command"));
+    r.image = Some("ubuntu:22.04".into());
+    assert!(resource_has_field(&r, "image"));
+    r.state = Some("running".into());
+    assert!(resource_has_field(&r, "state"));
+    r.when = Some("always".into());
+    assert!(resource_has_field(&r, "when"));
+}
+
+#[test]
+fn test_fj220_field_value_all_fields() {
+    use crate::core::parser::policy::resource_field_value;
+    let mut r = Resource::default();
+    r.resource_type = ResourceType::File;
+
+    // None values
+    assert!(resource_field_value(&r, "owner").is_none());
+    assert!(resource_field_value(&r, "nonexistent").is_none());
+
+    // type is always available
+    assert_eq!(resource_field_value(&r, "type").unwrap(), "file");
+
+    // Set fields and check values
+    r.owner = Some("root".into());
+    assert_eq!(resource_field_value(&r, "owner").unwrap(), "root");
+    r.group = Some("www-data".into());
+    assert_eq!(resource_field_value(&r, "group").unwrap(), "www-data");
+    r.mode = Some("0755".into());
+    assert_eq!(resource_field_value(&r, "mode").unwrap(), "0755");
+    r.path = Some("/etc/app.conf".into());
+    assert_eq!(resource_field_value(&r, "path").unwrap(), "/etc/app.conf");
+    r.content = Some("cfg data".into());
+    assert_eq!(resource_field_value(&r, "content").unwrap(), "cfg data");
+    r.source = Some("/src/file".into());
+    assert_eq!(resource_field_value(&r, "source").unwrap(), "/src/file");
+    r.name = Some("nginx".into());
+    assert_eq!(resource_field_value(&r, "name").unwrap(), "nginx");
+    r.provider = Some("apt".into());
+    assert_eq!(resource_field_value(&r, "provider").unwrap(), "apt");
+    r.state = Some("stopped".into());
+    assert_eq!(resource_field_value(&r, "state").unwrap(), "stopped");
+    r.shell = Some("/bin/zsh".into());
+    assert_eq!(resource_field_value(&r, "shell").unwrap(), "/bin/zsh");
+    r.home = Some("/home/noah".into());
+    assert_eq!(resource_field_value(&r, "home").unwrap(), "/home/noah");
+    r.schedule = Some("0 5 * * *".into());
+    assert_eq!(resource_field_value(&r, "schedule").unwrap(), "0 5 * * *");
+    r.command = Some("echo hello".into());
+    assert_eq!(resource_field_value(&r, "command").unwrap(), "echo hello");
+    r.image = Some("alpine:3.18".into());
+    assert_eq!(resource_field_value(&r, "image").unwrap(), "alpine:3.18");
+}
+
+#[test]
+fn test_fj220_deny_condition_no_match() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: noah
+policies:
+  - type: deny
+    message: "no root owner"
+    condition_field: owner
+    condition_value: root
+"#;
+    let config = parse_config(yaml).unwrap();
+    let violations = evaluate_policies(&config);
+    assert!(violations.is_empty());
+}
+
+#[test]
+fn test_fj220_require_no_field_specified() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+policies:
+  - type: require
+    message: "no field specified"
+"#;
+    let config = parse_config(yaml).unwrap();
+    let violations = evaluate_policies(&config);
+    assert!(violations.is_empty()); // No field => not violated
+}
+
+#[test]
+fn test_fj220_deny_no_condition_specified() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+policies:
+  - type: deny
+    message: "no condition"
+"#;
+    let config = parse_config(yaml).unwrap();
+    let violations = evaluate_policies(&config);
+    assert!(violations.is_empty()); // No condition => not violated
+}
+
+#[test]
 fn test_fj220_require_tags() {
     let yaml = r#"
 version: "1.0"
