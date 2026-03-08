@@ -1,7 +1,7 @@
 {
-  "rescue_id": "5c7f8462-9a4e-439a-b2c0-2d7fc6a3e2b8",
-  "work_item_id": "PMAT-045",
-  "timestamp": "2026-03-08T11:20:12.042730275Z",
+  "rescue_id": "ff9ce317-13b3-423b-8c41-db8f982ca70e",
+  "work_item_id": "PMAT-047",
+  "timestamp": "2026-03-08T13:25:43.761952530Z",
   "violated_clause": "All changes pushed",
   "strategy": {
     "ManualIntervention": {

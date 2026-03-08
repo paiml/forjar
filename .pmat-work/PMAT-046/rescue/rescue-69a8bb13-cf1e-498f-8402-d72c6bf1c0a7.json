@@ -1,0 +1,21 @@
+{
+  "rescue_id": "69a8bb13-cf1e-498f-8402-d72c6bf1c0a7",
+  "work_item_id": "PMAT-046",
+  "timestamp": "2026-03-08T13:31:43.131833648Z",
+  "violated_clause": "All changes pushed",
+  "strategy": {
+    "ManualIntervention": {
+      "guidance": "Push all local commits: `git push origin HEAD`"
+    }
+  },
+  "diagnosis": {
+    "summary": "Manual intervention required: Push all local commits: `git push origin HEAD`",
+    "suggested_actions": [
+      "Push all local commits: `git push origin HEAD`",
+      "Re-run: pmat work complete <id>"
+    ],
+    "generated_artifacts": []
+  },
+  "outcome": "ManualActionRequired",
+  "retry_allowed": true
+}

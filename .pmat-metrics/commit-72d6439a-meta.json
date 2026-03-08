@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-041",
+  "prompt": "FJ-2200: Remediate E5/E6 — update falsification report, rename Kani harnesses",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-08T11:41:09.610091849Z"
+}

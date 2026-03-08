@@ -756,3 +756,115 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-046
+  github_issue: null
+  item_type: task
+  title: 'New task: PMAT-046'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T11:59:40.219670038+00:00
+  updated: 2026-03-08T11:59:40.219670038+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-047
+  github_issue: null
+  item_type: task
+  title: 'Falsification gap: spec claims σ≥5 discrimination but actual σ=2.23 — qualified recipes cluster 80-89 with near-zero variance. Root cause: RES=61 floor (all recipes share policy template), CMP=65 floor. Fix: either adjust spec target or improve dimension discrimination.'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:16Z
+  updated: 2026-03-08T13:13:32.170175589+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-048
+  github_issue: null
+  item_type: task
+  title: 'Falsification gap: CSV missing static_grade/runtime_grade columns — spec 16 claims two-tier grade columns but CSV has single ''grade'' column'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:22Z
+  updated: 2026-03-08T13:15:23.394731132+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-049
+  github_issue: null
+  item_type: task
+  title: 'Falsification gap: CIS hardening recipe 92 RES=45 — spec 16 claims RES≥70 for tagged independent controls'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:23Z
+  updated: 2026-03-08T13:20:34.779767360+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-050
+  github_issue: null
+  item_type: task
+  title: 'Falsification gap: Dalla Palma correlation test missing — spec 16 claims r≥0.5 threshold but zero code exists'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:24Z
+  updated: 2026-03-08T13:13:24Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-051
+  github_issue: null
+  item_type: task
+  title: 'Spec stale: test count 8365→10075, test files 525→658, CI workflows 11→14 — update 14-testing-strategy.md'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:25Z
+  updated: 2026-03-08T13:13:25Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-052
+  github_issue: null
+  item_type: task
+  title: 'Falsification gap: state-query missing spec-claimed flags (--events, --failures, --destroy-log, --since, --run, --status, --age) and query UX needs positional pattern'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-08T13:13:27Z
+  updated: 2026-03-08T13:23:06.431122364+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
