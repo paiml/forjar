@@ -5,6 +5,7 @@ pub mod chain;
 pub mod drift;
 pub mod eventlog;
 pub mod hasher;
+pub mod otlp_export;
 pub mod tracer;
 
 #[cfg(test)]

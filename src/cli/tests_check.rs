@@ -114,6 +114,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
         assert!(target.exists());
@@ -286,6 +287,7 @@ resources:
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None, // telemetry_endpoint
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());

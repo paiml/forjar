@@ -102,6 +102,7 @@ pub(crate) fn cmd_retry_failed(
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None,  // telemetry_endpoint
         )?;
     }
 
@@ -182,6 +183,7 @@ pub(crate) fn cmd_rolling(
                 false, // confirm_destructive
                 None,  // exclude
                 false, // sequential
+                None,  // telemetry_endpoint
             )?;
         }
 
@@ -256,6 +258,7 @@ pub(crate) fn cmd_canary(
         false, // confirm_destructive
         None,  // exclude
         false, // sequential
+        None,  // telemetry_endpoint
     )?;
 
     println!("\n{} Canary '{}' succeeded.", green("✓"), canary_machine);
@@ -321,6 +324,7 @@ pub(crate) fn cmd_canary(
             false, // confirm_destructive
             None,  // exclude
             false, // sequential
+            None,  // telemetry_endpoint
         )?;
     }
 

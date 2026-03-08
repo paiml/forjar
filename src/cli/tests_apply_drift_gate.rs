@@ -138,6 +138,7 @@ policy:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
@@ -224,6 +225,7 @@ policy:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }
@@ -308,6 +310,7 @@ policy:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }
@@ -389,6 +392,7 @@ policy:
             false,
             None,
             false,
+            None, // telemetry_endpoint
         );
         assert!(result.is_ok());
     }

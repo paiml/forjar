@@ -143,6 +143,7 @@ fn run_drift_remediation(
         false, // confirm_destructive
         None,  // exclude
         false, // sequential
+        None,  // telemetry_endpoint
     )?;
     if !json {
         println!("Remediation complete.");
