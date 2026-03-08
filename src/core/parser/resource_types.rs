@@ -37,6 +37,28 @@ fn validate_package(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
             message: format!("resource '{id}' (package) has no provider"),
         });
     }
+    // FJ-48: Warn when linux-image-* is installed without matching linux-headers-*
+    check_kernel_headers(id, resource, errors);
+}
+
+/// Warn when a kernel image package is listed without matching headers.
+/// Without headers, DKMS modules (e.g. NVIDIA driver) fail to rebuild.
+fn check_kernel_headers(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    for pkg in &resource.packages {
+        let suffix = if let Some(s) = pkg.strip_prefix("linux-image-") {
+            s
+        } else {
+            continue;
+        };
+        let expected_headers = format!("linux-headers-{suffix}");
+        if !resource.packages.iter().any(|p| p == &expected_headers) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' installs '{pkg}' without '{expected_headers}' — DKMS modules will fail to build"
+                ),
+            });
+        }
+    }
 }
 
 fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {

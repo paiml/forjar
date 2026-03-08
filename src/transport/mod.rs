@@ -148,7 +148,7 @@ pub fn exec_script_timeout(
 }
 
 /// Check if a machine uses SSH transport (not pepita, container, or local).
-fn is_ssh_transport(machine: &Machine) -> bool {
+pub fn is_ssh_transport(machine: &Machine) -> bool {
     !machine.is_pepita_transport()
         && !machine.is_container_transport()
         && machine.addr != "127.0.0.1"

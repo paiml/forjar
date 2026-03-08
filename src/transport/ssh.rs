@@ -171,7 +171,7 @@ pub(crate) fn expand_tilde(path: &str) -> String {
 
 /// Build the SSH command arguments (without spawning).
 /// Includes ControlMaster multiplexing options if a socket exists.
-pub(crate) fn build_ssh_args(machine: &Machine) -> Vec<String> {
+pub fn build_ssh_args(machine: &Machine) -> Vec<String> {
     let mut args = vec![
         "-o".to_string(),
         "BatchMode=yes".to_string(),

@@ -413,6 +413,24 @@ fn default_pepita_filesystem() -> String {
 }
 
 impl Machine {
+    /// Construct an SSH machine with hostname, address, and user.
+    /// All other fields use sensible defaults.
+    pub fn ssh(hostname: &str, addr: &str, user: &str) -> Self {
+        Self {
+            hostname: hostname.to_string(),
+            addr: addr.to_string(),
+            user: user.to_string(),
+            arch: default_arch(),
+            ssh_key: None,
+            roles: Vec::new(),
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+            allowed_operators: Vec::new(),
+        }
+    }
+
     /// Returns true if this machine uses container transport.
     ///
     /// # Examples
