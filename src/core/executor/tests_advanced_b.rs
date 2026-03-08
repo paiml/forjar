@@ -1,6 +1,5 @@
 //! FJ-050: Trace tests, FJ-051: Anomaly detection.
 
-use super::test_fixtures::*;
 use super::*;
 
 #[test]
