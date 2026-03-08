@@ -856,11 +856,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Falsification gap: state-query missing spec-claimed flags (--events, --failures, --destroy-log, --since, --run, --status, --age) and query UX needs positional pattern'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T13:13:27Z
-  updated: 2026-03-08T13:23:06.431122364+00:00
+  updated: 2026-03-08T13:39:33.528107133+00:00
   spec: null
   acceptance_criteria: []
   phases: []
