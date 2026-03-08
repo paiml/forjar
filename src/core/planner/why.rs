@@ -141,7 +141,7 @@ fn explain_present(
 /// Truncate a hash for display (first 16 chars).
 fn truncate_hash(hash: &str) -> String {
     if hash.len() > 24 {
-        format!("{}...", &hash[..24])
+        format!("{}...", hash.get(..24).unwrap_or(hash))
     } else {
         hash.to_string()
     }

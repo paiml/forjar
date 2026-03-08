@@ -198,6 +198,6 @@ fn redact(s: &str) -> String {
     if s.len() <= 8 {
         format!("{s}...")
     } else {
-        format!("{}...", &s[..8])
+        format!("{}...", s.get(..8).unwrap_or(s))
     }
 }

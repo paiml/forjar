@@ -281,13 +281,16 @@ pub fn run_convergence_parallel_with_backend(
 
             for handle in handles {
                 if let Ok(result) = handle.join() {
-                    results.lock().unwrap().push(result);
+                    results
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .push(result);
                 }
             }
         });
     }
 
-    results.into_inner().unwrap()
+    results.into_inner().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Summary of convergence test results.

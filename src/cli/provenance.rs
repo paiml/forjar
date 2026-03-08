@@ -168,13 +168,24 @@ fn print_provenance_text(
     println!("{}\n", bold("SLSA Provenance Attestation"));
     println!("  Subject:     {}", bold(name));
     println!("  Timestamp:   {timestamp}");
-    println!("  Config hash: blake3:{}", &config_hash[..16]);
-    println!("  Plan hash:   blake3:{}", &plan_hash[..16]);
+    println!(
+        "  Config hash: blake3:{}",
+        config_hash.get(..16).unwrap_or(config_hash)
+    );
+    println!(
+        "  Plan hash:   blake3:{}",
+        plan_hash.get(..16).unwrap_or(plan_hash)
+    );
 
     if !state_hashes.is_empty() {
         println!("\n  State hashes:");
         for (machine, hash) in state_hashes {
-            println!("    {} {} blake3:{}", green("*"), machine, &hash[..16]);
+            println!(
+                "    {} {} blake3:{}",
+                green("*"),
+                machine,
+                hash.get(..16).unwrap_or(hash)
+            );
         }
     }
 

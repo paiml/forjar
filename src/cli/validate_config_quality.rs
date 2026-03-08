@@ -125,7 +125,7 @@ fn find_tag_consistency_warnings(config: &types::ForjarConfig) -> Vec<TagConsist
         let reference_tags: BTreeSet<&String> = group[0].1.tags.iter().collect();
         let reference_sorted: Vec<String> = reference_tags.iter().map(|t| (*t).clone()).collect();
 
-        for &(name, resource) in &group[1..] {
+        for &(name, resource) in group.get(1..).unwrap_or(&[]) {
             let current_tags: BTreeSet<&String> = resource.tags.iter().collect();
             if !current_tags.is_empty()
                 && !reference_tags.is_empty()

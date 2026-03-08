@@ -222,15 +222,16 @@ pub fn ewma_zscore(values: &[f64], target: f64, alpha: f64) -> f64 {
     }
 
     // Compute EWMA mean
-    let mut ewma = values[0];
-    for &v in &values[1..] {
+    let first = *values.first().unwrap();
+    let mut ewma = first;
+    for &v in values.get(1..).unwrap_or(&[]) {
         ewma = alpha * v + (1.0 - alpha) * ewma;
     }
 
     // Compute EWMA variance
     let mut ewma_var = 0.0;
-    let mut ewma_mean = values[0];
-    for &v in &values[1..] {
+    let mut ewma_mean = first;
+    for &v in values.get(1..).unwrap_or(&[]) {
         ewma_mean = alpha * v + (1.0 - alpha) * ewma_mean;
         let diff = v - ewma_mean;
         ewma_var = alpha * diff * diff + (1.0 - alpha) * ewma_var;
