@@ -7,11 +7,13 @@ on:
     paths:
       - "src/core/**"
       - "src/resources/**"
+      - ".cargo/config.toml"
       - ".github/workflows/convergence.yml"
   pull_request:
     paths:
       - "src/core/**"
       - "src/resources/**"
+  workflow_dispatch:
 
 concurrency:
   group: convergence-${{ github.ref }}
