@@ -284,3 +284,57 @@ forjar prove -f forjar.yaml --json | jq -e '.passed == .total'
 # Audit: generate provenance for compliance
 forjar provenance -f forjar.yaml --json > provenance.json
 ```
+
+## Recipe Signing (FJ-1432)
+
+Sign recipes with BLAKE3-HMAC to verify integrity before apply:
+
+```bash
+# Sign a recipe
+forjar recipe-sign recipes/nginx.yaml --signer ci-bot
+
+# Verify signature
+forjar recipe-sign recipes/nginx.yaml --verify
+
+# JSON output
+forjar recipe-sign recipes/nginx.yaml --verify --json
+```
+
+Signing produces a `.sig.json` file alongside the recipe:
+
+```json
+{
+  "recipe_path": "recipes/nginx.yaml",
+  "blake3_hash": "a1b2c3d4...",
+  "algorithm": "blake3-hmac",
+  "signer": "ci-bot",
+  "timestamp": "2026-03-07T22:00:00Z",
+  "signature": "e5f6a7b8..."
+}
+```
+
+Verification re-hashes the recipe and compares against the stored
+signature. If someone modifies the recipe after signing, verification
+fails with "hash mismatch."
+
+Post-quantum dual signing is available with `--pq`, which produces
+both a BLAKE3-HMAC and a Dilithium lattice-based signature.
+
+## Recipe Registry (FJ-1426)
+
+A local registry for recipe discovery and version management:
+
+```bash
+# List registered recipes
+forjar registry-list
+
+# JSON output
+forjar registry-list --json
+
+# Custom registry directory
+forjar registry-list --registry-dir /opt/forjar/registry
+```
+
+Recipes are indexed by name + version with BLAKE3 integrity hashes.
+The registry supports search by name or tag, and version comparison
+for dependency resolution.
