@@ -481,11 +481,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DEBT: Split 92 oversized files under 500-line limit'
-  status: planned
+  status: inprogress
   priority: low
   assigned_to: null
   created: 2026-03-02T22:01:31Z
-  updated: 2026-03-02T22:01:31Z
+  updated: 2026-03-08T17:51:16.289217560+00:00
   spec: null
   acceptance_criteria:
   - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files and CLI dispatch modules. Needs systematic splitting.'
@@ -876,7 +876,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-03-08T13:49:08Z
-  updated: 2026-03-08T16:47:37.268806930+00:00
+  updated: 2026-03-08T19:54:43.258300378+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -892,7 +892,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-03-08T16:50:34Z
-  updated: 2026-03-08T16:54:14.155640012+00:00
+  updated: 2026-03-08T17:55:09.707117840+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -904,11 +904,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-2300: Secret provider integrations (env, file, sops, 1password)'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-03-08T16:50:35Z
-  updated: 2026-03-08T16:50:35Z
+  updated: 2026-03-08T17:56:01.573209722+00:00
   spec: null
   acceptance_criteria: []
   phases: []

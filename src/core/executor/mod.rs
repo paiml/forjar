@@ -26,6 +26,8 @@ mod tests_converge2;
 #[cfg(test)]
 mod tests_core;
 #[cfg(test)]
+mod tests_core_b;
+#[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
 mod tests_edge_apply;
@@ -37,6 +39,8 @@ mod tests_edge_details;
 mod tests_edge_record;
 #[cfg(test)]
 mod tests_filters;
+#[cfg(test)]
+mod tests_filters_b;
 #[cfg(test)]
 mod tests_hooks;
 #[cfg(test)]
