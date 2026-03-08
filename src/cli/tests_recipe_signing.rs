@@ -59,6 +59,68 @@ mod tests {
     }
 
     #[test]
+    fn test_cmd_recipe_sign_verify_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "test content").unwrap();
+        // Sign first, then verify
+        cmd_recipe_sign(&recipe, false, Some("ci"), false).unwrap();
+        let result = cmd_recipe_sign(&recipe, true, None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cmd_recipe_sign_verify_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "test content").unwrap();
+        cmd_recipe_sign(&recipe, false, Some("ci"), false).unwrap();
+        let result = cmd_recipe_sign(&recipe, true, None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cmd_recipe_sign_verify_tampered() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "original").unwrap();
+        cmd_recipe_sign(&recipe, false, Some("ci"), false).unwrap();
+        std::fs::write(&recipe, "tampered").unwrap();
+        let result = cmd_recipe_sign(&recipe, true, None, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cmd_recipe_sign_default_signer() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "test").unwrap();
+        // signer=None defaults to "local"
+        let result = cmd_recipe_sign(&recipe, false, None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cmd_recipe_sign_text_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "content").unwrap();
+        let result = cmd_recipe_sign(&recipe, false, Some("dev"), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_result_empty_signer() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "test").unwrap();
+        // No sig file → valid=false, signer=""
+        let result = verify_recipe(&recipe).unwrap();
+        assert!(!result.valid);
+        assert!(result.signer.is_empty());
+    }
+
+    #[test]
     fn test_recipe_signature_serde() {
         let sig = RecipeSignature {
             recipe_path: "/tmp/r.yaml".to_string(),

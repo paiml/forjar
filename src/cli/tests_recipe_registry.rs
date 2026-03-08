@@ -115,6 +115,68 @@ mod tests {
     }
 
     #[test]
+    fn test_cmd_registry_list_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_registry_list(dir.path(), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cmd_registry_list_with_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = dir.path().join("registry");
+        let recipe = dir.path().join("recipe.yaml");
+        std::fs::write(&recipe, "test recipe content").unwrap();
+        register_recipe(&registry, &recipe, "1.0.0", "test", &[]).unwrap();
+        // List in text mode
+        cmd_registry_list(&registry, false).unwrap();
+        // List in JSON mode
+        cmd_registry_list(&registry, true).unwrap();
+    }
+
+    #[test]
+    fn test_default_registry_dir() {
+        let dir = default_registry_dir();
+        let s = dir.to_string_lossy();
+        assert!(s.contains("registry"));
+    }
+
+    #[test]
+    fn test_search_registry_by_tag() {
+        let index = RegistryIndex {
+            entries: vec![RegistryEntry {
+                name: "redis".to_string(),
+                version: "1.0.0".to_string(),
+                path: "/tmp/redis.yaml".to_string(),
+                blake3: "c".repeat(64),
+                description: "redis cache".to_string(),
+                tags: vec!["cache".to_string(), "database".to_string()],
+            }],
+        };
+        // Search by tag match
+        let results = search_registry(&index, "cache");
+        assert_eq!(results.len(), 1);
+        // Search miss
+        let results = search_registry(&index, "nonexistent");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_get_latest_no_match() {
+        let index = RegistryIndex {
+            entries: vec![RegistryEntry {
+                name: "app".to_string(),
+                version: "1.0.0".to_string(),
+                path: "/tmp/a.yaml".to_string(),
+                blake3: "a".repeat(64),
+                description: "v1".to_string(),
+                tags: vec![],
+            }],
+        };
+        assert!(get_latest(&index, "nonexistent").is_none());
+    }
+
+    #[test]
     fn test_registry_entry_serde() {
         let entry = RegistryEntry {
             name: "test".to_string(),
