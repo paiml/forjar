@@ -436,6 +436,10 @@ pub struct ImageArgs {
     #[arg(long)]
     pub user_data: bool,
 
+    /// Generate Android Magisk module ZIP (experimental)
+    #[arg(long)]
+    pub android: bool,
+
     /// Path to base Ubuntu ISO (required for --iso)
     #[arg(long)]
     pub base: Option<PathBuf>,
