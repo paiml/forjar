@@ -227,6 +227,210 @@ fn dispatch_saga_plan() {
 }
 
 #[test]
+fn dispatch_multi_apply() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = make_config(
+        dir.path(),
+        r#"version: "1.0"
+name: multi
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#,
+    );
+    let cmd = Commands::MultiApply(MultiConfigArgs {
+        file: vec![file],
+        json: false,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_multi_apply_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = make_config(
+        dir.path(),
+        "version: \"1.0\"\nname: multi-j\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n",
+    );
+    let cmd = Commands::MultiApply(MultiConfigArgs {
+        file: vec![file],
+        json: true,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_stack_graph() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = make_config(
+        dir.path(),
+        r#"version: "1.0"
+name: graph
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: m
+    path: /tmp/a
+    content: a
+  b:
+    type: file
+    machine: m
+    path: /tmp/b
+    content: b
+    depends_on: [a]
+"#,
+    );
+    let cmd = Commands::StackGraph(StackGraphArgs {
+        file: vec![file],
+        json: false,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_stack_graph_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = make_config(
+        dir.path(),
+        "version: \"1.0\"\nname: sg-j\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n",
+    );
+    let cmd = Commands::StackGraph(StackGraphArgs {
+        file: vec![file],
+        json: true,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_infra_query() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+    let file = make_config(
+        dir.path(),
+        r#"version: "1.0"
+name: query
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [vim]
+"#,
+    );
+    let cmd = Commands::InfraQuery(InfraQueryArgs {
+        file,
+        state_dir,
+        pattern: Some("pkg".to_string()),
+        resource_type: None,
+        machine: None,
+        tag: None,
+        details: false,
+        live: false,
+        json: false,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_infra_query_json_with_filters() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+    let file = make_config(
+        dir.path(),
+        "version: \"1.0\"\nname: q-j\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n",
+    );
+    let cmd = Commands::InfraQuery(InfraQueryArgs {
+        file,
+        state_dir,
+        pattern: None,
+        resource_type: Some("file".to_string()),
+        machine: Some("m".to_string()),
+        tag: Some("web".to_string()),
+        details: true,
+        live: false,
+        json: true,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_parallel_apply() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = make_config(
+        dir.path(),
+        "version: \"1.0\"\nname: par\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n",
+    );
+    let cmd = Commands::ParallelApply(ParallelStackArgs {
+        file: vec![file],
+        max_parallel: 2,
+        json: false,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_recipe_sign_pq() {
+    let dir = tempfile::tempdir().unwrap();
+    let recipe = dir.path().join("recipe.yaml");
+    std::fs::write(&recipe, "recipe:\n  name: pq-test\nresources: {}\n").unwrap();
+    let cmd = Commands::RecipeSign(RecipeSignArgs {
+        recipe,
+        verify: false,
+        signer: Some("ci".to_string()),
+        json: true,
+        pq: true,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_pull_agent_push_mode() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+    let file = make_config(
+        dir.path(),
+        "version: \"1.0\"\nname: pull\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n",
+    );
+    let cmd = Commands::PullAgent(PullAgentArgs {
+        file,
+        state_dir,
+        interval: 1,
+        auto_apply: false,
+        max_iterations: Some(1),
+        pull: false,
+        json: false,
+    });
+    let result = dispatch_platform_cmd(cmd);
+    assert!(result.is_ok());
+}
+
+#[test]
 fn dispatch_unknown_command_returns_error() {
     let cmd = Commands::Init(InitArgs {
         path: PathBuf::from("/tmp/test-init"),
