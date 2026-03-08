@@ -223,43 +223,55 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
             file,
             machine,
             user_data,
+            android,
             base,
             output,
             disk,
             locale,
             timezone,
             json,
-        }) => match base {
-            Some(ref base_iso) if !user_data => {
+        }) => {
+            if android {
                 let out = output
                     .as_deref()
-                    .unwrap_or(std::path::Path::new("forjar-autoinstall.iso"));
-                super::image_cmd::cmd_image_iso(
+                    .unwrap_or(std::path::Path::new("forjar-magisk.zip"));
+                return super::image_android::cmd_image_android(
                     &file,
                     machine.as_deref(),
-                    base_iso,
                     out,
+                    json,
+                );
+            }
+            match base {
+                Some(ref base_iso) if !user_data => {
+                    let out = output
+                        .as_deref()
+                        .unwrap_or(std::path::Path::new("forjar-autoinstall.iso"));
+                    super::image_cmd::cmd_image_iso(
+                        &file,
+                        machine.as_deref(),
+                        base_iso,
+                        out,
+                        &disk,
+                        &locale,
+                        &timezone,
+                        json,
+                    )
+                }
+                _ => super::image_cmd::cmd_image_user_data(
+                    &file,
+                    machine.as_deref(),
                     &disk,
                     &locale,
                     &timezone,
+                    output.as_deref(),
                     json,
-                )
+                ),
             }
-            _ => super::image_cmd::cmd_image_user_data(
-                &file,
-                machine.as_deref(),
-                &disk,
-                &locale,
-                &timezone,
-                output.as_deref(),
-                json,
-            ),
-        },
+        }
         other => super::dispatch_platform::dispatch_platform_cmd(other),
     }
 }
-
-// cmd_contracts moved to contracts.rs (FJ-2200 real implementation)
 
 /// Check if a container runtime binary is available on PATH.
 pub(crate) fn which_runtime(name: &str) -> bool {
@@ -432,12 +444,10 @@ pub(crate) fn print_table_results(
     }
     println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
     for r in results {
+        let p = r.path.as_deref().unwrap_or("—");
         println!(
-            " {:20} {:10} {:10} {}",
-            r.resource_id,
-            r.resource_type,
-            r.status,
-            r.path.as_deref().unwrap_or("—")
+            " {:20} {:10} {:10} {p}",
+            r.resource_id, r.resource_type, r.status
         );
     }
     if history {
@@ -491,5 +501,3 @@ pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Resul
     }
     Ok(())
 }
-
-// cmd_query_drift and cmd_query_churn moved to query_format.rs

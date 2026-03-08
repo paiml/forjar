@@ -133,7 +133,7 @@ pub fn cmd_image_iso(
 }
 
 /// Resolve the target machine from config.
-fn resolve_machine<'a>(
+pub(crate) fn resolve_machine<'a>(
     config: &'a crate::core::types::ForjarConfig,
     machine_name: Option<&str>,
 ) -> Result<(String, &'a crate::core::types::Machine), String> {
