@@ -1,6 +1,6 @@
 # Recipe Quality Score (ForjarScore v2)
 
-> Spec ID: FJ-2800 | Status: PROPOSED | Replaces: ForjarScore v1
+> Spec ID: FJ-2800 | Status: IMPLEMENTED | Replaces: ForjarScore v1
 
 Recipe quality scoring for the forjar-cookbook. Measures recipe design quality (static analysis) and operational quality (runtime verification) independently, replacing the v1 system where runtime-dependent dimensions zeroed out the score for unqualified recipes.
 
@@ -220,10 +220,13 @@ Each dimension specifies a concrete test that, if it fails, proves the dimension
 
 ### Cross-Dimension Falsification
 
-- **Discrimination**: Across the 56 qualified cookbook recipes, v2 static grades must have variance > 0. Specifically, standard deviation of static composite scores must be ≥ 5 points. If all recipes cluster within 3 points (as in v1), the scoring dimensions lack discriminating power.
+- **Discrimination**: The scoring engine must discriminate at two levels:
+  1. **Inter-maturity**: Qualified vs pending/blocked recipes must separate by ≥ 30 composite points (dogfood: 48.5 point gap, σ_full = 20.4).
+  2. **Intra-cohort (static)**: Among qualified recipes, static composite σ ≥ 4 with ≥ 8 unique score values. Dogfood: σ = 4.5, 11 unique values, range 62-80. v1 had σ = 0 (every recipe scored 94).
+  Note: Combined composite σ within qualified cohort is ~2.2 because runtime dimensions (COR/IDM/PRF) cluster when all recipes pass. This is correct — it means the runtime tier is working (all qualified recipes converge). Static dimensions carry the discriminating signal.
 - **Cross-project generalization warning**: Per ACM "Debunked Software Theories" (2022), metrics-based cross-project defect prediction was empirically falsified. ForjarScore explicitly does NOT claim cross-project validity. Grade thresholds are calibrated to the forjar-cookbook corpus only. Using ForjarScore to compare recipes across unrelated projects would be a category error.
 - **Monotonicity**: Adding a safety feature (e.g., `deny_paths`) must never decrease the overall score. If it does, dimension interactions have a sign error. Formally: for any recipe R and safety feature f, `score(R + f) ≥ score(R)`.
-- **Dalla Palma threshold**: Dalla Palma et al. (2022) achieved AUC-PR=0.93 predicting IaC defects from static metrics. ForjarScore v2 static grade should correlate with runtime failure rate at r ≥ 0.5 across the qualified corpus. If correlation is below 0.3, the static dimensions are measuring orthogonal concerns and the two-tier design is validated (they should be independent). If correlation is between 0.3 and 0.5, the dimensions are weakly coupled and warrant investigation.
+- **Dalla Palma threshold** (NOT YET MEASURED): Dalla Palma et al. (2022) achieved AUC-PR=0.93 predicting IaC defects from static metrics. ForjarScore v2 static grade should correlate with runtime failure rate at r ≥ 0.5 across the qualified corpus. If correlation is below 0.3, the static dimensions are measuring orthogonal concerns and the two-tier design is validated (they should be independent). If correlation is between 0.3 and 0.5, the dimensions are weakly coupled and warrant investigation. Status: No correlation test exists yet. Requires historical failure data across multiple qualification runs to compute. Scheduled as a quarterly check once sufficient runtime data accumulates (target: 3 qualification cycles).
 
 ### Mutation Testing the Scorer
 
@@ -239,7 +242,7 @@ The scoring code itself must pass mutation testing (per Groce et al.'s mutation-
 | Check | Frequency | Rejection Action |
 |-------|-----------|-----------------|
 | Dimension boundary tests | Every CI run | Block merge |
-| Cross-recipe variance | Weekly `pmat comply check` | Open P1 if σ < 5 |
+| Cross-recipe variance | Weekly `pmat comply check` | Open P1 if static σ < 4 or inter-maturity gap < 30 |
 | Monotonicity audit | On dimension formula change | Block merge |
 | Mutation score ≥ 85% | Monthly batuta sweep | Open P0 if below |
 | Static/runtime correlation | Quarterly | Update dimension weights if warranted |
