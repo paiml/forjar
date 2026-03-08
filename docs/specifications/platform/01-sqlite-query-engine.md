@@ -193,19 +193,19 @@ forjar state-query --sql                        # show the SQL query
 | `--reversibility` | DONE | Reversibility classification | `resources.reversibility` |
 | `--json` / `--csv` / `--sql` | DONE | Output format | All queries |
 | `--health` | DONE | Stack-wide health summary | Aggregate query |
+| `--events` | DONE | Recent events | `events` table |
+| `--failures` | DONE | Failure history and errors | `events WHERE type=resource_failed` |
+| `--since` | DONE | Time-based filter (relative: "1h", "7d"; absolute: ISO 8601) | `events.timestamp` |
+| `--run` | DONE | Events for a specific run | `events.run_id` |
+| `--status` | DONE | Filter by resource status | `resources.status` |
 
 ### Planned Enrichment Flags
 
 | Flag | Description | Source |
 |------|-------------|--------|
-| `--events` | Recent events | `events` table |
-| `--failures` | Failure history and errors | `events WHERE type=resource_failed` |
-| `--destroy-log` | Destroy history | `destroy_log` table |
-| `--since` | Time-based filter | `events.timestamp` |
-| `--run` | Events for a specific run | `events.run_id` |
-| `--status` | Filter by resource status | `resources.status` |
+| `--destroy-log` | Destroy history (table + ingest exist, CLI flag missing) | `destroy_log` table |
 | `--age` | Filter by drift age | `drift_findings.detected_at` |
-| `--all-machines` | Cross-machine search | All machines |
+| `--all-machines` | Cross-machine search (implicit for state-query; explicit flag for logs only) | All machines |
 | `--diff-machines` | Compare machine configs | Machine diff |
 
 ### Output Examples
@@ -331,5 +331,9 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] `-G` git history fusion via RRF
 - [x] `--sql` output mode
 - [x] `--reversibility` enrichment
+- [x] `--events` and `--failures` query functions with `events` table
+- [x] `--since` time filter (relative durations + ISO 8601)
+- [x] `--run` filter by run ID
+- [x] `--status` filter by resource status
 - **New module**: `src/cli/query.rs`
-- **Deliverable**: Full pmat-style query UX
+- **Deliverable**: Full pmat-style query UX (13/17 enrichment flags implemented)

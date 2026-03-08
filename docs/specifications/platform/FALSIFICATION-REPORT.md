@@ -5,7 +5,8 @@
 > Updated: 2026-03-08 | 49/49 code fixes resolved (U3 deferred — needs root). F22 OTLP export FIXED.
 > Coverage: 95.01% (10,163 tests), all quality gates passing, zero oversized files
 > Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
-> Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass. Total entries: 54.
+> Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass.
+> Spec falsification (2026-03-08): S6 (secret provider dispatch stale), S7 (5 query flags stale as Planned). Total entries: 68.
 > Quality (2026-03-08): CB-506 (10 string panics), CB-121 (2 lock poisoning) fixed. 4 files split under 500-line limit. FJ-2803 Popperian falsification added to spec.
 > Provisioning (2026-03-08): Spec 17 (FJ-33/49/51/52/54/1424) — 6/6 features verified IMPLEMENTED. Zero gaps. 3 examples added, book ch22, cookbook section.
 > Secret providers (2026-03-08): FJ-2300 — all 4 providers (env, file, sops, op) wired in resolver dispatch. 6 new tests. Example updated.
@@ -819,3 +820,5 @@ Spec (line 71) claimed "If `state.db` is deleted, `forjar ingest` rebuilds it fr
 | ~~64~~ | ~~`forjar test convergence/mutate` are flags not subcommands~~ | ~~E22~~ | FIXED |
 | ~~65~~ | ~~`forjar ingest` claimed as CLI command but is internal-only~~ | ~~F36~~ | FIXED |
 | ~~66~~ | ~~Spec 17 (FJ-33/49/51/52/54/1424): 6/6 features verified~~ | ~~C18~~ | CONFIRMED |
+| ~~67~~ | ~~Spec 10 line 133: "dispatch is not wired" — all 5 providers dispatched~~ | ~~S6~~ | FIXED |
+| ~~68~~ | ~~Spec 01: 5 query flags (events/failures/since/run/status) listed as Planned but DONE~~ | ~~S7~~ | FIXED |
