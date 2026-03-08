@@ -130,7 +130,7 @@ fn resolve_secrets(content, secret_provider):
 | 1Password CLI | `secrets.provider: op` | `op read "op://vault/item/field"` | Implemented |
 | Age encryption | `secrets.provider: age` | Age-encrypted values in config | Implemented |
 
-> **Current status**: Only Age encryption is implemented (`secrets.rs`). The `SecretProvider` enum with `Env`, `File`, `Sops`, `Op` variants exists in `security_types.rs` but dispatch is not wired. Template expansion of `{{ secrets.* }}` references is planned for Phase 6.
+> **Current status**: All five providers are implemented. Age encryption in `secrets.rs`; Env, File, Sops, Op dispatched via `SecretProvider` enum in `core/resolver/template.rs`. Template expansion of `{{ secrets.* }}` references resolves at apply time.
 
 ### Redaction
 
