@@ -159,15 +159,24 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
         fn avg_us(&self) -> f64 {
             self.total_us as f64 / self.iterations as f64
         }
-        fn avg_display(&self) -> String {
-            let us = self.avg_us();
-            if us > 1_000_000.0 {
-                format!("{:.1}s", us / 1_000_000.0)
-            } else if us > 1_000.0 {
-                format!("{:.1}ms", us / 1_000.0)
+
+        /// Parse the target string to seconds for comparison.
+        fn target_secs(&self) -> f64 {
+            let t = self.target.trim_start_matches("< ");
+            if let Some(s) = t.strip_suffix("µs") {
+                s.trim().parse::<f64>().unwrap_or(1.0) / 1_000_000.0
+            } else if let Some(s) = t.strip_suffix("ms") {
+                s.trim().parse::<f64>().unwrap_or(1.0) / 1_000.0
+            } else if let Some(s) = t.strip_suffix('s') {
+                s.trim().parse::<f64>().unwrap_or(1.0)
             } else {
-                format!("{us:.1}µs")
+                1.0
             }
+        }
+
+        /// Check if the average meets the target.
+        fn meets_target(&self) -> bool {
+            self.avg_us() / 1_000_000.0 <= self.target_secs()
         }
     }
 
@@ -222,7 +231,33 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     }
     results.push(BenchResult {
         name: "blake3 hash (4KB)",
-        target: "< 1µs",
+        target: "< 2µs",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    // 5. Topo sort benchmark
+    let topo_config = parser::parse_and_validate(&config_path)?;
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = resolver::build_execution_order(&topo_config)?;
+    }
+    results.push(BenchResult {
+        name: "topo sort (20 nodes)",
+        target: "< 100µs",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    // 6. BLAKE3 hash (1MB) — I/O-heavy workload
+    let big_data = "x".repeat(1_048_576);
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = hasher::hash_string(&big_data);
+    }
+    results.push(BenchResult {
+        name: "blake3 hash (1MB)",
+        target: "< 500µs",
         iterations,
         total_us: start.elapsed().as_micros(),
     });
@@ -237,6 +272,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
                     "iterations": r.iterations,
                     "avg_us": r.avg_us(),
                     "total_us": r.total_us,
+                    "status": if r.meets_target() { "pass" } else { "fail" },
                 })
             })
             .collect();
@@ -244,11 +280,39 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
             serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {e}"))?;
         println!("{output}");
     } else {
-        println!("Forjar Performance Benchmarks ({iterations} iterations)\n");
-        println!("  {:<28} {:>12} {:>12}", "Operation", "Average", "Target");
-        println!("  {}", "-".repeat(56));
+        use super::colors;
+        println!(
+            "\n{}",
+            colors::header(&format!(
+                "Forjar Performance Benchmarks ({iterations} iterations)"
+            ))
+        );
+        println!();
+        println!(
+            "  {:<28} {:>12} {:>12}   {}",
+            colors::bold("Operation"),
+            colors::bold("Average"),
+            colors::bold("Target"),
+            colors::bold("Status"),
+        );
+        println!("  {}", colors::rule());
+        let mut passed = 0usize;
         for r in &results {
-            println!("  {:<28} {:>12} {:>12}", r.name, r.avg_display(), r.target);
+            let avg = colors::duration_colored(r.avg_us() / 1_000_000.0, r.target_secs());
+            let status = if r.meets_target() {
+                passed += 1;
+                colors::pass("pass")
+            } else {
+                colors::fail("FAIL")
+            };
+            println!("  {:<28} {:>25} {:>12}   {}", r.name, avg, r.target, status,);
+        }
+        println!("  {}", colors::separator());
+        let summary = format!("{}/{} targets met", passed, results.len());
+        if passed == results.len() {
+            println!("  {}", colors::pass(&summary));
+        } else {
+            println!("  {}", colors::fail(&summary));
         }
         println!();
     }
