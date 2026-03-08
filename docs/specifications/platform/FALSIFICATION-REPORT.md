@@ -2,9 +2,10 @@
 
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
-> Updated: 2026-03-07 | 48/49 code fixes resolved (U3 deferred — needs root, F22 documented)
-> Coverage: 95.11% (9927 tests), all quality gates passing
+> Updated: 2026-03-08 | 48/49 code fixes resolved (U3 deferred — needs root, F22 documented)
+> Coverage: 95.16% (9972 tests), all quality gates passing
 > Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
+> Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass. Total entries: 54.
 > Fixes: P0 safety (F12), sandbox I/O (F10-F11), error handling (F13-F14), behavior specs (F15/F32), coverage (F16), contracts (F17), templates (F18/F23), overlaps (F19), dispatch (F20), authorization (F21), secrets (F24), task fields (F25), deep checks (F26), registry push (F27), schema (F28), runtime detection (F29), tokio (F30), log retention (F31).
 
 ---
@@ -624,6 +625,48 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 
 ---
 
+## Re-Audit Findings (2026-03-08)
+
+### ~~S3: Spec test count stale (9,819 → 9,972)~~ FIXED
+
+Spec roadmap line 207 claims "9,819 tests". Actual test count is 9,972 (153 additional tests since spec was written). Coverage: 95.16%.
+
+**Fix**: Update spec test count to 9,972.
+
+---
+
+### ~~S4: Falsification report numbers stale~~ FIXED
+
+Report header claimed "95.11% (9927 tests)". Actual: 95.16% (9,972 tests).
+
+**Fix**: Updated header (this file).
+
+---
+
+### ~~S5: `forjar diff --generation 3 7` syntax stale~~ FIXED
+
+Spec (lines 184, 214) and spec 02 (line 100) claim `forjar diff --generation 3 7`. Actual CLI syntax is `forjar generation diff <from> <to>` — it's a subcommand of `generation`, not a flag on `diff`. F1 correctly implemented `GenerationCmd::Diff` but the spec text was never updated to match.
+
+**Fix**: Update spec to `forjar generation diff 3 7`.
+
+---
+
+### ~~E22: `forjar test convergence/mutate` are flags, not subcommands~~ FIXED
+
+Spec 14 (lines 132, 372, 493-495) describes `forjar test convergence <config>` and `forjar test mutate <config>` as separate subcommands. Actual CLI is `forjar test --pairs` (convergence) and `forjar test --mutations N` (mutation). The functionality exists but the CLI surface differs from the spec.
+
+**Fix**: Update spec 14 CLI examples to match actual flag-based interface.
+
+---
+
+### ~~F36: `forjar ingest` does not exist as CLI command~~ FIXED
+
+Spec (line 71) claimed "If `state.db` is deleted, `forjar ingest` rebuilds it from flat files." Spec known-limitations (line 169) claimed "`forjar ingest --rebuild` reconstructs state.db." No `forjar ingest` command exists in CLI args. The ingest module (`core/store/ingest.rs`) is internal-only — called automatically during `forjar apply` and `forjar query`, not exposed as a standalone command.
+
+**Fix**: Updated spec language to describe auto-rebuild behavior ("automatically rebuilt on next `forjar apply` or `forjar query` via internal `ingest_state()`"). Updated known-limitations L5 and L12 to remove references to nonexistent `forjar ingest` CLI command.
+
+---
+
 ## Confirmed Claims (Verified Against Code)
 
 | Claim | Location |
@@ -672,6 +715,27 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | Age encryption with ENC[age,...] markers | `core/secrets.rs` |
 | Generation config_hash tracking (BLAKE3 of config file) | `cli/generation.rs:32-38` |
 | Provenance config_hash tracking (serialized config hash) | `executor/machine.rs:65-76` |
+| `forjar build` produces oci-layout + index.json + manifest.json | `core/store/sandbox_exec.rs:224-252` |
+| Dual digest: BLAKE3 + SHA-256 (uncompressed + compressed) | `core/store/layer_builder.rs:55-117` |
+| `forjar doctor` command with --json/--fix/--network | `commands/misc_ops_args.rs:6-24` |
+| "did you mean?" Levenshtein suggestions for unknown fields | `core/parser/unknown_fields.rs:427-469` |
+| TaskMode: batch/pipeline/service/dispatch (all 4 modes) | `core/types/task_types.rs:5-29` |
+| `{{ secrets.* }}` template resolution with Age encryption | `core/resolver/template.rs:69-71` |
+| `forjar lint --bashrs-version` flag | `commands/misc_args.rs:19` |
+| Wave parallelism via `std::thread::scope` | `core/executor/machine_wave.rs:13` |
+| `forjar build --sandbox` flag | `commands/platform_args.rs:324` |
+| `forjar status --connectivity` flag | `commands/status_args.rs:147` |
+| `forjar contracts --coverage` command | `commands/platform_args.rs:231-245` |
+| DeepCheckFlags with exactly 10 fields | `core/types/validation_types.rs:277-308` |
+| `forjar validate --deep` flag | `commands/validate_args.rs:26` |
+| `forjar query --type --drift` flags | `commands/platform_args.rs:361-370` |
+| `forjar undo-destroy` command | `commands/state_args.rs:37-55` |
+| FAR archives use zstd compression | `core/store/far.rs:1-3` |
+| CHUNKED_UPLOAD_THRESHOLD = 64MB, CHUNK_SIZE = 16MB | `core/store/registry_push.rs:90-92` |
+| MAX_RECIPE_DEPTH = 16 | `core/parser/recipes.rs:8` |
+| PID-file locking (not flock) | `core/state/mod.rs:218-254` |
+| Porter tokenizer for FTS5 | `core/store/db.rs:67,128` |
+| SCHEMA_VERSION = 2 with PRAGMA user_version | `core/store/db.rs:9,161-166` |
 
 ---
 
@@ -739,3 +803,8 @@ Spec 15-task-framework.md implies `task_mode` dispatch produces different script
 | ~~58~~ | ~~Implement pipeline stage gate enforcement~~ | ~~F34~~ | DONE |
 | 59 | ~~TaskMode batch/service/dispatch no script differentiation~~ | E21 | FIXED |
 | ~~60~~ | ~~Generation config_hash + provenance tracking~~ | ~~F35~~ | DONE |
+| ~~61~~ | ~~Spec test count 9,819 → 9,972~~ | ~~S3~~ | FIXED |
+| ~~62~~ | ~~Falsification report numbers stale (9,927 → 9,972)~~ | ~~S4~~ | FIXED |
+| ~~63~~ | ~~`forjar diff --generation 3 7` syntax → `forjar generation diff`~~ | ~~S5~~ | FIXED |
+| ~~64~~ | ~~`forjar test convergence/mutate` are flags not subcommands~~ | ~~E22~~ | FIXED |
+| ~~65~~ | ~~`forjar ingest` claimed as CLI command but is internal-only~~ | ~~F36~~ | FIXED |

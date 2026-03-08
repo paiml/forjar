@@ -129,9 +129,9 @@ For every pair of resource types that can coexist on the same machine, verify th
 ### Convergence Test Runner
 
 ```bash
-forjar test convergence config.yaml          # Run convergence tests
-forjar test convergence config.yaml --pairs  # Preservation matrix
-forjar test convergence config.yaml --from-state dirty  # Arbitrary starting states
+forjar test -f config.yaml                   # Run convergence tests
+forjar test -f config.yaml --pairs           # Preservation matrix
+forjar test -f config.yaml --from-state dirty  # Arbitrary starting states
 ```
 
 **Implementation**: For each resource, the convergence test runner:
@@ -369,9 +369,9 @@ Traditional mutation testing mutates source code. Infrastructure mutation testin
 ### Infrastructure Mutation Runner
 
 ```bash
-forjar test mutate config.yaml --sandbox pepita   # Run mutation tests
-forjar test mutate config.yaml --mutations 50     # Number of mutations per resource
-forjar test mutate config.yaml --report html      # Generate mutation report
+forjar test -f config.yaml --mutations 50 --sandbox pepita   # Run mutation tests
+forjar test -f config.yaml --mutations 50                    # Number of mutations per resource
+forjar test -f config.yaml --mutations 50 --report html      # Generate mutation report
 ```
 
 **Algorithm:**
@@ -420,7 +420,7 @@ Inspired by Meta's approach: use LLMs to generate realistic infrastructure mutat
 |-----------|-----------------|------|
 | **Code coverage** | Rust source lines executed | `cargo llvm-cov` |
 | **Resource coverage** | Resources with behavior specs | `forjar test --coverage` |
-| **Mutation coverage** | Infrastructure mutations detected | `forjar test mutate --score` |
+| **Mutation coverage** | Infrastructure mutations detected | `forjar test --mutations N --score` |
 | **State coverage** | Starting states tested | Proptest + sandbox |
 
 ### Code Coverage (Existing)
@@ -464,7 +464,7 @@ Target: 80% at L3+
 ### Mutation Coverage
 
 ```bash
-forjar test mutate config.yaml --score
+forjar test -f config.yaml --mutations 50 --score
 ```
 
 Output:
@@ -488,13 +488,12 @@ Undetected mutations:
 ### `forjar test` Command
 
 ```bash
-forjar test                                    # Run all test types
-forjar test unit                               # Rust unit tests (cargo test)
-forjar test behavior <dir>                     # Behavior specs
-forjar test convergence <config>               # Convergence property tests
-forjar test mutate <config>                    # Infrastructure mutation tests
-forjar test coverage <config>                  # Coverage report
-forjar test smoke <config>                     # Quick smoke test (validate + plan + dry-run)
+forjar test -f <config>                        # Run all test types
+forjar test -f <config> --behavior <dir>       # Behavior specs
+forjar test -f <config> --pairs                # Convergence property tests (preservation matrix)
+forjar test -f <config> --mutations 50         # Infrastructure mutation tests
+forjar test -f <config> --coverage             # Coverage report
+forjar test -f <config> --smoke                # Quick smoke test (validate + plan + dry-run)
 ```
 
 ### Test Output Format
@@ -626,7 +625,7 @@ Every CI test run produces:
 ## Implementation
 
 ### Phase 28: Convergence Property Testing (FJ-2600) -- IMPLEMENTED
-- [x] `forjar test convergence` command — wired to `run_convergence_parallel()` with real output
+- [x] `forjar test --pairs` flag — wired to `run_convergence_parallel()` with real output
 - [x] Proptest generators for resource starting states (arb_convergent_resource)
 - [x] Preservation matrix for resource pairs (CONV-003)
 - [x] Sandbox integration for real convergence verification (simulated mode)
@@ -678,7 +677,7 @@ Every CI test run produces:
 - [x] Undetected mutation reporting in CLI
 - [x] `SandboxBackend` in `MutationRunConfig` — dispatches via `resolve_mode()`
 - [x] `run_mutation_test_dispatch()` routes to `mutation_container.rs` when Docker/Podman available
-- **Deliverable**: `forjar test mutate` with mutation score >= 80%
+- **Deliverable**: `forjar test --mutations N` with mutation score >= 80%
 - **Note**: Container backend dispatches to real execution. Pepita/chroot degrade to simulated.
 
 ### Phase 33: Coverage Model (FJ-2605) -- IMPLEMENTED
