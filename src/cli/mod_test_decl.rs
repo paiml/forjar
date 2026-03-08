@@ -288,3 +288,5 @@ mod tests_run_task;
 mod tests_operator_auth;
 #[cfg(test)]
 mod tests_cov_apply_dispatch;
+#[cfg(test)]
+mod tests_dispatch_graph_b_cov2;
