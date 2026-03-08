@@ -1,21 +1,21 @@
 {
-  "tree_hash": "fbf32469ebb41889ea16583692b90c826f6823d9",
+  "tree_hash": "b170df9723d42e77e8cc44f2ce92e60fea5d3d58",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-07T11:09:31.736846341Z",
+  "timestamp": "2026-03-08T11:33:40.917408461Z",
   "report": {
     "files_with_dead_code": [
       {
-        "file_path": "src/cli/remote_state.rs",
+        "file_path": "src/cli/saga_coordinator.rs",
         "dead_items": [
           {
-            "name": "StateBackend",
+            "name": "SagaStepStatus",
             "kind": "Suppressed",
-            "line": 10,
+            "line": 23,
             "column": 1,
-            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
+            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
           }
         ],
-        "file_dead_percentage": 3.3333333333333335
+        "file_dead_percentage": 2.4390243902439024
       },
       {
         "file_path": "src/cli/infra_query_live.rs",
@@ -31,17 +31,17 @@
         "file_dead_percentage": 2.877697841726619
       },
       {
-        "file_path": "src/cli/saga_coordinator.rs",
+        "file_path": "src/cli/remote_state.rs",
         "dead_items": [
           {
-            "name": "SagaStepStatus",
+            "name": "StateBackend",
             "kind": "Suppressed",
-            "line": 23,
+            "line": 10,
             "column": 1,
-            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
           }
         ],
-        "file_dead_percentage": 2.4390243902439024
+        "file_dead_percentage": 3.3333333333333335
       },
       {
         "file_path": "src/core/task/mod.rs",
@@ -58,8 +58,8 @@
       }
     ],
     "total_dead_items": 4,
-    "dead_code_percentage": 0.0027012516925030137,
-    "total_lines": 296159,
+    "dead_code_percentage": 0.0026360272433415596,
+    "total_lines": 303487,
     "dead_lines": 8,
     "dead_by_type": {
       "suppressed": 4

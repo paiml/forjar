@@ -1,0 +1,202 @@
+{
+  "id": "019ccd39-7623-7751-b24d-cf758d2da737",
+  "git_sha": "4ac6928f54b9909489cdf3a8a40e3cffd798e46e",
+  "timestamp": "2026-03-08T11:33:41.027808125+00:00",
+  "trigger": "WorkComplete",
+  "work_item_id": "PMAT-044",
+  "verdicts": [
+    {
+      "hypothesis": "All baseline files still exist",
+      "method": "ManifestIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "All 1131 files present",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "The falsifier is active and detecting (Meta-Check)",
+      "method": "MetaFalsification",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Detected dummy gaming pattern correctly",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No coverage exclusion gaming",
+      "method": "CoverageGaming",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No gaming patterns found in 1135 files",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changed lines are covered",
+      "method": "DifferentialCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "26 changed files (coverage check requires llvm-cov data)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Total coverage >= 95%",
+      "method": "AbsoluteCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No coverage data (run 'make coverage' to establish baseline), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "TDG score >= baseline",
+      "method": "TdgRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No TDG data (baseline: 0.0)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No function exceeds complexity 20",
+      "method": "ComplexityRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Complexity check passed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No vulnerable dependencies added",
+      "method": "SupplyChainIntegrity",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Deny cache too old (8009 min). Run 'cargo deny check' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "No file exceeds 500 lines",
+      "method": "FileSizeRegression",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "3 file(s) exceed 500 lines: src/cli/commands/status_args.rs (680 lines), src/cli/commands/validate_args.rs (507 lines), src/cli/commands/apply_args.rs (688 lines)",
+      "evidence_summary": "FileList([\"src/cli/commands/status_args.rs\", \"src/cli/commands/validate_args.rs\", \"src/cli/commands/apply_args.rs\"])"
+    },
+    {
+      "hypothesis": "Spec & Roadmap Quality",
+      "method": "SpecQuality",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No spec file found (optional)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changes pushed",
+      "method": "GitHubSync",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "8 unpushed commit(s), 8 uncommitted file(s)",
+      "evidence_summary": "GitState { unpushed_commits: 8, dirty_files: 8 }"
+    },
+    {
+      "hypothesis": "All examples compile and run",
+      "method": "ExamplesCompile",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No examples cache (run 'cargo build --examples' to populate)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "pmat-book validation passes",
+      "method": "BookValidation",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "pmat-book not found (skipping validation)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new SATD markers (TODO/FIXME/HACK)",
+      "method": "SatdDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No new SATD markers (0 existing)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new dead code introduced",
+      "method": "DeadCodeDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No dead code detected",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All files have >= 95% coverage",
+      "method": "PerFileCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No per-file coverage data (run 'make coverage'), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "make lint passes",
+      "method": "LintPass",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Lint cache too old (8006 min). Run 'make lint' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "All match arm variants have test coverage",
+      "method": "VariantCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "26 changed file(s) -- all match variants tested",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No fix-after-fix chains exceed limit",
+      "method": "FixChainLimit",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No fix chains > 3 consecutive commits",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Cross-crate integration tests pass",
+      "method": "CrossCrateParity",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No cross-crate config (create .pmat-work/cross-crate.json to enable)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No performance regressions detected",
+      "method": "RegressionGate",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No benchmark cache (run benchmarks to populate .pmat-metrics/benchmark-status.json)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No incomplete proofs (sorry) introduced",
+      "method": "FormalProofVerification",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No .lean files with sorry found",
+      "evidence_summary": null
+    }
+  ],
+  "overrides": [
+    {
+      "claim_id": "file-size",
+      "ticket": "Clap args files exempt per CLAUDE.md (declarative structs, no logic)",
+      "reason": "Override approved via --override-claims (ticket: Clap args files exempt per CLAUDE.md (declarative structs, no logic))"
+    }
+  ],
+  "summary": {
+    "total": 22,
+    "passed": 18,
+    "failed": 4,
+    "warnings": 0,
+    "overridden": 1,
+    "allows_completion": false,
+    "health_score": 0.8181818181818182
+  },
+  "content_hash": "19a97e2faf12a2fea6784f7bf86eb4d7f9f12960b3b8be4a879f82313ae74b9f"
+}
