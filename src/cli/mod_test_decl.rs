@@ -286,3 +286,5 @@ mod tests_stack_diff;
 mod tests_run_task;
 #[cfg(test)]
 mod tests_operator_auth;
+#[cfg(test)]
+mod tests_cov_apply_dispatch;
