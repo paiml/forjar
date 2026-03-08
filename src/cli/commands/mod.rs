@@ -81,7 +81,6 @@ pub enum Commands {
     Mcp(McpArgs),
     /// Run performance benchmarks (spec §9 targets)
     Bench(BenchArgs),
-
     /// List all resources in state with type, status, hash prefix (FJ-214)
     #[command(name = "state-list")]
     StateList(StateListArgs),

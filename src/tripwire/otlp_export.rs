@@ -16,7 +16,7 @@ pub fn spans_to_otlp_json(spans: &[TraceSpan], service_name: &str) -> String {
     let mut otlp_spans = Vec::new();
     for span in spans {
         let start_ns = iso8601_to_nanos(&span.start_time);
-        let end_ns = start_ns + (span.duration_us as u64) * 1000;
+        let end_ns = start_ns + span.duration_us * 1000;
         let status_code = if span.exit_code == 0 { 1 } else { 2 }; // OK=1, ERROR=2
 
         let otlp_span = serde_json::json!({

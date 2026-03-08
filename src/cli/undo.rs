@@ -1,5 +1,3 @@
-//! FJ-2003/FJ-2005: Active undo and undo-destroy commands.
-
 use super::apply::*;
 use super::helpers::*;
 use super::helpers_state::load_generation_locks;
