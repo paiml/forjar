@@ -294,3 +294,5 @@ mod tests_dispatch_graph_b_cov2;
 mod tests_image;
 #[cfg(test)]
 mod tests_image_android;
+#[cfg(test)]
+mod tests_image_b;

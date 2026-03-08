@@ -157,7 +157,7 @@ pub(crate) fn resolve_machine<'a>(
 }
 
 /// Generate Ubuntu autoinstall user-data YAML.
-fn generate_user_data(
+pub(crate) fn generate_user_data(
     _name: &str,
     machine: &crate::core::types::Machine,
     disk: &str,
@@ -248,7 +248,7 @@ fn generate_user_data(
 }
 
 /// Read SSH public key file (tries .pub extension).
-fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
+pub(crate) fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
     let Some(key_path) = ssh_key else {
         return Ok(Vec::new());
     };
@@ -282,7 +282,7 @@ pub(crate) fn expand_tilde(path: &str) -> String {
 }
 
 /// Generate the late-command that installs the forjar-firstboot systemd service.
-fn firstboot_service_command() -> String {
+pub(crate) fn firstboot_service_command() -> String {
     let unit = r#"[Unit]
 Description=Forjar First Boot Convergence
 After=network-online.target
