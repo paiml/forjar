@@ -498,3 +498,7 @@ mod tests_cov_gen_diff;
 mod tests_cov_deep_lock3;
 #[cfg(test)]
 mod tests_build_image;
+#[cfg(test)]
+mod tests_destroy_b;
+#[cfg(test)]
+mod tests_diff_cmd_b;

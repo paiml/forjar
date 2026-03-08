@@ -1,35 +1,9 @@
 {
-  "tree_hash": "affac0e70e6fda084f52b7f61d614c8d72b70943",
+  "tree_hash": "e6f340f9265506eaba6c3f3cbf110b83f0d8f2e6",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-08T16:50:14.964190501Z",
+  "timestamp": "2026-03-08T17:55:56.658863330Z",
   "report": {
     "files_with_dead_code": [
-      {
-        "file_path": "src/cli/infra_query_live.rs",
-        "dead_items": [
-          {
-            "name": "LiveStatus",
-            "kind": "Suppressed",
-            "line": 21,
-            "column": 1,
-            "message": "enum `LiveStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 2.877697841726619
-      },
-      {
-        "file_path": "src/cli/remote_state.rs",
-        "dead_items": [
-          {
-            "name": "StateBackend",
-            "kind": "Suppressed",
-            "line": 10,
-            "column": 1,
-            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 3.3333333333333335
-      },
       {
         "file_path": "src/cli/saga_coordinator.rs",
         "dead_items": [
@@ -55,11 +29,37 @@
           }
         ],
         "file_dead_percentage": 21.052631578947366
+      },
+      {
+        "file_path": "src/cli/remote_state.rs",
+        "dead_items": [
+          {
+            "name": "StateBackend",
+            "kind": "Suppressed",
+            "line": 10,
+            "column": 1,
+            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 3.3333333333333335
+      },
+      {
+        "file_path": "src/cli/infra_query_live.rs",
+        "dead_items": [
+          {
+            "name": "LiveStatus",
+            "kind": "Suppressed",
+            "line": 21,
+            "column": 1,
+            "message": "enum `LiveStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 2.877697841726619
       }
     ],
     "total_dead_items": 4,
-    "dead_code_percentage": 0.002604276873695827,
-    "total_lines": 307187,
+    "dead_code_percentage": 0.0025937393616159,
+    "total_lines": 308435,
     "dead_lines": 8,
     "dead_by_type": {
       "suppressed": 4
