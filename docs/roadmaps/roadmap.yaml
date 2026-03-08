@@ -744,11 +744,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Book chapter 21: Recipe Quality Scoring + cookbook book update'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T11:12:44Z
-  updated: 2026-03-08T11:12:44Z
+  updated: 2026-03-08T11:39:39.039855301+00:00
   spec: null
   acceptance_criteria: []
   phases: []

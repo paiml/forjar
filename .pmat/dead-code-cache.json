@@ -1,7 +1,7 @@
 {
-  "tree_hash": "b170df9723d42e77e8cc44f2ce92e60fea5d3d58",
+  "tree_hash": "d47b17a328b9310d66c797ad6702e62dea672d89",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-08T11:33:40.917408461Z",
+  "timestamp": "2026-03-08T11:37:45.967520192Z",
   "report": {
     "files_with_dead_code": [
       {
@@ -31,19 +31,6 @@
         "file_dead_percentage": 2.877697841726619
       },
       {
-        "file_path": "src/cli/remote_state.rs",
-        "dead_items": [
-          {
-            "name": "StateBackend",
-            "kind": "Suppressed",
-            "line": 10,
-            "column": 1,
-            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 3.3333333333333335
-      },
-      {
         "file_path": "src/core/task/mod.rs",
         "dead_items": [
           {
@@ -55,6 +42,19 @@
           }
         ],
         "file_dead_percentage": 21.052631578947366
+      },
+      {
+        "file_path": "src/cli/remote_state.rs",
+        "dead_items": [
+          {
+            "name": "StateBackend",
+            "kind": "Suppressed",
+            "line": 10,
+            "column": 1,
+            "message": "trait `StateBackend` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 3.3333333333333335
       }
     ],
     "total_dead_items": 4,
