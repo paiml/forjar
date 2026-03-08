@@ -22,3 +22,4 @@
 - [Competitive Positioning](./19-competitive-positioning.md)
 - [Platform Features](./20-platform-features.md)
 - [Recipe Quality Scoring](./21-recipe-quality-score.md)
+- [Provisioning & Image Generation](./22-provisioning.md)
