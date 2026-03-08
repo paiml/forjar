@@ -1760,3 +1760,47 @@ resources:
 ```
 
 Image resources go through the layer build pipeline, converting file and package resources into OCI layers via `LayerStrategy::from_resource()`.
+
+## Build
+
+Cross-compile on one machine and deploy the artifact to another.
+
+```yaml
+resources:
+  apr-binary:
+    type: build
+    machine: jetson            # deploy target
+    build_machine: intel       # where compilation runs
+    command: "cargo build --release --target aarch64-unknown-linux-gnu -p apr-cli"
+    working_dir: ~/src/aprender
+    source: /tmp/cross/release/apr    # artifact path on build machine
+    target: ~/.cargo/bin/apr          # deploy path on target machine
+    completion_check: "apr --version"
+```
+
+### Execution Phases
+
+1. **Build**: SSH to `build_machine`, run `command` in `working_dir`
+2. **Transfer**: SCP artifact from `build_machine:source` to `target`
+3. **Verify**: Run `completion_check` locally on deploy machine
+
+When `build_machine` is `localhost`, local `cp` replaces SSH/SCP.
+
+### Build Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `build_machine` | Yes | Machine that performs the build |
+| `command` | Yes | Build command to execute |
+| `working_dir` | No | Directory to cd into before building |
+| `source` | Yes | Artifact path on build machine |
+| `target` | Yes | Deploy path on target machine |
+| `completion_check` | No | Command to verify deployment |
+
+### Cargo Binary Cache
+
+Package resources using the `cargo` provider benefit from automatic binary caching. Compiled binaries are stored at `~/.forjar/cache/cargo/<pkg>-<version>-<arch>/bin/` and reused on subsequent installs, skipping recompilation.
+
+Control caching with environment variables:
+- `FORJAR_CACHE_DIR`: Override cache directory
+- `FORJAR_NO_CARGO_CACHE=1`: Disable caching

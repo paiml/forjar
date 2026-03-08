@@ -4077,3 +4077,66 @@ forjar run deploy-app --param env=production --param version=2.1
 # Preview (JSON mode, no execution)
 forjar run deploy-app --param env=staging --json
 ```
+
+### `forjar bootstrap`
+
+Zero-to-managed machine onboarding (FJ-49). Copies SSH public key,
+configures passwordless sudo, and verifies connectivity.
+
+```bash
+forjar bootstrap -f <FILE> --machine <MACHINE> [--password]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--machine` | required | Target machine name |
+| `--password` | false | Prompt for password (uses sshpass for initial key copy) |
+
+### `forjar image`
+
+Generate bootable autoinstall ISOs or Android Magisk modules (FJ-52, FJ-54).
+
+```bash
+forjar image [-f <FILE>] [-m <MACHINE>] [--user-data] [--base <ISO>] [--android] [-o <OUTPUT>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-m, --machine` | auto (if single) | Target machine name |
+| `--user-data` | false | Generate Ubuntu autoinstall user-data only |
+| `--base` | none | Path to base Ubuntu ISO (triggers ISO generation) |
+| `--android` | false | Generate Magisk module ZIP |
+| `-o, --output` | varies | Output path |
+| `--disk` | `auto-lvm` | Disk layout: `auto-lvm`, `auto-zfs`, or `/dev/path` |
+| `--locale` | `en_US.UTF-8` | Locale for autoinstall |
+| `--timezone` | `UTC` | Timezone for autoinstall |
+| `--json` | false | JSON output |
+
+**Examples:**
+
+```bash
+# Generate user-data to stdout
+forjar image --user-data -f forjar.yaml -m yoga
+
+# Generate bootable ISO
+forjar image --base ubuntu-22.04-live-server-amd64.iso -f forjar.yaml -o yoga.iso
+
+# Generate Android Magisk module
+forjar image --android -f forjar.yaml -m pixel -o forjar-magisk.zip
+```
+
+### `forjar cross-deps`
+
+Cross-machine dependency analysis (FJ-1424). Reports resource
+dependencies that span machine boundaries.
+
+```bash
+forjar cross-deps [-f <FILE>] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--json` | false | JSON output with structured dependency edges |
