@@ -155,7 +155,7 @@ fn service_script(resource: &Resource) -> String {
          echo 'service={rid} started (pid='$FORJAR_SVC_PID')'\n"
     ));
 
-    // Initial health check if configured
+    // FJ-3000: PID-aware health check — verify process is alive before each probe
     if let Some(ref hc) = resource.health_check {
         let timeout = hc
             .timeout
@@ -165,6 +165,12 @@ fn service_script(resource: &Resource) -> String {
         let retries = hc.retries.unwrap_or(3);
         script.push_str(&format!(
             "sleep 1\nfor _i in $(seq 1 {retries}); do\n\
+             \x20 if ! kill -0 \"$FORJAR_SVC_PID\" 2>/dev/null; then\n\
+             \x20\x20\x20 echo 'service={rid} DIED during startup (pid='$FORJAR_SVC_PID')'\n\
+             \x20\x20\x20 tail -20 /tmp/forjar-svc-{rid}.log 2>/dev/null || true\n\
+             \x20\x20\x20 rm -f '{pidfile}'\n\
+             \x20\x20\x20 exit 1\n\
+             \x20 fi\n\
              \x20 if timeout {timeout} bash -c '{}'; then\n\
              \x20\x20\x20 echo 'service={rid} healthy'\n\
              \x20\x20\x20 exit 0\n\

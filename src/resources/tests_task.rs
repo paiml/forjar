@@ -360,3 +360,70 @@ fn test_service_mode_with_working_dir() {
     assert!(script.contains("cd '/opt/app'"));
     assert!(script.contains("nohup"));
 }
+
+// ── FJ-3000: PID-aware health check ──
+
+#[test]
+fn test_fj3000_service_health_check_pid_liveness() {
+    let mut r = make_task_resource("python server.py");
+    r.task_mode = Some(TaskMode::Service);
+    r.name = Some("api".into());
+    r.health_check = Some(crate::core::types::HealthCheck {
+        command: "curl -sf http://localhost:8080/health".into(),
+        timeout: Some("10s".into()),
+        retries: Some(5),
+        ..Default::default()
+    });
+    let script = apply_script(&r);
+    // Must check PID liveness before each health probe
+    assert!(
+        script.contains("kill -0 \"$FORJAR_SVC_PID\""),
+        "health loop must check PID liveness"
+    );
+    // Must tail log on PID death for debugging
+    assert!(script.contains("tail -20"), "must tail log when PID dies");
+    // Must clean up PID file on death
+    assert!(script.contains("rm -f"), "must clean up PID file on death");
+    // Must exit 1 on PID death
+    assert!(
+        script.contains("DIED during startup"),
+        "must report PID death"
+    );
+}
+
+#[test]
+fn test_fj3000_service_no_health_check_no_pid_loop() {
+    let mut r = make_task_resource("./daemon");
+    r.task_mode = Some(TaskMode::Service);
+    r.name = Some("daemon".into());
+    // No health_check configured
+    let script = apply_script(&r);
+    // Should NOT have a health check loop at all
+    assert!(
+        !script.contains("seq 1"),
+        "no retry loop without health check"
+    );
+    // But must still have PID capture
+    assert!(script.contains("FORJAR_SVC_PID=$!"));
+}
+
+#[test]
+fn test_fj3000_pid_check_before_health_probe() {
+    let mut r = make_task_resource("./start");
+    r.task_mode = Some(TaskMode::Service);
+    r.name = Some("svc".into());
+    r.health_check = Some(crate::core::types::HealthCheck {
+        command: "test -f /ready".into(),
+        timeout: Some("3s".into()),
+        retries: Some(2),
+        ..Default::default()
+    });
+    let script = apply_script(&r);
+    // PID liveness check must come BEFORE health probe in the loop
+    let pid_check_pos = script.find("kill -0 \"$FORJAR_SVC_PID\"").unwrap();
+    let health_probe_pos = script.find("test -f /ready").unwrap();
+    assert!(
+        pid_check_pos < health_probe_pos,
+        "PID check must precede health probe"
+    );
+}

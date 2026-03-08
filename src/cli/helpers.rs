@@ -5,6 +5,7 @@ use std::path::Path;
 
 // Re-export color system from colors.rs for backward compatibility.
 // All callers that `use super::helpers::*` continue to work unchanged.
+#[allow(unused_imports)]
 pub(crate) use super::colors::{bold, color_enabled, dim, green, red, yellow, NO_COLOR};
 
 /// Parse, validate, and expand recipes in a forjar config file.
