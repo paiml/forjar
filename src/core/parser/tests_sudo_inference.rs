@@ -213,3 +213,85 @@ resources:
         "/opt/ should trigger sudo inference: {errors:?}"
     );
 }
+
+// --- Issue #48: kernel headers auto-include validation ---
+
+/// Installing linux-image without matching linux-headers should warn.
+#[test]
+fn test_kernel_image_without_headers_warns() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 10.0.0.1
+resources:
+  hwe-kernel:
+    type: package
+    machine: m1
+    provider: apt
+    packages:
+      - linux-image-generic-hwe-22.04
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.message.contains("linux-headers-generic-hwe-22.04")),
+        "should warn about missing headers: {errors:?}"
+    );
+}
+
+/// Including both image and headers should not warn.
+#[test]
+fn test_kernel_image_with_headers_no_warn() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 10.0.0.1
+resources:
+  hwe-kernel:
+    type: package
+    machine: m1
+    provider: apt
+    packages:
+      - linux-image-generic-hwe-22.04
+      - linux-headers-generic-hwe-22.04
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    assert!(
+        !errors.iter().any(|e| e.message.contains("linux-headers")),
+        "should not warn when headers included: {errors:?}"
+    );
+}
+
+/// Non-kernel packages should not trigger kernel header warnings.
+#[test]
+fn test_non_kernel_package_no_warn() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 10.0.0.1
+resources:
+  tools:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl, wget]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    assert!(
+        !errors.iter().any(|e| e.message.contains("linux-headers")),
+        "non-kernel packages should not trigger warning: {errors:?}"
+    );
+}
