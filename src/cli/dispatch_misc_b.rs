@@ -437,67 +437,10 @@ pub(crate) fn print_table_results(
     timing: bool,
     reversibility: bool,
 ) -> Result<(), String> {
-    use super::query_format as qf;
-    if results.is_empty() {
-        println!("No results for \"{query}\"");
-        return Ok(());
-    }
-    println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
-    for r in results {
-        let p = r.path.as_deref().unwrap_or("—");
-        println!(
-            " {:20} {:10} {:10} {p}",
-            r.resource_id, r.resource_type, r.status
-        );
-    }
-    if history {
-        qf::print_history(conn, results)?;
-    }
-    if timing {
-        qf::print_timing_stats(conn, results)?;
-    }
-    if reversibility {
-        qf::print_reversibility(conn, results)?;
-    }
-    println!("\n {} result(s)", results.len());
-    Ok(())
+    super::query_format::print_table_results(query, conn, results, history, timing, reversibility)
 }
 
 /// FJ-2001: Health summary across all machines.
 pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
-    use crate::core::store::ingest;
-
-    let conn = open_state_conn(state_dir)?;
-    let health = ingest::query_health(&conn)?;
-
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&health).unwrap_or_default()
-        );
-    } else if health.machines.is_empty() {
-        println!("No machines found in {}", state_dir.display());
-    } else {
-        println!(
-            " {:10} {:>10} {:>10} {:>8} {:>8}",
-            "MACHINE", "RESOURCES", "CONVERGED", "DRIFTED", "FAILED"
-        );
-        for m in &health.machines {
-            println!(
-                " {:10} {:>10} {:>10} {:>8} {:>8}",
-                m.name, m.resources, m.converged, m.drifted, m.failed
-            );
-        }
-        println!(" {}", "─".repeat(56));
-        println!(
-            " {:10} {:>10} {:>10} {:>8} {:>8}  Stack health: {:.0}%",
-            "TOTAL",
-            health.total_resources,
-            health.total_converged,
-            health.total_drifted,
-            health.total_failed,
-            health.health_pct()
-        );
-    }
-    Ok(())
+    super::query_format::cmd_query_health(state_dir, json)
 }
