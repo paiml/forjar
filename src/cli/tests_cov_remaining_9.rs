@@ -8,6 +8,7 @@ use super::lock_security::*;
 use super::observe::*;
 use super::validate_compliance::*;
 use super::validate_structural::*;
+use super::validate_structural_constraints::*;
 use std::io::Write;
 
 #[cfg(test)]

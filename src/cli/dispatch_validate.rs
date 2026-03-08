@@ -9,6 +9,7 @@ use super::validate_policy::*;
 use super::validate_quality::*;
 use super::validate_resources::*;
 use super::validate_structural::*;
+use super::validate_structural_constraints::*;
 use std::path::Path;
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_structural(

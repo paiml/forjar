@@ -235,6 +235,7 @@ mod validate_security;
 mod validate_security_ext;
 mod validate_store_purity;
 mod validate_structural;
+mod validate_structural_constraints;
 mod validate_topology;
 mod validate_transport;
 mod workspace;

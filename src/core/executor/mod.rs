@@ -16,6 +16,8 @@ mod test_fixtures;
 #[cfg(test)]
 mod tests_advanced;
 #[cfg(test)]
+mod tests_advanced_b;
+#[cfg(test)]
 mod tests_concurrent;
 #[cfg(test)]
 mod tests_converge;
@@ -27,6 +29,8 @@ mod tests_core;
 mod tests_drift;
 #[cfg(test)]
 mod tests_edge_apply;
+#[cfg(test)]
+mod tests_edge_apply_b;
 #[cfg(test)]
 mod tests_edge_details;
 #[cfg(test)]

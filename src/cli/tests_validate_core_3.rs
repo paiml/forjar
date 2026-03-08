@@ -9,6 +9,7 @@ use super::validate_core::*;
 use super::validate_paths::*;
 use super::validate_resources::*;
 use super::validate_structural::*;
+use super::validate_structural_constraints::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
