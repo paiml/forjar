@@ -712,11 +712,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Platform spec gap closure: E9-E21 partial implementations'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-07T22:03:53Z
-  updated: 2026-03-07T22:03:56.595770395+00:00
+  updated: 2026-03-08T11:42:40.792467979+00:00
   spec: null
   acceptance_criteria: []
   phases: []
