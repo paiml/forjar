@@ -100,15 +100,20 @@ pub struct ForjarConfig {
 /// FJ-2300: Secret provider configuration.
 ///
 /// Controls how `{{secrets.*}}` template variables are resolved.
+/// Providers: "env" (default), "file", "sops", "op" (1Password).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SecretsConfig {
-    /// Provider type: "env" (default), "file"
+    /// Provider type: "env" (default), "file", "sops", "op"
     #[serde(default)]
     pub provider: Option<String>,
 
     /// Path prefix for file-based secrets (used with `provider: file`)
     #[serde(default)]
     pub path: Option<String>,
+
+    /// Encrypted file path for SOPS provider (used with `provider: sops`)
+    #[serde(default)]
+    pub file: Option<String>,
 }
 
 /// FJ-1200: A post-apply health check assertion.

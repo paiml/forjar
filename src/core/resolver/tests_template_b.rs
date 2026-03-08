@@ -35,6 +35,7 @@ fn test_resolve_secret_file_provider() {
     let cfg = SecretsConfig {
         provider: Some("file".into()),
         path: Some(dir.path().to_string_lossy().to_string()),
+        file: None,
     };
     let result = resolve_secret("db-pass", &cfg).unwrap();
     assert_eq!(result, "s3cret_val");
@@ -46,6 +47,7 @@ fn test_resolve_secret_file_provider_missing() {
     let cfg = SecretsConfig {
         provider: Some("file".into()),
         path: Some(dir.path().to_string_lossy().to_string()),
+        file: None,
     };
     let result = resolve_secret("nonexistent", &cfg);
     assert!(result.is_err());
@@ -110,6 +112,7 @@ fn test_secret_file_provider() {
         "db_password",
         Some("file"),
         Some(dir.path().to_str().unwrap()),
+        None,
     );
     assert_eq!(result.unwrap(), "s3cret"); // trims trailing newline
 }
@@ -120,6 +123,7 @@ fn test_secret_file_provider_missing() {
         "nonexistent",
         Some("file"),
         Some("/tmp/forjar-test-no-such-dir"),
+        None,
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("not found"));
@@ -129,7 +133,8 @@ fn test_secret_file_provider_missing() {
 #[allow(clippy::disallowed_methods)]
 fn test_secret_env_provider_explicit() {
     std::env::set_var("FORJAR_SECRET_TEST_KEY_2300", "env-secret");
-    let result = super::template::resolve_secret_with_provider("test_key_2300", Some("env"), None);
+    let result =
+        super::template::resolve_secret_with_provider("test_key_2300", Some("env"), None, None);
     assert_eq!(result.unwrap(), "env-secret");
     std::env::remove_var("FORJAR_SECRET_TEST_KEY_2300");
 }
@@ -155,4 +160,93 @@ fn test_redact_secrets_empty_value() {
     let secrets = vec!["".to_string()];
     let redacted = super::template::redact_secrets(text, &secrets);
     assert_eq!(redacted, "keep me"); // empty secrets are skipped
+}
+
+// ── FJ-2300: SOPS and 1Password provider tests ──
+
+#[test]
+fn test_secret_sops_provider_missing_binary() {
+    // sops is not installed in CI — verify graceful error
+    let result = super::template::resolve_secret_with_provider(
+        "db_password",
+        Some("sops"),
+        None,
+        Some("secrets.enc.yaml"),
+    );
+    // Either sops isn't installed (exec error) or file doesn't exist (sops error)
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("sops"), "expected sops in error: {err}");
+}
+
+#[test]
+fn test_secret_sops_provider_default_file() {
+    let result = super::template::resolve_secret_with_provider(
+        "api_key",
+        Some("sops"),
+        None,
+        None, // defaults to secrets.enc.yaml
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("sops"), "expected sops in error: {err}");
+}
+
+#[test]
+fn test_secret_op_provider_missing_binary() {
+    let result = super::template::resolve_secret_with_provider(
+        "db_password",
+        Some("op"),
+        Some("my-vault"),
+        None,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("op"), "expected op in error: {err}");
+}
+
+#[test]
+fn test_secret_op_provider_default_vault() {
+    let result = super::template::resolve_secret_with_provider(
+        "api_key",
+        Some("op"),
+        None, // defaults to "forjar" vault
+        None,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("op"), "expected op in error: {err}");
+}
+
+#[test]
+fn test_secret_unknown_provider_falls_back_to_env() {
+    // Unknown provider falls through to env provider (the default case)
+    let result = super::template::resolve_secret_with_provider(
+        "nonexistent_key_xyz",
+        Some("unknown_provider"),
+        None,
+        None,
+    );
+    assert!(result.is_err());
+    // Should get the env provider error message
+    assert!(result.unwrap_err().contains("FORJAR_SECRET_"));
+}
+
+#[test]
+fn test_secret_config_with_sops_file() {
+    use crate::core::types::SecretsConfig;
+    let cfg = SecretsConfig {
+        provider: Some("sops".into()),
+        path: None,
+        file: Some("my-secrets.enc.yaml".into()),
+    };
+    let result = super::template::resolve_secret_with_provider(
+        "key",
+        cfg.provider.as_deref(),
+        cfg.path.as_deref(),
+        cfg.file.as_deref(),
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("sops"), "expected sops in error: {err}");
 }
