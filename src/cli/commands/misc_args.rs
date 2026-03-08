@@ -395,6 +395,10 @@ pub struct ScoreArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// FJ-3020: State directory for runtime data (events.jsonl)
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
 }
 
 /// FJ-1383: Merge two config files into one.
