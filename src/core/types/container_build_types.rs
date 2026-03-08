@@ -250,12 +250,14 @@ impl LayerStrategy {
     /// Convert a Resource into a LayerStrategy based on its type.
     pub fn from_resource(resource: &super::resource::Resource) -> Option<Self> {
         match resource.resource_type {
-            super::resource::ResourceType::Package => Some(Self::Packages {
+            super::resource_enums::ResourceType::Package => Some(Self::Packages {
                 names: resource.packages.clone(),
             }),
-            super::resource::ResourceType::File => resource.path.as_ref().map(|p| Self::Files {
-                paths: vec![p.clone()],
-            }),
+            super::resource_enums::ResourceType::File => {
+                resource.path.as_ref().map(|p| Self::Files {
+                    paths: vec![p.clone()],
+                })
+            }
             _ => None,
         }
     }
