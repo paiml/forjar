@@ -808,11 +808,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Falsification gap: CIS hardening recipe 92 RES=45 — spec 16 claims RES≥70 for tagged independent controls'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T13:13:23Z
-  updated: 2026-03-08T13:20:34.779767360+00:00
+  updated: 2026-03-08T13:37:02.084089403+00:00
   spec: null
   acceptance_criteria: []
   phases: []
