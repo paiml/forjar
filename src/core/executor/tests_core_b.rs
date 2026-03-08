@@ -1,5 +1,6 @@
 //! FJ-012: Core executor tests — machine filter.
 
+#![allow(unused_imports)]
 use super::test_fixtures::*;
 use super::*;
 
