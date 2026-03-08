@@ -8,6 +8,18 @@
 
 ---
 
+## Implementation Status
+
+| Spec | Fix | Commit | Status |
+|------|-----|--------|--------|
+| FJ-3000 | Semicolon chain lint + PID-aware health check | `b984ea54` | **Implemented** |
+| FJ-3010 | `--refresh` + `--force-tag` graduated force | `ca45e08c` | **Implemented** |
+| FJ-3020 | Runtime score bridge (events.jsonl → RuntimeData) | `69d4ceac` | **Implemented** |
+| FJ-3030 | nohup LD_LIBRARY_PATH lint | `ebc83874` | **Implemented** |
+| FJ-3040 | nohup sleep health-check race lint | `ebc83874` | **Implemented** |
+
+---
+
 ## Defect Priority Order (Toyota Way: defects first)
 
 | Priority | Issue | Category | Impact | Toyota Principle |

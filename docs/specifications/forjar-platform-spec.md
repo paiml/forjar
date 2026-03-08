@@ -165,7 +165,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 
 | # | Component | Spec ID | Lines | Description |
 |---|-----------|---------|-------|-------------|
-| 19 | [Defect Analysis — Five Whys](platform/19-defect-analysis.md) | FJ-3000–FJ-3040 | ~400 | 5 production defects: exit code safety (P0), graduated force, runtime score, nohup lint |
+| 19 | [Defect Analysis — Five Whys](platform/19-defect-analysis.md) | FJ-3000–FJ-3040 | ~400 | **ALL 5 IMPLEMENTED**: exit code safety, graduated force, runtime score bridge, nohup lint rules |
 
 ### Cross-Cutting
 
