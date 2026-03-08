@@ -177,6 +177,33 @@ mod tests {
         let _ = cmd_status_capacity(d.path(), Some("web"), true);
     }
 
+    #[test]
+    fn cost_estimate_with_data_plain() {
+        let d = make_dir();
+        cmd_status_cost_estimate(d.path(), None, false).unwrap();
+    }
+    #[test]
+    fn cost_estimate_with_data_json() {
+        let d = make_dir();
+        cmd_status_cost_estimate(d.path(), None, true).unwrap();
+    }
+    #[test]
+    fn capacity_with_data_plain() {
+        let d = make_dir();
+        cmd_status_capacity(d.path(), None, false).unwrap();
+    }
+    #[test]
+    fn capacity_with_data_json() {
+        let d = make_dir();
+        cmd_status_capacity(d.path(), None, true).unwrap();
+    }
+    #[test]
+    fn staleness_with_data() {
+        let d = make_dir();
+        cmd_status_staleness_report(d.path(), None, "7d", false).unwrap();
+        cmd_status_staleness_report(d.path(), None, "0d", true).unwrap();
+    }
+
     // ── status_failures ──
     #[test]
     fn top_failures_plain() {
