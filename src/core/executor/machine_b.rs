@@ -132,12 +132,33 @@ pub(super) fn execute_wave_parallel(
     machine_name: &str,
     counters: &mut MachineCounters,
 ) -> Result<bool, String> {
-    let wave_changes: Vec<&PlannedChange> = wave
+    // FJ-63: Filter out resources whose dependencies have failed
+    let mut active_ids: Vec<&String> = Vec::new();
+    for id in wave {
+        if let Some(resource) = cfg.config.resources.get(id) {
+            if let Some(failed_dep) = counters.failed_dependency(&resource.depends_on) {
+                eprintln!(
+                    "JIDOKA: skipping {} — depends on failed '{}'",
+                    id, failed_dep
+                );
+                counters.failed += 1;
+                counters.failed_resources.insert(id.clone());
+                continue;
+            }
+        }
+        active_ids.push(id);
+    }
+
+    if active_ids.is_empty() {
+        return Ok(false);
+    }
+
+    let wave_changes: Vec<&PlannedChange> = active_ids
         .iter()
         .filter_map(|id| {
             machine_changes
                 .iter()
-                .find(|c| c.resource_id == *id)
+                .find(|c| c.resource_id == **id)
                 .copied()
         })
         .collect();

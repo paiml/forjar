@@ -137,7 +137,6 @@ pub(super) fn record_wave_outcomes(
     }
 
     // Record executed resources
-    let mut stop = false;
     for (idx, duration, output) in exec_results {
         let change = wave_changes[idx];
         let Some(resource) = cfg.config.resources.get(&change.resource_id) else {
@@ -179,7 +178,7 @@ pub(super) fn record_wave_outcomes(
             }
             Ok(out) => {
                 let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
-                stop |= record_failure(
+                let _ = record_failure(
                     ctx,
                     &change.resource_id,
                     &resource.resource_type,
@@ -187,6 +186,7 @@ pub(super) fn record_wave_outcomes(
                     &error,
                 );
                 counters.failed += 1;
+                counters.failed_resources.insert(change.resource_id.clone());
                 let rt = resource_type_label(cfg, &change.resource_id);
                 trace_session.record_span(
                     &change.resource_id,
@@ -200,7 +200,7 @@ pub(super) fn record_wave_outcomes(
             }
             Err(e) => {
                 let error = format!("transport error: {e}");
-                stop |= record_failure(
+                let _ = record_failure(
                     ctx,
                     &change.resource_id,
                     &resource.resource_type,
@@ -208,6 +208,7 @@ pub(super) fn record_wave_outcomes(
                     &error,
                 );
                 counters.failed += 1;
+                counters.failed_resources.insert(change.resource_id.clone());
                 let rt = resource_type_label(cfg, &change.resource_id);
                 trace_session.record_span(
                     &change.resource_id,
@@ -221,7 +222,8 @@ pub(super) fn record_wave_outcomes(
             }
         }
     }
-    Ok(stop)
+    // FJ-63: Never stop between waves — dependency skipping handles cascade
+    Ok(false)
 }
 
 /// Get lowercase resource type label for a resource ID.
