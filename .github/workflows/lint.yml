@@ -36,6 +36,7 @@ jobs:
           key: lint-${{ runner.os }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Clippy
+        shell: bash
         run: |
           if [ -n "${{ matrix.features }}" ]; then
             cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
