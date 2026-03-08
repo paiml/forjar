@@ -287,7 +287,7 @@ fn demo_cache_substitution() {
     let inv = build_inventory("cache.internal", remote_entries);
 
     for hash in &["blake3:local111", "blake3:remote222", "blake3:missing"] {
-        let result = resolve_substitution(hash, &local, &[inv.clone()]);
+        let result = resolve_substitution(hash, &local, std::slice::from_ref(&inv));
         let label = match &result {
             SubstitutionResult::LocalHit { .. } => "LOCAL HIT",
             SubstitutionResult::CacheHit { .. } => "CACHE HIT",
