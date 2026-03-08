@@ -498,4 +498,6 @@ pub enum Commands {
     Run(RunArgs),
     /// FJ-49: Bootstrap a new machine for forjar management
     Bootstrap(BootstrapArgs),
+    /// FJ-52: Generate bootable autoinstall ISO or user-data
+    Image(ImageArgs),
 }

@@ -219,6 +219,42 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
         Commands::CrossDeps(CrossDepsArgs { file, json }) => {
             super::cross_machine_deps::cmd_cross_deps(&file, json)
         }
+        Commands::Image(ImageArgs {
+            file,
+            machine,
+            user_data,
+            base,
+            output,
+            disk,
+            locale,
+            timezone,
+            json,
+        }) => match base {
+            Some(ref base_iso) if !user_data => {
+                let out = output
+                    .as_deref()
+                    .unwrap_or(std::path::Path::new("forjar-autoinstall.iso"));
+                super::image_cmd::cmd_image_iso(
+                    &file,
+                    machine.as_deref(),
+                    base_iso,
+                    out,
+                    &disk,
+                    &locale,
+                    &timezone,
+                    json,
+                )
+            }
+            _ => super::image_cmd::cmd_image_user_data(
+                &file,
+                machine.as_deref(),
+                &disk,
+                &locale,
+                &timezone,
+                output.as_deref(),
+                json,
+            ),
+        },
         other => super::dispatch_platform::dispatch_platform_cmd(other),
     }
 }

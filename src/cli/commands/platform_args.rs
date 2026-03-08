@@ -420,3 +420,43 @@ pub struct RunArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-52: CLI arguments for `image` (autoinstall ISO generation).
+#[derive(clap::Args, Debug)]
+pub struct ImageArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Target machine name from machines: section
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Generate user-data only (for manual ISO build or PXE)
+    #[arg(long)]
+    pub user_data: bool,
+
+    /// Path to base Ubuntu ISO (required for --iso)
+    #[arg(long)]
+    pub base: Option<PathBuf>,
+
+    /// Output path (ISO file or user-data YAML)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Disk layout: auto-lvm, auto-zfs, or device path (default: auto-lvm)
+    #[arg(long, default_value = "auto-lvm")]
+    pub disk: String,
+
+    /// Locale (default: en_US.UTF-8)
+    #[arg(long, default_value = "en_US.UTF-8")]
+    pub locale: String,
+
+    /// Timezone (default: UTC)
+    #[arg(long, default_value = "UTC")]
+    pub timezone: String,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
