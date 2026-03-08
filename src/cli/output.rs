@@ -1,7 +1,8 @@
 //! FJ-2920: Output abstraction for CLI handlers.
 //!
-//! Prepared for adoption — not yet wired into command handlers.
-#![allow(dead_code)]
+//! Enables testable handlers by injecting an OutputWriter.
+//! Production code uses StdoutWriter, tests use TestWriter,
+//! benchmarks use NullWriter.
 //!
 //! Enables testable handlers by injecting an OutputWriter.
 //! Production code uses StdoutWriter, tests use TestWriter,
@@ -10,6 +11,7 @@
 use std::io::Write;
 
 /// Output trait for CLI commands — separates data (stdout) from status (stderr).
+#[allow(dead_code)]
 pub(crate) trait OutputWriter {
     /// Progress message → stderr.
     fn status(&mut self, msg: &str);
@@ -111,6 +113,7 @@ impl OutputWriter for TestWriter {
 }
 
 /// Null writer: discards all output (for benchmarks).
+#[allow(dead_code)]
 pub(crate) struct NullWriter;
 
 impl OutputWriter for NullWriter {

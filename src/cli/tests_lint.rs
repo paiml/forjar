@@ -379,6 +379,107 @@ resources:
         assert!(warnings.is_empty());
     }
 
+    // ── FJ-2920: OutputWriter adoption ──────────────────
+
+    #[test]
+    fn test_fj2920_lint_with_test_writer_clean() {
+        use crate::cli::output::TestWriter;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: clean
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        let mut w = TestWriter::new();
+        // Use JSON mode to capture structured output via OutputWriter
+        cmd_lint_with_writer(&file, true, false, false, &mut w).unwrap();
+        let json_out = w.stdout_text();
+        assert!(
+            json_out.contains("\"findings\""),
+            "JSON lint output should be captured by TestWriter: {json_out:?}"
+        );
+    }
+
+    #[test]
+    fn test_fj2920_lint_with_test_writer_warnings() {
+        use crate::cli::output::TestWriter;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: warn
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  deploy:
+    type: task
+    machine: m
+    command: "cd /app ; make build"
+"#,
+        )
+        .unwrap();
+        let mut w = TestWriter::new();
+        cmd_lint_with_writer(&file, false, false, false, &mut w).unwrap();
+        assert!(
+            w.stderr_text().contains("command uses ';'"),
+            "semicolon chain should be warned: {:?}",
+            w.stderr_text()
+        );
+        assert!(
+            w.stdout_text().contains("warning(s)"),
+            "summary should go to result: {:?}",
+            w.stdout_text()
+        );
+    }
+
+    #[test]
+    fn test_fj2920_lint_json_via_writer() {
+        use crate::cli::output::TestWriter;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: json
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        let mut w = TestWriter::new();
+        cmd_lint_with_writer(&file, true, false, false, &mut w).unwrap();
+        let json_out = w.stdout_text();
+        assert!(json_out.contains("\"warnings\""), "JSON output: {json_out:?}");
+        assert!(json_out.contains("\"findings\""), "JSON output: {json_out:?}");
+    }
+
     #[test]
     fn test_fj374_lint_rules_flag() {
         let cmd = Commands::Lint(LintArgs {

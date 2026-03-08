@@ -156,7 +156,7 @@ Running the `score_cookbook` example against all 61 cookbook recipes:
 
 ## Falsification
 
-Every scoring dimension has explicit rejection criteria. If a dimension fails its falsification test, it proves the dimension is measuring the wrong thing. See the [platform spec](../specifications/platform/16-recipe-quality-score.md) for the full Popperian falsification framework, including:
+Every scoring dimension has explicit rejection criteria. If a dimension fails its falsification test, it proves the dimension is measuring the wrong thing. See the platform spec (`docs/specifications/platform/16-recipe-quality-score.md`) for the full Popperian falsification framework, including:
 
 - Per-dimension boundary tests
 - Cross-dimension discrimination requirement (σ ≥ 5)

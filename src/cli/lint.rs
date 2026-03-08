@@ -309,6 +309,17 @@ pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
 }
 
 pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Result<(), String> {
+    cmd_lint_with_writer(file, json, strict, fix, &mut super::output::StdoutWriter)
+}
+
+/// Inner lint with injectable OutputWriter (FJ-2920).
+pub(crate) fn cmd_lint_with_writer(
+    file: &Path,
+    json: bool,
+    strict: bool,
+    fix: bool,
+    out: &mut dyn super::output::OutputWriter,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let mut warnings: Vec<String> = Vec::new();
@@ -332,25 +343,25 @@ pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Resu
         });
         let output =
             serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
+        out.result(&output);
     } else if warnings.is_empty() {
-        println!("No lint warnings found.");
+        out.success("No lint warnings found.");
     } else {
         for w in &warnings {
-            println!("  warn: {w}");
+            out.warning(w);
         }
         if fix {
             let fixes = lint_auto_fix(file)?;
             for f in &fixes {
-                println!("  {}: {}", green("fixed"), f);
+                out.success(&format!("fixed: {f}"));
             }
             if !fixes.is_empty() {
-                println!("Wrote normalized config to {}", file.display());
+                out.status(&format!("Wrote normalized config to {}", file.display()));
             }
         }
-        println!();
-        println!("Lint: {} warning(s)", warnings.len());
+        out.result(&format!("\nLint: {} warning(s)", warnings.len()));
     }
+    out.flush();
 
     Ok(())
 }
