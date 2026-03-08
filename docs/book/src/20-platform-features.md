@@ -265,3 +265,45 @@ fi
 # Execute dispatch command
 deploy.sh v1.2.3 production
 ```
+
+## Testable CLI Output (FJ-2920)
+
+Forjar CLI commands use the `OutputWriter` trait to separate data output (stdout) from
+status messages (stderr). This enables:
+
+- **Unit testing** — inject a `TestWriter` to capture and assert output
+- **Benchmarking** — inject a `NullWriter` to measure pure logic cost
+- **Production** — `StdoutWriter` sends results to stdout, status/warnings to stderr
+
+### The OutputWriter Trait
+
+```rust
+trait OutputWriter {
+    fn status(&mut self, msg: &str);   // progress → stderr
+    fn result(&mut self, msg: &str);   // data → stdout
+    fn warning(&mut self, msg: &str);  // ⚠ → stderr
+    fn error(&mut self, msg: &str);    // ✗ → stderr
+    fn success(&mut self, msg: &str);  // ✓ → stderr
+    fn flush(&mut self);
+}
+```
+
+### Testing with TestWriter
+
+```rust
+let mut w = TestWriter::new();
+cmd_lint_with_writer(&file, true, false, false, &mut w).unwrap();
+assert!(w.stdout_text().contains("\"warnings\""));
+assert!(w.stderr.is_empty()); // JSON mode: all output to result
+```
+
+### Pipeline-Safe Output
+
+Because `result()` goes to stdout and `status()`/`warning()` go to stderr,
+forjar commands are pipe-safe:
+
+```bash
+# Only data on stdout — warnings/progress stay on stderr
+forjar lint --json config.yaml | jq '.findings'
+forjar score --json config.yaml | jq '.grade'
+```
