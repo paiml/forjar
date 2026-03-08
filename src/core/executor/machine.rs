@@ -8,6 +8,8 @@ pub(crate) struct MachineCounters {
     pub unchanged: u32,
     pub failed: u32,
     pub converged_resources: HashSet<String>,
+    /// FJ-63: Track failed resource IDs for dependency-cascade skipping.
+    pub failed_resources: HashSet<String>,
 }
 
 impl MachineCounters {
@@ -17,26 +19,37 @@ impl MachineCounters {
             unchanged: 0,
             failed: 0,
             converged_resources: HashSet::new(),
+            failed_resources: HashSet::new(),
         }
     }
 
-    fn record(&mut self, outcome: &ResourceOutcome, resource_id: &str) -> bool {
+    fn record(&mut self, outcome: &ResourceOutcome, resource_id: &str) {
         match outcome {
             ResourceOutcome::Converged => {
                 self.converged += 1;
                 self.converged_resources.insert(resource_id.to_string());
-                false
             }
             ResourceOutcome::Unchanged => {
                 self.unchanged += 1;
-                false
             }
-            ResourceOutcome::Skipped => false,
-            ResourceOutcome::Failed { should_stop } => {
+            ResourceOutcome::Skipped => {}
+            ResourceOutcome::Failed { .. } => {
                 self.failed += 1;
-                *should_stop
+                self.failed_resources.insert(resource_id.to_string());
             }
         }
+    }
+
+    /// FJ-63: Check if a resource should be skipped because it depends on a failed resource.
+    /// Returns the name of the failed dependency if found.
+    pub(crate) fn failed_dependency<'a>(&self, depends_on: &'a [String]) -> Option<&'a str> {
+        depends_on.iter().find_map(|dep| {
+            if self.failed_resources.contains(dep) {
+                Some(dep.as_str())
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -54,6 +67,19 @@ pub(crate) fn apply_machine(
     if machine.is_container_transport() && !cfg.dry_run {
         transport::container::ensure_container(machine)?;
     }
+
+    // FJ-252: Start SSH ControlMaster for connection multiplexing
+    let ssh_mux = if !cfg.dry_run && transport::is_ssh_transport(machine) {
+        match transport::ssh::start_control_master(machine) {
+            Ok(_) => true,
+            Err(e) => {
+                eprintln!("warning: SSH multiplexing failed for {machine_name}: {e}");
+                false
+            }
+        }
+    } else {
+        false
+    };
 
     let mut lock = locks
         .remove(machine_name)
@@ -97,7 +123,7 @@ pub(crate) fn apply_machine(
         timeout_secs: cfg.resource_timeout.or(cfg.timeout_secs),
     };
 
-    execute_machine_changes(
+    let result = execute_machine_changes(
         cfg,
         &machine_changes,
         machine,
@@ -105,7 +131,14 @@ pub(crate) fn apply_machine(
         &mut trace_session,
         machine_name,
         &mut counters,
-    )?;
+    );
+
+    // FJ-252: Tear down SSH ControlMaster after apply completes
+    if ssh_mux {
+        let _ = transport::ssh::stop_control_master(machine);
+    }
+
+    result?;
 
     finalize_machine(
         cfg,
@@ -170,6 +203,21 @@ pub(super) fn execute_sequential(
         if cfg.progress {
             eprint!("[{}/{}] {} ", idx + 1, total, change.resource_id);
         }
+        // FJ-63: Skip resources whose dependencies have failed (cascade)
+        if let Some(resource) = cfg.config.resources.get(&change.resource_id) {
+            if let Some(failed_dep) = counters.failed_dependency(&resource.depends_on) {
+                if cfg.progress {
+                    eprintln!("skipped (dependency '{}' failed)", failed_dep);
+                }
+                eprintln!(
+                    "JIDOKA: skipping {} — depends on failed '{}'",
+                    change.resource_id, failed_dep
+                );
+                counters.failed += 1;
+                counters.failed_resources.insert(change.resource_id.clone());
+                continue;
+            }
+        }
         let outcome = apply_and_record_outcome(
             cfg,
             change,
@@ -187,9 +235,7 @@ pub(super) fn execute_sequential(
                 ResourceOutcome::Failed { .. } => eprintln!("FAILED"),
             }
         }
-        if counters.record(&outcome, &change.resource_id) {
-            break;
-        }
+        counters.record(&outcome, &change.resource_id);
     }
     Ok(())
 }
@@ -244,6 +290,18 @@ pub(super) fn execute_single_wave(
 ) -> Result<bool, String> {
     if wave.len() == 1 {
         if let Some(change) = machine_changes.iter().find(|c| c.resource_id == wave[0]) {
+            // FJ-63: Skip resources whose dependencies have failed
+            if let Some(resource) = cfg.config.resources.get(&change.resource_id) {
+                if let Some(failed_dep) = counters.failed_dependency(&resource.depends_on) {
+                    eprintln!(
+                        "JIDOKA: skipping {} — depends on failed '{}'",
+                        change.resource_id, failed_dep
+                    );
+                    counters.failed += 1;
+                    counters.failed_resources.insert(change.resource_id.clone());
+                    return Ok(false);
+                }
+            }
             let outcome = apply_and_record_outcome(
                 cfg,
                 change,
@@ -253,7 +311,8 @@ pub(super) fn execute_single_wave(
                 machine_name,
                 &counters.converged_resources,
             )?;
-            return Ok(counters.record(&outcome, &change.resource_id));
+            counters.record(&outcome, &change.resource_id);
+            return Ok(false);
         }
         Ok(false)
     } else {

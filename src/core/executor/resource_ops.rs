@@ -120,7 +120,7 @@ pub(crate) fn record_failure(
 
     if *ctx.failure_policy == FailurePolicy::StopOnFirst {
         eprintln!(
-            "JIDOKA: stopping after failure on {}/{}: {}",
+            "JIDOKA: {}/{} failed — dependents will be skipped: {}",
             ctx.machine_name, resource_id, error
         );
         return true;
