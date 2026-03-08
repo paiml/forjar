@@ -187,6 +187,62 @@ pub(crate) fn has_bare_semicolon(cmd: &str) -> bool {
     false
 }
 
+/// FJ-3030: Detect nohup launching binaries without LD_LIBRARY_PATH.
+///
+/// When `nohup /absolute/path/binary` is used, the child process may fail
+/// at runtime if shared libraries are in non-standard paths.
+/// Warns if nohup uses an absolute path and LD_LIBRARY_PATH isn't set.
+pub(crate) fn lint_nohup_ld_path(config: &types::ForjarConfig) -> Vec<String> {
+    let mut warnings = Vec::new();
+    for (id, resource) in &config.resources {
+        if resource.resource_type != types::ResourceType::Task {
+            continue;
+        }
+        if let Some(ref cmd) = resource.command {
+            // Check for nohup with absolute path binary
+            if let Some(pos) = cmd.find("nohup ") {
+                let after = &cmd[pos + 6..];
+                let binary = after.split_whitespace().next().unwrap_or("");
+                if binary.starts_with('/') && !cmd.contains("LD_LIBRARY_PATH") {
+                    warnings.push(format!(
+                        "task '{id}': nohup launches '{}' without LD_LIBRARY_PATH — \
+                         if binary uses non-standard .so paths, set LD_LIBRARY_PATH before nohup",
+                        binary
+                    ));
+                }
+            }
+        }
+    }
+    warnings
+}
+
+/// FJ-3040: Detect nohup + fixed sleep + health check anti-pattern.
+///
+/// Pattern: `nohup ... & sleep N; curl` or similar fixed-duration waits
+/// before health checks. Suggests using `health_check:` field instead.
+pub(crate) fn lint_nohup_sleep_health(config: &types::ForjarConfig) -> Vec<String> {
+    let mut warnings = Vec::new();
+    for (id, resource) in &config.resources {
+        if resource.resource_type != types::ResourceType::Task {
+            continue;
+        }
+        if let Some(ref cmd) = resource.command {
+            // Pattern: nohup...&...sleep...curl/wget/health
+            let has_nohup = cmd.contains("nohup ");
+            let has_sleep = cmd.contains("sleep ");
+            let has_health_probe =
+                cmd.contains("curl ") || cmd.contains("wget ") || cmd.contains("/health");
+            if has_nohup && has_sleep && has_health_probe {
+                warnings.push(format!(
+                    "task '{id}': nohup + sleep + health probe is fragile — \
+                     use task_mode: service with health_check: field for retry-based polling"
+                ));
+            }
+        }
+    }
+    warnings
+}
+
 fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     let mut script_errors = 0usize;
@@ -265,6 +321,8 @@ pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Resu
         warnings.extend(lint_strict_rules(&config));
     }
     warnings.extend(lint_semicolon_chains(&config));
+    warnings.extend(lint_nohup_ld_path(&config));
+    warnings.extend(lint_nohup_sleep_health(&config));
     warnings.extend(lint_scripts(&config));
 
     if json {
