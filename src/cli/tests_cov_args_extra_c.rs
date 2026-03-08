@@ -134,6 +134,7 @@ mod tests {
             name: None,
             output: PathBuf::from("f.yaml"),
             scan: vec!["packages".to_string()],
+            smart: false,
         };
         let _ = format!("{a:?}");
     }
