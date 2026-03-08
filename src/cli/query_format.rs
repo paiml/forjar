@@ -316,6 +316,150 @@ pub(crate) fn print_table_results(
     Ok(())
 }
 
+/// FJ-2001: Show recent events for matched resources.
+pub(crate) fn cmd_query_events(
+    state_dir: &std::path::Path,
+    since: Option<&str>,
+    run_id: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    use crate::core::store::query;
+    let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
+    let since_ts = since.map(resolve_since);
+    let events = query::query_events(&conn, since_ts.as_deref(), run_id, 50)?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&events).unwrap_or_default()
+        );
+    } else if events.is_empty() {
+        println!("No events found");
+    } else {
+        println!(" {:20} {:20} {:>8} {:26}", "RUN", "TYPE", "MS", "TIMESTAMP");
+        for ev in &events {
+            let dur = ev.duration_ms.map(|d| format!("{d}")).unwrap_or_default();
+            println!(
+                " {:20} {:20} {:>8} {:26}",
+                &ev.run_id[..20.min(ev.run_id.len())],
+                ev.event_type,
+                dur,
+                ev.timestamp
+            );
+        }
+        println!("\n {} event(s)", events.len());
+    }
+    Ok(())
+}
+
+/// FJ-2001: Show failure history.
+pub(crate) fn cmd_query_failures(
+    state_dir: &std::path::Path,
+    since: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    use crate::core::store::query;
+    let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
+    let since_ts = since.map(resolve_since);
+    let failures = query::query_failures(&conn, since_ts.as_deref(), 50)?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&failures).unwrap_or_default()
+        );
+    } else if failures.is_empty() {
+        println!("No failures found");
+    } else {
+        println!(
+            " {:20} {:10} {:20} {:>6} TIMESTAMP",
+            "RESOURCE", "MACHINE", "TYPE", "EXIT"
+        );
+        for f in &failures {
+            let exit = f
+                .exit_code
+                .map(|c| format!("{c}"))
+                .unwrap_or_else(|| "—".to_string());
+            println!(
+                " {:20} {:10} {:20} {:>6} {}",
+                f.resource_id, f.machine, f.event_type, exit, f.timestamp
+            );
+            if let Some(ref stderr) = f.stderr_tail {
+                if !stderr.is_empty() {
+                    for line in stderr.lines().take(2) {
+                        println!("   {line}");
+                    }
+                }
+            }
+        }
+        println!("\n {} failure(s)", failures.len());
+    }
+    Ok(())
+}
+
+/// Resolve a --since value to an ISO timestamp.
+/// Supports relative durations ("1h", "7d", "30m") and ISO timestamps.
+pub(crate) fn resolve_since(s: &str) -> String {
+    let s = s.trim();
+    // Try relative duration
+    if let Some(num_str) = s.strip_suffix('h') {
+        if let Ok(hours) = num_str.parse::<i64>() {
+            let now = chrono_now_minus_seconds(hours * 3600);
+            return now;
+        }
+    }
+    if let Some(num_str) = s.strip_suffix('d') {
+        if let Ok(days) = num_str.parse::<i64>() {
+            let now = chrono_now_minus_seconds(days * 86400);
+            return now;
+        }
+    }
+    if let Some(num_str) = s.strip_suffix('m') {
+        if let Ok(mins) = num_str.parse::<i64>() {
+            let now = chrono_now_minus_seconds(mins * 60);
+            return now;
+        }
+    }
+    // Assume ISO timestamp
+    s.to_string()
+}
+
+/// Get ISO timestamp for now minus N seconds (no chrono dependency).
+pub(crate) fn chrono_now_minus_seconds(secs: i64) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+        - secs;
+    // Format as ISO 8601 (approximate — no chrono needed)
+    let days = now / 86400;
+    let remaining = now % 86400;
+    let hours = remaining / 3600;
+    let mins = (remaining % 3600) / 60;
+    let s = remaining % 60;
+    // Simple epoch-to-date (good enough for SQLite comparison)
+    // Use days since epoch to compute Y-M-D
+    let (year, month, day) = epoch_days_to_ymd(days);
+    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{mins:02}:{s:02}")
+}
+
+/// Convert days since Unix epoch to (year, month, day).
+pub(crate) fn epoch_days_to_ymd(days: i64) -> (i64, i64, i64) {
+    // Civil calendar from days since epoch (Rata Die algorithm)
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
+}
+
 /// FJ-2001: Health summary across all machines.
 pub(crate) fn cmd_query_health(state_dir: &std::path::Path, json: bool) -> Result<(), String> {
     let conn = super::dispatch_misc_b::open_state_conn(state_dir)?;
