@@ -161,6 +161,162 @@ fn resolve_single_pin(
         .ok_or_else(|| format!("cannot parse version for {name} from {provider} output"))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolution_command_apt() {
+        let cmd = resolution_command("apt", "curl");
+        assert_eq!(cmd.unwrap(), "apt-cache policy curl");
+    }
+
+    #[test]
+    fn resolution_command_cargo() {
+        let cmd = resolution_command("cargo", "serde");
+        assert_eq!(cmd.unwrap(), "cargo search serde --limit 1");
+    }
+
+    #[test]
+    fn resolution_command_nix() {
+        let cmd = resolution_command("nix", "hello");
+        assert!(cmd.unwrap().contains("nix eval"));
+    }
+
+    #[test]
+    fn resolution_command_pip() {
+        assert!(resolution_command("pip", "requests").is_some());
+        assert!(resolution_command("uv", "numpy").is_some());
+    }
+
+    #[test]
+    fn resolution_command_docker() {
+        let cmd = resolution_command("docker", "nginx");
+        assert!(cmd.unwrap().contains("docker image inspect"));
+    }
+
+    #[test]
+    fn resolution_command_apr() {
+        let cmd = resolution_command("apr", "llama-3.1");
+        assert!(cmd.unwrap().contains("apr info"));
+    }
+
+    #[test]
+    fn resolution_command_unknown() {
+        assert!(resolution_command("unknown-provider", "pkg").is_none());
+    }
+
+    #[test]
+    fn parse_apt_version_candidate() {
+        let output = "curl:\n  Installed: 7.88.1-10+deb12u5\n  Candidate: 7.88.1-10+deb12u7\n  Version table:";
+        assert_eq!(parse_apt_version(output), Some("7.88.1-10+deb12u7".into()));
+    }
+
+    #[test]
+    fn parse_apt_version_none() {
+        assert_eq!(parse_apt_version("no candidate here"), None);
+    }
+
+    #[test]
+    fn parse_cargo_version_normal() {
+        let output = r#"serde = "1.0.215"    # A serialization framework"#;
+        assert_eq!(parse_cargo_version(output), Some("1.0.215".into()));
+    }
+
+    #[test]
+    fn parse_cargo_version_empty() {
+        assert_eq!(parse_cargo_version(""), None);
+    }
+
+    #[test]
+    fn parse_cargo_version_no_equals() {
+        assert_eq!(parse_cargo_version("something without equals"), None);
+    }
+
+    #[test]
+    fn parse_pip_version_available() {
+        let output = "Available versions: 2.31.0, 2.30.0, 2.29.0";
+        assert_eq!(parse_pip_version(output), Some("2.31.0".into()));
+    }
+
+    #[test]
+    fn parse_pip_version_fallback() {
+        let output = "1.2.3\nsome other line";
+        assert_eq!(parse_pip_version(output), Some("1.2.3".into()));
+    }
+
+    #[test]
+    fn parse_pip_version_empty() {
+        assert_eq!(parse_pip_version(""), None);
+    }
+
+    #[test]
+    fn parse_resolved_version_empty_input() {
+        assert_eq!(parse_resolved_version("apt", ""), None);
+        assert_eq!(parse_resolved_version("apt", "  \n"), None);
+    }
+
+    #[test]
+    fn parse_resolved_version_nix() {
+        assert_eq!(parse_resolved_version("nix", "23.11"), Some("23.11".into()));
+    }
+
+    #[test]
+    fn parse_resolved_version_docker() {
+        assert_eq!(
+            parse_resolved_version("docker", "sha256:abc123"),
+            Some("sha256:abc123".into())
+        );
+    }
+
+    #[test]
+    fn parse_resolved_version_apr() {
+        assert_eq!(
+            parse_resolved_version("apr", "3.1-Q4"),
+            Some("3.1-Q4".into())
+        );
+    }
+
+    #[test]
+    fn parse_resolved_version_unknown() {
+        assert_eq!(parse_resolved_version("brew", "1.0"), None);
+    }
+
+    #[test]
+    fn pin_hash_deterministic() {
+        let h1 = pin_hash("apt", "curl", "7.88.1");
+        let h2 = pin_hash("apt", "curl", "7.88.1");
+        assert_eq!(h1, h2);
+        assert!(h1.starts_with("blake3:"));
+    }
+
+    #[test]
+    fn pin_hash_differs_on_version() {
+        let h1 = pin_hash("apt", "curl", "7.88.1");
+        let h2 = pin_hash("apt", "curl", "7.99.0");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn pin_hash_differs_on_provider() {
+        let h1 = pin_hash("apt", "curl", "7.88.1");
+        let h2 = pin_hash("cargo", "curl", "7.88.1");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn resolved_pin_struct() {
+        let pin = ResolvedPin {
+            name: "curl".into(),
+            provider: "apt".into(),
+            version: "7.88.1".into(),
+            hash: pin_hash("apt", "curl", "7.88.1"),
+        };
+        assert_eq!(pin.name, "curl");
+        assert!(pin.hash.starts_with("blake3:"));
+    }
+}
+
 /// Check pin staleness by re-resolving and comparing hashes.
 ///
 /// Returns entries where the locked hash differs from the live-resolved hash.
