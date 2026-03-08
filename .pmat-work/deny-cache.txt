@@ -1,1 +1,1 @@
-advisories ok, bans ok, licenses FAILED, sources ok
+advisories ok, bans ok, licenses ok, sources ok
