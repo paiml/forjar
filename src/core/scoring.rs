@@ -29,6 +29,7 @@ pub struct ScoringInput {
 }
 
 /// Runtime data collected from actual apply/qualify runs.
+#[derive(Clone)]
 pub struct RuntimeData {
     /// Whether config validation passed.
     pub validate_pass: bool,
@@ -117,16 +118,15 @@ pub fn compute_from_file(file: &Path, input: &ScoringInput) -> Result<ScoringRes
     let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
     let config: ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
     // Use file contents as raw_yaml if not provided
-    let input_with_yaml = if input.raw_yaml.is_some() {
+    if input.raw_yaml.is_some() {
         return Ok(compute(&config, input));
-    } else {
-        ScoringInput {
-            status: input.status.clone(),
-            idempotency: input.idempotency.clone(),
-            budget_ms: input.budget_ms,
-            runtime: None, // can't move, re-create below
-            raw_yaml: Some(raw),
-        }
+    }
+    let input_with_yaml = ScoringInput {
+        status: input.status.clone(),
+        idempotency: input.idempotency.clone(),
+        budget_ms: input.budget_ms,
+        runtime: input.runtime.clone(),
+        raw_yaml: Some(raw),
     };
     Ok(compute(&config, &input_with_yaml))
 }
@@ -213,8 +213,12 @@ fn compute_weighted(dims: &[&DimensionScore], weights: &[u32]) -> u32 {
 }
 
 pub(crate) fn compute_composite(dims: &[DimensionScore]) -> u32 {
+    let total_weight: f64 = dims.iter().map(|d| d.weight).sum();
+    if total_weight == 0.0 {
+        return 0;
+    }
     let weighted: f64 = dims.iter().map(|d| d.score as f64 * d.weight).sum();
-    weighted.round() as u32
+    (weighted / total_weight).round() as u32
 }
 
 pub(crate) fn determine_grade(composite: u32, min_dim: u32) -> char {
