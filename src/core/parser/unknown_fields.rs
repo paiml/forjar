@@ -425,6 +425,7 @@ fn make_unknown(path: &str, key: &str, known: &[&str]) -> UnknownField {
 
 /// Find the closest known field within Levenshtein distance <= 2.
 fn closest_match(input: &str, candidates: &[&str]) -> Option<String> {
+    // First try Levenshtein distance <= 2
     let mut best: Option<(usize, &str)> = None;
     for &candidate in candidates {
         let dist = levenshtein(input, candidate);
@@ -432,7 +433,22 @@ fn closest_match(input: &str, candidates: &[&str]) -> Option<String> {
             best = Some((dist, candidate));
         }
     }
-    best.map(|(_, s)| s.to_string())
+    if let Some((_, s)) = best {
+        return Some(s.to_string());
+    }
+    // Fallback: substring match — prefer suffix match (e.g., "check" → "completion_check")
+    let input_lower = input.to_lowercase();
+    let mut substr_match: Option<&str> = None;
+    for &candidate in candidates {
+        let cand_lower = candidate.to_lowercase();
+        if cand_lower.ends_with(&input_lower) && candidate != input {
+            return Some(candidate.to_string()); // Exact suffix match is best
+        }
+        if substr_match.is_none() && cand_lower.contains(&input_lower) && candidate != input {
+            substr_match = Some(candidate);
+        }
+    }
+    substr_match.map(|s| s.to_string())
 }
 
 /// Levenshtein edit distance (O(nm), no allocations beyond a single row).

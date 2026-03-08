@@ -201,9 +201,23 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         deny_unknown_fields,
     } = args;
 
-    // FJ-2500: --deny-unknown-fields — reject configs with unknown YAML fields
-    if deny_unknown_fields {
-        return crate::core::parser::parse_and_validate_opts(&file, true).map(|_| ());
+    // FJ-2500: Unknown fields are always errors during validate (P0 — silent data loss).
+    // The --deny-unknown-fields flag is now the default behavior; kept for backward compat.
+    let _ = deny_unknown_fields; // always true for validate
+    {
+        let content = std::fs::read_to_string(&file)
+            .map_err(|e| format!("failed to read {}: {}", file.display(), e))?;
+        let unknown_warnings = crate::core::parser::check_unknown_fields(&content);
+        if !unknown_warnings.is_empty() {
+            return Err(format!(
+                "unknown field errors:\n{}",
+                unknown_warnings
+                    .iter()
+                    .map(|e| format!("  - {e}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ));
+        }
     }
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass

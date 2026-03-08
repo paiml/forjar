@@ -24,7 +24,23 @@ fn test_fj004_describe_action_file() {
 fn test_fj004_describe_action_service() {
     let mut r = make_base_resource(ResourceType::Service);
     r.name = Some("nginx".to_string());
-    assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
+    let desc = describe_action("svc", &r, &PlanAction::Create);
+    assert!(
+        desc.contains("start nginx"),
+        "default state should say 'start', got: {desc}"
+    );
+}
+
+#[test]
+fn test_fj004_describe_action_service_stopped() {
+    let mut r = make_base_resource(ResourceType::Service);
+    r.name = Some("nginx".to_string());
+    r.state = Some("stopped".to_string());
+    let desc = describe_action("svc", &r, &PlanAction::Create);
+    assert!(
+        desc.contains("stop nginx"),
+        "state=stopped should say 'stop', got: {desc}"
+    );
 }
 
 #[test]
