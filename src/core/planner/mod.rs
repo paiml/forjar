@@ -326,7 +326,11 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             }
             ResourceType::Service => {
                 let name = resource.name.as_deref().unwrap_or("?");
-                format!("{resource_id}: start {name}")
+                let verb = match resource.state.as_deref() {
+                    Some("stopped") => "stop",
+                    _ => "start",
+                };
+                format!("{resource_id}: {verb} {name}")
             }
             ResourceType::Mount => {
                 let path = resource.path.as_deref().unwrap_or("?");
