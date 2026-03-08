@@ -370,7 +370,8 @@ fn dispatch_misc_ops(cmd: Commands, verbose: bool) -> Result<(), String> {
             idempotency,
             budget_ms,
             json,
-        }) => cmd_score(&file, &status, &idempotency, budget_ms, json),
+            state_dir,
+        }) => cmd_score(&file, &status, &idempotency, budget_ms, json, &state_dir),
         Commands::ConfigMerge(ConfigMergeArgs {
             file_a,
             file_b,

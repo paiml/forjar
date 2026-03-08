@@ -378,6 +378,7 @@ fn dispatch_score_routes() {
             idempotency: "full".to_string(),
             budget_ms: 0,
             json: false,
+            state_dir: PathBuf::from("state"),
         }),
         false,
     );
