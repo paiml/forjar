@@ -346,12 +346,10 @@ fn check_sandbox_backends() -> DoctorCheck {
         }
     }
 }
-
 // FJ-251: forjar doctor — pre-flight system checker
 pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
     cmd_doctor_with_writer(file, json, fix, &mut super::output::StdoutWriter)
 }
-
 /// Inner doctor with injectable OutputWriter (FJ-2920).
 pub(crate) fn cmd_doctor_with_writer(
     file: Option<&Path>,

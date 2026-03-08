@@ -250,6 +250,7 @@ mod workspace;
 pub use commands::Commands;
 pub use dispatch::dispatch;
 
-// Test module declarations (split across two include files for file size).
+// Test module declarations (split across include files for file size).
 include!("mod_test_decl.rs");
 include!("mod_test_decl_b.rs");
+include!("mod_test_decl_c.rs");
