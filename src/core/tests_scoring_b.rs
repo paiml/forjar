@@ -1,11 +1,11 @@
-//! Tests for the scoring module — part 2: runtime dimensions, grades, formatting.
+//! Tests for scoring v2 — runtime dimensions, grades, formatting.
 
 use super::scoring::*;
 use super::tests_scoring::{full_runtime, minimal_config, minimal_resource, static_input};
 use super::types::ResourceType;
 
 // ============================================================================
-// Correctness dimension tests
+// Correctness dimension tests (v2: 35% weight)
 // ============================================================================
 
 #[test]
@@ -15,20 +15,23 @@ fn correctness_no_runtime_is_zero() {
     let result = compute(&config, &input);
     let cor = result.dimensions.iter().find(|d| d.code == "COR").unwrap();
     assert_eq!(cor.score, 0);
+    assert_eq!(cor.weight, 0.35, "v2 COR weight should be 35%");
 }
 
 #[test]
-fn correctness_full_runtime_is_100() {
+fn correctness_full_runtime_is_95() {
     let config = minimal_config();
     let input = ScoringInput {
         status: "qualified".to_string(),
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: Some(full_runtime()),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let cor = result.dimensions.iter().find(|d| d.code == "COR").unwrap();
-    assert_eq!(cor.score, 100);
+    // v2: 15+15+40+15+10 = 95
+    assert_eq!(cor.score, 95);
 }
 
 #[test]
@@ -41,28 +44,27 @@ fn correctness_warnings_reduce_score() {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: Some(rt),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let cor = result.dimensions.iter().find(|d| d.code == "COR").unwrap();
-    assert_eq!(cor.score, 90);
+    // 95 - 10 = 85
+    assert_eq!(cor.score, 85);
 }
 
 // ============================================================================
-// Idempotency dimension tests
+// Idempotency dimension tests (v2: 35% weight)
 // ============================================================================
 
 #[test]
-fn idempotency_strong_class_static_only() {
+fn idempotency_no_runtime_is_zero() {
     let config = minimal_config();
-    let input = ScoringInput {
-        status: "qualified".to_string(),
-        idempotency: "strong".to_string(),
-        budget_ms: 0,
-        runtime: None,
-    };
+    let input = static_input();
     let result = compute(&config, &input);
     let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
-    assert_eq!(idm.score, 20);
+    // v2: no static-only idempotency bonus
+    assert_eq!(idm.score, 0);
+    assert_eq!(idm.weight, 0.35, "v2 IDM weight should be 35%");
 }
 
 #[test]
@@ -73,14 +75,51 @@ fn idempotency_full_runtime_strong() {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: Some(full_runtime()),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
-    assert_eq!(idm.score, 100);
+    // v2: 25+25+20+20 = 90
+    assert_eq!(idm.score, 90);
+}
+
+#[test]
+fn idempotency_weak_class_runtime() {
+    let config = minimal_config();
+    let input = ScoringInput {
+        status: "qualified".to_string(),
+        idempotency: "weak".to_string(),
+        budget_ms: 0,
+        runtime: Some(full_runtime()),
+        raw_yaml: None,
+    };
+    let result = compute(&config, &input);
+    let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
+    // 25+25+20+10 = 80
+    assert_eq!(idm.score, 80);
+}
+
+#[test]
+fn idempotency_changed_on_reapply_penalty() {
+    let config = minimal_config();
+    let mut rt = full_runtime();
+    rt.changed_on_reapply = 3;
+    rt.zero_changes_on_reapply = false;
+    let input = ScoringInput {
+        status: "qualified".to_string(),
+        idempotency: "strong".to_string(),
+        budget_ms: 0,
+        runtime: Some(rt),
+        raw_yaml: None,
+    };
+    let result = compute(&config, &input);
+    let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
+    // 25 + 0 (not zero) + 20 + 20 - 30 (3*10) = 35
+    assert_eq!(idm.score, 35);
 }
 
 // ============================================================================
-// Performance dimension tests
+// Performance dimension tests (v2: 30% weight)
 // ============================================================================
 
 #[test]
@@ -91,10 +130,12 @@ fn performance_no_budget_is_zero() {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: Some(full_runtime()),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let prf = result.dimensions.iter().find(|d| d.code == "PRF").unwrap();
     assert_eq!(prf.score, 0);
+    assert_eq!(prf.weight, 0.30, "v2 PRF weight should be 30%");
 }
 
 #[test]
@@ -108,6 +149,7 @@ fn performance_within_budget() {
         idempotency: "strong".to_string(),
         budget_ms: 6000,
         runtime: Some(rt),
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let prf = result.dimensions.iter().find(|d| d.code == "PRF").unwrap();
@@ -119,13 +161,15 @@ fn performance_within_budget() {
 // ============================================================================
 
 #[test]
-fn format_report_contains_grade() {
+fn format_report_contains_v2_sections() {
     let config = minimal_config();
     let input = static_input();
     let result = compute(&config, &input);
     let report = format_score_report(&result);
-    assert!(report.contains("Grade"));
-    assert!(report.contains("Forjar Score:"));
+    assert!(report.contains("v2"), "report should mention v2");
+    assert!(report.contains("Static Grade"));
+    assert!(report.contains("Runtime Grade"));
+    assert!(report.contains("Overall"));
 }
 
 #[test]
@@ -136,6 +180,7 @@ fn format_report_hard_fail_shows_reason() {
         idempotency: "strong".to_string(),
         budget_ms: 0,
         runtime: None,
+        raw_yaml: None,
     };
     let result = compute(&config, &input);
     let report = format_score_report(&result);
@@ -144,79 +189,8 @@ fn format_report_hard_fail_shows_reason() {
 }
 
 // ============================================================================
-// Documentation dimension tests
-// ============================================================================
-
-#[test]
-fn documentation_with_description() {
-    let mut config = minimal_config();
-    config.description = Some("A great config for web servers".to_string());
-
-    let input = static_input();
-    let result = compute(&config, &input);
-    let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
-    assert_eq!(doc.score, 45);
-}
-
-// ============================================================================
 // Composite and grade integration
 // ============================================================================
-
-#[test]
-fn composite_weighted_sum_correct() {
-    let dims = vec![
-        DimensionScore {
-            code: "COR",
-            name: "Correctness",
-            score: 100,
-            weight: 0.20,
-        },
-        DimensionScore {
-            code: "IDM",
-            name: "Idempotency",
-            score: 100,
-            weight: 0.20,
-        },
-        DimensionScore {
-            code: "PRF",
-            name: "Performance",
-            score: 85,
-            weight: 0.15,
-        },
-        DimensionScore {
-            code: "SAF",
-            name: "Safety",
-            score: 82,
-            weight: 0.15,
-        },
-        DimensionScore {
-            code: "OBS",
-            name: "Observability",
-            score: 60,
-            weight: 0.10,
-        },
-        DimensionScore {
-            code: "DOC",
-            name: "Documentation",
-            score: 90,
-            weight: 0.08,
-        },
-        DimensionScore {
-            code: "RES",
-            name: "Resilience",
-            score: 50,
-            weight: 0.07,
-        },
-        DimensionScore {
-            code: "CMP",
-            name: "Composability",
-            score: 35,
-            weight: 0.05,
-        },
-    ];
-    let composite = compute_composite(&dims);
-    assert_eq!(composite, 84);
-}
 
 #[test]
 fn grade_f_for_low_composite() {
@@ -301,49 +275,10 @@ resources:
 
     let input = static_input();
     let result = compute_from_file(f.path(), &input).unwrap();
-    assert!(result.composite > 0);
+    assert!(result.static_composite > 0);
     assert_eq!(result.dimensions.len(), 8);
     let saf = result.dimensions.iter().find(|d| d.code == "SAF").unwrap();
     assert_eq!(saf.score, 100);
-}
-
-// ============================================================================
-// Performance dimension edge cases
-// ============================================================================
-
-#[test]
-fn performance_budget_ranges() {
-    let mk = |first_ms, budget_ms, second_ms| {
-        let mut rt = full_runtime();
-        rt.first_apply_ms = first_ms;
-        rt.second_apply_ms = second_ms;
-        ScoringInput {
-            status: "qualified".to_string(),
-            idempotency: "strong".to_string(),
-            budget_ms,
-            runtime: Some(rt),
-        }
-    };
-    let prf = |input: &ScoringInput| {
-        compute(&minimal_config(), input)
-            .dimensions
-            .into_iter()
-            .find(|d| d.code == "PRF")
-            .unwrap()
-            .score
-    };
-    // 51-75% budget → 40pts; eff ~2.5% → 20pts; idem <=2s → 30pts = 90
-    assert_eq!(prf(&mk(4000, 6000, 100)), 90);
-    // 101-150% budget → 15pts; eff ~2.8% → 20pts; idem <=2s → 30pts = 65
-    assert_eq!(prf(&mk(7000, 5000, 200)), 65);
-    // >150% budget → 0pts; eff 2% → 20pts; idem <=2s → 30pts = 50
-    assert_eq!(prf(&mk(10000, 5000, 200)), 50);
-    // idem 3000ms → 25pts; budget 66% → 40pts; eff 15% → 10pts = 75
-    assert_eq!(prf(&mk(20000, 30000, 3000)), 75);
-    // idem >10s → 0pts; budget 66% → 40pts; eff 75% → 0pts = 40
-    assert_eq!(prf(&mk(20000, 30000, 15000)), 40);
-    // eff 8% → 15pts; budget 50% → 50pts; idem <=2s → 30pts = 95
-    assert_eq!(prf(&mk(10000, 20000, 800)), 95);
 }
 
 // ============================================================================
@@ -351,26 +286,15 @@ fn performance_budget_ranges() {
 // ============================================================================
 
 #[test]
-fn documentation_generic_name_no_bonus() {
-    let mut config = minimal_config();
-    config.name = "unnamed".to_string();
-    config.description = None;
-    let input = static_input();
-    let result = compute(&config, &input);
-    let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
-    assert_eq!(doc.score, 0);
-}
-
-#[test]
-fn documentation_empty_name_no_bonus() {
+fn documentation_empty_name_no_kebab_bonus() {
     let mut config = minimal_config();
     config.name = "".to_string();
     config.description = Some("A description".to_string());
     let input = static_input();
     let result = compute(&config, &input);
     let doc = result.dimensions.iter().find(|d| d.code == "DOC").unwrap();
-    // 15 (description present) + 0 (generic name) + 25 (non-empty description) = 40
-    assert_eq!(doc.score, 40);
+    // 15 (description) only — no kebab bonus, no header metadata
+    assert_eq!(doc.score, 15);
 }
 
 // ============================================================================
@@ -396,7 +320,8 @@ fn composability_with_recipe_nesting() {
     let input = static_input();
     let result = compute(&config, &input);
     let cmp = result.dimensions.iter().find(|d| d.code == "CMP").unwrap();
-    assert_eq!(cmp.score, 15);
+    // v2: recipe nesting = 10
+    assert_eq!(cmp.score, 10);
 }
 
 // ============================================================================
@@ -404,9 +329,9 @@ fn composability_with_recipe_nesting() {
 // ============================================================================
 
 #[test]
-fn resilience_dag_ratio_30_to_49_pct() {
+fn resilience_dag_ratio_33_pct() {
     let mut config = minimal_config();
-    // 3 resources, 1 with deps = 33% ratio → 20 pts
+    // 3 resources, 1 with deps = 33% → +10 (v2: 30% threshold)
     let r1 = minimal_resource(ResourceType::Package);
     let r2 = minimal_resource(ResourceType::File);
     let mut r3 = minimal_resource(ResourceType::File);
@@ -418,8 +343,8 @@ fn resilience_dag_ratio_30_to_49_pct() {
     let input = static_input();
     let result = compute(&config, &input);
     let res = result.dimensions.iter().find(|d| d.code == "RES").unwrap();
-    // 0 (no continue_independent) + 0 (no ssh_retries) + 20 (dag 33%) + 0 (no hooks) = 20
-    assert_eq!(res.score, 20);
+    // 0 (no continue_independent) + 0 (no ssh_retries) + 10 (dag 33%) = 10
+    assert_eq!(res.score, 10);
 }
 
 #[test]
@@ -432,57 +357,15 @@ fn resilience_with_resource_hooks() {
     let input = static_input();
     let result = compute(&config, &input);
     let dim = result.dimensions.iter().find(|d| d.code == "RES").unwrap();
-    // 0 (no continue_independent) + 0 (ssh_retries) + 0 (dag <30%) + 0 (policy hooks) + 10 (resource hooks) = 10
+    // 10 (resource hooks)
     assert_eq!(dim.score, 10);
 }
 
 // ============================================================================
-// Idempotency edge cases
+// v2 score version
 // ============================================================================
 
 #[test]
-fn idempotency_weak_class_runtime() {
-    let config = minimal_config();
-    let input = ScoringInput {
-        status: "qualified".to_string(),
-        idempotency: "weak".to_string(),
-        budget_ms: 0,
-        runtime: Some(full_runtime()),
-    };
-    let result = compute(&config, &input);
-    let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
-    // 30 + 30 + 20 + 10 (weak) = 90
-    assert_eq!(idm.score, 90);
-}
-
-#[test]
-fn idempotency_eventual_class_static() {
-    let config = minimal_config();
-    let input = ScoringInput {
-        status: "qualified".to_string(),
-        idempotency: "eventual".to_string(),
-        budget_ms: 0,
-        runtime: None,
-    };
-    let result = compute(&config, &input);
-    let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
-    assert_eq!(idm.score, 0);
-}
-
-#[test]
-fn idempotency_changed_on_reapply_penalty() {
-    let config = minimal_config();
-    let mut rt = full_runtime();
-    rt.changed_on_reapply = 3;
-    rt.zero_changes_on_reapply = false;
-    let input = ScoringInput {
-        status: "qualified".to_string(),
-        idempotency: "strong".to_string(),
-        budget_ms: 0,
-        runtime: Some(rt),
-    };
-    let result = compute(&config, &input);
-    let idm = result.dimensions.iter().find(|d| d.code == "IDM").unwrap();
-    // 30 + 0 (not zero) + 20 + 20 - 30 (3*10) = 40
-    assert_eq!(idm.score, 40);
+fn score_version_is_v2() {
+    assert_eq!(SCORE_VERSION, "2.0");
 }

@@ -61,17 +61,23 @@ fn main() {
             idempotency: "strong".to_string(),
             budget_ms: 0,
             runtime: None,
+            raw_yaml: Some(yaml),
         };
         let result = scoring::compute(&config, &input);
 
-        grades.push((name.clone(), result.grade, result.composite));
-        if result.grade != 'F' {
+        grades.push((name.clone(), result.static_grade, result.static_composite));
+        if result.static_grade != 'F' {
             passed += 1;
         }
 
         println!(
-            "\n{}: Grade {} (composite {})",
-            name, result.grade, result.composite
+            "\n{}: Grade {} (static {} runtime {})",
+            name,
+            result.grade,
+            result.static_composite,
+            result
+                .runtime_composite
+                .map_or("pending".to_string(), |c| c.to_string()),
         );
         for dim in &result.dimensions {
             println!(
