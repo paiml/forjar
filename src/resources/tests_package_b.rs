@@ -42,7 +42,7 @@ fn test_fj006_cargo_install_unconditional_force() {
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
     // --force makes install idempotent — no conditional check needed
-    assert!(script.contains("cargo install --force 'tool'"));
+    assert!(script.contains("cargo install --force --locked 'tool'"));
     assert!(
         !script.contains("if !"),
         "should not have conditional check with --force"
@@ -65,7 +65,7 @@ fn test_fj006_cargo_version_constraint() {
     r.provider = Some("cargo".to_string());
     r.version = Some("0.3.0".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("cargo install --force 'batuta@0.3.0'"));
+    assert!(script.contains("cargo install --force --locked 'batuta@0.3.0'"));
 }
 
 #[test]
@@ -179,7 +179,7 @@ fn test_fj1005_cargo_bootstrap_rustup() {
         "must bootstrap via rustup: {script}"
     );
     assert!(
-        script.contains("cargo install --force 'realizar'"),
+        script.contains("cargo install --force --locked 'realizar'"),
         "must still install: {script}"
     );
     assert!(
@@ -237,11 +237,11 @@ fn test_fj_cargo_install_from_source() {
     r.source = Some("/build/apr-cli".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("cargo install --force --path '/build/apr-cli'"),
+        script.contains("cargo install --force --locked --path '/build/apr-cli'"),
         "cargo source must use --path: {script}"
     );
     assert!(
-        !script.contains("cargo install --force 'apr-cli'"),
+        !script.contains("cargo install --force --locked 'apr-cli'"),
         "cargo source must NOT use crate name for install: {script}"
     );
 }
@@ -255,7 +255,7 @@ fn test_fj_cargo_source_ignores_version() {
     r.version = Some("0.1.0".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("cargo install --force --path '/build/apr-cli'"),
+        script.contains("cargo install --force --locked --path '/build/apr-cli'"),
         "cargo source+version must still use --path: {script}"
     );
     assert!(
@@ -286,7 +286,7 @@ fn test_fj036_package_cargo_install_with_version() {
     r.version = Some("14.1.0".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("cargo install --force 'ripgrep@14.1.0'"),
+        script.contains("cargo install --force --locked 'ripgrep@14.1.0'"),
         "cargo install with version must use @version syntax: {script}"
     );
 }
