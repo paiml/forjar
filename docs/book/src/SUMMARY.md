@@ -66,3 +66,4 @@
 - [Recipe Conversion, Pin Tripwire & Resolution](./63-convert-pin-tripwire.md)
 - [Sandbox Lifecycle & Derivation Execution](./64-sandbox-derivation.md)
 - [Pipeline State & I/O Cache Tracking](./65-pipeline-cache.md)
+- [Refinement Types, Query Health & Run Logs](./66-refinement-query-runlog.md)
