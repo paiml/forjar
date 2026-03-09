@@ -71,3 +71,4 @@
 - [Ephemeral Secrets & Overlay Layers](./68-ephemeral-overlay.md)
 - [Metric Thresholds, Events & Diffs](./69-metric-event-diff.md)
 - [Proof Obligations, Compliance & Security](./70-proof-compliance-security.md)
+- [Codegen, Dispatch & SAT](./71-codegen-dispatch-sat.md)
