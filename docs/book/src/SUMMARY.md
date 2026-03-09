@@ -92,3 +92,4 @@
 - [Store Metadata, Secret Scanning & GC](./89-meta-secret-gc.md)
 - [Conversion Strategy, Pin Tripwire & Validation](./90-convert-pin-validate.md)
 - [Provider Import, FAR Archives & Store Diff](./91-provider-far-diff.md)
+- [Contract Coverage, GC Sweep & Registry Push](./92-contract-gc-registry.md)
