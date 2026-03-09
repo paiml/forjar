@@ -40,6 +40,8 @@ mod tests_policy;
 #[cfg(test)]
 mod tests_resource_types_cov;
 #[cfg(test)]
+mod tests_sarif;
+#[cfg(test)]
 mod tests_sudo_inference;
 #[cfg(test)]
 mod tests_triggers;
@@ -54,7 +56,9 @@ use std::path::Path;
 
 // Re-export public API
 pub use expansion::expand_resources;
-pub use policy::{evaluate_policies, evaluate_policies_full, policy_check_to_json};
+pub use policy::{
+    evaluate_policies, evaluate_policies_full, policy_check_to_json, policy_check_to_sarif,
+};
 pub use recipes::expand_recipes;
 
 /// Recognized CPU architectures for the `arch` field.

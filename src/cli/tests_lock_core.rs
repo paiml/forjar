@@ -46,7 +46,7 @@ policies:
 "#,
         )
         .unwrap();
-        let result = cmd_policy(&file, false);
+        let result = cmd_policy(&file, false, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
     }

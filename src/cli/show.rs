@@ -300,11 +300,13 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
 }
 
 // FJ-220 + FJ-3200: Evaluate policy rules and report violations.
-pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_policy(file: &Path, json: bool, sarif: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let result = parser::evaluate_policies_full(&config);
 
-    if json {
+    if sarif {
+        println!("{}", parser::policy_check_to_sarif(&result));
+    } else if json {
         println!("{}", parser::policy_check_to_json(&result));
     } else if result.violations.is_empty() {
         println!("All {} policy rules passed.", config.policies.len());

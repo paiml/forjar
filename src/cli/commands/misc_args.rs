@@ -375,6 +375,10 @@ pub struct PolicyArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// FJ-3207: Output as SARIF 2.1.0 (for GitHub Code Scanning / CI)
+    #[arg(long)]
+    pub sarif: bool,
 }
 
 /// CLI arguments for the `score` command.

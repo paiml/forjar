@@ -202,3 +202,76 @@ pub fn policy_check_to_json(result: &PolicyCheckResult) -> String {
 
     serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
 }
+
+/// FJ-3207: Serialize policy check result to SARIF 2.1.0 format for CI integration.
+///
+/// Produces a valid SARIF log object compatible with GitHub Code Scanning,
+/// Azure DevOps, and other SARIF-consuming tools.
+pub fn policy_check_to_sarif(result: &PolicyCheckResult) -> String {
+    use crate::core::types::PolicySeverity;
+
+    // Build unique rules from violations
+    let mut rule_ids: Vec<String> = Vec::new();
+    let mut rules: Vec<serde_json::Value> = Vec::new();
+    for v in &result.violations {
+        let id = v
+            .policy_id
+            .clone()
+            .unwrap_or_else(|| format!("forjar/{:?}", v.rule_type).to_lowercase());
+        if !rule_ids.contains(&id) {
+            let mut rule = serde_json::json!({
+                "id": id,
+                "shortDescription": { "text": v.rule_message },
+            });
+            if let Some(ref rem) = v.remediation {
+                rule["help"] = serde_json::json!({ "text": rem });
+            }
+            rules.push(rule);
+            rule_ids.push(id);
+        }
+    }
+
+    let results: Vec<serde_json::Value> = result
+        .violations
+        .iter()
+        .map(|v| {
+            let level = match v.severity {
+                PolicySeverity::Error => "error",
+                PolicySeverity::Warning => "warning",
+                PolicySeverity::Info => "note",
+            };
+            let rule_id = v
+                .policy_id
+                .clone()
+                .unwrap_or_else(|| format!("forjar/{:?}", v.rule_type).to_lowercase());
+            serde_json::json!({
+                "ruleId": rule_id,
+                "level": level,
+                "message": { "text": format!("{}: {}", v.resource_id, v.rule_message) },
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": { "uri": "forjar.yaml" },
+                    }
+                }],
+            })
+        })
+        .collect();
+
+    let sarif = serde_json::json!({
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "forjar",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "informationUri": "https://github.com/paiml/forjar",
+                    "rules": rules,
+                }
+            },
+            "results": results,
+        }]
+    });
+
+    serde_json::to_string_pretty(&sarif).unwrap_or_else(|_| "{}".to_string())
+}

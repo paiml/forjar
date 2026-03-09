@@ -152,7 +152,7 @@ policies:
     field: owner
 "#,
     );
-    let result = cmd_policy(&f, false);
+    let result = cmd_policy(&f, false, false);
     assert!(result.is_err());
 }
 
@@ -179,7 +179,7 @@ policies:
     field: owner
 "#,
     );
-    let result = cmd_policy(&f, true);
+    let result = cmd_policy(&f, true, false);
     assert!(result.is_err());
 }
 
@@ -206,7 +206,7 @@ policies:
     field: owner
 "#,
     );
-    assert!(cmd_policy(&f, false).is_ok());
+    assert!(cmd_policy(&f, false, false).is_ok());
 }
 
 // ── cmd_explain edge cases ──────────────────────────────────
