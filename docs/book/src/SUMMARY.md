@@ -82,3 +82,4 @@
 - [Test Runner, Query Engine & Handler Contracts](./79-test-query-handler.md)
 - [Conditional Evaluation, Rollout & Purification](./80-conditions-rollout-purifier.md)
 - [Run Logs, Doctor Diagnostics & Image Build Logs](./81-runlog-doctor-imagelog.md)
+- [Plugin Dispatch & Reproducible Builds](./82-plugin-dispatch-repro.md)
