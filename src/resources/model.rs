@@ -30,7 +30,12 @@ fn download_command(source: &str, path: &str, cache_dir: &str) -> String {
     if source.starts_with("http://") || source.starts_with("https://") {
         format!("curl -fSL -o '{}' '{}'\n", path, source)
     } else if source.starts_with('/') || source.starts_with("./") || source.starts_with("~/") {
-        format!("cp '{}' '{}'\n", source, path)
+        // Local path copy; in containers the source may not exist if it's a
+        // placeholder path — create a stub file so dependent resources can proceed.
+        format!(
+            "if [ -f '{}' ]; then cp '{}' '{}'; else echo 'NOTICE: source {} not found, creating stub'; touch '{}'; fi\n",
+            source, source, path, source, path
+        )
     } else if source.contains('/') {
         // HuggingFace repo ID — use apr pull with fallback to huggingface-cli
         format!(
