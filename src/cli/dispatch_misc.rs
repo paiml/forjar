@@ -41,7 +41,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Environments(..)
         | Commands::Promote(..)
         | Commands::Rules(..)
-        | Commands::Plugin(..)) => dispatch_misc_config(cmd),
+        | Commands::Plugin(..)
+        | Commands::Trigger(..)) => dispatch_misc_config(cmd),
 
         cmd @ (Commands::Rollback(..)
         | Commands::Rolling(..)
@@ -217,6 +218,13 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
         }
         Commands::Rules(subcmd) => super::rules::dispatch_rules(subcmd),
         Commands::Plugin(subcmd) => super::plugin::dispatch_plugin(subcmd),
+        Commands::Trigger(TriggerArgs {
+            rulebook,
+            file,
+            payload,
+            dry_run,
+            json,
+        }) => super::trigger::cmd_trigger(&rulebook, &file, &payload, dry_run, json),
         _ => unreachable!(),
     }
 }

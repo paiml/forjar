@@ -528,4 +528,7 @@ pub enum Commands {
     /// FJ-3403: Manage WASM resource plugins
     #[command(subcommand)]
     Plugin(PluginCmd),
+
+    /// FJ-3107: Manually trigger a rulebook
+    Trigger(TriggerArgs),
 }
