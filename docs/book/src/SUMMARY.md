@@ -53,3 +53,4 @@
 - [Store Purity, Reproducibility & Content Addressing](./50-store-purity-repro.md)
 - [Store Profiles, Sandbox & FAR Archives](./51-store-profiles-sandbox-far.md)
 - [Store Substitution, Provider Import & Kernel Mapping](./52-store-substitution-provider.md)
+- [Planner Analysis, Scoring & Tripwire](./53-planner-scoring-tripwire.md)
