@@ -118,6 +118,33 @@ pub enum WorkspaceCmd {
     Current,
 }
 
+/// FJ-3500: Environment management subcommands.
+#[derive(Subcommand, Debug)]
+pub enum EnvironmentsCmd {
+    /// List all defined environments
+    List {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Diff two environments
+    Diff {
+        /// Source environment name
+        source: String,
+        /// Target environment name
+        target: String,
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
 /// FJ-200: Secrets subcommands — age-encrypted secret management.
 #[derive(Subcommand, Debug)]
 pub enum SecretsCmd {

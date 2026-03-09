@@ -213,7 +213,13 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     // FJ-2300: Operator authorization check
     check_operator_auth(&args.file, args.operator.as_deref())?;
 
-    let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+    let base_sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+    // FJ-3500: Environment-scoped state directory
+    let sd = if let Some(ref env_name) = args.env_name {
+        crate::core::types::environment::env_state_dir(&base_sd, env_name)
+    } else {
+        base_sd
+    };
 
     if let Some(limit) = args.cost_limit {
         check_cost_limit(
