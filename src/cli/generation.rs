@@ -9,7 +9,7 @@ use crate::core::types::GenerationMeta;
 use std::path::{Path, PathBuf};
 
 /// Directory holding numbered generation snapshots.
-fn generations_dir(state_dir: &Path) -> PathBuf {
+pub(super) fn generations_dir(state_dir: &Path) -> PathBuf {
     state_dir.join("generations")
 }
 
@@ -140,13 +140,13 @@ pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
 // ── Internal helpers ───────────────────────────────────────────────
 
 /// Find the next generation number by scanning existing directories.
-fn next_generation_number(gen_dir: &Path) -> Result<u32, String> {
+pub(super) fn next_generation_number(gen_dir: &Path) -> Result<u32, String> {
     let nums = collect_generation_numbers(gen_dir)?;
     Ok(nums.into_iter().max().map_or(0, |m| m + 1))
 }
 
 /// Collect all generation numbers from the generations directory.
-fn collect_generation_numbers(gen_dir: &Path) -> Result<Vec<u32>, String> {
+pub(super) fn collect_generation_numbers(gen_dir: &Path) -> Result<Vec<u32>, String> {
     let entries =
         std::fs::read_dir(gen_dir).map_err(|e| format!("cannot read generations dir: {e}"))?;
     Ok(entries
@@ -156,12 +156,12 @@ fn collect_generation_numbers(gen_dir: &Path) -> Result<Vec<u32>, String> {
 }
 
 /// Enriched generation info for display.
-struct GenInfo {
-    num: u32,
-    created_at: String,
-    action: String,
-    changes: u32,
-    resource_count: usize,
+pub(super) struct GenInfo {
+    pub(super) num: u32,
+    pub(super) created_at: String,
+    pub(super) action: String,
+    pub(super) changes: u32,
+    pub(super) resource_count: usize,
 }
 
 /// Collect generations with enriched metadata (FJ-2002).
@@ -181,7 +181,7 @@ fn collect_generations(gen_dir: &Path) -> Result<Vec<(u32, String)>, String> {
 }
 
 /// Read enriched metadata from a generation directory.
-fn read_gen_info(gen_dir: &Path, num: u32) -> GenInfo {
+pub(super) fn read_gen_info(gen_dir: &Path, num: u32) -> GenInfo {
     let meta_path = gen_dir.join(num.to_string()).join(".generation.yaml");
     let content = std::fs::read_to_string(&meta_path).unwrap_or_default();
     match GenerationMeta::from_yaml(&content) {
@@ -207,7 +207,7 @@ fn read_gen_info(gen_dir: &Path, num: u32) -> GenInfo {
 }
 
 /// Count resources in lock files within a generation snapshot.
-fn count_lock_resources(gen_path: &Path) -> usize {
+pub(super) fn count_lock_resources(gen_path: &Path) -> usize {
     let mut count = 0;
     if let Ok(entries) = std::fs::read_dir(gen_path) {
         for entry in entries.flatten() {
@@ -224,7 +224,7 @@ fn count_lock_resources(gen_path: &Path) -> usize {
 }
 
 /// Read created_at from a .generation.yaml metadata file.
-fn read_created_at(meta_path: &Path) -> String {
+pub(super) fn read_created_at(meta_path: &Path) -> String {
     std::fs::read_to_string(meta_path)
         .ok()
         .and_then(|c| {
@@ -420,7 +420,7 @@ pub(crate) fn cmd_generation_diff(
 }
 
 /// Load locks from a generation directory (all machines).
-fn load_gen_locks(
+pub(super) fn load_gen_locks(
     gen_dir: &Path,
 ) -> std::collections::HashMap<String, crate::core::types::StateLock> {
     let mut locks = std::collections::HashMap::new();
@@ -446,7 +446,9 @@ fn load_gen_locks(
 }
 
 /// Convert a StateLock to (resource_id, resource_type, hash) tuples.
-fn lock_to_tuples(lock: Option<&crate::core::types::StateLock>) -> Vec<(String, String, String)> {
+pub(super) fn lock_to_tuples(
+    lock: Option<&crate::core::types::StateLock>,
+) -> Vec<(String, String, String)> {
     let Some(lock) = lock else { return Vec::new() };
     lock.resources
         .iter()
