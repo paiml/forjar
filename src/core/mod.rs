@@ -7,6 +7,7 @@ pub mod conditions;
 pub mod cron_source;
 pub mod ephemeral;
 pub mod executor;
+pub mod metric_source;
 pub mod migrate;
 pub mod parser;
 pub mod planner;
