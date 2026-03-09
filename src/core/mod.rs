@@ -18,6 +18,7 @@ pub mod recipe;
 pub mod resolver;
 pub mod rollout;
 pub mod rules_engine;
+pub mod rules_runtime;
 pub mod scoring;
 pub mod script_secret_lint;
 pub mod secret_provider;
