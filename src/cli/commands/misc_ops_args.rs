@@ -348,3 +348,33 @@ pub struct BootstrapArgs {
     #[arg(long)]
     pub skip_key_if_working: bool,
 }
+
+/// FJ-3107: CLI arguments for `forjar trigger` — manual event trigger.
+#[derive(clap::Args, Debug)]
+pub struct TriggerArgs {
+    /// Rulebook name to trigger
+    pub rulebook: String,
+
+    /// Path to rulebook config
+    #[arg(short, long, default_value = "forjar-rules.yaml")]
+    pub file: PathBuf,
+
+    /// Key=value payload fields
+    #[arg(long, value_parser = parse_kv)]
+    pub payload: Vec<(String, String)>,
+
+    /// Dry-run: show what would fire without executing
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+fn parse_kv(s: &str) -> Result<(String, String), String> {
+    let (k, v) = s
+        .split_once('=')
+        .ok_or_else(|| format!("invalid key=value: {s}"))?;
+    Ok((k.to_string(), v.to_string()))
+}

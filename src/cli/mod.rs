@@ -217,6 +217,7 @@ mod store_import;
 mod store_ops;
 mod store_pin;
 pub mod structured_log;
+mod trigger;
 pub mod tui;
 mod undo;
 mod undo_helpers;
