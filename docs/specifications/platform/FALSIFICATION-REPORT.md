@@ -7,6 +7,7 @@
 > Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
 > Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass.
 > Spec falsification (2026-03-08): S6 (secret provider dispatch stale), S7 (5 query flags stale as Planned). Total entries: 68.
+> Competitive features (2026-03-09): Specs 20-24 (FJ-3100–FJ-3509) — 37 pre-implementation falsification criteria. Total entries: 74.
 > Quality (2026-03-08): CB-506 (10 string panics), CB-121 (2 lock poisoning) fixed. 4 files split under 500-line limit. FJ-2803 Popperian falsification added to spec.
 > Provisioning (2026-03-08): Spec 17 (FJ-33/49/51/52/54/1424) — 6/6 features verified IMPLEMENTED. Zero gaps. 3 examples added, book ch22, cookbook section.
 > Secret providers (2026-03-08): FJ-2300 — all 4 providers (env, file, sops, op) wired in resolver dispatch. 6 new tests. Example updated.
@@ -822,3 +823,97 @@ Spec (line 71) claimed "If `state.db` is deleted, `forjar ingest` rebuilds it fr
 | ~~66~~ | ~~Spec 17 (FJ-33/49/51/52/54/1424): 6/6 features verified~~ | ~~C18~~ | CONFIRMED |
 | ~~67~~ | ~~Spec 10 line 133: "dispatch is not wired" — all 5 providers dispatched~~ | ~~S6~~ | FIXED |
 | ~~68~~ | ~~Spec 01: 5 query flags (events/failures/since/run/status) listed as Planned but DONE~~ | ~~S7~~ | FIXED |
+
+---
+
+## Competitive Features Falsification (Specs 20–24)
+
+> Added: 2026-03-09 | Status: PRE-IMPLEMENTATION | Method: Spec-level falsification
+> These are prospective falsification criteria — to be verified as each feature is implemented.
+
+### Pre-Implementation Status
+
+All 5 features (FJ-3100–FJ-3509) are in **Proposed** status. No code exists yet. The following documents the falsification criteria that MUST be verified during implementation.
+
+### F-3100: Event-Driven Automation (Spec 20)
+
+| ID | Claim | Status | Notes |
+|----|-------|--------|-------|
+| F-3100-1 | Event detection < 100ms | U | Not yet implemented — measure against inotify on 10K paths |
+| F-3100-2 | No event loss under load | U | Not yet implemented — stress test at 1000 events/sec |
+| F-3100-3 | Cooldown prevents storms | U | Not yet implemented — verify rate limiter |
+| F-3100-4 | bashrs validates handler scripts | U | Depends on bashrs I8 integration |
+| F-3100-5 | Graceful shutdown preserves events | U | SIGTERM handling test needed |
+| F-3100-6 | Zero non-sovereign deps | U | Audit Cargo.toml at implementation time |
+
+**Sovereign stack risk**: renacer's inotify hooks are Linux-only. macOS support requires kqueue bridge (potential scope creep).
+
+### F-3200: Policy-as-Code Engine (Spec 21)
+
+| ID | Claim | Status | Notes |
+|----|-------|--------|-------|
+| F-3200-1 | All 4 policy types eval correctly | U | verificar boundary generation needed |
+| F-3200-2 | Error-severity blocks apply | U | Integration test required |
+| F-3200-3 | Policy eval < 50ms | U | Benchmark 100×100 matrix |
+| F-3200-4 | bashrs validates script policies | U | I8 invariant coverage |
+| F-3200-5 | Compliance packs tamper-evident | U | BLAKE3 verification test |
+| F-3200-6 | No OPA/Rego dependency | U | Cargo.toml audit |
+| F-3200-7 | Cross-dimension discrimination σ≥5 | U | Statistical test across 10 configs |
+
+**Sovereign stack risk**: YAML-based policy language may lack expressiveness vs Rego for complex cross-resource constraints. May need to extend template engine.
+
+### F-3300: Ephemeral Values + State Encryption (Spec 22)
+
+| ID | Claim | Status | Notes |
+|----|-------|--------|-------|
+| F-3300-1 | Ephemeral values never in state | U | Grep-based verification test |
+| F-3300-2 | Drift detection via hash | U | Change ephemeral, verify drift detected |
+| F-3300-3 | Encrypted state round-trips | U | Encrypt → decrypt → diff |
+| F-3300-4 | BLAKE3 HMAC catches tampering | U | Single-bit flip test |
+| F-3300-5 | pepita namespace isolation | U | /proc/PID/environ verification |
+| F-3300-6 | bashrs catches secret echo | U | Script injection test |
+| F-3300-7 | Key rotation preserves state | U | Rekey → decrypt → diff |
+| F-3300-8 | No cloud KMS in default path | U | Cargo.toml audit for aws/gcp/azure |
+
+**Sovereign stack risk**: age crate (`rage`) is third-party but maintained by the age spec author. Acceptable as sovereign-aligned (no cloud dependency).
+
+### F-3400: WASM Resource Provider Plugins (Spec 23)
+
+| ID | Claim | Status | Notes |
+|----|-------|--------|-------|
+| F-3400-1 | WASM sandbox isolates filesystem | U | Unauthorized read test |
+| F-3400-2 | WASM sandbox isolates network | U | Unauthorized connect test |
+| F-3400-3 | Plugin ABI is stable | U | Cross-version compatibility test |
+| F-3400-4 | BLAKE3 prevents tampered plugins | U | Modified .wasm hash check |
+| F-3400-5 | Cold load < 50ms | U | Benchmark 1MB .wasm first load |
+| F-3400-6 | Shell bridge validates scripts | U | bashrs injection test |
+| F-3400-7 | Hot-reload detects changes | U | Mid-cycle .wasm modification |
+| F-3400-8 | No non-sovereign WASM runtime | U | Only wasmtime allowed |
+
+**Sovereign stack risk**: wasmtime is a large dependency (~2M lines). May increase binary size significantly. Consider feature-gating behind `plugins` feature flag.
+
+### F-3500: Environment Promotion Pipelines (Spec 24)
+
+| ID | Claim | Status | Notes |
+|----|-------|--------|-------|
+| F-3500-1 | Environment state isolation | U | Cross-contamination test |
+| F-3500-2 | Quality gates block promotion | U | Violating config test |
+| F-3500-3 | Progressive rollout respects canary | U | 4-machine canary verification |
+| F-3500-4 | Auto-rollback on health failure | U | Failed health check → rollback |
+| F-3500-5 | Environment diff accuracy | U | Single-param change diff |
+| F-3500-6 | Promotion history append-only | U | Double-promote overwrite check |
+| F-3500-7 | No external CI/CD dependency | U | Cargo.toml audit |
+| F-3500-8 | Config DRY: single YAML | U | No resource duplication check |
+
+**Sovereign stack risk**: Progressive rollout requires reliable health checking. HTTP-only health probes may be insufficient for non-HTTP services (gRPC, TCP, custom protocols).
+
+### Summary Table (Specs 20–24)
+
+| Entry | Description | Severity | Status |
+|-------|-------------|----------|--------|
+| 69 | Event-driven automation (Spec 20) — 6 falsification criteria | U | PRE-IMPL |
+| 70 | Policy-as-code engine (Spec 21) — 7 falsification criteria | U | PRE-IMPL |
+| 71 | Ephemeral values + state encryption (Spec 22) — 8 falsification criteria | U | PRE-IMPL |
+| 72 | WASM resource provider plugins (Spec 23) — 8 falsification criteria | U | PRE-IMPL |
+| 73 | Environment promotion pipelines (Spec 24) — 8 falsification criteria | U | PRE-IMPL |
+| 74 | Total pre-implementation falsification criteria: 37 | U | PENDING |
