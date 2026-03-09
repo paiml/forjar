@@ -143,30 +143,60 @@ fn plan_all_at_once(total: usize) -> Vec<RolloutStep> {
 }
 
 /// Run a health check command and return (passed, message).
+///
+/// Enforces the configured timeout — if the command does not complete
+/// within `timeout_str` (default 30s), the child is killed and the
+/// check fails.
 pub fn run_health_check(health_check: &str, timeout_str: Option<&str>) -> (bool, String) {
     let timeout_secs = parse_timeout(timeout_str);
+    let timeout = std::time::Duration::from_secs(timeout_secs);
 
-    match std::process::Command::new("sh")
+    let mut child = match std::process::Command::new("sh")
         .args(["-c", health_check])
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
     {
-        Ok(output) => {
-            let _ = timeout_secs; // Advisory for now
-            if output.status.success() {
-                (true, "health check passed".into())
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                (
-                    false,
-                    format!(
-                        "health check failed (exit {}): {}",
-                        output.status,
-                        stderr.trim()
-                    ),
-                )
+        Ok(c) => c,
+        Err(e) => return (false, format!("health check error: {e}")),
+    };
+
+    // Wait with timeout enforcement
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let stderr = child
+                    .stderr
+                    .take()
+                    .and_then(|mut s| {
+                        let mut buf = String::new();
+                        std::io::Read::read_to_string(&mut s, &mut buf).ok()?;
+                        Some(buf)
+                    })
+                    .unwrap_or_default();
+                return if status.success() {
+                    (true, "health check passed".into())
+                } else {
+                    (
+                        false,
+                        format!("health check failed (exit {status}): {}", stderr.trim()),
+                    )
+                };
             }
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return (
+                        false,
+                        format!("health check timed out after {timeout_secs}s"),
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(e) => return (false, format!("health check error: {e}")),
         }
-        Err(e) => (false, format!("health check error: {e}")),
     }
 }
 
@@ -327,6 +357,17 @@ mod tests {
     fn health_check_fails() {
         let (passed, _msg) = run_health_check("false", None);
         assert!(!passed);
+    }
+
+    #[test]
+    fn health_check_timeout_kills_slow_command() {
+        let start = std::time::Instant::now();
+        let (passed, msg) = run_health_check("sleep 60", Some("1s"));
+        let elapsed = start.elapsed();
+        assert!(!passed);
+        assert!(msg.contains("timed out"));
+        // Should complete in ~1s, not 60s
+        assert!(elapsed.as_secs() < 5);
     }
 
     #[test]
