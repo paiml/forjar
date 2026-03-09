@@ -8,6 +8,7 @@ pub mod migrate;
 pub mod parser;
 pub mod planner;
 pub mod plugin_loader;
+pub mod promotion;
 pub mod purifier;
 pub mod recipe;
 pub mod resolver;
