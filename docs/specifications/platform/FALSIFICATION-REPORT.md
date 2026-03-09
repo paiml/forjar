@@ -3,7 +3,7 @@
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
 > Updated: 2026-03-08 | 49/49 code fixes resolved (U3 deferred — needs root). F22 OTLP export FIXED.
-> Coverage: 95.06% (10,254 tests), all quality gates passing, zero oversized files
+> Coverage: 95.11% (10,338 tests), all quality gates passing, zero oversized files
 > Deep falsification: 42/42 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
 > Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass.
 > Spec falsification (2026-03-08): S6 (secret provider dispatch stale), S7 (5 query flags stale as Planned). Total entries: 68.
