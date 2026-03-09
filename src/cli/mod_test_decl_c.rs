@@ -8,3 +8,7 @@ mod tests_diff_cmd_b;
 mod tests_cov_query_format_b;
 #[cfg(test)]
 mod tests_generation_b;
+#[cfg(test)]
+mod tests_helpers_state_b;
+#[cfg(test)]
+mod tests_helpers_time_b;
