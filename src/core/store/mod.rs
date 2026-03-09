@@ -127,6 +127,8 @@ mod tests_lockfile;
 #[cfg(test)]
 mod tests_meta;
 #[cfg(test)]
+mod tests_meta_cov;
+#[cfg(test)]
 mod tests_mutation_runner;
 #[cfg(test)]
 mod tests_path;

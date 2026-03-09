@@ -7,7 +7,7 @@ use crate::core::{resolver, state, types};
 use std::path::Path;
 
 /// Compare a newly generated lock against an existing lock, collecting mismatches.
-fn collect_verify_mismatches(
+pub(super) fn collect_verify_mismatches(
     machine_name: &str,
     lock: &types::StateLock,
     existing_lock: &types::StateLock,
@@ -356,7 +356,10 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
 
 /// FJ-596: Validate lock file integrity (schema, hash consistency).
 /// Validate a single lock file, returning issues found.
-fn validate_single_lock(m: &str, lock: &crate::core::types::StateLock) -> Vec<(String, String)> {
+pub(super) fn validate_single_lock(
+    m: &str,
+    lock: &crate::core::types::StateLock,
+) -> Vec<(String, String)> {
     let mut issues = Vec::new();
     if lock.schema != "1" && lock.schema != "1.0" {
         issues.push((

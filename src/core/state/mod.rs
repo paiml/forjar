@@ -387,3 +387,5 @@ mod tests_outputs;
 mod tests_process_lock;
 #[cfg(test)]
 mod tests_reconstruct;
+#[cfg(test)]
+mod tests_state_cov;
