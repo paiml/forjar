@@ -48,3 +48,5 @@ mod tests_validate_ordering_b_cov;
 mod tests_lock_merge_cov;
 #[cfg(test)]
 mod tests_recipe_signing_cov;
+#[cfg(test)]
+mod tests_sbom_cov;

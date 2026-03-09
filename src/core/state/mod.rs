@@ -380,6 +380,8 @@ mod tests_helpers;
 #[cfg(test)]
 mod tests_integrity;
 #[cfg(test)]
+mod tests_integrity_cov;
+#[cfg(test)]
 mod tests_outputs;
 #[cfg(test)]
 mod tests_process_lock;
