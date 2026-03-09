@@ -81,3 +81,4 @@
 - [Refinement Types, Contract Tiers & CI Pipeline](./78-refinement-contract-ci.md)
 - [Test Runner, Query Engine & Handler Contracts](./79-test-query-handler.md)
 - [Conditional Evaluation, Rollout & Purification](./80-conditions-rollout-purifier.md)
+- [Run Logs, Doctor Diagnostics & Image Build Logs](./81-runlog-doctor-imagelog.md)
