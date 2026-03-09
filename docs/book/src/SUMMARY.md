@@ -29,3 +29,4 @@
 - [Policy-as-Code](./26-policy-as-code.md)
 - [Ephemeral Values & State Integrity](./27-ephemeral-values.md)
 - [Environment Promotion](./28-environment-promotion.md)
+- [WASM Resource Plugins](./29-wasm-plugins.md)
