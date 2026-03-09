@@ -42,3 +42,5 @@
 - [Container Image Builds](./39-container-image-builds.md)
 - [Security Scanner & Access Control](./40-security-scanner.md)
 - [Testing Strategy & Defect Analysis](./41-testing-strategy.md)
+- [Format Validation & LSP](./42-validation-lsp.md)
+- [Convergence Testing & Sandbox Isolation](./43-convergence-sandbox.md)
