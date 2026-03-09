@@ -249,6 +249,23 @@ pub struct StateDecryptArgs {
     pub json: bool,
 }
 
+/// FJ-3309: State rekey arguments — re-encrypt with new passphrase.
+#[derive(clap::Args, Debug)]
+pub struct StateRekeyArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+    /// Current passphrase
+    #[arg(long)]
+    pub old_passphrase: Option<String>,
+    /// New passphrase
+    #[arg(long)]
+    pub new_passphrase: Option<String>,
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-200: Secrets subcommands — age-encrypted secret management.
 #[derive(Subcommand, Debug)]
 pub enum SecretsCmd {

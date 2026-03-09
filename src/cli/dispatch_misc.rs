@@ -29,7 +29,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Anomaly(..)
         | Commands::Trace(..)
         | Commands::StateEncrypt(..)
-        | Commands::StateDecrypt(..)) => dispatch_misc_state(cmd),
+        | Commands::StateDecrypt(..)
+        | Commands::StateRekey(..)) => dispatch_misc_state(cmd),
         cmd @ (Commands::Show(..)
         | Commands::Diff(..)
         | Commands::StackDiff(..)
@@ -164,6 +165,16 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
         }) => {
             let pass = passphrase.unwrap_or_else(|| "forjar-default".into());
             super::state_encrypt::cmd_state_decrypt(&state_dir, &pass, json)
+        }
+        Commands::StateRekey(StateRekeyArgs {
+            state_dir,
+            old_passphrase,
+            new_passphrase,
+            json,
+        }) => {
+            let old_pass = old_passphrase.unwrap_or_else(|| "forjar-default".into());
+            let new_pass = new_passphrase.unwrap_or_else(|| "forjar-default".into());
+            super::state_encrypt::cmd_state_rekey(&state_dir, &old_pass, &new_pass, json)
         }
         _ => unreachable!(),
     }

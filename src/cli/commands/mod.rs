@@ -517,6 +517,10 @@ pub enum Commands {
     #[command(name = "state-decrypt")]
     StateDecrypt(StateDecryptArgs),
 
+    /// FJ-3309: Re-encrypt state files with a new passphrase
+    #[command(name = "state-rekey")]
+    StateRekey(StateRekeyArgs),
+
     /// FJ-3108: Manage event-driven rulebooks
     #[command(subcommand)]
     Rules(RulesCmd),

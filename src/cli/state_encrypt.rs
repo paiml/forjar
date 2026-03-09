@@ -122,6 +122,89 @@ pub fn cmd_state_decrypt(state_dir: &Path, passphrase: &str, json: bool) -> Resu
     Ok(())
 }
 
+/// FJ-3309: Re-encrypt state files with a new passphrase.
+///
+/// Decrypts each encrypted file with the old key, then re-encrypts with the new key.
+/// Non-encrypted files are encrypted with the new key directly.
+pub fn cmd_state_rekey(
+    state_dir: &Path,
+    old_passphrase: &str,
+    new_passphrase: &str,
+    json: bool,
+) -> Result<(), String> {
+    let old_key = derive_key(old_passphrase);
+    let new_key = derive_key(new_passphrase);
+
+    let lock_files = find_lock_files(state_dir)?;
+    if lock_files.is_empty() {
+        if json {
+            println!("{{\"rekeyed\": 0, \"errors\": 0}}");
+        } else {
+            println!("No state files found in {}", state_dir.display());
+        }
+        return Ok(());
+    }
+
+    let mut rekeyed = 0;
+    let mut errors = 0;
+
+    for file in &lock_files {
+        let plaintext = if is_encrypted(file) {
+            // Decrypt with old key first
+            let meta = match read_metadata(file) {
+                Ok(m) => m,
+                Err(e) => {
+                    errors += 1;
+                    if !json {
+                        println!("  METADATA ERROR: {}: {e}", file.display());
+                    }
+                    continue;
+                }
+            };
+            let ciphertext =
+                std::fs::read(file).map_err(|e| format!("read {}: {e}", file.display()))?;
+
+            if !verify_metadata(&meta, &ciphertext, &old_key) {
+                errors += 1;
+                if !json {
+                    println!("  INTEGRITY FAIL: {}", file.display());
+                }
+                continue;
+            }
+
+            let plain = xor_mask(&ciphertext, &old_key);
+            if hash_data(&plain) != meta.plaintext_hash {
+                errors += 1;
+                if !json {
+                    println!("  HASH MISMATCH: {}", file.display());
+                }
+                continue;
+            }
+            plain
+        } else {
+            std::fs::read(file).map_err(|e| format!("read {}: {e}", file.display()))?
+        };
+
+        // Re-encrypt with new key
+        let new_ciphertext = xor_mask(&plaintext, &new_key);
+        std::fs::write(file, &new_ciphertext)
+            .map_err(|e| format!("write {}: {e}", file.display()))?;
+
+        let meta = create_metadata(&plaintext, &new_ciphertext, &new_key);
+        write_metadata(file, &meta)?;
+
+        rekeyed += 1;
+    }
+
+    if json {
+        println!("{{\"rekeyed\": {rekeyed}, \"errors\": {errors}}}");
+    } else {
+        println!("Rekeyed {rekeyed} file(s), errors {errors}");
+    }
+
+    Ok(())
+}
+
 /// XOR mask data with a BLAKE3-derived key stream.
 fn xor_mask(data: &[u8], key: &[u8; 32]) -> Vec<u8> {
     // Generate a key stream using BLAKE3 in keyed mode
@@ -283,5 +366,70 @@ mod tests {
         // Decrypt with wrong passphrase — should fail integrity
         let result = cmd_state_decrypt(dir.path(), "wrong-pass", false);
         assert!(result.is_ok()); // doesn't error, reports errors count
+    }
+
+    #[test]
+    fn rekey_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = dir.path().join("test.lock.yaml");
+        let original = "resources:\n  pkg:\n    state: converged\n";
+        std::fs::write(&lock, original).unwrap();
+
+        // Encrypt with old passphrase
+        cmd_state_encrypt(dir.path(), "old-pass", false).unwrap();
+        assert!(is_encrypted(&lock));
+
+        // Rekey to new passphrase
+        cmd_state_rekey(dir.path(), "old-pass", "new-pass", false).unwrap();
+        assert!(is_encrypted(&lock));
+
+        // Decrypt with new passphrase
+        cmd_state_decrypt(dir.path(), "new-pass", false).unwrap();
+        let content = std::fs::read(&lock).unwrap();
+        assert_eq!(content, original.as_bytes());
+    }
+
+    #[test]
+    fn rekey_wrong_old_passphrase() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = dir.path().join("test.lock.yaml");
+        std::fs::write(&lock, "data").unwrap();
+
+        cmd_state_encrypt(dir.path(), "correct", false).unwrap();
+
+        // Rekey with wrong old passphrase — should report error
+        let result = cmd_state_rekey(dir.path(), "wrong", "new", false);
+        assert!(result.is_ok()); // reports errors, doesn't fail
+    }
+
+    #[test]
+    fn rekey_unencrypted_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = dir.path().join("state.lock.yaml");
+        let original = "plain state data";
+        std::fs::write(&lock, original).unwrap();
+
+        // Rekey encrypts unencrypted files directly
+        cmd_state_rekey(dir.path(), "ignored", "new-pass", false).unwrap();
+        assert!(is_encrypted(&lock));
+
+        // Decrypt with new passphrase
+        cmd_state_decrypt(dir.path(), "new-pass", false).unwrap();
+        let content = std::fs::read(&lock).unwrap();
+        assert_eq!(content, original.as_bytes());
+    }
+
+    #[test]
+    fn rekey_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_state_rekey(dir.path(), "old", "new", false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn rekey_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_state_rekey(dir.path(), "old", "new", true);
+        assert!(result.is_ok());
     }
 }
