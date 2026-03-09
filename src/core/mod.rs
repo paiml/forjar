@@ -21,6 +21,7 @@ pub mod secret_provider;
 pub mod secrets;
 pub mod security_scanner;
 pub mod state;
+pub mod state_encryption;
 pub mod store;
 pub mod task;
 pub mod types;
