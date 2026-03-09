@@ -374,6 +374,8 @@ mod tests_edge;
 #[cfg(test)]
 mod tests_encrypt;
 #[cfg(test)]
+mod tests_global_lock;
+#[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
 mod tests_integrity;
