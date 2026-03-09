@@ -161,6 +161,43 @@ fn resolve_single_pin(
         .ok_or_else(|| format!("cannot parse version for {name} from {provider} output"))
 }
 
+/// Check pin staleness by re-resolving and comparing hashes.
+///
+/// Returns entries where the locked hash differs from the live-resolved hash.
+pub fn check_pins_live(
+    lockfile: &LockFile,
+    machine: &Machine,
+    timeout_secs: Option<u64>,
+) -> Result<Vec<StalenessEntry>, String> {
+    let mut stale = Vec::new();
+
+    for (name, pin) in &lockfile.pins {
+        let cmd = match resolution_command(&pin.provider, name) {
+            Some(c) => c,
+            None => continue, // Skip providers we can't query
+        };
+
+        let output = match transport::exec_script_timeout(machine, &cmd, timeout_secs) {
+            Ok(o) if o.success() => o,
+            _ => continue, // Skip unreachable providers
+        };
+
+        if let Some(version) = parse_resolved_version(&pin.provider, &output.stdout) {
+            let current_hash = pin_hash(&pin.provider, name, &version);
+            if current_hash != pin.hash {
+                stale.push(StalenessEntry {
+                    name: name.clone(),
+                    locked_hash: pin.hash.clone(),
+                    current_hash,
+                });
+            }
+        }
+    }
+
+    stale.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(stale)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,41 +352,4 @@ mod tests {
         assert_eq!(pin.name, "curl");
         assert!(pin.hash.starts_with("blake3:"));
     }
-}
-
-/// Check pin staleness by re-resolving and comparing hashes.
-///
-/// Returns entries where the locked hash differs from the live-resolved hash.
-pub fn check_pins_live(
-    lockfile: &LockFile,
-    machine: &Machine,
-    timeout_secs: Option<u64>,
-) -> Result<Vec<StalenessEntry>, String> {
-    let mut stale = Vec::new();
-
-    for (name, pin) in &lockfile.pins {
-        let cmd = match resolution_command(&pin.provider, name) {
-            Some(c) => c,
-            None => continue, // Skip providers we can't query
-        };
-
-        let output = match transport::exec_script_timeout(machine, &cmd, timeout_secs) {
-            Ok(o) if o.success() => o,
-            _ => continue, // Skip unreachable providers
-        };
-
-        if let Some(version) = parse_resolved_version(&pin.provider, &output.stdout) {
-            let current_hash = pin_hash(&pin.provider, name, &version);
-            if current_hash != pin.hash {
-                stale.push(StalenessEntry {
-                    name: name.clone(),
-                    locked_hash: pin.hash.clone(),
-                    current_hash,
-                });
-            }
-        }
-    }
-
-    stale.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(stale)
 }

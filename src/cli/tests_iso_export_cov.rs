@@ -82,7 +82,7 @@ fn iso_manifest_fields() {
     assert_eq!(v["name"].as_str().unwrap(), "test-export");
     assert_eq!(v["version"].as_str().unwrap(), "1.0");
     assert!(v["total_size"].as_u64().unwrap() > 0);
-    assert!(v["files"].as_array().unwrap().len() >= 1);
+    assert!(!v["files"].as_array().unwrap().is_empty());
     assert_eq!(v["blake3_root"].as_str().unwrap().len(), 64);
 }
 

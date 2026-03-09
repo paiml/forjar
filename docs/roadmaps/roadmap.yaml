@@ -932,3 +932,35 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-057
+  github_issue: null
+  item_type: task
+  title: 'FJ-3304/3404: State encryption CLI + WASM plugin dispatch'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-09T11:40:18Z
+  updated: 2026-03-09T11:40:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-058
+  github_issue: null
+  item_type: task
+  title: 'FJ-3307/3405/3509: script secret lint, shell provider bridge, promotion events'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-09T12:01:23Z
+  updated: 2026-03-09T12:01:23Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

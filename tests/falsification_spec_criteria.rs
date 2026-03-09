@@ -194,8 +194,10 @@ rules:
 
     // Config with file missing owner field
     let mut config = ForjarConfig::default();
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::File;
+    let r = Resource {
+        resource_type: ResourceType::File,
+        ..Default::default()
+    };
     config.resources.insert("bad-file".into(), r);
 
     let result = check_compliance_gate(dir.path(), &config, false).unwrap();
@@ -440,7 +442,7 @@ fn f3300_8_no_cloud_kms() {
         if cargo_toml.contains(dep) {
             // Verify it's marked optional
             assert!(
-                cargo_toml.contains(&format!("{dep}")) && cargo_toml.contains("optional = true"),
+                cargo_toml.contains(dep) && cargo_toml.contains("optional = true"),
                 "REJECT: cloud KMS dependency '{dep}' is not optional"
             );
         }

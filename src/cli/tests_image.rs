@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod tests {
     use crate::cli::image_cmd::*;
-    use crate::core::parser::parse_config;
     use std::path::Path;
 
     fn write_config(dir: &Path, yaml: &str) -> std::path::PathBuf {

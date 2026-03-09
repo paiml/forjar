@@ -294,8 +294,10 @@ fn test_fj220_has_field_all_fields() {
 #[test]
 fn test_fj220_field_value_all_fields() {
     use crate::core::parser::policy::resource_field_value;
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::File;
+    let mut r = Resource {
+        resource_type: ResourceType::File,
+        ..Default::default()
+    };
 
     // None values
     assert!(resource_field_value(&r, "owner").is_none());

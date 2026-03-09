@@ -164,14 +164,16 @@ mod tests {
     fn make_config(resources: &[(&str, &str, Option<&str>)]) -> ForjarConfig {
         let mut config = ForjarConfig::default();
         for (name, rtype, owner) in resources {
-            let mut resource = Resource::default();
-            resource.resource_type = match *rtype {
-                "file" => ResourceType::File,
-                "package" => ResourceType::Package,
-                "service" => ResourceType::Service,
-                _ => ResourceType::File,
+            let resource = Resource {
+                resource_type: match *rtype {
+                    "file" => ResourceType::File,
+                    "package" => ResourceType::Package,
+                    "service" => ResourceType::Service,
+                    _ => ResourceType::File,
+                },
+                owner: owner.map(|o| o.to_string()),
+                ..Default::default()
             };
-            resource.owner = owner.map(|o| o.to_string());
             config.resources.insert(name.to_string(), resource);
         }
         config
@@ -284,9 +286,11 @@ rules:
     #[test]
     fn config_with_tags() {
         let mut config = ForjarConfig::default();
-        let mut resource = Resource::default();
-        resource.resource_type = ResourceType::File;
-        resource.tags = vec!["web".into(), "config".into()];
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            tags: vec!["web".into(), "config".into()],
+            ..Default::default()
+        };
         config.resources.insert("nginx".into(), resource);
 
         let map = config_to_resource_map(&config);
@@ -297,9 +301,11 @@ rules:
     #[test]
     fn config_with_mode() {
         let mut config = ForjarConfig::default();
-        let mut resource = Resource::default();
-        resource.resource_type = ResourceType::File;
-        resource.mode = Some("0644".into());
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            mode: Some("0644".into()),
+            ..Default::default()
+        };
         config.resources.insert("f1".into(), resource);
 
         let map = config_to_resource_map(&config);
