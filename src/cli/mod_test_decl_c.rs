@@ -68,3 +68,9 @@ mod tests_config_merge_cov;
 mod tests_lock_repair_cov;
 #[cfg(test)]
 mod tests_recipe_registry_cov;
+#[cfg(test)]
+mod tests_checkpoint_cov;
+#[cfg(test)]
+mod tests_undo_resume_cov;
+#[cfg(test)]
+mod tests_fleet_ops_cov;
