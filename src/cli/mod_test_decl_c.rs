@@ -74,3 +74,7 @@ mod tests_checkpoint_cov;
 mod tests_undo_resume_cov;
 #[cfg(test)]
 mod tests_fleet_ops_cov;
+#[cfg(test)]
+mod tests_data_freshness_cov;
+#[cfg(test)]
+mod tests_fleet_reporting_cov;
