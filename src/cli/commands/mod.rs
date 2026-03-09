@@ -501,4 +501,15 @@ pub enum Commands {
     /// FJ-3500: Manage named environments (dev, staging, prod)
     #[command(subcommand)]
     Environments(EnvironmentsCmd),
+
+    /// FJ-3506: Promote between environments (evaluate gates)
+    Promote(PromoteArgs),
+
+    /// FJ-3108: Manage event-driven rulebooks
+    #[command(subcommand)]
+    Rules(RulesCmd),
+
+    /// FJ-3403: Manage WASM resource plugins
+    #[command(subcommand)]
+    Plugin(PluginCmd),
 }

@@ -98,6 +98,8 @@ mod tests_config;
 #[cfg(test)]
 mod tests_environment;
 #[cfg(test)]
+mod tests_event_types;
+#[cfg(test)]
 mod tests_oci_types;
 #[cfg(test)]
 pub(crate) mod tests_proptest_resource;

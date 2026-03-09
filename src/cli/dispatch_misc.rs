@@ -35,7 +35,10 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::EnvDiff(..)
         | Commands::Explain(..)
         | Commands::Env(..)
-        | Commands::Environments(..)) => dispatch_misc_config(cmd),
+        | Commands::Environments(..)
+        | Commands::Promote(..)
+        | Commands::Rules(..)
+        | Commands::Plugin(..)) => dispatch_misc_config(cmd),
 
         cmd @ (Commands::Rollback(..)
         | Commands::Rolling(..)
@@ -179,6 +182,11 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
         }) => cmd_explain(&file, &resource, json),
         Commands::Env(EnvArgs { file, json }) => cmd_env(&file, json),
         Commands::Environments(subcmd) => super::environments::dispatch_environments(subcmd),
+        Commands::Promote(args) => {
+            super::promote::cmd_promote(&args.file, &args.target, args.yes, args.dry_run, args.json)
+        }
+        Commands::Rules(subcmd) => super::rules::dispatch_rules(subcmd),
+        Commands::Plugin(subcmd) => super::plugin::dispatch_plugin(subcmd),
         _ => unreachable!(),
     }
 }
