@@ -80,3 +80,7 @@ mod tests_data_freshness_cov;
 mod tests_fleet_reporting_cov;
 #[cfg(test)]
 mod tests_infra_query_cov;
+#[cfg(test)]
+mod tests_status_core_cov;
+#[cfg(test)]
+mod tests_store_ops_cov;
