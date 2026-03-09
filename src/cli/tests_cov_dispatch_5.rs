@@ -226,6 +226,7 @@ fn dispatch_policy_routes() {
         Commands::Policy(PolicyArgs {
             file: PathBuf::from("/nonexistent/forjar.yaml"),
             json: false,
+            sarif: false,
         }),
         false,
     );

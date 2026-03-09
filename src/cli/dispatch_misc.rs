@@ -406,7 +406,7 @@ fn dispatch_misc_ops(cmd: Commands, verbose: bool) -> Result<(), String> {
         ),
         Commands::Inventory(InventoryArgs { file, json }) => cmd_inventory(&file, json),
         Commands::Output(OutputArgs { file, key, json }) => cmd_output(&file, key.as_deref(), json),
-        Commands::Policy(PolicyArgs { file, json }) => cmd_policy(&file, json),
+        Commands::Policy(PolicyArgs { file, json, sarif }) => cmd_policy(&file, json, sarif),
         _ => unreachable!(),
     }
 }

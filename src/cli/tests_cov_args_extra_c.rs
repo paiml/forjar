@@ -270,6 +270,7 @@ mod tests {
         let a = PolicyArgs {
             file: PathBuf::from("f.yaml"),
             json: false,
+            sarif: false,
         };
         let _ = format!("{a:?}");
     }

@@ -193,7 +193,7 @@ policies:
 "#,
         )
         .unwrap();
-        cmd_policy(&file, false).unwrap();
+        cmd_policy(&file, false, false).unwrap();
     }
 
     #[test]
@@ -224,6 +224,6 @@ policies:
         )
         .unwrap();
         // JSON mode with no deny violations should succeed
-        cmd_policy(&file, true).unwrap();
+        cmd_policy(&file, true, false).unwrap();
     }
 }

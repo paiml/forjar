@@ -119,21 +119,21 @@ fn compare_identical() {
 #[test]
 fn policy_text() {
     let cfg = write_temp_config(CONFIG_WITH_POLICY);
-    let r = super::show::cmd_policy(cfg.path(), false);
+    let r = super::show::cmd_policy(cfg.path(), false, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn policy_json() {
     let cfg = write_temp_config(CONFIG_WITH_POLICY);
-    let r = super::show::cmd_policy(cfg.path(), true);
+    let r = super::show::cmd_policy(cfg.path(), true, false);
     assert!(r.is_ok());
 }
 
 #[test]
 fn policy_no_policy_section() {
     let cfg = write_temp_config(CONFIG);
-    let r = super::show::cmd_policy(cfg.path(), false);
+    let r = super::show::cmd_policy(cfg.path(), false, false);
     assert!(r.is_ok());
 }
 

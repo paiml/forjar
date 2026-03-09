@@ -105,4 +105,8 @@ policies:
     // JSON output
     println!("\n=== JSON Output ===\n");
     println!("{}", forjar::core::parser::policy_check_to_json(&result));
+
+    // SARIF output (FJ-3207)
+    println!("\n=== SARIF 2.1.0 Output ===\n");
+    println!("{}", forjar::core::parser::policy_check_to_sarif(&result));
 }
