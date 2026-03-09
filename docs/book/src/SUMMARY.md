@@ -77,3 +77,4 @@
 - [State Encryption, MC/DC, Undo & Webhooks](./74-crypto-mcdc-undo-webhook.md)
 - [Secret Namespaces, Plugins & Behavior Specs](./75-namespace-plugin-behavior.md)
 - [Generation Diffs, Tasks, Mutations & Observability](./76-diff-task-mutation-obs.md)
+- [Security Types, Container Builds & Generations](./77-security-container-gen.md)
