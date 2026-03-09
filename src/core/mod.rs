@@ -3,6 +3,7 @@
 pub mod cis_ubuntu_pack;
 pub mod codegen;
 pub mod compliance;
+pub mod compliance_gate;
 pub mod compliance_pack;
 pub mod conditions;
 pub mod cron_source;
