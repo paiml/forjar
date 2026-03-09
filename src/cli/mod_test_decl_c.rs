@@ -58,3 +58,7 @@ mod tests_doctor_cov;
 mod tests_undo_helpers_cov;
 #[cfg(test)]
 mod tests_dispatch_misc_b_cov;
+#[cfg(test)]
+mod tests_lock_lifecycle_cov;
+#[cfg(test)]
+mod tests_infra_state_cov;
