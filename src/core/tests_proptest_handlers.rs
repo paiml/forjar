@@ -148,6 +148,7 @@ proptest! {
             include_provenance: HashMap::new(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
+            environments: indexmap::IndexMap::new(),
         };
         config.resources.insert(resource_id.to_string(), resource);
 

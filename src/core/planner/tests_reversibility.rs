@@ -213,6 +213,7 @@ mod tests {
             include_provenance: HashMap::new(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
+            environments: indexmap::IndexMap::new(),
         }
     }
 

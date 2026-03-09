@@ -35,7 +35,7 @@ use super::{default_true, PolicyRule, Resource};
 /// assert_eq!(config.machines.len(), 1);
 /// assert_eq!(config.resources.len(), 1);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ForjarConfig {
     /// Schema version (must be "1.0")
     pub version: String,
@@ -95,6 +95,11 @@ pub struct ForjarConfig {
     /// FJ-2300: Secret provider configuration
     #[serde(default)]
     pub secrets: SecretsConfig,
+
+    /// FJ-3500: Environment definitions (dev, staging, prod).
+    /// Each environment overrides params and machine addresses.
+    #[serde(default)]
+    pub environments: IndexMap<String, super::environment::Environment>,
 }
 
 /// FJ-2300 + FJ-3300: Secret provider configuration.
