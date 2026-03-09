@@ -38,3 +38,4 @@
 - [Shell Providers & Script Security](./35-shell-providers.md)
 - [Event-Driven Runtime](./36-rules-runtime.md)
 - [Plugin Hot-Reload & Webhook Events](./37-plugin-hot-reload.md)
+- [Secret Audit & Policy Boundary Testing](./38-secret-audit-boundary.md)
