@@ -100,6 +100,10 @@ pub enum Commands {
     #[command(name = "policy")]
     Policy(PolicyArgs),
 
+    /// FJ-3208: Policy rule coverage analysis
+    #[command(name = "policy-coverage")]
+    PolicyCoverage(PolicyCoverageArgs),
+
     /// FJ-210: Manage workspaces (isolated state directories)
     #[command(subcommand)]
     Workspace(WorkspaceCmd),

@@ -208,6 +208,17 @@ pub enum PluginCmd {
         #[arg(long)]
         json: bool,
     },
+    /// FJ-3407: Scaffold a new plugin project
+    Init {
+        /// Plugin name
+        name: String,
+        /// Output directory (default: plugins/<name>)
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-3304: State encryption arguments.
