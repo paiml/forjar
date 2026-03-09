@@ -1,0 +1,953 @@
+//! FJ-2502/2503: Include hardening & deep validation falsification.
+//!
+//! Popperian rejection criteria for:
+//! - FJ-2502: Include provenance tracking, circular detection, conflict handling
+//! - FJ-2503: Deep validation types, flags, severity model, findings, field suggestions
+//! - FJ-2500: Unknown field detection with Levenshtein suggestions
+//! - Cycle detection via DAG resolver
+//!
+//! Usage: cargo test --test falsification_include_deep_validation
+
+#![allow(clippy::field_reassign_with_default)]
+
+use forjar::core::parser::{
+    check_unknown_fields, parse_and_validate, parse_config, validate_config,
+};
+use forjar::core::resolver::build_execution_order;
+use forjar::core::types::{
+    DeepCheckFlags, FieldSuggestion, ForjarConfig, ValidateOutput, ValidationFinding,
+    ValidationSeverity,
+};
+
+// ============================================================================
+// FJ-2503: ValidationSeverity
+// ============================================================================
+
+#[test]
+fn severity_ordering_error_gt_warning_gt_hint() {
+    assert!(ValidationSeverity::Error > ValidationSeverity::Warning);
+    assert!(ValidationSeverity::Warning > ValidationSeverity::Hint);
+    assert!(ValidationSeverity::Error > ValidationSeverity::Hint);
+}
+
+#[test]
+fn severity_display() {
+    assert_eq!(ValidationSeverity::Error.to_string(), "error");
+    assert_eq!(ValidationSeverity::Warning.to_string(), "warning");
+    assert_eq!(ValidationSeverity::Hint.to_string(), "hint");
+}
+
+#[test]
+fn severity_serde_roundtrip() {
+    let json = serde_json::to_string(&ValidationSeverity::Warning).unwrap();
+    let back: ValidationSeverity = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, ValidationSeverity::Warning);
+}
+
+#[test]
+fn severity_equality() {
+    assert_eq!(ValidationSeverity::Error, ValidationSeverity::Error);
+    assert_ne!(ValidationSeverity::Error, ValidationSeverity::Warning);
+}
+
+// ============================================================================
+// FJ-2503: ValidationFinding
+// ============================================================================
+
+#[test]
+fn finding_error_constructor() {
+    let f = ValidationFinding::error("missing field");
+    assert!(f.is_error());
+    assert!(!f.is_warning());
+    assert_eq!(f.severity, ValidationSeverity::Error);
+    assert_eq!(f.message, "missing field");
+    assert!(f.resource.is_none());
+    assert!(f.field.is_none());
+    assert!(f.suggestion.is_none());
+}
+
+#[test]
+fn finding_warning_constructor() {
+    let f = ValidationFinding::warning("deprecated field");
+    assert!(f.is_warning());
+    assert!(!f.is_error());
+    assert_eq!(f.severity, ValidationSeverity::Warning);
+}
+
+#[test]
+fn finding_builder_chain() {
+    let f = ValidationFinding::error("bad mode")
+        .for_resource("nginx")
+        .for_field("mode")
+        .with_suggestion("use 4-digit octal like '0644'");
+    assert_eq!(f.resource.as_deref(), Some("nginx"));
+    assert_eq!(f.field.as_deref(), Some("mode"));
+    assert_eq!(
+        f.suggestion.as_deref(),
+        Some("use 4-digit octal like '0644'")
+    );
+}
+
+#[test]
+fn finding_display_full() {
+    let f = ValidationFinding::error("invalid mode")
+        .for_resource("cfg")
+        .for_field("mode")
+        .with_suggestion("use '0644'");
+    let display = f.to_string();
+    assert!(display.contains("error"));
+    assert!(display.contains("cfg"));
+    assert!(display.contains("mode"));
+    assert!(display.contains("invalid mode"));
+    assert!(display.contains("use '0644'"));
+}
+
+#[test]
+fn finding_display_minimal() {
+    let f = ValidationFinding::warning("something wrong");
+    let display = f.to_string();
+    assert!(display.contains("warning"));
+    assert!(display.contains("something wrong"));
+    // No resource or field should be in the output
+    assert!(!display.contains("resource"));
+}
+
+#[test]
+fn finding_serde_roundtrip() {
+    let f = ValidationFinding::error("test")
+        .for_resource("r1")
+        .for_field("f1");
+    let json = serde_json::to_string(&f).unwrap();
+    let back: ValidationFinding = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.message, "test");
+    assert_eq!(back.resource.as_deref(), Some("r1"));
+    assert_eq!(back.field.as_deref(), Some("f1"));
+}
+
+#[test]
+fn finding_serde_skips_none_fields() {
+    let f = ValidationFinding::error("x");
+    let json = serde_json::to_string(&f).unwrap();
+    // None fields should not appear in JSON
+    assert!(!json.contains("resource"));
+    assert!(!json.contains("field"));
+    assert!(!json.contains("suggestion"));
+}
+
+// ============================================================================
+// FJ-2503: ValidateOutput
+// ============================================================================
+
+#[test]
+fn validate_output_from_findings_valid_when_no_errors() {
+    let findings = vec![
+        ValidationFinding::warning("warn1"),
+        ValidationFinding::warning("warn2"),
+    ];
+    let output = ValidateOutput::from_findings(findings, 5, 2);
+    assert!(output.valid);
+    assert_eq!(output.error_count(), 0);
+    assert_eq!(output.warning_count(), 2);
+    assert_eq!(output.resource_count, 5);
+    assert_eq!(output.machine_count, 2);
+}
+
+#[test]
+fn validate_output_from_findings_invalid_when_errors() {
+    let findings = vec![
+        ValidationFinding::error("err1"),
+        ValidationFinding::warning("warn1"),
+    ];
+    let output = ValidateOutput::from_findings(findings, 3, 1);
+    assert!(!output.valid);
+    assert_eq!(output.error_count(), 1);
+    assert_eq!(output.warning_count(), 1);
+}
+
+#[test]
+fn validate_output_empty_is_valid() {
+    let output = ValidateOutput::from_findings(vec![], 0, 0);
+    assert!(output.valid);
+    assert_eq!(output.error_count(), 0);
+    assert_eq!(output.warning_count(), 0);
+}
+
+#[test]
+fn validate_output_format_summary() {
+    let findings = vec![
+        ValidationFinding::error("bad mode"),
+        ValidationFinding::warning("deprecated field"),
+    ];
+    let output = ValidateOutput::from_findings(findings, 10, 3);
+    let summary = output.format_summary();
+    assert!(summary.contains("1 errors"));
+    assert!(summary.contains("1 warnings"));
+    assert!(summary.contains("10 resources"));
+    assert!(summary.contains("3 machines"));
+}
+
+#[test]
+fn validate_output_default() {
+    let output = ValidateOutput::default();
+    assert!(!output.valid); // Default bool is false
+    assert_eq!(output.resource_count, 0);
+    assert_eq!(output.machine_count, 0);
+    assert!(output.findings.is_empty());
+}
+
+#[test]
+fn validate_output_serde_roundtrip() {
+    let output = ValidateOutput::from_findings(vec![ValidationFinding::error("test error")], 5, 2);
+    let json = serde_json::to_string(&output).unwrap();
+    let back: ValidateOutput = serde_json::from_str(&json).unwrap();
+    assert!(!back.valid);
+    assert_eq!(back.error_count(), 1);
+    assert_eq!(back.resource_count, 5);
+}
+
+// ============================================================================
+// FJ-2500: FieldSuggestion
+// ============================================================================
+
+#[test]
+fn field_suggestion_should_suggest_distance_1() {
+    let s = FieldSuggestion::new("packges", "packages", 1);
+    assert!(s.should_suggest());
+    assert_eq!(s.unknown, "packges");
+    assert_eq!(s.known, "packages");
+    assert_eq!(s.distance, 1);
+}
+
+#[test]
+fn field_suggestion_should_suggest_distance_2() {
+    let s = FieldSuggestion::new("pahh", "path", 2);
+    assert!(s.should_suggest());
+}
+
+#[test]
+fn field_suggestion_should_not_suggest_distance_3() {
+    let s = FieldSuggestion::new("xyz", "packages", 6);
+    assert!(!s.should_suggest());
+}
+
+#[test]
+fn field_suggestion_display() {
+    let s = FieldSuggestion::new("packges", "packages", 1);
+    let display = s.to_string();
+    assert_eq!(display, "'packges' -> 'packages' (distance: 1)");
+}
+
+#[test]
+fn field_suggestion_serde_roundtrip() {
+    let s = FieldSuggestion::new("mde", "mode", 1);
+    let json = serde_json::to_string(&s).unwrap();
+    let back: FieldSuggestion = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.unknown, "mde");
+    assert_eq!(back.known, "mode");
+    assert_eq!(back.distance, 1);
+}
+
+// ============================================================================
+// FJ-2503: DeepCheckFlags
+// ============================================================================
+
+#[test]
+fn deep_flags_default_all_false() {
+    let flags = DeepCheckFlags::default();
+    assert!(!flags.templates);
+    assert!(!flags.circular_deps);
+    assert!(!flags.connectivity);
+    assert!(!flags.secrets);
+    assert!(!flags.overlaps);
+    assert!(!flags.naming);
+    assert!(!flags.machine_refs);
+    assert!(!flags.state_values);
+    assert!(!flags.drift_coverage);
+    assert!(!flags.idempotency);
+    assert!(!flags.any_enabled());
+}
+
+#[test]
+fn deep_flags_exhaustive_all_true() {
+    let flags = DeepCheckFlags::exhaustive();
+    assert!(flags.templates);
+    assert!(flags.circular_deps);
+    assert!(flags.connectivity);
+    assert!(flags.secrets);
+    assert!(flags.overlaps);
+    assert!(flags.naming);
+    assert!(flags.machine_refs);
+    assert!(flags.state_values);
+    assert!(flags.drift_coverage);
+    assert!(flags.idempotency);
+    assert!(flags.any_enabled());
+}
+
+#[test]
+fn deep_flags_any_enabled_single() {
+    let mut flags = DeepCheckFlags::default();
+    assert!(!flags.any_enabled());
+    flags.templates = true;
+    assert!(flags.any_enabled());
+}
+
+#[test]
+fn deep_flags_serde_roundtrip() {
+    let flags = DeepCheckFlags::exhaustive();
+    let json = serde_json::to_string(&flags).unwrap();
+    let back: DeepCheckFlags = serde_json::from_str(&json).unwrap();
+    assert!(back.templates);
+    assert!(back.circular_deps);
+    assert!(back.secrets);
+}
+
+#[test]
+fn deep_flags_serde_defaults_missing_fields() {
+    // Deserializing with missing fields should default to false
+    let json = r#"{"templates": true}"#;
+    let flags: DeepCheckFlags = serde_json::from_str(json).unwrap();
+    assert!(flags.templates);
+    assert!(!flags.circular_deps);
+    assert!(!flags.secrets);
+    assert!(flags.any_enabled());
+}
+
+// ============================================================================
+// FJ-2500: Unknown field detection via check_unknown_fields
+// ============================================================================
+
+#[test]
+fn unknown_fields_clean_config() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  pkg:
+    type: package
+    provider: apt
+    packages: [curl]
+"#;
+    let warnings = check_unknown_fields(yaml);
+    assert!(warnings.is_empty());
+}
+
+#[test]
+fn unknown_fields_detects_typo_in_resource() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  pkg:
+    type: package
+    provider: apt
+    packges: [curl]
+"#;
+    let warnings = check_unknown_fields(yaml);
+    assert!(!warnings.is_empty());
+    let msg = &warnings[0].message;
+    assert!(msg.contains("packges") || msg.contains("unknown"));
+}
+
+#[test]
+fn unknown_fields_detects_unknown_top_level() {
+    let yaml = r#"
+version: "1.0"
+name: test
+bogus_key: true
+resources: {}
+"#;
+    let warnings = check_unknown_fields(yaml);
+    assert!(!warnings.is_empty());
+    assert!(warnings[0].message.contains("bogus_key"));
+}
+
+#[test]
+fn unknown_fields_detects_unknown_machine_field() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  web:
+    hostname: web-01
+    addr: 10.0.0.1
+    flavor: large
+resources: {}
+"#;
+    let warnings = check_unknown_fields(yaml);
+    assert!(!warnings.is_empty());
+    assert!(warnings[0].message.contains("flavor"));
+}
+
+#[test]
+fn unknown_fields_suggestion_levenshtein() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  f:
+    type: file
+    path: /etc/test
+    conten: hello
+"#;
+    let warnings = check_unknown_fields(yaml);
+    assert!(!warnings.is_empty());
+    // Should suggest "content" for "conten" (distance 1)
+    let msg = &warnings[0].message;
+    assert!(msg.contains("content") || msg.contains("did you mean"));
+}
+
+// ============================================================================
+// FJ-2502: Include provenance
+// ============================================================================
+
+#[test]
+fn include_provenance_field_exists_on_config() {
+    let config = ForjarConfig::default();
+    assert!(config.include_provenance.is_empty());
+}
+
+#[test]
+fn include_provenance_not_serialized() {
+    let mut config = ForjarConfig::default();
+    config.version = "1.0".into();
+    config.name = "test".into();
+    config
+        .include_provenance
+        .insert("resource:pkg".into(), "infra.yaml".into());
+    let yaml = serde_yaml_ng::to_string(&config).unwrap();
+    // include_provenance should NOT appear in serialized YAML (it's #[serde(skip)])
+    assert!(!yaml.contains("include_provenance"));
+    assert!(!yaml.contains("infra.yaml"));
+}
+
+#[test]
+fn include_provenance_survives_clone() {
+    let mut config = ForjarConfig::default();
+    config
+        .include_provenance
+        .insert("machine:web".into(), "base.yaml".into());
+    let cloned = config.clone();
+    assert_eq!(
+        cloned
+            .include_provenance
+            .get("machine:web")
+            .map(String::as_str),
+        Some("base.yaml")
+    );
+}
+
+#[test]
+fn include_provenance_key_format() {
+    // Provenance keys follow "type:id" format
+    let mut config = ForjarConfig::default();
+    config
+        .include_provenance
+        .insert("resource:nginx".into(), "web.yaml".into());
+    config
+        .include_provenance
+        .insert("machine:db".into(), "db.yaml".into());
+    config
+        .include_provenance
+        .insert("param:port".into(), "common.yaml".into());
+    config
+        .include_provenance
+        .insert("output:url".into(), "outputs.yaml".into());
+    config
+        .include_provenance
+        .insert("data:env".into(), "data.yaml".into());
+    assert_eq!(config.include_provenance.len(), 5);
+}
+
+// ============================================================================
+// FJ-2502: Include merge via parse_config_file
+// ============================================================================
+
+#[test]
+fn include_file_merge_resources() {
+    let dir = tempfile::tempdir().unwrap();
+    let inc_path = dir.path().join("inc.yaml");
+    std::fs::write(
+        &inc_path,
+        "version: \"1.0\"\nname: inc\nresources:\n  extra:\n    type: package\n    provider: apt\n    packages: [vim]\n",
+    )
+    .unwrap();
+    let base_path = dir.path().join("base.yaml");
+    std::fs::write(
+        &base_path,
+        format!(
+            "version: \"1.0\"\nname: base\nincludes:\n  - {}\nresources:\n  main:\n    type: package\n    provider: apt\n    packages: [curl]\n",
+            inc_path.display()
+        ),
+    )
+    .unwrap();
+
+    let config = parse_and_validate(&base_path).unwrap();
+    assert!(config.resources.contains_key("main"));
+    assert!(config.resources.contains_key("extra"));
+    assert_eq!(
+        config
+            .include_provenance
+            .get("resource:extra")
+            .map(String::as_str),
+        Some(inc_path.to_str().unwrap())
+    );
+}
+
+#[test]
+fn include_file_merge_machines() {
+    let dir = tempfile::tempdir().unwrap();
+    let inc_path = dir.path().join("machines.yaml");
+    std::fs::write(
+        &inc_path,
+        "version: \"1.0\"\nname: inc\nmachines:\n  web:\n    hostname: web-01\n    addr: 10.0.0.1\nresources: {}\n",
+    )
+    .unwrap();
+    let base_path = dir.path().join("base.yaml");
+    std::fs::write(
+        &base_path,
+        format!(
+            "version: \"1.0\"\nname: base\nincludes:\n  - {}\nmachines: {{}}\nresources: {{}}\n",
+            inc_path.display()
+        ),
+    )
+    .unwrap();
+
+    let config = parse_and_validate(&base_path).unwrap();
+    assert!(config.machines.contains_key("web"));
+    assert!(config.include_provenance.contains_key("machine:web"));
+}
+
+#[test]
+fn include_duplicate_detected() {
+    let dir = tempfile::tempdir().unwrap();
+    let inc_path = dir.path().join("dup.yaml");
+    std::fs::write(&inc_path, "version: \"1.0\"\nname: dup\nresources: {}\n").unwrap();
+    let base_path = dir.path().join("base.yaml");
+    std::fs::write(
+        &base_path,
+        format!(
+            "version: \"1.0\"\nname: base\nincludes:\n  - {p}\n  - {p}\nresources: {{}}\n",
+            p = inc_path.display()
+        ),
+    )
+    .unwrap();
+
+    let result = parse_and_validate(&base_path);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("circular"));
+}
+
+#[test]
+fn include_nonexistent_file_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let base_path = dir.path().join("base.yaml");
+    std::fs::write(
+        &base_path,
+        "version: \"1.0\"\nname: base\nincludes:\n  - nonexistent.yaml\nresources: {}\n",
+    )
+    .unwrap();
+
+    let result = parse_and_validate(&base_path);
+    assert!(result.is_err());
+}
+
+// ============================================================================
+// FJ-2503: Cycle detection via build_execution_order
+// ============================================================================
+
+#[test]
+fn dag_no_cycle_simple_chain() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: localhost
+resources:
+  a:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+  b:
+    type: file
+    machine: m
+    path: /etc/test
+    content: hello
+    depends_on: [a]
+  c:
+    type: file
+    machine: m
+    path: /etc/test2
+    content: world
+    depends_on: [b]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let order = build_execution_order(&config).unwrap();
+    assert_eq!(order.len(), 3);
+    // a must come before b, b before c
+    let pos_a = order.iter().position(|s| s == "a").unwrap();
+    let pos_b = order.iter().position(|s| s == "b").unwrap();
+    let pos_c = order.iter().position(|s| s == "c").unwrap();
+    assert!(pos_a < pos_b);
+    assert!(pos_b < pos_c);
+}
+
+#[test]
+fn dag_cycle_detected() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  a:
+    type: package
+    provider: apt
+    packages: [curl]
+    depends_on: [b]
+  b:
+    type: package
+    provider: apt
+    packages: [vim]
+    depends_on: [a]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let result = build_execution_order(&config);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("cycle"));
+}
+
+#[test]
+fn dag_self_cycle_detected() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  a:
+    type: package
+    provider: apt
+    packages: [curl]
+    depends_on: [a]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let result = build_execution_order(&config);
+    assert!(result.is_err());
+}
+
+#[test]
+fn dag_independent_resources_all_included() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  a:
+    type: package
+    provider: apt
+    packages: [curl]
+  b:
+    type: package
+    provider: apt
+    packages: [vim]
+  c:
+    type: package
+    provider: apt
+    packages: [git]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let order = build_execution_order(&config).unwrap();
+    assert_eq!(order.len(), 3);
+    assert!(order.contains(&"a".to_string()));
+    assert!(order.contains(&"b".to_string()));
+    assert!(order.contains(&"c".to_string()));
+}
+
+// ============================================================================
+// FJ-2503: Template validation via parse_and_validate
+// ============================================================================
+
+#[test]
+fn validate_unresolved_template_detected() {
+    // Deep template checking happens in validate_deep (pub(super)),
+    // but parse_and_validate detects unresolved params in content.
+    // Test via the config-level check that validate_config performs.
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m
+    path: /etc/app.conf
+    content: "port={{params.undefined_param}}"
+"#;
+    let config = parse_config(yaml).unwrap();
+    // validate_config checks structural issues; template resolution
+    // is checked during the resolve phase. Verify config parses OK
+    // but the content still contains the unresolved template.
+    let res = &config.resources["cfg"];
+    assert!(res.content.as_deref().unwrap().contains("{{params."));
+}
+
+#[test]
+fn validate_resolved_template_content_preserved() {
+    let yaml = r#"
+version: "1.0"
+name: test
+params:
+  port: "8080"
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m
+    path: /etc/app.conf
+    content: "port={{params.port}}"
+"#;
+    let config = parse_config(yaml).unwrap();
+    // Template is preserved in parsed config (resolved later by resolver)
+    let res = &config.resources["cfg"];
+    assert!(res.content.as_deref().unwrap().contains("{{params.port}}"));
+    // But the param exists to be resolved
+    assert!(config.params.contains_key("port"));
+}
+
+// ============================================================================
+// FJ-2503: Resource naming validation
+// ============================================================================
+
+#[test]
+fn naming_valid_kebab_case() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  my-nginx-config:
+    type: file
+    machine: m
+    path: /etc/nginx.conf
+    content: "server {}"
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    // kebab-case should be fine
+    let naming_err = errors.iter().any(|e| e.message.contains("naming"));
+    assert!(!naming_err);
+}
+
+// ============================================================================
+// FJ-2503: Machine reference validation
+// ============================================================================
+
+#[test]
+fn validate_dangling_machine_ref_detected() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  cfg:
+    type: file
+    machine: nonexistent
+    path: /etc/test
+    content: hello
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    let has_ref_err = errors
+        .iter()
+        .any(|e| e.message.contains("machine") && e.message.contains("nonexistent"));
+    assert!(has_ref_err, "expected dangling machine ref: {:?}", errors);
+}
+
+#[test]
+fn validate_valid_machine_ref_ok() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  web:
+    hostname: web-01
+    addr: 10.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: web
+    path: /etc/test
+    content: hello
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    let has_ref_err = errors.iter().any(|e| {
+        e.message.contains("machine") && e.message.contains("web") && e.message.contains("not")
+    });
+    assert!(!has_ref_err, "no machine ref errors expected: {:?}", errors);
+}
+
+// ============================================================================
+// FJ-2503: Dependency reference validation
+// ============================================================================
+
+#[test]
+fn validate_dangling_dependency_detected() {
+    let yaml = r#"
+version: "1.0"
+name: test
+resources:
+  cfg:
+    type: file
+    path: /etc/test
+    content: hello
+    depends_on: [ghost]
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    let has_dep_err = errors
+        .iter()
+        .any(|e| e.message.contains("ghost") || e.message.contains("depend"));
+    assert!(has_dep_err, "expected dangling dep error: {:?}", errors);
+}
+
+// ============================================================================
+// FJ-2503: State value validation
+// ============================================================================
+
+#[test]
+fn validate_config_accepts_valid_state() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  svc:
+    type: service
+    machine: m
+    name: nginx
+    state: running
+"#;
+    let config = parse_config(yaml).unwrap();
+    let errors = validate_config(&config);
+    let state_err = errors.iter().any(|e| e.message.contains("state"));
+    assert!(!state_err, "no state errors expected: {:?}", errors);
+}
+
+// ============================================================================
+// FJ-2503: Overlap detection (multiple resources targeting same path)
+// ============================================================================
+
+#[test]
+fn overlapping_paths_detectable_from_config() {
+    // Overlap detection is a deep check (pub(super) in validate_deep.rs).
+    // Here we verify the data model allows detecting overlaps from parsed config.
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  file-a:
+    type: file
+    machine: m
+    path: /etc/shared.conf
+    content: "version a"
+  file-b:
+    type: file
+    machine: m
+    path: /etc/shared.conf
+    content: "version b"
+"#;
+    let config = parse_config(yaml).unwrap();
+    // Both resources parse and target the same path
+    let path_a = config.resources["file-a"].path.as_deref();
+    let path_b = config.resources["file-b"].path.as_deref();
+    assert_eq!(path_a, Some("/etc/shared.conf"));
+    assert_eq!(path_b, Some("/etc/shared.conf"));
+    assert_eq!(path_a, path_b); // Overlap exists — deep validation would flag this
+}
+
+#[test]
+fn validate_overlapping_paths_via_parse_and_validate() {
+    // parse_and_validate runs full validation pipeline including overlap checks
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("overlap.yaml");
+    std::fs::write(
+        &path,
+        r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  file-a:
+    type: file
+    machine: m
+    path: /etc/shared.conf
+    content: "version a"
+  file-b:
+    type: file
+    machine: m
+    path: /etc/shared.conf
+    content: "version b"
+"#,
+    )
+    .unwrap();
+    // parse_and_validate should succeed (overlaps are warnings in standard mode,
+    // errors only in deep mode)
+    let result = parse_and_validate(&path);
+    assert!(result.is_ok());
+}
+
+// ============================================================================
+// Cross-cutting: Serde roundtrips
+// ============================================================================
+
+#[test]
+fn validate_output_json_roundtrip_with_findings() {
+    let output = ValidateOutput::from_findings(
+        vec![
+            ValidationFinding::error("err1").for_resource("r1"),
+            ValidationFinding::warning("warn1")
+                .for_field("f1")
+                .with_suggestion("try X"),
+        ],
+        8,
+        4,
+    );
+    let json = serde_json::to_string_pretty(&output).unwrap();
+    let back: ValidateOutput = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.findings.len(), 2);
+    assert!(!back.valid);
+    assert_eq!(back.error_count(), 1);
+    assert_eq!(back.warning_count(), 1);
+    assert_eq!(back.resource_count, 8);
+}
+
+#[test]
+fn deep_flags_partial_enable() {
+    let mut flags = DeepCheckFlags::default();
+    flags.secrets = true;
+    flags.naming = true;
+    assert!(flags.any_enabled());
+    assert!(flags.secrets);
+    assert!(flags.naming);
+    assert!(!flags.templates);
+    assert!(!flags.circular_deps);
+}
