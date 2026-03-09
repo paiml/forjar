@@ -155,13 +155,69 @@ fn evaluate_policy_gate(config_file: &Path) -> GateResult {
 }
 
 /// Coverage gate: checks minimum test coverage threshold.
+///
+/// Attempts to parse coverage from `cargo llvm-cov --summary-only`.
+/// Falls back to advisory mode if the tool is not available or too slow.
 fn evaluate_coverage_gate(min_coverage: u32) -> GateResult {
-    // Coverage gates run external tools — for now, report as advisory
-    GateResult {
-        gate_type: "coverage".into(),
-        passed: true,
-        message: format!("coverage gate: minimum {}% (advisory)", min_coverage),
+    evaluate_coverage_gate_inner(min_coverage, run_llvm_cov)
+}
+
+/// Inner coverage gate logic, injectable for testing.
+fn evaluate_coverage_gate_inner(min_coverage: u32, runner: fn() -> Option<String>) -> GateResult {
+    let output = runner();
+    match output.and_then(|s| parse_coverage_from_output(&s)) {
+        Some(actual) => {
+            if actual >= min_coverage as f64 {
+                GateResult {
+                    gate_type: "coverage".into(),
+                    passed: true,
+                    message: format!("coverage {actual:.1}% >= {min_coverage}%"),
+                }
+            } else {
+                GateResult {
+                    gate_type: "coverage".into(),
+                    passed: false,
+                    message: format!("coverage {actual:.1}% < {min_coverage}% required"),
+                }
+            }
+        }
+        None => GateResult {
+            gate_type: "coverage".into(),
+            passed: true,
+            message: format!(
+                "coverage gate: minimum {min_coverage}% (advisory — llvm-cov not available)"
+            ),
+        },
     }
+}
+
+/// Run `cargo llvm-cov --summary-only` and return stdout.
+fn run_llvm_cov() -> Option<String> {
+    let output = std::process::Command::new("cargo")
+        .args(["llvm-cov", "--summary-only"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+/// Parse line coverage percentage from llvm-cov summary output.
+fn parse_coverage_from_output(stdout: &str) -> Option<f64> {
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("TOTAL") || trimmed.contains("TOTAL") {
+            for word in trimmed.split_whitespace().rev() {
+                if let Some(pct_str) = word.strip_suffix('%') {
+                    if let Ok(pct) = pct_str.parse::<f64>() {
+                        return Some(pct);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Script gate: runs a shell script.
@@ -263,10 +319,53 @@ resources:
     }
 
     #[test]
-    fn coverage_gate_advisory() {
-        let result = evaluate_coverage_gate(95);
+    fn coverage_gate_advisory_no_tool() {
+        fn no_tool() -> Option<String> {
+            None
+        }
+        let result = evaluate_coverage_gate_inner(95, no_tool);
         assert!(result.passed);
         assert!(result.message.contains("95%"));
+        assert!(result.message.contains("advisory"));
+    }
+
+    #[test]
+    fn coverage_gate_passes_threshold() {
+        fn mock_output() -> Option<String> {
+            Some("  TOTAL                          1234   1111   96.5%\n".into())
+        }
+        let result = evaluate_coverage_gate_inner(95, mock_output);
+        assert!(result.passed);
+        assert!(result.message.contains("96.5%"));
+    }
+
+    #[test]
+    fn coverage_gate_fails_threshold() {
+        fn mock_output() -> Option<String> {
+            Some("  TOTAL                          1234   900   72.9%\n".into())
+        }
+        let result = evaluate_coverage_gate_inner(95, mock_output);
+        assert!(!result.passed);
+        assert!(result.message.contains("72.9%"));
+        assert!(result.message.contains("95%"));
+    }
+
+    #[test]
+    fn parse_coverage_from_llvm_output() {
+        let output = r#"
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+---
+  TOTAL                          5432           432    92.0%        1234            56    95.5%       18234          912    95.0%         0             0         -
+"#;
+        let pct = parse_coverage_from_output(output);
+        assert!(pct.is_some());
+        // Last percentage on TOTAL line
+    }
+
+    #[test]
+    fn parse_coverage_no_total_line() {
+        let pct = parse_coverage_from_output("no total here\n");
+        assert!(pct.is_none());
     }
 
     #[test]
