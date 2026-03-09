@@ -93,3 +93,4 @@
 - [Conversion Strategy, Pin Tripwire & Validation](./90-convert-pin-validate.md)
 - [Provider Import, FAR Archives & Store Diff](./91-provider-far-diff.md)
 - [Contract Coverage, GC Sweep & Registry Push](./92-contract-gc-registry.md)
+- [Lock Files, Profiles, References & Cache](./93-lockfile-profile-cache.md)
