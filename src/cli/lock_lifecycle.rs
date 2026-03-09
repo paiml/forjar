@@ -110,9 +110,10 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
         if !lock_path.exists() {
             continue;
         }
-        std::fs::create_dir_all(&dest_dir)
+        let dest_machine_dir = dest_dir.join(m);
+        std::fs::create_dir_all(&dest_machine_dir)
             .map_err(|e| format!("Failed to create snapshot dir: {e}"))?;
-        let dest = dest_dir.join(m).join("state.lock.yaml");
+        let dest = dest_machine_dir.join("state.lock.yaml");
         std::fs::copy(&lock_path, &dest)
             .map_err(|e| format!("Failed to snapshot {}: {}", lock_path.display(), e))?;
         copied += 1;
