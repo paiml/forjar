@@ -31,3 +31,5 @@
 - [Environment Promotion](./28-environment-promotion.md)
 - [WASM Resource Plugins](./29-wasm-plugins.md)
 - [Event-Driven Automation](./30-event-driven.md)
+- [Ephemeral Secrets](./31-ephemeral-secrets.md)
+- [Rulebook Validation](./32-rules-validation.md)
