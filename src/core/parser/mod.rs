@@ -54,7 +54,7 @@ use std::path::Path;
 
 // Re-export public API
 pub use expansion::expand_resources;
-pub use policy::evaluate_policies;
+pub use policy::{evaluate_policies, evaluate_policies_full, policy_check_to_json};
 pub use recipes::expand_recipes;
 
 /// Recognized CPU architectures for the `arch` field.
@@ -162,8 +162,8 @@ fn check_sudo_inference(
     }
     // Check if the machine user is root — sudo not needed
     let mut any_machine_resolved = false;
-    for machine_name in resource.machine.to_vec() {
-        if let Some(machine) = config.machines.get(&machine_name) {
+    for machine_name in resource.machine.iter() {
+        if let Some(machine) = config.machines.get(machine_name) {
             any_machine_resolved = true;
             if machine.user == "root" {
                 return; // Running as root, sudo not needed

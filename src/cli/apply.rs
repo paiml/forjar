@@ -429,28 +429,26 @@ fn apply_pre_validate(
     Ok(())
 }
 
-/// FJ-220: Check policy rules and block apply if any deny/require violations exist.
+/// FJ-220 + FJ-3200: Check policy rules and block apply if any error-severity violations exist.
 fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
     if config.policies.is_empty() {
         return Ok(());
     }
-    let violations = parser::evaluate_policies(config);
-    let is_deny = |v: &types::PolicyViolation| {
-        matches!(
-            v.severity,
-            types::PolicyRuleType::Deny | types::PolicyRuleType::Require
-        )
-    };
-    let deny_count = violations.iter().filter(|v| is_deny(v)).count();
-    if deny_count == 0 {
+    let result = parser::evaluate_policies_full(config);
+    if !result.has_blocking_violations() {
+        // Print warnings if any
+        for v in &result.violations {
+            eprintln!("  [WARN] {}: {}", v.resource_id, v.rule_message);
+        }
         return Ok(());
     }
-    for v in &violations {
-        let sev = if is_deny(v) { "DENY" } else { "WARN" };
+    for v in &result.violations {
+        let sev = if v.is_blocking() { "DENY" } else { "WARN" };
         eprintln!("  [{sev}] {}: {}", v.resource_id, v.rule_message);
     }
     Err(format!(
-        "policy violations block apply ({deny_count} denied)"
+        "policy violations block apply ({} error(s))",
+        result.error_count()
     ))
 }
 
