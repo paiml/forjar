@@ -98,3 +98,7 @@ mod tests_workspace_ext_cov;
 mod tests_iso_export_ext_cov;
 #[cfg(test)]
 mod tests_diff_cmd_cov;
+#[cfg(test)]
+mod tests_lock_core_cov;
+#[cfg(test)]
+mod tests_store_ops_ext_cov;

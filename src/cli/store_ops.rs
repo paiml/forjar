@@ -228,7 +228,7 @@ pub(crate) fn cmd_store_sync(
 }
 
 /// Collect lock file hashes from state directory.
-fn collect_lock_hashes(state_dir: &Path) -> Vec<String> {
+pub(super) fn collect_lock_hashes(state_dir: &Path) -> Vec<String> {
     let lock_path = state_dir.join("forjar.inputs.lock.yaml");
     crate::core::store::lockfile::read_lockfile(&lock_path)
         .map(|lf| lf.pins.values().map(|p| p.hash.clone()).collect())
@@ -236,7 +236,7 @@ fn collect_lock_hashes(state_dir: &Path) -> Vec<String> {
 }
 
 /// Collect profile generation hashes from store.
-fn collect_profile_hashes(store_dir: &Path) -> Vec<String> {
+pub(super) fn collect_profile_hashes(store_dir: &Path) -> Vec<String> {
     let profiles_dir = store_dir
         .parent()
         .map(|p| p.join("profiles"))
@@ -263,7 +263,9 @@ fn collect_profile_hashes(store_dir: &Path) -> Vec<String> {
 }
 
 /// List entries as (hash, provider, arch).
-fn list_store_entries(store_dir: &Path) -> Result<Vec<(String, String, String)>, String> {
+pub(super) fn list_store_entries(
+    store_dir: &Path,
+) -> Result<Vec<(String, String, String)>, String> {
     let rd =
         std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
     let mut entries: Vec<(String, String, String)> = rd
@@ -285,7 +287,7 @@ fn list_store_entries(store_dir: &Path) -> Result<Vec<(String, String, String)>,
 }
 
 /// Create a localhost Machine for local transport execution.
-fn local_machine() -> Machine {
+pub(super) fn local_machine() -> Machine {
     Machine {
         hostname: "localhost".to_string(),
         addr: "127.0.0.1".to_string(),
@@ -301,7 +303,7 @@ fn local_machine() -> Machine {
     }
 }
 
-fn human_bytes(bytes: u64) -> String {
+pub(super) fn human_bytes(bytes: u64) -> String {
     if bytes < 1024 {
         return format!("{bytes} B");
     }
