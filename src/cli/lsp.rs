@@ -293,7 +293,7 @@ pub(crate) fn completion_items(indent: usize, line_prefix: &str) -> Vec<Completi
 }
 
 /// Generate hover info for a line.
-fn hover_info(line: &str) -> serde_json::Value {
+pub(super) fn hover_info(line: &str) -> serde_json::Value {
     let key = line
         .split(':')
         .next()
@@ -365,7 +365,12 @@ pub fn validate_yaml(content: &str) -> Vec<Diagnostic> {
     diags
 }
 
-fn make_diag(line_idx: usize, line: &str, severity: DiagnosticSeverity, msg: &str) -> Diagnostic {
+pub(super) fn make_diag(
+    line_idx: usize,
+    line: &str,
+    severity: DiagnosticSeverity,
+    msg: &str,
+) -> Diagnostic {
     Diagnostic {
         line: line_idx as u32,
         character: 0,
@@ -378,7 +383,7 @@ fn make_diag(line_idx: usize, line: &str, severity: DiagnosticSeverity, msg: &st
 }
 
 /// Build an LSP initialize result.
-fn initialize_result() -> serde_json::Value {
+pub(super) fn initialize_result() -> serde_json::Value {
     serde_json::json!({
         "capabilities": {
             "textDocumentSync": 1,
@@ -390,7 +395,10 @@ fn initialize_result() -> serde_json::Value {
     })
 }
 
-fn make_response(id: Option<&serde_json::Value>, result: serde_json::Value) -> serde_json::Value {
+pub(super) fn make_response(
+    id: Option<&serde_json::Value>,
+    result: serde_json::Value,
+) -> serde_json::Value {
     serde_json::json!({
         "jsonrpc": "2.0",
         "id": id.cloned().unwrap_or(serde_json::Value::Null),
@@ -398,7 +406,11 @@ fn make_response(id: Option<&serde_json::Value>, result: serde_json::Value) -> s
     })
 }
 
-fn make_error_response(id: Option<&serde_json::Value>, code: i32, msg: &str) -> serde_json::Value {
+pub(super) fn make_error_response(
+    id: Option<&serde_json::Value>,
+    code: i32,
+    msg: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "jsonrpc": "2.0",
         "id": id.cloned().unwrap_or(serde_json::Value::Null),
@@ -473,7 +485,7 @@ pub fn cmd_lsp() -> Result<(), String> {
     }
 }
 
-fn publish_diagnostics(uri: &str, diags: &[Diagnostic]) -> serde_json::Value {
+pub(super) fn publish_diagnostics(uri: &str, diags: &[Diagnostic]) -> serde_json::Value {
     let lsp_diags: Vec<serde_json::Value> = diags
         .iter()
         .map(|d| {

@@ -131,7 +131,7 @@ pub(crate) fn cmd_import_providers(json: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_provider(name: &str) -> Result<ImportProvider, String> {
+pub(super) fn parse_provider(name: &str) -> Result<ImportProvider, String> {
     match name.to_lowercase().as_str() {
         "apt" => Ok(ImportProvider::Apt),
         "cargo" => Ok(ImportProvider::Cargo),
@@ -147,7 +147,7 @@ fn parse_provider(name: &str) -> Result<ImportProvider, String> {
     }
 }
 
-fn provider_name(p: ImportProvider) -> &'static str {
+pub(super) fn provider_name(p: ImportProvider) -> &'static str {
     match p {
         ImportProvider::Apt => "apt",
         ImportProvider::Cargo => "cargo",
@@ -160,7 +160,7 @@ fn provider_name(p: ImportProvider) -> &'static str {
     }
 }
 
-fn current_arch() -> String {
+pub(super) fn current_arch() -> String {
     #[cfg(target_arch = "x86_64")]
     {
         "x86_64".to_string()
@@ -175,7 +175,7 @@ fn current_arch() -> String {
     }
 }
 
-fn local_machine() -> Machine {
+pub(super) fn local_machine() -> Machine {
     Machine {
         hostname: "localhost".to_string(),
         addr: "127.0.0.1".to_string(),

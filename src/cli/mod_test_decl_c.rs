@@ -108,3 +108,11 @@ mod tests_sovereignty_cov;
 mod tests_dataset_lineage_cov;
 #[cfg(test)]
 mod tests_validate_deep_cov;
+#[cfg(test)]
+mod tests_store_import_cov;
+#[cfg(test)]
+mod tests_lsp_ext_cov;
+#[cfg(test)]
+mod tests_parallel_multi_stack_cov;
+#[cfg(test)]
+mod tests_iso_export_ext2_cov;

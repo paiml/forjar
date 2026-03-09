@@ -128,7 +128,7 @@ pub fn cmd_iso_export(
     Ok(())
 }
 
-fn hash_file_blake3(path: &Path) -> String {
+pub(super) fn hash_file_blake3(path: &Path) -> String {
     match std::fs::read(path) {
         Ok(data) => {
             let hash = blake3::hash(&data);
@@ -138,7 +138,7 @@ fn hash_file_blake3(path: &Path) -> String {
     }
 }
 
-fn compute_root_hash(files: &[IsoFile]) -> String {
+pub(super) fn compute_root_hash(files: &[IsoFile]) -> String {
     let mut hasher = blake3::Hasher::new();
     for f in files {
         hasher.update(f.blake3.as_bytes());

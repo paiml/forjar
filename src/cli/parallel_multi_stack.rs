@@ -72,7 +72,7 @@ fn load_stacks(files: &[std::path::PathBuf]) -> Result<Vec<StackInfo>, String> {
     Ok(stacks)
 }
 
-fn extract_data_deps(config: &crate::core::types::ForjarConfig) -> Vec<String> {
+pub(super) fn extract_data_deps(config: &crate::core::types::ForjarConfig) -> Vec<String> {
     let mut deps = Vec::new();
     for (_key, ds) in &config.data {
         if ds.source_type == crate::core::types::DataSourceType::ForjarState {
@@ -86,7 +86,7 @@ fn extract_data_deps(config: &crate::core::types::ForjarConfig) -> Vec<String> {
     deps
 }
 
-fn compute_waves(stacks: &[StackInfo], max_parallel: usize) -> Vec<Wave> {
+pub(super) fn compute_waves(stacks: &[StackInfo], max_parallel: usize) -> Vec<Wave> {
     let mut waves = Vec::new();
     let mut placed: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut remaining: Vec<&StackInfo> = stacks.iter().collect();
@@ -124,7 +124,7 @@ fn compute_waves(stacks: &[StackInfo], max_parallel: usize) -> Vec<Wave> {
     waves
 }
 
-fn partition_ready<'a>(
+pub(super) fn partition_ready<'a>(
     remaining: &[&'a StackInfo],
     placed: &std::collections::BTreeSet<String>,
 ) -> (Vec<String>, Vec<&'a StackInfo>) {
@@ -140,7 +140,7 @@ fn partition_ready<'a>(
     (ready, still)
 }
 
-fn print_parallel_plan(plan: &ParallelPlan) {
+pub(super) fn print_parallel_plan(plan: &ParallelPlan) {
     println!("Parallel Multi-Stack Plan");
     println!("=========================");
     println!(
