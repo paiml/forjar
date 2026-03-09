@@ -84,3 +84,4 @@
 - [Run Logs, Doctor Diagnostics & Image Build Logs](./81-runlog-doctor-imagelog.md)
 - [Plugin Dispatch & Reproducible Builds](./82-plugin-dispatch-repro.md)
 - [Lock Files & Binary Cache](./83-lockfile-cache.md)
+- [Purity, Reproducibility & HF Kernels](./84-purity-reproscore-refs-hf.md)
