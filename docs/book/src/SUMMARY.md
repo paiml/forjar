@@ -94,3 +94,4 @@
 - [Provider Import, FAR Archives & Store Diff](./91-provider-far-diff.md)
 - [Contract Coverage, GC Sweep & Registry Push](./92-contract-gc-registry.md)
 - [Lock Files, Profiles, References & Cache](./93-lockfile-profile-cache.md)
+- [Convergence Testing & Kernel FAR Packaging](./94-convergence-kernel.md)
