@@ -287,6 +287,15 @@ fn check_require_tag(
 }
 
 fn check_script(script: &str) -> (bool, String) {
+    // FJ-3204: Validate script through bashrs before execution
+    if let Err(e) = crate::core::purifier::validate_script(script) {
+        return (false, format!("bashrs lint failed: {e}"));
+    }
+    // FJ-3307: Check for secret leakage patterns
+    if let Err(e) = crate::core::script_secret_lint::validate_no_leaks(script) {
+        return (false, format!("secret leak detected: {e}"));
+    }
+
     match std::process::Command::new("sh")
         .args(["-c", script])
         .output()
