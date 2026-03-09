@@ -41,3 +41,4 @@
 - [Secret Audit & Policy Boundary Testing](./38-secret-audit-boundary.md)
 - [Container Image Builds](./39-container-image-builds.md)
 - [Security Scanner & Access Control](./40-security-scanner.md)
+- [Testing Strategy & Defect Analysis](./41-testing-strategy.md)
