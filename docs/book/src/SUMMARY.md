@@ -57,3 +57,4 @@
 - [DAG Ordering, Changeset & Templates](./54-dag-changeset-templates.md)
 - [Security, Audit, Cron & Encryption](./55-security-audit-cron-encryption.md)
 - [Compliance, Rules, Migration & MC/DC](./56-compliance-rules-migration.md)
+- [Planner: Proof, SAT & Why](./57-planner-proof-sat-why.md)
