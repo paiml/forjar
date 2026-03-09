@@ -1,5 +1,6 @@
 //! Core infrastructure logic — types, parsing, resolution, planning, execution.
 
+pub mod cis_ubuntu_pack;
 pub mod codegen;
 pub mod compliance;
 pub mod compliance_pack;
@@ -12,6 +13,7 @@ pub mod migrate;
 pub mod parser;
 pub mod planner;
 pub mod plugin_dispatch;
+pub mod plugin_hot_reload;
 pub mod plugin_loader;
 pub mod promotion;
 pub mod promotion_events;
@@ -32,6 +34,7 @@ pub mod state_encryption;
 pub mod store;
 pub mod task;
 pub mod types;
+pub mod webhook_source;
 
 pub mod do330;
 pub mod ferrocene;
