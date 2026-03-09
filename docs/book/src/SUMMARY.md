@@ -64,3 +64,4 @@
 - [Task Framework Runtime](./61-task-runtime.md)
 - [HF Config, Mutation Testing & Registry Push](./62-hf-mutation-registry.md)
 - [Recipe Conversion, Pin Tripwire & Resolution](./63-convert-pin-tripwire.md)
+- [Sandbox Lifecycle & Derivation Execution](./64-sandbox-derivation.md)
