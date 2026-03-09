@@ -47,3 +47,4 @@
 - [Include Hardening & Deep Validation](./44-include-deep-validation.md)
 - [Progressive Rollout & Promotion Gates](./45-rollout-promotion.md)
 - [Cron Source, Ephemeral Secrets & State Encryption](./46-cron-ephemeral-encryption.md)
+- [Safety Certification & Supply Chain Integrity](./47-safety-certification.md)
