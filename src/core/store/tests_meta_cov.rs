@@ -156,3 +156,66 @@ fn write_meta_overwrites() {
     assert_eq!(loaded.store_hash, "blake3:v2");
     assert_eq!(loaded.arch, "aarch64");
 }
+
+// ── write_meta: temp file is cleaned up ─────────────────────────
+
+#[test]
+fn write_meta_no_tmp_file_left() {
+    let dir = tempfile::tempdir().unwrap();
+    let entry_dir = dir.path().join("clean");
+    let meta = new_meta("blake3:c", "blake3:r", &[], "x86_64", "apt");
+    write_meta(&entry_dir, &meta).unwrap();
+    // Verify no .tmp file remains
+    let tmp = entry_dir.join("meta.yaml.tmp");
+    assert!(!tmp.exists());
+}
+
+// ── new_meta: multiple inputs ───────────────────────────────────
+
+#[test]
+fn new_meta_multiple_inputs() {
+    let inputs = vec![
+        "blake3:in1".to_string(),
+        "blake3:in2".to_string(),
+        "blake3:in3".to_string(),
+    ];
+    let m = new_meta("blake3:x", "blake3:r", &inputs, "x86_64", "apt");
+    assert_eq!(m.input_hashes.len(), 3);
+}
+
+// ── read_meta: references preserved ─────────────────────────────
+
+#[test]
+fn write_read_preserves_references() {
+    let dir = tempfile::tempdir().unwrap();
+    let entry_dir = dir.path().join("refs");
+    let mut meta = new_meta("blake3:r", "blake3:r", &[], "x86_64", "apt");
+    meta.references = vec!["blake3:ref1".to_string(), "blake3:ref2".to_string()];
+    write_meta(&entry_dir, &meta).unwrap();
+    let loaded = read_meta(&entry_dir).unwrap();
+    assert_eq!(loaded.references.len(), 2);
+}
+
+// ── provenance: all fields populated ────────────────────────────
+
+#[test]
+fn provenance_all_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    let entry_dir = dir.path().join("full-prov");
+    let mut meta = new_meta("blake3:fp", "blake3:r", &[], "x86_64", "nix");
+    meta.provenance = Some(Provenance {
+        origin_provider: "nix".to_string(),
+        origin_ref: Some("nixpkgs/unstable".to_string()),
+        origin_hash: Some("abc123".to_string()),
+        derived_from: Some("blake3:parent".to_string()),
+        derivation_depth: 3,
+    });
+    write_meta(&entry_dir, &meta).unwrap();
+    let loaded = read_meta(&entry_dir).unwrap();
+    let prov = loaded.provenance.unwrap();
+    assert_eq!(prov.origin_provider, "nix");
+    assert_eq!(prov.origin_ref, Some("nixpkgs/unstable".to_string()));
+    assert_eq!(prov.origin_hash, Some("abc123".to_string()));
+    assert_eq!(prov.derived_from, Some("blake3:parent".to_string()));
+    assert_eq!(prov.derivation_depth, 3);
+}

@@ -215,6 +215,95 @@ fn acquire_release_process_lock() {
     assert!(!lock_path.exists());
 }
 
+// ── update_global_lock ───────────────────────────────────────────
+
+#[test]
+fn update_global_lock_creates_new() {
+    let dir = tempfile::tempdir().unwrap();
+    let results = vec![
+        ("web".to_string(), 3usize, 2usize, 1usize),
+        ("db".to_string(), 2, 2, 0),
+    ];
+    update_global_lock(dir.path(), "my-stack", &results).unwrap();
+    let lock = load_global_lock(dir.path()).unwrap().unwrap();
+    assert_eq!(lock.name, "my-stack");
+    assert_eq!(lock.machines.len(), 2);
+    assert_eq!(lock.machines["web"].resources, 3);
+    assert_eq!(lock.machines["web"].converged, 2);
+    assert_eq!(lock.machines["web"].failed, 1);
+}
+
+#[test]
+fn update_global_lock_updates_existing() {
+    let dir = tempfile::tempdir().unwrap();
+    let results1 = vec![("web".to_string(), 3usize, 3usize, 0usize)];
+    update_global_lock(dir.path(), "my-stack", &results1).unwrap();
+    let results2 = vec![("web".to_string(), 4, 3, 1)];
+    update_global_lock(dir.path(), "my-stack", &results2).unwrap();
+    let lock = load_global_lock(dir.path()).unwrap().unwrap();
+    assert_eq!(lock.machines["web"].resources, 4);
+    assert_eq!(lock.machines["web"].failed, 1);
+}
+
+// ── save_lock / load_lock ───────────────────────────────────────
+
+#[test]
+fn save_load_lock_round_trip() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock = new_lock("web", "web.example.com");
+    save_lock(dir.path(), &lock).unwrap();
+    let loaded = load_lock(dir.path(), "web").unwrap().unwrap();
+    assert_eq!(loaded.machine, "web");
+    assert_eq!(loaded.hostname, "web.example.com");
+}
+
+#[test]
+fn load_lock_nonexistent() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = load_lock(dir.path(), "ghost").unwrap();
+    assert!(result.is_none());
+}
+
+// ── save_global_lock / load_global_lock ─────────────────────────
+
+#[test]
+fn save_load_global_lock_round_trip() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock = new_global_lock("test-stack");
+    save_global_lock(dir.path(), &lock).unwrap();
+    let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+    assert_eq!(loaded.name, "test-stack");
+}
+
+#[test]
+fn load_global_lock_nonexistent() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = load_global_lock(dir.path()).unwrap();
+    assert!(result.is_none());
+}
+
+// ── persist_outputs ─────────────────────────────────────────────
+
+#[test]
+fn persist_outputs_creates_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut outputs = indexmap::IndexMap::new();
+    outputs.insert("db_url".to_string(), "postgres://localhost/db".to_string());
+    persist_outputs(dir.path(), "my-stack", &outputs).unwrap();
+    let lock = load_global_lock(dir.path()).unwrap().unwrap();
+    assert_eq!(lock.outputs["db_url"], "postgres://localhost/db");
+}
+
+// ── resolve_outputs ─────────────────────────────────────────────
+
+#[test]
+fn resolve_outputs_empty() {
+    let yaml = "version: '1.0'\nname: test\nmachines: {}\nresources: {}\n";
+    let config: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let resolved = resolve_outputs(&config);
+    assert!(resolved.is_empty());
+}
+
 #[test]
 fn acquire_stale_lock_removed() {
     let dir = tempfile::tempdir().unwrap();
