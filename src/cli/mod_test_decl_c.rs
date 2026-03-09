@@ -62,3 +62,9 @@ mod tests_dispatch_misc_b_cov;
 mod tests_lock_lifecycle_cov;
 #[cfg(test)]
 mod tests_infra_state_cov;
+#[cfg(test)]
+mod tests_config_merge_cov;
+#[cfg(test)]
+mod tests_lock_repair_cov;
+#[cfg(test)]
+mod tests_recipe_registry_cov;
