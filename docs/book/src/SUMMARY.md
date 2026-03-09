@@ -33,3 +33,5 @@
 - [Event-Driven Automation](./30-event-driven.md)
 - [Ephemeral Secrets](./31-ephemeral-secrets.md)
 - [Rulebook Validation](./32-rules-validation.md)
+- [Progressive Rollout](./33-progressive-rollout.md)
+- [Compliance Packs](./34-compliance-packs.md)
