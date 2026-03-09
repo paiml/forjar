@@ -578,6 +578,79 @@ fn f3500_6_append_only_history() {
     );
 }
 
+/// F-3500-1: Environment isolation.
+/// Apply to dev; REJECT if staging state modified.
+#[test]
+fn f3500_1_environment_state_isolation() {
+    use forjar::core::types::environment::env_state_dir;
+
+    let base = tempfile::tempdir().unwrap();
+    let dev_dir = env_state_dir(base.path(), "dev");
+    let staging_dir = env_state_dir(base.path(), "staging");
+
+    // Create state for dev
+    std::fs::create_dir_all(&dev_dir).unwrap();
+    std::fs::write(dev_dir.join("state.lock"), "dev-state-v1").unwrap();
+
+    // Create state for staging
+    std::fs::create_dir_all(&staging_dir).unwrap();
+    std::fs::write(staging_dir.join("state.lock"), "staging-state-v1").unwrap();
+
+    // Simulate "apply to dev" by modifying dev state
+    std::fs::write(dev_dir.join("state.lock"), "dev-state-v2").unwrap();
+
+    // Staging state must NOT be modified
+    let staging_state = std::fs::read_to_string(staging_dir.join("state.lock")).unwrap();
+    assert_eq!(
+        staging_state, "staging-state-v1",
+        "REJECT: staging state was modified when applying to dev"
+    );
+}
+
+/// F-3500-5: Environment diff is accurate.
+/// Change one param; REJECT if diff doesn't show exactly one change.
+#[test]
+fn f3500_5_diff_accuracy() {
+    use forjar::core::types::environment::*;
+    use forjar::core::types::Machine;
+    use indexmap::IndexMap;
+
+    let base_params = HashMap::new();
+    let mut base_machines = IndexMap::new();
+    base_machines.insert("web".into(), Machine::ssh("web", "10.0.0.1", "root"));
+
+    let mut dev = Environment::default();
+    dev.params
+        .insert("port".into(), serde_yaml_ng::Value::String("8080".into()));
+
+    let mut staging = Environment::default();
+    staging
+        .params
+        .insert("port".into(), serde_yaml_ng::Value::String("8443".into()));
+
+    let diff = diff_environments(
+        "dev",
+        &dev,
+        "staging",
+        &staging,
+        &base_params,
+        &base_machines,
+    );
+
+    assert_eq!(
+        diff.param_diffs.len(),
+        1,
+        "REJECT: diff should show exactly one param change, got {}",
+        diff.param_diffs.len()
+    );
+    assert_eq!(diff.param_diffs[0].key, "port");
+    assert_eq!(
+        diff.machine_diffs.len(),
+        0,
+        "REJECT: no machine changes expected"
+    );
+}
+
 /// F-3500-7: No external CI/CD dependency.
 #[test]
 fn f3500_7_no_cicd_sdk() {
