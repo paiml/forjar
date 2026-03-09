@@ -293,6 +293,95 @@ fn f3200_6_no_opa_rego() {
 
 // ─── F-3300: Ephemeral Values & State Encryption ───────────────────
 
+/// F-3300-1: Ephemeral values never in state.
+/// Set ephemeral param, store record; REJECT if cleartext found in state record.
+#[test]
+fn f3300_1_ephemeral_never_in_state() {
+    use forjar::core::ephemeral::{to_records, ResolvedEphemeral};
+
+    let secret_value = "super-secret-database-password-12345";
+    let resolved = vec![ResolvedEphemeral {
+        key: "db_pass".into(),
+        value: secret_value.into(),
+        hash: blake3::hash(secret_value.as_bytes()).to_hex().to_string(),
+    }];
+
+    let records = to_records(&resolved);
+    assert_eq!(records.len(), 1);
+
+    // The record must contain the hash, NOT the plaintext
+    let record = &records[0];
+    assert_eq!(record.key, "db_pass");
+    assert_ne!(
+        record.hash, secret_value,
+        "REJECT: plaintext secret stored in record"
+    );
+    assert!(
+        !record.hash.contains(secret_value),
+        "REJECT: plaintext secret embedded in hash field"
+    );
+
+    // Verify hash is a valid BLAKE3 hex string (64 chars)
+    assert_eq!(record.hash.len(), 64, "REJECT: hash should be 64 hex chars");
+
+    // Serialize the record to JSON and verify no plaintext
+    let json = serde_json::to_string(&record).unwrap();
+    assert!(
+        !json.contains(secret_value),
+        "REJECT: plaintext secret found in serialized state record"
+    );
+}
+
+/// F-3300-2: Drift detection works on ephemeral.
+/// Change ephemeral secret, run drift; REJECT if drift not detected via hash.
+#[test]
+fn f3300_2_ephemeral_drift_detection() {
+    use forjar::core::ephemeral::*;
+
+    let original_secret = "original-api-key-abc123";
+    let changed_secret = "changed-api-key-xyz789";
+
+    // Store the original hash
+    let original = ResolvedEphemeral {
+        key: "api_key".into(),
+        value: original_secret.into(),
+        hash: blake3::hash(original_secret.as_bytes())
+            .to_hex()
+            .to_string(),
+    };
+    let stored_records = to_records(&[original]);
+
+    // Re-resolve with changed value
+    let current = vec![ResolvedEphemeral {
+        key: "api_key".into(),
+        value: changed_secret.into(),
+        hash: blake3::hash(changed_secret.as_bytes()).to_hex().to_string(),
+    }];
+
+    let drift = check_drift(&current, &stored_records);
+    assert_eq!(drift.len(), 1);
+    assert_eq!(
+        drift[0].status,
+        DriftStatus::Changed,
+        "REJECT: drift not detected when secret changed"
+    );
+
+    // Same value should show no drift
+    let same = vec![ResolvedEphemeral {
+        key: "api_key".into(),
+        value: original_secret.into(),
+        hash: blake3::hash(original_secret.as_bytes())
+            .to_hex()
+            .to_string(),
+    }];
+    let no_drift = check_drift(&same, &stored_records);
+    assert_eq!(
+        no_drift[0].status,
+        DriftStatus::Unchanged,
+        "REJECT: false drift on unchanged secret"
+    );
+}
+
 /// F-3300-4: BLAKE3 HMAC catches tampering.
 /// Flip one bit in content; REJECT if HMAC verification passes.
 #[test]
