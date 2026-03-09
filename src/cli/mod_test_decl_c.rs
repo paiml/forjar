@@ -40,3 +40,5 @@ mod tests_validate_ordering_ext_cov;
 mod tests_workspace_cov;
 #[cfg(test)]
 mod tests_build_distribution_cov;
+#[cfg(test)]
+mod tests_agent_registry_cov;
