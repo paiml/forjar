@@ -45,3 +45,4 @@
 - [Format Validation & LSP](./42-validation-lsp.md)
 - [Convergence Testing & Sandbox Isolation](./43-convergence-sandbox.md)
 - [Include Hardening & Deep Validation](./44-include-deep-validation.md)
+- [Progressive Rollout & Promotion Gates](./45-rollout-promotion.md)
