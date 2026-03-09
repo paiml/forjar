@@ -96,3 +96,5 @@ mod tests_destroy_ext_cov;
 mod tests_workspace_ext_cov;
 #[cfg(test)]
 mod tests_iso_export_ext_cov;
+#[cfg(test)]
+mod tests_diff_cmd_cov;
