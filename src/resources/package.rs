@@ -23,7 +23,10 @@ pub fn check_script(resource: &Resource) -> String {
         "cargo" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("command -v '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"))
+                .map(|p| {
+                    let (crate_name, _) = parse_cargo_features(p);
+                    format!("command -v '{crate_name}' >/dev/null 2>&1 && echo 'installed:{crate_name}' || echo 'missing:{crate_name}'")
+                })
                 .collect();
             checks.join("\n")
         }
@@ -119,11 +122,34 @@ fn apply_apt_absent(resource: &Resource) -> String {
     )
 }
 
+/// Parse a cargo package spec into (crate_name, features).
+///
+/// Supports `crate[feat1,feat2]` syntax for specifying cargo features inline.
+/// Example: `"whisper-apr[cli]"` → `("whisper-apr", vec!["cli"])`
+pub(crate) fn parse_cargo_features(pkg: &str) -> (&str, Vec<&str>) {
+    if let Some(bracket_start) = pkg.find('[') {
+        let crate_name = &pkg[..bracket_start];
+        let rest = &pkg[bracket_start + 1..];
+        let features_str = rest.trim_end_matches(']');
+        let features: Vec<&str> = features_str
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+        (crate_name, features)
+    } else {
+        (pkg, vec![])
+    }
+}
+
 /// FJ-51: Cargo binary cache — skip recompilation when cached binary exists.
 ///
 /// Cache layout: `$FORJAR_CACHE_DIR/<pkg>-<version>-<arch>/bin/`
 /// Default cache dir: `~/.forjar/cache/cargo`
 /// Disable: `FORJAR_NO_CARGO_CACHE=1`
+///
+/// Supports `crate[feat1,feat2]` syntax in package names to pass `--features`
+/// to `cargo install`. Example: `packages: ["whisper-apr[cli]"]`.
 fn apply_cargo_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
@@ -132,7 +158,15 @@ fn apply_cargo_present(resource: &Resource) -> String {
         .iter()
         .map(|p| match (source, version) {
             // Local path installs — no caching, always rebuild
-            (Some(s), _) => format!("cargo install --force --locked --path '{s}'"),
+            (Some(s), _) => {
+                let (_, features) = parse_cargo_features(p);
+                let features_arg = if features.is_empty() {
+                    String::new()
+                } else {
+                    format!(" --features '{}'", features.join(","))
+                };
+                format!("cargo install --force --locked --path '{s}'{features_arg}")
+            }
             (None, ver) => cargo_cached_install(p, ver),
         })
         .collect();
@@ -165,30 +199,53 @@ fn apply_cargo_present(resource: &Resource) -> String {
 ///
 /// On cache hit: copy pre-built binaries from cache, skip compilation entirely.
 /// On cache miss: `cargo install --root <staging>`, then populate cache + install.
+///
+/// Supports `crate[feat1,feat2]` syntax — features are passed via `--features`
+/// and included in the cache key to avoid feature-set collisions.
+///
+/// Detects empty staging bin dir (no binaries produced) and emits a clear error
+/// with a hint about `--features`, instead of failing on `cp` with a cryptic message.
 fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
+    let (crate_name, features) = parse_cargo_features(pkg);
     let ver_tag = version.unwrap_or("latest");
     let install_arg = match version {
-        Some(v) => format!("'{pkg}@{v}'"),
-        None => format!("'{pkg}'"),
+        Some(v) => format!("'{crate_name}@{v}'"),
+        None => format!("'{crate_name}'"),
+    };
+    let features_arg = if features.is_empty() {
+        String::new()
+    } else {
+        format!(" --features '{}'", features.join(","))
+    };
+    let cache_suffix = if features.is_empty() {
+        String::new()
+    } else {
+        format!("+{}", features.join(","))
     };
     format!(
-        "_CACHE_KEY=\"{pkg}-{ver_tag}-$(uname -m)\"\n\
+        "_CACHE_KEY=\"{crate_name}-{ver_tag}{cache_suffix}-$(uname -m)\"\n\
          _CACHE_DIR=\"${{FORJAR_CACHE_DIR:-$HOME/.forjar/cache/cargo}}/$_CACHE_KEY\"\n\
          if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
            cp \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
-           echo \"forjar: cache-hit {pkg} [$_CACHE_KEY]\"\n\
+           echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
            _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
-           cargo install --force --locked --root \"$_STAGING\" {install_arg}\n\
+           cargo install --force --locked --root \"$_STAGING\"{features_arg} {install_arg}\n\
+           if [ ! -d \"$_STAGING/bin\" ] || ! ls \"$_STAGING/bin/\"* >/dev/null 2>&1; then\n\
+             echo \"ERROR: cargo install {crate_name} produced no binaries\" >&2\n\
+             echo \"HINT: does the crate need --features? Use packages: [\\\"{crate_name}[feature_name]\\\"]\" >&2\n\
+             rm -rf \"$_STAGING\"\n\
+             exit 1\n\
+           fi\n\
            if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ]; then\n\
              mkdir -p \"$_CACHE_DIR\"\n\
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
            fi\n\
            cp \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
            rm -rf \"$_STAGING\"\n\
-           echo \"forjar: cached {pkg} [$_CACHE_KEY]\"\n\
+           echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\
          fi"
     )
 }
@@ -266,7 +323,10 @@ pub fn state_query_script(resource: &Resource) -> String {
         "cargo" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("command -v '{p}' >/dev/null 2>&1 && echo '{p}=installed' || echo '{p}=MISSING'"))
+                .map(|p| {
+                    let (crate_name, _) = parse_cargo_features(p);
+                    format!("command -v '{crate_name}' >/dev/null 2>&1 && echo '{crate_name}=installed' || echo '{crate_name}=MISSING'")
+                })
                 .collect();
             queries.join("\n")
         }
