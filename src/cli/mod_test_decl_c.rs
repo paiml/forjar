@@ -18,3 +18,7 @@ mod tests_pq_sbom_undo_b;
 mod tests_lock_merge_b;
 #[cfg(test)]
 mod tests_validate_ordering_pure;
+#[cfg(test)]
+mod tests_lock_lifecycle_b;
+#[cfg(test)]
+mod tests_validate_ownership_b_cov;
