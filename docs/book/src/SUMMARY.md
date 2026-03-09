@@ -26,3 +26,4 @@
 - [Query Engine Enrichments](./23-query-enrichments.md)
 - [Secret Providers](./24-secret-providers.md)
 - [OTLP Observability](./25-otlp-observability.md)
+- [Policy-as-Code](./26-policy-as-code.md)
