@@ -78,3 +78,5 @@ mod tests_fleet_ops_cov;
 mod tests_data_freshness_cov;
 #[cfg(test)]
 mod tests_fleet_reporting_cov;
+#[cfg(test)]
+mod tests_infra_query_cov;
