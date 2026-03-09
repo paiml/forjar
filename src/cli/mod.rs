@@ -128,6 +128,7 @@ pub(crate) mod output;
 mod parallel_multi_stack;
 mod plan;
 mod plugin;
+mod policy_coverage;
 mod pq_signing;
 mod preservation_check;
 mod print_helpers;

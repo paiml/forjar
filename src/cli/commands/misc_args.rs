@@ -381,6 +381,18 @@ pub struct PolicyArgs {
     pub sarif: bool,
 }
 
+/// FJ-3208: CLI arguments for the `policy-coverage` command.
+#[derive(clap::Args, Debug)]
+pub struct PolicyCoverageArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// CLI arguments for the `score` command.
 #[derive(clap::Args, Debug)]
 pub struct ScoreArgs {
