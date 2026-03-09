@@ -39,3 +39,5 @@
 - [Event-Driven Runtime](./36-rules-runtime.md)
 - [Plugin Hot-Reload & Webhook Events](./37-plugin-hot-reload.md)
 - [Secret Audit & Policy Boundary Testing](./38-secret-audit-boundary.md)
+- [Container Image Builds](./39-container-image-builds.md)
+- [Security Scanner & Access Control](./40-security-scanner.md)
