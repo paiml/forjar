@@ -175,12 +175,14 @@ mod tests {
     fn make_config(resources: &[(&str, &str)], policies: Vec<PolicyRule>) -> ForjarConfig {
         let mut config = ForjarConfig::default();
         for (name, rtype) in resources {
-            let mut resource = Resource::default();
-            resource.resource_type = match *rtype {
-                "file" => crate::core::types::ResourceType::File,
-                "package" => crate::core::types::ResourceType::Package,
-                "service" => crate::core::types::ResourceType::Service,
-                _ => crate::core::types::ResourceType::File,
+            let resource = Resource {
+                resource_type: match *rtype {
+                    "file" => crate::core::types::ResourceType::File,
+                    "package" => crate::core::types::ResourceType::Package,
+                    "service" => crate::core::types::ResourceType::Service,
+                    _ => crate::core::types::ResourceType::File,
+                },
+                ..Default::default()
             };
             config.resources.insert(name.to_string(), resource);
         }

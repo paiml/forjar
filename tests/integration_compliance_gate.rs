@@ -13,21 +13,27 @@ use tempfile::TempDir;
 fn make_config() -> ForjarConfig {
     let mut config = ForjarConfig::default();
 
-    let mut nginx = Resource::default();
-    nginx.resource_type = ResourceType::File;
-    nginx.owner = Some("root".into());
-    nginx.mode = Some("0644".into());
-    nginx.tags = vec!["web".into(), "config".into()];
+    let nginx = Resource {
+        resource_type: ResourceType::File,
+        owner: Some("root".into()),
+        mode: Some("0644".into()),
+        tags: vec!["web".into(), "config".into()],
+        ..Default::default()
+    };
     config.resources.insert("nginx-conf".into(), nginx);
 
-    let mut sshd = Resource::default();
-    sshd.resource_type = ResourceType::File;
-    sshd.owner = Some("root".into());
-    sshd.mode = Some("0600".into());
+    let sshd = Resource {
+        resource_type: ResourceType::File,
+        owner: Some("root".into()),
+        mode: Some("0600".into()),
+        ..Default::default()
+    };
     config.resources.insert("sshd-config".into(), sshd);
 
-    let mut docker = Resource::default();
-    docker.resource_type = ResourceType::Package;
+    let docker = Resource {
+        resource_type: ResourceType::Package,
+        ..Default::default()
+    };
     config.resources.insert("docker-ce".into(), docker);
 
     config

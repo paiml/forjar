@@ -153,7 +153,6 @@ fn print_text_result(name: &str, fired: &[&rules_runtime::EvalResult]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{ApplyAction, EventPattern, Rulebook, RulebookAction};
 
     fn write_rulebook(dir: &Path, content: &str) -> std::path::PathBuf {
         let path = dir.join("forjar-rules.yaml");

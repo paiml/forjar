@@ -425,6 +425,7 @@ resources:
 
 // ── FJ-3010: Selective force (--force-tag) ──
 
+#[allow(dead_code)]
 fn make_test_lock(machine: &str, resource_ids: &[&str]) -> StateLock {
     let mut resources = indexmap::IndexMap::new();
     for rid in resource_ids {

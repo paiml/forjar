@@ -29,7 +29,7 @@ fn extract_no_data_sources() {
 
 #[test]
 fn partition_all_ready() {
-    let stacks = vec![make_stack("net", &[]), make_stack("compute", &[])];
+    let stacks = [make_stack("net", &[]), make_stack("compute", &[])];
     let placed = BTreeSet::new();
     let refs: Vec<&StackInfo> = stacks.iter().collect();
     let (ready, still) = partition_ready(&refs, &placed);
@@ -39,7 +39,7 @@ fn partition_all_ready() {
 
 #[test]
 fn partition_none_ready() {
-    let stacks = vec![
+    let stacks = [
         make_stack("compute", &["net"]),
         make_stack("storage", &["compute"]),
     ];
@@ -52,7 +52,7 @@ fn partition_none_ready() {
 
 #[test]
 fn partition_some_ready() {
-    let stacks = vec![
+    let stacks = [
         make_stack("net", &[]),
         make_stack("compute", &["net"]),
     ];
@@ -65,7 +65,7 @@ fn partition_some_ready() {
 
 #[test]
 fn partition_with_placed() {
-    let stacks = vec![make_stack("compute", &["net"])];
+    let stacks = [make_stack("compute", &["net"])];
     let mut placed = BTreeSet::new();
     placed.insert("net".to_string());
     let refs: Vec<&StackInfo> = stacks.iter().collect();

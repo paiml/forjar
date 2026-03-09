@@ -111,7 +111,7 @@ fn sidecar_write_verify_roundtrip() {
 
     let lock_path = lock_file_path(dir.path(), "test");
     // write_b3_sidecar is called by save_lock, verify it exists
-    let sidecar = lock_path.with_extension("lock.yaml.b3");
+    let _sidecar = lock_path.with_extension("lock.yaml.b3");
     // The integrity module uses its own sidecar_path derivation
     let results = verify_state_integrity(dir.path());
     // Should have results (may be Ok or MissingSidecar depending on sidecar naming)
