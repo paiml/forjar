@@ -34,3 +34,9 @@ mod tests_status_counts_cov;
 mod tests_snapshot_cov;
 #[cfg(test)]
 mod tests_iso_export_cov;
+#[cfg(test)]
+mod tests_validate_ordering_ext_cov;
+#[cfg(test)]
+mod tests_workspace_cov;
+#[cfg(test)]
+mod tests_build_distribution_cov;
