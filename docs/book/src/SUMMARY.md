@@ -54,3 +54,4 @@
 - [Store Profiles, Sandbox & FAR Archives](./51-store-profiles-sandbox-far.md)
 - [Store Substitution, Provider Import & Kernel Mapping](./52-store-substitution-provider.md)
 - [Planner Analysis, Scoring & Tripwire](./53-planner-scoring-tripwire.md)
+- [DAG Ordering, Changeset & Templates](./54-dag-changeset-templates.md)
