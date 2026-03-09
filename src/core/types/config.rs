@@ -97,10 +97,13 @@ pub struct ForjarConfig {
     pub secrets: SecretsConfig,
 }
 
-/// FJ-2300: Secret provider configuration.
+/// FJ-2300 + FJ-3300: Secret provider configuration.
 ///
 /// Controls how `{{secrets.*}}` template variables are resolved.
 /// Providers: "env" (default), "file", "sops", "op" (1Password).
+///
+/// When `ephemeral: true`, resolved secret values are never written to state.
+/// Instead, a BLAKE3 hash is stored for drift detection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SecretsConfig {
     /// Provider type: "env" (default), "file", "sops", "op"
@@ -114,6 +117,12 @@ pub struct SecretsConfig {
     /// Encrypted file path for SOPS provider (used with `provider: sops`)
     #[serde(default)]
     pub file: Option<String>,
+
+    /// FJ-3300: When true, secret values are never persisted to state files.
+    /// A BLAKE3 hash is stored instead, enabling drift detection without
+    /// exposing cleartext secrets at rest.
+    #[serde(default)]
+    pub ephemeral: bool,
 }
 
 /// FJ-1200: A post-apply health check assertion.

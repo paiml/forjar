@@ -1,5 +1,6 @@
 //! FJ-013: Lock file management — load, save (atomic), path derivation.
 
+pub mod ephemeral;
 pub mod integrity;
 pub mod reconstruct;
 
@@ -162,14 +163,23 @@ pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMa
     resolved
 }
 
-/// FJ-1260: Persist resolved outputs into the global lock file.
+/// FJ-1260 + FJ-3300: Persist resolved outputs into the global lock file.
+///
+/// When `ephemeral` is true, secret values are replaced with BLAKE3 hashes
+/// before writing to state. This prevents cleartext secrets at rest while
+/// preserving drift detection capability.
 pub fn persist_outputs(
     state_dir: &Path,
     config_name: &str,
     outputs: &indexmap::IndexMap<String, String>,
+    ephemeral: bool,
 ) -> Result<(), String> {
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
-    lock.outputs = outputs.clone();
+    lock.outputs = if ephemeral {
+        ephemeral::redact_outputs(outputs, true)
+    } else {
+        outputs.clone()
+    };
     save_global_lock(state_dir, &lock)
 }
 

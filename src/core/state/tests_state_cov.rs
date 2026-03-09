@@ -289,7 +289,7 @@ fn persist_outputs_creates_lock() {
     let dir = tempfile::tempdir().unwrap();
     let mut outputs = indexmap::IndexMap::new();
     outputs.insert("db_url".to_string(), "postgres://localhost/db".to_string());
-    persist_outputs(dir.path(), "my-stack", &outputs).unwrap();
+    persist_outputs(dir.path(), "my-stack", &outputs, false).unwrap();
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.outputs["db_url"], "postgres://localhost/db");
 }
