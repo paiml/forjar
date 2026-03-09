@@ -340,6 +340,54 @@ tagging-policy         1.0.0    Custom     3       governance
 naming-conventions     1.0.0    Custom     5       governance
 ```
 
+## Pre-Apply Gate (FJ-3203)
+
+The compliance gate evaluates all packs in a directory before `forjar apply`
+proceeds. Any error-severity rule failure blocks the apply.
+
+### CLI Usage
+
+```bash
+# Evaluate compliance packs before applying
+forjar apply --policy-check --policy-dir ./compliance/
+
+# Default policy directory is policies/
+forjar apply --policy-check
+```
+
+When `--policy-check` is set, forjar:
+
+1. Discovers all `.yaml`/`.yml` packs in the policy directory
+2. Converts config resources to a flat field map (type, owner, mode, tags, etc.)
+3. Evaluates every rule in every pack against matching resources
+4. Counts error-severity and warning-severity failures
+5. Blocks apply if any error-severity rule fails
+
+### Example Output
+
+```
+  pack ownership-check: 2/2 rules passed (0 error, 0 warning)
+  pack hardening: 1/2 rules passed (0 error, 1 warning)
+
+Compliance gate: PASS (2 packs, 0 errors, 1 warnings)
+```
+
+### Programmatic API
+
+```rust
+use forjar::core::compliance_gate::{
+    check_compliance_gate, config_to_resource_map, format_gate_result,
+};
+
+let result = check_compliance_gate(policy_dir, &config, true)?;
+if !result.passed() {
+    eprintln!("{}", format_gate_result(&result));
+    // Block the operation
+}
+```
+
+See `cargo run --example compliance_gate` for a working demonstration.
+
 ## CI Integration
 
 Use compliance packs as a gate in CI pipelines:
