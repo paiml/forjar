@@ -69,3 +69,4 @@
 - [Refinement Types, Query Health & Run Logs](./66-refinement-query-runlog.md)
 - [Runtime Scoring Dimensions](./67-scoring-runtime.md)
 - [Ephemeral Secrets & Overlay Layers](./68-ephemeral-overlay.md)
+- [Metric Thresholds, Events & Diffs](./69-metric-event-diff.md)
