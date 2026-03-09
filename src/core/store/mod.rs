@@ -159,6 +159,8 @@ mod tests_sandbox_run;
 #[cfg(test)]
 mod tests_secret_scan;
 #[cfg(test)]
+mod tests_secret_scan_cov;
+#[cfg(test)]
 mod tests_store_diff;
 #[cfg(test)]
 mod tests_substitution;
