@@ -84,3 +84,5 @@ mod tests_infra_query_cov;
 mod tests_status_core_cov;
 #[cfg(test)]
 mod tests_store_ops_cov;
+#[cfg(test)]
+mod tests_check_cov;
