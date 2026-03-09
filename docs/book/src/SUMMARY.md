@@ -35,3 +35,5 @@
 - [Rulebook Validation](./32-rules-validation.md)
 - [Progressive Rollout](./33-progressive-rollout.md)
 - [Compliance Packs](./34-compliance-packs.md)
+- [Shell Providers & Script Security](./35-shell-providers.md)
+- [Event-Driven Runtime](./36-rules-runtime.md)
