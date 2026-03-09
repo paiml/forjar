@@ -88,3 +88,5 @@
 - [Sandbox Lifecycle & Derivation DAG](./85-sandbox-derivation-dag.md)
 - [Substitution Protocol & Conda Import](./86-substitution-conda.md)
 - [MCP Registry & Image Assembler](./87-mcp-registry-image.md)
+- [Content Chunking, Closures & Store Paths](./88-chunker-closure-path.md)
+- [Store Metadata, Secret Scanning & GC](./89-meta-secret-gc.md)
