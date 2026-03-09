@@ -34,7 +34,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Compare(..)
         | Commands::EnvDiff(..)
         | Commands::Explain(..)
-        | Commands::Env(..)) => dispatch_misc_config(cmd),
+        | Commands::Env(..)
+        | Commands::Environments(..)) => dispatch_misc_config(cmd),
 
         cmd @ (Commands::Rollback(..)
         | Commands::Rolling(..)
@@ -177,6 +178,7 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
             json,
         }) => cmd_explain(&file, &resource, json),
         Commands::Env(EnvArgs { file, json }) => cmd_env(&file, json),
+        Commands::Environments(subcmd) => super::environments::dispatch_environments(subcmd),
         _ => unreachable!(),
     }
 }

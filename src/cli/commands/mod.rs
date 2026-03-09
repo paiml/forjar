@@ -497,4 +497,8 @@ pub enum Commands {
     Bootstrap(BootstrapArgs),
     /// FJ-52: Generate autoinstall ISO or user-data
     Image(ImageArgs),
+
+    /// FJ-3500: Manage named environments (dev, staging, prod)
+    #[command(subcommand)]
+    Environments(EnvironmentsCmd),
 }

@@ -3,6 +3,7 @@
 pub mod ephemeral;
 pub mod integrity;
 pub mod reconstruct;
+pub mod rulebook_log;
 
 use super::types::{ApplyResult, GlobalLock, MachineSummary, StateLock};
 use provable_contracts_macros::contract;

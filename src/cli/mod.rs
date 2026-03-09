@@ -54,6 +54,7 @@ mod dispatch_validate_c;
 mod doctor;
 mod drift;
 mod drift_predict;
+mod environments;
 mod extract;
 mod fault_inject;
 mod fleet_ops;
