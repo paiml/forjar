@@ -15,6 +15,7 @@ pub mod planner;
 pub mod plugin_dispatch;
 pub mod plugin_hot_reload;
 pub mod plugin_loader;
+pub mod policy_boundary;
 pub mod policy_coverage;
 pub mod promotion;
 pub mod promotion_events;
@@ -26,6 +27,8 @@ pub mod rules_engine;
 pub mod rules_runtime;
 pub mod scoring;
 pub mod script_secret_lint;
+pub mod secret_audit;
+pub mod secret_namespace;
 pub mod secret_provider;
 pub mod secrets;
 pub mod security_scanner;
@@ -49,6 +52,8 @@ mod scoring_b;
 mod tests_compliance;
 #[cfg(test)]
 mod tests_kani_proofs;
+#[cfg(test)]
+mod tests_policy_boundary;
 #[cfg(test)]
 mod tests_proptest_convergence;
 #[cfg(test)]
