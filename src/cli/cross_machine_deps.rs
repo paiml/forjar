@@ -62,7 +62,12 @@ fn build_resource_machine_map(
     config
         .resources
         .iter()
-        .map(|(id, res)| (id.clone(), res.machine.to_vec()))
+        .map(|(id, res)| {
+            (
+                id.clone(),
+                res.machine.iter().map(|s| s.to_owned()).collect(),
+            )
+        })
         .collect()
 }
 
@@ -81,7 +86,7 @@ fn analyze_deps(
     let mut machines = std::collections::BTreeSet::new();
 
     for (id, res) in &config.resources {
-        let my_machines = res.machine.to_vec();
+        let my_machines: Vec<String> = res.machine.iter().map(|s| s.to_owned()).collect();
         for m in &my_machines {
             machines.insert(m.clone());
         }

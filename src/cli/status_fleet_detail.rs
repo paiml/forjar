@@ -83,8 +83,8 @@ pub(crate) fn cmd_status_machine_resource_count(file: &Path, json: bool) -> Resu
 fn count_resources_per_machine(config: &types::ForjarConfig) -> Vec<(String, usize)> {
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            *counts.entry(m).or_default() += 1;
+        for m in resource.machine.iter() {
+            *counts.entry(m.to_owned()).or_default() += 1;
         }
     }
     let mut result: Vec<(String, usize)> = counts.into_iter().collect();

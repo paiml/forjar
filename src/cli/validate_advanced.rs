@@ -181,9 +181,12 @@ fn find_resource_overlaps(config: &types::ForjarConfig) -> Vec<(String, String, 
 
 /// Find machines shared between two resources.
 fn shared_machines(ra: &types::Resource, rb: &types::Resource) -> Vec<String> {
-    let ma = ra.machine.to_vec();
-    let mb = rb.machine.to_vec();
-    ma.iter().filter(|m| mb.contains(m)).cloned().collect()
+    let mb: Vec<&str> = rb.machine.iter().collect();
+    ra.machine
+        .iter()
+        .filter(|m| mb.contains(m))
+        .map(|s| s.to_owned())
+        .collect()
 }
 
 /// Check if two resources conflict on the same machine.

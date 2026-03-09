@@ -63,6 +63,7 @@ tar = "0.4"
 sha2 = "0.10"
 flate2 = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
+dhat = { version = "0.3.3", optional = true }
 
 [build-dependencies]
 provable-contracts = { version = "0.1" }
@@ -71,6 +72,7 @@ provable-contracts = { version = "0.1" }
 tempfile.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"
+dhat = "0.3.3"
 
 [[bench]]
 name = "core_bench"
@@ -88,10 +90,15 @@ harness = false
 name = "cli_bench"
 harness = false
 
+[[bench]]
+name = "memory_bench"
+harness = true
+
 [features]
 encryption = ["dep:age"]
 container-test = []
 gpu-container-test = []
+dhat-heap = ["dep:dhat"]
 
 [package.metadata.docs.rs]
 all-features = true

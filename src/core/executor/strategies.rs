@@ -10,7 +10,7 @@ pub(crate) fn apply_machines_sequential(
     plan: &ExecutionPlan,
     locks: &mut HashMap<String, StateLock>,
 ) -> Result<Vec<ApplyResult>, String> {
-    let mut results = Vec::new();
+    let mut results = Vec::with_capacity(target_machines.len());
     for machine_name in target_machines {
         let machine = match cfg.config.machines.get(*machine_name) {
             Some(m) => m,

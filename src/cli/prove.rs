@@ -57,7 +57,7 @@ fn collect_proofs(
 
 /// Check if a resource's machine matches the filter.
 fn machine_matches(resource: &types::Resource, filter: &str) -> bool {
-    resource.machine.to_vec().iter().any(|m| m == filter)
+    resource.machine.iter().any(|m| m == filter)
 }
 
 fn prove_codegen_completeness(
@@ -172,9 +172,8 @@ fn prove_state_coverage(
 
         total += 1;
 
-        let machines = resource.machine.to_vec();
-        for machine in machines {
-            if let Ok(Some(lock)) = state::load_lock(state_dir, &machine) {
+        for machine in resource.machine.iter() {
+            if let Ok(Some(lock)) = state::load_lock(state_dir, machine) {
                 if lock.resources.contains_key(id) {
                     covered += 1;
                     break;

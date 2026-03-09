@@ -79,8 +79,12 @@ pub(crate) fn cmd_run(
     }
 
     // Execute via transport
-    let machine_names = resource.machine.to_vec();
-    let machine_name = machine_names.first().cloned().unwrap_or_default();
+    let machine_name = resource
+        .machine
+        .iter()
+        .next()
+        .map(|s| s.to_owned())
+        .unwrap_or_default();
     let machine = config
         .machines
         .get(&machine_name)

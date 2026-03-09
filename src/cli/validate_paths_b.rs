@@ -206,8 +206,8 @@ pub(crate) fn cmd_validate_check_resource_count(
 fn count_resources_per_machine(config: &types::ForjarConfig) -> HashMap<String, usize> {
     let mut counts: HashMap<String, usize> = HashMap::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            *counts.entry(m).or_default() += 1;
+        for m in resource.machine.iter() {
+            *counts.entry(m.to_owned()).or_default() += 1;
         }
     }
     counts

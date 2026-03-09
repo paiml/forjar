@@ -428,7 +428,7 @@ fn render_bench_table(
                 .and_then(|bl| bl.iter().find(|b| b.name == r.name))
                 .map(|b| {
                     let d = (r.avg_us() - b.avg_us) / b.avg_us * 100.0;
-                    colors::delta(d)
+                    colors::delta_lower_is_better(d)
                 })
                 .unwrap_or_else(|| "—".to_string());
             out.result(&format!(

@@ -177,7 +177,7 @@ pub(crate) fn find_content_hash_duplicates(
                 continue;
             }
             let h = hash_content(c);
-            let machines = resource.machine.to_vec();
+            let machines: Vec<String> = resource.machine.iter().map(|s| s.to_owned()).collect();
             by_hash.entry(h).or_default().push((name.clone(), machines));
         }
     }
@@ -245,17 +245,17 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
 /// a machine that does not exist in the config's `machines` map.
 /// The sentinel value `localhost` is always considered valid.
 fn find_machine_affinity_violations(config: &types::ForjarConfig) -> Vec<(String, String)> {
-    let defined: std::collections::HashSet<&String> = config.machines.keys().collect();
+    let defined: std::collections::HashSet<&str> =
+        config.machines.keys().map(|k| k.as_str()).collect();
     let mut warnings = Vec::new();
 
     for (name, resource) in &config.resources {
-        let targets = resource.machine.to_vec();
-        for target in &targets {
+        for target in resource.machine.iter() {
             if target == "localhost" {
                 continue;
             }
             if !defined.contains(target) {
-                warnings.push((name.clone(), target.clone()));
+                warnings.push((name.clone(), target.to_owned()));
             }
         }
     }

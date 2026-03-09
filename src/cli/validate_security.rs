@@ -15,14 +15,15 @@ fn find_secret_scope_warnings(config: &types::ForjarConfig) -> Vec<(String, Stri
         if !has_secret {
             continue;
         }
-        let machines = resource.machine.to_vec();
-        if machines.len() > 1 {
+        let machine_count = resource.machine.iter().count();
+        if machine_count > 1 {
+            let machine_list: Vec<&str> = resource.machine.iter().collect();
             warnings.push((
                 name.clone(),
                 format!(
                     "references secrets and targets {} machines: [{}]",
-                    machines.len(),
-                    machines.join(", ")
+                    machine_count,
+                    machine_list.join(", ")
                 ),
             ));
         }

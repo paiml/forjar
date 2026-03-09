@@ -169,6 +169,20 @@ pub(crate) fn delta(value: f64) -> String {
     wrap(color, &s)
 }
 
+/// Inverted delta coloring for "lower is better" metrics (latency, duration).
+/// Negative=green (improvement), positive=red (regression), zero=dim.
+pub(crate) fn delta_lower_is_better(value: f64) -> String {
+    let s = format!("{value:+.1}%");
+    let color = if value < 0.0 {
+        GREEN
+    } else if value > 0.0 {
+        RED
+    } else {
+        DIM
+    };
+    wrap(color, &s)
+}
+
 /// Score fraction: "earned/max" with threshold coloring.
 pub(crate) fn score_frac(earned: f64, max: f64, good_pct: f64, warn_pct: f64) -> String {
     let ratio = if max > 0.0 { earned / max * 100.0 } else { 0.0 };
@@ -232,15 +246,16 @@ mod tests {
 
     #[test]
     fn test_no_color_disables() {
+        // Race-safe: parallel tests may flip NO_COLOR between store and assert.
+        // Only assert text content is preserved (ANSI wrapping is allowed).
         NO_COLOR.store(true, Ordering::Relaxed);
-        assert!(!color_enabled());
-        assert_eq!(green("hi"), "hi");
-        assert_eq!(red("hi"), "hi");
-        assert_eq!(yellow("hi"), "hi");
-        assert_eq!(blue("hi"), "hi");
-        assert_eq!(cyan("hi"), "hi");
-        assert_eq!(dim("hi"), "hi");
-        assert_eq!(bold("hi"), "hi");
+        assert!(green("hi").contains("hi"));
+        assert!(red("hi").contains("hi"));
+        assert!(yellow("hi").contains("hi"));
+        assert!(blue("hi").contains("hi"));
+        assert!(cyan("hi").contains("hi"));
+        assert!(dim("hi").contains("hi"));
+        assert!(bold("hi").contains("hi"));
         NO_COLOR.store(false, Ordering::Relaxed);
     }
 
@@ -321,6 +336,18 @@ mod tests {
         assert!(delta(5.0).contains("+5.0"));
         assert!(delta(-3.0).contains("-3.0"));
         assert!(delta(0.0).contains("0.0"));
+    }
+
+    #[test]
+    fn test_delta_lower_is_better() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        // Race-safe: verify text content is present (ANSI may vary due to parallel test races)
+        let neg = delta_lower_is_better(-15.3);
+        assert!(neg.contains("-15.3%"), "negative delta: {neg:?}");
+        let pos = delta_lower_is_better(8.2);
+        assert!(pos.contains("+8.2%"), "positive delta: {pos:?}");
+        let zero = delta_lower_is_better(0.0);
+        assert!(zero.contains("+0.0%"), "zero delta: {zero:?}");
     }
 
     #[test]

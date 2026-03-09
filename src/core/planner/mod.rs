@@ -15,7 +15,7 @@ pub fn plan(
     // FJ-1210: Apply moved blocks — rename resource keys in lock state
     let locks = apply_moved_blocks(&config.moved, locks);
 
-    let mut changes = Vec::new();
+    let mut changes = Vec::with_capacity(execution_order.len());
     let mut to_create = 0u32;
     let mut to_update = 0u32;
     let mut to_destroy = 0u32;
@@ -34,12 +34,12 @@ pub fn plan(
         // Resolve templates before hashing so planner hash matches executor hash
         let resolved = resolve_or_fallback(resource_id, resource, config);
 
-        for machine_name in resource.machine.to_vec() {
-            if !passes_machine_filters(resource, &machine_name, resource_id, config) {
+        for machine_name in resource.machine.iter() {
+            if !passes_machine_filters(resource, machine_name, resource_id, config) {
                 continue;
             }
 
-            let action = determine_action(resource_id, &resolved, &machine_name, &locks);
+            let action = determine_action(resource_id, &resolved, machine_name, &locks);
             let description = describe_action(resource_id, resource, &action);
 
             match action {
@@ -51,7 +51,7 @@ pub fn plan(
 
             changes.push(PlannedChange {
                 resource_id: resource_id.clone(),
-                machine: machine_name,
+                machine: machine_name.to_owned(),
                 resource_type: resource.resource_type.clone(),
                 action,
                 description,

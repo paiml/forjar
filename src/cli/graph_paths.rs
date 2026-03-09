@@ -271,8 +271,8 @@ fn compute_coupling_scores(config: &types::ForjarConfig) -> Vec<(String, String,
             if rb.depends_on.contains(names[i]) {
                 score += 2;
             }
-            let ma: HashSet<String> = ra.machine.to_vec().into_iter().collect();
-            let mb: HashSet<String> = rb.machine.to_vec().into_iter().collect();
+            let ma: HashSet<&str> = ra.machine.iter().collect();
+            let mb: HashSet<&str> = rb.machine.iter().collect();
             if !ma.is_disjoint(&mb) {
                 score += 1;
             }

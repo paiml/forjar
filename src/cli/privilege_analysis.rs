@@ -86,8 +86,7 @@ pub(crate) fn cmd_privilege_analysis(
 
     for (id, resource) in &config.resources {
         if let Some(mf) = machine_filter {
-            let machines = resource.machine.to_vec();
-            if !machines.iter().any(|m| m == mf) {
+            if !resource.machine.iter().any(|m| m == mf) {
                 continue;
             }
         }

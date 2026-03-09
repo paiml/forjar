@@ -172,8 +172,8 @@ fn collect_state_invariants(
     state_dir: &Path,
     invariants: &mut Vec<Invariant>,
 ) {
-    for machine in res.machine.to_vec() {
-        let lock_path = state_dir.join(&machine).join("state.lock.yaml");
+    for machine in res.machine.iter() {
+        let lock_path = state_dir.join(machine).join("state.lock.yaml");
         invariants.push(Invariant {
             id: format!("{id}-{machine}-state-exists"),
             category: "state".to_string(),

@@ -8,8 +8,8 @@ fn lint_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     let mut referenced = std::collections::HashSet::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            referenced.insert(m);
+        for m in resource.machine.iter() {
+            referenced.insert(m.to_owned());
         }
     }
     for machine_name in config.machines.keys() {
@@ -75,12 +75,11 @@ fn lint_dependency_issues(config: &types::ForjarConfig) -> Vec<String> {
                 ));
             }
         }
-        let my_machines: std::collections::HashSet<String> =
-            resource.machine.to_vec().into_iter().collect();
+        let my_machines: std::collections::HashSet<&str> = resource.machine.iter().collect();
         for dep in &resource.depends_on {
             if let Some(dep_resource) = config.resources.get(dep) {
-                let dep_machines: std::collections::HashSet<String> =
-                    dep_resource.machine.to_vec().into_iter().collect();
+                let dep_machines: std::collections::HashSet<&str> =
+                    dep_resource.machine.iter().collect();
                 if my_machines.is_disjoint(&dep_machines) {
                     warnings.push(format!(
                         "resource '{id}' depends on '{dep}' but they target different machines"

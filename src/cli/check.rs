@@ -259,15 +259,15 @@ pub(crate) fn cmd_check(
             }
         };
 
-        for machine_name in resource.machine.to_vec() {
-            let machine = config.machines.get(&machine_name).unwrap_or(&localhost);
-            if skip_machine(&machine_name, machine_filter, resource, machine) {
+        for machine_name in resource.machine.iter() {
+            let machine = config.machines.get(machine_name).unwrap_or(&localhost);
+            if skip_machine(machine_name, machine_filter, resource, machine) {
                 total_skip += 1;
                 continue;
             }
 
             let (result, passed) =
-                run_single_check(machine, &check_script, resource_id, &machine_name, json);
+                run_single_check(machine, &check_script, resource_id, machine_name, json);
             if passed {
                 total_pass += 1;
             } else {

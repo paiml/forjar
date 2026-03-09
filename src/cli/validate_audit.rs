@@ -95,9 +95,9 @@ fn find_machine_coverage_gaps(config: &types::ForjarConfig) -> Vec<CoverageGap> 
     for resource in config.resources.values() {
         let rtype = resource.resource_type.to_string();
         fleet_types.insert(rtype.clone());
-        for machine in resource.machine.to_vec() {
+        for machine in resource.machine.iter() {
             machine_types
-                .entry(machine)
+                .entry(machine.to_owned())
                 .or_default()
                 .insert(rtype.clone());
         }
