@@ -14,3 +14,7 @@ mod tests_helpers_state_b;
 mod tests_helpers_time_b;
 #[cfg(test)]
 mod tests_pq_sbom_undo_b;
+#[cfg(test)]
+mod tests_lock_merge_b;
+#[cfg(test)]
+mod tests_validate_ordering_pure;
