@@ -274,6 +274,8 @@ resources:
             notify_custom_sampling: None,
             notify_custom_digest: None,
             notify_custom_severity_filter: None,
+            policy_check: false,
+            policy_dir: PathBuf::from("policies"),
             refresh_only: false,
             encrypt_state: false,
             operator: None,

@@ -684,6 +684,14 @@ pub struct ApplyArgs {
     /// FJ-1020: Filter notifications by severity level
     #[arg(long)]
     pub notify_custom_severity_filter: Option<String>,
+    /// FJ-3203: Evaluate compliance packs as pre-apply gate (blocks on error-severity violations)
+    #[arg(long)]
+    pub policy_check: bool,
+
+    /// FJ-3203: Path to compliance pack directory (default: policies/)
+    #[arg(long, default_value = "policies")]
+    pub policy_dir: PathBuf,
+
     /// FJ-1230: Refresh state only — re-read live state without applying changes
     #[arg(long)]
     pub refresh_only: bool,
