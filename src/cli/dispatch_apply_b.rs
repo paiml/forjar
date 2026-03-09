@@ -231,6 +231,11 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         )?;
     }
 
+    // FJ-3203: Compliance pack pre-apply gate
+    if args.policy_check {
+        check_compliance_packs(&args.file, &args.policy_dir, verbose)?;
+    }
+
     let result = cmd_apply(
         &args.file,
         &sd,
@@ -340,4 +345,27 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     }
 
     result
+}
+
+/// FJ-3203: Check compliance packs as a pre-apply gate.
+fn check_compliance_packs(
+    file: &std::path::Path,
+    policy_dir: &std::path::Path,
+    verbose: bool,
+) -> Result<(), String> {
+    use super::helpers::parse_and_validate;
+    use crate::core::compliance_gate::{check_compliance_gate, format_gate_result};
+
+    let config = parse_and_validate(file)?;
+    let result = check_compliance_gate(policy_dir, &config, verbose)?;
+    if verbose {
+        eprintln!("{}", format_gate_result(&result));
+    }
+    if !result.passed() {
+        return Err(format!(
+            "compliance gate blocks apply: {} error(s) from {} pack(s)",
+            result.error_count, result.packs_evaluated
+        ));
+    }
+    Ok(())
 }
