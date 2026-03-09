@@ -22,3 +22,7 @@ mod tests_validate_ordering_pure;
 mod tests_lock_lifecycle_b;
 #[cfg(test)]
 mod tests_validate_ownership_b_cov;
+#[cfg(test)]
+mod tests_validate_paths_cov;
+#[cfg(test)]
+mod tests_init_c;
