@@ -26,3 +26,11 @@ mod tests_validate_ownership_b_cov;
 mod tests_validate_paths_cov;
 #[cfg(test)]
 mod tests_init_c;
+#[cfg(test)]
+mod tests_pq_signing_cov;
+#[cfg(test)]
+mod tests_status_counts_cov;
+#[cfg(test)]
+mod tests_snapshot_cov;
+#[cfg(test)]
+mod tests_iso_export_cov;
