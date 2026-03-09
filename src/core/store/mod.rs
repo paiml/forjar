@@ -143,6 +143,8 @@ mod tests_provider_exec;
 #[cfg(test)]
 mod tests_purity;
 #[cfg(test)]
+mod tests_query_cov;
+#[cfg(test)]
 mod tests_reference;
 #[cfg(test)]
 mod tests_registry_push;
