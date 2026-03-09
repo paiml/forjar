@@ -154,11 +154,52 @@ Running the `score_cookbook` example against all 61 cookbook recipes:
 
 **Discrimination power**: Composite σ = 2.1 for qualified recipes (below the σ ≥ 5 target). This is expected — the recipes share a common policy template, so they naturally cluster. Pending/blocked recipes show wider spread (32-41), confirming the engine discriminates across recipe maturity levels.
 
-## Falsification
+## Falsification (FJ-2803)
 
-Every scoring dimension has explicit rejection criteria. If a dimension fails its falsification test, it proves the dimension is measuring the wrong thing. See the platform spec (`docs/specifications/platform/16-recipe-quality-score.md`) for the full Popperian falsification framework, including:
+Every scoring dimension has explicit rejection criteria (per Popper, 1959). If a dimension fails its falsification test, it proves the dimension is measuring the wrong thing.
 
-- Per-dimension boundary tests
-- Cross-dimension discrimination requirement (σ ≥ 5)
-- Monotonicity invariant (adding safety features never decreases score)
-- Mutation testing target (≥85% mutants killed in scorer code)
+### Running Falsification
+
+```bash
+cargo run --example scoring_falsification
+```
+
+Output:
+
+```
+ForjarScore v2.0 — Popperian Falsification
+=======================================================
+
+[SAF] Safety dimension:
+  mode:0777       → SAF= 40  (must be ≤40) ✓
+  no files        → SAF=100  (must be 100) ✓
+
+[OBS] Observability dimension:
+  full policy     → OBS=100  (must be ≥90) ✓
+  disabled policy → OBS=  0  (must be ≤15) ✓
+
+[COR] Correctness dimension:
+  full convergence→ COR= 95  (must be ≥90) ✓
+  nothing passes  → COR=  0  (must be   0) ✓
+```
+
+### Key Criteria
+
+| Dimension | Falsifier | Boundary |
+|-----------|-----------|----------|
+| SAF | mode:0777 + secrets → SAF ≤ 40 | No files → SAF = 100 |
+| OBS | Full policy + hooks → OBS ≥ 90 | No policy → OBS ≤ 15 |
+| DOC | Copy-paste ≤ distinct comments | — |
+| RES | Tagged independence ≥ 60 | Deep DAG ≥ 60 |
+| CMP | Full composability ≥ 85 | No features = 0 |
+| COR | Full convergence ≥ 90 | Nothing passes = 0 |
+| IDM | Strong + zero changes ≥ 90 | 3 changes < 50 |
+| PRF | 33% of budget ≥ 70 | 200% of budget ≤ 25 |
+
+### Cross-Dimension Invariants
+
+- **Monotonicity**: Adding `deny_paths` never decreases static composite
+- **Discrimination**: Qualified vs pending recipes separate by ≥ 30 points
+- **Grade format**: Always `X/Y` (e.g., `A/A`, `B/pending`, `C/blocked`)
+
+See the full Popperian framework: `docs/specifications/platform/16-recipe-quality-score.md`
