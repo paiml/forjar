@@ -88,3 +88,11 @@ mod tests_store_ops_cov;
 mod tests_check_cov;
 #[cfg(test)]
 mod tests_observe_cov;
+#[cfg(test)]
+mod tests_lsp_cov;
+#[cfg(test)]
+mod tests_destroy_ext_cov;
+#[cfg(test)]
+mod tests_workspace_ext_cov;
+#[cfg(test)]
+mod tests_iso_export_ext_cov;
