@@ -2,14 +2,15 @@
 //!
 //! Each test states conditions under which the security or observability
 //! system would be rejected as invalid.
+#![allow(clippy::field_reassign_with_default)]
 
 use forjar::core::security_scanner::{scan, severity_counts, Severity};
 use forjar::core::types::{
     AuthzResult, CoverageLevel, CoverageReport, ForjarConfig, LogFilter, LogGcResult,
     LogTruncation, MutationOperator, MutationReport, MutationResult, MutationScore,
     OperatorIdentity, OperatorSource, PathPolicy, ProgressConfig, Resource, ResourceCoverage,
-    ResourceType, RunLogPath, SecretConfig, SecretProvider, SecretRef, SecretScanFinding,
-    SecretScanResult, StructuredLogOutput, VerbosityLevel,
+    ResourceType, RunLogPath, SecretProvider, SecretScanFinding, SecretScanResult,
+    StructuredLogOutput, VerbosityLevel,
 };
 
 // ── FJ-2300: Security Model ────────────────────────────────────────

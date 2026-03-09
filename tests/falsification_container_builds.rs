@@ -3,6 +3,7 @@
 //! Each test states conditions under which the container build system
 //! would be rejected as invalid. If any assertion fails, the build
 //! pipeline is measuring or producing the wrong thing.
+#![allow(clippy::field_reassign_with_default)]
 
 use forjar::core::store::layer_builder::{build_layer, compute_dual_digest, LayerEntry};
 use forjar::core::types::{

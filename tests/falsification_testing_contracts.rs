@@ -3,6 +3,7 @@
 //!
 //! Each test states conditions under which the testing framework or
 //! defect detection would be rejected as invalid.
+#![allow(clippy::field_reassign_with_default)]
 
 use forjar::core::types::{
     BehaviorEntry, BehaviorReport, BehaviorResult, BehaviorSpec, ContractAssertion, ContractKind,
