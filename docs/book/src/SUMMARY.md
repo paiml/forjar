@@ -55,3 +55,4 @@
 - [Store Substitution, Provider Import & Kernel Mapping](./52-store-substitution-provider.md)
 - [Planner Analysis, Scoring & Tripwire](./53-planner-scoring-tripwire.md)
 - [DAG Ordering, Changeset & Templates](./54-dag-changeset-templates.md)
+- [Security, Audit, Cron & Encryption](./55-security-audit-cron-encryption.md)
