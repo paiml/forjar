@@ -62,3 +62,4 @@
 - [Parser Validation, Policy & Recipe Expansion](./59-parser-policy-recipe.md)
 - [Docker Migration & Webhook Events](./60-migrate-webhook.md)
 - [Task Framework Runtime](./61-task-runtime.md)
+- [HF Config, Mutation Testing & Registry Push](./62-hf-mutation-registry.md)
