@@ -1,14 +1,10 @@
-//! Coverage tests for check.rs — verbose, tag filter, resource filter, no-check-script.
-
+//! Coverage tests for check.rs — filters, helpers, JSON formatting.
 use std::path::Path;
-
 fn write_config(dir: &Path, yaml: &str) -> std::path::PathBuf {
     let file = dir.join("forjar.yaml");
     std::fs::write(&file, yaml).unwrap();
     file
 }
-
-// ── verbose mode ────────────────────────────────────────────────────
 
 #[test]
 fn check_verbose_mode() {
@@ -67,8 +63,6 @@ resources:
     let result = super::check::cmd_check(&file, None, None, None, true, true);
     assert!(result.is_ok());
 }
-
-// ── tag filter ──────────────────────────────────────────────────────
 
 #[test]
 fn check_tag_filter_match() {
@@ -155,8 +149,6 @@ resources:
     let result = super::check::cmd_check(&file, None, None, Some("app"), true, false);
     assert!(result.is_ok());
 }
-
-// ── resource filter ─────────────────────────────────────────────────
 
 #[test]
 fn check_resource_filter_match() {
@@ -418,4 +410,91 @@ fn skip_machine_arch_match() {
         &resource,
         &machine
     ));
+}
+
+// ── localhost_machine ────────────────────────────────────────────────
+
+#[test]
+fn localhost_machine_fields() {
+    let m = super::check::localhost_machine();
+    assert_eq!(m.hostname, "localhost");
+    assert_eq!(m.addr, "127.0.0.1");
+    assert_eq!(m.user, "root");
+    assert_eq!(m.arch, "x86_64");
+    assert!(m.ssh_key.is_none());
+    assert!(m.roles.is_empty());
+}
+
+// ── make_check_result ────────────────────────────────────────────────
+
+#[test]
+fn make_check_result_pass() {
+    let r = super::check::make_check_result("nginx", "web", "pass", Some(0), String::new());
+    assert_eq!(r.resource_id, "nginx");
+    assert_eq!(r.machine, "web");
+    assert_eq!(r.status, "pass");
+    assert_eq!(r.exit_code, Some(0));
+    assert!(r.detail.is_empty());
+}
+
+#[test]
+fn make_check_result_fail() {
+    let r = super::check::make_check_result(
+        "nginx", "web", "fail", Some(1), "not running".to_string(),
+    );
+    assert_eq!(r.status, "fail");
+    assert_eq!(r.exit_code, Some(1));
+    assert_eq!(r.detail, "not running");
+}
+
+#[test]
+fn make_check_result_error() {
+    let r = super::check::make_check_result(
+        "pg", "db", "error", None, "connection refused".to_string(),
+    );
+    assert_eq!(r.status, "error");
+    assert!(r.exit_code.is_none());
+}
+
+// ── format_check_json ────────────────────────────────────────────────
+
+#[test]
+fn check_json_empty_results() {
+    let results: Vec<super::check::CheckResult> = vec![];
+    assert!(super::check::format_check_json("test", &results, 0, 0, 0).is_ok());
+}
+
+#[test]
+fn check_json_all_pass() {
+    let results = vec![
+        super::check::make_check_result("nginx", "web", "pass", Some(0), String::new()),
+    ];
+    assert!(super::check::format_check_json("test", &results, 1, 0, 0).is_ok());
+}
+
+#[test]
+fn check_json_with_failures() {
+    let results = vec![
+        super::check::make_check_result("nginx", "web", "pass", Some(0), String::new()),
+        super::check::make_check_result(
+            "redis", "db", "fail", Some(1), "not running".to_string(),
+        ),
+    ];
+    assert!(super::check::format_check_json("test", &results, 1, 1, 0).is_ok());
+}
+
+#[test]
+fn check_json_with_error() {
+    let results = vec![
+        super::check::make_check_result(
+            "pg", "db", "error", None, "connection refused".to_string(),
+        ),
+    ];
+    assert!(super::check::format_check_json("test", &results, 0, 1, 1).is_ok());
+}
+
+#[test]
+fn check_json_with_skip() {
+    let results: Vec<super::check::CheckResult> = vec![];
+    assert!(super::check::format_check_json("test", &results, 2, 0, 3).is_ok());
 }

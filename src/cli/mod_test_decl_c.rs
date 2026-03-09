@@ -106,3 +106,5 @@ mod tests_store_ops_ext_cov;
 mod tests_sovereignty_cov;
 #[cfg(test)]
 mod tests_dataset_lineage_cov;
+#[cfg(test)]
+mod tests_validate_deep_cov;

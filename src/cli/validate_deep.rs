@@ -4,7 +4,7 @@ use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
 
-fn check_templates_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_templates_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut unresolved = 0usize;
     for res in config.resources.values() {
         let yaml = serde_yaml_ng::to_string(res).unwrap_or_default();
@@ -25,7 +25,7 @@ fn check_templates_silent(config: &types::ForjarConfig) -> Result<(), String> {
     }
 }
 
-fn check_overlaps_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_overlaps_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut paths: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (name, res) in &config.resources {
@@ -47,7 +47,7 @@ fn check_cycles_silent(config: &types::ForjarConfig) -> Result<(), String> {
         .map_err(|e| format!("cycle detected: {e}"))
 }
 
-fn check_secrets_silent(file: &Path) -> Result<(), String> {
+pub(super) fn check_secrets_silent(file: &Path) -> Result<(), String> {
     let patterns = [
         "password:",
         "secret:",
@@ -79,7 +79,7 @@ fn check_secrets_silent(file: &Path) -> Result<(), String> {
     }
 }
 
-fn check_naming_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_naming_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut violations = 0usize;
     for name in config.resources.keys() {
         let ok = !name.is_empty()
@@ -100,7 +100,7 @@ fn check_naming_silent(config: &types::ForjarConfig) -> Result<(), String> {
     }
 }
 
-fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut issues = 0usize;
     for res in config.resources.values() {
         if format!("{:?}", res.resource_type) == "Unknown" {
@@ -114,7 +114,7 @@ fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> 
     }
 }
 
-fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut issues = 0usize;
     for (name, machine) in &config.machines {
         if machine.addr.is_empty() {
@@ -135,7 +135,7 @@ fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<(), String>
     }
 }
 
-fn check_machine_refs_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_machine_refs_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut missing = 0usize;
     for (_, res) in &config.resources {
         for m in res.machine.to_vec() {
@@ -151,7 +151,7 @@ fn check_machine_refs_silent(config: &types::ForjarConfig) -> Result<(), String>
     }
 }
 
-fn check_state_values_silent(config: &types::ForjarConfig) -> Result<(), String> {
+pub(super) fn check_state_values_silent(config: &types::ForjarConfig) -> Result<(), String> {
     use crate::core::types::ResourceType;
     let mut issues = 0usize;
     for res in config.resources.values() {
@@ -224,7 +224,7 @@ fn check_exhaustive_silent(config: &types::ForjarConfig) -> Result<(), String> {
 }
 
 /// Run all deep checks silently for JSON mode.
-fn run_deep_checks_silent(
+pub(super) fn run_deep_checks_silent(
     config: &types::ForjarConfig,
     file: &Path,
 ) -> Vec<(&'static str, Result<(), String>)> {
@@ -244,7 +244,7 @@ fn run_deep_checks_silent(
 }
 
 /// Collect pass/fail from check results and emit JSON.
-fn emit_deep_json(results: &[(&str, Result<(), String>)]) -> Result<(), String> {
+pub(super) fn emit_deep_json(results: &[(&str, Result<(), String>)]) -> Result<(), String> {
     let mut passed = 0usize;
     let mut failed = 0usize;
     let mut failures = Vec::new();
