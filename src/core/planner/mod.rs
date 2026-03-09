@@ -410,8 +410,12 @@ mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
 #[cfg(test)]
+mod tests_proof_cov;
+#[cfg(test)]
 mod tests_reversibility;
 #[cfg(test)]
 mod tests_when;
 #[cfg(test)]
 mod tests_why;
+#[cfg(test)]
+mod tests_why_cov;

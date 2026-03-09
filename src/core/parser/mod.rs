@@ -38,6 +38,8 @@ mod tests_misc_4;
 #[cfg(test)]
 mod tests_policy;
 #[cfg(test)]
+mod tests_resource_types_cov;
+#[cfg(test)]
 mod tests_sudo_inference;
 #[cfg(test)]
 mod tests_triggers;
