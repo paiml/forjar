@@ -15,6 +15,7 @@ pub mod planner;
 pub mod plugin_dispatch;
 pub mod plugin_hot_reload;
 pub mod plugin_loader;
+pub mod policy_coverage;
 pub mod promotion;
 pub mod promotion_events;
 pub mod purifier;

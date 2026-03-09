@@ -161,7 +161,7 @@ fn validate_action(
         }
     }
 
-    // Validate script is non-empty
+    // Validate script is non-empty and passes bashrs + secret lint
     if let Some(ref script) = action.script {
         if script.trim().is_empty() {
             issues.push(RuleIssue {
@@ -169,6 +169,23 @@ fn validate_action(
                 severity: IssueSeverity::Warning,
                 message: format!("action[{idx}] script is empty"),
             });
+        } else {
+            // FJ-3108/3204: bashrs purification check
+            if let Err(e) = crate::core::purifier::validate_script(script) {
+                issues.push(RuleIssue {
+                    rulebook: rb.name.clone(),
+                    severity: IssueSeverity::Error,
+                    message: format!("action[{idx}] bashrs lint failed: {e}"),
+                });
+            }
+            // FJ-3307: secret leak detection
+            if let Err(e) = crate::core::script_secret_lint::validate_no_leaks(script) {
+                issues.push(RuleIssue {
+                    rulebook: rb.name.clone(),
+                    severity: IssueSeverity::Error,
+                    message: format!("action[{idx}] secret leak: {e}"),
+                });
+            }
         }
     }
 
