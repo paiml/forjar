@@ -373,3 +373,99 @@ fn test_fj1398_brew_quoted_packages() {
     let script = apply_script(&r);
     assert!(script.contains("'jq; rm -rf /'"));
 }
+
+// --- Cargo features syntax tests ---
+
+/// FJ-51: parse_cargo_features extracts crate name and features from bracket syntax.
+#[test]
+fn test_parse_cargo_features_no_features() {
+    let (name, features) = super::package::parse_cargo_features("batuta");
+    assert_eq!(name, "batuta");
+    assert!(features.is_empty());
+}
+
+#[test]
+fn test_parse_cargo_features_single() {
+    let (name, features) = super::package::parse_cargo_features("whisper-apr[cli]");
+    assert_eq!(name, "whisper-apr");
+    assert_eq!(features, vec!["cli"]);
+}
+
+#[test]
+fn test_parse_cargo_features_multi() {
+    let (name, features) = super::package::parse_cargo_features("crate[feat1,feat2,feat3]");
+    assert_eq!(name, "crate");
+    assert_eq!(features, vec!["feat1", "feat2", "feat3"]);
+}
+
+/// FJ-51: cargo install with features passes --features flag.
+#[test]
+fn test_cargo_install_with_features() {
+    let mut r = make_apt_resource(&["whisper-apr[cli]"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("--features 'cli'"),
+        "must pass --features to cargo install, got: {script}"
+    );
+    assert!(
+        script.contains("'whisper-apr'"),
+        "must use bare crate name (not whisper-apr[cli]), got: {script}"
+    );
+}
+
+/// FJ-51: cargo install with features includes features in cache key.
+#[test]
+fn test_cargo_install_features_cache_key() {
+    let mut r = make_apt_resource(&["whisper-apr[cli]"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("whisper-apr-latest+cli"),
+        "cache key must include features suffix, got: {script}"
+    );
+}
+
+/// FJ-51: cargo check_script strips features from command name.
+#[test]
+fn test_cargo_check_strips_features() {
+    let mut r = make_apt_resource(&["whisper-apr[cli]"]);
+    r.provider = Some("cargo".to_string());
+    let script = check_script(&r);
+    assert!(
+        script.contains("command -v 'whisper-apr'"),
+        "check must use bare crate name, got: {script}"
+    );
+    assert!(
+        !script.contains("[cli]"),
+        "check must not contain feature brackets, got: {script}"
+    );
+}
+
+/// FJ-51: cargo state_query strips features from command name.
+#[test]
+fn test_cargo_state_query_strips_features() {
+    let mut r = make_apt_resource(&["whisper-apr[cli]"]);
+    r.provider = Some("cargo".to_string());
+    let script = state_query_script(&r);
+    assert!(
+        script.contains("command -v 'whisper-apr'"),
+        "state query must use bare crate name, got: {script}"
+    );
+}
+
+/// FJ-51: empty staging bin dir produces clear error with hint.
+#[test]
+fn test_cargo_install_empty_bin_error_hint() {
+    let mut r = make_apt_resource(&["some-lib-crate"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("produced no binaries"),
+        "must detect empty bin dir, got: {script}"
+    );
+    assert!(
+        script.contains("HINT"),
+        "must provide hint about --features, got: {script}"
+    );
+}
