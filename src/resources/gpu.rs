@@ -87,6 +87,11 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
 /// PMAT-036 + FJ-1009: Install nvidia driver only when nvidia-smi is absent.
 /// When nvidia-smi works, accept the host/vendor driver even on version mismatch
 /// (--gpus-all containers pass through the host driver which cannot be changed).
+///
+/// When nvidia-smi is absent AND apt-get install fails (e.g. no NVIDIA apt repo
+/// in containers), detect /.dockerenv as a container signal and accept gracefully
+/// instead of failing hard — the host is expected to provide GPU access via
+/// --gpus all / NVIDIA Container Toolkit.
 fn emit_nvidia_driver_install(script: &mut String, resource: &Resource) {
     let driver_version = resource.driver_version.as_deref().unwrap_or("");
     if !driver_version.is_empty() {
@@ -97,13 +102,19 @@ fn emit_nvidia_driver_install(script: &mut String, resource: &Resource) {
              \x20   '{driver_version}'*) ;;\n\
              \x20   *) echo \"NOTICE: requested driver {driver_version} but $INSTALLED_VER is installed (vendor/host driver — accepting)\" ;;\n\
              \x20 esac\n\
+             elif [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then\n\
+             \x20 echo \"NOTICE: container detected, skipping driver install (host provides GPU via --gpus all)\"\n\
              else\n\
              \x20 $SUDO apt-get install -y 'nvidia-driver-{driver_version}'\n\
              fi\n"
         ));
     } else {
         script.push_str(
-            "if ! command -v nvidia-smi >/dev/null 2>&1; then\n\
+            "if command -v nvidia-smi >/dev/null 2>&1; then\n\
+             \x20 true\n\
+             elif [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then\n\
+             \x20 echo \"NOTICE: container detected, skipping driver install (host provides GPU via --gpus all)\"\n\
+             else\n\
              \x20 $SUDO apt-get install -y nvidia-driver\n\
              fi\n",
         );
@@ -113,9 +124,15 @@ fn emit_nvidia_driver_install(script: &mut String, resource: &Resource) {
 fn emit_cuda_toolkit(script: &mut String, resource: &Resource) {
     if let Some(ref cuda) = resource.cuda_version {
         if !cuda.is_empty() {
+            let cuda_pkg = cuda.replace('.', "-");
             script.push_str(&format!(
-                "$SUDO apt-get install -y 'cuda-toolkit-{}'\n",
-                cuda.replace('.', "-")
+                "if command -v nvcc >/dev/null 2>&1; then\n\
+                 \x20 true\n\
+                 elif [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then\n\
+                 \x20 echo \"NOTICE: container detected, skipping CUDA toolkit install\"\n\
+                 else\n\
+                 \x20 $SUDO apt-get install -y 'cuda-toolkit-{cuda_pkg}'\n\
+                 fi\n"
             ));
         }
     }
