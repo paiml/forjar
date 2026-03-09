@@ -58,3 +58,4 @@
 - [Security, Audit, Cron & Encryption](./55-security-audit-cron-encryption.md)
 - [Compliance, Rules, Migration & MC/DC](./56-compliance-rules-migration.md)
 - [Planner: Proof, SAT & Why](./57-planner-proof-sat-why.md)
+- [Changeset, DAG, Templates & Codegen](./58-changeset-dag-template-codegen.md)
