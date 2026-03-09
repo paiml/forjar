@@ -50,3 +50,11 @@ mod tests_lock_merge_cov;
 mod tests_recipe_signing_cov;
 #[cfg(test)]
 mod tests_sbom_cov;
+#[cfg(test)]
+mod tests_destroy_cov;
+#[cfg(test)]
+mod tests_doctor_cov;
+#[cfg(test)]
+mod tests_undo_helpers_cov;
+#[cfg(test)]
+mod tests_dispatch_misc_b_cov;
