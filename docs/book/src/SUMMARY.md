@@ -79,3 +79,4 @@
 - [Generation Diffs, Tasks, Mutations & Observability](./76-diff-task-mutation-obs.md)
 - [Security Types, Container Builds & Generations](./77-security-container-gen.md)
 - [Refinement Types, Contract Tiers & CI Pipeline](./78-refinement-contract-ci.md)
+- [Test Runner, Query Engine & Handler Contracts](./79-test-query-handler.md)
