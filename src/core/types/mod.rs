@@ -12,6 +12,7 @@ mod contract_tier_types;
 mod coverage_types;
 mod distribution_types;
 mod doctor_types;
+pub mod environment;
 mod generation_diff_types;
 mod generation_types;
 mod handler_contract_types;
@@ -55,6 +56,7 @@ pub use contract_tier_types::*;
 pub use coverage_types::*;
 pub use distribution_types::*;
 pub use doctor_types::*;
+pub use environment::*;
 pub use generation_diff_types::*;
 pub use generation_types::*;
 pub use handler_contract_types::*;
@@ -89,6 +91,8 @@ fn default_one() -> u32 {
 
 #[cfg(test)]
 mod tests_config;
+#[cfg(test)]
+mod tests_environment;
 #[cfg(test)]
 mod tests_oci_types;
 #[cfg(test)]

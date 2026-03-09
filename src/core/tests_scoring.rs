@@ -22,6 +22,7 @@ pub(super) fn minimal_config() -> ForjarConfig {
         checks: IndexMap::new(),
         moved: Vec::new(),
         secrets: Default::default(),
+        environments: IndexMap::new(),
     }
 }
 
