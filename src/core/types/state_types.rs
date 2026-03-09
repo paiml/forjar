@@ -299,6 +299,31 @@ pub enum ProvenanceEvent {
         /// New age recipient public keys.
         new_recipients: Vec<String>,
     },
+    /// FJ-3509: Promotion pipeline event.
+    PromotionCompleted {
+        /// Source environment.
+        source: String,
+        /// Target environment.
+        target: String,
+        /// Whether promotion succeeded.
+        success: bool,
+        /// Number of quality gates passed.
+        gates_passed: u32,
+        /// Number of quality gates total.
+        gates_total: u32,
+        /// Rollout strategy used (if any).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rollout_strategy: Option<String>,
+    },
+    /// FJ-3508: Rollback triggered by health check failure.
+    RollbackTriggered {
+        /// Environment where rollback occurred.
+        environment: String,
+        /// Step index where failure happened.
+        failed_step: usize,
+        /// Health check error message.
+        reason: String,
+    },
 }
 
 /// Timestamped event wrapper.
