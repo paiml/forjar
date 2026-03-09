@@ -27,7 +27,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::StateRm(..)
         | Commands::StateReconstruct(..)
         | Commands::Anomaly(..)
-        | Commands::Trace(..)) => dispatch_misc_state(cmd),
+        | Commands::Trace(..)
+        | Commands::StateEncrypt(..)
+        | Commands::StateDecrypt(..)) => dispatch_misc_state(cmd),
         cmd @ (Commands::Show(..)
         | Commands::Diff(..)
         | Commands::StackDiff(..)
@@ -146,6 +148,22 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             machine,
             json,
         }) => cmd_trace(&state_dir, machine.as_deref(), json),
+        Commands::StateEncrypt(StateEncryptArgs {
+            state_dir,
+            passphrase,
+            json,
+        }) => {
+            let pass = passphrase.unwrap_or_else(|| "forjar-default".into());
+            super::state_encrypt::cmd_state_encrypt(&state_dir, &pass, json)
+        }
+        Commands::StateDecrypt(StateDecryptArgs {
+            state_dir,
+            passphrase,
+            json,
+        }) => {
+            let pass = passphrase.unwrap_or_else(|| "forjar-default".into());
+            super::state_encrypt::cmd_state_decrypt(&state_dir, &pass, json)
+        }
         _ => unreachable!(),
     }
 }

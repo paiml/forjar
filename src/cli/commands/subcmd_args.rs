@@ -210,6 +210,34 @@ pub enum PluginCmd {
     },
 }
 
+/// FJ-3304: State encryption arguments.
+#[derive(clap::Args, Debug)]
+pub struct StateEncryptArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+    /// Passphrase for encryption (reads from stdin if not provided)
+    #[arg(long)]
+    pub passphrase: Option<String>,
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-3304: State decryption arguments.
+#[derive(clap::Args, Debug)]
+pub struct StateDecryptArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+    /// Passphrase for decryption
+    #[arg(long)]
+    pub passphrase: Option<String>,
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-200: Secrets subcommands — age-encrypted secret management.
 #[derive(Subcommand, Debug)]
 pub enum SecretsCmd {

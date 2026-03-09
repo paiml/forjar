@@ -156,6 +156,7 @@ mod snapshot;
 mod sovereignty;
 mod stack_dep_graph;
 mod stack_diff;
+mod state_encrypt;
 mod state_import_brownfield;
 mod status_alerts;
 mod status_analytics;

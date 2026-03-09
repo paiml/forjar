@@ -9,6 +9,7 @@ pub mod executor;
 pub mod migrate;
 pub mod parser;
 pub mod planner;
+pub mod plugin_dispatch;
 pub mod plugin_loader;
 pub mod promotion;
 pub mod purifier;
