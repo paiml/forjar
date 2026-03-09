@@ -9,7 +9,7 @@ mod quality_gate;
 pub mod service;
 
 pub use io_tracking::{hash_inputs, hash_outputs, should_skip_cached};
-pub use quality_gate::{evaluate_gate, gpu_env_vars, GateResult};
+pub use quality_gate::{evaluate_gate, gpu_env_vars, GateAction, GateResult};
 
 #[cfg(test)]
 mod tests_io_tracking;
