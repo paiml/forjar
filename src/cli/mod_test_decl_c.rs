@@ -42,3 +42,9 @@ mod tests_workspace_cov;
 mod tests_build_distribution_cov;
 #[cfg(test)]
 mod tests_agent_registry_cov;
+#[cfg(test)]
+mod tests_validate_ordering_b_cov;
+#[cfg(test)]
+mod tests_lock_merge_cov;
+#[cfg(test)]
+mod tests_recipe_signing_cov;
