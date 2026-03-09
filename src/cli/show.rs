@@ -299,63 +299,44 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
     Ok(())
 }
 
-// FJ-220: Evaluate policy rules and report violations.
+// FJ-220 + FJ-3200: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
-    let violations = parser::evaluate_policies(&config);
+    let result = parser::evaluate_policies_full(&config);
 
     if json {
-        let output: Vec<serde_json::Value> = violations
-            .iter()
-            .map(|v| {
-                serde_json::json!({
-                    "resource": v.resource_id,
-                    "severity": format!("{:?}", v.severity).to_lowercase(),
-                    "message": v.rule_message,
-                })
-            })
-            .collect();
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
-        );
+        println!("{}", parser::policy_check_to_json(&result));
+    } else if result.violations.is_empty() {
+        println!("All {} policy rules passed.", config.policies.len());
+        return Ok(());
     } else {
-        if violations.is_empty() {
-            println!("All {} policy rules passed.", config.policies.len());
-            return Ok(());
-        }
-        let mut deny_count = 0;
-        let mut warn_count = 0;
-        for v in &violations {
-            let severity = match v.severity {
-                types::PolicyRuleType::Deny | types::PolicyRuleType::Require => {
-                    deny_count += 1;
-                    "DENY"
-                }
-                types::PolicyRuleType::Warn => {
-                    warn_count += 1;
-                    "WARN"
-                }
+        for v in &result.violations {
+            let sev = match v.severity {
+                types::PolicySeverity::Error => "ERROR",
+                types::PolicySeverity::Warning => "WARN",
+                types::PolicySeverity::Info => "INFO",
             };
-            println!("  [{}] {}: {}", severity, v.resource_id, v.rule_message);
+            let id = v.policy_id.as_deref().unwrap_or("-");
+            println!("  [{sev}] [{id}] {}: {}", v.resource_id, v.rule_message);
+            if let Some(ref rem) = v.remediation {
+                println!("         fix: {rem}");
+            }
         }
         println!();
-        if deny_count > 0 {
-            println!("Policy check failed: {deny_count} denied, {warn_count} warnings");
+        let e = result.error_count();
+        let w = result.warning_count();
+        if e > 0 {
+            println!("Policy check failed: {e} error(s), {w} warning(s)");
         } else {
-            println!("Policy check passed with {warn_count} warnings");
+            println!("Policy check passed with {w} warning(s)");
         }
     }
 
-    // Fail on any deny/require violations
-    let has_deny = violations.iter().any(|v| {
-        matches!(
-            v.severity,
-            types::PolicyRuleType::Deny | types::PolicyRuleType::Require
-        )
-    });
-    if has_deny {
-        return Err("policy violations block apply".to_string());
+    if result.has_blocking_violations() {
+        return Err(format!(
+            "policy violations block apply ({} error(s))",
+            result.error_count()
+        ));
     }
 
     Ok(())
