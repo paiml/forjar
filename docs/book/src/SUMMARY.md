@@ -27,3 +27,4 @@
 - [Secret Providers](./24-secret-providers.md)
 - [OTLP Observability](./25-otlp-observability.md)
 - [Policy-as-Code](./26-policy-as-code.md)
+- [Ephemeral Values & State Integrity](./27-ephemeral-values.md)
