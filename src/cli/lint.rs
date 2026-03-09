@@ -146,7 +146,7 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
 /// Semicolons mask exit codes — `cmd1 ; cmd2` runs cmd2 even if cmd1 fails.
 /// Under `set -euo pipefail`, only the last command's exit code matters.
 /// Warns users to use `&&` or multiline `|` instead.
-pub(crate) fn lint_semicolon_chains(config: &types::ForjarConfig) -> Vec<String> {
+pub fn lint_semicolon_chains(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     for (id, resource) in &config.resources {
         if resource.resource_type != types::ResourceType::Task {
@@ -170,7 +170,7 @@ pub(crate) fn lint_semicolon_chains(config: &types::ForjarConfig) -> Vec<String>
 }
 
 /// Check if a command string contains a bare semicolon (not inside quotes).
-pub(crate) fn has_bare_semicolon(cmd: &str) -> bool {
+pub fn has_bare_semicolon(cmd: &str) -> bool {
     let mut in_single = false;
     let mut in_double = false;
     let mut prev = '\0';
@@ -191,7 +191,7 @@ pub(crate) fn has_bare_semicolon(cmd: &str) -> bool {
 /// When `nohup /absolute/path/binary` is used, the child process may fail
 /// at runtime if shared libraries are in non-standard paths.
 /// Warns if nohup uses an absolute path and LD_LIBRARY_PATH isn't set.
-pub(crate) fn lint_nohup_ld_path(config: &types::ForjarConfig) -> Vec<String> {
+pub fn lint_nohup_ld_path(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     for (id, resource) in &config.resources {
         if resource.resource_type != types::ResourceType::Task {
@@ -219,7 +219,7 @@ pub(crate) fn lint_nohup_ld_path(config: &types::ForjarConfig) -> Vec<String> {
 ///
 /// Pattern: `nohup ... & sleep N; curl` or similar fixed-duration waits
 /// before health checks. Suggests using `health_check:` field instead.
-pub(crate) fn lint_nohup_sleep_health(config: &types::ForjarConfig) -> Vec<String> {
+pub fn lint_nohup_sleep_health(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     for (id, resource) in &config.resources {
         if resource.resource_type != types::ResourceType::Task {

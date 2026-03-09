@@ -110,7 +110,7 @@ mod infra_query_live;
 mod init;
 mod iso_export;
 mod lineage;
-mod lint;
+pub mod lint;
 mod lock_audit;
 mod lock_core;
 mod lock_lifecycle;
