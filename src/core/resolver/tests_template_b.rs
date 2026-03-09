@@ -35,7 +35,7 @@ fn test_resolve_secret_file_provider() {
     let cfg = SecretsConfig {
         provider: Some("file".into()),
         path: Some(dir.path().to_string_lossy().to_string()),
-        file: None,
+        ..Default::default()
     };
     let result = resolve_secret("db-pass", &cfg).unwrap();
     assert_eq!(result, "s3cret_val");
@@ -47,7 +47,7 @@ fn test_resolve_secret_file_provider_missing() {
     let cfg = SecretsConfig {
         provider: Some("file".into()),
         path: Some(dir.path().to_string_lossy().to_string()),
-        file: None,
+        ..Default::default()
     };
     let result = resolve_secret("nonexistent", &cfg);
     assert!(result.is_err());
@@ -237,8 +237,8 @@ fn test_secret_config_with_sops_file() {
     use crate::core::types::SecretsConfig;
     let cfg = SecretsConfig {
         provider: Some("sops".into()),
-        path: None,
         file: Some("my-secrets.enc.yaml".into()),
+        ..Default::default()
     };
     let result = super::template::resolve_secret_with_provider(
         "key",

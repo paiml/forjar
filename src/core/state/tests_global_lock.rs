@@ -74,7 +74,7 @@ fn persist_outputs_roundtrip() {
     outputs.insert("api_url".to_string(), "https://api.example.com".to_string());
     outputs.insert("db_host".to_string(), "db.local".to_string());
 
-    persist_outputs(dir.path(), "test", &outputs).unwrap();
+    persist_outputs(dir.path(), "test", &outputs, false).unwrap();
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.outputs.len(), 2);
     assert_eq!(lock.outputs["api_url"], "https://api.example.com");
@@ -85,11 +85,11 @@ fn persist_outputs_overwrites() {
     let dir = tempfile::tempdir().unwrap();
     let mut out1 = indexmap::IndexMap::new();
     out1.insert("key".to_string(), "value1".to_string());
-    persist_outputs(dir.path(), "test", &out1).unwrap();
+    persist_outputs(dir.path(), "test", &out1, false).unwrap();
 
     let mut out2 = indexmap::IndexMap::new();
     out2.insert("key".to_string(), "value2".to_string());
-    persist_outputs(dir.path(), "test", &out2).unwrap();
+    persist_outputs(dir.path(), "test", &out2, false).unwrap();
 
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.outputs["key"], "value2");
