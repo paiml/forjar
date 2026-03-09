@@ -56,11 +56,13 @@ fn validate_before_exec(script: &str) -> Result<(), String> {
 
 /// Strip opaque data payloads that bashrs should not lint.
 ///
-/// Handles three forjar codegen patterns:
+/// Handles four forjar codegen patterns:
 /// 1. `echo '<base64>' | base64 -d > '<path>'` — binary file deployment
 /// 2. `cat > '<path>' <<'FORJAR_EOF'\n...\nFORJAR_EOF` — text file deployment
 /// 3. Copia delta patch temp file operations (`rm -f "$TMPFILE"`, `mv "$TMPFILE" ...`)
 ///    which use absolute paths that trigger bashrs SEC010 false positives
+/// 4. Cargo cache staging operations (`cp`, `mkdir -p`, `rm -rf` with `_STAGING`/`_CACHE_DIR`)
+///    which are safe by construction but trigger SEC010/SEC011 false positives
 fn strip_data_payloads(script: &str) -> String {
     // Phase 1: strip base64 blobs
     let re_b64 = regex::Regex::new(r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'")
@@ -88,8 +90,20 @@ fn strip_data_payloads(script: &str) -> String {
         .into_owned();
     let re_copia_mv =
         regex::Regex::new(r#"mv "\$TMPFILE" '[^']+'"#).expect("copia mv regex is valid");
-    re_copia_mv
+    let pass4 = re_copia_mv
         .replace_all(&pass3, "# forjar-copia: atomic replace stripped")
+        .into_owned();
+
+    // Phase 4: strip forjar-generated cargo cache staging operations
+    // These use _STAGING, _CACHE_DIR, _CARGO_BIN variables that are safe by
+    // construction (mktemp -d, derived from $HOME) but trigger SEC010/SEC011.
+    // Match any line containing cp/mkdir/rm with these internal variables.
+    let re_cargo_ops = regex::Regex::new(
+        r#"(?m)^\s*(?:cp|mkdir -p|rm -rf?)\s+.*\$_(?:STAGING|CACHE_DIR|CARGO_BIN).*$"#,
+    )
+    .expect("cargo ops regex is valid");
+    re_cargo_ops
+        .replace_all(&pass4, "# forjar-cargo: cache op stripped")
         .into_owned()
 }
 
