@@ -505,6 +505,14 @@ pub enum Commands {
     /// FJ-3506: Promote between environments (evaluate gates)
     Promote(PromoteArgs),
 
+    /// FJ-3304: Encrypt state files at rest
+    #[command(name = "state-encrypt")]
+    StateEncrypt(StateEncryptArgs),
+
+    /// FJ-3304: Decrypt state files
+    #[command(name = "state-decrypt")]
+    StateDecrypt(StateDecryptArgs),
+
     /// FJ-3108: Manage event-driven rulebooks
     #[command(subcommand)]
     Rules(RulesCmd),
