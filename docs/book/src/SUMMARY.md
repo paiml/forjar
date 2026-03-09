@@ -87,3 +87,4 @@
 - [Purity, Reproducibility & HF Kernels](./84-purity-reproscore-refs-hf.md)
 - [Sandbox Lifecycle & Derivation DAG](./85-sandbox-derivation-dag.md)
 - [Substitution Protocol & Conda Import](./86-substitution-conda.md)
+- [MCP Registry & Image Assembler](./87-mcp-registry-image.md)
