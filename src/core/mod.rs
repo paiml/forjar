@@ -4,6 +4,7 @@ pub mod codegen;
 pub mod compliance;
 pub mod compliance_pack;
 pub mod conditions;
+pub mod cron_source;
 pub mod ephemeral;
 pub mod executor;
 pub mod migrate;
