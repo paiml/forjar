@@ -8,12 +8,12 @@ use crate::transport;
 use std::path::Path;
 
 /// Single check result for accumulation.
-struct CheckResult {
-    resource_id: String,
-    machine: String,
-    status: String,
-    exit_code: Option<i32>,
-    detail: String,
+pub(super) struct CheckResult {
+    pub(super) resource_id: String,
+    pub(super) machine: String,
+    pub(super) status: String,
+    pub(super) exit_code: Option<i32>,
+    pub(super) detail: String,
 }
 
 /// Whether a resource matches the name and tag filters.
@@ -82,7 +82,7 @@ fn ensure_container_if_needed(machine: &types::Machine) -> Result<(), String> {
 }
 
 /// Build a CheckResult from status/exit_code/detail.
-fn make_check_result(
+pub(super) fn make_check_result(
     resource_id: &str,
     machine_name: &str,
     status: &str,
@@ -158,7 +158,7 @@ fn run_single_check(
 }
 
 /// Format check results as JSON.
-fn format_check_json(
+pub(super) fn format_check_json(
     config_name: &str,
     results: &[CheckResult],
     total_pass: usize,

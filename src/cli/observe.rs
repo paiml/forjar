@@ -96,7 +96,10 @@ pub(crate) fn cmd_anomaly(
 }
 
 /// Output anomaly findings in JSON or text format.
-fn output_anomaly_findings(findings: &[anomaly::AnomalyFinding], json: bool) -> Result<(), String> {
+pub(super) fn output_anomaly_findings(
+    findings: &[anomaly::AnomalyFinding],
+    json: bool,
+) -> Result<(), String> {
     if json {
         let json_findings: Vec<serde_json::Value> = findings
             .iter()
@@ -139,7 +142,7 @@ fn output_anomaly_findings(findings: &[anomaly::AnomalyFinding], json: bool) -> 
 
 /// View trace provenance data from apply runs (FJ-050).
 /// Output trace spans as JSON.
-fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), String> {
+pub(super) fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), String> {
     let json_spans: Vec<serde_json::Value> = all_spans
         .iter()
         .map(|(machine, span)| {
@@ -169,7 +172,7 @@ fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), St
 }
 
 /// Format a duration in microseconds to a human-readable string.
-fn format_duration_us(us: u64) -> String {
+pub(super) fn format_duration_us(us: u64) -> String {
     if us > 1_000_000 {
         format!("{:.1}s", us as f64 / 1_000_000.0)
     } else if us > 1_000 {
@@ -182,7 +185,7 @@ fn format_duration_us(us: u64) -> String {
 }
 
 /// Print trace spans grouped by trace_id in text format.
-fn print_trace_text(all_spans: &[(String, tracer::TraceSpan)]) {
+pub(super) fn print_trace_text(all_spans: &[(String, tracer::TraceSpan)]) {
     let mut by_trace: std::collections::HashMap<&str, Vec<&(String, tracer::TraceSpan)>> =
         std::collections::HashMap::new();
     for item in all_spans {

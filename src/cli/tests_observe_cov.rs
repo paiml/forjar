@@ -270,3 +270,126 @@ fn anomaly_drift_events() {
     let result = super::observe::cmd_anomaly(state_dir.path(), None, 3, false);
     assert!(result.is_ok());
 }
+
+// ── format_duration_us direct unit tests ─────────────────────────────
+
+#[test]
+fn format_duration_zero() {
+    assert_eq!(super::observe::format_duration_us(0), "0");
+}
+
+#[test]
+fn format_duration_one_us() {
+    assert_eq!(super::observe::format_duration_us(1), "1us");
+}
+
+#[test]
+fn format_duration_boundary_1000() {
+    assert_eq!(super::observe::format_duration_us(1000), "1000us");
+}
+
+#[test]
+fn format_duration_just_over_1000() {
+    let r = super::observe::format_duration_us(1001);
+    assert!(r.contains("ms"));
+}
+
+#[test]
+fn format_duration_boundary_million() {
+    let r = super::observe::format_duration_us(1_000_000);
+    assert!(r.contains("ms"));
+}
+
+#[test]
+fn format_duration_just_over_million() {
+    let r = super::observe::format_duration_us(1_000_001);
+    assert!(r.contains("s"));
+}
+
+// ── output_anomaly_findings direct tests ─────────────────────────────
+
+#[test]
+fn output_anomaly_findings_json_direct() {
+    let findings = vec![crate::tripwire::anomaly::AnomalyFinding {
+        resource: "web:nginx".to_string(),
+        score: 2.5,
+        status: crate::tripwire::anomaly::DriftStatus::Drift,
+        reasons: vec!["high change frequency".to_string()],
+    }];
+    assert!(super::observe::output_anomaly_findings(&findings, true).is_ok());
+}
+
+#[test]
+fn output_anomaly_findings_text_warning() {
+    let findings = vec![crate::tripwire::anomaly::AnomalyFinding {
+        resource: "db:pg".to_string(),
+        score: 1.8,
+        status: crate::tripwire::anomaly::DriftStatus::Warning,
+        reasons: vec!["elevated failures".to_string()],
+    }];
+    assert!(super::observe::output_anomaly_findings(&findings, false).is_ok());
+}
+
+#[test]
+fn output_anomaly_findings_text_stable() {
+    let findings = vec![crate::tripwire::anomaly::AnomalyFinding {
+        resource: "svc:redis".to_string(),
+        score: 0.5,
+        status: crate::tripwire::anomaly::DriftStatus::Stable,
+        reasons: vec!["minor drift".to_string()],
+    }];
+    assert!(super::observe::output_anomaly_findings(&findings, false).is_ok());
+}
+
+// ── output_trace_json direct tests ───────────────────────────────────
+
+fn make_direct_span(name: &str, trace_id: &str, clock: u64) -> crate::tripwire::tracer::TraceSpan {
+    crate::tripwire::tracer::TraceSpan {
+        trace_id: trace_id.to_string(),
+        span_id: format!("span-{clock}"),
+        parent_span_id: None,
+        name: name.to_string(),
+        start_time: "2026-03-08T12:00:00Z".to_string(),
+        duration_us: 1500,
+        exit_code: 0,
+        resource_type: "package".to_string(),
+        machine: "web".to_string(),
+        action: "create".to_string(),
+        content_hash: Some("blake3:abc".to_string()),
+        logical_clock: clock,
+    }
+}
+
+#[test]
+fn trace_json_empty_direct() {
+    let spans: Vec<(String, crate::tripwire::tracer::TraceSpan)> = vec![];
+    assert!(super::observe::output_trace_json(&spans).is_ok());
+}
+
+#[test]
+fn trace_json_multi_trace_direct() {
+    let spans = vec![
+        ("web".to_string(), make_direct_span("nginx", "t1", 1)),
+        ("db".to_string(), make_direct_span("pg", "t2", 2)),
+    ];
+    assert!(super::observe::output_trace_json(&spans).is_ok());
+}
+
+// ── print_trace_text direct tests ────────────────────────────────────
+
+#[test]
+fn trace_text_failed_direct() {
+    let mut span = make_direct_span("broken", "t1", 1);
+    span.exit_code = 1;
+    let spans = vec![("web".to_string(), span)];
+    super::observe::print_trace_text(&spans);
+}
+
+#[test]
+fn trace_text_multi_trace_direct() {
+    let spans = vec![
+        ("web".to_string(), make_direct_span("nginx", "ta", 1)),
+        ("db".to_string(), make_direct_span("pg", "tb", 2)),
+    ];
+    super::observe::print_trace_text(&spans);
+}
