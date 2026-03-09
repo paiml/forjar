@@ -13,6 +13,7 @@ pub mod promotion;
 pub mod purifier;
 pub mod recipe;
 pub mod resolver;
+pub mod rollout;
 pub mod rules_engine;
 pub mod scoring;
 pub mod secret_provider;
