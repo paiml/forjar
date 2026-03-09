@@ -85,3 +85,5 @@
 - [Plugin Dispatch & Reproducible Builds](./82-plugin-dispatch-repro.md)
 - [Lock Files & Binary Cache](./83-lockfile-cache.md)
 - [Purity, Reproducibility & HF Kernels](./84-purity-reproscore-refs-hf.md)
+- [Sandbox Lifecycle & Derivation DAG](./85-sandbox-derivation-dag.md)
+- [Substitution Protocol & Conda Import](./86-substitution-conda.md)
