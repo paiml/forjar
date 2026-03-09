@@ -102,3 +102,7 @@ mod tests_diff_cmd_cov;
 mod tests_lock_core_cov;
 #[cfg(test)]
 mod tests_store_ops_ext_cov;
+#[cfg(test)]
+mod tests_sovereignty_cov;
+#[cfg(test)]
+mod tests_dataset_lineage_cov;
