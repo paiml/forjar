@@ -90,3 +90,5 @@
 - [MCP Registry & Image Assembler](./87-mcp-registry-image.md)
 - [Content Chunking, Closures & Store Paths](./88-chunker-closure-path.md)
 - [Store Metadata, Secret Scanning & GC](./89-meta-secret-gc.md)
+- [Conversion Strategy, Pin Tripwire & Validation](./90-convert-pin-validate.md)
+- [Provider Import, FAR Archives & Store Diff](./91-provider-far-diff.md)
