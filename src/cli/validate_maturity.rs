@@ -172,7 +172,7 @@ struct TypeCoverageEntry {
 
 /// Extract machine names from a resource.
 fn machine_names(resource: &types::Resource) -> Vec<String> {
-    resource.machine.to_vec()
+    resource.machine.iter().map(|s| s.to_owned()).collect()
 }
 
 /// Group resources by machine and check which expected types are present.

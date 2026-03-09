@@ -134,7 +134,7 @@ fn load_machine_locks(
     cfg: &ApplyConfig,
     all_machines: &[String],
 ) -> Result<HashMap<String, StateLock>, String> {
-    let mut locks = HashMap::new();
+    let mut locks = HashMap::with_capacity(all_machines.len());
     for machine_name in all_machines {
         if cfg.machine_filter.is_some_and(|f| machine_name != f) {
             continue;
@@ -196,7 +196,7 @@ fn selective_force_locks(
         .map(|(id, _)| id.as_str())
         .collect();
 
-    let mut result = HashMap::new();
+    let mut result = HashMap::with_capacity(locks.len());
     for (machine, lock) in locks {
         let mut new_lock = lock.clone();
         new_lock

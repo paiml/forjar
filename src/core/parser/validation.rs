@@ -40,8 +40,8 @@ pub(super) fn validate_resource_refs(
     resource: &Resource,
     errors: &mut Vec<ValidationError>,
 ) {
-    for machine_name in resource.machine.to_vec() {
-        if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
+    for machine_name in resource.machine.iter() {
+        if !config.machines.contains_key(machine_name) && machine_name != "localhost" {
             errors.push(ValidationError {
                 message: format!("resource '{id}' references unknown machine '{machine_name}'"),
             });

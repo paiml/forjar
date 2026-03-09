@@ -163,8 +163,8 @@ impl Handler for LintHandler {
         // Check for unused machines
         let mut used_machines = std::collections::HashSet::new();
         for resource in config.resources.values() {
-            for m in resource.machine.to_vec() {
-                used_machines.insert(m);
+            for m in resource.machine.iter() {
+                used_machines.insert(m.to_owned());
             }
         }
         for name in config.machines.keys() {

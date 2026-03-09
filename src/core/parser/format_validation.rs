@@ -9,7 +9,7 @@ use crate::core::types::{ForjarConfig, Resource};
 
 /// Run all format validations on a parsed config.
 pub fn validate_formats(config: &ForjarConfig) -> Vec<ValidationError> {
-    let mut errors = Vec::new();
+    let mut errors = Vec::with_capacity(config.resources.len());
     for (id, resource) in &config.resources {
         validate_resource_formats(id, resource, &mut errors);
         validate_deny_paths(id, resource, &config.policy.deny_paths, &mut errors);

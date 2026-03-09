@@ -155,11 +155,12 @@ fn extract_waves(
 
 /// Collect all unique machine names referenced by resources.
 pub fn collect_machines(config: &ForjarConfig) -> Vec<String> {
-    let mut machines: Vec<String> = Vec::new();
+    let mut seen = rustc_hash::FxHashSet::default();
+    let mut machines = Vec::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            if !machines.iter().any(|existing| existing == &m) {
-                machines.push(m);
+        for m in resource.machine.iter() {
+            if seen.insert(m.to_owned()) {
+                machines.push(m.to_owned());
             }
         }
     }

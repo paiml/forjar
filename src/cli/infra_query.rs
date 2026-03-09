@@ -73,7 +73,7 @@ fn execute_query(
         matches.push(QueryMatch {
             resource_id: id.clone(),
             resource_type: format!("{:?}", res.resource_type),
-            machine: res.machine.to_vec(),
+            machine: res.machine.iter().map(|s| s.to_owned()).collect(),
             tags: res.tags.clone(),
             status,
         });
@@ -100,7 +100,7 @@ fn matches_filter(id: &str, res: &crate::core::types::Resource, filter: &QueryFi
         }
     }
     if let Some(ref m) = filter.machine {
-        if !res.machine.to_vec().iter().any(|mv| mv.contains(m)) {
+        if !res.machine.iter().any(|mv| mv.contains(m)) {
             return false;
         }
     }
@@ -113,8 +113,8 @@ fn matches_filter(id: &str, res: &crate::core::types::Resource, filter: &QueryFi
 }
 
 fn compute_status(id: &str, res: &crate::core::types::Resource, state_dir: &Path) -> String {
-    for m in res.machine.to_vec() {
-        let lock = state_dir.join(&m).join("state.lock.yaml");
+    for m in res.machine.iter() {
+        let lock = state_dir.join(m).join("state.lock.yaml");
         if lock.exists() {
             if let Ok(content) = std::fs::read_to_string(&lock) {
                 if content.contains(id) {

@@ -448,8 +448,8 @@ fn collect_why_reasons(
                 continue;
             }
         }
-        for machine_name in resource.machine.to_vec() {
-            let reason = why::explain_why(resource_id, resource, &machine_name, locks);
+        for machine_name in resource.machine.iter() {
+            let reason = why::explain_why(resource_id, resource, machine_name, locks);
             if reason.action != types::PlanAction::NoOp {
                 results.push(reason);
             }

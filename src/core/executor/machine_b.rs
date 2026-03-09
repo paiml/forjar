@@ -199,8 +199,8 @@ fn prepare_wave_resources(
     ctx: &mut RecordCtx,
     converged_resources: &HashSet<String>,
 ) -> Result<(Vec<PreparedResource>, Vec<(usize, ResourceOutcome)>), String> {
-    let mut prepared = Vec::new();
-    let mut skipped = Vec::new();
+    let mut prepared = Vec::with_capacity(wave_changes.len());
+    let mut skipped = Vec::with_capacity(wave_changes.len());
 
     for (idx, change) in wave_changes.iter().enumerate() {
         if let Some(outcome) = classify_resource(cfg, change, machine, converged_resources) {

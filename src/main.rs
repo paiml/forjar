@@ -1,5 +1,9 @@
 //! Forjar CLI — Rust-native Infrastructure as Code.
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -29,6 +33,9 @@ struct Cli {
 ///  4 — Connection error (SSH, container transport)
 /// 10 — Drift detected (non-zero diff in `forjar drift`)
 fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     let cli = Cli::parse();
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
     if let Err(e) = forjar::cli::dispatch(cli.command, cli.verbose, no_color) {

@@ -348,8 +348,8 @@ fn find_consolidation_opportunities(config: &types::ForjarConfig) -> Vec<Consoli
 
 /// Check whether two resources target different machines.
 fn on_different_machines(a: &types::Resource, b: &types::Resource) -> bool {
-    let machines_a: HashSet<String> = a.machine.to_vec().into_iter().collect();
-    let machines_b: HashSet<String> = b.machine.to_vec().into_iter().collect();
+    let machines_a: HashSet<&str> = a.machine.iter().collect();
+    let machines_b: HashSet<&str> = b.machine.iter().collect();
     machines_a.is_disjoint(&machines_b)
 }
 

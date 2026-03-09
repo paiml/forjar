@@ -76,8 +76,8 @@ pub(crate) fn cmd_extract(
 fn collect_referenced_machines(config: &types::ForjarConfig) -> HashSet<String> {
     let mut machines = HashSet::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            machines.insert(m);
+        for m in resource.machine.iter() {
+            machines.insert(m.to_owned());
         }
     }
     machines

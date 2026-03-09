@@ -15,9 +15,8 @@ pub(crate) fn cmd_cost_estimate(file: &Path, json: bool) -> Result<(), String> {
     let mut total_machines = std::collections::HashSet::new();
 
     for (id, resource) in &config.resources {
-        let machines = resource.machine.to_vec();
-        for m in &machines {
-            total_machines.insert(m.clone());
+        for m in resource.machine.iter() {
+            total_machines.insert(m.to_owned());
         }
 
         let cost = estimate_resource_cost(resource);

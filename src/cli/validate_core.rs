@@ -7,8 +7,8 @@ use std::path::Path;
 /// Check machine references exist.
 fn check_machine_refs(config: &types::ForjarConfig, errors: &mut Vec<String>) {
     for (id, resource) in &config.resources {
-        for machine_name in resource.machine.to_vec() {
-            if !config.machines.contains_key(&machine_name) {
+        for machine_name in resource.machine.iter() {
+            if !config.machines.contains_key(machine_name) {
                 errors.push(format!(
                     "{id}: references undefined machine '{machine_name}'"
                 ));

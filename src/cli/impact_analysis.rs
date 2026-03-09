@@ -48,7 +48,12 @@ fn compute_impact(resource: &str, config: &types::ForjarConfig) -> ImpactReport 
     while let Some((current, depth)) = queue.pop_front() {
         if current != resource {
             let res = &config.resources[&current];
-            let machine = res.machine.to_vec().first().cloned().unwrap_or_default();
+            let machine = res
+                .machine
+                .iter()
+                .next()
+                .map(|s| s.to_owned())
+                .unwrap_or_default();
             let est_secs = estimate_resource_seconds(res);
             affected.push(AffectedResource {
                 name: current.clone(),

@@ -111,11 +111,59 @@ impl fmt::Display for MachineTarget {
 }
 
 impl MachineTarget {
-    /// Expand to a list of machine names.
+    /// Expand to a list of machine names (allocates).
     pub fn to_vec(&self) -> Vec<String> {
         match self {
             Self::Single(s) => vec![s.clone()],
             Self::Multiple(v) => v.clone(),
+        }
+    }
+
+    /// Iterate machine names without allocating.
+    pub fn iter(&self) -> MachineTargetIter<'_> {
+        match self {
+            Self::Single(s) => MachineTargetIter::Single(std::iter::once(s.as_str())),
+            Self::Multiple(v) => MachineTargetIter::Multiple(v.iter()),
+        }
+    }
+
+    /// Number of machines targeted.
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Single(_) => 1,
+            Self::Multiple(v) => v.len(),
+        }
+    }
+
+    /// Whether the target list is empty (always false for valid configs).
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Single(_) => false,
+            Self::Multiple(v) => v.is_empty(),
+        }
+    }
+}
+
+/// Zero-allocation iterator over machine names.
+pub enum MachineTargetIter<'a> {
+    Single(std::iter::Once<&'a str>),
+    Multiple(std::slice::Iter<'a, String>),
+}
+
+impl<'a> Iterator for MachineTargetIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Single(it) => it.next(),
+            Self::Multiple(it) => it.next().map(String::as_str),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Single(it) => it.size_hint(),
+            Self::Multiple(it) => it.size_hint(),
         }
     }
 }

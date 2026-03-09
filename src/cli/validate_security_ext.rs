@@ -205,8 +205,8 @@ fn find_machine_capacity_warnings(
 ) -> Vec<MachineCapacityWarning> {
     let mut machine_counts: HashMap<String, usize> = HashMap::new();
     for resource in config.resources.values() {
-        for machine in resource.machine.to_vec() {
-            *machine_counts.entry(machine).or_insert(0) += 1;
+        for machine in resource.machine.iter() {
+            *machine_counts.entry(machine.to_owned()).or_insert(0) += 1;
         }
     }
     let mut warnings = Vec::new();

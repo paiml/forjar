@@ -105,9 +105,9 @@ fn find_bad_machine_refs(config: &types::ForjarConfig) -> Vec<(String, String)> 
     let machines: HashSet<&str> = config.machines.keys().map(|k| k.as_str()).collect();
     let mut bad = Vec::new();
     for (name, resource) in &config.resources {
-        for m in resource.machine.to_vec() {
-            if m != "localhost" && !machines.contains(m.as_str()) {
-                bad.push((name.clone(), m));
+        for m in resource.machine.iter() {
+            if m != "localhost" && !machines.contains(m) {
+                bad.push((name.clone(), m.to_owned()));
             }
         }
     }
@@ -149,8 +149,11 @@ fn find_provider_conflicts(config: &types::ForjarConfig) -> Vec<(String, Vec<Str
             continue;
         }
         if let Some(ref p) = resource.provider {
-            for m in resource.machine.to_vec() {
-                machine_providers.entry(m).or_default().insert(p.clone());
+            for m in resource.machine.iter() {
+                machine_providers
+                    .entry(m.to_owned())
+                    .or_default()
+                    .insert(p.clone());
             }
         }
     }
@@ -244,8 +247,8 @@ pub(crate) fn cmd_validate_check_unused_machines(file: &Path, json: bool) -> Res
 fn find_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     let mut used: HashSet<String> = HashSet::new();
     for resource in config.resources.values() {
-        for m in resource.machine.to_vec() {
-            used.insert(m);
+        for m in resource.machine.iter() {
+            used.insert(m.to_owned());
         }
     }
     let mut unused: Vec<String> = config
@@ -352,9 +355,9 @@ fn find_strict_path_conflicts(config: &types::ForjarConfig) -> Vec<(String, Stri
     let mut path_map: HashMap<(String, String), Vec<String>> = HashMap::new();
     for (name, resource) in &config.resources {
         if let Some(ref p) = resource.path {
-            for m in resource.machine.to_vec() {
+            for m in resource.machine.iter() {
                 path_map
-                    .entry((m, p.clone()))
+                    .entry((m.to_owned(), p.clone()))
                     .or_default()
                     .push(name.clone());
             }

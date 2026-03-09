@@ -85,8 +85,8 @@ pub(super) fn build_machine_resource_map(
 ) -> Vec<(String, Vec<String>)> {
     let mut map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
     for (name, resource) in &config.resources {
-        for m in resource.machine.to_vec() {
-            map.entry(m).or_default().push(name.clone());
+        for m in resource.machine.iter() {
+            map.entry(m.to_owned()).or_default().push(name.clone());
         }
     }
     let mut result: Vec<(String, Vec<String>)> = map.into_iter().collect();

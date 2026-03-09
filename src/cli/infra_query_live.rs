@@ -88,11 +88,11 @@ fn probe_resources(
                 continue;
             }
         }
-        for machine in res.machine.to_vec() {
+        for machine in res.machine.iter() {
             let (status, output) = probe_single(res);
             results.push(LiveQueryResult {
                 resource_id: id.clone(),
-                machine,
+                machine: machine.to_owned(),
                 live_status: status,
                 output,
             });

@@ -104,8 +104,8 @@ pub fn compute_parallel_waves(config: &ForjarConfig) -> Result<Vec<Vec<String>>,
 
 /// Build adjacency list and in-degree map from resource dependencies.
 fn build_dag(config: &ForjarConfig, resource_ids: &[String]) -> Result<Dag, String> {
-    let mut in_degree: HashMap<String, usize> = HashMap::new();
-    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+    let mut in_degree: HashMap<String, usize> = HashMap::with_capacity(resource_ids.len());
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::with_capacity(resource_ids.len());
 
     for id in resource_ids {
         in_degree.insert(id.clone(), 0);
@@ -146,7 +146,7 @@ fn kahn_sort(
         queue.push_back(id);
     }
 
-    let mut order = Vec::new();
+    let mut order = Vec::with_capacity(in_degree.len());
     while let Some(current) = queue.pop_front() {
         let mut next_ready: Vec<String> = Vec::new();
         if let Some(neighbors) = adjacency.get(&current) {

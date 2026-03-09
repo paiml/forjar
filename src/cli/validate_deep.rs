@@ -138,8 +138,8 @@ pub(super) fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<
 pub(super) fn check_machine_refs_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut missing = 0usize;
     for (_, res) in &config.resources {
-        for m in res.machine.to_vec() {
-            if !config.machines.contains_key(&m) {
+        for m in res.machine.iter() {
+            if !config.machines.contains_key(m) {
                 missing += 1;
             }
         }

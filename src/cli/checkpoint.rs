@@ -62,7 +62,7 @@ fn is_checkpoint_resource(resource: &types::Resource) -> bool {
 }
 
 fn machine_matches(machine: &types::MachineTarget, filter: &str) -> bool {
-    machine.to_vec().iter().any(|m| m == filter)
+    machine.iter().any(|m| m == filter)
 }
 
 struct CheckpointInfo {

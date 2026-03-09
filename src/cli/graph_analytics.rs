@@ -169,7 +169,7 @@ fn compute_dependency_depths(config: &types::ForjarConfig) -> HashMap<String, us
 
 /// Extract the machine name(s) from a resource's machine target.
 fn machine_names(resource: &types::Resource) -> Vec<String> {
-    resource.machine.to_vec()
+    resource.machine.iter().map(|s| s.to_owned()).collect()
 }
 
 /// Group resources by (type, machine) and compute summary stats.

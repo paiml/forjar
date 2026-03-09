@@ -199,9 +199,8 @@ pub(crate) fn cmd_validate_check_resource_tag_value_consistency(
 fn compute_distribution_balance(config: &types::ForjarConfig) -> (HashMap<String, usize>, bool) {
     let mut per_machine: HashMap<String, usize> = HashMap::new();
     for resource in config.resources.values() {
-        let machines = resource.machine.to_vec();
-        for m in machines {
-            *per_machine.entry(m).or_insert(0) += 1;
+        for m in resource.machine.iter() {
+            *per_machine.entry(m.to_owned()).or_insert(0) += 1;
         }
     }
 

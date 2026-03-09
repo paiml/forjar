@@ -32,10 +32,10 @@ fn compute_complexity(config: &types::ForjarConfig) -> ComplexityReport {
     let mut conditional_count = 0_usize;
 
     for (_, res) in &config.resources {
-        let res_machines = res.machine.to_vec();
+        let res_machines: Vec<&str> = res.machine.iter().collect();
         for dep_name in &res.depends_on {
             if let Some(dep_res) = config.resources.get(dep_name) {
-                let dep_machines = dep_res.machine.to_vec();
+                let dep_machines: Vec<&str> = dep_res.machine.iter().collect();
                 if res_machines != dep_machines {
                     cross_machine_count += 1;
                 }

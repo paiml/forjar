@@ -15,12 +15,10 @@ pub(crate) fn cmd_sovereignty(file: &Path, state_dir: &Path, json: bool) -> Resu
         let jurisdiction = extract_tag(&resource.tags, "jurisdiction:");
         let classification = extract_tag(&resource.tags, "classification:");
         let residency = extract_tag(&resource.tags, "residency:");
-        let machines = resource.machine.to_vec();
-
         entries.push(SovereigntyEntry {
             id: id.clone(),
             resource_type: format!("{:?}", resource.resource_type),
-            machines,
+            machines: resource.machine.iter().map(|s| s.to_owned()).collect(),
             jurisdiction,
             classification,
             residency,

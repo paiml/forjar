@@ -165,8 +165,8 @@ pub(super) fn compute_dependency_weights(
         for dep in &resource.depends_on {
             let mut weight = 1usize;
             if let Some(dep_resource) = config.resources.get(dep) {
-                let ma: HashSet<String> = resource.machine.to_vec().into_iter().collect();
-                let mb: HashSet<String> = dep_resource.machine.to_vec().into_iter().collect();
+                let ma: HashSet<&str> = resource.machine.iter().collect();
+                let mb: HashSet<&str> = dep_resource.machine.iter().collect();
                 if !ma.is_disjoint(&mb) {
                     weight += 1;
                 }

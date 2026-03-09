@@ -3,10 +3,6 @@
 //! Enables testable handlers by injecting an OutputWriter.
 //! Production code uses StdoutWriter, tests use TestWriter,
 //! benchmarks use NullWriter.
-//!
-//! Enables testable handlers by injecting an OutputWriter.
-//! Production code uses StdoutWriter, tests use TestWriter,
-//! benchmarks use NullWriter.
 
 use std::io::Write;
 

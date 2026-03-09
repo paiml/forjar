@@ -48,7 +48,7 @@ pub fn compute_minimal_changeset(
     locks: &BTreeMap<String, String>,       // resource_key -> current_hash
     deps: &[(String, String)],              // (dependent, dependency)
 ) -> MinimalChangeSet {
-    let mut candidates = Vec::new();
+    let mut candidates = Vec::with_capacity(resources.len());
     let mut changed_set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
 
     // Phase 1: identify directly changed resources

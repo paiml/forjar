@@ -49,7 +49,7 @@ pub fn build_sat_problem(resources: &[String], deps: &[(String, String)]) -> Sat
         var_names.insert(idx, name.clone());
     }
 
-    let mut clauses = Vec::new();
+    let mut clauses = Vec::with_capacity(deps.len() + resources.len());
 
     // Each dependency A→B becomes clause (!A || B)
     for (dependent, dependency) in deps {

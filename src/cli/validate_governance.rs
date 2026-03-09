@@ -288,9 +288,9 @@ pub(crate) fn cmd_validate_check_resource_machine_affinity(
 fn find_machine_affinity_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut issues = Vec::new();
     for (name, resource) in &config.resources {
-        let machines = resource.machine.to_vec();
+        let machines: Vec<&str> = resource.machine.iter().collect();
         for m in &machines {
-            if !config.machines.contains_key(m) {
+            if !config.machines.contains_key(*m) {
                 issues.push((name.clone(), format!("references undefined machine '{m}'")));
             }
         }
