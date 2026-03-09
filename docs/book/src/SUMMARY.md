@@ -76,3 +76,4 @@
 - [Policy Boundary, Flight-Grade, WASM & CI](./73-boundary-flight-wasm-ci.md)
 - [State Encryption, MC/DC, Undo & Webhooks](./74-crypto-mcdc-undo-webhook.md)
 - [Secret Namespaces, Plugins & Behavior Specs](./75-namespace-plugin-behavior.md)
+- [Generation Diffs, Tasks, Mutations & Observability](./76-diff-task-mutation-obs.md)
