@@ -27,6 +27,8 @@ mod tests_data;
 #[cfg(test)]
 mod tests_functions;
 #[cfg(test)]
+mod tests_functions_b;
+#[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
 mod tests_proptest;
