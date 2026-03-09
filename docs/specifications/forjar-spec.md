@@ -187,7 +187,9 @@ src/
 
 **Banned**: reqwest, hyper, tonic, any cloud SDK. tokio allowed only for MCP server (FJ-063).
 
-**Deferred**: repartir (parallel dispatch — std::thread::scope sufficient), duende (daemon management — not needed), pmat (compliance gates — external tool).
+**Deferred**: repartir (parallel dispatch — std::thread::scope sufficient), pmat (compliance gates — external tool).
+
+**Activated**: duende (daemon management — needed for `forjar watch` event-driven daemon, FJ-3100). Uses duende-core for `Daemon` trait, `DaemonManager`, graceful shutdown, and RED metrics.
 
 **Done (Phase 10)**: copia (delta sync — replaces base64 for files > 1MB via BLAKE3 per-block hashing, FJ-242).
 

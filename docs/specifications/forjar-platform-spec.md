@@ -167,6 +167,16 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 |---|-----------|---------|-------|-------------|
 | 19 | [Defect Analysis — Five Whys](platform/19-defect-analysis.md) | FJ-3000–FJ-3040 | ~400 | **ALL 5 IMPLEMENTED**: exit code safety, graduated force, runtime score bridge, nohup lint rules |
 
+### Competitive Features (Survey-Driven)
+
+| # | Component | Spec ID | Lines | Description |
+|---|-----------|---------|-------|-------------|
+| 20 | [Event-Driven Automation](platform/20-event-driven-automation.md) | FJ-3100–FJ-3109 | ~200 | Reactive rulebooks, renacer event sources, batuta dispatch, `forjar watch` daemon |
+| 21 | [Policy-as-Code Engine](platform/21-policy-as-code.md) | FJ-3200–FJ-3209 | ~200 | User-extensible YAML policies, compliance packs (CIS/STIG/SOC2), certeza evaluation |
+| 22 | [Ephemeral Values & State Encryption](platform/22-ephemeral-values-state-encryption.md) | FJ-3300–FJ-3309 | ~200 | Ephemeral secrets, age encryption, pepita namespace isolation, bashrs leak detection |
+| 23 | [WASM Resource Provider Plugins](platform/23-wasm-resource-providers.md) | FJ-3400–FJ-3409 | ~200 | wasmtime sandbox, plugin ABI v1, content-addressed registry, shell provider bridge |
+| 24 | [Environment Promotion Pipelines](platform/24-environment-promotion.md) | FJ-3500–FJ-3509 | ~200 | dev/staging/prod environments, quality gates, progressive rollout, auto-rollback |
+
 ### Cross-Cutting
 
 | # | Component | Spec ID | Lines | Description |
@@ -235,12 +245,25 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | Autoinstall ISO | `forjar image --base ubuntu.iso -f config.yaml` | [17](platform/17-provisioning.md) |
 | Android Magisk | `forjar image --android -f config.yaml` | [17](platform/17-provisioning.md) |
 | Cross-machine deps | `forjar cross-deps -f config.yaml [--json]` | [17](platform/17-provisioning.md) |
+| Event-driven automation | `forjar watch -f forjar.yaml --rules rules.yaml` | [20](platform/20-event-driven-automation.md) |
+| Reactive rulebooks | YAML event→condition→action pattern matching | [20](platform/20-event-driven-automation.md) |
+| Policy-as-code | `forjar policy check -f forjar.yaml --pack cis-ubuntu-22` | [21](platform/21-policy-as-code.md) |
+| Pre-apply policy gate | `forjar apply --policy-check` blocks on violations | [21](platform/21-policy-as-code.md) |
+| Ephemeral secrets | `ephemeral: true` — value used, hash stored, cleartext discarded | [22](platform/22-ephemeral-values-state-encryption.md) |
+| State encryption | `forjar state encrypt` — age-encrypted state at rest | [22](platform/22-ephemeral-values-state-encryption.md) |
+| WASM plugins | `type: "plugin:k8s-deployment"` — user-authored resource types | [23](platform/23-wasm-resource-providers.md) |
+| Plugin management | `forjar plugin install/list/remove` | [23](platform/23-wasm-resource-providers.md) |
+| Environments | `forjar apply -e staging` — environment-scoped state | [24](platform/24-environment-promotion.md) |
+| Promotion pipelines | `forjar promote dev staging` with quality gates | [24](platform/24-environment-promotion.md) |
+| Progressive rollout | Canary → percentage → full with auto-rollback | [24](platform/24-environment-promotion.md) |
 
 ---
 
 ## Implementation Roadmap
 
 **Status**: 48/48 phases IMPLEMENTED (100%). 10,338 tests, 95.11% coverage, zero clippy warnings, zero oversized files. Container-based OCI builds (Phase 9), sandbox testing (Phase 31), Kani production function proofs (Phase 14), debug_assert! verification (Phase 15) — all fully operational. Phases 43-48 added 2026-03-08: cross-compile build, bootstrap, cargo cache, autoinstall ISO, Android image, cross-machine deps.
+
+**Next wave**: Phases 49-58 (FJ-3100–FJ-3509) — five competitive features identified via IaC tool survey. All implementations use ONLY sovereign stack components (zero external service dependencies).
 
 Phases are ordered by dependency. Each phase is independently shippable.
 
@@ -294,6 +317,16 @@ Phases are ordered by dependency. Each phase is independently shippable.
 | 46 | FJ-52 | Autoinstall ISO | — | Ubuntu user-data + xorriso ISO repacking |
 | 47 | FJ-54 | Android Image | Phase 46 | Magisk module ZIP for rooted devices |
 | 48 | FJ-1424 | Cross-Machine Deps | — | Dependency analysis across machine boundaries |
+| 49 | FJ-3100 | Event Sources | — | renacer file/process event hooks + event abstraction trait |
+| 50 | FJ-3101 | Rulebook Engine | Phase 49 | YAML rulebook parser and pattern matcher |
+| 51 | FJ-3102 | Watch Daemon | Phase 50 | `forjar watch` long-running event loop |
+| 52 | FJ-3200 | Policy Schema | — | Policy YAML schema and 4-type evaluation engine |
+| 53 | FJ-3202 | Policy CLI | Phase 52 | `forjar policy check` + `--policy-check` apply gate |
+| 54 | FJ-3300 | Ephemeral Values | — | `ephemeral: true` field, hash-only state persistence |
+| 55 | FJ-3303 | State Encryption | — | age encryption for state files + BLAKE3 HMAC integrity |
+| 56 | FJ-3400 | Plugin ABI v1 | — | forjar-plugin-abi crate + wasmtime host integration |
+| 57 | FJ-3500 | Environment Model | — | `environments:` block with param/machine overrides |
+| 58 | FJ-3506 | Promotion Pipeline | Phase 57 | `forjar promote` with quality gates + progressive rollout |
 
 ---
 
@@ -363,3 +396,9 @@ Includes Popperian falsification criteria per dimension (FJ-2803): explicit reje
 - [Groce et al. (ASE 2018) — Mutation-as-Falsification](https://doi.org/10.1145/3238147.3238192)
 - [Hatton (1997) — U-Shaped Fault Density Curve, Falsified Module Size Hypothesis](https://doi.org/10.1109/32.585504)
 - [Popper (1959) — The Logic of Scientific Discovery](https://en.wikipedia.org/wiki/The_Logic_of_Scientific_Discovery)
+- [ARPaCCino: Agentic-RAG for Policy-as-Code Compliance (arXiv 2507.10584)](https://arxiv.org/abs/2507.10584)
+- [TerraFormer: Policy-Guided IaC Verification (arXiv 2601.08734)](https://arxiv.org/abs/2601.08734)
+- [WebAssembly Runtimes Survey — 98 Papers (arXiv 2404.12621)](https://arxiv.org/abs/2404.12621)
+- [Cyber-physical WASM: Pluggable Drivers (arXiv 2410.22919)](https://arxiv.org/abs/2410.22919)
+- [AI-Augmented CI/CD Pipelines (arXiv 2508.11867)](https://arxiv.org/abs/2508.11867)
+- [MLOps: Continuous Delivery Pipelines (arXiv 2011.01984)](https://arxiv.org/abs/2011.01984)
