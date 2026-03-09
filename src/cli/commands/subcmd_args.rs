@@ -145,6 +145,71 @@ pub enum EnvironmentsCmd {
     },
 }
 
+/// FJ-3506: Promote between environments.
+#[derive(clap::Args, Debug)]
+pub struct PromoteArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+    /// Target environment to promote to
+    #[arg(short, long)]
+    pub target: String,
+    /// Skip approval prompt (use auto_approve from config)
+    #[arg(long)]
+    pub yes: bool,
+    /// Dry-run: evaluate gates without applying
+    #[arg(long)]
+    pub dry_run: bool,
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-3108: Rulebook management subcommands.
+#[derive(Subcommand, Debug)]
+pub enum RulesCmd {
+    /// Validate rulebook YAML syntax and semantics
+    Validate {
+        /// Path to rulebook YAML file
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show event type coverage across rulebooks
+    Coverage {
+        /// Path to rulebook YAML file
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// FJ-3403: Plugin management subcommands.
+#[derive(Subcommand, Debug)]
+pub enum PluginCmd {
+    /// List installed plugins
+    List {
+        /// Plugin directory
+        #[arg(long, default_value = "plugins")]
+        plugin_dir: PathBuf,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Verify a plugin manifest and WASM binary
+    Verify {
+        /// Path to plugin manifest YAML
+        manifest: PathBuf,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+}
+
 /// FJ-200: Secrets subcommands — age-encrypted secret management.
 #[derive(Subcommand, Debug)]
 pub enum SecretsCmd {

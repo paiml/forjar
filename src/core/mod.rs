@@ -3,6 +3,7 @@
 pub mod codegen;
 pub mod compliance;
 pub mod conditions;
+pub mod ephemeral;
 pub mod executor;
 pub mod migrate;
 pub mod parser;
@@ -12,6 +13,7 @@ pub mod promotion;
 pub mod purifier;
 pub mod recipe;
 pub mod resolver;
+pub mod rules_engine;
 pub mod scoring;
 pub mod secret_provider;
 pub mod secrets;
