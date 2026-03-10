@@ -166,3 +166,54 @@ fn err_result(
         error: Some(msg.to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_target() -> MutationTarget {
+        MutationTarget {
+            resource_id: "test-file".into(),
+            resource_type: "file".into(),
+            apply_script: "echo apply".into(),
+            drift_script: "echo state".into(),
+            expected_hash: String::new(),
+        }
+    }
+
+    #[test]
+    fn err_result_populates_all_fields() {
+        let target = test_target();
+        let start = std::time::Instant::now();
+        let r = err_result(&target, MutationOperator::DeleteFile, start, "oops");
+        assert_eq!(r.resource_id, "test-file");
+        assert_eq!(r.operator, MutationOperator::DeleteFile);
+        assert!(!r.detected);
+        assert!(r.reconverged.is_none());
+        assert_eq!(r.error.as_deref(), Some("oops"));
+    }
+
+    #[test]
+    fn err_result_preserves_operator() {
+        let target = test_target();
+        let start = std::time::Instant::now();
+        for op in [
+            MutationOperator::ModifyContent,
+            MutationOperator::ChangePermissions,
+            MutationOperator::CorruptConfig,
+        ] {
+            let r = err_result(&target, op, start, "fail");
+            assert_eq!(r.operator, op);
+        }
+    }
+
+    #[test]
+    #[ignore] // requires Docker or Podman
+    fn mutation_test_container_file_delete() {
+        let target = test_target();
+        let config = MutationRunConfig::default();
+        let result = run_mutation_test_container(&target, MutationOperator::DeleteFile, &config);
+        // Just verify it runs and returns a result
+        assert!(!result.resource_id.is_empty());
+    }
+}
