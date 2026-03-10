@@ -1,10 +1,10 @@
 //! Example: State file rekey (FJ-3309)
 //!
 //! Demonstrates encrypting state files and re-keying them with
-//! a new passphrase, preserving data integrity throughout.
+//! a new passphrase using age encryption, preserving data integrity throughout.
 //!
 //! ```bash
-//! cargo run --example state_rekey
+//! cargo run --features encryption --example state_rekey
 //! ```
 
 use forjar::core::state_encryption;
@@ -29,13 +29,10 @@ fn main() {
         state_encryption::is_encrypted(&lock_file)
     );
 
-    // Encrypt with initial key
-    let key1 = state_encryption::derive_key("team-password-2024");
-    let plaintext = std::fs::read(&lock_file).unwrap();
-    let ciphertext = xor_mask(&plaintext, &key1);
-    std::fs::write(&lock_file, &ciphertext).unwrap();
-    let meta = state_encryption::create_metadata(&plaintext, &ciphertext, &key1);
-    state_encryption::write_metadata(&lock_file, &meta).unwrap();
+    // Encrypt with initial passphrase
+    let passphrase1 = "team-password-2024";
+    let meta = state_encryption::encrypt_state_file(&lock_file, passphrase1)
+        .expect("encryption failed — build with --features encryption");
 
     println!("\n2. After encryption:");
     println!(
@@ -46,28 +43,30 @@ fn main() {
     println!("  Ciphertext HMAC: {}...", &meta.ciphertext_hmac[..16]);
     println!("  Version: {}", meta.version);
 
-    // Rekey: decrypt with old key, re-encrypt with new key
-    let key2 = state_encryption::derive_key("team-password-2025");
+    // Rekey: decrypt with old passphrase, re-encrypt with new passphrase
+    let passphrase2 = "team-password-2025";
     let old_ciphertext = std::fs::read(&lock_file).unwrap();
     let old_meta = state_encryption::read_metadata(&lock_file).unwrap();
+    let key1 = state_encryption::derive_key(passphrase1);
 
-    // Verify integrity
+    // Verify integrity with old key
     assert!(state_encryption::verify_metadata(
         &old_meta,
         &old_ciphertext,
         &key1
     ));
 
-    // Decrypt
-    let decrypted = xor_mask(&old_ciphertext, &key1);
+    // Decrypt with old passphrase
+    let decrypted = state_encryption::decrypt_data(&old_ciphertext, passphrase1).unwrap();
     assert_eq!(
         state_encryption::hash_data(&decrypted),
         old_meta.plaintext_hash
     );
 
-    // Re-encrypt with new key
-    let new_ciphertext = xor_mask(&decrypted, &key2);
+    // Re-encrypt with new passphrase
+    let new_ciphertext = state_encryption::encrypt_data(&decrypted, passphrase2).unwrap();
     std::fs::write(&lock_file, &new_ciphertext).unwrap();
+    let key2 = state_encryption::derive_key(passphrase2);
     let new_meta = state_encryption::create_metadata(&decrypted, &new_ciphertext, &key2);
     state_encryption::write_metadata(&lock_file, &new_meta).unwrap();
 
@@ -97,24 +96,11 @@ fn main() {
     println!("  New key verifies: true");
     println!("  Old key verifies: false");
 
-    // Decrypt with new key and verify data
-    let final_plain = xor_mask(&final_ct, &key2);
+    // Decrypt with new passphrase and verify data
+    let final_plain = state_encryption::decrypt_data(&final_ct, passphrase2).unwrap();
     assert_eq!(std::str::from_utf8(&final_plain).unwrap(), original);
     println!("\n5. Full roundtrip:");
     println!("  Data matches original: true");
 
     println!("\nDone.");
-}
-
-/// XOR mask (same as in state_encrypt.rs)
-fn xor_mask(data: &[u8], key: &[u8; 32]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(data.len());
-    for (block_idx, chunk) in (0_u64..).zip(data.chunks(32)) {
-        let block_key = blake3::keyed_hash(key, &block_idx.to_le_bytes());
-        let stream = block_key.as_bytes();
-        for (i, &byte) in chunk.iter().enumerate() {
-            result.push(byte ^ stream[i]);
-        }
-    }
-    result
 }

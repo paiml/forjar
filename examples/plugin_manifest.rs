@@ -1,12 +1,14 @@
-//! FJ-3400: WASM resource provider plugin manifest example.
+//! FJ-3400/3403: WASM resource provider plugin manifest and lifecycle example.
 //!
 //! Demonstrates plugin manifest parsing, BLAKE3 hash verification,
-//! ABI compatibility checking, and schema validation.
+//! ABI compatibility checking, schema validation, and the full
+//! plugin lifecycle: scaffold, install, list, verify, and remove.
 
 fn main() {
+    use forjar::core::plugin_loader::{list_plugins, resolve_and_verify, resolve_manifest};
     use forjar::core::types::{PluginManifest, PluginSchema, SchemaProperty, PLUGIN_ABI_VERSION};
 
-    println!("=== FJ-3400: Plugin Manifest System ===\n");
+    println!("=== FJ-3400/3403: Plugin Manifest & Lifecycle ===\n");
     println!("Host ABI version: {PLUGIN_ABI_VERSION}\n");
 
     // 1. Parse a plugin manifest
@@ -134,4 +136,63 @@ blake3: "{hash}"
     let mut test_props = indexmap::IndexMap::new();
     test_props.insert("port".into(), serde_yaml_ng::Value::Number(9090.into()));
     println!("Schema valid: {}", schema.validate(&test_props).is_empty());
+
+    // 5. Plugin lifecycle: scaffold, install, list, verify, remove
+    println!("\n--- Plugin Lifecycle (install / list / verify / remove) ---");
+
+    let tmpdir = tempfile::tempdir().expect("create temp dir");
+    let staging = tmpdir.path().join("staging");
+    let plugins = tmpdir.path().join("plugins");
+    std::fs::create_dir_all(&staging).unwrap();
+    std::fs::create_dir_all(&plugins).unwrap();
+
+    // 5a. Scaffold a plugin in the staging area
+    let plugin_name = "demo-plugin";
+    let plugin_staging = staging.join(plugin_name);
+    std::fs::create_dir_all(&plugin_staging).unwrap();
+    let wasm_stub = b"(module)";
+    let wasm_hash = blake3::hash(wasm_stub).to_hex().to_string();
+    let manifest_yaml = format!(
+        "name: {plugin_name}\n\
+         version: \"0.2.0\"\n\
+         abi_version: 1\n\
+         wasm: plugin.wasm\n\
+         blake3: \"{wasm_hash}\"\n\
+         description: \"Demo plugin for lifecycle example\"\n"
+    );
+    std::fs::write(plugin_staging.join("plugin.yaml"), &manifest_yaml).unwrap();
+    std::fs::write(plugin_staging.join("plugin.wasm"), wasm_stub).unwrap();
+    println!("  Scaffolded '{plugin_name}' in staging");
+
+    // 5b. Install: copy from staging to plugins directory
+    let dest = plugins.join(plugin_name);
+    std::fs::create_dir_all(&dest).unwrap();
+    std::fs::copy(plugin_staging.join("plugin.yaml"), dest.join("plugin.yaml")).unwrap();
+    std::fs::copy(plugin_staging.join("plugin.wasm"), dest.join("plugin.wasm")).unwrap();
+    println!("  Installed '{plugin_name}' to {}", plugins.display());
+
+    // 5c. List installed plugins
+    let installed = list_plugins(&plugins);
+    println!("  Installed plugins: {:?}", installed);
+
+    // 5d. Resolve and verify
+    let resolved = resolve_and_verify(&plugins, plugin_name).unwrap();
+    println!(
+        "  Verified: {} v{} — status={:?}",
+        resolved.manifest.name, resolved.manifest.version, resolved.status
+    );
+
+    // 5e. Resolve manifest only
+    let m = resolve_manifest(&plugins, plugin_name).unwrap();
+    println!(
+        "  Manifest: {} v{}, ABI v{}, wasm={}",
+        m.name, m.version, m.abi_version, m.wasm
+    );
+
+    // 5f. Remove the plugin
+    std::fs::remove_dir_all(&dest).unwrap();
+    let remaining = list_plugins(&plugins);
+    println!("  Removed '{plugin_name}' — remaining: {:?}", remaining);
+
+    println!("\nDone.");
 }

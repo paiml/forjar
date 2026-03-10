@@ -1,19 +1,34 @@
-//! Example: Metric threshold polling (FJ-3105)
+//! Example: Metric threshold polling and system metric collection (FJ-3105)
 //!
 //! Demonstrates metric threshold evaluation with consecutive
-//! violation tracking.
+//! violation tracking, plus live system metric collection via
+//! the `metric_collector` module.
 //!
 //! ```bash
 //! cargo run --example metric_threshold
 //! ```
 
+use forjar::core::metric_collector;
 use forjar::core::metric_source::{self, MetricThreshold, ThresholdOp, ThresholdTracker};
 use std::collections::HashMap;
 
 fn main() {
-    println!("=== Metric Threshold Polling (FJ-3105) ===\n");
+    println!("=== Metric Threshold Polling & Collection (FJ-3105) ===\n");
 
-    // Define thresholds
+    // 1. Collect live system metrics via metric_collector
+    println!("1. Live System Metrics (metric_collector):");
+    let live_metrics = metric_collector::collect_system_metrics();
+    if live_metrics.is_empty() {
+        println!("   (no metrics available — non-Linux or /proc unreadable)");
+    } else {
+        let mut keys: Vec<_> = live_metrics.keys().collect();
+        keys.sort();
+        for key in keys {
+            println!("   {:<24} = {:>8.2}", key, live_metrics[key]);
+        }
+    }
+
+    // 2. Define thresholds
     let thresholds = vec![
         MetricThreshold {
             name: "cpu_percent".into(),
@@ -35,7 +50,7 @@ fn main() {
         },
     ];
 
-    println!("1. Threshold Definitions:");
+    println!("\n2. Threshold Definitions:");
     for t in &thresholds {
         println!(
             "  {} {} {} (consecutive: {})",
@@ -43,7 +58,29 @@ fn main() {
         );
     }
 
-    // Simulate metric readings over time
+    // 3. Evaluate live metrics against thresholds
+    println!("\n3. Live Metrics vs Thresholds:");
+    if !live_metrics.is_empty() {
+        let mut tracker = ThresholdTracker::default();
+        let results = metric_source::evaluate_metrics(&thresholds, &live_metrics, &mut tracker);
+        for r in &results {
+            let status = if r.should_fire {
+                "FIRE"
+            } else if r.violated {
+                "violated"
+            } else {
+                "ok"
+            };
+            println!(
+                "    {:<18} = {:>5.1} ({} {:.1}) -> {}",
+                r.name, r.current, r.operator, r.threshold, status
+            );
+        }
+    } else {
+        println!("   (skipped — no live metrics)");
+    }
+
+    // 4. Simulate metric readings over time
     let readings = vec![
         (
             "T=0",
@@ -89,7 +126,7 @@ fn main() {
 
     let mut tracker = ThresholdTracker::default();
 
-    println!("\n2. Evaluation Over Time:");
+    println!("\n4. Simulated Evaluation Over Time:");
     for (label, metrics) in &readings {
         let values: HashMap<String, f64> =
             metrics.iter().map(|(k, v)| (k.to_string(), *v)).collect();
@@ -106,7 +143,7 @@ fn main() {
                 "ok"
             };
             println!(
-                "    {:<18} = {:>5.1} ({} {:.1}) → {}",
+                "    {:<18} = {:>5.1} ({} {:.1}) -> {}",
                 r.name, r.current, r.operator, r.threshold, status
             );
         }
