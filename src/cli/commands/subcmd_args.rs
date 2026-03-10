@@ -273,6 +273,23 @@ pub enum PluginCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Execute a plugin's check/apply/destroy via WASM runtime
+    Run {
+        /// Plugin name
+        name: String,
+        /// Operation to run: check, apply, or destroy
+        #[arg(long, default_value = "check")]
+        operation: String,
+        /// Plugin directory
+        #[arg(long, default_value = "plugins")]
+        plugin_dir: PathBuf,
+        /// JSON input config (inline or @file)
+        #[arg(long, default_value = "{}")]
+        config: String,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
     /// Remove an installed plugin
     Remove {
         /// Plugin name to remove

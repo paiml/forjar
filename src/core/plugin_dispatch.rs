@@ -5,6 +5,7 @@
 //! schema, and dispatches to the plugin's check/apply/destroy methods.
 
 use crate::core::plugin_loader::{resolve_and_verify, ResolvedPlugin};
+use crate::core::plugin_runtime;
 use crate::core::types::PluginStatus;
 use std::path::Path;
 
@@ -44,77 +45,76 @@ pub fn resolve_plugin(plugin_dir: &Path, plugin_name: &str) -> Result<ResolvedPl
 
 /// Dispatch a check operation to a plugin.
 ///
-/// In the current implementation, this validates the plugin is available
-/// and returns its status. Full wasmtime integration is Phase 2.
+/// Resolves the plugin, verifies BLAKE3 integrity, then executes the
+/// `check` export via the WASM runtime (wasmi). Falls back to stub
+/// when `wasm-runtime` feature is disabled.
 pub fn dispatch_check(
     plugin_dir: &Path,
     plugin_name: &str,
-    _resource_config: &serde_json::Value,
+    resource_config: &serde_json::Value,
 ) -> PluginDispatchResult {
-    match resolve_plugin(plugin_dir, plugin_name) {
-        Ok(resolved) => PluginDispatchResult {
-            plugin_name: resolved.manifest.name,
-            operation: "check".into(),
-            success: true,
-            message: format!("plugin '{}' ready (WASM runtime: stub)", plugin_name),
-            status: PluginStatus::Converged,
-        },
-        Err(e) => PluginDispatchResult {
-            plugin_name: plugin_name.into(),
-            operation: "check".into(),
-            success: false,
-            message: e,
-            status: PluginStatus::Error,
-        },
-    }
+    dispatch_operation(plugin_dir, plugin_name, "check", resource_config)
 }
 
 /// Dispatch an apply operation to a plugin.
 pub fn dispatch_apply(
     plugin_dir: &Path,
     plugin_name: &str,
-    _resource_config: &serde_json::Value,
+    resource_config: &serde_json::Value,
 ) -> PluginDispatchResult {
-    match resolve_plugin(plugin_dir, plugin_name) {
-        Ok(resolved) => PluginDispatchResult {
-            plugin_name: resolved.manifest.name,
-            operation: "apply".into(),
-            success: true,
-            message: format!(
-                "plugin '{}' v{} apply (WASM runtime: stub)",
-                plugin_name, resolved.manifest.version
-            ),
-            status: PluginStatus::Converged,
-        },
-        Err(e) => PluginDispatchResult {
-            plugin_name: plugin_name.into(),
-            operation: "apply".into(),
-            success: false,
-            message: e,
-            status: PluginStatus::Error,
-        },
-    }
+    dispatch_operation(plugin_dir, plugin_name, "apply", resource_config)
 }
 
 /// Dispatch a destroy operation to a plugin.
 pub fn dispatch_destroy(
     plugin_dir: &Path,
     plugin_name: &str,
-    _resource_config: &serde_json::Value,
+    resource_config: &serde_json::Value,
 ) -> PluginDispatchResult {
-    match resolve_plugin(plugin_dir, plugin_name) {
-        Ok(resolved) => PluginDispatchResult {
+    dispatch_operation(plugin_dir, plugin_name, "destroy", resource_config)
+}
+
+/// Common dispatch logic for all plugin operations.
+fn dispatch_operation(
+    plugin_dir: &Path,
+    plugin_name: &str,
+    operation: &str,
+    resource_config: &serde_json::Value,
+) -> PluginDispatchResult {
+    let resolved = match resolve_plugin(plugin_dir, plugin_name) {
+        Ok(r) => r,
+        Err(e) => {
+            return PluginDispatchResult {
+                plugin_name: plugin_name.into(),
+                operation: operation.into(),
+                success: false,
+                message: e,
+                status: PluginStatus::Error,
+            };
+        }
+    };
+
+    let input_json = serde_json::to_vec(resource_config).unwrap_or_default();
+    match plugin_runtime::execute_wasm(&resolved.wasm_path, operation, &input_json) {
+        Ok(result) => PluginDispatchResult {
             plugin_name: resolved.manifest.name,
-            operation: "destroy".into(),
-            success: true,
-            message: format!("plugin '{}' destroy (WASM runtime: stub)", plugin_name),
-            status: PluginStatus::Missing,
+            operation: operation.into(),
+            success: result.success,
+            message: if result.output.is_empty() {
+                format!(
+                    "plugin '{}' v{} {operation}",
+                    plugin_name, resolved.manifest.version
+                )
+            } else {
+                result.output
+            },
+            status: result.status,
         },
         Err(e) => PluginDispatchResult {
-            plugin_name: plugin_name.into(),
-            operation: "destroy".into(),
+            plugin_name: resolved.manifest.name,
+            operation: operation.into(),
             success: false,
-            message: e,
+            message: format!("wasm exec: {e}"),
             status: PluginStatus::Error,
         },
     }
@@ -197,7 +197,6 @@ mod tests {
         let plugin_dir = dir.path().join("test-plugin");
         std::fs::create_dir_all(&plugin_dir).unwrap();
 
-        // Create WASM bytes and manifest
         let wasm_bytes = b"fake wasm module content";
         let hash = blake3::hash(wasm_bytes).to_hex().to_string();
         std::fs::write(plugin_dir.join("plugin.wasm"), wasm_bytes).unwrap();
@@ -222,8 +221,14 @@ permissions:
 
         let config = serde_json::json!({"key": "value"});
         let result = dispatch_check(dir.path(), "test-plugin", &config);
-        assert!(result.success, "dispatch failed: {}", result.message);
         assert_eq!(result.operation, "check");
+        if plugin_runtime::is_runtime_available() {
+            // With real runtime, fake WASM bytes fail to compile
+            assert!(!result.success);
+            assert!(result.message.contains("wasm"));
+        } else {
+            assert!(result.success, "dispatch failed: {}", result.message);
+        }
     }
 
     #[test]
