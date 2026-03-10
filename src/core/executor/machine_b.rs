@@ -69,8 +69,10 @@ pub(super) fn finalize_machine(
         resource_reports,
     };
 
-    // Container lifecycle: cleanup ephemeral containers after apply
-    cleanup_container_if_needed(cfg, machine, machine_name);
+    // Note: ephemeral containers are NOT destroyed here.
+    // They persist until `forjar destroy` is called, which invokes
+    // cleanup_container(). This allows re-apply (idempotency checks)
+    // to work against the same running container.
 
     Ok(result)
 }
@@ -100,6 +102,9 @@ fn build_resource_reports(lock: &StateLock) -> Vec<ResourceReport> {
 }
 
 /// Cleanup ephemeral container after apply if applicable.
+/// Currently unused — ephemeral containers are cleaned up by `forjar destroy`
+/// rather than after every apply, enabling re-apply/idempotency checks.
+#[allow(dead_code)]
 fn cleanup_container_if_needed(cfg: &ApplyConfig, machine: &Machine, machine_name: &str) {
     if machine.is_container_transport() && !cfg.dry_run {
         if let Some(ref container) = machine.container {
