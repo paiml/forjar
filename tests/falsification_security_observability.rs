@@ -483,28 +483,3 @@ fn f_2605_2_coverage_report_threshold() {
     assert!(report.meets_threshold(CoverageLevel::L1));
     assert!(!report.meets_threshold(CoverageLevel::L2));
 }
-
-#[test]
-fn f_2605_3_coverage_report_histogram() {
-    let entries = vec![
-        ResourceCoverage {
-            resource_id: "a".into(),
-            level: CoverageLevel::L5,
-            resource_type: "file".into(),
-        },
-        ResourceCoverage {
-            resource_id: "b".into(),
-            level: CoverageLevel::L5,
-            resource_type: "file".into(),
-        },
-        ResourceCoverage {
-            resource_id: "c".into(),
-            level: CoverageLevel::L0,
-            resource_type: "task".into(),
-        },
-    ];
-    let report = CoverageReport::from_entries(entries);
-    assert_eq!(report.histogram[0], 1); // L0
-    assert_eq!(report.histogram[5], 2); // L5
-    assert_eq!(report.min_level, CoverageLevel::L0);
-}

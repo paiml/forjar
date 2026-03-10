@@ -275,6 +275,8 @@ mod tests_fleet_ops_1;
 #[cfg(test)]
 mod tests_fleet_ops_b;
 #[cfg(test)]
+mod tests_fleet_ops_c;
+#[cfg(test)]
 mod tests_fleet_reporting;
 #[cfg(test)]
 mod tests_apply_drift_gate;

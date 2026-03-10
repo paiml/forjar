@@ -625,8 +625,13 @@ Every CI test run produces:
 
 ## Implementation
 
+<<<<<<< Updated upstream
 ### Phase 28: Convergence Property Testing (FJ-2600) -- IMPLEMENTED
 - [x] `forjar test --pairs` flag — wired to `run_convergence_parallel()` with real output
+=======
+### Phase 28: Convergence Property Testing (FJ-2600) -- DONE
+- [x] `forjar test convergence` command (requires sandbox infrastructure)
+>>>>>>> Stashed changes
 - [x] Proptest generators for resource starting states (arb_convergent_resource)
 - [x] Preservation matrix for resource pairs (CONV-003)
 - [x] Sandbox integration for real convergence verification (simulated mode)
@@ -653,7 +658,11 @@ Every CI test run produces:
 - [x] `execute_behavior()` — runs `verify.command` via `bash -euo pipefail`, compares exit code and stdout
 - **Deliverable**: `forjar test behavior` executes YAML behavior specs with real command verification
 
+<<<<<<< Updated upstream
 ### Phase 31: Sandbox Testing Infrastructure (FJ-2603) — IMPLEMENTED
+=======
+### Phase 31: Sandbox Testing Infrastructure (FJ-2603) — DONE
+>>>>>>> Stashed changes
 - [x] `SandboxConfig` with backend, cleanup, timeout, capture_overlay
 - [x] `SandboxBackend` enum: Pepita, Container, Chroot
 - [x] `SandboxPhase` lifecycle: Created → Applied → Verified → Destroyed
@@ -667,7 +676,11 @@ Every CI test run produces:
 - **Deliverable**: Tests run in isolated sandboxes with real system state
 - **Note**: Container backend fully implemented. Pepita/chroot gracefully degrade to simulated mode.
 
+<<<<<<< Updated upstream
 ### Phase 32: Infrastructure Mutation Testing (FJ-2604) -- IMPLEMENTED
+=======
+### Phase 32: Infrastructure Mutation Testing (FJ-2604) -- DONE
+>>>>>>> Stashed changes
 - [x] Mutation operator types: `MutationOperator` enum (8 operators with resource type applicability)
 - [x] `MutationResult` with detected/reconverged tracking
 - [x] `MutationScore` with grade calculation (A/B/C/F)

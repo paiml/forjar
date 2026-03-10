@@ -1,5 +1,6 @@
 //! FJ-1344: DAG execution (split from falsification_derivation_dag).
 //! Usage: cargo test --test falsification_derivation_dag_b
+#![allow(dead_code)]
 
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{execute_derivation_dag, execute_derivation_dag_live};

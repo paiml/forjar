@@ -45,6 +45,8 @@ mod tests_agent_registry_cov;
 #[cfg(test)]
 mod tests_validate_ordering_b_cov;
 #[cfg(test)]
+mod tests_validate_ordering_b_cov_b;
+#[cfg(test)]
 mod tests_lock_merge_cov;
 #[cfg(test)]
 mod tests_recipe_signing_cov;
@@ -78,6 +80,8 @@ mod tests_fleet_ops_cov;
 mod tests_data_freshness_cov;
 #[cfg(test)]
 mod tests_fleet_reporting_cov;
+#[cfg(test)]
+mod tests_fleet_reporting_cov_b;
 #[cfg(test)]
 mod tests_infra_query_cov;
 #[cfg(test)]

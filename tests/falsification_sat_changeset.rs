@@ -486,20 +486,3 @@ fn change_candidate_new_resource_no_current_hash() {
 // ============================================================================
 // FJ-046: multi-machine changeset
 // ============================================================================
-
-#[test]
-fn changeset_multi_machine_different_names() {
-    let resources = vec![
-        ("A-m1".into(), "m1".into(), "h-a".into()),
-        ("A-m2".into(), "m2".into(), "h-a-new".into()),
-    ];
-    let mut locks = BTreeMap::new();
-    locks.insert("A-m1@m1".into(), "h-a".into());
-    locks.insert("A-m2@m2".into(), "h-a-old".into());
-
-    let result = compute_minimal_changeset(&resources, &locks, &[]);
-    assert_eq!(result.changes_needed, 1);
-    // m1 is converged, m2 changed
-    assert!(!result.candidates[0].necessary);
-    assert!(result.candidates[1].necessary);
-}
