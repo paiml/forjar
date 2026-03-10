@@ -98,3 +98,4 @@
 - [Convert Execution & Cache Commands](./95-convert-cache-exec.md)
 - [Provider Exec, Sandbox & Sync](./96-provider-sandbox-sync.md)
 - [State Ingest Pipeline & Query Engine](./97-ingest-query.md)
+- [Sandbox Planning, Derivation & HF Kernels](./98-sandbox-derivation-hf.md)
