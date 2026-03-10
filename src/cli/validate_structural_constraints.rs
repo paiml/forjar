@@ -190,6 +190,7 @@ pub(crate) fn cmd_validate_check_circular_refs(file: &Path, json: bool) -> Resul
         for c in &cycles {
             println!("  {c} (circular dependency)");
         }
+        return Err(format!("{} circular reference(s)", cycles.len()));
     }
     Ok(())
 }

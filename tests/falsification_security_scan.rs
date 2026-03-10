@@ -40,6 +40,7 @@ fn make_config(resources: Vec<(&str, Resource)>) -> ForjarConfig {
         moved: Default::default(),
         secrets: Default::default(),
         environments: Default::default(),
+        dist: None,
     }
 }
 
@@ -90,10 +91,16 @@ fn ss2_localhost_exempt() {
 
 #[test]
 fn ss3_world_accessible() {
+    // 0644 is world-readable only — NOT flagged (SS-3 only flags writable/executable)
     let mut r = make_resource(ResourceType::File);
     r.mode = Some("0644".into());
     let findings = scan_resource("f", r);
-    assert!(findings.iter().any(|f| f.rule_id == "SS-3"));
+    assert!(!findings.iter().any(|f| f.rule_id == "SS-3"));
+    // 0666 is world-writable — flagged
+    let mut r2 = make_resource(ResourceType::File);
+    r2.mode = Some("0666".into());
+    let findings2 = scan_resource("f", r2);
+    assert!(findings2.iter().any(|f| f.rule_id == "SS-3"));
 }
 
 #[test]

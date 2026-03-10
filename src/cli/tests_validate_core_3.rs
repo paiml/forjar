@@ -152,7 +152,7 @@ mod tests {
         let cfg = dir.path().join("forjar.yaml");
         std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/shared\n  b:\n    type: file\n    machine: m\n    path: /tmp/shared\n").unwrap();
         let result = cmd_validate_check_path_conflicts(&cfg, false);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]

@@ -1,0 +1,51 @@
+# Setup forjar — composite GitHub Action
+# Install forjar CLI in GitHub Actions runners.
+# Usage:
+#   - uses: paiml/forjar/.github/actions/setup-forjar@main
+#     with:
+#       version: latest  # or v1.1.0
+
+name: Setup forjar
+description: "Install Rust-native Infrastructure as Code CLI"
+inputs:
+  version:
+    description: "Version to install (default: latest)"
+    required: false
+    default: "latest"
+runs:
+  using: composite
+  steps:
+    - name: Install forjar
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -sSf https://api.github.com/repos/paiml/forjar/releases/latest | grep tag_name | cut -d'"' -f4)
+        fi
+        ARCH=$(uname -m)
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        case "$OS" in
+          linux)
+            case "$ARCH" in
+              x86_64)  TARGET="x86_64-unknown-linux-gnu" ;;
+              aarch64) TARGET="aarch64-unknown-linux-gnu" ;;
+              *) echo "::error::Unsupported architecture: $ARCH"; exit 1 ;;
+            esac
+            ;;
+          darwin)
+            case "$ARCH" in
+              x86_64)  TARGET="x86_64-apple-darwin" ;;
+              arm64)   TARGET="aarch64-apple-darwin" ;;
+              *) echo "::error::Unsupported architecture: $ARCH"; exit 1 ;;
+            esac
+            ;;
+          *) echo "::error::Unsupported OS: $OS"; exit 1 ;;
+        esac
+        VERSION_NUM="${VERSION#v}"
+        ARCHIVE="forjar-${VERSION_NUM}-${TARGET}.tar.gz"
+        URL="https://github.com/paiml/forjar/releases/download/${VERSION}/${ARCHIVE}"
+        echo "::group::Installing forjar ${VERSION} (${TARGET})"
+        curl -sSfL "$URL" | tar xz
+        sudo mv forjar /usr/local/bin/
+        echo "::endgroup::"
+        forjar --version

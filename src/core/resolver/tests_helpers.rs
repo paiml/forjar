@@ -145,6 +145,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         moved: vec![],
         secrets: Default::default(),
         environments: indexmap::IndexMap::new(),
+        dist: None,
     }
 }
 

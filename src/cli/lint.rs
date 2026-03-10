@@ -242,6 +242,25 @@ pub fn lint_nohup_sleep_health(config: &types::ForjarConfig) -> Vec<String> {
     warnings
 }
 
+/// Build a set of line numbers that fall inside heredoc blocks (content, not shell).
+fn heredoc_line_set(script: &str) -> std::collections::HashSet<usize> {
+    let mut inside = std::collections::HashSet::new();
+    let mut in_heredoc = false;
+    for (i, line) in script.lines().enumerate() {
+        let trimmed = line.trim();
+        if in_heredoc {
+            if trimmed == "FORJAR_EOF" || trimmed == "FORJAR_SUDO" {
+                in_heredoc = false;
+            } else {
+                inside.insert(i + 1); // 1-based line numbers
+            }
+        } else if trimmed.contains("<<'FORJAR_EOF'") || trimmed.contains("<<'FORJAR_SUDO'") {
+            in_heredoc = true;
+        }
+    }
+    inside
+}
+
 fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     let mut script_errors = 0usize;
@@ -253,6 +272,7 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
             ("state_query", codegen::state_query_script(resource)),
         ] {
             if let Ok(script) = result {
+                let heredoc_lines = heredoc_line_set(&script);
                 let lint_result = crate::core::purifier::lint_script(&script);
                 for d in &lint_result.diagnostics {
                     use bashrs::linter::Severity;
@@ -260,6 +280,10 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
                     // (e.g. grep char classes parsed as test expressions).
                     // purifier::validate_script already filters these.
                     if d.code.starts_with("SC1") {
+                        continue;
+                    }
+                    // Skip diagnostics inside heredoc content (file data, not shell)
+                    if heredoc_lines.contains(&d.span.start_line) {
                         continue;
                     }
                     match d.severity {

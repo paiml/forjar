@@ -40,6 +40,7 @@ fn empty_config() -> ForjarConfig {
         moved: vec![],
         secrets: Default::default(),
         environments: IndexMap::new(),
+        dist: None,
     }
 }
 

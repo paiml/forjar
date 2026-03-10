@@ -106,19 +106,32 @@ fn http_without_tls(findings: &mut Vec<SecurityFinding>, id: &str, r: &Resource)
     }
 }
 
-/// SS-3: World-accessible permissions — mode allows other read/write/execute.
+/// SS-3: World-accessible permissions — mode allows other write/execute.
+/// World-readable (4) is standard for configs; world-writable (2,3,6,7) is a real risk.
 fn world_accessible(findings: &mut Vec<SecurityFinding>, id: &str, r: &Resource) {
     if let Some(ref mode) = r.mode {
         let last = mode.chars().last().unwrap_or('0');
-        if last >= '4' {
+        let other_bits = last.to_digit(8).unwrap_or(0);
+        // World-writable (bit 1) is high severity
+        if other_bits & 0b010 != 0 {
             findings.push(SecurityFinding {
                 rule_id: "SS-3".to_string(),
                 category: "world-accessible",
                 severity: Severity::High,
                 resource_id: id.to_string(),
-                message: format!("mode {mode} allows world access"),
+                message: format!("mode {mode} is world-writable"),
+            });
+        } else if other_bits & 0b001 != 0 {
+            // World-executable (but not writable) is medium
+            findings.push(SecurityFinding {
+                rule_id: "SS-3".to_string(),
+                category: "world-accessible",
+                severity: Severity::Medium,
+                resource_id: id.to_string(),
+                message: format!("mode {mode} is world-executable"),
             });
         }
+        // World-readable only (0o4) is normal for config files — no finding.
     }
 }
 

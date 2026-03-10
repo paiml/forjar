@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-10
+
+### Added
+- `forjar dist` command family (FJ-3600): generate distribution artifacts from YAML config
+- 7 artifact generators: shell installer, Homebrew formula, cargo-binstall, Nix flake, GitHub Action, deb, rpm
+- DistConfig type system with per-target libc variant support
+- macOS targets (x86_64-apple-darwin, aarch64-apple-darwin) in release pipeline
+- `cargo binstall forjar` support via `[package.metadata.binstall]`
+- `.github/actions/setup-forjar` composite action for CI consumers
+- `install.sh` at repo root for `curl | sh` installs
+- `flake.nix` at repo root for `nix run github:paiml/forjar`
+- Automated Homebrew tap publishing with real SHA256 checksums on release
+- 56 Popperian falsification tests for dist generators
+- `dist-forjar.yaml` — dogfood config for forjar's own distribution
+
 ## [1.1.1] - 2026-03-04
 
 ### Fixed

@@ -329,13 +329,22 @@ fn scanner_http_without_tls_and_exceptions() {
 
 #[test]
 fn scanner_world_accessible_mode() {
-    // 0644 → world-readable → flagged
+    // 0644 → world-readable only → NOT flagged (SS-3 only flags writable/executable)
     let r1 = Resource {
         resource_type: ResourceType::File,
         mode: Some("0644".into()),
         ..Default::default()
     };
-    assert!(scan(&config_with_resource("f", r1))
+    assert!(!scan(&config_with_resource("f", r1))
+        .iter()
+        .any(|f| f.rule_id == "SS-3"));
+    // 0666 → world-writable → flagged
+    let r1w = Resource {
+        resource_type: ResourceType::File,
+        mode: Some("0666".into()),
+        ..Default::default()
+    };
+    assert!(scan(&config_with_resource("f", r1w))
         .iter()
         .any(|f| f.rule_id == "SS-3"));
     // 0600 → restrictive → not flagged

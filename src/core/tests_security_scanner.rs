@@ -23,6 +23,7 @@ fn minimal_config() -> ForjarConfig {
         moved: Vec::new(),
         secrets: Default::default(),
         environments: IndexMap::new(),
+        dist: None,
     }
 }
 
@@ -128,13 +129,27 @@ fn ss2_passes_https() {
 // ── SS-3: World-accessible permissions ──────────────────────────
 
 #[test]
-fn ss3_detects_world_readable() {
+fn ss3_no_finding_for_world_readable() {
+    // 0644 is standard for config files — world-readable is not a security finding
     let mut config = minimal_config();
     let mut r = file_resource();
     r.mode = Some("0644".to_string());
     config.resources.insert("pub".to_string(), r);
     let findings = scan(&config);
+    assert!(!findings.iter().any(|f| f.rule_id == "SS-3"));
+}
+
+#[test]
+fn ss3_detects_world_writable() {
+    let mut config = minimal_config();
+    let mut r = file_resource();
+    r.mode = Some("0666".to_string());
+    config.resources.insert("pub".to_string(), r);
+    let findings = scan(&config);
     assert!(findings.iter().any(|f| f.rule_id == "SS-3"));
+    assert!(findings
+        .iter()
+        .any(|f| f.message.contains("world-writable")));
 }
 
 #[test]

@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_circular_deps_found() {
         let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: file\n    path: /a\n    content: a\n    depends_on:\n      - b\n  b:\n    machine: m1\n    type: file\n    path: /b\n    content: b\n    depends_on:\n      - a\n"));
-        assert!(cmd_validate_check_circular_deps(f.path(), false).is_ok());
+        assert!(cmd_validate_check_circular_deps(f.path(), false).is_err());
     }
 
     #[test]
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn test_machine_refs_bad() {
         let f = write_cfg(&format!("{BASE}resources:\n  pkg:\n    machine: bogus\n    type: package\n    name: nginx\n"));
-        assert!(cmd_validate_check_machine_refs(f.path(), false).is_ok());
+        assert!(cmd_validate_check_machine_refs(f.path(), false).is_err());
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn test_dep_exists_missing() {
         let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: file\n    path: /a\n    content: a\n    depends_on:\n      - ghost\n"));
-        assert!(cmd_validate_check_dependency_exists(f.path(), false).is_ok());
+        assert!(cmd_validate_check_dependency_exists(f.path(), false).is_err());
     }
 
     #[test]
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_path_conflicts_found() {
         let f = write_cfg(&format!("{BASE}resources:\n  a:\n    machine: m1\n    type: file\n    path: /etc/conf\n    content: a\n  b:\n    machine: m1\n    type: file\n    path: /etc/conf\n    content: b\n"));
-        assert!(cmd_validate_check_path_conflicts_strict(f.path(), false).is_ok());
+        assert!(cmd_validate_check_path_conflicts_strict(f.path(), false).is_err());
     }
 
     #[test]

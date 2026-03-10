@@ -190,7 +190,7 @@ mod tests {
             "    mode: \"0777\"\n",
         );
         let f = write_temp_config(yaml);
-        assert!(cmd_validate_check_permissions(f.path(), false).is_ok());
+        assert!(cmd_validate_check_permissions(f.path(), false).is_err());
     }
 
     /// Root ownership on /tmp triggers permission issue.

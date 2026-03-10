@@ -535,4 +535,7 @@ pub enum Commands {
 
     /// FJ-3107: Manually trigger a rulebook
     Trigger(TriggerArgs),
+
+    /// FJ-3600: Generate distribution artifacts (installer, Homebrew, Nix, etc.)
+    Dist(DistArgs),
 }

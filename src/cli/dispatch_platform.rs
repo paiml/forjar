@@ -33,6 +33,7 @@ pub(crate) fn dispatch_platform_cmd(cmd: Commands) -> Result<(), String> {
         }) => super::saga_coordinator::cmd_saga_plan(&file, &state_dir, json),
         Commands::AgentRegistry(args) => dispatch_agent_registry(args),
         Commands::PullAgent(args) => dispatch_pull_agent(args),
+        Commands::Dist(ref args) => super::dist::cmd_dist(args),
         _ => Err("unknown command".to_string()),
     }
 }

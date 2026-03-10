@@ -1,6 +1,6 @@
 [package]
 name = "forjar"
-version = "1.1.1"
+version = "1.2.0"
 edition.workspace = true
 rust-version = "1.88.0"
 authors = ["Pragmatic AI Labs"]
@@ -107,6 +107,26 @@ dhat-heap = ["dep:dhat"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.binstall]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-{ target }.tar.gz"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-gnu]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-x86_64-unknown-linux-gnu.tar.gz"
+
+[package.metadata.binstall.overrides.x86_64-unknown-linux-musl]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-x86_64-unknown-linux-musl.tar.gz"
+
+[package.metadata.binstall.overrides.aarch64-unknown-linux-gnu]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-aarch64-unknown-linux-gnu.tar.gz"
+
+[package.metadata.binstall.overrides.aarch64-apple-darwin]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-aarch64-apple-darwin.tar.gz"
+
+[package.metadata.binstall.overrides.x86_64-apple-darwin]
+pkg-url = "https://github.com/paiml/forjar/releases/download/v{ version }/forjar-{ version }-x86_64-apple-darwin.tar.gz"
 
 [package.metadata.release]
 shared-version = true

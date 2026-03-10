@@ -133,11 +133,20 @@ fn print_preservation_report(report: &PreservationReport) {
         report.pairs_checked, report.preserved, report.conflicts
     );
     println!();
-    for p in &report.results {
-        let icon = if p.preserved { "OK " } else { "ERR" };
+    if report.conflicts == 0 {
         println!(
-            "[{icon}] {} <-> {}: {}",
-            p.resource_a, p.resource_b, p.reason
+            "All {} pair(s) preserved — no conflicts detected.",
+            report.pairs_checked
         );
+    } else {
+        for p in &report.results {
+            if !p.preserved {
+                println!("[ERR] {} <-> {}: {}", p.resource_a, p.resource_b, p.reason);
+            }
+        }
+        let ok = report.pairs_checked - report.conflicts;
+        if ok > 0 {
+            println!("\n({ok} other pair(s) OK)");
+        }
     }
 }

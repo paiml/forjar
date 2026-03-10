@@ -481,11 +481,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DEBT: Split 92 oversized files under 500-line limit'
-  status: inprogress
+  status: completed
   priority: low
   assigned_to: null
   created: 2026-03-02T22:01:31Z
-  updated: 2026-03-10T11:33:25.767813520+00:00
+  updated: 2026-03-10T11:53:55Z
   spec: null
   acceptance_criteria:
   - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files and CLI dispatch modules. Needs systematic splitting.'
@@ -1113,14 +1113,30 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-034: github_release resource type for nightly binary installation'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-10T10:43:55Z
-  updated: 2026-03-10T11:33:43.750174665+00:00
+  updated: 2026-03-10T11:53:56Z
   spec: null
   acceptance_criteria:
   - Download and install binaries from GitHub Releases via gh CLI. Supports tarball/zip extraction, version verification, and BLAKE3 drift detection.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-069
+  github_issue: null
+  item_type: task
+  title: 'FJ-3600: Distribution artifact generation (forjar dist)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-10T15:53:58Z
+  updated: 2026-03-10T15:54:02.344203991+00:00
+  spec: null
+  acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null

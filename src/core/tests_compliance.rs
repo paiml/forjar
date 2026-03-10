@@ -24,6 +24,7 @@ mod tests {
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
             environments: indexmap::IndexMap::new(),
+            dist: None,
         }
     }
 

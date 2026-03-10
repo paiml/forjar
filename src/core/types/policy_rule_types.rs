@@ -128,11 +128,11 @@ impl PolicyRule {
         if let Some(ref id) = self.id {
             id.clone()
         } else {
-            // Generate from first 20 chars of message, slugified
+            // Generate from first 40 chars of message, slugified
             let slug: String = self
                 .message
                 .chars()
-                .take(20)
+                .take(40)
                 .map(|c| if c.is_alphanumeric() { c } else { '-' })
                 .collect();
             format!("RULE-{slug}")
@@ -338,7 +338,7 @@ mod tests {
             remediation: None,
             compliance: vec![],
         };
-        assert_eq!(rule.display_id(), "RULE-files-should-have-ow");
+        assert_eq!(rule.display_id(), "RULE-files-should-have-owner");
     }
 
     #[test]

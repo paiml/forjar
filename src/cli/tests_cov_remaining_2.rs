@@ -282,7 +282,7 @@ mod tests {
     fn test_cov_check_permissions_world_writable_plain() {
         let f = write_temp_config(config_world_writable());
         let result = cmd_validate_check_permissions(f.path(), false);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -299,7 +299,7 @@ mod tests {
         let yaml = "version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  f:\n    type: file\n    machine: m\n    path: /home/user/data\n    content: hi\n    owner: root\n    mode: \"0644\"\n";
         let f = write_temp_config(yaml);
         let result = cmd_validate_check_permissions(f.path(), false);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     // ========================================================================
@@ -367,7 +367,7 @@ mod tests {
     fn test_cov_check_service_deps_missing_plain() {
         let f = write_temp_config(config_missing_dep());
         let result = cmd_validate_check_service_deps(f.path(), false);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]

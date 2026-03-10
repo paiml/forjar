@@ -1,0 +1,52 @@
+version: "1.0"
+name: forjar-dist
+machines:
+  local:
+    hostname: local
+    addr: localhost
+    user: root
+resources: {}
+
+dist:
+  source: github_release
+  repo: paiml/forjar
+  binary: forjar
+  targets:
+    - os: linux
+      arch: x86_64
+      asset: "forjar-{version}-x86_64-unknown-linux-gnu.tar.gz"
+      libc: gnu
+    - os: linux
+      arch: x86_64
+      asset: "forjar-{version}-x86_64-unknown-linux-musl.tar.gz"
+      libc: musl
+    - os: linux
+      arch: aarch64
+      asset: "forjar-{version}-aarch64-unknown-linux-gnu.tar.gz"
+      libc: gnu
+    - os: darwin
+      arch: x86_64
+      asset: "forjar-{version}-x86_64-apple-darwin.tar.gz"
+    - os: darwin
+      arch: aarch64
+      asset: "forjar-{version}-aarch64-apple-darwin.tar.gz"
+  install_dir: /usr/local/bin
+  install_dir_fallback: "~/.local/bin"
+  checksums: SHA256SUMS
+  checksum_algo: sha256
+  description: "Rust-native Infrastructure as Code"
+  homepage: "https://forjar.dev"
+  license: "MIT OR Apache-2.0"
+  maintainer: "Pragmatic AI Labs <info@paiml.com>"
+  version_cmd: "forjar --version"
+  latest_tag: true
+  post_install: |
+    echo "forjar installed successfully"
+    echo "Run 'forjar init' to get started"
+  homebrew:
+    tap: paiml/tap
+    dependencies: []
+    caveats: |
+      To get started, run:
+        forjar init
+  nix: {}

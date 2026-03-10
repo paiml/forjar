@@ -152,6 +152,7 @@ pub(crate) fn cmd_validate_check_dependencies(file: &Path, json: bool) -> Result
         for (r, d) in &issues {
             println!("  {r} -> {d} (missing)");
         }
+        return Err(format!("{} broken dependency reference(s)", issues.len()));
     }
     Ok(())
 }
@@ -224,6 +225,7 @@ pub(crate) fn cmd_validate_check_permissions(file: &Path, json: bool) -> Result<
         for (r, msg) in &issues {
             println!("  {r} — {msg}");
         }
+        return Err(format!("{} permission issue(s)", issues.len()));
     }
     Ok(())
 }
@@ -367,6 +369,10 @@ pub(crate) fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result
         for d in &missing_deps {
             println!("  - {d}");
         }
+        return Err(format!(
+            "{} broken service dependency chain(s)",
+            missing_deps.len()
+        ));
     }
     Ok(())
 }
