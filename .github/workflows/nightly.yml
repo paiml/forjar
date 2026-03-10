@@ -1,4 +1,4 @@
-# Nightly binary builds — cross-compiled for Linux, macOS, and Windows
+# Nightly binary builds — cross-compiled for Linux (x86+ARM), macOS, and Windows
 # Builds at 4am UTC daily; skips if no commits in the last 24 hours.
 # Manual trigger via workflow_dispatch is always allowed.
 #
@@ -43,7 +43,7 @@ jobs:
           fi
           echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-  # ── Build: cross-compile for 4 targets ───────────────────
+  # ── Build: cross-compile for 5 targets ───────────────────
   build:
     needs: check-activity
     if: needs.check-activity.outputs.has_commits == 'true'
@@ -53,6 +53,9 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cross: true
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: aarch64-apple-darwin
@@ -72,8 +75,17 @@ jobs:
       - name: Ensure target is installed
         run: rustup target add ${{ matrix.target }}
 
+      - name: Install cross (Linux ARM)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
+        run: |
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
 
       - name: Package binary (unix)
         if: matrix.runner != 'windows-latest'
