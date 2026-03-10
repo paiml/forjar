@@ -80,6 +80,14 @@ fn resolve_extended_fields(
     r.pre_apply = resolve_opt(&r.pre_apply, params, machines, secrets)?;
     r.post_apply = resolve_opt(&r.post_apply, params, machines, secrets)?;
     r.script = resolve_opt(&r.script, params, machines, secrets)?;
+
+    // github_release fields
+    r.install_dir = resolve_opt(&r.install_dir, params, machines, secrets)?;
+    r.repo = resolve_opt(&r.repo, params, machines, secrets)?;
+    r.tag = resolve_opt(&r.tag, params, machines, secrets)?;
+    r.asset_pattern = resolve_opt(&r.asset_pattern, params, machines, secrets)?;
+    r.binary = resolve_opt(&r.binary, params, machines, secrets)?;
+    r.build_machine = resolve_opt(&r.build_machine, params, machines, secrets)?;
     Ok(())
 }
 
