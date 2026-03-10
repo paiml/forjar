@@ -232,6 +232,7 @@ pub(crate) fn cmd_validate_check_duplicate_paths(file: &Path, json: bool) -> Res
         for (path, names) in &dupes {
             println!("  {} — {}", path, names.join(", "));
         }
+        return Err(format!("{} duplicate path(s)", dupes.len()));
     }
     Ok(())
 }

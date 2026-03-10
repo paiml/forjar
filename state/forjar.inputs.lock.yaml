@@ -1,11 +1,14 @@
 schema: '1.0'
 pins:
-  test-file:
+  config-file:
     provider: file
-    hash: blake3:56746d7bc976f71291ff78d9a34c8fec6284b8aed37d9f1ee61b7dd72436627a
-  test-pkg:
+    hash: blake3:bed1b782307277db9d8a9841693695dda2843569b84fc0278db9f8e51f4398bd
+  install-bat:
+    provider: file
+    hash: blake3:858ce4da094ba49425199ea3f381a769eb4602e272db42ecde4e05340354398e
+  web-svc:
+    provider: file
+    hash: blake3:ae507bda71dc8ad9717281db97bb7e0d5217b8c46afd0e444ee7b9473010ff25
+  webpkg:
     provider: apt
-    hash: blake3:7ec2598aed1c20715dfaa6a29e8bbbb760071717e3a3a45e8e5479a186d83503
-  test-svc:
-    provider: file
-    hash: blake3:30d356ada7044f1e51514205a48e0df4693536abf4d212da52fa7b4f6d4568c1
+    hash: blake3:c6ce3752d590796dabc54552128613d3d0ce7668d176622e34bced34d06b4597

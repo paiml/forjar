@@ -41,6 +41,7 @@ fn make_config(resources: Vec<(&str, Resource)>) -> ForjarConfig {
         moved: Default::default(),
         secrets: Default::default(),
         environments: Default::default(),
+        dist: None,
     }
 }
 

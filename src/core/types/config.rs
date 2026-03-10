@@ -100,6 +100,10 @@ pub struct ForjarConfig {
     /// Each environment overrides params and machine addresses.
     #[serde(default)]
     pub environments: IndexMap<String, super::environment::Environment>,
+
+    /// FJ-3600: Distribution artifact generation config.
+    #[serde(default)]
+    pub dist: Option<super::dist_config_types::DistConfig>,
 }
 
 /// FJ-2300 + FJ-3300: Secret provider configuration.

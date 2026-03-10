@@ -176,6 +176,7 @@ Each component is a self-contained document in the [`platform/`](platform/) subd
 | 22 | [Ephemeral Values & State Encryption](platform/22-ephemeral-values-state-encryption.md) | FJ-3300–FJ-3309 | ~200 | Ephemeral secrets, age encryption, pepita namespace isolation, bashrs leak detection |
 | 23 | [WASM Resource Provider Plugins](platform/23-wasm-resource-providers.md) | FJ-3400–FJ-3409 | ~200 | wasmtime sandbox, plugin ABI v1, content-addressed registry, shell provider bridge |
 | 24 | [Environment Promotion Pipelines](platform/24-environment-promotion.md) | FJ-3500–FJ-3509 | ~200 | dev/staging/prod environments, quality gates, progressive rollout, auto-rollback |
+| 25 | [Distribution Artifact Generation](platform/25-distribution-artifact-generation.md) | FJ-3600–FJ-3610 | ~550 | `forjar dist` — generate shell installers, Homebrew formulas, cargo-binstall, Nix flakes, GitHub Actions, deb/rpm specs |
 
 ### Cross-Cutting
 
@@ -327,6 +328,13 @@ Phases are ordered by dependency. Each phase is independently shippable.
 | 56 | FJ-3400 | Plugin ABI v1 | — | forjar-plugin-abi crate + wasmtime host integration |
 | 57 | FJ-3500 | Environment Model | — | `environments:` block with param/machine overrides |
 | 58 | FJ-3506 | Promotion Pipeline | Phase 57 | `forjar promote` with quality gates + progressive rollout |
+| 59 | FJ-3601 | Shell Installer Gen | — | `forjar dist --installer` — POSIX install script with checksum verification |
+| 60 | FJ-3602 | Homebrew Formula Gen | Phase 59 | `forjar dist --homebrew` — platform-conditional Ruby formula |
+| 61 | FJ-3603 | cargo-binstall Meta | Phase 59 | `forjar dist --binstall` — TOML metadata for skip-compile install |
+| 62 | FJ-3604 | Nix Flake Gen | Phase 59 | `forjar dist --nix` — fetchurl-based flake.nix |
+| 63 | FJ-3605 | GitHub Action Gen | Phase 59 | `forjar dist --github-action` — composite setup action |
+| 64 | FJ-3606 | OS Package Specs | Phase 59 | `forjar dist --deb --rpm` — Debian control + RPM spec |
+| 65 | FJ-3607 | Dist Verification | Phase 59-64 | `forjar dist --verify` — container-based artifact testing |
 
 ---
 

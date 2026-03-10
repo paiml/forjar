@@ -382,6 +382,7 @@ mod tests {
             moved: vec![],
             secrets: Default::default(),
             environments: indexmap::IndexMap::new(),
+            dist: None,
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -425,6 +426,7 @@ mod tests {
             moved: vec![],
             secrets: Default::default(),
             environments: indexmap::IndexMap::new(),
+            dist: None,
         };
 
         let (migrated, warnings) = migrate_config(&config);

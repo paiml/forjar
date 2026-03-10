@@ -1,6 +1,6 @@
 schema: '1.0'
-name: dogfood-test
-last_apply: 2026-03-10T08:14:47Z
+name: dogfood-valid
+last_apply: 2026-03-10T12:43:11Z
 generator: forjar 1.1.1
 machines:
   user-host:
@@ -23,3 +23,8 @@ machines:
     converged: 0
     failed: 0
     last_apply: 2026-03-10T08:14:47Z
+  local:
+    resources: 4
+    converged: 0
+    failed: 0
+    last_apply: 2026-03-10T12:43:11Z

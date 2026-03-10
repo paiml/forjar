@@ -441,6 +441,58 @@ pub struct RunArgs {
     pub json: bool,
 }
 
+/// FJ-3600: CLI arguments for `dist` (distribution artifact generation).
+#[derive(clap::Args, Debug)]
+pub struct DistArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Generate shell installer script
+    #[arg(long)]
+    pub installer: bool,
+
+    /// Generate Homebrew formula
+    #[arg(long)]
+    pub homebrew: bool,
+
+    /// Generate cargo-binstall metadata
+    #[arg(long)]
+    pub binstall: bool,
+
+    /// Generate Nix flake
+    #[arg(long)]
+    pub nix: bool,
+
+    /// Generate GitHub Actions setup action
+    #[arg(long)]
+    pub github_action: bool,
+
+    /// Generate Debian package spec
+    #[arg(long)]
+    pub deb: bool,
+
+    /// Generate RPM spec file
+    #[arg(long)]
+    pub rpm: bool,
+
+    /// Generate all distribution artifacts
+    #[arg(long)]
+    pub all: bool,
+
+    /// Output file (for single artifact) or directory (with --all)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Output directory (with --all)
+    #[arg(long)]
+    pub output_dir: Option<PathBuf>,
+
+    /// JSON output (manifest of generated artifacts)
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-52: CLI arguments for `image` (autoinstall ISO generation).
 #[derive(clap::Args, Debug)]
 pub struct ImageArgs {

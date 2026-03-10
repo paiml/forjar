@@ -53,8 +53,9 @@ pub(crate) fn cmd_show(
                 serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?
             );
         } else {
-            let output =
-                serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {e}"))?;
+            let mut val = serde_json::to_value(resource).map_err(|e| format!("JSON error: {e}"))?;
+            strip_defaults(&mut val);
+            let output = serde_yaml_ng::to_string(&val).map_err(|e| format!("YAML error: {e}"))?;
             println!("{resource_id}:\n{output}");
         }
     } else if json {
@@ -65,7 +66,9 @@ pub(crate) fn cmd_show(
             serde_json::to_string_pretty(&val).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
-        let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {e}"))?;
+        let mut val = serde_json::to_value(&config).map_err(|e| format!("JSON error: {e}"))?;
+        strip_defaults(&mut val);
+        let output = serde_yaml_ng::to_string(&val).map_err(|e| format!("YAML error: {e}"))?;
         println!("{output}");
     }
 
@@ -165,18 +168,29 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         );
     }
 
-    // Text output
+    // Text output — strip null/false/empty defaults for clean YAML
+    let mut raw_val =
+        serde_json::to_value(resource).map_err(|e| format!("serialize error: {e}"))?;
+    strip_defaults(&mut raw_val);
     let raw_yaml =
-        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {e}"))?;
+        serde_yaml_ng::to_string(&raw_val).map_err(|e| format!("serialize error: {e}"))?;
     println!("{}", bold("1. Raw Resource Definition"));
     println!("{}", dim("─────────────────────────────"));
     println!("{raw_yaml}");
 
+    let mut resolved_val =
+        serde_json::to_value(&resolved).map_err(|e| format!("serialize error: {e}"))?;
+    strip_defaults(&mut resolved_val);
+    let resolved_yaml =
+        serde_yaml_ng::to_string(&resolved_val).map_err(|e| format!("serialize error: {e}"))?;
+
     println!("{}", bold("2. After Template Resolution"));
     println!("{}", dim("─────────────────────────────"));
-    let resolved_yaml =
-        serde_yaml_ng::to_string(&resolved).map_err(|e| format!("serialize error: {e}"))?;
-    println!("{resolved_yaml}");
+    if raw_yaml == resolved_yaml {
+        println!("{}", dim("(no templates to resolve — identical to raw)"));
+    } else {
+        println!("{resolved_yaml}");
+    }
 
     println!("{}", bold("3. Generated Shell Script"));
     println!("{}", dim("─────────────────────────────"));

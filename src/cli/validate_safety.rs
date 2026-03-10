@@ -21,6 +21,7 @@ pub(crate) fn cmd_validate_check_circular_deps(file: &Path, json: bool) -> Resul
         for cycle in &cycles {
             println!("  {} → {}", cycle.join(" → "), cycle[0]);
         }
+        return Err(format!("{} circular dependency cycle(s)", cycles.len()));
     }
     Ok(())
 }
@@ -96,6 +97,7 @@ pub(crate) fn cmd_validate_check_machine_refs(file: &Path, json: bool) -> Result
         for (resource, machine) in &bad {
             println!("  {resource} → {machine} (not defined)");
         }
+        return Err(format!("{} invalid machine reference(s)", bad.len()));
     }
     Ok(())
 }
@@ -303,6 +305,7 @@ pub(crate) fn cmd_validate_check_dependency_exists(file: &Path, json: bool) -> R
         for (r, d) in &bad {
             println!("  {r} → {d} (not defined)");
         }
+        return Err(format!("{} missing dependency target(s)", bad.len()));
     }
     Ok(())
 }
@@ -346,6 +349,7 @@ pub(crate) fn cmd_validate_check_path_conflicts_strict(
         for (m, p, rs) in &conflicts {
             println!("  {} on {} — resources: {}", p, m, rs.join(", "));
         }
+        return Err(format!("{} file path conflict(s)", conflicts.len()));
     }
     Ok(())
 }

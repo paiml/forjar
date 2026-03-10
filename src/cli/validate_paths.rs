@@ -44,6 +44,7 @@ pub(crate) fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Resu
         for c in &conflicts {
             println!("  - {c}");
         }
+        return Err(format!("{} path conflict(s)", conflicts.len()));
     }
     Ok(())
 }
@@ -114,6 +115,10 @@ pub(crate) fn cmd_validate_check_template_vars(file: &Path, json: bool) -> Resul
         for (resource, var) in &undefined {
             println!("  {resource} -> {var}");
         }
+        return Err(format!(
+            "{} undefined template variable(s)",
+            undefined.len()
+        ));
     }
     Ok(())
 }

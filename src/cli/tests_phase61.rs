@@ -67,7 +67,7 @@ resources:\n  f1:\n    type: file\n    path: /etc/a\n  f2:\n    type: file\n    
         let f = write_config(dir.path(), "\
 machines: {}\n\
 resources:\n  f1:\n    type: file\n    path: /etc/same\n  f2:\n    type: file\n    path: /etc/same\n");
-        assert!(cmd_validate_check_duplicate_paths(&f, false).is_ok());
+        assert!(cmd_validate_check_duplicate_paths(&f, false).is_err());
     }
 
     #[test]

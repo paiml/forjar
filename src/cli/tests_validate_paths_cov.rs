@@ -199,7 +199,7 @@ fn dup_paths_found() {
     let f = write_cfg(&format!(
         "{BASE}resources:\n  a:\n    machine: m1\n    type: file\n    path: /etc/shared.conf\n    content: a\n  b:\n    machine: m1\n    type: file\n    path: /etc/shared.conf\n    content: b\n"
     ));
-    assert!(cmd_validate_check_duplicate_paths(f.path(), false).is_ok());
+    assert!(cmd_validate_check_duplicate_paths(f.path(), false).is_err());
 }
 
 #[test]
