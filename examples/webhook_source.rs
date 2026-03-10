@@ -1,20 +1,25 @@
-//! Example: Webhook event source (FJ-3104)
+//! Example: Webhook event source and server (FJ-3104, FJ-3105)
 //!
 //! Demonstrates webhook request validation, HMAC signature
-//! verification, and conversion to InfraEvent.
+//! verification, conversion to InfraEvent, and the webhook_server
+//! module for starting/stopping a live listener.
 //!
 //! ```bash
 //! cargo run --example webhook_source
 //! ```
 
+use forjar::core::webhook_server;
 use forjar::core::webhook_source::{
     ack_response, compute_hmac_hex, parse_json_payload, request_to_event, validate_request,
     WebhookConfig, WebhookRequest,
 };
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::Arc;
 
 fn main() {
-    println!("=== Webhook Event Source (FJ-3104) ===\n");
+    println!("=== Webhook Event Source & Server (FJ-3104 / FJ-3105) ===\n");
 
     // 1. Default configuration
     let config = WebhookConfig::default();
@@ -125,6 +130,64 @@ fn main() {
     println!("   200: {}", resp.lines().next().unwrap());
     let resp = ack_response(401, "unauthorized");
     println!("   401: {}", resp.lines().next().unwrap());
+
+    // 7. Webhook server: start, receive, and stop
+    println!("\n7. Webhook Server (start/receive/stop):");
+
+    // Pick port 0 to let OS assign a free port, but WebhookConfig
+    // takes a u16 — use a high ephemeral port instead.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener); // free the port so the server can bind it
+
+    let server_config = WebhookConfig {
+        port,
+        ..WebhookConfig::default()
+    };
+
+    let (tx, rx) = mpsc::channel();
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let shutdown_clone = Arc::clone(&shutdown);
+    let cfg = server_config.clone();
+
+    // Start the server in a background thread
+    let handle = std::thread::spawn(move || {
+        let _ = webhook_server::run_webhook_server(&cfg, tx, shutdown_clone);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    println!("   Server started on 127.0.0.1:{port}");
+
+    // Send a webhook request via a raw TCP connection
+    {
+        use std::io::Write;
+        let payload = r#"{"action":"deploy","env":"staging"}"#;
+        let raw = format!(
+            "POST /webhook HTTP/1.1\r\nHost: localhost\r\n\
+             Content-Type: application/json\r\n\
+             Content-Length: {}\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        if let Ok(mut stream) = std::net::TcpStream::connect(format!("127.0.0.1:{port}")) {
+            let _ = stream.write_all(raw.as_bytes());
+        }
+    }
+
+    // Receive the event from the channel
+    match rx.recv_timeout(std::time::Duration::from_secs(2)) {
+        Ok(ev) => {
+            println!("   Received event: type={}", ev.event_type);
+            for (k, v) in &ev.payload {
+                println!("     {k}: {v}");
+            }
+        }
+        Err(_) => println!("   (no event received — timeout)"),
+    }
+
+    // Signal shutdown and wait for the server thread
+    shutdown.store(true, Ordering::Relaxed);
+    let _ = handle.join();
+    println!("   Server stopped.");
 
     println!("\nDone.");
 }
