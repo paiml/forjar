@@ -14,7 +14,6 @@ use forjar::core::store::mutation_runner::{applicable_operators, mutation_script
 use forjar::core::store::registry_push::{
     head_check_command, validate_push_config, RegistryPushConfig,
 };
-use forjar::core::types::MutationOperator;
 use std::collections::BTreeSet;
 
 fn main() {

@@ -12,9 +12,7 @@
 //! Usage: cargo run --example namespace_plugin_behavior
 
 use forjar::core::ephemeral::ResolvedEphemeral;
-use forjar::core::rules_engine::{
-    event_type_coverage, validate_rulebook_yaml, IssueSeverity, ValidationSummary,
-};
+use forjar::core::rules_engine::{event_type_coverage, validate_rulebook_yaml, ValidationSummary};
 use forjar::core::secret_namespace::*;
 use forjar::core::shell_provider::{is_shell_type, parse_shell_type};
 use forjar::core::types::*;

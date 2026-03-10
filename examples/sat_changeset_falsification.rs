@@ -110,7 +110,7 @@ fn main() {
     // Write event log
     let machine_dir = state_dir.join("web");
     std::fs::create_dir_all(&machine_dir).unwrap();
-    let events = vec![
+    let events = [
         serde_json::json!({
             "ts": "2026-03-09T10:00:00Z",
             "event": "resource_converged",

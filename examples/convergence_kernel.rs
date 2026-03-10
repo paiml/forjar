@@ -5,7 +5,7 @@
 use forjar::core::store::contract_coverage::{coverage_report, BindingEntry, BindingRegistry};
 use forjar::core::store::convergence_runner::{
     format_convergence_report, resolve_mode, run_convergence_test, ConvergenceResult,
-    ConvergenceSummary, ConvergenceTarget, RunnerMode,
+    ConvergenceSummary, ConvergenceTarget,
 };
 use forjar::core::store::hf_config::{required_kernels, HfModelConfig};
 use forjar::core::store::kernel_far::contracts_to_far;
@@ -20,8 +20,7 @@ fn main() {
     let mode = resolve_mode(SandboxBackend::Pepita);
     println!("  Backend: Pepita, Mode: {mode}");
 
-    let targets = vec![
-        ConvergenceTarget {
+    let targets = [ConvergenceTarget {
             resource_id: "app-config".into(),
             resource_type: "file".into(),
             apply_script: "mkdir -p \"${FORJAR_SANDBOX}/etc\" && echo 'port=8080' > \"${FORJAR_SANDBOX}/etc/app.conf\"".into(),
@@ -34,10 +33,9 @@ fn main() {
             apply_script: "mkdir -p \"${FORJAR_SANDBOX}/data\"".into(),
             state_query_script: "ls \"${FORJAR_SANDBOX}/data\" 2>/dev/null || echo empty".into(),
             expected_hash: String::new(),
-        },
-    ];
+        }];
 
-    let results: Vec<ConvergenceResult> = targets.iter().map(|t| run_convergence_test(t)).collect();
+    let results: Vec<ConvergenceResult> = targets.iter().map(run_convergence_test).collect();
     let summary = ConvergenceSummary::from_results(&results);
     println!("  {summary}");
     for r in &results {

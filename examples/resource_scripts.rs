@@ -102,6 +102,7 @@ fn make_resource(rt: ResourceType) -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        ..Default::default()
     }
 }
 
