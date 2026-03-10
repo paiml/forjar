@@ -32,7 +32,7 @@ pub(super) fn finalize_machine(
     run_id: &str,
     machine_start: &Instant,
     counters: &MachineCounters,
-    machine: &Machine,
+    _machine: &Machine,
 ) -> Result<ApplyResult, String> {
     lock.generated_at = eventlog::now_iso8601();
     if cfg.config.policy.lock_file {
