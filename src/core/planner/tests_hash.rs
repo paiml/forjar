@@ -95,6 +95,11 @@ fn test_fj004_hash_deterministic() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -216,6 +221,11 @@ fn test_fj004_hash_includes_all_fields() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     // Changing any field should change the hash
     let mut r2 = r1.clone();
@@ -324,6 +334,11 @@ fn test_fj004_hash_content_change_changes_hash() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut r2 = r1.clone();
     r2.content = Some("version=2".to_string());

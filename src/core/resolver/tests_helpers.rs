@@ -103,6 +103,11 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 gather: vec![],
                 scatter: vec![],
                 build_machine: None,
+                repo: None,
+                tag: None,
+                asset_pattern: None,
+                binary: None,
+                install_dir: None,
             },
         );
     }
@@ -242,5 +247,10 @@ pub(super) fn make_base_resource() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }

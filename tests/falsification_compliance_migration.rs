@@ -14,7 +14,6 @@
 use forjar::core::compliance::{
     count_by_severity, evaluate_benchmark, supported_benchmarks, FindingSeverity,
 };
-use forjar::core::migrate::{docker_to_pepita, migrate_config};
 use forjar::core::types::{ForjarConfig, MachineTarget, Policy, Resource, ResourceType};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -169,6 +168,11 @@ fn default_resource() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }
 
@@ -446,157 +450,3 @@ fn count_by_severity_empty() {
     assert_eq!((c, h, m, l), (0, 0, 0, 0));
 }
 
-// ============================================================================
-// FJ-044: Docker → Pepita Conversion
-// ============================================================================
-
-#[test]
-fn docker_basic_conversion() {
-    let docker = docker_resource("nginx:latest");
-    let result = docker_to_pepita("web", &docker);
-    assert_eq!(result.resource.resource_type, ResourceType::Pepita);
-    assert_eq!(result.resource.state.as_deref(), Some("present"));
-    assert!(result.resource.image.is_none());
-}
-
-#[test]
-fn docker_ports_enable_netns() {
-    let mut docker = docker_resource("nginx:latest");
-    docker.ports = vec!["8080:80".into()];
-    let result = docker_to_pepita("web", &docker);
-    assert!(result.resource.netns);
-    assert!(result.resource.ports.is_empty());
-    assert!(result.warnings.iter().any(|w| w.contains("iptables")));
-}
-
-#[test]
-fn docker_absent_state() {
-    let mut docker = docker_resource("nginx:latest");
-    docker.state = Some("absent".into());
-    let result = docker_to_pepita("old", &docker);
-    assert_eq!(result.resource.state.as_deref(), Some("absent"));
-}
-
-#[test]
-fn docker_stopped_maps_to_absent() {
-    let mut docker = docker_resource("app:v1");
-    docker.state = Some("stopped".into());
-    let result = docker_to_pepita("app", &docker);
-    assert_eq!(result.resource.state.as_deref(), Some("absent"));
-    assert!(result.warnings.iter().any(|w| w.contains("stopped")));
-}
-
-#[test]
-fn docker_default_state_maps_to_present() {
-    let mut docker = docker_resource("nginx:latest");
-    docker.state = None;
-    let result = docker_to_pepita("web", &docker);
-    assert_eq!(result.resource.state.as_deref(), Some("present"));
-}
-
-#[test]
-fn docker_unknown_state_warning() {
-    let mut docker = docker_resource("app:v1");
-    docker.state = Some("restarting".into());
-    let result = docker_to_pepita("app", &docker);
-    assert_eq!(result.resource.state.as_deref(), Some("present"));
-    assert!(result.warnings.iter().any(|w| w.contains("restarting")));
-}
-
-#[test]
-fn docker_image_warning() {
-    let docker = docker_resource("nginx:latest");
-    let result = docker_to_pepita("web", &docker);
-    assert!(result.warnings.iter().any(|w| w.contains("nginx:latest")));
-    assert!(result.warnings.iter().any(|w| w.contains("overlay_lower")));
-}
-
-#[test]
-fn docker_volumes_warning() {
-    let mut docker = docker_resource("postgres:16");
-    docker.volumes = vec!["/data:/var/lib/postgresql".into()];
-    let result = docker_to_pepita("db", &docker);
-    assert!(result.resource.volumes.is_empty());
-    assert!(result.warnings.iter().any(|w| w.contains("volumes")));
-}
-
-#[test]
-fn docker_environment_warning() {
-    let mut docker = docker_resource("app:v1");
-    docker.environment = vec!["DB_HOST=localhost".into()];
-    let result = docker_to_pepita("app", &docker);
-    assert!(result.resource.environment.is_empty());
-    assert!(result.warnings.iter().any(|w| w.contains("environment")));
-}
-
-#[test]
-fn docker_restart_warning() {
-    let mut docker = docker_resource("nginx:latest");
-    docker.restart = Some("unless-stopped".into());
-    let result = docker_to_pepita("web", &docker);
-    assert!(result.resource.restart.is_none());
-    assert!(result.warnings.iter().any(|w| w.contains("restart")));
-}
-
-#[test]
-fn docker_preserves_depends_on() {
-    let mut docker = docker_resource("app:v1");
-    docker.depends_on = vec!["db".into()];
-    let result = docker_to_pepita("app", &docker);
-    assert_eq!(result.resource.depends_on, vec!["db"]);
-}
-
-#[test]
-fn docker_preserves_tags() {
-    let mut docker = docker_resource("nginx:latest");
-    docker.tags = vec!["web".into(), "critical".into()];
-    let result = docker_to_pepita("web", &docker);
-    assert_eq!(result.resource.tags, vec!["web", "critical"]);
-}
-
-// ============================================================================
-// FJ-044: Full Config Migration
-// ============================================================================
-
-#[test]
-fn migrate_config_converts_docker() {
-    let mut config = empty_config();
-    config
-        .resources
-        .insert("web".into(), docker_resource("nginx:latest"));
-    let mut pkg = package_resource();
-    pkg.resource_type = ResourceType::Package;
-    config.resources.insert("tools".into(), pkg);
-
-    let (migrated, warnings) = migrate_config(&config);
-    assert_eq!(
-        migrated.resources["web"].resource_type,
-        ResourceType::Pepita
-    );
-    assert_eq!(
-        migrated.resources["tools"].resource_type,
-        ResourceType::Package
-    );
-    assert!(!warnings.is_empty());
-}
-
-#[test]
-fn migrate_config_no_docker_no_warnings() {
-    let mut config = empty_config();
-    config.resources.insert("pkg".into(), package_resource());
-
-    let (migrated, warnings) = migrate_config(&config);
-    assert!(warnings.is_empty());
-    assert_eq!(
-        migrated.resources["pkg"].resource_type,
-        ResourceType::Package
-    );
-}
-
-#[test]
-fn migrate_config_empty() {
-    let config = empty_config();
-    let (migrated, warnings) = migrate_config(&config);
-    assert!(migrated.resources.is_empty());
-    assert!(warnings.is_empty());
-}

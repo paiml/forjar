@@ -141,7 +141,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::Recipe
         | ResourceType::WasmBundle
         | ResourceType::Image
-        | ResourceType::Build => "present",
+        | ResourceType::Build
+        | ResourceType::GithubRelease => "present",
     }
 }
 
@@ -348,7 +349,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Recipe
             | ResourceType::WasmBundle
             | ResourceType::Image
-            | ResourceType::Build => format!("{resource_id}: create"),
+            | ResourceType::Build
+            | ResourceType::GithubRelease => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

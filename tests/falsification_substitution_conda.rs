@@ -2,12 +2,11 @@
 //! Usage: cargo test --test falsification_substitution_conda
 
 use forjar::core::store::cache::{CacheConfig, CacheEntry, CacheInventory, CacheSource};
-use forjar::core::store::conda::{parse_conda_index, CondaPackageInfo};
+use forjar::core::store::conda::parse_conda_index;
 use forjar::core::store::substitution::{
     plan_substitution, requires_build, requires_pull, step_count, SubstitutionContext,
     SubstitutionOutcome, SubstitutionStep,
 };
-use std::collections::BTreeMap;
 use std::path::Path;
 
 // ── helpers ──

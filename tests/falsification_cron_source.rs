@@ -9,7 +9,7 @@
 //!
 //! Usage: cargo test --test falsification_cron_source
 
-use forjar::core::cron_source::{matches, parse_cron, schedule_summary, CronSchedule, CronTime};
+use forjar::core::cron_source::{matches, parse_cron, schedule_summary, CronTime};
 use std::collections::BTreeSet;
 
 fn time(minute: u8, hour: u8, day: u8, month: u8, weekday: u8) -> CronTime {

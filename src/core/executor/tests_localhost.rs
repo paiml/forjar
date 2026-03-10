@@ -260,6 +260,11 @@ fn test_fj131_build_details_group_only() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert_eq!(

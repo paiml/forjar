@@ -102,6 +102,11 @@ fn test_fj012_record_success_without_tripwire() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -215,6 +220,11 @@ fn test_fj012_record_success_service_resource() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -350,6 +360,11 @@ fn test_fj012_build_details_file_no_content() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(details.contains_key("path"));
@@ -458,6 +473,11 @@ fn test_fj012_build_details_file_with_content_and_real_file() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(

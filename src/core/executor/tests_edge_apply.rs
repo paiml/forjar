@@ -131,6 +131,11 @@ fn test_fj012_build_resource_details_empty() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(
@@ -233,6 +238,11 @@ fn test_fj012_build_resource_details_path_only() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));

@@ -17,7 +17,7 @@ use forjar::core::metric_source::{
     evaluate_metrics, evaluate_threshold, MetricThreshold, ThresholdOp, ThresholdTracker,
 };
 use forjar::core::rules_engine::{
-    event_type_coverage, validate_rulebook_config, validate_rulebook_yaml, IssueSeverity,
+    event_type_coverage, validate_rulebook_yaml, IssueSeverity,
     ValidationSummary,
 };
 use forjar::core::types::{EventType, RulebookConfig};

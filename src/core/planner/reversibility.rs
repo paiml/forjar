@@ -56,6 +56,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::WasmBundle | ResourceType::Image => Reversibility::Reversible,
         // Build output is re-buildable
         ResourceType::Build => Reversibility::Reversible,
+        // GitHub release binary can be re-downloaded
+        ResourceType::GithubRelease => Reversibility::Reversible,
     }
 }
 
