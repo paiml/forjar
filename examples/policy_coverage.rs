@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! Example: Policy coverage report (FJ-3208)
 //!
 //! Demonstrates computing policy coverage — which resources

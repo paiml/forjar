@@ -132,10 +132,12 @@ fn main() {
     println!("  exit 0: {:?}", evaluate_gate(&gate, 0, ""));
     println!("  exit 1: {:?}", evaluate_gate(&gate, 1, ""));
 
-    let mut json_gate = QualityGate::default();
-    json_gate.parse = Some("json".into());
-    json_gate.field = Some("coverage".into());
-    json_gate.min = Some(80.0);
+    let json_gate = QualityGate {
+        parse: Some("json".into()),
+        field: Some("coverage".into()),
+        min: Some(80.0),
+        ..Default::default()
+    };
     println!(
         "  JSON coverage=95: {:?}",
         evaluate_gate(&json_gate, 0, r#"{"coverage":95.0}"#)

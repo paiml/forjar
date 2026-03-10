@@ -305,7 +305,7 @@ mod tests {
         // In default test builds, wasm-runtime is not enabled
         let available = is_runtime_available();
         // Just verify it returns a bool without panicking
-        assert!(available || !available);
+        let _ = available;
     }
 
     #[test]

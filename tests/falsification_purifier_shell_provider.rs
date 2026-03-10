@@ -63,8 +63,8 @@ fn lint_clean_script_no_errors() {
 fn lint_returns_diagnostics() {
     let script = "#!/bin/bash\necho hello\n";
     let result = lint_script(script);
-    // Should have at least one diagnostic or zero — just test it runs
-    assert!(result.diagnostics.len() >= 0);
+    // Just verify it runs without panicking
+    let _ = result.diagnostics.len();
 }
 
 // ============================================================================

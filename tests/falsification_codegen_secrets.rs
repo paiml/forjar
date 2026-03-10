@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-005/200: Codegen dispatch and secrets marker falsification.
 //!
 //! Popperian rejection criteria for:

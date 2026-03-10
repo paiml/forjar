@@ -449,4 +449,3 @@ fn count_by_severity_empty() {
     let (c, h, m, l) = count_by_severity(&[]);
     assert_eq!((c, h, m, l), (0, 0, 0, 0));
 }
-

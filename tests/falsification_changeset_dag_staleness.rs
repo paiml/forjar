@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-046/216: Minimal changeset, DAG ordering, and parallel waves.
 //!
 //! Popperian rejection criteria for:

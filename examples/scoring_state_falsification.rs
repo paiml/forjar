@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-2800/013/005: Scoring, state management, and codegen falsification.
 //!
 //! Demonstrates Popperian rejection criteria for:

@@ -131,7 +131,6 @@ fn main() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
-        ..Default::default()
     })
     .unwrap();
 

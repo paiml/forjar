@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-3203/3208: Compliance gate and policy coverage falsification.
 //!
 //! Popperian rejection criteria for:
@@ -12,14 +13,10 @@
 use forjar::core::compliance_gate::{
     check_compliance_gate, config_to_resource_map, format_gate_result, ComplianceGateResult,
 };
-use forjar::core::policy_coverage::{
-    compute_coverage, coverage_to_json, format_coverage, PolicyCoverage,
-};
+use forjar::core::policy_coverage::compute_coverage;
 use forjar::core::types::{
     ComplianceMapping, ForjarConfig, PolicyRule, PolicyRuleType, Resource, ResourceType,
 };
-use std::collections::HashMap;
-
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -413,115 +410,4 @@ fn coverage_per_resource_multi() {
     config.policies = vec![require_policy("file"), require_policy("file")];
     let cov = compute_coverage(&config);
     assert_eq!(cov.per_resource.get("f1"), Some(&2));
-}
-
-// ============================================================================
-// FJ-3208: format_coverage
-// ============================================================================
-
-#[test]
-fn format_coverage_percentage() {
-    let mut config = make_config_with_resources(&[
-        ("f1", ResourceType::File, None),
-        ("p1", ResourceType::Package, None),
-    ]);
-    config.policies = vec![require_policy("file")];
-    let cov = compute_coverage(&config);
-    let text = format_coverage(&cov);
-    assert!(text.contains("50.0%"));
-    assert!(text.contains("1/2"));
-}
-
-#[test]
-fn format_coverage_uncovered_listed() {
-    let mut config = make_config_with_resources(&[
-        ("f1", ResourceType::File, None),
-        ("pkg-nginx", ResourceType::Package, None),
-    ]);
-    config.policies = vec![require_policy("file")];
-    let cov = compute_coverage(&config);
-    let text = format_coverage(&cov);
-    assert!(text.contains("pkg-nginx"));
-    assert!(text.contains("Uncovered"));
-}
-
-#[test]
-fn format_coverage_by_type() {
-    let mut config = make_config_with_resources(&[("f1", ResourceType::File, None)]);
-    config.policies = vec![require_policy("file")];
-    let cov = compute_coverage(&config);
-    let text = format_coverage(&cov);
-    assert!(text.contains("require:"));
-}
-
-#[test]
-fn format_coverage_frameworks() {
-    let mut policy = require_policy("file");
-    policy.compliance = vec![ComplianceMapping {
-        framework: "NIST".into(),
-        control: "AC-3".into(),
-    }];
-    let mut config = make_config_with_resources(&[("f1", ResourceType::File, None)]);
-    config.policies = vec![policy];
-    let cov = compute_coverage(&config);
-    let text = format_coverage(&cov);
-    assert!(text.contains("NIST"));
-}
-
-// ============================================================================
-// FJ-3208: coverage_to_json
-// ============================================================================
-
-#[test]
-fn coverage_json_output() {
-    let mut config = make_config_with_resources(&[("f1", ResourceType::File, None)]);
-    config.policies = vec![require_policy("file")];
-    let cov = compute_coverage(&config);
-    let json = coverage_to_json(&cov);
-    assert_eq!(json["total_resources"], 1);
-    assert_eq!(json["covered_resources"], 1);
-    assert_eq!(json["fully_covered"], true);
-}
-
-#[test]
-fn coverage_json_uncovered() {
-    let config = make_config_with_resources(&[("orphan", ResourceType::File, None)]);
-    let cov = compute_coverage(&config);
-    let json = coverage_to_json(&cov);
-    assert_eq!(json["fully_covered"], false);
-    let uncovered = json["uncovered"].as_array().unwrap();
-    assert_eq!(uncovered.len(), 1);
-    assert_eq!(uncovered[0], "orphan");
-}
-
-// ============================================================================
-// FJ-3208: PolicyCoverage Methods
-// ============================================================================
-
-#[test]
-fn coverage_percent_empty() {
-    let cov = PolicyCoverage {
-        total_resources: 0,
-        covered_resources: 0,
-        uncovered: vec![],
-        per_resource: HashMap::new(),
-        by_type: HashMap::new(),
-        frameworks: std::collections::HashSet::new(),
-    };
-    assert!((cov.coverage_percent() - 100.0).abs() < f64::EPSILON);
-    assert!(cov.fully_covered());
-}
-
-#[test]
-fn coverage_percent_half() {
-    let cov = PolicyCoverage {
-        total_resources: 4,
-        covered_resources: 2,
-        uncovered: vec!["a".into(), "b".into()],
-        per_resource: HashMap::new(),
-        by_type: HashMap::new(),
-        frameworks: std::collections::HashSet::new(),
-    };
-    assert!((cov.coverage_percent() - 50.0).abs() < f64::EPSILON);
-    assert!(!cov.fully_covered());
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! Example: Compliance pack pre-apply gate (FJ-3203)
 //!
 //! Demonstrates loading compliance packs from disk and evaluating

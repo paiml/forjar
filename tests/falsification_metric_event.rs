@@ -169,9 +169,9 @@ fn evaluate_consecutive_firing() {
     let mut values = HashMap::new();
     values.insert("cpu".into(), 90.0);
     let mut tracker = ThresholdTracker::default();
-    let r1 = evaluate_metrics(&[t.clone()], &values, &mut tracker);
+    let r1 = evaluate_metrics(std::slice::from_ref(&t), &values, &mut tracker);
     assert!(!r1[0].should_fire);
-    let r2 = evaluate_metrics(&[t.clone()], &values, &mut tracker);
+    let r2 = evaluate_metrics(std::slice::from_ref(&t), &values, &mut tracker);
     assert!(!r2[0].should_fire);
     let r3 = evaluate_metrics(&[t], &values, &mut tracker);
     assert!(r3[0].should_fire);
