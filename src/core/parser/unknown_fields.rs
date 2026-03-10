@@ -139,6 +139,12 @@ const RESOURCE_FIELDS: &[&str] = &[
     "script",
     "gather",
     "scatter",
+    "repo",
+    "tag",
+    "asset_pattern",
+    "binary",
+    "install_dir",
+    "build_machine",
 ];
 
 const MACHINE_FIELDS: &[&str] = &[
