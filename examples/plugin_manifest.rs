@@ -189,7 +189,51 @@ blake3: "{hash}"
         m.name, m.version, m.abi_version, m.wasm
     );
 
-    // 5f. Remove the plugin
+    // 5f. WASM runtime dispatch (check/apply/destroy)
+    use forjar::core::plugin_dispatch;
+    use forjar::core::plugin_runtime;
+    println!("\n6. WASM Runtime Dispatch:");
+    println!(
+        "  Runtime available: {} ({})",
+        plugin_runtime::is_runtime_available(),
+        if plugin_runtime::is_runtime_available() {
+            "wasmi"
+        } else {
+            "stub"
+        }
+    );
+    let config = serde_json::json!({"replicas": 3});
+    let check = plugin_dispatch::dispatch_check(&plugins, plugin_name, &config);
+    println!(
+        "  check:   success={}, status={:?}",
+        check.success, check.status
+    );
+    let apply = plugin_dispatch::dispatch_apply(&plugins, plugin_name, &config);
+    println!(
+        "  apply:   success={}, status={:?}",
+        apply.success, apply.status
+    );
+    let destroy = plugin_dispatch::dispatch_destroy(&plugins, plugin_name, &config);
+    println!(
+        "  destroy: success={}, status={:?}",
+        destroy.success, destroy.status
+    );
+
+    // 5g. ABI validation
+    let abi = plugin_runtime::validate_wasm_exports(wasm_stub);
+    match abi {
+        Ok(info) => println!(
+            "  ABI: valid={}, exports={}, check={}, apply={}, destroy={}",
+            info.is_valid(),
+            info.export_count,
+            info.has_check,
+            info.has_apply,
+            info.has_destroy
+        ),
+        Err(e) => println!("  ABI: {e}"),
+    }
+
+    // Cleanup
     std::fs::remove_dir_all(&dest).unwrap();
     let remaining = list_plugins(&plugins);
     println!("  Removed '{plugin_name}' — remaining: {:?}", remaining);
