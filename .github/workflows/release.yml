@@ -109,6 +109,7 @@ jobs:
   publish:
     needs: verify
     runs-on: [self-hosted, clean-room]
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
@@ -125,17 +126,23 @@ jobs:
             cargo publish
           fi
 
+  # ── Create GitHub Release ─────────────────────────────
+  create-release:
+    needs: verify
+    runs-on: [self-hosted, clean-room]
+    steps:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "$RELEASE_TAG" \
             --title "$RELEASE_TAG" \
-            --generate-notes
+            --generate-notes \
+            --repo "${{ github.repository }}"
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
   build-binaries:
-    needs: [verify, publish]
+    needs: [verify, create-release]
     if: needs.verify.outputs.has_binaries == 'true'
     strategy:
       fail-fast: false
@@ -226,7 +233,7 @@ jobs:
 
   # ── Generate checksums and upload to GitHub Release ─────
   checksums:
-    needs: [verify, publish, build-binaries]
+    needs: [verify, create-release, build-binaries]
     if: needs.verify.outputs.has_binaries == 'true'
     runs-on: [self-hosted, clean-room]
     steps:
