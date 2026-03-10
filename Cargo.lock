@@ -1005,6 +1005,7 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "toml 0.8.23",
  "zip",
  "zstd",
 ]
