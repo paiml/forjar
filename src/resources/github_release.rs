@@ -50,6 +50,8 @@ pub fn apply_script(resource: &Resource) -> String {
     let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
     let tag = resource.tag.as_deref().unwrap_or("latest");
     let asset_pattern = resource.asset_pattern.as_deref().unwrap_or("*");
+    // Strip glob wildcards for use in grep -F (fixed string match)
+    let grep_pattern = asset_pattern.trim_matches('*');
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
     let state = resource.state.as_deref().unwrap_or("present");
@@ -66,15 +68,21 @@ pub fn apply_script(resource: &Resource) -> String {
              TMPDIR=$(mktemp -d)\n\
              trap 'rm -rf \"$TMPDIR\"' EXIT\n\
              \n\
-             # Download release asset\n\
-             gh release download '{tag}' \\\n\
-             \x20 --repo '{repo}' \\\n\
-             \x20 --pattern '{asset_pattern}' \\\n\
-             \x20 --dir \"$TMPDIR\" \\\n\
-             \x20 --clobber\n\
+             # Download release asset via GitHub API (no gh CLI required)\n\
+             RELEASE_URL=\"https://api.github.com/repos/{repo}/releases/tags/{tag}\"\n\
+             DOWNLOAD_URL=$(curl -fsSL \"$RELEASE_URL\" | \\\n\
+             \x20 grep -F '{grep_pattern}' | \\\n\
+             \x20 grep -o '\"browser_download_url\": *\"[^\"]*\"' | \\\n\
+             \x20 head -1 | \\\n\
+             \x20 grep -o 'https://[^\"]*')\n\
              \n\
-             # Extract if tarball, otherwise copy directly\n\
-             ASSET=$(ls \"$TMPDIR\"/* | head -1)\n\
+             if [ -z \"$DOWNLOAD_URL\" ]; then\n\
+             \x20 echo \"ERROR: no asset matching '{asset_pattern}' in {repo}@{tag}\" >&2\n\
+             \x20 exit 1\n\
+             fi\n\
+             \n\
+             curl -fsSL -o \"$TMPDIR/asset\" \"$DOWNLOAD_URL\"\n\
+             ASSET=\"$TMPDIR/asset\"\n\
              case \"$ASSET\" in\n\
              \x20 *.tar.gz|*.tgz)\n\
              \x20\x20\x20 tar xzf \"$ASSET\" -C \"$TMPDIR\" --strip-components=0\n\
@@ -99,9 +107,10 @@ pub fn apply_script(resource: &Resource) -> String {
              \x20 exit 1\n\
              fi\n\
              \n\
-             # Install\n\
+             # Install (realpath validates path before cp)\n\
+             SAFE_BIN=$(realpath \"$EXTRACTED\")\n\
              mkdir -p '{install_dir}'\n\
-             cp \"$EXTRACTED\" '{bin_path}'\n\
+             cp \"$SAFE_BIN\" '{bin_path}'\n\
              chmod +x '{bin_path}'\n\
              \n\
              # Verify\n\
@@ -166,9 +175,8 @@ mod tests {
         let r = make_github_release_resource("paiml/aprender", "apr");
         let script = apply_script(&r);
         assert!(script.contains("set -euo pipefail"));
-        assert!(script.contains("gh release download 'nightly'"));
-        assert!(script.contains("--repo 'paiml/aprender'"));
-        assert!(script.contains("--pattern '*aarch64-unknown-linux-gnu*'"));
+        assert!(script.contains("paiml/aprender/releases/tags/nightly"));
+        assert!(script.contains("aarch64-unknown-linux-gnu"));
         assert!(script.contains("/home/noah/.cargo/bin/apr"));
         assert!(script.contains("chmod +x"));
     }
@@ -204,7 +212,7 @@ mod tests {
         let mut r = make_github_release_resource("paiml/forjar", "forjar");
         r.tag = None;
         let script = apply_script(&r);
-        assert!(script.contains("gh release download 'latest'"));
+        assert!(script.contains("releases/tags/latest"));
     }
 
     #[test]
