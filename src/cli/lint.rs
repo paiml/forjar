@@ -256,6 +256,12 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
                 let lint_result = crate::core::purifier::lint_script(&script);
                 for d in &lint_result.diagnostics {
                     use bashrs::linter::Severity;
+                    // SC1xxx rules have false positives on generated scripts
+                    // (e.g. grep char classes parsed as test expressions).
+                    // purifier::validate_script already filters these.
+                    if d.code.starts_with("SC1") {
+                        continue;
+                    }
                     match d.severity {
                         Severity::Error => {
                             script_errors += 1;
