@@ -81,8 +81,9 @@ pub fn apply_script(resource: &Resource) -> String {
              \x20 exit 1\n\
              fi\n\
              \n\
-             curl -fsSL -o \"$TMPDIR/asset\" \"$DOWNLOAD_URL\"\n\
-             ASSET=\"$TMPDIR/asset\"\n\
+             ASSET_NAME=$(basename \"$DOWNLOAD_URL\")\n\
+             curl -fsSL -o \"$TMPDIR/$ASSET_NAME\" \"$DOWNLOAD_URL\"\n\
+             ASSET=\"$TMPDIR/$ASSET_NAME\"\n\
              case \"$ASSET\" in\n\
              \x20 *.tar.gz|*.tgz)\n\
              \x20\x20\x20 tar xzf \"$ASSET\" -C \"$TMPDIR\" --strip-components=0\n\
