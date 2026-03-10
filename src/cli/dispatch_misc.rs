@@ -70,7 +70,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Inventory(..)
         | Commands::Output(..)
         | Commands::Policy(..)
-        | Commands::PolicyCoverage(..)) => dispatch_misc_ops(cmd, verbose),
+        | Commands::PolicyCoverage(..)
+        | Commands::PolicyInstall(..)) => dispatch_misc_ops(cmd, verbose),
         Commands::Bootstrap(a) => bootstrap_cmd::cmd_bootstrap(
             &a.addr,
             &a.user,
@@ -455,6 +456,9 @@ fn dispatch_misc_ops(cmd: Commands, verbose: bool) -> Result<(), String> {
         Commands::Policy(PolicyArgs { file, json, sarif }) => cmd_policy(&file, json, sarif),
         Commands::PolicyCoverage(PolicyCoverageArgs { file, json }) => {
             super::policy_coverage::cmd_policy_coverage(&file, json)
+        }
+        Commands::PolicyInstall(a) => {
+            super::policy_install::cmd_policy_install(&a.pack, &a.output_dir, a.json)
         }
         _ => unreachable!(),
     }

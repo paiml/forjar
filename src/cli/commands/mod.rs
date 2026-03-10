@@ -104,6 +104,10 @@ pub enum Commands {
     #[command(name = "policy-coverage")]
     PolicyCoverage(PolicyCoverageArgs),
 
+    /// FJ-3206: Install a compliance pack
+    #[command(name = "policy-install")]
+    PolicyInstall(PolicyInstallArgs),
+
     /// FJ-210: Manage workspaces (isolated state directories)
     #[command(subcommand)]
     Workspace(WorkspaceCmd),

@@ -393,6 +393,19 @@ pub struct PolicyCoverageArgs {
     pub json: bool,
 }
 
+/// FJ-3206: CLI arguments for the `policy-install` command.
+#[derive(clap::Args, Debug)]
+pub struct PolicyInstallArgs {
+    /// Pack name (e.g., cis-ubuntu-22, nist-800-53, soc2, hipaa)
+    pub pack: String,
+    /// Output directory for installed pack
+    #[arg(long, default_value = "policies")]
+    pub output_dir: PathBuf,
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// CLI arguments for the `score` command.
 #[derive(clap::Args, Debug)]
 pub struct ScoreArgs {

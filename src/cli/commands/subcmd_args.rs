@@ -143,6 +143,37 @@ pub enum EnvironmentsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Rollback an environment to a previous generation
+    Rollback {
+        /// Environment name to rollback
+        env: String,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Number of generations to rollback
+        #[arg(long, default_value = "1")]
+        generations: u32,
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show promotion/rollback history for an environment
+    History {
+        /// Environment name
+        env: String,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Maximum events to show
+        #[arg(long, default_value = "20")]
+        limit: usize,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-3506: Promote between environments.
@@ -215,6 +246,43 @@ pub enum PluginCmd {
         /// Output directory (default: plugins/<name>)
         #[arg(long)]
         output: Option<PathBuf>,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Install a plugin from a local path or registry
+    Install {
+        /// Plugin source (directory path or name)
+        source: String,
+        /// Plugin directory to install into
+        #[arg(long, default_value = "plugins")]
+        plugin_dir: PathBuf,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Build a WASM plugin from a Rust source directory
+    Build {
+        /// Path to plugin source directory (must contain Cargo.toml)
+        #[arg(long)]
+        path: PathBuf,
+        /// Output directory for built plugin
+        #[arg(long, default_value = "plugins")]
+        output: Option<PathBuf>,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove an installed plugin
+    Remove {
+        /// Plugin name to remove
+        name: String,
+        /// Plugin directory
+        #[arg(long, default_value = "plugins")]
+        plugin_dir: PathBuf,
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
         /// JSON output
         #[arg(long)]
         json: bool,

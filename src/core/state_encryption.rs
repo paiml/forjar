@@ -69,7 +69,7 @@ pub fn write_metadata(path: &Path, meta: &EncryptionMeta) -> Result<(), String> 
 }
 
 /// Get the sidecar metadata file path for an encrypted file.
-fn meta_path_for(path: &Path) -> std::path::PathBuf {
+pub(crate) fn meta_path_for(path: &Path) -> std::path::PathBuf {
     let mut p = path.as_os_str().to_owned();
     p.push(".enc.meta.json");
     std::path::PathBuf::from(p)
@@ -78,6 +78,108 @@ fn meta_path_for(path: &Path) -> std::path::PathBuf {
 /// Check if a state file has an encryption sidecar.
 pub fn is_encrypted(path: &Path) -> bool {
     meta_path_for(path).exists()
+}
+
+// ─── Age encryption (requires `encryption` feature) ──────────────
+
+/// Encrypt data using age with a passphrase.
+#[cfg(feature = "encryption")]
+pub fn encrypt_data(plaintext: &[u8], passphrase: &str) -> Result<Vec<u8>, String> {
+    use std::io::Write;
+
+    let secret = age::secrecy::SecretString::from(passphrase.to_owned());
+    let encryptor = age::Encryptor::with_user_passphrase(secret);
+    let mut encrypted = vec![];
+    let mut writer = encryptor
+        .wrap_output(&mut encrypted)
+        .map_err(|e| format!("age encrypt: {e}"))?;
+    writer
+        .write_all(plaintext)
+        .map_err(|e| format!("write: {e}"))?;
+    writer.finish().map_err(|e| format!("finish: {e}"))?;
+    Ok(encrypted)
+}
+
+/// Decrypt age-encrypted data with a passphrase.
+#[cfg(feature = "encryption")]
+pub fn decrypt_data(ciphertext: &[u8], passphrase: &str) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+
+    let decryptor =
+        age::Decryptor::new(ciphertext).map_err(|e| format!("age decrypt init: {e}"))?;
+    let secret = age::secrecy::SecretString::from(passphrase.to_owned());
+    let identity = age::scrypt::Identity::new(secret);
+    let mut reader = decryptor
+        .decrypt(std::iter::once(&identity as &dyn age::Identity))
+        .map_err(|e| format!("age decrypt: {e}"))?;
+    let mut plaintext = vec![];
+    reader
+        .read_to_end(&mut plaintext)
+        .map_err(|e| format!("read: {e}"))?;
+    Ok(plaintext)
+}
+
+/// Encrypt a state file in place. Writes ciphertext over the original and creates metadata sidecar.
+#[cfg(feature = "encryption")]
+pub fn encrypt_state_file(path: &Path, passphrase: &str) -> Result<EncryptionMeta, String> {
+    let plaintext = std::fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    let ciphertext = encrypt_data(&plaintext, passphrase)?;
+    let key = derive_key(passphrase);
+    let meta = create_metadata(&plaintext, &ciphertext, &key);
+
+    std::fs::write(path, &ciphertext).map_err(|e| format!("write encrypted: {e}"))?;
+    write_metadata(path, &meta)?;
+
+    Ok(meta)
+}
+
+/// Decrypt an age-encrypted state file back to plaintext, writing it in place.
+#[cfg(feature = "encryption")]
+pub fn decrypt_state_file(path: &Path, passphrase: &str) -> Result<Vec<u8>, String> {
+    let ciphertext = std::fs::read(path).map_err(|e| format!("read: {e}"))?;
+    let key = derive_key(passphrase);
+    let meta = read_metadata(path)?;
+
+    if !verify_metadata(&meta, &ciphertext, &key) {
+        return Err(format!("integrity check failed for {}", path.display()));
+    }
+
+    let plaintext = decrypt_data(&ciphertext, passphrase)?;
+
+    if hash_data(&plaintext) != meta.plaintext_hash {
+        return Err(format!("plaintext hash mismatch for {}", path.display()));
+    }
+
+    std::fs::write(path, &plaintext).map_err(|e| format!("write: {e}"))?;
+
+    // Remove metadata sidecar
+    let _ = std::fs::remove_file(meta_path_for(path));
+
+    Ok(plaintext)
+}
+
+/// Encrypt data stub when encryption feature is disabled.
+#[cfg(not(feature = "encryption"))]
+pub fn encrypt_data(_plaintext: &[u8], _passphrase: &str) -> Result<Vec<u8>, String> {
+    Err("encryption feature not enabled — build with --features encryption".into())
+}
+
+/// Decrypt data stub when encryption feature is disabled.
+#[cfg(not(feature = "encryption"))]
+pub fn decrypt_data(_ciphertext: &[u8], _passphrase: &str) -> Result<Vec<u8>, String> {
+    Err("encryption feature not enabled — build with --features encryption".into())
+}
+
+/// Encrypt state file stub when encryption feature is disabled.
+#[cfg(not(feature = "encryption"))]
+pub fn encrypt_state_file(_path: &Path, _passphrase: &str) -> Result<EncryptionMeta, String> {
+    Err("encryption feature not enabled — build with --features encryption".into())
+}
+
+/// Decrypt state file stub when encryption feature is disabled.
+#[cfg(not(feature = "encryption"))]
+pub fn decrypt_state_file(_path: &Path, _passphrase: &str) -> Result<Vec<u8>, String> {
+    Err("encryption feature not enabled — build with --features encryption".into())
 }
 
 /// List encrypted state files in a directory.
@@ -263,6 +365,120 @@ mod tests {
     #[test]
     fn read_metadata_missing_file() {
         let result = read_metadata(Path::new("/nonexistent/file.yaml"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn stub_encrypt_data_returns_error() {
+        // Validates the non-encryption stub compiles and returns Err.
+        // When encryption feature IS enabled, this tests encrypt_data
+        // with empty passphrase still works (age accepts any passphrase).
+        let result = encrypt_data(b"test", "");
+        #[cfg(not(feature = "encryption"))]
+        assert!(result.is_err());
+        #[cfg(feature = "encryption")]
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn stub_decrypt_data_returns_error() {
+        let result = decrypt_data(b"not valid", "pass");
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(all(test, feature = "encryption"))]
+mod tests_encryption {
+    use super::*;
+
+    #[test]
+    fn encrypt_decrypt_roundtrip() {
+        let plaintext = b"hello world, this is state data!";
+        let passphrase = "test-passphrase-42";
+        let ciphertext = encrypt_data(plaintext, passphrase).unwrap();
+        assert_ne!(&ciphertext, &plaintext[..]);
+        assert!(ciphertext.len() > plaintext.len()); // age adds overhead
+        let decrypted = decrypt_data(&ciphertext, passphrase).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn encrypt_decrypt_empty_data() {
+        let plaintext = b"";
+        let passphrase = "empty-test";
+        let ciphertext = encrypt_data(plaintext, passphrase).unwrap();
+        let decrypted = decrypt_data(&ciphertext, passphrase).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn decrypt_wrong_passphrase() {
+        let plaintext = b"secret state data";
+        let ciphertext = encrypt_data(plaintext, "correct-pass").unwrap();
+        let result = decrypt_data(&ciphertext, "wrong-pass");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decrypt_corrupted_data() {
+        let result = decrypt_data(b"not valid age data", "pass");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn encrypt_state_file_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("state.lock.yaml");
+        let original = "resources:\n  pkg:\n    state: converged\n";
+        std::fs::write(&file, original).unwrap();
+
+        let passphrase = "file-test-pass";
+
+        // Encrypt
+        let meta = encrypt_state_file(&file, passphrase).unwrap();
+        assert!(is_encrypted(&file));
+        assert_eq!(meta.version, 1);
+        assert_eq!(meta.plaintext_hash, hash_data(original.as_bytes()));
+
+        let encrypted_content = std::fs::read(&file).unwrap();
+        assert_ne!(encrypted_content, original.as_bytes());
+
+        // Decrypt
+        let plaintext = decrypt_state_file(&file, passphrase).unwrap();
+        assert_eq!(plaintext, original.as_bytes());
+        assert!(!is_encrypted(&file)); // sidecar removed
+    }
+
+    #[test]
+    fn encrypt_state_file_metadata_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.lock.yaml");
+        std::fs::write(&file, "data").unwrap();
+
+        let meta = encrypt_state_file(&file, "pass").unwrap();
+        let loaded = read_metadata(&file).unwrap();
+        assert_eq!(loaded.plaintext_hash, meta.plaintext_hash);
+        assert_eq!(loaded.ciphertext_hmac, meta.ciphertext_hmac);
+    }
+
+    #[test]
+    fn decrypt_state_file_wrong_passphrase() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("state.lock.yaml");
+        std::fs::write(&file, "secret").unwrap();
+
+        encrypt_state_file(&file, "right-pass").unwrap();
+        let result = decrypt_state_file(&file, "wrong-pass");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decrypt_state_file_missing_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("state.lock.yaml");
+        std::fs::write(&file, "data").unwrap();
+        // No metadata sidecar
+        let result = decrypt_state_file(&file, "pass");
         assert!(result.is_err());
     }
 }

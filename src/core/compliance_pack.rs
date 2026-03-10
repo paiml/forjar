@@ -152,6 +152,11 @@ pub fn list_packs(dir: &Path) -> Vec<String> {
     packs
 }
 
+// Re-export built-in pack functions from compliance_pack_builtin.
+pub use super::compliance_pack_builtin::{
+    builtin_pack_names, generate_builtin_pack, generate_builtin_pack_yaml,
+};
+
 /// Evaluate a compliance pack against config resources.
 ///
 /// This is a simplified evaluator that checks resource metadata.
