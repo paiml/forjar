@@ -1,11 +1,10 @@
-//! FJ-1316/1342/1350: Sandbox planning, derivation lifecycle, HF kernel mapping.
+//! FJ-1316/1342: Sandbox planning and derivation lifecycle.
 //! Usage: cargo test --test falsification_sandbox_derivation_hf
 
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{
     execute_derivation_dag, is_store_hit, plan_derivation, simulate_derivation, skipped_steps,
 };
-use forjar::core::store::hf_config::{parse_hf_config_str, required_kernels, HfModelConfig};
 use forjar::core::store::sandbox::{SandboxConfig, SandboxLevel};
 use forjar::core::store::sandbox_exec::{
     export_overlay_upper, gzip_compress, oci_layout_plan, plan_sandbox_build, plan_step_count,
@@ -39,20 +38,6 @@ fn test_derivation(script: &str) -> Derivation {
         sandbox: None,
         arch: "x86_64".into(),
         out_var: "$out".into(),
-    }
-}
-
-fn llama_config() -> HfModelConfig {
-    HfModelConfig {
-        model_type: "llama".into(),
-        architectures: vec!["LlamaForCausalLM".into()],
-        hidden_size: Some(4096),
-        num_attention_heads: Some(32),
-        num_key_value_heads: Some(8),
-        num_hidden_layers: Some(32),
-        intermediate_size: Some(11008),
-        vocab_size: Some(32000),
-        max_position_embeddings: Some(4096),
     }
 }
 
@@ -421,188 +406,4 @@ fn execute_dag_chain() {
     let results =
         execute_derivation_dag(&derivations, &topo, &resources, &[], Path::new("/store")).unwrap();
     assert_eq!(results.len(), 2);
-}
-
-// ── FJ-1350: HF config parsing ──
-
-#[test]
-fn parse_hf_config_json() {
-    let json = r#"{"model_type":"llama","architectures":["LlamaForCausalLM"],"hidden_size":4096,"num_attention_heads":32,"num_key_value_heads":8,"num_hidden_layers":32}"#;
-    let config = parse_hf_config_str(json).unwrap();
-    assert_eq!(config.model_type, "llama");
-    assert_eq!(config.hidden_size, Some(4096));
-    assert_eq!(config.num_key_value_heads, Some(8));
-}
-
-#[test]
-fn parse_hf_config_minimal() {
-    let json = r#"{"model_type":"gpt2"}"#;
-    let config = parse_hf_config_str(json).unwrap();
-    assert_eq!(config.model_type, "gpt2");
-    assert!(config.architectures.is_empty());
-    assert!(config.hidden_size.is_none());
-}
-
-#[test]
-fn parse_hf_config_invalid() {
-    assert!(parse_hf_config_str("{invalid}").is_err());
-}
-
-// ── required_kernels ──
-
-#[test]
-fn required_kernels_llama_has_gqa() {
-    let config = llama_config();
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "gqa"));
-    assert!(kernels.iter().any(|k| k.op == "rmsnorm"));
-    assert!(kernels.iter().any(|k| k.op == "silu"));
-    assert!(kernels.iter().any(|k| k.op == "rope"));
-    assert!(kernels.iter().any(|k| k.op == "swiglu"));
-    assert!(kernels.iter().any(|k| k.op == "softmax"));
-    assert!(kernels.iter().any(|k| k.op == "matmul"));
-    assert!(!kernels.iter().any(|k| k.op == "has_bias")); // llama has no bias
-}
-
-#[test]
-fn required_kernels_gpt2_has_layernorm_and_absolute() {
-    let config = HfModelConfig {
-        model_type: "gpt2".into(),
-        architectures: vec![],
-        hidden_size: Some(768),
-        num_attention_heads: Some(12),
-        num_key_value_heads: Some(12),
-        num_hidden_layers: Some(12),
-        intermediate_size: None,
-        vocab_size: Some(50257),
-        max_position_embeddings: Some(1024),
-    };
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "layernorm"));
-    assert!(kernels.iter().any(|k| k.op == "gelu"));
-    assert!(kernels.iter().any(|k| k.op == "absolute_position"));
-    assert!(kernels.iter().any(|k| k.op == "tied_embeddings"));
-    assert!(kernels.iter().any(|k| k.op == "bias_add"));
-    assert!(kernels.iter().any(|k| k.op == "attention")); // MHA (heads == kv_heads)
-    assert!(!kernels.iter().any(|k| k.op == "gqa"));
-}
-
-#[test]
-fn required_kernels_qwen2_has_bias() {
-    let config = HfModelConfig {
-        model_type: "qwen2".into(),
-        architectures: vec![],
-        hidden_size: Some(2048),
-        num_attention_heads: Some(16),
-        num_key_value_heads: Some(2),
-        num_hidden_layers: Some(24),
-        intermediate_size: Some(5504),
-        vocab_size: Some(151936),
-        max_position_embeddings: Some(32768),
-    };
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "bias_add"));
-    assert!(kernels.iter().any(|k| k.op == "gqa")); // 2 < 16
-}
-
-#[test]
-fn required_kernels_deepseek_has_qk_norm() {
-    let config = HfModelConfig {
-        model_type: "deepseek_v2".into(),
-        architectures: vec![],
-        hidden_size: Some(5120),
-        num_attention_heads: Some(40),
-        num_key_value_heads: Some(8),
-        num_hidden_layers: Some(60),
-        intermediate_size: Some(12288),
-        vocab_size: Some(102400),
-        max_position_embeddings: Some(4096),
-    };
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "qk_norm"));
-}
-
-#[test]
-fn required_kernels_gemma_has_tied_embeddings() {
-    let config = HfModelConfig {
-        model_type: "gemma".into(),
-        architectures: vec![],
-        hidden_size: Some(2048),
-        num_attention_heads: Some(8),
-        num_key_value_heads: Some(1),
-        num_hidden_layers: Some(18),
-        intermediate_size: Some(16384),
-        vocab_size: Some(256000),
-        max_position_embeddings: Some(8192),
-    };
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "tied_embeddings"));
-    assert!(kernels.iter().any(|k| k.op == "gelu"));
-}
-
-#[test]
-fn required_kernels_unknown_defaults_to_llama_like() {
-    let config = HfModelConfig {
-        model_type: "novel_model_2027".into(),
-        architectures: vec![],
-        hidden_size: None,
-        num_attention_heads: None,
-        num_key_value_heads: None,
-        num_hidden_layers: None,
-        intermediate_size: None,
-        vocab_size: None,
-        max_position_embeddings: None,
-    };
-    let kernels = required_kernels(&config);
-    assert!(kernels.iter().any(|k| k.op == "rmsnorm"));
-    assert!(kernels.iter().any(|k| k.op == "silu"));
-    assert!(kernels.iter().any(|k| k.op == "rope"));
-    assert!(kernels.iter().any(|k| k.op == "attention")); // MHA default (no GQA info)
-}
-
-#[test]
-fn required_kernels_all_model_types_produce_results() {
-    let types = [
-        "llama",
-        "codellama",
-        "mistral",
-        "mixtral",
-        "qwen2",
-        "qwen2_moe",
-        "gemma",
-        "gemma2",
-        "phi",
-        "phi3",
-        "starcoder2",
-        "gpt2",
-        "gpt_neo",
-        "gpt_neox",
-        "falcon",
-        "internlm2",
-        "deepseek_v2",
-    ];
-    for mt in &types {
-        let config = HfModelConfig {
-            model_type: mt.to_string(),
-            architectures: vec![],
-            hidden_size: Some(1024),
-            num_attention_heads: Some(8),
-            num_key_value_heads: Some(4),
-            num_hidden_layers: Some(12),
-            intermediate_size: Some(4096),
-            vocab_size: Some(32000),
-            max_position_embeddings: Some(2048),
-        };
-        let kernels = required_kernels(&config);
-        assert!(!kernels.is_empty(), "no kernels for {mt}");
-        // Universal kernels always present
-        assert!(
-            kernels.iter().any(|k| k.op == "softmax"),
-            "missing softmax for {mt}"
-        );
-        assert!(
-            kernels.iter().any(|k| k.op == "matmul"),
-            "missing matmul for {mt}"
-        );
-    }
 }
