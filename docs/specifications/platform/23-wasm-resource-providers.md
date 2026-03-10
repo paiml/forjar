@@ -2,7 +2,7 @@
 
 > User-authored resource types compiled to WebAssembly, sandboxed and content-addressed.
 
-**Status**: Proposed | **Date**: 2026-03-09 | **Spec IDs**: FJ-3400 through FJ-3409
+**Status**: Implemented | **Date**: 2026-03-09 | **Spec IDs**: FJ-3400 through FJ-3409
 
 ---
 

@@ -2,7 +2,7 @@
 
 > User-extensible validation policies with compliance packs — CIS, STIG, SOC2 mappings.
 
-**Status**: Proposed | **Date**: 2026-03-09 | **Spec IDs**: FJ-3200 through FJ-3209
+**Status**: Implemented | **Date**: 2026-03-09 | **Spec IDs**: FJ-3200 through FJ-3209
 
 ---
 

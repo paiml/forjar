@@ -2,7 +2,7 @@
 
 > First-class dev/staging/prod environments with quality gates, diff analysis, and progressive rollout.
 
-**Status**: Proposed | **Date**: 2026-03-09 | **Spec IDs**: FJ-3500 through FJ-3509
+**Status**: Implemented | **Date**: 2026-03-09 | **Spec IDs**: FJ-3500 through FJ-3509
 
 ---
 
