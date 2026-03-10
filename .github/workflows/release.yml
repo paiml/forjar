@@ -17,6 +17,14 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.2.0)'
+        required: true
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 permissions:
   contents: write    # create GitHub Release + upload assets
@@ -51,7 +59,7 @@ jobs:
       - name: Parse tag and verify version
         id: parse
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
 
           # Parse tag format: v1.0.0 or v-cratename-1.0.0
           if [[ "$TAG" =~ ^v-([a-z][a-z0-9_-]*)-([0-9]+\..+)$ ]]; then
@@ -130,8 +138,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
             --generate-notes
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
@@ -250,7 +258,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: /tmp/release-assets
         run: |
-          gh release upload "$GITHUB_REF_NAME" \
+          gh release upload "$RELEASE_TAG" \
             *.tar.gz SHA256SUMS \
             --repo "${{ github.repository }}" \
             --clobber
@@ -275,7 +283,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "$GITHUB_REF_NAME" \
+          gh release upload "$RELEASE_TAG" \
             /tmp/dist-output/install.sh \
             --repo "${{ github.repository }}" \
             --clobber
@@ -306,7 +314,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download "$GITHUB_REF_NAME" \
+          gh release download "$RELEASE_TAG" \
             --pattern "SHA256SUMS" \
             --dir /tmp/checksums \
             --repo "${{ github.repository }}"
