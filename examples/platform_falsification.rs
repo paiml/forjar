@@ -23,7 +23,7 @@ fn main() {
     let dir = TempDir::new().unwrap();
     let conn = open_state_db(&dir.path().join("state.db")).unwrap();
     println!("  Schema version: {SCHEMA_VERSION}");
-    assert!(SCHEMA_VERSION > 0);
+    const { assert!(SCHEMA_VERSION > 0) };
 
     // FTS5 works on fresh DB
     let results = fts5_search(&conn, "nginx", 10).unwrap();

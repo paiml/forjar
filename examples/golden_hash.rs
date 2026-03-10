@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! Golden hash demonstration — pinned BLAKE3 hash detects serialization changes.
 //!
 //! Run: `cargo run --example golden_hash`

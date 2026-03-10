@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-2101/2300/2301/2604: Security, container build, and observability falsification.
 //!
 //! Runnable example demonstrating Popperian rejection criteria for:

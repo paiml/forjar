@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-2803: Popperian falsification of ForjarScore v2 dimensions.
 //!
 //! Each scoring dimension must state conditions under which it would be

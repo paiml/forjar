@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! FJ-2200/2602/2604/2605/3000-3040: Testing strategy and defect analysis falsification.
 //!
 //! Demonstrates Popperian rejection criteria for:

@@ -7,7 +7,7 @@ use forjar::core::store::cache::{
     CacheEntry, SubstitutionResult,
 };
 use forjar::core::store::lockfile::{
-    check_completeness, check_staleness, parse_lockfile, write_lockfile, LockFile, Pin,
+    check_completeness, check_staleness, parse_lockfile, write_lockfile,
 };
 use forjar::core::store::profile::{
     create_generation, current_generation, list_generations, rollback,
@@ -102,7 +102,7 @@ fn main() {
     let local = vec!["blake3:local".into()];
 
     for hash in ["blake3:local", "blake3:cached", "blake3:missing"] {
-        let result = resolve_substitution(hash, &local, &[inv.clone()]);
+        let result = resolve_substitution(hash, &local, std::slice::from_ref(&inv));
         let label = match &result {
             SubstitutionResult::LocalHit { .. } => "local hit",
             SubstitutionResult::CacheHit { .. } => "cache hit",

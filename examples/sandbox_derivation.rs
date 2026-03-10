@@ -107,7 +107,7 @@ fn main() {
     let plan_hit = plan_derivation(
         &deriv,
         &BTreeMap::new(),
-        &[plan.closure_hash.clone()],
+        std::slice::from_ref(&plan.closure_hash),
         Path::new("/store"),
     )
     .unwrap();

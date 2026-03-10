@@ -434,6 +434,7 @@ fn terminal_id_multi_resource() {
 // Helper: Build RecipeMetadata programmatically
 // ============================================================================
 
+#[allow(clippy::type_complexity)]
 fn make_meta(
     inputs: Vec<(
         &str,

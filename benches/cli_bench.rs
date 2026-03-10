@@ -36,7 +36,7 @@ fn bench_codegen_pipeline(c: &mut Criterion) {
     std::fs::write(&file, &yaml).unwrap();
     let config = parser::parse_and_validate(&file).unwrap();
 
-    for (_id, resource) in &config.resources {
+    if let Some((_id, resource)) = config.resources.first() {
         group.bench_with_input(
             BenchmarkId::new("apply_script", &resource.resource_type),
             resource,
@@ -55,8 +55,6 @@ fn bench_codegen_pipeline(c: &mut Criterion) {
                 });
             },
         );
-        // Only bench first of each type
-        break;
     }
     group.finish();
 }

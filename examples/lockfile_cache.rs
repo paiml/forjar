@@ -77,7 +77,7 @@ fn main() {
     };
     let inv = build_inventory("remote-cache", vec![entry.clone()]);
     for hash in ["blake3:abc", "blake3:xyz"] {
-        let result = resolve_substitution(hash, &[], &[inv.clone()]);
+        let result = resolve_substitution(hash, &[], std::slice::from_ref(&inv));
         let status = match result {
             SubstitutionResult::LocalHit { .. } => "local hit",
             SubstitutionResult::CacheHit { .. } => "cache hit",

@@ -58,7 +58,7 @@ fn derivation_plan_store_hit() {
     let plan_hit = plan_derivation(
         &deriv,
         &resolved,
-        &[plan_miss.closure_hash.clone()],
+        std::slice::from_ref(&plan_miss.closure_hash),
         Path::new("/store"),
     )
     .unwrap();
@@ -104,7 +104,7 @@ fn simulate_derivation_store_hit() {
     let r2 = simulate_derivation(
         &deriv,
         &resolved,
-        &[r1.closure_hash.clone()],
+        std::slice::from_ref(&r1.closure_hash),
         Path::new("/s"),
     )
     .unwrap();

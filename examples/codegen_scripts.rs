@@ -103,7 +103,6 @@ fn base(rt: ResourceType) -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
-        ..Default::default()
     }
 }
 

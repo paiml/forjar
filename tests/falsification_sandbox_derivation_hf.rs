@@ -361,7 +361,7 @@ fn simulate_derivation_store_hit() {
     let r2 = simulate_derivation(
         &d,
         &resources,
-        &[r1.closure_hash.clone()],
+        std::slice::from_ref(&r1.closure_hash),
         Path::new("/store"),
     )
     .unwrap();

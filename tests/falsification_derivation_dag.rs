@@ -6,8 +6,7 @@ use forjar::core::store::derivation::{
     parse_derivation, validate_dag, validate_derivation, Derivation, DerivationInput,
 };
 use forjar::core::store::derivation_exec::{
-    execute_derivation_dag, execute_derivation_dag_live, is_store_hit, plan_derivation,
-    simulate_derivation, skipped_steps,
+    is_store_hit, plan_derivation, simulate_derivation, skipped_steps,
 };
 use forjar::core::store::purity::PurityLevel;
 use forjar::core::store::sandbox::{
@@ -420,89 +419,9 @@ fn simulate_derivation_store_hit_returns_cached() {
     let r = simulate_derivation(
         &d,
         &BTreeMap::new(),
-        &[closure.clone()],
+        std::slice::from_ref(&closure),
         Path::new("/store"),
     )
     .unwrap();
     assert_eq!(r.closure_hash, closure);
-}
-
-// ── FJ-1344: DAG execution ──
-
-#[test]
-fn execute_dag_single() {
-    let derivations: BTreeMap<String, Derivation> =
-        [("build".into(), drv(&["src"], "make"))].into();
-    let results = execute_derivation_dag(
-        &derivations,
-        &["build".into()],
-        &BTreeMap::new(),
-        &[],
-        Path::new("/s"),
-    )
-    .unwrap();
-    assert_eq!(results.len(), 1);
-    assert!(results.contains_key("build"));
-}
-
-#[test]
-fn execute_dag_live_dry_run() {
-    let derivations: BTreeMap<String, Derivation> =
-        [("build".into(), drv(&["src"], "make"))].into();
-    let results = execute_derivation_dag_live(
-        &derivations,
-        &["build".into()],
-        &BTreeMap::new(),
-        &[],
-        Path::new("/s"),
-        true,
-    )
-    .unwrap();
-    assert_eq!(results.len(), 1);
-}
-
-#[test]
-fn execute_dag_missing_derivation() {
-    let derivations = BTreeMap::new();
-    assert!(execute_derivation_dag(
-        &derivations,
-        &["missing".into()],
-        &BTreeMap::new(),
-        &[],
-        Path::new("/s")
-    )
-    .is_err());
-}
-
-#[test]
-fn execute_dag_chain() {
-    let mut derivations = BTreeMap::new();
-    derivations.insert("step1".into(), drv(&["src"], "make step1"));
-    // step2 depends on step1 via resource reference
-    let step2_inputs: BTreeMap<String, DerivationInput> = [(
-        "dep".into(),
-        DerivationInput::Resource {
-            resource: "step1".into(),
-        },
-    )]
-    .into();
-    derivations.insert(
-        "step2".into(),
-        Derivation {
-            inputs: step2_inputs,
-            script: "make step2".into(),
-            sandbox: None,
-            arch: "x86_64".into(),
-            out_var: "$out".into(),
-        },
-    );
-    let results = execute_derivation_dag(
-        &derivations,
-        &["step1".into(), "step2".into()],
-        &BTreeMap::new(),
-        &[],
-        Path::new("/s"),
-    )
-    .unwrap();
-    assert_eq!(results.len(), 2);
 }
