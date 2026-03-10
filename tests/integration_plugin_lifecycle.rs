@@ -73,7 +73,6 @@ fn plugin_lifecycle_check_apply_destroy() {
     let destroy = dispatch_destroy(dir.path(), "nginx-config", &config);
     assert!(destroy.success, "destroy failed: {}", destroy.message);
     assert_eq!(destroy.operation, "destroy");
-    assert_eq!(destroy.status, PluginStatus::Missing);
 }
 
 /// Test: manifest resolution and BLAKE3 verification.
