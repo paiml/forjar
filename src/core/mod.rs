@@ -39,6 +39,7 @@ pub mod state_encryption;
 pub mod store;
 pub mod task;
 pub mod types;
+pub mod watch_daemon;
 pub mod webhook_source;
 
 pub mod do330;

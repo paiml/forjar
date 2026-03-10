@@ -98,7 +98,7 @@ pub(crate) fn cmd_apply(
         force_unlock,
         progress,
         retry,
-        parallel: if parallel { Some(true) } else { None },
+        parallel: super::apply_gates::parallel_flag(parallel),
         resource_timeout,
         rollback_on_failure,
         max_parallel,
@@ -196,30 +196,18 @@ fn apply_filters(
     verbose: bool,
 ) -> Result<(), String> {
     if let Some(pattern) = subset {
-        config
-            .resources
-            .retain(|id, _| simple_glob_match(pattern, id));
-        if config.resources.is_empty() {
-            return Err(format!("no resources match subset pattern '{pattern}'"));
-        }
+        let count = super::apply_gates::filter_subset(&mut config.resources, pattern)?;
         if verbose {
-            eprintln!(
-                "Subset filter '{}': {} resources selected",
-                pattern,
-                config.resources.len()
-            );
+            eprintln!("Subset filter '{pattern}': {count} resources selected");
         }
     }
     if let Some(pattern) = exclude {
-        let before = config.resources.len();
-        config
-            .resources
-            .retain(|id, _| !simple_glob_match(pattern, id));
+        let removed = super::apply_gates::filter_exclude(&mut config.resources, pattern);
         if verbose {
             eprintln!(
                 "Exclude filter '{}': removed {} resources ({} remaining)",
                 pattern,
-                before - config.resources.len(),
+                removed,
                 config.resources.len()
             );
         }
@@ -287,11 +275,11 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
         Ok(e) => e.flatten().filter(|e| e.path().is_dir()).collect(),
         Err(_) => return,
     };
-    if entries.len() <= keep as usize {
+    let to_remove = super::apply_gates::snapshots_to_remove(entries.len(), keep);
+    if to_remove == 0 {
         return;
     }
     entries.sort_by_key(|e| e.file_name());
-    let to_remove = entries.len() - keep as usize;
     for entry in entries.iter().take(to_remove) {
         if verbose {
             eprintln!(
@@ -308,16 +296,15 @@ fn check_convergence_budget(
     config: &types::ForjarConfig,
     dur_apply: std::time::Duration,
 ) -> Result<(), String> {
-    if let Some(budget_secs) = config.policy.convergence_budget {
-        let elapsed = dur_apply.as_secs();
-        if elapsed > budget_secs {
-            eprintln!(
-                "ERROR: convergence budget exceeded — budget {budget_secs}s, actual {elapsed}s"
-            );
-            return Err(format!(
-                "convergence budget exceeded: {elapsed}s > {budget_secs}s"
-            ));
-        }
+    let elapsed = dur_apply.as_secs();
+    if let Err(e) =
+        super::apply_gates::check_convergence_budget_pure(config.policy.convergence_budget, elapsed)
+    {
+        eprintln!(
+            "ERROR: convergence budget exceeded — budget {}s, actual {elapsed}s",
+            config.policy.convergence_budget.unwrap_or(0)
+        );
+        return Err(e);
     }
     Ok(())
 }
@@ -348,13 +335,13 @@ fn check_pre_apply_drift(
             }
         }
     }
-    if total_drift > 0 {
+    if let Some(msg) =
+        super::apply_gates::should_block_on_drift(config.policy.tripwire, force, total_drift)
+    {
         if verbose {
             eprintln!("{total_drift} resource(s) drifted — run 'forjar drift' for details");
         }
-        return Err(format!(
-            "{total_drift} drift finding(s) block apply — use --force to override"
-        ));
+        return Err(msg);
     }
     Ok(())
 }
@@ -385,13 +372,16 @@ fn apply_pre_validate(
             .iter()
             .filter(|p| p.action == types::PlanAction::Destroy)
             .count();
-        if destroy_count > 0 {
+        if let Some(msg) = super::apply_gates::should_block_destructive(
+            destroy_count,
+            confirm_destructive,
+            dry_run,
+            yes,
+        ) {
             eprintln!(
                 "WARNING: {destroy_count} resource(s) will be DESTROYED. Use --yes to confirm."
             );
-            return Err(format!(
-                "{destroy_count} destructive action(s) blocked by --confirm-destructive"
-            ));
+            return Err(msg);
         }
     }
 
@@ -463,13 +453,13 @@ fn check_security_gate(config: &types::ForjarConfig) -> Result<(), String> {
         return Ok(());
     }
     let (crit, high, med, _low) = crate::core::security_scanner::severity_counts(&findings);
-    let should_fail = match threshold.to_lowercase().as_str() {
-        "critical" => crit > 0,
-        "high" => crit + high > 0,
-        "medium" => crit + high + med > 0,
-        "low" => !findings.is_empty(),
-        _ => return Err(format!("unknown security_gate severity: {threshold}")),
-    };
+    let should_fail = super::apply_gates::security_gate_should_block(
+        &threshold,
+        crit,
+        high,
+        med,
+        findings.len(),
+    )?;
     if !should_fail {
         return Ok(());
     }

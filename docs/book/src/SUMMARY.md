@@ -100,3 +100,4 @@
 - [State Ingest Pipeline & Query Engine](./97-ingest-query.md)
 - [Sandbox Planning, Derivation & HF Kernels](./98-sandbox-derivation-hf.md)
 - [OCI Image Assembler](./99-image-assembler.md)
+- [Watch Daemon & Apply Gates](./100-watch-daemon.md)

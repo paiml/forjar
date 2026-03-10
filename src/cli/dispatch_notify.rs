@@ -53,11 +53,7 @@ pub(super) fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
     }
 }
 pub(super) fn event_json(status: &str, config: &Path) -> String {
-    format!(
-        r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
-        status,
-        config.display()
-    )
+    super::apply_gates::format_event_json(status, &config.display().to_string())
 }
 pub(super) fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
     let child = std::process::Command::new(cmd)
@@ -135,7 +131,7 @@ pub(crate) fn send_apply_notifications(
     result: &Result<(), String>,
     config_path: &Path,
 ) {
-    let status = if result.is_ok() { "success" } else { "failure" };
+    let status = super::apply_gates::notify_status(result);
     let msg = event_json(status, config_path);
     send_webhook_notifications(opts, status, config_path);
     send_monitoring_notifications(opts, status, config_path);
@@ -272,11 +268,7 @@ pub(super) fn send_incident_notifications(
     config: &Path,
 ) {
     if let Some(key) = opts.victorops {
-        let (vo_status, verb) = if result.is_ok() {
-            ("RECOVERY", "succeeded")
-        } else {
-            ("CRITICAL", "failed")
-        };
+        let (vo_status, verb) = super::apply_gates::victorops_status(result);
         send_webhook(
             &format!(
                 "https://alert.victorops.com/integrations/generic/20131114/alert/{key}/forjar"
