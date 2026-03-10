@@ -3,11 +3,13 @@
 > Systematic verification of every falsifiable claim against the actual codebase.
 > Generated: 2026-03-06 | Method: Code audit with 4 parallel agents
 > Updated: 2026-03-10 | 49/49 code fixes resolved (U3 deferred — needs root). F22 OTLP export FIXED.
-> Coverage: 15,646 tests, all quality gates passing, zero oversized files
+> Coverage: 15,778 tests, all quality gates passing, zero oversized files
 > Deep falsification: 48/48 phases IMPLEMENTED. 13 exaggerations documented (E9-E21). F3+E10+F33+F34+F35 fixed.
 > Re-audit (2026-03-08): 5 new findings (S3-S5, E22, F36) — all 5 fixed in same pass.
 > Spec falsification (2026-03-08): S6 (secret provider dispatch stale), S7 (5 query flags stale as Planned). Total entries: 68.
 > Competitive features (2026-03-10): Specs 20-24 (FJ-3100–FJ-3509) — ALL 5 IMPLEMENTED. 37/37 criteria verified. Total entries: 74.
+> Gap closure (2026-03-10): 7/8 competitive gaps closed (#77-#84). Plugin install/build/remove, environments rollback/history,
+> policy-install, webhook HTTP server, state encryption (age), metric collector, rulebook templates. WASM runtime deferred (Phase 2).
 > Quality (2026-03-08): CB-506 (10 string panics), CB-121 (2 lock poisoning) fixed. 4 files split under 500-line limit. FJ-2803 Popperian falsification added to spec.
 > Provisioning (2026-03-08): Spec 17 (FJ-33/49/51/52/54/1424) — 6/6 features verified IMPLEMENTED. Zero gaps. 3 examples added, book ch22, cookbook section.
 > Secret providers (2026-03-08): FJ-2300 — all 4 providers (env, file, sops, op) wired in resolver dispatch. 6 new tests. Example updated.

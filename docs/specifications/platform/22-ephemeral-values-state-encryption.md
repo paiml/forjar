@@ -2,7 +2,7 @@
 
 > Secrets used during apply but never persisted. At-rest encryption for state files.
 
-**Status**: Proposed | **Date**: 2026-03-09 | **Spec IDs**: FJ-3300 through FJ-3309
+**Status**: Implemented | **Date**: 2026-03-09 | **Spec IDs**: FJ-3300 through FJ-3309
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Reactive rulebooks triggered by infrastructure events — file changes, process signals, webhooks, cron, metric thresholds.
 
-**Status**: Proposed | **Date**: 2026-03-09 | **Spec IDs**: FJ-3100 through FJ-3109
+**Status**: Implemented | **Date**: 2026-03-10 | **Spec IDs**: FJ-3100 through FJ-3109
 
 ---
 
