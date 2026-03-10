@@ -157,9 +157,9 @@ jobs:
           - target: aarch64-unknown-linux-musl
             runner: [self-hosted, clean-room]
           - target: x86_64-apple-darwin
-            runner: macos-13
+            runner: macos-latest
           - target: aarch64-apple-darwin
-            runner: macos-14
+            runner: macos-latest
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -176,8 +176,11 @@ jobs:
         run: |
           case "${{ matrix.target }}" in
             *-musl)
-              sudo apt-get update -qq
-              sudo apt-get install -y -qq musl-tools >/dev/null
+              if command -v apt-get &>/dev/null; then
+                sudo apt-get update -qq
+                sudo apt-get install -y -qq musl-tools >/dev/null
+              fi
+              rustup target add "${{ matrix.target }}" || true
               ;;
           esac
           case "${{ matrix.target }}" in
@@ -185,9 +188,6 @@ jobs:
               if ! command -v cross &>/dev/null; then
                 cargo install cross --locked
               fi
-              ;;
-            *-musl)
-              rustup target add "${{ matrix.target }}"
               ;;
           esac
 
