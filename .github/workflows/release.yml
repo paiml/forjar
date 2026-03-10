@@ -100,9 +100,9 @@ jobs:
         run: |
           CRATE="${{ steps.parse.outputs.crate_name }}"
           if [ -n "$CRATE" ]; then
-            cargo package --verify -p "$CRATE"
+            cargo package -p "$CRATE"
           else
-            cargo package --verify
+            cargo package
           fi
 
   # ── Publish: OIDC trusted publishing to crates.io ──────
