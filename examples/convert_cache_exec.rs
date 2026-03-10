@@ -5,7 +5,7 @@
 use forjar::core::store::cache::CacheSource;
 use forjar::core::store::cache_exec::{pull_command, push_command};
 use forjar::core::store::convert::{
-    analyze_conversion, ChangeType, ConversionChange, ConversionReport, ResourceConversion,
+    ChangeType, ConversionChange, ConversionReport, ResourceConversion,
 };
 use forjar::core::store::convert_exec::apply_conversion;
 use forjar::core::store::purity::PurityLevel;

@@ -20,7 +20,7 @@ use forjar::core::task::service::{
 use forjar::core::task::{evaluate_gate, gpu_env_vars, GateResult};
 use forjar::core::types::{
     BarrierTask, DispatchConfig, DispatchInvocation, DispatchState, GpuSchedule, HealthCheck,
-    HealthCheckResult, QualityGate, RestartPolicy, ServiceState,
+    HealthCheckResult, QualityGate, RestartPolicy,
 };
 
 fn main() {
