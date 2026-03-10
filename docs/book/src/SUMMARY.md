@@ -95,3 +95,6 @@
 - [Contract Coverage, GC Sweep & Registry Push](./92-contract-gc-registry.md)
 - [Lock Files, Profiles, References & Cache](./93-lockfile-profile-cache.md)
 - [Convergence Testing & Kernel FAR Packaging](./94-convergence-kernel.md)
+- [Convert Execution & Cache Commands](./95-convert-cache-exec.md)
+- [Provider Exec, Sandbox & Sync](./96-provider-sandbox-sync.md)
+- [State Ingest Pipeline & Query Engine](./97-ingest-query.md)
