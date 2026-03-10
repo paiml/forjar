@@ -264,3 +264,70 @@ pub fn format_container_build(result: &ContainerBuildResult) -> String {
         ms = result.duration_ms,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::store::layer_builder::LayerEntry;
+    use crate::core::types::{ImageBuildPlan, LayerStrategy, OciLayerConfig};
+
+    fn test_plan() -> ImageBuildPlan {
+        ImageBuildPlan {
+            tag: "test:latest".into(),
+            base_image: None,
+            layers: vec![LayerStrategy::Files {
+                paths: vec!["/test".into()],
+            }],
+            labels: vec![],
+            entrypoint: None,
+        }
+    }
+
+    #[test]
+    fn format_container_build_output() {
+        let tmp = tempfile::tempdir().unwrap();
+        let plan = test_plan();
+
+        let entries = vec![vec![LayerEntry::file("hello.txt", b"hello world", 0o644)]];
+
+        let output_dir = tmp.path().join("output");
+        std::fs::create_dir_all(&output_dir).unwrap();
+
+        let image = assemble_image(
+            &plan,
+            &entries,
+            &output_dir,
+            &OciLayerConfig::default(),
+            None,
+        )
+        .unwrap();
+
+        let result = ContainerBuildResult {
+            image,
+            runtime: "docker".into(),
+            changed_files: 3,
+            duration_ms: 1500,
+        };
+
+        let formatted = format_container_build(&result);
+        assert!(formatted.contains("docker"));
+        assert!(formatted.contains("3 files changed"));
+        assert!(formatted.contains("1 layers"));
+        assert!(formatted.contains("1500ms"));
+    }
+
+    #[test]
+    #[ignore] // requires Docker or Podman
+    fn build_image_in_container_echo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let output_dir = tmp.path().join("output");
+        std::fs::create_dir_all(&output_dir).unwrap();
+
+        let mut plan = test_plan();
+        plan.base_image = Some("debian:bookworm-slim".into());
+
+        let scripts = vec!["echo 'hello' > /test.txt".to_string()];
+        let result = build_image_in_container(&plan, &scripts, &output_dir);
+        assert!(result.is_ok() || result.is_err());
+    }
+}

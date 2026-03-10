@@ -161,3 +161,49 @@ fn err_result(
         error: Some(msg.to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_runtime_returns_option() {
+        let result = detect_container_runtime();
+        // Valid in any environment: either Some("docker"/"podman") or None
+        if let Some(ref rt) = result {
+            assert!(rt == "docker" || rt == "podman");
+        }
+    }
+
+    #[test]
+    fn err_result_populates_fields() {
+        let target = ConvergenceTarget {
+            resource_id: "test-res".into(),
+            resource_type: "file".into(),
+            apply_script: "echo apply".into(),
+            state_query_script: "echo state".into(),
+            expected_hash: String::new(),
+        };
+        let start = std::time::Instant::now();
+        let r = err_result(&target, start, "test error");
+        assert_eq!(r.resource_id, "test-res");
+        assert!(!r.converged);
+        assert!(!r.idempotent);
+        assert!(!r.preserved);
+        assert_eq!(r.error.as_deref(), Some("test error"));
+    }
+
+    #[test]
+    #[ignore] // requires Docker or Podman
+    fn convergence_test_container_echo() {
+        let target = ConvergenceTarget {
+            resource_id: "echo-test".into(),
+            resource_type: "file".into(),
+            apply_script: "echo hello".into(),
+            state_query_script: "echo hello".into(),
+            expected_hash: String::new(),
+        };
+        let result = run_convergence_test_container(&target);
+        assert!(result.idempotent);
+    }
+}
