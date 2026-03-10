@@ -160,6 +160,11 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,

@@ -98,6 +98,12 @@ fn base(rt: ResourceType) -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
+        ..Default::default()
     }
 }
 

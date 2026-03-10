@@ -48,6 +48,7 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Task => ProofObligation::Convergent,
         ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Idempotent,
         ResourceType::Build => ProofObligation::Convergent,
+        ResourceType::GithubRelease => ProofObligation::Idempotent,
     }
 }
 
@@ -78,6 +79,7 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Task => ProofObligation::Destructive,
         ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Destructive,
         ResourceType::Build => ProofObligation::Convergent,
+        ResourceType::GithubRelease => ProofObligation::Convergent,
     }
 }
 

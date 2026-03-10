@@ -242,7 +242,7 @@ mod tests {
         };
         let (_port, _rx, shutdown) = start_server(config);
 
-        let raw = format!("GET /webhook HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        let raw = "GET /webhook HTTP/1.1\r\nHost: localhost\r\n\r\n".to_string();
         let resp = send_raw(port, &raw);
         assert!(resp.contains("403"), "response: {resp}");
 

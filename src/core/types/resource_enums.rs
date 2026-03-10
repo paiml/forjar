@@ -46,6 +46,8 @@ pub enum ResourceType {
     Image,
     /// FJ-33: Cross-compile build→deploy pipeline.
     Build,
+    /// FJ-34: GitHub Release binary installation.
+    GithubRelease,
 }
 
 impl fmt::Display for ResourceType {
@@ -67,6 +69,7 @@ impl fmt::Display for ResourceType {
             Self::WasmBundle => write!(f, "wasm_bundle"),
             Self::Image => write!(f, "image"),
             Self::Build => write!(f, "build"),
+            Self::GithubRelease => write!(f, "github_release"),
         }
     }
 }
@@ -191,6 +194,7 @@ mod tests {
             (ResourceType::WasmBundle, "wasm_bundle"),
             (ResourceType::Image, "image"),
             (ResourceType::Build, "build"),
+            (ResourceType::GithubRelease, "github_release"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

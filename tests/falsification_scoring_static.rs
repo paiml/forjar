@@ -17,7 +17,6 @@ use forjar::core::scoring::{
 use forjar::core::types::{
     FailurePolicy, ForjarConfig, NotifyConfig, OutputValue, Resource, ResourceType,
 };
-use indexmap::IndexMap;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -317,7 +316,7 @@ fn doc_header_metadata_scoring() {
 
 #[test]
 fn doc_unique_comments_bonus() {
-    let mut config = empty_config();
+    let config = empty_config();
     let yaml = "# Comment A\n# Comment B\n# Comment C\nversion: 1.0\n";
     let input = ScoringInput {
         status: "qualified".into(),

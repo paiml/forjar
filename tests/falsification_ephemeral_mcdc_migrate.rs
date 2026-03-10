@@ -228,7 +228,7 @@ fn mcdc_and_two_conditions() {
     assert!(report.coverage_achievable);
     // Each pair flips one condition while others stay true
     assert_eq!(report.pairs[0].true_case, vec![true, true]);
-    assert_eq!(report.pairs[0].false_case[0], false);
+    assert!(!report.pairs[0].false_case[0]);
 }
 
 #[test]

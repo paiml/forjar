@@ -377,6 +377,27 @@ pub struct Resource {
     /// Machine that performs the build (distinct from deploy target in `machine`).
     #[serde(default)]
     pub build_machine: Option<String>,
+
+    // -- GitHub Release fields (FJ-34: nightly binary installation) --
+    /// GitHub owner/repo (e.g., "paiml/forjar").
+    #[serde(default)]
+    pub repo: Option<String>,
+
+    /// Release tag (e.g., "nightly", "v1.0.0").
+    #[serde(default)]
+    pub tag: Option<String>,
+
+    /// Glob pattern to match release asset (e.g., "*aarch64-unknown-linux-gnu*").
+    #[serde(default)]
+    pub asset_pattern: Option<String>,
+
+    /// Binary name to extract from the asset (e.g., "apr", "forjar").
+    #[serde(default)]
+    pub binary: Option<String>,
+
+    /// Directory to install binary into (default: /usr/local/bin).
+    #[serde(default)]
+    pub install_dir: Option<String>,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

@@ -31,6 +31,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::WasmBundle => Ok(resources::wasm_bundle::check_script(resource)),
         ResourceType::Image => Ok(resources::file::check_script(resource)),
         ResourceType::Build => Ok(resources::build::check_script(resource)),
+        ResourceType::GithubRelease => Ok(resources::github_release::check_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -59,6 +60,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::WasmBundle => Ok(resources::wasm_bundle::apply_script(resource)),
         ResourceType::Image => Ok(resources::file::apply_script(resource)),
         ResourceType::Build => Ok(resources::build::apply_script(resource)),
+        ResourceType::GithubRelease => Ok(resources::github_release::apply_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -99,6 +101,7 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::WasmBundle => Ok(resources::wasm_bundle::state_query_script(resource)),
         ResourceType::Image => Ok(resources::file::state_query_script(resource)),
         ResourceType::Build => Ok(resources::build::state_query_script(resource)),
+        ResourceType::GithubRelease => Ok(resources::github_release::state_query_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }

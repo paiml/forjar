@@ -15,7 +15,7 @@
 //! Usage: cargo test --test falsification_rules_engine_runtime
 
 use forjar::core::rules_engine::{
-    event_type_coverage, validate_rulebook_config, validate_rulebook_yaml,
+    event_type_coverage, validate_rulebook_yaml,
 };
 use forjar::core::rules_runtime::{
     evaluate_event, fired_actions, matching_rulebooks, runtime_summary,

@@ -24,6 +24,7 @@ pub(super) fn validate_resource_type(
         ResourceType::Task => validate_task(id, resource, errors),
         ResourceType::WasmBundle | ResourceType::Image => validate_file(id, resource, errors),
         ResourceType::Build => validate_build(id, resource, errors),
+        ResourceType::GithubRelease => validate_github_release(id, resource, errors),
     }
 }
 
@@ -369,5 +370,28 @@ fn validate_build(id: &str, resource: &Resource, errors: &mut Vec<ValidationErro
                 "resource '{id}' (build) has no target — specify where to deploy the artifact"
             ),
         });
+    }
+}
+
+fn validate_github_release(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    if resource.repo.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (github_release) has no repo — specify owner/repo (e.g., paiml/forjar)"),
+        });
+    }
+    if resource.binary.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (github_release) has no binary — specify the binary name to install"),
+        });
+    }
+    if let Some(ref state) = resource.state {
+        let valid = ["present", "absent"];
+        if !valid.contains(&state.as_str()) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (github_release) has invalid state '{state}' (expected: present, absent)"
+                ),
+            });
+        }
     }
 }

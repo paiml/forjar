@@ -4,7 +4,7 @@
 use forjar::core::store::gc::{collect_roots, mark_and_sweep, GcConfig};
 use forjar::core::store::meta::{new_meta, read_meta, write_meta, Provenance, StoreMeta};
 use forjar::core::store::secret_scan::{
-    is_encrypted, scan_text, scan_yaml_str, ScanResult, SecretFinding,
+    is_encrypted, scan_text, scan_yaml_str,
 };
 use std::collections::BTreeSet;
 

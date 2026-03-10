@@ -9,6 +9,7 @@ pub mod build;
 pub mod cron;
 pub mod docker;
 pub mod file;
+pub mod github_release;
 pub mod gpu;
 pub mod model;
 pub mod mount;

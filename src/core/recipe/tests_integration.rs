@@ -146,6 +146,11 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -254,6 +259,11 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

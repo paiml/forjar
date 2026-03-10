@@ -94,6 +94,11 @@ pub fn make_package() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }
 
@@ -189,6 +194,11 @@ pub fn make_file() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }
 
@@ -284,6 +294,11 @@ pub fn make_service() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }
 
@@ -379,5 +394,10 @@ pub fn make_mount() -> Resource {
         gather: vec![],
         scatter: vec![],
         build_machine: None,
+        repo: None,
+        tag: None,
+        asset_pattern: None,
+        binary: None,
+        install_dir: None,
     }
 }
