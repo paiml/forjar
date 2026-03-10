@@ -47,6 +47,7 @@ const CONFIG_FIELDS: &[&str] = &[
     "checks",
     "moved",
     "secrets",
+    "environments",
 ];
 
 const RESOURCE_FIELDS: &[&str] = &[
@@ -177,6 +178,7 @@ const POLICY_FIELDS: &[&str] = &[
     "security_gate",
     "deny_paths",
     "notify",
+    "logs",
 ];
 
 const NOTIFY_FIELDS: &[&str] = &["on_success", "on_failure", "on_drift"];
@@ -222,6 +224,12 @@ const POLICY_RULE_FIELDS: &[&str] = &[
     "field",
     "condition_field",
     "condition_value",
+    "id",
+    "severity",
+    "remediation",
+    "compliance",
+    "max_count",
+    "min_count",
 ];
 
 const OUTPUT_FIELDS: &[&str] = &["value", "description"];
