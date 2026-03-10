@@ -74,4 +74,6 @@ mod tests_scoring_b;
 mod tests_secrets;
 #[cfg(test)]
 mod tests_security_scanner;
+#[cfg(test)]
+mod tests_watch_daemon;
 mod verus_spec;
