@@ -964,3 +964,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-059
+  github_issue: null
+  item_type: task
+  title: 'FJ-51: Cargo features syntax in package specs'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-09T15:41:55Z
+  updated: 2026-03-09T15:41:55Z
+  spec: null
+  acceptance_criteria:
+  - Support crate[feat1,feat2] syntax for cargo install features and detect empty bin dir
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
