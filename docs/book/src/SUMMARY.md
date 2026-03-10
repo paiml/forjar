@@ -99,3 +99,4 @@
 - [Provider Exec, Sandbox & Sync](./96-provider-sandbox-sync.md)
 - [State Ingest Pipeline & Query Engine](./97-ingest-query.md)
 - [Sandbox Planning, Derivation & HF Kernels](./98-sandbox-derivation-hf.md)
+- [OCI Image Assembler](./99-image-assembler.md)
