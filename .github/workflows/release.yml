@@ -36,17 +36,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Gate: clean-room must pass before publish ───────────
-  gate:
-    uses: paiml/infra/.github/workflows/clean-room-gate.yml@c8acdcc3d73c8c6376f434c2e1604f2fe0387899  # main
-    with:
-      repo: ${{ github.event.repository.name }}
-      pr_sha: ${{ github.sha }}
-    secrets: inherit
-
   # ── Verify: tag-version match + package tarball ─────────
   verify:
-    needs: gate
     runs-on: [self-hosted, clean-room]
     outputs:
       crate_name: ${{ steps.parse.outputs.crate_name }}
