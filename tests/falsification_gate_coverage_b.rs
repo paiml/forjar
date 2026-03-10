@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![allow(clippy::field_reassign_with_default)]
 //! FJ-3208: format_coverage, coverage_to_json, PolicyCoverage methods
 //! (split from falsification_gate_coverage).

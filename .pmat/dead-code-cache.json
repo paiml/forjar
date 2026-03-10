@@ -1,21 +1,21 @@
 {
-  "tree_hash": "e6f340f9265506eaba6c3f3cbf110b83f0d8f2e6",
-  "pmat_version": "3.6.1",
-  "timestamp": "2026-03-08T17:55:56.658863330Z",
+  "tree_hash": "cc4354540528fce54683fbf0b077bfcd9d5ed24f",
+  "pmat_version": "3.7.0",
+  "timestamp": "2026-03-10T11:01:29.856477675Z",
   "report": {
     "files_with_dead_code": [
       {
-        "file_path": "src/cli/saga_coordinator.rs",
+        "file_path": "src/core/executor/tests_filters.rs",
         "dead_items": [
           {
-            "name": "SagaStepStatus",
+            "name": "make_test_lock",
             "kind": "Suppressed",
-            "line": 23,
+            "line": 434,
             "column": 1,
-            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+            "message": "fn `make_test_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
           }
         ],
-        "file_dead_percentage": 2.4390243902439024
+        "file_dead_percentage": 0.8733624454148471
       },
       {
         "file_path": "src/core/task/mod.rs",
@@ -31,6 +31,45 @@
         "file_dead_percentage": 21.052631578947366
       },
       {
+        "file_path": "src/cli/infra_query_live.rs",
+        "dead_items": [
+          {
+            "name": "LiveStatus",
+            "kind": "Suppressed",
+            "line": 21,
+            "column": 1,
+            "message": "enum `LiveStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 2.877697841726619
+      },
+      {
+        "file_path": "src/cli/saga_coordinator.rs",
+        "dead_items": [
+          {
+            "name": "SagaStepStatus",
+            "kind": "Suppressed",
+            "line": 23,
+            "column": 1,
+            "message": "enum `SagaStepStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 2.4390243902439024
+      },
+      {
+        "file_path": "src/cli/doctor.rs",
+        "dead_items": [
+          {
+            "name": "label",
+            "kind": "Suppressed",
+            "line": 23,
+            "column": 1,
+            "message": "fn `label` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 0.8016032064128256
+      },
+      {
         "file_path": "src/cli/remote_state.rs",
         "dead_items": [
           {
@@ -44,25 +83,25 @@
         "file_dead_percentage": 3.3333333333333335
       },
       {
-        "file_path": "src/cli/infra_query_live.rs",
+        "file_path": "src/core/executor/machine_b.rs",
         "dead_items": [
           {
-            "name": "LiveStatus",
+            "name": "cleanup_container_if_needed",
             "kind": "Suppressed",
-            "line": 21,
+            "line": 108,
             "column": 1,
-            "message": "enum `LiveStatus` has #[allow(dead_code)] suppression (explicit dead code admission)"
+            "message": "fn `cleanup_container_if_needed` has #[allow(dead_code)] suppression (explicit dead code admission)"
           }
         ],
-        "file_dead_percentage": 2.877697841726619
+        "file_dead_percentage": 1.3245033112582782
       }
     ],
-    "total_dead_items": 4,
-    "dead_code_percentage": 0.0025937393616159,
-    "total_lines": 308435,
-    "dead_lines": 8,
+    "total_dead_items": 7,
+    "dead_code_percentage": 0.0033792346033623384,
+    "total_lines": 414295,
+    "dead_lines": 14,
     "dead_by_type": {
-      "suppressed": 4
+      "suppressed": 7
     }
   }
 }

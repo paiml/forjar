@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![allow(clippy::field_reassign_with_default)]
 //! FJ-1385/1379: Proof obligation labels/safety and why-explain
 //! (split from falsification_planner).

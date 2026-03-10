@@ -1,11 +1,11 @@
 schema: '1.0'
 pins:
-  data-dir:
+  test-file:
     provider: file
-    hash: blake3:12d0cf111e853942d53010f66d494595f273d65be905e14b4243da01ee4b7108
-  dev-tools:
+    hash: blake3:56746d7bc976f71291ff78d9a34c8fec6284b8aed37d9f1ee61b7dd72436627a
+  test-pkg:
     provider: apt
-    hash: blake3:55fcf8f87f9b43ce27c8bfc9b1f0f407c9cde9d1817c31ad93a0be5ce5b9d437
-  tool-config:
+    hash: blake3:7ec2598aed1c20715dfaa6a29e8bbbb760071717e3a3a45e8e5479a186d83503
+  test-svc:
     provider: file
-    hash: blake3:9ebf3db2d7c6970f1f6758c276b2b7050482d37bf423702bb04f9fd8800a4071
+    hash: blake3:30d356ada7044f1e51514205a48e0df4693536abf4d212da52fa7b4f6d4568c1

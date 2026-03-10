@@ -485,7 +485,7 @@ roadmap:
   priority: low
   assigned_to: null
   created: 2026-03-02T22:01:31Z
-  updated: 2026-03-08T17:51:16.289217560+00:00
+  updated: 2026-03-10T11:33:25.767813520+00:00
   spec: null
   acceptance_criteria:
   - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files and CLI dispatch modules. Needs systematic splitting.'
@@ -872,11 +872,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'Bug #45: service state:stopped plan shows start'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-08T13:49:08Z
-  updated: 2026-03-08T19:54:43.258300378+00:00
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -888,11 +888,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-2001: Query engine enrichment flags (--events, --failures, --since, --status, --run)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-08T16:50:34Z
-  updated: 2026-03-08T17:55:09.707117840+00:00
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -904,11 +904,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-2300: Secret provider integrations (env, file, sops, 1password)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-08T16:50:35Z
-  updated: 2026-03-08T17:56:01.573209722+00:00
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -920,11 +920,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DEBT: Split dispatch_misc.rs and commands/mod.rs under 500 lines'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-08T16:50:36Z
-  updated: 2026-03-08T16:50:42.051444881+00:00
+  updated: 2026-03-10T11:01:52Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -936,11 +936,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-3304/3404: State encryption CLI + WASM plugin dispatch'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-09T11:40:18Z
-  updated: 2026-03-09T11:40:18Z
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -952,11 +952,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-3307/3405/3509: script secret lint, shell provider bridge, promotion events'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-09T12:01:23Z
-  updated: 2026-03-09T12:01:23Z
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -968,14 +968,159 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-51: Cargo features syntax in package specs'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-09T15:41:55Z
-  updated: 2026-03-09T15:41:55Z
+  updated: 2026-03-10T11:01:58Z
   spec: null
   acceptance_criteria:
   - Support crate[feat1,feat2] syntax for cargo install features and detect empty bin dir
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-060
+  github_issue: null
+  item_type: task
+  title: '#77: plugin install/build/remove CLI'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-061
+  github_issue: null
+  item_type: task
+  title: '#78: environments rollback/history CLI'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-062
+  github_issue: null
+  item_type: task
+  title: '#79: policy install subcommand'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-063
+  github_issue: null
+  item_type: task
+  title: '#80: WASM plugin runtime (wasmtime)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-064
+  github_issue: null
+  item_type: task
+  title: '#81: webhook HTTP listener'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-065
+  github_issue: null
+  item_type: task
+  title: '#82: age encryption for state files'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-066
+  github_issue: null
+  item_type: task
+  title: '#83: system metric collection'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-067
+  github_issue: null
+  item_type: task
+  title: '#84: rulebook template expansion'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T08:43:51Z
+  updated: 2026-03-10T11:01:58Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-068
+  github_issue: null
+  item_type: task
+  title: 'FJ-034: github_release resource type for nightly binary installation'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-10T10:43:55Z
+  updated: 2026-03-10T11:33:43.750174665+00:00
+  spec: null
+  acceptance_criteria:
+  - Download and install binaries from GitHub Releases via gh CLI. Supports tarball/zip extraction, version verification, and BLAKE3 drift detection.
   phases: []
   subtasks: []
   estimated_effort: null

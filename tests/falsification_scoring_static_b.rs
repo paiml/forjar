@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![allow(clippy::field_reassign_with_default)]
 //! ForjarScore v2: CMP, grade thresholds, runtime, format_score_report, score_bar
 //! (split from falsification_scoring_static).

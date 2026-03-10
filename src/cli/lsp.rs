@@ -477,7 +477,7 @@ pub fn cmd_lsp() -> Result<(), String> {
                     .and_then(|v| v.as_str())
                 {
                     let diags = server.validate_document(uri);
-                    let notification = publish_diagnostics(uri, &diags);
+                    let notification = super::lsp_publish::publish_diagnostics(uri, &diags);
                     write_message(&mut writer, &notification).map_err(|e| e.to_string())?;
                 }
             }
@@ -485,24 +485,6 @@ pub fn cmd_lsp() -> Result<(), String> {
     }
 }
 
-pub(super) fn publish_diagnostics(uri: &str, diags: &[Diagnostic]) -> serde_json::Value {
-    let lsp_diags: Vec<serde_json::Value> = diags
-        .iter()
-        .map(|d| {
-            serde_json::json!({
-                "range": {
-                    "start": { "line": d.line, "character": d.character },
-                    "end": { "line": d.end_line, "character": d.end_character }
-                },
-                "severity": d.severity as u32,
-                "source": d.source,
-                "message": d.message
-            })
-        })
-        .collect();
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "textDocument/publishDiagnostics",
-        "params": { "uri": uri, "diagnostics": lsp_diags }
-    })
-}
+// Re-export for test modules that use `super::lsp::*`
+#[cfg(test)]
+pub(super) use super::lsp_publish::publish_diagnostics;

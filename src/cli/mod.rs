@@ -122,6 +122,7 @@ mod lock_repair;
 mod lock_security;
 mod logs;
 pub mod lsp;
+mod lsp_publish;
 mod model_card;
 mod model_eval;
 mod multi_config;

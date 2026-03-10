@@ -6,6 +6,7 @@
 //! - FJ-3104: Request-to-event conversion
 //!
 //! Usage: cargo test --test falsification_event_sources_b
+#![allow(dead_code)]
 
 use forjar::core::types::EventType;
 use forjar::core::webhook_source::{
