@@ -35,9 +35,9 @@ if [ -t 1 ]; then
   BOLD='\033[1m'; RESET='\033[0m'
 fi
 
-info()  { printf "${GREEN}info:${RESET} %s\n" "$1"; }
-warn()  { printf "${YELLOW}warn:${RESET} %s\n" "$1" >&2; }
-die()   { printf "${RED}error:${RESET} %s\n" "$1" >&2; exit 1; }
+info()  { printf '%s%s%s %s\n' "$GREEN" "info:" "$RESET" "$1"; }
+warn()  { printf '%s%s%s %s\n' "$YELLOW" "warn:" "$RESET" "$1" >&2; }
+die()   { printf '%s%s%s %s\n' "$RED" "error:" "$RESET" "$1" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
@@ -116,7 +116,7 @@ compute_checksum() {
   elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 "$1" | awk '{print $1}'
   else
-    warn "no sha256sum or shasum found — skipping checksum"
+    warn "no sha256sum or shasum found -- skipping checksum"
     echo ""
   fi
 }
@@ -237,7 +237,7 @@ main() {
   if forjar --version >/dev/null 2>&1; then
     info "$(forjar --version)"
   else
-    warn "version check failed — binary may not be on PATH"
+    warn "version check failed -- binary may not be on PATH"
   fi
       return
     fi
@@ -245,7 +245,7 @@ main() {
 
   # Check existing binary
   if [ -f "$DEST/$BINARY" ] && [ "$FORCE" = "0" ]; then
-    warn "$DEST/$BINARY already exists — use --force to overwrite"
+    warn "$DEST/$BINARY already exists -- use --force to overwrite"
     return 1
   fi
 
@@ -259,7 +259,7 @@ main() {
   if forjar --version >/dev/null 2>&1; then
     info "$(forjar --version)"
   else
-    warn "version check failed — binary may not be on PATH"
+    warn "version check failed -- binary may not be on PATH"
   fi
 
   # PATH hint
