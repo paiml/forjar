@@ -341,7 +341,7 @@ fn test_fj29_strip_data_payloads_large_binary() {
     // Generate fake base64 that contains sequences bashrs would misparse
     let fake_b64 = "doZmaQBpbg=="; // contains "do", "fi", "in" substrings
     let script = format!(
-        "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{fake_b64}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'"
+        "set -euo pipefail\nmkdir -p '/home/user/.cargo/bin'\necho '{fake_b64}' | base64 -d > '/home/user/.cargo/bin/forjar'\nchown 'noah' '/home/user/.cargo/bin/forjar'\nchmod '0755' '/home/user/.cargo/bin/forjar'"
     );
     let stripped = strip_data_payloads(&script);
     assert!(!stripped.contains(fake_b64));
@@ -379,7 +379,7 @@ fn test_fj29_validate_before_exec_accepts_base64_script() {
 
 #[test]
 fn test_fj29_strip_heredoc_payloads() {
-    let script = "set -euo pipefail\nmkdir -p '/home/noah'\ncat > '/home/noah/.bashrc' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nFORJAR_EOF\nchown 'noah' '/home/noah/.bashrc'";
+    let script = "set -euo pipefail\nmkdir -p '/home/user'\ncat > '/home/user/.bashrc' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nFORJAR_EOF\nchown 'noah' '/home/user/.bashrc'";
     let stripped = strip_data_payloads(script);
     assert!(
         !stripped.contains("export PATH"),

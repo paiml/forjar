@@ -21,7 +21,7 @@ fn main() {
             applied_at: "2026-02-16T16:32:55Z".into(),
             duration_secs: 0.54,
             state_hash: Some("blake3:a1b2c3d4".into()),
-            path: Some("/home/noah/.bash_aliases".into()),
+            path: Some("/home/user/.bash_aliases".into()),
             fts_rank: Some(-2.5),
         },
         QueryResult {
@@ -33,7 +33,7 @@ fn main() {
             applied_at: "2026-02-16T16:40:20Z".into(),
             duration_secs: 0.27,
             state_hash: Some("blake3:e5f6a7b8".into()),
-            path: Some("/home/noah/.bashrc.d/forjar.sh".into()),
+            path: Some("/home/user/.bashrc.d/forjar.sh".into()),
             fts_rank: Some(-1.8),
         },
     ];

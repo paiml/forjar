@@ -327,8 +327,8 @@ fn test_fj220_field_value_all_fields() {
     assert_eq!(resource_field_value(&r, "state").unwrap(), "stopped");
     r.shell = Some("/bin/zsh".into());
     assert_eq!(resource_field_value(&r, "shell").unwrap(), "/bin/zsh");
-    r.home = Some("/home/noah".into());
-    assert_eq!(resource_field_value(&r, "home").unwrap(), "/home/noah");
+    r.home = Some("/home/user".into());
+    assert_eq!(resource_field_value(&r, "home").unwrap(), "/home/user");
     r.schedule = Some("0 5 * * *".into());
     assert_eq!(resource_field_value(&r, "schedule").unwrap(), "0 5 * * *");
     r.command = Some("echo hello".into());

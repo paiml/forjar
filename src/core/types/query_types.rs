@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 ///     applied_at: "2026-02-16T16:32:55Z".into(),
 ///     duration_secs: 0.54,
 ///     state_hash: Some("blake3:a1b2c3".into()),
-///     path: Some("/home/noah/.bash_aliases".into()),
+///     path: Some("/home/user/.bash_aliases".into()),
 ///     fts_rank: None,
 /// };
 /// assert_eq!(result.resource_id, "bash-aliases");
