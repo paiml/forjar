@@ -324,7 +324,12 @@ fn check_pre_apply_drift(
     let locks = load_machine_locks(config, state_dir, machine_filter)?;
     let mut total_drift = 0usize;
     for (machine_name, lock) in &locks {
-        let findings = crate::tripwire::drift::detect_drift(lock);
+        // FJ-1378-fix: Pass the machine object so container transports use
+        // docker exec instead of checking the host filesystem.
+        let findings = match config.machines.get(machine_name.as_str()) {
+            Some(m) => crate::tripwire::drift::detect_drift_with_machine(lock, m),
+            None => crate::tripwire::drift::detect_drift(lock),
+        };
         if !findings.is_empty() {
             total_drift += findings.len();
             for f in &findings {
