@@ -15,7 +15,7 @@
 //!   tag: nightly
 //!   asset_pattern: "*aarch64-unknown-linux-gnu*"
 //!   binary: apr
-//!   install_dir: /home/noah/.cargo/bin
+//!   install_dir: /home/user/.cargo/bin
 //! ```
 
 use crate::core::types::Resource;
@@ -156,7 +156,7 @@ mod tests {
             tag: Some("nightly".to_string()),
             asset_pattern: Some("*aarch64-unknown-linux-gnu*".to_string()),
             binary: Some(binary.to_string()),
-            install_dir: Some("/home/noah/.cargo/bin".to_string()),
+            install_dir: Some("/home/user/.cargo/bin".to_string()),
             ..Default::default()
         }
     }
@@ -165,7 +165,7 @@ mod tests {
     fn test_fj034_check_installed() {
         let r = make_github_release_resource("paiml/forjar", "forjar");
         let script = check_script(&r);
-        assert!(script.contains("/home/noah/.cargo/bin/forjar"));
+        assert!(script.contains("/home/user/.cargo/bin/forjar"));
         assert!(script.contains("installed:paiml/forjar"));
         assert!(script.contains("missing:paiml/forjar"));
         assert!(script.contains("-x '"));
@@ -178,7 +178,7 @@ mod tests {
         assert!(script.contains("set -euo pipefail"));
         assert!(script.contains("paiml/aprender/releases/tags/nightly"));
         assert!(script.contains("aarch64-unknown-linux-gnu"));
-        assert!(script.contains("/home/noah/.cargo/bin/apr"));
+        assert!(script.contains("/home/user/.cargo/bin/apr"));
         assert!(script.contains("chmod +x"));
     }
 
@@ -187,7 +187,7 @@ mod tests {
         let mut r = make_github_release_resource("paiml/forjar", "forjar");
         r.state = Some("absent".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("rm -f '/home/noah/.cargo/bin/forjar'"));
+        assert!(script.contains("rm -f '/home/user/.cargo/bin/forjar'"));
         assert!(script.contains("removed:paiml/forjar"));
     }
 
@@ -195,7 +195,7 @@ mod tests {
     fn test_fj034_state_query() {
         let r = make_github_release_resource("paiml/copia", "copia");
         let script = state_query_script(&r);
-        assert!(script.contains("/home/noah/.cargo/bin/copia"));
+        assert!(script.contains("/home/user/.cargo/bin/copia"));
         assert!(script.contains("github_release=paiml/copia"));
         assert!(script.contains("github_release=MISSING:paiml/copia"));
     }
@@ -254,7 +254,7 @@ mod tests {
     fn test_fj034_mkdir_install_dir() {
         let r = make_github_release_resource("paiml/forjar", "forjar");
         let script = apply_script(&r);
-        assert!(script.contains("mkdir -p '/home/noah/.cargo/bin'"));
+        assert!(script.contains("mkdir -p '/home/user/.cargo/bin'"));
     }
 
     #[test]

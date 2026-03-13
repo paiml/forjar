@@ -10,7 +10,7 @@ fn make_build_resource() -> crate::core::types::Resource {
     r.build_machine = Some("intel".to_string());
     r.command = Some("cargo build --release --target aarch64-unknown-linux-gnu".to_string());
     r.source = Some("/tmp/cross/release/apr".to_string());
-    r.target = Some("/home/noah/.cargo/bin/apr".to_string());
+    r.target = Some("/home/user/.cargo/bin/apr".to_string());
     r.completion_check = Some("apr --version".to_string());
     r
 }
@@ -80,7 +80,7 @@ fn test_fj33_build_apply_scp_transfer() {
         "must transfer from build machine artifact path: {script}"
     );
     assert!(
-        script.contains("/home/noah/.cargo/bin/apr"),
+        script.contains("/home/user/.cargo/bin/apr"),
         "must deploy to target path: {script}"
     );
 }
@@ -134,7 +134,7 @@ fn test_fj33_build_state_query() {
         "state query must hash artifact: {script}"
     );
     assert!(
-        script.contains("/home/noah/.cargo/bin/apr"),
+        script.contains("/home/user/.cargo/bin/apr"),
         "state query must reference deploy path: {script}"
     );
     assert!(

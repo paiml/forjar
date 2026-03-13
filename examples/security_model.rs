@@ -72,7 +72,7 @@ fn main() {
         "/etc/sudoers.d/custom",
         "/etc/nginx/nginx.conf",
         "/root/.ssh/authorized_keys",
-        "/home/noah/.bashrc",
+        "/home/user/.bashrc",
     ];
     for path in test_paths {
         let status = if policy.is_denied(path) {
