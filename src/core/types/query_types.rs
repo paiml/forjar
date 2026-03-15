@@ -187,7 +187,7 @@ impl TimingStats {
             count: n as u32,
             avg: sum / n as f64,
             p50: durations[n / 2],
-            p95: durations[(n as f64 * 0.95) as usize],
+            p95: durations[((n as f64 * 0.95) as usize).min(n - 1)],
             p99: durations[((n as f64 * 0.99) as usize).min(n - 1)],
             max: durations[n - 1],
         })

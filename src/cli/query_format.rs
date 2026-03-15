@@ -37,7 +37,7 @@ pub(crate) fn print_timing_stats(
     let n = durations.len();
     let avg = durations.iter().sum::<f64>() / n as f64;
     let p50 = durations[n / 2];
-    let p95 = durations[(n as f64 * 0.95) as usize];
+    let p95 = durations[((n as f64 * 0.95) as usize).min(n - 1)];
     println!("\n Timing: avg={avg:.2}s p50={p50:.2}s p95={p95:.2}s (n={n})");
     Ok(())
 }
