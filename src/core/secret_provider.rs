@@ -66,6 +66,13 @@ impl FileProvider {
 
 impl SecretProvider for FileProvider {
     fn resolve(&self, key: &str) -> Result<Option<SecretValue>, String> {
+        // GH-85: Reject path traversal sequences in secret key names
+        if key.contains("..") || key.contains('/') || key.contains('\\') {
+            return Err(format!(
+                "invalid secret key '{}': must not contain path separators or '..'",
+                key
+            ));
+        }
         let path = self.dir.join(key);
         if !path.exists() {
             return Ok(None);
@@ -102,8 +109,10 @@ impl ExecProvider {
 
 impl SecretProvider for ExecProvider {
     fn resolve(&self, key: &str) -> Result<Option<SecretValue>, String> {
+        // GH-85: Pass key as a shell variable to prevent command injection.
+        // The key is available to the command as $1 instead of being interpolated.
         let output = std::process::Command::new("sh")
-            .args(["-c", &format!("{} {}", self.command, key)])
+            .args(["-c", &format!("{} \"$1\"", self.command), "--", key])
             .output()
             .map_err(|e| format!("exec secret provider: {e}"))?;
 
