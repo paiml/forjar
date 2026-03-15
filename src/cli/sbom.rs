@@ -242,7 +242,14 @@ fn print_sbom_text(config: &types::ForjarConfig, components: &[SbomComponent]) {
 
 fn truncate_str(s: &str, max: usize) -> String {
     if s.len() > max {
-        format!("{}...", &s[..max.saturating_sub(3)])
+        if max < 4 {
+            return s.chars().take(max).collect();
+        }
+        let mut end = max.saturating_sub(3);
+        while end > 0 && !s.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &s[..end])
     } else {
         s.to_string()
     }
