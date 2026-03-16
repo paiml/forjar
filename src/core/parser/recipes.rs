@@ -37,6 +37,14 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
         )?;
         config.resources = expanded;
 
+        // FJ-2600: Rewrite depends_on for non-recipe resources that reference
+        // recipe IDs — point them to the recipe's terminal resource instead.
+        if !terminal_map.is_empty() {
+            for resource in config.resources.values_mut() {
+                resource.depends_on = resolve_recipe_deps(&resource.depends_on, &terminal_map);
+            }
+        }
+
         if depth == MAX_RECIPE_DEPTH - 1 {
             check_expansion_complete(config)?;
         }
