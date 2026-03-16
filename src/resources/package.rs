@@ -14,7 +14,7 @@ pub fn check_script(resource: &Resource) -> String {
                 .iter()
                 .map(|p| {
                     format!(
-                        "dpkg -l '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"
+                        "dpkg -l '{p}' 2>/dev/null | grep -q '^ii ' && echo 'installed:{p}' || echo 'missing:{p}'"
                     )
                 })
                 .collect();
@@ -84,7 +84,7 @@ fn apply_apt_present(resource: &Resource) -> String {
         "set -euo pipefail\n\
          NEED_INSTALL=0\n\
          for pkg in {check_joined}; do\n\
-           dpkg -l \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
+           dpkg -l \"$pkg\" 2>/dev/null | grep -q '^ii ' || NEED_INSTALL=1\n\
          done\n\
          if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
            if [ \"$(id -u)\" -ne 0 ]; then\n\
@@ -97,7 +97,7 @@ fn apply_apt_present(resource: &Resource) -> String {
          fi\n\
          # Postcondition: all packages installed\n\
          for pkg in {check_joined}; do\n\
-           dpkg -l \"$pkg\" >/dev/null 2>&1\n\
+           dpkg -l \"$pkg\" 2>/dev/null | grep -q '^ii '\n\
          done"
     )
 }
@@ -110,7 +110,7 @@ fn apply_apt_absent(resource: &Resource) -> String {
         "set -euo pipefail\n\
          NEED_REMOVE=0\n\
          for pkg in {joined}; do\n\
-           dpkg -l \"$pkg\" >/dev/null 2>&1 && NEED_REMOVE=1\n\
+           dpkg -l \"$pkg\" 2>/dev/null | grep -q '^ii ' && NEED_REMOVE=1\n\
          done\n\
          if [ \"$NEED_REMOVE\" = \"1\" ]; then\n\
            if [ \"$(id -u)\" -ne 0 ]; then\n\
