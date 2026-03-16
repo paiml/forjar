@@ -83,11 +83,11 @@ jobs:
         if: matrix.cross
         env:
           CROSS_NO_WARNINGS: "0"
-        run: cross build --release --target ${{ matrix.target }}
+        run: cross build --release --features vendored-openssl --target ${{ matrix.target }}
 
       - name: Build release binary
         if: ${{ !matrix.cross }}
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --features vendored-openssl --target ${{ matrix.target }}
 
       - name: Package binary (unix)
         if: matrix.runner != 'windows-latest'
