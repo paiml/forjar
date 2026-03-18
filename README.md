@@ -10,6 +10,8 @@
   <a href="#benchmarks">Benchmarks</a>
 </p>
 
+[![CI](https://github.com/paiml/forjar/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/forjar/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/forjar.svg)](https://crates.io/crates/forjar)
 [![MSRV](https://img.shields.io/badge/MSRV-1.88.0-blue)](https://blog.rust-lang.org/)
 
 ---
