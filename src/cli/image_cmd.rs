@@ -158,12 +158,14 @@ pub fn resolve_machine<'a>(
 
 /// Generate Ubuntu autoinstall user-data YAML.
 pub fn generate_user_data(
-    _name: &str,
+    name: &str,
     machine: &crate::core::types::Machine,
     disk: &str,
     locale: &str,
     timezone: &str,
 ) -> Result<String, String> {
+    // GH-91: name not yet used for user-data personalization
+    let _ = name;
     let hostname = &machine.hostname;
     let username = &machine.user;
 

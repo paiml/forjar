@@ -117,8 +117,8 @@ pub(super) fn try_validate_quality(
 pub(super) fn try_validate_core(
     file: &Path,
     json: bool,
-    _strict: bool,
-    _dry_expand: bool,
+    strict: bool,
+    dry_expand: bool,
     check_overlaps: bool,
     check_naming: bool,
     check_cycles_deep: bool,
@@ -131,6 +131,13 @@ pub(super) fn try_validate_core(
     policy_file: Option<&Path>,
     exhaustive: bool,
 ) -> Option<Result<(), String>> {
+    // GH-91: Warn on unimplemented validation flags
+    if strict {
+        eprintln!("Warning: --strict is not yet implemented for validate. Flag ignored.");
+    }
+    if dry_expand {
+        eprintln!("Warning: --dry-expand is not yet implemented for validate. Flag ignored.");
+    }
     if check_overlaps {
         return Some(cmd_validate_check_overlaps(file, json));
     }

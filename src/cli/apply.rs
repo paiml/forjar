@@ -41,11 +41,16 @@ pub(crate) fn cmd_apply(
     subset: Option<&str>,
     confirm_destructive: bool,
     exclude: Option<&str>,
-    _sequential: bool,
+    sequential: bool,
     telemetry_endpoint: Option<&str>,
     refresh: bool,
     force_tag: Option<&str>,
 ) -> Result<(), String> {
+    // GH-91: Warn that --sequential is not yet implemented
+    if sequential {
+        eprintln!("Warning: --sequential is not yet implemented for apply. Flag ignored.");
+    }
+
     use std::time::Instant;
     let t_total = Instant::now();
 

@@ -88,9 +88,14 @@ fn cmd_environments_rollback(
     env: &str,
     state_dir: &std::path::Path,
     generations: u32,
-    _yes: bool,
+    yes: bool,
     json: bool,
 ) -> Result<(), String> {
+    // GH-91: Warn that --yes auto-confirmation is not yet implemented
+    if yes {
+        eprintln!("Warning: --yes is not yet implemented for environment rollback. Flag ignored.");
+    }
+
     let env_dir = state_dir.join(env);
     if !env_dir.exists() {
         return Err(format!(

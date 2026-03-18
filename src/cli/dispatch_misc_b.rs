@@ -407,13 +407,18 @@ fn cmd_query_state(
     resource_type: Option<&str>,
     status_filter: Option<&str>,
     history: bool,
-    _drift: bool,
+    drift: bool,
     timing: bool,
     reversibility: bool,
     git_history: bool,
     json: bool,
     csv: bool,
 ) -> Result<(), String> {
+    // GH-91: Warn that --drift is not yet implemented for query-state
+    if drift {
+        eprintln!("Warning: --drift is not yet implemented for query-state. Flag ignored.");
+    }
+
     use super::query_format as qf;
     use crate::core::store::db;
 

@@ -19,8 +19,12 @@ pub(crate) fn cmd_build(
     push: bool,
     far: bool,
     sandbox: bool,
-    _json: bool,
+    json: bool,
 ) -> Result<(), String> {
+    // GH-91: Warn that --json is not yet implemented for build
+    if json {
+        eprintln!("Warning: --json is not yet implemented for build output. Flag ignored.");
+    }
     let config = super::helpers::parse_and_validate(file)?;
     let res = config
         .resources
@@ -180,8 +184,10 @@ fn cmd_build_sandbox(
 fn build_plan_from_resource(
     name: &str,
     res: &Resource,
-    _config: &ForjarConfig,
+    config: &ForjarConfig,
 ) -> Result<ImageBuildPlan, String> {
+    // GH-91: config not yet used for build plan customization
+    let _ = config;
     let tag = res.version.as_deref().unwrap_or("latest");
     let image_name = res.name.as_deref().unwrap_or(name);
 

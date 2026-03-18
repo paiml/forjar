@@ -28,7 +28,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             machine,
             resource,
             tag,
-            group: _group,
+            group,
             state_dir,
             json,
             output_dir,
@@ -41,6 +41,10 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             out,
             why,
         }) => {
+            // GH-91: Warn that --group filtering is not yet implemented
+            if group.is_some() {
+                eprintln!("Warning: --group is not yet implemented for plan. Flag ignored.");
+            }
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
                 &file,

@@ -9,10 +9,15 @@ use std::path::Path;
 pub fn cmd_promote(
     file: &Path,
     target: &str,
-    _yes: bool,
+    yes: bool,
     dry_run: bool,
     json: bool,
 ) -> Result<(), String> {
+    // GH-91: Warn that --yes auto-confirmation is not yet implemented
+    if yes {
+        eprintln!("Warning: --yes is not yet implemented for promote. Flag ignored.");
+    }
+
     let config = crate::core::parser::parse_and_validate(file)?;
 
     // Find the target environment's promotion config

@@ -27,10 +27,9 @@ pub(crate) fn cmd_agent_sbom(file: &Path, state_dir: &Path, json: bool) -> Resul
     Ok(())
 }
 
-fn collect_agent_components(
-    config: &types::ForjarConfig,
-    _state_dir: &Path,
-) -> Vec<AgentComponent> {
+fn collect_agent_components(config: &types::ForjarConfig, state_dir: &Path) -> Vec<AgentComponent> {
+    // GH-91: state_dir not yet used for SBOM state inspection
+    let _ = state_dir;
     let mut components = Vec::new();
 
     for (id, resource) in &config.resources {

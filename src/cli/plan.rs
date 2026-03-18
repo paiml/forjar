@@ -14,7 +14,7 @@ pub(crate) fn cmd_plan(
     file: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
-    _resource_filter: Option<&str>,
+    resource_filter: Option<&str>,
     tag_filter: Option<&str>,
     json: bool,
     verbose: bool,
@@ -28,6 +28,11 @@ pub(crate) fn cmd_plan(
     plan_out: Option<&Path>,
     why: bool,
 ) -> Result<(), String> {
+    // GH-91: Warn that --resource filter is not yet implemented
+    if resource_filter.is_some() {
+        eprintln!("Warning: --resource filter is not yet implemented for plan. Flag ignored.");
+    }
+
     let mut config = parse_and_validate(file)?;
 
     // FJ-333: Apply hypothetical param overrides
