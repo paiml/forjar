@@ -395,7 +395,10 @@ pub(crate) fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::C
         Ok(c) => c,
         Err(_) => db::open_state_db(std::path::Path::new(":memory:"))?,
     };
-    let _ = ingest::ingest_state_dir(&conn, state_dir);
+    // GH-93: Log ingestion errors instead of silently discarding
+    if let Err(e) = ingest::ingest_state_dir(&conn, state_dir) {
+        eprintln!("Warning: state directory ingestion failed: {e}");
+    }
     Ok(conn)
 }
 

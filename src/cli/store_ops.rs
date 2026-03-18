@@ -19,10 +19,12 @@ pub(crate) fn cmd_store_gc(
     keep_generations: usize,
     json: bool,
 ) -> Result<(), String> {
-    let _config = GcConfig {
+    // GH-93: GcConfig fields not yet used by mark_and_sweep
+    let config = GcConfig {
         keep_generations,
         older_than_days: older_than,
     };
+    let _ = config;
 
     // Collect roots from lock file and profile symlinks
     let lock_hashes = collect_lock_hashes(state_dir);
