@@ -13,13 +13,7 @@
 //!
 //! Usage: cargo test --test falsification_store_pin_query_ingest
 
-use forjar::core::store::pin_resolve::{
-    parse_resolved_version, pin_hash, resolution_command, ResolvedPin,
-};
-use forjar::core::store::query::{
-    query_churn, query_drift, query_events, query_failures, query_health, query_history,
-    HealthSummary, MachineHealth,
-};
+use forjar::core::store::query::query_health;
 
 // ============================================================================
 // FJ-1364: resolution_command

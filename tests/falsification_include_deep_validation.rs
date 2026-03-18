@@ -10,10 +10,7 @@
 
 #![allow(clippy::field_reassign_with_default)]
 
-use forjar::core::parser::{
-    check_unknown_fields, parse_and_validate, parse_config, validate_config,
-};
-use forjar::core::resolver::build_execution_order;
+use forjar::core::parser::{check_unknown_fields, parse_and_validate};
 use forjar::core::types::{
     DeepCheckFlags, FieldSuggestion, ForjarConfig, ValidateOutput, ValidationFinding,
     ValidationSeverity,

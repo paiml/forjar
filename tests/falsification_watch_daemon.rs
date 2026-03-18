@@ -1,16 +1,11 @@
 //! FJ-3102: Watch daemon and apply gates falsification tests.
 //! Usage: cargo test --test falsification_watch_daemon
 
-use forjar::core::cron_source::CronTime;
 use forjar::core::metric_source::{MetricThreshold, ThresholdOp};
-use forjar::core::types::{
-    ApplyAction, DestroyAction, EventPattern, EventType, InfraEvent, NotifyAction, Rulebook,
-    RulebookAction,
-};
+use forjar::core::types::{ApplyAction, EventPattern, EventType, Rulebook, RulebookAction};
 use forjar::core::watch_daemon::{
-    build_rulebook_config, check_cron_schedules, check_metrics, classify_action, cron_event,
-    daemon_summary, detect_file_changes, file_changed_event, format_event_log,
-    metric_threshold_event, process_event, ActionKind, DaemonState, WatchDaemonConfig,
+    build_rulebook_config, cron_event, file_changed_event, process_event, DaemonState,
+    WatchDaemonConfig,
 };
 use std::collections::HashMap;
 

@@ -13,8 +13,7 @@
 
 use forjar::core::compliance_pack::{ComplianceCheck, CompliancePack, ComplianceRule};
 use forjar::core::policy_boundary::{
-    format_boundary_results, generate_boundary_configs, test_boundaries, BoundaryConfig,
-    BoundaryOutcome, BoundaryTestResult,
+    generate_boundary_configs, BoundaryConfig, BoundaryOutcome, BoundaryTestResult,
 };
 use std::collections::HashMap;
 

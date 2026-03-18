@@ -18,13 +18,9 @@
 //! Usage: cargo test --test falsification_cis_plugin
 #![allow(dead_code)]
 
-use forjar::core::cis_ubuntu_pack::{cis_ubuntu_2204_pack, cis_ubuntu_yaml, severity_summary};
-use forjar::core::compliance_pack::{evaluate_pack, ComplianceCheck};
 use forjar::core::plugin_dispatch::{
-    available_plugin_types, dispatch_apply, dispatch_check, dispatch_destroy, is_plugin_type,
-    parse_plugin_type, resolve_plugin,
+    dispatch_apply, dispatch_check, dispatch_destroy, resolve_plugin,
 };
-use std::collections::HashMap;
 
 // ============================================================================
 // FJ-3206: Pack metadata

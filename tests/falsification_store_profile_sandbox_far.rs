@@ -20,7 +20,7 @@
 //! Usage: cargo test --test falsification_store_profile_sandbox_far
 
 use forjar::core::store::far::{
-    decode_far_manifest, encode_far, FarFileEntry, FarManifest, FarProvenance, FAR_MAGIC,
+    decode_far_manifest, encode_far, FarFileEntry, FarManifest, FarProvenance,
 };
 use forjar::core::store::profile::{
     create_generation, current_generation, list_generations, rollback,

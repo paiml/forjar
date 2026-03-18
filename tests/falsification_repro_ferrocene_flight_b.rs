@@ -10,18 +10,7 @@
 //!
 //! Usage: cargo test --test falsification_repro_ferrocene_flight
 
-use forjar::core::ferrocene::{
-    check_source_compliance, detect_toolchain, ferrocene_ci_config, generate_evidence, AsilLevel,
-    CertificationEvidence, DalLevel, SafetyStandard, ViolationSeverity,
-};
-use forjar::core::flight_grade::{
-    check_compliance, fg_topo_sort, FgPlan, FgResource, FgStatus, MAX_DEPTH, MAX_HASH_LEN,
-    MAX_RESOURCES,
-};
-use forjar::core::repro_build::{
-    check_cargo_profile, check_environment, generate_report, hash_binary, hash_source_dir,
-    repro_ci_snippet,
-};
+use forjar::core::flight_grade::{fg_topo_sort, FgPlan, FgResource};
 
 // ============================================================================
 // FJ-095: Reproducible Build — Environment Checks

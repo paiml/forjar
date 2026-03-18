@@ -5,9 +5,9 @@
 //! would be rejected as invalid.
 
 use forjar::core::types::{
-    BuildMetrics, BundleSizeDrift, CachePolicy, CdnTarget, FeatureMatrix, ImageBuildMetrics,
-    LayerMetric, ModelIntegrityCheck, MsrvCheck, PurificationBenchmark, ReproBuildConfig,
-    SizeThreshold, WasmBuildConfig, WasmBuildResult, WasmOptLevel, WasmSizeBudget,
+    BuildMetrics, BundleSizeDrift, CachePolicy, CdnTarget, FeatureMatrix, ModelIntegrityCheck,
+    MsrvCheck, PurificationBenchmark, ReproBuildConfig, SizeThreshold, WasmBuildResult,
+    WasmOptLevel, WasmSizeBudget,
 };
 
 // ── FJ-2402: WASM Optimization Levels ──────────────────────────────

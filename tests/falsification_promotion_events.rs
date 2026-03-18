@@ -15,13 +15,10 @@
 //! Usage: cargo test --test falsification_promotion_events
 
 use forjar::core::promotion::{evaluate_gates, GateResult, PromotionResult};
-use forjar::core::promotion_events::{
-    log_promotion, log_promotion_failure, log_rollback, PromotionParams,
-};
+use forjar::core::promotion_events::{log_promotion, log_promotion_failure, PromotionParams};
 use forjar::core::types::environment::{
     CoverageGateOptions, PolicyGateOptions, PromotionConfig, PromotionGate, ValidateGateOptions,
 };
-use forjar::core::types::ProvenanceEvent;
 
 // ============================================================================
 // Helpers

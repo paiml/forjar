@@ -14,10 +14,7 @@
 //!
 //! Usage: cargo test --test falsification_sat_changeset
 
-use forjar::core::planner::minimal_changeset::{
-    compute_minimal_changeset, verify_minimality, ChangeCandidate, MinimalChangeSet,
-};
-use forjar::core::planner::sat_deps::{build_sat_problem, solve, SatProblem, SatResult};
+use forjar::core::planner::minimal_changeset::compute_minimal_changeset;
 use std::collections::BTreeMap;
 
 // ============================================================================

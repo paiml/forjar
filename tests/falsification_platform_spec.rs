@@ -337,10 +337,8 @@ fn f_2700_3_regex_gate_matches() {
 // FJ-2800–FJ-2803: ForjarScore v2 Popperian Falsification
 // ============================================================================
 
-use forjar::core::scoring::{compute, RuntimeData, ScoringInput, SCORE_VERSION};
-use forjar::core::types::{
-    FailurePolicy, ForjarConfig, Machine, OutputValue, Resource, ResourceType,
-};
+use forjar::core::scoring::{compute, RuntimeData, ScoringInput};
+use forjar::core::types::{ForjarConfig, OutputValue, Resource, ResourceType};
 
 fn base_config() -> ForjarConfig {
     let mut config = ForjarConfig::default();
@@ -359,6 +357,7 @@ fn base_input() -> ScoringInput {
     }
 }
 
+#[allow(dead_code)]
 fn full_runtime() -> RuntimeData {
     RuntimeData {
         validate_pass: true,

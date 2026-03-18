@@ -23,13 +23,9 @@
 //!
 //! Usage: cargo test --test falsification_store_path_lock_deriv
 
-use forjar::core::store::cache::{
-    build_inventory, parse_cache_config, resolve_substitution, ssh_command, validate_cache_config,
-    verify_entry, CacheEntry, CacheSource, SubstitutionResult,
-};
 use forjar::core::store::derivation::{
-    collect_input_hashes, compute_depth, derivation_closure_hash, derivation_purity,
-    parse_derivation, validate_dag, validate_derivation, Derivation, DerivationInput,
+    collect_input_hashes, derivation_closure_hash, derivation_purity, validate_dag,
+    validate_derivation, Derivation, DerivationInput,
 };
 use forjar::core::store::lockfile::{
     check_completeness, check_staleness, parse_lockfile, read_lockfile, write_lockfile, LockFile,

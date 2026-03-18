@@ -28,7 +28,7 @@ use forjar::core::store::purity::{
     classify, level_label, recipe_purity, PurityLevel, PuritySignals,
 };
 use forjar::core::store::repro_score::{compute_score, grade, ReproInput};
-use forjar::core::store::secret_scan::{is_encrypted, scan_text, scan_yaml_str};
+use forjar::core::store::secret_scan::is_encrypted;
 use forjar::core::store::store_diff::{
     build_sync_plan, compute_diff, has_diffable_provenance, upstream_check_command,
 };

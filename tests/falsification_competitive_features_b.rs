@@ -1,26 +1,13 @@
 //! Falsification criteria F-3100 through F-3509: competitive features (37 tests).
 #![allow(dead_code)]
 
-use forjar::core::compliance;
-use forjar::core::compliance_gate;
-use forjar::core::compliance_pack::*;
-use forjar::core::ephemeral::*;
-use forjar::core::metric_source::{MetricThreshold, ThresholdOp};
 use forjar::core::plugin_dispatch;
 use forjar::core::plugin_hot_reload::{PluginCache, ReloadCheck};
-use forjar::core::plugin_loader;
-use forjar::core::policy_boundary;
 use forjar::core::promotion;
 use forjar::core::promotion_events::{self, PromotionParams};
-use forjar::core::script_secret_lint;
-use forjar::core::secret_namespace::{self, NamespaceConfig};
-use forjar::core::secret_provider::{EnvProvider, ProviderChain};
-use forjar::core::state_encryption;
 use forjar::core::types::environment::*;
 use forjar::core::types::*;
-use forjar::core::watch_daemon::{self, DaemonState, WatchDaemonConfig};
 use std::collections::HashMap;
-use std::time::Instant;
 
 fn make_event(et: EventType) -> InfraEvent {
     InfraEvent {

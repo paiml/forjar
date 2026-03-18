@@ -4,14 +4,7 @@
 //! system would be rejected as invalid.
 #![allow(clippy::field_reassign_with_default)]
 
-use forjar::core::security_scanner::{scan, severity_counts, Severity};
-use forjar::core::types::{
-    AuthzResult, CoverageLevel, CoverageReport, ForjarConfig, LogFilter, LogGcResult,
-    LogTruncation, MutationOperator, MutationReport, MutationResult, MutationScore,
-    OperatorIdentity, OperatorSource, PathPolicy, ProgressConfig, Resource, ResourceCoverage,
-    ResourceType, RunLogPath, SecretProvider, SecretScanFinding, SecretScanResult,
-    StructuredLogOutput, VerbosityLevel,
-};
+use forjar::core::types::{CoverageLevel, CoverageReport, ResourceCoverage};
 
 // ── FJ-2300: Security Model ────────────────────────────────────────
 

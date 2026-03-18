@@ -1,7 +1,6 @@
 //! FJ-3400/2602/2105/3405: Plugin types, behavior specs, distribution, shell providers.
 //! Usage: cargo test --test falsification_plugin_behavior_dist
 
-use forjar::core::shell_provider::{is_shell_type, parse_shell_type, validate_provider_script};
 use forjar::core::types::*;
 
 // ── FJ-3400: PluginManifest ──

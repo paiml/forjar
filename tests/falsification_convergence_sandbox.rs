@@ -10,11 +10,9 @@ use forjar::core::store::convergence_runner::{
 };
 use forjar::core::store::sandbox::{
     blocks_network, cgroup_path, enforces_fs_isolation, parse_sandbox_config, preset_profile,
-    validate_config, BindMount, EnvVar, SandboxConfig, SandboxLevel,
+    validate_config, BindMount, SandboxConfig, SandboxLevel,
 };
-use forjar::core::store::sandbox_exec::plan_sandbox_build;
 use forjar::core::types::SandboxBackend;
-use std::collections::BTreeMap;
 
 // ── FJ-2600: Convergence Result Model ──────────────────────────────
 

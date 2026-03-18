@@ -5,7 +5,7 @@
 //! subsystem would be rejected as invalid.
 
 use forjar::cli::lsp::{CompletionItem, Diagnostic, DiagnosticSeverity, LspServer};
-use forjar::core::parser::{check_unknown_fields, parse_config, validate_config};
+use forjar::core::parser::{parse_config, validate_config};
 
 // ── FJ-2501: Format Validation — Mode ──────────────────────────────
 
