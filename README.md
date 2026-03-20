@@ -16,6 +16,22 @@
 
 ---
 
+## Table of Contents
+
+- [Why Forjar](#why-forjar)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Content-Addressed Store](#content-addressed-store)
+- [How It Works](#how-it-works)
+- [Benchmarks](#benchmarks)
+- [Falsifiable Claims](#falsifiable-claims)
+- [Testing](#testing)
+- [Installation](#installation)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 Forjar is a single-binary IaC tool written in Rust. It manages bare-metal machines over SSH using YAML configs, BLAKE3 content-addressed state, and deterministic DAG execution. No cloud APIs, no runtime dependencies, no remote state backends.
 
 ```
@@ -315,6 +331,31 @@ cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
 cargo clippy -- -D warnings   # lint
 ```
+
+## Installation
+
+```bash
+# From crates.io
+cargo install forjar
+
+# From source
+git clone https://github.com/paiml/forjar.git
+cd forjar
+cargo install --path .
+```
+
+## Contributing
+
+Contributions are welcome. Please follow these guidelines:
+
+1. Fork the repo and create your changes on `main`
+2. Run the full quality gate before submitting: `make all`
+3. Ensure `cargo test` passes with zero failures
+4. Run `cargo clippy -- -D warnings` with no warnings
+5. Add tests for new functionality (95% coverage minimum)
+6. Submit a pull request with a clear description of the change
+
+For bug reports, please include: forjar version (`forjar --version`), OS, and a minimal `forjar.yaml` that reproduces the issue.
 
 ## License
 
