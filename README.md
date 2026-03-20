@@ -18,6 +18,7 @@
 
 ## Table of Contents
 
+- [Features](#features)
 - [Why Forjar](#why-forjar)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
@@ -37,6 +38,14 @@ Forjar is a single-binary IaC tool written in Rust. It manages bare-metal machin
 ```
 forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute  →  BLAKE3 lock
 ```
+
+## Features
+
+- Declarative YAML-based infrastructure provisioning
+- Content-addressed artifact store with blake3 hashing
+- SSH-based remote execution with automatic retry
+- Drift detection and convergence verification
+- Pure Rust with zero C dependencies
 
 ## Why Forjar
 
