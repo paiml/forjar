@@ -1,0 +1,14 @@
+schema: '1.0'
+pins:
+  config-file:
+    provider: file
+    hash: blake3:bed1b782307277db9d8a9841693695dda2843569b84fc0278db9f8e51f4398bd
+  install-bat:
+    provider: file
+    hash: blake3:858ce4da094ba49425199ea3f381a769eb4602e272db42ecde4e05340354398e
+  web-svc:
+    provider: file
+    hash: blake3:ae507bda71dc8ad9717281db97bb7e0d5217b8c46afd0e444ee7b9473010ff25
+  webpkg:
+    provider: apt
+    hash: blake3:c6ce3752d590796dabc54552128613d3d0ce7668d176622e34bced34d06b4597

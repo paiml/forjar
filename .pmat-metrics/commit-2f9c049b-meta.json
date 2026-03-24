@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-051",
+  "prompt": "Spec stale: test count 8365→10075, test files 525→658, CI workflows 11→14 — update 14-testing-strategy.md",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-08T13:38:49.129477201Z"
+}

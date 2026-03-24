@@ -1,0 +1,184 @@
+schema: '1.0'
+machine: intel
+hostname: mac-server
+generated_at: 2026-02-16T16:44:39Z
+generator: forjar 0.1.0
+blake3_version: '1.8'
+resources:
+  artifacts-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:40:19Z
+    duration_seconds: 0.271580518
+    hash: blake3:48fb419901fa79187b505792c1156df1624654dc82c649f6aef65f383bec2c67
+    details:
+      mode: '0755'
+      path: /home/noah/data/artifacts
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+      owner: noah
+  bash-aliases:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:55Z
+    duration_seconds: 0.539653416
+    hash: blake3:43b33ddd15c866b0d54f2144e8b66d96b88082178f02052b914f1d2fbeb08060
+    details:
+      live_hash: blake3:22035c315c17dcc46d45a57a0b97d003ced700b1c9ea376953fd06e9ae8ec3ca
+      mode: '0644'
+      owner: noah
+      content_hash: blake3:aae3de54118cd67a57432145e96802d1d23e2ee01202f4f2a175f88d66843221
+      path: /home/noah/.bash_aliases
+  bashrc-d-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:55Z
+    duration_seconds: 0.319437498
+    hash: blake3:b6b7213ab8cda2262cef8a939dc094d91a16aedda8eaf637750be5d28af5635f
+    details:
+      owner: noah
+      mode: '0755'
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+      path: /home/noah/.bashrc.d
+  bashrc-hook:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:40:20Z
+    duration_seconds: 0.268271488
+    hash: blake3:834720a3c7bd57719a536147004a373d4d1f861443e0c3105d961c2a6b527714
+    details:
+      live_hash: blake3:45549b3a6f050b5e231f4d0cd557a5f4f6ed86d6bf83df458e3d7effd6cd36df
+      path: /home/noah/.bashrc.d/forjar.sh
+      mode: '0644'
+      content_hash: blake3:e531554e346c0ba3c503a39f73fbf731b455e85da6a790e4cd445964dcebe859
+      owner: noah
+  cargo-tools:
+    type: package
+    status: converged
+    applied_at: 2026-02-16T16:32:57Z
+    duration_seconds: 0.848772881
+    hash: blake3:c5fc7e8c095d8dc1ea5c245829bdab6fd0c4b5dd0a62a6a8cc4c291a638caf67
+    details:
+      live_hash: blake3:18a03cb3b066ae1b7f8e9a803a51b196c8d8b7dcf0e4c6700eeb9983f7cfadbb
+  data-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:57Z
+    duration_seconds: 0.255604817
+    hash: blake3:ebdef82bcb41948283f13650c04563ca8b5ebb2ab75368477e5b44888110967c
+    details:
+      mode: '0755'
+      path: /home/noah/data
+      owner: noah
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+  forjar-profile:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:58Z
+    duration_seconds: 0.271773466
+    hash: blake3:1ce00c9bf755e6b6c046ec9c14ab160d63779c5031ae4ca4a8ad921968d71475
+    details:
+      owner: noah
+      path: /home/noah/.forjar_profile
+      content_hash: blake3:6cd4b75ebce02a746163b6c1846d8d260657d22e5f93ffbfc6ba7bd4fd6870fe
+      mode: '0644'
+      live_hash: blake3:1e856de2dcec0a1eccc161c25e8a6d8d68f7ba7f26a1b218b0b6c2c03e691ec6
+  gitconfig:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:58Z
+    duration_seconds: 0.261453048
+    hash: blake3:c00b9a664ff27f10a8d53f9f9beaaefc8bd3303016bc387b390261dc22a6f9bd
+    details:
+      live_hash: blake3:d378c416b987e0cf68dbfce35b5012b2a66a13c51e62a3c132d63613162ad72e
+      path: /home/noah/.gitconfig
+      owner: noah
+      mode: '0644'
+      content_hash: blake3:61a3cbe5d54ad7bab218580426087aea308ed802addefc2136263d4589ea84b3
+  logs-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:40:19Z
+    duration_seconds: 0.267223331
+    hash: blake3:9e29d010fc92212df6d699b0c47a711672f30370366b97ab683d6a37639701be
+    details:
+      mode: '0755'
+      owner: noah
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+      path: /home/noah/data/logs
+  models-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:40:20Z
+    duration_seconds: 0.266936927
+    hash: blake3:d47d0147f8d290843215d19f455ee6083a36bd361d8928500a2a4685068e24b7
+    details:
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+      owner: noah
+      mode: '0755'
+      path: /home/noah/data/models
+  projects-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:40:21Z
+    duration_seconds: 0.264151531
+    hash: blake3:1e89610112967ec67861d70087ee0151f8766394d42d34035d8e920848a5374a
+    details:
+      path: /home/noah/workspace/projects
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+      owner: noah
+      mode: '0755'
+  stack-tools:
+    type: package
+    status: converged
+    applied_at: 2026-02-16T16:44:16Z
+    duration_seconds: 0.53240937
+    hash: blake3:03b901b43e67d125a9582c85720156d8ad68b68e43fd7451cc5fa4a92467ae21
+    details:
+      live_hash: blake3:1bd8393511f77bcb326454be9e81d57ebb0e5e62590445b55ac285254a494c9c
+  tmux-conf:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:59Z
+    duration_seconds: 0.268391709
+    hash: blake3:3c655329553efb9198f678619dd2ac5f84fc3795cac74e755cd63cc178765854
+    details:
+      path: /home/noah/.tmux.conf
+      owner: noah
+      live_hash: blake3:43112d3120c9ff58cf2d686922d5355b2c82bfc3519da94a6ab226307756b424
+      content_hash: blake3:abb0838096a0ac351baf74b73ddb9d4cfb6898b5c4522e5981135149eae5b939
+      mode: '0644'
+  vimrc:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:32:59Z
+    duration_seconds: 0.272473286
+    hash: blake3:4aae72072753a756fa7779fa612cd7448f3a2bc584c9a38f934172fb49bdab3e
+    details:
+      mode: '0644'
+      content_hash: blake3:41935596832607acffce7682413bd847a3bdbab0462b1e876683e2dd82cde44a
+      live_hash: blake3:946429f9c4d76ede7f1889a2488daf85956c6d3af4b60b7cf4a7bedb1a067cbd
+      path: /home/noah/.vimrc
+      owner: noah
+  workspace-dir:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:33:00Z
+    duration_seconds: 0.316308186
+    hash: blake3:558f8b2cc32317000e879a992f1d412bf22813b3a7f1692ae92ab92da30a9dc3
+    details:
+      mode: '0755'
+      owner: noah
+      path: /home/noah/workspace
+      live_hash: blake3:aadc0e510e0a21e61d7439967386964b6f809ef4855d662a6e3ff2fa392acb9e
+  zshrc:
+    type: file
+    status: converged
+    applied_at: 2026-02-16T16:44:17Z
+    duration_seconds: 0.27255762
+    hash: blake3:8bb91893672daa4ee74e0adc991723a6871323883c86d8d37a06c84b79edf5cb
+    details:
+      path: /home/noah/.zshrc
+      mode: '0644'
+      content_hash: blake3:933c71d7b256edd7911395819ce936dc2aa01f75db4072ed5ad2fc394e3b8dda
+      owner: noah
+      live_hash: blake3:df80423845aff9429a16719cd9a94bea45b8d42020dda19c69409e20f86e8a37

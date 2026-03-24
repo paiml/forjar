@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: forjar
+Source: https://forjar.dev
+
+Files: *
+Copyright: Pragmatic AI Labs <info@paiml.com>
+License: MIT OR Apache-2.0

@@ -1,0 +1,35 @@
+schema: '1.0'
+machine: local
+hostname: localhost
+generated_at: 2026-03-10T12:43:11Z
+generator: forjar 1.1.1
+blake3_version: '1.8'
+resources:
+  config-file:
+    type: file
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:72e9cf605ec5754f3e0aec0b708b14645647dbdf90c3121897c8fa7cae174ddc
+    details: {}
+  install-bat:
+    type: github_release
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:0e29921eb6156982d40a72fbd970302cce1aab2800e2ebdff4f760dc25a7efd4
+    details: {}
+  web-svc:
+    type: service
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:eeadedcb18a3a89f4d063f88f865c3571f3d05d9c400d717b859e3d32156a477
+    details: {}
+  webpkg:
+    type: package
+    status: unknown
+    applied_at: null
+    duration_seconds: null
+    hash: blake3:01fa32f68c987d7a94182e6032d6b2e119484f20ecfd80c436265f06d2fdf249
+    details: {}

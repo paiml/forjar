@@ -1,0 +1,8 @@
+Package: forjar
+Version: VERSION-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Pragmatic AI Labs <info@paiml.com>
+Description: Rust-native Infrastructure as Code
+Homepage: https://forjar.dev

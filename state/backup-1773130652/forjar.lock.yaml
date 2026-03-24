@@ -1,0 +1,25 @@
+schema: '1.0'
+name: dogfood-test
+last_apply: 2026-03-10T08:14:47Z
+generator: forjar 1.1.1
+machines:
+  user-host:
+    resources: 7
+    converged: 1
+    failed: 0
+    last_apply: 2026-03-01T17:04:05Z
+  gpu-host:
+    resources: 4
+    converged: 0
+    failed: 0
+    last_apply: 2026-03-02T08:19:22Z
+  test-box:
+    resources: 3
+    converged: 0
+    failed: 0
+    last_apply: 2026-03-08T19:28:03Z
+  localhost:
+    resources: 3
+    converged: 0
+    failed: 0
+    last_apply: 2026-03-10T08:14:47Z

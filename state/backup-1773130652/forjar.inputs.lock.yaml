@@ -1,0 +1,11 @@
+schema: '1.0'
+pins:
+  test-file:
+    provider: file
+    hash: blake3:56746d7bc976f71291ff78d9a34c8fec6284b8aed37d9f1ee61b7dd72436627a
+  test-pkg:
+    provider: apt
+    hash: blake3:7ec2598aed1c20715dfaa6a29e8bbbb760071717e3a3a45e8e5479a186d83503
+  test-svc:
+    provider: file
+    hash: blake3:30d356ada7044f1e51514205a48e0df4693536abf4d212da52fa7b4f6d4568c1

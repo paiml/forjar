@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-052",
+  "prompt": "Falsification gap: state-query missing spec-claimed flags (--events, --failures, --destroy-log, --since, --run, --status, --age) and query UX needs positional pattern",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-08T13:39:33.530429519Z"
+}

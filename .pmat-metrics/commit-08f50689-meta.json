@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-048",
+  "prompt": "Falsification gap: CSV missing static_grade/runtime_grade columns — spec 16 claims two-tier grade columns but CSV has single 'grade' column",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-08T13:36:16.475274961Z"
+}

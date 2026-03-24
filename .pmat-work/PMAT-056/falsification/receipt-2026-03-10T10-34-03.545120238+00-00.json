@@ -1,0 +1,207 @@
+{
+  "id": "019cd74f-9799-7190-89bc-97c151d7afe5",
+  "git_sha": "f5ef87caa599e56dc96c7d505e07ef1b239147a6",
+  "timestamp": "2026-03-10T10:34:03.545120238+00:00",
+  "trigger": "WorkComplete",
+  "work_item_id": "PMAT-056",
+  "verdicts": [
+    {
+      "hypothesis": "All baseline files still exist",
+      "method": "ManifestIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "All 1491 files present",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "The falsifier is active and detecting (Meta-Check)",
+      "method": "MetaFalsification",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Detected dummy gaming pattern correctly",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No coverage exclusion gaming",
+      "method": "CoverageGaming",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No gaming patterns found in 1492 files",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changed lines are covered",
+      "method": "DifferentialCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No Rust files changed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Total coverage >= 95%",
+      "method": "AbsoluteCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No coverage data (run 'make coverage' to establish baseline), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "TDG score >= baseline",
+      "method": "TdgRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No TDG data (baseline: 0.0)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No function exceeds complexity 20",
+      "method": "ComplexityRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Complexity check passed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No vulnerable dependencies added",
+      "method": "SupplyChainIntegrity",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Deny cache too old (2818 min). Run 'cargo deny check' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "No file exceeds 500 lines",
+      "method": "FileSizeRegression",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "35 file(s) exceed 500 lines: src/core/parser/tests_policy.rs (724 lines), src/cli/commands/mod.rs (538 lines), src/cli/commands/status_args.rs (680 lines), src/cli/commands/validate_args.rs (507 lines), src/cli/commands/apply_args.rs (704 lines), src/cli/lsp.rs (508 lines), src/cli/tests_validate_ordering_b_cov.rs (588 lines), src/cli/tests_fleet_reporting_cov.rs (505 lines), src/cli/tests_fleet_ops.rs (501 lines), tests/falsification_wasm_build_pipeline.rs (566 lines), tests/falsification_planner.rs (530 lines), tests/falsification_spec_criteria.rs (762 lines), tests/falsification_store_path_lock_deriv.rs (734 lines), tests/falsification_derivation_dag.rs (508 lines), tests/falsification_store_profile_sandbox_far.rs (655 lines), tests/falsification_scoring_static.rs (705 lines), tests/falsification_security_observability.rs (510 lines), tests/falsification_watch_daemon.rs (559 lines), tests/falsification_gate_coverage.rs (527 lines), tests/falsification_validation_lsp.rs (817 lines), tests/falsification_platform_spec.rs (881 lines), tests/falsification_store_purity_repro.rs (593 lines), tests/falsification_event_sources.rs (704 lines), tests/falsification_repro_ferrocene_flight.rs (548 lines), tests/falsification_promotion_events.rs (723 lines), tests/falsification_competitive_features.rs (669 lines), tests/falsification_cron_rules.rs (540 lines), tests/falsification_convergence_sandbox.rs (698 lines), tests/falsification_policy_boundary.rs (577 lines), tests/falsification_store_pin_query_ingest.rs (587 lines), tests/falsification_include_deep_validation.rs (953 lines), tests/falsification_plugin_behavior_dist.rs (563 lines), tests/falsification_sat_changeset.rs (505 lines), tests/falsification_cis_plugin.rs (586 lines), tests/falsification_store_substitution_provider.rs (722 lines)",
+      "evidence_summary": "FileList([\"src/core/parser/tests_policy.rs\", \"src/cli/commands/mod.rs\", \"src/cli/commands/status_args.rs\", \"src/cli/commands/validate_args.rs\", \"src/cli/commands/apply_args.rs\", \"src/cli/lsp.rs\", \"src/cli/tests_validate_ordering_b_cov.rs\", \"src/cli/tests_fleet_reporting_cov.rs\", \"src/cli/tests_fleet_ops.rs\", \"tests/falsification_wasm_build_pipeline.rs\", \"tests/falsification_planner.rs\", \"tests/falsification_spec_criteria.rs\", \"tests/falsification_store_path_lock_deriv.rs\", \"tests/falsification_derivation_dag.rs\", \"tests/falsification_store_profile_sandbox_far.rs\", \"tests/falsification_scoring_static.rs\", \"tests/falsification_security_observability.rs\", \"tests/falsification_watch_daemon.rs\", \"tests/falsification_gate_coverage.rs\", \"tests/falsification_validation_lsp.rs\", \"tests/falsification_platform_spec.rs\", \"tests/falsification_store_purity_repro.rs\", \"tests/falsification_event_sources.rs\", \"tests/falsification_repro_ferrocene_flight.rs\", \"tests/falsification_promotion_events.rs\", \"tests/falsification_competitive_features.rs\", \"tests/falsification_cron_rules.rs\", \"tests/falsification_convergence_sandbox.rs\", \"tests/falsification_policy_boundary.rs\", \"tests/falsification_store_pin_query_ingest.rs\", \"tests/falsification_include_deep_validation.rs\", \"tests/falsification_plugin_behavior_dist.rs\", \"tests/falsification_sat_changeset.rs\", \"tests/falsification_cis_plugin.rs\", \"tests/falsification_store_substitution_provider.rs\"])"
+    },
+    {
+      "hypothesis": "Spec & Roadmap Quality",
+      "method": "SpecQuality",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No spec file found (optional)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changes pushed",
+      "method": "GitHubSync",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "70 uncommitted file(s)",
+      "evidence_summary": "GitState { unpushed_commits: 0, dirty_files: 70 }"
+    },
+    {
+      "hypothesis": "All examples compile and run",
+      "method": "ExamplesCompile",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No examples cache (run 'cargo build --examples' to populate)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "pmat-book validation passes",
+      "method": "BookValidation",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "pmat-book not found (skipping validation)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new SATD markers (TODO/FIXME/HACK)",
+      "method": "SatdDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No new SATD markers (0 existing)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new dead code introduced",
+      "method": "DeadCodeDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No dead code detected",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All files have >= 95% coverage",
+      "method": "PerFileCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No per-file coverage data (run 'make coverage'), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "make lint passes",
+      "method": "LintPass",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "Lint cache too old (2818 min). Run 'make lint' first.",
+      "evidence_summary": "BooleanCheck(false)"
+    },
+    {
+      "hypothesis": "All match arm variants have test coverage",
+      "method": "VariantCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No Rust files changed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No fix-after-fix chains exceed limit",
+      "method": "FixChainLimit",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No fix chains > 3 consecutive commits",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Cross-crate integration tests pass",
+      "method": "CrossCrateParity",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No cross-crate config (create .pmat-work/cross-crate.json to enable)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No performance regressions detected",
+      "method": "RegressionGate",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No benchmark cache (run benchmarks to populate .pmat-metrics/benchmark-status.json)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No incomplete proofs (sorry) introduced",
+      "method": "FormalProofVerification",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No .lean files with sorry found",
+      "evidence_summary": null
+    }
+  ],
+  "overrides": [
+    {
+      "claim_id": "file-size",
+      "ticket": "PMAT-056",
+      "reason": "Override approved via --override-claims (ticket: PMAT-056)"
+    },
+    {
+      "claim_id": "github-sync",
+      "ticket": "PMAT-056",
+      "reason": "Override approved via --override-claims (ticket: PMAT-056)"
+    }
+  ],
+  "summary": {
+    "total": 22,
+    "passed": 18,
+    "failed": 4,
+    "warnings": 0,
+    "overridden": 2,
+    "allows_completion": false,
+    "health_score": 0.8181818181818182
+  },
+  "content_hash": "c0a575f39a41dfd17178e0fb59fc57d678d7ac205450f945135ace8aff08ca4d"
+}

@@ -1,0 +1,9 @@
+{
+  "commit_sha": null,
+  "work_item_id": "PMAT-047",
+  "prompt": "Falsification gap: spec claims σ≥5 discrimination but actual σ=2.23 — qualified recipes cluster 80-89 with near-zero variance. Root cause: RES=61 floor (all recipes share policy template), CMP=65 floor. Fix: either adjust spec target or improve dimension discrimination.",
+  "tdg_score": 0.0,
+  "repo_score": 0.0,
+  "rust_project_score": 0.0,
+  "timestamp": "2026-03-08T13:35:30.260486630Z"
+}
