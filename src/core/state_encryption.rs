@@ -20,6 +20,9 @@ pub struct EncryptionMeta {
 
 /// Compute BLAKE3 hash of data.
 pub fn hash_data(data: &[u8]) -> String {
+    // Contract: serialization-v1.yaml precondition (pv codegen)
+    contract_pre_serialize_roundtrip!(data);
+
     blake3::hash(data).to_hex().to_string()
 }
 

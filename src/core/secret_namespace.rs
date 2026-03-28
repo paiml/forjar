@@ -92,6 +92,9 @@ pub fn execute_isolated(
     command: &str,
     args: &[&str],
 ) -> Result<NamespaceResult, String> {
+    // Contract: configuration-v1.yaml precondition (pv codegen)
+    contract_pre_configuration!(args);
+
     let env = build_isolated_env(config, secrets);
 
     // Audit: log inject events
