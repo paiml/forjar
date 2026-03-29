@@ -4,19 +4,9 @@ use crate::core::types::DistConfig;
 
 // ── FJ-3601: Shell Installer ──
 
-/// Generate a POSIX-compliant shell installer script.
-pub fn generate_installer(dist: &DistConfig) -> String {
-    let binary = &dist.binary;
-    let repo = &dist.repo;
-    let install_dir = &dist.install_dir;
-    let fallback_dir = &dist.install_dir_fallback;
-    let description = if dist.description.is_empty() {
-        binary
-    } else {
-        &dist.description
-    };
-
-    let checksum_verify = if dist.checksums.is_some() {
+/// Build the `verify_checksum()` shell function snippet.
+fn build_checksum_snippet(dist: &DistConfig) -> String {
+    if dist.checksums.is_some() {
         let sums_file = dist.checksums.as_deref().unwrap_or("SHA256SUMS");
         format!(
             r#"
@@ -42,9 +32,11 @@ verify_checksum() {
   info "no checksums configured — skipping verification"
 }"#
         .to_string()
-    };
+    }
+}
 
-    // Build the case blocks for OS/arch → asset mapping.
+/// Build the `case` arms for OS/arch to asset resolution.
+fn build_asset_cases(dist: &DistConfig) -> String {
     // Group targets by (os, arch) so multiple libc variants share one case arm.
     let mut grouped: indexmap::IndexMap<
         (String, String),
@@ -59,44 +51,54 @@ verify_checksum() {
 
     let mut asset_cases = String::new();
     for ((os, arch), targets) in &grouped {
-        let mut body = String::new();
-        let has_libc_variants = targets.iter().any(|t| t.libc.is_some());
-        if has_libc_variants {
-            for t in targets {
-                if let Some(ref libc) = t.libc {
-                    body.push_str(&format!(
-                        r#"
-      if [ "$LIBC" = "{libc}" ]; then
-        ASSET="{asset}"
-      fi"#,
-                        libc = libc,
-                        asset = t.asset
-                    ));
-                }
-            }
-            // Fallback: if no libc match, use the first target
-            if let Some(first) = targets.first() {
-                body.push_str(&format!(
-                    r#"
-      [ -z "$ASSET" ] && ASSET="{}""#,
-                    first.asset
-                ));
-            }
-        } else if let Some(t) = targets.first() {
-            body.push_str(&format!(
-                r#"
-      ASSET="{}""#,
-                t.asset
-            ));
-        }
+        let body = build_case_body(targets);
         asset_cases.push_str(&format!(
             r#"
     {os}/{arch}){body}
       ;;"#
         ));
     }
+    asset_cases
+}
 
-    let post_install = if let Some(ref script) = dist.post_install {
+/// Build the body of a single OS/arch case arm, handling libc variants.
+fn build_case_body(targets: &[&crate::core::types::DistBinaryTarget]) -> String {
+    let mut body = String::new();
+    let has_libc_variants = targets.iter().any(|t| t.libc.is_some());
+    if has_libc_variants {
+        for t in targets {
+            if let Some(ref libc) = t.libc {
+                body.push_str(&format!(
+                    r#"
+      if [ "$LIBC" = "{libc}" ]; then
+        ASSET="{asset}"
+      fi"#,
+                    libc = libc,
+                    asset = t.asset
+                ));
+            }
+        }
+        // Fallback: if no libc match, use the first target
+        if let Some(first) = targets.first() {
+            body.push_str(&format!(
+                r#"
+      [ -z "$ASSET" ] && ASSET="{}""#,
+                first.asset
+            ));
+        }
+    } else if let Some(t) = targets.first() {
+        body.push_str(&format!(
+            r#"
+      ASSET="{}""#,
+            t.asset
+        ));
+    }
+    body
+}
+
+/// Build the `post_install()` shell function snippet.
+fn build_post_install_snippet(dist: &DistConfig) -> String {
+    if let Some(ref script) = dist.post_install {
         format!(
             r#"
 post_install() {{
@@ -110,9 +112,12 @@ post_install() {
   :
 }"#
         .to_string()
-    };
+    }
+}
 
-    let version_verify = if let Some(ref cmd) = dist.version_cmd {
+/// Build the version-verification shell snippet (empty if no version_cmd).
+fn build_version_verify_snippet(dist: &DistConfig) -> String {
+    if let Some(ref cmd) = dist.version_cmd {
         format!(
             r#"
   info "verifying install..."
@@ -124,7 +129,25 @@ post_install() {
         )
     } else {
         String::new()
+    }
+}
+
+/// Generate a POSIX-compliant shell installer script.
+pub fn generate_installer(dist: &DistConfig) -> String {
+    let binary = &dist.binary;
+    let repo = &dist.repo;
+    let install_dir = &dist.install_dir;
+    let fallback_dir = &dist.install_dir_fallback;
+    let description = if dist.description.is_empty() {
+        binary
+    } else {
+        &dist.description
     };
+
+    let checksum_verify = build_checksum_snippet(dist);
+    let asset_cases = build_asset_cases(dist);
+    let post_install = build_post_install_snippet(dist);
+    let version_verify = build_version_verify_snippet(dist);
 
     format!(
         r#"#!/bin/sh
