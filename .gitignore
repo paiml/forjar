@@ -18,3 +18,4 @@ state/images/
 state/state.db
 state/*/trace.jsonl
 state/*/events.jsonl
+src/generated_contracts.rs
