@@ -19,3 +19,6 @@ state/state.db
 state/*/trace.jsonl
 state/*/events.jsonl
 src/generated_contracts.rs
+
+# Local cargo config (coverage target-dir overrides)
+.cargo/config.toml
