@@ -47,6 +47,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
+      - name: Checkout provable-contracts (path dep)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: paiml/provable-contracts
+          path: provable-contracts
+
+      - name: Symlink provable-contracts for Cargo path deps
+        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
+
+      - name: Generate contract assertions — pv codegen
+        run: |
+          if ! command -v pv >/dev/null 2>&1; then
+            cargo install provable-contracts-cli --locked || true
+          fi
+          PV=$(command -v pv 2>/dev/null || true)
+          if [ -z "$PV" ]; then
+            echo "::warning::pv not found — skipping contract generation"
+          else
+            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
+            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
+              if [ -d "$PC_CONTRACTS" ]; then
+                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
+              elif [ -d contracts ]; then
+                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
+              fi
+            fi
+          fi
+
       - name: Parse tag and verify version
         id: parse
         run: |
@@ -114,6 +142,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
+      - name: Checkout provable-contracts (path dep)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: paiml/provable-contracts
+          path: provable-contracts
+
+      - name: Symlink provable-contracts for Cargo path deps
+        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
+
+      - name: Generate contract assertions — pv codegen
+        run: |
+          if ! command -v pv >/dev/null 2>&1; then
+            cargo install provable-contracts-cli --locked || true
+          fi
+          PV=$(command -v pv 2>/dev/null || true)
+          if [ -z "$PV" ]; then
+            echo "::warning::pv not found — skipping contract generation"
+          else
+            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
+            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
+              if [ -d "$PC_CONTRACTS" ]; then
+                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
+              elif [ -d contracts ]; then
+                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
+              fi
+            fi
+          fi
+
       - name: Authenticate to crates.io (OIDC)
         uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec  # v1.0.3
 
@@ -164,6 +220,34 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Checkout provable-contracts (path dep)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: paiml/provable-contracts
+          path: provable-contracts
+
+      - name: Symlink provable-contracts for Cargo path deps
+        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
+
+      - name: Generate contract assertions — pv codegen
+        run: |
+          if ! command -v pv >/dev/null 2>&1; then
+            cargo install provable-contracts-cli --locked || true
+          fi
+          PV=$(command -v pv 2>/dev/null || true)
+          if [ -z "$PV" ]; then
+            echo "::warning::pv not found — skipping contract generation"
+          else
+            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
+            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
+              if [ -d "$PC_CONTRACTS" ]; then
+                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
+              elif [ -d contracts ]; then
+                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
+              fi
+            fi
+          fi
 
       - name: Install Rust toolchain (macOS)
         if: contains(matrix.target, 'darwin')
@@ -269,6 +353,34 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Checkout provable-contracts (path dep)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: paiml/provable-contracts
+          path: provable-contracts
+
+      - name: Symlink provable-contracts for Cargo path deps
+        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
+
+      - name: Generate contract assertions — pv codegen
+        run: |
+          if ! command -v pv >/dev/null 2>&1; then
+            cargo install provable-contracts-cli --locked || true
+          fi
+          PV=$(command -v pv 2>/dev/null || true)
+          if [ -z "$PV" ]; then
+            echo "::warning::pv not found — skipping contract generation"
+          else
+            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
+            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
+              if [ -d "$PC_CONTRACTS" ]; then
+                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
+              elif [ -d contracts ]; then
+                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
+              fi
+            fi
+          fi
 
       - name: Generate distribution artifacts
         run: |
