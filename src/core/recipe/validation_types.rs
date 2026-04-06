@@ -80,6 +80,8 @@ pub(crate) fn validate_input_type(
     value: &serde_yaml_ng::Value,
     decl: &RecipeInput,
 ) -> Result<String, String> {
+    // Contract: recipe-determinism-v1.yaml precondition (pv codegen)
+    contract_pre_validate_input_type!(name);
     match type_name {
         "string" => validate_string(value),
         "int" => validate_int(name, value, decl),

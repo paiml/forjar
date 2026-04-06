@@ -11,8 +11,8 @@
 use std::collections::BTreeMap;
 
 use forjar::core::types::{
-    ContractAssertion, ContractCoverageReport, ContractEntry, ContractKind,
-    HandlerInvariantStatus, VerificationTier,
+    ContractAssertion, ContractCoverageReport, ContractEntry, ContractKind, HandlerInvariantStatus,
+    VerificationTier,
 };
 
 /// Mirrors the build.rs struct for demonstration purposes.
@@ -54,7 +54,10 @@ fn main() {
 
     // Phase 1: Load contract YAML files from contracts/
     let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
-    println!("Phase 1: Loading contracts from {}\n", contracts_dir.display());
+    println!(
+        "Phase 1: Loading contracts from {}\n",
+        contracts_dir.display()
+    );
 
     let mut total_equations = 0usize;
     let mut total_invariants = 0usize;
@@ -128,9 +131,7 @@ fn main() {
 
     // Phase 2: Show build-time env var mapping
     println!("Phase 2: Build-time CONTRACT_* env vars\n");
-    println!(
-        "  build.rs emits CONTRACT_INV_*, CONTRACT_PRE_*, CONTRACT_POST_* env vars"
-    );
+    println!("  build.rs emits CONTRACT_INV_*, CONTRACT_PRE_*, CONTRACT_POST_* env vars");
     println!("  Total equations: {total_equations}");
     println!("  Total invariants: {total_invariants}");
     println!();

@@ -14,6 +14,8 @@ pub fn validate_inputs(
     recipe: &RecipeMetadata,
     provided: &HashMap<String, serde_yaml_ng::Value>,
 ) -> Result<HashMap<String, String>, String> {
+    // Contract: recipe-determinism-v1.yaml precondition (pv codegen)
+    contract_pre_validate_inputs!(recipe.inputs);
     let mut resolved = HashMap::new();
 
     for (name, decl) in &recipe.inputs {

@@ -8,6 +8,8 @@ type Dag = (HashMap<String, usize>, HashMap<String, Vec<String>>);
 /// Uses Kahn's algorithm with alphabetical tie-breaking for determinism.
 #[contract("dag-ordering-v1", equation = "topological_sort")]
 pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, String> {
+    // Contract: dag-ordering-v1.yaml precondition (pv codegen)
+    contract_pre_topological_sort!(config);
     let resource_ids: Vec<String> = config.resources.keys().cloned().collect();
     let (mut in_degree, mut adjacency) = build_dag(config, &resource_ids)?;
     let order = kahn_sort(&resource_ids, &mut in_degree, &mut adjacency);
@@ -46,6 +48,7 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
         "build_execution_order: topological ordering violated"
     );
 
+    contract_post_configuration!(&order);
     Ok(order)
 }
 
@@ -135,6 +138,8 @@ fn kahn_sort(
     in_degree: &mut HashMap<String, usize>,
     adjacency: &mut HashMap<String, Vec<String>>,
 ) -> Vec<String> {
+    // Contract: dag-ordering-v1.yaml precondition (pv codegen)
+    contract_pre_kahn_sort!(in_degree);
     let mut queue: VecDeque<String> = VecDeque::new();
     let mut zero_degree: Vec<String> = in_degree
         .iter()
@@ -166,5 +171,6 @@ fn kahn_sort(
         order.push(current);
     }
 
+    contract_post_configuration!(&order);
     order
 }

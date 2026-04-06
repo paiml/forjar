@@ -15,6 +15,8 @@ use provable_contracts_macros::contract;
 /// Generate a check script for a resource.
 #[contract("codegen-dispatch-v1", equation = "check_script")]
 pub fn check_script(resource: &Resource) -> Result<String, String> {
+    // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
+    contract_pre_check_script!(resource);
     match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::check_script(resource)),
         ResourceType::File => Ok(resources::file::check_script(resource)),
@@ -44,6 +46,8 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
 /// heredoc so all commands run with elevated privileges.
 #[contract("codegen-dispatch-v1", equation = "apply_script")]
 pub fn apply_script(resource: &Resource) -> Result<String, String> {
+    // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
+    contract_pre_apply_script!(resource);
     let script = match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::apply_script(resource)),
         ResourceType::File => Ok(resources::file::apply_script(resource)),
@@ -85,6 +89,8 @@ fn sudo_wrap(resource: &Resource, script: String) -> String {
 /// Generate a state query script for a resource.
 #[contract("codegen-dispatch-v1", equation = "state_query_script")]
 pub fn state_query_script(resource: &Resource) -> Result<String, String> {
+    // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
+    contract_pre_state_query_script!(resource);
     match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::state_query_script(resource)),
         ResourceType::File => Ok(resources::file::state_query_script(resource)),

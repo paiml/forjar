@@ -30,6 +30,8 @@ pub fn load_lock(state_dir: &Path, machine: &str) -> Result<Option<StateLock>, S
 /// Save a lock file atomically (write to temp, then rename).
 #[contract("execution-safety-v1", equation = "atomic_write")]
 pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
+    // Contract: execution-safety-v1.yaml precondition (pv codegen)
+    contract_pre_atomic_write!(state_dir);
     let path = lock_file_path(state_dir, &lock.machine);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)

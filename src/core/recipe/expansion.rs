@@ -143,6 +143,8 @@ pub fn expand_recipe(
     provided_inputs: &HashMap<String, serde_yaml_ng::Value>,
     external_depends_on: &[String],
 ) -> Result<IndexMap<String, Resource>, String> {
+    // Contract: recipe-determinism-v1.yaml precondition (pv codegen)
+    contract_pre_expand_recipe!(recipe_id);
     // Validate inputs
     let resolved_inputs = validate_inputs(&recipe_file.recipe, provided_inputs)?;
 

@@ -1,0 +1,31 @@
+{
+  "sha": "39ff6245",
+  "timestamp": "2026-03-28T16:55:56.237617088+00:00",
+  "composite": 70.41908629712864,
+  "grade": "C",
+  "sub_scores": {
+    "rps": 84.40833333333333,
+    "comply": 53.0,
+    "coverage": 50.0,
+    "muda_inv": 88.37306069750333,
+    "evoscore": 50.0,
+    "dbc": 92.5425,
+    "file_health": 99.91525423728814,
+    "pv_lint": 66.16509803921569
+  },
+  "rps_categories": {
+    "Rust Tooling & CI/CD": 89.61538461538461,
+    "Reproducibility": 65.33333333333334,
+    "Code Quality": 65.38461538461539,
+    "Dependency Health": 91.66666666666666,
+    "Build Performance": 93.33333333333333,
+    "Formal Verification": 56.25,
+    "Performance & Benchmarking": 100.0,
+    "Documentation": 100.0,
+    "Testing Excellence": 82.5,
+    "Known Defects": 100.0,
+    "GPU/SIMD Quality": 0.0
+  },
+  "comply_errors": 2,
+  "comply_warnings": 9
+}

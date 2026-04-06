@@ -94,6 +94,8 @@ pub(crate) fn record_failure(
     duration: f64,
     error: &str,
 ) -> bool {
+    // Contract: execution-safety-v1.yaml precondition (pv codegen)
+    contract_pre_jidoka_stop!(resource_id);
     ctx.lock.resources.insert(
         resource_id.to_string(),
         ResourceLock {

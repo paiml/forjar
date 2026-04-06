@@ -9,6 +9,8 @@ pub(crate) const STREAM_BUF_SIZE: usize = 65536;
 /// Hash a file's contents. Returns `"blake3:{hex}"`.
 #[contract("blake3-state-v1", equation = "hash_file")]
 pub fn hash_file(path: &Path) -> Result<String, String> {
+    // Contract: blake3-state-v1.yaml precondition (pv codegen)
+    contract_pre_hash_file!(path);
     let mut file =
         std::fs::File::open(path).map_err(|e| format!("cannot open {}: {}", path.display(), e))?;
     let mut hasher = blake3::Hasher::new();
@@ -26,6 +28,7 @@ pub fn hash_file(path: &Path) -> Result<String, String> {
     // FJ-2200: Determinism — hash always starts with "blake3:" prefix and has 64 hex chars
     debug_assert!(result.starts_with("blake3:"), "hash_file: missing prefix");
     debug_assert_eq!(result.len(), 71, "hash_file: unexpected length");
+    contract_post_configuration!(&result);
     Ok(result)
 }
 
@@ -34,9 +37,12 @@ pub fn hash_file(path: &Path) -> Result<String, String> {
 /// FJ-2200: Contract — determinism: same input always produces same hash.
 #[contract("blake3-state-v1", equation = "hash_string")]
 pub fn hash_string(s: &str) -> String {
+    // Contract: blake3-state-v1.yaml precondition (pv codegen)
+    contract_pre_hash_string!(s.as_bytes());
     let result = format!("blake3:{}", blake3::hash(s.as_bytes()).to_hex());
     debug_assert!(result.starts_with("blake3:"), "hash_string: missing prefix");
     debug_assert_eq!(result.len(), 71, "hash_string: unexpected length");
+    contract_post_configuration!(&result);
     result
 }
 
@@ -93,6 +99,8 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
 /// FJ-2200: Contract — determinism: same components always produce same hash.
 #[contract("blake3-state-v1", equation = "composite_hash")]
 pub fn composite_hash(components: &[&str]) -> String {
+    // Contract: blake3-state-v1.yaml precondition (pv codegen)
+    contract_pre_composite_hash!(components);
     let mut hasher = blake3::Hasher::new();
     for c in components {
         hasher.update(c.as_bytes());
