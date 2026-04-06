@@ -121,8 +121,13 @@ jobs:
       - name: Clippy
         shell: bash
         run: |
-          if [ -n "${{ matrix.features }}" ]; then
-            cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
+          FEATURES="${{ matrix.features }}"
+          # Windows needs vendored-openssl (no system libssl-dev)
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            FEATURES="${FEATURES:+$FEATURES,}vendored-openssl"
+          fi
+          if [ -n "$FEATURES" ]; then
+            cargo clippy --all-targets --features "$FEATURES" -- -D warnings
           else
             cargo clippy --all-targets -- -D warnings
           fi
