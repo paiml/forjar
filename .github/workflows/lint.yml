@@ -17,11 +17,10 @@ jobs:
   clippy:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
         features: ["", encryption]
-        exclude:
-          - os: windows-latest
-            features: encryption
+        # Windows excluded: openssl-sys vendored build requires Perl/NASM
+        # which is unreliable on GH runners. Sovereign-ci handles lint on Linux.
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
@@ -121,13 +120,8 @@ jobs:
       - name: Clippy
         shell: bash
         run: |
-          FEATURES="${{ matrix.features }}"
-          # Windows needs vendored-openssl (no system libssl-dev)
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            FEATURES="${FEATURES:+$FEATURES,}vendored-openssl"
-          fi
-          if [ -n "$FEATURES" ]; then
-            cargo clippy --all-targets --features "$FEATURES" -- -D warnings
+          if [ -n "${{ matrix.features }}" ]; then
+            cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
           else
             cargo clippy --all-targets -- -D warnings
           fi
