@@ -86,6 +86,80 @@ jobs:
       - name: Ensure target is installed
         run: rustup target add ${{ matrix.target }}
 
+      - name: Generate contract assertions — pv codegen (unix)
+        if: runner.os != 'Windows'
+        run: |
+          # Install pv if not present
+          if ! command -v pv >/dev/null 2>&1; then
+            cargo install provable-contracts-cli --locked || true
+          fi
+          PV=$(command -v pv 2>/dev/null || true)
+          if [ -z "$PV" ]; then
+            echo "::warning::pv not found — skipping contract generation"
+          else
+            echo "pv found at: $PV"
+            # Prefer master contract set from checked-out provable-contracts sibling
+            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
+            # Generate for root src/ if mod generated_contracts exists and file is absent
+            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
+              if [ -d "$PC_CONTRACTS" ]; then
+                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
+              elif [ -d contracts ]; then
+                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
+              fi
+            fi
+            # Generate for workspace members
+            for src_dir in crates/*/src */src; do
+              if [ -d "$src_dir" ] && [ -f "$src_dir/lib.rs" ] && grep -q 'mod generated_contracts' "$src_dir/lib.rs" && [ ! -f "$src_dir/generated_contracts.rs" ]; then
+                member_dir=$(dirname "$src_dir")
+                if [ -d "$PC_CONTRACTS" ]; then
+                  "$PV" codegen "$PC_CONTRACTS" -o "$src_dir/generated_contracts.rs" || true
+                elif [ -d "$member_dir/contracts" ]; then
+                  "$PV" codegen "$member_dir/contracts" -o "$src_dir/generated_contracts.rs" || true
+                fi
+              fi
+            done
+          fi
+
+      - name: Generate contract assertions — pv codegen (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Install pv if not present
+          $pvPath = (Get-Command pv -ErrorAction SilentlyContinue)?.Source
+          if (-not $pvPath) {
+            cargo install provable-contracts-cli --locked 2>$null
+            $pvPath = (Get-Command pv -ErrorAction SilentlyContinue)?.Source
+          }
+          if (-not $pvPath) {
+            Write-Warning "pv not found — skipping contract generation"
+          } else {
+            Write-Host "pv found at: $pvPath"
+            $pcContracts = Join-Path $env:GITHUB_WORKSPACE "..\provable-contracts\contracts"
+            # Generate for root src/ if mod generated_contracts exists and file is absent
+            if ((Test-Path "src\lib.rs") -and (Select-String -Quiet -Pattern 'mod generated_contracts' "src\lib.rs") -and (-not (Test-Path "src\generated_contracts.rs"))) {
+              if (Test-Path $pcContracts) {
+                & $pvPath codegen $pcContracts -o src\generated_contracts.rs
+              } elseif (Test-Path "contracts") {
+                & $pvPath codegen contracts\ -o src\generated_contracts.rs
+              }
+            }
+            # Generate for workspace members
+            foreach ($srcDir in (Get-ChildItem -Path "crates\*\src","*\src" -Directory -ErrorAction SilentlyContinue)) {
+              $libRs = Join-Path $srcDir "lib.rs"
+              $genRs = Join-Path $srcDir "generated_contracts.rs"
+              if ((Test-Path $libRs) -and (Select-String -Quiet -Pattern 'mod generated_contracts' $libRs) -and (-not (Test-Path $genRs))) {
+                $memberDir = Split-Path $srcDir -Parent
+                $memberContracts = Join-Path $memberDir "contracts"
+                if (Test-Path $pcContracts) {
+                  & $pvPath codegen $pcContracts -o $genRs
+                } elseif (Test-Path $memberContracts) {
+                  & $pvPath codegen $memberContracts -o $genRs
+                }
+              }
+            }
+          }
+
       - name: Build release binary
         run: cargo build --release --features vendored-openssl --target ${{ matrix.target }}
 
