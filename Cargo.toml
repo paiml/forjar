@@ -2,7 +2,7 @@
 name = "forjar"
 version = "1.2.1"
 edition.workspace = true
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license.workspace = true
