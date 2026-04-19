@@ -163,6 +163,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "aprender-contracts"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73aa39a632f343e37763c2cfc53caed1b44a7728fce511e3c376ea28fdfef892"
+dependencies = [
+ "aprender-contracts-macros",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "aprender-contracts-macros"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d70bf07543fd13d63cca281c28e48dc62a50c46fbc3c1fd13cb0be50884f4da"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -983,6 +1008,8 @@ name = "forjar"
 version = "1.2.1"
 dependencies = [
  "age",
+ "aprender-contracts",
+ "aprender-contracts-macros",
  "async-trait",
  "base64 0.22.1",
  "bashrs",
@@ -999,8 +1026,6 @@ dependencies = [
  "pforge-config",
  "pforge-runtime",
  "proptest",
- "provable-contracts",
- "provable-contracts-macros 0.2.1",
  "regex",
  "rusqlite",
  "rustc-hash 2.1.1",
@@ -2353,38 +2378,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "provable-contracts"
-version = "0.2.2"
-dependencies = [
- "provable-contracts-macros 0.2.2",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "provable-contracts-macros"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a79b3496cd98fb9767f6ee845a4fda80f3b4a18de4a1477d8a59d527f2e98ac"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "provable-contracts-macros"
-version = "0.2.2"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2783,9 +2776,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
 dependencies = [
  "ring",
  "rustls-pki-types",

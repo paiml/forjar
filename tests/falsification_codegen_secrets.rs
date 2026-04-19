@@ -265,8 +265,11 @@ fn has_markers_comment_example() {
 
 // ============================================================================
 // FJ-200: decrypt_all_inline (no encryption feature)
+// `decrypt_all_inline` only exists when encryption is OFF — see secrets.rs:204.
+// When `--features encryption` is set, the real impl is `decrypt_all_counted`.
 // ============================================================================
 
+#[cfg(not(feature = "encryption"))]
 #[test]
 fn decrypt_inline_no_markers_passthrough() {
     let input = "just plain text with no markers";
@@ -274,6 +277,7 @@ fn decrypt_inline_no_markers_passthrough() {
     assert_eq!(result, input);
 }
 
+#[cfg(not(feature = "encryption"))]
 #[test]
 fn decrypt_inline_with_real_markers_errors() {
     // Real base64 marker should error since encryption feature is not compiled

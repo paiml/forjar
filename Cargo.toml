@@ -2,7 +2,7 @@
 name = "forjar"
 version = "1.2.1"
 edition.workspace = true
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license.workspace = true
@@ -43,7 +43,7 @@ serde_yaml_ng = "0.10"
 serde_json.workspace = true
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2.7", features = ["serde"] }
-provable-contracts-macros = { version = "0.2" }
+aprender-contracts-macros = "0.30"
 base64 = "0.22.1"
 bashrs = "6.64.0"
 pforge-runtime = "0.1.4"
@@ -71,12 +71,12 @@ toml = "0.8"
 openssl = "0.10"
 
 [build-dependencies]
-provable-contracts = { version = "0.2", path = "../provable-contracts/crates/provable-contracts" }
+aprender-contracts = "0.30"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_ng = "0.10"
 
 [dev-dependencies]
-provable-contracts = { version = "0.2", path = "../provable-contracts/crates/provable-contracts" }
+aprender-contracts = "0.30"
 tempfile.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"

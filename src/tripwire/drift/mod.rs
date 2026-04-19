@@ -61,14 +61,17 @@ fn hash_remote_content(
     path: &str,
     machine: &Machine,
 ) -> Option<String> {
+    // STRONG contract: `hash_string` rejects empty input. Drift queries may
+    // legitimately return empty stdout when the file is missing or empty —
+    // use `hash_string_or_sentinel` to stay inside the contract.
     if out.stdout.trim() == "__DIR__" {
         let ls_script = format!("ls -la '{path}'");
         match crate::transport::exec_script(machine, &ls_script) {
-            Ok(ls_out) if ls_out.success() => Some(hasher::hash_string(&ls_out.stdout)),
+            Ok(ls_out) if ls_out.success() => Some(hasher::hash_string_or_sentinel(&ls_out.stdout)),
             _ => None,
         }
     } else {
-        Some(hasher::hash_string(&out.stdout))
+        Some(hasher::hash_string_or_sentinel(&out.stdout))
     }
 }
 
@@ -154,7 +157,8 @@ fn check_nonfile_drift(
 
     match crate::transport::exec_script(machine, &query) {
         Ok(out) if out.success() => {
-            let actual_hash = hasher::hash_string(&out.stdout);
+            // STRONG contract: query stdout may be empty when state absent.
+            let actual_hash = hasher::hash_string_or_sentinel(&out.stdout);
             if actual_hash != stored_live_hash {
                 Some(DriftFinding {
                     resource_id: id.to_string(),

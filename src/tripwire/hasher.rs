@@ -35,6 +35,13 @@ pub fn hash_file(path: &Path) -> Result<String, String> {
 /// Hash a string. Returns `"blake3:{hex}"`.
 ///
 /// FJ-2200: Contract — determinism: same input always produces same hash.
+///
+/// # Panics
+///
+/// Panics in debug builds if `s.is_empty()` — the `aprender-contracts`
+/// `blake3-state-v1` precondition forbids empty input. Callers that may
+/// legitimately hash empty data (e.g. drift stdout capture, optional script
+/// logging) must use [`hash_string_or_sentinel`] instead.
 #[contract("blake3-state-v1", equation = "hash_string")]
 pub fn hash_string(s: &str) -> String {
     // Contract: blake3-state-v1.yaml precondition (pv codegen)
@@ -44,6 +51,29 @@ pub fn hash_string(s: &str) -> String {
     debug_assert_eq!(result.len(), 71, "hash_string: unexpected length");
     contract_post_configuration!(&result);
     result
+}
+
+/// Hash a string, or return a deterministic "empty" sentinel hash if the
+/// input is empty.
+///
+/// Use this at call sites where the input is arbitrary text that may
+/// legitimately be empty — e.g. hashing command stdout for drift detection
+/// when the queried file doesn't exist yet (stdout is `""`), or hashing an
+/// optional script that a resource didn't provide.
+///
+/// The STRONG `aprender-contracts blake3-state-v1` precondition forbids
+/// empty input to [`hash_string`]. This wrapper upholds the contract by
+/// routing empty inputs through a fixed non-empty sentinel
+/// (`"sentinel:empty-input-v1"`) while still producing a deterministic,
+/// prefixed BLAKE3 output that looks identical to any other hash.
+pub fn hash_string_or_sentinel(s: &str) -> String {
+    if s.is_empty() {
+        // Distinct from any real payload; satisfies `!input.is_empty()`
+        // precondition of the underlying `hash_string` while keeping
+        // `empty_input` a deterministic, recognisable hash identity.
+        return hash_string("sentinel:empty-input-v1");
+    }
+    hash_string(s)
 }
 
 /// Hash a directory (sorted walk, relative paths included in hash).

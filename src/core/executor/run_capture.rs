@@ -47,7 +47,16 @@ pub fn capture_output(
     }
 
     let now = crate::tripwire::eventlog::now_iso8601();
-    let script_hash = crate::tripwire::hasher::hash_string(script);
+    // FJ-2301: Uphold STRONG blake3-state-v1 precondition `!input.is_empty()`.
+    // Scripts are genuinely optional (capture_exec_output passes "" when a
+    // resource has no script). Keep empty-script → empty-hash so consumers
+    // (log parsers, UIs) can distinguish "no script" from an actual hash —
+    // this is why we do NOT use the sentinel wrapper here.
+    let script_hash = if script.is_empty() {
+        String::new()
+    } else {
+        crate::tripwire::hasher::hash_string(script)
+    };
 
     let entry = RunLogEntry {
         resource_id: resource_id.to_string(),
