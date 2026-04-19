@@ -229,7 +229,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)] // spawns ssh subprocess — Miri can't emulate pidfd_spawnp
     fn test_key_auth_nonexistent_host() {
         // Should return false, not panic
         assert!(!key_auth_works("192.168.255.254", "nobody"));
