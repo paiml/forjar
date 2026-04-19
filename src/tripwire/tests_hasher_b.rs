@@ -2,11 +2,12 @@ use super::hasher::*;
 
 // --- FJ-132: Hasher edge case tests ---
 
+/// STRONG contract: `hash_string` rejects empty input.
+/// Documents the `blake3-state-v1` precondition `!input.is_empty()`.
 #[test]
+#[should_panic(expected = "precondition violated")]
 fn test_fj132_hash_string_empty() {
-    let h = hash_string("");
-    assert!(h.starts_with("blake3:"));
-    assert_eq!(h.len(), 71);
+    let _ = hash_string("");
 }
 
 #[test]
@@ -41,11 +42,12 @@ fn test_fj132_hash_directory_with_multiple_files() {
     assert_ne!(h, h2, "modifying a file should change directory hash");
 }
 
+/// STRONG contract: `composite_hash` rejects empty component lists.
+/// Documents the `blake3-state-v1` precondition `parts.len() > 0`.
 #[test]
+#[should_panic(expected = "precondition violated")]
 fn test_fj132_composite_hash_empty() {
-    let h: String = composite_hash(&[]);
-    assert!(h.starts_with("blake3:"));
-    assert_eq!(h.len(), 71);
+    let _: String = composite_hash(&[]);
 }
 
 #[test]

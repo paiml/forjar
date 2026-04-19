@@ -277,7 +277,7 @@ fn test_fj016_detect_drift_full_matching_live_hash() {
         .unwrap();
     let machine = make_test_machine();
     let output = crate::transport::exec_script(&machine, &query).unwrap();
-    let live_hash = hasher::hash_string(&output.stdout);
+    let live_hash = hasher::hash_string_or_sentinel(&output.stdout);
 
     let mut lock_resources = indexmap::IndexMap::new();
     let mut details = std::collections::HashMap::new();
@@ -415,7 +415,7 @@ fn test_fj016_detect_drift_full_file_plus_service() {
     let query =
         crate::core::codegen::state_query_script(config_resources.get("my-svc").unwrap()).unwrap();
     let output = crate::transport::exec_script(&machine, &query).unwrap();
-    let svc_live_hash = hasher::hash_string(&output.stdout);
+    let svc_live_hash = hasher::hash_string_or_sentinel(&output.stdout);
 
     let mut lock_resources = indexmap::IndexMap::new();
 

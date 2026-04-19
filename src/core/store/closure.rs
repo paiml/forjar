@@ -30,7 +30,19 @@ pub fn input_closure(resource: &str, graph: &BTreeMap<String, ResourceInputs>) -
 /// Compute the closure hash — a single BLAKE3 hash over all transitive inputs.
 ///
 /// This is the identity of the closure: identical closures → identical hashes.
+///
+/// Empty closures are hashed via a fixed sentinel component ("empty-closure-v1")
+/// to satisfy the STRONG `composite_hash` precondition (`parts.len() > 0` AND no
+/// empty parts) from `aprender-contracts blake3-state-v1`. The sentinel is
+/// deterministic and distinct from any real closure, preserving identity.
 pub fn closure_hash(closure: &[String]) -> String {
+    if closure.is_empty() {
+        // Sentinel for the empty-closure case: uphold STRONG blake3-state-v1
+        // precondition (`parts.len() > 0` AND `!parts.iter().any(|p| p.is_empty())`).
+        // Using a fixed marker ensures `closure_hash(&[])` is deterministic and
+        // collision-free with real closures (no real hash starts with "sentinel:").
+        return composite_hash(&["sentinel:empty-closure-v1"]);
+    }
     let refs: Vec<&str> = closure.iter().map(|s| s.as_str()).collect();
     composite_hash(&refs)
 }

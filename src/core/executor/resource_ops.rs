@@ -35,10 +35,13 @@ pub(crate) fn record_success(
 ) {
     let desired_hash = planner::hash_desired_state(resolved);
 
-    // Live state hash for drift detection
+    // Live state hash for drift detection. Query stdout may legitimately
+    // be empty when the queried file/service doesn't exist yet — use the
+    // sentinel wrapper to uphold the STRONG `!input.is_empty()` precondition
+    // without losing the drift signal.
     let live_hash = match codegen::state_query_script(resolved) {
         Ok(query) => match transport::exec_script_timeout(machine, &query, ctx.timeout_secs) {
-            Ok(qout) if qout.success() => Some(hasher::hash_string(&qout.stdout)),
+            Ok(qout) if qout.success() => Some(hasher::hash_string_or_sentinel(&qout.stdout)),
             _ => None,
         },
         Err(_) => None,

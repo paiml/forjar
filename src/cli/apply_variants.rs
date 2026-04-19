@@ -203,9 +203,12 @@ pub(crate) fn cmd_refresh_only(
                 resolver::resolve_resource_templates(resource, &config.params, &config.machines)
                     .unwrap_or_else(|_| resource.clone());
 
+            // STRONG contract: refresh-query stdout may legitimately be
+            // empty when state is absent — use the sentinel wrapper to
+            // uphold `!input.is_empty()`.
             let new_hash = match codegen::state_query_script(&resolved) {
                 Ok(query) => match transport::exec_script_timeout(machine, &query, timeout) {
-                    Ok(out) if out.success() => Some(hasher::hash_string(&out.stdout)),
+                    Ok(out) if out.success() => Some(hasher::hash_string_or_sentinel(&out.stdout)),
                     _ => None,
                 },
                 Err(_) => None,

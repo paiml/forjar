@@ -184,12 +184,14 @@ pub(crate) fn build_resource_details(
     if resource.content.is_some() {
         if let Some(ref path) = resource.path {
             let hash = if machine.is_container_transport() {
-                // Read file content via transport for container machines
+                // Read file content via transport for container machines.
+                // STRONG contract: `cat` stdout can be empty when the file
+                // is empty or not yet present — use the sentinel wrapper.
                 let script = format!("cat '{path}'");
                 transport::exec_script(machine, &script)
                     .ok()
                     .filter(|out| out.success())
-                    .map(|out| hasher::hash_string(&out.stdout))
+                    .map(|out| hasher::hash_string_or_sentinel(&out.stdout))
             } else {
                 // Local filesystem hash
                 hasher::hash_file(std::path::Path::new(path)).ok()

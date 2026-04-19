@@ -111,14 +111,15 @@ fn test_fj014_hash_empty_file() {
     assert_eq!(h.len(), 71); // prefix + 64 hex
 }
 
+/// STRONG contract: `hash_string` rejects empty input.
+/// Documents the `blake3-state-v1` precondition `!input.is_empty()`.
 #[test]
+#[should_panic(expected = "precondition violated")]
 fn test_fj014_hash_empty_string() {
-    let h = hash_string("");
-    assert!(h.starts_with("blake3:"));
-    assert_eq!(h.len(), 71);
-    // Empty string should produce a consistent hash
-    let h2 = hash_string("");
-    assert_eq!(h, h2);
+    // aprender-contracts blake3-state-v1 precondition forbids empty input.
+    // Callers that legitimately need to track an "empty" sentinel must handle
+    // the empty case before calling `hash_string`.
+    let _ = hash_string("");
 }
 
 #[test]
@@ -160,13 +161,15 @@ fn test_fj014_hash_large_content() {
     assert_eq!(h, h2);
 }
 
+/// STRONG contract: `composite_hash` rejects empty component lists.
+/// Documents the `blake3-state-v1` precondition `parts.len() > 0`.
 #[test]
+#[should_panic(expected = "precondition violated")]
 fn test_fj014_composite_hash_empty() {
-    let h = composite_hash(&[]);
-    assert!(h.starts_with("blake3:"));
-    // Empty composite should be deterministic
-    let h2 = composite_hash(&[]);
-    assert_eq!(h, h2);
+    // aprender-contracts blake3-state-v1 precondition forbids empty component list.
+    // Callers that legitimately produce an empty component list must handle
+    // the empty case before calling `composite_hash`.
+    let _ = composite_hash(&[]);
 }
 
 #[test]
@@ -250,16 +253,18 @@ fn test_fj014_hash_string_differs_by_single_char() {
 
 proptest! {
     /// FALSIFY-B3-001: hash_string always produces "blake3:" prefix + 64 hex chars.
+    /// Regex `".+"` respects the STRONG `!input.is_empty()` precondition.
     #[test]
-    fn falsify_b3_001_hash_string_prefix_format(s in ".*") {
+    fn falsify_b3_001_hash_string_prefix_format(s in ".+") {
         let h = hash_string(&s);
         prop_assert!(h.starts_with("blake3:"), "missing blake3: prefix");
         prop_assert_eq!(h.len(), 71, "expected 7 prefix + 64 hex = 71 chars");
     }
 
     /// FALSIFY-B3-002: hash_string is deterministic.
+    /// Regex `".+"` respects the STRONG `!input.is_empty()` precondition.
     #[test]
-    fn falsify_b3_002_hash_string_determinism(s in ".*") {
+    fn falsify_b3_002_hash_string_determinism(s in ".+") {
         let h1 = hash_string(&s);
         let h2 = hash_string(&s);
         prop_assert_eq!(h1, h2, "hash_string must be deterministic");
