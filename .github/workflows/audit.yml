@@ -33,6 +33,17 @@ jobs:
         run: cargo deny check
 
       - name: Run cargo-audit
+        # cargo-audit 0.22 does NOT read config files — only CLI flags.
+        # Build --ignore flags from .cargo/audit.toml so exemption list
+        # stays in sync with deny.toml without duplicating the list in
+        # this workflow. Mirrors the aprender sovereign-ci.yml pattern.
         run: |
           cargo install --locked cargo-audit
-          cargo audit
+          IGNORE_FLAGS=""
+          if [ -f .cargo/audit.toml ]; then
+            for id in $(sed -n 's/.*\(RUSTSEC-[0-9]*-[0-9]*\).*/\1/p' .cargo/audit.toml); do
+              IGNORE_FLAGS="$IGNORE_FLAGS --ignore $id"
+            done
+            echo "Audit ignores: $IGNORE_FLAGS"
+          fi
+          cargo audit $IGNORE_FLAGS
