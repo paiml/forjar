@@ -24,6 +24,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::StateMv(..)
         | Commands::StateRm(..)
         | Commands::StateReconstruct(..)
+        | Commands::Reseal(..)
         | Commands::Anomaly(..)
         | Commands::Trace(..)
         | Commands::StateEncrypt(..)
@@ -139,6 +140,13 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             }
             Ok(())
         }
+        Commands::Reseal(ResealArgs {
+            state_dir,
+            file,
+            all,
+            machine,
+            dry_run,
+        }) => super::reseal::cmd_reseal(&state_dir, file, all, machine, dry_run),
         Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,

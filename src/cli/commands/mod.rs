@@ -84,14 +84,14 @@ pub enum Commands {
     /// List all resources in state with type, status, hash prefix (FJ-214)
     #[command(name = "state-list")]
     StateList(StateListArgs),
-
     /// Rename a resource in state without re-applying (FJ-212)
     #[command(name = "state-mv")]
     StateMv(StateMvArgs),
-
     /// Remove a resource from state without destroying it on the machine (FJ-213)
     #[command(name = "state-rm")]
     StateRm(StateRmArgs),
+    /// FJ-118: Regenerate BLAKE3 integrity sidecars from current lock contents.
+    Reseal(ResealArgs),
 
     /// Show computed output values from forjar.yaml (FJ-215)
     Output(OutputArgs),
