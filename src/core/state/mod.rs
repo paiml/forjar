@@ -53,8 +53,22 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
         )
     })?;
 
-    // FJ-1270: Write BLAKE3 integrity sidecar
-    let _ = integrity::write_b3_sidecar(&path);
+    // FJ-1270: Write BLAKE3 integrity sidecar.
+    // FJ-118 (2026-04-24 fix): was `let _ = …` which silently discarded
+    // sidecar-write errors, leaving `state.lock.yaml` updated on disk
+    // but `.b3` stale or missing — guaranteeing a hard-fail on the
+    // NEXT apply with "integrity check failed, expected X, got Y" and
+    // no signal at the moment of corruption. Propagating the error
+    // means sidecar-write failures now fail the apply at the source.
+    integrity::write_b3_sidecar(&path).map_err(|e| {
+        format!(
+            "sidecar write failed for {}: {} (lock.yaml was saved; \
+             recover with `forjar reseal --file {}` or re-run apply)",
+            path.display(),
+            e,
+            path.display(),
+        )
+    })?;
 
     // FJ-2200: Atomicity postcondition — file exists and temp is gone
     debug_assert!(path.exists(), "save_lock: file does not exist after write");
@@ -104,8 +118,22 @@ pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), Strin
         )
     })?;
 
-    // FJ-1270: Write BLAKE3 integrity sidecar
-    let _ = integrity::write_b3_sidecar(&path);
+    // FJ-1270: Write BLAKE3 integrity sidecar.
+    // FJ-118 (2026-04-24 fix): was `let _ = …` which silently discarded
+    // sidecar-write errors, leaving `state.lock.yaml` updated on disk
+    // but `.b3` stale or missing — guaranteeing a hard-fail on the
+    // NEXT apply with "integrity check failed, expected X, got Y" and
+    // no signal at the moment of corruption. Propagating the error
+    // means sidecar-write failures now fail the apply at the source.
+    integrity::write_b3_sidecar(&path).map_err(|e| {
+        format!(
+            "sidecar write failed for {}: {} (lock.yaml was saved; \
+             recover with `forjar reseal --file {}` or re-run apply)",
+            path.display(),
+            e,
+            path.display(),
+        )
+    })?;
 
     Ok(())
 }

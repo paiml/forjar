@@ -150,6 +150,7 @@ mod recipe_registry;
 mod recipe_signing;
 mod remote_state;
 mod repro_proof;
+mod reseal;
 mod rules;
 mod run_task;
 mod runtime_invariants;

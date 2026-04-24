@@ -107,6 +107,35 @@ pub struct StateRmArgs {
     pub force: bool,
 }
 
+/// FJ-118: CLI arguments for `reseal` — regenerate BLAKE3 sidecar(s) from
+/// current lock file contents without running a full apply.
+///
+/// Use when local `state/<machine>/state.lock.yaml` diverged from its `.b3`
+/// sidecar (e.g. old forjar versions that silently dropped sidecar-write
+/// errors, or `git checkout` that restored one without the other).
+#[derive(clap::Args, Debug)]
+pub struct ResealArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Single lock file to reseal (mutually exclusive with --all)
+    #[arg(long, conflicts_with = "all")]
+    pub file: Option<PathBuf>,
+
+    /// Reseal every lock file under state_dir
+    #[arg(long, conflicts_with = "file")]
+    pub all: bool,
+
+    /// Target specific machine (reseal only that machine's lock)
+    #[arg(short, long, conflicts_with_all = ["file", "all"])]
+    pub machine: Option<String>,
+
+    /// Print what would be resealed without writing sidecars
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
 /// FJ-1280: Reconstruct state at a point in time from event log.
 #[derive(clap::Args, Debug)]
 pub struct StateReconstructArgs {
