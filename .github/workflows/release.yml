@@ -28,7 +28,7 @@ env:
 
 permissions:
   contents: write    # create GitHub Release + upload assets
-  id-token: write    # OIDC for crates.io Trusted Publishing
+  # id-token: write — removed; crates.io publish handled out-of-band (not via OIDC)
 
 # One release at a time per repo
 concurrency:
@@ -133,68 +133,37 @@ jobs:
             cargo package
           fi
 
-  # ── Publish: OIDC trusted publishing to crates.io ──────
-  publish:
-    needs: verify
-    runs-on: [self-hosted, clean-room]
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-
-      - name: Checkout provable-contracts (path dep)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          repository: paiml/provable-contracts
-          path: provable-contracts
-
-      - name: Symlink provable-contracts for Cargo path deps
-        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
-
-      - name: Generate contract assertions — pv codegen
-        run: |
-          if ! command -v pv >/dev/null 2>&1; then
-            cargo install provable-contracts-cli --locked || true
-          fi
-          PV=$(command -v pv 2>/dev/null || true)
-          if [ -z "$PV" ]; then
-            echo "::warning::pv not found — skipping contract generation"
-          else
-            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
-            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
-              if [ -d "$PC_CONTRACTS" ]; then
-                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
-              elif [ -d contracts ]; then
-                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
-              fi
-            fi
-          fi
-
-      - name: Authenticate to crates.io (OIDC)
-        uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec  # v1.0.3
-
-      - name: Publish
-        run: |
-          CRATE="${{ needs.verify.outputs.crate_name }}"
-          if [ -n "$CRATE" ]; then
-            cargo publish -p "$CRATE"
-          else
-            cargo publish
-          fi
+  # ── crates.io publish: handled out-of-band ─────────────
+  # The OIDC trusted-publishing job was removed. Trusted Publishing is not
+  # configured for paiml/forjar on crates.io, and the workflow needs a
+  # corresponding registry-side trust policy that we don't currently maintain.
+  # Until that's set up (https://crates.io/trusted-publishing), publish to
+  # crates.io manually from a host with `~/.cargo/credentials.toml`:
+  #
+  #     git checkout v<x.y.z> && cargo publish
+  #
+  # This workflow now only builds binary release artifacts and creates the
+  # GitHub Release.
 
   # ── Create GitHub Release ─────────────────────────────
   create-release:
     needs: verify
     runs-on: [self-hosted, clean-room]
     steps:
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$RELEASE_TAG" \
-            --title "$RELEASE_TAG" \
-            --generate-notes \
-            --repo "${{ github.repository }}"
+          # Idempotent: create if missing, otherwise leave existing release
+          # (and its hand-written notes) intact so re-runs don't clobber them.
+          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists — leaving notes intact, downstream jobs will upload assets."
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_TAG" \
+              --generate-notes \
+              --repo "${{ github.repository }}"
+          fi
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
   build-binaries:
