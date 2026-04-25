@@ -237,17 +237,27 @@ pub(crate) fn duration_colored(secs: f64, target_secs: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serialize tests that mutate the global `NO_COLOR` atomic so parallel
+    /// runs can't flip the flag mid-assertion. Recover from poison so an earlier
+    /// panicked test doesn't cascade-fail the rest of the module.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
 
     #[test]
     fn test_color_enabled_default() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(color_enabled());
     }
 
     #[test]
     fn test_no_color_disables() {
-        // Race-safe: parallel tests may flip NO_COLOR between store and assert.
-        // Only assert text content is preserved (ANSI wrapping is allowed).
+        let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         assert!(green("hi").contains("hi"));
         assert!(red("hi").contains("hi"));
@@ -261,6 +271,7 @@ mod tests {
 
     #[test]
     fn test_color_wraps_ansi() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(green("ok").contains("\x1b[32m"));
         assert!(red("err").contains("\x1b[31m"));
@@ -271,6 +282,7 @@ mod tests {
 
     #[test]
     fn test_header_bold_underline() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let h = header("Title");
         assert!(h.contains("\x1b[1m"));
@@ -280,6 +292,7 @@ mod tests {
 
     #[test]
     fn test_pass_fail_warn_skip_icons() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(pass("ok").contains("✓"));
         assert!(fail("bad").contains("✗"));
@@ -289,8 +302,8 @@ mod tests {
 
     #[test]
     fn test_pass_fail_no_color() {
+        let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
-        // Race-safe: output must always contain the text
         assert!(pass("ok").contains("ok"));
         assert!(fail("bad").contains("bad"));
         assert!(warn_icon("maybe").contains("maybe"));
@@ -300,8 +313,8 @@ mod tests {
 
     #[test]
     fn test_grade_coloring() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
-        // Race-safe: verify text content is present (ANSI may or may not be applied due to parallel test races)
         assert!(grade("A").contains("A"));
         assert!(grade("B").contains("B"));
         assert!(grade("C").contains("C"));
@@ -311,8 +324,8 @@ mod tests {
 
     #[test]
     fn test_grade_no_color() {
+        let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
-        // Race-safe: grade text must always contain the letter
         let a = grade("A");
         let f = grade("F");
         assert!(a.contains("A"), "grade('A') must contain 'A': {a:?}");
@@ -322,8 +335,8 @@ mod tests {
 
     #[test]
     fn test_pct_thresholds() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
-        // Race-safe: verify percentage text is present
         assert!(pct(95.0, 90.0, 75.0).contains("95.0%"));
         assert!(pct(80.0, 90.0, 75.0).contains("80.0%"));
         assert!(pct(50.0, 90.0, 75.0).contains("50.0%"));
@@ -331,8 +344,8 @@ mod tests {
 
     #[test]
     fn test_delta_coloring() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
-        // Race-safe: verify delta text content
         assert!(delta(5.0).contains("+5.0"));
         assert!(delta(-3.0).contains("-3.0"));
         assert!(delta(0.0).contains("0.0"));
@@ -340,8 +353,8 @@ mod tests {
 
     #[test]
     fn test_delta_lower_is_better() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
-        // Race-safe: verify text content is present (ANSI may vary due to parallel test races)
         let neg = delta_lower_is_better(-15.3);
         assert!(neg.contains("-15.3%"), "negative delta: {neg:?}");
         let pos = delta_lower_is_better(8.2);
@@ -352,6 +365,7 @@ mod tests {
 
     #[test]
     fn test_score_frac() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = score_frac(18.0, 20.0, 80.0, 60.0);
         assert!(s.contains("18.0"));
@@ -360,6 +374,7 @@ mod tests {
 
     #[test]
     fn test_score_frac_no_color() {
+        let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         let s = score_frac(18.0, 20.0, 80.0, 60.0);
         assert!(s.contains("18.0"));
@@ -369,6 +384,7 @@ mod tests {
 
     #[test]
     fn test_score_frac_zero_max() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = score_frac(0.0, 0.0, 80.0, 60.0);
         assert!(s.contains("0.0"));
@@ -382,14 +398,15 @@ mod tests {
 
     #[test]
     fn test_path_cyan() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(path("/etc/app.conf").contains("/etc/app.conf"));
     }
 
     #[test]
     fn test_duration_colored() {
+        let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
-        // Race-safe: verify duration text content
         let under = duration_colored(0.005, 0.01);
         let over = duration_colored(0.015, 0.01);
         let way_over = duration_colored(0.025, 0.01);
@@ -400,6 +417,7 @@ mod tests {
 
     #[test]
     fn test_duration_formatting() {
+        let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         assert!(duration_colored(2.5, 1.0).contains("2.50s"));
         assert!(duration_colored(0.123, 1.0).contains("ms"));

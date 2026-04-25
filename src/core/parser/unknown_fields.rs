@@ -48,6 +48,7 @@ const CONFIG_FIELDS: &[&str] = &[
     "moved",
     "secrets",
     "environments",
+    "dist",
 ];
 
 const RESOURCE_FIELDS: &[&str] = &[

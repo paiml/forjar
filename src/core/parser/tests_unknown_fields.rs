@@ -475,3 +475,25 @@ recipe:
     let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
     assert!(unknowns.is_empty(), "expected no unknowns: {unknowns:?}");
 }
+
+#[test]
+fn dist_field_is_known() {
+    // Regression: `forjar fmt` emits `dist:` from the Config struct, and
+    // `dist-forjar.yaml` declares a top-level `dist:` section. The whitelist
+    // must include it so `fmt → validate` round-trips and `validate -f dist-*.yaml`
+    // does not error out with "unknown field 'dist'".
+    let yaml = r#"
+version: "1.0"
+name: test
+resources: {}
+dist:
+  source: github_release
+  repo: paiml/forjar
+  binary: forjar
+"#;
+    let unknowns = detect_unknown_fields(yaml).unwrap();
+    assert!(
+        unknowns.is_empty(),
+        "expected `dist` to be a known top-level field: {unknowns:?}"
+    );
+}
