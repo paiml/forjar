@@ -3,8 +3,9 @@
 //! Criterion.rs benchmarks for the parse → plan → codegen pipeline
 //! and recipe quality scoring.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use forjar::core::{codegen, parser, planner, resolver, scoring};
+use std::hint::black_box;
 
 fn build_config_yaml(n_resources: usize) -> String {
     let mut yaml = String::from(

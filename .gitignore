@@ -21,3 +21,6 @@ state/*/events.jsonl
 
 # Local cargo config (coverage target-dir overrides)
 .cargo/config.toml
+
+# Claude Code session state
+.claude/

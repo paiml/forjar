@@ -6,8 +6,9 @@
 //! reproducibility scoring, FAR encode/decode, lockfile staleness,
 //! sandbox validation, derivation closure, and script purification.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::collections::BTreeMap;
+use std::hint::black_box;
 
 // ── Store Path ──────────────────────────────────────────────────────
 

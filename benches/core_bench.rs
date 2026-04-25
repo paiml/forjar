@@ -1,9 +1,10 @@
 //! Benchmarks for forjar core operations (cargo bench).
 //! Spec §9 targets: validate <10ms, plan(3m/20r) <2s, apply(no-change) <500ms, drift(100r) <1s.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use forjar::core::{parser, planner, resolver, state};
 use forjar::tripwire::drift;
+use std::hint::black_box;
 
 fn bench_blake3_string(c: &mut Criterion) {
     let mut group = c.benchmark_group("blake3_string");

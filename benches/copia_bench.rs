@@ -5,7 +5,8 @@
 //! FJ-247: Copia delta sync — signature computation, delta generation,
 //! patch script serialization, and signature parsing.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 
 /// Benchmark copia signature computation at various file sizes.
 /// Signatures are per-block BLAKE3 hashes (4KB blocks).
