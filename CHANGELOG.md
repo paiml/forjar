@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-05-02
+
+### Fixed
+- `apply_apt_latest` (`state: latest`) now tolerates `apt-get update` partial failures via `|| true` (Refs PMAT-161). Real hosts routinely have one or two unreachable third-party PPAs, masked PackageKit units, or stale arm64 entries on x86_64 boxes that make `apt-get update` exit non-zero even when the repos we actually care about refreshed cleanly. The subsequent `apt-get install` still fails loud if the requested package can't be resolved, so the `dpkg -l '^ii '` postcondition is preserved. Matches canonical Dockerfile / Ansible practice. Discovered when applying `state: latest` for `docker-ce` on lambda-labs (broken `mozillateam`, `obsproject`, etc. PPAs).
+
 ## [1.4.0] - 2026-05-02
 
 ### Added

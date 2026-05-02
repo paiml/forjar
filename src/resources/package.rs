@@ -109,6 +109,16 @@ fn apply_apt_present(resource: &Resource) -> String {
 // this is not guarded by a `dpkg -l` presence check, since the goal is
 // to converge on the latest available version regardless of what is
 // currently installed.
+//
+// FJ-PMAT-161-1: `apt-get update` is tolerated as best-effort (`|| true`).
+// In production, hosts routinely have one or two unreachable third-party
+// PPAs, masked PackageKit units, or stale arm64 entries on x86_64 boxes
+// that make `apt-get update` exit non-zero even when the repos we
+// actually care about refreshed cleanly. Failing hard there blocks
+// upgrades that should succeed. The subsequent `apt-get install` fails
+// loud and clear if the requested package can't be resolved against the
+// (possibly partially-stale) cache, so correctness of the postcondition
+// is preserved. This matches canonical Dockerfile / Ansible practice.
 fn apply_apt_latest(resource: &Resource) -> String {
     let packages = &resource.packages;
     let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
@@ -117,10 +127,10 @@ fn apply_apt_latest(resource: &Resource) -> String {
     format!(
         "set -euo pipefail\n\
          if [ \"$(id -u)\" -ne 0 ]; then\n\
-           sudo apt-get update -qq\n\
+           sudo apt-get update -qq || true\n\
            DEBIAN_FRONTEND=noninteractive sudo apt-get install -y -qq {joined}\n\
          else\n\
-           apt-get update -qq\n\
+           apt-get update -qq || true\n\
            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {joined}\n\
          fi\n\
          # Postcondition: all packages installed (at latest available)\n\

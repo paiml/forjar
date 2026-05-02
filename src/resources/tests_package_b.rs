@@ -365,6 +365,11 @@ fn test_apply_script_arm_apt_latest() {
         script.contains("dpkg -l"),
         "apt latest must verify postcondition via dpkg: {script}"
     );
+    // FJ-PMAT-161-1: tolerate apt-get update partial failures
+    assert!(
+        script.contains("apt-get update -qq || true"),
+        "apt latest must tolerate apt-get update failures: {script}"
+    );
 }
 
 /// Match arm: ("cargo", "present")
