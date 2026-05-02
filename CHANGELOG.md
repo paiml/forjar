@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-02
+
+### Added
+- `state: latest` for the apt package provider (#125, Refs PMAT-161). Validation already accepted `latest` for Package types but `apply_script()` fell through to the unsupported arm, making it a no-op. The new `apply_apt_latest()` runs `apt-get update -qq` then `apt-get install -y -qq <pkgs>`, which installs missing packages or upgrades to the newest available version (no-op if already current). Closes the gap that made `apply_apt_present` (presence-only `dpkg -l` guard) unable to express "always latest" — adding `version:` to YAML was a no-op once a package was already installed at any older version. Postcondition verified via `dpkg -l "$pkg" | grep -q '^ii '` for each requested package.
+
 ## [1.3.0] - 2026-04-25
 
 ### Added
