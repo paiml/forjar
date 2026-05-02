@@ -331,6 +331,42 @@ fn test_apply_script_arm_apt_absent() {
     assert!(script.contains("apt-get remove"), "apt absent: {script}");
 }
 
+/// Match arm: ("apt", "latest") — PMAT-161
+///
+/// Latest semantics: refresh package lists then run apt-get install,
+/// which installs missing packages or upgrades to the newest available
+/// (no-op if already current). Postcondition: dpkg -l shows ii.
+#[test]
+fn test_apply_script_arm_apt_latest() {
+    let mut r = make_apt_resource(&["docker-ce", "docker-ce-cli"]);
+    r.state = Some("latest".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("apt-get update"),
+        "apt latest must refresh lists: {script}"
+    );
+    assert!(
+        script.contains("apt-get install"),
+        "apt latest must install/upgrade: {script}"
+    );
+    assert!(
+        script.contains("docker-ce") && script.contains("docker-ce-cli"),
+        "apt latest must reference all packages: {script}"
+    );
+    assert!(
+        !script.contains("unsupported"),
+        "apt latest must not fall through to unsupported arm: {script}"
+    );
+    assert!(
+        script.contains("set -euo pipefail"),
+        "apt latest must use safety flags: {script}"
+    );
+    assert!(
+        script.contains("dpkg -l"),
+        "apt latest must verify postcondition via dpkg: {script}"
+    );
+}
+
 /// Match arm: ("cargo", "present")
 #[test]
 fn test_apply_script_arm_cargo_present() {
