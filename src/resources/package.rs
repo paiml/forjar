@@ -56,6 +56,7 @@ pub fn apply_script(resource: &Resource) -> String {
     match (provider, state) {
         ("apt", "present") => apply_apt_present(resource),
         ("apt", "absent") => apply_apt_absent(resource),
+        ("apt", "latest") => apply_apt_latest(resource),
         ("cargo", "present") => apply_cargo_present(resource),
         ("uv", "present") => apply_uv_present(resource),
         ("uv", "absent") => apply_uv_absent(resource),
@@ -96,6 +97,33 @@ fn apply_apt_present(resource: &Resource) -> String {
            fi\n\
          fi\n\
          # Postcondition: all packages installed\n\
+         for pkg in {check_joined}; do\n\
+           dpkg -l \"$pkg\" 2>/dev/null | grep -q '^ii '\n\
+         done"
+    )
+}
+
+// PMAT-161: state=latest semantics — refresh package lists then run
+// `apt-get install`, which installs missing packages or upgrades to the
+// newest available version (no-op if already current). Unlike `present`,
+// this is not guarded by a `dpkg -l` presence check, since the goal is
+// to converge on the latest available version regardless of what is
+// currently installed.
+fn apply_apt_latest(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let joined = pkg_list.join(" ");
+    let check_joined = pkg_list.join(" ");
+    format!(
+        "set -euo pipefail\n\
+         if [ \"$(id -u)\" -ne 0 ]; then\n\
+           sudo apt-get update -qq\n\
+           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y -qq {joined}\n\
+         else\n\
+           apt-get update -qq\n\
+           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {joined}\n\
+         fi\n\
+         # Postcondition: all packages installed (at latest available)\n\
          for pkg in {check_joined}; do\n\
            dpkg -l \"$pkg\" 2>/dev/null | grep -q '^ii '\n\
          done"
