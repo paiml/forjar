@@ -94,6 +94,14 @@ pub(super) fn print_events_output(results: &[types::ApplyResult]) -> Result<(), 
 }
 
 /// Print apply summary (JSON or text).
+///
+/// FJ-129: `forced_noop_count` is the number of resources that --force
+/// re-applied even though the lock reported them unchanged. When > 0,
+/// surface a yellow note line — that's the runtime side of contract
+/// `apply-summary-distinguishability-v1`, which makes claim C3
+/// (idempotency) observable through --force. The contract assertion at
+/// the bottom of this function rejects nonsense states (forced-noop
+/// without --force, or forced-noop > converged).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn print_apply_summary(
     config: &types::ForjarConfig,
@@ -101,9 +109,23 @@ pub(super) fn print_apply_summary(
     total_converged: u32,
     total_unchanged: u32,
     total_failed: u32,
+    forced_noop_count: u32,
     dur_apply: std::time::Duration,
     json: bool,
 ) -> Result<(), String> {
+    // FJ-129 contract: forced_noop must not exceed converged. If --force
+    // wasn't used, the caller passes 0; if --force WAS used, every forced
+    // no-op is by definition counted in `total_converged` (the executor
+    // ran the resource), so forced_noop ≤ converged is an invariant.
+    debug_assert!(
+        forced_noop_count <= total_converged,
+        "C3-FORCE-DISTINGUISHABLE violated: forced_noop ({}) > converged ({})",
+        forced_noop_count,
+        total_converged
+    );
+
+    let actual_changes = total_converged.saturating_sub(forced_noop_count);
+
     if json {
         let output = serde_json::json!({
             "name": config.name,
@@ -112,6 +134,12 @@ pub(super) fn print_apply_summary(
                 "total_converged": total_converged,
                 "total_unchanged": total_unchanged,
                 "total_failed": total_failed,
+                // FJ-129: forced_noop_count is the C3-observable extension.
+                // Always present so JSON consumers can branch on > 0;
+                // 0 means either --force wasn't used or every forced
+                // resource genuinely needed work.
+                "forced_noop_count": forced_noop_count,
+                "actual_changes": actual_changes,
                 "total_duration_seconds": dur_apply.as_secs_f64(),
             }
         });
@@ -149,6 +177,19 @@ pub(super) fn print_apply_summary(
                 "{}",
                 green(&format!(
                     "Apply complete: {total_converged} converged, {total_unchanged} unchanged."
+                ))
+            );
+        }
+        // FJ-129: When --force re-ran resources the lock reported as
+        // unchanged, surface that explicitly so claim C3 is observable.
+        // `actual_changes == 0` AND `forced_noop_count > 0` is the
+        // C3-PASS shape; it's worth calling out unambiguously.
+        if forced_noop_count > 0 {
+            println!(
+                "{}",
+                yellow(&format!(
+                    "note: --force re-ran {forced_noop_count} resource(s) the lock reported as unchanged \
+                     ({actual_changes} actual change(s), {forced_noop_count} forced no-op(s))"
                 ))
             );
         }

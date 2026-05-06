@@ -207,6 +207,35 @@ fn selective_force_locks(
     result
 }
 
+/// FJ-129: Count resources that the lock reports as unchanged at apply
+/// time, *before* `--force` clears the lock to nuke-and-pave them. The
+/// caller invokes this only when `cfg.force` is true; the count answers
+/// "how many resources did `--force` re-run that the lock said were
+/// already converged?" which is the missing piece in the apply summary
+/// that makes claim **C3** observable through `--force`.
+///
+/// This is the runtime side of contract
+/// `apply-summary-distinguishability-v1`: the apply summary MUST be
+/// able to distinguish a forced re-converge of a fully-converged stack
+/// from a legitimate re-converge after drift.
+///
+/// Returns 0 if the locks are not yet loaded (first apply on a fresh
+/// state directory) or on lock-load failure — both are correct: there
+/// is no "forced no-op" if there was nothing to be forced over.
+pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
+    let execution_order = match resolver::build_execution_order(cfg.config) {
+        Ok(o) => o,
+        Err(_) => return 0,
+    };
+    let all_machines = collect_machines(cfg.config);
+    let real_locks = match load_machine_locks(cfg, &all_machines) {
+        Ok(l) => l,
+        Err(_) => return 0,
+    };
+    let shadow_plan = planner::plan(cfg.config, &execution_order, &real_locks, cfg.tag_filter);
+    shadow_plan.unchanged
+}
+
 /// Execute the apply loop.
 pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();

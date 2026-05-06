@@ -132,6 +132,17 @@ pub(crate) fn cmd_apply(
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
 
+    // FJ-129: When --force was used, count how many of the converged
+    // resources were no-ops the lock would have skipped. That's what
+    // makes claim C3 (idempotency) observable through --force —
+    // without it, a forced re-apply of a fully-converged stack looks
+    // identical to a legitimate re-converge after drift.
+    let forced_noop_count = if cfg.force {
+        executor::forced_noop_count(&cfg)
+    } else {
+        0
+    };
+
     for result in &results {
         if let Err(e) = state::save_apply_report(state_dir, result) {
             eprintln!("warning: cannot save apply report: {e}");
@@ -148,6 +159,7 @@ pub(crate) fn cmd_apply(
         total_converged,
         total_unchanged,
         total_failed,
+        forced_noop_count,
         dur_apply,
         json,
     )?;
