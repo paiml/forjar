@@ -1,0 +1,95 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-05-06"
+  author: "PAIML Engineering"
+  description: |
+    Apply-summary distinguishability — the apply summary surfaced to
+    the user must be able to distinguish a forced re-converge of a
+    fully-converged stack (`--force` re-ran resources the lock said
+    were already at desired state) from a legitimate re-converge after
+    drift. Filed as paiml/forjar#129. Closes the gap that made claim
+    C3 (idempotency) unobservable through `--force`.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/129"
+    - "downstream incident: https://github.com/paiml/iac-from-zero/pull/1"
+    - "C3: forjar's idempotency falsifiable claim — README.md § Falsifiable Claims"
+
+equations:
+  forced_noop_count:
+    formula: |
+      forced_noop_count(cfg) =
+        if cfg.force then
+          shadow_plan(cfg.config, real_locks(cfg.state_dir)).unchanged
+        else
+          0
+    domain: "cfg ∈ ApplyConfig"
+    codomain: "u32"
+    invariants:
+      - "forced_noop_count = 0 when cfg.force is false"
+      - "forced_noop_count ≤ total_converged"
+      - "forced_noop_count + actual_changes = total_converged"
+
+  apply_summary_distinguishability:
+    formula: |
+      summary(results) = {
+        total_converged: Σ resources_converged,
+        forced_noop_count: f,
+        actual_changes: total_converged − f,
+      }
+    domain: "results ∈ Vec<ApplyResult>, f ∈ u32"
+    codomain: "Summary"
+    invariants:
+      - "When f > 0, the printed summary surfaces it explicitly"
+      - "actual_changes = 0 ∧ f > 0 ⇒ stack was fully converged before --force ran (claim C3 holds)"
+      - "actual_changes > 0 ⇒ at least one resource genuinely needed work (drift OR new)"
+
+proof_obligations:
+  - type: invariant
+    property: "forced_noop_count fits inside converged"
+    formal: "∀ cfg, results: forced_noop_count(cfg) ≤ Σ results.resources_converged"
+    applies_to: all
+    enforced_by: "src/cli/apply_output.rs::print_apply_summary debug_assert!"
+
+  - type: invariant
+    property: "Force-off path returns zero"
+    formal: "cfg.force = false ⇒ forced_noop_count(cfg) = 0"
+    applies_to: all
+    enforced_by: "src/cli/apply.rs — call site guarded by `if cfg.force`"
+
+  - type: invariant
+    property: "Summary surfaces the distinction when meaningful"
+    formal: |
+      forced_noop_count > 0 ⇒
+        (text mode emits a `note:` line ∧ JSON mode emits forced_noop_count + actual_changes fields)
+    applies_to: all
+    enforced_by: "src/cli/apply_output.rs::print_apply_summary"
+
+  - type: test
+    property: "All four step shapes from issue #129 hold (Q1 semantics)"
+    formal: |
+      apply(fresh)            → converged=N, forced=0
+      apply(converged)        → converged=0, unchanged=N, forced=0
+      apply(converged, force) → converged=N, forced=N, actual_changes=0   ← C3 holds through --force
+      apply(drift_one, force) → converged=N, forced=N, actual_changes=0
+    applies_to: all
+    enforced_by: "tests/test_fj129_force_distinguishability.rs"
+    notes: |
+      Q1 semantics: forced_noop is computed against the LOCK, not the
+      live filesystem. Shape 4 (rm outside forjar then --force) shows
+      actual_changes=0 because the lock still says both resources are
+      converged. The complementary question — "how many resources had
+      live-state drift?" — is what `forjar drift` answers. Q1 is the
+      cheap, deterministic part of the contract; Q2 (live-state diff)
+      is a separate runtime concern documented in this YAML's notes.
+
+enforcement:
+  layer: runtime
+  failure_mode: debug_assert
+  ci_gate: required
+  notes: |
+    The runtime debug_assert! aborts a debug build if forced_noop > converged
+    (which would mean a planner / executor disagreement). Release builds
+    skip the assert but the integration test catches the same shape on CI.
+
+verification_level: L3

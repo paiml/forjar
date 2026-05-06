@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-05-06
+
+### Fixed
+
+- `apply --force` now distinguishes "forced re-converge of an
+  already-converged stack" from "legitimate re-converge after drift"
+  in the apply summary (#129). Closes the gap that made claim **C3**
+  (idempotency) unobservable through `--force`: a forced re-apply of
+  a fully-converged stack used to print `N converged, 0 unchanged`,
+  identical to a real drift-recovery run.
+
+  When `--force` is used, the summary now adds:
+  - **Text mode:** a yellow `note: --force re-ran N resource(s) the
+    lock reported as unchanged (M actual change(s), N forced no-op(s))`
+    line. `M = 0` is the C3-PASS demonstration.
+  - **JSON mode:** new `forced_noop_count` and `actual_changes` fields
+    in `summary{}`.
+  - **Runtime contract:** `debug_assert!(forced_noop <= converged)` —
+    aborts a debug build on planner / executor disagreement.
+
+  Provable contract: `contracts/apply-summary-distinguishability-v1.yaml`.
+  Integration test: `tests/test_fj129_force_distinguishability.rs`
+  exercises all four step shapes from the contract's proof obligations.
+
+  Surfaced downstream in [paiml/iac-from-zero](https://github.com/paiml/iac-from-zero)
+  — the Coursera companion course had to drop `--force` from its
+  C3 idempotency CI assertion to make the claim observable. With this
+  fix, the demonstration works through `--force` too.
+
 ## [1.4.1] - 2026-05-02
 
 ### Fixed

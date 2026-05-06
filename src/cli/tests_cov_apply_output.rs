@@ -143,7 +143,7 @@ fn minimal_config() -> types::ForjarConfig {
 fn summary_text_success() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 0)];
-    let r = print_apply_summary(&config, &results, 3, 2, 0, std::time::Duration::from_secs(1), false);
+    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, std::time::Duration::from_secs(1), false);
     assert!(r.is_ok());
 }
 
@@ -151,7 +151,7 @@ fn summary_text_success() {
 fn summary_text_with_failures() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 1)];
-    let r = print_apply_summary(&config, &results, 3, 2, 1, std::time::Duration::from_secs(1), false);
+    let r = print_apply_summary(&config, &results, 3, 2, 1, 0, std::time::Duration::from_secs(1), false);
     assert!(r.is_ok());
 }
 
@@ -159,14 +159,14 @@ fn summary_text_with_failures() {
 fn summary_json_success() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 0)];
-    let r = print_apply_summary(&config, &results, 3, 2, 0, std::time::Duration::from_secs(1), true);
+    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, std::time::Duration::from_secs(1), true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn summary_json_empty() {
     let config = minimal_config();
-    let r = print_apply_summary(&config, &[], 0, 0, 0, std::time::Duration::from_secs(0), true);
+    let r = print_apply_summary(&config, &[], 0, 0, 0, 0, std::time::Duration::from_secs(0), true);
     assert!(r.is_ok());
 }
 
@@ -177,6 +177,24 @@ fn summary_multi_machine() {
         make_result("web1", 5, 1, 0),
         make_result("db1", 2, 0, 1),
     ];
-    let r = print_apply_summary(&config, &results, 7, 1, 1, std::time::Duration::from_secs(2), false);
+    let r = print_apply_summary(&config, &results, 7, 1, 1, 0, std::time::Duration::from_secs(2), false);
+    assert!(r.is_ok());
+}
+
+// FJ-129: cover the new forced_noop_count parameter — text + JSON modes.
+#[test]
+fn summary_with_forced_noop_text() {
+    let config = minimal_config();
+    let results = vec![make_result("web1", 3, 0, 0)];
+    // 3 converged, 3 forced-noop ⇒ actual_changes = 0 (claim C3 holds through --force).
+    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, std::time::Duration::from_secs(1), false);
+    assert!(r.is_ok());
+}
+
+#[test]
+fn summary_with_forced_noop_json() {
+    let config = minimal_config();
+    let results = vec![make_result("web1", 3, 0, 0)];
+    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, std::time::Duration::from_secs(1), true);
     assert!(r.is_ok());
 }
