@@ -1,0 +1,5 @@
+# Generated curl-installer: bashrs SEC010 fires on any `mkdir -p "$VAR"`,
+# inherent to an installer with user-chosen --prefix (traversal sequences
+# are rejected in-script). Template-fixable findings are pinned by
+# tests/install_sh_parity.rs and tests/falsification_dist.rs.
+install.sh

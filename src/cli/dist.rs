@@ -286,7 +286,8 @@ mod tests {
     #[test]
     fn installer_contains_version_verify() {
         let script = generate_installer(&sample_dist());
-        assert!(script.contains("forjar --version"));
+        // Anchored to the just-installed binary, not PATH resolution.
+        assert!(script.contains(r#""$DEST/$BINARY" --version"#));
     }
 
     #[test]
@@ -299,7 +300,8 @@ mod tests {
     #[test]
     fn installer_contains_fallback_dir() {
         let script = generate_installer(&sample_dist());
-        assert!(script.contains("~/.local/bin"));
+        // Quoted "~" never tilde-expands; the generator emits $HOME.
+        assert!(script.contains("$HOME/.local/bin"));
     }
 
     #[test]
