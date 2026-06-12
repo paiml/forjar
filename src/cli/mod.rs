@@ -58,6 +58,8 @@ pub mod dist_checksums;
 pub mod dist_generators;
 pub mod dist_generators_b;
 mod dist_homebrew;
+mod dist_schema;
+pub mod dist_verify;
 mod doctor;
 mod drift;
 mod drift_predict;

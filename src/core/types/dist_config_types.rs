@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 /// FJ-3600: Top-level distribution config from `dist:` section.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DistConfig {
-    /// Source type: "github_release", "local", "url", "s3".
+    /// Source type. Only "github_release" is implemented — "local",
+    /// "url", and "s3" are spec'd but rejected by `forjar dist`
+    /// (PMAT-081) until they generate working artifacts.
     pub source: String,
 
     /// GitHub org/repo (e.g., "paiml/forjar").

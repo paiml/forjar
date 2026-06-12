@@ -2,7 +2,19 @@
 
 > Generate install scripts, package manifests, and registry metadata for any forjar-managed binary.
 
-**Spec IDs**: FJ-3600 (dist command family) | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md) | **Status**: PROPOSED
+**Spec IDs**: FJ-3600 (dist command family) | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md) | **Status**: IMPLEMENTED (Phases A–C, Phase D Tier 1) — Tier 2 container verification PENDING
+
+**Per-phase status** (PMAT-084 reconciliation, 2026-06-13):
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| A | `--installer`, `--output` (dogfooded `install.sh`, pinned by `tests/install_sh_parity.rs`) | IMPLEMENTED |
+| B | `--homebrew`, `--binstall`, `--nix`; real checksum/version resolution via `--version`/`--checksums-file` (#139) | IMPLEMENTED |
+| C | `--github-action`, `--deb`, `--rpm`, `--all`, `--output-dir`, `--json` | IMPLEMENTED |
+| D Tier 1 | `--verify` static verification: `sh -n`, in-process bashrs lint, required snippets, download-URL structure (F-3609; PMAT-082) | IMPLEMENTED |
+| D Tier 2 | Container-based execution (alpine/ubuntu installer runs, brew/nix builds, `act` dry-run) | PENDING |
+
+Only `source: github_release` is implemented — `local`/`url`/`s3` are rejected with a clear error (PMAT-081).
 
 ---
 
@@ -401,6 +413,22 @@ Dogfood the generated artifacts in a sandbox:
 forjar dist -f forjar.yaml --verify
 ```
 
+### Tier 1 — static verification (IMPLEMENTED, PMAT-082)
+
+`--verify` generates the requested artifacts into a temp dir and statically
+verifies the installer (`src/cli/dist_verify.rs`):
+
+1. `sh -n` parses the generated script (POSIX syntax)
+2. bashrs lint reports zero errors (in-process library API, no binary spawn)
+3. Checksum-verification and platform-detection snippets are present
+   (`verify_checksum`, `detect_arch`, `detect_libc`)
+4. Every download URL matches
+   `https://github.com/<org>/<repo>/releases/download/<tag>/<asset>`
+   (F-3609: a broken asset template or malformed repo slug fails with a
+   non-zero exit and a message naming the problem)
+
+### Tier 2 — container-based execution (PENDING)
+
 Runs each generated artifact in a container to verify it works:
 
 | Artifact | Verification |
@@ -491,32 +519,32 @@ Per Popper (1959), the following must hold or the feature is measuring the wrong
 
 ## Implementation Plan
 
-### Phase A: Core Types and Shell Installer (FJ-3601)
+### Phase A: Core Types and Shell Installer (FJ-3601) — IMPLEMENTED
 
-1. Add `DistConfig` type to `src/core/types/`
-2. Parse `dist:` section in config
-3. Implement `forjar dist --installer` — the highest-value artifact
-4. Add `forjar dist --verify` for installer only (Alpine + Ubuntu containers)
-5. Dogfood: generate forjar's own `install.sh`, host at `forjar.dev/install.sh`
+1. Add `DistConfig` type to `src/core/types/` — DONE (`dist_config_types.rs`)
+2. Parse `dist:` section in config — DONE
+3. Implement `forjar dist --installer` — DONE (dogfooded, byte-pinned by `tests/install_sh_parity.rs`, #143)
+4. Add `forjar dist --verify` for installer only — DONE for Tier 1 static checks (PMAT-082); Alpine + Ubuntu container runs are Phase D Tier 2
+5. Dogfood: generate forjar's own `install.sh` — DONE
 
-### Phase B: Package Manager Formats (FJ-3602–3604)
+### Phase B: Package Manager Formats (FJ-3602–3604) — IMPLEMENTED
 
-6. Implement `--homebrew` (Ruby formula generation)
-7. Implement `--binstall` (TOML fragment)
-8. Implement `--nix` (flake.nix generation)
-9. Checksum resolution from GitHub Release assets
+6. Implement `--homebrew` (Ruby formula generation) — DONE
+7. Implement `--binstall` (TOML fragment) — DONE
+8. Implement `--nix` (flake.nix generation) — DONE
+9. Checksum resolution from GitHub Release assets — DONE (`--version`/`--checksums-file`, #139)
 
-### Phase C: CI and OS Packages (FJ-3605–3606)
+### Phase C: CI and OS Packages (FJ-3605–3606) — IMPLEMENTED
 
-10. Implement `--github-action` (action.yml)
-11. Implement `--deb` and `--rpm` spec generation
-12. Full `--all` and `--output-dir` support
+10. Implement `--github-action` (action.yml) — DONE
+11. Implement `--deb` and `--rpm` spec generation — DONE
+12. Full `--all` and `--output-dir` support — DONE
 
-### Phase D: Verification (FJ-3607)
+### Phase D: Verification (FJ-3607) — Tier 1 IMPLEMENTED, Tier 2 PENDING
 
-13. Container-based verification for each artifact type
-14. Integration with release workflow
-15. `--verify` runs all applicable checks
+13. Container-based verification for each artifact type — PENDING (Tier 2)
+14. Integration with release workflow — PENDING (Tier 2)
+15. `--verify` runs all applicable checks — DONE for Tier 1 static checks (`sh -n`, in-process bashrs lint, snippet presence, URL structure; F-3609, PMAT-082)
 
 ---
 

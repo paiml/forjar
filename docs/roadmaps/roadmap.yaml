@@ -1389,11 +1389,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DIST-2: dist source validation errors + dist block in forjar schema output'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T12:00:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - 'cmd_dist rejects dist.source values local/url/s3 with a clear ''not yet supported'' error instead of generating broken github.com URLs'
@@ -1408,11 +1408,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DIST-3: forjar dist --verify Tier 1 static verification (Phase D, F-3609)'
-  status: pending
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T12:00:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - DistArgs gains --verify; cmd_dist verify path runs bash -n + bashrs lint on generated install.sh
@@ -1448,11 +1448,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'SPEC-1: Spec 25 per-phase status reconciliation + v1.5.0 CHANGELOG'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T12:00:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - Spec 25 status header changed from PROPOSED to per-phase status (A-C IMPLEMENTED, D status per DIST-3 outcome)

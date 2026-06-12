@@ -80,3 +80,46 @@ fn schema_produces_valid_json() {
     let result = cmd_schema();
     assert!(result.is_ok());
 }
+
+// ── PMAT-081: dist block in forjar schema ───────────────────────────
+
+#[test]
+fn schema_includes_dist_block() {
+    let schema = build_schema();
+    let dist = &schema["properties"]["dist"];
+    assert_eq!(dist["type"], "object");
+    assert_eq!(
+        dist["required"],
+        serde_json::json!(["source", "binary"]),
+        "dist block must require source and binary"
+    );
+}
+
+#[test]
+fn schema_dist_block_mirrors_dist_config() {
+    let schema = build_schema();
+    let props = schema["properties"]["dist"]["properties"]
+        .as_object()
+        .expect("dist.properties must be an object");
+    for field in [
+        "source",
+        "repo",
+        "binary",
+        "targets",
+        "install_dir",
+        "checksums",
+        "homebrew",
+        "nix",
+    ] {
+        assert!(props.contains_key(field), "dist schema missing {field}");
+    }
+}
+
+#[test]
+fn schema_dist_source_only_github_release() {
+    let schema = build_schema();
+    assert_eq!(
+        schema["properties"]["dist"]["properties"]["source"]["enum"],
+        serde_json::json!(["github_release"])
+    );
+}

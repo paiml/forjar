@@ -43,6 +43,12 @@ pub struct DistArgs {
     #[arg(long)]
     pub all: bool,
 
+    /// PMAT-082/FJ-3607 Tier 1: generate artifacts to a temp dir and
+    /// statically verify the installer (sh -n, bashrs lint, required
+    /// snippets, download URL structure) instead of writing them
+    #[arg(long)]
+    pub verify: bool,
+
     /// Release tag to pin (e.g., v1.4.3) — required for artifacts that
     /// embed real checksums (--homebrew, --nix)
     #[arg(long, value_name = "TAG")]
