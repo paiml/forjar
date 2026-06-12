@@ -172,9 +172,20 @@ pub fn run_convergence_test_dispatch(
 pub fn run_convergence_test(target: &ConvergenceTarget) -> ConvergenceResult {
     let start = std::time::Instant::now();
 
-    // Create isolated sandbox directory
+    // Create isolated sandbox directory.
+    //
+    // Uniqueness MUST NOT depend on wall-clock time alone (issue #141):
+    // concurrent callers share the PID, and two threads can read identical
+    // `SystemTime` values on coarse-granularity clocks (e.g. 100ns Hyper-V
+    // ticks on virtualized CI runners). Colliding runs then share a sandbox
+    // and race each other's cleanup — `remove_dir_all` yanks the directory
+    // out from under the sibling's bash subprocess (spawn fails with ENOENT).
+    // A process-wide atomic counter guarantees in-process uniqueness; the
+    // PID separates processes; the timestamp avoids stale-dir reuse.
+    static SANDBOX_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = SANDBOX_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let sandbox_dir = std::env::temp_dir().join(format!(
-        "forjar-conv-{}-{:x}",
+        "forjar-conv-{}-{seq}-{:x}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
