@@ -2,7 +2,7 @@
 
 ## Installation
 
-Build from source (requires Rust 1.85+):
+Build from source (requires Rust 1.89.0+):
 
 ```bash
 git clone https://github.com/paiml/forjar.git
@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 79 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
+You should see forjar's full set of subcommands, from the core workflow (`init`, `validate`, `plan`, `apply`, `drift`, `status`) through state, lock, security, and platform operations. See the [CLI Reference](06-cli.md) and the [CLI Reference Appendix](06b-cli-reference-appendix.md) for the complete list.
 
 ## Your First Project
 

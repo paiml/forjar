@@ -7,6 +7,7 @@
 - [Recipes](./04-recipes.md)
 - [Architecture](./05-architecture.md)
 - [CLI Reference](./06-cli.md)
+- [CLI Reference Appendix](./06b-cli-reference-appendix.md)
 - [Cookbook](./07-cookbook.md)
 - [State Management](./08-state-management.md)
 - [Drift Detection & Tripwire](./09-drift-and-tripwire.md)

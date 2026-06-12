@@ -1316,17 +1316,17 @@ forjar fmt -f forjar.yaml --check
 
 ```bash
 # Generate completion script
-forjar completions bash > /etc/bash_completion.d/forjar
+forjar completion bash > /etc/bash_completion.d/forjar
 
 # Or in user directory
-forjar completions bash > ~/.local/share/bash-completion/completions/forjar
+forjar completion bash > ~/.local/share/bash-completion/completions/forjar
 ```
 
 ### Zsh
 
 ```zsh
 # Generate completion script
-forjar completions zsh > ~/.zfunc/_forjar
+forjar completion zsh > ~/.zfunc/_forjar
 
 # Add to .zshrc
 fpath=(~/.zfunc $fpath)
@@ -1336,7 +1336,7 @@ autoload -Uz compinit && compinit
 ### Fish
 
 ```fish
-forjar completions fish > ~/.config/fish/completions/forjar.fish
+forjar completion fish > ~/.config/fish/completions/forjar.fish
 ```
 
 ## Environment Variables
