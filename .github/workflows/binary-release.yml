@@ -164,7 +164,10 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: binary-${{ matrix.target }}
+          # The runner image MUST be part of the key: objects cached on
+          # 24.04 (glibc 2.38, __isoc23_* symbols) fail to link on 22.04
+          # (v1.4.4 x86_64-gnu leg failed exactly this way).
+          shared-key: binary-${{ matrix.target }}-u2204
 
       - name: Build forjar
         run: |
