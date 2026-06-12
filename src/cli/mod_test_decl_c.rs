@@ -120,3 +120,13 @@ mod tests_lsp_ext_cov;
 mod tests_parallel_multi_stack_cov;
 #[cfg(test)]
 mod tests_iso_export_ext2_cov;
+#[cfg(test)]
+mod tests_cov_apply_modes;
+#[cfg(test)]
+mod tests_cov_apply_variants2;
+#[cfg(test)]
+mod tests_cov_fleet_run;
+#[cfg(test)]
+mod tests_cov_infra_dispatch2;
+#[cfg(test)]
+mod tests_cov_check_blocks;

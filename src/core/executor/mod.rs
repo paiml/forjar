@@ -55,6 +55,8 @@ mod tests_rolling;
 mod tests_run_capture;
 #[cfg(test)]
 mod tests_waves;
+#[cfg(test)]
+mod tests_waves_cov;
 
 use super::codegen;
 use super::conditions;
