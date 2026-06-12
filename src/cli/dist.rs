@@ -20,6 +20,16 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
         .as_ref()
         .ok_or_else(|| "no 'dist:' section in config — add dist: to forjar.yaml".to_string())?;
 
+    // PMAT-081: only github_release is implemented — fail fast instead of
+    // generating artifacts with broken empty-repo github.com URLs.
+    super::dist_verify::validate_dist_source(dist)?;
+
+    // PMAT-082/FJ-3607 Tier 1: --verify generates to a temp dir and
+    // statically verifies instead of writing artifacts.
+    if args.verify {
+        return super::dist_verify::run_verify(dist, args);
+    }
+
     let gen_all = args.all;
     let gen_installer = args.installer || gen_all;
     let gen_homebrew = args.homebrew || gen_all;
@@ -400,6 +410,7 @@ mod tests {
             deb: false,
             rpm: false,
             all: false,
+            verify: false,
             version: None,
             checksums_file: None,
             output: None,

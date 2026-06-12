@@ -131,6 +131,16 @@ pub(crate) fn cmd_completion(shell: CompletionShell) -> Result<(), String> {
 }
 
 pub(crate) fn cmd_schema() -> Result<(), String> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&build_schema()).map_err(|e| format!("JSON error: {e}"))?
+    );
+    Ok(())
+}
+
+/// Build the full forjar.yaml JSON Schema (split from cmd_schema so
+/// tests can assert on the structure without capturing stdout).
+pub(crate) fn build_schema() -> serde_json::Value {
     let machine_schema = serde_json::json!({
         "type": "object",
         "required": ["hostname", "addr"],
@@ -178,7 +188,10 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
         }
     });
 
-    let schema = serde_json::json!({
+    // PMAT-081/FJ-3600: dist: block schema lives in dist_schema.rs.
+    let dist_schema = super::dist_schema::build_dist_schema();
+
+    serde_json::json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "Forjar Configuration",
         "description": "Schema for forjar.yaml — Rust-native Infrastructure as Code",
@@ -192,6 +205,7 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
             "includes": { "type": "array", "items": { "type": "string" } },
             "machines": { "type": "object", "additionalProperties": machine_schema },
             "resources": { "type": "object", "additionalProperties": resource_schema },
+            "dist": dist_schema,
             "policy": policy_schema,
             "outputs": { "type": "object", "additionalProperties": {
                 "type": "object",
@@ -246,13 +260,7 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
                 }
             }
         }
-    });
-
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?
-    );
-    Ok(())
+    })
 }
 
 /// Build the resource JSON Schema, split to avoid macro recursion limit.
