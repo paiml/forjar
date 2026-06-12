@@ -48,44 +48,7 @@ pub fn assemble_image(
         ));
     }
 
-    // E18: Build layers concurrently when multiple layers exist.
-    let built_layers: Vec<(LayerBuildResult, Vec<u8>)> = if layer_entries.len() > 1 {
-        let results: Vec<Result<(LayerBuildResult, Vec<u8>), String>> = std::thread::scope(|s| {
-            let handles: Vec<_> = layer_entries
-                .iter()
-                .enumerate()
-                .map(|(i, entries)| {
-                    s.spawn(move || {
-                        build_layer(entries, layer_config)
-                            .map_err(|e| format!("layer {i} build failed: {e}"))
-                    })
-                })
-                .collect();
-            handles.into_iter().map(|h| h.join().unwrap()).collect()
-        });
-        results.into_iter().collect::<Result<Vec<_>, _>>()?
-    } else {
-        // Single layer: no thread overhead
-        layer_entries
-            .iter()
-            .enumerate()
-            .map(|(i, entries)| {
-                build_layer(entries, layer_config)
-                    .map_err(|e| format!("layer {i} build failed: {e}"))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-    };
-
-    let history: Vec<OciHistoryEntry> = plan
-        .layers
-        .iter()
-        .map(|strategy| OciHistoryEntry {
-            created: None,
-            created_by: Some(strategy_description(strategy)),
-            empty_layer: false,
-            comment: None,
-        })
-        .collect();
+    let built_layers = build_all_layers(layer_entries, layer_config)?;
 
     // Collect diff_ids and descriptors
     let diff_ids: Vec<String> = built_layers
@@ -100,73 +63,22 @@ pub fn assemble_image(
         built_layers.iter().map(|(r, _)| r.clone()).collect();
     let total_size: u64 = built_layers.iter().map(|(r, _)| r.compressed_size).sum();
 
-    // Build image config (E12: support target architecture)
-    let arch = target_arch.unwrap_or("amd64");
-    let mut config = OciImageConfig::for_arch(arch, "linux", diff_ids);
-    config.history = history;
-    if let Some(ref ep) = plan.entrypoint {
-        config.config.entrypoint = ep.clone();
-    }
-    for (k, v) in &plan.labels {
-        config.config.labels.insert(k.clone(), v.clone());
-    }
-
-    // Serialize config
+    // Build and serialize image config (E12: support target architecture)
+    let config = build_image_config(plan, target_arch, diff_ids);
     let config_json =
         serde_json::to_vec_pretty(&config).map_err(|e| format!("serialize config: {e}"))?;
     let config_digest = compute_dual_digest(&config_json);
 
-    // Build manifest
+    // Build and serialize manifest
     let manifest = OciManifest::new(config_digest.oci_digest(), layer_descriptors);
-
-    // Serialize manifest
     let manifest_json =
         serde_json::to_vec_pretty(&manifest).map_err(|e| format!("serialize manifest: {e}"))?;
     let manifest_digest = compute_dual_digest(&manifest_json);
 
-    // Write OCI layout
+    // Write OCI layout, manifest blob, index, and Docker-compat manifest
     write_oci_layout(output_dir, &built_layers, &config_json)?;
-
-    // Write manifest blob
-    let manifest_hex = manifest_digest.sha256.clone();
-    std::fs::write(
-        output_dir.join(format!("blobs/sha256/{manifest_hex}")),
-        &manifest_json,
-    )
-    .map_err(|e| format!("write manifest blob: {e}"))?;
-
-    // Write index.json
-    let index = OciIndex::single(OciDescriptor {
-        media_type: "application/vnd.oci.image.manifest.v1+json".into(),
-        digest: format!("sha256:{manifest_hex}"),
-        size: manifest_json.len() as u64,
-        annotations: HashMap::new(),
-    });
-    let index_json =
-        serde_json::to_vec_pretty(&index).map_err(|e| format!("serialize index: {e}"))?;
-    std::fs::write(output_dir.join("index.json"), &index_json)
-        .map_err(|e| format!("write index.json: {e}"))?;
-
-    // Write Docker-compat manifest.json (for docker load)
-    let tag = &plan.tag;
-    let docker_layers: Vec<String> = layer_results
-        .iter()
-        .map(|r| {
-            let hex = r.digest.strip_prefix("sha256:").unwrap_or(&r.digest);
-            format!("blobs/sha256/{hex}")
-        })
-        .collect();
-    let docker_manifest = serde_json::json!([{
-        "RepoTags": [tag],
-        "Config": format!("blobs/sha256/{}", config_digest.sha256),
-        "Layers": docker_layers,
-    }]);
-    std::fs::write(
-        output_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&docker_manifest)
-            .map_err(|e| format!("serialize docker manifest: {e}"))?,
-    )
-    .map_err(|e| format!("write manifest.json: {e}"))?;
+    write_manifest_and_index(output_dir, &manifest_json, &manifest_digest.sha256)?;
+    write_docker_manifest(output_dir, plan, &layer_results, &config_digest.sha256)?;
 
     // FJ-2200: Postcondition — valid OCI layout
     debug_assert!(
@@ -189,6 +101,126 @@ pub fn assemble_image(
         layers: layer_results,
         total_size,
     })
+}
+
+/// Build all layers from entry sets (E18: concurrent when multiple layers exist).
+fn build_all_layers(
+    layer_entries: &[Vec<LayerEntry>],
+    layer_config: &OciLayerConfig,
+) -> Result<Vec<(LayerBuildResult, Vec<u8>)>, String> {
+    if layer_entries.len() > 1 {
+        let results: Vec<Result<(LayerBuildResult, Vec<u8>), String>> = std::thread::scope(|s| {
+            let handles: Vec<_> = layer_entries
+                .iter()
+                .enumerate()
+                .map(|(i, entries)| {
+                    s.spawn(move || {
+                        build_layer(entries, layer_config)
+                            .map_err(|e| format!("layer {i} build failed: {e}"))
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .enumerate()
+                .map(|(i, h)| {
+                    h.join()
+                        .unwrap_or_else(|_| Err(format!("layer {i} build thread panicked")))
+                })
+                .collect()
+        });
+        results.into_iter().collect()
+    } else {
+        // Single layer: no thread overhead
+        layer_entries
+            .iter()
+            .enumerate()
+            .map(|(i, entries)| {
+                build_layer(entries, layer_config)
+                    .map_err(|e| format!("layer {i} build failed: {e}"))
+            })
+            .collect()
+    }
+}
+
+/// Build the OCI image config: history, architecture, entrypoint, labels.
+fn build_image_config(
+    plan: &ImageBuildPlan,
+    target_arch: Option<&str>,
+    diff_ids: Vec<String>,
+) -> OciImageConfig {
+    let history: Vec<OciHistoryEntry> = plan
+        .layers
+        .iter()
+        .map(|strategy| OciHistoryEntry {
+            created: None,
+            created_by: Some(strategy_description(strategy)),
+            empty_layer: false,
+            comment: None,
+        })
+        .collect();
+
+    let arch = target_arch.unwrap_or("amd64");
+    let mut config = OciImageConfig::for_arch(arch, "linux", diff_ids);
+    config.history = history;
+    if let Some(ref ep) = plan.entrypoint {
+        config.config.entrypoint = ep.clone();
+    }
+    for (k, v) in &plan.labels {
+        config.config.labels.insert(k.clone(), v.clone());
+    }
+    config
+}
+
+/// Write the manifest blob and OCI index.json.
+fn write_manifest_and_index(
+    output_dir: &Path,
+    manifest_json: &[u8],
+    manifest_hex: &str,
+) -> Result<(), String> {
+    std::fs::write(
+        output_dir.join(format!("blobs/sha256/{manifest_hex}")),
+        manifest_json,
+    )
+    .map_err(|e| format!("write manifest blob: {e}"))?;
+
+    let index = OciIndex::single(OciDescriptor {
+        media_type: "application/vnd.oci.image.manifest.v1+json".into(),
+        digest: format!("sha256:{manifest_hex}"),
+        size: manifest_json.len() as u64,
+        annotations: HashMap::new(),
+    });
+    let index_json =
+        serde_json::to_vec_pretty(&index).map_err(|e| format!("serialize index: {e}"))?;
+    std::fs::write(output_dir.join("index.json"), &index_json)
+        .map_err(|e| format!("write index.json: {e}"))
+}
+
+/// Write the Docker-compat manifest.json (consumed by `docker load`).
+fn write_docker_manifest(
+    output_dir: &Path,
+    plan: &ImageBuildPlan,
+    layer_results: &[LayerBuildResult],
+    config_hex: &str,
+) -> Result<(), String> {
+    let docker_layers: Vec<String> = layer_results
+        .iter()
+        .map(|r| {
+            let hex = r.digest.strip_prefix("sha256:").unwrap_or(&r.digest);
+            format!("blobs/sha256/{hex}")
+        })
+        .collect();
+    let docker_manifest = serde_json::json!([{
+        "RepoTags": [&plan.tag],
+        "Config": format!("blobs/sha256/{config_hex}"),
+        "Layers": docker_layers,
+    }]);
+    std::fs::write(
+        output_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&docker_manifest)
+            .map_err(|e| format!("serialize docker manifest: {e}"))?,
+    )
+    .map_err(|e| format!("write manifest.json: {e}"))
 }
 
 fn strategy_description(strategy: &LayerStrategy) -> String {
