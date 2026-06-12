@@ -157,7 +157,7 @@ impl MachineDelta {
 
 /// FJ-2002: Get the current git HEAD ref, if in a git repository.
 pub fn get_git_ref() -> Option<String> {
-    std::process::Command::new("git")
+    crate::core::gitenv::git()
         .args(["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
@@ -168,7 +168,7 @@ pub fn get_git_ref() -> Option<String> {
 
 /// FJ-2002: Check if the git working tree is dirty (uncommitted changes).
 pub fn git_is_dirty() -> bool {
-    std::process::Command::new("git")
+    crate::core::gitenv::git()
         .args(["status", "--porcelain"])
         .output()
         .ok()

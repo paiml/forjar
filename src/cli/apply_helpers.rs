@@ -107,16 +107,14 @@ pub(crate) fn git_commit_state(
     let msg = format!("forjar: {config_name} — {converged} resource(s) converged");
     // Find the git repo root from state_dir's parent
     let repo_root = state_dir.parent().unwrap_or(Path::new("."));
-    let status = std::process::Command::new("git")
-        .current_dir(repo_root)
+    let status = crate::core::gitenv::git_in(repo_root)
         .args(["add", "state"])
         .status()
         .map_err(|e| format!("git add failed: {e}"))?;
     if !status.success() {
         return Err("git add state/ failed".to_string());
     }
-    let status = std::process::Command::new("git")
-        .current_dir(repo_root)
+    let status = crate::core::gitenv::git_in(repo_root)
         .args(["commit", "--no-verify", "-m", &msg])
         .status()
         .map_err(|e| format!("git commit failed: {e}"))?;

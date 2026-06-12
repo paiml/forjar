@@ -1,7 +1,7 @@
 //! Doctor diagnostics.
 
 use super::helpers::*;
-use crate::core::{parser, secrets, types};
+use crate::core::{gitenv, parser, secrets, types};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -238,8 +238,8 @@ fn check_state_dir(fix: bool) -> Vec<DoctorCheck> {
 }
 
 fn check_git() -> DoctorCheck {
-    use std::process::Command;
-    match Command::new("git").args(["status", "--porcelain"]).output() {
+    let out = gitenv::git().args(["status", "--porcelain"]).output();
+    match out {
         Ok(out) if out.status.success() => {
             let output = String::from_utf8_lossy(&out.stdout);
             if output.trim().is_empty() {
