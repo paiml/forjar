@@ -365,3 +365,64 @@ resources:
 
     assert!(!path.exists(), "dry-run should not create files");
 }
+
+#[test]
+fn test_gh97_plan_apply_equivalence() {
+    // plan-apply-equivalence-v1 contract: the action set `forjar plan`
+    // predicts equals the action set `forjar apply` executes for the same
+    // config + state.
+    let output_dir = tempfile::tempdir().unwrap();
+    let file_path = output_dir.path().join("equiv.txt");
+    let config = drift_config(file_path.to_str().unwrap());
+    let dir = tempfile::tempdir().unwrap();
+
+    let order = resolver::build_execution_order(&config).unwrap();
+
+    // Fresh state: plan predicts exactly one create
+    let plan1 = planner::plan(&config, &order, &HashMap::new(), None);
+    assert_eq!(plan1.to_create, 1);
+    assert_eq!(plan1.unchanged, 0);
+
+    let cfg = ApplyConfig {
+        config: &config,
+        state_dir: dir.path(),
+        force: false,
+        dry_run: false,
+        machine_filter: None,
+        resource_filter: None,
+        tag_filter: None,
+        group_filter: None,
+        timeout_secs: None,
+        force_unlock: false,
+        progress: false,
+        retry: 0,
+        parallel: None,
+        resource_timeout: None,
+        rollback_on_failure: false,
+        max_parallel: None,
+        trace: false,
+        run_id: None,
+        refresh: false,
+        force_tag: None,
+    };
+    let r1 = apply(&cfg).unwrap();
+
+    // Executor performed exactly what the plan predicted
+    assert_eq!(r1[0].resources_converged, plan1.to_create + plan1.to_update);
+    assert_eq!(r1[0].resources_unchanged, plan1.unchanged);
+    assert_eq!(r1[0].resources_failed, 0);
+
+    // Converged state: plan over the saved locks predicts zero work
+    let lock = state::load_lock(dir.path(), "local").unwrap().unwrap();
+    let mut locks = HashMap::new();
+    locks.insert("local".to_string(), lock);
+    let plan2 = planner::plan(&config, &order, &locks, None);
+    assert_eq!(plan2.to_create + plan2.to_update + plan2.to_destroy, 0);
+    assert_eq!(plan2.unchanged, 1);
+
+    // Second apply executes exactly the predicted (empty) action set
+    let r2 = apply(&cfg).unwrap();
+    assert_eq!(r2[0].resources_converged, plan2.to_create + plan2.to_update);
+    assert_eq!(r2[0].resources_unchanged, plan2.unchanged);
+    assert_eq!(r2[0].resources_failed, 0);
+}

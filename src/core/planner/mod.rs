@@ -59,6 +59,16 @@ pub fn plan(
         }
     }
 
+    // idempotent-apply-v1 contract: action counters partition the change
+    // set — every planned change is counted exactly once, so a fully
+    // converged stack shows to_create = to_update = to_destroy = 0
+    // (f(f(x)) = f(x) at the plan level).
+    debug_assert_eq!(
+        (to_create + to_update + to_destroy + unchanged) as usize,
+        changes.len(),
+        "IDEMPOTENT-APPLY violated: action counters do not partition the change set"
+    );
+
     ExecutionPlan {
         name: config.name.clone(),
         changes,
@@ -223,7 +233,8 @@ fn determine_present_action(
         PlanAction::Update
     };
 
-    // FJ-2200: Idempotency postcondition — converged + matching hash → NoOp
+    // FJ-2200 / idempotent-apply-v1 contract: idempotency postcondition —
+    // converged + matching hash → NoOp
     debug_assert!(
         rl.status != ResourceStatus::Converged
             || rl.hash != desired_hash
@@ -304,7 +315,8 @@ pub fn hash_desired_state(resource: &Resource) -> String {
     let joined = components.join("\0");
     let result = hasher::hash_string(&joined);
 
-    // FJ-2200: Determinism postcondition — calling again must produce same hash
+    // FJ-2200 / idempotent-apply-v1 contract: determinism postcondition —
+    // calling again must produce the same hash
     debug_assert_eq!(
         result,
         hasher::hash_string(&joined),

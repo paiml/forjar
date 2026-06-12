@@ -1,0 +1,121 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-06-12"
+  author: "PAIML Engineering"
+  description: |
+    Idempotent apply — f(f(x)) = f(x) at the plan level. A resource whose
+    lock entry is Converged with a hash equal to hash_desired_state(resource)
+    plans NoOp, and a second plan over converged locks yields zero pending
+    changes. Resolves the idempotency leg of paiml/forjar#97 (KZ-11).
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/97"
+    - "C3: forjar's idempotency falsifiable claim — README.md § Falsifiable Claims"
+    - "FJ-2200: runtime idempotency contracts — src/core/planner/mod.rs"
+    - "apply-summary-distinguishability-v1.yaml — C3 observability through --force"
+
+equations:
+  noop_fixed_point:
+    formula: |
+      determine_present_action(id, r, m, locks) = NoOp
+        ⟺ locks[m].resources[id].status = Converged
+          ∧ locks[m].resources[id].hash = hash_desired_state(r)
+    domain: "r ∈ Resource, locks ∈ HashMap<String, StateLock>"
+    codomain: "PlanAction"
+    invariants:
+      - "Converged lock entry with matching hash always plans NoOp"
+      - "Converged lock entry with differing hash always plans Update"
+      - "Missing lock entry always plans Create"
+
+  hash_determinism:
+    formula: "hash_desired_state(r) = hash_desired_state(r)"
+    domain: "r ∈ Resource"
+    codomain: "String ('blake3:' || hex digest)"
+    invariants:
+      - "Same resource always produces the same hash"
+      - "Hash component field order is stable across calls"
+
+  plan_fixed_point:
+    formula: |
+      plan(c, order, locks_after_apply(c), tag) = P
+        where P.to_create = P.to_update = P.to_destroy = 0
+    domain: "c ∈ ForjarConfig, order ∈ [String], locks ∈ HashMap<String, StateLock>"
+    codomain: "ExecutionPlan"
+    invariants:
+      - "to_create + to_update + to_destroy + unchanged = |changes|"
+      - "Second plan over converged locks yields zero pending changes"
+
+proof_obligations:
+  - type: invariant
+    property: "Converged + matching hash is a NoOp fixed point"
+    formal: "∀ r, locks: status = Converged ∧ hash = hash_desired_state(r) ⟹ action = NoOp"
+    applies_to: all
+    enforced_by: "src/core/planner/mod.rs::determine_present_action debug_assert! (FJ-2200)"
+
+  - type: invariant
+    property: "Desired-state hash is deterministic"
+    formal: "∀ r: hash_desired_state(r) = hash_desired_state(r)"
+    applies_to: all
+    enforced_by: "src/core/planner/mod.rs::hash_desired_state debug_assert_eq! (FJ-2200)"
+
+  - type: invariant
+    property: "Plan counters partition the change set"
+    formal: "∀ P = plan(...): P.to_create + P.to_update + P.to_destroy + P.unchanged = |P.changes|"
+    applies_to: all
+    enforced_by: "src/core/planner/mod.rs::plan debug_assert_eq!"
+
+  - type: test
+    property: "Second plan over converged locks is all-NoOp (f(f(x)) = f(x))"
+    formal: "locks = converged(c) ⟹ plan(c, locks).{to_create, to_update, to_destroy} = 0"
+    applies_to: all
+    enforced_by: "src/core/planner/tests_plan.rs::test_gh97_second_plan_over_converged_locks_is_noop"
+
+enforcement:
+  layer: runtime
+  failure_mode: debug_assert
+  ci_gate: required
+  notes: |
+    The debug_assert! call-sites abort a debug build when the fixed point
+    is violated; release builds skip the asserts, but unit tests and the
+    bounded Kani harness (src/core/kani_proofs.rs::
+    proof_planner_idempotency_bounded) cover the same shapes on CI.
+
+falsification_tests:
+  - id: FALSIFY-IDEM-001
+    rule: "NoOp fixed point"
+    prediction: "Converged lock with hash = hash_desired_state(r) plans NoOp"
+    test: "src/core/planner/tests_plan.rs::test_fj004_plan_all_unchanged"
+    if_fails: "Planner re-applies converged resources — idempotency broken"
+
+  - id: FALSIFY-IDEM-002
+    rule: "Hash determinism"
+    prediction: "hash_desired_state(r) called twice yields identical strings"
+    test: "src/core/planner/tests_hash.rs determinism tests"
+    if_fails: "Unstable field ordering or non-deterministic hashing"
+
+  - id: FALSIFY-IDEM-003
+    rule: "Plan fixed point"
+    prediction: "plan over post-apply locks yields zero create/update/destroy"
+    test: "src/core/planner/tests_plan.rs::test_gh97_second_plan_over_converged_locks_is_noop"
+    if_fails: "f(f(x)) ≠ f(x): apply is not idempotent at the plan level"
+
+kani_harnesses:
+  - id: KANI-IDEM-001
+    obligation: "NoOp fixed point"
+    property: "converged + matching hash → NoOp"
+    bound: 4
+    strategy: bounded
+    harness: proof_planner_idempotency_bounded
+
+qa_gate:
+  id: F-IDEM-001
+  name: "Idempotent Apply Contract"
+  description: "f(f(x)) = f(x) quality gate for plan-level idempotency"
+  checks:
+    - "noop_fixed_point"
+    - "hash_determinism"
+    - "plan_fixed_point"
+  pass_criteria: "All 3 falsification tests pass"
+  falsification: "Make determine_present_action return Update on matching hashes"
+
+verification_level: L3

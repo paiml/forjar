@@ -355,3 +355,61 @@ fn test_fj132_plan_mixed_actions() {
     assert_eq!(p.unchanged, 1, "pkg should be unchanged");
     assert_eq!(p.to_create, 1, "conf should be created");
 }
+
+#[test]
+fn test_gh97_plan_counter_conservation() {
+    // idempotent-apply-v1 contract: action counters partition the change set.
+    let config = make_config();
+    let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
+    let locks = HashMap::new();
+
+    let p = plan(&config, &order, &locks, None);
+    assert_eq!(
+        (p.to_create + p.to_update + p.to_destroy + p.unchanged) as usize,
+        p.changes.len(),
+        "counters must partition the change set"
+    );
+}
+
+#[test]
+fn test_gh97_second_plan_over_converged_locks_is_noop() {
+    // idempotent-apply-v1 contract: f(f(x)) = f(x) — a second plan over
+    // locks that record every resource as Converged with the desired-state
+    // hash yields zero pending changes.
+    let config = make_config();
+    let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
+
+    let mut resources = indexmap::IndexMap::new();
+    for id in &order {
+        let resource = &config.resources[id];
+        resources.insert(
+            id.clone(),
+            ResourceLock {
+                resource_type: resource.resource_type.clone(),
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: hash_desired_state(resource),
+                details: HashMap::new(),
+            },
+        );
+    }
+    let lock = StateLock {
+        schema: "1.0".to_string(),
+        machine: "m1".to_string(),
+        hostname: "m1".to_string(),
+        generated_at: "2026-01-01T00:00:00Z".to_string(),
+        generator: "forjar".to_string(),
+        blake3_version: "1.8".to_string(),
+        resources,
+    };
+    let mut locks = HashMap::new();
+    locks.insert("m1".to_string(), lock);
+
+    let p = plan(&config, &order, &locks, None);
+    assert_eq!(p.to_create, 0, "converged stack must plan no creates");
+    assert_eq!(p.to_update, 0, "converged stack must plan no updates");
+    assert_eq!(p.to_destroy, 0, "converged stack must plan no destroys");
+    assert_eq!(p.unchanged, 3, "all resources must be NoOp");
+    assert!(p.changes.iter().all(|c| c.action == PlanAction::NoOp));
+}

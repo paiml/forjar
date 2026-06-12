@@ -1,0 +1,112 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-06-12"
+  author: "PAIML Engineering"
+  description: |
+    Plan/apply equivalence — the set of actions `forjar plan` predicts
+    equals the set of actions `forjar apply` executes for the same
+    config + state. Both commands derive their action set from the same
+    pure function (planner::plan), and the executor consumes exactly the
+    planned change set. Resolves the plan/apply-equivalence leg of
+    paiml/forjar#97 (KZ-11).
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/97"
+    - "C2: forjar's plan-fidelity falsifiable claim — README.md § Falsifiable Claims"
+    - "dag-ordering-v1.yaml — shared execution order for plan and apply"
+
+equations:
+  plan_determinism:
+    formula: "plan(c, order, locks, tag) = plan(c, order, locks, tag)"
+    domain: "c ∈ ForjarConfig, order ∈ [String], locks ∈ HashMap<String, StateLock>"
+    codomain: "ExecutionPlan"
+    invariants:
+      - "plan is a pure function of (config, execution_order, locks, tag_filter)"
+      - "forjar plan and forjar apply call the same planner::plan function"
+
+  apply_executes_plan:
+    formula: |
+      executed(apply(cfg)) = changes(plan(cfg.config, order, plan_locks, cfg.tag_filter))
+        partitioned per machine
+    domain: "cfg ∈ ApplyConfig"
+    codomain: "Vec<ApplyResult>"
+    invariants:
+      - "The executor iterates exactly the planned change set per machine"
+      - "converged + unchanged + failed never exceeds the planned change count per machine"
+      - "No resource outside plan.changes is ever executed"
+
+  noop_no_execution:
+    formula: "change.action = NoOp ∧ ¬cfg.force ∧ ¬triggered ⟹ outcome = Unchanged"
+    domain: "change ∈ PlannedChange, cfg ∈ ApplyConfig"
+    codomain: "ResourceOutcome"
+    invariants:
+      - "A planned NoOp without force or trigger runs no apply script"
+      - "A planned Create or Update always reaches execute_resource"
+
+proof_obligations:
+  - type: equivalence
+    property: "Plan and apply derive from the same function"
+    formal: "cmd_plan and executor::apply both call planner::plan with the same (config, order, locks, tag)"
+    applies_to: all
+    enforced_by: "src/core/executor/mod.rs::apply, src/cli/plan.rs::cmd_plan — single planner::plan call site each"
+
+  - type: invariant
+    property: "Executor outcome conservation"
+    formal: "∀ machine m: converged(m) + unchanged(m) + failed(m) ≤ |plan.changes(m)|"
+    applies_to: all
+    enforced_by: "src/core/executor/machine.rs::apply_machine debug_assert!"
+
+  - type: test
+    property: "Apply outcome counts match the plan's prediction"
+    formal: |
+      apply(fresh)     → converged = to_create + to_update ∧ unchanged = plan.unchanged
+      apply(converged) → converged = 0 ∧ unchanged = plan.unchanged
+    applies_to: all
+    enforced_by: "src/core/executor/tests_converge.rs::test_gh97_plan_apply_equivalence"
+    notes: |
+      Deviation is only legal in the executor's *narrowing* direction
+      (resource_filter, when:/arch: re-evaluation, jidoka early stop,
+      --force/--refresh widening is explicit operator intent). Without
+      those flags the executed set equals the planned set.
+
+enforcement:
+  layer: runtime
+  failure_mode: debug_assert
+  ci_gate: required
+  notes: |
+    The runtime debug_assert! aborts a debug build if the executor records
+    more outcomes than the plan predicted changes (planner/executor
+    disagreement). Release builds skip the assert; the integration test
+    catches the same shape on CI.
+
+falsification_tests:
+  - id: FALSIFY-PAE-001
+    rule: "Plan determinism"
+    prediction: "plan(c, order, locks, tag) called twice yields identical plans"
+    test: "call planner::plan twice with the same inputs, compare summaries"
+    if_fails: "Non-deterministic iteration or hashing in the planner"
+
+  - id: FALSIFY-PAE-002
+    rule: "Apply executes plan"
+    prediction: "Fresh apply converges exactly to_create + to_update resources"
+    test: "src/core/executor/tests_converge.rs::test_gh97_plan_apply_equivalence"
+    if_fails: "Executor executes actions the plan did not predict"
+
+  - id: FALSIFY-PAE-003
+    rule: "NoOp no execution"
+    prediction: "Second apply over converged state reports unchanged = plan.unchanged and converged = 0"
+    test: "src/core/executor/tests_converge.rs::test_gh97_plan_apply_equivalence"
+    if_fails: "Executor re-runs scripts for planned NoOps without --force"
+
+qa_gate:
+  id: F-PAE-001
+  name: "Plan/Apply Equivalence Contract"
+  description: "Plan-predicted action set equals apply-executed action set"
+  checks:
+    - "plan_determinism"
+    - "apply_executes_plan"
+    - "noop_no_execution"
+  pass_criteria: "All 3 falsification tests pass"
+  falsification: "Make apply() re-plan with empty locks while plan uses real locks"
+
+verification_level: L3

@@ -1,0 +1,121 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-06-12"
+  author: "PAIML Engineering"
+  description: |
+    Destroy/undo roundtrip — a destroy (or any state mutation) followed by
+    `forjar undo` restores the prior generation's state snapshot. Each apply
+    snapshots the state directory as a numbered generation (Nix-style);
+    rollback restores the snapshot and atomically re-points the `current`
+    symlink. Resolves the destroy/undo-roundtrip leg of paiml/forjar#97
+    (KZ-11).
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/97"
+    - "FJ-1386: generational state snapshots — src/cli/generation.rs"
+    - "FJ-2003: active undo — src/cli/undo.rs"
+    - "FJ-2005: undo-destroy replay — src/cli/undo_helpers.rs"
+    - "Dolstra (2006) The Purely Functional Software Deployment Model (Nix generations)"
+
+equations:
+  snapshot_generation:
+    formula: |
+      create_generation(S) = g
+        where generations/g = copy(S) ∧ current → g ∧ g = max(existing) + 1
+    domain: "S = state_dir contents (lock files per machine)"
+    codomain: "Result<u32, String> (new generation number)"
+    invariants:
+      - "Generation numbers are strictly increasing and never reused"
+      - "current symlink points at the new generation after create"
+      - "Snapshot excludes generations/ and snapshots/ (no recursion)"
+
+  restore_generation:
+    formula: "rollback_to_generation(g) ⟹ state_dir = generations/g ∧ current → g"
+    domain: "g ∈ u32, existing generation"
+    codomain: "Result<(), String>"
+    invariants:
+      - "current symlink points at the restored generation after rollback"
+      - "Restored lock files match the snapshot content byte-for-byte"
+      - "Rollback to a nonexistent generation is an error"
+      - "Symlink switch is atomic (temp symlink + rename)"
+
+  undo_roundtrip:
+    formula: |
+      undo(n) targets g = current − n;
+      rollback(g) ∘ mutate ∘ snapshot(S → g) = S at the lock level
+    domain: "n ∈ u32, n ≤ current generation"
+    codomain: "Result<(), String>"
+    invariants:
+      - "Destroy followed by undo restores the prior generation's lock state"
+      - "undo(n) with fewer than n generations is an error"
+      - "After undo, current_generation = generation_from − n"
+
+proof_obligations:
+  - type: invariant
+    property: "Create points current at the new generation"
+    formal: "∀ S: create_generation(S) = Ok(g) ⟹ current_generation(gen_dir) = Some(g)"
+    applies_to: all
+    enforced_by: "src/cli/generation.rs::create_generation debug_assert_eq!"
+
+  - type: invariant
+    property: "Rollback points current at the restored generation"
+    formal: "∀ g: rollback_to_generation(g) = Ok(()) ⟹ current_generation(gen_dir) = Some(g)"
+    applies_to: all
+    enforced_by: "src/cli/generation.rs::rollback_to_generation debug_assert_eq!"
+
+  - type: test
+    property: "Roundtrip restores the snapshot byte-for-byte"
+    formal: "snapshot(S → g); mutate(S); rollback(g) ⟹ locks(state_dir) = locks(S)"
+    applies_to: all
+    enforced_by: "src/cli/tests_generation.rs::test_gh97_destroy_undo_roundtrip_restores_snapshot"
+
+  - type: soundness
+    property: "Undo refuses impossible targets"
+    formal: "current < n ⟹ cmd_undo(n) = Err"
+    applies_to: all
+    enforced_by: "src/cli/undo.rs::cmd_undo guard (current < generations)"
+
+enforcement:
+  layer: runtime
+  failure_mode: debug_assert
+  ci_gate: required
+  notes: |
+    The debug_assert! call-sites abort a debug build if the `current`
+    symlink does not resolve to the generation just created/restored
+    (a torn symlink switch). Release builds skip the asserts; the
+    roundtrip unit test catches the same shape on CI. The replay path
+    (cmd_undo_destroy) is best-effort by design — entries flagged
+    reliable_recreate=false require --force and are excluded from the
+    byte-for-byte guarantee.
+
+falsification_tests:
+  - id: FALSIFY-UNDO-001
+    rule: "Snapshot monotonicity"
+    prediction: "Consecutive create_generation calls return strictly increasing numbers"
+    test: "src/cli/tests_generation.rs::test_create_multiple_generations"
+    if_fails: "Generation numbers reused — rollback target ambiguous"
+
+  - id: FALSIFY-UNDO-002
+    rule: "Roundtrip restoration"
+    prediction: "snapshot, mutate, rollback restores original lock content and current symlink"
+    test: "src/cli/tests_generation.rs::test_gh97_destroy_undo_roundtrip_restores_snapshot"
+    if_fails: "Rollback loses or corrupts state — undo is not a true inverse"
+
+  - id: FALSIFY-UNDO-003
+    rule: "Nonexistent target rejected"
+    prediction: "rollback_to_generation to a missing generation returns Err"
+    test: "src/cli/tests_generation.rs::test_rollback_nonexistent_generation"
+    if_fails: "Rollback silently no-ops or destroys state on bad target"
+
+qa_gate:
+  id: F-UNDO-001
+  name: "Destroy/Undo Roundtrip Contract"
+  description: "Undo restores the prior generation's state snapshot"
+  checks:
+    - "snapshot_generation"
+    - "restore_generation"
+    - "undo_roundtrip"
+  pass_criteria: "All 3 falsification tests pass"
+  falsification: "Skip restore_generation_to_state in rollback, switching only the symlink"
+
+verification_level: L3
