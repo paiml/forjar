@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-06-12
+
+### Fixed
+
+- **`install.sh` works end-to-end** (#143) — verified live against the
+  v1.4.3 release. The curl installer previously failed on every
+  platform: wrong extraction path (archives contain a directory),
+  unexpanded `~` fallback dir, hard dependency on a SHA256SUMS asset no
+  release carried, `example.com` placeholder URLs, and a post-install
+  version check that reported any pre-existing PATH binary. Generator
+  now emits `$HOME`, directory-aware extraction, per-asset `.sha256`
+  fallback, `"$DEST/$BINARY"`-anchored verification, `--prefix`
+  traversal rejection, and lints clean (bashrs 16 errors → 0).
+- **gnu binaries run on older distros again**: release builds moved to
+  ubuntu-22.04 (glibc 2.35 baseline) — 24.04-built binaries demanded
+  glibc ≥ 2.38.
+- Regression tests pin the fixes for #85, #86, #88, #90 (#140); 15
+  stale issues closed with evidence — open issues went from 18 to 1.
+- Six F-grade files refactored to A-/B+ (#142, closes #116): zero
+  F-grade files repo-wide; strict TDG pre-commit enforcement can be
+  re-enabled via `pmat hooks refresh`.
+
+### Added
+
+- `binary-release.yml` uploads a combined **SHA256SUMS** asset per
+  release (backfilled to v1.4.0/1/3); nightly **tag/release parity
+  check**; all 8 historical tags now have GitHub releases with
+  CHANGELOG-sourced notes, and v1.4.0/v1.4.1 received backfilled
+  binaries.
+- `tests/install_sh_parity.rs`: committed installer is byte-equal to
+  generator output; workflow asset naming matches installer
+  expectations.
+- README documents the binary install path (installer one-liner,
+  manual verify, cargo-binstall).
+- `forjar dist` resolves **real checksums/versions** for Homebrew/Nix
+  artifacts (#139, PMAT-080/F-3608/F-3610): `--version` + offline
+  `--checksums-file`, hard errors instead of `PLACEHOLDER_CHECKSUM`.
+
 ## [1.4.3] - 2026-06-12
 
 ### Fixed

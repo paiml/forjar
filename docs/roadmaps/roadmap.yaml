@@ -1271,11 +1271,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-4: Tag v1.4.3 and verify end-to-end hosted-runner release'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
   - Cargo.toml + Cargo.lock bumped to 1.4.3 together, CHANGELOG entry written
@@ -1290,11 +1290,11 @@ roadmap:
   github_issue: 96
   item_type: task
   title: 'HYG-1: Regression tests for already-fixed issues, then close ~12 stale issues with evidence'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
   - Regression tests pin fixes for #85 (secret_provider traversal/injection), #86 (p95 clamp), #87 (UTF-8 truncate), #88 (recipe depends_on)
@@ -1310,11 +1310,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'INST-1: install.sh works end-to-end — SHA256SUMS asset, naming parity test, README/book install rewrite'
-  status: pending
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
   - binary-release.yml uploads a combined SHA256SUMS asset (or install.sh falls back to per-asset .sha256)
@@ -1331,11 +1331,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'INST-2: Backfill 5 tag-only GitHub releases + nightly tag/release parity check'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
   - v1.0.0, v1.1.0, v1.1.1, v1.4.0, v1.4.1 have GitHub releases with notes from matching CHANGELOG sections
@@ -1350,11 +1350,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-5: Tag v1.4.4 — working install path release'
-  status: pending
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
   - v1.4.4 tagged after INST-1/INST-2 merge; release auto-created with binaries + SHA256SUMS + install.sh verified
@@ -1368,11 +1368,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DIST-1: forjar dist --version + real checksum resolution for Homebrew/Nix (F-3608, F-3610)'
-  status: pending
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T22:30:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - DistArgs gains --version <TAG>; generators resolve real per-target sha256 from the release SHA256SUMS (network) or --checksums-file (offline)
