@@ -61,18 +61,7 @@ pub fn cmd_image_iso(
     if !base_iso.exists() {
         return Err(format!("base ISO not found: {}", base_iso.display()));
     }
-
-    // Check xorriso is available
-    let has_xorriso = std::process::Command::new("which")
-        .arg("xorriso")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success());
-
-    if !has_xorriso {
-        return Err("xorriso not found — install with: sudo apt install xorriso".to_string());
-    }
+    ensure_xorriso()?;
 
     let user_data = generate_user_data(&name, machine, disk, locale, timezone)?;
 
@@ -81,24 +70,8 @@ pub fn cmd_image_iso(
     let work = std::env::temp_dir().join(format!("forjar-image-{work_id}"));
     std::fs::create_dir_all(&work).map_err(|e| format!("create work dir: {e}"))?;
 
-    // Extract base ISO
-    extract_iso(base_iso, &work)?;
-
-    // Write user-data and meta-data
-    let nocloud = work.join("nocloud");
-    std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
-    std::fs::write(nocloud.join("user-data"), &user_data)
-        .map_err(|e| format!("write user-data: {e}"))?;
-    std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
-
-    // Copy forjar binary into ISO
-    embed_forjar_binary(&work)?;
-
-    // Copy forjar.yaml into ISO
-    let iso_config_dir = work.join("forjar");
-    std::fs::create_dir_all(&iso_config_dir).map_err(|e| format!("create forjar dir: {e}"))?;
-    std::fs::copy(file, iso_config_dir.join("forjar.yaml"))
-        .map_err(|e| format!("copy config: {e}"))?;
+    // Extract base ISO and stage the autoinstall payload
+    stage_iso_workdir(&work, base_iso, &user_data, file)?;
 
     // Repack ISO with xorriso
     repack_iso(&work, output)?;
@@ -106,8 +79,59 @@ pub fn cmd_image_iso(
     // Clean up temp directory
     let _ = std::fs::remove_dir_all(&work);
 
+    print_iso_result(output, &name, base_iso, json);
+    Ok(())
+}
+
+/// Verify xorriso is installed and on PATH.
+fn ensure_xorriso() -> Result<(), String> {
+    let has_xorriso = std::process::Command::new("which")
+        .arg("xorriso")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success());
+
+    if has_xorriso {
+        Ok(())
+    } else {
+        Err("xorriso not found — install with: sudo apt install xorriso".to_string())
+    }
+}
+
+/// Extract the base ISO and stage the autoinstall payload
+/// (user-data, meta-data, forjar binary, forjar.yaml) into the work dir.
+fn stage_iso_workdir(
+    work: &Path,
+    base_iso: &Path,
+    user_data: &str,
+    file: &Path,
+) -> Result<(), String> {
+    // Extract base ISO
+    extract_iso(base_iso, work)?;
+
+    // Write user-data and meta-data
+    let nocloud = work.join("nocloud");
+    std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
+    std::fs::write(nocloud.join("user-data"), user_data)
+        .map_err(|e| format!("write user-data: {e}"))?;
+    std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
+
+    // Copy forjar binary into ISO
+    embed_forjar_binary(work)?;
+
+    // Copy forjar.yaml into ISO
+    let iso_config_dir = work.join("forjar");
+    std::fs::create_dir_all(&iso_config_dir).map_err(|e| format!("create forjar dir: {e}"))?;
+    std::fs::copy(file, iso_config_dir.join("forjar.yaml"))
+        .map_err(|e| format!("copy config: {e}"))?;
+    Ok(())
+}
+
+/// Print the ISO generation summary (JSON or human-readable).
+fn print_iso_result(output: &Path, name: &str, base_iso: &Path, json: bool) {
+    let size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
     if json {
-        let size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
         println!(
             "{}",
             serde_json::json!({
@@ -118,7 +142,6 @@ pub fn cmd_image_iso(
             })
         );
     } else {
-        let size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
         let size_mb = size / (1024 * 1024);
         println!("ISO generated: {} ({size_mb} MB)", output.display());
         println!("  machine: {name}");
@@ -128,8 +151,6 @@ pub fn cmd_image_iso(
             output.display()
         );
     }
-
-    Ok(())
 }
 
 /// Resolve the target machine from config.
@@ -142,17 +163,18 @@ pub fn resolve_machine<'a>(
             .machines
             .get(name)
             .ok_or_else(|| format!("machine '{name}' not found in config"))?;
-        Ok((name.to_string(), m))
-    } else if config.machines.len() == 1 {
-        let (name, m) = config.machines.iter().next().unwrap();
-        Ok((name.clone(), m))
-    } else if config.machines.is_empty() {
-        Err("no machines defined in config".to_string())
-    } else {
-        let names: Vec<_> = config.machines.keys().collect();
-        Err(format!(
-            "multiple machines found, specify one with --machine: {names:?}"
-        ))
+        return Ok((name.to_string(), m));
+    }
+    let mut iter = config.machines.iter();
+    match (iter.next(), iter.next()) {
+        (Some((name, m)), None) => Ok((name.clone(), m)),
+        (None, _) => Err("no machines defined in config".to_string()),
+        (Some(_), Some(_)) => {
+            let names: Vec<_> = config.machines.keys().collect();
+            Err(format!(
+                "multiple machines found, specify one with --machine: {names:?}"
+            ))
+        }
     }
 }
 
@@ -173,20 +195,7 @@ pub fn generate_user_data(
     let ssh_keys = read_ssh_pub_key(machine.ssh_key.as_deref())?;
 
     // Determine storage layout
-    let storage_layout = match disk {
-        "auto-lvm" => "    layout:\n      name: lvm".to_string(),
-        "auto-zfs" => "    layout:\n      name: zfs".to_string(),
-        path if path.starts_with('/') => {
-            format!(
-                "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
-            )
-        }
-        other => {
-            return Err(format!(
-                "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
-            ))
-        }
-    };
+    let storage_layout = storage_layout_yaml(disk)?;
 
     let mut yaml = String::from("#cloud-config\nautoinstall:\n  version: 1\n");
     yaml.push_str(&format!("  locale: {locale}\n"));
@@ -247,6 +256,20 @@ pub fn generate_user_data(
     }
 
     Ok(yaml)
+}
+
+/// Map the disk argument to an autoinstall storage layout YAML snippet.
+fn storage_layout_yaml(disk: &str) -> Result<String, String> {
+    match disk {
+        "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
+        "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
+        path if path.starts_with('/') => Ok(format!(
+            "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
+        )),
+        other => Err(format!(
+            "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
+        )),
+    }
 }
 
 /// Read SSH public key file (tries .pub extension).
