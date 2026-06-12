@@ -1172,11 +1172,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-1: Commit Cargo.lock version bump + CI lockfile-consistency preflight'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - Cargo.lock forjar entry matches Cargo.toml version on main (1.4.2)
@@ -1191,11 +1191,11 @@ roadmap:
   github_issue: 104
   item_type: task
   title: 'REL-2: deny.toml license exception for libbz2-rs-sys — Security Audit green'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - cargo deny check exits 0 locally and in audit.yml (advisories ok, bans ok, licenses ok, sources ok)
@@ -1211,11 +1211,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-3: Durable hosted-runner release path — binary-release.yml on tag push with idempotent release create'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - binary-release.yml triggers on push tags v* and creates the GitHub Release idempotently on ubuntu-latest
@@ -1231,11 +1231,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'SAFE-1: Fix 3 user-input-reachable panics (conditions unquote, script_secret_lint UTF-8, store_pin hash slice)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - 'src/core/conditions.rs unquote() requires len >= 2 before stripping quotes; `when: ''x == "''` no longer panics'
@@ -1252,11 +1252,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'CI-1: Remove dead provable-contracts plumbing from remaining 11 workflows + merge dependabot action bumps'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - grep -r provable-contracts .github/workflows/ returns no matches
@@ -1266,16 +1266,16 @@ roadmap:
   subtasks: []
   estimated_effort: 0.5d
   labels: [sprint-2026-06, day-2, ci]
-  notes: 'Stale steps caused real failures: issues #104, #112, #113.'
+  notes: 'Plumbing removed via #131/#133. Dependabot action bumps (#121/#122/#128) deferred - auto-rebase pending.'
 - id: PMAT-075
   github_issue: null
   item_type: task
   title: 'REL-4: Tag v1.4.3 and verify end-to-end hosted-runner release'
-  status: pending
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - Cargo.toml + Cargo.lock bumped to 1.4.3 together, CHANGELOG entry written
@@ -1428,11 +1428,11 @@ roadmap:
   github_issue: 97
   item_type: task
   title: 'CONTRACT-1: Author 3 missing provable contracts — idempotent-apply, plan-apply-equivalence, destroy-undo-roundtrip'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - contracts/idempotent-apply-v1.yaml formalizes converged-lock => NoOp plan + second-apply-zero-changes, bound to forjar::core::planner
@@ -1485,11 +1485,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'DOCS-1: mdBook build in CI + CLI reference parity (154 subcommands)'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T20:30:00Z
   spec: null
   acceptance_criteria:
   - CI job builds docs/book with mdbook; intentionally broken SUMMARY link fails CI
@@ -1555,3 +1555,22 @@ roadmap:
   estimated_effort: 0.25d
   labels: [sprint-2026-06, day-10, release]
   notes: 'Sprint exit: 4 GitHub tagged releases (v1.4.3, v1.4.4, v1.5.0, v1.5.1), 1 crates.io publish (v1.5.0).'
+- id: PMAT-090
+  github_issue: 134
+  item_type: task
+  title: 'SAFE-2: Scrub GIT_DIR env in all forjar git subprocesses (auto-commit repo escape)'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T20:30:00Z
+  updated: 2026-06-12T20:30:00Z
+  spec: null
+  acceptance_criteria:
+  - core::gitenv module scrubs all nine git repo-discovery env vars; every production git call site uses it
+  - test_auto_commit_in_git_repo setup immune to hook-inherited GIT_DIR
+  - Behavioral test demonstrates the hijack for unscrubbed commands and immunity for gitenv constructors
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-2, bug]
+  notes: 'Discovered mid-sprint: pre-push suite runs corrupted the host repo (stray commits, staged state/ deletions, core.bare flip). Fixed in #137.'

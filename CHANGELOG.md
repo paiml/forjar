@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-06-12
+
+### Fixed
+
+- **Three user-input-reachable panics** (#132, process aborts under
+  `panic = "abort"`):
+  - `unquote()` in when-expression evaluation sliced `&s[1..0]` for a
+    lone quote character — `when: 'x == "'` panicked at plan time.
+  - Secret-lint redaction byte-sliced `&matched[..12]` mid-UTF-8
+    (e.g. `sshpass -p пароль`); now char-boundary-safe via the new
+    shared `core::strutil` helpers, also adopted by `graph_svg`/`sbom`.
+  - `forjar pin --check` sliced `&locked_hash[..16]` on hand-editable
+    lockfile data; short/corrupt hashes no longer panic.
+- **Auto-commit escaping its repository under git hooks** (#134, #137).
+  forjar's git subprocesses inherited `GIT_DIR`/`GIT_WORK_TREE`/… which
+  git exports to hook children, so `forjar apply` with `auto_commit`
+  inside a git hook committed to the *hook's* repository. All git call
+  sites now construct commands via the new `core::gitenv` module, which
+  scrubs the nine repo-discovery variables.
+- **Release pipeline repaired** (#131). The `Cargo.lock` version bump
+  that every v1.4.x tag was missing is committed; a new CI
+  `lockfile-preflight` job (`cargo package --locked --no-verify`) makes
+  a stale lock fail PR CI instead of the tag; a committed dangling
+  symlink (`.claude/worktrees/provable-contracts`) that broke
+  `cargo package` on clean checkouts is removed; `.pmat-work/` and
+  `.claude/` are excluded from the crate tarball.
+- **Security Audit green again** (#131, closes #104, #98). Scoped
+  cargo-deny `[[licenses.exceptions]]` for `libbz2-rs-sys` (SPDX
+  `bzip2-1.0.6`); audit had been red on main since 2026-04-25.
+
+### Added
+
+- **Provable contracts for IaC convergence** (#136, closes #97):
+  `idempotent-apply-v1` (converged lock ⇒ NoOp plan; f(f(x)) = f(x)),
+  `plan-apply-equivalence-v1` (plan's predicted action set equals
+  apply's executed set), `destroy-undo-roundtrip-v1` (undo restores the
+  prior generation byte-for-byte) — 9 new `binding.yaml` entries, 22/22
+  bound under `BindingPolicy::AllImplemented`, with `debug_assert!`
+  call-sites and unit tests.
+- **mdBook built in CI** (#135): new `docs.yml` builds the 102-chapter
+  book with a SUMMARY.md resolution check; `tests/doc_cli_parity.rs`
+  asserts all 154 CLI subcommands are documented; new CLI reference
+  appendix documents 22 previously-undocumented commands; fixed
+  `forjar completions` → `forjar completion` and stale MSRV/CLI counts.
+
+### Changed
+
+- **GitHub Releases are now created on hosted runners** (#131):
+  `binary-release.yml` triggers on `v*` tag pushes, idempotently creates
+  the release, and uploads the 4 Linux binaries — no self-hosted
+  dependency in the critical path. Asset naming standardized to
+  `forjar-<x.y.z>-<target>.tar.gz` (no `v` prefix) across both release
+  workflows, matching homebrew patching and `install.sh`.
+- Removed dead `provable-contracts` checkout/symlink/`pv codegen` steps
+  from all 13 workflows (#131, #133) — `src/generated_contracts.rs` is
+  git-tracked and `aprender-contracts` resolves from crates.io
+  (closes #104's original cause; refs #112, #113).
+
 ## [1.4.2] - 2026-05-06
 
 ### Fixed
