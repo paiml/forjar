@@ -334,7 +334,7 @@ pub(super) fn apply_post_actions(
 /// Check blocks execute AFTER all resources converge. Each check runs a command
 /// on the specified machine and verifies the exit code matches expect_exit (default 0).
 /// Failures are warnings — they don't roll back the apply (like OpenTofu).
-fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
+pub(super) fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
     let total = config.checks.len();
     let mut passed = 0usize;
     let mut failed = 0usize;
