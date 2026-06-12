@@ -101,10 +101,11 @@ pub fn build_layer(
     };
 
     // Postcondition: determinism — same inputs must produce same output
-    debug_assert!({
-        let verify = build_tar(&sorted_entries, config).unwrap();
-        blake3::hash(&verify).to_hex().to_string() == blake3_hash
-    });
+    debug_assert!(
+        build_tar(&sorted_entries, config)
+            .is_ok_and(|verify| blake3::hash(&verify).to_hex().to_string() == blake3_hash),
+        "build_layer: non-deterministic tar output"
+    );
 
     // FJ-2200 G4: Store idempotency — storing the same content twice produces identical digests
     debug_assert!({
