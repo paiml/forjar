@@ -5,6 +5,7 @@
 //! secrets to files. Uses the same regex patterns as `secret_scan.rs`
 //! plus shell-specific patterns (echo, env export, curl -u).
 
+use crate::core::strutil::truncate_at_boundary;
 use std::sync::OnceLock;
 
 /// A detected secret leakage in a shell script.
@@ -125,11 +126,9 @@ pub fn scan_script(script: &str) -> ScriptLeakResult {
         for pattern in compiled_patterns() {
             if let Some(m) = pattern.regex.find(line) {
                 let matched = m.as_str();
-                let redacted = if matched.len() > 12 {
-                    format!("{}...", &matched[..12])
-                } else {
-                    format!("{matched}...")
-                };
+                // PMAT-073: matched text may be multibyte UTF-8 — a raw
+                // byte slice at 12 panics mid-char (e.g. `sshpass -p пароль`).
+                let redacted = format!("{}...", truncate_at_boundary(matched, 12));
                 findings.push(ScriptLeakFinding {
                     pattern_name: pattern.name.to_string(),
                     matched_text: redacted,
@@ -293,6 +292,47 @@ mod tests {
         let script = "echo $TOKEN\ncurl -u admin:pass https://api.com\nsshpass -p pw ssh h\n";
         let result = scan_script(script);
         assert!(result.findings.len() >= 3);
+    }
+
+    // ── PMAT-073: multibyte matches must redact without panicking ──
+
+    #[test]
+    fn sshpass_multibyte_password_redacted() {
+        // "sshpass -p " is 11 bytes; 'п' straddles byte index 12
+        let script = "sshpass -p пароль ssh user@host\n";
+        let result = scan_script(script);
+        assert!(!result.clean());
+        assert_eq!(result.findings[0].pattern_name, "sshpass_inline");
+        assert_eq!(result.findings[0].matched_text, "sshpass -p ...");
+    }
+
+    #[test]
+    fn export_multibyte_password_redacted() {
+        let script = "export PASSWORD=пароль-секрет-длинный\n";
+        let result = scan_script(script);
+        assert!(!result.clean());
+        assert_eq!(result.findings[0].pattern_name, "export_secret_inline");
+        assert!(result.findings[0].matched_text.ends_with("..."));
+    }
+
+    #[test]
+    fn db_url_multibyte_user_redacted() {
+        // "postgres://" is exactly 11 bytes; a 2-byte char at byte 11
+        // straddles index 12
+        let script = "DATABASE_URL=postgres://пользователь:secret@db/prod\n";
+        let result = scan_script(script);
+        assert!(!result.clean());
+        assert_eq!(result.findings[0].pattern_name, "db_url_embedded_pass");
+        assert_eq!(result.findings[0].matched_text, "postgres://...");
+    }
+
+    #[test]
+    fn short_match_keeps_full_text() {
+        // Matches of 12 bytes or fewer are kept whole, ellipsis appended
+        let script = "sshpass -p x h\n";
+        let result = scan_script(script);
+        assert!(!result.clean());
+        assert_eq!(result.findings[0].matched_text, "sshpass -p x...");
     }
 
     #[test]

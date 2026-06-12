@@ -41,6 +41,7 @@ pub mod shell_provider;
 pub mod state;
 pub mod state_encryption;
 pub mod store;
+pub mod strutil;
 pub mod task;
 pub mod types;
 pub mod watch_daemon;
