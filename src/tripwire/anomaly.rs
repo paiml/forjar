@@ -217,12 +217,11 @@ pub fn isolation_score(values: &[f64], target: f64) -> f64 {
 /// Gives more weight to recent observations, making it sensitive to
 /// recent drift while being robust to historical patterns.
 pub fn ewma_zscore(values: &[f64], target: f64, alpha: f64) -> f64 {
-    if values.is_empty() {
+    let Some(&first) = values.first() else {
         return 0.0;
-    }
+    };
 
     // Compute EWMA mean
-    let first = *values.first().unwrap();
     let mut ewma = first;
     for &v in values.get(1..).unwrap_or(&[]) {
         ewma = alpha * v + (1.0 - alpha) * ewma;
@@ -282,49 +281,14 @@ pub fn detect_anomalies(
     let mut findings = Vec::new();
 
     for (key, converge, fail, drift) in active.iter().map(|&&(ref k, c, f, d)| (k, c, f, d)) {
-        let mut reasons = Vec::new();
-        let mut max_score = 0.0_f64;
-
-        // Isolation score for converge frequency
-        let churn_score = isolation_score(&converge_vals, converge as f64);
-        if churn_score > 0.6 {
-            reasons.push(format!(
-                "high churn (isolation={churn_score:.2}, {converge} converges)"
-            ));
-            max_score = max_score.max(churn_score);
-        }
-
-        // Isolation score for failure frequency
-        let fail_score = isolation_score(&fail_vals, fail as f64);
-        if fail_score > 0.5 && fail > 1 {
-            let fail_rate = fail as f64 / (converge + fail).max(1) as f64;
-            reasons.push(format!(
-                "high failure rate ({:.0}%, isolation={:.2})",
-                fail_rate * 100.0,
-                fail_score
-            ));
-            max_score = max_score.max(fail_score);
-        }
-
-        // Any drift events are always flagged
-        if drift > 0 {
-            reasons.push(format!("{drift} drift event(s)"));
-            max_score = max_score.max(0.7);
-        }
+        let (max_score, reasons) =
+            score_resource_metrics(converge, fail, drift, &converge_vals, &fail_vals);
 
         if !reasons.is_empty() {
-            let status = if max_score > 0.8 {
-                DriftStatus::Drift
-            } else if max_score > 0.5 {
-                DriftStatus::Warning
-            } else {
-                DriftStatus::Stable
-            };
-
             findings.push(AnomalyFinding {
                 resource: key.clone(),
                 score: max_score,
-                status,
+                status: classify_score(max_score),
                 reasons,
             });
         }
@@ -337,4 +301,58 @@ pub fn detect_anomalies(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     findings
+}
+
+/// Score one resource's metrics against the population, building reasons.
+///
+/// Returns `(max_score, reasons)` where reasons is empty when no signal fired.
+fn score_resource_metrics(
+    converge: u32,
+    fail: u32,
+    drift: u32,
+    converge_vals: &[f64],
+    fail_vals: &[f64],
+) -> (f64, Vec<String>) {
+    let mut reasons = Vec::new();
+    let mut max_score = 0.0_f64;
+
+    // Isolation score for converge frequency
+    let churn_score = isolation_score(converge_vals, converge as f64);
+    if churn_score > 0.6 {
+        reasons.push(format!(
+            "high churn (isolation={churn_score:.2}, {converge} converges)"
+        ));
+        max_score = max_score.max(churn_score);
+    }
+
+    // Isolation score for failure frequency
+    let fail_score = isolation_score(fail_vals, fail as f64);
+    if fail_score > 0.5 && fail > 1 {
+        let fail_rate = fail as f64 / (converge + fail).max(1) as f64;
+        reasons.push(format!(
+            "high failure rate ({:.0}%, isolation={:.2})",
+            fail_rate * 100.0,
+            fail_score
+        ));
+        max_score = max_score.max(fail_score);
+    }
+
+    // Any drift events are always flagged
+    if drift > 0 {
+        reasons.push(format!("{drift} drift event(s)"));
+        max_score = max_score.max(0.7);
+    }
+
+    (max_score, reasons)
+}
+
+/// Classify an anomaly score into a drift status.
+fn classify_score(max_score: f64) -> DriftStatus {
+    if max_score > 0.8 {
+        DriftStatus::Drift
+    } else if max_score > 0.5 {
+        DriftStatus::Warning
+    } else {
+        DriftStatus::Stable
+    }
 }

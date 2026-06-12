@@ -4,6 +4,7 @@
 //! raw YAML as `Value` and walk keys against known field sets. Unknown fields
 //! produce warnings with Levenshtein-based suggestions.
 
+use super::known_fields::*;
 use super::ValidationError;
 
 /// An unknown field detected in the YAML.
@@ -31,226 +32,6 @@ impl std::fmt::Display for UnknownField {
     }
 }
 
-// Known YAML keys for each struct (using serde rename where applicable).
-const CONFIG_FIELDS: &[&str] = &[
-    "version",
-    "name",
-    "description",
-    "params",
-    "machines",
-    "resources",
-    "policy",
-    "outputs",
-    "policies",
-    "data",
-    "includes",
-    "checks",
-    "moved",
-    "secrets",
-    "environments",
-    "dist",
-];
-
-const RESOURCE_FIELDS: &[&str] = &[
-    "type",
-    "machine",
-    "state",
-    "depends_on",
-    "provider",
-    "packages",
-    "version",
-    "path",
-    "content",
-    "source",
-    "target",
-    "owner",
-    "group",
-    "mode",
-    "name",
-    "enabled",
-    "restart_on",
-    "triggers",
-    "fstype",
-    "options",
-    "uid",
-    "shell",
-    "home",
-    "groups",
-    "ssh_authorized_keys",
-    "system_user",
-    "schedule",
-    "command",
-    "image",
-    "ports",
-    "environment",
-    "volumes",
-    "restart",
-    "protocol",
-    "port",
-    "action",
-    "from",
-    "recipe",
-    "inputs",
-    "arch",
-    "tags",
-    "resource_group",
-    "when",
-    "count",
-    "for_each",
-    "chroot_dir",
-    "namespace_uid",
-    "namespace_gid",
-    "seccomp",
-    "netns",
-    "cpuset",
-    "memory_limit",
-    "overlay_lower",
-    "overlay_upper",
-    "overlay_work",
-    "overlay_merged",
-    "format",
-    "quantization",
-    "checksum",
-    "cache_dir",
-    "gpu_backend",
-    "driver_version",
-    "cuda_version",
-    "rocm_version",
-    "devices",
-    "persistence_mode",
-    "compute_mode",
-    "gpu_memory_limit_mb",
-    "task_mode",
-    "task_inputs",
-    "output_artifacts",
-    "completion_check",
-    "timeout",
-    "working_dir",
-    "stages",
-    "cache",
-    "gpu_device",
-    "restart_delay",
-    "quality_gate",
-    "health_check",
-    "restart_policy",
-    "pre_apply",
-    "post_apply",
-    "lifecycle",
-    "sudo",
-    "store",
-    "script",
-    "gather",
-    "scatter",
-    "repo",
-    "tag",
-    "asset_pattern",
-    "binary",
-    "install_dir",
-    "build_machine",
-];
-
-const MACHINE_FIELDS: &[&str] = &[
-    "hostname",
-    "addr",
-    "user",
-    "arch",
-    "ssh_key",
-    "roles",
-    "transport",
-    "container",
-    "pepita",
-    "cost",
-    "allowed_operators",
-];
-
-const POLICY_FIELDS: &[&str] = &[
-    "failure",
-    "parallel_machines",
-    "tripwire",
-    "lock_file",
-    "parallel_resources",
-    "pre_apply",
-    "post_apply",
-    "serial",
-    "max_fail_percentage",
-    "ssh_retries",
-    "convergence_budget",
-    "snapshot_generations",
-    "security_gate",
-    "deny_paths",
-    "notify",
-    "logs",
-];
-
-const NOTIFY_FIELDS: &[&str] = &["on_success", "on_failure", "on_drift"];
-
-const CONTAINER_FIELDS: &[&str] = &[
-    "runtime",
-    "image",
-    "name",
-    "ephemeral",
-    "privileged",
-    "init",
-    "gpus",
-    "devices",
-    "group_add",
-    "env",
-    "volumes",
-];
-
-const PEPITA_FIELDS: &[&str] = &[
-    "rootfs",
-    "memory_mb",
-    "cpus",
-    "network",
-    "filesystem",
-    "ephemeral",
-];
-
-const DATASOURCE_FIELDS: &[&str] = &[
-    "type",
-    "value",
-    "default",
-    "state_dir",
-    "config",
-    "outputs",
-    "max_staleness",
-];
-
-const POLICY_RULE_FIELDS: &[&str] = &[
-    "type",
-    "message",
-    "resource_type",
-    "tag",
-    "field",
-    "condition_field",
-    "condition_value",
-    "id",
-    "severity",
-    "remediation",
-    "compliance",
-    "max_count",
-    "min_count",
-];
-
-const OUTPUT_FIELDS: &[&str] = &["value", "description"];
-
-const CHECK_FIELDS: &[&str] = &["machine", "command", "expect_exit", "description"];
-
-const MOVED_FIELDS: &[&str] = &["from", "to"];
-
-const LIFECYCLE_FIELDS: &[&str] = &["prevent_destroy", "create_before_destroy", "ignore_drift"];
-
-// -- Recipe known fields --
-
-const RECIPE_FILE_FIELDS: &[&str] = &["recipe", "resources"];
-
-const RECIPE_META_FIELDS: &[&str] = &["name", "version", "description", "inputs", "requires"];
-
-const RECIPE_INPUT_FIELDS: &[&str] = &["type", "description", "default", "min", "max", "choices"];
-
-const RECIPE_REQUIREMENT_FIELDS: &[&str] = &["recipe"];
-
 /// Detect unknown fields in raw YAML by comparing against known field sets.
 pub fn detect_unknown_fields(yaml: &str) -> Result<Vec<UnknownField>, String> {
     let value: serde_yaml_ng::Value =
@@ -269,20 +50,31 @@ pub fn detect_unknown_fields(yaml: &str) -> Result<Vec<UnknownField>, String> {
             unknowns.push(make_unknown(&key_str, &key_str, CONFIG_FIELDS));
             continue;
         }
-        // Recurse into known nested structures
-        match key_str.as_str() {
-            "machines" => check_named_map(val, "machines", MACHINE_FIELDS, &mut unknowns),
-            "resources" => check_named_map(val, "resources", RESOURCE_FIELDS, &mut unknowns),
-            "policy" => check_mapping(val, "policy", POLICY_FIELDS, &mut unknowns),
-            "data" => check_named_map(val, "data", DATASOURCE_FIELDS, &mut unknowns),
-            "outputs" => check_named_map(val, "outputs", OUTPUT_FIELDS, &mut unknowns),
-            "checks" => check_named_map(val, "checks", CHECK_FIELDS, &mut unknowns),
-            "policies" => check_list(val, "policies", POLICY_RULE_FIELDS, &mut unknowns),
-            "moved" => check_list(val, "moved", MOVED_FIELDS, &mut unknowns),
-            _ => {}
-        }
+        check_config_section(&key_str, val, &mut unknowns);
     }
     Ok(unknowns)
+}
+
+/// Checker signature shared by `check_named_map`, `check_mapping`, `check_list`.
+type SectionChecker = fn(&serde_yaml_ng::Value, &str, &[&str], &mut Vec<UnknownField>);
+
+/// Top-level config sections that get recursive checking: (key, checker, known fields).
+const CONFIG_SECTIONS: &[(&str, SectionChecker, &[&str])] = &[
+    ("machines", check_named_map, MACHINE_FIELDS),
+    ("resources", check_named_map, RESOURCE_FIELDS),
+    ("policy", check_mapping, POLICY_FIELDS),
+    ("data", check_named_map, DATASOURCE_FIELDS),
+    ("outputs", check_named_map, OUTPUT_FIELDS),
+    ("checks", check_named_map, CHECK_FIELDS),
+    ("policies", check_list, POLICY_RULE_FIELDS),
+    ("moved", check_list, MOVED_FIELDS),
+];
+
+/// Recurse into a known top-level config section's nested structures.
+fn check_config_section(key: &str, val: &serde_yaml_ng::Value, unknowns: &mut Vec<UnknownField>) {
+    if let Some((_, checker, fields)) = CONFIG_SECTIONS.iter().find(|(k, _, _)| *k == key) {
+        checker(val, key, fields, unknowns);
+    }
 }
 
 /// Detect unknown fields in a recipe YAML file.
@@ -438,20 +230,26 @@ fn make_unknown(path: &str, key: &str, known: &[&str]) -> UnknownField {
     }
 }
 
-/// Find the closest known field within Levenshtein distance <= 2.
+/// Find the closest known field: Levenshtein distance <= 2 first,
+/// then substring matching as a fallback.
 fn closest_match(input: &str, candidates: &[&str]) -> Option<String> {
-    // First try Levenshtein distance <= 2
+    levenshtein_match(input, candidates).or_else(|| substring_match(input, candidates))
+}
+
+/// Best candidate within Levenshtein distance 1..=2 of the input.
+fn levenshtein_match(input: &str, candidates: &[&str]) -> Option<String> {
     let mut best: Option<(usize, &str)> = None;
     for &candidate in candidates {
         let dist = levenshtein(input, candidate);
-        if dist <= 2 && dist > 0 && (best.is_none() || dist < best.unwrap().0) {
+        if dist <= 2 && dist > 0 && best.is_none_or(|(b, _)| dist < b) {
             best = Some((dist, candidate));
         }
     }
-    if let Some((_, s)) = best {
-        return Some(s.to_string());
-    }
-    // Fallback: substring match — prefer suffix match (e.g., "check" → "completion_check")
+    best.map(|(_, s)| s.to_string())
+}
+
+/// Fallback substring match — prefer suffix match (e.g., "check" → "completion_check").
+fn substring_match(input: &str, candidates: &[&str]) -> Option<String> {
     let input_lower = input.to_lowercase();
     let mut substr_match: Option<&str> = None;
     for &candidate in candidates {
