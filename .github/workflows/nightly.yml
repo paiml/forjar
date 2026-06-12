@@ -42,6 +42,23 @@ jobs:
             echo "No commits in last 24h — skipping nightly build"
           fi
 
+      # Every v* tag must have a GitHub release (PMAT-078). Tags without
+      # releases were the v1.4.0/v1.4.1 failure mode before the durable
+      # hosted-runner path landed (#131).
+      - name: Tag/release parity check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          missing=0
+          for t in $(git tag -l 'v*'); do
+            if ! gh release view "$t" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+              echo "::error::tag $t has no GitHub release"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] && echo "All v* tags have releases"
+          exit "$missing"
+
   # ── Cross-compile binaries (4 targets) ───────────────────
   build:
     needs: check-activity
