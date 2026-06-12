@@ -2,17 +2,18 @@
 //!
 //! Popperian rejection criteria for:
 //! - Shell installer generation (FJ-3601)
-//! - Homebrew formula generation (FJ-3602)
 //! - cargo-binstall metadata (FJ-3603)
-//! - Nix flake generation (FJ-3604)
 //! - GitHub Action generation (FJ-3605)
 //! - Debian/RPM packaging (FJ-3606)
 //! - Helper functions (to_class_name, to_rust_triple)
 //! - Config parsing with dist: section
 //!
+//! Homebrew (FJ-3602) and Nix (FJ-3604) generation live in
+//! falsification_dist_checksums.rs (PMAT-080: real checksum resolution).
+//!
 //! Usage: cargo test --test falsification_dist
 
-use forjar::core::types::{DistBinaryTarget, DistConfig, DistHomebrewConfig};
+use forjar::core::types::{DistBinaryTarget, DistConfig};
 
 // ============================================================================
 // Helpers
@@ -64,15 +65,6 @@ fn darwin_aarch64() -> DistBinaryTarget {
         arch: "aarch64".into(),
         asset: "mytool-{version}-aarch64-apple-darwin.tar.gz".into(),
         libc: None,
-    }
-}
-
-fn linux_aarch64() -> DistBinaryTarget {
-    DistBinaryTarget {
-        os: "linux".into(),
-        arch: "aarch64".into(),
-        asset: "mytool-{version}-aarch64-unknown-linux-gnu.tar.gz".into(),
-        libc: Some("gnu".into()),
     }
 }
 
@@ -278,103 +270,6 @@ fn installer_empty_targets_no_case_arms() {
 }
 
 // ============================================================================
-// FJ-3602: Homebrew formula
-// ============================================================================
-
-#[test]
-fn homebrew_has_class_declaration() {
-    let formula = forjar::cli::dist_generators::generate_homebrew(&minimal_dist());
-    assert!(
-        formula.contains("class Mytool < Formula"),
-        "homebrew must declare a Formula class with capitalized binary name"
-    );
-}
-
-#[test]
-fn homebrew_contains_description() {
-    let formula = forjar::cli::dist_generators::generate_homebrew(&minimal_dist());
-    assert!(
-        formula.contains("A test tool"),
-        "homebrew must embed dist.description"
-    );
-}
-
-#[test]
-fn homebrew_skips_musl_targets() {
-    let mut dist = minimal_dist();
-    dist.targets = vec![linux_gnu_x86(), linux_musl_x86(), darwin_aarch64()];
-    let formula = forjar::cli::dist_generators::generate_homebrew(&dist);
-    assert!(
-        !formula.contains("musl"),
-        "homebrew formula must skip musl targets (Homebrew uses glibc)"
-    );
-}
-
-#[test]
-fn homebrew_nests_arch_inside_os() {
-    let mut dist = minimal_dist();
-    dist.targets = vec![linux_gnu_x86(), linux_aarch64(), darwin_aarch64()];
-    let formula = forjar::cli::dist_generators::generate_homebrew(&dist);
-    // on_linux should appear once, containing both arch blocks
-    let linux_count = formula.matches("on_linux do").count();
-    assert_eq!(
-        linux_count, 1,
-        "homebrew must nest arch blocks inside a single OS block, found {linux_count} on_linux"
-    );
-}
-
-#[test]
-fn homebrew_includes_caveats() {
-    let mut dist = minimal_dist();
-    dist.homebrew = Some(DistHomebrewConfig {
-        tap: "acme/tap".into(),
-        dependencies: vec!["openssl".into()],
-        caveats: Some("Run: mytool init".into()),
-    });
-    let formula = forjar::cli::dist_generators::generate_homebrew(&dist);
-    assert!(
-        formula.contains("def caveats"),
-        "homebrew must include caveats block"
-    );
-    assert!(
-        formula.contains("mytool init"),
-        "homebrew must embed caveats text"
-    );
-}
-
-#[test]
-fn homebrew_includes_dependencies() {
-    let mut dist = minimal_dist();
-    dist.homebrew = Some(DistHomebrewConfig {
-        tap: "acme/tap".into(),
-        dependencies: vec!["openssl".into(), "libgit2".into()],
-        caveats: None,
-    });
-    let formula = forjar::cli::dist_generators::generate_homebrew(&dist);
-    assert!(
-        formula.contains(r#"depends_on "openssl""#),
-        "homebrew must list openssl dependency"
-    );
-    assert!(
-        formula.contains(r#"depends_on "libgit2""#),
-        "homebrew must list libgit2 dependency"
-    );
-}
-
-#[test]
-fn homebrew_has_test_block() {
-    let formula = forjar::cli::dist_generators::generate_homebrew(&minimal_dist());
-    assert!(
-        formula.contains("test do"),
-        "homebrew must include a test block"
-    );
-    assert!(
-        formula.contains("shell_output"),
-        "homebrew test must invoke the binary"
-    );
-}
-
-// ============================================================================
 // FJ-3603: cargo-binstall
 // ============================================================================
 
@@ -411,63 +306,6 @@ fn binstall_references_repo_url() {
     assert!(
         toml.contains("github.com/acme/tool"),
         "binstall must reference the dist.repo in URLs"
-    );
-}
-
-// ============================================================================
-// FJ-3604: Nix flake
-// ============================================================================
-
-#[test]
-fn nix_has_description() {
-    let flake = forjar::cli::dist_generators_b::generate_nix(&minimal_dist());
-    assert!(
-        flake.contains("A test tool"),
-        "nix flake must embed dist.description"
-    );
-}
-
-#[test]
-fn nix_skips_musl_targets() {
-    let mut dist = minimal_dist();
-    dist.targets = vec![linux_gnu_x86(), linux_musl_x86(), darwin_aarch64()];
-    let flake = forjar::cli::dist_generators_b::generate_nix(&dist);
-    assert!(
-        !flake.contains("musl"),
-        "nix flake must skip musl targets (uses system libc)"
-    );
-}
-
-#[test]
-fn nix_maps_targets_to_nix_systems() {
-    let mut dist = minimal_dist();
-    dist.targets = vec![linux_gnu_x86(), darwin_aarch64()];
-    let flake = forjar::cli::dist_generators_b::generate_nix(&dist);
-    assert!(
-        flake.contains("x86_64-linux"),
-        "nix must map linux/x86_64 to x86_64-linux"
-    );
-    assert!(
-        flake.contains("aarch64-darwin"),
-        "nix must map darwin/aarch64 to aarch64-darwin"
-    );
-}
-
-#[test]
-fn nix_uses_flake_utils() {
-    let flake = forjar::cli::dist_generators_b::generate_nix(&minimal_dist());
-    assert!(
-        flake.contains("flake-utils"),
-        "nix flake must use flake-utils for eachDefaultSystem"
-    );
-}
-
-#[test]
-fn nix_contains_binary_in_install_phase() {
-    let flake = forjar::cli::dist_generators_b::generate_nix(&minimal_dist());
-    assert!(
-        flake.contains("cp mytool $out/bin/"),
-        "nix flake installPhase must copy binary to $out/bin"
     );
 }
 
@@ -727,25 +565,5 @@ fn installer_with_empty_description_uses_binary() {
     assert!(
         script.contains("mytool"),
         "installer must fall back to binary name when description empty"
-    );
-}
-
-#[test]
-fn homebrew_with_no_caveats_omits_block() {
-    let formula = forjar::cli::dist_generators::generate_homebrew(&minimal_dist());
-    assert!(
-        !formula.contains("def caveats"),
-        "homebrew must omit caveats block when not configured"
-    );
-}
-
-#[test]
-fn nix_empty_targets_still_valid() {
-    let mut dist = minimal_dist();
-    dist.targets = vec![];
-    let flake = forjar::cli::dist_generators_b::generate_nix(&dist);
-    assert!(
-        flake.contains("description"),
-        "nix flake with empty targets must still generate valid structure"
     );
 }
