@@ -12,7 +12,11 @@ name: Binary Release
 # macOS targets are intentionally deferred to a follow-up.
 #
 # Triggered by:
-#   - `release: published` — fires automatically when a release is published
+#   - `push: tags v*` — the durable path: creates the GitHub Release itself
+#     (idempotently) on a hosted runner, so a tag always produces a release
+#     with binaries even when release.yml's self-hosted verify job fails
+#     or the clean-room queue is down.
+#   - `release: published` — fires when a release is published by hand
 #   - `workflow_dispatch` — manual re-run / backfill, takes a tag input
 #
 # Targets: 4 Linux (x86_64/aarch64 × musl/gnu). musl variants are static
@@ -20,6 +24,8 @@ name: Binary Release
 # match typical Linux distributions. aarch64 builds use `cross`.
 
 on:
+  push:
+    tags: ['v*']
   release:
     types: [published]
   workflow_dispatch:
@@ -28,20 +34,66 @@ on:
         description: 'Release tag to attach binaries to (e.g. v1.3.0)'
         required: true
         type: string
+      unlocked:
+        description: 'Drop --locked (backfill of pre-v1.4.3 tags whose Cargo.lock is stale)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
-  contents: write  # upload assets to the release
+  contents: write  # create the release + upload assets
 
 concurrency:
-  group: binary-release-${{ github.event.release.tag_name || inputs.tag }}
+  group: binary-release-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 env:
   CROSS_VERSION: v0.2.5
 
 jobs:
+  # Resolve the tag once and make sure the GitHub Release exists before any
+  # build leg runs — hosted runners only, no self-hosted dependency.
+  ensure-release:
+    name: Ensure release exists
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag || github.ref_name }}"
+          if [ -z "$TAG" ]; then
+            echo "::error::No tag resolved (release event missing tag_name and no dispatch input)"
+            exit 1
+          fi
+          case "$TAG" in
+            v*) ;;
+            *) echo "::error::Resolved ref '$TAG' is not a v* tag"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Releasing forjar $TAG"
+
+      - name: Create GitHub Release if missing (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Mirrors release.yml create-release: never clobber an existing
+          # release or its hand-written notes.
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — leaving notes intact, will upload assets."
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag \
+              --repo "${{ github.repository }}"
+          fi
+
   build:
     name: ${{ matrix.target }}
+    needs: ensure-release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -59,11 +111,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          if [ -z "$TAG" ]; then
-            echo "::error::No tag resolved (release event missing tag_name and no dispatch input)"
-            exit 1
-          fi
+          TAG="${{ needs.ensure-release.outputs.tag }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Building forjar for $TAG → ${{ matrix.target }}"
 
@@ -72,18 +120,10 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      # forjar depends on provable-contracts via Cargo path dep — replicate
-      # the checkout + symlink + pv codegen dance from release.yml so the
-      # build can resolve `../provable-contracts` and generate
-      # `src/generated_contracts.rs` before `cargo build`.
-      - name: Checkout provable-contracts (path dep)
-        uses: actions/checkout@v4
-        with:
-          repository: paiml/provable-contracts
-          path: provable-contracts
-
-      - name: Symlink provable-contracts for Cargo path deps
-        run: ln -sf "$GITHUB_WORKSPACE/provable-contracts" "$GITHUB_WORKSPACE/../provable-contracts"
+      # Contract assertions (src/generated_contracts.rs) are git-tracked and
+      # aprender-contracts resolves from crates.io — no sibling checkout or
+      # pv codegen needed (the old provable-contracts path-dep dance caused
+      # issues #104/#112/#113).
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -98,25 +138,6 @@ jobs:
       - name: Install target on workspace-pinned toolchain
         if: ${{ !matrix.cross }}
         run: rustup target add ${{ matrix.target }}
-
-      - name: Generate contract assertions — pv codegen
-        run: |
-          if ! command -v pv >/dev/null 2>&1; then
-            cargo install provable-contracts-cli --locked || true
-          fi
-          PV=$(command -v pv 2>/dev/null || true)
-          if [ -z "$PV" ]; then
-            echo "::warning::pv not found — skipping contract generation"
-          else
-            PC_CONTRACTS="$GITHUB_WORKSPACE/../provable-contracts/contracts"
-            if [ -f src/lib.rs ] && grep -q 'mod generated_contracts' src/lib.rs && [ ! -f src/generated_contracts.rs ]; then
-              if [ -d "$PC_CONTRACTS" ]; then
-                "$PV" codegen "$PC_CONTRACTS" -o src/generated_contracts.rs || true
-              elif [ -d contracts ]; then
-                "$PV" codegen contracts/ -o src/generated_contracts.rs || true
-              fi
-            fi
-          fi
 
       - name: Install musl tools
         if: matrix.target == 'x86_64-unknown-linux-musl'
@@ -142,10 +163,15 @@ jobs:
 
       - name: Build forjar
         run: |
+          LOCKED="--locked"
+          if [ "${{ inputs.unlocked }}" = "true" ]; then
+            LOCKED=""
+            echo "::warning::building without --locked (stale-lock backfill mode)"
+          fi
           if [ "${{ matrix.cross }}" = "true" ]; then
-            cross build --release --features vendored-openssl --bin forjar --target ${{ matrix.target }} --locked
+            cross build --release --features vendored-openssl --bin forjar --target ${{ matrix.target }} $LOCKED
           else
-            cargo build --release --features vendored-openssl --bin forjar --target ${{ matrix.target }} --locked
+            cargo build --release --features vendored-openssl --bin forjar --target ${{ matrix.target }} $LOCKED
           fi
 
       - name: Strip binary
@@ -171,7 +197,11 @@ jobs:
       - name: Package archive
         id: package
         run: |
-          VERSION="${{ steps.tag.outputs.tag }}"
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Strip the leading 'v': assets are forjar-<x.y.z>-<target>.tar.gz,
+          # matching release.yml, the homebrew checksum patching, and the
+          # name install.sh resolves (VERSION_NUM="${TAG#v}").
+          VERSION="${TAG#v}"
           TARGET="${{ matrix.target }}"
           ARCHIVE="forjar-${VERSION}-${TARGET}"
           mkdir -p "$ARCHIVE"
@@ -196,7 +226,7 @@ jobs:
 
   summary:
     name: Summary
-    needs: build
+    needs: [ensure-release, build]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -204,7 +234,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          TAG="${{ needs.ensure-release.outputs.tag }}"
           STATUS="${{ needs.build.result }}"
           {
             echo "### Binary Release: $TAG"

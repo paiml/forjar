@@ -41,6 +41,13 @@ allow = [
 ]
 confidence-threshold = 0.8
 
+# Scoped exception (sync upstream to paiml/infra): libbz2-rs-sys carries the
+# SPDX `bzip2-1.0.6` license — BSD-style permissive, pulled transitively via
+# bzip2 0.6 (zip). Audit has been red daily since ~2026-04-25 on this.
+[[licenses.exceptions]]
+crate = "libbz2-rs-sys"
+allow = ["bzip2-1.0.6"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
