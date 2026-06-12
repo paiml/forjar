@@ -10,7 +10,7 @@ repository.workspace = true
 homepage = "https://paiml.com"
 keywords = ["iac", "infrastructure", "devops", "provisioning", "bare-metal"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = ["benches/", ".pmat/", ".pmat-work/", "/state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata", ".vscode/", ".idea/", "proptest-regressions/"]
+exclude = ["benches/", ".pmat/", ".pmat-work/", ".claude/", "/state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata", ".vscode/", ".idea/", "proptest-regressions/"]
 
 [workspace]
 resolver = "2"
