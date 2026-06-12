@@ -1134,11 +1134,424 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-03-10T15:53:58Z
-  updated: 2026-03-10T15:54:02.344203991+00:00
-  spec: null
-  acceptance_criteria: []
+  updated: 2026-06-12T12:00:00Z
+  spec: docs/specifications/platform/25-distribution-artifact-generation.md
+  acceptance_criteria:
+  - Phases A-C are implemented (generators, dist parsing, CLI flags) — remaining work tracked in PMAT-080/081/082
+  - Homebrew/Nix artifacts contain real checksums and versions, never PLACEHOLDER_CHECKSUM/VERSION (F-3608, PMAT-080)
+  - forjar dist --verify implements Phase D Tier 1 static verification (F-3609, PMAT-082)
+  - Spec status header reflects per-phase reality instead of PROPOSED (PMAT-084)
   phases: []
   subtasks: []
   estimated_effort: null
+  notes: 'Subsumed by 10-day sprint items PMAT-080..PMAT-084 (2026-06-12 analysis: phases A-C verified shipped, Phase B checksum resolution + Phase D verify outstanding).'
   labels: []
+- id: GH-129
+  github_issue: 129
+  item_type: task
+  title: apply --force makes claim C3 (idempotency) unobservable in the output
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-05-06T11:56:35.223675687+00:00
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Apply summary distinguishes `converged` from `forced` from `unchanged`
+  - Provable contract `C3-FORCE-DISTINGUISHABLE` asserted at end of apply
+  - Test covers all four step shapes above
+  - CHANGELOG entry under the next release
+  - Companion repo paiml/iac-from-zero CI update PR linked here once published
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - bug
+  notes: 'Shipped in v1.4.2 via PR #130 (commit 7bf1cbe3): contracts/apply-summary-distinguishability-v1.yaml, tests/test_fj129_force_distinguishability.rs, CHANGELOG 1.4.2 entry. Outstanding companion-repo CI link tracked outside this repo.'
+- id: PMAT-070
+  github_issue: null
+  item_type: task
+  title: 'REL-1: Commit Cargo.lock version bump + CI lockfile-consistency preflight'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Cargo.lock forjar entry matches Cargo.toml version on main (1.4.2)
+  - ci.yml runs `cargo package --locked --no-verify` on every PR and the gate job requires it
+  - 'Root cause documented: release.yml verify failed on every v1.4.x tag with ''uncommitted Cargo.lock'' (run 25434595214)'
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-1, release]
+  notes: 'Keystone fix: unblocks all future tagged releases.'
+- id: PMAT-071
+  github_issue: 104
+  item_type: task
+  title: 'REL-2: deny.toml license exception for libbz2-rs-sys — Security Audit green'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - cargo deny check exits 0 locally and in audit.yml (advisories ok, bans ok, licenses ok, sources ok)
+  - Exception is scoped via [[licenses.exceptions]] crate = libbz2-rs-sys, not a global allow
+  - Next scheduled Security Audit run on main is green (was red 84 of last 100 runs)
+  - Issues #104 and #98 closed with evidence comments
+  phases: []
+  subtasks: []
+  estimated_effort: 0.1d
+  labels: [sprint-2026-06, day-1, ci]
+  notes: 'Sync exception upstream to paiml/infra deny.toml template.'
+- id: PMAT-072
+  github_issue: null
+  item_type: task
+  title: 'REL-3: Durable hosted-runner release path — binary-release.yml on tag push with idempotent release create'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - binary-release.yml triggers on push tags v* and creates the GitHub Release idempotently on ubuntu-latest
+  - Asset names use VERSION="${TAG#v}" — forjar-<x.y.z>-<target>.tar.gz, matching release.yml/homebrew/install.sh
+  - Dead provable-contracts checkout/symlink/pv-codegen steps removed from binary-release.yml
+  - A tag produces a GitHub release with 4 Linux binaries with zero self-hosted involvement
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-1, release]
+  notes: 'Self-hosted clean-room queue hung 2026-06-01..09; release.yml has failed on every tag ever attempted.'
+- id: PMAT-073
+  github_issue: null
+  item_type: task
+  title: 'SAFE-1: Fix 3 user-input-reachable panics (conditions unquote, script_secret_lint UTF-8, store_pin hash slice)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'src/core/conditions.rs unquote() requires len >= 2 before stripping quotes; `when: ''x == "''` no longer panics'
+  - src/core/script_secret_lint.rs:129 redaction uses char-boundary-safe truncation via a shared truncate_utf8 helper
+  - src/cli/store_pin.rs:146 cmd_pin_check guards &locked_hash[..16] against short/corrupt lockfile hashes
+  - Shared helper reused by graph_svg.rs and sbom.rs truncation sites
+  - Unit tests + proptest prove no-panic on arbitrary inputs; coverage stays >= 95%
+  phases: []
+  subtasks: []
+  estimated_effort: 0.75d
+  labels: [sprint-2026-06, day-2, bug]
+  notes: 'panic=abort in release profile makes these process aborts. All three verified reachable on origin/main 7bf1cbe3.'
+- id: PMAT-074
+  github_issue: null
+  item_type: task
+  title: 'CI-1: Remove dead provable-contracts plumbing from remaining 11 workflows + merge dependabot action bumps'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - grep -r provable-contracts .github/workflows/ returns no matches
+  - All workflows still pass after removal (generated_contracts.rs is git-tracked; aprender-contracts from crates.io)
+  - Dependabot PRs #121, #122, #128 rebased and merged or superseded
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-2, ci]
+  notes: 'Stale steps caused real failures: issues #104, #112, #113.'
+- id: PMAT-075
+  github_issue: null
+  item_type: task
+  title: 'REL-4: Tag v1.4.3 and verify end-to-end hosted-runner release'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Cargo.toml + Cargo.lock bumped to 1.4.3 together, CHANGELOG entry written
+  - v1.4.3 tag push auto-creates GitHub release with 4 consistently-named Linux binaries
+  - No crates.io publish (Friday-only rule; next window 2026-06-19)
+  phases: []
+  subtasks: []
+  estimated_effort: 0.25d
+  labels: [sprint-2026-06, day-2, release]
+  notes: 'Proves PMAT-070/071/072 end-to-end. Payload: panic fixes + audit green.'
+- id: PMAT-076
+  github_issue: 96
+  item_type: task
+  title: 'HYG-1: Regression tests for already-fixed issues, then close ~12 stale issues with evidence'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Regression tests pin fixes for #85 (secret_provider traversal/injection), #86 (p95 clamp), #87 (UTF-8 truncate), #88 (recipe depends_on)
+  - Issues #85 #86 #87 #88 #90 #92 #93 #96 #98 #106 #109 #112 #113 #115 closed with file:line evidence comments
+  - Successor issue filed for flaky convergence_parallel_multiple_targets (the real remaining Coverage-workflow failure)
+  - Open-issue count drops from 18 to <= 5
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-3, debt]
+  notes: 'Fixes landed with Refs instead of Fixes so GitHub never auto-closed. Verified per-issue 2026-06-12.'
+- id: PMAT-077
+  github_issue: null
+  item_type: task
+  title: 'INST-1: install.sh works end-to-end — SHA256SUMS asset, naming parity test, README/book install rewrite'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - binary-release.yml uploads a combined SHA256SUMS asset (or install.sh falls back to per-asset .sha256)
+  - Shell test asserts install.sh resolve_asset output matches workflow-produced asset names; bashrs lint clean
+  - README Installation documents binary tarball + install.sh one-liner with the real raw.githubusercontent.com URL
+  - docs/book 01-getting-started.md MSRV corrected 1.85 -> 1.89.0
+  - curl installer succeeds on a clean machine for the latest release
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-4, docs]
+  notes: 'install.sh currently hard-fails on every platform: mixed v-prefix naming + missing SHA256SUMS.'
+- id: PMAT-078
+  github_issue: null
+  item_type: task
+  title: 'INST-2: Backfill 5 tag-only GitHub releases + nightly tag/release parity check'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - v1.0.0, v1.1.0, v1.1.1, v1.4.0, v1.4.1 have GitHub releases with notes from matching CHANGELOG sections
+  - v1.4.x backfills get binaries via workflow_dispatch (unlocked input for stale-lock tags); v1.0/1.1.x marked superseded, notes-only
+  - Nightly CI step fails on any v* tag lacking a GitHub release
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-4, release]
   notes: null
+- id: PMAT-079
+  github_issue: null
+  item_type: task
+  title: 'REL-5: Tag v1.4.4 — working install path release'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - v1.4.4 tagged after INST-1/INST-2 merge; release auto-created with binaries + SHA256SUMS + install.sh verified
+  - No crates.io publish (Friday-only rule)
+  phases: []
+  subtasks: []
+  estimated_effort: 0.25d
+  labels: [sprint-2026-06, day-4, release]
+  notes: null
+- id: PMAT-080
+  github_issue: null
+  item_type: task
+  title: 'DIST-1: forjar dist --version + real checksum resolution for Homebrew/Nix (F-3608, F-3610)'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: docs/specifications/platform/25-distribution-artifact-generation.md
+  acceptance_criteria:
+  - DistArgs gains --version <TAG>; generators resolve real per-target sha256 from the release SHA256SUMS (network) or --checksums-file (offline)
+  - Generators hard-error instead of emitting PLACEHOLDER_CHECKSUM/VERSION
+  - grep for PLACEHOLDER over generated homebrew formula + nix flake returns nothing
+  - Dogfood artifacts regenerated from dist-forjar.yaml including repo-root flake.nix (currently ships 4 placeholders)
+  - Falsification tests F-3608 and F-3610 pass
+  phases: []
+  subtasks: []
+  estimated_effort: 1.5d
+  labels: [sprint-2026-06, day-5, feature]
+  notes: 'Placeholder sites verified: dist_generators.rs:416/:457, dist_generators_b.rs:36/:56. platform_args.rs is at 538 lines — split or add to size exceptions when adding flags.'
+- id: PMAT-081
+  github_issue: null
+  item_type: task
+  title: 'DIST-2: dist source validation errors + dist block in forjar schema output'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: docs/specifications/platform/25-distribution-artifact-generation.md
+  acceptance_criteria:
+  - 'cmd_dist rejects dist.source values local/url/s3 with a clear ''not yet supported'' error instead of generating broken github.com URLs'
+  - forjar schema JSON output includes a dist property block mirroring DistConfig (spec line 534 claims it already exists)
+  - Schema snapshot test + error-message tests added
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-6, feature]
+  notes: null
+- id: PMAT-082
+  github_issue: null
+  item_type: task
+  title: 'DIST-3: forjar dist --verify Tier 1 static verification (Phase D, F-3609)'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: docs/specifications/platform/25-distribution-artifact-generation.md
+  acceptance_criteria:
+  - DistArgs gains --verify; cmd_dist verify path runs bash -n + bashrs lint on generated install.sh
+  - Verify asserts checksum-verification and arch-detection snippets present and URLs structurally valid
+  - F-3609 passes - deliberately broken asset URL fails --verify
+  - Tier 2 container-based verify (ubuntu/alpine via SandboxBackend) as stretch only
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-7, feature]
+  notes: null
+- id: PMAT-083
+  github_issue: 97
+  item_type: task
+  title: 'CONTRACT-1: Author 3 missing provable contracts — idempotent-apply, plan-apply-equivalence, destroy-undo-roundtrip'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - contracts/idempotent-apply-v1.yaml formalizes converged-lock => NoOp plan + second-apply-zero-changes, bound to forjar::core::planner
+  - contracts/plan-apply-equivalence-v1.yaml formalizes plan/apply action-set equality with binding.yaml entry
+  - contracts/destroy-undo-roundtrip-v1.yaml formalizes undo-restores-generation with binding.yaml entry
+  - build.rs AllImplemented policy passes; issue #97 closed
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-6, feature]
+  notes: 'Follow existing contracts/dag-ordering-v1.yaml template.'
+- id: PMAT-084
+  github_issue: null
+  item_type: task
+  title: 'SPEC-1: Spec 25 per-phase status reconciliation + v1.5.0 CHANGELOG'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: docs/specifications/platform/25-distribution-artifact-generation.md
+  acceptance_criteria:
+  - Spec 25 status header changed from PROPOSED to per-phase status (A-C IMPLEMENTED, D status per DIST-3 outcome)
+  - CHANGELOG v1.5.0 section covers DIST-1/2/3 + CONTRACT-1
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-7, docs]
+  notes: null
+- id: PMAT-085
+  github_issue: null
+  item_type: task
+  title: 'REL-6: Tag v1.5.0 + Friday crates.io publish (2026-06-19)'
+  status: pending
+  priority: high
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - v1.5.0 tagged Thursday 2026-06-18 evening after DIST/CONTRACT items merge; GitHub release green
+  - cargo publish --dry-run green, then cargo publish from the v1.5.0 tag on Friday 2026-06-19 (credentials present on this host)
+  - crates.io newest_version == 1.5.0
+  phases: []
+  subtasks: []
+  estimated_effort: 0.25d
+  labels: [sprint-2026-06, day-8, release]
+  notes: 'Friday-only crates.io rule. 2026-06-12 window intentionally skipped: 1.4.2 already published.'
+- id: PMAT-086
+  github_issue: null
+  item_type: task
+  title: 'DOCS-1: mdBook build in CI + CLI reference parity (154 subcommands)'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - CI job builds docs/book with mdbook; intentionally broken SUMMARY link fails CI
+  - 4x 'forjar completions' typos in 06-cli.md fixed to 'forjar completion'; stale '79 subcommands' claim removed
+  - Doc-parity test asserts every Commands enum variant appears in docs/book/src; stub sections added for the 23 undocumented commands
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-8, docs]
+  notes: null
+- id: PMAT-087
+  github_issue: 116
+  item_type: task
+  title: 'TDG-1: Burn down 6 F-grade files so strict pre-commit TDG gate can be re-enabled'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - pmat tdg --min-grade B+ exits 0 for anomaly.rs, undo_helpers.rs, image_cmd.rs, layer_builder.rs, image_assembler.rs, unknown_fields.rs
+  - No function above cyclomatic complexity 10 in the six files; no production .unwrap() outside cfg(test)
+  - Strict pre-commit hook re-enabled (BLOCK_ON_NEW_FILES restored); issue #116 closed
+  phases: []
+  subtasks: []
+  estimated_effort: 1.5d
+  labels: [sprint-2026-06, day-9, debt]
+  notes: 'Current hand-patched .git/hooks/pre-commit override silently reverts on pmat hooks refresh.'
+- id: PMAT-088
+  github_issue: null
+  item_type: task
+  title: 'COV-1: Close CLI coverage gaps — cmd_dist, fleet_ops canary/rolling, apply_variants, dispatch_infra'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Lib tests added per tests_cov_* pattern for cmd_dist (0%), apply_mode_exits (23%), cmd_canary/cmd_rolling (24%), dispatch_infra_cmd (6%)
+  - Overall lib line coverage rises from 96.27%; function coverage from 92.37%
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-10, debt]
+  notes: 'Stretch follow-ons: OCI registry_push test server, SSH control-master extraction, L3-L5 coverage persistence (v1.6.0 anchor).'
+- id: PMAT-089
+  github_issue: null
+  item_type: task
+  title: 'REL-7: Tag v1.5.1 — quality/docs patch (crates.io publish deferred to Friday 2026-06-26)'
+  status: pending
+  priority: medium
+  assigned_to: null
+  created: 2026-06-12T12:00:00Z
+  updated: 2026-06-12T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - v1.5.1 tagged after TDG-1/COV-1/DOCS-1 merge; GitHub release green with full asset set
+  - crates.io publish explicitly NOT performed (next Friday window is outside the sprint)
+  phases: []
+  subtasks: []
+  estimated_effort: 0.25d
+  labels: [sprint-2026-06, day-10, release]
+  notes: 'Sprint exit: 4 GitHub tagged releases (v1.4.3, v1.4.4, v1.5.0, v1.5.1), 1 crates.io publish (v1.5.0).'
