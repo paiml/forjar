@@ -263,4 +263,43 @@ mod tests {
         let result = provider.resolve("key").unwrap();
         assert!(result.is_none());
     }
+
+    // GH-85 regression: FileProvider must reject path traversal in key names.
+    #[test]
+    fn gh85_file_provider_rejects_traversal_keys() {
+        let dir = TempDir::new().unwrap();
+        let provider = FileProvider::new(dir.path());
+
+        for key in ["../etc/passwd", "..", "a/b", "a\\b", "..\\windows"] {
+            let result = provider.resolve(key);
+            assert!(
+                result.is_err(),
+                "key {key:?} must be rejected, got {result:?}"
+            );
+            assert!(
+                result.unwrap_err().contains("invalid secret key"),
+                "error for key {key:?} should explain rejection"
+            );
+        }
+    }
+
+    // GH-85 regression: ExecProvider must not interpolate the key into the
+    // shell command — a metacharacter-laden key must arrive literally via $1
+    // and must not execute embedded commands.
+    #[test]
+    fn gh85_exec_provider_no_shell_injection() {
+        let dir = TempDir::new().unwrap();
+        let sentinel = dir.path().join("gh85_pwned");
+        let key = format!("x\"; touch {}; echo \"", sentinel.display());
+
+        let provider = ExecProvider::new("echo");
+        let result = provider.resolve(&key).unwrap();
+
+        assert!(
+            !sentinel.exists(),
+            "injection executed: sentinel file was created"
+        );
+        let value = result.expect("echo should resolve the key").value;
+        assert_eq!(value, key, "key must round-trip verbatim via $1");
+    }
 }

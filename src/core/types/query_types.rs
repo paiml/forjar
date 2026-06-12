@@ -391,6 +391,22 @@ mod tests {
         assert_eq!(stats.p50, 1.5);
     }
 
+    // GH-86 regression: p95/p99 index must be clamped to n-1. With n=20 the
+    // raw p95 index (20 * 0.95) lands exactly on the n-1 boundary — without
+    // the .min(n - 1) clamp, floating-point rounding here risks an
+    // out-of-bounds panic. Must return valid in-range percentiles.
+    #[test]
+    fn gh86_timing_stats_p95_index_boundary_n20() {
+        let durations: Vec<f64> = (1..=20).map(f64::from).collect();
+        let stats = TimingStats::from_sorted(&durations).unwrap();
+        assert_eq!(stats.count, 20);
+        // Boundary: index 19 == n-1 — last element, not out of bounds.
+        assert_eq!(stats.p95, 20.0);
+        assert_eq!(stats.p99, 20.0);
+        assert_eq!(stats.max, 20.0);
+        assert!(stats.p50 <= stats.p95 && stats.p95 <= stats.max);
+    }
+
     #[test]
     fn timing_stats_format_compact() {
         let stats = TimingStats {

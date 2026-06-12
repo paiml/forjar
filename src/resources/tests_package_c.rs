@@ -168,3 +168,57 @@ fn test_fj51_cargo_multi_package_separate_cache_keys() {
         "each package gets own cache key: {script}"
     );
 }
+
+// GH-90 regression: `dpkg -l <pkg>` exits 0 even when the package is known
+// but not installed (rc/un states), so apt scripts must never trust the
+// dpkg exit code — every install-state probe must pipe through
+// `grep -q '^ii '` to require the installed state.
+const GH90_II_GUARD: &str = "| grep -q '^ii '";
+
+/// check_script probes install state via grep '^ii ', not dpkg exit code.
+#[test]
+fn gh90_apt_check_script_greps_ii_state() {
+    let r = make_apt_resource(&["curl"]);
+    let script = check_script(&r);
+    assert!(
+        script.contains("dpkg -l 'curl' 2>/dev/null | grep -q '^ii '"),
+        "check must grep for '^ii ' state: {script}"
+    );
+}
+
+/// apt present: both the NEED_INSTALL guard and the postcondition use '^ii '.
+#[test]
+fn gh90_apt_present_guard_and_postcondition_grep_ii() {
+    let r = make_apt_resource(&["curl"]);
+    let script = apply_script(&r);
+    assert_eq!(
+        script.matches(GH90_II_GUARD).count(),
+        2,
+        "present needs '^ii ' in pre-check AND postcondition: {script}"
+    );
+    assert!(script.contains("Postcondition"), "postcondition: {script}");
+}
+
+/// apt latest: postcondition verifies installed state via '^ii '.
+#[test]
+fn gh90_apt_latest_postcondition_greps_ii() {
+    let mut r = make_apt_resource(&["curl"]);
+    r.state = Some("latest".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains(GH90_II_GUARD),
+        "latest postcondition must grep '^ii ': {script}"
+    );
+}
+
+/// apt absent: removal guard checks '^ii ' rather than dpkg exit code.
+#[test]
+fn gh90_apt_absent_guard_greps_ii() {
+    let mut r = make_apt_resource(&["curl"]);
+    r.state = Some("absent".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("| grep -q '^ii ' && NEED_REMOVE=1"),
+        "absent guard must grep '^ii ': {script}"
+    );
+}
