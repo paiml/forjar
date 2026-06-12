@@ -5,6 +5,7 @@
 //! resolved config and state lock files. Covers packages, files with sources,
 //! docker images, model artifacts, and recipe-expanded resources.
 
+use crate::core::strutil::truncate_with_ellipsis;
 use crate::core::{parser, state, types};
 use std::path::Path;
 
@@ -230,29 +231,14 @@ fn print_sbom_text(config: &types::ForjarConfig, components: &[SbomComponent]) {
         };
         println!(
             "{:<30} {:<12} {:<12} {:<16}",
-            truncate_str(&c.name, 29),
-            truncate_str(&c.version, 11),
+            truncate_with_ellipsis(&c.name, 29),
+            truncate_with_ellipsis(&c.version, 11),
             c.component_type,
             hash_short
         );
     }
     println!("{:-<72}", "");
     println!("Total: {} components", components.len());
-}
-
-fn truncate_str(s: &str, max: usize) -> String {
-    if s.len() > max {
-        if max < 4 {
-            return s.chars().take(max).collect();
-        }
-        let mut end = max.saturating_sub(3);
-        while end > 0 && !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        format!("{}...", &s[..end])
-    } else {
-        s.to_string()
-    }
 }
 
 fn chrono_now() -> String {

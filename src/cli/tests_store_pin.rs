@@ -129,6 +129,33 @@ resources:
     }
 
     #[test]
+    fn test_pin_check_short_corrupt_hash_no_panic() {
+        // PMAT-073: a hand-edited lock file with a short hash (e.g. "abc")
+        // must report stale, not panic on `&locked_hash[..16]`.
+        let dir = TempDir::new().unwrap();
+        let file = write_config(&dir);
+        let state = dir.path().join("state");
+        fs::create_dir_all(&state).unwrap();
+
+        fs::write(
+            state.join("forjar.inputs.lock.yaml"),
+            r#"
+schema: "1.0"
+pins:
+  nginx:
+    provider: apt
+    version: "1.24.0"
+    hash: abc
+"#,
+        )
+        .unwrap();
+
+        let result = cmd_pin_check(&file, &state, false);
+        assert!(result.is_err(), "corrupt hash should fail check: {result:?}");
+        assert!(result.unwrap_err().contains("stale"));
+    }
+
+    #[test]
     fn test_pin_check_json() {
         let dir = TempDir::new().unwrap();
         let file = write_config(&dir);

@@ -3,6 +3,7 @@
 //! Generates a standalone SVG image from the resource DAG without
 //! external dependencies (no graphviz, no ratatui).
 
+use crate::core::strutil::truncate_with_ellipsis;
 use crate::core::types::{ForjarConfig, ResourceType};
 
 /// Render resource DAG as SVG to stdout.
@@ -83,7 +84,7 @@ pub(crate) fn print_graph_svg(config: &ForjarConfig) {
         println!("  <rect x=\"{x}\" y=\"{y}\" width=\"{node_w}\" height=\"{node_h}\" class=\"node\" fill=\"{fill}\"/>");
         let tx = x + 8;
         let ty = y + 15;
-        let label = truncate(id, 20);
+        let label = truncate_with_ellipsis(id, 20);
         println!("  <text x=\"{tx}\" y=\"{ty}\" class=\"label\">{label}</text>");
         let tty = y + 28;
         let type_str = format!("{rtype:?}").to_lowercase();
@@ -107,20 +108,5 @@ fn type_color(rtype: &ResourceType) -> &'static str {
         ResourceType::Gpu => "#ffccbc",
         ResourceType::Task => "#e8eaf6",
         _ => "#f5f5f5",
-    }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() > max {
-        if max < 4 {
-            return s.chars().take(max).collect();
-        }
-        let mut end = max.saturating_sub(3);
-        while end > 0 && !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        format!("{}...", &s[..end])
-    } else {
-        s.to_string()
     }
 }

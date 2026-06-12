@@ -58,7 +58,11 @@ fn resolve_when_template(
 /// Strip surrounding quotes from a string value.
 fn unquote(s: &str) -> &str {
     let s = s.trim();
-    if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
+    // len >= 2 is required: for a lone `"` or `'` both starts_with and
+    // ends_with match the same char, and slicing 1..0 would panic.
+    if s.len() >= 2
+        && ((s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')))
+    {
         &s[1..s.len() - 1]
     } else {
         s
@@ -311,5 +315,61 @@ mod tests {
         let m = make_machine("x86_64");
         let p = HashMap::new();
         assert!(evaluate_when("{{machine.arch}} == 'x86_64'", &p, &m).unwrap());
+    }
+
+    // ── Unquote edge cases (PMAT-073: 1-char quote panic) ──────────
+
+    #[test]
+    fn test_unquote_lone_double_quote() {
+        assert_eq!(unquote("\""), "\"");
+    }
+
+    #[test]
+    fn test_unquote_lone_single_quote() {
+        assert_eq!(unquote("'"), "'");
+    }
+
+    #[test]
+    fn test_unquote_empty_string() {
+        assert_eq!(unquote(""), "");
+    }
+
+    #[test]
+    fn test_unquote_quoted_and_plain() {
+        assert_eq!(unquote("\"x86_64\""), "x86_64");
+        assert_eq!(unquote("'x86_64'"), "x86_64");
+        assert_eq!(unquote("x86_64"), "x86_64");
+        assert_eq!(unquote("\"\""), "");
+        assert_eq!(unquote("''"), "");
+    }
+
+    #[test]
+    fn test_pmat073_lone_quote_operand_no_panic() {
+        // `when: 'x == "'` used to panic in unquote (slice range 1..0)
+        let m = make_machine("x86_64");
+        let p = HashMap::new();
+        assert!(!evaluate_when("x == \"", &p, &m).unwrap());
+        assert!(evaluate_when("\" == \"", &p, &m).unwrap());
+        assert!(evaluate_when("' != \"", &p, &m).unwrap());
+        assert!(!evaluate_when("x contains '", &p, &m).unwrap());
+    }
+
+    // ── Property tests (PMAT-073: no panics on arbitrary input) ────
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_unquote_never_panics(s in ".*") {
+            let _ = unquote(&s);
+        }
+
+        #[test]
+        fn prop_evaluate_when_never_panics(s in ".*") {
+            let m = make_machine("x86_64");
+            let p = make_params();
+            // May be Ok or Err, but must never panic.
+            let _ = evaluate_when(&s, &p, &m);
+        }
     }
 }

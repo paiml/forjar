@@ -1,4 +1,4 @@
-//! Additional coverage for sbom.rs — parse_image_tag, truncate_str, model/file components.
+//! Additional coverage for sbom.rs — parse_image_tag, name truncation, model/file components.
 
 use super::sbom::*;
 use crate::core::{state, types};

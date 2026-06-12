@@ -8,6 +8,7 @@
 use crate::core::store::lockfile::{
     check_completeness, check_staleness, read_lockfile, write_lockfile, LockFile, Pin,
 };
+use crate::core::strutil::truncate_at_boundary;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -48,7 +49,7 @@ pub(crate) fn cmd_pin(file: &Path, state_dir: &Path, json: bool) -> Result<(), S
         );
         for (name, pin) in &lockfile.pins {
             let ver = pin.version.as_deref().unwrap_or("latest");
-            println!("  {name}: {ver} ({})", &pin.hash[..20]);
+            println!("  {name}: {ver} ({})", truncate_at_boundary(&pin.hash, 20));
         }
     }
     Ok(())
@@ -140,11 +141,13 @@ pub(crate) fn cmd_pin_check(file: &Path, state_dir: &Path, json: bool) -> Result
         if !stale.is_empty() {
             println!("Stale pins ({}):", stale.len());
             for s in &stale {
+                // PMAT-073: locked_hash comes from the user-editable lock
+                // file — a short or corrupt hash must not panic the slice.
                 println!(
                     "  {}: locked={} current={}",
                     s.name,
-                    &s.locked_hash[..16],
-                    &s.current_hash[..16]
+                    truncate_at_boundary(&s.locked_hash, 16),
+                    truncate_at_boundary(&s.current_hash, 16)
                 );
             }
         }
