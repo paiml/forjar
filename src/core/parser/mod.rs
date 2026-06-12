@@ -40,6 +40,8 @@ mod tests_policy;
 #[cfg(test)]
 mod tests_policy_b;
 #[cfg(test)]
+mod tests_regressions;
+#[cfg(test)]
 mod tests_resource_types_cov;
 #[cfg(test)]
 mod tests_sarif;
