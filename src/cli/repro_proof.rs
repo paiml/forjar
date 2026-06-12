@@ -50,9 +50,8 @@ pub(crate) fn cmd_repro_proof(file: &Path, state_dir: &Path, json: bool) -> Resu
 
 fn get_git_sha(file: &Path) -> Option<String> {
     let dir = file.parent()?;
-    let output = std::process::Command::new("git")
+    let output = crate::core::gitenv::git_in(dir)
         .args(["rev-parse", "HEAD"])
-        .current_dir(dir)
         .output()
         .ok()?;
     if output.status.success() {

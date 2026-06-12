@@ -237,7 +237,7 @@ pub(crate) fn cmd_rollback(
 ) -> Result<(), String> {
     let file_str = file.to_string_lossy();
     let git_ref = format!("HEAD~{revision}:{file_str}");
-    let output = std::process::Command::new("git")
+    let output = crate::core::gitenv::git()
         .args(["show", &git_ref])
         .output()
         .map_err(|e| format!("git show failed: {e}"))?;

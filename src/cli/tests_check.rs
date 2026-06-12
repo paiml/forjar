@@ -28,32 +28,30 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
 
-        // Init git repo in temp dir
-        std::process::Command::new("git")
+        // Init git repo in temp dir. Must go through gitenv: when this
+        // suite runs inside a git hook (pre-push), inherited GIT_DIR would
+        // otherwise re-target every one of these commands — and the
+        // auto-commit under test — at the host repository (GH-134).
+        crate::core::gitenv::git_in(dir.path())
             .args(["init"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
-        std::process::Command::new("git")
+        crate::core::gitenv::git_in(dir.path())
             .args(["config", "user.email", "test@test.com"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
-        std::process::Command::new("git")
+        crate::core::gitenv::git_in(dir.path())
             .args(["config", "user.name", "Test"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
         // Initial commit so the repo is in a valid state
         std::fs::write(dir.path().join(".gitkeep"), "").unwrap();
-        std::process::Command::new("git")
+        crate::core::gitenv::git_in(dir.path())
             .args(["add", ".gitkeep"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
-        std::process::Command::new("git")
+        crate::core::gitenv::git_in(dir.path())
             .args(["commit", "-m", "init"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
 
@@ -122,9 +120,8 @@ resources:
         assert!(target.exists());
 
         // Verify git committed the state
-        let output = std::process::Command::new("git")
+        let output = crate::core::gitenv::git_in(dir.path())
             .args(["log", "--oneline", "-1"])
-            .current_dir(dir.path())
             .output()
             .unwrap();
         let log = String::from_utf8_lossy(&output.stdout);

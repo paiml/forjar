@@ -90,7 +90,7 @@ pub(crate) fn cmd_status_changes_since(
     commit: &str,
     json: bool,
 ) -> Result<(), String> {
-    let output = std::process::Command::new("git")
+    let output = crate::core::gitenv::git()
         .args([
             "diff",
             "--name-only",

@@ -160,7 +160,7 @@ pub(crate) struct GitLogEntry {
 
 /// Search git log for query terms, fuse with FTS results via RRF.
 pub(crate) fn print_git_history(query: &str, results: &[FtsResult]) -> Result<(), String> {
-    let output = std::process::Command::new("git")
+    let output = crate::core::gitenv::git()
         .args([
             "log",
             "--oneline",
