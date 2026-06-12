@@ -46,6 +46,18 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
         );
     }
 
+    // PMAT-080: Homebrew + Nix embed real checksums — resolve them up front
+    // for the pinned --version tag (hard error instead of placeholders).
+    let release = if gen_homebrew || gen_nix {
+        Some(super::dist_checksums::resolve_release(
+            dist,
+            args.version.as_deref(),
+            args.checksums_file.as_deref(),
+        )?)
+    } else {
+        None
+    };
+
     let out_dir = output_dir.unwrap_or(Path::new("dist"));
     let mut artifacts: Vec<GeneratedArtifact> = Vec::new();
 
@@ -58,8 +70,9 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     }
 
     if gen_homebrew {
+        let rel = release.as_ref().ok_or("internal: release not resolved")?;
         let path = out_dir.join("homebrew.rb");
-        let content = generate_homebrew(dist);
+        let content = generate_homebrew(dist, rel)?;
         write_artifact(&path, &content)?;
         artifacts.push(GeneratedArtifact::new("homebrew", &path, content.len()));
     }
@@ -72,8 +85,9 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     }
 
     if gen_nix {
+        let rel = release.as_ref().ok_or("internal: release not resolved")?;
         let path = out_dir.join("flake.nix");
-        let content = generate_nix(dist);
+        let content = generate_nix(dist, rel)?;
         write_artifact(&path, &content)?;
         artifacts.push(GeneratedArtifact::new("nix", &path, content.len()));
     }
@@ -158,7 +172,20 @@ fn print_summary(artifacts: &[GeneratedArtifact]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::dist_checksums::{parse_sha256sums, ResolvedRelease};
     use crate::core::types::{DistBinaryTarget, DistConfig, DistHomebrewConfig};
+
+    fn sample_release() -> ResolvedRelease {
+        let sums = "\
+1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa  forjar-1.4.3-x86_64-unknown-linux-gnu.tar.gz
+2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb  forjar-1.4.3-x86_64-unknown-linux-musl.tar.gz
+3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc  forjar-1.4.3-aarch64-apple-darwin.tar.gz
+";
+        ResolvedRelease {
+            version: "1.4.3".into(),
+            checksums: parse_sha256sums(sums),
+        }
+    }
 
     fn sample_dist() -> DistConfig {
         DistConfig {
@@ -284,26 +311,45 @@ mod tests {
 
     #[test]
     fn homebrew_contains_class_name() {
-        let formula = generate_homebrew(&sample_dist());
+        let formula = generate_homebrew(&sample_dist(), &sample_release()).unwrap();
         assert!(formula.contains("class Forjar < Formula"));
     }
 
     #[test]
     fn homebrew_contains_description() {
-        let formula = generate_homebrew(&sample_dist());
+        let formula = generate_homebrew(&sample_dist(), &sample_release()).unwrap();
         assert!(formula.contains("Rust-native Infrastructure as Code"));
     }
 
     #[test]
     fn homebrew_skips_musl_targets() {
-        let formula = generate_homebrew(&sample_dist());
+        let formula = generate_homebrew(&sample_dist(), &sample_release()).unwrap();
         assert!(!formula.contains("musl"));
     }
 
     #[test]
     fn homebrew_contains_caveats() {
-        let formula = generate_homebrew(&sample_dist());
+        let formula = generate_homebrew(&sample_dist(), &sample_release()).unwrap();
         assert!(formula.contains("forjar init"));
+    }
+
+    #[test]
+    fn homebrew_contains_real_version_and_checksums() {
+        let formula = generate_homebrew(&sample_dist(), &sample_release()).unwrap();
+        assert!(formula.contains(r#"version "1.4.3""#));
+        assert!(
+            formula.contains("1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa")
+        );
+        assert!(!formula.contains("PLACEHOLDER"));
+    }
+
+    #[test]
+    fn homebrew_missing_checksum_is_hard_error() {
+        let mut release = sample_release();
+        release.checksums.clear();
+        let err = generate_homebrew(&sample_dist(), &release).unwrap_err();
+        assert!(err.contains("forjar-1.4.3-x86_64-unknown-linux-gnu.tar.gz"));
+        assert!(err.contains("--checksums-file"));
     }
 
     #[test]
@@ -315,14 +361,51 @@ mod tests {
 
     #[test]
     fn nix_contains_description() {
-        let flake = generate_nix(&sample_dist());
+        let flake = generate_nix(&sample_dist(), &sample_release()).unwrap();
         assert!(flake.contains("Rust-native Infrastructure as Code"));
     }
 
     #[test]
     fn nix_skips_musl() {
-        let flake = generate_nix(&sample_dist());
+        let flake = generate_nix(&sample_dist(), &sample_release()).unwrap();
         assert!(!flake.contains("musl"));
+    }
+
+    #[test]
+    fn nix_contains_real_version_and_checksums() {
+        let flake = generate_nix(&sample_dist(), &sample_release()).unwrap();
+        assert!(flake.contains(r#"version = "1.4.3";"#));
+        assert!(flake.contains("3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc"));
+        assert!(!flake.contains("PLACEHOLDER"));
+    }
+
+    #[test]
+    fn cmd_dist_homebrew_without_version_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            "version: \"1.0\"\nname: t\nmachines:\n  local:\n    hostname: l\n    addr: localhost\n    user: root\nresources: {}\ndist:\n  source: github_release\n  repo: acme/tool\n  binary: mytool\n  targets:\n    - os: linux\n      arch: x86_64\n      asset: \"mytool-{version}-x86_64-unknown-linux-gnu.tar.gz\"\n  install_dir: /usr/local/bin\n",
+        )
+        .unwrap();
+        let args = super::super::commands::DistArgs {
+            file: config,
+            installer: false,
+            homebrew: true,
+            binstall: false,
+            nix: false,
+            github_action: false,
+            deb: false,
+            rpm: false,
+            all: false,
+            version: None,
+            checksums_file: None,
+            output: None,
+            output_dir: Some(dir.path().join("out")),
+            json: false,
+        };
+        let err = cmd_dist(&args).unwrap_err();
+        assert!(err.contains("--version"), "got: {err}");
     }
 
     #[test]

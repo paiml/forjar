@@ -1,4 +1,5 @@
 mod apply_args;
+mod dist_args;
 mod graph_args;
 mod lock_core_args;
 mod lock_ops_args;
@@ -15,6 +16,7 @@ mod subcmd_args;
 mod validate_args;
 pub use apply_args::*;
 use clap::Subcommand;
+pub use dist_args::*;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
@@ -92,10 +94,8 @@ pub enum Commands {
     StateRm(StateRmArgs),
     /// FJ-118: Regenerate BLAKE3 integrity sidecars from current lock contents.
     Reseal(ResealArgs),
-
     /// Show computed output values from forjar.yaml (FJ-215)
     Output(OutputArgs),
-
     /// FJ-220: Evaluate policy rules against config
     #[command(name = "policy")]
     Policy(PolicyArgs),
