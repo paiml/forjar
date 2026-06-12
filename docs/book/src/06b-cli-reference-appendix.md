@@ -1,0 +1,207 @@
+# CLI Reference Appendix
+
+This appendix documents subcommands not yet covered in the main
+[CLI Reference](06-cli.md). Each entry is a minimal stub: purpose and usage.
+A CI parity test (`tests/doc_cli_parity.rs`) ensures every subcommand in the
+`Commands` enum appears somewhere in this book, so new commands must be added
+here (or in a full chapter) before they can merge.
+
+## Config Analysis & Composition
+
+### forjar stack-diff
+
+Unified stack diff — compare two configs (resources, machines, params).
+
+```bash
+forjar stack-diff <FILE1> <FILE2> [--json]
+```
+
+### forjar config-merge
+
+Merge two forjar config files into one.
+
+```bash
+forjar config-merge <FILE_A> <FILE_B> [-o <OUTPUT>] [--allow-collisions]
+```
+
+### forjar extract
+
+Extract resources matching tag, group, or glob into a sub-config.
+
+```bash
+forjar extract -f forjar.yaml [--tags <TAG>] [--group <GROUP>] [--glob "web-*"] [-o <OUTPUT>]
+```
+
+### forjar query
+
+Infrastructure query — search resources across config and state.
+
+```bash
+forjar query -f forjar.yaml [--pattern <P>] [--type <T>] [--machine <M>] [--tag <T>] [--live] [--json]
+```
+
+### forjar preservation
+
+Preservation checking — verify resources that must never be destroyed.
+
+```bash
+forjar preservation -f forjar.yaml [--json]
+```
+
+## State & Lock Integrity
+
+### forjar reseal
+
+Regenerate BLAKE3 integrity sidecars from current lock contents (use when a
+lock file and its `.b3` sidecar diverge).
+
+```bash
+forjar reseal [--file <LOCK> | --all | --machine <NAME>] [--dry-run]
+```
+
+### forjar generation
+
+Manage state generations (Nix-style numbered snapshots): list, garbage-collect,
+and diff.
+
+```bash
+forjar generation <list|gc|diff> [OPTIONS]
+```
+
+### forjar state-backend
+
+Remote state backend operations — inspect backend keys.
+
+```bash
+forjar state-backend [--state-dir state] [--prefix <PREFIX>] [--json]
+```
+
+## Policy & Supply Chain
+
+### forjar policy-coverage
+
+Policy rule coverage analysis — which rules fire against the current config.
+
+```bash
+forjar policy-coverage -f forjar.yaml [--json]
+```
+
+### forjar policy-install
+
+Install a compliance pack (e.g., `cis-ubuntu-22`, `nist-800-53`, `soc2`, `hipaa`).
+
+```bash
+forjar policy-install <PACK> [--output-dir policies] [--json]
+```
+
+### forjar sign
+
+Recipe signing — sign or verify a recipe file (optionally post-quantum dual
+signing).
+
+```bash
+forjar sign <RECIPE> [--verify] [--signer <ID>] [--pq] [--json]
+```
+
+## Multi-Stack Orchestration
+
+### forjar multi-apply
+
+Multi-config apply ordering — analyze cross-stack dependencies and report the
+correct apply order.
+
+```bash
+forjar multi-apply -f <CONFIG> -f <CONFIG2> [--json]
+```
+
+### forjar stack-graph
+
+Stack dependency graph across multiple config files.
+
+```bash
+forjar stack-graph -f <CONFIG> -f <CONFIG2> [--json]
+```
+
+### forjar parallel-apply
+
+Parallel multi-stack apply with a bounded worker pool.
+
+```bash
+forjar parallel-apply -f <CONFIG> -f <CONFIG2> [--max-parallel 4] [--json]
+```
+
+## Agents & Registries
+
+### forjar agent
+
+Pull agent / hybrid push-pull enforcement — one-shot push by default, daemon
+loop with `--pull`.
+
+```bash
+forjar agent -f forjar.yaml [--pull] [--interval 60] [--auto-apply] [--json]
+```
+
+### forjar agent-registry
+
+Agent recipe registry — list agent recipes by category.
+
+```bash
+forjar agent-registry [--registry-dir <DIR>] [--category <CAT>] [--json]
+```
+
+### forjar catalog-list
+
+Service catalog listing — browse the service catalog by category.
+
+```bash
+forjar catalog-list [--catalog-dir <DIR>] [--category <CAT>] [--json]
+```
+
+## Environments
+
+### forjar environments
+
+Manage named environments (dev, staging, prod): list, diff, rollback, and
+history.
+
+```bash
+forjar environments <list|diff|rollback|history> [OPTIONS]
+```
+
+## Plugins
+
+### forjar plugin
+
+Manage WASM resource plugins: list, verify, init, install, build, run, remove.
+
+```bash
+forjar plugin <list|verify|init|install|build|run|remove> [OPTIONS]
+```
+
+## Provisioning & Distribution
+
+### forjar iso-export
+
+ISO distribution export — export config and state for offline installation.
+
+```bash
+forjar iso-export -o <OUTPUT_DIR> -f forjar.yaml [--include-binary] [--json]
+```
+
+### forjar import-brownfield
+
+Brownfield state import — scan an existing machine and import discovered
+resources into state.
+
+```bash
+forjar import-brownfield [-m localhost] [-s package -s file -s service] [-o <OUTPUT>] [--json]
+```
+
+### forjar dist
+
+Generate distribution artifacts (installer script, Homebrew formula,
+cargo-binstall metadata, Nix flake, GitHub Action, deb/rpm specs).
+
+```bash
+forjar dist [--installer|--homebrew|--binstall|--nix|--github-action|--deb|--rpm|--all] [-o <OUT>]
+```

@@ -1,0 +1,59 @@
+# DOCS-1 (PMAT-086): Build "The Forjar Book" (docs/book) in CI.
+#
+# The book was previously never built in CI, so broken SUMMARY.md entries and
+# stale chapters went undetected. This workflow keeps the job light (~1 min)
+# by installing a pinned prebuilt mdbook binary instead of compiling it.
+#
+# Follow-up (not in this PR): deploy the built book to GitHub Pages.
+name: docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/book/**"
+      - "src/cli/commands/**"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/book/**"
+      - "src/cli/commands/**"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-book:
+    name: mdbook build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MDBOOK_VERSION: v0.4.40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdbook (pinned prebuilt binary)
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -fsSL \
+            "https://github.com/rust-lang/mdBook/releases/download/${MDBOOK_VERSION}/mdbook-${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # mdbook silently *creates* chapters listed in SUMMARY.md that do not
+      # exist on disk, so a plain `mdbook build` cannot catch broken entries.
+      # Verify every linked chapter resolves before building.
+      - name: Check SUMMARY.md entries resolve
+        run: |
+          missing=0
+          while IFS= read -r chapter; do
+            if [ ! -f "docs/book/src/${chapter}" ]; then
+              echo "::error::SUMMARY.md links missing chapter: src/${chapter}"
+              missing=1
+            fi
+          done < <(grep -o '(\./[^)]*\.md)' docs/book/src/SUMMARY.md | sed 's/^(\.\///; s/)$//')
+          exit "${missing}"
+
+      - name: Build book
+        run: mdbook build docs/book
