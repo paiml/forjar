@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-06-13
+
+### Added
+
+- **`forjar dist --verify` — Tier 1 static installer verification**
+  (#146, FJ-3607/F-3609, Phase D of spec 25): generates artifacts to a
+  temp dir and verifies `sh -n` parse, zero bashrs lint errors
+  (in-process via the existing purifier wrapper), required
+  checksum/arch-detection snippets, and download-URL structure.
+  A deliberately broken asset template fails verification with a
+  non-zero exit (F-3609). Tier 2 container execution is a follow-up.
+- `forjar schema` now emits the `dist:` property block (mirrors
+  DistConfig/targets/homebrew/nix, with a keep-in-sync pin test) —
+  the spec claimed this existed; now it does (#146).
+- `dist.source` validation: values other than `github_release`
+  (local/url/s3) return a clear "not yet supported" error instead of
+  generating artifacts with broken URLs (#146).
+
+### Fixed
+
+- **Coverage workflow de-flaked** (#147, closes #141): sandbox dirs in
+  `run_convergence_test` were named from a wall-clock nanosecond read;
+  concurrent threads on coarse-tick runners collided, and the first
+  finisher's cleanup deleted the sibling's working dir mid-cycle
+  (reproduced 32/240 trials). Names now include a process-wide atomic
+  sequence — also hardens parallel `forjar check` in production.
+- Release cargo cache keyed by runner image (#145): v1.4.4's
+  x86_64-gnu leg failed linking 24.04-cached objects (glibc 2.38
+  `__isoc23_*` symbols) on the new 22.04 baseline runner.
+
+### Changed
+
+- +69 lib tests closing the worst CLI coverage gaps (apply modes,
+  canary/rolling fleet ops, infra dispatch, apply variants, check
+  blocks, wave outcomes) — suite now 12,205 tests (#148).
+- Spec 25 status reconciled from PROPOSED to per-phase reality
+  (A-C implemented, D Tier 1 implemented, Tier 2 pending) (#146).
+
 ## [1.4.4] - 2026-06-12
 
 ### Fixed

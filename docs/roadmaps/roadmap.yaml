@@ -1350,11 +1350,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-5: Tag v1.4.4 — working install path release'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  updated: 2026-06-13T00:30:00Z
   spec: null
   acceptance_criteria:
   - v1.4.4 tagged after INST-1/INST-2 merge; release auto-created with binaries + SHA256SUMS + install.sh verified
@@ -1466,11 +1466,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-6: Tag v1.5.0 + Friday crates.io publish (2026-06-19)'
-  status: pending
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T00:30:00Z
   spec: null
   acceptance_criteria:
   - v1.5.0 tagged Thursday 2026-06-18 evening after DIST/CONTRACT items merge; GitHub release green
@@ -1523,11 +1523,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'COV-1: Close CLI coverage gaps — cmd_dist, fleet_ops canary/rolling, apply_variants, dispatch_infra'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T00:30:00Z
   spec: null
   acceptance_criteria:
   - Lib tests added per tests_cov_* pattern for cmd_dist (0%), apply_mode_exits (23%), cmd_canary/cmd_rolling (24%), dispatch_infra_cmd (6%)
