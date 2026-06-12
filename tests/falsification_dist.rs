@@ -162,8 +162,8 @@ fn installer_skips_checksum_when_none() {
 fn installer_includes_version_verify() {
     let script = forjar::cli::dist_generators::generate_installer(&minimal_dist());
     assert!(
-        script.contains("mytool --version"),
-        "installer must run version_cmd for post-install verification"
+        script.contains(r#""$DEST/$BINARY" --version"#),
+        "installer must run version_cmd against the just-installed binary"
     );
 }
 
@@ -182,8 +182,8 @@ fn installer_omits_version_verify_when_none() {
 fn installer_has_fallback_directory() {
     let script = forjar::cli::dist_generators::generate_installer(&minimal_dist());
     assert!(
-        script.contains("~/.local/bin"),
-        "installer must reference fallback install directory"
+        script.contains("$HOME/.local/bin"),
+        "quoted ~ never expands; generator must emit $HOME (PMAT-077)"
     );
 }
 

@@ -344,6 +344,27 @@ cargo clippy -- -D warnings   # lint
 
 ## Installation
 
+**Prebuilt binaries** (Linux x86_64/aarch64, gnu + static musl — see
+[Releases](https://github.com/paiml/forjar/releases)):
+
+```bash
+# One-liner installer (picks the right target, verifies sha256)
+curl -fsSL https://raw.githubusercontent.com/paiml/forjar/main/install.sh | sh
+
+# Or manually: download, verify, extract
+VERSION=1.4.3 TARGET=x86_64-unknown-linux-gnu
+curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz"
+curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz.sha256"
+sha256sum -c "forjar-${VERSION}-${TARGET}.tar.gz.sha256"
+tar xzf "forjar-${VERSION}-${TARGET}.tar.gz"
+sudo install "forjar-${VERSION}-${TARGET}/forjar" /usr/local/bin/
+
+# Via cargo-binstall (uses the same release artifacts)
+cargo binstall forjar
+```
+
+**From crates.io / source:**
+
 ```bash
 # From crates.io
 cargo install forjar

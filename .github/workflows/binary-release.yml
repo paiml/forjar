@@ -94,7 +94,12 @@ jobs:
   build:
     name: ${{ matrix.target }}
     needs: ensure-release
-    runs-on: ubuntu-latest
+    # 22.04 pins the gnu builds to glibc 2.35 — binaries built on
+    # ubuntu-latest (24.04, glibc 2.39) refuse to run on older hosts.
+    # musl legs are static and aarch64 legs build inside cross containers,
+    # so only the x86_64-gnu leg actually needs this, but one runner keeps
+    # the matrix uniform.
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -223,6 +228,27 @@ jobs:
             "${{ steps.package.outputs.archive }}" \
             "${{ steps.package.outputs.sha }}" \
             --clobber
+
+  # Combined SHA256SUMS regenerated from every tarball on the release —
+  # install.sh's verify_checksum prefers this file (with per-asset .sha256
+  # as fallback). Runs after all build legs so it covers the full set;
+  # macOS assets added later by release.yml get covered on its own
+  # checksums pass or the next re-run.
+  checksums:
+    name: Aggregate SHA256SUMS
+    needs: [ensure-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Regenerate and upload SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.ensure-release.outputs.tag }}"
+          mkdir assets && cd assets
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.tar.gz'
+          sha256sum -- *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber --repo "${{ github.repository }}"
 
   summary:
     name: Summary

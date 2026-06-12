@@ -24,6 +24,10 @@ dist:
       arch: aarch64
       asset: "forjar-{version}-aarch64-unknown-linux-gnu.tar.gz"
       libc: gnu
+    - os: linux
+      arch: aarch64
+      asset: "forjar-{version}-aarch64-unknown-linux-musl.tar.gz"
+      libc: musl
     - os: darwin
       arch: x86_64
       asset: "forjar-{version}-x86_64-apple-darwin.tar.gz"
