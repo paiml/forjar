@@ -52,6 +52,14 @@ pub(crate) fn create_generation(
     // Atomically switch current symlink
     atomic_symlink_switch(&gen_dir, &target)?;
 
+    // destroy-undo-roundtrip-v1 contract: after the atomic switch, `current`
+    // must resolve to the generation just created.
+    debug_assert_eq!(
+        current_generation(&gen_dir),
+        Some(next),
+        "DESTROY-UNDO-ROUNDTRIP violated: current symlink not at new generation"
+    );
+
     Ok(next)
 }
 
@@ -75,6 +83,14 @@ pub(crate) fn rollback_to_generation(
 
     // Switch current symlink
     atomic_symlink_switch(&gen_dir, &target)?;
+
+    // destroy-undo-roundtrip-v1 contract: after rollback, `current` must
+    // resolve to the restored generation.
+    debug_assert_eq!(
+        current_generation(&gen_dir),
+        Some(generation),
+        "DESTROY-UNDO-ROUNDTRIP violated: current symlink not at restored generation"
+    );
 
     println!("Rolled back to generation {generation}");
     Ok(())

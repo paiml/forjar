@@ -140,6 +140,17 @@ pub(crate) fn apply_machine(
 
     result?;
 
+    // plan-apply-equivalence-v1 contract: the executor records at most one
+    // outcome per planned change — it never executes an action the plan did
+    // not predict (filters, cascades, and jidoka stops may record fewer).
+    debug_assert!(
+        (counters.converged + counters.unchanged + counters.failed) as usize
+            <= machine_changes.len(),
+        "PLAN-APPLY-EQUIVALENCE violated: outcomes ({}) exceed planned changes ({})",
+        counters.converged + counters.unchanged + counters.failed,
+        machine_changes.len()
+    );
+
     finalize_machine(
         cfg,
         ctx.lock,

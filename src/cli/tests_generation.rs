@@ -220,6 +220,46 @@ mod tests {
     }
 
     #[test]
+    fn test_gh97_destroy_undo_roundtrip_restores_snapshot() {
+        // destroy-undo-roundtrip-v1 contract: rollback(snapshot(S)) = S at
+        // the lock level, and `current` points at the restored generation.
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+        let lock_path = state_dir.join("m1").join("state.lock.yaml");
+
+        // Pre-destroy state: one converged resource
+        std::fs::write(
+            &lock_path,
+            "schema: '1.0'\nresources: {pkg-a: {status: converged}}",
+        )
+        .unwrap();
+        let original = std::fs::read_to_string(&lock_path).unwrap();
+        let g0 = create_generation(&state_dir, None).unwrap();
+
+        // Simulate a destroy: resource removed, new generation snapshotted
+        std::fs::write(&lock_path, "schema: '1.0'\nresources: {}").unwrap();
+        let g1 = create_generation(&state_dir, None).unwrap();
+        assert_eq!(g1, g0 + 1, "generation numbers must be monotonic");
+
+        let gen_dir = state_dir.join("generations");
+        assert_eq!(current_generation(&gen_dir), Some(g1));
+
+        // Undo: roll back to the pre-destroy generation
+        rollback_to_generation(&state_dir, g0, true).unwrap();
+
+        let restored = std::fs::read_to_string(&lock_path).unwrap();
+        assert_eq!(
+            restored, original,
+            "undo must restore the prior generation's lock byte-for-byte"
+        );
+        assert_eq!(
+            current_generation(&gen_dir),
+            Some(g0),
+            "current must point at the restored generation"
+        );
+    }
+
+    #[test]
     fn test_generation_without_config_hash() {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());

@@ -87,6 +87,81 @@ bindings:
     status: implemented
     notes: "Private helper; dispatches to type-specific validation"
 
+  # ── Idempotent Apply (#97 KZ-11) ───────────────────────
+  - contract: idempotent-apply-v1.yaml
+    equation: plan_fixed_point
+    module_path: "forjar::core::planner::plan"
+    function: plan
+    signature: "fn plan(config: &ForjarConfig, execution_order: &[String], locks: &HashMap<String, StateLock>, tag_filter: Option<&str>) -> ExecutionPlan"
+    status: implemented
+    notes: "Counter-conservation debug_assert; second plan over converged locks yields zero changes"
+
+  - contract: idempotent-apply-v1.yaml
+    equation: hash_determinism
+    module_path: "forjar::core::planner::hash_desired_state"
+    function: hash_desired_state
+    signature: "fn hash_desired_state(resource: &Resource) -> String"
+    status: implemented
+    notes: "FJ-2200 determinism debug_assert_eq; stable field order, BLAKE3 over NUL-joined components"
+
+  - contract: idempotent-apply-v1.yaml
+    equation: noop_fixed_point
+    module_path: "forjar::core::planner::determine_present_action"
+    function: determine_present_action
+    signature: "fn determine_present_action(resource_id: &str, resource: &Resource, machine_name: &str, locks: &HashMap<String, StateLock>) -> PlanAction"
+    status: implemented
+    notes: "Private helper; FJ-2200 debug_assert enforces converged + matching hash → NoOp"
+
+  # ── Plan/Apply Equivalence (#97 KZ-11) ─────────────────
+  - contract: plan-apply-equivalence-v1.yaml
+    equation: plan_determinism
+    module_path: "forjar::core::planner::plan"
+    function: plan
+    signature: "fn plan(config: &ForjarConfig, execution_order: &[String], locks: &HashMap<String, StateLock>, tag_filter: Option<&str>) -> ExecutionPlan"
+    status: implemented
+    notes: "Pure function; forjar plan (src/cli/plan.rs) and forjar apply (executor::apply) share it"
+
+  - contract: plan-apply-equivalence-v1.yaml
+    equation: apply_executes_plan
+    module_path: "forjar::core::executor::apply"
+    function: apply
+    signature: "fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String>"
+    status: implemented
+    notes: "Executor iterates plan.changes only; outcome-conservation debug_assert in apply_machine"
+
+  - contract: plan-apply-equivalence-v1.yaml
+    equation: noop_no_execution
+    module_path: "forjar::core::executor::apply_single_resource"
+    function: apply_single_resource
+    signature: "fn apply_single_resource(cfg: &ApplyConfig, change: &PlannedChange, machine: &Machine, ctx: &mut RecordCtx, converged_resources: &HashSet<String>) -> Result<ResourceOutcome, String>"
+    status: implemented
+    notes: "Private helper; planned NoOp without force/trigger short-circuits to Unchanged"
+
+  # ── Destroy/Undo Roundtrip (#97 KZ-11) ─────────────────
+  - contract: destroy-undo-roundtrip-v1.yaml
+    equation: snapshot_generation
+    module_path: "forjar::cli::generation::create_generation"
+    function: create_generation
+    signature: "fn create_generation(state_dir: &Path, config_path: Option<&Path>) -> Result<u32, String>"
+    status: implemented
+    notes: "FJ-1386; monotonic numbering, atomic current-symlink switch, debug_assert on current"
+
+  - contract: destroy-undo-roundtrip-v1.yaml
+    equation: restore_generation
+    module_path: "forjar::cli::generation::rollback_to_generation"
+    function: rollback_to_generation
+    signature: "fn rollback_to_generation(state_dir: &Path, generation: u32, yes: bool) -> Result<(), String>"
+    status: implemented
+    notes: "Restores snapshot then atomically re-points current; debug_assert on current"
+
+  - contract: destroy-undo-roundtrip-v1.yaml
+    equation: undo_roundtrip
+    module_path: "forjar::cli::undo::cmd_undo"
+    function: cmd_undo
+    signature: "fn cmd_undo(file: &Path, state_dir: &Path, generations: u32, machine_filter: Option<&str>, dry_run: bool, yes: bool) -> Result<(), String>"
+    status: implemented
+    notes: "FJ-2003; targets current − n, rejects impossible targets, re-applies to converge"
+
   # ── Codegen Dispatch (I2) ──────────────────────────────
   - contract: codegen-dispatch-v1.yaml
     equation: check_script
