@@ -17,19 +17,35 @@
 //!   completion_check: "apr --version"
 //! ```
 
+use crate::core::shell_escape::{is_valid_host, sh_squote};
 use crate::core::types::Resource;
 
 /// Check if the deployed artifact exists and is executable.
 pub fn check_script(resource: &Resource) -> String {
     let deploy_path = resource.target.as_deref().unwrap_or("/dev/null");
-    let mut script =
-        format!("test -x '{deploy_path}' && echo 'installed:build' || echo 'missing:build'");
+    let mut script = format!(
+        "test -x {} && echo 'installed:build' || echo 'missing:build'",
+        sh_squote(deploy_path)
+    );
     if let Some(ref check) = resource.completion_check {
         script = format!(
             "if {check} >/dev/null 2>&1; then echo 'installed:build'; else echo 'missing:build'; fi"
         );
     }
     script
+}
+
+/// Build the remote build command body (cd into working_dir, then run command).
+///
+/// `command` is intentionally arbitrary shell; `working_dir` is escaped. The
+/// body is delivered to the remote over stdin (see `apply_script`), so it is
+/// never quote-wrapped as a single argument.
+fn build_command_body(resource: &Resource) -> String {
+    let command = resource.command.as_deref().unwrap_or("true");
+    match resource.working_dir {
+        Some(ref dir) => format!("cd {} && {command}", sh_squote(dir)),
+        None => command.to_string(),
+    }
 }
 
 /// Generate the build + transfer + deploy script.
@@ -39,45 +55,59 @@ pub fn check_script(resource: &Resource) -> String {
 /// 2. SCP artifact from build_machine to deploy_path
 /// 3. Run completion_check locally
 pub fn apply_script(resource: &Resource) -> String {
-    let command = resource.command.as_deref().unwrap_or("true");
     let artifact = resource.source.as_deref().unwrap_or("/dev/null");
     let deploy_path = resource.target.as_deref().unwrap_or("/tmp/build-artifact");
     let build_machine = resource.build_machine.as_deref().unwrap_or("localhost");
 
+    // FJ-154: a remote build_machine must be a valid hostname/IP. Reject
+    // anything that could inject shell into the ssh/scp argv.
+    if build_machine != "localhost" && !is_valid_host(build_machine) {
+        return format!(
+            "echo {} >&2; exit 1",
+            sh_squote(&format!("ERROR: invalid build_machine: {build_machine}"))
+        );
+    }
+
+    let bm = sh_squote(build_machine);
+    let dp = sh_squote(deploy_path);
+    let build_cmd = build_command_body(resource);
+
     let mut script = String::from("set -euo pipefail\n");
 
-    // Phase 1: Build on the build machine
-    let build_cmd = if let Some(ref dir) = resource.working_dir {
-        format!("cd '{dir}' && {command}")
-    } else {
-        command.to_string()
-    };
-
-    // Use build_machine as a bare SSH target. If build_machine is "localhost",
-    // run locally; otherwise SSH to it.
+    // Phase 1: Build on the build machine.
     if build_machine == "localhost" {
         script.push_str(&format!("# Phase 1: build locally\n{build_cmd}\n"));
     } else {
+        // FJ-154: deliver the (arbitrary) build command to the remote over a
+        // quoted heredoc piped to `bash -s` on stdin — the codebase's
+        // anti-injection pattern — instead of quote-wrapping it as one ssh arg.
+        // The quoted `FORJAR_BUILD` delimiter keeps the body literal locally.
         script.push_str(&format!(
             "# Phase 1: build on {build_machine}\n\
-             ssh -o BatchMode=yes -o ConnectTimeout=10 '{build_machine}' '{build_cmd}'\n"
+             ssh -o BatchMode=yes -o ConnectTimeout=10 {bm} bash -s <<'FORJAR_BUILD'\n\
+             {build_cmd}\n\
+             FORJAR_BUILD\n"
         ));
     }
 
     // Phase 2: Transfer artifact
     if build_machine != "localhost" {
+        // Remote spec `host:path` is built from the validated host plus an
+        // escaped artifact path.
+        let remote_spec = sh_squote(&format!("{build_machine}:{artifact}"));
         script.push_str(&format!(
             "# Phase 2: transfer artifact\n\
-             mkdir -p \"$(dirname '{deploy_path}')\"\n\
-             scp -o BatchMode=yes '{build_machine}:{artifact}' '{deploy_path}'\n\
-             chmod +x '{deploy_path}'\n"
+             mkdir -p \"$(dirname {dp})\"\n\
+             scp -o BatchMode=yes {remote_spec} {dp}\n\
+             chmod +x {dp}\n"
         ));
     } else {
         script.push_str(&format!(
             "# Phase 2: copy artifact locally\n\
-             mkdir -p \"$(dirname '{deploy_path}')\"\n\
-             cp '{artifact}' '{deploy_path}'\n\
-             chmod +x '{deploy_path}'\n"
+             mkdir -p \"$(dirname {dp})\"\n\
+             cp {} {dp}\n\
+             chmod +x {dp}\n",
+            sh_squote(artifact)
         ));
     }
 
@@ -91,10 +121,92 @@ pub fn apply_script(resource: &Resource) -> String {
 
 /// State query: hash the deployed artifact for drift detection.
 pub fn state_query_script(resource: &Resource) -> String {
-    let deploy_path = resource.target.as_deref().unwrap_or("/dev/null");
+    let deploy_path = sh_squote(resource.target.as_deref().unwrap_or("/dev/null"));
     format!(
-        "if [ -f '{deploy_path}' ]; then \
-         sha256sum '{deploy_path}' | awk '{{print $1}}'; \
+        "if [ -f {deploy_path} ]; then \
+         sha256sum {deploy_path} | awk '{{print $1}}'; \
          else echo 'MISSING'; fi"
     )
+}
+
+#[cfg(test)]
+mod fj154_tests {
+    use super::*;
+    use crate::core::types::{MachineTarget, ResourceType};
+
+    fn build_resource() -> Resource {
+        Resource {
+            resource_type: ResourceType::Build,
+            machine: MachineTarget::Single("jetson".to_string()),
+            build_machine: Some("intel".to_string()),
+            command: Some("cargo build --release".to_string()),
+            working_dir: Some("~/src/aprender".to_string()),
+            source: Some("/tmp/cross/release/apr".to_string()),
+            target: Some("/home/user/.cargo/bin/apr".to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn fj154_remote_build_uses_stdin_heredoc() {
+        // Defect #11: the build command is delivered over stdin via a quoted
+        // heredoc piped to `bash -s`, not quote-wrapped as a single ssh arg.
+        let r = build_resource();
+        let script = apply_script(&r);
+        assert!(
+            script.contains(
+                "ssh -o BatchMode=yes -o ConnectTimeout=10 'intel' bash -s <<'FORJAR_BUILD'"
+            ),
+            "{script}"
+        );
+        assert!(script.contains("FORJAR_BUILD\n"), "{script}");
+        // The old, breakable `ssh ... 'cmd'` quote-wrapping is gone.
+        assert!(!script.contains("'intel' 'cd"), "{script}");
+    }
+
+    #[test]
+    fn fj154_command_with_quotes_survives_in_heredoc() {
+        // A build command containing single quotes (e.g. sed 's/a/b/') no
+        // longer breaks the remote invocation: it sits literally in the
+        // quoted heredoc body.
+        let mut r = build_resource();
+        r.command = Some("sed 's/a/b/' Cargo.toml".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("sed 's/a/b/' Cargo.toml"), "{script}");
+        // The body is between the heredoc markers, not inside an ssh arg.
+        let after = script.split("<<'FORJAR_BUILD'").nth(1).unwrap_or("");
+        assert!(after.contains("sed 's/a/b/'"), "{script}");
+    }
+
+    #[test]
+    fn fj154_invalid_build_machine_rejected() {
+        let mut r = build_resource();
+        r.build_machine = Some("intel';reboot;'".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ERROR: invalid build_machine"), "{script}");
+        assert!(script.contains("exit 1"), "{script}");
+        assert!(!script.contains("ssh"), "{script}");
+    }
+
+    #[test]
+    fn fj154_scp_remote_spec_quoted() {
+        let r = build_resource();
+        let script = apply_script(&r);
+        assert!(
+            script.contains(
+                "scp -o BatchMode=yes 'intel:/tmp/cross/release/apr' '/home/user/.cargo/bin/apr'"
+            ),
+            "{script}"
+        );
+    }
+
+    #[test]
+    fn fj154_working_dir_quote_neutralized() {
+        let mut r = build_resource();
+        r.build_machine = Some("localhost".to_string());
+        r.working_dir = Some("~/x';reboot;'".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'\\''"), "{script}");
+        assert!(!script.contains("cd '~/x';reboot"), "{script}");
+    }
 }

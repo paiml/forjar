@@ -3,7 +3,16 @@
 //! Runs an arbitrary command, tracks exit code, hashes output artifacts
 //! for idempotency, supports completion_check and timeout.
 
+use crate::core::shell_escape::{sh_squote, slugify_identifier};
 use crate::core::types::{Resource, TaskMode};
+
+/// Slugified service id used in `/tmp/forjar-svc-<rid>.{pid,log}` paths.
+///
+/// FJ-154: the resource name flows into shared filesystem paths; slugify it to
+/// `[A-Za-z0-9._-]` so it can never split a redirect target or inject shell.
+fn service_rid(resource: &Resource) -> String {
+    slugify_identifier(resource.name.as_deref().unwrap_or("task"))
+}
 
 /// Extract absolute binary path from a command string.
 ///
@@ -37,20 +46,21 @@ pub fn check_script(resource: &Resource) -> String {
     // Service mode: check if process is running via PID file
     // FJ-3030: also inject ldd check for absolute-path binaries
     if resource.task_mode.as_ref() == Some(&TaskMode::Service) {
-        let rid = resource.name.as_deref().unwrap_or("task");
-        let pidfile = format!("/tmp/forjar-svc-{rid}.pid");
+        let rid = service_rid(resource);
+        let pidfile = sh_squote(&format!("/tmp/forjar-svc-{rid}.pid"));
         let ldd_check = extract_absolute_binary(resource.command.as_deref().unwrap_or(""))
             .map(|bin| {
+                let b = sh_squote(bin);
                 format!(
-                    "if command -v ldd >/dev/null 2>&1 && [ -f '{bin}' ]; then \
-                     if ldd '{bin}' 2>&1 | grep -q 'not found'; then \
+                    "if command -v ldd >/dev/null 2>&1 && [ -f {b} ]; then \
+                     if ldd {b} 2>&1 | grep -q 'not found'; then \
                      echo 'task=ldd-fail'; exit 1; fi; fi; "
                 )
             })
             .unwrap_or_default();
         return format!(
             "{ldd_check}\
-             if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then \
+             if [ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null; then \
              echo 'task=completed'; else echo 'task=pending'; fi"
         );
     }
@@ -63,7 +73,7 @@ pub fn check_script(resource: &Resource) -> String {
         let checks: Vec<String> = resource
             .output_artifacts
             .iter()
-            .map(|a| format!("[ -e '{a}' ]"))
+            .map(|a| format!("[ -e {} ]", sh_squote(a)))
             .collect();
         return format!(
             "if {} ; then echo 'task=completed'; else echo 'task=pending'; fi",
@@ -81,7 +91,7 @@ pub fn check_script(resource: &Resource) -> String {
 fn pipeline_script(resource: &Resource) -> String {
     let mut script = String::from("set -euo pipefail\n");
     if let Some(ref dir) = resource.working_dir {
-        script.push_str(&format!("cd '{dir}'\n"));
+        script.push_str(&format!("cd {}\n", sh_squote(dir)));
     }
     script.push_str("FORJAR_PIPELINE_OK=0\n");
     for (i, stage) in resource.stages.iter().enumerate() {
@@ -91,11 +101,16 @@ fn pipeline_script(resource: &Resource) -> String {
         } else {
             stage.name.clone()
         };
-        script.push_str(&format!("echo '=== Stage: {name} ==='\n"));
+        script.push_str(&format!(
+            "echo {}\n",
+            sh_squote(&format!("=== Stage: {name} ==="))
+        ));
         if stage.gate {
-            // Gate stage: abort pipeline on failure
+            // Gate stage: abort pipeline on failure. `cmd` is intentionally
+            // arbitrary shell; the stage name in the message is escaped.
             script.push_str(&format!(
-                "if ! bash -c '{cmd}'; then\n  echo 'GATE FAILED: {name}'\n  exit 1\nfi\n"
+                "if ! bash -c '{cmd}'; then\n  echo {}\n  exit 1\nfi\n",
+                sh_squote(&format!("GATE FAILED: {name}"))
             ));
         } else {
             script.push_str(&format!("{cmd}\n"));
@@ -140,7 +155,7 @@ fn batch_script(resource: &Resource) -> String {
         script.push_str(&scatter);
     }
     if let Some(ref dir) = resource.working_dir {
-        script.push_str(&format!("cd '{dir}'\n"));
+        script.push_str(&format!("cd {}\n", sh_squote(dir)));
     }
     if let Some(timeout_secs) = resource.timeout {
         script.push_str(&format!(
@@ -165,26 +180,28 @@ fn batch_script(resource: &Resource) -> String {
 /// 4. Runs initial health check if configured
 fn service_script(resource: &Resource) -> String {
     let command = resource.command.as_deref().unwrap_or("true");
-    let rid = resource.name.as_deref().unwrap_or("task");
-    let pidfile = format!("/tmp/forjar-svc-{rid}.pid");
+    let rid = service_rid(resource);
+    let pidfile = sh_squote(&format!("/tmp/forjar-svc-{rid}.pid"));
+    let logfile = sh_squote(&format!("/tmp/forjar-svc-{rid}.log"));
 
     let mut script = String::from("set -euo pipefail\n");
     if let Some(ref dir) = resource.working_dir {
-        script.push_str(&format!("cd '{dir}'\n"));
+        script.push_str(&format!("cd {}\n", sh_squote(dir)));
     }
 
     // Check if already running
     script.push_str(&format!(
-        "if [ -f '{pidfile}' ] && kill -0 \"$(cat '{pidfile}')\" 2>/dev/null; then\n\
-         \x20 echo 'service={rid} already running (pid='\"$(cat '{pidfile}')\"')'\n\
+        "if [ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null; then\n\
+         \x20 echo 'service={rid} already running (pid='\"$(cat {pidfile})\"')'\n\
          \x20 exit 0\nfi\n"
     ));
 
-    // Start in background with nohup, capture PID
+    // Start in background with nohup, capture PID. `command` is intentionally
+    // arbitrary shell; the log redirect target is now a slugified, quoted path.
     script.push_str(&format!(
-        "nohup bash -c '{command}' > /tmp/forjar-svc-{rid}.log 2>&1 &\n\
+        "nohup bash -c '{command}' > {logfile} 2>&1 &\n\
          FORJAR_SVC_PID=$!\n\
-         echo $FORJAR_SVC_PID > '{pidfile}'\n\
+         echo $FORJAR_SVC_PID > {pidfile}\n\
          echo 'service={rid} started (pid='$FORJAR_SVC_PID')'\n"
     ));
 
@@ -200,8 +217,8 @@ fn service_script(resource: &Resource) -> String {
             "sleep 1\nfor _i in $(seq 1 {retries}); do\n\
              \x20 if ! kill -0 \"$FORJAR_SVC_PID\" 2>/dev/null; then\n\
              \x20\x20\x20 echo 'service={rid} DIED during startup (pid='$FORJAR_SVC_PID')'\n\
-             \x20\x20\x20 tail -20 /tmp/forjar-svc-{rid}.log 2>/dev/null || true\n\
-             \x20\x20\x20 rm -f '{pidfile}'\n\
+             \x20\x20\x20 tail -20 {logfile} 2>/dev/null || true\n\
+             \x20\x20\x20 rm -f {pidfile}\n\
              \x20\x20\x20 exit 1\n\
              \x20 fi\n\
              \x20 if timeout {timeout} bash -c '{}'; then\n\
@@ -226,7 +243,7 @@ fn dispatch_script(resource: &Resource) -> String {
     let mut script = String::from("set -euo pipefail\n");
 
     if let Some(ref dir) = resource.working_dir {
-        script.push_str(&format!("cd '{dir}'\n"));
+        script.push_str(&format!("cd {}\n", sh_squote(dir)));
     }
 
     // Pre-flight gate check
@@ -238,8 +255,9 @@ fn dispatch_script(resource: &Resource) -> String {
                 .unwrap_or("dispatch gate check failed");
             script.push_str(&format!(
                 "if ! bash -c '{gate_cmd}'; then\n\
-                 \x20 echo 'DISPATCH BLOCKED: {msg}'\n\
-                 \x20 exit 1\nfi\n"
+                 \x20 echo {}\n\
+                 \x20 exit 1\nfi\n",
+                sh_squote(&format!("DISPATCH BLOCKED: {msg}"))
             ));
         }
     }
@@ -270,13 +288,21 @@ pub fn state_query_script(resource: &Resource) -> String {
         let hash_cmds: Vec<String> = resource
             .output_artifacts
             .iter()
-            .map(|a| format!("[ -f '{a}' ] && b3sum '{a}' 2>/dev/null || echo 'missing:{a}'"))
+            .map(|a| {
+                let q = sh_squote(a);
+                format!(
+                    "[ -f {q} ] && b3sum {q} 2>/dev/null || echo {}",
+                    sh_squote(&format!("missing:{a}"))
+                )
+            })
             .collect();
         return hash_cmds.join("\n");
     }
 
     let command = resource.command.as_deref().unwrap_or("true");
-    format!("echo 'command={command}'")
+    // `command` is intentionally arbitrary; quote the whole label so a stray
+    // quote can't break the echo.
+    format!("echo {}", sh_squote(&format!("command={command}")))
 }
 
 /// FJ-2704: Generate shell script to scatter local artifacts to remote paths.
@@ -290,9 +316,8 @@ pub fn scatter_script(resource: &Resource) -> Option<String> {
     let mut script = String::from("set -euo pipefail\n# FJ-2704: scatter artifacts\n");
     for mapping in &resource.scatter {
         if let Some((local, remote)) = mapping.split_once(':') {
-            script.push_str(&format!(
-                "mkdir -p \"$(dirname '{remote}')\"\ncp -r '{local}' '{remote}'\n"
-            ));
+            let (l, r) = (sh_squote(local), sh_squote(remote));
+            script.push_str(&format!("mkdir -p \"$(dirname {r})\"\ncp -r {l} {r}\n"));
         }
     }
     Some(script)
@@ -309,10 +334,70 @@ pub fn gather_script(resource: &Resource) -> Option<String> {
     let mut script = String::from("set -euo pipefail\n# FJ-2704: gather artifacts\n");
     for mapping in &resource.gather {
         if let Some((remote, local)) = mapping.split_once(':') {
-            script.push_str(&format!(
-                "mkdir -p \"$(dirname '{local}')\"\ncp -r '{remote}' '{local}'\n"
-            ));
+            let (r, l) = (sh_squote(remote), sh_squote(local));
+            script.push_str(&format!("mkdir -p \"$(dirname {l})\"\ncp -r {r} {l}\n"));
         }
     }
     Some(script)
+}
+
+#[cfg(test)]
+mod fj154_tests {
+    use super::*;
+    use crate::core::types::{MachineTarget, ResourceType};
+
+    fn service_resource(name: &str) -> Resource {
+        Resource {
+            resource_type: ResourceType::Task,
+            machine: MachineTarget::Single("m1".to_string()),
+            name: Some(name.to_string()),
+            command: Some("/usr/bin/myd".to_string()),
+            task_mode: Some(TaskMode::Service),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn fj154_service_name_slugified_in_log_path() {
+        // Defect #13: a name with spaces/metachars must not split the log
+        // redirect target. It is slugified to [A-Za-z0-9._-].
+        let r = service_resource("x; rm -rf ~ #");
+        let script = apply_script(&r);
+        // Slug is "x--rm--rf"; the log redirect is a single quoted word.
+        assert!(
+            script.contains("> '/tmp/forjar-svc-x--rm--rf.log'"),
+            "{script}"
+        );
+        // No bare `rm -rf ~` appears in the redirect target.
+        assert!(!script.contains("/tmp/forjar-svc-x; rm -rf ~"), "{script}");
+    }
+
+    #[test]
+    fn fj154_service_log_and_pid_paths_consistent() {
+        let r = service_resource("my svc");
+        let apply = apply_script(&r);
+        let check = check_script(&r);
+        // Both apply and check agree on the slugified pidfile.
+        assert!(apply.contains("'/tmp/forjar-svc-my-svc.pid'"), "{apply}");
+        assert!(check.contains("'/tmp/forjar-svc-my-svc.pid'"), "{check}");
+        assert!(apply.contains("'/tmp/forjar-svc-my-svc.log'"), "{apply}");
+    }
+
+    #[test]
+    fn fj154_service_benign_name_unchanged() {
+        let r = service_resource("web");
+        let script = apply_script(&r);
+        assert!(script.contains("> '/tmp/forjar-svc-web.log'"), "{script}");
+        assert!(script.contains("'/tmp/forjar-svc-web.pid'"), "{script}");
+    }
+
+    #[test]
+    fn fj154_output_artifacts_quoted() {
+        let mut r = service_resource("t");
+        r.task_mode = None;
+        r.output_artifacts = vec!["/out/x';id;'".to_string()];
+        let q = state_query_script(&r);
+        assert!(q.contains("'\\''"), "{q}");
+        assert!(!q.contains("b3sum '/out/x';id"), "{q}");
+    }
 }

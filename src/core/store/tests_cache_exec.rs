@@ -278,3 +278,68 @@ fn verify_hash_deterministic() {
     let h2 = hash_directory(&c).unwrap();
     assert_eq!(h1, h2, "same content should produce same hash");
 }
+
+// ── FJ-154 / GH #154: shell-injection hardening ──────────────────
+
+#[test]
+fn fj154_pull_quotes_remote_spec() {
+    let cmd = pull_command(&ssh_source(), "blake3:abc123", Path::new("/tmp/staging"));
+    // The whole user@host:path spec is a single shell-quoted word.
+    assert!(
+        cmd.contains("'forjar@cache.internal:/var/forjar/cache/abc123/'"),
+        "{cmd}"
+    );
+    assert!(cmd.contains("mkdir -p '/tmp/staging'"), "{cmd}");
+}
+
+#[test]
+fn fj154_push_quotes_remote_spec() {
+    let cmd = push_command(
+        &ssh_source(),
+        "blake3:abc123",
+        Path::new("/var/lib/forjar/store"),
+    );
+    assert!(
+        cmd.contains("'forjar@cache.internal:/var/forjar/cache/abc123/'"),
+        "{cmd}"
+    );
+    assert!(cmd.contains("'/var/lib/forjar/store/abc123/'"), "{cmd}");
+}
+
+#[test]
+fn fj154_pull_rejects_injection_in_path() {
+    let src = CacheSource::Ssh {
+        host: "cache.internal".to_string(),
+        user: "forjar".to_string(),
+        // Non-absolute, with an injection payload.
+        path: "x';reboot;'".to_string(),
+        port: None,
+    };
+    let cmd = pull_command(&src, "blake3:abc", Path::new("/tmp/s"));
+    assert!(cmd.contains("ERROR: cache path must be absolute"), "{cmd}");
+    assert!(!cmd.contains("rsync"), "{cmd}");
+}
+
+#[test]
+fn fj154_push_rejects_injection_in_host() {
+    let src = CacheSource::Ssh {
+        host: "h';reboot;'".to_string(),
+        user: "forjar".to_string(),
+        path: "/var/forjar/cache".to_string(),
+        port: None,
+    };
+    let cmd = push_command(&src, "blake3:abc", Path::new("/store"));
+    assert!(cmd.contains("ERROR: invalid cache host"), "{cmd}");
+    assert!(!cmd.contains("rsync"), "{cmd}");
+}
+
+#[test]
+fn fj154_local_path_quoted() {
+    let src = CacheSource::Local {
+        path: "/cache';reboot;'".to_string(),
+    };
+    let cmd = push_command(&src, "blake3:abc", Path::new("/store"));
+    // Local path is escaped; the embedded quote can't break out.
+    assert!(cmd.contains("'\\''"), "{cmd}");
+    assert!(!cmd.contains("cp -a '/store/abc' '/cache';reboot"), "{cmd}");
+}

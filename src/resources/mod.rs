@@ -29,6 +29,8 @@ mod network_b;
 #[cfg(test)]
 mod tests_build;
 #[cfg(test)]
+mod tests_cron;
+#[cfg(test)]
 mod tests_docker;
 #[cfg(test)]
 mod tests_docker_b;
@@ -48,5 +50,7 @@ mod tests_package;
 mod tests_package_b;
 #[cfg(test)]
 mod tests_package_c;
+#[cfg(test)]
+mod tests_package_d;
 #[cfg(test)]
 mod tests_user;

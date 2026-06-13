@@ -38,6 +38,7 @@ pub mod secret_namespace;
 pub mod secret_provider;
 pub mod secrets;
 pub mod security_scanner;
+pub mod shell_escape;
 pub mod shell_provider;
 pub mod state;
 pub mod state_encryption;

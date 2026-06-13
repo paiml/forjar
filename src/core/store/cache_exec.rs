@@ -6,9 +6,29 @@
 
 use super::cache::CacheSource;
 use super::substitution::{SubstitutionOutcome, SubstitutionPlan, SubstitutionStep};
+use crate::core::shell_escape::{is_absolute_path, is_valid_host, sh_squote};
 use crate::core::types::Machine;
 use crate::transport;
 use std::path::Path;
+
+/// FJ-154: validate the SSH cache target. Returns a failing shell command if
+/// the host is not a valid hostname/IP or the remote path is not absolute, so
+/// a malformed `CacheSource` can never inject shell into the rsync/ssh argv.
+fn reject_bad_ssh_target(host: &str, path: &str) -> Option<String> {
+    if !is_valid_host(host) {
+        return Some(format!(
+            "echo {} >&2; exit 1",
+            sh_squote(&format!("ERROR: invalid cache host: {host}"))
+        ));
+    }
+    if !is_absolute_path(path) {
+        return Some(format!(
+            "echo {} >&2; exit 1",
+            sh_squote(&format!("ERROR: cache path must be absolute: {path}"))
+        ));
+    }
+    None
+}
 
 /// Result of pulling from a cache source.
 #[derive(Debug, Clone)]
@@ -156,6 +176,7 @@ pub fn execute_substitution(
 /// Generate the rsync pull command for a cache source.
 pub fn pull_command(source: &CacheSource, hash: &str, staging: &Path) -> String {
     let hash_bare = hash.strip_prefix("blake3:").unwrap_or(hash);
+    let stage = sh_squote(&staging.display().to_string());
     match source {
         CacheSource::Ssh {
             host,
@@ -163,19 +184,16 @@ pub fn pull_command(source: &CacheSource, hash: &str, staging: &Path) -> String 
             path,
             port,
         } => {
+            if let Some(err) = reject_bad_ssh_target(host, path) {
+                return err;
+            }
             let port_flag = port.map_or(String::new(), |p| format!(" -p {p}"));
-            format!(
-                "mkdir -p '{}' && rsync -az -e 'ssh{port_flag}' '{user}@{host}:{path}/{hash_bare}/' '{}'",
-                staging.display(),
-                staging.display()
-            )
+            let remote = sh_squote(&format!("{user}@{host}:{path}/{hash_bare}/"));
+            format!("mkdir -p {stage} && rsync -az -e 'ssh{port_flag}' {remote} {stage}")
         }
         CacheSource::Local { path } => {
-            format!(
-                "mkdir -p '{}' && cp -a '{path}/{hash_bare}/.' '{}'",
-                staging.display(),
-                staging.display()
-            )
+            let local = sh_squote(&format!("{path}/{hash_bare}/."));
+            format!("mkdir -p {stage} && cp -a {local} {stage}")
         }
     }
 }
@@ -190,17 +208,18 @@ pub fn push_command(source: &CacheSource, hash: &str, store_dir: &Path) -> Strin
             path,
             port,
         } => {
+            if let Some(err) = reject_bad_ssh_target(host, path) {
+                return err;
+            }
             let port_flag = port.map_or(String::new(), |p| format!(" -p {p}"));
-            format!(
-                "rsync -az -e 'ssh{port_flag}' '{}/{hash_bare}/' '{user}@{host}:{path}/{hash_bare}/'",
-                store_dir.display()
-            )
+            let local = sh_squote(&format!("{}/{hash_bare}/", store_dir.display()));
+            let remote = sh_squote(&format!("{user}@{host}:{path}/{hash_bare}/"));
+            format!("rsync -az -e 'ssh{port_flag}' {local} {remote}")
         }
         CacheSource::Local { path } => {
-            format!(
-                "cp -a '{}/{hash_bare}' '{path}/{hash_bare}'",
-                store_dir.display()
-            )
+            let from = sh_squote(&format!("{}/{hash_bare}", store_dir.display()));
+            let to = sh_squote(&format!("{path}/{hash_bare}"));
+            format!("cp -a {from} {to}")
         }
     }
 }
@@ -215,11 +234,16 @@ fn remote_check_command(source: &CacheSource, hash: &str) -> String {
             path,
             port,
         } => {
+            if let Some(err) = reject_bad_ssh_target(host, path) {
+                return err;
+            }
             let port_flag = port.map_or(String::new(), |p| format!(" -p {p}"));
-            format!("ssh{port_flag} '{user}@{host}' test -d '{path}/{hash_bare}'")
+            let target = sh_squote(&format!("{user}@{host}"));
+            let remote_path = sh_squote(&format!("{path}/{hash_bare}"));
+            format!("ssh{port_flag} {target} test -d {remote_path}")
         }
         CacheSource::Local { path } => {
-            format!("test -d '{path}/{hash_bare}'")
+            format!("test -d {}", sh_squote(&format!("{path}/{hash_bare}")))
         }
     }
 }

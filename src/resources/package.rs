@@ -1,6 +1,7 @@
 //! FJ-006: Package resource handler (apt + cargo + uv + brew).
 //! FJ-1398: Cross-platform resource abstraction via brew provider.
 
+use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
 /// Generate shell script to check if packages are installed.
@@ -13,8 +14,11 @@ pub fn check_script(resource: &Resource) -> String {
             let checks: Vec<String> = packages
                 .iter()
                 .map(|p| {
+                    let q = sh_squote(p);
                     format!(
-                        "dpkg -l '{p}' 2>/dev/null | grep -q '^ii ' && echo 'installed:{p}' || echo 'missing:{p}'"
+                        "dpkg -l {q} 2>/dev/null | grep -q '^ii ' && echo {} || echo {}",
+                        sh_squote(&format!("installed:{p}")),
+                        sh_squote(&format!("missing:{p}"))
                     )
                 })
                 .collect();
@@ -25,7 +29,12 @@ pub fn check_script(resource: &Resource) -> String {
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
-                    format!("command -v '{crate_name}' >/dev/null 2>&1 && echo 'installed:{crate_name}' || echo 'missing:{crate_name}'")
+                    let q = sh_squote(crate_name);
+                    format!(
+                        "command -v {q} >/dev/null 2>&1 && echo {} || echo {}",
+                        sh_squote(&format!("installed:{crate_name}")),
+                        sh_squote(&format!("missing:{crate_name}"))
+                    )
                 })
                 .collect();
             checks.join("\n")
@@ -33,14 +42,28 @@ pub fn check_script(resource: &Resource) -> String {
         "uv" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{p}' && echo 'installed:{p}' || echo 'missing:{p}'"))
+                .map(|p| {
+                    format!(
+                        "uv tool list 2>/dev/null | grep -q {} && echo {} || echo {}",
+                        sh_squote(&format!("^{p}")),
+                        sh_squote(&format!("installed:{p}")),
+                        sh_squote(&format!("missing:{p}"))
+                    )
+                })
                 .collect();
             checks.join("\n")
         }
         "brew" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("brew list '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"))
+                .map(|p| {
+                    let q = sh_squote(p);
+                    format!(
+                        "brew list {q} >/dev/null 2>&1 && echo {} || echo {}",
+                        sh_squote(&format!("installed:{p}")),
+                        sh_squote(&format!("missing:{p}"))
+                    )
+                })
                 .collect();
             checks.join("\n")
         }
@@ -74,11 +97,11 @@ fn apply_apt_present(resource: &Resource) -> String {
     let pkg_list: Vec<String> = packages
         .iter()
         .map(|p| match version {
-            Some(v) => format!("'{p}={v}'"),
-            None => format!("'{p}'"),
+            Some(v) => sh_squote(&format!("{p}={v}")),
+            None => sh_squote(p),
         })
         .collect();
-    let check_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let check_list: Vec<String> = packages.iter().map(|p| sh_squote(p)).collect();
     let joined = pkg_list.join(" ");
     let check_joined = check_list.join(" ");
     format!(
@@ -121,7 +144,7 @@ fn apply_apt_present(resource: &Resource) -> String {
 // is preserved. This matches canonical Dockerfile / Ansible practice.
 fn apply_apt_latest(resource: &Resource) -> String {
     let packages = &resource.packages;
-    let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let pkg_list: Vec<String> = packages.iter().map(|p| sh_squote(p)).collect();
     let joined = pkg_list.join(" ");
     let check_joined = pkg_list.join(" ");
     format!(
@@ -142,7 +165,7 @@ fn apply_apt_latest(resource: &Resource) -> String {
 
 fn apply_apt_absent(resource: &Resource) -> String {
     let packages = &resource.packages;
-    let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let pkg_list: Vec<String> = packages.iter().map(|p| sh_squote(p)).collect();
     let joined = pkg_list.join(" ");
     format!(
         "set -euo pipefail\n\
@@ -188,10 +211,67 @@ pub(crate) fn parse_cargo_features(pkg: &str) -> (&str, Vec<&str>) {
 ///
 /// Supports `crate[feat1,feat2]` syntax in package names to pass `--features`
 /// to `cargo install`. Example: `packages: ["whisper-apr[cli]"]`.
+/// True if a cargo crate name / feature uses only the cargo-legal charset
+/// (`[A-Za-z0-9._-]`). Used to reject names that would otherwise be
+/// interpolated into the double-quoted cache key, where `$(...)`/backticks
+/// would otherwise be live.
+fn is_safe_cargo_token(tok: &str) -> bool {
+    !tok.is_empty()
+        && tok
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
+/// True if `version` is a safe cargo version requirement charset.
+fn is_safe_cargo_version(ver: &str) -> bool {
+    !ver.is_empty()
+        && ver.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+' | '*' | '~' | '^')
+        })
+}
+
+/// Validate every cargo package spec (crate name + features) and the optional
+/// version against the cargo-legal charset. Returns the offending token on
+/// the first failure.
+fn first_unsafe_cargo_token<'a>(
+    packages: &'a [String],
+    version: Option<&'a str>,
+) -> Option<&'a str> {
+    if let Some(v) = version {
+        if !is_safe_cargo_version(v) {
+            return Some(v);
+        }
+    }
+    for p in packages {
+        let (crate_name, features) = parse_cargo_features(p);
+        if !is_safe_cargo_token(crate_name) {
+            return Some(crate_name);
+        }
+        if let Some(bad) = features.into_iter().find(|f| !is_safe_cargo_token(f)) {
+            return Some(bad);
+        }
+    }
+    None
+}
+
 fn apply_cargo_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
     let source = resource.source.as_deref();
+
+    // FJ-154: reject crate/feature/version tokens that aren't cargo-legal,
+    // since they flow into a double-quoted cache key where command
+    // substitution would otherwise be live. Path installs (source set) skip
+    // the cache, so they only need the install arg escaped (done below).
+    if source.is_none() {
+        if let Some(bad) = first_unsafe_cargo_token(packages, version) {
+            return format!(
+                "echo {} >&2; exit 1",
+                sh_squote(&format!("ERROR: unsafe cargo package/version token: {bad}"))
+            );
+        }
+    }
+
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match (source, version) {
@@ -201,9 +281,12 @@ fn apply_cargo_present(resource: &Resource) -> String {
                 let features_arg = if features.is_empty() {
                     String::new()
                 } else {
-                    format!(" --features '{}'", features.join(","))
+                    format!(" --features {}", sh_squote(&features.join(",")))
                 };
-                format!("cargo install --force --locked --path '{s}'{features_arg}")
+                format!(
+                    "cargo install --force --locked --path {}{features_arg}",
+                    sh_squote(s)
+                )
             }
             (None, ver) => cargo_cached_install(p, ver),
         })
@@ -247,13 +330,13 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
     let (crate_name, features) = parse_cargo_features(pkg);
     let ver_tag = version.unwrap_or("latest");
     let install_arg = match version {
-        Some(v) => format!("'{crate_name}@{v}'"),
-        None => format!("'{crate_name}'"),
+        Some(v) => sh_squote(&format!("{crate_name}@{v}")),
+        None => sh_squote(crate_name),
     };
     let features_arg = if features.is_empty() {
         String::new()
     } else {
-        format!(" --features '{}'", features.join(","))
+        format!(" --features {}", sh_squote(&features.join(",")))
     };
     let cache_suffix = if features.is_empty() {
         String::new()
@@ -294,8 +377,11 @@ fn apply_uv_present(resource: &Resource) -> String {
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match version {
-            Some(v) => format!("uv tool install --force '{p}=={v}'"),
-            None => format!("uv tool install --force '{p}'"),
+            Some(v) => format!(
+                "uv tool install --force {}",
+                sh_squote(&format!("{p}=={v}"))
+            ),
+            None => format!("uv tool install --force {}", sh_squote(p)),
         })
         .collect();
     format!("set -euo pipefail\n{}", installs.join("\n"))
@@ -305,7 +391,7 @@ fn apply_uv_absent(resource: &Resource) -> String {
     let packages = &resource.packages;
     let removals: Vec<String> = packages
         .iter()
-        .map(|p| format!("uv tool uninstall '{p}' 2>/dev/null || true"))
+        .map(|p| format!("uv tool uninstall {} 2>/dev/null || true", sh_squote(p)))
         .collect();
     format!("set -euo pipefail\n{}", removals.join("\n"))
 }
@@ -314,12 +400,12 @@ fn apply_uv_absent(resource: &Resource) -> String {
 fn apply_brew_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
-    let check_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let check_list: Vec<String> = packages.iter().map(|p| sh_squote(p)).collect();
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match version {
-            Some(v) => format!("brew install '{p}@{v}'"),
-            None => format!("brew install '{p}'"),
+            Some(v) => format!("brew install {}", sh_squote(&format!("{p}@{v}"))),
+            None => format!("brew install {}", sh_squote(p)),
         })
         .collect();
     let check_joined = check_list.join(" ");
@@ -340,7 +426,7 @@ fn apply_brew_absent(resource: &Resource) -> String {
     let packages = &resource.packages;
     let removals: Vec<String> = packages
         .iter()
-        .map(|p| format!("brew uninstall '{p}' 2>/dev/null || true"))
+        .map(|p| format!("brew uninstall {} 2>/dev/null || true", sh_squote(p)))
         .collect();
     format!("set -euo pipefail\n{}", removals.join("\n"))
 }
@@ -354,7 +440,13 @@ pub fn state_query_script(resource: &Resource) -> String {
         "apt" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("dpkg-query -W -f '${{Package}}=${{Version}}\\n' '{p}' 2>/dev/null || echo '{p}=MISSING'"))
+                .map(|p| {
+                    format!(
+                        "dpkg-query -W -f '${{Package}}=${{Version}}\\n' {} 2>/dev/null || echo {}",
+                        sh_squote(p),
+                        sh_squote(&format!("{p}=MISSING"))
+                    )
+                })
                 .collect();
             queries.join("\n")
         }
@@ -363,7 +455,12 @@ pub fn state_query_script(resource: &Resource) -> String {
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
-                    format!("command -v '{crate_name}' >/dev/null 2>&1 && echo '{crate_name}=installed' || echo '{crate_name}=MISSING'")
+                    format!(
+                        "command -v {} >/dev/null 2>&1 && echo {} || echo {}",
+                        sh_squote(crate_name),
+                        sh_squote(&format!("{crate_name}=installed")),
+                        sh_squote(&format!("{crate_name}=MISSING"))
+                    )
                 })
                 .collect();
             queries.join("\n")
@@ -371,14 +468,27 @@ pub fn state_query_script(resource: &Resource) -> String {
         "uv" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{p}' && echo '{p}=installed' || echo '{p}=MISSING'"))
+                .map(|p| {
+                    format!(
+                        "uv tool list 2>/dev/null | grep -q {} && echo {} || echo {}",
+                        sh_squote(&format!("^{p}")),
+                        sh_squote(&format!("{p}=installed")),
+                        sh_squote(&format!("{p}=MISSING"))
+                    )
+                })
                 .collect();
             queries.join("\n")
         }
         "brew" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("brew list --versions '{p}' 2>/dev/null || echo '{p}=MISSING'"))
+                .map(|p| {
+                    format!(
+                        "brew list --versions {} 2>/dev/null || echo {}",
+                        sh_squote(p),
+                        sh_squote(&format!("{p}=MISSING"))
+                    )
+                })
                 .collect();
             queries.join("\n")
         }
