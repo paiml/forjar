@@ -64,11 +64,28 @@ pub fn read_metadata(path: &Path) -> Result<EncryptionMeta, String> {
     serde_json::from_str(&content).map_err(|e| format!("parse metadata: {e}"))
 }
 
-/// Write encryption metadata to a sidecar file.
+/// Write encryption metadata to a sidecar file (atomically).
 pub fn write_metadata(path: &Path, meta: &EncryptionMeta) -> Result<(), String> {
     let meta_path = meta_path_for(path);
     let json = serde_json::to_string_pretty(meta).map_err(|e| format!("serialize: {e}"))?;
-    std::fs::write(&meta_path, json).map_err(|e| format!("write {}: {e}", meta_path.display()))
+    atomic_write(&meta_path, json.as_bytes())
+}
+
+/// Atomically replace the contents of `path`: write to a temp file in the same
+/// directory, then `fs::rename` into place.
+///
+/// `std::fs::write` truncates-then-writes, so a crash/SIGKILL/full-disk between
+/// truncate and the full write leaves a half-written file. For state lock files
+/// (and their encryption metadata) that corruption is unrecoverable, so we
+/// mirror the temp-write-then-rename pattern used by `state::save_lock` and
+/// `store::meta::write_meta`.
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp_path = std::path::PathBuf::from(tmp);
+    std::fs::write(&tmp_path, bytes).map_err(|e| format!("write {}: {e}", tmp_path.display()))?;
+    std::fs::rename(&tmp_path, path)
+        .map_err(|e| format!("rename {} → {}: {e}", tmp_path.display(), path.display()))
 }
 
 /// Get the sidecar metadata file path for an encrypted file.
@@ -130,8 +147,12 @@ pub fn encrypt_state_file(path: &Path, passphrase: &str) -> Result<EncryptionMet
     let key = derive_key(passphrase);
     let meta = create_metadata(&plaintext, &ciphertext, &key);
 
-    std::fs::write(path, &ciphertext).map_err(|e| format!("write encrypted: {e}"))?;
+    // Write the metadata sidecar (atomically) BEFORE swapping the data file so
+    // a crash never leaves ciphertext on disk without matching metadata. Both
+    // writes use temp-file-then-rename, so the original lock is replaced by a
+    // single atomic rename rather than an in-place truncate-then-write.
     write_metadata(path, &meta)?;
+    atomic_write(path, &ciphertext)?;
 
     Ok(meta)
 }
@@ -153,9 +174,10 @@ pub fn decrypt_state_file(path: &Path, passphrase: &str) -> Result<Vec<u8>, Stri
         return Err(format!("plaintext hash mismatch for {}", path.display()));
     }
 
-    std::fs::write(path, &plaintext).map_err(|e| format!("write: {e}"))?;
-
-    // Remove metadata sidecar
+    // Atomically swap ciphertext for plaintext, then drop the now-stale sidecar.
+    // Removing the sidecar last means a crash before removal leaves the data and
+    // its metadata consistent (still readable as encrypted), never orphaned.
+    atomic_write(path, &plaintext)?;
     let _ = std::fs::remove_file(meta_path_for(path));
 
     Ok(plaintext)
@@ -386,102 +408,6 @@ mod tests {
     #[test]
     fn stub_decrypt_data_returns_error() {
         let result = decrypt_data(b"not valid", "pass");
-        assert!(result.is_err());
-    }
-}
-
-#[cfg(all(test, feature = "encryption"))]
-mod tests_encryption {
-    use super::*;
-
-    #[test]
-    fn encrypt_decrypt_roundtrip() {
-        let plaintext = b"hello world, this is state data!";
-        let passphrase = "test-passphrase-42";
-        let ciphertext = encrypt_data(plaintext, passphrase).unwrap();
-        assert_ne!(&ciphertext, &plaintext[..]);
-        assert!(ciphertext.len() > plaintext.len()); // age adds overhead
-        let decrypted = decrypt_data(&ciphertext, passphrase).unwrap();
-        assert_eq!(decrypted, plaintext);
-    }
-
-    #[test]
-    fn encrypt_decrypt_empty_data() {
-        let plaintext = b"";
-        let passphrase = "empty-test";
-        let ciphertext = encrypt_data(plaintext, passphrase).unwrap();
-        let decrypted = decrypt_data(&ciphertext, passphrase).unwrap();
-        assert_eq!(decrypted, plaintext);
-    }
-
-    #[test]
-    fn decrypt_wrong_passphrase() {
-        let plaintext = b"secret state data";
-        let ciphertext = encrypt_data(plaintext, "correct-pass").unwrap();
-        let result = decrypt_data(&ciphertext, "wrong-pass");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn decrypt_corrupted_data() {
-        let result = decrypt_data(b"not valid age data", "pass");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn encrypt_state_file_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("state.lock.yaml");
-        let original = "resources:\n  pkg:\n    state: converged\n";
-        std::fs::write(&file, original).unwrap();
-
-        let passphrase = "file-test-pass";
-
-        // Encrypt
-        let meta = encrypt_state_file(&file, passphrase).unwrap();
-        assert!(is_encrypted(&file));
-        assert_eq!(meta.version, 1);
-        assert_eq!(meta.plaintext_hash, hash_data(original.as_bytes()));
-
-        let encrypted_content = std::fs::read(&file).unwrap();
-        assert_ne!(encrypted_content, original.as_bytes());
-
-        // Decrypt
-        let plaintext = decrypt_state_file(&file, passphrase).unwrap();
-        assert_eq!(plaintext, original.as_bytes());
-        assert!(!is_encrypted(&file)); // sidecar removed
-    }
-
-    #[test]
-    fn encrypt_state_file_metadata_written() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("test.lock.yaml");
-        std::fs::write(&file, "data").unwrap();
-
-        let meta = encrypt_state_file(&file, "pass").unwrap();
-        let loaded = read_metadata(&file).unwrap();
-        assert_eq!(loaded.plaintext_hash, meta.plaintext_hash);
-        assert_eq!(loaded.ciphertext_hmac, meta.ciphertext_hmac);
-    }
-
-    #[test]
-    fn decrypt_state_file_wrong_passphrase() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("state.lock.yaml");
-        std::fs::write(&file, "secret").unwrap();
-
-        encrypt_state_file(&file, "right-pass").unwrap();
-        let result = decrypt_state_file(&file, "wrong-pass");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn decrypt_state_file_missing_metadata() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("state.lock.yaml");
-        std::fs::write(&file, "data").unwrap();
-        // No metadata sidecar
-        let result = decrypt_state_file(&file, "pass");
         assert!(result.is_err());
     }
 }

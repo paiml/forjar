@@ -81,6 +81,8 @@ mod tests_scoring_b;
 mod tests_secrets;
 #[cfg(test)]
 mod tests_security_scanner;
+#[cfg(all(test, feature = "encryption"))]
+mod tests_state_encryption_enc;
 #[cfg(test)]
 mod tests_watch_daemon;
 mod verus_spec;
