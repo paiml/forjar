@@ -63,7 +63,7 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 | State | S3 / Consul / JSON | None | **Git (BLAKE3 YAML)** |
 | Drift detection | API calls | None | **Local hash compare** |
 | Bare metal | Weak | Strong | **First-class** |
-| Dependencies | ~200 Go modules | ~50 Python pkgs | **17 crates** |
+| Dependencies | ~200 Go modules | ~50 Python pkgs | **~30 crates** |
 | Apply speed | Seconds–minutes | Minutes | **Milliseconds–seconds** |
 
 ## Quick Start

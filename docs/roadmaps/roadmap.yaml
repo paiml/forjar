@@ -1613,3 +1613,22 @@ roadmap:
   estimated_effort: 0.5d
   labels: [sprint-2026-06, day-10, bug]
   notes: 'Standout: the #159 O_EXCL lock rewrite introduced a 100%-CPU livelock regression; caught before users hit it. Closes #165.'
+- id: PMAT-093
+  github_issue: null
+  item_type: task
+  title: 'v1.6.2: dogfood QA skill + fix its 3 findings (C9 claim, check --state-dir, stale examples)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-06-13T15:00:00Z
+  updated: 2026-06-13T16:45:00Z
+  spec: null
+  acceptance_criteria:
+  - Added .claude/skills/dogfood/SKILL.md (contract-first read-only QA) (#176)
+  - Ran it; fixed all 3 findings — README C9 (#180), check --state-dir (#182), 4 stale examples + CI guard (#181)
+  - Re-dogfooded clean (GO); shipped as v1.6.2 to GitHub + crates.io
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, dogfood, docs]
+  notes: 'Dogfood found 2 false positives too (validate-pipe-exit, undo vs undo-destroy) — caught by the skill discipline, not filed.'
