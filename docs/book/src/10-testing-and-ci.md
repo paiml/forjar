@@ -1609,6 +1609,9 @@ CI enforcement with color-coded badges:
 | < 60% | red |
 
 ```bash
-# CI gate: fail if line coverage drops below 95%
-forjar test coverage --min-line 95 --enforce
+# Per-resource coverage levels (L0-L5), JSON for CI gating
+forjar test --group coverage --json
+
+# Rust source-coverage gate: fail the build below 95% line coverage
+cargo llvm-cov --summary-only --fail-under-lines 95
 ```

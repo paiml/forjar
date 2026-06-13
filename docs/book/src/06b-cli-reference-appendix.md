@@ -203,5 +203,30 @@ Generate distribution artifacts (installer script, Homebrew formula,
 cargo-binstall metadata, Nix flake, GitHub Action, deb/rpm specs).
 
 ```bash
-forjar dist [--installer|--homebrew|--binstall|--nix|--github-action|--deb|--rpm|--all] [-o <OUT>]
+forjar dist [--installer|--homebrew|--binstall|--nix|--github-action|--deb|--rpm|--all] [-o <OUT>] [--json]
+```
+
+**Checksum resolution.** Artifacts that embed real SHA-256 checksums
+(`--homebrew`, `--nix`) need a release to pin against:
+
+```bash
+# Pin a release tag — checksums are fetched from the GitHub release
+forjar dist --homebrew --version v1.6.1
+
+# Or resolve checksums offline from a local SHA256SUMS-format file
+forjar dist --nix --version v1.6.1 --checksums-file dist/SHA256SUMS
+```
+
+**Verification (FJ-3607).** Validate the generated installer before you ship it:
+
+```bash
+# Tier 1 (static): generate to a temp dir and check the installer with
+# `sh -n`, bashrs lint, required-snippet presence, and download-URL structure
+forjar dist --installer --verify
+
+# Tier 2 (runtime): actually RUN the installer inside ubuntu (gnu) and
+# alpine (musl) containers against a locally-staged tarball, asserting the
+# binary lands in install_dir and version_cmd succeeds. Requires
+# Docker/Podman and implies --verify; cleanly skips when no runtime is found.
+forjar dist --installer --verify-containers
 ```
