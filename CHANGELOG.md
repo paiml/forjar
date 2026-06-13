@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-13
+
+### Added
+
+- **L3–L5 test-coverage persistence** (#155, FALSIFICATION-REPORT E9):
+  `forjar test coverage` now reports beyond L2. Convergence/mutation/
+  preservation runs append hash-stamped results to a `test-coverage.jsonl`
+  log in the state dir; `cmd_test_coverage` reads them back and promotes
+  each resource to the highest passing level whose `config_hash` still
+  matches the resource's current desired-state hash — a changed resource
+  falls back to its static L0–L2 level (no stale high-water marks). New
+  `core::store::coverage_persist` + `cli::coverage_promote`.
+
+### Security / Fixed — 28-defect deep audit (#154)
+
+An adversarial bug-hunt (8 fault-dimension finders, every finding
+double-refuted) surfaced 28 confirmed production defects; all are fixed:
+
+- **apply no longer reports success on real failures** (#157): a failed
+  `pre_apply:` hook now fails the resource (was reported `Skipped`, apply
+  exited 0, dependents ran, rollback was skipped) on the sequential path;
+  OCI registry push now checks HTTP status via `curl --fail-with-body`
+  (401/404/413/5xx were reported as successful pushes); the coverage
+  promotion gate distinguishes "llvm-cov absent" (advisory pass) from
+  "llvm-cov ran and failed" (gate failure).
+- **Shell-injection hardening** (#161): new `core::shell_escape::sh_squote`
+  + identifier validators route every resource-handler data field through
+  proper single-quote escaping. Fixes unescaped/unquoted interpolation in
+  `build` (arbitrary command over ssh), `github_release` (repo/tag command
+  substitution), `task`, `network` (ufw), the binary-cache rsync path, and
+  the file/mount/package/cron/docker/model handlers.
+- **Concurrency & resource leaks** (#159): mutation-runner sandbox dir now
+  uses a process-wide atomic sequence (the #141 race, unpatched in the
+  sibling); `acquire_process_lock` is now atomic via `O_EXCL` create_new
+  (was a TOCTOU letting two `apply` runs both win); transport timeout now
+  kills+reaps the child (was leaking a thread + orphan process); stdin-write
+  failure reaps the child across all 7 transports (was leaking zombies);
+  container build cleans up via RAII guards on every error path.
+- **Storage integrity** (#158): OCI base-image blob paths validate the
+  `sha256:<64-hex>` digest (a `..`-bearing digest allowed arbitrary
+  read/write); state encryption writes atomically (temp+rename, was an
+  in-place truncate that corrupted state on a mid-write crash); `lock
+  defrag` refreshes the BLAKE3 `.b3` sidecar (was bricking the next apply's
+  integrity check).
+- **Planner/executor correctness** (#160): planner and `refresh-only` now
+  resolve secrets with the same provider config the executor uses, ending
+  a perpetual spurious-Update idempotency violation; the rolling-deploy
+  `max_fail_percentage` gate uses integer math (was `as u8`-truncated at
+  the boundary); `moved:` blocks reject collisions/chains at validate time
+  (were silently overwriting lock state).
+- **FAR archive + parser hardening** (#156): FAR decode bounds the
+  manifest-length and chunk-count allocations from attacker-controlled
+  headers (was unbounded → OOM/abort); the RFC-3339 and duration parsers
+  validate ranges and use checked arithmetic (out-of-range month/day and
+  multibyte/overflow inputs previously panicked).
+
 ## [1.5.0] - 2026-06-13
 
 ### Added

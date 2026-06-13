@@ -1527,7 +1527,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T00:30:00Z
+  updated: 2026-06-13T02:00:00Z
   spec: null
   acceptance_criteria:
   - Lib tests added per tests_cov_* pattern for cmd_dist (0%), apply_mode_exits (23%), cmd_canary/cmd_rolling (24%), dispatch_infra_cmd (6%)
@@ -1574,3 +1574,22 @@ roadmap:
   estimated_effort: 0.5d
   labels: [sprint-2026-06, day-2, bug]
   notes: 'Discovered mid-sprint: pre-push suite runs corrupted the host repo (stray commits, staged state/ deletions, core.bare flip). Fixed in #137.'
+- id: PMAT-091
+  github_issue: 154
+  item_type: task
+  title: 'v1.5.1/v1.6.0: remediate 28 confirmed deep-audit defects + L3-L5 coverage'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-06-13T01:30:00Z
+  updated: 2026-06-13T02:00:00Z
+  spec: null
+  acceptance_criteria:
+  - All 28 double-refuted bug-hunt defects fixed (PRs #156-#161), grouped file-disjoint by theme
+  - L3-L5 test-coverage persistence shipped (#155)
+  - Bundled into v1.6.0 (minor — feature + fixes); GitHub release + Friday crates.io publish
+  phases: []
+  subtasks: []
+  estimated_effort: 1d
+  labels: [sprint-2026-06, day-10, bug, feature]
+  notes: 'Found by an 8-dimension adversarial bug-hunt (84 agents). Closes #154.'
