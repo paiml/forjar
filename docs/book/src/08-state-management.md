@@ -945,6 +945,41 @@ schema: '1.0'
 
 Forjar validates the schema version on load. Future versions may introduce `schema: '2.0'` with migration support.
 
+## Renaming Resources (`moved:` blocks)
+
+When you rename a resource in your config, forjar would normally see the old key disappear and the new key appear — destroying the old resource and recreating the new one. A top-level `moved:` block declares the rename so the lock state is carried over and no destroy/recreate happens:
+
+```yaml
+version: "1.0"
+name: web
+
+moved:
+  - from: nginx          # old resource name (still in state)
+    to: nginx-server     # new resource name (now in config)
+
+resources:
+  nginx-server:
+    type: package
+    machine: web1
+    packages: [nginx]
+```
+
+`moved:` entries are processed during planning, before the diff: the lock key `nginx` is renamed to `nginx-server`, so the plan is a no-op instead of a destroy + create. After the first successful apply has rewritten the lock with the new name, the `moved:` entry can be removed.
+
+### Validation rules (v1.6.0)
+
+`forjar validate` (and any plan/apply) now **rejects** `moved:` blocks that would silently corrupt lock state. Earlier versions accepted these and overwrote lock entries. A clear error is raised at validate time for each of:
+
+| Rejected | Why |
+|----------|-----|
+| `from: x` / `to: x` (no-op) | `from == to` does nothing — remove the entry. |
+| Duplicate `from` | Each resource may be moved at most once. |
+| Colliding `to` (two moves target the same id) | Two sources cannot rename onto the same destination. |
+| `to:` collides with a managed resource | Renaming onto a resource that already exists in `resources:` would overwrite its converged state. |
+| Chained move (`a→b` and `b→c`) | Chains are order-dependent; declare the final rename directly (`a→c`). |
+
+Each surviving rename is taken from the original lock exactly once, so a valid `moved:` set can never clobber another resource's state.
+
 ## Migration Guide
 
 When a new version of forjar changes the lock file format, the `schema` field drives forward compatibility. This section describes what happens during version transitions and how to handle them.

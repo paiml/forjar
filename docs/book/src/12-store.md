@@ -421,6 +421,16 @@ The push protocol follows OCI Distribution Spec v1.1:
 `--check-existing` (enabled by default) skips blobs that already exist
 in the registry, making incremental pushes fast.
 
+Every HTTP request in the push (blob upload, chunked PATCH/PUT, manifest
+PUT) is now gated on its response status (`curl --fail-with-body`). As of
+v1.6.0 a non-success status — `401`/`403` (auth), `404` (no such
+repository), `413` (blob too large), or any `5xx` — **fails the push with a
+non-zero exit and the registry's error body**. Earlier versions ignored the
+status code and reported these failed pushes as successful, so an image that
+never reached the registry could look as if it had been published. If a push
+that used to "succeed" now errors, check your registry credentials,
+repository name, and the printed HTTP detail.
+
 ## Container-Based Builds (Phase 9)
 
 When `--sandbox` is passed to `forjar build`, the entire image build runs

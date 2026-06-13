@@ -261,6 +261,25 @@ Ensure the target user has passwordless sudo for mount commands, or run as root.
 
 Another user management command is running, or `/etc/passwd` is locked. Retry after the lock clears.
 
+### pre_apply hook failed: resource fails, dependents skipped
+
+As of v1.6.0 a `pre_apply` hook that exits non-zero **fails the resource** — it is no longer silently skipped. The resource is recorded as `Failed`, a `ResourceFailed` event is appended to the event log, and `forjar apply` exits non-zero. Under the default `failure: stop_on_first` policy the run stops, the resource's dependents are cascade-skipped, and generation rollback is triggered.
+
+```
+JIDOKA: web1/site-config failed — dependents will be skipped: pre_apply hook failed (exit 1): permission denied
+```
+
+If a previously "passing" config started failing after upgrading, a `pre_apply` precondition that used to be silently ignored is now enforced. Diagnose by running the hook command manually on the target machine:
+
+```bash
+# Inspect the failing hook and its exit code
+forjar show -f forjar.yaml --json | jq '.resources["site-config"].pre_apply'
+# Run it on the target to see why it exits non-zero
+ssh web1 'cp /etc/nginx/sites-enabled/mysite /tmp/mysite.bak'; echo "exit=$?"
+```
+
+Fix the precondition (or the hook command) so it exits `0`. If the check was genuinely advisory, move it out of `pre_apply` — `pre_apply` is now a hard gate, not a warning.
+
 ### Cron: schedule field count
 
 Cron schedules must have exactly 5 fields: `minute hour day-of-month month day-of-week`.
