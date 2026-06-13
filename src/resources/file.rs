@@ -23,7 +23,11 @@ pub fn check_script(resource: &Resource) -> String {
         "absent" => format!("test -e {p} && echo 'exists:present' || echo 'missing:absent'"),
         "symlink" => format!("test -L {p} && echo 'exists:symlink' || echo 'missing:symlink'"),
         "file" => format!("test -f {p} && echo 'exists:file' || echo 'missing:file'"),
-        other => format!("echo 'unsupported file state: {other}'"),
+        // `other` is the config-derived state string; escape the label.
+        other => format!(
+            "echo {}",
+            sh_squote(&format!("unsupported file state: {other}"))
+        ),
     }
 }
 
@@ -57,8 +61,11 @@ fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resou
                 lines.push(format!("echo {} | base64 -d > {}", sh_squote(&b64), p));
             }
             Err(e) => {
+                // `e` embeds the config-derived source path; escape the whole
+                // message so a path with a quote can't break out of echo.
                 lines.push(format!(
-                    "echo 'ERROR: cannot read source file: {e}'; exit 1"
+                    "echo {}; exit 1",
+                    sh_squote(&format!("ERROR: cannot read source file: {e}"))
                 ));
             }
         }
@@ -101,7 +108,11 @@ pub fn apply_script(resource: &Resource) -> String {
             push_ownership_lines(&mut lines, path, resource);
         }
         other => {
-            lines.push(format!("echo 'unsupported file state: {other}'"));
+            // `other` is the config-derived state string; escape the label.
+            lines.push(format!(
+                "echo {}",
+                sh_squote(&format!("unsupported file state: {other}"))
+            ));
         }
     }
 
@@ -198,5 +209,38 @@ mod tests {
         let r = file_resource("/etc/foo");
         assert!(check_script(&r).contains("test -f '/etc/foo'"));
         assert!(state_query_script(&r).contains("[ -e '/etc/foo' ]"));
+    }
+
+    #[test]
+    fn fj165_source_read_error_message_injection_neutralized() {
+        // #165 (#161 sweep gap): when the source file can't be read, the error
+        // message embeds the config-derived source path. A path with command
+        // substitution must stay inside the single-quoted echo word.
+        let mut r = file_resource("/etc/conf");
+        r.state = Some("file".to_string());
+        // Nonexistent path (read fails) carrying an injection payload.
+        r.source = Some("/no/such$(touch /tmp/pwn)".to_string());
+        let script = apply_script(&r);
+        // The `$(` payload is inside a single-quoted echo word.
+        assert!(script.contains("echo 'ERROR: cannot read source file: /no/such$(touch /tmp/pwn)"));
+        assert!(script.contains("; exit 1"));
+        // No bare command substitution outside quotes.
+        assert!(!script.contains("echo ERROR"));
+        assert!(!script.contains(": /no/such' $(touch"));
+    }
+
+    #[test]
+    fn fj165_unsupported_state_label_injection_neutralized() {
+        // #165 (#161 sweep gap): the `other` arm echoes the config-derived
+        // state string raw — escape it in both check_script and apply_script.
+        let mut r = file_resource("/etc/foo");
+        r.state = Some("x$(touch /tmp/pwn)".to_string());
+        let check = check_script(&r);
+        let apply = apply_script(&r);
+        assert!(check.contains("echo 'unsupported file state: x$(touch /tmp/pwn)'"));
+        assert!(apply.contains("echo 'unsupported file state: x$(touch /tmp/pwn)'"));
+        // No bare (unquoted) label, and no break-out of the single-quoted word.
+        assert!(!check.contains("echo unsupported"));
+        assert!(!check.contains("' $(touch"));
     }
 }
