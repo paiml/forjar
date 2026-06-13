@@ -284,6 +284,7 @@ mod tests {
             rpm: false,
             all: false,
             verify: true,
+            verify_containers: false,
             version: None,
             checksums_file: None,
             output: None,
