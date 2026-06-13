@@ -663,7 +663,7 @@ policy:
 ```
 
 - **serial**: Number of machines per batch. After each batch converges, the next batch begins. Without `serial`, all machines are applied at once (or sequentially if `parallel_machines: false`).
-- **max_fail_percentage**: Cumulative failure threshold (0–100). After each batch, forjar checks the overall failure rate across all machines processed so far. If it exceeds the threshold, the rollout is aborted with an error. Machines not yet started are left untouched.
+- **max_fail_percentage**: Cumulative failure threshold (0–100). After each batch, forjar checks the overall failure rate across all machines processed so far. If it **strictly exceeds** the threshold, the rollout is aborted with an error; a rate exactly equal to the threshold does **not** abort. Machines not yet started are left untouched. As of v1.6.0 the comparison is computed in integer arithmetic (`failed × 100 > max_fail_percentage × total`), so boundary cases are exact — earlier versions truncated the percentage to a `u8` and could mis-gate right at the boundary.
 - When `serial` is combined with `parallel_machines: true`, `serial` controls the batch size and `parallel_machines` controls whether machines within each batch run concurrently.
 
 ## Cross-Machine References

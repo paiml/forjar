@@ -1498,7 +1498,7 @@ forjar test all -f forjar.yaml --parallel
 | `forjar test --group behavior` | Behavior-driven specs (`.spec.yaml`) — executes verify commands |
 | `forjar test --group convergence` | Apply-twice idempotency in sandbox |
 | `forjar test --group mutation` | Infrastructure mutation detection |
-| `forjar test --group coverage` | Per-resource coverage level report (L0-L5) |
+| `forjar test --group coverage` | Per-resource coverage level report (L0-L5); promotes resources to L3-L5 from passing, hash-matching sandbox runs persisted in `test-coverage.jsonl` (see [Testing Strategy](./41-testing-strategy.md#l3l5-promotion-from-persisted-runs-v160)) |
 | `forjar test` | All resources (check script table) |
 | `forjar contracts --coverage` | Per-resource contract level analysis (L0-L2) |
 

@@ -27,6 +27,31 @@ println!("Min: {}, Avg: {:.1}", report.min_level, report.avg_level);
 assert!(report.meets_threshold(CoverageLevel::L3));
 ```
 
+### L3–L5 Promotion from Persisted Runs (v1.6.0)
+
+Before v1.6.0, `forjar test coverage` only reported the static L0–L2 level it could infer from the config (unit-testable, has a `.spec.yaml`, etc.). It now also **promotes** resources to L3 (convergence), L4 (mutation), and L5 (preservation).
+
+When a convergence/mutation/preservation test runs in the sandbox, its result is appended — stamped with the resource's desired-state config hash — to a `test-coverage.jsonl` log in the state directory. `forjar test coverage` reads that log back and promotes each resource to the **highest passing level whose recorded config hash still matches the resource's current desired-state hash**:
+
+- A passing recorded level raises the reported level to `max(static_level, proven_level)`.
+- A resource never regresses below its static L0–L2 assessment.
+- If the resource's config changed since the test ran (hash mismatch), the stale high-water mark is **ignored** and the resource falls back to its static level — so you cannot carry a green L4 across an edit that was never re-tested.
+
+The report now prints per-level counts and L3+/L4+ rollups:
+
+```
+Resource Coverage Report
+========================
+  nginx-pkg: L4 (package)
+  site-config: L3 (file)
+  app-svc: L1 (service)
+
+Min: L1, Avg: 2.7, L0: 0, L1: 1, L2: 0, L3: 1, L4: 1, L5: 0
+Coverage: 2/3 at L3+, 1/3 at L4+
+```
+
+Run the sandbox tests (`forjar test --group convergence`, `--group mutation`) to populate the log, then `forjar test --group coverage` to see the promoted levels.
+
 ## Behavior Specs (FJ-2602)
 
 YAML-based assertions for expected system state:

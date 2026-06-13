@@ -229,8 +229,10 @@ resources:
     depends_on: [nginx-pkg]
 ```
 
-- **`pre_apply`**: Runs before the resource is applied. If it exits non-zero, the resource is skipped entirely (the main apply script does not run). Use this to back up files, check preconditions, or acquire locks.
+- **`pre_apply`**: Runs before the resource is applied. If it exits non-zero, the resource **fails** (the main apply script does not run). Use this to back up files, check preconditions, or acquire locks.
 - **`post_apply`**: Runs after a successful apply. If it exits non-zero, the resource is marked as failed. Use this to restart services, send notifications, or run smoke tests.
+
+> **Failure semantics (changed in v1.6.0).** A failing `pre_apply` hook is treated exactly like a failed apply: the resource is recorded as `Failed`, a `ResourceFailed` event is logged, and the run's failure count is non-zero so `forjar apply` exits non-zero. Under the default `failure: stop_on_first` policy this stops the run, **cascade-skips the resource's dependents**, and **triggers generation rollback**. Earlier versions silently reported a failing `pre_apply` as `Skipped`, exited `0`, ran the dependents anyway, and skipped rollback — so if you relied on a `pre_apply` precondition as a soft gate, it is now a hard gate. See the [troubleshooting chapter](./11-troubleshooting.md#pre_apply-hook-failed-resource-fails-dependents-skipped) for diagnosis.
 
 ## Visualize Dependencies
 

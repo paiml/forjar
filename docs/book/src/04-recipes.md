@@ -911,6 +911,15 @@ values are injected into shell script templates before execution. If an input co
 shell metacharacters, whitespace, or unexpected values, the resulting script could
 break or behave unsafely. bashrs catches these problems statically.
 
+> **Shell-value escaping (v1.6.0).** Resource handlers now route config-derived
+> string values through proper POSIX single-quote escaping when generating scripts.
+> A value containing quotes, `$`, backticks, `;`, spaces, or other metacharacters is
+> emitted as one inert literal word, so it can no longer break out of its context or
+> trigger command substitution. This is purely a safety hardening — benign values are
+> unaffected and produce the same scripts as before. You should still run `forjar lint`
+> to catch quoting issues in your own recipe *templates* (bashrs checks the surrounding
+> script structure, not just the interpolated values).
+
 ### Validating Recipe Scripts with `forjar lint`
 
 The `forjar lint` command generates scripts for all resources -- including expanded
