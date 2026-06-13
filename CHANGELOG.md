@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-06-13
+
+### Fixed — dogfood QA findings (#177, #178, #179)
+
+The new `dogfood` QA skill (run against v1.6.1) surfaced three
+low-severity issues, all fixed:
+
+- **`forjar check` gains `--state-dir`** (#178, #182): `check` was the
+  only state-reading subcommand without it (`apply`/`destroy`/`drift`/
+  `status`/`undo`/`undo-destroy`/`lock-verify`/`history` all have it), so
+  a stack applied to a custom state dir couldn't be checked against it.
+  `check` now also reports whether each resource is recorded in state
+  (`! <res> — not recorded in state`; `"in_state"` in `--json`).
+- **4 stale example configs now validate** (#179, #181): `agent-deployment`,
+  `dogfood-gpu-training`, `dogfood-outputs`, and `multi-agent-fleet`
+  failed `forjar validate` (unknown fields, missing `sudo: true`); fixed,
+  and a new `examples-validate` CI gate + `tests/examples_validate.rs`
+  prevent regressions (45/45 examples now validate).
+- **README C9 dependency claim corrected** (#177, #180): the falsifiable
+  claim said "<20 deps (17 runtime + 1 build)" but its own verify command
+  reported 30 runtime deps; restated to the accurate 30 (27 always-on +
+  3 optional: age/wasmi/dhat) + 3 build, and the comparison-table cell
+  updated to match.
+
+### Added
+
+- **`dogfood` Claude Code skill** (#176): contract-first, read-only
+  exhaustive QA — rebuild+install, full command grid, prove claims
+  C1–C10 and the 10 `contracts/` against a sandboxed `/tmp`-only local
+  stack, safe apply→reapply→destroy→undo lifecycle, loud-failure
+  injection, `dist --verify` self-test, GO/WARN/FAIL verdict.
+
 ## [1.6.1] - 2026-06-13
 
 ### Fixed — new-code audit of the v1.6.0 changes (#165)
@@ -38,38 +70,6 @@ regressions/gaps, each double-refuted; all fixed:
 - **Tier-2 verify (#168):** `--verify-containers` now honors a custom
   `dist.checksums` filename (the offline shim previously hardcoded
   `SHA256SUMS`, silently skipping verification for any other name).
-
-## [1.6.2] - 2026-06-13
-
-### Fixed — dogfood QA findings (#177, #178, #179)
-
-The new `dogfood` QA skill (run against v1.6.1) surfaced three
-low-severity issues, all fixed:
-
-- **`forjar check` gains `--state-dir`** (#178, #182): `check` was the
-  only state-reading subcommand without it (`apply`/`destroy`/`drift`/
-  `status`/`undo`/`undo-destroy`/`lock-verify`/`history` all have it), so
-  a stack applied to a custom state dir couldn't be checked against it.
-  `check` now also reports whether each resource is recorded in state
-  (`! <res> — not recorded in state`; `"in_state"` in `--json`).
-- **4 stale example configs now validate** (#179, #181): `agent-deployment`,
-  `dogfood-gpu-training`, `dogfood-outputs`, and `multi-agent-fleet`
-  failed `forjar validate` (unknown fields, missing `sudo: true`); fixed,
-  and a new `examples-validate` CI gate + `tests/examples_validate.rs`
-  prevent regressions (45/45 examples now validate).
-- **README C9 dependency claim corrected** (#177, #180): the falsifiable
-  claim said "<20 deps (17 runtime + 1 build)" but its own verify command
-  reported 30 runtime deps; restated to the accurate 30 (27 always-on +
-  3 optional: age/wasmi/dhat) + 3 build, and the comparison-table cell
-  updated to match.
-
-### Added
-
-- **`dogfood` Claude Code skill** (#176): contract-first, read-only
-  exhaustive QA — rebuild+install, full command grid, prove claims
-  C1–C10 and the 10 `contracts/` against a sandboxed `/tmp`-only local
-  stack, safe apply→reapply→destroy→undo lifecycle, loud-failure
-  injection, `dist --verify` self-test, GO/WARN/FAIL verdict.
 
 ## [1.6.0] - 2026-06-13
 
