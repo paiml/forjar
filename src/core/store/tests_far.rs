@@ -183,3 +183,89 @@ fn test_fj1346_truncated_input_error() {
     let result = decode_far_manifest(FAR_MAGIC.as_slice());
     assert!(result.is_err());
 }
+
+// ── #154 (#17/#24, #18/#25): untrusted header lengths must not OOM/panic ──
+
+/// Build a FAR header: magic + 8-byte LE manifest_len, optionally followed by
+/// 8-byte LE chunk_count and arbitrary trailing bytes.
+fn header_bytes(manifest_len: u64, rest: &[u8]) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.extend_from_slice(FAR_MAGIC);
+    buf.extend_from_slice(&manifest_len.to_le_bytes());
+    buf.extend_from_slice(rest);
+    buf
+}
+
+#[test]
+fn test_gh154_manifest_len_absurd_over_short_input_errors() {
+    // Header claims a multi-GB manifest but supplies almost no bytes.
+    // Must return Err (rejected by the MAX bound) — not OOM/abort/panic.
+    let bad = header_bytes(u64::MAX, &[0xAB; 4]);
+    let result = decode_far_manifest(bad.as_slice());
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("manifest too large"));
+}
+
+#[test]
+fn test_gh154_manifest_len_moderate_but_truncated_errors() {
+    // A length within the sane bound but with no actual bytes following must
+    // fail via the length-limited read (graceful Err), never a huge allocation.
+    let bad = header_bytes(4096, &[]);
+    let result = decode_far_manifest(bad.as_slice());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_gh154_chunk_count_absurd_over_short_input_errors() {
+    // Valid magic + manifest, then an absurd chunk_count over a truncated table.
+    // with_capacity(chunk_count * 48) used to capacity-overflow; now we grow the
+    // Vec on each read so a truncated table fails gracefully via read_exact.
+    let manifest = sample_manifest();
+    let chunks: Vec<([u8; 32], Vec<u8>)> = vec![];
+    let mut buf = Vec::new();
+    encode_far(&manifest, &chunks, &mut buf).unwrap();
+    // Overwrite the chunk_count field (immediately after the manifest) — find it
+    // by truncating to right after the encoded chunk_count then patching. Simpler:
+    // re-encode with empty chunks (chunk_count=0 sits at a known suffix) is awkward,
+    // so craft a fresh minimal valid prefix and append a huge count.
+    let mut compressed = Vec::new();
+    let yaml = serde_yaml_ng::to_string(&manifest).unwrap();
+    let cc = zstd::encode_all(yaml.as_bytes(), 3).unwrap();
+    compressed.extend_from_slice(FAR_MAGIC);
+    compressed.extend_from_slice(&(cc.len() as u64).to_le_bytes());
+    compressed.extend_from_slice(&cc);
+    compressed.extend_from_slice(&u64::MAX.to_le_bytes()); // absurd chunk_count
+    let result = decode_far_manifest(compressed.as_slice());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_gh154_valid_roundtrip_still_works() {
+    // Regression guard: the bounds checks must not break the happy path.
+    let manifest = sample_manifest();
+    let chunks = sample_chunks();
+    let mut buf = Vec::new();
+    encode_far(&manifest, &chunks, &mut buf).unwrap();
+    let (decoded, entries) = decode_far_manifest(buf.as_slice()).unwrap();
+    assert_eq!(decoded, manifest);
+    assert_eq!(entries.len(), 2);
+}
+
+proptest::proptest! {
+    /// #154: arbitrary header bytes (magic + manifest_len + chunk_count + junk)
+    /// must never panic/OOM — decode either succeeds or returns Err.
+    #[test]
+    fn prop_gh154_arbitrary_header_no_panic(
+        manifest_len in proptest::prelude::any::<u64>(),
+        chunk_count in proptest::prelude::any::<u64>(),
+        tail in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..64),
+    ) {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(FAR_MAGIC);
+        buf.extend_from_slice(&manifest_len.to_le_bytes());
+        buf.extend_from_slice(&chunk_count.to_le_bytes());
+        buf.extend_from_slice(&tail);
+        // Result is intentionally ignored: the property is "does not panic/abort".
+        let _ = decode_far_manifest(buf.as_slice());
+    }
+}

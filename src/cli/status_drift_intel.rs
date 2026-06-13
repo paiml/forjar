@@ -56,6 +56,13 @@ fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let min: u64 = s.get(14..16)?.parse().ok()?;
     let sec: u64 = s.get(17..19)?.parse().ok()?;
 
+    // #27: validate fields parsed from an untrusted timestamp. day==0 would
+    // underflow `day - 1` (debug panic / release wrap to a garbage epoch), and an
+    // out-of-range month yields a wrong age bucket. Reject out-of-range → None.
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+
     // Days from year (simplified — no leap-second precision needed)
     let mut days: u64 = 0;
     for y in 1970..year {
@@ -336,6 +343,26 @@ mod tests {
         assert!(parse_rfc3339_to_epoch("").is_none());
         assert!(parse_rfc3339_to_epoch("not-a-date").is_none());
         assert!(parse_rfc3339_to_epoch("2024").is_none());
+    }
+
+    #[test]
+    fn test_gh154_parse_rfc3339_out_of_range_no_panic() {
+        // #27: day==0 would underflow `day - 1`; out-of-range month/day must
+        // return None rather than panic (debug) or wrap to a garbage epoch.
+        assert!(parse_rfc3339_to_epoch("2026-05-00T00:00:00Z").is_none()); // day==0
+        assert!(parse_rfc3339_to_epoch("2026-13-01T00:00:00Z").is_none()); // month>12
+        assert!(parse_rfc3339_to_epoch("2026-00-10T00:00:00Z").is_none()); // month==0
+        assert!(parse_rfc3339_to_epoch("2026-05-99T00:00:00Z").is_none()); // day>31
+                                                                           // Happy path still works.
+        assert!(parse_rfc3339_to_epoch("2026-05-15T12:34:56Z").is_some());
+    }
+
+    proptest::proptest! {
+        /// #27: arbitrary timestamp strings must never panic.
+        #[test]
+        fn prop_gh154_parse_rfc3339_no_panic(s in ".*") {
+            let _ = parse_rfc3339_to_epoch(&s);
+        }
     }
 
     #[test]
