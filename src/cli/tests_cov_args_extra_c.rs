@@ -156,6 +156,7 @@ mod tests {
             machine: None,
             resource: None,
             tag: None,
+            state_dir: PathBuf::from("state"),
             json: false,
         };
         let _ = format!("{a:?}");

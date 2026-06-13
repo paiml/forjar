@@ -113,22 +113,22 @@ resources:
     fn test_check_filters() {
         let d = tempfile::tempdir().unwrap();
         let c = check_cfg(d.path());
-        let _ = cmd_check(&c, None, None, Some("config"), false, false);
-        let _ = cmd_check(&c, None, None, Some("config"), true, false);
-        let _ = cmd_check(&c, None, Some("pkg1"), None, false, false);
-        let _ = cmd_check(&c, None, Some("nonexistent"), None, false, false);
-        let _ = cmd_check(&c, Some("local"), None, None, false, false);
-        let _ = cmd_check(&c, Some("nonexistent"), None, None, false, false);
-        let _ = cmd_check(&c, None, None, None, false, true);
-        let _ = cmd_check(&c, None, None, None, true, false);
-        let _ = cmd_check(&c, Some("local"), Some("pkg1"), Some("base"), false, false);
+        let _ = cmd_check(&c, None, None, Some("config"), std::path::Path::new("state"), false, false);
+        let _ = cmd_check(&c, None, None, Some("config"), std::path::Path::new("state"), true, false);
+        let _ = cmd_check(&c, None, Some("pkg1"), None, std::path::Path::new("state"), false, false);
+        let _ = cmd_check(&c, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false);
+        let _ = cmd_check(&c, Some("local"), None, None, std::path::Path::new("state"), false, false);
+        let _ = cmd_check(&c, Some("nonexistent"), None, None, std::path::Path::new("state"), false, false);
+        let _ = cmd_check(&c, None, None, None, std::path::Path::new("state"), false, true);
+        let _ = cmd_check(&c, None, None, None, std::path::Path::new("state"), true, false);
+        let _ = cmd_check(&c, Some("local"), Some("pkg1"), Some("base"), std::path::Path::new("state"), false, false);
     }
     #[test]
     fn test_check_invalid() {
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("bad.yaml");
         std::fs::write(&f, "invalid: [[[").unwrap();
-        assert!(cmd_check(&f, None, None, None, false, false).is_err());
+        assert!(cmd_check(&f, None, None, None, std::path::Path::new("state"), false, false).is_err());
     }
     #[test]
     fn test_cmd_test_variants() {

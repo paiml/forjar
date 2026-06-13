@@ -161,11 +161,13 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
         ));
     }
     if args.check {
+        let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
         return Some(cmd_check(
             &args.file,
             args.machine.as_deref(),
             args.resource.as_deref(),
             args.tag.as_deref(),
+            &sd,
             args.json,
             verbose,
         ));

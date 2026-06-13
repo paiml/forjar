@@ -69,7 +69,7 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, None, Some("web"), false, false);
+        let result = cmd_check(&config, None, None, Some("web"), std::path::Path::new("state"), false, false);
         assert!(result.is_ok());
     }
 
@@ -100,6 +100,7 @@ resources:
             Some("nonexistent-machine"),
             None,
             None,
+            std::path::Path::new("state"),
             false,
             false,
         );
@@ -123,7 +124,7 @@ resources:
     packages: [nonexistent-package-xyz-12345]
 "#;
         let config = write_yaml(dir.path(), "forjar.yaml", config_yaml);
-        let result = cmd_check(&config, None, None, None, true, false);
+        let result = cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false);
         // Package check may pass or fail depending on system; exercise the path
         let _ = result;
     }
@@ -158,7 +159,7 @@ resources:
             t2.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, None, None, false, true);
+        let result = cmd_check(&config, None, None, None, std::path::Path::new("state"), false, true);
         assert!(result.is_ok());
     }
 

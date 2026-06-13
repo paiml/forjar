@@ -51,7 +51,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
         // Filter by tag "config" — should skip "pkg1" (base,system tags)
-        let result = cmd_check(&config, None, None, Some("config"), false, false);
+        let result = cmd_check(&config, None, None, Some("config"), std::path::Path::new("state"), false, false);
         // May fail because check script might not exist for file, but exercises filter code
         let _ = result;
     }
@@ -60,49 +60,49 @@ resources:
     fn test_cmd_check_with_tag_filter_json() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, None, None, Some("config"), true, false);
+        let _ = cmd_check(&config, None, None, Some("config"), std::path::Path::new("state"), true, false);
     }
 
     #[test]
     fn test_cmd_check_with_resource_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, None, Some("pkg1"), None, false, false);
+        let _ = cmd_check(&config, None, Some("pkg1"), None, std::path::Path::new("state"), false, false);
     }
 
     #[test]
     fn test_cmd_check_with_resource_filter_nonexistent() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, None, Some("nonexistent"), None, false, false);
+        let _ = cmd_check(&config, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false);
     }
 
     #[test]
     fn test_cmd_check_with_machine_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, Some("local"), None, None, false, false);
+        let _ = cmd_check(&config, Some("local"), None, None, std::path::Path::new("state"), false, false);
     }
 
     #[test]
     fn test_cmd_check_with_machine_filter_nonexistent() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, Some("nonexistent"), None, None, false, false);
+        let _ = cmd_check(&config, Some("nonexistent"), None, None, std::path::Path::new("state"), false, false);
     }
 
     #[test]
     fn test_cmd_check_verbose() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, None, None, None, false, true);
+        let _ = cmd_check(&config, None, None, None, std::path::Path::new("state"), false, true);
     }
 
     #[test]
     fn test_cmd_check_json_output() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, None, None, None, true, false);
+        let _ = cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false);
     }
 
     #[test]
@@ -114,6 +114,7 @@ resources:
             Some("local"),
             Some("pkg1"),
             Some("base"),
+            std::path::Path::new("state"),
             false,
             false,
         );
@@ -124,7 +125,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("bad.yaml");
         std::fs::write(&file, "invalid: [[[").unwrap();
-        let result = cmd_check(&file, None, None, None, false, false);
+        let result = cmd_check(&file, None, None, None, std::path::Path::new("state"), false, false);
         assert!(result.is_err());
     }
 
