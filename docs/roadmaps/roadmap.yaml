@@ -1504,11 +1504,11 @@ roadmap:
   github_issue: 116
   item_type: task
   title: 'TDG-1: Burn down 6 F-grade files so strict pre-commit TDG gate can be re-enabled'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T01:00:00Z
   spec: null
   acceptance_criteria:
   - pmat tdg --min-grade B+ exits 0 for anomaly.rs, undo_helpers.rs, image_cmd.rs, layer_builder.rs, image_assembler.rs, unknown_fields.rs
