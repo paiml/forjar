@@ -334,9 +334,13 @@ Tests: `test_fj019_validate_inputs_type_mismatch`, `test_fj019_validate_inputs_e
 Single-quoted heredoc prevents shell expansion in file content.
 Tests: `test_fj007_heredoc_safe`
 
-### C9: Minimal dependencies
-Fewer than 20 direct crate dependencies (currently 17 runtime + 1 build). Single binary output.
-Verify: `cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'`
+### C9: Lean dependency set
+30 direct runtime dependencies — 27 always-on plus 3 optional, feature-gated
+(`age` for encryption, `wasmi` for WASM plugins, `dhat` for heap profiling) —
+and 3 build dependencies. Single static binary output.
+Verify (counts all runtime deps, including the optional ones):
+`cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'` → `30`
+(build deps: `select(.kind == "build")` → `3`).
 
 ### C10: Jidoka failure isolation
 First failure stops execution. Previously converged state is preserved. A failing `pre_apply`
