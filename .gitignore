@@ -22,5 +22,6 @@ state/*/events.jsonl
 # Local cargo config (coverage target-dir overrides)
 .cargo/config.toml
 
-# Claude Code session state
-.claude/
+# Claude Code session state (ignore everything except shared skills)
+.claude/*
+!.claude/skills/
