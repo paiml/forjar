@@ -9,10 +9,13 @@ pub fn exec_local(
     script: &str,
     pid_slot: Option<&super::ChildPidSlot>,
 ) -> Result<ExecOutput, String> {
-    let mut child = Command::new("bash")
-        .stdin(Stdio::piped())
+    let mut cmd = Command::new("bash");
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    // #165: own process group so a timeout kills the group, not a recycled PID.
+    super::configure_process_group(&mut cmd);
+    let mut child = cmd
         .spawn()
         .map_err(|e| format!("failed to spawn bash: {e}"))?;
     // FJ-#154: publish PID so a timeout can kill this child.

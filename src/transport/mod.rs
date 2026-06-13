@@ -19,6 +19,8 @@ mod tests_dispatch;
 mod tests_dispatch_b;
 #[cfg(test)]
 mod tests_ssh;
+#[cfg(test)]
+mod tests_timeout;
 
 use crate::core::types::Machine;
 
@@ -38,17 +40,48 @@ pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process
     }
 }
 
-/// Best-effort kill of a process by PID via the `kill` binary.
+/// #165: Put the spawned child in its own process group so a timeout kill can
+/// target the *group* (`kill -9 -- -<pgid>`) rather than a bare PID that the OS
+/// may have already recycled for an unrelated process after the child was
+/// reaped. On Unix the child becomes the group leader, so the group id equals
+/// the child PID we record. A no-op on non-Unix targets.
+#[cfg(unix)]
+pub(crate) fn configure_process_group(cmd: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+    cmd.process_group(0);
+}
+
+/// Non-Unix fallback: process groups are not available, so this is a no-op.
+#[cfg(not(unix))]
+pub(crate) fn configure_process_group(_cmd: &mut std::process::Command) {}
+
+/// #165: Build the `kill` command used on the timeout path.
 ///
-/// Used only on the timeout path. The worker thread that spawned the child is
-/// still blocked in `wait_with_output`; killing the process unblocks it so it
-/// reaps the child itself — no zombie and no leaked thread survive.
-fn kill_pid(pid: u32) {
-    let _ = std::process::Command::new("kill")
-        .args(["-9", &pid.to_string()])
+/// The child was spawned in its own process group (see
+/// [`configure_process_group`]), so we signal the whole group with the
+/// negative-PID convention (`kill -9 -- -<pgid>`). Because the child is the
+/// group leader, the group id equals the recorded PID. Killing the group
+/// reaches descendants (e.g. the remote shell ssh spawned), and — crucially —
+/// the leading `-` means we can never accidentally signal a single recycled
+/// PID: a process-group target only matches processes the child fathered.
+/// Factored out so the argument construction is unit-testable without spawning.
+fn kill_group_command(pid: u32) -> std::process::Command {
+    let mut cmd = std::process::Command::new("kill");
+    cmd.args(["-9", "--", &format!("-{pid}")])
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
+        .stderr(std::process::Stdio::null());
+    cmd
+}
+
+/// Best-effort kill of a child's whole process group via the `kill` binary.
+///
+/// Used only on the timeout path, and only when the worker has *not* yet
+/// reported a result (i.e. the child is provably still running). Targeting the
+/// process group instead of a bare PID closes the PID-reuse race: a reaped
+/// child's recycled PID can never belong to the dead group, so we cannot kill
+/// an unrelated process.
+fn kill_process_group(pid: u32) {
+    let _ = kill_group_command(pid).status();
 }
 
 /// FJ-#154: Write a script to a child's stdin, reaping the child on failure.
@@ -213,10 +246,16 @@ fn exec_script_tracked(
 /// Execute a script with an optional timeout (in seconds).
 /// Returns an error if the script exceeds the timeout.
 ///
-/// FJ-#154: On timeout the underlying transport child is killed via its PID
-/// (published into a shared slot by the worker). Killing the process unblocks
-/// the worker's `wait_with_output`, so neither the child process nor the
-/// worker thread is leaked.
+/// FJ-#154 / #165: On timeout the underlying transport child's *process group*
+/// is killed (the group leader's PID is published into a shared slot by the
+/// worker). Killing the group unblocks the worker's `wait_with_output`, so the
+/// child is reaped and neither the child process nor the worker thread leaks.
+///
+/// #165: The kill is gated on `worker_done` — an `AtomicBool` the worker raises
+/// the instant before it returns its result. If the worker already finished
+/// (child reaped, PID potentially recycled by the OS), we do NOT signal, so a
+/// recycled PID can never be killed. After signalling we `join` the worker so
+/// the child is provably reaped before we return.
 pub fn exec_script_timeout(
     machine: &Machine,
     script: &str,
@@ -231,26 +270,48 @@ pub fn exec_script_timeout(
     let script = script.to_string();
     let pid_slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let worker_slot = pid_slot.clone();
+    let worker_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_done_w = worker_done.clone();
     let (tx, rx) = std::sync::mpsc::channel();
 
-    std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || {
         let result = exec_script_tracked(&machine, &script, Some(&worker_slot));
+        // Mark done BEFORE sending so the timeout path observes completion as
+        // soon as a result is available — the child is already reaped here.
+        worker_done_w.store(true, std::sync::atomic::Ordering::SeqCst);
         let _ = tx.send(result);
     });
 
     match rx.recv_timeout(std::time::Duration::from_secs(secs)) {
         Ok(result) => result,
         Err(_) => {
-            // Timed out: kill the orphaned child so the worker reaps it and
-            // exits, then return the timeout error.
-            if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-                kill_pid(pid);
-            }
+            kill_worker_child_group(&pid_slot, &worker_done);
+            // Join the worker so its `wait_with_output` finishes reaping the
+            // child before we return (no leaked thread, no zombie).
+            let _ = handle.join();
             Err(format!(
                 "transport timeout: script on '{hostname}' exceeded {secs}s limit"
             ))
         }
     }
+}
+
+/// #165: Timeout-kill helper. Only signals the child's process group when the
+/// worker has *not* yet finished (`worker_done == false`); otherwise the child
+/// was already reaped and its PID may have been recycled, so signalling would
+/// be unsafe. Returns whether a kill was actually issued (for tests).
+fn kill_worker_child_group(
+    pid_slot: &ChildPidSlot,
+    worker_done: &std::sync::atomic::AtomicBool,
+) -> bool {
+    if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
+        return false;
+    }
+    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
+        kill_process_group(pid);
+        return true;
+    }
+    false
 }
 
 /// Check if a machine uses SSH transport (not pepita, container, or local).

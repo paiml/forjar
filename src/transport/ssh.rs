@@ -149,6 +149,8 @@ pub fn exec_ssh(
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // #165: own process group so a timeout kills the group, not a recycled PID.
+    super::configure_process_group(&mut cmd);
 
     let mut child = cmd
         .spawn()
