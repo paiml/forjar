@@ -54,30 +54,7 @@ pub fn start_control_master(machine: &Machine) -> Result<bool, String> {
         let _ = std::fs::remove_file(&sock);
     }
 
-    let mut args = vec![
-        "-o".to_string(),
-        "BatchMode=yes".to_string(),
-        "-o".to_string(),
-        "ConnectTimeout=5".to_string(),
-        "-o".to_string(),
-        "StrictHostKeyChecking=accept-new".to_string(),
-        "-o".to_string(),
-        "ControlMaster=yes".to_string(),
-        "-o".to_string(),
-        format!("ControlPath={}", sock),
-        "-o".to_string(),
-        format!("ControlPersist={}", CONTROL_PERSIST_SECS),
-        "-N".to_string(), // no command — just open the master
-        "-f".to_string(), // go to background
-    ];
-
-    if let Some(ref key) = machine.ssh_key {
-        let expanded = expand_tilde(key);
-        args.push("-i".to_string());
-        args.push(expanded);
-    }
-
-    args.push(format!("{}@{}", machine.user, machine.addr));
+    let args = build_control_master_args(machine, &sock);
 
     let output = Command::new("ssh")
         .args(&args)
@@ -96,6 +73,38 @@ pub fn start_control_master(machine: &Machine) -> Result<bool, String> {
             output.code().unwrap_or(-1)
         ))
     }
+}
+
+/// Build the `ssh` arguments for opening a ControlMaster connection.
+///
+/// Pure helper (no I/O): used by [`start_control_master`] and unit-tested
+/// directly. `sock` is the ControlPath socket path for the machine.
+pub(crate) fn build_control_master_args(machine: &Machine, sock: &str) -> Vec<String> {
+    let mut args = vec![
+        "-o".to_string(),
+        "BatchMode=yes".to_string(),
+        "-o".to_string(),
+        "ConnectTimeout=5".to_string(),
+        "-o".to_string(),
+        "StrictHostKeyChecking=accept-new".to_string(),
+        "-o".to_string(),
+        "ControlMaster=yes".to_string(),
+        "-o".to_string(),
+        format!("ControlPath={sock}"),
+        "-o".to_string(),
+        format!("ControlPersist={CONTROL_PERSIST_SECS}"),
+        "-N".to_string(), // no command — just open the master
+        "-f".to_string(), // go to background
+    ];
+
+    if let Some(ref key) = machine.ssh_key {
+        let expanded = expand_tilde(key);
+        args.push("-i".to_string());
+        args.push(expanded);
+    }
+
+    args.push(format!("{}@{}", machine.user, machine.addr));
+    args
 }
 
 /// Stop a ControlMaster connection for a machine.

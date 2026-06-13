@@ -61,7 +61,7 @@ pub(super) fn compute_undo_diff(
 ///
 /// Verifies all target machines are reachable before making any changes.
 /// Returns Err if any machine is unreachable (fail fast).
-fn preflight_ssh_check(
+pub(super) fn preflight_ssh_check(
     config: &types::ForjarConfig,
     machine_filter: Option<&str>,
 ) -> Result<(), String> {

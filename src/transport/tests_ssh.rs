@@ -360,3 +360,102 @@ fn test_fj252_control_persist_constant() {
 fn test_fj252_control_dir_constant() {
     assert_eq!(CONTROL_DIR, "/tmp/forjar-ssh");
 }
+
+// -- COV-1 (PMAT-088): ControlMaster argument construction + spawn error path --
+
+#[test]
+fn test_cov_control_master_args_core_options() {
+    let m = make_machine("10.0.0.7", "deploy", None);
+    let args = build_control_master_args(&m, "/tmp/sock-a");
+    assert!(args.contains(&"BatchMode=yes".to_string()));
+    assert!(args.contains(&"ConnectTimeout=5".to_string()));
+    assert!(args.contains(&"StrictHostKeyChecking=accept-new".to_string()));
+    assert!(args.contains(&"ControlMaster=yes".to_string()));
+    assert!(args.contains(&"deploy@10.0.0.7".to_string()));
+}
+
+#[test]
+fn test_cov_control_master_args_uses_given_socket() {
+    let m = make_machine("10.0.0.7", "root", None);
+    let args = build_control_master_args(&m, "/tmp/forjar-ssh/root@10.0.0.7");
+    assert!(
+        args.contains(&"ControlPath=/tmp/forjar-ssh/root@10.0.0.7".to_string()),
+        "ControlPath must embed the provided socket: {args:?}"
+    );
+    assert!(args.contains(&format!("ControlPersist={CONTROL_PERSIST_SECS}")));
+}
+
+#[test]
+fn test_cov_control_master_args_background_and_no_command() {
+    // -N (no remote command) and -f (background) define the master semantics.
+    let m = make_machine("10.0.0.7", "root", None);
+    let args = build_control_master_args(&m, "/tmp/sock-b");
+    assert!(args.contains(&"-N".to_string()), "must pass -N: {args:?}");
+    assert!(args.contains(&"-f".to_string()), "must pass -f: {args:?}");
+}
+
+#[test]
+fn test_cov_control_master_args_user_at_host_is_last() {
+    // The destination must be the final argument (no remote command follows).
+    let m = make_machine("web.example.com", "admin", None);
+    let args = build_control_master_args(&m, "/tmp/sock-c");
+    assert_eq!(args.last().unwrap(), "admin@web.example.com");
+}
+
+#[test]
+fn test_cov_control_master_args_without_key_has_no_dash_i() {
+    let m = make_machine("10.0.0.7", "root", None);
+    let args = build_control_master_args(&m, "/tmp/sock-d");
+    assert!(!args.contains(&"-i".to_string()), "no -i without key");
+}
+
+#[test]
+fn test_cov_control_master_args_with_key_injects_identity() {
+    let m = make_machine("10.0.0.7", "deploy", Some("/home/deploy/.ssh/id_ed25519"));
+    let args = build_control_master_args(&m, "/tmp/sock-e");
+    let i = args.iter().position(|a| a == "-i").expect("-i present");
+    assert_eq!(args[i + 1], "/home/deploy/.ssh/id_ed25519");
+    // -i must precede the destination.
+    let host = args.iter().position(|a| a == "deploy@10.0.0.7").unwrap();
+    assert!(i < host, "-i must come before user@host");
+}
+
+#[test]
+fn test_cov_control_master_args_expands_tilde_key() {
+    let m = make_machine("10.0.0.7", "admin", Some("~/.ssh/id_rsa"));
+    let args = build_control_master_args(&m, "/tmp/sock-f");
+    let i = args.iter().position(|a| a == "-i").unwrap();
+    assert!(!args[i + 1].starts_with('~'), "tilde must be expanded");
+    assert!(args[i + 1].ends_with(".ssh/id_rsa"));
+}
+
+#[test]
+fn test_cov_control_master_args_options_count() {
+    // 12 option tokens (6 `-o VALUE` pairs) + `-N` + `-f` + dest = 15.
+    let m = make_machine("10.0.0.7", "root", None);
+    let args = build_control_master_args(&m, "/tmp/sock-g");
+    assert_eq!(args.len(), 15, "args: {args:?}");
+}
+
+#[test]
+fn test_cov_start_control_master_errors_on_unreachable_host() {
+    // `.invalid` is RFC 6761 guaranteed non-resolvable, so ssh fails fast
+    // (no DNS, no network round-trip) and start_control_master returns Err.
+    // A per-process-unique user keeps the ControlPath socket name distinct
+    // from any concurrent test, so this stays parallel-safe.
+    let user = format!("covtest-{}", std::process::id());
+    let m = make_machine("forjar-cov-unreachable.invalid", &user, None);
+
+    let result = start_control_master(&m);
+
+    let sock = control_path(&m);
+    let _ = std::fs::remove_file(&sock); // belt-and-braces; never created on failure
+    assert!(
+        result.is_err(),
+        "unreachable host must yield Err, got {result:?}"
+    );
+    assert!(
+        result.unwrap_err().contains("ControlMaster"),
+        "error should mention ControlMaster"
+    );
+}
