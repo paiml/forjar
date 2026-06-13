@@ -151,6 +151,8 @@ mod tests_reference;
 #[cfg(test)]
 mod tests_registry_push;
 #[cfg(test)]
+mod tests_registry_push_net;
+#[cfg(test)]
 mod tests_repro_score;
 #[cfg(test)]
 mod tests_sandbox;

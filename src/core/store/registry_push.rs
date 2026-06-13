@@ -183,7 +183,7 @@ fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), S
 /// OCI Distribution Spec v1.1 chunked upload protocol:
 /// 1. PATCH with Content-Range for each chunk
 /// 2. PUT to complete with final digest
-fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
+pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
     let blob_path = blob.path.display().to_string();
     let total_size = blob.size;
     let mut offset: u64 = 0;

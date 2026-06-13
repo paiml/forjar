@@ -130,3 +130,5 @@ mod tests_cov_fleet_run;
 mod tests_cov_infra_dispatch2;
 #[cfg(test)]
 mod tests_cov_check_blocks;
+#[cfg(test)]
+mod tests_preflight_ssh_cov;
