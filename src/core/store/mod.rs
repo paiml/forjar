@@ -16,6 +16,7 @@ pub mod convergence_container;
 pub mod convergence_runner;
 pub mod convert;
 pub mod convert_exec;
+pub mod coverage_persist;
 pub mod db;
 pub mod derivation;
 pub mod derivation_exec;

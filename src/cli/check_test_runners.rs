@@ -3,6 +3,10 @@
 //! Extracted from check_test.rs for 500-line limit compliance.
 
 use super::check_test::check_verify_assertions;
+use super::coverage_promote::{
+    coverage_entry, coverage_state_dir, persist_convergence_coverage, persist_mutation_coverage,
+    print_coverage_summary,
+};
 use super::helpers::*;
 use crate::core::types::SandboxBackend;
 use crate::core::{codegen, resolver};
@@ -97,6 +101,9 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
     print!("{}", mutation_runner::format_mutation_run(&report));
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
+    // PMAT-088: Persist L4 results so `test coverage` can promote resources.
+    persist_mutation_coverage(file, &config, &report);
+
     // Grade F with errors = scripts require real infra (expected in local mode).
     // Grade F with zero errors = mutations genuinely undetected (real failure).
     if report.score.grade() == 'F' && report.score.errored == 0 {
@@ -173,6 +180,9 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
     );
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
+    // PMAT-088: Persist L3/L5 results so `test coverage` can promote resources.
+    persist_convergence_coverage(file, &config, &results, test_config.test_pairs);
+
     // Distinguish real failures (scripts ran but state diverged) from
     // environment errors (scripts can't run locally — need real machines).
     let env_errors = results.iter().filter(|r| r.error.is_some()).count();
@@ -213,35 +223,27 @@ fn discover_spec_resources(spec_dir: &Path) -> std::collections::HashSet<String>
     result
 }
 
-/// FJ-2602: Resource-level coverage report.
+/// FJ-2602 / PMAT-088: Resource-level coverage report with L3-L5 promotion.
 pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
-    use crate::core::types::{CoverageLevel, CoverageReport, ResourceCoverage};
+    use crate::core::types::{CoverageReport, ResourceCoverage};
 
     let config = parse_and_validate(file)?;
     let spec_dir = file.parent().unwrap_or(Path::new("."));
     let spec_resources = discover_spec_resources(spec_dir);
+    let records = crate::core::store::coverage_persist::load_records(&coverage_state_dir(file));
 
     let execution_order = resolver::build_execution_order(&config)?;
     let entries: Vec<ResourceCoverage> = execution_order
         .iter()
         .filter_map(|rid| {
             let resource = config.resources.get(rid)?;
-            let resolved =
-                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                    .unwrap_or_else(|_| resource.clone());
-            let has_check = codegen::check_script(&resolved).is_ok();
-            let has_spec = spec_resources.contains(rid);
-            let level = match (has_spec, has_check) {
-                (true, true) => CoverageLevel::L2,
-                (_, true) => CoverageLevel::L1,
-                _ => CoverageLevel::L0,
-            };
-            let rtype = format!("{:?}", resource.resource_type).to_lowercase();
-            Some(ResourceCoverage {
-                resource_id: rid.clone(),
-                level,
-                resource_type: rtype,
-            })
+            Some(coverage_entry(
+                rid,
+                resource,
+                &config,
+                &spec_resources,
+                &records,
+            ))
         })
         .collect();
 
@@ -256,14 +258,7 @@ pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
             entry.resource_type
         );
     }
-    println!(
-        "\nMin: {}, Avg: {:.1}, L0: {}, L1: {}, L2: {}",
-        report.min_level.label(),
-        report.avg_level,
-        report.histogram[0],
-        report.histogram[1],
-        report.histogram[2]
-    );
+    print_coverage_summary(&report);
     Ok(())
 }
 

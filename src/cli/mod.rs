@@ -22,6 +22,7 @@ mod complexity_analysis;
 mod config_merge;
 mod contracts;
 mod cost_estimate;
+mod coverage_promote;
 mod cross_machine_deps;
 mod data_freshness;
 mod data_validate;
