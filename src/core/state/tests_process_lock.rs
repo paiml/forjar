@@ -83,3 +83,53 @@ fn test_fj266_lock_creates_state_dir() {
     assert!(process_lock_path(&nested).exists());
     release_process_lock(&nested);
 }
+
+// #154: atomic acquisition — second acquire fails while held by a live PID.
+#[test]
+fn test_154_second_acquire_blocked_while_held() {
+    let dir = tempfile::tempdir().unwrap();
+    // First acquire writes our own (live) PID atomically.
+    acquire_process_lock(dir.path()).unwrap();
+    // A second acquire in the same (live) process must be rejected.
+    let blocked = acquire_process_lock(dir.path());
+    assert!(blocked.is_err());
+    assert!(blocked.unwrap_err().contains("locked by PID"));
+    // Releasing then re-acquiring must succeed.
+    release_process_lock(dir.path());
+    acquire_process_lock(dir.path()).unwrap();
+    release_process_lock(dir.path());
+    assert!(!process_lock_path(dir.path()).exists());
+}
+
+// #154: a lock owned by a dead PID is reaped, then we acquire atomically.
+#[test]
+fn test_154_stale_pid_reaped_then_acquired() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock_path = process_lock_path(dir.path());
+    // 999999999 is almost certainly not a running PID.
+    std::fs::write(&lock_path, "pid: 999999999\nstarted_at: x\n").unwrap();
+    acquire_process_lock(dir.path()).unwrap();
+    let content = std::fs::read_to_string(&lock_path).unwrap();
+    assert!(content.contains(&format!("pid: {}", std::process::id())));
+    release_process_lock(dir.path());
+}
+
+// #154: a lock file whose content has no parseable PID is treated as stale.
+#[test]
+fn test_154_unparseable_lock_reaped() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock_path = process_lock_path(dir.path());
+    std::fs::write(&lock_path, "garbage with no pid line\n").unwrap();
+    // No PID parsed → not "running" → reaped → acquire succeeds.
+    acquire_process_lock(dir.path()).unwrap();
+    release_process_lock(dir.path());
+}
+
+// #154: a lock that vanishes between create_new and read is retried, not failed.
+#[test]
+fn test_154_reap_missing_lock_is_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock_path = process_lock_path(dir.path());
+    // No file present at all — reap helper must report "retry" (Ok).
+    reap_or_reject_stale_lock(&lock_path).unwrap();
+}

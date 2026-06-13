@@ -5,11 +5,14 @@
 
 use super::ExecOutput;
 use crate::core::types::Machine;
-use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// Execute a shell script inside a running container.
-pub fn exec_container(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+pub fn exec_container(
+    machine: &Machine,
+    script: &str,
+    pid_slot: Option<&super::ChildPidSlot>,
+) -> Result<ExecOutput, String> {
     let config = machine
         .container
         .as_ref()
@@ -24,12 +27,11 @@ pub fn exec_container(machine: &Machine, script: &str) -> Result<ExecOutput, Str
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to exec in container '{container_name}': {e}"))?;
+    // FJ-#154: publish PID so a timeout can kill this child.
+    super::record_child_pid(pid_slot, &child);
 
-    if let Some(ref mut stdin) = child.stdin {
-        stdin
-            .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {e}"))?;
-    }
+    // FJ-#154: reap the child if stdin write fails (no zombie on early return).
+    super::write_stdin_or_reap(&mut child, script)?;
 
     let output = child
         .wait_with_output()

@@ -262,37 +262,92 @@ pub(super) fn process_lock_path(state_dir: &Path) -> PathBuf {
 
 /// Acquire an exclusive process lock. Returns an error if another apply is running.
 /// Stale locks (PID no longer running) are automatically removed.
+///
+/// FJ-266/#154: Acquisition is atomic. `OpenOptions::create_new` is a single
+/// O_EXCL syscall, so two concurrent `forjar apply` processes can never both
+/// observe the file absent and both win — the loser gets `AlreadyExists` and
+/// then evaluates the stale-PID branch before retrying. The previous
+/// exists→read→remove→write sequence had a TOCTOU window in which both
+/// processes wrote the lock and ran concurrently, corrupting state.
 pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
 
     let lock_path = process_lock_path(state_dir);
+    let content = process_lock_content();
 
-    // Check for existing lock
-    if lock_path.exists() {
-        let content = std::fs::read_to_string(&lock_path)
-            .map_err(|e| format!("cannot read lock file: {e}"))?;
-        if let Some(pid) = parse_lock_pid(&content) {
-            if is_pid_running(pid) {
-                return Err(format!(
-                    "state directory is locked by PID {} ({}). \
-                     If this is stale, run: forjar apply --force-unlock",
-                    pid,
-                    lock_path.display()
-                ));
+    loop {
+        match try_create_lock(&lock_path, &content) {
+            Ok(()) => return Ok(()),
+            Err(LockAcquireError::Io(e)) => return Err(e),
+            // Lost the race / pre-existing lock: evaluate staleness atomically.
+            Err(LockAcquireError::AlreadyExists) => {
+                reap_or_reject_stale_lock(&lock_path)?;
+                // Stale lock removed (or vanished) — retry the create_new.
             }
-            // Stale lock — PID no longer running, remove it
         }
-        let _ = std::fs::remove_file(&lock_path);
     }
+}
 
-    // Write our PID
-    let pid = std::process::id();
-    let content = format!(
+/// Build the lock-file content (our PID + start timestamp).
+fn process_lock_content() -> String {
+    format!(
         "pid: {}\nstarted_at: {}\n",
-        pid,
+        std::process::id(),
         crate::tripwire::eventlog::now_iso8601()
-    );
-    std::fs::write(&lock_path, content).map_err(|e| format!("cannot write lock file: {e}"))?;
+    )
+}
+
+/// Outcome of an atomic lock-file creation attempt.
+enum LockAcquireError {
+    /// The lock file already exists (lost the race or a held/stale lock).
+    AlreadyExists,
+    /// A non-recoverable I/O error (already formatted for the caller).
+    Io(String),
+}
+
+/// Atomically create the lock file with O_EXCL semantics.
+fn try_create_lock(lock_path: &Path, content: &str) -> Result<(), LockAcquireError> {
+    use std::io::Write;
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(lock_path)
+    {
+        Ok(mut f) => f
+            .write_all(content.as_bytes())
+            .map_err(|e| LockAcquireError::Io(format!("cannot write lock file: {e}"))),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            Err(LockAcquireError::AlreadyExists)
+        }
+        Err(e) => Err(LockAcquireError::Io(format!(
+            "cannot create lock file: {e}"
+        ))),
+    }
+}
+
+/// Given an existing lock file, reject it if the owning PID is still running,
+/// otherwise remove it so the caller can retry the atomic create.
+fn reap_or_reject_stale_lock(lock_path: &Path) -> Result<(), String> {
+    // The file may have vanished between create_new and read (the holder
+    // released it) — treat a missing file as "retry the create".
+    let content = match std::fs::read_to_string(lock_path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(format!("cannot read lock file: {e}")),
+    };
+
+    if let Some(pid) = parse_lock_pid(&content) {
+        if is_pid_running(pid) {
+            return Err(format!(
+                "state directory is locked by PID {} ({}). \
+                 If this is stale, run: forjar apply --force-unlock",
+                pid,
+                lock_path.display()
+            ));
+        }
+        // Stale lock — PID no longer running, fall through to remove it.
+    }
+    let _ = std::fs::remove_file(lock_path);
     Ok(())
 }
 

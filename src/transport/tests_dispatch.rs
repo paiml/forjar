@@ -405,3 +405,89 @@ fn test_fj132_exec_script_special_chars_in_output() {
     assert!(out.success());
     assert!(out.stdout.contains("tab"));
 }
+
+// --- FJ-#154: child reaping / PID tracking helpers ---
+
+/// #7: stdin write to a live consumer succeeds and the slot is populated.
+#[test]
+fn test_154_write_stdin_or_reap_success() {
+    use std::process::{Command, Stdio};
+    // `cat` consumes stdin and exits on EOF.
+    let mut child = Command::new("cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn cat");
+    let slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    record_child_pid(Some(&slot), &child);
+    assert_eq!(*slot.lock().unwrap(), Some(child.id()));
+
+    // Write succeeds; helper closes stdin so cat sees EOF.
+    write_stdin_or_reap(&mut child, "hello").expect("write ok");
+    let out = child.wait_with_output().expect("wait");
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "hello");
+}
+
+/// #6/#7: kill_and_reap terminates a live child and waits for it, so the
+/// reaping step the timeout/error paths rely on leaves no zombie. Deterministic
+/// — no EPIPE timing, no ssh/docker, just a local long-running `sleep`.
+#[test]
+fn test_154_kill_and_reap_terminates_live_child() {
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("sleep")
+        .arg("60")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn sleep");
+    // Child is alive (no exit status yet).
+    assert!(child.try_wait().expect("try_wait").is_none());
+    // Kill + reap; the helper must not block and must leave no zombie.
+    kill_and_reap(&mut child);
+    // A second try_wait after reaping is harmless (already reaped).
+    let _ = child.try_wait();
+}
+
+/// #7: write_stdin_or_reap consumes the child's stdin handle (so the caller's
+/// later wait sees EOF) on the success path.
+#[test]
+fn test_154_write_stdin_or_reap_consumes_stdin() {
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn cat");
+    write_stdin_or_reap(&mut child, "payload").expect("write ok");
+    // Helper took stdin, so it is no longer reachable from the Child.
+    assert!(child.stdin.is_none());
+    let out = child.wait_with_output().expect("wait");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "payload");
+}
+
+/// #6/#7: record_child_pid is a no-op when no slot is supplied.
+#[test]
+fn test_154_record_child_pid_no_slot() {
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn cat");
+    // Must not panic with None.
+    record_child_pid(None, &child);
+    let _ = write_stdin_or_reap(&mut child, "");
+    let _ = child.wait();
+}
+
+/// #6: kill_pid of a non-existent PID is a harmless no-op (best-effort).
+#[test]
+fn test_154_kill_pid_nonexistent_is_noop() {
+    // PID 0 / a very high PID: kill(1) just fails silently; must not panic.
+    kill_pid(2_000_000_000);
+}

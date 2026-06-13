@@ -9,7 +9,6 @@
 
 use super::ExecOutput;
 use crate::core::types::Machine;
-use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// Socket directory for SSH ControlMaster sockets.
@@ -137,7 +136,11 @@ pub fn stop_all_control_masters() {
 }
 
 /// Execute a shell script on a remote machine via SSH.
-pub fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+pub fn exec_ssh(
+    machine: &Machine,
+    script: &str,
+    pid_slot: Option<&super::ChildPidSlot>,
+) -> Result<ExecOutput, String> {
     let args = build_ssh_args(machine);
     let mut cmd = Command::new("ssh");
     for arg in &args {
@@ -150,12 +153,11 @@ pub fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("failed to spawn ssh to {}: {}", machine.addr, e))?;
+    // FJ-#154: publish PID so a timeout can kill this child.
+    super::record_child_pid(pid_slot, &child);
 
-    if let Some(ref mut stdin) = child.stdin {
-        stdin
-            .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {e}"))?;
-    }
+    // FJ-#154: reap the child if stdin write fails (no zombie on early return).
+    super::write_stdin_or_reap(&mut child, script)?;
 
     let output = child
         .wait_with_output()

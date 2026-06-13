@@ -9,14 +9,17 @@
 
 use super::ExecOutput;
 use crate::core::types::Machine;
-use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// Execute a shell script inside a pepita kernel namespace.
 ///
 /// Uses `nsenter` to enter the namespace identified by the PID file,
 /// then pipes the script to `bash` stdin.
-pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+pub fn exec_pepita(
+    machine: &Machine,
+    script: &str,
+    pid_slot: Option<&super::ChildPidSlot>,
+) -> Result<ExecOutput, String> {
     let config = machine
         .pepita
         .as_ref()
@@ -52,12 +55,11 @@ pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to nsenter namespace '{ns_name}': {e}"))?;
+    // FJ-#154: publish PID so a timeout can kill this child.
+    super::record_child_pid(pid_slot, &child);
 
-    if let Some(ref mut stdin) = child.stdin {
-        stdin
-            .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {e}"))?;
-    }
+    // FJ-#154: reap the child if stdin write fails (no zombie on early return).
+    super::write_stdin_or_reap(&mut child, script)?;
 
     let output = child
         .wait_with_output()
@@ -233,7 +235,7 @@ mod tests {
             cost: 0,
             allowed_operators: vec![],
         };
-        let result = exec_pepita(&machine, "echo hi");
+        let result = exec_pepita(&machine, "echo hi", None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no pepita config"));
     }
@@ -333,7 +335,7 @@ rootfs: "debootstrap:jammy"
     #[test]
     fn test_fj230_exec_missing_pidfile() {
         let m = pepita_machine();
-        let result = exec_pepita(&m, "echo hi");
+        let result = exec_pepita(&m, "echo hi", None);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(

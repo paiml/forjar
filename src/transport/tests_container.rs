@@ -44,7 +44,7 @@ fn test_fj021_exec_no_container_config() {
         cost: 0,
         allowed_operators: vec![],
     };
-    let result = exec_container(&machine, "echo hi");
+    let result = exec_container(&machine, "echo hi", None);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("no container config"));
 }
@@ -131,7 +131,7 @@ fn test_fj021_ensure_no_image() {
 fn test_fj021_exec_error_includes_container_name() {
     // When exec fails, error message should include the container name
     let m = container_machine();
-    let result = exec_container(&m, "echo hi");
+    let result = exec_container(&m, "echo hi", None);
     // Docker likely not available in test env, but error should reference the name
     if let Err(e) = result {
         assert!(
@@ -169,7 +169,7 @@ fn test_fj021_exec_with_fake_runtime() {
         cost: 0,
         allowed_operators: vec![],
     };
-    let result = exec_container(&machine, "echo test");
+    let result = exec_container(&machine, "echo test", None);
     // /bin/false doesn't accept args, so spawn will succeed but
     // the command will return non-zero — still produces ExecOutput
     match result {
@@ -283,7 +283,7 @@ fn test_fj021_podman_runtime() {
         allowed_operators: vec![],
     };
     // exec_container will try to run podman, which probably isn't available
-    let result = exec_container(&machine, "echo test");
+    let result = exec_container(&machine, "echo test", None);
     if let Err(e) = result {
         // Error should mention the container name
         assert!(

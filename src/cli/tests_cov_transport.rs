@@ -163,7 +163,7 @@ resources:
             cost: 0,
             allowed_operators: vec![],
         };
-        let result = transport::pepita::exec_pepita(&machine, "echo ok");
+        let result = transport::pepita::exec_pepita(&machine, "echo ok", None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no pepita config"));
     }
@@ -190,7 +190,7 @@ resources:
             cost: 0,
             allowed_operators: vec![],
         };
-        let result = transport::pepita::exec_pepita(&machine, "echo hi");
+        let result = transport::pepita::exec_pepita(&machine, "echo hi", None);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("pidfile") || err.contains("cannot read"));
@@ -218,7 +218,7 @@ resources:
             cost: 0,
             allowed_operators: vec![],
         };
-        let result = transport::pepita::exec_pepita(&machine, "echo hi");
+        let result = transport::pepita::exec_pepita(&machine, "echo hi", None);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -250,7 +250,7 @@ resources:
             allowed_operators: vec![],
         };
         // Will fail reading the pidfile, but exercises the config extraction path
-        let result = transport::pepita::exec_pepita(&machine, "");
+        let result = transport::pepita::exec_pepita(&machine, "", None);
         assert!(result.is_err());
     }
 
