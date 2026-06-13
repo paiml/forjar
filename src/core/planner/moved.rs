@@ -70,6 +70,12 @@ fn rename_lock(moved: &[MovedEntry], lock: &StateLock, machine: &str) -> StateLo
 /// collides with an existing (managed) resource id, and chains where a `to`
 /// is also used as a `from` (transitive moves). `from == to` no-ops are
 /// rejected as redundant.
+///
+/// Note (#165): the managed-resource collision check here runs against the
+/// *pre-expansion* `config.resources`, so it catches collisions with literal
+/// resources only. Collisions with recipe-expanded keys (e.g. `to:
+/// myrecipe/foo`) are caught by [`validate_moved_targets`], which the parser
+/// runs *after* `expand_recipes` / `expand_resources`.
 pub(crate) fn validate_moved_blocks(config: &ForjarConfig, errors: &mut Vec<ValidationError>) {
     let moved = &config.moved;
     if moved.is_empty() {
@@ -102,11 +108,8 @@ pub(crate) fn validate_moved_blocks(config: &ForjarConfig, errors: &mut Vec<Vali
         // Collision with a managed resource whose own state we'd clobber. A
         // `to` that is itself being moved away (`to` ∈ froms) is a chain, not
         // a destructive collision, and is reported separately below.
-        if config.resources.contains_key(to) && !froms.contains(to) {
-            errors.push(err(format!(
-                "moved 'to: {to}' collides with existing resource '{to}' — \
-                 renaming onto a managed resource would overwrite its converged state"
-            )));
+        if managed_collision(to, &config.resources, &froms) {
+            errors.push(managed_collision_err(to));
         }
         // Chained move: this entry's `to` is some other entry's `from`.
         if to != from && froms.contains(to) {
@@ -117,6 +120,55 @@ pub(crate) fn validate_moved_blocks(config: &ForjarConfig, errors: &mut Vec<Vali
             )));
         }
     }
+}
+
+/// #165: Re-check `moved.to` collisions against the POST-expansion resource
+/// set so a `to` that lands on a recipe-expanded key is rejected too.
+///
+/// [`validate_moved_blocks`] runs at validate time, before `expand_recipes` /
+/// `expand_resources` insert namespaced keys (`recipe_id/foo`). A `moved.to`
+/// equal to such a key would pass validation and then clobber the expanded
+/// resource's converged lock. This runs against the fully expanded
+/// `config.resources` and reports any collision (deduped per `to`).
+pub(crate) fn validate_moved_targets(config: &ForjarConfig) -> Vec<ValidationError> {
+    let moved = &config.moved;
+    if moved.is_empty() {
+        return Vec::new();
+    }
+
+    let froms: std::collections::HashSet<&str> = moved.iter().map(|m| m.from.as_str()).collect();
+    let mut errors = Vec::new();
+    let mut reported: std::collections::HashSet<&str> = std::collections::HashSet::new();
+
+    for entry in moved {
+        let to = entry.to.as_str();
+        if reported.contains(to) {
+            continue;
+        }
+        if managed_collision(to, &config.resources, &froms) {
+            reported.insert(to);
+            errors.push(managed_collision_err(to));
+        }
+    }
+    errors
+}
+
+/// True when `to` would rename onto a managed resource and overwrite its
+/// converged state. A `to` that is itself being moved away (`to` ∈ `froms`)
+/// is a chain, not a destructive collision.
+fn managed_collision(
+    to: &str,
+    resources: &indexmap::IndexMap<String, Resource>,
+    froms: &std::collections::HashSet<&str>,
+) -> bool {
+    resources.contains_key(to) && !froms.contains(to)
+}
+
+fn managed_collision_err(to: &str) -> ValidationError {
+    err(format!(
+        "moved 'to: {to}' collides with existing resource '{to}' — \
+         renaming onto a managed resource would overwrite its converged state"
+    ))
 }
 
 fn err(message: String) -> ValidationError {
@@ -321,5 +373,60 @@ mod tests {
             !errs.iter().any(|m| m.contains("moved")),
             "clean renames must not error, got {errs:?}"
         );
+    }
+
+    // -- #165: moved.to vs POST-expansion (recipe) resource keys ------------
+
+    /// Write a `setup` recipe (expanding to `setup/config-file`) plus the
+    /// given `moved:` block to a config in a tempdir, then run the full
+    /// parse+validate+expand pipeline (`parse_and_validate`). Returns the
+    /// pipeline result so tests can assert acceptance or the collision error.
+    fn parse_and_validate_with_recipe(moved_block: &str) -> Result<ForjarConfig, String> {
+        use crate::core::parser::parse_and_validate;
+        let dir = tempfile::tempdir().unwrap();
+        let recipes_dir = dir.path().join("recipes");
+        std::fs::create_dir_all(&recipes_dir).unwrap();
+        std::fs::write(
+            recipes_dir.join("test-recipe.yaml"),
+            "recipe:\n  name: test-recipe\nresources:\n  config-file:\n    \
+             type: file\n    path: /etc/test.conf\n    content: hello\n",
+        )
+        .unwrap();
+
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &cfg,
+            format!(
+                "version: \"1.0\"\nname: recipe-test\nmachines:\n  m1:\n    \
+                 hostname: box\n    addr: 1.2.3.4\nresources:\n  setup:\n    \
+                 type: recipe\n    machine: m1\n    recipe: test-recipe\n{moved_block}"
+            ),
+        )
+        .unwrap();
+
+        parse_and_validate(&cfg)
+    }
+
+    #[test]
+    fn validate_rejects_to_colliding_with_recipe_expanded_key() {
+        // `to: setup/config-file` only EXISTS after recipe expansion. Before
+        // #165 the pre-expansion collision check missed it; now the parser
+        // re-checks against the post-expansion resource set and rejects it.
+        let result =
+            parse_and_validate_with_recipe("moved:\n  - from: old\n    to: setup/config-file\n");
+        let err = result.expect_err("collision with expanded recipe key must be rejected");
+        assert!(
+            err.contains("collides with existing resource 'setup/config-file'"),
+            "expected post-expansion managed-collision error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn validate_accepts_non_colliding_rename_alongside_recipe() {
+        // A legitimate rename whose `to` does NOT collide with any expanded
+        // key must still pass the full pipeline.
+        let result = parse_and_validate_with_recipe("moved:\n  - from: old\n    to: brand-new\n");
+        let config = result.expect("non-colliding rename must pass");
+        assert!(config.resources.contains_key("setup/config-file"));
     }
 }
