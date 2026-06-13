@@ -13,7 +13,7 @@ pub fn plan(
     tag_filter: Option<&str>,
 ) -> ExecutionPlan {
     // FJ-1210: Apply moved blocks — rename resource keys in lock state
-    let locks = apply_moved_blocks(&config.moved, locks);
+    let locks = moved::apply_moved_blocks(&config.moved, locks);
 
     let mut changes = Vec::with_capacity(execution_order.len());
     let mut to_create = 0u32;
@@ -89,13 +89,23 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 }
 
 /// Resolve resource templates, falling back to unresolved resource on error.
+///
+/// FJ-154 / #19: Resolve with the SAME `SecretsConfig` the executor uses
+/// (`resolve_resource_templates_with_secrets(.., &config.secrets)`), so the
+/// planner-computed desired hash matches the executor-stored hash. Resolving
+/// with the default (env) provider here made every secret-bearing resource
+/// replan as a spurious Update forever, violating f(f(x)) = f(x).
 fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
-    resolver::resolve_resource_templates(resource, &config.params, &config.machines).unwrap_or_else(
-        |e| {
-            eprintln!("warning: template resolution failed for {resource_id}: {e}");
-            resource.clone()
-        },
+    resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &config.params,
+        &config.machines,
+        &config.secrets,
     )
+    .unwrap_or_else(|e| {
+        eprintln!("warning: template resolution failed for {resource_id}: {e}");
+        resource.clone()
+    })
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.
@@ -370,36 +380,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
     }
 }
 
-/// FJ-1210: Apply moved blocks to rename resource keys in lock state.
-///
-/// Returns a new lock map with resource keys renamed according to moved entries.
-/// This prevents moved resources from appearing as destroy+create in the plan.
-fn apply_moved_blocks(
-    moved: &[crate::core::types::MovedEntry],
-    locks: &std::collections::HashMap<String, StateLock>,
-) -> std::collections::HashMap<String, StateLock> {
-    if moved.is_empty() {
-        return locks.clone();
-    }
-
-    let mut result = std::collections::HashMap::new();
-    for (machine, lock) in locks {
-        let mut new_lock = lock.clone();
-        for entry in moved {
-            if let Some(rl) = new_lock.resources.swap_remove(&entry.from) {
-                new_lock.resources.insert(entry.to.clone(), rl);
-                eprintln!(
-                    "info: moved {} → {} in state for {}",
-                    entry.from, entry.to, machine
-                );
-            }
-        }
-        result.insert(machine.clone(), new_lock);
-    }
-    result
-}
-
 pub mod minimal_changeset;
+pub mod moved;
 pub mod proof_obligation;
 pub mod reversibility;
 pub mod sat_deps;
@@ -423,6 +405,8 @@ mod tests_helpers;
 mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
+#[cfg(test)]
+mod tests_plan_secrets;
 #[cfg(test)]
 mod tests_proof_cov;
 #[cfg(test)]

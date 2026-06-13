@@ -193,6 +193,72 @@ policy:
     let _ = std::fs::remove_file("/tmp/forjar-pct.txt");
 }
 
+// ========================================================================
+// FJ-154 / #21: max_fail_percentage gate uses exact integer math (no `as u8`
+// truncation that floored fractional rates past the gate).
+// ========================================================================
+
+#[test]
+fn test_fj154_rolling_gate_boundary_table() {
+    use super::strategies::{fail_percentage, rolling_fail_gate_exceeded};
+
+    // (failed, total, max_pct, expect_abort, expect_display_pct)
+    // Gate semantics preserved: abort only when the TRUE ratio strictly
+    // exceeds max_pct (a rate of exactly max_pct% does NOT abort).
+    let cases: &[(usize, usize, u8, bool, u8)] = &[
+        // Exactly at the threshold → continue (50% == 50, not > 50).
+        (1, 2, 50, false, 50),
+        // 1/3 = 33.33% with max 33 → the old `as u8` floored to 33 and let it
+        // pass; integer math sees 33.33% > 33% → MUST abort.
+        (1, 3, 33, true, 33),
+        // 2/3 = 66.66% with max 66 → old code floored to 66 (pass); fixed
+        // code aborts (66.66% > 66%).
+        (2, 3, 66, true, 67),
+        // 49.x boundary: 49/100 = 49% with a `> 50` gate (max 50) → continue.
+        (49, 100, 50, false, 49),
+        // 50/100 = exactly 50% with max 50 → continue (not strictly greater).
+        (50, 100, 50, false, 50),
+        // 51/100 = 51% with max 50 → abort.
+        (51, 100, 50, true, 51),
+        // Near-total failure just under an integer threshold: 996/1000 =
+        // 99.6% with max 99 → old code floored to 99 (pass, gate defeated);
+        // fixed code aborts.
+        (996, 1000, 99, true, 100),
+        // Zero failures never abort.
+        (0, 10, 0, false, 0),
+        // Empty machine set is a safe no-abort.
+        (0, 0, 0, false, 0),
+    ];
+
+    for &(failed, total, max_pct, expect_abort, expect_pct) in cases {
+        assert_eq!(
+            rolling_fail_gate_exceeded(failed, total, max_pct),
+            expect_abort,
+            "gate({failed}/{total} vs {max_pct}%) expected abort={expect_abort}"
+        );
+        assert_eq!(
+            fail_percentage(failed, total),
+            expect_pct,
+            "display pct for {failed}/{total}"
+        );
+    }
+}
+
+#[test]
+fn test_fj154_rolling_gate_no_lossy_truncation() {
+    use super::strategies::rolling_fail_gate_exceeded;
+    // Regression: the old `(failed/total*100.0) as u8` truncated 33.9% → 33,
+    // making a `> 33` gate pass. Confirm the true sub-1% margin now triggers.
+    assert!(
+        rolling_fail_gate_exceeded(339, 1000, 33),
+        "33.9% must exceed a 33% gate"
+    );
+    assert!(
+        !rolling_fail_gate_exceeded(330, 1000, 33),
+        "exactly 33.0% must NOT exceed a 33% gate"
+    );
+}
+
 #[test]
 fn test_fj222_serial_default_none() {
     let yaml = r#"
