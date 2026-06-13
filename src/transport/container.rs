@@ -20,11 +20,14 @@ pub fn exec_container(
 
     let container_name = machine.container_name();
 
-    let mut child = Command::new(&config.runtime)
-        .args(["exec", "-i", &container_name, "bash"])
+    let mut cmd = Command::new(&config.runtime);
+    cmd.args(["exec", "-i", &container_name, "bash"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    // #165: own process group so a timeout kills the group, not a recycled PID.
+    super::configure_process_group(&mut cmd);
+    let mut child = cmd
         .spawn()
         .map_err(|e| format!("failed to exec in container '{container_name}': {e}"))?;
     // FJ-#154: publish PID so a timeout can kill this child.

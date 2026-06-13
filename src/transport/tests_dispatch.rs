@@ -485,9 +485,9 @@ fn test_154_record_child_pid_no_slot() {
     let _ = child.wait();
 }
 
-/// #6: kill_pid of a non-existent PID is a harmless no-op (best-effort).
+/// #6: killing a non-existent process group is a harmless no-op (best-effort).
 #[test]
-fn test_154_kill_pid_nonexistent_is_noop() {
-    // PID 0 / a very high PID: kill(1) just fails silently; must not panic.
-    kill_pid(2_000_000_000);
+fn test_154_kill_group_nonexistent_is_noop() {
+    // A very high PID: kill(1) of its (absent) group just fails silently.
+    kill_process_group(2_000_000_000);
 }
