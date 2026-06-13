@@ -2,14 +2,19 @@
 //!
 //! Manages scheduled tasks via crontab entries.
 
+use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
 /// Generate shell script to check if a cron job exists.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let user = resource.owner.as_deref().unwrap_or("root");
+    let u = sh_squote(user);
+    let marker = sh_squote(&format!("# forjar:{name}"));
     format!(
-        "crontab -u '{user}' -l 2>/dev/null | grep -qF '# forjar:{name}' && echo 'exists:{name}' || echo 'missing:{name}'"
+        "crontab -u {u} -l 2>/dev/null | grep -qF {marker} && echo {} || echo {}",
+        sh_squote(&format!("exists:{name}")),
+        sh_squote(&format!("missing:{name}"))
     )
 }
 
@@ -19,29 +24,36 @@ pub fn apply_script(resource: &Resource) -> String {
     let user = resource.owner.as_deref().unwrap_or("root");
     let state = resource.state.as_deref().unwrap_or("present");
 
+    let u = sh_squote(user);
+    let marker = sh_squote(&format!("# forjar:{name}"));
+    let cmd_marker = sh_squote(&format!("# forjar-cmd:{name}"));
+
     match state {
         "absent" => format!(
             "set -euo pipefail\n\
              SUDO=\"\"\n\
              [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
-             EXISTING=$($SUDO crontab -u '{user}' -l 2>/dev/null || true)\n\
-             echo \"$EXISTING\" | grep -v '# forjar:{name}' | grep -v '# forjar-cmd:{name}' | $SUDO crontab -u '{user}' -"
+             EXISTING=$($SUDO crontab -u {u} -l 2>/dev/null || true)\n\
+             echo \"$EXISTING\" | grep -v {marker} | grep -v {cmd_marker} | $SUDO crontab -u {u} -"
         ),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
             let command = resource.command.as_deref().unwrap_or("true");
+            // The crontab content line must stay literal in the user's
+            // crontab; escape the whole `schedule command` string as one word.
+            let entry = sh_squote(&format!("{schedule} {command}"));
 
             format!(
                 "set -euo pipefail\n\
                  SUDO=\"\"\n\
                  [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
-                 EXISTING=$($SUDO crontab -u '{user}' -l 2>/dev/null | grep -v '# forjar:{name}' | grep -v '# forjar-cmd:{name}' || true)\n\
+                 EXISTING=$($SUDO crontab -u {u} -l 2>/dev/null | grep -v {marker} | grep -v {cmd_marker} || true)\n\
                  {{\n\
                    echo \"$EXISTING\"\n\
-                   echo '# forjar:{name}'\n\
-                   echo '# forjar-cmd:{name}'  \n\
-                   echo '{schedule} {command}'\n\
-                 }} | $SUDO crontab -u '{user}' -"
+                   echo {marker}\n\
+                   echo {cmd_marker}  \n\
+                   echo {entry}\n\
+                 }} | $SUDO crontab -u {u} -"
             )
         }
     }
@@ -51,8 +63,11 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let user = resource.owner.as_deref().unwrap_or("root");
+    let u = sh_squote(user);
+    let marker = sh_squote(&format!("# forjar:{name}"));
     format!(
-        "crontab -u '{user}' -l 2>/dev/null | grep -A1 '# forjar:{name}' || echo 'cron=MISSING:{name}'"
+        "crontab -u {u} -l 2>/dev/null | grep -A1 {marker} || echo {}",
+        sh_squote(&format!("cron=MISSING:{name}"))
     )
 }
 

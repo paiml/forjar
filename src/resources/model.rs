@@ -3,6 +3,7 @@
 //! Manages ML model downloads, integrity verification, and cache management.
 //! Uses BLAKE3 for content-addressed drift detection on model files.
 
+use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
 /// Generate shell script to check if a model exists and matches checksum.
@@ -10,16 +11,29 @@ pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let path = resource.path.as_deref().unwrap_or("/dev/null");
     let state = resource.state.as_deref().unwrap_or("present");
+    let p = sh_squote(path);
 
     match state {
-        "absent" => format!("[ -f '{path}' ] && echo 'exists:{name}' || echo 'absent:{name}'"),
+        "absent" => format!(
+            "[ -f {p} ] && echo {} || echo {}",
+            sh_squote(&format!("exists:{name}")),
+            sh_squote(&format!("absent:{name}"))
+        ),
         _ => {
             if let Some(ref checksum) = resource.checksum {
+                let cs = sh_squote(checksum);
                 format!(
-                    "if [ -f '{path}' ]; then\n  HASH=$(b3sum '{path}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = '{checksum}' ]; then\n    echo 'match:{name}'\n  else\n    echo 'mismatch:{name}'\n  fi\nelse\n  echo 'missing:{name}'\nfi"
+                    "if [ -f {p} ]; then\n  HASH=$(b3sum {p} 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = {cs} ]; then\n    echo {}\n  else\n    echo {}\n  fi\nelse\n  echo {}\nfi",
+                    sh_squote(&format!("match:{name}")),
+                    sh_squote(&format!("mismatch:{name}")),
+                    sh_squote(&format!("missing:{name}"))
                 )
             } else {
-                format!("[ -f '{path}' ] && echo 'exists:{name}' || echo 'missing:{name}'")
+                format!(
+                    "[ -f {p} ] && echo {} || echo {}",
+                    sh_squote(&format!("exists:{name}")),
+                    sh_squote(&format!("missing:{name}"))
+                )
             }
         }
     }
@@ -27,39 +41,38 @@ pub fn check_script(resource: &Resource) -> String {
 
 /// Generate the download command fragment based on source type.
 fn download_command(source: &str, path: &str, cache_dir: &str) -> String {
+    let p = sh_squote(path);
+    let s = sh_squote(source);
+    let cd = sh_squote(cache_dir);
     if source.starts_with("http://") || source.starts_with("https://") {
-        format!("curl -fSL -o '{}' '{}'\n", path, source)
+        format!("curl -fSL -o {p} {s}\n")
     } else if source.starts_with('/') || source.starts_with("./") || source.starts_with("~/") {
         // Local path copy; in containers the source may not exist if it's a
         // placeholder path — create a stub file so dependent resources can proceed.
-        format!(
-            "if [ -f '{}' ]; then cp '{}' '{}'; else echo 'NOTICE: source {} not found, creating stub'; touch '{}'; fi\n",
-            source, source, path, source, path
-        )
+        // The NOTICE message embeds the source as a quoted literal too.
+        let notice = sh_squote(&format!("NOTICE: source {source} not found, creating stub"));
+        format!("if [ -f {s} ]; then cp {s} {p}; else echo {notice}; touch {p}; fi\n")
     } else if source.contains('/') {
         // HuggingFace repo ID — use apr pull with fallback to huggingface-cli
         format!(
             "if command -v apr >/dev/null 2>&1; then\n\
-             \x20 APR_OUT=$(apr pull '{source}' 2>&1)\n\
+             \x20 APR_OUT=$(apr pull {s} 2>&1)\n\
              \x20 CACHED=$(echo \"$APR_OUT\" | sed 's/\\x1b\\[[0-9;]*m//g' | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
              \x20 if [ -n \"$CACHED\" ] && [ -f \"$CACHED\" ]; then\n\
-             \x20   ln -sf \"$CACHED\" '{path}'\n\
+             \x20   ln -sf \"$CACHED\" {p}\n\
              \x20 else\n\
              \x20   echo \"ERROR: apr pull did not return a valid cached path\" >&2\n\
              \x20   echo \"apr output: $APR_OUT\" >&2\n\
              \x20   exit 1\n\
              \x20 fi\n\
              elif command -v huggingface-cli >/dev/null 2>&1; then\n\
-             \x20 huggingface-cli download '{source}' --local-dir '{cache_dir}'\n\
+             \x20 huggingface-cli download {s} --local-dir {cd}\n\
              else\n\
              \x20 echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\n\
-             fi\n",
-            source = source,
-            path = path,
-            cache_dir = cache_dir,
+             fi\n"
         )
     } else {
-        format!("cp '{}' '{}'\n", source, path)
+        format!("cp {s} {p}\n")
     }
 }
 
@@ -71,17 +84,22 @@ pub fn apply_script(resource: &Resource) -> String {
     let source = resource.source.as_deref().unwrap_or("");
     let cache_dir = resource.cache_dir.as_deref().unwrap_or("~/.cache/apr");
 
+    let p = sh_squote(path);
+
     match state {
-        "absent" => format!("set -euo pipefail\nrm -f '{path}'\necho 'removed:{name}'"),
+        "absent" => format!(
+            "set -euo pipefail\nrm -f {p}\necho {}",
+            sh_squote(&format!("removed:{name}"))
+        ),
         _ => {
             let mut script = String::from("set -euo pipefail\n");
             script.push_str("export PATH=\"$HOME/.cargo/bin:$PATH\"\n");
-            script.push_str(&format!("mkdir -p '{cache_dir}'\n"));
+            script.push_str(&format!("mkdir -p {}\n", sh_squote(cache_dir)));
 
             if let Some(parent) = std::path::Path::new(path).parent() {
-                if let Some(p) = parent.to_str() {
-                    if !p.is_empty() {
-                        script.push_str(&format!("mkdir -p '{p}'\n"));
+                if let Some(pp) = parent.to_str() {
+                    if !pp.is_empty() {
+                        script.push_str(&format!("mkdir -p {}\n", sh_squote(pp)));
                     }
                 }
             }
@@ -89,21 +107,26 @@ pub fn apply_script(resource: &Resource) -> String {
             script.push_str(&download_command(source, path, cache_dir));
 
             if let Some(ref checksum) = resource.checksum {
+                let cs = sh_squote(checksum);
+                let mismatch = sh_squote(&format!("CHECKSUM MISMATCH: expected {checksum} got "));
                 script.push_str(&format!(
-                    "HASH=$(b3sum '{path}' | cut -d' ' -f1)\n\
-                     if [ \"$HASH\" != '{checksum}' ]; then\n\
-                       echo 'CHECKSUM MISMATCH: expected {checksum} got '$HASH >&2\n\
-                       rm -f '{path}'\n\
+                    "HASH=$(b3sum {p} | cut -d' ' -f1)\n\
+                     if [ \"$HASH\" != {cs} ]; then\n\
+                       echo {mismatch}$HASH >&2\n\
+                       rm -f {p}\n\
                        exit 1\n\
                      fi\n"
                 ));
             }
 
             if let Some(ref owner) = resource.owner {
-                script.push_str(&format!("chown '{owner}' '{path}'\n"));
+                script.push_str(&format!("chown {} {p}\n", sh_squote(owner)));
             }
 
-            script.push_str(&format!("echo 'downloaded:{name}'"));
+            script.push_str(&format!(
+                "echo {}",
+                sh_squote(&format!("downloaded:{name}"))
+            ));
             script
         }
     }
@@ -113,9 +136,11 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let path = resource.path.as_deref().unwrap_or("/dev/null");
-
+    let p = sh_squote(path);
+    let model_label = sh_squote(&format!("model={name}"));
     format!(
-        "if [ -f '{path}' ]; then\n  SIZE=$(stat -c%s '{path}' 2>/dev/null || stat -f%z '{path}')\n  HASH=$(b3sum '{path}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  echo \"model={name}:size=$SIZE:hash=$HASH\"\nelse\n  echo 'model=MISSING:{name}'\nfi"
+        "if [ -f {p} ]; then\n  SIZE=$(stat -c%s {p} 2>/dev/null || stat -f%z {p})\n  HASH=$(b3sum {p} 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  echo {model_label}\":size=$SIZE:hash=$HASH\"\nelse\n  echo {}\nfi",
+        sh_squote(&format!("model=MISSING:{name}"))
     )
 }
 
@@ -380,5 +405,60 @@ resources:
         assert_eq!(r.quantization.as_deref(), Some("q4_k_m"));
         assert_eq!(r.checksum.as_deref(), Some("abc123"));
         assert_eq!(r.cache_dir.as_deref(), Some("/opt/cache"));
+    }
+
+    // ── FJ-154: shell-injection hardening ─────────────────────────
+
+    #[test]
+    fn fj154_model_path_injection_neutralized() {
+        let mut r = make_model_resource("m");
+        r.path = Some("/models/x';reboot;'".to_string());
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'\\''"), "{script}");
+        assert!(!script.contains("rm -f '/models/x';reboot"), "{script}");
+    }
+
+    #[test]
+    fn fj154_model_owner_and_cache_dir_quoted() {
+        let mut r = make_model_resource("m");
+        r.source = Some("https://example.com/m.gguf".to_string());
+        r.owner = Some("u';id;'".to_string());
+        r.cache_dir = Some("/cache".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("mkdir -p '/cache'"), "{script}");
+    }
+
+    #[test]
+    fn fj154_model_checksum_quoted() {
+        let mut r = make_model_resource("m");
+        r.source = Some("https://example.com/m.gguf".to_string());
+        r.checksum = Some("deadbeef';id;'".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'\\''"), "{script}");
+        assert!(!script.contains("!= 'deadbeef';id"), "{script}");
+    }
+
+    #[test]
+    fn fj154_model_url_source_quoted() {
+        let mut r = make_model_resource("m");
+        r.source = Some("https://evil/$(id).gguf".to_string());
+        let script = apply_script(&r);
+        // $(id) stays literal inside the single-quoted curl argument.
+        assert!(
+            script.contains("curl -fSL -o '/models/llama-7b.gguf' 'https://evil/$(id).gguf'"),
+            "{script}"
+        );
+    }
+
+    #[test]
+    fn fj154_model_benign_unchanged() {
+        let r = make_model_resource("llama-7b");
+        let script = apply_script(&r);
+        assert!(script.contains("mkdir -p '/opt/model-cache'"));
+        assert!(script.contains("chown 'noah'"));
+        assert!(script.contains("downloaded:llama-7b"));
+        assert!(state_query_script(&r).contains("model=llama-7b"));
     }
 }

