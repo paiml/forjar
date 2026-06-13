@@ -22,7 +22,6 @@ pub fn detect_container_runtime() -> Option<String> {
 
 /// Execute a script inside an ephemeral container and return stdout.
 fn container_exec(runtime: &str, container_name: &str, script: &str) -> Result<String, String> {
-    use std::io::Write;
     use std::process::{Command, Stdio};
 
     let mut child = Command::new(runtime)
@@ -33,11 +32,8 @@ fn container_exec(runtime: &str, container_name: &str, script: &str) -> Result<S
         .spawn()
         .map_err(|e| format!("container exec failed: {e}"))?;
 
-    if let Some(ref mut stdin) = child.stdin {
-        stdin
-            .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write: {e}"))?;
-    }
+    // FJ-#154: reap the child if stdin write fails (no zombie on early return).
+    crate::transport::write_stdin_or_reap(&mut child, script)?;
 
     let output = child.wait_with_output().map_err(|e| format!("wait: {e}"))?;
 

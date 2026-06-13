@@ -52,36 +52,34 @@ pub fn build_image_in_container(
     let base_image = plan.base_image.as_deref().unwrap_or("debian:bookworm-slim");
     let container_name = format!("forjar-build-{}", plan.tag.replace([':', '/'], "-"));
 
-    // Step 1: Start container from base image
+    // Step 1: Start container from base image.
+    //
+    // FJ-#154: A `ContainerGuard` tears the container down on EVERY early
+    // return (e.g. a failed `create_dir_all` of the extract dir), not just the
+    // apply-script branch — otherwise the container leaks, running its full
+    // `sleep 300`.
     start_container(&runtime, &container_name, base_image)?;
+    let container = ContainerGuard::new(&runtime, &container_name);
 
     // Step 2: Execute apply scripts
-    let exec_result = execute_scripts(&runtime, &container_name, apply_scripts);
-    if let Err(e) = exec_result {
-        cleanup_container(&runtime, &container_name);
-        return Err(format!("apply script failed: {e}"));
-    }
+    execute_scripts(&runtime, &container_name, apply_scripts)
+        .map_err(|e| format!("apply script failed: {e}"))?;
 
-    // Step 3: Extract changed files (unique dir per invocation)
-    let unique_id = format!(
-        "{:x}{:x}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos(),
-        std::process::id(),
-    );
-    let extract_dir = std::env::temp_dir().join(format!("forjar-build-{unique_id}"));
+    // Step 3: Extract changed files (unique dir per invocation).
+    //
+    // FJ-#154: A `TempDirGuard` removes the extract dir on every return path,
+    // including a `scan_overlay_upper` failure that previously leaked the temp
+    // dir full of copied container files.
+    let extract_dir = std::env::temp_dir().join(format!("forjar-build-{}", build_unique_id()));
     std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create extract dir: {e}"))?;
-    let changed = extract_changes(&runtime, &container_name, &extract_dir);
-    cleanup_container(&runtime, &container_name);
-    let changed_files = changed?;
+    let _extract_guard = TempDirGuard(extract_dir.clone());
+    let changed_files = extract_changes(&runtime, &container_name, &extract_dir)?;
+    // Filesystem changes are captured; the container is no longer needed.
+    drop(container);
 
     // Step 4: Scan extracted files through overlay_export
     let scan = overlay_export::scan_overlay_upper(&extract_dir, &extract_dir)
         .map_err(|e| format!("overlay scan: {e}"))?;
-    // Clean up extract dir
-    let _ = std::fs::remove_dir_all(&extract_dir);
     let entries = overlay_export::merge_overlay_entries(&scan);
 
     // Step 5: Assemble OCI image
@@ -147,7 +145,6 @@ fn start_container(runtime: &str, container_name: &str, base_image: &str) -> Res
 
 /// Execute apply scripts inside a running container.
 fn execute_scripts(runtime: &str, container_name: &str, scripts: &[String]) -> Result<(), String> {
-    use std::io::Write;
     use std::process::Stdio;
 
     for (i, script) in scripts.iter().enumerate() {
@@ -162,11 +159,9 @@ fn execute_scripts(runtime: &str, container_name: &str, scripts: &[String]) -> R
             .spawn()
             .map_err(|e| format!("exec script {i}: {e}"))?;
 
-        if let Some(ref mut stdin) = child.stdin {
-            stdin
-                .write_all(script.as_bytes())
-                .map_err(|e| format!("stdin write: {e}"))?;
-        }
+        // FJ-#154: reap the child if stdin write fails (no zombie on early return).
+        crate::transport::write_stdin_or_reap(&mut child, script)
+            .map_err(|e| format!("script {i}: {e}"))?;
 
         let output = child
             .wait_with_output()
@@ -253,6 +248,52 @@ fn cleanup_container(runtime: &str, container_name: &str) {
         .output();
 }
 
+/// Build a process-unique id for the extract temp directory.
+fn build_unique_id() -> String {
+    format!(
+        "{:x}{:x}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos(),
+        std::process::id(),
+    )
+}
+
+/// FJ-#154: RAII guard that tears down the ephemeral build container on drop.
+///
+/// Guarantees `cleanup_container` runs on every early return. `drop` it
+/// explicitly once the container's filesystem changes have been extracted.
+struct ContainerGuard {
+    runtime: String,
+    name: String,
+}
+
+impl ContainerGuard {
+    fn new(runtime: &str, name: &str) -> Self {
+        Self {
+            runtime: runtime.to_string(),
+            name: name.to_string(),
+        }
+    }
+}
+
+impl Drop for ContainerGuard {
+    fn drop(&mut self) {
+        cleanup_container(&self.runtime, &self.name);
+    }
+}
+
+/// FJ-#154: RAII guard that removes a temp directory on drop, so a failure in
+/// `scan_overlay_upper` (or any later step) never leaks the extract dir.
+struct TempDirGuard(std::path::PathBuf);
+
+impl Drop for TempDirGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// Format a container build result for CLI output.
 pub fn format_container_build(result: &ContainerBuildResult) -> String {
     format!(
@@ -329,5 +370,47 @@ mod tests {
         let scripts = vec!["echo 'hello' > /test.txt".to_string()];
         let result = build_image_in_container(&plan, &scripts, &output_dir);
         assert!(result.is_ok() || result.is_err());
+    }
+
+    // --- FJ-#154: leak guards (no Docker required) ---
+
+    /// #8: TempDirGuard removes its directory on drop, even on an error path.
+    #[test]
+    fn temp_dir_guard_removes_on_drop() {
+        let base = tempfile::tempdir().unwrap();
+        let dir = base.path().join("forjar-build-leaktest");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("copied-file"), b"data").unwrap();
+        assert!(dir.exists());
+        {
+            let _guard = TempDirGuard(dir.clone());
+            // Simulate scan_overlay_upper failing: we just leave the scope.
+        }
+        assert!(!dir.exists(), "extract dir must be removed by the guard");
+    }
+
+    /// #8: dropping TempDirGuard on an already-missing dir is harmless.
+    #[test]
+    fn temp_dir_guard_missing_is_ok() {
+        let base = tempfile::tempdir().unwrap();
+        let dir = base.path().join("never-created");
+        let _guard = TempDirGuard(dir);
+        // Drop at end of scope must not panic.
+    }
+
+    /// #8: ContainerGuard invokes cleanup on drop. Using `true` as the
+    /// "runtime" makes the cleanup command a deterministic no-op (no Docker).
+    #[test]
+    fn container_guard_cleans_up_on_drop() {
+        // Constructing and dropping must not panic; cleanup runs `true rm -f`.
+        let _guard = ContainerGuard::new("true", "forjar-build-guardtest");
+    }
+
+    /// #8: build_unique_id is non-empty and PID-suffixed.
+    #[test]
+    fn build_unique_id_is_nonempty() {
+        let id = build_unique_id();
+        assert!(!id.is_empty());
+        assert!(id.ends_with(&format!("{:x}", std::process::id())));
     }
 }

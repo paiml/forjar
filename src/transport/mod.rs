@@ -22,6 +22,69 @@ mod tests_ssh;
 
 use crate::core::types::Machine;
 
+/// FJ-#154: Shared slot for publishing a spawned child's PID to the timeout
+/// path. `exec_script_timeout` populates this from a worker thread so it can
+/// kill the underlying ssh/bash/docker/nsenter process when the timeout fires,
+/// instead of leaking a detached thread blocked in `wait_with_output` on a
+/// still-alive child.
+pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
+
+/// Record a freshly-spawned child's PID into the (optional) tracking slot.
+pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
+    if let Some(slot) = slot {
+        if let Ok(mut guard) = slot.lock() {
+            *guard = Some(child.id());
+        }
+    }
+}
+
+/// Best-effort kill of a process by PID via the `kill` binary.
+///
+/// Used only on the timeout path. The worker thread that spawned the child is
+/// still blocked in `wait_with_output`; killing the process unblocks it so it
+/// reaps the child itself — no zombie and no leaked thread survive.
+fn kill_pid(pid: u32) {
+    let _ = std::process::Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+}
+
+/// FJ-#154: Write a script to a child's stdin, reaping the child on failure.
+///
+/// If the child dies before consuming stdin (ssh auth fails instantly, remote
+/// bash unavailable, broken pipe / EPIPE), `write_all` returns Err. The old
+/// code `?`-returned here, dropping the `Child` WITHOUT `wait()`, which on Unix
+/// leaves a zombie. This helper kills + reaps the child before returning the
+/// error so no zombie survives. Passing the script through a function that owns
+/// the `&mut Child` keeps the reap guaranteed on every early return.
+pub(crate) fn write_stdin_or_reap(
+    child: &mut std::process::Child,
+    script: &str,
+) -> Result<(), String> {
+    use std::io::Write;
+    if let Some(mut stdin) = child.stdin.take() {
+        if let Err(e) = stdin.write_all(script.as_bytes()) {
+            // Drop our stdin handle first (close the pipe), then kill + reap so
+            // the child cannot become a zombie on this early return.
+            drop(stdin);
+            kill_and_reap(child);
+            return Err(format!("stdin write error: {e}"));
+        }
+        // Explicitly close stdin so the child sees EOF before we wait.
+        drop(stdin);
+    }
+    Ok(())
+}
+
+/// Kill a child and wait for it, so no zombie survives. Best-effort: both the
+/// kill and the wait are allowed to fail (e.g. the child already exited).
+pub(crate) fn kill_and_reap(child: &mut std::process::Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 /// Output from executing a script on a target.
 #[derive(Debug, Clone)]
 pub struct ExecOutput {
@@ -113,51 +176,80 @@ fn strip_data_payloads(script: &str) -> String {
 ///
 /// I8 invariant: script is validated via bashrs before any execution.
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+    exec_script_tracked(machine, script, None)
+}
+
+/// Dispatch core for [`exec_script`] with an optional child-PID tracking slot.
+///
+/// `pid_slot`, when present, receives the spawned transport child's PID so the
+/// timeout path can kill it (FJ-#154). Public `exec_script` passes `None`.
+fn exec_script_tracked(
+    machine: &Machine,
+    script: &str,
+    pid_slot: Option<&ChildPidSlot>,
+) -> Result<ExecOutput, String> {
     validate_before_exec(script)?;
 
     // Pepita (kernel namespace) transport takes highest priority
     if machine.is_pepita_transport() {
-        return pepita::exec_pepita(machine, script);
+        return pepita::exec_pepita(machine, script, pid_slot);
     }
 
     // Container transport takes priority over local/SSH
     if machine.is_container_transport() {
-        return container::exec_container(machine, script);
+        return container::exec_container(machine, script, pid_slot);
     }
 
     let is_local =
         machine.addr == "127.0.0.1" || machine.addr == "localhost" || is_local_addr(&machine.addr);
 
     if is_local {
-        local::exec_local(script)
+        local::exec_local(script, pid_slot)
     } else {
-        ssh::exec_ssh(machine, script)
+        ssh::exec_ssh(machine, script, pid_slot)
     }
 }
 
 /// Execute a script with an optional timeout (in seconds).
 /// Returns an error if the script exceeds the timeout.
+///
+/// FJ-#154: On timeout the underlying transport child is killed via its PID
+/// (published into a shared slot by the worker). Killing the process unblocks
+/// the worker's `wait_with_output`, so neither the child process nor the
+/// worker thread is leaked.
 pub fn exec_script_timeout(
     machine: &Machine,
     script: &str,
     timeout_secs: Option<u64>,
 ) -> Result<ExecOutput, String> {
-    match timeout_secs {
-        Some(secs) => {
-            let hostname = machine.hostname.clone();
-            let machine = machine.clone();
-            let script = script.to_string();
-            let (tx, rx) = std::sync::mpsc::channel();
-            std::thread::spawn(move || {
-                let result = exec_script(&machine, &script);
-                let _ = tx.send(result);
-            });
-            rx.recv_timeout(std::time::Duration::from_secs(secs))
-                .map_err(|_| {
-                    format!("transport timeout: script on '{hostname}' exceeded {secs}s limit")
-                })?
+    let Some(secs) = timeout_secs else {
+        return exec_script(machine, script);
+    };
+
+    let hostname = machine.hostname.clone();
+    let machine = machine.clone();
+    let script = script.to_string();
+    let pid_slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let worker_slot = pid_slot.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    std::thread::spawn(move || {
+        let result = exec_script_tracked(&machine, &script, Some(&worker_slot));
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(std::time::Duration::from_secs(secs)) {
+        Ok(result) => result,
+        Err(_) => {
+            // Timed out: kill the orphaned child so the worker reaps it and
+            // exits, then return the timeout error.
+            if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
+                kill_pid(pid);
+            }
+            Err(format!(
+                "transport timeout: script on '{hostname}' exceeded {secs}s limit"
+            ))
         }
-        None => exec_script(machine, script),
     }
 }
 

@@ -49,7 +49,7 @@ fn test_fj021_exec_container_error_msg_no_config() {
         cost: 0,
         allowed_operators: vec![],
     };
-    let err = exec_container(&machine, "echo").unwrap_err();
+    let err = exec_container(&machine, "echo", None).unwrap_err();
     assert_eq!(err, "machine 'precise-host' has no container config");
 }
 

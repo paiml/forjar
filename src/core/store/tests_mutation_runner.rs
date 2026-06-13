@@ -404,3 +404,27 @@ fn mutations_per_resource_limit() {
     let report = run_mutation_suite(&targets, &config);
     assert_eq!(report.score.total, 2);
 }
+
+#[test]
+fn sandbox_name_is_unique_per_call() {
+    // Issue #154: two in-process generations must differ even when the
+    // wall clock has coarse granularity (the SANDBOX_SEQ atomic guarantees it).
+    let a = mutation_sandbox_name();
+    let b = mutation_sandbox_name();
+    assert_ne!(a, b, "consecutive sandbox names must be unique");
+    assert!(a.starts_with("forjar-mut-"));
+    assert!(b.starts_with("forjar-mut-"));
+}
+
+#[test]
+fn sandbox_names_unique_under_burst() {
+    // Generate many names back-to-back (same PID, near-identical clock reads)
+    // and confirm zero collisions — the failure mode of the #141/#154 race.
+    let names: std::collections::HashSet<String> =
+        (0..256).map(|_| mutation_sandbox_name()).collect();
+    assert_eq!(
+        names.len(),
+        256,
+        "all burst-generated names must be distinct"
+    );
+}
