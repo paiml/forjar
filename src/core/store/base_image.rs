@@ -6,6 +6,33 @@
 use crate::core::types::{OciDescriptor, OciImageConfig, OciIndex, OciManifest};
 use std::path::Path;
 
+/// Validate that `digest` is a `sha256:`-prefixed lowercase 64-char hex digest
+/// and return the bare hex portion.
+///
+/// The OCI layout under `state/images/<image>` is populated from an externally
+/// pulled image (e.g. `skopeo copy`), so the digests inside `index.json` and the
+/// manifest are untrusted. Without validation a crafted digest such as
+/// `sha256:../../../../etc/passwd` would escape `blobs/sha256/` and cause an
+/// arbitrary file read (and, in `copy_base_blobs`, an arbitrary file write).
+///
+/// A strict `^[0-9a-f]{64}$` check rejects other algorithms, uppercase, wrong
+/// lengths, and any `/` or `.` path separators, so the returned hex is safe to
+/// join onto a path.
+fn validate_sha256_hex(digest: &str) -> Result<&str, String> {
+    let hex = digest
+        .strip_prefix("sha256:")
+        .ok_or_else(|| format!("unsupported digest algorithm: {digest}"))?;
+    if hex.len() == 64
+        && hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        Ok(hex)
+    } else {
+        Err(format!("invalid sha256 digest: {digest}"))
+    }
+}
+
 /// Extracted base image information.
 #[derive(Debug, Clone)]
 pub struct BaseImageLayers {
@@ -81,9 +108,7 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
 
 /// Read a blob from the OCI layout's blobs directory.
 fn read_blob(layout_dir: &Path, digest: &str) -> Result<Vec<u8>, String> {
-    let hex = digest
-        .strip_prefix("sha256:")
-        .ok_or_else(|| format!("unsupported digest algorithm: {digest}"))?;
+    let hex = validate_sha256_hex(digest)?;
     let blob_path = layout_dir.join(format!("blobs/sha256/{hex}"));
     std::fs::read(&blob_path).map_err(|e| format!("read blob {digest}: {e}"))
 }
@@ -95,12 +120,11 @@ pub fn verify_base_blobs(layout_dir: &Path, layers: &BaseImageLayers) -> Vec<Str
     layers
         .layers
         .iter()
-        .filter(|layer| {
-            let hex = layer
-                .digest
-                .strip_prefix("sha256:")
-                .unwrap_or(&layer.digest);
-            !layout_dir.join(format!("blobs/sha256/{hex}")).exists()
+        .filter(|layer| match validate_sha256_hex(&layer.digest) {
+            // An invalid/traversal digest is treated as missing: it does not
+            // correspond to a legitimate blob inside `blobs/sha256/`.
+            Ok(hex) => !layout_dir.join(format!("blobs/sha256/{hex}")).exists(),
+            Err(_) => true,
         })
         .map(|layer| layer.digest.clone())
         .collect()
@@ -120,10 +144,7 @@ pub fn copy_base_blobs(
 
     let mut bytes_copied: u64 = 0;
     for layer in &layers.layers {
-        let hex = layer
-            .digest
-            .strip_prefix("sha256:")
-            .unwrap_or(&layer.digest);
+        let hex = validate_sha256_hex(&layer.digest)?;
         let dst_path = dst_blobs.join(hex);
         if dst_path.exists() {
             continue;
@@ -282,6 +303,84 @@ mod tests {
         assert!(info.contains("arm64/linux"));
         assert!(info.contains("2 layers"));
         assert!(info.contains("MB"));
+    }
+
+    #[test]
+    fn validate_sha256_hex_accepts_valid() {
+        let digest = format!("sha256:{CONFIG_HEX}");
+        assert_eq!(validate_sha256_hex(&digest).unwrap(), CONFIG_HEX);
+    }
+
+    #[test]
+    fn validate_sha256_hex_rejects_traversal() {
+        assert!(validate_sha256_hex("sha256:../../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn validate_sha256_hex_rejects_wrong_algorithm() {
+        assert!(validate_sha256_hex(&format!("sha512:{CONFIG_HEX}")).is_err());
+        // No prefix at all.
+        assert!(validate_sha256_hex(CONFIG_HEX).is_err());
+    }
+
+    #[test]
+    fn validate_sha256_hex_rejects_uppercase() {
+        assert!(validate_sha256_hex(&format!("sha256:{}", CONFIG_HEX.to_uppercase())).is_err());
+    }
+
+    #[test]
+    fn validate_sha256_hex_rejects_wrong_length() {
+        assert!(validate_sha256_hex("sha256:abc123").is_err());
+        // 63 chars (one short).
+        assert!(validate_sha256_hex(&format!("sha256:{}", &CONFIG_HEX[..63])).is_err());
+        // 65 chars (one long).
+        assert!(validate_sha256_hex(&format!("sha256:{CONFIG_HEX}a")).is_err());
+    }
+
+    #[test]
+    fn read_blob_rejects_traversal_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        create_test_layout(dir.path());
+        let result = read_blob(dir.path(), "sha256:../../../../etc/passwd");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid sha256 digest"));
+    }
+
+    #[test]
+    fn extract_base_layers_rejects_traversal_manifest_digest() {
+        // A crafted index.json whose manifest digest escapes blobs/sha256/.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("blobs/sha256")).unwrap();
+        let index = OciIndex::single(OciDescriptor {
+            media_type: "application/vnd.oci.image.manifest.v1+json".into(),
+            digest: "sha256:../../../../etc/passwd".into(),
+            size: 0,
+            annotations: std::collections::HashMap::new(),
+        });
+        std::fs::write(
+            dir.path().join("index.json"),
+            serde_json::to_vec(&index).unwrap(),
+        )
+        .unwrap();
+        let result = extract_base_layers(dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid sha256 digest"));
+    }
+
+    #[test]
+    fn copy_base_blobs_rejects_traversal_digest() {
+        let src = tempfile::tempdir().unwrap();
+        create_test_layout(src.path());
+        let mut layers = extract_base_layers(src.path()).unwrap();
+        // A malicious source layout supplies a layer digest with `..`.
+        layers.layers.push(OciDescriptor::gzip_layer(
+            "sha256:../../../../tmp/forjar-traversal-write".into(),
+            100,
+        ));
+        let dst = tempfile::tempdir().unwrap();
+        let result = copy_base_blobs(src.path(), dst.path(), &layers);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid sha256 digest"));
     }
 
     #[test]

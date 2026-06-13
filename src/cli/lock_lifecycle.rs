@@ -129,6 +129,17 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
+/// Atomically rewrite a lock file (temp + rename) and refresh its BLAKE3 `.b3`
+/// integrity sidecar so the next `forjar apply` integrity check passes.
+fn write_lock_and_sidecar(lock_path: &Path, content: &str) -> Result<(), String> {
+    let tmp_path = lock_path.with_extension("yaml.tmp");
+    std::fs::write(&tmp_path, content).map_err(|e| format!("Failed to write lock: {e}"))?;
+    std::fs::rename(&tmp_path, lock_path)
+        .map_err(|e| format!("Failed to rename lock into place: {e}"))?;
+    crate::core::state::integrity::write_b3_sidecar(lock_path)
+        .map_err(|e| format!("Failed to refresh integrity sidecar: {e}"))
+}
+
 /// FJ-575: Defragment lock files (reorder resources alphabetically).
 pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -155,8 +166,12 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
 
             let new_content = serde_yaml_ng::to_string(&lock)
                 .map_err(|e| format!("Failed to serialize lock: {e}"))?;
-            std::fs::write(&lock_path, &new_content)
-                .map_err(|e| format!("Failed to write lock: {e}"))?;
+            // FJ-154 (#20): a raw `std::fs::write` here left the BLAKE3 `.b3`
+            // sidecar holding the pre-defrag hash, so the next `forjar apply`
+            // hard-failed its integrity check and effectively bricked the stack
+            // until a manual reseal. Write atomically and refresh the sidecar
+            // (mirrors state::save_lock / reseal) so defrag → apply round-trips.
+            write_lock_and_sidecar(&lock_path, &new_content)?;
             defragged += 1;
         }
     }
@@ -169,4 +184,76 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
         println!("Defragmented {defragged} lock files (resources reordered alphabetically)");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::state::integrity;
+
+    /// A minimal valid `StateLock` YAML with resources deliberately out of
+    /// alphabetical order (`zebra` before `alpha`) so defrag actually rewrites.
+    fn sample_lock_yaml() -> String {
+        "\
+schema: v1
+machine: testbox
+hostname: testbox
+generated_at: '2026-06-13T00:00:00Z'
+generator: forjar-test
+blake3_version: '1'
+resources:
+  zebra:
+    type: package
+    status: converged
+    hash: aaaa
+    details: {}
+  alpha:
+    type: file
+    status: converged
+    hash: bbbb
+    details: {}
+"
+        .to_string()
+    }
+
+    #[test]
+    fn defrag_refreshes_b3_sidecar_so_integrity_passes() {
+        let state_dir = tempfile::tempdir().unwrap();
+        let machine_dir = state_dir.path().join("testbox");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        let lock_path = machine_dir.join("state.lock.yaml");
+        std::fs::write(&lock_path, sample_lock_yaml()).unwrap();
+
+        // Write a STALE sidecar (hash of unrelated content). Before the fix,
+        // defrag's raw write left this stale, so the next apply hard-failed.
+        let sidecar = {
+            let mut p = lock_path.as_os_str().to_owned();
+            p.push(".b3");
+            std::path::PathBuf::from(p)
+        };
+        std::fs::write(&sidecar, blake3::hash(b"stale").to_hex().as_str()).unwrap();
+
+        cmd_lock_defrag(state_dir.path(), true).unwrap();
+
+        // The sidecar now matches the rewritten lock contents.
+        let rewritten = std::fs::read(&lock_path).unwrap();
+        let expected = blake3::hash(&rewritten).to_hex().to_string();
+        let on_disk = std::fs::read_to_string(&sidecar).unwrap();
+        assert_eq!(on_disk.trim(), expected);
+
+        // And the full integrity check (what apply runs) reports no errors.
+        let results = integrity::verify_state_integrity(state_dir.path());
+        assert!(
+            !integrity::has_errors(&results),
+            "defrag → apply integrity check should pass, got {results:?}"
+        );
+
+        // Resources were actually reordered (alpha before zebra) and no temp
+        // file was left behind.
+        let content = String::from_utf8(rewritten).unwrap();
+        let alpha = content.find("alpha").unwrap();
+        let zebra = content.find("zebra").unwrap();
+        assert!(alpha < zebra, "resources should be sorted alphabetically");
+        assert!(!lock_path.with_extension("yaml.tmp").exists());
+    }
 }
