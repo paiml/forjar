@@ -48,6 +48,7 @@ resources:
     type: file
     machine: [gpu-1, gpu-2, gpu-3]
     path: /etc/pforge/agent.yaml
+    sudo: true # /etc is a privileged path; the 'deploy' user needs sudo to write it
     content: |
       name: fleet-agent
       model: llama-3.2-3b
@@ -71,6 +72,7 @@ resources:
     type: file
     machine: gpu-1
     path: /etc/nginx/conf.d/agent-lb.conf
+    sudo: true # /etc is a privileged path; the 'deploy' user needs sudo to write it
     content: |
       upstream agent_pool {
         server 192.168.1.101:{{params.mcp_port}};
@@ -102,6 +104,7 @@ resources:
     type: file
     machine: [gpu-1, gpu-2, gpu-3]
     path: /etc/pforge/tool-policy.yaml
+    sudo: true # /etc is a privileged path; the 'deploy' user needs sudo to write it
     content: |
       allow:
         - file-read
@@ -118,6 +121,8 @@ policies:
   - type: require
     message: "all resources must be tagged"
     field: tags
+  # deny rules match on a concrete field/value pair (equality check), not regex.
   - type: deny
-    message: "no curl|bash patterns"
-    pattern: "curl.*\\|.*bash"
+    message: "files must not be owned by root (run as the deploy user)"
+    condition_field: owner
+    condition_value: root
