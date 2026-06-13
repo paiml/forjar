@@ -9,6 +9,16 @@ use std::io::{Read, Write};
 /// 12-byte magic identifying a FAR archive.
 pub const FAR_MAGIC: &[u8; 12] = b"FORJAR-FAR\x00\x01";
 
+/// Upper bound on the compressed manifest length declared in the header.
+///
+/// The manifest is a small zstd-compressed YAML blob; a real one is a few KB.
+/// We cap at 16 MiB so a corrupt/malicious header claiming a huge `manifest_len`
+/// cannot drive an unbounded allocation (OOM abort / capacity-overflow panic).
+const MAX_MANIFEST_LEN: usize = 16 * 1024 * 1024;
+
+/// On-disk size in bytes of one serialized chunk-table entry: hash(32) + offset(8) + length(8).
+const CHUNK_ENTRY_BYTES: u64 = 32 + 8 + 8;
+
 /// A single chunk entry in the chunk table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChunkEntry {
@@ -177,12 +187,26 @@ pub fn decode_far_manifest<R: Read>(
         .read_exact(&mut len_buf)
         .map_err(|e| format!("read manifest_len: {e}"))?;
     let manifest_len = u64::from_le_bytes(len_buf) as usize;
+    // #17/#24: the declared length is attacker-controlled. Reject absurd values
+    // BEFORE allocating, then read via a length-limited reader so the buffer grows
+    // only as bytes actually arrive (a short file fails gracefully, never OOMs).
+    if manifest_len > MAX_MANIFEST_LEN {
+        return Err(format!(
+            "manifest too large: {manifest_len} bytes exceeds {MAX_MANIFEST_LEN} limit"
+        ));
+    }
 
     // Compressed manifest
-    let mut compressed = vec![0u8; manifest_len];
-    reader
-        .read_exact(&mut compressed)
+    let mut compressed = Vec::new();
+    let read = (&mut reader)
+        .take(manifest_len as u64)
+        .read_to_end(&mut compressed)
         .map_err(|e| format!("read manifest: {e}"))?;
+    if read != manifest_len {
+        return Err(format!(
+            "read manifest: expected {manifest_len} bytes, got {read}"
+        ));
+    }
     let yaml_bytes =
         zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd decompress: {e}"))?;
     let manifest: FarManifest =
@@ -194,8 +218,16 @@ pub fn decode_far_manifest<R: Read>(
         .map_err(|e| format!("read chunk_count: {e}"))?;
     let chunk_count = u64::from_le_bytes(len_buf);
 
-    // Chunk table
-    let mut entries = Vec::with_capacity(chunk_count as usize);
+    // Chunk table. #18/#25: chunk_count is attacker-controlled, so we do NOT
+    // pre-size the Vec from it (Vec::with_capacity(chunk_count * 48) overflows
+    // isize / OOMs for huge counts). Instead grow on each successful read — a
+    // truncated/corrupt archive then fails via read_exact's Err. We also reject
+    // counts that cannot possibly fit in the remaining input as a fast bail-out.
+    let mut entries: Vec<ChunkEntry> = Vec::new();
+    let max_chunks = u64::MAX / CHUNK_ENTRY_BYTES;
+    if chunk_count > max_chunks {
+        return Err(format!("chunk_count too large: {chunk_count}"));
+    }
     for _ in 0..chunk_count {
         let mut hash = [0u8; 32];
         reader

@@ -141,8 +141,13 @@ fn parse_rfc3339_to_epoch(ts: &str) -> Option<u64> {
 }
 
 /// Approximate days from unix epoch to a date.
+///
+/// #26: `month`/`day` come from a hand-edited/corrupt lock-file timestamp, so we
+/// validate ranges (month 1..=12, day 1..=31) before indexing the fixed-size
+/// `month_days` table and use checked arithmetic for `day - 1`. Out-of-range
+/// fields return `None` instead of panicking on index-OOB or u64 underflow.
 fn days_from_epoch(year: u64, month: u64, day: u64) -> Option<u64> {
-    if year < 1970 {
+    if year < 1970 || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return None;
     }
     let mut days: u64 = 0;
@@ -285,4 +290,47 @@ fn extract_resource_name(line: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gh154_parse_rfc3339_valid() {
+        // Happy path must still parse.
+        assert!(parse_rfc3339_to_epoch("2024-01-15T10:30:00Z").is_some());
+        assert!(days_from_epoch(2024, 1, 1).is_some());
+    }
+
+    #[test]
+    fn test_gh154_days_from_epoch_out_of_range_month_day() {
+        // #26: out-of-range month would index past the 13-element table (panic);
+        // day==0 would underflow `day - 1`. Both must now return None.
+        assert_eq!(days_from_epoch(2024, 13, 1), None); // month > 12
+        assert_eq!(days_from_epoch(2024, 99, 1), None);
+        assert_eq!(days_from_epoch(2024, 0, 10), None); // month == 0
+        assert_eq!(days_from_epoch(2024, 5, 0), None); // day == 0
+        assert_eq!(days_from_epoch(2024, 5, 99), None); // day > 31
+    }
+
+    #[test]
+    fn test_gh154_parse_rfc3339_out_of_range_no_panic() {
+        // Crafted/hand-edited lock-file timestamps must not panic.
+        assert_eq!(parse_rfc3339_to_epoch("2026-13-01T00:00:00Z"), None);
+        assert_eq!(parse_rfc3339_to_epoch("2026-00-10T00:00:00Z"), None);
+        assert_eq!(parse_rfc3339_to_epoch("2026-05-00T00:00:00Z"), None);
+    }
+
+    proptest::proptest! {
+        /// #26: arbitrary month/day/year must never panic (index-OOB / underflow).
+        #[test]
+        fn prop_gh154_days_from_epoch_no_panic(
+            year in proptest::prelude::any::<u64>(),
+            month in proptest::prelude::any::<u64>(),
+            day in proptest::prelude::any::<u64>(),
+        ) {
+            let _ = days_from_epoch(year, month, day);
+        }
+    }
 }

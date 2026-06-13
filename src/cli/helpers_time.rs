@@ -20,41 +20,51 @@ pub(crate) fn chrono_now_compact() -> String {
     format!("{now}")
 }
 
+/// Multiply a parsed duration value by its unit's seconds-per-unit, in seconds.
+///
+/// #28: returns `Err` on an unknown unit or on multiply overflow (instead of
+/// panicking in debug / silently wrapping in release).
+fn duration_unit_secs(num: u64, unit: char, raw: &str) -> Result<u64, String> {
+    let per = match unit {
+        's' => 1,
+        'm' => 60,
+        'h' => 3600,
+        'd' => 86400,
+        _ => return Err(format!("unknown duration unit '{unit}'. Use s, m, h, or d")),
+    };
+    num.checked_mul(per)
+        .ok_or_else(|| format!("duration overflow: {raw}"))
+}
+
 /// FJ-284: Parse a human duration string like "24h", "7d", "30m" into seconds.
 pub(crate) fn parse_duration_secs(s: &str) -> Result<u64, String> {
     let s = s.trim();
-    if s.len() < 2 {
-        return Err(format!("invalid duration: '{s}'"));
-    }
-    let (num, unit) = s.split_at(s.len() - 1);
-    let n: u64 = num
+    // #28: split off the trailing unit by char (not byte) so a multi-byte
+    // trailing char (e.g. "5µ") cannot land mid-character and panic in split_at.
+    let unit = s
+        .chars()
+        .last()
+        .ok_or_else(|| format!("invalid duration: '{s}'"))?;
+    let num_str = &s[..s.len() - unit.len_utf8()];
+    let n: u64 = num_str
         .parse()
-        .map_err(|_| format!("invalid duration number: '{num}'"))?;
-    match unit {
-        "s" => Ok(n),
-        "m" => Ok(n * 60),
-        "h" => Ok(n * 3600),
-        "d" => Ok(n * 86400),
-        _ => Err(format!("unknown duration unit '{unit}' (use s/m/h/d)")),
-    }
+        .map_err(|_| format!("invalid duration number: '{num_str}'"))?;
+    duration_unit_secs(n, unit, s)
 }
 
 pub(crate) fn parse_duration_string(s: &str) -> Result<u64, String> {
     let s = s.trim();
-    if s.is_empty() {
-        return Err("empty duration string".to_string());
-    }
-    let (num_str, unit) = s.split_at(s.len() - 1);
+    // #28: use char-aware splitting + checked_mul; a multi-byte trailing char or
+    // an enormous value yields the existing Err string rather than a panic/wrap.
+    let unit = s
+        .chars()
+        .last()
+        .ok_or_else(|| "empty duration string".to_string())?;
+    let num_str = &s[..s.len() - unit.len_utf8()];
     let num: u64 = num_str
         .parse()
         .map_err(|_| format!("invalid duration: {s}"))?;
-    match unit {
-        "s" => Ok(num),
-        "m" => Ok(num * 60),
-        "h" => Ok(num * 3600),
-        "d" => Ok(num * 86400),
-        _ => Err(format!("unknown duration unit '{unit}'. Use s, m, h, or d")),
-    }
+    duration_unit_secs(num, unit, s)
 }
 
 /// Estimate hours between two ISO-ish timestamp strings.
