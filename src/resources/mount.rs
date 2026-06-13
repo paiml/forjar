@@ -21,7 +21,14 @@ fn sed_escape(s: &str) -> String {
 pub fn check_script(resource: &Resource) -> String {
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
     let t = sh_squote(target);
-    format!("mountpoint -q {t} 2>/dev/null && echo 'mounted:{target}' || echo 'unmounted:{target}'")
+    // The status labels embed the config-derived `target`, so route them
+    // through sh_squote too — a raw label could close the single quote and
+    // run command substitution (matches docker.rs/package.rs).
+    format!(
+        "mountpoint -q {t} 2>/dev/null && echo {} || echo {}",
+        sh_squote(&format!("mounted:{target}")),
+        sh_squote(&format!("unmounted:{target}"))
+    )
 }
 
 /// Generate shell to converge mount to desired state.
@@ -149,5 +156,20 @@ mod tests {
         let r = mount_resource();
         assert!(check_script(&r).contains("mountpoint -q '/mnt/data'"));
         assert!(state_query_script(&r).contains("mountpoint -q '/mnt/data'"));
+    }
+
+    #[test]
+    fn fj165_mount_check_label_injection_neutralized() {
+        // #165 (#161 sweep gap): a target containing command substitution must
+        // not break out of the echo status labels in check_script.
+        let mut r = mount_resource();
+        r.path = Some("x$(touch /tmp/pwn)".to_string());
+        let script = check_script(&r);
+        // The `$(` payload stays inside a single-quoted word — no break-out.
+        assert!(script.contains("echo 'mounted:x$(touch /tmp/pwn)'"));
+        assert!(script.contains("echo 'unmounted:x$(touch /tmp/pwn)'"));
+        // No bare command substitution outside quotes.
+        assert!(!script.contains("echo mounted:x$(touch"));
+        assert!(!script.contains("' $(touch"));
     }
 }
