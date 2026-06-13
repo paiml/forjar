@@ -33,8 +33,7 @@ resources:
     type: model
     machine: gpu-box
     name: "{{params.model_name}}"
-    model_source: local
-    model_path: "{{params.model_path}}"
+    source: "{{params.model_path}}" # local path or URI to the model weights
     depends_on: [gpu-driver]
     tags: [agent, model, ml]
 
@@ -43,6 +42,7 @@ resources:
     type: file
     machine: gpu-box
     path: "/etc/pforge/{{params.agent_name}}.yaml"
+    sudo: true # /etc is a privileged path; the 'deploy' user needs sudo to write it
     content: |
       name: {{params.agent_name}}
       model: {{params.model_name}}
@@ -78,6 +78,8 @@ policies:
   - type: require
     message: "all resources must be tagged"
     field: tags
+  # deny rules match on a concrete field/value pair (equality check), not regex.
   - type: deny
-    message: "no curl|bash patterns"
-    pattern: "curl.*\\|.*bash"
+    message: "files must not be owned by root (run as the deploy user)"
+    condition_field: owner
+    condition_value: root

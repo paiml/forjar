@@ -21,6 +21,7 @@ resources:
     type: file
     machine: web
     path: /etc/app/config.yaml
+    sudo: true # /etc is a privileged path; the 'deploy' user needs sudo to write it
     content: |
       data_dir: {{params.data_dir}}
       port: {{params.app_port}}

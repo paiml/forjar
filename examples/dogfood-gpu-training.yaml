@@ -48,21 +48,22 @@ resources:
     mode: "0755"
 
   # ── Verify GPU availability ─────────────────────────────────────
+  # Verify AMD GPUs available via Vulkan on intel
   gpu-check-intel:
     type: task
     machine: intel
     command: |
       vulkaninfo --summary 2>/dev/null | grep -c "GPU" || echo "0"
-    description: "Verify AMD GPUs available via Vulkan on intel"
 
+  # Verify NVIDIA GPU available on lambda
   gpu-check-lambda:
     type: task
     machine: lambda
     command: |
       nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "no-gpu"
-    description: "Verify NVIDIA GPU available on lambda"
 
   # ── Model weights sync ──────────────────────────────────────────
+  # Sync model weights from intel to lambda
   model-sync-lambda:
     type: task
     machine: lambda
@@ -71,9 +72,9 @@ resources:
         rsync -avz --progress noah@192.168.50.100:{{params.model_dir}}/ {{params.model_dir}}/
       fi
     depends_on: [training-output-lambda]
-    description: "Sync model weights from intel to lambda"
 
   # ── Training data sync ──────────────────────────────────────────
+  # Sync training data from intel to lambda
   data-sync-lambda:
     type: task
     machine: lambda
@@ -82,26 +83,26 @@ resources:
         rsync -avz noah@192.168.50.100:{{params.data_dir}}/ {{params.data_dir}}/
       fi
     depends_on: [training-output-lambda]
-    description: "Sync training data from intel to lambda"
 
   # ── Build aprender on both machines ─────────────────────────────
+  # Build apr CLI with wgpu support on intel
   build-apr-intel:
     type: task
     machine: intel
     command: |
       cd /home/noah/src/aprender && cargo build -p apr-cli --features entrenar/gpu --release
     depends_on: [gpu-check-intel]
-    description: "Build apr CLI with wgpu support on intel"
 
+  # Build apr CLI with CUDA support on lambda
   build-apr-lambda:
     type: task
     machine: lambda
     command: |
       cd /home/noah/src/aprender && cargo build -p apr-cli --features entrenar/cuda --release
     depends_on: [gpu-check-lambda, model-sync-lambda, data-sync-lambda]
-    description: "Build apr CLI with CUDA support on lambda"
 
   # ── Launch coordinator (intel) ──────────────────────────────────
+  # Launch training coordinator on intel (2x Radeon Pro W5700X)
   training-coordinator:
     type: task
     machine: intel
@@ -115,9 +116,9 @@ resources:
         {{params.model_dir}} --data {{params.data_dir}}/train.jsonl \
         -o {{params.output_dir}}
     depends_on: [build-apr-intel]
-    description: "Launch training coordinator on intel (2x Radeon Pro W5700X)"
 
   # ── Launch worker (lambda) ─────────────────────────────────────
+  # Launch training worker on lambda (RTX 4090)
   training-worker:
     type: task
     machine: lambda
@@ -127,7 +128,6 @@ resources:
         --gpus 0 --gpu-backend cuda \
         {{params.model_dir}} --data {{params.data_dir}}/train.jsonl
     depends_on: [build-apr-lambda, training-coordinator]
-    description: "Launch training worker on lambda (RTX 4090)"
 
 policy:
   failure: stop_on_first
