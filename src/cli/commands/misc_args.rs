@@ -165,6 +165,10 @@ pub struct CheckArgs {
     #[arg(long)]
     pub tag: Option<String>,
 
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
     /// Output as JSON
     #[arg(long)]
     pub json: bool,

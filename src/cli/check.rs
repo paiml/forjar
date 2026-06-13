@@ -3,8 +3,9 @@
 pub(crate) use super::check_test::cmd_test;
 
 use super::helpers::*;
-use crate::core::{codegen, resolver, types};
+use crate::core::{codegen, resolver, state, types};
 use crate::transport;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Single check result for accumulation.
@@ -14,6 +15,10 @@ pub(super) struct CheckResult {
     pub(super) status: String,
     pub(super) exit_code: Option<i32>,
     pub(super) detail: String,
+    /// FJ-178: whether the resource is recorded in the state dir for its
+    /// machine. `None` when there is no recorded state for the machine
+    /// (e.g. the default `state` dir is absent — same as historical behavior).
+    pub(super) in_state: Option<bool>,
 }
 
 /// Whether a resource matches the name and tag filters.
@@ -95,6 +100,7 @@ pub(super) fn make_check_result(
         status: status.to_string(),
         exit_code,
         detail,
+        in_state: None,
     }
 }
 
@@ -176,6 +182,9 @@ pub(super) fn format_check_json(
             if let Some(code) = r.exit_code {
                 obj["exit_code"] = serde_json::json!(code);
             }
+            if let Some(in_state) = r.in_state {
+                obj["in_state"] = serde_json::json!(in_state);
+            }
             if !r.detail.is_empty() {
                 let key = if r.status == "error" {
                     "error"
@@ -203,11 +212,68 @@ pub(super) fn format_check_json(
     Ok(())
 }
 
+/// FJ-178: Per-machine state locks plus whether the state dir exists at all.
+pub(super) struct CheckState {
+    /// Whether `state_dir` exists on disk. When absent (e.g. the default
+    /// `state` dir was never created), checks stay state-agnostic so behavior
+    /// is identical to the historical, state-unaware `check`.
+    pub(super) dir_exists: bool,
+    /// Machine name -> recorded state lock (only for machines with a lock).
+    pub(super) locks: HashMap<String, types::StateLock>,
+}
+
+/// FJ-178: Load the per-machine state locks from `state_dir` for the machines
+/// referenced by the config.
+pub(super) fn load_check_locks(state_dir: &Path, config: &types::ForjarConfig) -> CheckState {
+    let mut locks = HashMap::new();
+    for machine_name in config.machines.keys() {
+        if let Ok(Some(lock)) = state::load_lock(state_dir, machine_name) {
+            locks.insert(machine_name.clone(), lock);
+        }
+    }
+    CheckState {
+        dir_exists: state_dir.exists(),
+        locks,
+    }
+}
+
+/// FJ-178: Whether `resource_id` is recorded for `machine_name` in the state.
+/// `None` when the state dir does not exist (state-agnostic, default behavior);
+/// `Some(true)` when recorded; `Some(false)` when the dir exists but the
+/// resource is not recorded for the machine (config/state drift).
+pub(super) fn resource_in_state(
+    state: &CheckState,
+    machine_name: &str,
+    resource_id: &str,
+) -> Option<bool> {
+    if !state.dir_exists {
+        return None;
+    }
+    let recorded = state
+        .locks
+        .get(machine_name)
+        .is_some_and(|lock| lock.resources.contains_key(resource_id));
+    Some(recorded)
+}
+
+/// FJ-178: In text mode, warn when a checked resource is absent from the
+/// recorded state for its machine (drift between config and state dir).
+fn report_unrecorded(in_state: Option<bool>, resource_id: &str, machine_name: &str, json: bool) {
+    if json {
+        return;
+    }
+    if in_state == Some(false) {
+        println!("  ! {resource_id} ({machine_name}) — not recorded in state");
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_check(
     file: &Path,
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
     tag_filter: Option<&str>,
+    state_dir: &Path,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -224,6 +290,7 @@ pub(crate) fn cmd_check(
 
     let execution_order = resolver::build_execution_order(&config)?;
     let localhost = localhost_machine();
+    let check_state = load_check_locks(state_dir, &config);
 
     let mut total_pass = 0usize;
     let mut total_fail = 0usize;
@@ -266,8 +333,10 @@ pub(crate) fn cmd_check(
                 continue;
             }
 
-            let (result, passed) =
+            let (mut result, passed) =
                 run_single_check(machine, &check_script, resource_id, machine_name, json);
+            result.in_state = resource_in_state(&check_state, machine_name, resource_id);
+            report_unrecorded(result.in_state, resource_id, machine_name, json);
             if passed {
                 total_pass += 1;
             } else {

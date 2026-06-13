@@ -171,7 +171,7 @@ resources:
         )
         .unwrap();
         // Check with machine filter
-        cmd_check(&config, Some("local"), None, None, false, false).unwrap();
+        cmd_check(&config, Some("local"), None, None, std::path::Path::new("state"), false, false).unwrap();
     }
 
     #[test]
@@ -202,7 +202,7 @@ resources:
         )
         .unwrap();
         // Check only specific resource
-        cmd_check(&config, None, Some("pkg1"), None, false, false).unwrap();
+        cmd_check(&config, None, Some("pkg1"), None, std::path::Path::new("state"), false, false).unwrap();
     }
 
     #[test]
@@ -228,7 +228,7 @@ resources:
         )
         .unwrap();
         // JSON output
-        cmd_check(&config, None, None, None, true, false).unwrap();
+        cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false).unwrap();
     }
 
     // ── Rollback error tests ───────────────────────────────────
@@ -423,7 +423,7 @@ resources:
         )
         .unwrap();
         // The function prints JSON to stdout — just verify it succeeds
-        let result = cmd_check(&config_path, None, None, None, true, false);
+        let result = cmd_check(&config_path, None, None, None, std::path::Path::new("state"), true, false);
         assert!(result.is_ok());
     }
 

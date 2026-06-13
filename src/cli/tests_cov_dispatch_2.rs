@@ -390,7 +390,7 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, None, None, false, true);
+        let result = cmd_check(&config, None, None, None, std::path::Path::new("state"), false, true);
         assert!(result.is_ok());
     }
 
@@ -416,7 +416,7 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, Some("f"), None, false, false);
+        let result = cmd_check(&config, None, Some("f"), None, std::path::Path::new("state"), false, false);
         assert!(result.is_ok());
     }
 
@@ -442,7 +442,7 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, Some("nonexistent"), None, false, false);
+        let result = cmd_check(&config, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false);
         assert!(result.is_ok());
     }
 
@@ -470,7 +470,7 @@ resources:
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
         // Filter to a tag that doesn't match
-        let result = cmd_check(&config, None, None, Some("db"), false, false);
+        let result = cmd_check(&config, None, None, Some("db"), std::path::Path::new("state"), false, false);
         assert!(result.is_ok());
     }
 

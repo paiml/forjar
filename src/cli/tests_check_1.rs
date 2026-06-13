@@ -127,7 +127,7 @@ resources:
         )
         .unwrap();
         // File exists → check should pass
-        cmd_check(&config, None, None, None, false, false).unwrap();
+        cmd_check(&config, None, None, None, std::path::Path::new("state"), false, false).unwrap();
     }
 
     #[test]
@@ -153,7 +153,7 @@ resources:
         )
         .unwrap();
         // Check script reports status (exits 0 even for missing file)
-        cmd_check(&config, None, None, None, false, false).unwrap();
+        cmd_check(&config, None, None, None, std::path::Path::new("state"), false, false).unwrap();
     }
 
     #[test]
@@ -184,7 +184,7 @@ resources:
             ),
         )
         .unwrap();
-        cmd_check(&config, None, None, None, true, false).unwrap();
+        cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false).unwrap();
     }
 
     #[test]
