@@ -10,8 +10,11 @@ pub(crate) enum ResourceOutcome {
     Unchanged,
     /// Resource was skipped (filtered out or not found).
     Skipped,
-    /// Resource failed; includes whether to stop (jidoka).
-    Failed { should_stop: bool },
+    /// Resource failed; includes whether to stop (jidoka) and whether the
+    /// failure is safe to retry. `retryable` is `false` for pre_apply gate
+    /// failures (#165) — re-running that hook under `--retry` would re-execute
+    /// its non-idempotent side effects; genuine apply failures stay retryable.
+    Failed { should_stop: bool, retryable: bool },
 }
 
 /// Shared context for recording resource outcomes.
@@ -216,7 +219,13 @@ fn execute_resource(
                 duration,
                 &error,
             );
-            return Ok(ResourceOutcome::Failed { should_stop });
+            // #165: pre_apply gate failures are non-retryable so --retry does
+            // not re-run the hook's side effects. The resource still fails,
+            // cascades to dependents, and triggers rollback — it just doesn't loop.
+            return Ok(ResourceOutcome::Failed {
+                should_stop,
+                retryable: false,
+            });
         }
     }
 
@@ -352,7 +361,10 @@ fn handle_resource_output(
                         duration,
                         &error,
                     );
-                    return Ok(ResourceOutcome::Failed { should_stop });
+                    return Ok(ResourceOutcome::Failed {
+                        should_stop,
+                        retryable: true,
+                    });
                 }
             }
             record_success(
@@ -394,7 +406,10 @@ fn handle_resource_output(
                     failed: true,
                 },
             );
-            Ok(ResourceOutcome::Failed { should_stop })
+            Ok(ResourceOutcome::Failed {
+                should_stop,
+                retryable: true,
+            })
         }
         Err(e) => {
             let error = format!("transport error: {e}");
@@ -405,7 +420,10 @@ fn handle_resource_output(
                 duration,
                 &error,
             );
-            Ok(ResourceOutcome::Failed { should_stop })
+            Ok(ResourceOutcome::Failed {
+                should_stop,
+                retryable: true,
+            })
         }
     }
 }

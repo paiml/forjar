@@ -15,12 +15,19 @@ pub(crate) fn apply_and_record_outcome(
 ) -> Result<ResourceOutcome, String> {
     let resource_start = Instant::now();
 
-    // FJ-283: Retry with exponential backoff
+    // FJ-283: Retry with exponential backoff.
+    // #165: only retry genuine apply failures (retryable: true). A pre_apply
+    // gate failure is non-retryable so its hook side effects don't re-run.
     let mut outcome = apply_single_resource(cfg, change, machine, ctx, converged_resources)?;
     if cfg.retry > 0 {
         let mut attempt = 0u32;
-        while matches!(outcome, ResourceOutcome::Failed { should_stop: false })
-            && attempt < cfg.retry
+        while matches!(
+            outcome,
+            ResourceOutcome::Failed {
+                should_stop: false,
+                retryable: true
+            }
+        ) && attempt < cfg.retry
         {
             attempt += 1;
             let backoff = std::time::Duration::from_secs(1u64 << (attempt - 1).min(4));

@@ -274,5 +274,22 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
     }
     expand_recipes(&mut config, path.parent())?;
     expand_resources(&mut config);
+
+    // #165: re-check moved.to collisions against the POST-expansion resource
+    // set. validate_config ran before expansion, so a `to` that lands on a
+    // recipe-expanded key (e.g. `recipe_id/foo`) would otherwise pass and then
+    // silently clobber that expanded resource's converged lock.
+    let post_errors = crate::core::planner::moved::validate_moved_targets(&config);
+    if !post_errors.is_empty() {
+        return Err(format!(
+            "validation errors:\n{}",
+            post_errors
+                .iter()
+                .map(|e| format!("  - {e}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+
     Ok(config)
 }
