@@ -118,8 +118,11 @@ pub(crate) fn apply_machines_rolling(
                 .iter()
                 .filter(|r| r.resources_failed > 0)
                 .count();
-            let pct = (failed as f64 / total_machines as f64 * 100.0) as u8;
-            if pct > max_pct {
+            // FJ-154 / #21: compare with exact integer math instead of a
+            // lossy `as u8` truncation that floored fractional rates (e.g.
+            // 33.9% → 33) and let them slip past a `>` gate they should fail.
+            if rolling_fail_gate_exceeded(failed, total_machines, max_pct) {
+                let pct = fail_percentage(failed, total_machines);
                 return Err(format!(
                     "rolling deploy aborted: {pct}% failure rate exceeds max_fail_percentage {max_pct}%"
                 ));
@@ -128,4 +131,26 @@ pub(crate) fn apply_machines_rolling(
     }
 
     Ok(all_results)
+}
+
+/// FJ-154 / #21: Decide whether the rolling-deploy failure gate is exceeded.
+///
+/// Returns true when the *true* failure ratio strictly exceeds `max_pct`
+/// percent, computed in integer arithmetic so no fractional rate is lost to
+/// truncation. Preserves the original strict-greater (`>`) gate semantics:
+/// a failure rate of exactly `max_pct`% does NOT abort.
+pub(crate) fn rolling_fail_gate_exceeded(failed: usize, total: usize, max_pct: u8) -> bool {
+    if total == 0 {
+        return false;
+    }
+    // failed/total * 100 > max_pct  ⇔  failed * 100 > max_pct * total
+    failed * 100 > max_pct as usize * total
+}
+
+/// Rounded failure percentage for display in the abort message.
+pub(crate) fn fail_percentage(failed: usize, total: usize) -> u8 {
+    if total == 0 {
+        return 0;
+    }
+    ((failed as f64 / total as f64) * 100.0).round() as u8
 }

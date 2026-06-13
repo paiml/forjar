@@ -142,6 +142,10 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     // FJ-2501: Format validation (mode, port, path, owner/group, addr)
     errors.extend(format_validation::validate_formats(config));
 
+    // FJ-154 (#23): Reject colliding / chained moved blocks before they can
+    // silently overwrite lock state during planning.
+    crate::core::planner::moved::validate_moved_blocks(config, &mut errors);
+
     errors
 }
 

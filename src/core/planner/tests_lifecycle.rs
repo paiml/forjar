@@ -130,7 +130,7 @@ fn test_apply_moved_blocks_renames_resource_in_lock() {
         to: "new-config".to_string(),
     }];
 
-    let result = apply_moved_blocks(&moved, &locks);
+    let result = super::moved::apply_moved_blocks(&moved, &locks);
     let m1_lock = result.get("m1").unwrap();
 
     assert!(
@@ -158,7 +158,7 @@ fn test_apply_moved_blocks_no_op_when_empty() {
     locks.insert("m1".to_string(), lock);
 
     let moved = vec![];
-    let result = apply_moved_blocks(&moved, &locks);
+    let result = super::moved::apply_moved_blocks(&moved, &locks);
 
     assert_eq!(result.len(), 1, "should return same number of machines");
 }
@@ -179,7 +179,7 @@ fn test_apply_moved_blocks_no_op_when_source_missing() {
         to: "renamed".to_string(),
     }];
 
-    let result = apply_moved_blocks(&moved, &locks);
+    let result = super::moved::apply_moved_blocks(&moved, &locks);
     let m1_lock = result.get("m1").unwrap();
 
     assert!(
@@ -214,7 +214,7 @@ fn test_apply_moved_blocks_multiple_renames() {
         },
     ];
 
-    let result = apply_moved_blocks(&moved, &locks);
+    let result = super::moved::apply_moved_blocks(&moved, &locks);
     let m1 = result.get("m1").unwrap();
 
     assert!(m1.resources.contains_key("alpha-v2"));

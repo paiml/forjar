@@ -199,9 +199,18 @@ pub(crate) fn cmd_refresh_only(
                 Some(r) => r,
                 None => continue,
             };
-            let resolved =
-                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                    .unwrap_or_else(|_| resource.clone());
+            // FJ-154 / #22: resolve with the SAME SecretsConfig the executor
+            // used to produce the stored live_hash (record_success →
+            // resolve_resource_templates_with_secrets(.., &cfg.config.secrets)),
+            // so the refresh-query script matches and we don't report spurious
+            // drift / rewrite state on every refresh.
+            let resolved = resolver::resolve_resource_templates_with_secrets(
+                resource,
+                &config.params,
+                &config.machines,
+                &config.secrets,
+            )
+            .unwrap_or_else(|_| resource.clone());
 
             // STRONG contract: refresh-query stdout may legitimately be
             // empty when state is absent — use the sentinel wrapper to
