@@ -103,6 +103,7 @@ fn harness_pins_tag_and_overrides_downloads() {
         &installer,
         "/tmp/x.tar.gz",
         "deadbeef  x.tar.gz",
+        "SHA256SUMS",
         "v1.2.3",
         "mytool --version",
     );
@@ -129,6 +130,7 @@ fn harness_strips_original_main_call() {
         &installer,
         "/tmp/x.tar.gz",
         "deadbeef  x.tar.gz",
+        "SHA256SUMS",
         "v1",
         "mytool --version",
     );
@@ -136,6 +138,93 @@ fn harness_strips_original_main_call() {
     // because the generator's trailing `main` was stripped.
     let main_calls = h.matches("\nmain\n").count();
     assert_eq!(main_calls, 1, "harness must call main exactly once");
+}
+
+// ── #165: download override matches the CONFIGURED checksums filename ──
+
+/// Extract the line of the harness `download()` override whose `case` arm
+/// serves the staged sums line, to assert on its glob pattern. The override
+/// arm is uniquely `<glob>) printf '%s\n' '<sums_line>' ;;`.
+fn sums_case_arm(harness: &str) -> &str {
+    harness
+        .lines()
+        .find(|l| l.contains(r") printf '%s\n' '") && l.trim_end().ends_with(";;"))
+        .expect("harness must have a sums-serving case arm")
+}
+
+/// Crude POSIX `case`-glob match for the patterns we emit (`*x*` / `*.sha256`),
+/// enough to prove the configured-sums URL would hit the sums arm.
+fn glob_matches(pattern: &str, url: &str) -> bool {
+    pattern.split('|').any(|alt| {
+        let alt = alt.trim();
+        match (alt.starts_with('*'), alt.ends_with('*')) {
+            (true, true) => url.contains(alt.trim_matches('*')),
+            (true, false) => url.ends_with(alt.trim_start_matches('*')),
+            (false, true) => url.starts_with(alt.trim_end_matches('*')),
+            (false, false) => url == alt,
+        }
+    })
+}
+
+#[test]
+fn harness_matches_custom_checksums_filename() {
+    // #165: a custom dist.checksums (e.g. CHECKSUMS.txt) must be matched by the
+    // download override so verify_checksum FETCHES + verifies rather than
+    // falling through to the tarball arm (which makes the installer warn-skip).
+    let mut dist = sample_dist();
+    dist.checksums = Some("CHECKSUMS.txt".into());
+    let installer = crate::cli::dist_generators::generate_installer(&dist);
+    let h = build_install_harness(
+        &installer,
+        "/tmp/x.tar.gz",
+        "deadbeef  x.tar.gz",
+        "CHECKSUMS.txt",
+        "v1.2.3",
+        "mytool --version",
+    );
+    // The case arm must reference the custom basename, not a hardcoded glob.
+    let arm = sums_case_arm(&h);
+    assert!(
+        arm.contains("CHECKSUMS.txt"),
+        "sums case arm must match the configured filename, got: {arm}"
+    );
+    assert!(!arm.contains("SHA256SUMS"), "must not hardcode SHA256SUMS: {arm}");
+
+    // The arm's glob must actually match the SUMS_URL the installer builds.
+    let sums_url = "https://github.com/acme/tool/releases/download/v1.2.3/CHECKSUMS.txt";
+    let pattern = arm.split(')').next().unwrap().trim();
+    assert!(
+        glob_matches(pattern, sums_url),
+        "glob {pattern:?} must match the installer's SUMS_URL {sums_url:?} (else verify_checksum skips)"
+    );
+    // The tarball URL must NOT hit the sums arm (else we'd serve sums for the binary).
+    let asset_url = "https://github.com/acme/tool/releases/download/v1.2.3/mytool-1.2.3-x86_64-unknown-linux-gnu.tar.gz";
+    assert!(
+        !glob_matches(pattern, asset_url),
+        "the tarball URL must fall through to the *) tarball arm"
+    );
+}
+
+#[test]
+fn harness_default_sha256sums_still_matches() {
+    // The default SHA256SUMS name must keep working (regression guard for #165).
+    let dist = sample_dist(); // checksums = Some("SHA256SUMS")
+    let installer = crate::cli::dist_generators::generate_installer(&dist);
+    let h = build_install_harness(
+        &installer,
+        "/tmp/x.tar.gz",
+        "deadbeef  x.tar.gz",
+        "SHA256SUMS",
+        "v1.2.3",
+        "mytool --version",
+    );
+    let arm = sums_case_arm(&h);
+    let pattern = arm.split(')').next().unwrap().trim();
+    let sums_url = "https://github.com/acme/tool/releases/download/v1.2.3/SHA256SUMS";
+    assert!(glob_matches(pattern, sums_url), "default SHA256SUMS must match");
+    // The per-asset .sha256 fallback must also match.
+    let fallback = "https://github.com/acme/tool/releases/download/v1.2.3/asset.tar.gz.sha256";
+    assert!(glob_matches(pattern, fallback), "the .sha256 fallback must match");
 }
 
 // ── result parsing ──

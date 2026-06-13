@@ -106,21 +106,29 @@ pub fn load_records(state_dir: &Path) -> Vec<TestCoverageRecord> {
         .collect()
 }
 
-/// PMAT-088: Highest level a record set proves for one resource, hash-gated.
+/// PMAT-088 (#165): Level proven for one resource, hash-gated AND recency-aware.
 ///
-/// Returns `None` if no passing record matches `current_hash`. Only passing
-/// records whose `config_hash == current_hash` are considered; the maximum of
-/// their levels is returned (L5 implies L4/L3/... by `CoverageLevel` ordering).
+/// Returns `None` unless the resource's MOST RECENT record at `current_hash`
+/// passed. Only records whose `config_hash == current_hash` are considered (a
+/// record for a different hash is a stale config and ignored). Among those, the
+/// latest record by `timestamp` wins: a failing latest record is an explicit
+/// DEMOTION (returns `None`) so a regression at an unchanged config can no
+/// longer be masked by an earlier pass. A passing latest record promotes to its
+/// `level` (L5 implies L4/L3/... by `CoverageLevel` ordering).
+///
+/// This closes the "stale high-water mark survives forever" bug: promotion is
+/// no longer `max()` over ALL passing records — a later failure supersedes an
+/// earlier pass for the same (resource, config_hash).
 pub fn proven_level(
     records: &[TestCoverageRecord],
     resource_id: &str,
     current_hash: &str,
 ) -> Option<CoverageLevel> {
-    records
+    let latest = records
         .iter()
-        .filter(|r| r.resource_id == resource_id && r.passed && r.config_hash == current_hash)
-        .map(|r| r.level)
-        .max()
+        .filter(|r| r.resource_id == resource_id && r.config_hash == current_hash)
+        .max_by(|a, b| a.timestamp.cmp(&b.timestamp))?;
+    latest.passed.then_some(latest.level)
 }
 
 /// PMAT-088: Promote a static base level using the persisted, hash-gated log.
@@ -187,26 +195,45 @@ impl ConvergenceOutcome {
     }
 }
 
-/// PMAT-088: Build a convergence coverage record for one resource.
+/// PMAT-088 (#165): Build a convergence coverage record for one resource.
 ///
 /// Records L5 when pairwise preservation passed, else L3 when convergence +
-/// idempotency passed. Returns `None` when the resource did not even reach L3
-/// (no record is written for a non-result, keeping the log signal-only).
+/// idempotency passed (`passed=true`). When the resource did NOT reach L3, a
+/// **failing L3 record** (`passed=false`) is written instead so a later
+/// regression supersedes an earlier pass under recency-aware `proven_level`
+/// (a stale high-water mark must not survive a regression at an unchanged
+/// config_hash). Always returns `Some`.
 pub fn convergence_record(
     resource_id: &str,
     outcome: ConvergenceOutcome,
     config_hash: &str,
 ) -> Option<TestCoverageRecord> {
-    outcome
-        .proven_level()
-        .map(|level| TestCoverageRecord::new(resource_id, level, true, config_hash))
+    match outcome.proven_level() {
+        Some(level) => Some(TestCoverageRecord::new(
+            resource_id,
+            level,
+            true,
+            config_hash,
+        )),
+        // A failing convergence run records an explicit L3 demotion so the
+        // latest result wins over any earlier passing record.
+        None => Some(TestCoverageRecord::new(
+            resource_id,
+            CoverageLevel::L3,
+            false,
+            config_hash,
+        )),
+    }
 }
 
-/// PMAT-088: Build an L4 (mutation) coverage record for one resource.
+/// PMAT-088 (#165): Build an L4 (mutation) coverage record for one resource.
 ///
-/// A resource is L4 when at least one mutation was attempted and every
-/// applicable mutation was detected (zero survivors, zero errors). A resource
-/// with no mutations attempted, survivors, or errors earns no record.
+/// A resource is L4 (`passed=true`) when at least one mutation was attempted
+/// and every applicable mutation was detected (zero survivors, zero errors).
+/// When mutations were attempted but some survived/errored, a **failing L4
+/// record** (`passed=false`) is written so a regression supersedes an earlier
+/// L4 pass under recency-aware `proven_level`. When NOTHING was attempted
+/// (`attempted == 0`) there is no signal at all, so no record is written.
 pub fn mutation_record(
     resource_id: &str,
     attempted: usize,
@@ -214,16 +241,16 @@ pub fn mutation_record(
     errored: usize,
     config_hash: &str,
 ) -> Option<TestCoverageRecord> {
-    if attempted > 0 && errored == 0 && detected == attempted {
-        Some(TestCoverageRecord::new(
-            resource_id,
-            CoverageLevel::L4,
-            true,
-            config_hash,
-        ))
-    } else {
-        None
+    if attempted == 0 {
+        return None;
     }
+    let passed = errored == 0 && detected == attempted;
+    Some(TestCoverageRecord::new(
+        resource_id,
+        CoverageLevel::L4,
+        passed,
+        config_hash,
+    ))
 }
 
 /// PMAT-088: Index records by resource id for repeated promotion lookups.
@@ -241,216 +268,5 @@ pub fn latest_hash_by_resource(records: &[TestCoverageRecord]) -> HashMap<String
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn rec(id: &str, level: CoverageLevel, passed: bool, hash: &str) -> TestCoverageRecord {
-        TestCoverageRecord {
-            resource_id: id.into(),
-            level,
-            passed,
-            timestamp: "2026-06-13T00:00:00Z".into(),
-            config_hash: hash.into(),
-        }
-    }
-
-    #[test]
-    fn append_then_load_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        let r = rec("pkg", CoverageLevel::L3, true, "abc");
-        append_record(dir.path(), &r).unwrap();
-        let loaded = load_records(dir.path());
-        assert_eq!(loaded, vec![r]);
-    }
-
-    #[test]
-    fn load_missing_log_is_empty() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(load_records(dir.path()).is_empty());
-    }
-
-    #[test]
-    fn load_skips_malformed_lines() {
-        let dir = tempfile::tempdir().unwrap();
-        let r = rec("pkg", CoverageLevel::L4, true, "h1");
-        append_record(dir.path(), &r).unwrap();
-        // Simulate a torn final write by appending garbage.
-        let path = coverage_log_path(dir.path());
-        let mut f = std::fs::OpenOptions::new()
-            .append(true)
-            .open(&path)
-            .unwrap();
-        writeln!(f, "{{not valid json").unwrap();
-        let loaded = load_records(dir.path());
-        assert_eq!(loaded, vec![r]);
-    }
-
-    #[test]
-    fn append_records_batch() {
-        let dir = tempfile::tempdir().unwrap();
-        let recs = vec![
-            rec("a", CoverageLevel::L3, true, "h"),
-            rec("b", CoverageLevel::L4, true, "h"),
-        ];
-        append_records(dir.path(), &recs).unwrap();
-        assert_eq!(load_records(dir.path()).len(), 2);
-    }
-
-    #[test]
-    fn proven_level_picks_max_matching() {
-        let recs = vec![
-            rec("pkg", CoverageLevel::L3, true, "h1"),
-            rec("pkg", CoverageLevel::L4, true, "h1"),
-        ];
-        assert_eq!(
-            proven_level(&recs, "pkg", "h1"),
-            Some(CoverageLevel::L4),
-            "should pick the highest passing matching level"
-        );
-    }
-
-    #[test]
-    fn proven_level_ignores_hash_mismatch() {
-        let recs = vec![rec("pkg", CoverageLevel::L5, true, "old-hash")];
-        assert_eq!(proven_level(&recs, "pkg", "new-hash"), None);
-    }
-
-    #[test]
-    fn proven_level_ignores_failures() {
-        let recs = vec![rec("pkg", CoverageLevel::L4, false, "h1")];
-        assert_eq!(proven_level(&recs, "pkg", "h1"), None);
-    }
-
-    #[test]
-    fn proven_level_ignores_other_resources() {
-        let recs = vec![rec("other", CoverageLevel::L5, true, "h1")];
-        assert_eq!(proven_level(&recs, "pkg", "h1"), None);
-    }
-
-    // ── Falsification-style tests (PMAT-088 / E9) ──
-
-    #[test]
-    fn falsify_a_fresh_resource_stays_at_base() {
-        // (a) No records → a fresh L1 resource is NOT promoted.
-        let recs: Vec<TestCoverageRecord> = vec![];
-        assert_eq!(
-            promote_level(CoverageLevel::L1, &recs, "pkg", "h1"),
-            CoverageLevel::L1
-        );
-        assert_eq!(
-            promote_level(CoverageLevel::L0, &recs, "pkg", "h1"),
-            CoverageLevel::L0
-        );
-    }
-
-    #[test]
-    fn falsify_b_passing_l3_promotes() {
-        // (b) A passing L3 record (hash match) promotes L2 → L3.
-        let recs = vec![rec("pkg", CoverageLevel::L3, true, "h1")];
-        assert_eq!(
-            promote_level(CoverageLevel::L2, &recs, "pkg", "h1"),
-            CoverageLevel::L3
-        );
-    }
-
-    #[test]
-    fn falsify_c_config_change_demotes() {
-        // (c) Config change (hash mismatch) demotes back to static base.
-        let recs = vec![rec("pkg", CoverageLevel::L3, true, "old-hash")];
-        assert_eq!(
-            promote_level(CoverageLevel::L2, &recs, "pkg", "new-hash"),
-            CoverageLevel::L2,
-            "stale high-water mark must not survive a config change"
-        );
-    }
-
-    #[test]
-    fn falsify_d_l5_implies_l3_and_l4() {
-        // (d) An L5 record promotes a resource to L5 (which subsumes L3/L4).
-        let recs = vec![rec("pkg", CoverageLevel::L5, true, "h1")];
-        let level = promote_level(CoverageLevel::L1, &recs, "pkg", "h1");
-        assert_eq!(level, CoverageLevel::L5);
-        assert!(level >= CoverageLevel::L3, "L5 implies L3");
-        assert!(level >= CoverageLevel::L4, "L5 implies L4");
-    }
-
-    #[test]
-    fn promote_never_regresses_below_base() {
-        // A lower proven level than the static base does not regress the base.
-        let recs = vec![rec("pkg", CoverageLevel::L3, true, "h1")];
-        assert_eq!(
-            promote_level(CoverageLevel::L4, &recs, "pkg", "h1"),
-            CoverageLevel::L4,
-            "base L4 must not regress to a proven L3"
-        );
-    }
-
-    fn outcome(
-        converged: bool,
-        idempotent: bool,
-        preserved: bool,
-        errored: bool,
-        pairwise_enabled: bool,
-    ) -> ConvergenceOutcome {
-        ConvergenceOutcome {
-            converged,
-            idempotent,
-            preserved,
-            errored,
-            pairwise_enabled,
-        }
-    }
-
-    #[test]
-    fn convergence_record_l3_on_pass() {
-        let r = convergence_record("pkg", outcome(true, true, true, false, false), "h");
-        assert_eq!(r.unwrap().level, CoverageLevel::L3);
-    }
-
-    #[test]
-    fn convergence_record_l5_when_pairwise_preserved() {
-        let r = convergence_record("pkg", outcome(true, true, true, false, true), "h");
-        assert_eq!(r.unwrap().level, CoverageLevel::L5);
-    }
-
-    #[test]
-    fn convergence_record_l3_when_pairwise_off_even_if_preserved() {
-        // preserved=true but pairwise not enabled → only L3, not L5.
-        let r = convergence_record("pkg", outcome(true, true, true, false, false), "h");
-        assert_eq!(r.unwrap().level, CoverageLevel::L3);
-    }
-
-    #[test]
-    fn convergence_record_none_on_failure() {
-        assert!(
-            convergence_record("pkg", outcome(false, true, false, false, false), "h").is_none()
-        );
-        assert!(
-            convergence_record("pkg", outcome(true, false, false, false, false), "h").is_none()
-        );
-        assert!(convergence_record("pkg", outcome(true, true, true, true, false), "h").is_none());
-    }
-
-    #[test]
-    fn mutation_record_l4_when_all_detected() {
-        let r = mutation_record("pkg", 5, 5, 0, "h");
-        assert_eq!(r.unwrap().level, CoverageLevel::L4);
-    }
-
-    #[test]
-    fn mutation_record_none_on_survivor_or_error_or_empty() {
-        assert!(mutation_record("pkg", 5, 4, 0, "h").is_none()); // survivor
-        assert!(mutation_record("pkg", 5, 5, 1, "h").is_none()); // errored
-        assert!(mutation_record("pkg", 0, 0, 0, "h").is_none()); // nothing attempted
-    }
-
-    #[test]
-    fn latest_hash_by_resource_tracks_last_seen() {
-        let recs = vec![
-            rec("pkg", CoverageLevel::L3, true, "h1"),
-            rec("pkg", CoverageLevel::L3, true, "h2"),
-        ];
-        let map = latest_hash_by_resource(&recs);
-        assert_eq!(map.get("pkg"), Some(&"h2".to_string()));
-    }
-}
+#[path = "coverage_persist_tests.rs"]
+mod tests;

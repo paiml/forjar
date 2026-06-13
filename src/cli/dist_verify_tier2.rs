@@ -153,14 +153,23 @@ pub(crate) fn select_asset_for_target<'a>(
 /// `staged_archive` is the in-container path of the staged `.tar.gz`;
 /// `sums_line` is a real `<sha256>  <asset>` line so the installer's
 /// `verify_checksum` actually verifies (rather than warn-skipping);
-/// `tag` is the pinned version; `version_cmd` is the post-install check.
+/// `sums_file` is the CONFIGURED checksums basename (`dist.checksums`, e.g.
+/// `SHA256SUMS` or a custom `CHECKSUMS.txt`) that the installer builds its
+/// `SUMS_URL` from; `tag` is the pinned version; `version_cmd` is the
+/// post-install check.
 ///
-/// The `download` override is URL-aware: a SHA256SUMS / `.sha256` URL
-/// returns the staged sums line, anything else returns the tarball bytes.
+/// The `download` override is URL-aware: the configured-sums URL (or the
+/// `${{ASSET}}.sha256` per-asset fallback) returns the staged sums line, and
+/// anything else returns the tarball bytes. Matching the ACTUAL configured
+/// sums filename (#165) — not a hardcoded `*SHA256SUMS*` glob — is what makes
+/// `verify_checksum` actually run for ANY `dist.checksums` name; a hardcoded
+/// glob would let a custom filename fall through to the tarball arm and the
+/// installer would silently warn-skip verification.
 pub(crate) fn build_install_harness(
     installer_body: &str,
     staged_archive: &str,
     sums_line: &str,
+    sums_file: &str,
     tag: &str,
     version_cmd: &str,
 ) -> String {
@@ -168,6 +177,7 @@ pub(crate) fn build_install_harness(
     // network functions BEFORE main runs. The generator always ends the
     // script with a lone `main` line.
     let body = strip_trailing_main(installer_body);
+    let sums_glob = sums_url_glob(sums_file);
     format!(
         r#"set -eu
 {body}
@@ -177,9 +187,11 @@ pub(crate) fn build_install_harness(
 TAG="{tag}"
 resolve_version() {{ TAG="{tag}"; }}
 # Serve the staged tarball / checksums instead of fetching from github.com.
+# The sums case arm matches the CONFIGURED checksums filename ({sums_file})
+# plus the *.sha256 per-asset fallback, so verify_checksum actually verifies.
 download() {{
   case "$1" in
-    *SHA256SUMS*|*.sha256) printf '%s\n' '{sums_line}' ;;
+    {sums_glob}) printf '%s\n' '{sums_line}' ;;
     *) cat "{staged}" ;;
   esac
 }}
@@ -194,8 +206,24 @@ echo "TIER2_VERSION_OK"
         tag = tag,
         staged = staged_archive,
         sums_line = sums_line,
+        sums_file = sums_file,
+        sums_glob = sums_glob,
         version_cmd = version_cmd,
     )
+}
+
+/// Build the `case` pattern that matches the installer's SUMS download URLs.
+///
+/// The installer (`dist_generators::build_checksum_snippet`) fetches the
+/// configured `SUMS_URL` (ending in `dist.checksums`, default `SHA256SUMS`)
+/// and falls back to a per-asset `${{ASSET}}.sha256`. We match the configured
+/// basename anywhere in the URL plus the `.sha256` fallback. A blank/whitespace
+/// filename degrades to the historical `*SHA256SUMS*` default so we never emit
+/// an empty `**` glob that would swallow the tarball URL too.
+fn sums_url_glob(sums_file: &str) -> String {
+    let name = sums_file.trim();
+    let basename = if name.is_empty() { "SHA256SUMS" } else { name };
+    format!("*{basename}*|*.sha256")
 }
 
 /// Remove the final top-level `main` invocation the generator appends, so
@@ -368,12 +396,17 @@ fn run_inside(
         .version_cmd
         .clone()
         .unwrap_or_else(|| format!("{} --version", dist.binary));
+    // The configured checksums basename the installer's SUMS_URL is built
+    // from (default SHA256SUMS); the harness must match THIS so verify_checksum
+    // runs for any custom dist.checksums name (#165).
+    let sums_file = dist.checksums.as_deref().unwrap_or("SHA256SUMS");
     // The installer is POSIX sh; run it through sh inside the container so
     // alpine (no bash) works the same as ubuntu.
     let harness = build_install_harness(
         &installer,
         staged_in_container,
         sums_line,
+        sums_file,
         tag,
         &version_cmd,
     );
