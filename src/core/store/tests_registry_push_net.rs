@@ -8,6 +8,15 @@
 //!
 //! The production push functions shell out to `curl`, so these tests verify
 //! the real subprocess + HTTP round-trip, not a mock of it.
+//!
+//! All four are `#[ignore]`d: they require an **unproxied loopback**. The
+//! clean-room CI containers export `HTTP(S)_PROXY`, which curl honors even
+//! for `127.0.0.1`, so it never reaches the in-process server and blocks
+//! with no connect timeout (the suite then hangs to the 1h job limit). The
+//! production `curl` calls intentionally omit `--noproxy` (real registries
+//! may sit behind a proxy), and forcing `no_proxy` via process-global env is
+//! unsafe under the parallel test runner — so these run locally / in
+//! proxy-free environments via `cargo test -- --ignored`. (PMAT-088 / PR #153.)
 
 use super::registry_push::*;
 use crate::core::types::PushKind;
@@ -210,6 +219,7 @@ fn make_blob(chunks: u64) -> (tempfile::TempDir, BlobDescriptor) {
 }
 
 #[test]
+#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_single_chunk_happy_path() {
     // One PATCH (202, no Location => keep current URL) + finalize PUT (201).
     let server = OciTestServer::spawn(vec![Reply::AcceptedNoLocation, Reply::Created]);
@@ -231,6 +241,7 @@ fn chunked_push_single_chunk_happy_path() {
 }
 
 #[test]
+#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_follows_location_for_resumption() {
     // Two-chunk blob: each PATCH hands back an absolute upload URL (as real
     // registries do) that the next request must follow — server-driven
@@ -278,6 +289,7 @@ fn chunked_push_follows_location_for_resumption() {
 }
 
 #[test]
+#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_errors_when_registry_unreachable() {
     // `.invalid` is RFC 6761 guaranteed non-resolvable, so curl fails DNS
     // resolution and exits non-zero, and the function must return Err. Unlike
@@ -299,6 +311,7 @@ fn chunked_push_errors_when_registry_unreachable() {
 }
 
 #[test]
+#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_succeeds_even_on_http_500_because_curl_silent() {
     // Documents the production behaviour: `curl -s` exits 0 on HTTP errors,
     // so a 500 does NOT surface as Err from push_blob_chunked. This locks in
