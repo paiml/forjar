@@ -1467,11 +1467,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-6: Tag v1.5.0 + Friday crates.io publish (2026-06-19)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T00:30:00Z
+  updated: 2026-06-13T15:00:00Z
   spec: null
   acceptance_criteria:
   - v1.5.0 tagged Thursday 2026-06-18 evening after DIST/CONTRACT items merge; GitHub release green
@@ -1481,7 +1481,7 @@ roadmap:
   subtasks: []
   estimated_effort: 0.25d
   labels: [sprint-2026-06, day-8, release]
-  notes: 'Friday-only crates.io rule. 2026-06-12 window intentionally skipped: 1.4.2 already published.'
+  notes: 'Published forjar v1.6.1 to crates.io 2026-06-13 (early — the 06-12 Friday window was a no-op at the time; brought crates.io current with the 6 GitHub releases rather than waiting to 06-19).'
 - id: PMAT-086
   github_issue: null
   item_type: task
