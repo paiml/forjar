@@ -152,13 +152,19 @@ fn persist_convergence_writes_l5_when_pairwise() {
 }
 
 #[test]
-fn persist_convergence_writes_nothing_on_failure() {
+fn persist_convergence_writes_failing_record_on_failure() {
+    // #165: a failing convergence run now writes an explicit failing L3 record
+    // (passed=false) so a later failure supersedes an earlier pass under the
+    // recency-aware promotion — no more stale high-water mark.
     let dir = tempfile::tempdir().unwrap();
     let config = parse();
     let file = dir.path().join("forjar.yaml");
     let results = vec![conv_result("pkg", false, true, false)];
     persist_convergence_coverage(&file, &config, &results, false);
-    assert!(load_records(&coverage_state_dir(&file)).is_empty());
+    let records = load_records(&coverage_state_dir(&file));
+    assert_eq!(records.len(), 1, "a failure must record a demotion");
+    assert_eq!(records[0].level, CoverageLevel::L3);
+    assert!(!records[0].passed);
 }
 
 // ── persist_mutation_coverage writes L4 records ──
@@ -190,14 +196,19 @@ fn persist_mutation_writes_l4_when_all_detected() {
 }
 
 #[test]
-fn persist_mutation_writes_nothing_with_survivor() {
+fn persist_mutation_writes_failing_record_with_survivor() {
+    // #165: a surviving mutation now writes a failing L4 record so the latest
+    // result supersedes an earlier L4 pass.
     let dir = tempfile::tempdir().unwrap();
     let config = parse();
     let file = dir.path().join("forjar.yaml");
     let report =
         MutationReport::from_results(vec![mut_result("pkg", true), mut_result("pkg", false)]);
     persist_mutation_coverage(&file, &config, &report);
-    assert!(load_records(&coverage_state_dir(&file)).is_empty());
+    let records = load_records(&coverage_state_dir(&file));
+    assert_eq!(records.len(), 1, "a survivor must record a demotion");
+    assert_eq!(records[0].level, CoverageLevel::L4);
+    assert!(!records[0].passed);
 }
 
 // ── End-to-end: convergence then coverage read-back promotes ──
@@ -216,4 +227,38 @@ fn end_to_end_convergence_then_coverage_promotes() {
     let r = config.resources.get("pkg").unwrap();
     let level = coverage_entry("pkg", r, &config, &spec, &records).level;
     assert_eq!(level, CoverageLevel::L3);
+}
+
+#[test]
+fn end_to_end_regression_at_same_hash_demotes() {
+    // #165: a resource that passed convergence (L3) and then later FAILS at the
+    // SAME config_hash (e.g. an external dependency changed, or codegen
+    // regressed) must be demoted — the stale passing record no longer wins.
+    let dir = tempfile::tempdir().unwrap();
+    let config = parse();
+    let file = dir.path().join("forjar.yaml");
+
+    // First run: convergence passes → L3 record.
+    persist_convergence_coverage(
+        &file,
+        &config,
+        &[conv_result("pkg", true, true, true)],
+        false,
+    );
+    // Later run: convergence fails at the same (unchanged) config → demotion.
+    persist_convergence_coverage(
+        &file,
+        &config,
+        &[conv_result("pkg", false, true, false)],
+        false,
+    );
+
+    let records = load_records(&coverage_state_dir(&file));
+    let spec: HashSet<String> = HashSet::new();
+    let r = config.resources.get("pkg").unwrap();
+    let level = coverage_entry("pkg", r, &config, &spec, &records).level;
+    assert!(
+        level < CoverageLevel::L3,
+        "a regression at an unchanged config_hash must demote below L3, got {level:?}"
+    );
 }
