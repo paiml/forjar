@@ -34,6 +34,8 @@
 
 ---
 
+**Latest: v1.6.1 — on [crates.io](https://crates.io/crates/forjar).** Install via `cargo install forjar`, a prebuilt binary, or from source.
+
 Forjar is a single-binary IaC tool written in Rust. It manages bare-metal machines over SSH using YAML configs, BLAKE3 content-addressed state, and deterministic DAG execution. No cloud APIs, no runtime dependencies, no remote state backends.
 
 ```
@@ -43,9 +45,14 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 ## Features
 
 - Declarative YAML-based infrastructure provisioning
-- Content-addressed artifact store with blake3 hashing
+- Content-addressed artifact store (BLAKE3 hashing) with a 4-level purity model (Pure / Pinned / Constrained / Impure)
 - SSH-based remote execution with automatic retry
 - Drift detection and convergence verification
+- Provable convergence contracts — `idempotent-apply`, `plan-apply-equivalence`, and `destroy-undo-roundtrip` (see `forjar contracts` / `forjar prove`)
+- L0–L5 test coverage levels — `forjar test` reports per-resource coverage through L3 convergence, L4 mutation, and L5 preservation
+- Distribution-artifact generation — `forjar dist` emits a shell installer, Homebrew formula, Nix flake, cargo-binstall metadata, deb, and rpm with real checksum resolution, plus `--verify` (static installer checks) and `--verify-containers` (gnu/musl container runs)
+- age-encrypted state at rest — `forjar state-encrypt` / `state-decrypt` / `state-rekey`
+- WASM resource plugins (opt-in `--features wasm-runtime`) via `forjar plugin`
 - Pure Rust with zero C dependencies
 
 ## Why Forjar
@@ -62,8 +69,13 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 ## Quick Start
 
 ```bash
-# Install from source
-cargo install --path .
+# Install from crates.io
+cargo install forjar
+
+# ...or grab a prebuilt binary (picks the right target, verifies sha256)
+curl -fsSL https://raw.githubusercontent.com/paiml/forjar/main/install.sh | sh
+
+# ...or build from source: git clone … && cargo install --path .
 
 # Initialize a project
 forjar init my-infra && cd my-infra
@@ -327,7 +339,8 @@ Fewer than 20 direct crate dependencies (currently 17 runtime + 1 build). Single
 Verify: `cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'`
 
 ### C10: Jidoka failure isolation
-First failure stops execution. Previously converged state is preserved.
+First failure stops execution. Previously converged state is preserved. A failing `pre_apply`
+gate hook fails apply (v1.6.0) and is not retried — it never silently passes.
 Tests: `test_fj012_apply_local_file`
 
 </details>
@@ -335,7 +348,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 6295+ unit tests
+cargo test                    # 12000+ unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
@@ -352,7 +365,7 @@ cargo clippy -- -D warnings   # lint
 curl -fsSL https://raw.githubusercontent.com/paiml/forjar/main/install.sh | sh
 
 # Or manually: download, verify, extract
-VERSION=1.4.3 TARGET=x86_64-unknown-linux-gnu
+VERSION=1.6.1 TARGET=x86_64-unknown-linux-gnu
 curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz"
 curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz.sha256"
 sha256sum -c "forjar-${VERSION}-${TARGET}.tar.gz.sha256"

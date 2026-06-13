@@ -20,7 +20,7 @@ cargo fmt --check
 
 All contributions must pass:
 
-- **Tests**: `cargo test` (8000+ tests, 95%+ line coverage)
+- **Tests**: `cargo test` (12000+ tests, 95%+ line coverage)
 - **Clippy**: `cargo clippy -- -D warnings` (zero warnings)
 - **Format**: `cargo fmt --check`
 - **Deny**: `cargo deny check` (supply chain security)
