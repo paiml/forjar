@@ -45,7 +45,13 @@ pub(crate) fn run_verify(
     dist: &DistConfig,
     args: &super::commands::DistArgs,
 ) -> Result<(), String> {
-    let tmp = std::env::temp_dir().join(format!("forjar-dist-verify-{}", std::process::id()));
+    // PID alone collides across threads in one process — a concurrent
+    // caller's cleanup would delete this dir mid-verify (same race as
+    // convergence_runner, GH-141/#147). Atomic counter guarantees
+    // in-process uniqueness.
+    static VERIFY_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = VERIFY_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = std::env::temp_dir().join(format!("forjar-dist-verify-{}-{seq}", std::process::id()));
     std::fs::create_dir_all(&tmp).map_err(|e| format!("cannot create {}: {e}", tmp.display()))?;
     let result = verify_in_dir(dist, args, &tmp);
     let _ = std::fs::remove_dir_all(&tmp);
