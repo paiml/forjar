@@ -2,7 +2,26 @@
 
 ## Installation
 
-Build from source (requires Rust 1.89.0+):
+Forjar ships as a single static binary. Pick whichever method suits you.
+
+**From crates.io** (requires Rust 1.89.0+):
+
+```bash
+cargo install forjar
+```
+
+**Prebuilt binaries** (Linux x86_64/aarch64, gnu + static musl — see the
+[Releases](https://github.com/paiml/forjar/releases) page):
+
+```bash
+# One-liner installer (picks the right target, verifies sha256)
+curl -fsSL https://raw.githubusercontent.com/paiml/forjar/main/install.sh | sh
+
+# Or via cargo-binstall (downloads the same release artifacts, no compile)
+cargo binstall forjar
+```
+
+**From source** (requires Rust 1.89.0+):
 
 ```bash
 git clone https://github.com/paiml/forjar.git

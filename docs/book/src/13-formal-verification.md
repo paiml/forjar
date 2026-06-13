@@ -131,6 +131,22 @@ model proves "if handler invariant holds, then idempotency holds." The
 `debug_assert!` on `determine_present_action` catches violations of
 that invariant in every test run.
 
+## Provable Convergence Contracts
+
+The end-to-end convergence guarantees are pinned by three contract specs
+in the `contracts/` directory, each backed by a Kani harness and/or runtime
+`debug_assert!` plus regression tests (paiml/forjar#97):
+
+| Contract spec | ID | What It Guarantees |
+|---------------|----|--------------------|
+| `idempotent-apply-v1.yaml` | `F-IDEM-001` | Re-planning a fully converged lock set is a no-op (`apply(apply(s)) == apply(s)`). Bounded by Kani `proof_planner_idempotency_bounded`. |
+| `plan-apply-equivalence-v1.yaml` | `F-PAE-001` | The actions executed by `apply` are exactly the actions reported by `plan` — no hidden work, no skipped work. |
+| `destroy-undo-roundtrip-v1.yaml` | `F-UNDO-001` | `destroy` followed by `undo` restores the pre-destroy generation snapshot bit-for-bit. |
+
+Each spec carries `verification_level: L3` and points at the Kani harness and
+test functions that discharge it, so the guarantee is checked in CI rather than
+asserted in prose.
+
 ## Verification Tier Model (FJ-2203)
 
 Forjar tracks verification maturity across six tiers per critical-path function:

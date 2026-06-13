@@ -29,9 +29,9 @@ assert!(report.meets_threshold(CoverageLevel::L3));
 
 ### L3–L5 Promotion from Persisted Runs (v1.6.0)
 
-Before v1.6.0, `forjar test coverage` only reported the static L0–L2 level it could infer from the config (unit-testable, has a `.spec.yaml`, etc.). It now also **promotes** resources to L3 (convergence), L4 (mutation), and L5 (preservation).
+Before v1.6.0, `forjar test --group coverage` only reported the static L0–L2 level it could infer from the config (unit-testable, has a `.spec.yaml`, etc.). It now also **promotes** resources to L3 (convergence), L4 (mutation), and L5 (preservation).
 
-When a convergence/mutation/preservation test runs in the sandbox, its result is appended — stamped with the resource's desired-state config hash — to a `test-coverage.jsonl` log in the state directory. `forjar test coverage` reads that log back and promotes each resource to the **highest passing level whose recorded config hash still matches the resource's current desired-state hash**:
+When a convergence/mutation/preservation test runs in the sandbox, its result is appended — stamped with the resource's desired-state config hash — to a `test-coverage.jsonl` log in the state directory. `forjar test --group coverage` reads that log back and promotes each resource to the **highest passing level whose recorded config hash still matches the resource's current desired-state hash**:
 
 - A passing recorded level raises the reported level to `max(static_level, proven_level)`.
 - A resource never regresses below its static L0–L2 assessment.
