@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-06-13
+
+### Fixed — new-code audit of the v1.6.0 changes (#165)
+
+A focused audit of the ~10.6k lines merged for v1.6.0 (the fix/feature
+implementations themselves, which the original bug-hunt predated) found 9
+regressions/gaps, each double-refuted; all fixed:
+
+- **Lock-acquire livelock (regression, #169):** the v1.6.0 `O_EXCL`
+  rewrite of `acquire_process_lock` could spin at 100% CPU when a
+  stale-but-undeletable lock persisted (read-only mount / cross-UID
+  sticky-bit dir). The loop is now bounded (5 attempts, 50ms backoff) and
+  propagates a clear error instead of looping; the stale-lock reap re-reads
+  and byte-matches the dead-PID content before unlinking, so it can't
+  delete a concurrently-acquired fresh lock (TOCTOU); and the transport
+  timeout now spawns children in their own process group and kills the
+  group gated on a worker-done flag, eliminating a PID-reuse kill of an
+  unrelated process.
+- **Shell-escape gaps (#166):** the v1.6.0 escaping sweep missed
+  `mount.rs` mounted/unmounted echo labels and `file.rs` source-read /
+  unsupported-state error messages — config-derived values are now
+  escaped there too.
+- **Planner/executor (#167):** `moved:` collision checks now also run
+  *after* recipe/resource expansion (a `to` colliding with an expanded
+  recipe key was previously missed); a failing `pre_apply` hook is no
+  longer re-executed under `--retry` (the v1.6.0 Skipped→Failed change had
+  made it retryable) via a `retryable` flag on the failed outcome.
+- **Coverage demotion (#168):** L3–L5 promotion is now recency-aware —
+  a failing run at the same config hash demotes the resource (failures are
+  now persisted), instead of an old passing record surviving forever.
+- **Tier-2 verify (#168):** `--verify-containers` now honors a custom
+  `dist.checksums` filename (the offline shim previously hardcoded
+  `SHA256SUMS`, silently skipping verification for any other name).
+
 ## [1.6.0] - 2026-06-13
 
 ### Added

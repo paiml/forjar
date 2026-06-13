@@ -1594,3 +1594,22 @@ roadmap:
   estimated_effort: 1d
   labels: [sprint-2026-06, day-10, bug, feature]
   notes: 'Found by an 8-dimension adversarial bug-hunt (84 agents). Closes #154.'
+- id: PMAT-092
+  github_issue: 165
+  item_type: task
+  title: 'v1.6.1: fix 9 regressions/gaps in v1.6.0 code (new-code audit)'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-06-13T02:30:00Z
+  updated: 2026-06-13T03:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Audit of v1.6.0 fix/feature code (the implementations the original hunt predated) found 9 double-refuted defects'
+  - 'All fixed file-disjoint (PRs #166-#169): lock livelock/TOCTOU/PID-kill, shell-escape gaps, moved post-expansion, pre_apply retry, coverage demotion, Tier-2 checksum'
+  - Shipped as v1.6.1
+  phases: []
+  subtasks: []
+  estimated_effort: 0.5d
+  labels: [sprint-2026-06, day-10, bug]
+  notes: 'Standout: the #159 O_EXCL lock rewrite introduced a 100%-CPU livelock regression; caught before users hit it. Closes #165.'
