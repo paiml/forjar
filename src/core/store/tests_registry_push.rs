@@ -102,6 +102,73 @@ fn manifest_put_command_format() {
     assert!(cmd.contains("@/tmp/manifest.json"));
 }
 
+// Bug-hunt #4 (Refs #154): each push curl must gate on HTTP status, not just
+// the process exit code. `--fail-with-body` makes curl exit non-zero on HTTP
+// >= 400 (401/404/413/5xx) so a failed push is no longer reported as success.
+// Hermetic: asserts the generated command string only — no registry is hit.
+#[test]
+fn blob_upload_command_fails_on_http_error() {
+    let cmd = upload_complete_command(
+        "https://docker.io/v2/library/alpine/blobs/uploads/uuid-123",
+        "sha256:abc",
+        "/tmp/layer.tar.gz",
+    );
+    assert!(
+        cmd.contains("--fail-with-body"),
+        "blob upload PUT must use --fail-with-body to surface HTTP errors: {cmd}"
+    );
+}
+
+#[test]
+fn manifest_put_command_fails_on_http_error() {
+    let cmd = manifest_put_command("ghcr.io", "myorg/app", "v1.0", "/tmp/manifest.json");
+    assert!(
+        cmd.contains("--fail-with-body"),
+        "manifest PUT must use --fail-with-body to surface HTTP errors: {cmd}"
+    );
+}
+
+// The HEAD existence check intentionally does NOT use --fail-with-body: it
+// reads the http_code itself (a 404 is a normal "blob absent" answer, not an
+// error). Guard against accidentally breaking it.
+#[test]
+fn head_check_command_does_not_fail_on_404() {
+    let cmd = head_check_command("ghcr.io", "myorg/app", "sha256:abc123");
+    assert!(!cmd.contains("--fail"));
+    assert!(cmd.contains("%{http_code}"));
+}
+
+// Bug-hunt #4 (Refs #154): assert the *actual* argv used by the push functions
+// (push_blob_monolithic / push_manifest) carries --fail-with-body, so a
+// regression in the real code path — not just the doc-string builder — is
+// caught. Hermetic: only the argv vector is inspected, no curl is run.
+#[test]
+fn monolithic_put_argv_uses_fail_with_body() {
+    let args = monolithic_put_args(
+        "https://docker.io/v2/library/alpine/blobs/uploads/uuid-123",
+        "sha256:abc",
+        "/tmp/layer.tar.gz",
+    );
+    assert!(args.iter().any(|a| a == "--fail-with-body"));
+    assert!(args.iter().any(|a| a == "PUT"));
+    assert!(args.iter().any(|a| a.contains("digest=sha256:abc")));
+    assert!(args.iter().any(|a| a == "@/tmp/layer.tar.gz"));
+}
+
+#[test]
+fn manifest_put_argv_uses_fail_with_body() {
+    let args = manifest_put_args(
+        r#"{"schemaVersion":2}"#,
+        "https://ghcr.io/v2/myorg/app/manifests/v1.0",
+    );
+    assert!(args.iter().any(|a| a == "--fail-with-body"));
+    assert!(args.iter().any(|a| a == "PUT"));
+    assert!(args
+        .iter()
+        .any(|a| a.contains("application/vnd.oci.image.manifest.v1+json")));
+    assert!(args.iter().any(|a| a.contains("/manifests/v1.0")));
+}
+
 #[test]
 fn parse_location_header_found() {
     let headers = "HTTP/1.1 202 Accepted\r\n\

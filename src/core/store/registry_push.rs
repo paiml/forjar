@@ -71,17 +71,19 @@ pub fn upload_initiate_command(registry: &str, name: &str) -> String {
 }
 
 /// Generate the curl command for completing a blob upload.
+/// `--fail-with-body`: see [`monolithic_put_args`] (Bug-hunt #4, Refs #154).
 pub fn upload_complete_command(upload_url: &str, digest: &str, blob_path: &str) -> String {
     format!(
-        "curl -s -X PUT -H 'Content-Type: application/octet-stream' \
+        "curl -s --fail-with-body -X PUT -H 'Content-Type: application/octet-stream' \
          --data-binary '@{blob_path}' '{upload_url}?digest={digest}'"
     )
 }
 
 /// Generate the curl command for pushing a manifest.
+/// `--fail-with-body`: see [`manifest_put_args`] (Bug-hunt #4, Refs #154).
 pub fn manifest_put_command(registry: &str, name: &str, tag: &str, manifest_path: &str) -> String {
     format!(
-        "curl -s -X PUT -H 'Content-Type: application/vnd.oci.image.manifest.v1+json' \
+        "curl -s --fail-with-body -X PUT -H 'Content-Type: application/vnd.oci.image.manifest.v1+json' \
          --data-binary '@{manifest_path}' 'https://{registry}/v2/{name}/manifests/{tag}'"
     )
 }
@@ -152,30 +154,56 @@ fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
         .ok_or_else(|| "no Location header in upload response".to_string())
 }
 
+/// Build the curl argv for a monolithic blob PUT. Bug-hunt #4 (Refs #154):
+/// `--fail-with-body` makes curl exit non-zero on HTTP >= 400 (401/404/413/5xx)
+/// — without it a failed PUT was reported as a successful push while the
+/// registry stored nothing. Extracted so the flag is unit-testable (no network).
+pub(crate) fn monolithic_put_args(upload_url: &str, digest: &str, blob_path: &str) -> Vec<String> {
+    vec![
+        "-s".into(),
+        "--fail-with-body".into(),
+        "-X".into(),
+        "PUT".into(),
+        "-H".into(),
+        "Content-Type: application/octet-stream".into(),
+        "--data-binary".into(),
+        format!("@{blob_path}"),
+        format!("{upload_url}?digest={digest}"),
+    ]
+}
+
 /// Monolithic PUT upload for small blobs (< 64 MB).
 fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
     let blob_path = blob.path.display().to_string();
+    let args = monolithic_put_args(upload_url, &blob.digest, &blob_path);
     let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-X",
-            "PUT",
-            "-H",
-            "Content-Type: application/octet-stream",
-            "--data-binary",
-            &format!("@{blob_path}"),
-            &format!("{upload_url}?digest={}", blob.digest),
-        ])
+        .args(&args)
         .output()
         .map_err(|e| format!("blob upload complete: {e}"))?;
 
     if !output.status.success() {
         return Err(format!(
-            "blob upload failed: {}",
-            String::from_utf8_lossy(&output.stderr)
+            "blob upload failed (HTTP error): {}",
+            curl_error_detail(&output)
         ));
     }
     Ok(())
+}
+
+/// Compose curl failure detail. With `--fail-with-body` curl prints the HTTP
+/// response body to stdout on a >= 400 status; stderr carries transport-level
+/// diagnostics. Surface both so the registry error (401 token, 413, …) shows.
+fn curl_error_detail(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let body = stdout.trim();
+    let err = stderr.trim();
+    match (body.is_empty(), err.is_empty()) {
+        (false, false) => format!("{err}: {body}"),
+        (false, true) => body.to_string(),
+        (true, false) => err.to_string(),
+        (true, true) => "no response body".to_string(),
+    }
 }
 
 /// E14: Chunked PATCH upload for large blobs (>= 64 MB).
@@ -196,6 +224,7 @@ pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Resu
         let output = std::process::Command::new("curl")
             .args([
                 "-s",
+                "--fail-with-body", // Bug-hunt #4 (Refs #154): gate on HTTP status.
                 "-X",
                 "PATCH",
                 "-D",
@@ -217,8 +246,8 @@ pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Resu
 
         if !output.status.success() {
             return Err(format!(
-                "chunked upload failed at range {range}: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "chunked upload failed at range {range} (HTTP error): {}",
+                curl_error_detail(&output)
             ));
         }
 
@@ -235,6 +264,7 @@ pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Resu
     let output = std::process::Command::new("curl")
         .args([
             "-s",
+            "--fail-with-body", // Bug-hunt #4 (Refs #154): gate on HTTP status.
             "-X",
             "PUT",
             "-H",
@@ -246,11 +276,28 @@ pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Resu
 
     if !output.status.success() {
         return Err(format!(
-            "chunked upload finalize failed: {}",
-            String::from_utf8_lossy(&output.stderr)
+            "chunked upload finalize failed (HTTP error): {}",
+            curl_error_detail(&output)
         ));
     }
     Ok(())
+}
+
+/// Build the curl argv for a manifest PUT. `--fail-with-body`: see
+/// [`monolithic_put_args`] (Bug-hunt #4, Refs #154) — the manifest PUT is the
+/// final, release-critical step, so a silent 401/404/5xx here is the worst case.
+pub(crate) fn manifest_put_args(manifest_json: &str, url: &str) -> Vec<String> {
+    vec![
+        "-s".into(),
+        "--fail-with-body".into(),
+        "-X".into(),
+        "PUT".into(),
+        "-H".into(),
+        "Content-Type: application/vnd.oci.image.manifest.v1+json".into(),
+        "-d".into(),
+        manifest_json.into(),
+        url.into(),
+    ]
 }
 
 /// Push a manifest to the registry.
@@ -263,27 +310,20 @@ pub fn push_manifest(
 ) -> Result<PushResult, String> {
     let start = Instant::now();
 
+    let url = format!(
+        "https://{}/v2/{}/manifests/{}",
+        config.registry, config.name, config.tag
+    );
+    let args = manifest_put_args(manifest_json, &url);
     let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-X",
-            "PUT",
-            "-H",
-            "Content-Type: application/vnd.oci.image.manifest.v1+json",
-            "-d",
-            manifest_json,
-            &format!(
-                "https://{}/v2/{}/manifests/{}",
-                config.registry, config.name, config.tag
-            ),
-        ])
+        .args(&args)
         .output()
         .map_err(|e| format!("manifest push: {e}"))?;
 
     if !output.status.success() {
         return Err(format!(
-            "manifest push failed: {}",
-            String::from_utf8_lossy(&output.stderr)
+            "manifest push failed (HTTP error): {}",
+            curl_error_detail(&output)
         ));
     }
 
@@ -422,59 +462,7 @@ pub(crate) fn parse_location_header(headers: &str) -> Option<String> {
     None
 }
 
-/// Validate a registry push config.
-pub fn validate_push_config(config: &RegistryPushConfig) -> Vec<String> {
-    let mut errors = Vec::new();
-    if config.registry.is_empty() {
-        errors.push("registry hostname is required".into());
-    }
-    if config.name.is_empty() {
-        errors.push("image name is required".into());
-    }
-    if config.tag.is_empty() {
-        errors.push("image tag is required".into());
-    }
-    if config.registry.contains("://") {
-        errors.push("registry should be hostname only, not a URL".into());
-    }
-    errors
-}
-
-/// Format a push summary for CLI output.
-pub fn format_push_summary(results: &[PushResult]) -> String {
-    let mut out = String::new();
-    let uploaded: Vec<_> = results.iter().filter(|r| !r.existed).collect();
-    let skipped: Vec<_> = results.iter().filter(|r| r.existed).collect();
-
-    out.push_str(&format!(
-        "Push complete: {} uploaded, {} skipped (already exist)\n",
-        uploaded.len(),
-        skipped.len(),
-    ));
-
-    let total_bytes: u64 = uploaded.iter().map(|r| r.size).sum();
-    let total_secs: f64 = uploaded.iter().map(|r| r.duration_secs).sum();
-    if !uploaded.is_empty() {
-        out.push_str(&format!(
-            "  Uploaded {:.1} MB in {:.1}s\n",
-            total_bytes as f64 / (1024.0 * 1024.0),
-            total_secs,
-        ));
-    }
-
-    for r in results {
-        let status = if r.existed { "skip" } else { "push" };
-        let kind = match r.kind {
-            PushKind::Layer => "layer",
-            PushKind::Config => "config",
-            PushKind::Manifest => "manifest",
-            PushKind::Index => "index",
-        };
-        out.push_str(&format!(
-            "  [{status}] {kind}: {} ({} bytes)\n",
-            r.digest, r.size
-        ));
-    }
-
-    out
-}
+// `validate_push_config` and `format_push_summary` live in `registry_push_fmt`
+// (split out to keep this file under the 500-line health limit). Re-exported so
+// existing `super::registry_push::*` callers keep working unchanged.
+pub use super::registry_push_fmt::{format_push_summary, validate_push_config};

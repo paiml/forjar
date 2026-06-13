@@ -42,6 +42,7 @@ pub mod purity;
 pub mod query;
 pub mod reference;
 pub mod registry_push;
+pub mod registry_push_fmt;
 pub mod repro_score;
 pub mod sandbox;
 pub mod sandbox_exec;

@@ -200,17 +200,23 @@ fn execute_resource(
     let resource_start = Instant::now();
 
     // FJ-265: pre_apply hook
+    // Bug-hunt #3 (Refs #154): a failing pre_apply hook must surface as a real
+    // Failed outcome (propagating jidoka's should_stop), NOT Skipped. Returning
+    // Skipped here is a no-op in MachineCounters::record, so the sequential /
+    // single-resource-wave path left counters.failed == 0 → apply exited 0
+    // reporting success, rollback was skipped, and dependents ran as if the
+    // prerequisite had succeeded. Mirror the post_apply branch below.
     if let Some(ref pre_hook) = resolved.pre_apply {
         if let Some(error) = run_pre_apply_hook(machine, pre_hook, ctx.timeout_secs) {
             let duration = resource_start.elapsed().as_secs_f64();
-            record_failure(
+            let should_stop = record_failure(
                 ctx,
                 &change.resource_id,
                 &resource.resource_type,
                 duration,
                 &error,
             );
-            return Ok(ResourceOutcome::Skipped);
+            return Ok(ResourceOutcome::Failed { should_stop });
         }
     }
 
