@@ -1130,21 +1130,22 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-3600: Distribution artifact generation (forjar dist)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-10T15:53:58Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T12:00:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - Phases A-C are implemented (generators, dist parsing, CLI flags) — remaining work tracked in PMAT-080/081/082
   - Homebrew/Nix artifacts contain real checksums and versions, never PLACEHOLDER_CHECKSUM/VERSION (F-3608, PMAT-080)
   - forjar dist --verify implements Phase D Tier 1 static verification (F-3609, PMAT-082)
+  - forjar dist --verify-containers implements Phase D Tier 2 container execution (ubuntu/gnu + alpine/musl installer runs, F-3601)
   - Spec status header reflects per-phase reality instead of PROPOSED (PMAT-084)
   phases: []
   subtasks: []
   estimated_effort: null
-  notes: 'Subsumed by 10-day sprint items PMAT-080..PMAT-084 (2026-06-12 analysis: phases A-C verified shipped, Phase B checksum resolution + Phase D verify outstanding).'
+  notes: 'COMPLETED 2026-06-13: all phases shipped. Phases A-C (PMAT-080/081/083/084) + Phase D Tier 1 static verify (PMAT-082, #146) + Phase D Tier 2 container execution (feat/dist-verify-tier2): `--verify-containers` runs the generated installer in ubuntu (gnu) and alpine (musl) containers OFFLINE against a locally-staged tarball (real sha256 verified, real tar extract, install to install_dir, version_cmd run), reusing convergence_container::detect_container_runtime + transport::write_stdin_or_reap. Degrades to a clean skip when no Docker. Container-spawning tests are ignored-in-CI (proxied clean-room HANGS on docker/network — same constraint as PR #153 OCI tests); orchestration is unit-tested hermetically. Live github.com fetch + latest-tag resolution are exercised by the release pipeline, not unit CI.'
   labels: []
 - id: GH-129
   github_issue: 129
@@ -1541,11 +1542,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'REL-7: Tag v1.5.1 — quality/docs patch (crates.io publish deferred to Friday 2026-06-26)'
-  status: pending
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T12:00:00Z
+  updated: 2026-06-13T12:00:00Z
   spec: null
   acceptance_criteria:
   - v1.5.1 tagged after TDG-1/COV-1/DOCS-1 merge; GitHub release green with full asset set
@@ -1554,7 +1555,7 @@ roadmap:
   subtasks: []
   estimated_effort: 0.25d
   labels: [sprint-2026-06, day-10, release]
-  notes: 'Sprint exit: 4 GitHub tagged releases (v1.4.3, v1.4.4, v1.5.0, v1.5.1), 1 crates.io publish (v1.5.0).'
+  notes: 'superseded — v1.5.1 folded into v1.6.0 (single minor release). The separate v1.5.1 quality/docs patch tag was not cut; its TDG-1/COV-1/DOCS-1 content shipped as part of the v1.6.0 minor release instead of a standalone v1.5.1 point release.'
 - id: PMAT-090
   github_issue: 134
   item_type: task

@@ -61,6 +61,8 @@ pub mod dist_generators_b;
 mod dist_homebrew;
 mod dist_schema;
 pub mod dist_verify;
+mod dist_verify_tier2;
+mod dist_verify_tier2_stage;
 mod doctor;
 mod drift;
 mod drift_predict;

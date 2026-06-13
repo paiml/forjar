@@ -24,6 +24,13 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     // generating artifacts with broken empty-repo github.com URLs.
     super::dist_verify::validate_dist_source(dist)?;
 
+    // FJ-3607 Tier 2: --verify-containers runs the generated installer in
+    // ubuntu+alpine containers (implies Tier 1). Degrades to a clean skip
+    // when no container runtime is available.
+    if args.verify_containers {
+        return super::dist_verify_tier2::run_verify_containers(dist, args);
+    }
+
     // PMAT-082/FJ-3607 Tier 1: --verify generates to a temp dir and
     // statically verifies instead of writing artifacts.
     if args.verify {
@@ -411,6 +418,7 @@ mod tests {
             rpm: false,
             all: false,
             verify: false,
+            verify_containers: false,
             version: None,
             checksums_file: None,
             output: None,

@@ -49,6 +49,14 @@ pub struct DistArgs {
     #[arg(long)]
     pub verify: bool,
 
+    /// FJ-3607 Tier 2: actually RUN the generated installer in ubuntu
+    /// (gnu) and alpine (musl) containers against a locally-staged
+    /// tarball, asserting the binary lands in install_dir and
+    /// version_cmd succeeds. Requires Docker/Podman; degrades to a clean
+    /// skip when no container runtime is available. Implies --verify.
+    #[arg(long)]
+    pub verify_containers: bool,
+
     /// Release tag to pin (e.g., v1.4.3) — required for artifacts that
     /// embed real checksums (--homebrew, --nix)
     #[arg(long, value_name = "TAG")]

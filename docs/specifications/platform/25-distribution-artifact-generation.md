@@ -2,7 +2,7 @@
 
 > Generate install scripts, package manifests, and registry metadata for any forjar-managed binary.
 
-**Spec IDs**: FJ-3600 (dist command family) | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md) | **Status**: IMPLEMENTED (Phases A–C, Phase D Tier 1) — Tier 2 container verification PENDING
+**Spec IDs**: FJ-3600 (dist command family) | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md) | **Status**: IMPLEMENTED (Phases A–C, Phase D Tier 1 + Tier 2 installer-run verification)
 
 **Per-phase status** (PMAT-084 reconciliation, 2026-06-13):
 
@@ -12,7 +12,7 @@
 | B | `--homebrew`, `--binstall`, `--nix`; real checksum/version resolution via `--version`/`--checksums-file` (#139) | IMPLEMENTED |
 | C | `--github-action`, `--deb`, `--rpm`, `--all`, `--output-dir`, `--json` | IMPLEMENTED |
 | D Tier 1 | `--verify` static verification: `sh -n`, in-process bashrs lint, required snippets, download-URL structure (F-3609; PMAT-082) | IMPLEMENTED |
-| D Tier 2 | Container-based execution (alpine/ubuntu installer runs, brew/nix builds, `act` dry-run) | PENDING |
+| D Tier 2 | `--verify-containers` runs the generated installer in ubuntu (gnu) + alpine (musl) containers, OFFLINE against a locally-staged tarball (real sha256, tar extract, install, version_cmd). Container-execution tests are ignored-in-CI (proxied clean-room hangs on docker/network); brew/nix builds + `act` dry-run remain follow-ons. | IMPLEMENTED |
 
 Only `source: github_release` is implemented — `local`/`url`/`s3` are rejected with a clear error (PMAT-081).
 
@@ -427,24 +427,50 @@ verifies the installer (`src/cli/dist_verify.rs`):
    (F-3609: a broken asset template or malformed repo slug fails with a
    non-zero exit and a message naming the problem)
 
-### Tier 2 — container-based execution (PENDING)
+### Tier 2 — container-based execution (IMPLEMENTED for `install.sh`)
 
-Runs each generated artifact in a container to verify it works:
+`--verify-containers` actually RUNS the generated installer in a
+container (it implies Tier 1, so the static checks run first). It reuses
+the convergence/mutation container sandbox infrastructure
+(`core::store::convergence_container::detect_container_runtime`,
+`transport::write_stdin_or_reap`) rather than hand-rolling docker calls.
 
-| Artifact | Verification |
-|----------|-------------|
-| `install.sh` | Run in `alpine:latest` and `ubuntu:latest` containers |
-| Homebrew formula | `brew install --build-from-source` in Homebrew container |
-| Nix flake | `nix build` in NixOS container |
-| GitHub Action | Dry-run with `act` |
-| `.deb` | `dpkg -i` in Debian container |
-| `.rpm` | `rpm -i` in Fedora container |
+| Artifact | Verification | Status |
+|----------|-------------|--------|
+| `install.sh` | Run in `ubuntu:latest` (gnu) and `alpine:latest` (musl) containers | IMPLEMENTED |
+| Homebrew formula | `brew install --build-from-source` in Homebrew container | follow-on |
+| Nix flake | `nix build` in NixOS container | follow-on |
+| GitHub Action | Dry-run with `act` | follow-on |
+| `.deb` | `dpkg -i` in Debian container | follow-on |
+| `.rpm` | `rpm -i` in Fedora container | follow-on |
 
-Each verification checks:
-1. Install completes without error
-2. `binary --version` runs successfully
-3. Binary is on `$PATH`
-4. Checksum matches expected value
+The `install.sh` run checks, per container:
+1. Install completes without error (`detect_os`/`detect_arch`/`detect_libc`
+   pick the right target; `resolve_asset` expands `{version}`)
+2. Checksum verification passes against a real sha256 (`verify_checksum`)
+3. `tar xzf` extracts the release directory layout
+4. The binary lands in `install_dir`
+5. `version_cmd` runs the installed binary successfully
+
+**Offline by design (what Tier 2 verifies vs. defers).** Reaching
+`github.com` from inside the proxied clean-room containers is unreliable
+— the HTTP proxy stalls release downloads (the same reason PR #153's OCI
+tests are `#[ignore]`d). So `--verify-containers` runs the installer
+OFFLINE against a locally-staged `.tar.gz` (built on the host with the
+real release directory layout and a stub binary, served to the installer
+by overriding its `download`/`download_file`/`resolve_version` shell
+functions). This exercises the entire installer except the live network
+fetch. The live `github.com` fetch and `releases/latest` tag resolution
+are DEFERRED to the release-workflow integration; Tier 1's URL-structure
+check already guards the URL shape.
+
+**CI-safety / graceful degradation.** When no container runtime is
+present, `--verify-containers` prints `Docker not available — Tier 2
+skipped` and exits 0 (safe in Docker-less CI). The container-spawning
+tests are ignored-in-CI and runnable locally via
+`cargo test -- --ignored`; the orchestration logic (target selection,
+harness construction, result parsing, docker-absent degradation) is
+unit-tested hermetically without spawning containers.
 
 ---
 
@@ -540,11 +566,21 @@ Per Popper (1959), the following must hold or the feature is measuring the wrong
 11. Implement `--deb` and `--rpm` spec generation — DONE
 12. Full `--all` and `--output-dir` support — DONE
 
-### Phase D: Verification (FJ-3607) — Tier 1 IMPLEMENTED, Tier 2 PENDING
+### Phase D: Verification (FJ-3607) — Tier 1 + Tier 2 IMPLEMENTED
 
-13. Container-based verification for each artifact type — PENDING (Tier 2)
-14. Integration with release workflow — PENDING (Tier 2)
-15. `--verify` runs all applicable checks — DONE for Tier 1 static checks (`sh -n`, in-process bashrs lint, snippet presence, URL structure; F-3609, PMAT-082)
+13. Container-based verification of the `install.sh` artifact — DONE
+    (`--verify-containers`: ubuntu/gnu + alpine/musl installer runs,
+    OFFLINE against a locally-staged tarball; `src/cli/dist_verify_tier2.rs`
+    + `dist_verify_tier2_stage.rs`). brew/nix/deb/rpm/`act` container runs
+    remain follow-ons.
+14. Integration with release workflow — the offline installer-run is
+    wired into `--verify-containers`; the LIVE github.com fetch +
+    `releases/latest` resolution are exercised by the release pipeline
+    (deferred from unit CI because the proxied clean-room hangs on network).
+15. `--verify` (Tier 1) and `--verify-containers` (Tier 2) run all
+    applicable checks — Tier 1: `sh -n`, in-process bashrs lint, snippet
+    presence, URL structure (F-3609, PMAT-082); Tier 2: actual installer
+    execution (F-3601).
 
 ---
 

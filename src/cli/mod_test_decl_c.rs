@@ -132,3 +132,5 @@ mod tests_cov_infra_dispatch2;
 mod tests_cov_check_blocks;
 #[cfg(test)]
 mod tests_preflight_ssh_cov;
+#[cfg(test)]
+mod tests_dist_verify_tier2;
