@@ -154,6 +154,25 @@ fn evaluate_policy_gate(config_file: &Path) -> GateResult {
     }
 }
 
+/// Outcome of probing `cargo llvm-cov`.
+///
+/// Bug-hunt #5 (Refs #154): the old `run_llvm_cov() -> Option<String>` collapsed
+/// two very different situations into `None` — (a) the tool is not installed
+/// (spawn/ENOENT failure) and (b) the tool ran but exited non-zero because the
+/// build or tests actually failed. `evaluate_coverage_gate_inner` then treated
+/// any `None` as an advisory PASS, so a broken build silently passed the gate.
+/// Keeping them distinct lets the gate advisory-pass only when coverage is
+/// genuinely unavailable, and FAIL when the present tool reported failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CovProbe {
+    /// Tool could not be spawned (not installed) — advisory pass.
+    Unavailable,
+    /// Tool ran and exited 0; carries stdout for coverage parsing.
+    Ran(String),
+    /// Tool ran but exited non-zero (build/test failure) — gate failure.
+    Failed { code: Option<i32> },
+}
+
 /// Coverage gate: checks minimum test coverage threshold.
 ///
 /// Attempts to parse coverage from `cargo llvm-cov --summary-only`.
@@ -163,44 +182,91 @@ fn evaluate_coverage_gate(min_coverage: u32) -> GateResult {
 }
 
 /// Inner coverage gate logic, injectable for testing.
-fn evaluate_coverage_gate_inner(min_coverage: u32, runner: fn() -> Option<String>) -> GateResult {
-    let output = runner();
-    match output.and_then(|s| parse_coverage_from_output(&s)) {
-        Some(actual) => {
-            if actual >= min_coverage as f64 {
-                GateResult {
-                    gate_type: "coverage".into(),
-                    passed: true,
-                    message: format!("coverage {actual:.1}% >= {min_coverage}%"),
-                }
-            } else {
-                GateResult {
-                    gate_type: "coverage".into(),
-                    passed: false,
-                    message: format!("coverage {actual:.1}% < {min_coverage}% required"),
-                }
-            }
-        }
-        None => GateResult {
-            gate_type: "coverage".into(),
-            passed: true,
-            message: format!(
-                "coverage gate: minimum {min_coverage}% (advisory — llvm-cov not available)"
-            ),
+fn evaluate_coverage_gate_inner(min_coverage: u32, runner: fn() -> CovProbe) -> GateResult {
+    match runner() {
+        CovProbe::Ran(stdout) => match parse_coverage_from_output(&stdout) {
+            Some(actual) => coverage_threshold_result(actual, min_coverage),
+            // Tool ran cleanly but no TOTAL line — treat as advisory.
+            None => coverage_advisory_result(min_coverage),
         },
+        // Bug-hunt #5 (Refs #154): tool present but exited non-zero ⇒ a real
+        // failure signal (broken build / failing tests). Fail the gate instead
+        // of vacuously passing it.
+        CovProbe::Failed { code } => GateResult {
+            gate_type: "coverage".into(),
+            passed: false,
+            message: match code {
+                Some(c) => format!("coverage gate failed: cargo llvm-cov exited with code {c}"),
+                None => "coverage gate failed: cargo llvm-cov terminated by signal".into(),
+            },
+        },
+        CovProbe::Unavailable => coverage_advisory_result(min_coverage),
     }
 }
 
-/// Run `cargo llvm-cov --summary-only` and return stdout.
-fn run_llvm_cov() -> Option<String> {
-    let output = std::process::Command::new("cargo")
-        .args(["llvm-cov", "--summary-only"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
+/// Build a pass/fail GateResult from a parsed coverage percentage.
+fn coverage_threshold_result(actual: f64, min_coverage: u32) -> GateResult {
+    if actual >= min_coverage as f64 {
+        GateResult {
+            gate_type: "coverage".into(),
+            passed: true,
+            message: format!("coverage {actual:.1}% >= {min_coverage}%"),
+        }
+    } else {
+        GateResult {
+            gate_type: "coverage".into(),
+            passed: false,
+            message: format!("coverage {actual:.1}% < {min_coverage}% required"),
+        }
     }
-    Some(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+/// Advisory pass used only when coverage is genuinely unavailable.
+fn coverage_advisory_result(min_coverage: u32) -> GateResult {
+    GateResult {
+        gate_type: "coverage".into(),
+        passed: true,
+        message: format!(
+            "coverage gate: minimum {min_coverage}% (advisory — llvm-cov not available)"
+        ),
+    }
+}
+
+/// Run `cargo llvm-cov --summary-only`, distinguishing absence from failure.
+fn run_llvm_cov() -> CovProbe {
+    classify_llvm_cov(
+        std::process::Command::new("cargo")
+            .args(["llvm-cov", "--summary-only"])
+            .output(),
+    )
+}
+
+/// Map a spawn `Result` into a [`CovProbe`] by decomposing the `Output` and
+/// delegating the actual decision to the pure [`classify_exit`] helper.
+fn classify_llvm_cov(spawn: std::io::Result<std::process::Output>) -> CovProbe {
+    match spawn {
+        Err(_) => CovProbe::Unavailable,
+        Ok(output) => classify_exit(
+            output.status.success(),
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout).to_string(),
+        ),
+    }
+}
+
+/// Pure spawn-vs-exit decision over an already-spawned process's result.
+///
+/// Bug-hunt #5 (Refs #154): factored out so it can be unit-tested without
+/// invoking any tool or spawning a subprocess (hermetic, no loopback shell).
+/// A clean exit (`success`) yields `Ran(stdout)` for coverage parsing; a
+/// present tool that exited non-zero yields `Failed` (gate failure). Spawn
+/// failure (tool absent) is handled by the caller as `Unavailable`.
+fn classify_exit(success: bool, code: Option<i32>, stdout: String) -> CovProbe {
+    if success {
+        CovProbe::Ran(stdout)
+    } else {
+        CovProbe::Failed { code }
+    }
 }
 
 /// Parse line coverage percentage from llvm-cov summary output.
@@ -250,191 +316,9 @@ fn evaluate_script_gate(script: &str) -> GateResult {
     }
 }
 
+// Tests live in `promotion_tests.rs` (split out to keep this file under the
+// 500-line health limit). Included as a `#[path]` child `mod tests` so they
+// retain access to the module's private gate helpers (`classify_exit`, etc.).
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::types::environment::*;
-    use tempfile::TempDir;
-
-    fn write_valid_config(dir: &Path) -> std::path::PathBuf {
-        let path = dir.join("forjar.yaml");
-        std::fs::write(
-            &path,
-            r#"
-version: "1.0"
-name: test
-machines:
-  m1:
-    hostname: m1
-    addr: 127.0.0.1
-resources:
-  pkg:
-    type: package
-    machine: m1
-    provider: apt
-    packages: [curl]
-"#,
-        )
-        .unwrap();
-        path
-    }
-
-    #[test]
-    fn validate_gate_passes() {
-        let dir = TempDir::new().unwrap();
-        let cfg = write_valid_config(dir.path());
-        let result = evaluate_validate_gate(&cfg, false);
-        assert!(result.passed, "gate failed: {}", result.message);
-        assert_eq!(result.gate_type, "validate");
-    }
-
-    #[test]
-    fn validate_gate_fails() {
-        let dir = TempDir::new().unwrap();
-        let cfg = dir.path().join("forjar.yaml");
-        std::fs::write(&cfg, "invalid: yaml: [").unwrap();
-        let result = evaluate_validate_gate(&cfg, false);
-        assert!(!result.passed);
-    }
-
-    #[test]
-    fn policy_gate_no_policies() {
-        let dir = TempDir::new().unwrap();
-        let cfg = write_valid_config(dir.path());
-        let result = evaluate_policy_gate(&cfg);
-        assert!(result.passed);
-    }
-
-    #[test]
-    fn script_gate_passes() {
-        let result = evaluate_script_gate("true");
-        assert!(result.passed);
-        assert_eq!(result.gate_type, "script");
-    }
-
-    #[test]
-    fn script_gate_fails() {
-        let result = evaluate_script_gate("false");
-        assert!(!result.passed);
-    }
-
-    #[test]
-    fn coverage_gate_advisory_no_tool() {
-        fn no_tool() -> Option<String> {
-            None
-        }
-        let result = evaluate_coverage_gate_inner(95, no_tool);
-        assert!(result.passed);
-        assert!(result.message.contains("95%"));
-        assert!(result.message.contains("advisory"));
-    }
-
-    #[test]
-    fn coverage_gate_passes_threshold() {
-        fn mock_output() -> Option<String> {
-            Some("  TOTAL                          1234   1111   96.5%\n".into())
-        }
-        let result = evaluate_coverage_gate_inner(95, mock_output);
-        assert!(result.passed);
-        assert!(result.message.contains("96.5%"));
-    }
-
-    #[test]
-    fn coverage_gate_fails_threshold() {
-        fn mock_output() -> Option<String> {
-            Some("  TOTAL                          1234   900   72.9%\n".into())
-        }
-        let result = evaluate_coverage_gate_inner(95, mock_output);
-        assert!(!result.passed);
-        assert!(result.message.contains("72.9%"));
-        assert!(result.message.contains("95%"));
-    }
-
-    #[test]
-    fn parse_coverage_from_llvm_output() {
-        let output = r#"
-Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
----
-  TOTAL                          5432           432    92.0%        1234            56    95.5%       18234          912    95.0%         0             0         -
-"#;
-        let pct = parse_coverage_from_output(output);
-        assert!(pct.is_some());
-        // Last percentage on TOTAL line
-    }
-
-    #[test]
-    fn parse_coverage_no_total_line() {
-        let pct = parse_coverage_from_output("no total here\n");
-        assert!(pct.is_none());
-    }
-
-    #[test]
-    fn evaluate_all_gates() {
-        let dir = TempDir::new().unwrap();
-        let cfg = write_valid_config(dir.path());
-        let promotion = PromotionConfig {
-            from: "dev".into(),
-            gates: vec![
-                PromotionGate {
-                    validate: Some(ValidateGateOptions {
-                        deep: false,
-                        exhaustive: false,
-                    }),
-                    ..Default::default()
-                },
-                PromotionGate {
-                    script: Some("true".into()),
-                    ..Default::default()
-                },
-            ],
-            auto_approve: false,
-            rollout: None,
-        };
-
-        let result = evaluate_gates(&cfg, "staging", &promotion);
-        assert_eq!(result.from, "dev");
-        assert_eq!(result.to, "staging");
-        assert_eq!(result.gates.len(), 2);
-        assert!(result.all_passed);
-        assert_eq!(result.passed_count(), 2);
-        assert_eq!(result.failed_count(), 0);
-    }
-
-    #[test]
-    fn evaluate_gates_with_failure() {
-        let dir = TempDir::new().unwrap();
-        let cfg = write_valid_config(dir.path());
-        let promotion = PromotionConfig {
-            from: "dev".into(),
-            gates: vec![
-                PromotionGate {
-                    validate: Some(ValidateGateOptions {
-                        deep: false,
-                        exhaustive: false,
-                    }),
-                    ..Default::default()
-                },
-                PromotionGate {
-                    script: Some("false".into()),
-                    ..Default::default()
-                },
-            ],
-            auto_approve: true,
-            rollout: None,
-        };
-
-        let result = evaluate_gates(&cfg, "prod", &promotion);
-        assert!(!result.all_passed);
-        assert_eq!(result.failed_count(), 1);
-        assert!(result.auto_approve);
-    }
-
-    #[test]
-    fn unknown_gate_type() {
-        let dir = TempDir::new().unwrap();
-        let cfg = write_valid_config(dir.path());
-        let result = evaluate_single_gate(&cfg, &PromotionGate::default());
-        assert!(!result.passed);
-        assert_eq!(result.gate_type, "unknown");
-    }
-}
+#[path = "promotion_tests.rs"]
+mod tests;
