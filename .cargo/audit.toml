@@ -19,4 +19,5 @@ ignore = [
     "RUSTSEC-2026-0002",  # lru 0.12.5: transitive via ratatui pins 0.12
     "RUSTSEC-2026-0097",  # rustls-webpki: transitive via rustls, same class as -0104
     "RUSTSEC-2026-0104",  # rustls-webpki 0.103.12: reachable panic in CRL parsing, transitive
+    "RUSTSEC-2026-0173",  # proc-macro-error2: unmaintained, transitive via i18n-embed-fl/age, no drop-in replacement
 ]

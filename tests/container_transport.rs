@@ -45,7 +45,7 @@ fn test_container_lifecycle() {
     container::ensure_container(&machine).expect("ensure_container failed");
 
     // Execute a simple script
-    let out = container::exec_container(&machine, "echo hello-from-container")
+    let out = container::exec_container(&machine, "echo hello-from-container", None)
         .expect("exec_container failed");
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "hello-from-container");
@@ -100,7 +100,7 @@ fn test_container_idempotent_ensure() {
     container::ensure_container(&machine).expect("second ensure failed");
 
     // Still works
-    let out = container::exec_container(&machine, "echo ok").expect("exec failed");
+    let out = container::exec_container(&machine, "echo ok", None).expect("exec failed");
     assert!(out.success());
 
     container::cleanup_container(&machine).expect("cleanup failed");
