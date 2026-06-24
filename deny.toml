@@ -52,6 +52,16 @@ allow = ["bzip2-1.0.6"]
 multiple-versions = "warn"
 wildcards = "deny"
 highlight = "all"
+# Scoped skip (PMAT-147): thiserror 1.x is hard-pinned by pforge-config /
+# pforge-runtime 0.1.4 (their only reverse deps), while the rest of the tree
+# resolves thiserror 2.x. There is no newer pforge release to bump to, so the
+# v1/v2 duplicate is unavoidable until pforge ships a thiserror-2 build.
+# REMOVE this skip once pforge depends on thiserror 2 — re-run
+# `cargo tree -i thiserror@1` to confirm pforge is the sole holdout.
+skip = [
+    { name = "thiserror", version = "=1.0.69" },
+    { name = "thiserror-impl", version = "=1.0.69" },
+]
 
 [sources]
 unknown-registry = "deny"
