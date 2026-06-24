@@ -84,8 +84,8 @@ fn test_fj739_cuda_lifecycle() {
     let machine = cuda_machine();
     container::ensure_container(&machine).expect("CUDA ensure_container failed");
 
-    let out =
-        container::exec_container(&machine, "echo cuda-ok").expect("CUDA exec_container failed");
+    let out = container::exec_container(&machine, "echo cuda-ok", None)
+        .expect("CUDA exec_container failed");
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "cuda-ok");
 
@@ -100,6 +100,7 @@ fn test_fj739_cuda_nvidia_smi() {
     let out = container::exec_container(
         &machine,
         "nvidia-smi --query-gpu=name --format=csv,noheader",
+        None,
     )
     .expect("nvidia-smi exec failed");
     // nvidia-smi should succeed if NVIDIA Container Toolkit is installed
@@ -117,8 +118,8 @@ fn test_fj739_cuda_env_vars() {
     let machine = cuda_machine();
     container::ensure_container(&machine).expect("CUDA ensure failed");
 
-    let out =
-        container::exec_container(&machine, "echo $CUDA_VISIBLE_DEVICES").expect("env exec failed");
+    let out = container::exec_container(&machine, "echo $CUDA_VISIBLE_DEVICES", None)
+        .expect("env exec failed");
     assert!(out.success());
     assert_eq!(
         out.stdout.trim(),
@@ -138,8 +139,8 @@ fn test_fj739_rocm_lifecycle() {
     let machine = rocm_machine();
     container::ensure_container(&machine).expect("ROCm ensure_container failed");
 
-    let out =
-        container::exec_container(&machine, "echo rocm-ok").expect("ROCm exec_container failed");
+    let out = container::exec_container(&machine, "echo rocm-ok", None)
+        .expect("ROCm exec_container failed");
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "rocm-ok");
 
@@ -151,7 +152,7 @@ fn test_fj739_rocm_device_access() {
     let machine = rocm_machine();
     container::ensure_container(&machine).expect("ROCm ensure failed");
 
-    let out = container::exec_container(&machine, "ls /dev/kfd /dev/dri 2>&1")
+    let out = container::exec_container(&machine, "ls /dev/kfd /dev/dri 2>&1", None)
         .expect("device access exec failed");
     assert!(out.success(), "GPU devices not accessible: {}", out.stderr);
 
@@ -163,8 +164,8 @@ fn test_fj739_rocm_env_vars() {
     let machine = rocm_machine();
     container::ensure_container(&machine).expect("ROCm ensure failed");
 
-    let out =
-        container::exec_container(&machine, "echo $ROCR_VISIBLE_DEVICES").expect("env exec failed");
+    let out = container::exec_container(&machine, "echo $ROCR_VISIBLE_DEVICES", None)
+        .expect("env exec failed");
     assert!(out.success());
     assert_eq!(
         out.stdout.trim(),
