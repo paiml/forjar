@@ -26,6 +26,11 @@ jobs:
     uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
     with:
       repo: ${{ github.event.repository.name }}
+      # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
+      # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
+      # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
+      # p95 ≤ 300s is verified over 7 days, then promote fleet-wide.
+      use_nextest: true
     secrets: inherit
 
   # Release preflight: a stale Cargo.lock must fail PR CI, not the tag.
