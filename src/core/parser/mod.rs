@@ -135,6 +135,10 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
         check_sudo_inference(id, resource, config, &mut errors);
     }
 
+    // FJ-035 QUORUM MUST-1: overlay addresses must be injective across all
+    // present overlay_interface resources (plan-time duplicate-IP rejection).
+    resource_types::validate_overlay_ip_injective(config, &mut errors);
+
     for (key, machine) in &config.machines {
         validation::validate_machine(key, machine, &mut errors);
     }

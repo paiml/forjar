@@ -1,0 +1,231 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-06-25"
+  author: "PAIML Engineering"
+  description: |
+    overlay_interface resource — the DNS/DHCP-independent fleet overlay handler
+    (FJ-035 / PMAT-130/131). This contract pins the safety- and
+    coordination-critical invariants of the emitted shell + systemd units so a
+    regression in the handler is caught as a falsified proof obligation rather
+    than as a fleet that silently stops being reachable.
+
+    Quorum musts (capstone):
+      MUST-1  RFC 5227 duplicate-address defense — runtime `arping -D` probe
+              before binding, AND plan-time injective overlay_ip rejection.
+      MUST-2  Observability — /run/fleet-overlay/status.json heartbeat each run;
+              nonzero exit on persistent-absent; drift-visible heartbeat class.
+      MUST-4  Anti-thundering-herd — RandomizedDelaySec jitter on the timer.
+  references:
+    - "issue: https://github.com/paiml/forjar/pull/189"
+    - "RFC 5227 — IPv4 Address Conflict Detection (arping -D / DAD)"
+    - "src/resources/overlay_interface.rs — handler (check/apply/state_query)"
+    - "src/core/parser/resource_types.rs::validate_overlay_ip_injective"
+    - "src/core/planner/mod.rs::hash_desired_state (overlay_hosts sensitivity)"
+    - "tests/falsification_overlay_interface.rs — the contract's teeth"
+
+equations:
+  emit_service_unit:
+    formula: |
+      apply_script(r) ⊇ "Type=oneshot"  ∧  apply_script(r) ∌ "RemainAfterExit"
+    domain: "r ∈ Resource where resource_type = OverlayInterface, state = present"
+    codomain: "String (purified shell)"
+    invariants:
+      - "Emitted service is a plain Type=oneshot"
+      - "Emitted service NEVER contains RemainAfterExit (timer restart must re-run ExecStart)"
+
+  emit_timer_unit:
+    formula: |
+      apply_script(r) ⊇ {"OnCalendar=minutely", "RandomizedDelaySec=30", "AccuracySec=1s"}
+        ∧  apply_script(r) ∌ "OnUnitActiveSec"
+    domain: "r ∈ Resource where resource_type = OverlayInterface, state = present"
+    codomain: "String (purified shell)"
+    invariants:
+      - "Emitted timer always uses OnCalendar (wall-clock), never OnUnitActiveSec"
+      - "Emitted timer always carries RandomizedDelaySec jitter (anti-thundering-herd, MUST-4)"
+      - "Emitted timer sets AccuracySec=1s so the jitter is not coalesced away"
+
+  dad_before_bind:
+    formula: |
+      index(apply_script(r), "arping -D") < index(apply_script(r), "ip addr add")
+    domain: "r ∈ Resource where resource_type = OverlayInterface, state = present"
+    codomain: "String (purified shell)"
+    invariants:
+      - "RFC 5227 arping -D duplicate-address probe precedes ip addr add (MUST-1)"
+      - "A DAD reply is a loud refusal with nonzero exit — never silently ||-true'd"
+      - "The probe is guarded for arping-absent (skip + warn, not hard fail)"
+
+  status_heartbeat:
+    formula: |
+      apply_script(r) ⊇ {status.json fields}  ∧  ip_absent_after ⟹ exit 1
+    domain: "r ∈ Resource where resource_type = OverlayInterface, state = present"
+    codomain: "String (purified shell)"
+    invariants:
+      - "apply writes /run/fleet-overlay/status.json each run with last_converged, ip_present_before, action_taken, repair_count, ip_present_after (MUST-2)"
+      - "repair_count is monotonic — read+increment, only on an actual repair"
+      - "persistent-absent IP after the run exits nonzero so the oneshot enters failed"
+      - "state_query surfaces a drift-visible heartbeat class (fresh/stale/missing) while raw monotonic values go to stderr to avoid false drift"
+
+  overlay_ip_injective:
+    formula: |
+      ∀ a,b ∈ present overlay_interface on machine m:
+        a ≠ b ⟹ addr(a.overlay_ip) ≠ addr(b.overlay_ip)
+    domain: "config ∈ ForjarConfig"
+    codomain: "Vec<ValidationError>"
+    invariants:
+      - "Two present overlay_interface resources sharing one overlay address on a machine are rejected at validate-time (MUST-1)"
+      - "The rejection error names BOTH resource ids"
+      - "Distinct overlay addresses never trip the check (no false rejection)"
+
+  hash_overlay_hosts_sensitive:
+    formula: |
+      hosts(a) ≠ hosts(b) ⟹ hash_desired_state(a) ≠ hash_desired_state(b)
+    domain: "a,b ∈ Resource where resource_type = OverlayInterface"
+    codomain: "String (blake3 digest)"
+    invariants:
+      - "overlay_hosts is folded into the desired-state hash so plan never false-reports NoOp on a changed /etc/hosts block (MATERIAL FIX)"
+      - "overlay_hosts canonicalization is order-independent (same entries → same hash)"
+
+  apply_idempotent:
+    formula: "hash_desired_state(r) = hash_desired_state(r)"
+    domain: "r ∈ Resource where resource_type = OverlayInterface"
+    codomain: "String (blake3 digest)"
+    invariants:
+      - "Re-running apply on an unchanged resource is a NoOp at the plan level (stable hash)"
+
+proof_obligations:
+  - type: safety
+    property: "Emitted service never self-pins (no RemainAfterExit)"
+    formal: "∀ r: apply_script(r) ∌ \"RemainAfterExit\""
+    applies_to: emit_service_unit
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_service_never_remain_after_exit"
+
+  - type: safety
+    property: "Emitted timer is wall-clock and jittered"
+    formal: "∀ r: apply_script(r) ⊇ {OnCalendar, RandomizedDelaySec} ∧ ∌ OnUnitActiveSec"
+    applies_to: emit_timer_unit
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_timer_oncalendar_and_randomized_delay"
+
+  - type: ordering
+    property: "RFC 5227 DAD probe precedes bind"
+    formal: "∀ r: index(\"arping -D\") < index(\"ip addr add\")"
+    applies_to: dad_before_bind
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_arping_dad_probe_before_ip_addr_add"
+
+  - type: safety
+    property: "Heartbeat written; persistent-absent fails the unit"
+    formal: "∀ r: apply_script(r) writes status.json ∧ ip_absent_after ⟹ exit 1"
+    applies_to: status_heartbeat
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_writes_status_json_and_fails_on_persistent_absent"
+
+  - type: invariant
+    property: "overlay_ip is injective across present resources per machine"
+    formal: "∀ a≠b: addr(a.overlay_ip) ≠ addr(b.overlay_ip)"
+    applies_to: overlay_ip_injective
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_duplicate_overlay_ip_rejected_at_validate"
+
+  - type: determinism
+    property: "overlay_hosts changes the desired-state hash, order-independently"
+    formal: "hosts(a) ≠ hosts(b) ⟹ hash(a) ≠ hash(b); reorder(hosts) ⟹ hash unchanged"
+    applies_to: hash_overlay_hosts_sensitive
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_changing_overlay_hosts_changes_desired_hash"
+
+  - type: idempotency
+    property: "apply over a converged resource is a NoOp (stable hash)"
+    formal: "hash_desired_state(r) = hash_desired_state(r)"
+    applies_to: apply_idempotent
+    enforced_by: "tests/falsification_overlay_interface.rs::contract_apply_idempotent_hash_stable"
+
+enforcement:
+  falsification_tests:
+    description: |
+      The obligations are enforced by the falsification tests in
+      tests/falsification_overlay_interface.rs (cargo test), which assert over
+      the purified shell + systemd units the handler emits and over the planner
+      / validator behavior. These are the contract's teeth: a regression turns
+      one of them red.
+    check: "cargo test --test falsification_overlay_interface"
+    severity: error
+    reference: "tests/falsification_overlay_interface.rs"
+  runtime_self_heal:
+    description: |
+      The arping -D and status.json invariants additionally protect the live
+      fleet at runtime: a duplicate IP refuses to bind (nonzero exit), and a
+      wedged ensure loop surfaces as a stale heartbeat / failed systemd unit.
+    severity: error
+    reference: "src/resources/overlay_interface.rs"
+
+falsification_tests:
+  - id: FALSIFY-OVL-001
+    rule: "no RemainAfterExit"
+    prediction: "apply_script never emits RemainAfterExit"
+    test: "tests/falsification_overlay_interface.rs::contract_service_never_remain_after_exit"
+    if_fails: "Timer restart becomes a no-op; the IP never self-heals after a DHCP flush"
+
+  - id: FALSIFY-OVL-002
+    rule: "wall-clock jittered timer"
+    prediction: "timer uses OnCalendar + RandomizedDelaySec, never OnUnitActiveSec"
+    test: "tests/falsification_overlay_interface.rs::contract_timer_oncalendar_and_randomized_delay"
+    if_fails: "Timer fires once (OnUnitActiveSec) or stampedes the fleet on one wall-clock second"
+
+  - id: FALSIFY-OVL-003
+    rule: "DAD before bind"
+    prediction: "arping -D appears before ip addr add and refuses on a reply"
+    test: "tests/falsification_overlay_interface.rs::contract_arping_dad_probe_before_ip_addr_add"
+    if_fails: "Two hosts claim one overlay IP and the self-heal loops fight forever"
+
+  - id: FALSIFY-OVL-004
+    rule: "status heartbeat + fail-on-absent"
+    prediction: "apply writes status.json and exits nonzero when the IP stays absent"
+    test: "tests/falsification_overlay_interface.rs::contract_writes_status_json_and_fails_on_persistent_absent"
+    if_fails: "A wedged ensure loop is invisible until ssh breaks"
+
+  - id: FALSIFY-OVL-005
+    rule: "overlay_ip injective"
+    prediction: "duplicate overlay_ip is rejected at validate, naming both ids"
+    test: "tests/falsification_overlay_interface.rs::contract_duplicate_overlay_ip_rejected_at_validate"
+    if_fails: "A dup-IP config applies and the per-host loops fight over one address"
+
+  - id: FALSIFY-OVL-006
+    rule: "overlay_hosts hash sensitivity"
+    prediction: "changing overlay_hosts changes the desired-state hash"
+    test: "tests/falsification_overlay_interface.rs::contract_changing_overlay_hosts_changes_desired_hash"
+    if_fails: "plan false-reports NoOp and never rewrites the /etc/hosts block"
+
+  - id: FALSIFY-OVL-007
+    rule: "idempotent apply"
+    prediction: "re-running apply on an unchanged resource is a NoOp (stable hash)"
+    test: "tests/falsification_overlay_interface.rs::contract_apply_idempotent_hash_stable"
+    if_fails: "f(f(x)) ≠ f(x): overlay apply churns on every run"
+
+kani_harnesses:
+  - id: KANI-OVL-001
+    obligation: "overlay_hosts hash is insertion-order independent"
+    property: "hash_desired_state(r{hosts in order A}) = hash_desired_state(r{hosts in order B})"
+    bound: 4
+    strategy: bounded_int
+    harness: proof_overlay_hosts_hash_order_independent
+
+  - id: KANI-OVL-002
+    obligation: "overlay_hosts is a hash component (MATERIAL FIX)"
+    property: "hash_desired_state(r{with hosts}) ≠ hash_desired_state(r{without hosts})"
+    bound: 4
+    strategy: bounded_int
+    harness: proof_overlay_hosts_distinguishes_hash
+
+qa_gate:
+  id: F-OVL-001
+  name: "Overlay Interface Contract"
+  description: "Safety + coordination + idempotency gate for the fleet overlay handler"
+  checks:
+    - "emit_service_unit"
+    - "emit_timer_unit"
+    - "dad_before_bind"
+    - "status_heartbeat"
+    - "overlay_ip_injective"
+    - "hash_overlay_hosts_sensitive"
+    - "apply_idempotent"
+  pass_criteria: "All 7 overlay falsification tests pass"
+  falsification: "Add RemainAfterExit to the service, or drop the arping -D probe, or omit overlay_hosts from the hash"
+
+verification_level: L2

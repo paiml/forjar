@@ -1722,3 +1722,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-131
+  github_issue: null
+  item_type: task
+  title: 'overlay_interface capstone: hash-fix + RFC5227 DAD + status.json + jittered timer + pv contract'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-06-25T06:55:01Z
+  updated: 2026-06-25T06:55:03.173996208+00:00
+  spec: null
+  acceptance_criteria:
+  - 'PMAT-130 capstone: A) add overlay_hosts to desired-state hash collector; B) RFC5227 arping -D duplicate-address defense + injective overlay_ip plan check; C) /run/fleet-overlay/status.json heartbeat + nonzero-exit-on-absent + drift heartbeat; D) jittered fleet-overlay.timer; E) provable contract overlay-interface-v1.yaml + bindings + falsification tests'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
