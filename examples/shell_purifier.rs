@@ -131,6 +131,10 @@ fn main() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     })
     .unwrap();
 

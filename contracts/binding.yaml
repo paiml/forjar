@@ -186,3 +186,60 @@ bindings:
     signature: "fn state_query_script(resource: &Resource) -> Result<String, String>"
     status: implemented
     notes: "Dispatches to resource-specific state query handlers"
+
+  # ── Overlay Interface (FJ-035 / PMAT-130/131) ──────────
+  - contract: overlay-interface-v1.yaml
+    equation: emit_service_unit
+    module_path: "forjar::resources::overlay_interface::apply_script"
+    function: apply_script
+    signature: "fn apply_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "Plain Type=oneshot; NEVER RemainAfterExit (timer restart re-runs ExecStart)"
+
+  - contract: overlay-interface-v1.yaml
+    equation: emit_timer_unit
+    module_path: "forjar::resources::overlay_interface::apply_script"
+    function: apply_script
+    signature: "fn apply_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "OnCalendar=minutely + RandomizedDelaySec=30 + AccuracySec=1s; never OnUnitActiveSec (MUST-4)"
+
+  - contract: overlay-interface-v1.yaml
+    equation: dad_before_bind
+    module_path: "forjar::resources::overlay_interface::apply_script"
+    function: apply_script
+    signature: "fn apply_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "RFC 5227 arping -D probe precedes ip addr add; loud refusal + nonzero exit on a reply (MUST-1)"
+
+  - contract: overlay-interface-v1.yaml
+    equation: status_heartbeat
+    module_path: "forjar::resources::overlay_interface::apply_script"
+    function: apply_script
+    signature: "fn apply_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "Writes /run/fleet-overlay/status.json each run; monotonic repair_count; nonzero exit on persistent-absent (MUST-2)"
+
+  - contract: overlay-interface-v1.yaml
+    equation: overlay_ip_injective
+    module_path: "forjar::core::parser::resource_types::validate_overlay_ip_injective"
+    function: validate_overlay_ip_injective
+    signature: "fn validate_overlay_ip_injective(config: &ForjarConfig, errors: &mut Vec<ValidationError>)"
+    status: implemented
+    notes: "Plan/validate-time duplicate overlay_ip rejection; names both resource ids (MUST-1)"
+
+  - contract: overlay-interface-v1.yaml
+    equation: hash_overlay_hosts_sensitive
+    module_path: "forjar::core::planner::hash_desired_state"
+    function: hash_desired_state
+    signature: "fn hash_desired_state(resource: &Resource) -> String"
+    status: implemented
+    notes: "overlay_hosts folded into the desired-state hash (order-independent); MATERIAL FIX so plan never false-NoOps a changed /etc/hosts block"
+
+  - contract: overlay-interface-v1.yaml
+    equation: apply_idempotent
+    module_path: "forjar::resources::overlay_interface::state_query_script"
+    function: state_query_script
+    signature: "fn state_query_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "Heartbeat class (fresh/stale/missing) on stdout (drift-visible); raw monotonic values to stderr to avoid false drift; re-run is a plan-level NoOp"

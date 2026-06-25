@@ -140,6 +140,10 @@ fn test_fj012_build_resource_details() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -254,6 +258,10 @@ fn test_fj012_build_resource_details_service() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("service_name"));

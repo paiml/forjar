@@ -98,6 +98,45 @@ pub fn is_absolute_path(path: &str) -> bool {
     path.starts_with('/')
 }
 
+/// Validate an `IPv4/CIDR` literal for the fleet overlay (e.g. `10.42.0.11/24`).
+///
+/// FJ-035: the overlay IP is interpolated into a systemd `ExecStart=` line and
+/// `ip addr add` arguments. Constraining it to a strict dotted-quad plus a
+/// `/0..=32` prefix means every octet/prefix is a small integer with no shell
+/// metacharacters, whitespace, or substitution — safe to embed as a bare token.
+pub fn is_valid_overlay_ip(ip_cidr: &str) -> bool {
+    let (addr, prefix) = match ip_cidr.split_once('/') {
+        Some((a, p)) => (a, p),
+        None => return false,
+    };
+    // Prefix must be a 0..=32 integer.
+    match prefix.parse::<u8>() {
+        Ok(p) if p <= 32 => {}
+        _ => return false,
+    }
+    // Address must be four 0..=255 dotted octets.
+    let octets: Vec<&str> = addr.split('.').collect();
+    if octets.len() != 4 {
+        return false;
+    }
+    octets
+        .iter()
+        .all(|o| !o.is_empty() && o.parse::<u8>().is_ok())
+}
+
+/// Validate a network-interface name (e.g. `enp9s0`, `eth0`, `wlan0`).
+///
+/// FJ-035: an explicit `interface:` value flows into `ip addr add ... dev <if>`.
+/// Linux iface names are `[A-Za-z0-9._-]` (no whitespace/slash/metachars), so
+/// this allow-list lets it be interpolated as a bare, unquoted token safely.
+pub fn is_valid_iface(iface: &str) -> bool {
+    !iface.is_empty()
+        && iface.len() <= 15
+        && iface
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
 /// Slugify an identifier to `[A-Za-z0-9._-]`, replacing every other character
 /// with `-`. Used for values that become part of a filename (e.g. service
 /// log/pid paths) where even quoting is not enough because the value is also

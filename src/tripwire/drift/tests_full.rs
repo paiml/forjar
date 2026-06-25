@@ -263,6 +263,10 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }
 

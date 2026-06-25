@@ -398,6 +398,25 @@ pub struct Resource {
     /// Directory to install binary into (default: /usr/local/bin).
     #[serde(default)]
     pub install_dir: Option<String>,
+
+    // -- Overlay interface fields (FJ-035: DNS/DHCP-independent fleet overlay) --
+    /// Static overlay IP with CIDR to bind as a secondary address
+    /// (e.g. "10.42.0.11/24").
+    #[serde(default)]
+    pub overlay_ip: Option<String>,
+
+    /// Explicit network interface to bind the overlay IP on. When omitted, the
+    /// default-route NIC is auto-detected at apply time.
+    #[serde(default)]
+    pub overlay_iface: Option<String>,
+
+    /// Optional name->IP map written into a managed `/etc/hosts` block.
+    #[serde(default)]
+    pub overlay_hosts: Option<HashMap<String, String>>,
+
+    /// Optional: open the overlay /24 subnet through ufw.
+    #[serde(default)]
+    pub overlay_firewall: Option<bool>,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

@@ -14,6 +14,7 @@ pub mod gpu;
 pub mod model;
 pub mod mount;
 pub mod network;
+pub mod overlay_interface;
 pub mod package;
 pub mod pepita;
 pub mod service;

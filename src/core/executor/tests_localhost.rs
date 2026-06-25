@@ -265,6 +265,10 @@ fn test_fj131_build_details_group_only() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert_eq!(

@@ -99,6 +99,10 @@ pub fn make_package() -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }
 
@@ -199,6 +203,10 @@ pub fn make_file() -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }
 
@@ -299,6 +307,10 @@ pub fn make_service() -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }
 
@@ -399,5 +411,9 @@ pub fn make_mount() -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }

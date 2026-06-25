@@ -102,6 +102,10 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -208,6 +212,10 @@ fn test_fj012_build_details_all_fields() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert_eq!(

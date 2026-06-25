@@ -126,6 +126,10 @@ fn test_fj003_resolve_all_fields() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -293,6 +297,10 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

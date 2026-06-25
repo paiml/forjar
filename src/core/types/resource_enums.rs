@@ -48,6 +48,9 @@ pub enum ResourceType {
     Build,
     /// FJ-34: GitHub Release binary installation.
     GithubRelease,
+    /// FJ-35: DNS/DHCP-independent fleet overlay interface (static secondary IP
+    /// + self-heal service/timer/dispatcher).
+    OverlayInterface,
 }
 
 impl fmt::Display for ResourceType {
@@ -70,6 +73,7 @@ impl fmt::Display for ResourceType {
             Self::Image => write!(f, "image"),
             Self::Build => write!(f, "build"),
             Self::GithubRelease => write!(f, "github_release"),
+            Self::OverlayInterface => write!(f, "overlay_interface"),
         }
     }
 }
@@ -195,6 +199,7 @@ mod tests {
             (ResourceType::Image, "image"),
             (ResourceType::Build, "build"),
             (ResourceType::GithubRelease, "github_release"),
+            (ResourceType::OverlayInterface, "overlay_interface"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

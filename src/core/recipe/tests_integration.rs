@@ -151,6 +151,10 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -264,6 +268,10 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

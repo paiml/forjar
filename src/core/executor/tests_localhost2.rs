@@ -165,6 +165,10 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,

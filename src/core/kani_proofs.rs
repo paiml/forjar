@@ -457,5 +457,3 @@ fn proof_apply_then_noop() {
         "apply then re-plan must yield NoOp"
     );
 }
-
-// Production function proofs live in kani_production_proofs.rs

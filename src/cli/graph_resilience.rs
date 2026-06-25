@@ -24,6 +24,7 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         types::ResourceType::Image => 1,
         types::ResourceType::Build => 5,
         types::ResourceType::GithubRelease => 3,
+        types::ResourceType::OverlayInterface => 3,
     }
 }
 

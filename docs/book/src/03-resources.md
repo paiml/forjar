@@ -1804,3 +1804,65 @@ Package resources using the `cargo` provider benefit from automatic binary cachi
 Control caching with environment variables:
 - `FORJAR_CACHE_DIR`: Override cache directory
 - `FORJAR_NO_CARGO_CACHE=1`: Disable caching
+
+## Overlay Interface
+
+Bind a DNS/DHCP-independent fleet management overlay IP natively, so a machine
+declares it in `forjar.yaml` instead of relying on external shell installers.
+
+```yaml
+resources:
+  fleet-overlay:
+    type: overlay_interface
+    machine: intel
+    sudo: true
+    overlay_ip: "10.42.0.11/24"   # static secondary IP + CIDR
+    # overlay_iface: enp9s0       # optional; default = auto-detect default-route NIC
+    overlay_firewall: true        # ufw allow from 10.42.0.0/24
+    overlay_hosts:                # optional managed /etc/hosts block
+      lambda-labs: "10.42.0.10"
+      intel:       "10.42.0.11"
+      mini:        "10.42.0.12"
+```
+
+### Why
+
+A fleet with no DNS it controls (e.g. an ISP router as the real DHCP authority)
+re-leases every host onto a random address on every power outage, breaking
+`ssh <host>`. Pinning `/etc/hosts` or DHCP reservations does not survive a reboot
+because the IP itself isn't owned by anything we control. Binding a **static
+secondary IP** on a private flat L2 overlay (`10.42.0.0/24`, no gateway,
+host-to-host via ARP) on the host's own default-route NIC makes the address
+survive reboots, outages, DHCP churn, and subnet flips — it is owned by the NIC
+config.
+
+### Self-heal (defense in depth)
+
+A DHCP renewal or NIC flap flushes the secondary `ip addr`, so apply installs a
+self-healing trio:
+
+1. **`fleet-overlay.service`** — a **plain `Type=oneshot`** (never
+   `RemainAfterExit=yes`, so the timer's `start`/`restart` actually re-runs
+   `ExecStart`). It idempotently (re-)adds the IP to the default-route NIC.
+2. **`fleet-overlay.timer`** — `OnBootSec=20s` + **`OnCalendar=minutely`**
+   (wall-clock, never `OnUnitActiveSec`); the sole re-assert path on
+   systemd-networkd hosts, closing the flush gap to <=60s.
+3. **`/etc/NetworkManager/dispatcher.d/50-fleet-overlay`** — instant (~0s)
+   re-assert on `up`/`dhcp4-change`/`dhcp6-change`/`reapply`, installed only
+   where the NM dispatcher directory exists (NM owns the NIC).
+
+On any unit-content change apply runs `daemon-reload` then **restarts** both
+units (never `start`/`enable --now` alone) so an upgrade takes effect without a
+reboot.
+
+### Overlay Interface Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `overlay_ip` | yes | Static overlay IP with CIDR (e.g. `10.42.0.11/24`). Strictly validated IPv4/CIDR. |
+| `overlay_iface` | no | Explicit NIC name. Omit to auto-detect the default-route NIC at apply time. |
+| `overlay_hosts` | no | name -> IP map written into a managed `/etc/hosts` block (idempotent, marker-guarded). |
+| `overlay_firewall` | no | When `true`, `ufw allow from <overlay /24>` (no-op if ufw inactive/absent). |
+
+`state: absent` tears down the units (and dispatcher hook), removes the scripts,
+and drops the overlay IP.

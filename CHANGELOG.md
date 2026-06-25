@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — `overlay_interface` resource type (FJ-035)
+
+A new first-class resource type that provides a DNS/DHCP-independent fleet
+overlay natively, replacing the `machines/fleet-hosts` shell installer. A
+machine declares `type: overlay_interface` with `overlay_ip: "10.42.0.11/24"`
+and forjar idempotently binds the static secondary IP on the default-route NIC
+(auto-detected, or an explicit `overlay_iface`) and installs a self-healing
+systemd `service` + `timer` — plus a NetworkManager dispatcher hook where NM
+owns the NIC. Optional `overlay_hosts` (managed `/etc/hosts` block) and
+`overlay_firewall` (ufw allow the /24) sub-features.
+
+The implementation reproduces the validated self-heal mechanism exactly,
+including its three hard-won anti-regressions: the service is a plain
+`Type=oneshot` (never `RemainAfterExit=yes`), the timer uses
+`OnCalendar=minutely` (never `OnUnitActiveSec`), and apply `daemon-reload`s then
+**restarts** both units so a unit-content upgrade takes effect without a reboot.
+`overlay_ip` / `overlay_iface` are strictly validated and every interpolation is
+shell-injection hardened.
+
 ## [1.6.2] - 2026-06-13
 
 ### Fixed — dogfood QA findings (#177, #178, #179)

@@ -119,6 +119,10 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "binary",
     "install_dir",
     "build_machine",
+    "overlay_ip",
+    "overlay_iface",
+    "overlay_hosts",
+    "overlay_firewall",
 ];
 
 pub(crate) const MACHINE_FIELDS: &[&str] = &[
