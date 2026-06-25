@@ -162,6 +162,10 @@ fn test_fj036_hash_desired_state_deterministic() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -271,6 +275,10 @@ fn test_fj036_hash_desired_state_changes_on_content() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let r2 = Resource {
         content: Some("changed content".to_string()),

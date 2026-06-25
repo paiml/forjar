@@ -1145,8 +1145,8 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  notes: 'COMPLETED 2026-06-13: all phases shipped. Phases A-C (PMAT-080/081/083/084) + Phase D Tier 1 static verify (PMAT-082, #146) + Phase D Tier 2 container execution (feat/dist-verify-tier2): `--verify-containers` runs the generated installer in ubuntu (gnu) and alpine (musl) containers OFFLINE against a locally-staged tarball (real sha256 verified, real tar extract, install to install_dir, version_cmd run), reusing convergence_container::detect_container_runtime + transport::write_stdin_or_reap. Degrades to a clean skip when no Docker. Container-spawning tests are ignored-in-CI (proxied clean-room HANGS on docker/network — same constraint as PR #153 OCI tests); orchestration is unit-tested hermetically. Live github.com fetch + latest-tag resolution are exercised by the release pipeline, not unit CI.'
   labels: []
+  notes: 'COMPLETED 2026-06-13: all phases shipped. Phases A-C (PMAT-080/081/083/084) + Phase D Tier 1 static verify (PMAT-082, #146) + Phase D Tier 2 container execution (feat/dist-verify-tier2): `--verify-containers` runs the generated installer in ubuntu (gnu) and alpine (musl) containers OFFLINE against a locally-staged tarball (real sha256 verified, real tar extract, install to install_dir, version_cmd run), reusing convergence_container::detect_container_runtime + transport::write_stdin_or_reap. Degrades to a clean skip when no Docker. Container-spawning tests are ignored-in-CI (proxied clean-room HANGS on docker/network — same constraint as PR #153 OCI tests); orchestration is unit-tested hermetically. Live github.com fetch + latest-tag resolution are exercised by the release pipeline, not unit CI.'
 - id: GH-129
   github_issue: 129
   item_type: task
@@ -1186,7 +1186,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-1, release]
+  labels:
+  - sprint-2026-06
+  - day-1
+  - release
   notes: 'Keystone fix: unblocks all future tagged releases.'
 - id: PMAT-071
   github_issue: 104
@@ -1202,12 +1205,15 @@ roadmap:
   - cargo deny check exits 0 locally and in audit.yml (advisories ok, bans ok, licenses ok, sources ok)
   - Exception is scoped via [[licenses.exceptions]] crate = libbz2-rs-sys, not a global allow
   - Next scheduled Security Audit run on main is green (was red 84 of last 100 runs)
-  - Issues #104 and #98 closed with evidence comments
+  - Issues
   phases: []
   subtasks: []
   estimated_effort: 0.1d
-  labels: [sprint-2026-06, day-1, ci]
-  notes: 'Sync exception upstream to paiml/infra deny.toml template.'
+  labels:
+  - sprint-2026-06
+  - day-1
+  - ci
+  notes: Sync exception upstream to paiml/infra deny.toml template.
 - id: PMAT-072
   github_issue: null
   item_type: task
@@ -1226,8 +1232,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-1, release]
-  notes: 'Self-hosted clean-room queue hung 2026-06-01..09; release.yml has failed on every tag ever attempted.'
+  labels:
+  - sprint-2026-06
+  - day-1
+  - release
+  notes: Self-hosted clean-room queue hung 2026-06-01..09; release.yml has failed on every tag ever attempted.
 - id: PMAT-073
   github_issue: null
   item_type: task
@@ -1247,8 +1256,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.75d
-  labels: [sprint-2026-06, day-2, bug]
-  notes: 'panic=abort in release profile makes these process aborts. All three verified reachable on origin/main 7bf1cbe3.'
+  labels:
+  - sprint-2026-06
+  - day-2
+  - bug
+  notes: panic=abort in release profile makes these process aborts. All three verified reachable on origin/main 7bf1cbe3.
 - id: PMAT-074
   github_issue: null
   item_type: task
@@ -1262,11 +1274,14 @@ roadmap:
   acceptance_criteria:
   - grep -r provable-contracts .github/workflows/ returns no matches
   - All workflows still pass after removal (generated_contracts.rs is git-tracked; aprender-contracts from crates.io)
-  - Dependabot PRs #121, #122, #128 rebased and merged or superseded
+  - Dependabot PRs
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-2, ci]
+  labels:
+  - sprint-2026-06
+  - day-2
+  - ci
   notes: 'Plumbing removed via #131/#133. Dependabot action bumps (#121/#122/#128) deferred - auto-rebase pending.'
 - id: PMAT-075
   github_issue: null
@@ -1285,7 +1300,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.25d
-  labels: [sprint-2026-06, day-2, release]
+  labels:
+  - sprint-2026-06
+  - day-2
+  - release
   notes: 'Proves PMAT-070/071/072 end-to-end. Payload: panic fixes + audit green.'
 - id: PMAT-076
   github_issue: 96
@@ -1298,15 +1316,18 @@ roadmap:
   updated: 2026-06-12T22:30:00Z
   spec: null
   acceptance_criteria:
-  - Regression tests pin fixes for #85 (secret_provider traversal/injection), #86 (p95 clamp), #87 (UTF-8 truncate), #88 (recipe depends_on)
-  - Issues #85 #86 #87 #88 #90 #92 #93 #96 #98 #106 #109 #112 #113 #115 closed with file:line evidence comments
+  - Regression tests pin fixes for
+  - Issues
   - Successor issue filed for flaky convergence_parallel_multiple_targets (the real remaining Coverage-workflow failure)
   - Open-issue count drops from 18 to <= 5
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-3, debt]
-  notes: 'Fixes landed with Refs instead of Fixes so GitHub never auto-closed. Verified per-issue 2026-06-12.'
+  labels:
+  - sprint-2026-06
+  - day-3
+  - debt
+  notes: Fixes landed with Refs instead of Fixes so GitHub never auto-closed. Verified per-issue 2026-06-12.
 - id: PMAT-077
   github_issue: null
   item_type: task
@@ -1326,7 +1347,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-4, docs]
+  labels:
+  - sprint-2026-06
+  - day-4
+  - docs
   notes: 'install.sh currently hard-fails on every platform: mixed v-prefix naming + missing SHA256SUMS.'
 - id: PMAT-078
   github_issue: null
@@ -1345,7 +1369,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-4, release]
+  labels:
+  - sprint-2026-06
+  - day-4
+  - release
   notes: null
 - id: PMAT-079
   github_issue: null
@@ -1363,7 +1390,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.25d
-  labels: [sprint-2026-06, day-4, release]
+  labels:
+  - sprint-2026-06
+  - day-4
+  - release
   notes: null
 - id: PMAT-080
   github_issue: null
@@ -1384,7 +1414,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 1.5d
-  labels: [sprint-2026-06, day-5, feature]
+  labels:
+  - sprint-2026-06
+  - day-5
+  - feature
   notes: 'Placeholder sites verified: dist_generators.rs:416/:457, dist_generators_b.rs:36/:56. platform_args.rs is at 538 lines — split or add to size exceptions when adding flags.'
 - id: PMAT-081
   github_issue: null
@@ -1397,13 +1430,16 @@ roadmap:
   updated: 2026-06-13T12:00:00Z
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
-  - 'cmd_dist rejects dist.source values local/url/s3 with a clear ''not yet supported'' error instead of generating broken github.com URLs'
+  - cmd_dist rejects dist.source values local/url/s3 with a clear 'not yet supported' error instead of generating broken github.com URLs
   - forjar schema JSON output includes a dist property block mirroring DistConfig (spec line 534 claims it already exists)
   - Schema snapshot test + error-message tests added
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-6, feature]
+  labels:
+  - sprint-2026-06
+  - day-6
+  - feature
   notes: null
 - id: PMAT-082
   github_issue: null
@@ -1423,7 +1459,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-7, feature]
+  labels:
+  - sprint-2026-06
+  - day-7
+  - feature
   notes: null
 - id: PMAT-083
   github_issue: 97
@@ -1439,12 +1478,15 @@ roadmap:
   - contracts/idempotent-apply-v1.yaml formalizes converged-lock => NoOp plan + second-apply-zero-changes, bound to forjar::core::planner
   - contracts/plan-apply-equivalence-v1.yaml formalizes plan/apply action-set equality with binding.yaml entry
   - contracts/destroy-undo-roundtrip-v1.yaml formalizes undo-restores-generation with binding.yaml entry
-  - build.rs AllImplemented policy passes; issue #97 closed
+  - build.rs AllImplemented policy passes; issue
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-6, feature]
-  notes: 'Follow existing contracts/dag-ordering-v1.yaml template.'
+  labels:
+  - sprint-2026-06
+  - day-6
+  - feature
+  notes: Follow existing contracts/dag-ordering-v1.yaml template.
 - id: PMAT-084
   github_issue: null
   item_type: task
@@ -1461,7 +1503,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-7, docs]
+  labels:
+  - sprint-2026-06
+  - day-7
+  - docs
   notes: null
 - id: PMAT-085
   github_issue: null
@@ -1480,8 +1525,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.25d
-  labels: [sprint-2026-06, day-8, release]
-  notes: 'Published forjar v1.6.1 to crates.io 2026-06-13 (early — the 06-12 Friday window was a no-op at the time; brought crates.io current with the 6 GitHub releases rather than waiting to 06-19).'
+  labels:
+  - sprint-2026-06
+  - day-8
+  - release
+  notes: Published forjar v1.6.1 to crates.io 2026-06-13 (early — the 06-12 Friday window was a no-op at the time; brought crates.io current with the 6 GitHub releases rather than waiting to 06-19).
 - id: PMAT-086
   github_issue: null
   item_type: task
@@ -1499,7 +1547,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-8, docs]
+  labels:
+  - sprint-2026-06
+  - day-8
+  - docs
   notes: null
 - id: PMAT-087
   github_issue: 116
@@ -1514,12 +1565,15 @@ roadmap:
   acceptance_criteria:
   - pmat tdg --min-grade B+ exits 0 for anomaly.rs, undo_helpers.rs, image_cmd.rs, layer_builder.rs, image_assembler.rs, unknown_fields.rs
   - No function above cyclomatic complexity 10 in the six files; no production .unwrap() outside cfg(test)
-  - Strict pre-commit hook re-enabled (BLOCK_ON_NEW_FILES restored); issue #116 closed
+  - Strict pre-commit hook re-enabled (BLOCK_ON_NEW_FILES restored); issue
   phases: []
   subtasks: []
   estimated_effort: 1.5d
-  labels: [sprint-2026-06, day-9, debt]
-  notes: 'Current hand-patched .git/hooks/pre-commit override silently reverts on pmat hooks refresh.'
+  labels:
+  - sprint-2026-06
+  - day-9
+  - debt
+  notes: Current hand-patched .git/hooks/pre-commit override silently reverts on pmat hooks refresh.
 - id: PMAT-088
   github_issue: null
   item_type: task
@@ -1536,7 +1590,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-10, debt]
+  labels:
+  - sprint-2026-06
+  - day-10
+  - debt
   notes: 'Stretch follow-ons: OCI registry_push test server, SSH control-master extraction, L3-L5 coverage persistence (v1.6.0 anchor).'
 - id: PMAT-089
   github_issue: null
@@ -1554,8 +1611,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.25d
-  labels: [sprint-2026-06, day-10, release]
-  notes: 'superseded — v1.5.1 folded into v1.6.0 (single minor release). The separate v1.5.1 quality/docs patch tag was not cut; its TDG-1/COV-1/DOCS-1 content shipped as part of the v1.6.0 minor release instead of a standalone v1.5.1 point release.'
+  labels:
+  - sprint-2026-06
+  - day-10
+  - release
+  notes: superseded — v1.5.1 folded into v1.6.0 (single minor release). The separate v1.5.1 quality/docs patch tag was not cut; its TDG-1/COV-1/DOCS-1 content shipped as part of the v1.6.0 minor release instead of a standalone v1.5.1 point release.
 - id: PMAT-090
   github_issue: 134
   item_type: task
@@ -1573,7 +1633,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-2, bug]
+  labels:
+  - sprint-2026-06
+  - day-2
+  - bug
   notes: 'Discovered mid-sprint: pre-push suite runs corrupted the host repo (stray commits, staged state/ deletions, core.bare flip). Fixed in #137.'
 - id: PMAT-091
   github_issue: 154
@@ -1586,13 +1649,17 @@ roadmap:
   updated: 2026-06-13T02:00:00Z
   spec: null
   acceptance_criteria:
-  - All 28 double-refuted bug-hunt defects fixed (PRs #156-#161), grouped file-disjoint by theme
+  - All 28 double-refuted bug-hunt defects fixed (PRs
   - L3-L5 test-coverage persistence shipped (#155)
   - Bundled into v1.6.0 (minor — feature + fixes); GitHub release + Friday crates.io publish
   phases: []
   subtasks: []
   estimated_effort: 1d
-  labels: [sprint-2026-06, day-10, bug, feature]
+  labels:
+  - sprint-2026-06
+  - day-10
+  - bug
+  - feature
   notes: 'Found by an 8-dimension adversarial bug-hunt (84 agents). Closes #154.'
 - id: PMAT-092
   github_issue: 165
@@ -1605,13 +1672,16 @@ roadmap:
   updated: 2026-06-13T03:00:00Z
   spec: null
   acceptance_criteria:
-  - 'Audit of v1.6.0 fix/feature code (the implementations the original hunt predated) found 9 double-refuted defects'
+  - Audit of v1.6.0 fix/feature code (the implementations the original hunt predated) found 9 double-refuted defects
   - 'All fixed file-disjoint (PRs #166-#169): lock livelock/TOCTOU/PID-kill, shell-escape gaps, moved post-expansion, pre_apply retry, coverage demotion, Tier-2 checksum'
   - Shipped as v1.6.1
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, day-10, bug]
+  labels:
+  - sprint-2026-06
+  - day-10
+  - bug
   notes: 'Standout: the #159 O_EXCL lock rewrite introduced a 100%-CPU livelock regression; caught before users hit it. Closes #165.'
 - id: PMAT-093
   github_issue: null
@@ -1630,5 +1700,25 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: 0.5d
-  labels: [sprint-2026-06, dogfood, docs]
-  notes: 'Dogfood found 2 false positives too (validate-pipe-exit, undo vs undo-destroy) — caught by the skill discipline, not filed.'
+  labels:
+  - sprint-2026-06
+  - dogfood
+  - docs
+  notes: Dogfood found 2 false positives too (validate-pipe-exit, undo vs undo-destroy) — caught by the skill discipline, not filed.
+- id: PMAT-130
+  github_issue: null
+  item_type: task
+  title: 'FJ-035: overlay_interface resource type'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-06-25T06:36:44Z
+  updated: 2026-06-25T06:36:44Z
+  spec: null
+  acceptance_criteria:
+  - Native DNS/DHCP-independent fleet overlay resource (static secondary IP + self-heal service/timer/dispatcher), replacing machines/fleet-hosts shell installer
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

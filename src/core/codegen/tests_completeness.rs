@@ -38,6 +38,12 @@ fn test_fj005_all_phase1_check_scripts_nonempty() {
             r.port = Some("80".to_string());
             r
         },
+        {
+            let mut r = make_package();
+            r.resource_type = ResourceType::OverlayInterface;
+            r.overlay_ip = Some("10.42.0.11/24".to_string());
+            r
+        },
     ];
     for r in &types_and_resources {
         let script = check_script(r).unwrap();
@@ -78,6 +84,12 @@ fn test_fj005_all_phase1_state_query_scripts_nonempty() {
             let mut r = make_package();
             r.resource_type = ResourceType::Network;
             r.port = Some("80".to_string());
+            r
+        },
+        {
+            let mut r = make_package();
+            r.resource_type = ResourceType::OverlayInterface;
+            r.overlay_ip = Some("10.42.0.11/24".to_string());
             r
         },
     ];
@@ -176,6 +188,12 @@ fn test_fj132_all_phase1_apply_pipefail() {
             r.port = Some("80".to_string());
             r
         },
+        {
+            let mut r = make_package();
+            r.resource_type = ResourceType::OverlayInterface;
+            r.overlay_ip = Some("10.42.0.11/24".to_string());
+            r
+        },
     ];
     for r in &types_and_resources {
         let script = apply_script(r).unwrap();
@@ -219,6 +237,12 @@ fn test_fj132_check_script_all_types_succeed() {
             let mut r = make_package();
             r.resource_type = ResourceType::Network;
             r.port = Some("443".to_string());
+            r
+        },
+        {
+            let mut r = make_package();
+            r.resource_type = ResourceType::OverlayInterface;
+            r.overlay_ip = Some("10.42.0.11/24".to_string());
             r
         },
     ];
@@ -265,6 +289,12 @@ fn test_fj132_state_query_all_types_succeed() {
             let mut r = make_package();
             r.resource_type = ResourceType::Network;
             r.port = Some("80".to_string());
+            r
+        },
+        {
+            let mut r = make_package();
+            r.resource_type = ResourceType::OverlayInterface;
+            r.overlay_ip = Some("10.42.0.11/24".to_string());
             r
         },
     ];

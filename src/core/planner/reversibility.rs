@@ -58,6 +58,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::Build => Reversibility::Reversible,
         // GitHub release binary can be re-downloaded
         ResourceType::GithubRelease => Reversibility::Reversible,
+        // Overlay IP / units can be re-bound and re-installed by re-applying
+        ResourceType::OverlayInterface => Reversibility::Reversible,
     }
 }
 

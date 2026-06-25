@@ -155,6 +155,10 @@ fn test_fj064_arch_filter_skips_mismatched() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine

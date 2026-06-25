@@ -162,7 +162,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::WasmBundle
         | ResourceType::Image
         | ResourceType::Build
-        | ResourceType::GithubRelease => "present",
+        | ResourceType::GithubRelease
+        | ResourceType::OverlayInterface => "present",
     }
 }
 
@@ -310,6 +311,19 @@ fn collect_phase2_fields<'a>(components: &mut Vec<&'a str>, resource: &'a Resour
     push_list(components, &resource.environment);
     push_list(components, &resource.volumes);
     push_list(components, &resource.restart_on);
+    // FJ-035: overlay_interface identity-bearing fields. overlay_ip changes the
+    // bound address / ExecStart line, overlay_iface changes the target NIC, and
+    // overlay_firewall changes the converged ufw state — all must alter the
+    // desired-state hash so plan does not wrongly report NoOp.
+    push_opt(components, &resource.overlay_ip);
+    push_opt(components, &resource.overlay_iface);
+    if let Some(fw) = resource.overlay_firewall {
+        components.push(if fw {
+            "overlay_fw_on"
+        } else {
+            "overlay_fw_off"
+        });
+    }
 }
 
 /// Compute a hash of the desired state for comparison.
@@ -372,7 +386,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::WasmBundle
             | ResourceType::Image
             | ResourceType::Build
-            | ResourceType::GithubRelease => format!("{resource_id}: create"),
+            | ResourceType::GithubRelease
+            | ResourceType::OverlayInterface => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

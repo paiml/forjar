@@ -108,6 +108,10 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 asset_pattern: None,
                 binary: None,
                 install_dir: None,
+                overlay_ip: None,
+                overlay_iface: None,
+                overlay_hosts: None,
+                overlay_firewall: None,
             },
         );
     }
@@ -253,5 +257,9 @@ pub(super) fn make_base_resource() -> Resource {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     }
 }

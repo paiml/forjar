@@ -191,6 +191,10 @@ fn test_fj012_record_success_writes_lock_and_event() {
         asset_pattern: None,
         binary: None,
         install_dir: None,
+        overlay_ip: None,
+        overlay_iface: None,
+        overlay_hosts: None,
+        overlay_firewall: None,
     };
     let machine = Machine {
         hostname: "localhost".to_string(),

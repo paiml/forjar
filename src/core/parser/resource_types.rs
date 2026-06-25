@@ -25,6 +25,7 @@ pub(super) fn validate_resource_type(
         ResourceType::WasmBundle | ResourceType::Image => validate_file(id, resource, errors),
         ResourceType::Build => validate_build(id, resource, errors),
         ResourceType::GithubRelease => validate_github_release(id, resource, errors),
+        ResourceType::OverlayInterface => validate_overlay_interface(id, resource, errors),
     }
 }
 
@@ -370,6 +371,44 @@ fn validate_build(id: &str, resource: &Resource, errors: &mut Vec<ValidationErro
                 "resource '{id}' (build) has no target — specify where to deploy the artifact"
             ),
         });
+    }
+}
+
+fn validate_overlay_interface(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    use crate::core::shell_escape::{is_valid_iface, is_valid_overlay_ip};
+    match resource.overlay_ip.as_deref() {
+        None => errors.push(ValidationError {
+            message: format!(
+                "resource '{id}' (overlay_interface) has no overlay_ip — specify an IPv4/CIDR (e.g., 10.42.0.11/24)"
+            ),
+        }),
+        Some(ip) if !ip.contains("{{") && !is_valid_overlay_ip(ip) => {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (overlay_interface) overlay_ip '{ip}' is not a valid IPv4/CIDR (e.g., 10.42.0.11/24)"
+                ),
+            });
+        }
+        _ => {}
+    }
+    if let Some(iface) = resource.overlay_iface.as_deref() {
+        if !iface.contains("{{") && !is_valid_iface(iface) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (overlay_interface) interface '{iface}' is not a valid network interface name"
+                ),
+            });
+        }
+    }
+    if let Some(ref state) = resource.state {
+        let valid = ["present", "absent"];
+        if !valid.contains(&state.as_str()) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (overlay_interface) has invalid state '{state}' (expected: present, absent)"
+                ),
+            });
+        }
     }
 }
 

@@ -164,6 +164,45 @@ policy:
 | `pepita` | present, absent | `name`, `cgroups`, `overlayfs`, `netns`, `seccomp` |
 | `model` | present, absent | `name`, `source`, `format`, `quantization`, `checksum`, `cache_dir` |
 | `gpu` | present, absent | `driver_version`, `cuda_version`, `devices`, `persistence_mode`, `compute_mode` |
+| `github_release` | present, absent | `repo`, `tag`, `asset_pattern`, `binary`, `install_dir` |
+| `overlay_interface` | present, absent | `overlay_ip`, `overlay_iface`, `overlay_hosts`, `overlay_firewall` |
+
+#### `overlay_interface` — DNS/DHCP-independent fleet overlay
+
+Binds a **static secondary IP** on a private flat L2 overlay (e.g. `10.42.0.0/24`,
+no gateway) on the host's own default-route NIC, so the address survives reboots,
+power outages, DHCP churn, and subnet flips even when the fleet has no DNS it
+controls. Installs a self-healing systemd `service` + `timer` (and, on
+NetworkManager hosts, a dispatcher hook) that re-assert the IP after a NIC flap or
+DHCP flush. Optionally writes a managed `/etc/hosts` block (`overlay_hosts`) and
+opens the overlay subnet through ufw (`overlay_firewall`). Replaces the
+`machines/fleet-hosts` shell installer with a native, declarative resource.
+
+```yaml
+fleet-overlay:
+  type: overlay_interface
+  machine: intel
+  sudo: true
+  overlay_ip: "10.42.0.11/24"   # static secondary IP + CIDR
+  # overlay_iface: enp9s0       # optional; default = auto-detect default-route NIC
+  overlay_firewall: true        # ufw allow from 10.42.0.0/24
+  overlay_hosts:                # optional managed /etc/hosts block
+    lambda-labs: "10.42.0.10"
+    intel:       "10.42.0.11"
+    mini:        "10.42.0.12"
+```
+
+Self-heal layers (defense in depth):
+- `fleet-overlay.service` — **plain `Type=oneshot`** (NO `RemainAfterExit`) so the
+  timer's `start`/`restart` actually re-runs `ExecStart`.
+- `fleet-overlay.timer` — `OnBootSec=20s` + **`OnCalendar=minutely`** (wall-clock,
+  NOT `OnUnitActiveSec`); the sole re-assert path on systemd-networkd hosts.
+- `/etc/NetworkManager/dispatcher.d/50-fleet-overlay` — instant (~0s) re-assert on
+  `up`/`dhcp4-change`/`dhcp6-change`/`reapply`, installed only where the NM
+  dispatcher dir exists.
+
+On any unit-content change, apply runs `daemon-reload` then **restarts** both units
+(never `start`/`enable --now` alone) so an upgrade takes effect without a reboot.
 
 ### Templates
 
