@@ -278,8 +278,12 @@ pub(crate) fn copia_apply_file(
             // Compute delta
             let delta = copia::compute_delta(&new_data, &sigs);
 
+            // Full-file blake3 of the desired content — the receiver verifies the
+            // reconstructed temp file against this BEFORE the atomic rename.
+            let expected = blake3::hash(&new_data).to_hex().to_string();
+
             // Generate and execute patch script
-            let script = copia::patch_script(path, &delta, owner, group, mode);
+            let script = copia::patch_script(path, &delta, &expected, owner, group, mode);
             transport::exec_script_timeout(machine, &script, timeout_secs)
         }
     }

@@ -9,6 +9,13 @@ use base64::Engine;
 /// Block size for delta sync (4KB).
 pub const BLOCK_SIZE: usize = 4096;
 
+/// POSIX-safe single-quoting for interpolating an untrusted string into a shell
+/// script (closes the injection hole from bare `'{path}'` interpolation).
+#[must_use]
+pub fn shell_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
 /// Files larger than this threshold use delta sync (1MB).
 pub const SIZE_THRESHOLD: u64 = 1_048_576;
 
@@ -151,13 +158,18 @@ pub fn parse_signatures(output: &str) -> Result<Option<Vec<BlockSignature>>, Str
 pub fn patch_script(
     path: &str,
     ops: &[DeltaOp],
+    expected_blake3: &str,
     owner: Option<&str>,
     group: Option<&str>,
     mode: Option<&str>,
 ) -> String {
+    let dest = shell_quote(path);
     let mut lines = vec![
         "set -euo pipefail".to_string(),
-        format!("TMPFILE='{}.forjar-delta.$$'", path),
+        format!("DEST={dest}"),
+        "TMPFILE=\"$DEST.forjar-delta.$$\"".to_string(),
+        // FIX (quorum): interrupted transfer must not litter (ENOSPC vector).
+        "trap 'rm -f \"$TMPFILE\"' EXIT".to_string(),
         "rm -f \"$TMPFILE\"".to_string(),
     ];
 
@@ -165,32 +177,48 @@ pub fn patch_script(
         match op {
             DeltaOp::Copy { index } => {
                 lines.push(format!(
-                    "dd if='{path}' bs={BLOCK_SIZE} skip={index} count=1 >> \"$TMPFILE\" 2>/dev/null",
+                    "dd if=\"$DEST\" bs={BLOCK_SIZE} skip={index} count=1 >> \"$TMPFILE\" 2>/dev/null",
                 ));
             }
             DeltaOp::Literal { data } => {
                 let b64 = base64::engine::general_purpose::STANDARD.encode(data);
-                lines.push(format!("echo '{b64}' | base64 -d >> \"$TMPFILE\""));
+                // FIX (quorum): stream literals over stdin via heredoc, never `echo <b64>`
+                // in argv (a >1MiB literal blows ARG_MAX/E2BIG).
+                lines.push(format!(
+                    "base64 -d >> \"$TMPFILE\" <<'FORJAR_B64'\n{b64}\nFORJAR_B64"
+                ));
             }
         }
     }
 
-    // Atomic replace
-    lines.push(format!("mv \"$TMPFILE\" '{path}'"));
+    // FIX (quorum): verify whole-file integrity BEFORE committing (a weak per-block
+    // checksum makes collisions real). blake3 via b3sum if present; abort on mismatch.
+    lines.push(format!("EXPECT={}", shell_quote(expected_blake3)));
+    lines.push(
+        "if command -v b3sum >/dev/null 2>&1; then \
+         GOT=$(b3sum --no-names \"$TMPFILE\"); \
+         if [ \"$GOT\" != \"$EXPECT\" ]; then echo 'copia: integrity mismatch, aborting' >&2; exit 1; fi; \
+         fi"
+            .to_string(),
+    );
 
-    // Ownership
+    // FIX (quorum): set ownership + mode on the TMP file BEFORE the atomic rename —
+    // a chmod AFTER mv leaves a world-readable window (this fleet provisions cargo
+    // credentials / TLS keys at 0600).
     if let Some(owner) = owner {
-        if let Some(group) = group {
-            lines.push(format!("chown '{owner}:{group}' '{path}'"));
-        } else {
-            lines.push(format!("chown '{owner}' '{path}'"));
-        }
+        let spec = match group {
+            Some(g) => format!("{owner}:{g}"),
+            None => owner.to_string(),
+        };
+        lines.push(format!("chown {} \"$TMPFILE\"", shell_quote(&spec)));
+    }
+    if let Some(mode) = mode {
+        lines.push(format!("chmod {} \"$TMPFILE\"", shell_quote(mode)));
     }
 
-    // Mode
-    if let Some(mode) = mode {
-        lines.push(format!("chmod '{mode}' '{path}'"));
-    }
+    // Atomic replace (perms already correct; trap disarmed by success).
+    lines.push("mv \"$TMPFILE\" \"$DEST\"".to_string());
+    lines.push("trap - EXIT".to_string());
 
     lines.join("\n")
 }
@@ -215,28 +243,43 @@ pub fn full_transfer_script(
     let data = std::fs::read(source_path).map_err(|e| format!("{source_path}: {e}"))?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
 
-    let mut lines = vec!["set -euo pipefail".to_string()];
+    let dest = shell_quote(path);
+    let mut lines = vec![
+        "set -euo pipefail".to_string(),
+        format!("DEST={dest}"),
+        "TMPFILE=\"$DEST.forjar-new.$$\"".to_string(),
+        "trap 'rm -f \"$TMPFILE\"' EXIT".to_string(),
+    ];
 
-    // Ensure parent directory exists
+    // Ensure parent directory exists (quoted).
     if let Some(parent) = std::path::Path::new(path).parent() {
         if parent != std::path::Path::new("/") {
-            lines.push(format!("mkdir -p '{}'", parent.display()));
+            lines.push(format!(
+                "mkdir -p {}",
+                shell_quote(&parent.display().to_string())
+            ));
         }
     }
 
-    lines.push(format!("echo '{b64}' | base64 -d > '{path}'"));
+    // FIX (quorum): heredoc over stdin (no ARG_MAX), stage to a temp file for atomicity.
+    lines.push(format!(
+        "base64 -d > \"$TMPFILE\" <<'FORJAR_B64'\n{b64}\nFORJAR_B64"
+    ));
 
+    // FIX (quorum): perms on the temp file BEFORE the atomic rename (no world-readable window).
     if let Some(owner) = owner {
-        if let Some(group) = group {
-            lines.push(format!("chown '{owner}:{group}' '{path}'"));
-        } else {
-            lines.push(format!("chown '{owner}' '{path}'"));
-        }
+        let spec = match group {
+            Some(g) => format!("{owner}:{g}"),
+            None => owner.to_string(),
+        };
+        lines.push(format!("chown {} \"$TMPFILE\"", shell_quote(&spec)));
+    }
+    if let Some(mode) = mode {
+        lines.push(format!("chmod {} \"$TMPFILE\"", shell_quote(mode)));
     }
 
-    if let Some(mode) = mode {
-        lines.push(format!("chmod '{mode}' '{path}'"));
-    }
+    lines.push("mv \"$TMPFILE\" \"$DEST\"".to_string());
+    lines.push("trap - EXIT".to_string());
 
     Ok(lines.join("\n"))
 }
