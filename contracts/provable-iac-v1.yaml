@@ -101,8 +101,27 @@ kani_harnesses:
     bound: "4 keys"
     status: PROVED
 
-# L4/L5 climb (Lean proof of I1 acyclic->order + verified bindings) tracked under
-# the Phase-2 contract-hardening initiative; this ships at forjar's established L3 bar.
+lean_proofs:
+  # L4 — forjar's FIRST Lean proof. Verify: `lean lean/ProvableIac.lean` (0 errors, no sorry).
+  - id: provable-iac-lean-001
+    obligation: "Conflict detector soundness + completeness (I3 decidable core)"
+    file: "lean/ProvableIac.lean"
+    theorems:
+      - "NoConflictHeadFresh — a NO-conflict verdict implies the head key does not reappear (soundness)"
+      - "NoConflictTailFree — no-conflict holds hereditarily on the tail (soundness)"
+      - "ConflictInheritsFromTail — a tail collision is never masked (completeness)"
+      - "DuplicateHeadConflicts — a repeated head key is always detected (completeness)"
+    status: proved
+
+verification_summary:
+  total_obligations: 4
+  l2_property_tested: 4
+  l3_kani_proved: 1
+  l4_lean_proved: 1
+  l4_sorry_count: 0
+
+# The remaining L4 Lean obligations (I1 acyclic->order) + the full L5 climb of forjar's
+# other 11 contracts are tracked under the Phase-2 contract-hardening initiative.
 qa_gate:
   id: F-PIAC-001
   name: Provable IaC Contract
