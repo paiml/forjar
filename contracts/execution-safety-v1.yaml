@@ -95,3 +95,16 @@ qa_gate:
     - "jidoka_continue"
   pass_criteria: "All 3 falsification tests pass"
   falsification: "Skip rename in save_lock, leaving only temp file"
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/ExecutionSafety.lean` (0 errors, no sorry).
+  - id: execution-safety-lean-001
+    file: lean/ExecutionSafety.lean
+    theorems: [JidokaStop, JidokaContinue, JidokaDispatch, JidokaTotal, StatusReflexive, StatusMonotone, StatusForwardOnly]
+    status: proved
+verification_summary:
+  total_obligations: 2
+  l4_lean_proved: 1
+  l4_not_applicable: 1   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # Jidoka failure-dispatch proved; atomic-write-no-temp-file is a filesystem I/O property

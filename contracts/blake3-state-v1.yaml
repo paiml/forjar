@@ -101,3 +101,16 @@ qa_gate:
     - "order_sensitivity"
   pass_criteria: "All 3 falsification tests pass"
   falsification: "Remove 'blake3:' prefix from hash_string"
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/BlakeState.lean` (0 errors, no sorry).
+  - id: blake3-state-lean-001
+    file: lean/BlakeState.lean
+    theorems: [PrefixOfAppend, HashDeterministic, HashHasBlakePrefix, HashNonEmpty]
+    status: proved
+verification_summary:
+  total_obligations: 3
+  l4_lean_proved: 2
+  l4_not_applicable: 1   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # prefix + determinism proved; hash-of-file disk read is I/O (falsification-tested)

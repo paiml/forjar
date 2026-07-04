@@ -140,3 +140,16 @@ qa_gate:
     - "external_deps"
   pass_criteria: "All 4 falsification tests pass"
   falsification: "Remove alphabetical ordering from expanded resources"
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/RecipeDeterminism.lean` (0 errors, no sorry).
+  - id: recipe-determinism-lean-001
+    file: lean/RecipeDeterminism.lean
+    theorems: [ExpansionDeterminism, ExpansionDeterminismEq, BoundSpec, BoundRejectsBelow, BoundRejectsAbove]
+    status: proved
+verification_summary:
+  total_obligations: 4
+  l4_lean_proved: 2
+  l4_not_applicable: 2   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # expansion-determinism + integer-bounds proved; path-validation + external-deps-placement are I/O
