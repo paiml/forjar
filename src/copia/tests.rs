@@ -1,5 +1,4 @@
 use super::*;
-use base64::Engine as _;
 
 #[test]
 fn test_fj242_compute_signatures_single_block() {

@@ -88,6 +88,7 @@ fn bench_copia_patch_script(c: &mut Criterion) {
             let script = copia::patch_script(
                 black_box("/opt/models/test.gguf"),
                 black_box(&delta),
+                black_box("b3verifyhash"),
                 Some("noah"),
                 None,
                 Some("0644"),

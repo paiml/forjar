@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security — copia provisioning hardening (copia-provisioning-v1)
+Fixes 5 defects a 6-lens quorum found in the generated remote delta-sync shell
+(`src/copia`): perms (chown/chmod) now run on the temp file **before** the atomic
+rename (closing a world-readable window for 0600 secrets); literal payloads stream
+via a base64 **heredoc** (no `echo` ARG_MAX blowup); the reconstructed file's
+**blake3 is verified** before commit; every interpolated path/owner/group/mode is
+**shell-quoted** (injection guard); and a **cleanup trap** prevents temp-file litter.
+
+### Added — 33 verified Lean 4 proofs (6 contracts to L4)
+forjar's first Lean proofs: `blake3-state`, `dag-ordering`, `recipe-determinism`,
+`execution-safety`, `codegen-dispatch`, `overlay-interface` each gain a machine-checked
+proof of their decidable core (0 `sorry`), with honest verification_summary
+(l4_lean_proved for the pure core, l4_not_applicable for genuine I/O).
+
+
 ### Added — Provable IaC: `forjar prove` invariant ladder (provable-iac-v1)
 
 `forjar prove` is enhanced from a convergence proof into a **pv-style L1–L5
