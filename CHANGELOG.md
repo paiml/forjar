@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Provable IaC: `forjar prove` invariant ladder (provable-iac-v1)
+
+`forjar prove` is enhanced from a convergence proof into a **pv-style L1–L5
+provability report over the forjar.yaml itself** — the honest analog of
+`terraform validate` with machine-checked validators (NOT "safe to apply": the
+remote shell that mutates the machine is outside the trusted computing base).
+
+- **Three-state assurance** (never collapsed): `PROVED` (a theorem transfers to
+  this config), `CHECKED` (a Kani-verified decision procedure ran and found
+  nothing), `UNKNOWN` (an opaque/imperative resource the analysis can't see through).
+- **Structural invariants** added alongside the existing convergence proofs:
+  I2 dependency-completeness, I3 conflict-freedom (target-namespace disjointness),
+  I6 protected/blast-radius, I9 input-purity (advisory) — plus a stable,
+  order-independent `plan-hash` (the artifact `apply` will bind to).
+- **No vacuous green**: any `command`/`cron`/`script`/`recipe` resource downgrades
+  the invariants it touches to `UNKNOWN` — the gate never reports safe where it
+  cannot see (a real risk this fleet's exec-heavy configs surface).
+- **HARD invariants** (I1/I2/I3/I6) block apply on falsification; advisory ones warn.
+- Backed by `contracts/provable-iac-v1.yaml` (6 falsification tests + a Kani-verified
+  conflict-detector, `provable-iac-kani-001`); quorum-validated design in
+  `docs/specifications/provable-iac.md` (6 world-class lenses).
+
+
 ### Added — `overlay_interface` resource type (FJ-035)
 
 A new first-class resource type that provides a DNS/DHCP-independent fleet

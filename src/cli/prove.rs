@@ -45,14 +45,33 @@ fn collect_proofs(
     state_dir: &Path,
     machine_filter: Option<&str>,
 ) -> Vec<ProofResult> {
-    let proofs = vec![
+    let mut proofs = vec![
         prove_codegen_completeness(config, machine_filter),
         prove_dag_acyclicity(config),
         prove_state_coverage(config, state_dir, machine_filter),
         prove_hash_determinism(config, machine_filter),
         prove_idempotency_structure(config, machine_filter),
     ];
+    // Provable-IaC structural invariants (three-state; I1/I5 already covered above).
+    proofs.extend(structural_invariants(config));
     proofs
+}
+
+/// Run the `core::prove` invariant engine (contract `provable-iac-v1`) and map its
+/// three-state results into convergence `ProofResult`s. A HARD invariant that is
+/// FALSIFIED fails the proof; PROVED/CHECKED/UNKNOWN pass with the state in the detail.
+fn structural_invariants(config: &types::ForjarConfig) -> Vec<ProofResult> {
+    use crate::core::prove::{prove as prove_invariants, Assurance, Class};
+    prove_invariants(config, "")
+        .invariants
+        .into_iter()
+        .filter(|i| !matches!(i.id, "I1" | "I5"))
+        .map(|i| ProofResult {
+            name: format!("{} {}", i.id, i.name),
+            passed: !(i.class == Class::Hard && i.state == Assurance::Falsified),
+            detail: format!("[{}] {}", i.state.badge(), i.detail),
+        })
+        .collect()
 }
 
 /// Check if a resource's machine matches the filter.
@@ -301,7 +320,8 @@ fn print_proofs_json(config: &types::ForjarConfig, proofs: &[ProofResult]) -> Re
 }
 
 fn print_proofs_text(config: &types::ForjarConfig, proofs: &[ProofResult]) {
-    println!("Convergence Proof: {}", config.name);
+    println!("Convergence + Provable-IaC Proof: {}", config.name);
+    println!("plan-hash: {}", crate::core::prove::plan_hash(config));
     println!("{:-<72}", "");
     for p in proofs {
         let status = if p.passed { "PASS" } else { "FAIL" };
