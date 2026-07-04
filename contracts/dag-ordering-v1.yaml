@@ -93,3 +93,16 @@ qa_gate:
     - "determinism"
   pass_criteria: "All 3 falsification tests pass"
   falsification: "Remove alphabetical sort from zero-degree collection"
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/DagOrdering.lean` (0 errors, no sorry).
+  - id: dag-ordering-lean-001
+    file: lean/DagOrdering.lean
+    theorems: [SelfDepSpec, EmptyAcyclic, SoundnessNoSelfLoopHead, SoundnessAcyclicHereditary, OrderingSoundnessHead, OrderingSoundnessTail, OrderingDeterministic]
+    status: proved
+verification_summary:
+  total_obligations: 3
+  l4_lean_proved: 3
+  l4_not_applicable: 0   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # cycle-soundness + ordering-soundness + determinism all proved on the decision core

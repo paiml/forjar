@@ -169,23 +169,63 @@ fn test_fj242_patch_script_copy_and_literal() {
         },
         DeltaOp::Copy { index: 2 },
     ];
-    let script = patch_script("/opt/model.gguf", &ops, Some("noah"), None, Some("0644"));
+    let script = patch_script(
+        "/opt/model.gguf",
+        &ops,
+        "b3hex",
+        Some("noah"),
+        None,
+        Some("0644"),
+    );
     assert!(script.contains("set -euo pipefail"));
-    assert!(script.contains("dd if='/opt/model.gguf'"));
+    assert!(script.contains("DEST='/opt/model.gguf'"));
+    assert!(script.contains("dd if=\"$DEST\""));
     assert!(script.contains("skip=0 count=1"));
-    assert!(script.contains("base64 -d"));
     assert!(script.contains("skip=2 count=1"));
-    assert!(script.contains("mv \"$TMPFILE\" '/opt/model.gguf'"));
-    assert!(script.contains("chown 'noah' '/opt/model.gguf'"));
-    assert!(script.contains("chmod '0644' '/opt/model.gguf'"));
+    // Hardening: literals stream via heredoc (no `echo <b64>` ARG_MAX blowup).
+    assert!(script.contains("base64 -d >> \"$TMPFILE\" <<'FORJAR_B64'"));
+    // The literal payload (base64 of "hello") must NOT appear in an echo argv.
+    let b64_hello = base64::engine::general_purpose::STANDARD.encode(b"hello");
+    assert!(
+        !script.contains(&format!("echo '{b64_hello}'")),
+        "literal data must stream via heredoc, not echo argv"
+    );
+    // Hardening: integrity verify + cleanup trap present.
+    assert!(script.contains("b3sum") && script.contains("integrity mismatch"));
+    assert!(script.contains("trap 'rm -f \"$TMPFILE\"' EXIT"));
+    // Hardening: chmod/chown on the TMP file BEFORE the atomic rename (no secret window).
+    let chmod_at = script
+        .find("chmod '0644' \"$TMPFILE\"")
+        .expect("chmod on tmp");
+    let mv_at = script
+        .find("mv \"$TMPFILE\" \"$DEST\"")
+        .expect("atomic rename");
+    assert!(chmod_at < mv_at, "perms must be set BEFORE the rename");
+    assert!(script.contains("chown 'noah' \"$TMPFILE\""));
 }
 
 #[test]
 fn test_fj242_patch_script_owner_and_group() {
     let ops = vec![DeltaOp::Copy { index: 0 }];
-    let script = patch_script("/etc/data", &ops, Some("app"), Some("www-data"), None);
-    assert!(script.contains("chown 'app:www-data' '/etc/data'"));
+    let script = patch_script("/etc/data", &ops, "h", Some("app"), Some("www-data"), None);
+    // chown on the temp file, before rename.
+    let chown_at = script
+        .find("chown 'app:www-data' \"$TMPFILE\"")
+        .expect("chown on tmp");
+    let mv_at = script.find("mv \"$TMPFILE\" \"$DEST\"").expect("rename");
+    assert!(chown_at < mv_at);
     assert!(!script.contains("chmod"));
+}
+
+#[test]
+fn test_fj242_patch_script_shell_quotes_path() {
+    // A path with a single quote must not break out of the quoting (injection guard).
+    let ops = vec![DeltaOp::Copy { index: 0 }];
+    let script = patch_script("/etc/a'b", &ops, "h", None, None, None);
+    assert!(
+        script.contains(r#"DEST='/etc/a'\''b'"#),
+        "single quote must be escaped"
+    );
 }
 
 #[test]
@@ -193,7 +233,7 @@ fn test_fj242_patch_script_no_ownership() {
     let ops = vec![DeltaOp::Literal {
         data: b"data".to_vec(),
     }];
-    let script = patch_script("/tmp/test", &ops, None, None, None);
+    let script = patch_script("/tmp/test", &ops, "h", None, None, None);
     assert!(!script.contains("chown"));
     assert!(!script.contains("chmod"));
 }

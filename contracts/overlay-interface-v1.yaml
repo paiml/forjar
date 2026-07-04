@@ -229,3 +229,16 @@ qa_gate:
   falsification: "Add RemainAfterExit to the service, or drop the arping -D probe, or omit overlay_hosts from the hash"
 
 verification_level: L2
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/OverlayInterface.lean` (0 errors, no sorry).
+  - id: overlay-interface-lean-001
+    file: lean/OverlayInterface.lean
+    theorems: [ServiceNeverRemainAfterExit, TimerHasOnCalendar, TimerHasRandomizedDelay, TimerNeverOnUnitActiveSec, EmitDeterministic]
+    status: proved
+verification_summary:
+  total_obligations: 7
+  l4_lean_proved: 2
+  l4_not_applicable: 5   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # no-self-pin + wall-clock-jittered-timer proved on the emitted directives; the rest are emitter/systemd I/O

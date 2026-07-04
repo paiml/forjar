@@ -1,0 +1,63 @@
+metadata:
+  version: "1.0.0"
+  created: "2026-07-04"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: >
+    Security-hardening invariants for forjar's copia delta-sync provisioning scripts
+    (src/copia). Fixes the defects a 6-lens quorum found in the generated remote shell:
+    the receiver reconstructs into a temp file, VERIFIES integrity, sets perms, and only
+    THEN atomically renames — with all interpolation shell-quoted and large literals
+    streamed over stdin.
+  references:
+    - "docs/specifications/provable-iac.md (quorum review — copia integration lens)"
+    - "rsync/librsync receiver-side reconstruct-verify-atomic-rename model"
+
+equations:
+  provisioning_safety:
+    formula: "apply_delta(receiver) = verify ∘ set_perms ∘ reconstruct(tmp), then atomic_rename"
+    domain: "forjar provisioning a >1MiB file to a remote via copia delta"
+    invariants:
+      - "Perms (chown/chmod) are set on the TEMP file BEFORE the atomic rename — no world-readable window for 0600 secrets"
+      - "Literal payloads stream via a base64 heredoc over stdin — never `echo <b64>` in argv (no ARG_MAX/E2BIG)"
+      - "The reconstructed temp file's blake3 is verified against the expected content hash BEFORE commit"
+      - "Every interpolated path/owner/group/mode is POSIX single-quote-escaped (no shell injection)"
+      - "A cleanup trap removes the temp file on any exit (interrupted transfer leaves no ENOSPC litter)"
+
+proof_obligations:
+  - type: safety
+    property: "Perms precede the atomic rename"
+    formal: "position(chmod/chown \"$TMPFILE\") < position(mv \"$TMPFILE\" \"$DEST\")"
+    applies_to: provisioning_safety
+  - type: safety
+    property: "Injection-safe interpolation"
+    formal: "∀ s: shell_quote(s) parses back to exactly s (single-quote wrap + '\\'' escape)"
+    applies_to: provisioning_safety
+
+falsification_tests:
+  - id: FALSIFY-COPIA-001
+    rule: "Perms before rename"
+    prediction: "patch_script emits chmod/chown on $TMPFILE strictly before `mv $TMPFILE $DEST`"
+    test: "copia::tests::test_fj242_patch_script_copy_and_literal (chmod_at < mv_at) + _owner_and_group"
+    if_fails: "a world-readable window exposes 0600 secrets during provisioning"
+  - id: FALSIFY-COPIA-002
+    rule: "Heredoc not argv"
+    prediction: "literal data appears in a `base64 -d <<'FORJAR_B64'` heredoc, never in an `echo '<b64>'`"
+    test: "copia::tests::test_fj242_patch_script_copy_and_literal"
+    if_fails: "a >1MiB literal blows ARG_MAX/E2BIG and provisioning fails"
+  - id: FALSIFY-COPIA-003
+    rule: "Integrity verify + trap"
+    prediction: "patch_script verifies blake3 before commit and traps cleanup on exit"
+    test: "copia::tests::test_fj242_patch_script_copy_and_literal"
+    if_fails: "a corrupt reconstruction commits, or an interrupted transfer litters temp files"
+  - id: FALSIFY-COPIA-004
+    rule: "Injection guard"
+    prediction: "a path containing a single quote is escaped (shell_quote), not broken out of"
+    test: "copia::tests::test_fj242_patch_script_shell_quotes_path"
+    if_fails: "a crafted path injects shell commands into the provisioning script"
+
+qa_gate:
+  id: F-COPIA-001
+  name: Copia Provisioning Hardening
+  checks: [provisioning_safety]
+  pass_criteria: "All 4 FALSIFY-COPIA tests pass — perms-before-rename, heredoc, integrity+trap, injection guard."
