@@ -243,3 +243,35 @@ bindings:
     signature: "fn state_query_script(resource: &Resource) -> String"
     status: implemented
     notes: "Heartbeat class (fresh/stale/missing) on stdout (drift-visible); raw monotonic values to stderr to avoid false drift; re-run is a plan-level NoOp"
+
+  # ── Provable IaC (provable-iac-v1) ─────────────────────
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::prove"
+    function: prove
+    signature: "fn prove(cfg: &ForjarConfig, file: &str) -> ProofReport"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::checkers::acyclicity"
+    function: acyclicity
+    signature: "fn acyclicity(cfg: &ForjarConfig) -> InvariantResult"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::checkers::conflict_freedom"
+    function: conflict_freedom
+    signature: "fn conflict_freedom(cfg: &ForjarConfig) -> InvariantResult"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::has_conflict"
+    function: has_conflict
+    signature: "fn has_conflict(keys: &[u64]) -> bool"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::plan_hash"
+    function: plan_hash
+    signature: "fn plan_hash(cfg: &ForjarConfig) -> String"
+    status: implemented
