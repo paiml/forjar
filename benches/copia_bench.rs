@@ -1,19 +1,27 @@
-//! Benchmarks for copia delta sync operations.
+//! Benchmarks for the copia rolling delta engine.
 //!
 //! Run with: cargo bench --bench copia_bench
 //!
-//! FJ-247: Copia delta sync — signature computation, delta generation,
-//! patch script serialization, and signature parsing.
+//! FJ-242 (rolling): weak-checksum throughput, rolling delta generation, patch
+//! script serialization, and signature parsing.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use forjar::copia;
 use std::hint::black_box;
 
-/// Benchmark copia signature computation at various file sizes.
-/// Signatures are per-block BLAKE3 hashes (4KB blocks).
-fn bench_copia_signatures(c: &mut Criterion) {
-    use forjar::copia;
+fn signature_of(data: &[u8]) -> copia::Signature {
+    let mut out = format!("SIZE:{}\n", data.len());
+    for (i, chunk) in data.chunks(copia::BLOCK_SIZE).enumerate() {
+        let weak = copia::weak_checksum(chunk);
+        let strong = blake3::hash(chunk).to_hex();
+        out.push_str(&format!("{i} {weak} {strong}\n"));
+    }
+    copia::parse_signature(&out).unwrap().unwrap()
+}
 
-    let mut group = c.benchmark_group("copia_signatures");
+/// Weak (Adler) checksum throughput — the per-block cost the receiver's awk mirrors.
+fn bench_copia_weak_checksum(c: &mut Criterion) {
+    let mut group = c.benchmark_group("copia_weak_checksum");
     for size_mb in [1, 4, 16] {
         let data = vec![0xABu8; size_mb * 1024 * 1024];
         group.bench_with_input(
@@ -21,8 +29,11 @@ fn bench_copia_signatures(c: &mut Criterion) {
             &data,
             |b, data| {
                 b.iter(|| {
-                    let sigs = copia::compute_signatures(black_box(data));
-                    black_box(sigs);
+                    let mut acc = 0u32;
+                    for chunk in data.chunks(copia::BLOCK_SIZE) {
+                        acc = acc.wrapping_add(copia::weak_checksum(black_box(chunk)));
+                    }
+                    black_box(acc);
                 });
             },
         );
@@ -30,20 +41,16 @@ fn bench_copia_signatures(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark copia delta computation for files with varying change percentages.
-/// Simulates model fine-tuning scenarios: 2% change (typical), 50% change, 100% change.
-fn bench_copia_delta(c: &mut Criterion) {
-    use forjar::copia;
-
-    let size = 4 * 1024 * 1024; // 4MB test file
+/// Rolling delta generation for files with varying change percentages.
+fn bench_copia_rolling_delta(c: &mut Criterion) {
+    let size = 4 * 1024 * 1024;
     let mut old_data = vec![0u8; size];
-    // Make blocks unique
     for i in 0..(size / copia::BLOCK_SIZE) {
         old_data[i * copia::BLOCK_SIZE] = (i % 256) as u8;
     }
-    let remote_sigs = copia::compute_signatures(&old_data);
+    let sig = signature_of(&old_data);
 
-    let mut group = c.benchmark_group("copia_delta");
+    let mut group = c.benchmark_group("copia_rolling_delta");
     for change_pct in [2, 10, 50, 100] {
         let mut new_data = old_data.clone();
         let blocks = size / copia::BLOCK_SIZE;
@@ -51,13 +58,12 @@ fn bench_copia_delta(c: &mut Criterion) {
         for i in 0..changed {
             new_data[i * copia::BLOCK_SIZE] = 0xFF;
         }
-
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{change_pct}pct")),
             &new_data,
             |b, new_data| {
                 b.iter(|| {
-                    let delta = copia::compute_delta(black_box(new_data), &remote_sigs);
+                    let delta = copia::rolling_delta(black_box(new_data), &sig);
                     black_box(delta);
                 });
             },
@@ -66,22 +72,20 @@ fn bench_copia_delta(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark copia patch script generation (measures serialization overhead).
+/// Patch script generation (serialization overhead).
 fn bench_copia_patch_script(c: &mut Criterion) {
-    use forjar::copia;
-
-    let size = 1024 * 1024; // 1MB
-    let old_data = vec![0u8; size];
-    let remote_sigs = copia::compute_signatures(&old_data);
-
-    // 10% change
+    let size = 1024 * 1024;
+    let mut old_data = vec![0u8; size];
+    for i in 0..(size / copia::BLOCK_SIZE) {
+        old_data[i * copia::BLOCK_SIZE] = (i % 256) as u8;
+    }
+    let sig = signature_of(&old_data);
     let mut new_data = old_data;
-    let blocks = size / copia::BLOCK_SIZE;
-    let changed = blocks / 10;
+    let changed = (size / copia::BLOCK_SIZE) / 10;
     for i in 0..changed {
         new_data[i * copia::BLOCK_SIZE] = 0xFF;
     }
-    let delta = copia::compute_delta(&new_data, &remote_sigs);
+    let delta = copia::rolling_delta(&new_data, &sig);
 
     c.bench_function("copia_patch_script_1MB_10pct", |b| {
         b.iter(|| {
@@ -98,30 +102,26 @@ fn bench_copia_patch_script(c: &mut Criterion) {
     });
 }
 
-/// Benchmark copia signature parsing (measures remote output deserialization).
-fn bench_copia_parse_signatures(c: &mut Criterion) {
-    use forjar::copia;
-
-    // Generate a realistic signature output for 1024 blocks (4MB file)
+/// Signature parsing (remote output → copia::Signature).
+fn bench_copia_parse_signature(c: &mut Criterion) {
     let mut output = String::from("SIZE:4194304\n");
-    for i in 0..1024 {
+    for i in 0..1024u32 {
         let hash = blake3::hash(&[i as u8; copia::BLOCK_SIZE]).to_hex();
-        output.push_str(&format!("{i} {hash}\n"));
+        output.push_str(&format!("{i} {} {hash}\n", i.wrapping_mul(2_654_435_761)));
     }
-
-    c.bench_function("copia_parse_signatures_1024_blocks", |b| {
+    c.bench_function("copia_parse_signature_1024_blocks", |b| {
         b.iter(|| {
-            let sigs = copia::parse_signatures(black_box(&output)).unwrap();
-            black_box(sigs);
+            let sig = copia::parse_signature(black_box(&output)).unwrap();
+            black_box(sig);
         });
     });
 }
 
 criterion_group!(
     copia_benches,
-    bench_copia_signatures,
-    bench_copia_delta,
+    bench_copia_weak_checksum,
+    bench_copia_rolling_delta,
     bench_copia_patch_script,
-    bench_copia_parse_signatures,
+    bench_copia_parse_signature,
 );
 criterion_main!(copia_benches);

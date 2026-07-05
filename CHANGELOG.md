@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — copia delta is now TRUE ROLLING delta (the real fix)
+
+forjar's large-file provisioning delta was fixed-block: a 1-byte insertion made
+every later block differ, forcing a full re-transfer. It now computes a **true
+rolling delta** via the copia crate (`copia::CopiaSync::delta` matches blocks at
+ANY byte offset), so an insertion/deletion reuses the unchanged bulk of the file.
+
+The elegant part: **no copia binary is staged on the receiver.** The receiver
+reports a `copia::Signature` computed with `od`+`awk` (the Adler weak checksum,
+verified bit-for-bit against `copia::RollingChecksum`) and `b3sum` (blake3 strong
+hash) — all universal tools; forjar does the rolling match locally with the library.
+A checksum disagreement (e.g. busybox) can only degrade to all-literal (correct
+output), never corrupt — the strong hash and the whole-file blake3 are re-verified
+before the atomic rename. `copia-provisioning-v1` gains FALSIFY-COPIA-005..007.
+
+
 ### Security — copia provisioning hardening (copia-provisioning-v1)
 Fixes 5 defects a 6-lens quorum found in the generated remote delta-sync shell
 (`src/copia`): perms (chown/chmod) now run on the temp file **before** the atomic

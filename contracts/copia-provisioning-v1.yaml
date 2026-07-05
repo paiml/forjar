@@ -23,6 +23,14 @@ equations:
       - "The reconstructed temp file's blake3 is verified against the expected content hash BEFORE commit"
       - "Every interpolated path/owner/group/mode is POSIX single-quote-escaped (no shell injection)"
       - "A cleanup trap removes the temp file on any exit (interrupted transfer leaves no ENOSPC litter)"
+  rolling_delta:
+    formula: "weak(block) = (b<<16)|a, a=Σbyte, b=Σ(len-i)·byte, mod 65521; delta = copia::rolling_delta(source, signature)"
+    domain: "the receiver reports a copia Signature via od+awk+b3sum (NO staged binary); forjar computes the rolling match locally"
+    invariants:
+      - "The receiver's awk weak checksum equals copia::RollingChecksum bit-for-bit (else rolling silently degrades)"
+      - "A parsed receiver signature equals copia's own Signature::generate (weak + strong per block)"
+      - "reconstruct(basis, rolling_delta(new, sig)) = new — an insertion/deletion is handled without full re-transfer"
+      - "A checksum disagreement can only degrade to all-literal (correct output) — it can never corrupt (strong + whole-file blake3 re-checked)"
 
 proof_obligations:
   - type: safety
@@ -53,8 +61,23 @@ falsification_tests:
   - id: FALSIFY-COPIA-004
     rule: "Injection guard"
     prediction: "a path containing a single quote is escaped (shell_quote), not broken out of"
-    test: "copia::tests::test_fj242_patch_script_shell_quotes_path"
+    test: "copia::tests::patch_script_shell_quotes_path"
     if_fails: "a crafted path injects shell commands into the provisioning script"
+  - id: FALSIFY-COPIA-005
+    rule: "Weak checksum matches copia"
+    prediction: "the receiver's od+awk Adler checksum equals copia::RollingChecksum for every block; the real shell awk matches too"
+    test: "copia::tests::weak_checksum_matches_copia + parsed_signature_equals_copia_generate (+ e2e shell awk check)"
+    if_fails: "rolling silently degrades to full re-transfer (no benefit)"
+  - id: FALSIFY-COPIA-006
+    rule: "Rolling handles insertion"
+    prediction: "after inserting bytes near the front, rolling_delta reuses >50% of the basis (fixed-block would re-transfer all)"
+    test: "copia::tests::rolling_handles_insertion_without_full_retransfer"
+    if_fails: "the real problem (insertion = full re-transfer) is not actually fixed"
+  - id: FALSIFY-COPIA-007
+    rule: "Reconstruction is always correct"
+    prediction: "reconstruct(basis, rolling_delta(new, sig)) = new for edits and insertions"
+    test: "copia::tests::rolling_delta_roundtrip_reconstructs_source"
+    if_fails: "a delta reconstructs the wrong file — corruption"
 
 qa_gate:
   id: F-COPIA-001
