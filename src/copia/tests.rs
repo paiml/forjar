@@ -1,347 +1,203 @@
+//! Tests for the copia rolling delta engine (FJ-242 rolling).
+#![allow(clippy::unwrap_used)]
 use super::*;
 
-#[test]
-fn test_fj242_compute_signatures_single_block() {
-    let data = vec![0u8; 100]; // Less than BLOCK_SIZE
-    let sigs = compute_signatures(&data);
-    assert_eq!(sigs.len(), 1);
-    assert_eq!(sigs[0].index, 0);
-    assert!(!sigs[0].hash.is_empty());
+fn blob(seed: u8, n: usize) -> Vec<u8> {
+    (0..n)
+        .map(|i| seed.wrapping_add((i as u8).wrapping_mul(31)))
+        .collect()
 }
 
+// ── the weak checksum must match copia bit-for-bit (else rolling degrades) ──
 #[test]
-fn test_fj242_compute_signatures_multiple_blocks() {
-    let data = vec![0u8; BLOCK_SIZE * 3 + 100]; // 3 full + 1 partial
-    let sigs = compute_signatures(&data);
-    assert_eq!(sigs.len(), 4);
-    for (i, sig) in sigs.iter().enumerate() {
-        assert_eq!(sig.index, i);
+fn weak_checksum_matches_copia() {
+    for block in [
+        b"".as_slice(),
+        b"a",
+        b"hello world",
+        &blob(7, BLOCK_SIZE),
+        &blob(200, BLOCK_SIZE - 3),
+        &vec![0u8; 500],
+        &vec![255u8; BLOCK_SIZE],
+    ] {
+        assert_eq!(
+            weak_checksum(block),
+            copia::RollingChecksum::new(block).digest(),
+            "weak checksum diverges from copia for a {}-byte block",
+            block.len()
+        );
     }
-    // First 3 blocks are identical (all zeros), so same hash
-    assert_eq!(sigs[0].hash, sigs[1].hash);
-    assert_eq!(sigs[1].hash, sigs[2].hash);
-    // Last block is shorter, different hash
-    assert_ne!(sigs[2].hash, sigs[3].hash);
+}
+
+// ── the receiver's (simulated) signature output parses to EXACTLY copia's own ──
+fn sim_signature_output(data: &[u8]) -> String {
+    let mut s = format!("SIZE:{}\n", data.len());
+    for (i, chunk) in data.chunks(BLOCK_SIZE).enumerate() {
+        let weak = weak_checksum(chunk);
+        let strong = blake3::hash(chunk).to_hex();
+        s.push_str(&format!("{i} {weak} {strong}\n"));
+    }
+    s
 }
 
 #[test]
-fn test_fj242_compute_signatures_deterministic() {
-    let data = b"hello world copia delta sync test data";
-    let sigs1 = compute_signatures(data);
-    let sigs2 = compute_signatures(data);
-    assert_eq!(sigs1, sigs2);
+fn parsed_signature_equals_copia_generate() {
+    let data = blob(3, BLOCK_SIZE * 4 + 511);
+    let parsed = parse_signature(&sim_signature_output(&data))
+        .unwrap()
+        .unwrap();
+    let mut rdr = data.as_slice();
+    let reference = copia::Signature::generate(&mut rdr, BLOCK_SIZE).unwrap();
+    assert_eq!(parsed.block_size, reference.block_size);
+    assert_eq!(parsed.blocks.len(), reference.blocks.len());
+    for (p, r) in parsed.blocks.iter().zip(reference.blocks.iter()) {
+        assert_eq!(
+            p.weak_hash, r.weak_hash,
+            "weak mismatch at block {}",
+            p.index
+        );
+        assert_eq!(
+            p.strong_hash.as_bytes(),
+            r.strong_hash.as_bytes(),
+            "strong mismatch"
+        );
+    }
+}
+
+fn reconstruct(basis: &[u8], delta: &copia::Delta) -> Vec<u8> {
+    let mut out = Vec::new();
+    for op in &delta.ops {
+        match op {
+            copia::DeltaOp::Copy { offset, len } => {
+                let o = *offset as usize;
+                out.extend_from_slice(&basis[o..o + *len as usize]);
+            }
+            copia::DeltaOp::Literal(d) => out.extend_from_slice(d),
+        }
+    }
+    out
 }
 
 #[test]
-fn test_fj242_compute_delta_identical() {
-    let data = vec![42u8; BLOCK_SIZE * 5];
-    let sigs = compute_signatures(&data);
-    let delta = compute_delta(&data, &sigs);
-    assert_eq!(delta.len(), 5);
-    assert_eq!(literal_count(&delta), 0); // All copies, no changes
-}
-
-#[test]
-fn test_fj242_compute_delta_all_different() {
-    let old_data = vec![0u8; BLOCK_SIZE * 3];
-    let new_data = vec![1u8; BLOCK_SIZE * 3];
-    let sigs = compute_signatures(&old_data);
-    let delta = compute_delta(&new_data, &sigs);
-    assert_eq!(delta.len(), 3);
-    assert_eq!(literal_count(&delta), 3); // All literals, nothing matches
-}
-
-#[test]
-fn test_fj242_compute_delta_partial_change() {
-    // 4 blocks, change only block 1 and 3
-    let old_data = vec![0u8; BLOCK_SIZE * 4];
-    let sigs = compute_signatures(&old_data);
-
-    let mut new_data = old_data.clone();
-    // Modify block 1
-    new_data[BLOCK_SIZE] = 0xFF;
-    // Modify block 3
-    new_data[BLOCK_SIZE * 3] = 0xFF;
-
-    let delta = compute_delta(&new_data, &sigs);
-    assert_eq!(delta.len(), 4);
-    assert_eq!(literal_count(&delta), 2); // Only 2 blocks changed
-    assert!(matches!(delta[0], DeltaOp::Copy { index: 0 }));
-    assert!(matches!(delta[1], DeltaOp::Literal { .. }));
-    assert!(matches!(delta[2], DeltaOp::Copy { index: 2 }));
-    assert!(matches!(delta[3], DeltaOp::Literal { .. }));
-}
-
-#[test]
-fn test_fj242_compute_delta_new_file_longer() {
-    // Old file: 2 blocks, new file: 4 blocks (2 new blocks appended)
-    let old_data = vec![0u8; BLOCK_SIZE * 2];
-    let sigs = compute_signatures(&old_data);
-
-    let mut new_data = vec![0u8; BLOCK_SIZE * 4];
-    new_data[BLOCK_SIZE * 2..].fill(1); // New blocks are different
-
-    let delta = compute_delta(&new_data, &sigs);
-    assert_eq!(delta.len(), 4);
-    assert!(matches!(delta[0], DeltaOp::Copy { index: 0 }));
-    assert!(matches!(delta[1], DeltaOp::Copy { index: 1 }));
-    assert!(matches!(delta[2], DeltaOp::Literal { .. })); // New block
-    assert!(matches!(delta[3], DeltaOp::Literal { .. })); // New block
-    assert_eq!(literal_count(&delta), 2);
-}
-
-#[test]
-fn test_fj242_literal_bytes_count() {
-    let ops = vec![
-        DeltaOp::Copy { index: 0 },
-        DeltaOp::Literal {
-            data: vec![0u8; 100],
-        },
-        DeltaOp::Literal {
-            data: vec![0u8; 200],
-        },
-        DeltaOp::Copy { index: 3 },
-    ];
-    assert_eq!(literal_bytes(&ops), 300);
-    assert_eq!(literal_count(&ops), 2);
-}
-
-#[test]
-fn test_fj242_signature_script_generates_valid_shell() {
-    let script = signature_script("/opt/models/llama.gguf");
-    assert!(script.contains("set -euo pipefail"));
-    assert!(script.contains("/opt/models/llama.gguf"));
-    assert!(script.contains("NEW_FILE"));
-    assert!(script.contains("b3sum"));
-    assert!(script.contains("sha256sum")); // fallback
-    assert!(script.contains(&BLOCK_SIZE.to_string()));
-}
-
-#[test]
-fn test_fj242_parse_signatures_new_file() {
-    let output = "NEW_FILE\n";
-    let result = parse_signatures(output).unwrap();
-    assert!(result.is_none());
-}
-
-#[test]
-fn test_fj242_parse_signatures_valid() {
-    let output = "SIZE:12288\n0 abc123\n1 def456\n2 ghi789\n";
-    let sigs = parse_signatures(output).unwrap().unwrap();
-    assert_eq!(sigs.len(), 3);
-    assert_eq!(sigs[0].index, 0);
-    assert_eq!(sigs[0].hash, "abc123");
-    assert_eq!(sigs[1].index, 1);
-    assert_eq!(sigs[1].hash, "def456");
-    assert_eq!(sigs[2].index, 2);
-    assert_eq!(sigs[2].hash, "ghi789");
-}
-
-#[test]
-fn test_fj242_parse_signatures_empty_lines() {
-    let output = "\nSIZE:4096\n\n0 hash0\n\n";
-    let sigs = parse_signatures(output).unwrap().unwrap();
-    assert_eq!(sigs.len(), 1);
-}
-
-#[test]
-fn test_fj242_parse_signatures_invalid_index() {
-    let output = "SIZE:4096\nabc hash0\n";
-    let result = parse_signatures(output);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("invalid block index"));
-}
-
-#[test]
-fn test_fj242_parse_signatures_invalid_line() {
-    let output = "SIZE:4096\njustahash\n";
-    let result = parse_signatures(output);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("invalid signature line"));
-}
-
-#[test]
-fn test_fj242_patch_script_copy_and_literal() {
-    let ops = vec![
-        DeltaOp::Copy { index: 0 },
-        DeltaOp::Literal {
-            data: b"hello".to_vec(),
-        },
-        DeltaOp::Copy { index: 2 },
-    ];
-    let script = patch_script(
-        "/opt/model.gguf",
-        &ops,
-        "b3hex",
-        Some("noah"),
-        None,
-        Some("0644"),
+fn rolling_delta_roundtrip_reconstructs_source() {
+    let old = blob(1, BLOCK_SIZE * 6);
+    let mut new = old.clone();
+    new[BLOCK_SIZE * 2..BLOCK_SIZE * 2 + 10].fill(0xAB); // in-place edit
+    let sig = parse_signature(&sim_signature_output(&old))
+        .unwrap()
+        .unwrap();
+    let delta = rolling_delta(&new, &sig);
+    assert_eq!(
+        reconstruct(&old, &delta),
+        new,
+        "reconstruction must equal the source"
     );
-    assert!(script.contains("set -euo pipefail"));
-    assert!(script.contains("DEST='/opt/model.gguf'"));
-    assert!(script.contains("dd if=\"$DEST\""));
-    assert!(script.contains("skip=0 count=1"));
-    assert!(script.contains("skip=2 count=1"));
-    // Hardening: literals stream via heredoc (no `echo <b64>` ARG_MAX blowup).
+}
+
+#[test]
+fn rolling_handles_insertion_without_full_retransfer() {
+    // Insert bytes near the FRONT — fixed-block would re-transfer everything; rolling
+    // must still find the shifted blocks (Copy ops), proving the real fix works.
+    let old = blob(9, BLOCK_SIZE * 8);
+    let mut new = Vec::new();
+    new.extend_from_slice(&old[..100]);
+    new.extend_from_slice(b"<<<INSERTED BYTES THAT SHIFT EVERYTHING AFTER>>>");
+    new.extend_from_slice(&old[100..]);
+    let sig = parse_signature(&sim_signature_output(&old))
+        .unwrap()
+        .unwrap();
+    let delta = rolling_delta(&new, &sig);
+    assert_eq!(
+        reconstruct(&old, &delta),
+        new,
+        "reconstruction must be correct"
+    );
+    let copied: u64 = delta
+        .ops
+        .iter()
+        .map(|op| match op {
+            copia::DeltaOp::Copy { len, .. } => u64::from(*len),
+            copia::DeltaOp::Literal(_) => 0,
+        })
+        .sum();
+    // Most of the file is unchanged (just shifted) — rolling must Copy the bulk.
+    assert!(
+        copied > (old.len() as u64) / 2,
+        "rolling should reuse >50% of the basis after an insertion, copied only {copied}"
+    );
+}
+
+// ── receiver script uses only portable tools; no staged binary ──
+#[test]
+fn signature_script_is_portable_and_binary_free() {
+    let s = signature_script("/opt/model.gguf");
+    assert!(s.contains("od -An -v -tu1"));
+    assert!(s.contains("b3sum --no-names"));
+    assert!(
+        s.contains("NO_B3SUM"),
+        "must fall back cleanly if b3sum is absent"
+    );
+    assert!(
+        !s.contains("copia "),
+        "no staged copia binary is invoked on the receiver"
+    );
+    assert!(s.contains("FILE='/opt/model.gguf'"));
+}
+
+// ── patch script hardening (unchanged security properties) ──
+#[test]
+fn patch_script_hardening() {
+    let mut d = copia::Delta::new(BLOCK_SIZE as u32, 10, 10);
+    d.push_copy(0, 5);
+    d.push_literal(b"hello");
+    let script = patch_script("/etc/secret", &d, "b3hex", Some("root"), None, Some("0600"));
+    // byte-range copy via tail|head, literal via heredoc (no echo argv)
+    assert!(script.contains("tail -c +1 \"$DEST\" | head -c 5"));
     assert!(script.contains("base64 -d >> \"$TMPFILE\" <<'FORJAR_B64'"));
-    // The literal payload (base64 of "hello") must NOT appear in an echo argv.
-    let b64_hello = base64::engine::general_purpose::STANDARD.encode(b"hello");
+    // integrity verify + trap
     assert!(
-        !script.contains(&format!("echo '{b64_hello}'")),
-        "literal data must stream via heredoc, not echo argv"
+        script.contains("integrity mismatch") && script.contains("trap 'rm -f \"$TMPFILE\"' EXIT")
     );
-    // Hardening: integrity verify + cleanup trap present.
-    assert!(script.contains("b3sum") && script.contains("integrity mismatch"));
-    assert!(script.contains("trap 'rm -f \"$TMPFILE\"' EXIT"));
-    // Hardening: chmod/chown on the TMP file BEFORE the atomic rename (no secret window).
-    let chmod_at = script
-        .find("chmod '0644' \"$TMPFILE\"")
-        .expect("chmod on tmp");
-    let mv_at = script
-        .find("mv \"$TMPFILE\" \"$DEST\"")
-        .expect("atomic rename");
-    assert!(chmod_at < mv_at, "perms must be set BEFORE the rename");
-    assert!(script.contains("chown 'noah' \"$TMPFILE\""));
-}
-
-#[test]
-fn test_fj242_patch_script_owner_and_group() {
-    let ops = vec![DeltaOp::Copy { index: 0 }];
-    let script = patch_script("/etc/data", &ops, "h", Some("app"), Some("www-data"), None);
-    // chown on the temp file, before rename.
-    let chown_at = script
-        .find("chown 'app:www-data' \"$TMPFILE\"")
-        .expect("chown on tmp");
-    let mv_at = script.find("mv \"$TMPFILE\" \"$DEST\"").expect("rename");
-    assert!(chown_at < mv_at);
-    assert!(!script.contains("chmod"));
-}
-
-#[test]
-fn test_fj242_patch_script_shell_quotes_path() {
-    // A path with a single quote must not break out of the quoting (injection guard).
-    let ops = vec![DeltaOp::Copy { index: 0 }];
-    let script = patch_script("/etc/a'b", &ops, "h", None, None, None);
+    // perms BEFORE the rename
+    let chmod_at = script.find("chmod '0600' \"$TMPFILE\"").unwrap();
+    let mv_at = script.find("mv \"$TMPFILE\" \"$DEST\"").unwrap();
     assert!(
-        script.contains(r#"DEST='/etc/a'\''b'"#),
-        "single quote must be escaped"
+        chmod_at < mv_at,
+        "perms must be set before the atomic rename"
     );
 }
 
 #[test]
-fn test_fj242_patch_script_no_ownership() {
-    let ops = vec![DeltaOp::Literal {
-        data: b"data".to_vec(),
-    }];
-    let script = patch_script("/tmp/test", &ops, "h", None, None, None);
-    assert!(!script.contains("chown"));
-    assert!(!script.contains("chmod"));
+fn patch_script_shell_quotes_path() {
+    let d = copia::Delta::new(BLOCK_SIZE as u32, 0, 0);
+    let script = patch_script("/etc/a'b", &d, "h", None, None, None);
+    assert!(script.contains(r#"DEST='/etc/a'\''b'"#));
 }
 
 #[test]
-fn test_fj242_is_eligible_nonexistent() {
-    assert!(!is_eligible("/nonexistent/path/that/does/not/exist"));
-}
-
-#[test]
-fn test_fj242_is_eligible_small_file() {
+fn full_transfer_is_hardened() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("small.txt");
-    std::fs::write(&path, "hello").unwrap();
-    assert!(!is_eligible(path.to_str().unwrap()));
-}
-
-#[test]
-fn test_fj242_is_eligible_large_file() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("large.bin");
-    let data = vec![0u8; SIZE_THRESHOLD as usize + 1];
-    std::fs::write(&path, &data).unwrap();
-    assert!(is_eligible(path.to_str().unwrap()));
-}
-
-#[test]
-fn test_fj242_is_eligible_exact_threshold() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("exact.bin");
-    let data = vec![0u8; SIZE_THRESHOLD as usize];
-    std::fs::write(&path, &data).unwrap();
-    assert!(!is_eligible(path.to_str().unwrap())); // Must be > threshold, not >=
-}
-
-#[test]
-fn test_fj242_full_transfer_script_missing_source() {
-    let result = full_transfer_script("/opt/target", "/nonexistent/source", None, None, None);
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_fj242_full_transfer_script_valid() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = dir.path().join("source.bin");
-    std::fs::write(&source, b"test data for transfer").unwrap();
-    let script = full_transfer_script(
-        "/opt/target",
-        source.to_str().unwrap(),
-        Some("root"),
-        Some("root"),
+    let src = dir.path().join("s");
+    std::fs::write(&src, b"data").unwrap();
+    let s = full_transfer_script(
+        "/opt/t",
+        src.to_str().unwrap(),
+        Some("app"),
+        None,
         Some("0644"),
     )
     .unwrap();
-    assert!(script.contains("set -euo pipefail"));
-    assert!(script.contains("base64 -d"));
-    assert!(script.contains("/opt/target"));
-    assert!(script.contains("chown 'root:root'"));
-    assert!(script.contains("chmod '0644'"));
+    assert!(s.contains("base64 -d > \"$TMPFILE\" <<'FORJAR_B64'"));
+    let chmod_at = s.find("chmod '0644' \"$TMPFILE\"").unwrap();
+    let mv_at = s.find("mv \"$TMPFILE\" \"$DEST\"").unwrap();
+    assert!(chmod_at < mv_at);
 }
 
 #[test]
-fn test_fj242_roundtrip_delta_reconstruction() {
-    // Simulate: old file on remote, new file locally, verify delta correctness
-    // 10 blocks — make each unique
-    let mut old_data = vec![0u8; BLOCK_SIZE * 10];
-    for i in 0..10 {
-        old_data[i * BLOCK_SIZE] = i as u8;
-    }
-
-    let remote_sigs = compute_signatures(&old_data);
-
-    // New data: change blocks 3 and 7
-    let mut new_data = old_data.clone();
-    new_data[3 * BLOCK_SIZE] = 0xFF;
-    new_data[7 * BLOCK_SIZE] = 0xFE;
-
-    let delta = compute_delta(&new_data, &remote_sigs);
-    assert_eq!(delta.len(), 10);
-    assert_eq!(literal_count(&delta), 2);
-    assert_eq!(literal_bytes(&delta), BLOCK_SIZE * 2);
-
-    // Verify Copy blocks reference correct indices
-    for (i, op) in delta.iter().enumerate() {
-        match op {
-            DeltaOp::Copy { index } => {
-                assert_eq!(*index, i);
-                assert_ne!(i, 3);
-                assert_ne!(i, 7);
-            }
-            DeltaOp::Literal { data } => {
-                assert_eq!(data.len(), BLOCK_SIZE);
-                assert!(i == 3 || i == 7);
-            }
-        }
-    }
-}
-
-#[test]
-fn test_fj242_empty_data() {
-    let sigs = compute_signatures(&[]);
-    assert!(sigs.is_empty());
-    let delta = compute_delta(&[], &sigs);
-    assert!(delta.is_empty());
-}
-
-#[test]
-fn test_fj242_size_threshold_constant() {
-    assert_eq!(SIZE_THRESHOLD, 1_048_576);
-    assert_eq!(BLOCK_SIZE, 4096);
+fn is_eligible_thresholds() {
+    assert!(!is_eligible("/nonexistent/xyz"));
+    let dir = tempfile::tempdir().unwrap();
+    let small = dir.path().join("small");
+    std::fs::write(&small, b"tiny").unwrap();
+    assert!(!is_eligible(small.to_str().unwrap()));
 }

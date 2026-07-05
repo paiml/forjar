@@ -248,7 +248,7 @@ pub(crate) fn copia_apply_file(
     let path = resource.path.as_deref().unwrap_or("/dev/null");
     let source = resource.source.as_deref().unwrap_or("");
 
-    // Phase 1: Get remote file block signatures
+    // Phase 1: the receiver computes a copia Signature (od+awk weak + b3sum strong).
     let sig_script = copia::signature_script(path);
     let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
 
@@ -259,30 +259,29 @@ pub(crate) fn copia_apply_file(
         ));
     }
 
-    let remote_sigs = copia::parse_signatures(&sig_output.stdout)?;
+    let signature = copia::parse_signature(&sig_output.stdout)?;
 
     let owner = resource.owner.as_deref();
     let group = resource.group.as_deref();
     let mode = resource.mode.as_deref();
 
-    match remote_sigs {
+    match signature {
+        // New file (or a receiver without b3sum) — full transfer.
         None => {
-            // New file — full transfer via base64
             let script = copia::full_transfer_script(path, source, owner, group, mode)?;
             transport::exec_script_timeout(machine, &script, timeout_secs)
         }
-        Some(sigs) => {
-            // Read local source file
+        Some(sig) => {
             let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
 
-            // Compute delta
-            let delta = copia::compute_delta(&new_data, &sigs);
+            // Phase 2: forjar computes the ROLLING delta locally via the copia crate —
+            // an insertion/deletion no longer re-transfers the whole file.
+            let delta = copia::rolling_delta(&new_data, &sig);
 
-            // Full-file blake3 of the desired content — the receiver verifies the
-            // reconstructed temp file against this BEFORE the atomic rename.
+            // The receiver verifies this full-file blake3 before the atomic rename.
             let expected = blake3::hash(&new_data).to_hex().to_string();
 
-            // Generate and execute patch script
+            // Phase 3: the receiver reconstructs (byte-range copies + literal inserts).
             let script = copia::patch_script(path, &delta, &expected, owner, group, mode);
             transport::exec_script_timeout(machine, &script, timeout_secs)
         }

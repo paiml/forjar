@@ -293,7 +293,16 @@ fn mem_copia_delta_4mb() {
     for i in 0..(size / copia::BLOCK_SIZE) {
         old_data[i * copia::BLOCK_SIZE] = (i % 256) as u8;
     }
-    let remote_sigs = copia::compute_signatures(&old_data);
+    // Build a copia Signature the way the receiver would (weak + blake3 per block).
+    let mut sig_out = format!("SIZE:{size}\n");
+    for (i, chunk) in old_data.chunks(copia::BLOCK_SIZE).enumerate() {
+        sig_out.push_str(&format!(
+            "{i} {} {}\n",
+            copia::weak_checksum(chunk),
+            blake3::hash(chunk).to_hex()
+        ));
+    }
+    let signature = copia::parse_signature(&sig_out).unwrap().unwrap();
 
     // 10% change
     let mut new_data = old_data;
@@ -304,7 +313,7 @@ fn mem_copia_delta_4mb() {
     }
 
     let profiler = dhat::Profiler::builder().testing().build();
-    let _delta = copia::compute_delta(&new_data, &remote_sigs);
+    let _delta = copia::rolling_delta(&new_data, &signature);
     let stats = dhat::HeapStats::get();
     drop(profiler);
 
