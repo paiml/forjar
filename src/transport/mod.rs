@@ -233,8 +233,7 @@ fn exec_script_tracked(
         return container::exec_container(machine, script, pid_slot);
     }
 
-    let is_local =
-        machine.addr == "127.0.0.1" || machine.addr == "localhost" || is_local_addr(&machine.addr);
+    let is_local = machine_is_local(machine);
 
     if is_local {
         local::exec_local(script, pid_slot)
@@ -385,6 +384,18 @@ pub fn query(machine: &Machine, cmd: &str) -> Result<ExecOutput, String> {
     // defense-in-depth in case query ever takes a different path.
     validate_before_exec(cmd)?;
     exec_script(machine, cmd)
+}
+
+/// FJ-2710 (PMAT-197): does this machine refer to the host forjar runs on?
+///
+/// Exposed so the build-I/O probe can refuse to hash the controller's
+/// filesystem on behalf of a remote target. One definition, one place — the
+/// exec path and the probe path must never disagree about what "local" means.
+pub fn machine_is_local(machine: &Machine) -> bool {
+    !machine.is_container_transport()
+        && (machine.addr == "127.0.0.1"
+            || machine.addr == "localhost"
+            || is_local_addr(&machine.addr))
 }
 
 /// Check if an address is this machine.

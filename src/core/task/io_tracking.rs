@@ -67,13 +67,32 @@ pub fn hash_inputs(patterns: &[String], base_dir: &Path) -> Result<Option<String
 /// assert!(hash_outputs(&[]).unwrap().is_none());
 /// ```
 pub fn hash_outputs(artifacts: &[String]) -> Result<Option<String>, String> {
+    hash_outputs_in(artifacts, Path::new("."))
+}
+
+/// Hash output artifacts relative to `base_dir`.
+///
+/// PMAT-197: `hash_outputs` resolved artifacts against the process CWD, but a
+/// build file declares them relative to its project root (`working_dir`). That
+/// mismatch made every relative-path artifact hash as absent, so a resource
+/// could never observe its own output.
+pub fn hash_outputs_in(artifacts: &[String], base_dir: &Path) -> Result<Option<String>, String> {
     if artifacts.is_empty() {
         return Ok(None);
     }
 
     let mut components: Vec<String> = Vec::new();
     for artifact in artifacts {
-        let path = Path::new(artifact);
+        let joined;
+        let path = {
+            let p = Path::new(artifact);
+            if p.is_absolute() {
+                p
+            } else {
+                joined = base_dir.join(p);
+                joined.as_path()
+            }
+        };
         if path.exists() {
             let hash = if path.is_dir() {
                 hasher::hash_directory(path)?

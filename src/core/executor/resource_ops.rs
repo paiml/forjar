@@ -58,13 +58,9 @@ pub(crate) fn record_success(
         );
     }
 
-    // FJ-2701: Store task input hash for cache-based skip on next run
-    if resolved.cache && !resolved.task_inputs.is_empty() {
-        let base_dir = ctx.state_dir.parent().unwrap_or(ctx.state_dir);
-        if let Ok(Some(hash)) = crate::core::task::hash_inputs(&resolved.task_inputs, base_dir) {
-            details.insert("input_hash".to_string(), serde_yaml_ng::Value::String(hash));
-        }
-    }
+    // FJ-2710 (PMAT-197): record observed I/O so the NEXT plan can detect
+    // staleness. See core::task::probe::record_io_hashes.
+    crate::core::task::probe::record_io_hashes(resolved, &mut details);
 
     ctx.lock.resources.insert(
         resource_id.to_string(),

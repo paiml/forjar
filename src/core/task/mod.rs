@@ -8,11 +8,15 @@ pub mod pipeline;
 mod quality_gate;
 pub mod service;
 
-pub use io_tracking::{hash_inputs, hash_outputs, should_skip_cached};
+pub mod probe;
+pub use io_tracking::{hash_inputs, hash_outputs, hash_outputs_in, should_skip_cached};
+pub use probe::{probe_all, probe_resource, staleness_reason, IoDigest};
 pub use quality_gate::{evaluate_gate, gpu_env_vars, GateAction, GateResult};
 
 #[cfg(test)]
 mod tests_io_tracking;
+#[cfg(test)]
+mod tests_probe;
 #[cfg(test)]
 mod tests_quality_gate;
 #[cfg(test)]
