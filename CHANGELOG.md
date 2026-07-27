@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-07-27
+
+### Added — incremental builds: forjar now plans from the world, not just the config
+
+Until now forjar decided what to do by hashing the *desired config*. A task whose
+`task_inputs` had changed on disk hashed identically as a desired state, so the
+planner returned `NoOp`, the executor never ran, and forjar printed
+`Apply complete: 0 converged, N unchanged` over a **stale artifact**. That is the
+worst failure mode a build tool has: a wrong binary under a green summary.
+
+The pre-existing `cache:` / `task_inputs` machinery could not fix it.
+`check_task_input_cache` ran inside `apply_one_resource`, i.e. *downstream* of a
+planner that had already said `NoOp` — structurally able to *suppress* work,
+never to *schedule* it.
+
+**What changed**
+
+- New `core::task::probe`: before planning, forjar hashes each resource's
+  declared `task_inputs` and `output_artifacts` and hands the result to the
+  planner. The planner stays **pure** — it never touches the filesystem.
+- A converged resource is now re-run when its inputs changed, an output artifact
+  is missing, or an output was modified out of band. `rm build/demo` rebuilds;
+  previously it reported `unchanged`.
+- **Change propagation**: a rebuilt prerequisite now invalidates its dependents.
+  `depends_on` was ordering-only, so a rebuilt object file left the link step
+  converged and the binary stale. One forward sweep over the topological order.
+- `output_hash` is now recorded alongside `input_hash`.
+
+**Fixed along the way**
+
+- I/O hashing resolved paths against `state_dir.parent()`, not `working_dir`.
+  Since builds declare paths relative to their project root, every relative path
+  hashed as absent — which silently disabled caching whenever `--state-dir` was
+  relative. Added `hash_outputs_in(artifacts, base_dir)`.
+- Hash tracking no longer requires `cache: true`. Tracking is what makes
+  correctness possible; `cache` remains the switch for *skipping* work.
+
+**Verified against `make`** on a 3-target C project: clean build, true no-op
+re-apply, minimal rebuild on edit (2 of 3 targets — not rebuild-everything),
+artifact restore after `rm`, and identical program output to `make` across
+multiple source mutations.
+
+### Fixed — `forjar drift` reported permanent false positives on templated resources
+
+`drift` compared **raw** config resources against state the executor had stored
+from **resolved** ones, so anything containing `{{params.*}}` drifted forever.
+For `type: task` the state query is `echo "command=<command>"`, so the lock held
+the resolved command while the probe regenerated the literal template.
+
+This was not cosmetic: the apply-time drift gate is **global**, so one
+self-drifting resource blocked every *targeted* apply on that machine. Downstream
+fleets were running `forjar apply -t <tag> --no-tripwire` because of it.
+
+This class had already appeared twice (planner FJ-154; drift), and `destroy`
+still had it — so resolution now lives in exactly one place,
+`resolver::resolve_or_fallback` / `resolve_all`, rather than being re-derived per
+call site.
+
+### Security
+
+- `cargo update -p crossbeam-epoch` 0.9.18 → 0.9.20, clearing **RUSTSEC-2026-0204**
+  (invalid pointer dereference in `fmt::Pointer` for `Atomic`/`Shared` when the
+  underlying pointer is invalid). Transitive via `rayon` → `sysinfo`/`bashrs`.
+  Lockfile-only; pre-existing, not introduced by this release, but a release
+  should not ship a known advisory.
+
+### Known limitations
+
+forjar is **not** a general-purpose build system and this release does not claim
+to be one. Specifically:
+
+- Staleness is **content-hash** based, not mtime. `touch` alone does not trigger
+  a rebuild — timestamp-only stamp-file idioms do not carry over, and
+  round-trip tests against `make` must mutate content.
+- Probing is **controller-local**. Resources targeting remote machines are not
+  probed and keep the previous config-hash behaviour, rather than hashing the
+  wrong host's files.
+- No pattern rules, no `$@`/`$<` automatic variables, no `make <goal>` target
+  invocation, no `.PHONY`. Deferred deliberately.
+
+
 ### Changed — copia delta is now TRUE ROLLING delta (the real fix)
 
 forjar's large-file provisioning delta was fixed-block: a 1-byte insertion made

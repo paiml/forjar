@@ -275,7 +275,35 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     } else {
         locks.clone()
     };
-    let plan = planner::plan(cfg.config, &execution_order, &plan_locks, cfg.tag_filter);
+    // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
+    // whose sources changed on disk plans as Update rather than NoOp.
+    // Probing is controller-local, so only resources targeting a local machine
+    // are probed — hashing this host's files for a remote target would compare
+    // the wrong tree and produce confidently wrong build decisions.
+    // Resources MUST be template-resolved before probing: `working_dir` is
+    // routinely `{{params.proj}}`, and probing the raw form makes every
+    // declared artifact look missing, which rebuilds the world on every apply.
+    // This is the same class as the drift bug fixed alongside it — hence the
+    // shared resolver.
+    let resolved_for_probe = crate::core::resolver::resolve_all(
+        &cfg.config.resources,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    );
+    let probes = crate::core::task::probe_all(&resolved_for_probe, |m| {
+        cfg.config
+            .machines
+            .get(m)
+            .is_some_and(crate::transport::machine_is_local)
+    });
+    let plan = planner::plan_with_probes(
+        cfg.config,
+        &execution_order,
+        &plan_locks,
+        cfg.tag_filter,
+        &probes,
+    );
 
     if cfg.dry_run {
         return Ok(vec![ApplyResult {

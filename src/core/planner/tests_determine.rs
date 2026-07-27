@@ -7,7 +7,13 @@ use std::collections::HashMap;
 fn test_fj132_determine_action_no_lock_creates() {
     let resource = make_base_resource(ResourceType::File);
     let locks = std::collections::HashMap::new();
-    let action = determine_action("my-file", &resource, "web", &locks);
+    let action = determine_action(
+        "my-file",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(action, PlanAction::Create);
 }
 
@@ -42,7 +48,13 @@ fn test_fj132_determine_action_converged_same_hash_noop() {
             resources: lock_resources,
         },
     );
-    let action = determine_action("my-file", &resource, "web", &locks);
+    let action = determine_action(
+        "my-file",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(action, PlanAction::NoOp);
 }
 
@@ -76,7 +88,13 @@ fn test_fj132_determine_action_hash_changed_updates() {
             resources: lock_resources,
         },
     );
-    let action = determine_action("my-file", &resource, "web", &locks);
+    let action = determine_action(
+        "my-file",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(action, PlanAction::Update);
 }
 
@@ -109,7 +127,13 @@ fn test_fj132_determine_action_absent_with_lock_destroys() {
             resources: lock_resources,
         },
     );
-    let action = determine_action("old-file", &resource, "web", &locks);
+    let action = determine_action(
+        "old-file",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(action, PlanAction::Destroy);
 }
 
@@ -118,7 +142,13 @@ fn test_fj132_determine_action_absent_no_lock_noop() {
     let mut resource = make_base_resource(ResourceType::File);
     resource.state = Some("absent".to_string());
     let locks = std::collections::HashMap::new();
-    let action = determine_action("old-file", &resource, "web", &locks);
+    let action = determine_action(
+        "old-file",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(action, PlanAction::NoOp);
 }
 
@@ -150,7 +180,13 @@ fn test_fj132_determine_action_failed_retries() {
             resources: lock_resources,
         },
     );
-    let action = determine_action("my-pkg", &resource, "web", &locks);
+    let action = determine_action(
+        "my-pkg",
+        &resource,
+        "web",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(
         action,
         PlanAction::Update,
