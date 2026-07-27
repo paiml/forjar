@@ -65,6 +65,14 @@ still had it — so resolution now lives in exactly one place,
 `resolver::resolve_or_fallback` / `resolve_all`, rather than being re-derived per
 call site.
 
+### Security
+
+- `cargo update -p crossbeam-epoch` 0.9.18 → 0.9.20, clearing **RUSTSEC-2026-0204**
+  (invalid pointer dereference in `fmt::Pointer` for `Atomic`/`Shared` when the
+  underlying pointer is invalid). Transitive via `rayon` → `sysinfo`/`bashrs`.
+  Lockfile-only; pre-existing, not introduced by this release, but a release
+  should not ship a known advisory.
+
 ### Known limitations
 
 forjar is **not** a general-purpose build system and this release does not claim
