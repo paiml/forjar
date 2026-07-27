@@ -175,3 +175,65 @@ fn real_filesystem_roundtrip_detects_content_change() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn directory_artifact_is_identified_by_existence_not_contents() {
+    // v1.11.0 REGRESSION: hashing a directory's CONTENTS created an
+    // idempotency pump. The canonical translation of make's `| build`
+    // order-only prerequisite declares `output_artifacts: ["build"]`, and the
+    // next rule writes build/a.o INTO it — so apply #2 saw "output artifact
+    // modified" and re-ran the whole graph, violating f(f(x)) = f(x).
+    let dir = std::env::temp_dir().join(format!("forjar-dirart-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("build")).unwrap();
+
+    let r = task_with(&[], &["build"], dir.to_str());
+    let before = probe_resource(&r).expect("declares an output");
+    assert!(!before.outputs_missing, "the directory exists");
+
+    // A later rule drops a product into the directory.
+    std::fs::write(dir.join("build/a.o"), "OBJECT BYTES").unwrap();
+    let after = probe_resource(&r).unwrap();
+
+    assert_eq!(
+        after, before,
+        "a directory artifact must not change identity when other rules write into it"
+    );
+    assert_eq!(
+        staleness_reason(&after, None, before.output_hash.as_deref()),
+        None,
+        "writing into the directory must not make its creator stale"
+    );
+
+    // Deleting it still counts as missing — existence is the signal.
+    std::fs::remove_dir_all(dir.join("build")).unwrap();
+    assert!(probe_resource(&r).unwrap().outputs_missing);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn mixed_file_and_directory_artifacts_still_track_the_file() {
+    // Descoping directories must not silently descope files declared next to
+    // them — that would turn the fix into a hole.
+    let dir = std::env::temp_dir().join(format!("forjar-mixart-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("build")).unwrap();
+    std::fs::write(dir.join("build/bin"), "V1").unwrap();
+
+    let r = task_with(&[], &["build", "build/bin"], dir.to_str());
+    let first = probe_resource(&r).unwrap();
+    assert!(
+        first.output_hash.is_some(),
+        "the file artifact is still hashed"
+    );
+
+    std::fs::write(dir.join("build/bin"), "V2").unwrap();
+    let second = probe_resource(&r).unwrap();
+    assert_ne!(
+        second.output_hash, first.output_hash,
+        "a modified FILE artifact must still be detected"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

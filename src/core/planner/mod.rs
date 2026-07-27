@@ -11,12 +11,15 @@ pub fn plan(
     locks: &std::collections::HashMap<String, StateLock>,
     tag_filter: Option<&str>,
 ) -> ExecutionPlan {
+    // v1.11.0 forwarded an EMPTY map here, which made every READ path
+    // (plan/check/drift/observe) blind to the staleness that `apply` acts on.
+    // Probing here means one answer for both.
     plan_with_probes(
         config,
         execution_order,
         locks,
         tag_filter,
-        &std::collections::HashMap::new(),
+        &crate::core::task::probe_config(config),
     )
 }
 

@@ -10,7 +10,7 @@ pub mod service;
 
 pub mod probe;
 pub use io_tracking::{hash_inputs, hash_outputs, hash_outputs_in, should_skip_cached};
-pub use probe::{probe_all, probe_resource, staleness_reason, IoDigest};
+pub use probe::{probe_all, probe_config, probe_resource, staleness_reason, IoDigest};
 pub use quality_gate::{evaluate_gate, gpu_env_vars, GateAction, GateResult};
 
 #[cfg(test)]

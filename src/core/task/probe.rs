@@ -104,12 +104,27 @@ pub fn probe_resource(resource: &Resource) -> Option<IoDigest> {
         }
     }
 
-    let output_hash = if resource.output_artifacts.is_empty() || outputs_missing {
+    // A DIRECTORY artifact is identified by its existence, never by its
+    // contents. Hashing contents created an idempotency pump: the canonical
+    // translation of make's `| build` order-only directory prerequisite
+    // declares `output_artifacts: ["build"]`, and the very next rule writes
+    // build/a.o INTO it — so apply #2 saw "output artifact modified" and
+    // re-ran the entire graph, with only apply #3 settling. That violates
+    // f(f(x)) = f(x), forjar's core idempotency contract.
+    //
+    // The contents of a directory are the products of OTHER rules; they are
+    // not the identity of the rule that created the directory.
+    let file_artifacts: Vec<String> = resource
+        .output_artifacts
+        .iter()
+        .filter(|a| !resolve_under(&base, a).is_dir())
+        .cloned()
+        .collect();
+
+    let output_hash = if file_artifacts.is_empty() || outputs_missing {
         None
     } else {
-        hash_outputs_in(&resource.output_artifacts, &base)
-            .ok()
-            .flatten()
+        hash_outputs_in(&file_artifacts, &base).ok().flatten()
     };
 
     Some(IoDigest {
@@ -233,4 +248,34 @@ pub fn record_io_hashes(
             );
         }
     }
+}
+
+/// Build the probe map for a whole config.
+///
+/// The single place that decides what "observed state" means, so the read
+/// paths (`plan`, `check`, `drift`, `observe`) and the write path (`apply`)
+/// can never disagree about it.
+///
+/// v1.11.0 shipped without this: `planner::plan` forwarded an EMPTY map, so
+/// after `rm build/demo` the tool reported `Plan: 0 to change, 3 unchanged`,
+/// `Check: 3 pass, 0 fail`, and `No drift detected` — and then `apply`
+/// rebuilt. A planner that cannot predict its own apply is worse than one
+/// that is merely conservative.
+///
+/// Resources MUST be resolved first: `working_dir` is routinely
+/// `{{params.proj}}`, and probing the raw form makes every artifact look
+/// missing.
+pub fn probe_config(config: &crate::core::types::ForjarConfig) -> HashMap<String, IoDigest> {
+    let resolved = crate::core::resolver::resolve_all(
+        &config.resources,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
+    probe_all(&resolved, |m| {
+        config
+            .machines
+            .get(m)
+            .is_some_and(crate::transport::machine_is_local)
+    })
 }

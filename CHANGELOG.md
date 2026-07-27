@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-07-27
+
+### Fixed — two defects in 1.11.0, found by dogfooding it
+
+**Directory `output_artifacts` created an idempotency pump.** Hashing a
+directory's *contents* meant the canonical translation of make's `| build`
+order-only prerequisite — `output_artifacts: ["build"]` — went stale the moment
+the next rule wrote into it. Observed: apply #1 converged, apply #2 reported
+`stale — output artifact modified` and **re-ran the entire graph**, and only
+apply #3 settled. That violates `f(f(x)) = f(x)`, forjar's core idempotency
+contract.
+
+A directory artifact is now identified by **existence**, never by contents. Its
+contents are the products of *other* rules; they are not the identity of the
+rule that created it. Files declared alongside a directory are still hashed.
+
+**The read paths were blind to the staleness `apply` acts on.** `planner::plan`
+forwarded an EMPTY probe map, so after `rm build/demo`:
+
+```
+forjar plan  -> Plan: 0 to add, 0 to change, 0 to destroy, 3 unchanged
+forjar check -> Check: 3 pass, 0 fail, 0 skip
+forjar drift -> No drift detected
+forjar apply -> stale — output artifact missing ... rebuilt
+```
+
+A planner that cannot predict its own apply is worse than one that is merely
+conservative. `plan` now probes, so `plan`/`drift`/`observe` and `apply` give
+one answer. `plan_with_probes` remains pure for unit tests.
+
+### Known limitation
+
+`forjar check` still over-reports. Its generated scripts echo a marker
+(`task=completed` / `task=pending`) but exit 0 either way, and the CLI grades on
+process success — so `check` currently means "a shell ran", not "the resource is
+converged". Fixing it touches all 14 resource generators and changes what
+`check` means for non-build resources, so it is deferred rather than rushed into
+a patch release.
+
+
 ## [1.11.0] - 2026-07-27
 
 ### Added — incremental builds: forjar now plans from the world, not just the config
