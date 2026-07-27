@@ -96,16 +96,13 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 /// with the default (env) provider here made every secret-bearing resource
 /// replan as a spurious Update forever, violating f(f(x)) = f(x).
 fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
-    resolver::resolve_resource_templates_with_secrets(
+    resolver::resolve_or_fallback(
+        resource_id,
         resource,
         &config.params,
         &config.machines,
         &config.secrets,
     )
-    .unwrap_or_else(|e| {
-        eprintln!("warning: template resolution failed for {resource_id}: {e}");
-        resource.clone()
-    })
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.

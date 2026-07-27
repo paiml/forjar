@@ -120,3 +120,56 @@ pub fn resolve_resource_templates_with_secrets(
 
     Ok(r)
 }
+
+/// FJ-1500 (PMAT-197): Resolve a resource's templates, falling back to the
+/// unresolved resource on error.
+///
+/// This is the ONE place that decision is made. It previously lived privately
+/// in the planner, and the same bug was then reintroduced twice by callers who
+/// passed raw `config.resources` straight through:
+///
+/// * the planner itself (FJ-154 / #19) — secret-bearing resources replanned as
+///   a spurious `Update` forever, violating `f(f(x)) = f(x)`;
+/// * `forjar drift` — ANY templated resource reported permanent false drift,
+///   and because the apply-time drift gate is global, that blocked every
+///   targeted apply fleet-wide (paiml/infra PMAT-196 had to work around it
+///   with `--no-tripwire`);
+/// * `forjar destroy` — generated destroy scripts containing literal
+///   `{{params.*}}` paths.
+///
+/// Resolving with the SAME `SecretsConfig` the executor uses is load-bearing:
+/// resolving with the default (env) provider makes the planner-computed
+/// desired hash disagree with the executor-stored hash.
+pub fn resolve_or_fallback(
+    resource_id: &str,
+    resource: &Resource,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+    secrets: &SecretsConfig,
+) -> Resource {
+    resolve_resource_templates_with_secrets(resource, params, machines, secrets).unwrap_or_else(
+        |e| {
+            eprintln!("warning: template resolution failed for {resource_id}: {e}");
+            resource.clone()
+        },
+    )
+}
+
+/// Resolve every resource in a map. Use this anywhere a whole config is handed
+/// to a consumer that compares against live machine state.
+pub fn resolve_all(
+    resources: &indexmap::IndexMap<String, Resource>,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+    secrets: &SecretsConfig,
+) -> indexmap::IndexMap<String, Resource> {
+    resources
+        .iter()
+        .map(|(id, r)| {
+            (
+                id.clone(),
+                resolve_or_fallback(id, r, params, machines, secrets),
+            )
+        })
+        .collect()
+}

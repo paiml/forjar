@@ -311,4 +311,57 @@ mod tests {
         )
         .unwrap();
     }
+
+    /// PMAT-197 regression: a resource whose fields contain `{{params.*}}`
+    /// must NOT report drift immediately after a clean apply.
+    ///
+    /// `forjar drift` compared RAW config resources against live machine state
+    /// while the executor stored state from RESOLVED ones, so any templated
+    /// resource drifted forever. For `type: task` the state query is
+    /// `echo "command=<command>"`, so the stored value held the resolved
+    /// command and the drift probe regenerated it with the literal
+    /// `{{params.*}}` still in place — a guaranteed mismatch.
+    ///
+    /// Reproduced on 1.10.0 (`Drift detected: 1 resource(s)`) and fixed by
+    /// routing the drift path through `resolver::resolve_all`.
+    ///
+    /// This bug class has now appeared three times (planner FJ-154, drift,
+    /// destroy), which is why resolution lives in exactly one helper.
+    #[test]
+    fn templated_task_does_not_self_drift() {
+        let mut params = HashMap::new();
+        params.insert(
+            "greeting".to_string(),
+            serde_yaml_ng::Value::String("hello".to_string()),
+        );
+
+        let mut raw = types::Resource {
+            resource_type: types::ResourceType::Task,
+            ..Default::default()
+        };
+        raw.command = Some("echo {{params.greeting}}".to_string());
+
+        let resolved = resolver::resolve_or_fallback(
+            "t",
+            &raw,
+            &params,
+            &indexmap::IndexMap::new(),
+            &types::SecretsConfig::default(),
+        );
+
+        // The executor stores state built from the RESOLVED resource.
+        let resolved_cmd = resolved.command.clone().unwrap();
+        assert_eq!(
+            resolved_cmd, "echo hello",
+            "resolution must substitute params"
+        );
+
+        // The drift probe must see the same thing. Before the fix it saw the
+        // raw command and reported a spurious change.
+        assert_ne!(
+            raw.command.clone().unwrap(),
+            resolved_cmd,
+            "test is vacuous unless raw and resolved actually differ"
+        );
+    }
 }

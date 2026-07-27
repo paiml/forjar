@@ -25,7 +25,20 @@ fn check_machine_drift(
 
     let machine = config.and_then(|c| c.machines.get(name));
     let findings = match (machine, config) {
-        (Some(m), Some(cfg)) => drift::detect_drift_full(lock, m, &cfg.resources),
+        (Some(m), Some(cfg)) => {
+            // PMAT-197: resources MUST be template-resolved before they are
+            // compared against live machine state. Passing raw `cfg.resources`
+            // made every `{{params.*}}`-bearing resource report permanent false
+            // drift; because the apply-time gate is global, that blocked every
+            // targeted apply fleet-wide.
+            let resolved = crate::core::resolver::resolve_all(
+                &cfg.resources,
+                &cfg.params,
+                &cfg.machines,
+                &cfg.secrets,
+            );
+            drift::detect_drift_full(lock, m, &resolved)
+        }
         (Some(m), None) => drift::detect_drift_with_machine(lock, m),
         _ => drift::detect_drift(lock),
     };
