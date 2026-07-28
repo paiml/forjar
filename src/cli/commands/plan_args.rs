@@ -89,3 +89,54 @@ pub struct PlanCompactArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// CLI arguments for `forjar make [GOALS...]`.
+///
+/// Deliberately small and make-flavoured. `ApplyArgs` has ~40 flags; reusing it
+/// wholesale would produce a `forjar make --help` nobody could read. The flags
+/// here are the ones that have a `make` counterpart, named the same way.
+#[derive(clap::Args, Debug)]
+pub struct MakeArgs {
+    /// Goals to build, with their prerequisites. No goals = the whole config.
+    pub goals: Vec<String>,
+
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Print what would run without running it (make -n)
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
+
+    /// Unconditionally rebuild every goal (make -B)
+    #[arg(short = 'B', long = "always-make")]
+    pub always_make: bool,
+
+    /// Maximum resources to converge in parallel (make -j)
+    #[arg(short = 'j', long)]
+    pub jobs: Option<usize>,
+
+    /// Override a parameter (KEY=VALUE)
+    #[arg(short, long)]
+    pub param: Vec<String>,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Target specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Skip provenance tracing
+    #[arg(long)]
+    pub no_tripwire: bool,
+
+    /// Skip the confirmation prompt (CI mode)
+    #[arg(long)]
+    pub yes: bool,
+
+    /// Output results as JSON
+    #[arg(long)]
+    pub json: bool,
+}

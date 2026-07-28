@@ -3,7 +3,6 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
-use crate::resources::verdict;
 
 /// Generate shell script to install packages.
 pub fn apply_script(resource: &Resource) -> String {

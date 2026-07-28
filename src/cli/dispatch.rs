@@ -66,6 +66,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),
+        Commands::Make(args) => super::make::cmd_make(&args, verbose),
         Commands::Drift(DriftArgs {
             file,
             machine,

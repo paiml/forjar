@@ -115,6 +115,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         assert!(target.exists());
@@ -289,6 +290,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());

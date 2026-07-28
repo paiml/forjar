@@ -11,7 +11,7 @@ mod resource;
 pub(crate) mod staleness;
 pub(crate) mod template;
 
-pub use dag::{build_execution_order, compute_parallel_waves};
+pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::resolve_data_sources;
 pub use resource::{
     resolve_all, resolve_or_fallback, resolve_resource_templates,
@@ -33,6 +33,8 @@ mod tests_data;
 mod tests_functions;
 #[cfg(test)]
 mod tests_functions_b;
+#[cfg(test)]
+mod tests_goal_closure;
 #[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]

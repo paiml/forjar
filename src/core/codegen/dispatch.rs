@@ -49,6 +49,28 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
 pub fn apply_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_apply_script!(resource);
+
+    // FJ-2722 (PMAT-199): `state: absent` must never RUN the thing.
+    //
+    // `destroy` converges every resource to `state: absent`. For a task, build
+    // or wasm_bundle these handlers ignore `state` entirely, so `forjar destroy`
+    // executed the task's command — running a build, a training job or a deploy
+    // as its way of "removing" it, then reporting `- <id> (task)` as a success.
+    // These types describe an ACTION, and an action has no absent form; the
+    // artifacts they produce are removed by whatever file resource declares
+    // them.
+    if resource.state.as_deref() == Some("absent")
+        && matches!(
+            resource.resource_type,
+            ResourceType::Task | ResourceType::Build | ResourceType::WasmBundle
+        )
+    {
+        return Ok(format!(
+            "echo 'forjar: {} resources have no absent form — nothing to remove'",
+            resource.resource_type
+        ));
+    }
+
     let script = match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::apply_script(resource)),
         ResourceType::File => Ok(resources::file::apply_script(resource)),

@@ -274,6 +274,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.telemetry_endpoint.as_deref(),
         args.refresh,
         args.force_tag.as_deref(),
+        &[],
     );
 
     // FJ-1240: Encrypt state files after apply
