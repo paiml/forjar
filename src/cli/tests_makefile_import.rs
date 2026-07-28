@@ -225,9 +225,93 @@ fn a_phony_target_emits_phony_and_no_artifact() {
 
 #[test]
 fn resource_ids_are_derived_deterministically() {
-    assert_eq!(imp::resource_id("build/main.o"), "build-main-o");
-    assert_eq!(imp::resource_id("clean"), "clean");
-    assert_eq!(imp::resource_id("report.txt"), "report-txt");
+    let ts: Vec<mk::MakeTarget> = ["build/main.o", "clean", "report.txt"]
+        .iter()
+        .map(|n| mk::MakeTarget {
+            name: n.to_string(),
+            ..Default::default()
+        })
+        .collect();
+    let ids = imp::id_map(&ts);
+    assert_eq!(ids["build/main.o"], "build-main-o");
+    assert_eq!(ids["clean"], "clean");
+    assert_eq!(ids["report.txt"], "report-txt");
+}
+
+#[test]
+fn colliding_target_names_do_not_silently_drop_a_target() {
+    // FJ-2728: slugging is not injective. `a-b.txt` and `a.b.txt` both slug to
+    // `a-b-txt`, which emitted a DUPLICATE YAML key — the parser kept one and
+    // the other target vanished from the build with no error. Verified against
+    // the binary: make produced both files, the imported config produced one.
+    let ts: Vec<mk::MakeTarget> = ["a-b.txt", "a.b.txt", "unique.txt"]
+        .iter()
+        .map(|n| mk::MakeTarget {
+            name: n.to_string(),
+            recipe: vec![format!("touch {n}")],
+            ..Default::default()
+        })
+        .collect();
+
+    let ids = imp::id_map(&ts);
+    assert_ne!(
+        ids["a-b.txt"], ids["a.b.txt"],
+        "colliding targets must get distinct ids"
+    );
+    assert_eq!(
+        ids["unique.txt"], "unique-txt",
+        "a non-colliding name keeps its plain slug"
+    );
+
+    // Order-independence: an id must not depend on which target was seen
+    // first, or re-importing the same Makefile churns the config.
+    let mut reversed = ts.clone();
+    reversed.reverse();
+    let ids2 = imp::id_map(&reversed);
+    assert_eq!(ids, ids2, "ids must not depend on iteration order");
+
+    // And the emitted YAML must contain three distinct resource keys.
+    let yaml = imp::emit(&ts, std::path::Path::new("/proj"), "local");
+    let keys: Vec<&str> = yaml
+        .lines()
+        .filter(|l| l.starts_with("  ") && l.ends_with(':') && !l.starts_with("    "))
+        .collect();
+    let unique: std::collections::HashSet<&&str> = keys.iter().collect();
+    assert_eq!(
+        keys.len(),
+        unique.len(),
+        "duplicate YAML keys silently drop a target: {keys:?}"
+    );
+}
+
+#[test]
+fn edges_point_at_the_disambiguated_id() {
+    // A collision that renamed a target must rename every reference to it, or
+    // the config has a dangling depends_on.
+    let ts = vec![
+        mk::MakeTarget {
+            name: "a-b.txt".to_string(),
+            recipe: vec!["touch a-b.txt".to_string()],
+            ..Default::default()
+        },
+        mk::MakeTarget {
+            name: "a.b.txt".to_string(),
+            recipe: vec!["touch a.b.txt".to_string()],
+            ..Default::default()
+        },
+        mk::MakeTarget {
+            name: "app".to_string(),
+            prereqs: vec!["a-b.txt".to_string()],
+            recipe: vec!["cat a-b.txt".to_string()],
+            ..Default::default()
+        },
+    ];
+    let ids = imp::id_map(&ts);
+    let yaml = imp::emit(&ts, std::path::Path::new("/proj"), "local");
+    assert!(
+        yaml.contains(&format!("depends_on: [{}]", ids["a-b.txt"])),
+        "edge must use the disambiguated id: {yaml}"
+    );
 }
 
 #[test]
