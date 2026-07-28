@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-07-28
+
+Three interface defects found by installing 1.12.0 from crates.io and driving
+every CLI, MCP and LSP surface against a real project. None was visible from a
+schema, a `tools/list`, or a handler test that only asserted "returns Ok".
+
+### Fixed
+
+- **MCP `forjar_plan` reported every resource as a pending change.**
+  `ExecutionPlan::changes` carries EVERY resource with its action, NoOp
+  included; `cli::plan` filters those before counting and the MCP handler did
+  not. A fully converged project reported all 6 of its resources as pending
+  while the CLI reported `0 to change`. It also included phony resources, which
+  are goal-only.
+- **MCP `forjar_status` returned no machines, ever.** It scanned the state
+  directory for files with a `.json` extension; a machine's state is a
+  DIRECTORY, `state/<machine>/state.lock.yaml`. The CLI printed
+  `Machine: local (localhost)` for the same project.
+- **`forjar lsp` was an unrecognized subcommand.** The language server is
+  complete and has 80 passing tests, but no `Commands` variant dispatched it,
+  so no editor could start it. Now wired and documented.
+
+### Known
+
+`core::webhook_server` implements an HTTP endpoint with 16 tests including live
+socket accept/reject, but nothing starts it — there is no `forjar webhook`
+command. Exposing a listening socket needs bind-address and authentication
+decisions, so it is a design question rather than a wiring fix; tracked in
+PMAT-200 rather than added unilaterally in a patch release.
+
 ## [1.12.0] - 2026-07-28
 
 forjar can now **replace and ingest** a trivial Makefile. Getting there required

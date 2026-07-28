@@ -281,3 +281,13 @@ pub use dispatch::dispatch;
 include!("mod_test_decl.rs");
 include!("mod_test_decl_b.rs");
 include!("mod_test_decl_c.rs");
+
+/// FJ-2729: the phony filter, for the MCP layer.
+///
+/// `mcp::handlers` must apply exactly the same goal-only phony rule as
+/// `cli::plan`, or the two disagree about whether a converged project has
+/// pending work. Re-exported through one named function so there is a single
+/// definition, not a second implementation.
+pub(crate) fn strip_unrequested_phony_for_mcp(config: &mut crate::core::types::ForjarConfig) {
+    apply_selection::strip_unrequested_phony(config, &[]);
+}
