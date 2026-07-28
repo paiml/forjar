@@ -130,6 +130,10 @@ fn run_single_check(
     let output = transport::exec_script(machine, check_script);
     let (status, exit_code, detail, passed) = match output {
         Ok(out) if out.success() => ("pass", Some(0), String::new(), true),
+        // FJ-2720: exit 2 = NOT APPLICABLE on this host (no systemd, no docker).
+        // Neither a pass nor a failure — forjar cannot observe the state, and
+        // claiming either would be a guess.
+        Ok(out) if out.exit_code == 2 => ("skip", Some(2), out.stdout.trim().to_string(), true),
         Ok(out) => (
             "fail",
             Some(out.exit_code),

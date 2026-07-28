@@ -8,6 +8,21 @@ use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 use crate::resources::verdict;
 
+/// FJ-2720: the CHECK-path systemd guard, which exits 2 = NOT APPLICABLE.
+///
+/// The apply-path guard exits 0 ("nothing to converge here, carry on"). The
+/// check path must not reuse that: `check` reads the exit code as the verdict,
+/// so exiting 0 on a host with no systemd claims every service resource is
+/// converged — the same unconditional-success shape this release removes, just
+/// scoped to containers. Exit 2 is mapped to SKIP by `cli::check`, which is the
+/// honest answer: forjar cannot observe systemd state on a host without
+/// systemd, and that is neither a pass nor a failure.
+const SYSTEMD_CHECK_GUARD: &str = "\
+if ! command -v systemctl >/dev/null 2>&1; then\n  \
+  echo 'FORJAR_SKIP: systemctl not found - service state is not observable here'\n  \
+  exit 2\n\
+fi";
+
 /// Shell preamble that detects systemd availability.
 /// If systemctl is not found, prints a warning and exits 0 (skip).
 const SYSTEMD_GUARD: &str = "\
@@ -55,12 +70,12 @@ pub fn check_script(resource: &Resource) -> String {
         )
     };
 
-    // SYSTEMD_GUARD still exits 0 when systemd is absent. That is a genuine
-    // "not applicable on this host" skip (FJ-081, containers without systemd),
-    // not a claim of convergence, and removing it would fail every service
-    // resource inside a container.
+    // Exit 2 (not applicable) rather than 0. A container without systemd
+    // cannot show that a service is converged, and saying "pass" there is the
+    // defect this release exists to remove; saying "fail" would break every
+    // service resource in container CI. `check` maps 2 to skip.
     format!(
-        "{SYSTEMD_GUARD}\n{}",
+        "{SYSTEMD_CHECK_GUARD}\n{}",
         verdict::check_script_from(&[active, enablement])
     )
 }
