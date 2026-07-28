@@ -24,6 +24,8 @@ pub use template::{redact_secrets, resolve_secret_with_provider, resolve_templat
 pub(super) use crate::core::types::*;
 
 #[cfg(test)]
+mod tests_completeness;
+#[cfg(test)]
 mod tests_dag;
 #[cfg(test)]
 mod tests_data;
