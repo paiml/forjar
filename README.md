@@ -112,6 +112,9 @@ unconditionally when named as a goal, which keeps `f(f(x)) = f(x)` intact.
 - **`include`, `$(shell …)` and `$(wildcard …)` are frozen at import time**,
   because make resolves them before forjar sees anything. Re-import when they
   change; an imported config is a snapshot, not a live translation.
+- **`params.proj` is absolute**, so an imported config does not silently depend
+  on the directory you run it from. Copying the project elsewhere therefore
+  needs a re-import (or a `-p proj=<new path>` override).
 
 Contract: `contracts/build-semantics-v1.yaml`.
 
