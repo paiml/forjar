@@ -2,6 +2,7 @@
 
 use super::apply_helpers::*;
 use super::apply_output::*;
+use super::apply_selection::*;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
@@ -45,6 +46,8 @@ pub(crate) fn cmd_apply(
     telemetry_endpoint: Option<&str>,
     refresh: bool,
     force_tag: Option<&str>,
+    // FJ-2724: `make`-style goals. Empty means "the whole config".
+    goals: &[String],
 ) -> Result<(), String> {
     // GH-91: Warn that --sequential is not yet implemented
     if sequential {
@@ -77,6 +80,9 @@ pub(crate) fn cmd_apply(
     }
     apply_param_overrides(&mut config, param_overrides)?;
 
+    reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
+    apply_goal_closure(&mut config, goals, verbose)?;
+    strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
     apply_pre_validate(
         &config,
@@ -202,33 +208,6 @@ pub(crate) fn cmd_apply(
         &t_total,
     )?;
 
-    Ok(())
-}
-
-/// Apply subset and exclude filters to config.
-fn apply_filters(
-    config: &mut types::ForjarConfig,
-    subset: Option<&str>,
-    exclude: Option<&str>,
-    verbose: bool,
-) -> Result<(), String> {
-    if let Some(pattern) = subset {
-        let count = super::apply_gates::filter_subset(&mut config.resources, pattern)?;
-        if verbose {
-            eprintln!("Subset filter '{pattern}': {count} resources selected");
-        }
-    }
-    if let Some(pattern) = exclude {
-        let removed = super::apply_gates::filter_exclude(&mut config.resources, pattern);
-        if verbose {
-            eprintln!(
-                "Exclude filter '{}': removed {} resources ({} remaining)",
-                pattern,
-                removed,
-                config.resources.len()
-            );
-        }
-    }
     Ok(())
 }
 

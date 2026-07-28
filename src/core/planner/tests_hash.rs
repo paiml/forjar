@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[test]
 fn test_fj004_hash_deterministic() {
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -135,6 +136,7 @@ fn test_golden_hash_pinned_value() {
 #[test]
 fn test_fj004_hash_includes_all_fields() {
     let r1 = Resource {
+        phony: false,
         resource_type: ResourceType::Mount,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("mounted".to_string()),
@@ -252,6 +254,7 @@ fn test_fj004_hash_includes_all_fields() {
 #[test]
 fn test_fj004_hash_content_change_changes_hash() {
     let r1 = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

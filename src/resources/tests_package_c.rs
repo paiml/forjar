@@ -1,6 +1,7 @@
 //! FJ-51: Cargo binary cache tests.
 
 use super::package::*;
+use super::package_check::check_script;
 use super::tests_package::make_apt_resource;
 
 /// Cache hit path: script checks FORJAR_CACHE_DIR before compiling.

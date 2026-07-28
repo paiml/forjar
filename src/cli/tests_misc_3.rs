@@ -482,6 +482,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }

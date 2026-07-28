@@ -327,6 +327,14 @@ pub struct Resource {
     /// Enable content-addressed stage caching.
     #[serde(default)]
     pub cache: bool,
+    /// FJ-2725: make-style phony target — names an ACTION, not a file.
+    ///
+    /// Excluded from bulk `apply`/`plan` entirely, and runs unconditionally
+    /// when named as an explicit goal (`forjar make clean`). See
+    /// `cli::apply_selection::strip_unrequested_phony` for why the alternative
+    /// readings of make's rule are not convergent.
+    #[serde(default)]
+    pub phony: bool,
     /// GPU device index for CUDA_VISIBLE_DEVICES.
     #[serde(default)]
     pub gpu_device: Option<u32>,

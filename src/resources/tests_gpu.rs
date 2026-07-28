@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 fn make_gpu_resource(name: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Gpu,
         machine: MachineTarget::Single("gpu-box".to_string()),
         state: None,
@@ -314,7 +315,9 @@ fn test_fj1125_check_rocm_version_fallback_chain() {
     assert!(script.contains("elif [ -e /sys/module/amdgpu ]"));
     assert!(script.contains("kernel-$(uname -r)"));
     // Missing path: no module at all
-    assert!(script.contains("echo 'missing:gpu0'; exit 0"));
+    // FJ-2720: an absent driver is DIVERGENCE. This previously exited 0, which
+    // `forjar check` read as "converged" for a machine with no GPU at all.
+    assert!(script.contains("echo 'missing:gpu0'; exit 1"), "{script}");
     // Version comparison
     assert!(script.contains("kernel-6.8.0-101-generic"));
     assert!(script.contains("match:gpu0"));
@@ -411,7 +414,10 @@ fn test_fj1005_cpu_backend_check() {
     let mut r = make_gpu_resource("gpu0");
     r.gpu_backend = Some("cpu".to_string());
     let script = check_script(&r);
-    assert_eq!(script, "echo 'match:gpu0'");
+    // FJ-2720: the verdict now lives in the exit code, so the marker is wrapped
+    // in the divergence-flag scaffold rather than being the whole script.
+    assert!(script.contains("match:gpu0"), "{script}");
+    assert!(script.contains("exit \"$__fj_diverged\""), "{script}");
 }
 
 #[test]

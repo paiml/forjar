@@ -4,6 +4,7 @@
 //! a shell or run a package manager.
 
 use super::package::*;
+use super::package_check::check_script;
 use super::tests_package::make_apt_resource;
 
 /// A package name with an embedded single quote must not break out of the

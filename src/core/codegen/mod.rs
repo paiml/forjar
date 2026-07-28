@@ -8,6 +8,8 @@ pub use dispatch::*;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
+mod tests_check_verdict;
+#[cfg(test)]
 mod tests_completeness;
 #[cfg(test)]
 mod tests_coverage;

@@ -3,6 +3,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 fn make_service_resource(name: &str, state: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Service,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some(state.to_string()),
@@ -109,8 +110,8 @@ fn make_service_resource(name: &str, state: &str) -> Resource {
 fn test_fj008_check_service() {
     let r = make_service_resource("nfs-kernel-server", "running");
     let script = check_script(&r);
-    assert!(script.contains("systemctl is-active 'nfs-kernel-server'"));
-    assert!(script.contains("systemctl is-enabled 'nfs-kernel-server'"));
+    assert!(script.contains("systemctl is-active --quiet 'nfs-kernel-server'"));
+    assert!(script.contains("systemctl is-enabled --quiet 'nfs-kernel-server'"));
     assert!(
         script.contains("command -v systemctl"),
         "must include systemd guard"
@@ -165,9 +166,21 @@ fn test_fj008_state_query_script() {
 fn test_fj081_systemd_guard_in_all_scripts() {
     let r = make_service_resource("test-svc", "running");
 
+    // FJ-2720: the CHECK path guards with exit 2 = NOT APPLICABLE, mapped to
+    // SKIP by `cli::check`. Exiting 0 there would claim every service resource
+    // is converged on any host without systemd — the unconditional-success
+    // shape this release removes, scoped to containers. The apply and query
+    // paths keep exit 0, where "nothing to do here" is the right answer.
     let check = check_script(&r);
-    assert!(check.contains("FORJAR_WARN: systemctl not found"));
-    assert!(check.contains("exit 0"));
+    assert!(
+        check.contains("FORJAR_SKIP: systemctl not found"),
+        "{check}"
+    );
+    assert!(check.contains("exit 2"), "{check}");
+    assert!(
+        !check.contains("exit 0"),
+        "the check path must not report a pass without systemd: {check}"
+    );
 
     let apply = apply_script(&r);
     assert!(apply.contains("FORJAR_WARN: systemctl not found"));
@@ -274,7 +287,7 @@ fn test_fj008_no_name_defaults_to_unknown() {
     let script = apply_script(&r);
     assert!(script.contains("systemctl start 'unknown'"));
     let check = check_script(&r);
-    assert!(check.contains("is-active 'unknown'"));
+    assert!(check.contains("is-active --quiet 'unknown'"));
     let query = state_query_script(&r);
     assert!(query.contains("is-active 'unknown'"));
 }

@@ -7,6 +7,149 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-07-28
+
+forjar can now **replace and ingest** a trivial Makefile. Getting there required
+fixing five defects, four of which shared one shape: a signal that reported
+success without ever consulting the world.
+
+### Added
+
+**`forjar make [GOALS...]`** — builds each goal and its transitive
+prerequisites, and nothing else. `resolver::goal_closure` walks `depends_on`
+upward; the result is downward-closed by construction, so a pruned config can
+never execute against an unconverged prerequisite. That is the property that
+makes goal selection safe where `--subset`/`--exclude` pattern filters are not,
+and it is what `-r` never had: `-r` is exact-match with NO closure, so
+`apply -r link` runs link and silently skips the compile step it depends on,
+linking whatever objects happen to be on disk. That is `make -o`, not `make`.
+
+**`phony: true`** — a make-style target that names an ACTION, not a file. It is
+excluded from bulk apply and plan entirely, and runs unconditionally when named
+as a goal. Goal-only is the only reading that preserves idempotency: "runs on
+every apply" would propagate dirtiness through its whole transitive closure and
+stop `plan` ever reaching "0 to change"; "phony prerequisites auto-run when
+reached" is not convergent, because a `clean` that `build` depends on deletes
+the outputs that make `build` stale, forever.
+
+**`forjar import-makefile`** — ingests a single-makefile, non-recursive build by
+joining two streams from one `make` invocation: `-p` gives structure with
+UNEXPANDED recipes, `--trace` gives the expanded commands. The join key is
+`(recipe file, recipe line, target)` — the target name is load-bearing, because
+`build/main.o` and `build/util.o` both trace as `Makefile:14` when they share a
+pattern rule.
+
+Two measured hazards shaped the invocation more than the parser. An up-to-date
+tree emits NO commands (`Nothing to be done`), so `-B` is mandatory or the
+import yields structure with no commands for exactly the targets that matter.
+And pattern rules only instantiate during goal resolution, so import is two
+passes: enumerate names, then ask for them all by name.
+
+Recipes emit one **subshell per logical line** (after folding backslash
+continuations), reproducing make's per-line shell isolation exactly — so
+`cd build && ./app`, an idiom far too common to refuse, imports faithfully.
+Order-only prerequisites become `depends_on` edges and never `task_inputs`;
+hashing a directory as an input is what made 1.11.0 an idempotency pump.
+
+Recursive make, `.ONESHELL`, double-colon rules, VPATH and GNU make < 4.0 are
+**refused with reasons, writing nothing**. An importer that silently
+mistranslates is worse than none: its output looks like your build and is not
+one.
+
+### Fixed
+
+**`forjar check` reported `pass` for every resource, unconditionally** — for
+every resource type, since at least 2026-02-27. Verified on the published
+1.11.1 binary against a config that had never been applied, in an empty
+directory: `2 pass, 0 fail, exit 0`. The cause was a protocol mismatch, not a
+missing comparison: generators emitted their verdict as a stdout marker
+(`<test> && echo exists || echo missing` — a branch whose arms are both `echo`
+always exits 0) while the consumer read the exit code, and nothing anywhere
+parsed the markers. `apply --check` shares the path, so its documented
+"exit 2 = changes needed" was unreachable too.
+
+The fix cannot live at the codegen boundary: the same marker means opposite
+things depending on desired state — for `state: absent`, `missing:` IS
+convergence. All 17 generators now report through `resources::verdict`. Also
+corrected while converting: `service` asserted a fixed "active AND enabled", so
+a `state: stopped` service would have become a permanent failure; gpu's rocm
+path did `echo missing; exit 0`; a model checksum MISMATCH reported pass — the
+most dangerous case, since the file exists and looks fine.
+
+**24 templatable `Resource` fields were never resolved**, including
+`task_inputs` — the field 1.11's entire incremental-build release is about,
+while its sibling `output_artifacts` was resolved. A config that templated its
+inputs got `Apply complete: 0 converged, 1 unchanged` over a stale artifact:
+precisely the failure 1.11 shipped to eliminate. Also `scatter`/`gather` (spliced
+into executed shell), `state` (selects the absent/directory/symlink branch), the
+six `overlay_*` fields that configure the fleet's overlay IPs, and `stages`.
+
+**`forjar destroy` executed unresolved templates** — generating
+`rm -rf '{{params.x}}/...'` against a literal path, reporting success while the
+real resource survived and its lock entry was removed. Third code path to make
+this mistake. **And it RAN builds instead of removing them**: task, build and
+wasm_bundle ignore `state`, so converging them to `absent` executed the command
+— running a build or a deploy as the way of "removing" it.
+
+**A selector matching nothing is now an error.** `apply -r <typo>` printed
+`0 converged, 0 unchanged` and exited 0; in CI, where the exit code is often the
+only signal read, a typo'd targeted apply looked like a completed deploy.
+
+### Guards against recurrence
+
+Both guards are constructed so that a future addition is covered without anyone
+remembering to update them:
+
+- `no_resource_type_generates_an_unfailable_check_script` EXECUTES each
+  generated script against a real filesystem. Asserting on script TEXT is what
+  let the check defect live for months — the text was always plausible.
+- `every_string_field_on_resource_is_template_resolved` REFLECTS over the
+  serialised `Resource` to discover which fields accept a string. A hand-written
+  list of fields to check has the same failure mode as the hand-written list of
+  fields to resolve.
+
+Contract: `contracts/build-semantics-v1.yaml` (L3, 9 falsification tests).
+
+### Known differences from make
+
+- **Shell options.** forjar wraps a `command:` in `set -euo pipefail`; make sets
+  none. Imported recipes restore make's semantics per line. An earlier draft of
+  this entry called the difference "strictly stricter — it surfaces errors make
+  swallows"; dogfooding the built binary falsified that. Under pipefail
+  `seq 1 100000 | head -1` exits 141 on SIGPIPE where make returns 0, and
+  `cmd | head` is a stock Makefile idiom, so the claim described a working build
+  becoming a failing one as a safety improvement. A hand-written forjar
+  `command:` still runs under `set -euo pipefail`.
+- A `-` prefixed recipe line (ignore errors) imports as `... || true`. `--trace`
+  strips the prefix, so it is read from the make database instead.
+- A real file target that depends on a `.PHONY` target is **refused**: make runs
+  the phony prerequisite when it reaches it, goal-only phony cannot, and the
+  imported config would build without the action ever running.
+- `include`, `$(shell …)` and `$(wildcard …)` are resolved by make before the
+  import sees them, so their values are frozen at import time.
+- Staleness is BLAKE3 content, not mtime: `touch` does not trigger a rebuild,
+  and recompiling to identical bytes correctly does not relink.
+- The staleness probe runs on the controller and skips remote resources rather
+  than hashing the wrong host, so `forjar make` is a build system for LOCAL
+  targets.
+
+### What this release does NOT fix
+
+v1.12 does not make the three read paths agree; it makes each one honest about
+the level it observes. `check` is existence/state level — `rm build/demo` now
+fails it, but editing a file's content in place does not. `plan` is config-hash
+plus the build probe. `drift` remains the only content-level comparison.
+Measured: tamper with a file resource's content and check says `1 pass`, plan
+says `0 to change`, drift says `Drift detected`. Raising check to content level
+means every generator hashing its artifact — a feature, not a bug fix.
+
+Also outstanding, now recorded as `known_gaps` in the contract rather than left
+implicit: the transport writes the script to bash's stdin, so a task that reads
+stdin consumes the rest of its own script (pre-existing); the bashrs determinism
+gate rejects idioms like `date +%s` at apply time, so such a Makefile imports
+cleanly and then cannot run; and order-only edges participate in propagation
+because there is no `order_only` field.
+
 ## [1.11.1] - 2026-07-27
 
 ### Fixed — two defects in 1.11.0, found by dogfooding it

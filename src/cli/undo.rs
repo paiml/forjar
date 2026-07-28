@@ -259,6 +259,7 @@ pub(crate) fn cmd_undo(
         None,  // telemetry_endpoint
         false, // refresh
         None,  // force_tag
+        &[],
     );
 
     // Mark progress completed or partial
@@ -353,5 +354,6 @@ pub(crate) fn cmd_undo_resume(
         None,  // telemetry_endpoint
         false, // refresh
         None,  // force_tag
+        &[],
     )
 }

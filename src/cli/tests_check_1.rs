@@ -152,8 +152,16 @@ resources:
 "#,
         )
         .unwrap();
-        // Check script reports status (exits 0 even for missing file)
-        cmd_check(&config, None, None, None, std::path::Path::new("state"), false, false).unwrap();
+        // FJ-2720: a declared file that does not exist is NOT converged, so
+        // check must report a failure. The previous assertion here — "exits 0
+        // even for missing file" — codified the defect that made `forjar check`
+        // an unconditional pass for every resource type.
+        let result =
+            cmd_check(&config, None, None, None, std::path::Path::new("state"), false, false);
+        assert!(
+            result.is_err(),
+            "check must FAIL for a file that does not exist, got {result:?}"
+        );
     }
 
     #[test]

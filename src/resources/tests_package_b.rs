@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 use super::package::*;
+use super::package_check::check_script;
 use super::tests_package::make_apt_resource;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
@@ -31,8 +32,9 @@ fn test_fj006_multi_package_check_preserves_all() {
     assert!(script.contains("dpkg -l 'a'"));
     assert!(script.contains("dpkg -l 'b'"));
     assert!(script.contains("dpkg -l 'c'"));
-    // Verify newline separation (multi-line script)
-    assert_eq!(script.matches('\n').count(), 2);
+    // Verify newline separation: one line per package, plus the FJ-2720
+    // divergence-flag prologue and the trailing `exit`.
+    assert_eq!(script.matches('\n').count(), 4, "{script}");
 }
 
 /// BH-MUT: cargo install uses conditional check before installing.

@@ -6,15 +6,16 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Generate shell script to check if a container is running.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let n = sh_squote(name);
-    format!(
-        "docker inspect -f '{{{{.State.Running}}}}' {n} 2>/dev/null && echo {} || echo {}",
-        sh_squote(&format!("exists:{name}")),
-        sh_squote(&format!("missing:{name}"))
+    verdict::single(
+        &format!("docker inspect -f '{{{{.State.Running}}}}' {n} >/dev/null 2>&1"),
+        &format!("exists:{name}"),
+        &format!("missing:{name}"),
     )
 }
 

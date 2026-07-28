@@ -256,6 +256,19 @@ fn determine_present_action(
     locks: &std::collections::HashMap<String, StateLock>,
     probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
 ) -> PlanAction {
+    // FJ-2725 (PMAT-199): a phony resource that reaches the planner was named
+    // as an explicit goal — `strip_unrequested_phony` removed every other one
+    // before planning. It names an ACTION with no observable artifact, so it
+    // runs unconditionally: no lock read, no hash compare, no probe.
+    //
+    // This does not weaken the idempotency contract. `plan` over a config with
+    // no goals contains no phony resources at all, so the plan fixed point is
+    // untouched; requesting an action by name is the user asking for it to
+    // happen, which is a different thing from convergence.
+    if resource.phony {
+        return PlanAction::Update;
+    }
+
     let lock = match locks.get(machine_name) {
         Some(l) => l,
         None => return PlanAction::Create,

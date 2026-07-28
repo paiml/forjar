@@ -1,8 +1,10 @@
 use super::package::*;
+use super::package_check::check_script;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

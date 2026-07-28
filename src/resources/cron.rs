@@ -4,6 +4,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Generate shell script to check if a cron job exists.
 pub fn check_script(resource: &Resource) -> String {
@@ -11,10 +12,10 @@ pub fn check_script(resource: &Resource) -> String {
     let user = resource.owner.as_deref().unwrap_or("root");
     let u = sh_squote(user);
     let marker = sh_squote(&format!("# forjar:{name}"));
-    format!(
-        "crontab -u {u} -l 2>/dev/null | grep -qF {marker} && echo {} || echo {}",
-        sh_squote(&format!("exists:{name}")),
-        sh_squote(&format!("missing:{name}"))
+    verdict::single(
+        &format!("crontab -u {u} -l 2>/dev/null | grep -qF {marker}"),
+        &format!("exists:{name}"),
+        &format!("missing:{name}"),
     )
 }
 
@@ -78,6 +79,7 @@ mod tests {
 
     fn make_cron_resource(name: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Cron,
             machine: MachineTarget::Single("m1".to_string()),
             state: None,

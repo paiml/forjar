@@ -7,6 +7,7 @@ use super::*;
 fn test_fj012_build_details_nonexistent_file_no_hash() {
     // content is set but the file doesn't exist → no content_hash
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("test".to_string()),
         path: Some("/tmp/does-not-exist-forjar-test.txt".to_string()),
@@ -117,6 +118,7 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
 #[test]
 fn test_fj012_build_details_all_fields() {
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("test".to_string()),
         path: Some("/etc/app.conf".to_string()),

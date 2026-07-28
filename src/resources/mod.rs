@@ -16,6 +16,7 @@ pub mod mount;
 pub mod network;
 pub mod overlay_interface;
 pub mod package;
+pub mod package_check;
 pub mod pepita;
 pub mod service;
 pub mod task;
@@ -24,6 +25,7 @@ mod tests_service;
 #[cfg(test)]
 mod tests_task;
 pub mod user;
+pub mod verdict;
 pub mod wasm_bundle;
 
 mod network_b;

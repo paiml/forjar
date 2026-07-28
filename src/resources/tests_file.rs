@@ -4,6 +4,7 @@ use base64::Engine;
 
 fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

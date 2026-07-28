@@ -138,8 +138,26 @@ pub(crate) fn cmd_destroy(
     }
 
     let config = parse_and_validate(file)?;
+    // `build_execution_order` on the RAW config is sound: `depends_on` is
+    // deliberately never templated (see resolver::tests_completeness).
     let execution_order = resolver::build_execution_order(&config)?;
     let reverse_order: Vec<String> = execution_order.into_iter().rev().collect();
+
+    // FJ-2722 (PMAT-199): destroy MUST operate on resolved resources.
+    //
+    // It previously took resources straight from `config.resources` and handed
+    // them to `codegen::apply_script` with `state: absent`. For a file resource
+    // that generates `rm -rf '{{params.x}}/...'` — a destructive command against
+    // a literal path, reported as a success, while the real resource survives
+    // and its lock entry is removed. This is the third code path to make the
+    // same mistake (drift in v1.11.0, the staleness probe in v1.11.1), which is
+    // why `resolve_all` exists as the single entry point.
+    let resolved = resolver::resolve_all(
+        &config.resources,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
 
     if verbose {
         eprintln!(
@@ -159,7 +177,7 @@ pub(crate) fn cmd_destroy(
         std::collections::HashMap::new();
 
     for resource_id in &reverse_order {
-        let resource = match config.resources.get(resource_id) {
+        let resource = match resolved.get(resource_id) {
             Some(r) => r,
             None => continue,
         };
@@ -316,6 +334,7 @@ pub(crate) fn cmd_rollback(
         None,  // telemetry_endpoint
         false, // refresh
         None,  // force_tag
+        &[],
     )
 }
 

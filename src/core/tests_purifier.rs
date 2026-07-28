@@ -223,6 +223,7 @@ fn test_fj036_purify_codegen_file_check() {
 
 fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::types::Resource {
     crate::core::types::Resource {
+        phony: false,
         resource_type: rt,
         machine: crate::core::types::MachineTarget::Single("m1".to_string()),
         state: None,

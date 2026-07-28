@@ -4,6 +4,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 pub fn make_package() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -108,6 +109,7 @@ pub fn make_package() -> Resource {
 
 pub fn make_file() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -212,6 +214,7 @@ pub fn make_file() -> Resource {
 
 pub fn make_service() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Service,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("running".to_string()),
@@ -316,6 +319,7 @@ pub fn make_service() -> Resource {
 
 pub fn make_mount() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Mount,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

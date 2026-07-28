@@ -41,6 +41,7 @@ fn test_fj012_apply_result_duration_positive() {
 fn test_fj012_build_resource_details_empty() {
     // Resource with no path, no content, no name → empty details
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m".to_string()),
         state: None,
@@ -152,6 +153,7 @@ fn test_fj012_build_resource_details_empty() {
 fn test_fj012_build_resource_details_path_only() {
     // File resource with path but no content → path in details but no content_hash
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m".to_string()),
         state: Some("present".to_string()),

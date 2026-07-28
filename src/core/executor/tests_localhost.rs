@@ -170,6 +170,7 @@ fn test_fj131_record_failure_mount_continue() {
 fn test_fj131_build_details_group_only() {
     // Resource with group but no owner/mode → only group in details
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m".to_string()),
         state: None,

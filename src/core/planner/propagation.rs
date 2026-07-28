@@ -45,8 +45,13 @@ pub fn propagate_changes(
         let Some(resource) = config.resources.get(resource_id) else {
             continue;
         };
-        // `order_only` edges (make's `|` prerequisites) sequence work but never
-        // invalidate, so they are excluded from propagation.
+        // NOTE: there is no `order_only` field. A previous comment here claimed
+        // order-only edges were excluded from propagation; nothing implements
+        // that. `import-makefile` maps make's `|` prerequisites onto
+        // `depends_on`, so they DO propagate. The cost is a possible extra
+        // rebuild (never a wrong result), and it is rare in practice because
+        // directory artifacts are identified by existence since v1.11.1, so the
+        // mkdir-shaped resource almost never goes dirty. Tracked for v1.13.
         let Some(trigger) = resource
             .depends_on
             .iter()

@@ -60,6 +60,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         allowed_operators: vec![],
     };
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("x86-box".to_string()),
         state: None,

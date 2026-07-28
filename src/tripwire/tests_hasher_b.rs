@@ -67,6 +67,7 @@ fn test_fj036_hash_desired_state_deterministic() {
     use std::collections::HashMap;
 
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("present".to_string()),
@@ -180,6 +181,7 @@ fn test_fj036_hash_desired_state_changes_on_content() {
     use std::collections::HashMap;
 
     let r1 = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("present".to_string()),

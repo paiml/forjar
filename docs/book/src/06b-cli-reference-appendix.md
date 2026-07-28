@@ -6,6 +6,57 @@ A CI parity test (`tests/doc_cli_parity.rs`) ensures every subcommand in the
 `Commands` enum appears somewhere in this book, so new commands must be added
 here (or in a full chapter) before they can merge.
 
+## Build Semantics
+
+### forjar make
+
+Build the named goals and their transitive `depends_on` prerequisites, and
+nothing else — what `make <goal>` means.
+
+```bash
+forjar make [GOALS...] [-f forjar.yaml] [-n] [-B] [-j <N>] [-p KEY=VALUE] [--yes]
+```
+
+The goal closure is downward-closed, so a targeted build can never run against
+an unconverged prerequisite. This is what distinguishes it from `apply -r`,
+which is exact-match with no closure (make's `-o` semantics), and from
+`--subset`/`--exclude`, whose patterns can cut a resource out from under a
+dependent.
+
+With no goals it is equivalent to `forjar apply`. An unknown goal is an error
+listing the known targets, never a silent no-op.
+
+Flags mirror make: `-n` dry run, `-B` always-make, `-j` parallel jobs.
+
+Targets marked `phony: true` name an ACTION rather than a file. They are
+excluded from bulk `apply`/`plan` and run unconditionally when named as a goal,
+which is what keeps a repeated `forjar apply` idempotent.
+
+### forjar import-makefile
+
+Import a single-makefile, non-recursive build into a forjar config.
+
+```bash
+forjar import-makefile [MAKEFILE] [-o <OUTPUT>] [-m <MACHINE>]
+```
+
+Runs `make -p --trace -n -B` and joins the two streams it produces: the parsed
+database (structure, with unexpanded recipes) and the trace (expanded commands).
+Emits one `type: task` resource per target, with `output_artifacts` for file
+targets, `phony: true` for `.PHONY` members, `task_inputs` for source
+prerequisites, and `depends_on` for prerequisites that are themselves targets —
+including order-only (`| dir`) prerequisites, which become edges and never
+inputs.
+
+Each logical recipe line is emitted inside its own subshell, reproducing make's
+per-line shell isolation, so a `cd` on one line does not affect the next.
+
+**It refuses rather than mistranslates.** Recursive make, `.ONESHELL`,
+double-colon rules, VPATH, and GNU make older than 4.0 (which macOS still ships)
+are detected and reported, and nothing is written. Review the generated config
+before applying it: recipes are make's own expansion, and forjar injects
+`set -euo pipefail` where make sets no shell options.
+
 ## Config Analysis & Composition
 
 ### forjar stack-diff

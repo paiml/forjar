@@ -328,7 +328,13 @@ fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
         .task_mode
         .as_ref()
         .is_some_and(|m| *m == crate::core::types::TaskMode::Pipeline);
-    if resource.command.is_none() && !is_pipeline {
+    // FJ-2725: a phony target need not have a command. make's `all:
+    // $(BUILD)/app` is a grouping node — prerequisites, no recipe — and a name
+    // listed in `.PHONY` with no rule at all is legal too: `make deny` simply
+    // prints "Nothing to be done". forjar's own Makefile has exactly that
+    // (a stale `.PHONY` entry), which is how this was found. Inventing a no-op
+    // command to satisfy this rule would be less honest than allowing it.
+    if resource.command.is_none() && !is_pipeline && !resource.phony {
         errors.push(ValidationError {
             message: format!("resource '{id}' (task) has no command"),
         });

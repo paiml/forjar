@@ -58,6 +58,7 @@
 
 use crate::core::shell_escape::{is_valid_iface, is_valid_overlay_ip, sh_squote};
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 mod units;
 use units::{dispatcher_hook, firewall_block, hosts_block, service_unit, timer_unit};
@@ -105,15 +106,29 @@ pub fn check_script(resource: &Resource) -> String {
     let ip_q = sh_squote(ip);
 
     format!(
-        "set -u\n\
-         if ip -4 -o addr show 2>/dev/null | grep -qw {ip_q}; then\n\
-         \x20 echo 'ip:present:{ip}'\n\
-         else\n\
-         \x20 echo 'ip:absent:{ip}'\n\
-         fi\n\
-         if [ -f {SERVICE_PATH} ]; then echo 'service:present'; else echo 'service:absent'; fi\n\
-         if [ -f {TIMER_PATH} ]; then echo 'timer:present'; else echo 'timer:absent'; fi\n\
-         if systemctl is-active --quiet fleet-overlay.timer 2>/dev/null; then echo 'timer:active'; else echo 'timer:inactive'; fi"
+        "set -u\n{}",
+        verdict::check_script_from(&[
+            verdict::assert_that(
+                &format!("ip -4 -o addr show 2>/dev/null | grep -qw {ip_q}"),
+                &format!("ip:present:{ip}"),
+                &format!("ip:absent:{ip}"),
+            ),
+            verdict::assert_that(
+                &format!("[ -f {SERVICE_PATH} ]"),
+                "service:present",
+                "service:absent",
+            ),
+            verdict::assert_that(
+                &format!("[ -f {TIMER_PATH} ]"),
+                "timer:present",
+                "timer:absent"
+            ),
+            verdict::assert_that(
+                "systemctl is-active --quiet fleet-overlay.timer 2>/dev/null",
+                "timer:active",
+                "timer:inactive",
+            ),
+        ])
     )
 }
 

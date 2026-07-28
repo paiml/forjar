@@ -77,10 +77,12 @@ pub(crate) fn cmd_plan(
             config.resources.len()
         );
     }
-    let execution_order = resolver::build_execution_order(&config)?;
-
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    // FJ-2725: phony resources are goal-only; a bulk plan must not report them
+    // as perpetual changes, or `plan` never reaches "0 to change" again.
+    super::apply_selection::strip_unrequested_phony(&mut config, &[]);
+    let execution_order = resolver::build_execution_order(&config)?;
     let plan = planner::plan(&config, &execution_order, &locks, tag_filter);
 
     if let Some(dir) = output_dir {

@@ -168,6 +168,7 @@ fn make_test_machine() -> Machine {
 
 fn make_service_resource(name: Option<&str>) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Service,
         machine: MachineTarget::Single("m".to_string()),
         state: Some("present".to_string()),

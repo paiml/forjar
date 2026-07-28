@@ -45,6 +45,7 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 ## Features
 
 - Declarative YAML-based infrastructure provisioning
+- Incremental builds — content-hash staleness over declared `task_inputs`/`output_artifacts`, `forjar make <goal>` for make-style prerequisite closure, and `forjar import-makefile` to ingest a single-makefile build (see [Build semantics](#build-semantics))
 - Content-addressed artifact store (BLAKE3 hashing) with a 4-level purity model (Pure / Pinned / Constrained / Impure)
 - SSH-based remote execution with automatic retry
 - Drift detection and convergence verification
@@ -54,6 +55,68 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 - age-encrypted state at rest — `forjar state-encrypt` / `state-decrypt` / `state-rekey`
 - WASM resource plugins (opt-in `--features wasm-runtime`) via `forjar plugin`
 - Pure Rust with zero C dependencies
+
+## Build semantics
+
+forjar can act as an incremental build system for a **local** dependency graph.
+Declare what a task reads and writes and it plans from the filesystem, not just
+from the config:
+
+```yaml
+resources:
+  obj-a:
+    type: task
+    machine: local
+    working_dir: "{{params.proj}}"
+    command: "cc -c src/a.c -o build/a.o"
+    task_inputs: ["src/a.c"]
+    output_artifacts: ["build/a.o"]
+    depends_on: [mkdir]
+```
+
+```bash
+forjar make link        # build `link` and its prerequisites, nothing else
+forjar make clean       # run a `phony: true` action target
+forjar import-makefile Makefile -o forjar.yaml
+```
+
+`forjar make <goal>` computes the transitive `depends_on` closure of the goals.
+That set is downward-closed, so a targeted build can never run against an
+unconverged prerequisite — unlike `-r`, which is exact-match with no closure,
+and unlike `--subset`/`--exclude`, which can cut a resource out from under a
+dependent.
+
+`phony: true` marks a target that names an ACTION rather than a file (`clean`,
+`test`, `all`). Phony resources are excluded from bulk `apply`/`plan` and run
+unconditionally when named as a goal, which keeps `f(f(x)) = f(x)` intact.
+
+### Where it differs from make — read this before importing
+
+- **Shell options.** forjar wraps a `command:` in `set -euo pipefail`; make sets
+  none. IMPORTED recipes restore make's semantics per line (`set +e +u +o
+  pipefail` inside each subshell, `|| true` for a `-` prefixed line), because
+  the difference is not merely "stricter": under pipefail `seq 1 100000 | head -1`
+  exits 141 on SIGPIPE where make returns 0. A hand-written forjar `command:`
+  still runs under `set -euo pipefail`.
+- **Staleness is BLAKE3 content, not mtime.** `touch` does not trigger a
+  rebuild; recompiling to identical bytes correctly does not relink.
+- **Remote resources are not probed.** The probe runs on the controller and
+  skips resources targeting another machine rather than hashing the wrong
+  host's filesystem, so those keep config-hash planning.
+- **`import-makefile` refuses what it cannot preserve**: recursive make,
+  `.ONESHELL`, double-colon rules, VPATH, GNU make < 4.0 (which macOS still
+  ships), and a real file target that depends on a `.PHONY` target — make runs
+  a phony prerequisite when it reaches it, and goal-only phony cannot. It writes
+  nothing and tells you why. An importer that silently mistranslates produces a
+  config that looks like your build and is not one.
+- **`include`, `$(shell …)` and `$(wildcard …)` are frozen at import time**,
+  because make resolves them before forjar sees anything. Re-import when they
+  change; an imported config is a snapshot, not a live translation.
+- **`params.proj` is absolute**, so an imported config does not silently depend
+  on the directory you run it from. Copying the project elsewhere therefore
+  needs a re-import (or a `-p proj=<new path>` override).
+
+Contract: `contracts/build-semantics-v1.yaml`.
 
 ## Why Forjar
 

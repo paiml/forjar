@@ -3,6 +3,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 pub(super) fn make_mount_resource() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Mount,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

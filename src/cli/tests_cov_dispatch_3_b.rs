@@ -118,6 +118,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
         // Clean up
@@ -183,6 +184,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }
@@ -230,6 +232,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_err());
         let err = result.unwrap_err();

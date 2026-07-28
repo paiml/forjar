@@ -2,7 +2,7 @@
 
 use super::test_fixtures::*;
 use super::*;
-use crate::core::types::ResourceType;
+use crate::core::types::{Resource, ResourceType};
 
 #[test]
 fn test_fj005_check_dispatches_package() {
@@ -240,4 +240,70 @@ fn test_fj040_pepita_codegen_apply_netns() {
     r.netns = true;
     let script = apply_script(&r).unwrap();
     assert!(script.contains("ip netns add 'forjar-net-sandbox'"));
+}
+
+// ── FJ-2722 (PMAT-199): `state: absent` must not RUN the thing ──────────────
+
+/// `forjar destroy` converges every resource to `state: absent`. Task, build
+/// and wasm_bundle handlers ignore `state`, so destroy EXECUTED the command —
+/// running a build or a deploy as its way of "removing" it, and reporting
+/// success. These types describe an action, and an action has no absent form.
+#[test]
+fn absent_action_types_generate_a_noop_not_the_command() {
+    for ty in [
+        ResourceType::Task,
+        ResourceType::Build,
+        ResourceType::WasmBundle,
+    ] {
+        let mut r = Resource {
+            resource_type: ty.clone(),
+            command: Some("rm -rf / --no-preserve-root".to_string()),
+            ..Default::default()
+        };
+        r.state = Some("absent".to_string());
+        r.target = Some("/usr/local/bin/thing".to_string());
+        r.path = Some("/srv/app.wasm".to_string());
+
+        let script = apply_script(&r).expect("generates");
+        assert!(
+            !script.contains("rm -rf /"),
+            "destroying a {ty} must not run its command:\n{script}"
+        );
+        assert!(
+            script.contains("no absent form"),
+            "{ty} should explain itself:\n{script}"
+        );
+    }
+}
+
+#[test]
+fn absent_state_still_destroys_types_that_have_an_absent_form() {
+    // The guard must be narrow: a file with `state: absent` must still be
+    // removed, or destroy would silently stop working entirely.
+    let mut r = Resource {
+        resource_type: ResourceType::File,
+        ..Default::default()
+    };
+    r.path = Some("/tmp/forjar-absent-guard".to_string());
+    r.state = Some("absent".to_string());
+
+    let script = apply_script(&r).expect("generates");
+    assert!(
+        script.contains("rm -rf '/tmp/forjar-absent-guard'"),
+        "file resources must still honour state: absent:\n{script}"
+    );
+}
+
+#[test]
+fn action_types_are_unaffected_when_state_is_not_absent() {
+    let r = Resource {
+        resource_type: ResourceType::Task,
+        command: Some("cc -c a.c".to_string()),
+        ..Default::default()
+    };
+    let script = apply_script(&r).expect("generates");
+    assert!(
+        script.contains("cc -c a.c"),
+        "a normal task must still run its command:\n{script}"
+    );
 }
