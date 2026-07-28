@@ -1,6 +1,6 @@
 {
   "version": "3.25.0",
-  "created_at": "2026-07-28T14:31:40.006099619Z",
+  "created_at": "2026-07-28T14:54:13.326348135Z",
   "git_context": null,
   "files": {
     "./benches/cli_bench.rs": {
