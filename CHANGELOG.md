@@ -112,8 +112,21 @@ Contract: `contracts/build-semantics-v1.yaml` (L3, 9 falsification tests).
 
 ### Known differences from make
 
-- forjar injects `set -euo pipefail`; make sets no shell options. Strictly
-  stricter — it surfaces errors make swallows — but a real difference.
+- **Shell options.** forjar wraps a `command:` in `set -euo pipefail`; make sets
+  none. Imported recipes restore make's semantics per line. An earlier draft of
+  this entry called the difference "strictly stricter — it surfaces errors make
+  swallows"; dogfooding the built binary falsified that. Under pipefail
+  `seq 1 100000 | head -1` exits 141 on SIGPIPE where make returns 0, and
+  `cmd | head` is a stock Makefile idiom, so the claim described a working build
+  becoming a failing one as a safety improvement. A hand-written forjar
+  `command:` still runs under `set -euo pipefail`.
+- A `-` prefixed recipe line (ignore errors) imports as `... || true`. `--trace`
+  strips the prefix, so it is read from the make database instead.
+- A real file target that depends on a `.PHONY` target is **refused**: make runs
+  the phony prerequisite when it reaches it, goal-only phony cannot, and the
+  imported config would build without the action ever running.
+- `include`, `$(shell …)` and `$(wildcard …)` are resolved by make before the
+  import sees them, so their values are frozen at import time.
 - Staleness is BLAKE3 content, not mtime: `touch` does not trigger a rebuild,
   and recompiling to identical bytes correctly does not relink.
 - The staleness probe runs on the controller and skips remote resources rather

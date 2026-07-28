@@ -103,6 +103,35 @@ pub fn refusals(raw: &str, targets: &[MakeTarget]) -> Vec<String> {
     // Detected from the PARSED targets, not by scanning the raw dump: make's
     // own built-in implicit rules include `%:: %,v` and `%:: RCS/%`, so a text
     // scan reports a double-colon rule in every Makefile ever written.
+    // FJ-2727: goal-only phony means an unrequested phony resource is dropped
+    // and the edge to it scrubbed. That is correct for forjar and WRONG for a
+    // Makefile where a real file target lists a .PHONY prerequisite: make runs
+    // the action when it reaches it, forjar cannot, and the imported config
+    // fails at the first command that needed the action's side effect.
+    // Verified: `app.txt: stamp` (phony) imports and then dies on
+    // `cp: cannot stat 'version.txt'`. Refusing is honest; silently emitting a
+    // config that cannot build is exactly what this list exists to prevent.
+    let phony: std::collections::HashSet<&str> = targets
+        .iter()
+        .filter(|t| t.phony)
+        .map(|t| t.name.as_str())
+        .collect();
+    for t in targets.iter().filter(|t| !t.phony) {
+        for dep in t.prereqs.iter().chain(t.order_only.iter()) {
+            if phony.contains(dep.as_str()) {
+                out.push(format!(
+                    "target '{}' depends on the .PHONY target '{dep}'. make runs a \
+                     phony prerequisite when it reaches it; forjar's phony targets \
+                     are goal-only (running them as prerequisites is not \
+                     convergent — a `clean` that a `build` depends on deletes the \
+                     outputs that make `build` stale, forever). The imported config \
+                     would build without '{dep}' ever running.",
+                    t.name
+                ));
+            }
+        }
+    }
+
     for t in targets.iter().filter(|t| t.double_colon) {
         out.push(format!(
             "target '{}' is a double-colon rule. It declares independent recipes \
@@ -180,6 +209,7 @@ pub fn import(dir: &Path, makefile: &Path, machine: &str) -> Result<String, Stri
     mk::join(&mut targets, &blocks);
     for t in targets.iter_mut() {
         t.recipe = mk::fold_continuations(&t.recipe);
+        t.recipe_raw = mk::fold_continuations(&t.recipe_raw);
     }
 
     targets.retain(|t| !t.name.starts_with('.') && (t.has_recipe() || t.phony));
@@ -264,24 +294,39 @@ pub fn emit(targets: &[MakeTarget], dir: &Path, machine: &str) -> String {
 
         if !t.recipe.is_empty() {
             y.push_str("    command: |\n");
-            for line in &t.recipe {
+            for (i, line) in t.recipe.iter().enumerate() {
                 // `@` (silent) and `+` (run even under -n) are make recipe
-                // prefixes, not shell. `-` (ignore errors) is dropped
-                // deliberately: forjar treats a failed resource as a failure,
-                // and silently swallowing errors is the behaviour this release
-                // exists to remove.
+                // prefixes, not shell, and the trace has already stripped them.
                 let cleaned = line
                     .trim_start_matches(['@', '+'])
                     .trim_start_matches('-')
                     .trim();
-                // One SUBSHELL per logical recipe line. make runs each line in
-                // its own shell, so a `cd` on one line does not affect the
-                // next, and a bare `VAR=x` does not carry over. Emitting the
-                // lines into a single shell would silently change both. The
-                // parentheses reproduce make's isolation exactly, which is why
-                // `cd build && ...` — an idiom far too common to refuse — can
-                // be imported faithfully instead of rejected.
-                y.push_str(&format!("      ( {cleaned} )\n"));
+
+                // One SUBSHELL per logical recipe line, with make's shell
+                // options restored inside it.
+                //
+                // forjar wraps a command in `set -euo pipefail`; make sets
+                // NOTHING. That difference is not merely "stricter": under
+                // `pipefail`, `seq 1 100000 | head -1` fails with 141 because
+                // `seq` takes SIGPIPE when `head` exits. make returns 0 and
+                // `cmd | head` is a stock Makefile idiom, so importing it
+                // unchanged turns a working build into a failing one. `set -e`
+                // inside the line is wrong for the same reason — make checks
+                // the LINE's exit status, it does not abort mid-line.
+                //
+                // The outer `set -e` still aborts the target when a subshell
+                // exits non-zero, which IS make's rule.
+                let ignore = t
+                    .recipe_raw
+                    .get(i)
+                    .is_some_and(|raw| mk::ignores_errors(raw));
+                // A `-` prefix means make ignores this line's exit status.
+                // Dropping it would convert `-rm -f x` from a no-op into a
+                // hard failure.
+                let tail = if ignore { " || true" } else { "" };
+                y.push_str(&format!(
+                    "      ( set +e +u +o pipefail; {cleaned} ){tail}\n"
+                ));
             }
         }
         y.push('\n');

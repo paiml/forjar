@@ -115,13 +115,22 @@ invariants:
       as an input is what made v1.11.0 an idempotency pump.
 
 known_gaps:
-  - id: GAP-STRICTER-THAN-MAKE
+  - id: GAP-SHELL-OPTIONS
     statement: >-
-      forjar injects `set -euo pipefail`; make sets no shell options. An
-      imported recipe therefore fails on an unset variable or a mid-pipeline
-      error where make would continue. This is strictly stricter — it surfaces
-      errors make swallows — but it is a real difference, and a Makefile relying
-      on either behaviour will fail under forjar rather than silently diverge.
+      forjar injects `set -euo pipefail`; make sets no shell options. The first
+      draft of this contract called that "strictly stricter — it surfaces errors
+      make swallows", and dogfooding the built binary FALSIFIED it: under
+      pipefail `seq 1 100000 | head -1` exits 141, because seq takes SIGPIPE
+      when head leaves. make returns 0, and `cmd | head` is a stock Makefile
+      idiom, so the claim was not merely imprecise — it described a working
+      build turning into a failing one as a safety improvement.
+
+      IMPORTED recipes therefore emit `set +e +u +o pipefail` inside each
+      per-line subshell, restoring make's semantics. The outer `set -e` still
+      aborts the target when a line exits non-zero, which IS make's rule, and a
+      `-` prefixed line gets `|| true`. The gap that REMAINS is narrower: a
+      hand-written forjar `command:` still runs under `set -euo pipefail`, so
+      the two kinds of resource have different shell semantics by design.
 
   - id: GAP-CONTENT-HASH-NOT-MTIME
     statement: >-
@@ -140,9 +149,41 @@ known_gaps:
   - id: GAP-IMPORT-SCOPE
     statement: >-
       The importer handles a single-makefile, non-recursive build. Recursive
-      make, .ONESHELL, double-colon rules and VPATH are refused. It is not a
+      make, .ONESHELL, double-colon rules, VPATH, GNU make < 4.0, and a real
+      file target that depends on a .PHONY target are refused. It is not a
       general Makefile-to-forjar translator and the release does not claim to
       be one.
+
+  - id: GAP-PHONY-PREREQUISITES-CANNOT-BE-IMPORTED
+    statement: >-
+      make runs a .PHONY prerequisite when it reaches it. Goal-only phony
+      cannot, because doing so is not convergent (a `clean` that `build`
+      depends on deletes the outputs that make `build` stale, forever). A
+      Makefile whose real targets depend on phony ones is therefore REFUSED
+      rather than imported into a config that silently builds without the
+      action ever running. Verified: `app.txt: stamp` imported and then died on
+      `cp: cannot stat 'version.txt'`.
+
+  - id: GAP-INCLUDE-IS-FLATTENED
+    statement: >-
+      `include`d makefiles, `$(shell ...)` and `$(wildcard ...)` are resolved by
+      make before forjar sees them, so the import FREEZES their values at import
+      time with no annotation. Re-run the import when they change; do not treat
+      an imported config as a live translation of the Makefile.
+
+  - id: GAP-APPLY-TIME-DETERMINISM-GATE
+    statement: >-
+      forjar's bashrs I8 gate rejects non-deterministic commands at APPLY time,
+      not import time, so a Makefile using a stock idiom like
+      `date +%s > version.txt` imports cleanly and then fails to run with
+      `DET002`. The importer does not yet pre-flight that gate.
+
+  - id: GAP-STDIN-IS-CONSUMED-BY-THE-SCRIPT
+    statement: >-
+      The transport writes the whole script to bash's stdin, so a task command
+      that READS stdin (`cat > f`) consumes the remaining script lines instead.
+      Pre-existing, not introduced by v1.12, and not specific to imported
+      recipes. Tracked separately.
 
 falsification_tests:
   - id: FALSIFY-BUILD-201

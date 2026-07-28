@@ -43,6 +43,14 @@ pub struct MakeTarget {
     pub phony: bool,
     /// Declared with `::` — independent recipes for one target name.
     pub double_colon: bool,
+    /// The recipe exactly as the DATABASE printed it, prefixes intact.
+    ///
+    /// `--trace` strips make's recipe prefixes (`@` silent, `-` ignore-errors,
+    /// `+` run-even-under-`-n`), so once `join` replaces `recipe` with the
+    /// expanded commands the prefix information is gone. `-` in particular
+    /// changes semantics — `-rm -f x` must not fail the target — so it has to
+    /// be captured here, before the join.
+    pub recipe_raw: Vec<String>,
     /// The recipe as make would run it, one entry per physical line, expanded.
     pub recipe: Vec<String>,
     /// Where the recipe was defined, used as the join key.
@@ -162,6 +170,7 @@ pub fn parse_database(db: &str) -> Vec<MakeTarget> {
         } else if in_recipe {
             if let Some(cmd) = line.strip_prefix('\t') {
                 target.recipe.push(cmd.to_string());
+                target.recipe_raw.push(cmd.to_string());
             } else if line.trim().is_empty() {
                 in_recipe = false;
             }
@@ -300,6 +309,17 @@ pub fn join(targets: &mut [MakeTarget], trace: &[TraceBlock]) {
 /// `./Makefile` vs an absolute path).
 fn ends_with_path(a: &str, b: &str) -> bool {
     a == b || a.ends_with(b) || b.ends_with(a)
+}
+
+/// True when a make recipe line is prefixed `-` (ignore this line's exit status).
+///
+/// The prefixes may appear in any order and may repeat (`-@cmd`, `@-cmd`).
+pub fn ignores_errors(raw_line: &str) -> bool {
+    raw_line
+        .trim_start()
+        .chars()
+        .take_while(|c| matches!(c, '@' | '-' | '+'))
+        .any(|c| c == '-')
 }
 
 /// Fold backslash-continued physical lines into logical recipe lines.

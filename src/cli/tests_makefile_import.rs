@@ -184,9 +184,12 @@ fn recipe_lines_are_emitted_as_separate_subshells() {
         ..Default::default()
     };
     let yaml = imp::emit(&[t], std::path::Path::new("/proj"), "local");
-    assert!(yaml.contains("( cd build )"), "{yaml}");
+    // The subshell also restores make's shell options — see
+    // `imported_recipes_restore_makes_shell_options` for why that is not
+    // cosmetic.
+    assert!(yaml.contains("( set +e +u +o pipefail; cd build )"), "{yaml}");
     assert!(
-        yaml.contains("( ./app --report > ../report.txt )"),
+        yaml.contains("( set +e +u +o pipefail; ./app --report > ../report.txt )"),
         "each line gets its own subshell: {yaml}"
     );
 }
@@ -274,5 +277,92 @@ fn a_clean_makefile_is_not_refused() {
     assert!(
         imp::refusals("# GNU Make 4.3\n", &parsed()).is_empty(),
         "the fixture Makefile uses nothing exotic"
+    );
+}
+
+// ── FJ-2727: defects found by dogfooding the built 1.12 binary ──────────────
+
+#[test]
+fn imported_recipes_restore_makes_shell_options() {
+    // forjar wraps a command in `set -euo pipefail`; make sets NOTHING. That
+    // is not merely "stricter". Under pipefail, `seq 1 100000 | head -1` exits
+    // 141 because seq takes SIGPIPE when head leaves — make returns 0, and
+    // `cmd | head` is a stock Makefile idiom. Importing it unchanged turned a
+    // working build into a failing one, and the first cut of this release's
+    // contract claimed the opposite.
+    let t = mk::MakeTarget {
+        name: "out.txt".to_string(),
+        recipe: vec!["seq 1 100000 | head -1 > out.txt".to_string()],
+        recipe_raw: vec!["seq 1 100000 | head -1 > out.txt".to_string()],
+        ..Default::default()
+    };
+    let yaml = imp::emit(&[t], std::path::Path::new("/proj"), "local");
+    assert!(
+        yaml.contains("( set +e +u +o pipefail; seq 1 100000 | head -1 > out.txt )"),
+        "{yaml}"
+    );
+}
+
+#[test]
+fn the_ignore_errors_prefix_survives_the_trace_join() {
+    // `--trace` strips make's `-` prefix, so by the time the expanded command
+    // arrives the "ignore this line's exit status" instruction is gone.
+    // Dropping it converts the stock `-rm -f x` from a no-op into a hard
+    // failure. The prefix is therefore read from the DATABASE recipe.
+    assert!(mk::ignores_errors("-rm -f x"));
+    assert!(mk::ignores_errors("@-rm -f x"), "prefixes may be combined");
+    assert!(mk::ignores_errors("-@rm -f x"), "in either order");
+    assert!(!mk::ignores_errors("@echo hi"));
+    assert!(!mk::ignores_errors("rm -f x"));
+
+    let t = mk::MakeTarget {
+        name: "t".to_string(),
+        recipe: vec!["rm -f gone".to_string(), "echo done".to_string()],
+        recipe_raw: vec!["-rm -f gone".to_string(), "echo done".to_string()],
+        ..Default::default()
+    };
+    let yaml = imp::emit(&[t], std::path::Path::new("/proj"), "local");
+    assert!(yaml.contains("rm -f gone ) || true"), "{yaml}");
+    assert!(
+        yaml.contains("echo done )\n"),
+        "a line with no `-` must NOT be made failure-tolerant: {yaml}"
+    );
+}
+
+#[test]
+fn a_real_target_depending_on_a_phony_target_is_refused() {
+    // Goal-only phony drops an unrequested phony resource and scrubs the edge.
+    // For `app.txt: stamp` that yields a config which builds without ever
+    // running `stamp`, and dies on the first command needing its side effect.
+    // Verified against the built binary: `cp: cannot stat 'version.txt'`.
+    let stamp = mk::MakeTarget {
+        name: "stamp".to_string(),
+        phony: true,
+        recipe: vec!["echo v1 > version.txt".to_string()],
+        ..Default::default()
+    };
+    let app = mk::MakeTarget {
+        name: "app.txt".to_string(),
+        prereqs: vec!["stamp".to_string()],
+        recipe: vec!["cp version.txt app.txt".to_string()],
+        ..Default::default()
+    };
+    let refused = imp::refusals("", &[stamp.clone(), app]);
+    assert!(
+        refused.iter().any(|r| r.contains("depends on the .PHONY target 'stamp'")),
+        "{refused:?}"
+    );
+
+    // A PHONY target depending on another phony target is fine — `all: test`
+    // is ordinary, and requesting `all` is not requesting `test`.
+    let all = mk::MakeTarget {
+        name: "all".to_string(),
+        phony: true,
+        prereqs: vec!["stamp".to_string()],
+        ..Default::default()
+    };
+    assert!(
+        imp::refusals("", &[stamp, all]).is_empty(),
+        "phony-to-phony edges must not be refused"
     );
 }

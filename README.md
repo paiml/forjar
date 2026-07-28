@@ -92,18 +92,26 @@ unconditionally when named as a goal, which keeps `f(f(x)) = f(x)` intact.
 
 ### Where it differs from make — read this before importing
 
-- **`set -euo pipefail` is injected**; make sets no shell options. Strictly
-  stricter, so a recipe relying on an unset variable or a swallowed
-  mid-pipeline error fails here.
+- **Shell options.** forjar wraps a `command:` in `set -euo pipefail`; make sets
+  none. IMPORTED recipes restore make's semantics per line (`set +e +u +o
+  pipefail` inside each subshell, `|| true` for a `-` prefixed line), because
+  the difference is not merely "stricter": under pipefail `seq 1 100000 | head -1`
+  exits 141 on SIGPIPE where make returns 0. A hand-written forjar `command:`
+  still runs under `set -euo pipefail`.
 - **Staleness is BLAKE3 content, not mtime.** `touch` does not trigger a
   rebuild; recompiling to identical bytes correctly does not relink.
 - **Remote resources are not probed.** The probe runs on the controller and
   skips resources targeting another machine rather than hashing the wrong
   host's filesystem, so those keep config-hash planning.
 - **`import-makefile` refuses what it cannot preserve**: recursive make,
-  `.ONESHELL`, double-colon rules, VPATH, and GNU make < 4.0 (which macOS still
-  ships). It writes nothing and tells you why. An importer that silently
-  mistranslates produces a config that looks like your build and is not one.
+  `.ONESHELL`, double-colon rules, VPATH, GNU make < 4.0 (which macOS still
+  ships), and a real file target that depends on a `.PHONY` target — make runs
+  a phony prerequisite when it reaches it, and goal-only phony cannot. It writes
+  nothing and tells you why. An importer that silently mistranslates produces a
+  config that looks like your build and is not one.
+- **`include`, `$(shell …)` and `$(wildcard …)` are frozen at import time**,
+  because make resolves them before forjar sees anything. Re-import when they
+  change; an imported config is a snapshot, not a live translation.
 
 Contract: `contracts/build-semantics-v1.yaml`.
 
