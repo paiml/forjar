@@ -48,6 +48,8 @@ pub enum Commands {
     /// FJ-2726: Import a Makefile's build graph into forjar.yaml
     #[command(name = "import-makefile")]
     ImportMakefile(ImportMakefileArgs),
+    /// Run the forjar.yaml language server on stdio (editor integration)
+    Lsp,
     /// Detect unauthorized changes (tripwire)
     Drift(DriftArgs),
     /// Show current state from lock files

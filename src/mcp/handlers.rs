@@ -3,8 +3,8 @@
 use pforge_runtime::Handler;
 use std::path::PathBuf;
 
-use crate::core::{codegen, parser, planner, resolver, state, types};
-use crate::tripwire::{anomaly, drift, tracer};
+use crate::core::{codegen, parser, planner, resolver, state};
+use crate::tripwire::drift;
 
 use super::types::*;
 
@@ -66,7 +66,13 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
 
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let mut config =
+            parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+
+        // FJ-2729: mirror `cli::plan`. Phony resources are goal-only, so a bulk
+        // plan must not report them — otherwise an agent reading this tool sees
+        // a converged project as permanently pending.
+        crate::cli::strip_unrequested_phony_for_mcp(&mut config);
 
         let order =
             resolver::build_execution_order(&config).map_err(pforge_runtime::Error::Handler)?;
@@ -81,9 +87,15 @@ impl Handler for PlanHandler {
 
         let exec_plan = planner::plan(&config, &order, &locks, input.tag.as_deref());
 
+        // FJ-2729: `exec_plan.changes` carries EVERY resource with its action,
+        // including NoOp — `cli::plan` filters those out before counting
+        // (plan.rs:262). The MCP handler did not, so it reported all 6
+        // resources of a fully converged project as pending changes while the
+        // CLI reported "0 to change". Verified on the published 1.12.0 binary.
         let mut changes: Vec<PlannedChangeOutput> = exec_plan
             .changes
             .iter()
+            .filter(|c| c.action != crate::core::types::PlanAction::NoOp)
             .map(|c| PlannedChangeOutput {
                 resource_id: c.resource_id.clone(),
                 machine: c.machine.clone(),
@@ -291,203 +303,6 @@ impl Handler for ShowHandler {
 
         Ok(ShowOutput {
             config: config_value,
-        })
-    }
-}
-
-#[async_trait::async_trait]
-impl Handler for StatusHandler {
-    type Input = StatusInput;
-    type Output = StatusOutput;
-    type Error = pforge_runtime::Error;
-
-    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
-
-        let mut machines = Vec::new();
-
-        if state_dir.exists() {
-            let entries = std::fs::read_dir(&state_dir)
-                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                    let name = path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("unknown")
-                        .to_string();
-
-                    if let Some(ref m) = input.machine {
-                        if &name != m {
-                            continue;
-                        }
-                    }
-
-                    let resource_count = state::load_lock(&state_dir, &name)
-                        .ok()
-                        .flatten()
-                        .map(|l| l.resources.len())
-                        .unwrap_or(0);
-
-                    machines.push(MachineStatusOutput {
-                        name,
-                        resource_count,
-                    });
-                }
-            }
-        }
-
-        Ok(StatusOutput { machines })
-    }
-}
-
-#[async_trait::async_trait]
-impl Handler for TraceHandler {
-    type Input = TraceInput;
-    type Output = TraceOutput;
-    type Error = pforge_runtime::Error;
-
-    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
-
-        let mut all_spans = Vec::new();
-
-        if state_dir.exists() {
-            let entries = std::fs::read_dir(&state_dir)
-                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if let Some(ref filter) = input.machine {
-                    if &name != filter {
-                        continue;
-                    }
-                }
-                if !entry.path().is_dir() {
-                    continue;
-                }
-
-                if let Ok(spans) = tracer::read_trace(&state_dir, &name) {
-                    for span in spans {
-                        all_spans.push((name.clone(), span));
-                    }
-                }
-            }
-        }
-
-        all_spans.sort_by_key(|(_, span)| span.logical_clock);
-
-        let trace_count = {
-            let ids: std::collections::HashSet<&str> =
-                all_spans.iter().map(|(_, s)| s.trace_id.as_str()).collect();
-            ids.len()
-        };
-
-        let spans = all_spans
-            .into_iter()
-            .map(|(machine, span)| TraceSpanOutput {
-                machine,
-                trace_id: span.trace_id,
-                span_id: span.span_id,
-                parent_span_id: span.parent_span_id,
-                name: span.name,
-                start_time: span.start_time,
-                duration_us: span.duration_us,
-                exit_code: span.exit_code,
-                resource_type: span.resource_type,
-                action: span.action,
-                content_hash: span.content_hash,
-                logical_clock: span.logical_clock,
-            })
-            .collect();
-
-        Ok(TraceOutput { trace_count, spans })
-    }
-}
-
-#[async_trait::async_trait]
-impl Handler for AnomalyHandler {
-    type Input = AnomalyInput;
-    type Output = AnomalyOutput;
-    type Error = pforge_runtime::Error;
-
-    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
-        let min_events = input.min_events.unwrap_or(3);
-
-        let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
-            std::collections::HashMap::new();
-
-        if state_dir.exists() {
-            let entries = std::fs::read_dir(&state_dir)
-                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if let Some(ref filter) = input.machine {
-                    if &name != filter {
-                        continue;
-                    }
-                }
-                if !entry.path().is_dir() {
-                    continue;
-                }
-
-                let log_path = entry.path().join("events.jsonl");
-                if !log_path.exists() {
-                    continue;
-                }
-
-                let content = std::fs::read_to_string(&log_path)
-                    .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-                for line in content.lines() {
-                    if line.trim().is_empty() {
-                        continue;
-                    }
-                    if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                        match te.event {
-                            types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
-                            }
-                            types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
-                            }
-                            types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-
-        let metrics_vec: Vec<(String, u32, u32, u32)> = metrics
-            .into_iter()
-            .map(|(k, (c, f, d))| (k, c, f, d))
-            .collect();
-
-        let findings = anomaly::detect_anomalies(&metrics_vec, min_events);
-
-        let output_findings = findings
-            .iter()
-            .map(|f| AnomalyFindingOutput {
-                resource: f.resource.clone(),
-                score: f.score,
-                status: format!("{:?}", f.status),
-                reasons: f.reasons.clone(),
-            })
-            .collect::<Vec<_>>();
-
-        Ok(AnomalyOutput {
-            anomaly_count: output_findings.len(),
-            findings: output_findings,
         })
     }
 }

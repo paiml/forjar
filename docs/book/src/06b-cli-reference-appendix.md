@@ -57,6 +57,18 @@ are detected and reported, and nothing is written. Review the generated config
 before applying it: recipes are make's own expansion, and forjar injects
 `set -euo pipefail` where make sets no shell options.
 
+### forjar lsp
+
+Run the forjar.yaml language server on stdio, for editor integration.
+
+```bash
+forjar lsp
+```
+
+Speaks LSP over stdin/stdout with `Content-Length` framing: diagnostics from the
+same validator `forjar validate` uses, plus completion for resource types and
+fields. Point your editor's LSP client at this command for `forjar.yaml` files.
+
 ## Config Analysis & Composition
 
 ### forjar stack-diff

@@ -159,24 +159,20 @@ async fn test_fj063_status_handler_nonexistent_dir() {
 async fn test_fj063_status_handler_with_state() {
     let dir = tempfile::tempdir().unwrap();
     let state_dir = dir.path().join("state");
-    std::fs::create_dir_all(&state_dir).unwrap();
 
-    // StatusHandler reads .json files from state_dir
-    let state_json = serde_json::json!({
-        "version": "1.0",
-        "machine": "local",
-        "resources": {
-            "test-pkg": {
-                "resource_type": "Package",
-                "status": "Converged",
-                "hash": "abc123",
-                "details": {}
-            }
-        }
-    });
+    // FJ-2729: a machine's state is a DIRECTORY —
+    // `state/<machine>/state.lock.yaml` (see `state::lock_file_path`). This
+    // test used to write `local.json` and comment "StatusHandler reads .json
+    // files from state_dir", codifying the defect: forjar has never written a
+    // `.json` lock, so the handler returned an empty machine list for every
+    // real project while the CLI printed `Machine: local (localhost)`.
+    let machine_dir = state_dir.join("local");
+    std::fs::create_dir_all(&machine_dir).unwrap();
     std::fs::write(
-        state_dir.join("local.json"),
-        serde_json::to_string_pretty(&state_json).unwrap(),
+        machine_dir.join("state.lock.yaml"),
+        "schema: \"1.0\"\nmachine: local\nhostname: localhost\ngenerated_at: now\n\
+         generator: test\nblake3_version: \"1\"\nresources:\n  test-pkg:\n    type: package\n\
+         \x20   status: converged\n    hash: abc123\n",
     )
     .unwrap();
 
@@ -188,6 +184,7 @@ async fn test_fj063_status_handler_with_state() {
     let output = handler.handle(input).await.unwrap();
     assert_eq!(output.machines.len(), 1);
     assert_eq!(output.machines[0].name, "local");
+    assert_eq!(output.machines[0].resource_count, 1);
 }
 
 #[tokio::test]
