@@ -133,3 +133,48 @@ resources:
     strip_unrequested_phony(&mut c, &[]);
     assert!(c.resources.is_empty(), "bulk apply must not see it");
 }
+
+fn validation_errors(resources_yaml: &str) -> Result<(), String> {
+    let d = tempfile::tempdir().unwrap();
+    let f = d.path().join("forjar.yaml");
+    std::fs::write(
+        &f,
+        format!(
+            "version: \"1.0\"\nname: v\nmachines:\n  local:\n    hostname: localhost\n\
+             \x20   addr: localhost\nresources:\n{resources_yaml}"
+        ),
+    )
+    .unwrap();
+    super::helpers::parse_and_validate(&f).map(|_| ())
+}
+
+#[test]
+fn a_phony_resource_may_have_no_command() {
+    // make allows both a grouping target (`all: app` — prerequisites, no
+    // recipe) and a bare `.PHONY` name with no rule at all, where `make <name>`
+    // prints "Nothing to be done". Found by importing forjar's OWN Makefile,
+    // which lists a stale `deny` in .PHONY with no rule.
+    let grouping = "  app:\n    type: task\n    machine: local\n    command: \"cc\"\n\
+                    \x20 all:\n    type: task\n    machine: local\n    phony: true\n\
+                    \x20   depends_on: [app]\n";
+    assert!(
+        validation_errors(grouping).is_ok(),
+        "a phony grouping node needs no command: {:?}",
+        validation_errors(grouping)
+    );
+
+    let bare = "  deny:\n    type: task\n    machine: local\n    phony: true\n";
+    assert!(
+        validation_errors(bare).is_ok(),
+        "a bare .PHONY name with no rule is legal in make: {:?}",
+        validation_errors(bare)
+    );
+}
+
+#[test]
+fn a_non_phony_task_still_requires_a_command() {
+    // The guard must stay narrow, or every misconfigured task silently passes.
+    let err = validation_errors("  t:\n    type: task\n    machine: local\n")
+        .expect_err("a non-phony task with no command is invalid");
+    assert!(err.contains("has no command"), "{err}");
+}
