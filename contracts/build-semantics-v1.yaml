@@ -132,6 +132,29 @@ known_gaps:
       hand-written forjar `command:` still runs under `set -euo pipefail`, so
       the two kinds of resource have different shell semantics by design.
 
+  - id: GAP-READ-PATHS-OBSERVE-DIFFERENT-LEVELS
+    statement: >-
+      The three read paths do not observe the same level, and v1.12 does not
+      make them agree — it makes each one honest about the level it observes.
+      `check` is EXISTENCE/state level: it answers "is the declared thing
+      there", so `rm build/demo` now fails it, but editing a file's CONTENT in
+      place does not. `plan` is config-hash plus the build probe, so it catches
+      changed task_inputs and missing output_artifacts, not tampered file
+      content. `drift` is the only content-level comparison. Measured on the
+      release binary: tamper with a file resource's content and check reports
+      `1 pass`, plan reports `0 to change`, drift reports `Drift detected`.
+      Raising check to content level means every generator hashing its artifact
+      — a real feature, not a bug fix, and deliberately out of v1.12's scope.
+
+  - id: GAP-ORDER-ONLY-EDGES-PROPAGATE
+    statement: >-
+      There is no `order_only` field. `import-makefile` maps make's `|`
+      prerequisites onto `depends_on`, so they participate in change
+      propagation where make would not invalidate on them. The cost is a
+      possible extra rebuild, never a wrong result, and it is rare because
+      directory artifacts are identified by existence (v1.11.1) so the
+      mkdir-shaped resource seldom goes dirty.
+
   - id: GAP-CONTENT-HASH-NOT-MTIME
     statement: >-
       Staleness is BLAKE3 content, not mtime. `touch`ing a source does not

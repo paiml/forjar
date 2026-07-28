@@ -133,6 +133,23 @@ Contract: `contracts/build-semantics-v1.yaml` (L3, 9 falsification tests).
   than hashing the wrong host, so `forjar make` is a build system for LOCAL
   targets.
 
+### What this release does NOT fix
+
+v1.12 does not make the three read paths agree; it makes each one honest about
+the level it observes. `check` is existence/state level — `rm build/demo` now
+fails it, but editing a file's content in place does not. `plan` is config-hash
+plus the build probe. `drift` remains the only content-level comparison.
+Measured: tamper with a file resource's content and check says `1 pass`, plan
+says `0 to change`, drift says `Drift detected`. Raising check to content level
+means every generator hashing its artifact — a feature, not a bug fix.
+
+Also outstanding, now recorded as `known_gaps` in the contract rather than left
+implicit: the transport writes the script to bash's stdin, so a task that reads
+stdin consumes the rest of its own script (pre-existing); the bashrs determinism
+gate rejects idioms like `date +%s` at apply time, so such a Makefile imports
+cleanly and then cannot run; and order-only edges participate in propagation
+because there is no `order_only` field.
+
 ## [1.11.1] - 2026-07-27
 
 ### Fixed — two defects in 1.11.0, found by dogfooding it
