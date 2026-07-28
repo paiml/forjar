@@ -92,6 +92,8 @@ mod tests_store_ops_cov;
 mod tests_check_cov;
 #[cfg(test)]
 mod tests_selector_guard;
+#[cfg(test)]
+mod tests_phony;
 mod tests_check_cov_b;
 #[cfg(test)]
 mod tests_observe_cov;

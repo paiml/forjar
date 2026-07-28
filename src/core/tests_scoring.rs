@@ -29,6 +29,7 @@ pub(super) fn minimal_config() -> ForjarConfig {
 
 pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
     Resource {
+        phony: false,
         resource_type: rt,
         machine: MachineTarget::default(),
         state: None,

@@ -31,6 +31,7 @@ fn test_fj003_resolve_all_fields() {
     );
 
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -202,6 +203,7 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
     let machines = indexmap::IndexMap::new();
 
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

@@ -3,6 +3,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 fn make_service_resource(name: &str, state: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Service,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some(state.to_string()),

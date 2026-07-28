@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

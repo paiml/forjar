@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 fn make_gpu_resource(name: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Gpu,
         machine: MachineTarget::Single("gpu-box".to_string()),
         state: None,

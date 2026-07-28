@@ -82,6 +82,7 @@ pub(crate) fn cmd_apply(
 
     reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
     apply_goal_closure(&mut config, goals, verbose)?;
+    strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
     apply_pre_validate(
         &config,

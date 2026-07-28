@@ -9,6 +9,7 @@ pub(super) fn make_config() -> ForjarConfig {
 
 pub(super) fn make_base_resource(rt: ResourceType) -> Resource {
     Resource {
+        phony: false,
         resource_type: rt,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

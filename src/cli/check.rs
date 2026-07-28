@@ -315,6 +315,17 @@ pub(crate) fn cmd_check(
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 
+        // FJ-2725: a phony resource names an action with no artifact. Since
+        // FJ-2720 made "no evidence" a failure, checking one would report a
+        // permanent FAIL for something that has nothing to observe.
+        if resource.phony {
+            total_skip += 1;
+            if !json {
+                println!("  ? {resource_id} (phony — nothing to observe)");
+            }
+            continue;
+        }
+
         let check_script = match codegen::check_script(&resolved) {
             Ok(s) => s,
             Err(_) => {

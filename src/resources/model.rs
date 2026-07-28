@@ -157,6 +157,7 @@ mod tests {
 
     fn make_model_resource(name: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Model,
             machine: MachineTarget::Single("gpu-box".to_string()),
             state: None,

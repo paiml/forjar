@@ -79,6 +79,7 @@ mod tests {
 
     fn make_cron_resource(name: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Cron,
             machine: MachineTarget::Single("m1".to_string()),
             state: None,

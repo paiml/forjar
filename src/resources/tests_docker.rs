@@ -3,6 +3,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 fn make_docker_resource(name: &str, image: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Docker,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("running".to_string()),
