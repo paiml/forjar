@@ -123,9 +123,11 @@ mod tests {
     #[test]
     fn mode_check_json_ok() {
         let (_d, cfg, sd) = setup();
-        // Check scripts are observational (exit 0) — JSON output branch.
+        // FJ-2720: check scripts are no longer observational — the verdict is
+        // the exit code. Nothing has been applied in this fixture, so the JSON
+        // branch must report divergence.
         let r = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--check", "--json"]);
-        assert!(r.is_ok());
+        assert!(r.is_err(), "nothing applied yet, so check must not pass: {r:?}");
     }
 
     #[test]

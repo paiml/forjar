@@ -19,17 +19,21 @@
 
 use crate::core::shell_escape::{is_valid_host, sh_squote};
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Check if the deployed artifact exists and is executable.
 pub fn check_script(resource: &Resource) -> String {
     let deploy_path = resource.target.as_deref().unwrap_or("/dev/null");
-    let mut script = format!(
-        "test -x {} && echo 'installed:build' || echo 'missing:build'",
-        sh_squote(deploy_path)
+    let mut script = verdict::single(
+        &format!("test -x {}", sh_squote(deploy_path)),
+        "installed:build",
+        "missing:build",
     );
     if let Some(ref check) = resource.completion_check {
-        script = format!(
-            "if {check} >/dev/null 2>&1; then echo 'installed:build'; else echo 'missing:build'; fi"
+        script = verdict::single(
+            &format!("{check} >/dev/null 2>&1"),
+            "installed:build",
+            "missing:build",
         );
     }
     script

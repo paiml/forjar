@@ -5,6 +5,7 @@
 
 use crate::core::shell_escape::{sh_squote, slugify_identifier};
 use crate::core::types::{Resource, TaskMode};
+use crate::resources::verdict;
 
 /// Slugified service id used in `/tmp/forjar-svc-<rid>.{pid,log}` paths.
 ///
@@ -59,29 +60,40 @@ pub fn check_script(resource: &Resource) -> String {
             })
             .unwrap_or_default();
         return format!(
-            "{ldd_check}\
-             if [ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null; then \
-             echo 'task=completed'; else echo 'task=pending'; fi"
+            "{ldd_check}{}",
+            verdict::single(
+                &format!("[ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null"),
+                "task=completed",
+                "task=pending",
+            )
         );
     }
 
     if let Some(ref check) = resource.completion_check {
-        return format!("if {check}; then echo 'task=completed'; else echo 'task=pending'; fi");
+        return verdict::single(check, "task=completed", "task=pending");
     }
 
     if !resource.output_artifacts.is_empty() {
-        let checks: Vec<String> = resource
+        // One assertion per artifact, so a partially-built target names the
+        // artifact that is actually missing instead of a bare `task=pending`.
+        let assertions: Vec<String> = resource
             .output_artifacts
             .iter()
-            .map(|a| format!("[ -e {} ]", sh_squote(a)))
+            .map(|a| {
+                verdict::assert_that(
+                    &format!("[ -e {} ]", sh_squote(a)),
+                    &format!("task=completed:{a}"),
+                    &format!("task=pending:{a}"),
+                )
+            })
             .collect();
-        return format!(
-            "if {} ; then echo 'task=completed'; else echo 'task=pending'; fi",
-            checks.join(" && ")
-        );
+        return verdict::check_script_from(&assertions);
     }
 
-    "echo 'task=pending'".to_string()
+    // No completion_check and no output_artifacts: there is no evidence this
+    // task ever ran. It previously echoed `task=pending` and exited 0, which
+    // `forjar check` read as a pass. Absence of evidence is not convergence.
+    verdict::check_script_from(&[verdict::always_diverged("task=pending")])
 }
 
 /// Generate pipeline script with inter-stage gate enforcement.

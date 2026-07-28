@@ -109,8 +109,8 @@ fn make_service_resource(name: &str, state: &str) -> Resource {
 fn test_fj008_check_service() {
     let r = make_service_resource("nfs-kernel-server", "running");
     let script = check_script(&r);
-    assert!(script.contains("systemctl is-active 'nfs-kernel-server'"));
-    assert!(script.contains("systemctl is-enabled 'nfs-kernel-server'"));
+    assert!(script.contains("systemctl is-active --quiet 'nfs-kernel-server'"));
+    assert!(script.contains("systemctl is-enabled --quiet 'nfs-kernel-server'"));
     assert!(
         script.contains("command -v systemctl"),
         "must include systemd guard"
@@ -274,7 +274,7 @@ fn test_fj008_no_name_defaults_to_unknown() {
     let script = apply_script(&r);
     assert!(script.contains("systemctl start 'unknown'"));
     let check = check_script(&r);
-    assert!(check.contains("is-active 'unknown'"));
+    assert!(check.contains("is-active --quiet 'unknown'"));
     let query = state_query_script(&r);
     assert!(query.contains("is-active 'unknown'"));
 }

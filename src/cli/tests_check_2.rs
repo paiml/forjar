@@ -227,8 +227,12 @@ resources:
 "#,
         )
         .unwrap();
-        // JSON output
-        cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false).unwrap();
+        // JSON output. FJ-2720: the resource is not converged, so the command
+        // reports failure; the point of this test is that the JSON branch is
+        // exercised and reports honestly.
+        let result =
+            cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false);
+        assert!(result.is_err(), "unconverged resource must not pass check");
     }
 
     // ── Rollback error tests ───────────────────────────────────

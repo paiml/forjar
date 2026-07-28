@@ -6,6 +6,7 @@
 
 use crate::core::shell_escape::{is_valid_ufw_action, sh_squote};
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Shell guard that detects ufw availability.
 /// If ufw is not found, prints a warning and exits 0 (skip).
@@ -51,9 +52,12 @@ pub fn check_script(resource: &Resource) -> String {
     let action = safe_action(resource);
     let grep = sh_squote(&format!("{action}.*{port}/{protocol}"));
     format!(
-        "{UFW_GUARD}\nufw status numbered 2>/dev/null | grep -q {grep} && echo {} || echo {}",
-        sh_squote(&format!("exists:{port}")),
-        sh_squote(&format!("missing:{port}"))
+        "{UFW_GUARD}\n{}",
+        verdict::single(
+            &format!("ufw status numbered 2>/dev/null | grep -q {grep}"),
+            &format!("exists:{port}"),
+            &format!("missing:{port}"),
+        )
     )
 }
 

@@ -18,7 +18,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_check_script!(resource);
     match &resource.resource_type {
-        ResourceType::Package => Ok(resources::package::check_script(resource)),
+        ResourceType::Package => Ok(resources::package_check::check_script(resource)),
         ResourceType::File => Ok(resources::file::check_script(resource)),
         ResourceType::Service => Ok(resources::service::check_script(resource)),
         ResourceType::Mount => Ok(resources::mount::check_script(resource)),

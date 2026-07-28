@@ -20,6 +20,7 @@
 
 use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Error script emitted when `repo` is not a valid `owner/repo` slug.
 ///
@@ -47,14 +48,14 @@ pub fn check_script(resource: &Resource) -> String {
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
     let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
 
-    format!(
+    verdict::check_script_from(&[format!(
         "if [ -x {bin_path} ]; then\n\
          \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
          \x20 echo \"installed:{repo}:$VER\"\n\
          else\n\
-         \x20 echo 'missing:{repo}'\n\
+         \x20 echo 'missing:{repo}'; __fj_diverged=1\n\
          fi"
-    )
+    )])
 }
 
 /// Generate shell script to download a release asset and install the binary.

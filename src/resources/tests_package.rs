@@ -1,4 +1,5 @@
 use super::package::*;
+use super::package_check::check_script;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
