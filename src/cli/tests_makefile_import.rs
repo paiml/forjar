@@ -450,3 +450,23 @@ fn a_real_target_depending_on_a_phony_target_is_refused() {
         "phony-to-phony edges must not be refused"
     );
 }
+
+#[test]
+fn target_names_and_paths_are_yaml_escaped() {
+    // Verified against the binary: a project directory named `qu"ote` emitted a
+    // config that failed to parse. Rare, but silently emitting a BROKEN config
+    // is the same class of failure as silently emitting a wrong one.
+    let t = mk::MakeTarget {
+        name: "we\"ird.txt".to_string(),
+        prereqs: vec!["src/al\\so.c".to_string()],
+        recipe: vec!["touch x".to_string()],
+        ..Default::default()
+    };
+    let yaml = imp::emit(&[t], std::path::Path::new("/pro\"j"), "local");
+    assert!(yaml.contains(r#"output_artifacts: ["we\"ird.txt"]"#), "{yaml}");
+    assert!(yaml.contains(r#"task_inputs: ["src/al\\so.c"]"#), "{yaml}");
+
+    // The whole document must still parse.
+    serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&yaml)
+        .unwrap_or_else(|e| panic!("emitted invalid YAML: {e}\n{yaml}"));
+}

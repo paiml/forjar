@@ -273,6 +273,27 @@ pub fn import(dir: &Path, makefile: &Path, machine: &str) -> Result<String, Stri
     Ok(emit(&targets, dir, machine))
 }
 
+/// Escape a value for a YAML double-quoted scalar.
+///
+/// Target names and the project directory are interpolated into `"..."`
+/// scalars. A path containing a quote produced invalid YAML — verified: a
+/// project directory named `qu"ote` emitted a config that failed to parse.
+/// Rare, but silently emitting a broken config is the same class of failure as
+/// silently emitting a wrong one.
+fn yaml_quoted(v: &str) -> String {
+    let mut out = String::with_capacity(v.len() + 2);
+    for c in v.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 /// Render the imported graph as forjar YAML.
 pub fn emit(targets: &[MakeTarget], dir: &Path, machine: &str) -> String {
     let known: std::collections::HashSet<&str> = targets.iter().map(|t| t.name.as_str()).collect();
@@ -288,7 +309,7 @@ pub fn emit(targets: &[MakeTarget], dir: &Path, machine: &str) -> String {
     let proj = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
     y.push_str(&format!(
         "  {machine}:\n    hostname: localhost\n    addr: localhost\n\nparams:\n  proj: \"{}\"\n\nresources:\n",
-        proj.display()
+        yaml_quoted(&proj.display().to_string())
     ));
 
     for t in targets {
@@ -301,7 +322,10 @@ pub fn emit(targets: &[MakeTarget], dir: &Path, machine: &str) -> String {
             // Names an action: no artifact to observe, goal-only.
             y.push_str("    phony: true\n");
         } else {
-            y.push_str(&format!("    output_artifacts: [\"{}\"]\n", t.name));
+            y.push_str(&format!(
+                "    output_artifacts: [\"{}\"]\n",
+                yaml_quoted(&t.name)
+            ));
         }
 
         // A prerequisite that is itself a target becomes an edge; one that is
@@ -326,7 +350,7 @@ pub fn emit(targets: &[MakeTarget], dir: &Path, machine: &str) -> String {
                 "    task_inputs: [{}]\n",
                 inputs
                     .iter()
-                    .map(|i| format!("\"{i}\""))
+                    .map(|i| format!("\"{}\"", yaml_quoted(i)))
                     .collect::<Vec<_>>()
                     .join(", ")
             ));

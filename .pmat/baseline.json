@@ -1,6 +1,6 @@
 {
   "version": "3.26.0",
-  "created_at": "2026-07-28T16:33:02.862495402Z",
+  "created_at": "2026-07-28T16:54:43.343541494Z",
   "git_context": null,
   "files": {
     "./benches/cli_bench.rs": {
@@ -27574,48 +27574,48 @@
     },
     "./src/cli/makefile_import.rs": {
       "content_hash": [
-        41,
-        25,
-        14,
-        125,
-        42,
-        82,
-        191,
-        20,
-        47,
-        172,
-        36,
-        93,
-        27,
-        96,
-        151,
-        120,
-        109,
-        136,
-        168,
-        126,
-        232,
-        42,
-        104,
-        7,
-        101,
-        205,
-        70,
-        137,
+        6,
+        78,
+        249,
+        75,
         134,
-        233,
-        103,
-        168
+        176,
+        187,
+        112,
+        41,
+        156,
+        223,
+        253,
+        3,
+        245,
+        230,
+        56,
+        158,
+        11,
+        123,
+        251,
+        195,
+        173,
+        127,
+        175,
+        218,
+        160,
+        117,
+        231,
+        158,
+        145,
+        45,
+        80
       ],
       "score": {
-        "structural_complexity": 18.7,
+        "structural_complexity": 18.1,
         "semantic_complexity": 20.0,
         "duplication_ratio": 20.0,
         "coupling_score": 15.0,
         "doc_coverage": 10.0,
         "consistency_score": 10.0,
         "entropy_score": 5.0,
-        "total": 98.7,
+        "total": 98.1,
         "grade": "AMinus",
         "confidence": 1.0,
         "language": "Rust",
@@ -27627,15 +27627,15 @@
             "applied_to": [
               "Duplication"
             ],
-            "issue": "Found 13 duplicate code patterns"
+            "issue": "Found 17 duplicate code patterns"
           },
           {
             "source_metric": "StructuralComplexity",
-            "amount": 6.3,
+            "amount": 6.9,
             "applied_to": [
               "StructuralComplexity"
             ],
-            "issue": "High cognitive complexity: 36"
+            "issue": "High cognitive complexity: 38"
           }
         ],
         "critical_defects_count": 0,
@@ -71729,7 +71729,7 @@
   },
   "summary": {
     "total_files": 897,
-    "avg_score": 93.3058,
+    "avg_score": 93.30513,
     "grade_distribution": {
       "AMinus": 820,
       "BPlus": 21,
