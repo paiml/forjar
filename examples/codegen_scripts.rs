@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 fn base(rt: ResourceType) -> Resource {
     Resource {
+        phony: false,
         resource_type: rt,
         machine: MachineTarget::Single("local".to_string()),
         state: None,

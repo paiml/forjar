@@ -328,7 +328,12 @@ fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
         .task_mode
         .as_ref()
         .is_some_and(|m| *m == crate::core::types::TaskMode::Pipeline);
-    if resource.command.is_none() && !is_pipeline {
+    // FJ-2725: a phony target may be a pure grouping node. make's `all:
+    // $(BUILD)/app` has prerequisites and no recipe, and requesting it means
+    // "build these"; inventing a no-op command to satisfy this rule would be
+    // less honest than allowing it.
+    let is_grouping = resource.phony && !resource.depends_on.is_empty();
+    if resource.command.is_none() && !is_pipeline && !is_grouping {
         errors.push(ValidationError {
             message: format!("resource '{id}' (task) has no command"),
         });

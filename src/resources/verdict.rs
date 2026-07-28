@@ -70,7 +70,7 @@ pub fn check_script_from(assertions: &[String]) -> String {
     if assertions.is_empty() {
         // No assertions means no evidence of convergence. Claiming success here
         // is precisely the defect this module exists to remove.
-        return format!("echo 'forjar=no-assertions'\nexit 1");
+        return "echo 'forjar=no-assertions'\nexit 1".to_string();
     }
     format!("{FLAG}=0\n{}\nexit \"${FLAG}\"", assertions.join("\n"))
 }

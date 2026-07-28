@@ -54,6 +54,7 @@ fn default_resource() -> Resource {
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
+        phony: false,
         depends_on: vec![],
         provider: None,
         packages: vec![],

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 fn base_build() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Build,
         machine: MachineTarget::Single("jetson".to_string()),
         state: None,

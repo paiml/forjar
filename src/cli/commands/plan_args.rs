@@ -140,3 +140,19 @@ pub struct MakeArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-2726: CLI arguments for `forjar import-makefile`.
+#[derive(clap::Args, Debug)]
+pub struct ImportMakefileArgs {
+    /// Path to the Makefile to import
+    #[arg(default_value = "Makefile")]
+    pub makefile: PathBuf,
+
+    /// Output file ("-" writes to stdout)
+    #[arg(short, long, default_value = "-")]
+    pub output: PathBuf,
+
+    /// Machine name for the generated resources
+    #[arg(short, long, default_value = "local")]
+    pub machine: String,
+}

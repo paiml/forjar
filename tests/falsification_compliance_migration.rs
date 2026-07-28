@@ -79,6 +79,7 @@ fn docker_resource(image: &str) -> Resource {
 
 fn default_resource() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,

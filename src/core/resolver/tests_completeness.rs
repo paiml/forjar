@@ -189,9 +189,11 @@ fn every_string_field_on_resource_is_template_resolved() {
 fn task_inputs_resolves() {
     // The specific regression: the field v1.11's incremental build is about.
     // Kept as a named test so a failure says what broke, not just "a field".
-    let mut r = Resource::default();
-    r.task_inputs = vec!["{{params.mark}}/src/a.c".to_string()];
-    r.output_artifacts = vec!["{{params.mark}}/build/a.o".to_string()];
+    let r = Resource {
+        task_inputs: vec!["{{params.mark}}/src/a.c".to_string()],
+        output_artifacts: vec!["{{params.mark}}/build/a.o".to_string()],
+        ..Default::default()
+    };
 
     let resolved =
         resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");
@@ -215,14 +217,16 @@ fn pipeline_stage_fields_resolve() {
     // `stages` is a Vec<PipelineStage>, not a string field, so the reflection
     // above cannot reach into it. Its command/inputs/outputs are spliced into
     // executed shell by `pipeline_script`.
-    let mut r = Resource::default();
-    r.stages = vec![crate::core::types::PipelineStage {
-        name: "s1".to_string(),
-        command: Some("cc -c {{params.mark}}/a.c".to_string()),
-        inputs: vec!["{{params.mark}}/a.c".to_string()],
-        outputs: vec!["{{params.mark}}/a.o".to_string()],
+    let r = Resource {
+        stages: vec![crate::core::types::PipelineStage {
+            name: "s1".to_string(),
+            command: Some("cc -c {{params.mark}}/a.c".to_string()),
+            inputs: vec!["{{params.mark}}/a.c".to_string()],
+            outputs: vec!["{{params.mark}}/a.o".to_string()],
+            ..Default::default()
+        }],
         ..Default::default()
-    }];
+    };
 
     let resolved =
         resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");
@@ -246,8 +250,10 @@ fn structural_fields_are_deliberately_left_literal() {
     // The exclusions must be a decision, not an oversight. If one of these ever
     // starts resolving, `build_execution_order` on a raw config silently stops
     // agreeing with the executed graph.
-    let mut r = Resource::default();
-    r.depends_on = vec!["{{params.mark}}".to_string()];
+    let r = Resource {
+        depends_on: vec!["{{params.mark}}".to_string()],
+        ..Default::default()
+    };
 
     let resolved =
         resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");

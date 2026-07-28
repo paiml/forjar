@@ -45,6 +45,9 @@ pub enum Commands {
     Apply(ApplyArgs),
     /// FJ-2724: Build goals and their prerequisites, like `make <goal>`
     Make(MakeArgs),
+    /// FJ-2726: Import a Makefile's build graph into forjar.yaml
+    #[command(name = "import-makefile")]
+    ImportMakefile(ImportMakefileArgs),
     /// Detect unauthorized changes (tripwire)
     Drift(DriftArgs),
     /// Show current state from lock files
