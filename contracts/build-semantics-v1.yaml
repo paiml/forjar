@@ -1,0 +1,274 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-07-28"
+  author: "PAIML Engineering"
+  description: |
+    Build semantics for forjar v1.12 — the guarantees that make `forjar make`
+    and `forjar import-makefile` honest rather than merely plausible.
+
+    Four of the five defects this contract pins shared one shape: a signal that
+    reported success without ever consulting the world.
+
+    * `forjar check` reported `pass` for every resource of every type,
+      unconditionally, since at least 2026-02-27. Generators emitted their
+      verdict as a stdout marker (`<test> && echo exists || echo missing`,
+      which always exits 0) while the consumer read the EXIT CODE and nothing
+      anywhere parsed the markers.
+    * `apply -r <typo>` printed `0 converged, 0 unchanged` and exited 0, so a
+      mistyped targeted apply was indistinguishable in CI from a completed one.
+    * `task_inputs` — the field v1.11's incremental-build release is about —
+      was never template-resolved, so a config that templated its inputs got
+      `unchanged` over a stale artifact: the exact failure v1.11 shipped to fix.
+    * `destroy` handed UNRESOLVED resources to the executor, generating
+      `rm -rf '{{params.x}}/...'` against a literal path and reporting success
+      while the real resource survived; and for task/build/wasm_bundle it RAN
+      the command as its way of removing it.
+
+    The fifth is the goal semantics `make` has and forjar lacked: `-r` is
+    exact-match with no prerequisite closure, so it builds a target against
+    whatever stale inputs happen to be on disk.
+  kind: pattern
+  references:
+    - "PMAT-199 — forjar v1.12"
+    - "FJ-2720 check verdicts / FJ-2721 resolver completeness / FJ-2722 destroy"
+    - "FJ-2723 selectors / FJ-2724 goal closure / FJ-2725 phony / FJ-2726 import"
+    - "idempotent-apply-v1.yaml — the f(f(x)) = f(x) obligation this must not weaken"
+    - "GNU make manual §4.6 (.PHONY), §5.3.1 (per-line recipe shells), §4.3 (order-only)"
+
+invariants:
+  - id: INV-CHECK-EXIT-CODE
+    statement: >-
+      A generated check script reports its verdict in its EXIT CODE. For every
+      resource type, a resource whose declared state is not present on the host
+      produces a non-zero exit. The verdict cannot be derived at the codegen
+      boundary from the marker text, because the same marker means opposite
+      things depending on desired state: for `state: absent`, `missing:` IS
+      convergence and `exists:` is the failure. Only the generator knows which
+      way its resource points.
+
+  - id: INV-NO-EVIDENCE-IS-NOT-SUCCESS
+    statement: >-
+      Absence of evidence is never reported as convergence. A task with no
+      completion_check and no output_artifacts, an unsupported file state, an
+      unknown package provider, and an empty assertion set all FAIL rather than
+      pass. Reporting success for something forjar cannot observe is the
+      unconditional-success defect in miniature.
+
+  - id: INV-RESOLVE-BEFORE-EXECUTE
+    statement: >-
+      Every path that executes, hashes, or destroys goes through the resolver
+      first. Raw `config.resources` may only be read for structural fields —
+      ids, `depends_on`, `machine`, `tags` — which are deliberately never
+      templated. This is why `build_execution_order` on a raw config is sound
+      and why `destroy` on one was not.
+
+  - id: INV-RESOLVER-COVERS-EVERY-FIELD
+    statement: >-
+      Every string-shaped field on `Resource` is template-resolved, or is listed
+      as structural with a recorded reason. The field set is DISCOVERED by
+      reflection over the serialised form, never enumerated by hand: a
+      hand-written list of fields to check has exactly the same failure mode as
+      the hand-written list of fields to resolve — the next field added is
+      missing from both.
+
+  - id: INV-EMPTY-SELECTION-IS-AN-ERROR
+    statement: >-
+      A selector that matches nothing (`-r`, `-t`, `-g`, or a `make` goal) is an
+      error naming what IS available, never a successful no-op. In CI the exit
+      code is often the only signal read.
+
+  - id: INV-GOAL-CLOSURE-IS-DOWNWARD-CLOSED
+    statement: >-
+      `goal_closure(config, goals)` contains every `depends_on` of every member.
+      A config pruned to it therefore can never execute a resource whose
+      prerequisites were dropped — the property that makes goal selection safe
+      where `--subset`/`--exclude` pattern filters are not.
+
+  - id: INV-PHONY-IS-GOAL-ONLY
+    statement: >-
+      A phony resource is absent from bulk apply and plan, and runs
+      unconditionally when named as a goal. Its plan action is a constant
+      function of the config — independent of lock, probe and history — so
+      idempotency holds by construction. "Runs on every apply" would propagate
+      dirtiness to its whole transitive closure and make `plan` unable to reach
+      "0 to change"; "phony prerequisites auto-run when reached" is not
+      convergent, since a `clean` that a `build` depends on deletes the outputs
+      that make `build` stale forever.
+
+  - id: INV-IMPORT-REFUSES-RATHER-THAN-MISTRANSLATES
+    statement: >-
+      Constructs whose meaning cannot be preserved are detected and refused with
+      a reason, and nothing is written. An importer that silently mistranslates
+      is worse than no importer, because its output looks like the user's build
+      and is not one. Refusals are structural, from parsed targets, not text
+      scans of make's output — make's own built-in rules contain `%:: %,v`, so a
+      raw `::` scan refuses every Makefile ever written.
+
+  - id: INV-IMPORT-PRESERVES-PER-LINE-SHELLS
+    statement: >-
+      make runs each LOGICAL recipe line in its own shell; forjar runs a command
+      as one shell. Imported recipes emit one subshell per logical line, after
+      folding backslash continuations, so a `cd` on one line does not affect the
+      next and a bare `VAR=x` does not carry over. Order-only prerequisites
+      become depends_on edges and never task_inputs, because hashing a directory
+      as an input is what made v1.11.0 an idempotency pump.
+
+known_gaps:
+  - id: GAP-STRICTER-THAN-MAKE
+    statement: >-
+      forjar injects `set -euo pipefail`; make sets no shell options. An
+      imported recipe therefore fails on an unset variable or a mid-pipeline
+      error where make would continue. This is strictly stricter — it surfaces
+      errors make swallows — but it is a real difference, and a Makefile relying
+      on either behaviour will fail under forjar rather than silently diverge.
+
+  - id: GAP-CONTENT-HASH-NOT-MTIME
+    statement: >-
+      Staleness is BLAKE3 content, not mtime. `touch`ing a source does not
+      trigger a rebuild, so timestamp-only stamp-file idioms do not carry over.
+      Strictly stronger otherwise: recompiling to identical bytes correctly does
+      not relink.
+
+  - id: GAP-REMOTE-RESOURCES-UNPROBED
+    statement: >-
+      The staleness probe runs on the controller and skips resources targeting a
+      remote machine rather than hashing the wrong host's filesystem. Those fall
+      back to config-hash planning, so `forjar make` is a build system for LOCAL
+      targets; remote resources keep v1.10 semantics.
+
+  - id: GAP-IMPORT-SCOPE
+    statement: >-
+      The importer handles a single-makefile, non-recursive build. Recursive
+      make, .ONESHELL, double-colon rules and VPATH are refused. It is not a
+      general Makefile-to-forjar translator and the release does not claim to
+      be one.
+
+falsification_tests:
+  - id: FALSIFY-BUILD-201
+    rule: INV-CHECK-EXIT-CODE
+    prediction: >-
+      For every checkable resource type, a check script generated for a resource
+      that does not exist exits non-zero when EXECUTED against a real
+      filesystem.
+    test: "src/core/codegen/tests_check_verdict.rs::no_resource_type_generates_an_unfailable_check_script"
+    if_fails: >-
+      `forjar check` and `apply --check` return to reporting pass for
+      everything. Asserting on generated script TEXT is what let this survive
+      for months — the text was always plausible — so the test must run the
+      script.
+    owner: forjar
+
+  - id: FALSIFY-BUILD-202
+    rule: INV-NO-EVIDENCE-IS-NOT-SUCCESS
+    prediction: >-
+      A task with no completion_check and no output_artifacts fails its check;
+      `state: absent` inverts correctly (converged when the path is GONE).
+    test: "src/core/codegen/tests_check_verdict.rs::{a_task_declaring_nothing_is_not_reported_as_converged,file_state_absent_is_inverted_correctly}"
+    if_fails: "forjar claims convergence it cannot observe"
+    owner: forjar
+
+  - id: FALSIFY-BUILD-203
+    rule: INV-RESOLVER-COVERS-EVERY-FIELD
+    prediction: >-
+      Reflection over the serialised `Resource` finds no string-shaped field
+      that survives resolution with `{{params.x}}` intact, except those listed
+      as structural.
+    test: "src/core/resolver/tests_completeness.rs::every_string_field_on_resource_is_template_resolved"
+    if_fails: >-
+      A future field is silently unresolved. When that field is `task_inputs`
+      the symptom is `Apply complete: 0 converged, 1 unchanged` over a stale
+      artifact — a green summary on a wrong binary.
+    owner: forjar
+
+  - id: FALSIFY-BUILD-204
+    rule: INV-EMPTY-SELECTION-IS-AN-ERROR
+    prediction: >-
+      `apply -r <unknown>`, `-t <unknown>`, `-g <unknown>` and
+      `make <unknown-goal>` all exit non-zero; valid selectors exit 0.
+    test: "src/cli/tests_selector_guard.rs, src/core/resolver/tests_goal_closure.rs::unknown_goal_is_an_error_naming_the_known_targets"
+    if_fails: "a typo'd targeted apply is indistinguishable from a successful one"
+    owner: forjar
+
+  - id: FALSIFY-BUILD-205
+    rule: INV-GOAL-CLOSURE-IS-DOWNWARD-CLOSED
+    prediction: >-
+      For every member of a goal closure, all of its depends_on are also
+      members; dependents are not pulled in.
+    test: "src/core/resolver/tests_goal_closure.rs::the_closure_is_downward_closed"
+    if_fails: "`forjar make` can build a target against unconverged prerequisites"
+    owner: forjar
+
+  - id: FALSIFY-BUILD-206
+    rule: INV-PHONY-IS-GOAL-ONLY
+    prediction: >-
+      A bulk apply drops every phony resource and scrubs edges to it, so `plan`
+      still reaches "0 to change"; a requested phony plans as a change even when
+      its lock entry is Converged with a matching hash.
+    test: "src/cli/tests_phony.rs::{a_bulk_apply_drops_every_phony_resource,a_requested_phony_resource_always_plans_as_a_change}"
+    if_fails: >-
+      Either phony targets never run, or every config containing one loses the
+      plan fixed point and poisons every drift lane that reads a non-empty plan
+      as drift.
+    owner: forjar
+
+  - id: FALSIFY-BUILD-207
+    rule: INV-IMPORT-REFUSES-RATHER-THAN-MISTRANSLATES
+    prediction: >-
+      Recursive make, .ONESHELL and double-colon rules are refused; an ordinary
+      Makefile is NOT refused; make's built-in `%:: %,v` rules do not trigger a
+      double-colon refusal.
+    test: "src/cli/tests_makefile_import.rs::{recursive_make_is_refused,oneshell_is_refused,double_colon_rules_are_refused_from_parsed_targets_not_raw_text,a_clean_makefile_is_not_refused}"
+    if_fails: >-
+      Either a mistranslated build ships looking correct, or the refusal list
+      fires on ordinary Makefiles and the importer is useless.
+    owner: forjar
+
+  - id: FALSIFY-BUILD-208
+    rule: INV-IMPORT-PRESERVES-PER-LINE-SHELLS
+    prediction: >-
+      Each logical recipe line is emitted inside its own subshell; backslash
+      continuations fold into one line first; order-only prerequisites appear in
+      depends_on and never in task_inputs.
+    test: "src/cli/tests_makefile_import.rs::{recipe_lines_are_emitted_as_separate_subshells,backslash_continuations_fold_into_one_logical_line,order_only_prerequisites_become_edges_not_inputs}"
+    if_fails: >-
+      An imported `cd` leaks into subsequent lines, or a directory prerequisite
+      is hashed as an input and pumps a rebuild every other apply.
+    owner: forjar
+
+  - id: FALSIFY-BUILD-209
+    rule: INV-RESOLVE-BEFORE-EXECUTE
+    prediction: >-
+      `destroy` resolves templates before generating scripts, and task, build
+      and wasm_bundle resources with `state: absent` generate a no-op rather
+      than their command — while a file with `state: absent` is still removed.
+    test: "src/core/codegen/tests_dispatch.rs::{absent_action_types_generate_a_noop_not_the_command,absent_state_still_destroys_types_that_have_an_absent_form}"
+    if_fails: >-
+      `forjar destroy` runs builds and deploys as its way of removing them, or
+      issues `rm -rf` against a literal `{{params.x}}` path and reports success.
+    owner: forjar
+
+qa_gate:
+  id: F-BUILD-201
+  name: "Build Semantics Contract (v1.12)"
+  description: >-
+    Gates the claim that forjar can replace and ingest a trivial Makefile:
+    checks observe the world, selectors cannot silently match nothing, goal
+    selection is closed under dependency, phony is idempotency-safe, and the
+    importer refuses what it cannot preserve.
+  checks:
+    - "INV-CHECK-EXIT-CODE"
+    - "INV-NO-EVIDENCE-IS-NOT-SUCCESS"
+    - "INV-RESOLVER-COVERS-EVERY-FIELD"
+    - "INV-EMPTY-SELECTION-IS-AN-ERROR"
+    - "INV-GOAL-CLOSURE-IS-DOWNWARD-CLOSED"
+    - "INV-PHONY-IS-GOAL-ONLY"
+    - "INV-IMPORT-REFUSES-RATHER-THAN-MISTRANSLATES"
+    - "INV-IMPORT-PRESERVES-PER-LINE-SHELLS"
+    - "INV-RESOLVE-BEFORE-EXECUTE"
+  pass_criteria: "All 9 falsification tests pass"
+  falsification: >-
+    Make any generator's check script end in `echo` instead of an exit, or drop
+    one field from the resolver, and FALSIFY-BUILD-201/203 fail.
+
+verification_level: L3
