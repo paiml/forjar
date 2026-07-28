@@ -10,6 +10,18 @@ use crate::resources::verdict;
 
 /// Shell guard that detects ufw availability.
 /// If ufw is not found, prints a warning and exits 0 (skip).
+/// FJ-2720: the CHECK-path ufw guard, exiting 2 = NOT APPLICABLE.
+///
+/// Same reasoning as the systemd guard: `check` reads the exit code as the
+/// verdict, so exiting 0 on a host without ufw claims every firewall rule is
+/// in place. `cli::check` maps 2 to SKIP — forjar cannot observe firewall
+/// state without a firewall, and that is neither a pass nor a failure.
+const UFW_CHECK_GUARD: &str = "\
+if ! command -v ufw >/dev/null 2>&1; then\n  \
+  echo 'FORJAR_SKIP: ufw not found - firewall state is not observable here'\n  \
+  exit 2\n\
+fi";
+
 const UFW_GUARD: &str = "\
 if ! command -v ufw >/dev/null 2>&1; then\n  \
   echo 'FORJAR_WARN: ufw not found - skipping network resource (no firewall)'\n  \
@@ -52,7 +64,7 @@ pub fn check_script(resource: &Resource) -> String {
     let action = safe_action(resource);
     let grep = sh_squote(&format!("{action}.*{port}/{protocol}"));
     format!(
-        "{UFW_GUARD}\n{}",
+        "{UFW_CHECK_GUARD}\n{}",
         verdict::single(
             &format!("ufw status numbered 2>/dev/null | grep -q {grep}"),
             &format!("exists:{port}"),

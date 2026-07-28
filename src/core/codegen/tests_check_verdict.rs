@@ -259,8 +259,16 @@ fn no_resource_type_generates_an_unfailable_check_script() {
         let Ok(script) = check_script(r) else {
             continue; // no check script for this type is a separate concern
         };
-        if run(&script) == 0 {
-            unfailable.push(format!("{label}: script cannot fail:\n{script}\n"));
+        // Exit 2 is NOT APPLICABLE (no systemd, no ufw), mapped to SKIP by
+        // `cli::check`. That is an honest answer on a host that cannot observe
+        // the state; exit 0 is a claim of convergence, and that is what must
+        // never happen for a resource that does not exist.
+        let code = run(&script);
+        if code == 0 {
+            unfailable.push(format!(
+                "{label}: exited 0 (claimed converged) for a resource that does \
+                 not exist:\n{script}\n"
+            ));
         }
     }
 
