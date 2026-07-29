@@ -206,7 +206,9 @@ fn execute_resource(
     // reporting success, rollback was skipped, and dependents ran as if the
     // prerequisite had succeeded. Mirror the post_apply branch below.
     if let Some(ref pre_hook) = resolved.pre_apply {
-        if let Some(error) = run_pre_apply_hook(machine, pre_hook, ctx.timeout_secs) {
+        if let Some(error) =
+            super::output_verify::run_pre_apply_hook(machine, pre_hook, ctx.timeout_secs)
+        {
             let duration = resource_start.elapsed().as_secs_f64();
             let should_stop = record_failure(
                 ctx,
@@ -257,19 +259,6 @@ fn execute_resource(
     handle_resource_output(
         output, cfg, change, resource, resolved, machine, ctx, duration,
     )
-}
-
-/// Run the pre_apply hook; returns error string on failure.
-fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Option<String> {
-    match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(out) if !out.success() => Some(format!(
-            "pre_apply hook failed (exit {}): {}",
-            out.exit_code,
-            out.stderr.trim()
-        )),
-        Err(e) => Some(format!("pre_apply hook error: {e}")),
-        _ => None,
-    }
 }
 
 /// FJ-2701: Check if task inputs are unchanged since last successful run.
@@ -349,7 +338,9 @@ fn handle_resource_output(
     match output {
         Ok(out) if out.success() => {
             if let Some(ref post_hook) = resolved.post_apply {
-                if let Some(error) = check_post_hook(machine, post_hook, ctx.timeout_secs) {
+                if let Some(error) =
+                    super::output_verify::check_post_hook(machine, post_hook, ctx.timeout_secs)
+                {
                     let should_stop = record_failure(
                         ctx,
                         &change.resource_id,
@@ -363,6 +354,21 @@ fn handle_resource_output(
                     });
                 }
             }
+            // FJ-2731: exit 0 is not proof the work happened.
+            if let Some(error) = super::output_verify::unproduced_outputs_error(resolved, machine) {
+                let should_stop = record_failure(
+                    ctx,
+                    &change.resource_id,
+                    &resource.resource_type,
+                    duration,
+                    &error,
+                );
+                return Ok(ResourceOutcome::Failed {
+                    should_stop,
+                    retryable: true,
+                });
+            }
+
             record_success(
                 ctx,
                 &change.resource_id,
@@ -434,19 +440,6 @@ fn update_run_meta(
     if let Some(rid) = run_id {
         let dir = run_capture::run_dir(ctx.state_dir, ctx.machine_name, rid);
         run_capture::update_meta_resource(&dir, resource_id, status);
-    }
-}
-
-/// Run post_apply hook; returns error string on failure.
-fn check_post_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Option<String> {
-    match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(pout) if !pout.success() => Some(format!(
-            "post_apply hook failed (exit {}): {}",
-            pout.exit_code,
-            pout.stderr.trim()
-        )),
-        Err(e) => Some(format!("post_apply hook error: {e}")),
-        _ => None,
     }
 }
 
