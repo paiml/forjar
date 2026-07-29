@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-07-29
+
+Four design defects, each one a place where forjar reported on something other
+than the thing that would actually run. They were found by a design review of
+1.12.1 rather than by a failing test, because in every case the test suite and
+the CLI output agreed with each other and both were wrong.
+
+### Fixed
+
+- **`apply` treated a zero exit code as proof the work happened.** A task
+  declaring `output_artifacts` whose command exited 0 without producing them was
+  recorded as converged, and the state lock then asserted an artifact that was
+  not on disk. Apply now verifies declared outputs exist on local machines
+  before recording success, and names the missing ones when they don't.
+- **The script was readable as its own stdin.** The transport feeds the
+  generated script to `bash` on stdin, so a task command that itself reads stdin
+  (`cat > f`, `read`, `xargs`) consumed the remaining script lines. The task
+  half-executed and reported success, having silently eaten its own tail. Every
+  script is now wrapped `{ ... } < /dev/null` at the one point where scripts are
+  executed, so a command's stdin can never be the script.
+- **`forjar prove` proved the unresolved config.** It read `config.resources`
+  before template expansion, so a proof about conflict-freedom examined
+  `${var}/out` rather than the path two targets would really write. Two targets
+  that genuinely collide after expansion were reported as
+  `[PASS] I3 conflict-freedom: [CHECKED] 2 targets disjoint`. `prove` now
+  resolves first.
+- **`forjar lock` hashed the unresolved config.** The lockfile therefore
+  fingerprinted the template text rather than the values, so two configs that
+  expand to different infrastructure could share a hash. `lock` now resolves
+  before hashing.
+
 ## [1.12.1] - 2026-07-28
 
 Three interface defects found by installing 1.12.0 from crates.io and driving
