@@ -1,6 +1,6 @@
 {
   "version": "3.27.0",
-  "created_at": "2026-07-29T05:56:07.736764862Z",
+  "created_at": "2026-07-29T06:10:44.211143673Z",
   "git_context": null,
   "files": {
     "./benches/cli_bench.rs": {
@@ -58334,38 +58334,38 @@
     },
     "./src/transport/mod.rs": {
       "content_hash": [
-        5,
-        112,
-        157,
-        111,
-        115,
-        253,
-        200,
-        210,
-        251,
-        185,
-        215,
-        112,
-        130,
+        151,
+        194,
+        103,
+        160,
+        176,
+        8,
+        218,
+        81,
+        75,
+        0,
+        17,
+        129,
+        247,
+        18,
+        195,
         225,
-        38,
-        35,
-        243,
-        121,
-        12,
-        39,
-        198,
-        108,
-        42,
-        9,
-        138,
-        173,
-        52,
-        188,
-        83,
-        33,
-        16,
-        108
+        238,
+        185,
+        176,
+        15,
+        69,
+        53,
+        10,
+        128,
+        24,
+        15,
+        229,
+        19,
+        235,
+        30,
+        174,
+        15
       ],
       "score": {
         "structural_complexity": 22.0,
@@ -58554,6 +58554,85 @@
               "Duplication"
             ],
             "issue": "Code duplication: 17.4%"
+          }
+        ],
+        "critical_defects_count": 0,
+        "has_critical_defects": false,
+        "has_contract_coverage": false
+      },
+      "components": {
+        "complexity_breakdown": {},
+        "duplication_sources": [],
+        "coupling_dependencies": [],
+        "doc_missing_items": [],
+        "consistency_violations": []
+      },
+      "git_context": null
+    },
+    "./src/transport/stdin_isolation.rs": {
+      "content_hash": [
+        132,
+        177,
+        120,
+        111,
+        38,
+        216,
+        156,
+        36,
+        175,
+        124,
+        220,
+        251,
+        56,
+        242,
+        173,
+        217,
+        83,
+        26,
+        219,
+        218,
+        40,
+        116,
+        75,
+        16,
+        2,
+        237,
+        17,
+        108,
+        250,
+        155,
+        172,
+        172
+      ],
+      "score": {
+        "structural_complexity": 25.0,
+        "semantic_complexity": 20.0,
+        "duplication_ratio": 17.407408,
+        "coupling_score": 15.0,
+        "doc_coverage": 10.0,
+        "consistency_score": 10.0,
+        "entropy_score": 5.0,
+        "total": 93.09765,
+        "grade": "AMinus",
+        "confidence": 1.0,
+        "language": "Rust",
+        "file_path": "./src/transport/stdin_isolation.rs",
+        "penalties_applied": [
+          {
+            "source_metric": "Duplication",
+            "amount": 5.0,
+            "applied_to": [
+              "Duplication"
+            ],
+            "issue": "Found 12 duplicate code patterns"
+          },
+          {
+            "source_metric": "Duplication",
+            "amount": 2.5925925,
+            "applied_to": [
+              "Duplication"
+            ],
+            "issue": "Code duplication: 13.0%"
           }
         ],
         "critical_defects_count": 0,
@@ -71886,10 +71965,10 @@
     }
   },
   "summary": {
-    "total_files": 899,
-    "avg_score": 93.31773,
+    "total_files": 900,
+    "avg_score": 93.31748,
     "grade_distribution": {
-      "AMinus": 823,
+      "AMinus": 824,
       "BPlus": 21,
       "B": 42,
       "BMinus": 10,
@@ -71900,7 +71979,7 @@
       "JavaScript": 8,
       "Python": 3,
       "Ruby": 1,
-      "Rust": 887
+      "Rust": 888
     }
   }
 }
