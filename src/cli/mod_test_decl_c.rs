@@ -95,6 +95,8 @@ mod tests_selector_guard;
 #[cfg(test)]
 mod tests_phony;
 #[cfg(test)]
+mod tests_prove_resolved;
+#[cfg(test)]
 mod tests_makefile_import;
 #[cfg(test)]
 mod tests_check_cov_b;

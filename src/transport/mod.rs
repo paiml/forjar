@@ -4,6 +4,7 @@ pub mod container;
 pub mod local;
 pub mod pepita;
 pub mod ssh;
+pub mod stdin_isolation;
 
 #[cfg(test)]
 mod tests_container;
@@ -222,6 +223,11 @@ fn exec_script_tracked(
     pid_slot: Option<&ChildPidSlot>,
 ) -> Result<ExecOutput, String> {
     validate_before_exec(script)?;
+
+    // FJ-2732: the script travels on the target shell'"'"'s STDIN, so a command
+    // that reads stdin would consume the rest of its own script. Wrap once, at
+    // the single funnel every transport passes through.
+    let script = &stdin_isolation::wrap_script_stdin_isolated(script);
 
     // Pepita (kernel namespace) transport takes highest priority
     if machine.is_pepita_transport() {

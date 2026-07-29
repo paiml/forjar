@@ -6,7 +6,7 @@
 //! 3. Apply is idempotent (converged state + apply = no change)
 //! 4. No circular dependencies in the resource DAG
 
-use crate::core::{codegen, parser, state, types};
+use crate::core::{codegen, parser, resolver, state, types};
 use std::path::Path;
 
 /// Prove convergence for a forjar config.
@@ -16,7 +16,27 @@ pub(crate) fn cmd_prove(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let config = parser::parse_and_validate(file)?;
+    let mut config = parser::parse_and_validate(file)?;
+
+    // FJ-2733: prove the config that will RUN, not the one that was typed.
+    //
+    // Every checker read raw resources, so each invariant was evaluated against
+    // text that differs from what apply executes — and the failure direction
+    // was UNSAFE. Two file resources whose paths are spelled differently but
+    // resolve to the same file reported `[CHECKED] 2 targets disjoint`, while
+    // the identical infrastructure spelled literally was correctly
+    // `[FALSIFIED] target collision`.
+    //
+    // `depends_on` and `machine` are deliberately never templated (see
+    // resolver::tests_completeness), so the DAG and machine-routing proofs are
+    // unaffected by resolving here.
+    config.resources = resolver::resolve_all(
+        &config.resources,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
+
     let proofs = collect_proofs(&config, state_dir, machine_filter);
 
     let all_passed = proofs.iter().all(|p| p.passed);

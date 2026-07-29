@@ -129,6 +129,7 @@ mod lock_core;
 mod lock_lifecycle;
 mod lock_merge;
 mod lock_ops;
+mod lock_output;
 mod lock_repair;
 mod lock_security;
 mod logs;
