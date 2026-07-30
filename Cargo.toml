@@ -66,6 +66,10 @@ bzip2 = "0.6"
 zstd = "0.13"
 tar = "0.4"
 sha2 = "0.10"
+# HMAC-SHA256 for webhook request authentication (FJ-3104). One pure-Rust crate:
+# sha2 is already a direct dep above, and hmac/digest/subtle were already in
+# Cargo.lock transitively, so this adds no new transitive dependencies.
+hmac = "0.12"
 flate2 = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 dhat = { version = "0.3.3", optional = true }

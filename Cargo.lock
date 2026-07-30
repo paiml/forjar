@@ -1134,6 +1134,7 @@ dependencies = [
  "dhat",
  "flate2",
  "glob",
+ "hmac",
  "indexmap",
  "openssl",
  "pforge-config",

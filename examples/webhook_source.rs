@@ -10,8 +10,7 @@
 
 use forjar::core::webhook_server;
 use forjar::core::webhook_source::{
-    ack_response, compute_hmac_hex, parse_json_payload, request_to_event, validate_request,
-    WebhookConfig, WebhookRequest,
+    parse_json_payload, request_to_event, validate_request, WebhookConfig, WebhookRequest,
 };
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -43,7 +42,7 @@ fn main() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: r#"{"action":"deploy","env":"production"}"#.into(),
+        body: r#"{"action":"deploy","env":"production"}"#.as_bytes().to_vec(),
         source_ip: Some("10.0.0.1".into()),
     };
     let result = validate_request(&config, &good_req);
@@ -53,7 +52,7 @@ fn main() {
         method: "GET".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: String::new(),
+        body: Vec::new(),
         source_ip: None,
     };
     let result = validate_request(&config, &get_req);
@@ -63,7 +62,7 @@ fn main() {
         method: "POST".into(),
         path: "/admin/hack".into(),
         headers: HashMap::new(),
-        body: "{}".into(),
+        body: "{}".as_bytes().to_vec(),
         source_ip: None,
     };
     let result = validate_request(&config, &bad_path);
@@ -73,7 +72,13 @@ fn main() {
     println!("\n3. HMAC Signature Verification:");
     let secret = "my-webhook-secret";
     let body = r#"{"event":"deploy"}"#;
-    let sig = compute_hmac_hex(secret, body);
+    let t_now = forjar::core::webhook_sig::unix_now();
+    let signed =
+        forjar::core::webhook_sig::canonical_payload(t_now, "POST", "/webhook", body.as_bytes());
+    let sig = format!(
+        "t={t_now},v1={}",
+        forjar::core::webhook_sig::compute_hmac_hex(secret.as_bytes(), &signed)
+    );
     println!("   Secret: {secret}");
     println!("   Signature: {}...", &sig[..16]);
 
@@ -86,7 +91,7 @@ fn main() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: body.into(),
+        body: body.as_bytes().to_vec(),
         source_ip: None,
     };
     signed_req.headers.insert("x-forjar-signature".into(), sig);
@@ -106,7 +111,7 @@ fn main() {
         r#"{"count":42,"tags":["web","prod"]}"#,
     ];
     for body in &payloads {
-        match parse_json_payload(body) {
+        match parse_json_payload(body.as_bytes()) {
             Ok(kv) => {
                 let pairs: Vec<_> = kv.iter().map(|(k, v)| format!("{k}={v}")).collect();
                 println!("   {} → {}", body, pairs.join(", "));
@@ -117,7 +122,7 @@ fn main() {
 
     // 5. Convert to InfraEvent
     println!("\n5. Request → InfraEvent:");
-    let event = request_to_event(&good_req).unwrap();
+    let event = request_to_event(&good_req, None, None).unwrap();
     println!("   Type: {:?}", event.event_type);
     println!("   Payload:");
     for (k, v) in &event.payload {
@@ -126,9 +131,10 @@ fn main() {
 
     // 6. HTTP response formatting
     println!("\n6. Response Formatting:");
-    let resp = ack_response(200, "accepted");
+    let resp = String::from_utf8(forjar::core::webhook_http::response(200, "accepted")).unwrap();
     println!("   200: {}", resp.lines().next().unwrap());
-    let resp = ack_response(401, "unauthorized");
+    let resp =
+        String::from_utf8(forjar::core::webhook_http::response(401, "unauthorized")).unwrap();
     println!("   401: {}", resp.lines().next().unwrap());
 
     // 7. Webhook server: start, receive, and stop
