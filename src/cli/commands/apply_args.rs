@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 /// CLI arguments for the `apply` command.
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Debug, Default)]
 pub struct ApplyArgs {
     /// Path to forjar.yaml
     #[arg(short, long, default_value = "forjar.yaml")]
@@ -165,7 +165,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub preview: bool,
 
-    /// FJ-362: Boolean tag filter expression (e.g., "web AND NOT staging")
+    /// FJ-362: Boolean tag filter expression (e.g., "web AND NOT staging") [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub tag_filter: Option<String>,
 
@@ -173,23 +173,23 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub output_scripts: Option<PathBuf>,
 
-    /// FJ-370: Resume from last failed resource (checkpoint recovery)
+    /// FJ-370: Resume from last failed resource (checkpoint recovery) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub resume: bool,
 
-    /// FJ-373: Interactive per-resource confirmation before execution
+    /// FJ-373: Interactive per-resource confirmation before execution [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub confirm: bool,
 
-    /// FJ-377: Allow N failures before stopping (override jidoka)
+    /// FJ-377: Allow N failures before stopping (override jidoka) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub max_failures: Option<usize>,
 
-    /// FJ-380: Limit concurrent SSH connections
+    /// FJ-380: Limit concurrent SSH connections [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rate_limit: Option<usize>,
 
-    /// FJ-383: Add metadata labels to apply run (KEY=VALUE)
+    /// FJ-383: Add metadata labels to apply run (KEY=VALUE) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long = "label", value_name = "KEY=VALUE")]
     pub labels: Vec<String>,
 
@@ -209,7 +209,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub snapshot_before: Option<String>,
 
-    /// FJ-406: Global concurrency limit across all machines
+    /// FJ-406: Global concurrency limit across all machines [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub concurrency: Option<usize>,
 
@@ -217,27 +217,27 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub webhook_before: Option<String>,
 
-    /// FJ-413: Auto-rollback to named snapshot on failure
+    /// FJ-413: Auto-rollback to named snapshot on failure [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rollback_snapshot: Option<String>,
 
-    /// FJ-420: Delay between retry attempts in seconds
+    /// FJ-420: Delay between retry attempts in seconds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub retry_delay: Option<u64>,
 
-    /// FJ-423: Apply only resources matching any of the given tags
+    /// FJ-423: Apply only resources matching any of the given tags [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long, value_delimiter = ',')]
     pub tags: Vec<String>,
 
-    /// FJ-426: Write detailed apply log to file
+    /// FJ-426: Write detailed apply log to file [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub log_file: Option<PathBuf>,
 
-    /// FJ-430: Attach a comment to the apply run in event log
+    /// FJ-430: Attach a comment to the apply run in event log [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub comment: Option<String>,
 
-    /// FJ-433: Apply only resources whose config hash changed since last apply
+    /// FJ-433: Apply only resources whose config hash changed since last apply [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub only_changed: bool,
 
@@ -257,15 +257,15 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub post_script: Option<PathBuf>,
 
-    /// FJ-450: Require explicit approval before destructive changes
+    /// FJ-450: Require explicit approval before destructive changes [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub approval_required: bool,
 
-    /// FJ-453: Apply to N% of machines first, then rest (gradual rollout)
+    /// FJ-453: Apply to N% of machines first, then rest (gradual rollout) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub canary_percent: Option<u32>,
 
-    /// FJ-456: Schedule apply for later execution (cron expression)
+    /// FJ-456: Schedule apply for later execution (cron expression) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub schedule: Option<String>,
 
@@ -281,7 +281,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_pagerduty: Option<String>,
 
-    /// FJ-470: Process resources in batches of N (memory-bounded execution)
+    /// FJ-470: Process resources in batches of N (memory-bounded execution) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub batch_size: Option<usize>,
 
@@ -301,11 +301,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_discord: Option<String>,
 
-    /// FJ-486: Auto-rollback if more than N resources fail
+    /// FJ-486: Auto-rollback if more than N resources fail [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rollback_on_threshold: Option<usize>,
 
-    /// FJ-490: Expose apply metrics on HTTP port for Prometheus scraping
+    /// FJ-490: Expose apply metrics on HTTP port for Prometheus scraping [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub metrics_port: Option<u16>,
 
@@ -313,11 +313,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_opsgenie: Option<String>,
 
-    /// FJ-496: Pause apply after N consecutive failures (circuit breaker)
+    /// FJ-496: Pause apply after N consecutive failures (circuit breaker) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub circuit_breaker: Option<usize>,
 
-    /// FJ-500: Require named approvers before apply proceeds
+    /// FJ-500: Require named approvers before apply proceeds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub require_approval: Option<String>,
 
@@ -325,7 +325,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_datadog: Option<String>,
 
-    /// FJ-506: Restrict applies to defined maintenance windows (cron expression)
+    /// FJ-506: Restrict applies to defined maintenance windows (cron expression) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub change_window: Option<String>,
 
@@ -337,7 +337,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_newrelic: Option<String>,
 
-    /// FJ-516: Abort apply if it exceeds time limit (seconds)
+    /// FJ-516: Abort apply if it exceeds time limit (seconds) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub max_duration: Option<u64>,
 
@@ -345,11 +345,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_grafana: Option<String>,
 
-    /// FJ-523: Apply at most N resources per minute (throttle)
+    /// FJ-523: Apply at most N resources per minute (throttle) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rate_limit_resources: Option<usize>,
 
-    /// FJ-526: Save intermediate state during long applies (seconds)
+    /// FJ-526: Save intermediate state during long applies (seconds) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub checkpoint_interval: Option<u64>,
 
@@ -357,7 +357,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_victorops: Option<String>,
 
-    /// FJ-533: Blue/green deployment with machine pairs
+    /// FJ-533: Blue/green deployment with machine pairs [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub blue_green: Option<String>,
 
@@ -369,11 +369,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_msteams_adaptive: Option<String>,
 
-    /// FJ-543: Progressive rollout (apply to N% of machines)
+    /// FJ-543: Progressive rollout (apply to N% of machines) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub progressive: Option<u8>,
 
-    /// FJ-546: POST for approval before applying (GitOps gate)
+    /// FJ-546: POST for approval before applying (GitOps gate) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub approval_webhook: Option<String>,
 
@@ -381,7 +381,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_incident: Option<String>,
 
-    /// FJ-556: Require named sign-off before apply proceeds
+    /// FJ-556: Require named sign-off before apply proceeds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub sign_off: Option<String>,
 
@@ -393,7 +393,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub telemetry_endpoint: Option<String>,
 
-    /// FJ-566: Attach runbook URL to apply for audit trail
+    /// FJ-566: Attach runbook URL to apply for audit trail [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub runbook: Option<String>,
 
@@ -401,11 +401,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_pubsub: Option<String>,
 
-    /// FJ-573: Fleet-wide rollout strategy (parallel, rolling, canary)
+    /// FJ-573: Fleet-wide rollout strategy (parallel, rolling, canary) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub fleet_strategy: Option<String>,
 
-    /// FJ-576: Run validation script before apply proceeds
+    /// FJ-576: Run validation script before apply proceeds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub pre_check: Option<String>,
 
@@ -417,7 +417,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub dry_run_graph: bool,
 
-    /// FJ-586: Run validation script after apply completes
+    /// FJ-586: Run validation script after apply completes [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub post_check: Option<String>,
 
@@ -425,11 +425,11 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_kafka: Option<String>,
 
-    /// FJ-593: Retry failed resources up to N times
+    /// FJ-593: Retry failed resources up to N times [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub max_retries: Option<u32>,
 
-    /// FJ-596: Auto-rollback if issues detected within window
+    /// FJ-596: Auto-rollback if issues detected within window [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rollback_window: Option<String>,
 
@@ -437,7 +437,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_azure_servicebus: Option<String>,
 
-    /// FJ-603: Timeout for interactive approval prompts
+    /// FJ-603: Timeout for interactive approval prompts [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub approval_timeout: Option<String>,
 
@@ -449,7 +449,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_gcp_pubsub_v2: Option<String>,
 
-    /// FJ-613: Create named checkpoint before apply
+    /// FJ-613: Create named checkpoint before apply [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub checkpoint: Option<String>,
 
@@ -461,7 +461,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_rabbitmq: Option<String>,
 
-    /// FJ-623: Require named approval gate before apply
+    /// FJ-623: Require named approval gate before apply [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub gate: Option<String>,
 
@@ -473,7 +473,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub dry_run_verbose: bool,
 
-    /// FJ-636: Explain what each step will do before executing
+    /// FJ-636: Explain what each step will do before executing [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub explain: bool,
 
@@ -485,7 +485,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub confirmation_message: Option<String>,
 
-    /// FJ-646: Only show summary, no per-resource output
+    /// FJ-646: Only show summary, no per-resource output [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub summary_only: bool,
 
@@ -497,7 +497,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_amqp: Option<String>,
 
-    /// FJ-663: Run command before each resource apply
+    /// FJ-663: Run command before each resource apply [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub pre_apply_hook: Option<String>,
 
@@ -509,7 +509,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_stomp: Option<String>,
 
-    /// FJ-673: Run command after each resource apply
+    /// FJ-673: Run command after each resource apply [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub post_apply_hook: Option<String>,
 
@@ -521,41 +521,41 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_zeromq: Option<String>,
 
-    /// FJ-683: Apply single resource first as canary
+    /// FJ-683: Apply single resource first as canary [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub canary_resource: Option<String>,
 
-    /// FJ-686: Per-resource timeout override in seconds
+    /// FJ-686: Per-resource timeout override in seconds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub timeout_per_resource: Option<u64>,
     /// FJ-690: Publish events to gRPC endpoint
     #[arg(long)]
     pub notify_grpc: Option<String>,
-    /// FJ-693: Skip resources whose hash hasn't changed
+    /// FJ-693: Skip resources whose hash hasn't changed [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub skip_unchanged: bool,
-    /// FJ-696: Exponential backoff factor for retries
+    /// FJ-696: Exponential backoff factor for retries [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub retry_backoff: Option<f64>,
     /// FJ-700: Publish events to AWS SQS queue
     #[arg(long)]
     pub notify_sqs: Option<String>,
-    /// FJ-703: Save plan output to file
+    /// FJ-703: Save plan output to file [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub plan_output_file: Option<String>,
-    /// FJ-706: Set execution priority for specific resources (name=priority)
+    /// FJ-706: Set execution priority for specific resources (name=priority) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub resource_priority: Vec<String>,
-    /// FJ-713: Time window for apply operations in seconds
+    /// FJ-713: Time window for apply operations in seconds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub apply_window: Option<u64>,
-    /// FJ-716: Stop all machines on first machine failure
+    /// FJ-716: Stop all machines on first machine failure [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub fail_fast_machine: bool,
     /// FJ-720: Publish events to Mattermost webhook
     #[arg(long)]
     pub notify_mattermost: Option<String>,
-    /// FJ-723: Cooldown between resource applies in seconds
+    /// FJ-723: Cooldown between resource applies in seconds [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub cooldown: Option<u64>,
     /// FJ-726: Exclude specific machine from apply
@@ -567,34 +567,34 @@ pub struct ApplyArgs {
     /// FJ-736: Apply only to specific machine
     #[arg(long)]
     pub only_machine: Option<String>,
-    /// FJ-744: Custom headers for webhook notifications (JSON string)
+    /// FJ-744: Custom headers for webhook notifications (JSON string) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_webhook_headers: Option<String>,
-    /// FJ-752: Append structured JSON events to a local file
+    /// FJ-752: Append structured JSON events to a local file [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_log: Option<std::path::PathBuf>,
 
-    /// FJ-760: Run arbitrary command as notification handler
+    /// FJ-760: Run arbitrary command as notification handler [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_exec: Option<String>,
 
-    /// FJ-768: Write one-line status to a file (for monitoring)
+    /// FJ-768: Write one-line status to a file (for monitoring) [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_file: Option<std::path::PathBuf>,
 
-    /// FJ-776: Print structured JSON notification to stdout
+    /// FJ-776: Print structured JSON notification to stdout [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_json: bool,
 
-    /// FJ-784: Send apply results to Slack webhook URL
+    /// FJ-784: Send apply results to Slack webhook URL [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_slack_webhook: Option<String>,
 
-    /// FJ-792: Send apply results to Telegram bot
+    /// FJ-792: Send apply results to Telegram bot [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_telegram: Option<String>,
 
-    /// FJ-800: Enhanced webhook with retry and custom headers
+    /// FJ-800: Enhanced webhook with retry and custom headers [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub notify_webhook_v2: Option<String>,
 

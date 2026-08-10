@@ -25,6 +25,7 @@ pub mod gc;
 pub mod gc_exec;
 pub mod hf_config;
 pub mod image_assembler;
+pub mod image_ref;
 pub mod ingest;
 pub mod kernel_far;
 pub mod layer_builder;
@@ -43,7 +44,9 @@ pub mod purity;
 pub mod query;
 pub mod reference;
 pub mod registry_push;
+pub mod registry_push_chunked;
 pub mod registry_push_fmt;
+pub mod registry_push_http;
 pub mod repro_score;
 pub mod sandbox;
 pub mod sandbox_exec;
@@ -119,6 +122,8 @@ mod tests_hf_config;
 #[cfg(test)]
 mod tests_image_assembler;
 #[cfg(test)]
+mod tests_image_ref;
+#[cfg(test)]
 mod tests_ingest;
 #[cfg(test)]
 mod tests_kernel_far;
@@ -152,6 +157,8 @@ mod tests_query_cov;
 mod tests_reference;
 #[cfg(test)]
 mod tests_registry_push;
+#[cfg(test)]
+mod tests_registry_push_http;
 #[cfg(test)]
 mod tests_registry_push_net;
 #[cfg(test)]

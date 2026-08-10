@@ -39,8 +39,13 @@ pub struct BlobDescriptor {
 ///
 /// OCI Distribution Spec v1.1: `HEAD /v2/{name}/blobs/{digest}`
 /// Returns 200 if exists, 404 if not.
+/// Refs #210: only 200 (exists) and 404 (absent) are answers. Anything else —
+/// including the `000` curl prints when it never connected — is an error, not
+/// an implicit "does not exist"; the old code read every failure as 404 and
+/// marched on to an upload it could not perform.
 pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<bool, String> {
-    let url = format!("https://{registry}/v2/{name}/blobs/{digest}");
+    let url =
+        super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/{digest}"));
     let output = std::process::Command::new("curl")
         .args([
             "-s",
@@ -48,6 +53,8 @@ pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<boo
             "/dev/null",
             "-w",
             "%{http_code}",
+            "--connect-timeout",
+            super::registry_push_http::CONNECT_TIMEOUT_SECS,
             "--head",
             &url,
         ])
@@ -55,7 +62,22 @@ pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<boo
         .map_err(|e| format!("curl HEAD: {e}"))?;
 
     let status = String::from_utf8_lossy(&output.stdout);
-    Ok(status.trim() == "200")
+    match status.trim() {
+        "200" => Ok(true),
+        "404" => Ok(false),
+        "000" | "" => Err(format!(
+            "registry unreachable: no HTTP response from {url} \
+             (curl exited {})",
+            output.status
+        )),
+        other => {
+            let code = other.parse::<u16>().unwrap_or(0);
+            Err(super::registry_push_http::describe_status(
+                &format!("HEAD {url}"),
+                code,
+            ))
+        }
+    }
 }
 
 /// Generate the curl command for a HEAD blob check.
@@ -87,11 +109,6 @@ pub fn manifest_put_command(registry: &str, name: &str, tag: &str, manifest_path
          --data-binary '@{manifest_path}' 'https://{registry}/v2/{name}/manifests/{tag}'"
     )
 }
-
-/// E14: Chunk size for chunked uploads (64 MB).
-pub(crate) const CHUNKED_UPLOAD_THRESHOLD: u64 = 64 * 1024 * 1024;
-/// E14: Chunk size for PATCH uploads (16 MB).
-pub(crate) const CHUNK_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Push a single blob to the registry.
 ///
@@ -136,7 +153,15 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
 }
 
 /// Initiate a blob upload session. Returns the upload URL from Location header.
+///
+/// Refs #210: the status code is now the gate. A `Location` header alone is no
+/// evidence of an upload session — `docker.io` answers this POST with a 301 to
+/// its marketing site, and the old code took that redirect target as the
+/// session URL, PUT the blob at a web page, got 200, and reported a push.
+/// Only 202 Accepted opens a session.
 fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
+    let url =
+        super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/uploads/"));
     let output = std::process::Command::new("curl")
         .args([
             "-s",
@@ -144,14 +169,34 @@ fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
             "POST",
             "-D",
             "-",
-            &format!("https://{registry}/v2/{name}/blobs/uploads/"),
+            "-o",
+            "/dev/null",
+            "--connect-timeout",
+            super::registry_push_http::CONNECT_TIMEOUT_SECS,
+            &url,
         ])
         .output()
         .map_err(|e| format!("blob upload initiate: {e}"))?;
 
     let headers = String::from_utf8_lossy(&output.stdout);
-    parse_location_header(&headers)
-        .ok_or_else(|| "no Location header in upload response".to_string())
+    let Some(code) = super::registry_push_http::parse_status_code(&headers) else {
+        return Err(format!(
+            "registry unreachable: no HTTP response to POST {url} (curl exited {})",
+            output.status
+        ));
+    };
+    if code != 202 {
+        return Err(super::registry_push_http::describe_status(
+            &format!("POST {url}"),
+            code,
+        ));
+    }
+    let location = parse_location_header(&headers).ok_or_else(|| {
+        format!("POST {url} returned 202 with no Location header; no upload session to write to")
+    })?;
+    Ok(super::registry_push_http::resolve_location(
+        registry, &location,
+    ))
 }
 
 /// Build the curl argv for a monolithic blob PUT. Bug-hunt #4 (Refs #154):
@@ -168,7 +213,7 @@ pub(crate) fn monolithic_put_args(upload_url: &str, digest: &str, blob_path: &st
         "Content-Type: application/octet-stream".into(),
         "--data-binary".into(),
         format!("@{blob_path}"),
-        format!("{upload_url}?digest={digest}"),
+        super::registry_push_http::with_digest_query(upload_url, digest),
     ]
 }
 
@@ -184,99 +229,6 @@ fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), S
     if !output.status.success() {
         return Err(format!(
             "blob upload failed (HTTP error): {}",
-            curl_error_detail(&output)
-        ));
-    }
-    Ok(())
-}
-
-/// Compose curl failure detail. With `--fail-with-body` curl prints the HTTP
-/// response body to stdout on a >= 400 status; stderr carries transport-level
-/// diagnostics. Surface both so the registry error (401 token, 413, …) shows.
-fn curl_error_detail(output: &std::process::Output) -> String {
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let body = stdout.trim();
-    let err = stderr.trim();
-    match (body.is_empty(), err.is_empty()) {
-        (false, false) => format!("{err}: {body}"),
-        (false, true) => body.to_string(),
-        (true, false) => err.to_string(),
-        (true, true) => "no response body".to_string(),
-    }
-}
-
-/// E14: Chunked PATCH upload for large blobs (>= 64 MB).
-///
-/// OCI Distribution Spec v1.1 chunked upload protocol:
-/// 1. PATCH with Content-Range for each chunk
-/// 2. PUT to complete with final digest
-pub(crate) fn push_blob_chunked(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
-    let blob_path = blob.path.display().to_string();
-    let total_size = blob.size;
-    let mut offset: u64 = 0;
-    let mut current_url = upload_url.to_string();
-
-    while offset < total_size {
-        let end = std::cmp::min(offset + CHUNK_SIZE, total_size) - 1;
-        let range = format!("{offset}-{end}");
-
-        let output = std::process::Command::new("curl")
-            .args([
-                "-s",
-                "--fail-with-body", // Bug-hunt #4 (Refs #154): gate on HTTP status.
-                "-X",
-                "PATCH",
-                "-D",
-                "-",
-                "-H",
-                "Content-Type: application/octet-stream",
-                "-H",
-                &format!("Content-Range: {range}"),
-                "-H",
-                &format!("Content-Length: {}", end - offset + 1),
-                "-r",
-                &range,
-                "--data-binary",
-                &format!("@{blob_path}"),
-                &current_url,
-            ])
-            .output()
-            .map_err(|e| format!("chunked upload PATCH: {e}"))?;
-
-        if !output.status.success() {
-            return Err(format!(
-                "chunked upload failed at range {range} (HTTP error): {}",
-                curl_error_detail(&output)
-            ));
-        }
-
-        // Follow Location header for next chunk URL
-        let headers = String::from_utf8_lossy(&output.stdout);
-        if let Some(loc) = parse_location_header(&headers) {
-            current_url = loc;
-        }
-
-        offset = end + 1;
-    }
-
-    // Complete the upload with PUT + digest
-    let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "--fail-with-body", // Bug-hunt #4 (Refs #154): gate on HTTP status.
-            "-X",
-            "PUT",
-            "-H",
-            "Content-Type: application/octet-stream",
-            &format!("{current_url}?digest={}", blob.digest),
-        ])
-        .output()
-        .map_err(|e| format!("chunked upload finalize: {e}"))?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "chunked upload finalize failed (HTTP error): {}",
             curl_error_detail(&output)
         ));
     }
@@ -310,9 +262,9 @@ pub fn push_manifest(
 ) -> Result<PushResult, String> {
     let start = Instant::now();
 
-    let url = format!(
-        "https://{}/v2/{}/manifests/{}",
-        config.registry, config.name, config.tag
+    let url = super::registry_push_http::registry_url(
+        &config.registry,
+        &format!("v2/{}/manifests/{}", config.name, config.tag),
     );
     let args = manifest_put_args(manifest_json, &url);
     let output = std::process::Command::new("curl")
@@ -360,15 +312,44 @@ pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<Pus
     }
 
     let blobs = discover_blobs(oci_dir)?;
+    let manifests: Vec<&BlobDescriptor> = blobs
+        .iter()
+        .filter(|b| b.kind == PushKind::Manifest)
+        .collect();
+
+    // Refs #210: a push with no manifest PUT leaves the tag pointing wherever
+    // it pointed before, so refuse rather than report a partial push.
+    if manifests.is_empty() {
+        return Err(format!(
+            "no manifest found in OCI layout {}: index.json references none of the blobs present",
+            oci_dir.display()
+        ));
+    }
+    if manifests.len() > 1 {
+        return Err(format!(
+            "OCI layout {} holds {} manifests (a multi-arch image index); \
+             forjar cannot push an index to a single tag",
+            oci_dir.display(),
+            manifests.len()
+        ));
+    }
+
     let mut results = Vec::new();
 
-    // Push in correct order: layers first, then config, then manifests
-    for kind in [PushKind::Layer, PushKind::Config, PushKind::Manifest] {
+    // Push in correct order: layer blobs, then the config blob, ...
+    for kind in [PushKind::Layer, PushKind::Config] {
         for blob in blobs.iter().filter(|b| b.kind == kind) {
-            let result = push_blob(config, blob)?;
-            results.push(result);
+            results.push(push_blob(config, blob)?);
         }
     }
+
+    // ... then the manifest, which is PUT to the TAG — not uploaded as a blob.
+    // Uploading the manifest bytes to /blobs/ (what this used to do) creates no
+    // tag, so nothing could ever pull the image that was reported as pushed.
+    let manifest = manifests[0];
+    let manifest_json = std::fs::read_to_string(&manifest.path)
+        .map_err(|e| format!("read manifest {}: {e}", manifest.path.display()))?;
+    results.push(push_manifest(config, &manifest_json, &manifest.digest)?);
 
     Ok(results)
 }
@@ -461,6 +442,15 @@ pub(crate) fn parse_location_header(headers: &str) -> Option<String> {
     }
     None
 }
+
+// Chunked upload lives in `registry_push_chunked` and the curl error detail in
+// `registry_push_http` (Refs #210: this file has to stay under the 500-line
+// health limit). Re-exported so `super::registry_push::*` callers are unchanged.
+#[allow(unused_imports)]
+pub(crate) use super::registry_push_chunked::{
+    push_blob_chunked, CHUNKED_UPLOAD_THRESHOLD, CHUNK_SIZE,
+};
+pub(crate) use super::registry_push_http::curl_error_detail;
 
 // `validate_push_config` and `format_push_summary` live in `registry_push_fmt`
 // (split out to keep this file under the 500-line health limit). Re-exported so

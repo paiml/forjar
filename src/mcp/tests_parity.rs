@@ -7,6 +7,7 @@
 
 use super::handlers::*;
 use super::types::*;
+use crate::mcp::handlers::DriftHandler;
 use pforge_runtime::Handler;
 
 fn project(dir: &std::path::Path) -> std::path::PathBuf {
@@ -127,6 +128,7 @@ async fn status_finds_machines_whose_state_is_a_directory() {
 
     let out = StatusHandler
         .handle(StatusInput {
+            path: None,
             state_dir: Some(d.path().join("state").display().to_string()),
             machine: None,
         })
@@ -152,6 +154,7 @@ async fn status_ignores_a_directory_with_no_lock() {
 
     let out = StatusHandler
         .handle(StatusInput {
+            path: None,
             state_dir: Some(d.path().join("state").display().to_string()),
             machine: None,
         })
@@ -159,4 +162,89 @@ async fn status_ignores_a_directory_with_no_lock() {
         .expect("status runs");
 
     assert!(out.machines.is_empty(), "{:?}", out.machines);
+}
+
+// ── GH-208: state_dir must follow the config, not the process cwd ──────────
+//
+// Every parity test above passes an explicit ABSOLUTE `state_dir` — exactly the
+// case that always worked. That is why they all passed while the published
+// binary told an MCP client a tampered machine was clean.
+//
+// These omit `state_dir`, which is what a real client does. No cwd juggling is
+// needed to prove the point: the fixture lives in a tempdir while the test
+// process runs from the crate root, so cwd is ALREADY not the config's
+// directory — which is precisely the situation of an MCP stdio server, whose
+// working directory is chosen by the client. (`set_current_dir` is disallowed in
+// this repo for being process-global and flaky, and would add nothing here.)
+
+#[tokio::test]
+async fn plan_without_state_dir_finds_state_beside_the_config() {
+    let d = tempfile::tempdir().unwrap();
+    let cfg = project(d.path());
+    converged_lock(d.path(), &cfg);
+
+    let out = PlanHandler
+        .handle(PlanInput {
+            path: cfg.display().to_string(), // absolute
+            state_dir: None,                 // <- the real-client case
+            resource: None,
+            tag: None,
+        })
+        .await
+        .expect("plan runs");
+
+    assert!(
+        !out.changes.iter().any(|c| c.resource_id == "real"),
+        "a converged project addressed by absolute path must not report CREATE \
+         just because the server's cwd is elsewhere (GH-208): {:?}",
+        out.changes
+    );
+}
+
+#[tokio::test]
+async fn drift_without_state_dir_sees_real_drift() {
+    let d = tempfile::tempdir().unwrap();
+    let cfg = project(d.path());
+
+    // File drift compares `details.content_hash` against the file at
+    // `details.path` (tripwire::drift::check_file_resource_drift), so the lock
+    // must carry BOTH — the shared `converged_lock` helper records only the
+    // desired-state hash, which is enough for `plan` but cannot express drift.
+    let target = d.path().join("f.txt");
+    std::fs::write(&target, "hi").unwrap();
+    let content_hash = crate::tripwire::hasher::hash_file(&target).unwrap();
+    let md = d.path().join("state").join("local");
+    std::fs::create_dir_all(&md).unwrap();
+    std::fs::write(
+        md.join("state.lock.yaml"),
+        format!(
+            "schema: \"1.0\"\nmachine: local\nhostname: localhost\ngenerated_at: now\n\
+             generator: test\nblake3_version: \"1\"\nresources:\n  real:\n    type: file\n\
+             \x20   status: converged\n    hash: \"h\"\n    details:\n      path: \"{}\"\n\
+             \x20     content_hash: \"{}\"\n",
+            target.display(),
+            content_hash
+        ),
+    )
+    .unwrap();
+
+    // Tamper: the managed file no longer matches the recorded content hash.
+    std::fs::write(&target, "TAMPERED").unwrap();
+
+    let out = DriftHandler
+        .handle(DriftInput {
+            path: cfg.display().to_string(),
+            state_dir: None,
+            machine: None,
+        })
+        .await
+        .expect("drift runs");
+
+    assert!(
+        out.drifted,
+        "drift is the tripwire tool: reporting a tampered machine as clean \
+         because the server's cwd is elsewhere is the worst outcome it has \
+         (GH-208). findings={:?} unchecked={:?}",
+        out.findings, out.unchecked
+    );
 }

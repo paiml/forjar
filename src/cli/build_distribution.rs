@@ -2,7 +2,6 @@
 //!
 //! Split from `build_image.rs` to stay under 500-line limit.
 
-use crate::core::types::Resource;
 use std::path::Path;
 
 /// FJ-2106: Handle --load flag — tar OCI layout and pipe to docker/podman load.
@@ -133,22 +132,25 @@ fn collect_far_files(
 }
 
 /// FJ-2105: Handle --push flag for registry push.
-pub(crate) fn cmd_build_push(res: &Resource, oci_dir: &Path) -> Result<(), String> {
-    use crate::core::store::registry_push;
+///
+/// `image_reference` is the reference the build just stamped into the image
+/// (`plan.tag`), so the push cannot target anything other than what was built.
+///
+/// Refs #210: this function reports success only after the registry has been
+/// asked, independently, whether the tag now resolves to the manifest we
+/// pushed. Every failure — unreachable registry, authentication required,
+/// rejected upload, unverifiable tag — is an `Err`, i.e. a non-zero exit.
+/// It previously swallowed "no Location header" and "curl …" into
+/// `push skipped: registry unreachable` and returned `Ok`, which is how a push
+/// that never uploaded a byte exited 0.
+pub(crate) fn cmd_build_push(image_reference: &str, oci_dir: &Path) -> Result<(), String> {
+    use crate::core::store::{image_ref, registry_push, registry_push_http};
 
-    let image_name = res.name.as_deref().unwrap_or("app");
-    let tag = res.version.as_deref().unwrap_or("latest");
-
-    let (registry, name) = if let Some(idx) = image_name.find('/') {
-        (&image_name[..idx], &image_name[idx + 1..])
-    } else {
-        ("docker.io", image_name)
-    };
-
+    let iref = image_ref::parse_image_ref(image_reference)?;
     let push_config = registry_push::RegistryPushConfig {
-        registry: registry.to_string(),
-        name: name.to_string(),
-        tag: tag.to_string(),
+        registry: iref.api_host().to_string(),
+        name: iref.repository.clone(),
+        tag: iref.tag.clone(),
         check_existing: true,
     };
 
@@ -158,23 +160,34 @@ pub(crate) fn cmd_build_push(res: &Resource, oci_dir: &Path) -> Result<(), Strin
     }
 
     println!("\n--push: OCI Distribution v1.1");
-    println!("  registry: {registry}");
-    println!("  name: {name}");
-    println!("  tag: {tag}");
+    println!("  reference: {}", iref.to_reference());
+    println!(
+        "  endpoint:  {}",
+        registry_push_http::registry_url(iref.api_host(), &format!("v2/{}", iref.repository))
+    );
 
     let blobs = registry_push::discover_blobs(oci_dir)?;
     if blobs.is_empty() {
-        println!("  no blobs to push");
-        return Ok(());
+        return Err(format!(
+            "nothing to push: no blobs in OCI layout {} (build the image first)",
+            oci_dir.display()
+        ));
     }
     println!("  blobs: {} to push", blobs.len());
 
-    match registry_push::push_image(oci_dir, &push_config) {
-        Ok(results) => print!("{}", registry_push::format_push_summary(&results)),
-        Err(e) if e.contains("Location header") || e.contains("curl") => {
-            println!("  push skipped: registry unreachable ({e})");
-        }
-        Err(e) => return Err(e),
-    }
+    let results = registry_push::push_image(oci_dir, &push_config)?;
+
+    let manifest_digest = results
+        .iter()
+        .find(|r| r.kind == crate::core::types::PushKind::Manifest)
+        .map(|r| r.digest.clone())
+        .ok_or("push produced no manifest: refusing to report a completed push")?;
+    registry_push_http::verify_manifest_pushed(&push_config, &manifest_digest)?;
+
+    print!("{}", registry_push::format_push_summary(&results));
+    println!(
+        "  Verified: {} resolves to {manifest_digest} at the registry",
+        iref.to_reference()
+    );
     Ok(())
 }

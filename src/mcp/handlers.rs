@@ -64,7 +64,7 @@ impl Handler for PlanHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
         let mut config =
             parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
@@ -127,11 +127,14 @@ impl Handler for DriftHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
         let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let mut findings = Vec::new();
+        // GH-208: machines we could not compare, so a caller can tell "clean"
+        // apart from "not looked at".
+        let mut unchecked: Vec<String> = Vec::new();
 
         for machine_name in config.machines.keys() {
             if let Some(ref m) = input.machine {
@@ -140,7 +143,28 @@ impl Handler for DriftHandler {
                 }
             }
 
-            if let Ok(Some(lock_data)) = state::load_lock(&state_dir, machine_name) {
+            // GH-208: `if let Ok(Some(..))` discarded BOTH `Err` (state could
+            // not be read) and `Ok(None)` (machine never applied), so "I did not
+            // compare anything" was reported as `{"drifted": false}` — a clean
+            // bill of health for a machine that was never inspected. The CLI
+            // exits 1 with "cannot read state dir" on the same input. drift is
+            // the tripwire tool; a false clean is the worst outcome it has.
+            let lock_data = match state::load_lock(&state_dir, machine_name) {
+                Ok(Some(l)) => l,
+                Ok(None) => {
+                    // Genuinely no state for this machine: nothing to compare,
+                    // and that is not drift. Skip it, but say so.
+                    unchecked.push(format!("{machine_name}: no state recorded (never applied)"));
+                    continue;
+                }
+                Err(e) => {
+                    return Err(pforge_runtime::Error::Handler(format!(
+                        "cannot read state for machine '{machine_name}' in {}: {e}",
+                        state_dir.display()
+                    )));
+                }
+            };
+            {
                 let drift_findings = drift::detect_drift(&lock_data);
                 for f in drift_findings {
                     findings.push(DriftFindingOutput {
@@ -154,7 +178,11 @@ impl Handler for DriftHandler {
         }
 
         let drifted = !findings.is_empty();
-        Ok(DriftOutput { drifted, findings })
+        Ok(DriftOutput {
+            drifted,
+            findings,
+            unchecked,
+        })
     }
 }
 

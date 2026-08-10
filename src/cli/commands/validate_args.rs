@@ -15,7 +15,7 @@ pub struct ValidateArgs {
     /// FJ-330: Show fully expanded config after template resolution
     #[arg(long)]
     pub dry_expand: bool,
-    /// FJ-381: Validate against specific schema version
+    /// FJ-381: Validate against specific schema version [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub schema_version: Option<String>,
     /// FJ-391: Validate all cross-references, machine existence, and param usage

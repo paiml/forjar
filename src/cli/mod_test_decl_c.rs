@@ -144,3 +144,9 @@ mod tests_cov_check_blocks;
 mod tests_preflight_ssh_cov;
 #[cfg(test)]
 mod tests_dist_verify_tier2;
+#[cfg(test)]
+mod tests_flag_consumer_guard;
+#[cfg(test)]
+mod tests_apply_scope;
+#[cfg(test)]
+mod tests_flag_surface;

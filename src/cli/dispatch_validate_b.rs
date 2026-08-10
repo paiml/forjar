@@ -201,6 +201,11 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         deny_unknown_fields,
     } = args;
 
+    // GH-211: FJ-381 was destructured to `_schema_version` — accepted, never
+    // read. `validate --schema-version 99.0` reported the config valid against
+    // a schema version that was never consulted.
+    super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
+
     // FJ-2500: Unknown fields are always errors during validate (P0 — silent data loss).
     // The --deny-unknown-fields flag is now the default behavior; kept for backward compat.
     let _ = deny_unknown_fields; // always true for validate

@@ -2,6 +2,7 @@
 
 use super::apply_helpers::*;
 use super::apply_output::*;
+use super::apply_scope::{apply_scope, ApplyScope};
 use super::apply_selection::*;
 use super::helpers::*;
 use super::helpers_state::*;
@@ -9,8 +10,10 @@ use super::workspace::*;
 use crate::core::{executor, parser, planner, resolver, state, types};
 use std::path::Path;
 
+pub(crate) use super::apply_scope::cmd_apply;
+
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn cmd_apply(
+pub(crate) fn cmd_apply_scoped(
     file: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -48,6 +51,8 @@ pub(crate) fn cmd_apply(
     force_tag: Option<&str>,
     // FJ-2724: `make`-style goals. Empty means "the whole config".
     goals: &[String],
+    // GH-211: --skip / --only-machine / --exclude-machine / --resource-filter.
+    scope: &ApplyScope,
 ) -> Result<(), String> {
     // GH-91: Warn that --sequential is not yet implemented
     if sequential {
@@ -81,6 +86,7 @@ pub(crate) fn cmd_apply(
     apply_param_overrides(&mut config, param_overrides)?;
 
     reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
+    apply_scope(&mut config, scope, verbose)?;
     apply_goal_closure(&mut config, goals, verbose)?;
     strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
