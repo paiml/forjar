@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-08-10
+
+### Fixed
+
+- **`apply` deployed stale content while reporting "unchanged"** when a file
+  resource's `source:` file changed ([#206](https://github.com/paiml/forjar/issues/206)).
+
+  `hash_desired_state` hashes resource *field strings*. For `content:` that is
+  correct — the content **is** the field. For `source:` the field is a **path**, so
+  editing the referenced file left the hash identical, `determine_present_action`
+  planned `NoOp`, and apply skipped the resource:
+
+  ```console
+  $ echo VERSION-ONE > payload.txt && forjar apply -f repro.yaml --yes
+  Apply complete: 1 converged, 0 unchanged.
+  $ echo VERSION-TWO > payload.txt && forjar apply -f repro.yaml --yes
+  Apply complete: 0 converged, 1 unchanged.
+  $ cat /tmp/deployed          # -> VERSION-ONE   (stale)
+  ```
+
+  `--force` was the only workaround. For a tool whose contract is "converge to
+  declared state", silently not converging while printing success is the worst
+  available failure mode. Observed live in paiml/infra PMAT-204, where an edited
+  reconciler script reported "converged" three times while the machine kept
+  executing the previous copy.
+
+  The planner now folds the **content hash** of the `source:` file into the
+  desired state. The component is **appended**, and only for resources that
+  declare `source:`, so no recorded hash for any other resource on any machine is
+  invalidated. Path identity is preserved (same bytes at different paths still
+  hash differently), and a source that appears or disappears now changes the hash
+  rather than staying pinned at "unchanged".
+
+  Note: source-based file resources will show one `Update` on the first apply
+  after upgrading, as their hash gains the new component. That re-apply is
+  convergent and expected.
+
+### Added
+
+- `contracts/source-content-identity-v1.yaml` — the **completeness** leg of
+  `idempotent-apply-v1`. That contract asserts "differing hash always plans
+  Update", which is sound but vacuous if the hash cannot differ when the deployed
+  artifact differs. 7 falsification tests, including an end-to-end reproduction.
+- `src/core/planner/tests_hash_source.rs` — 5 tests covering content change,
+  determinism, path identity, source appearance, and non-regression of
+  source-less resources.
+
 ## [1.12.2] - 2026-07-29
 
 Four design defects, each one a place where forjar reported on something other
