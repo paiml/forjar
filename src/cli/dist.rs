@@ -5,7 +5,9 @@
 
 use super::dist_generators::*;
 use super::dist_generators_b::*;
-use std::path::Path;
+use super::dist_output::{
+    artifact_path, print_json, print_summary, resolve_dist_output, GeneratedArtifact,
+};
 
 /// Entry point for `forjar dist`.
 pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
@@ -75,62 +77,61 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
         None
     };
 
-    let out_dir = output_dir.unwrap_or(Path::new("dist"));
+    // Refs #211: resolve ONE output target up front instead of threading
+    // `--output` into a single generator. `-o` was honoured only by the
+    // installer: `--rpm -o X` wrote `dist/<binary>.spec` and exited 0, and
+    // `--all -o DIR` used DIR as the installer FILE (rc=1 when DIR existed)
+    // while the other six landed in ./dist. See `resolve_dist_output`.
+    let target = resolve_dist_output(
+        output,
+        output_dir,
+        &[
+            gen_installer,
+            gen_homebrew,
+            gen_binstall,
+            gen_nix,
+            gen_github_action,
+            gen_deb,
+            gen_rpm,
+        ],
+    )?;
+    let out_dir = target.dir();
+    let single = target.single_file();
     let mut artifacts: Vec<GeneratedArtifact> = Vec::new();
+    let mut emit = |kind: &str, default_name: &str, content: &str| -> Result<(), String> {
+        let path = artifact_path(single, out_dir, default_name);
+        write_artifact(&path, content)?;
+        artifacts.push(GeneratedArtifact::new(kind, &path, content.len()));
+        Ok(())
+    };
 
     if gen_installer {
-        let default_path = out_dir.join("install.sh");
-        let path = output.unwrap_or(&default_path);
-        let content = generate_installer(dist);
-        write_artifact(path, &content)?;
-        artifacts.push(GeneratedArtifact::new("installer", path, content.len()));
+        emit("installer", "install.sh", &generate_installer(dist))?;
     }
-
     if gen_homebrew {
         let rel = release.as_ref().ok_or("internal: release not resolved")?;
-        let path = out_dir.join("homebrew.rb");
-        let content = generate_homebrew(dist, rel)?;
-        write_artifact(&path, &content)?;
-        artifacts.push(GeneratedArtifact::new("homebrew", &path, content.len()));
+        emit("homebrew", "homebrew.rb", &generate_homebrew(dist, rel)?)?;
     }
-
     if gen_binstall {
-        let path = out_dir.join("binstall.toml");
-        let content = generate_binstall(dist);
-        write_artifact(&path, &content)?;
-        artifacts.push(GeneratedArtifact::new("binstall", &path, content.len()));
+        emit("binstall", "binstall.toml", &generate_binstall(dist))?;
     }
-
     if gen_nix {
         let rel = release.as_ref().ok_or("internal: release not resolved")?;
-        let path = out_dir.join("flake.nix");
-        let content = generate_nix(dist, rel)?;
-        write_artifact(&path, &content)?;
-        artifacts.push(GeneratedArtifact::new("nix", &path, content.len()));
+        emit("nix", "flake.nix", &generate_nix(dist, rel)?)?;
     }
-
     if gen_github_action {
-        let path = out_dir.join("action.yml");
-        let content = generate_github_action(dist);
-        write_artifact(&path, &content)?;
-        artifacts.push(GeneratedArtifact::new(
-            "github-action",
-            &path,
-            content.len(),
-        ));
+        emit("github-action", "action.yml", &generate_github_action(dist))?;
     }
-
+    if gen_rpm {
+        let name = format!("{}.spec", dist.binary);
+        emit("rpm", &name, &generate_rpm(dist))?;
+    }
     if gen_deb {
-        let dir = out_dir.join("debian");
+        // --deb emits a debian/ TREE, not a file, so a single `-o` names that
+        // directory and the generator writes into it itself.
+        let dir = artifact_path(single, out_dir, "debian");
         generate_deb(dist, &dir)?;
         artifacts.push(GeneratedArtifact::new("deb", &dir, 0));
-    }
-
-    if gen_rpm {
-        let path = out_dir.join(format!("{}.spec", dist.binary));
-        let content = generate_rpm(dist);
-        write_artifact(&path, &content)?;
-        artifacts.push(GeneratedArtifact::new("rpm", &path, content.len()));
     }
 
     if json {
@@ -140,50 +141,6 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-struct GeneratedArtifact {
-    kind: String,
-    path: String,
-    size: usize,
-}
-
-impl GeneratedArtifact {
-    fn new(kind: &str, path: &Path, size: usize) -> Self {
-        Self {
-            kind: kind.to_string(),
-            path: path.display().to_string(),
-            size,
-        }
-    }
-}
-
-fn print_json(artifacts: &[GeneratedArtifact]) {
-    let items: Vec<String> = artifacts
-        .iter()
-        .map(|a| {
-            format!(
-                r#"{{"kind":"{}","path":"{}","size":{}}}"#,
-                a.kind, a.path, a.size
-            )
-        })
-        .collect();
-    println!(
-        r#"{{"artifacts":[{}],"count":{}}}"#,
-        items.join(","),
-        artifacts.len()
-    );
-}
-
-fn print_summary(artifacts: &[GeneratedArtifact]) {
-    println!("Generated {} distribution artifact(s):", artifacts.len());
-    for a in artifacts {
-        if a.size > 0 {
-            println!("  {} → {} ({} bytes)", a.kind, a.path, a.size);
-        } else {
-            println!("  {} → {}", a.kind, a.path);
-        }
-    }
 }
 
 #[cfg(test)]

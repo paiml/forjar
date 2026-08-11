@@ -69,32 +69,46 @@ fn dispatch_oci_pack_missing_dir_errors() {
     assert!(result.unwrap_err().contains("does not exist"));
 }
 
+// Refs #210: these two used to pack `/tmp` into `/tmp/oci-out`. That was
+// harmless only because `oci-pack` was a stub that wrote nothing — now that it
+// really packs, pointing it at the machine's shared /tmp would walk every
+// other process's scratch files (and fail on the ones it may not read). Each
+// test gets its own tree, which is also the only way the assertion means
+// anything.
 #[test]
 fn dispatch_oci_pack_json_with_existing_dir() {
+    let src = tempfile::tempdir().unwrap();
+    std::fs::write(src.path().join("a.txt"), b"a").unwrap();
+    let out = tempfile::tempdir().unwrap();
     let result = dispatch_misc_cmd(
         Commands::OciPack(OciPackArgs {
-            dir: PathBuf::from("/tmp"),
+            dir: src.path().to_path_buf(),
             tag: "myapp:v1".into(),
-            output: PathBuf::from("/tmp/oci-out"),
+            output: out.path().join("oci-out"),
             json: true,
         }),
         false,
     );
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "{result:?}");
+    assert!(out.path().join("oci-out/index.json").is_file());
 }
 
 #[test]
 fn dispatch_oci_pack_text_with_existing_dir() {
+    let src = tempfile::tempdir().unwrap();
+    std::fs::write(src.path().join("a.txt"), b"a").unwrap();
+    let out = tempfile::tempdir().unwrap();
     let result = dispatch_misc_cmd(
         Commands::OciPack(OciPackArgs {
-            dir: PathBuf::from("/tmp"),
+            dir: src.path().to_path_buf(),
             tag: "myapp:v1".into(),
-            output: PathBuf::from("/tmp/oci-out"),
+            output: out.path().join("oci-out"),
             json: false,
         }),
         false,
     );
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "{result:?}");
+    assert!(out.path().join("oci-out/oci-layout").is_file());
 }
 
 #[test]
