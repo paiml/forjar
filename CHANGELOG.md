@@ -7,7 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-08-11
+
 ### Fixed
+
+- **Dogfooding sweep of the published 1.12.3 across CLI / MCP / LSP / HTTP**
+  ([#208](https://github.com/paiml/forjar/issues/208)): 101 confirmed defects,
+  4 of them BLOCKERs. Resolved in
+  [#216](https://github.com/paiml/forjar/pull/216) together with
+  [#211](https://github.com/paiml/forjar/issues/211),
+  [#212](https://github.com/paiml/forjar/issues/212),
+  [#213](https://github.com/paiml/forjar/issues/213),
+  [#214](https://github.com/paiml/forjar/issues/214) and
+  [#215](https://github.com/paiml/forjar/issues/215):
+
+  - **[A]** 15 flags were declared on the clap struct and never consumed —
+    accepted on the command line and silently ignored. Notably every one of the
+    eight dry-run spellings is now ORed fail-safe, so `--dry-run` cannot be
+    dropped by a code path that only checked one of them.
+  - **[C]** 26 defects where machine-readable output was malformed or leaked
+    Rust `Debug` formatting into what callers parse as JSON.
+  - **[D]** 5 selectors that filtered part of the output but not the rest,
+    leaving precomputed counters disagreeing with the rows they summarise.
+  - **[E]** 8 cases where invalid input was accepted or crashed instead of
+    being rejected — including workspace names containing `..`, which are now
+    refused before any filesystem access rather than after.
+  - **[Z]** 19 assorted correctness defects, including MCP state-directory
+    resolution, which resolved relative to the process working directory
+    instead of the config file's directory.
+
+  These were found by `cargo install`-ing the published crate and driving every
+  interface, not by the test suite: two MCP handlers had been wrong since they
+  were written and had passing tests that only asserted `Ok`.
+
 
 - **`build --push` fabricated a push** ([#210](https://github.com/paiml/forjar/issues/210)).
 
