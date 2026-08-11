@@ -259,8 +259,25 @@ pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
         Err(_) => return 0,
     };
     let shadow_plan = planner::plan(cfg.config, &execution_order, &real_locks, cfg.tag_filter);
-    let drifted = live_drifted_resources(cfg, &real_locks);
-    count_forced_noops(&shadow_plan.changes, &drifted)
+    // GH-208 REGRESSION FIX: this briefly subtracted live-filesystem drift
+    // (`count_forced_noops(&changes, &live_drifted_resources(..))`) as a fix for
+    // "--force restores a tampered file but reports 0 actual changes".
+    //
+    // That misread the contract. apply-summary-distinguishability-v1 defines:
+    //
+    //     forced_noop_count(cfg) =
+    //       if cfg.force then shadow_plan(config, real_locks).unchanged else 0
+    //
+    // — LOCK-based, deliberately. The contract even states the reported
+    // behaviour as an invariant, not a bug:
+    //   "actual_changes = 0 ∧ f > 0 ⇒ stack was fully converged before --force ran"
+    //
+    // This is the Q1/Q2 split that tests/test_fj129_force_distinguishability.rs
+    // documents: Q1 "how many did --force re-run that the LOCK called
+    // unchanged?" is cheap and deterministic; Q2 "how many have live drift?" is
+    // what `forjar drift` answers. Conflating them was the ORIGINAL bug, and
+    // subtracting drift here re-introduced it — FJ-129 shape 4 went 2 -> 1.
+    count_forced_noops(&shadow_plan.changes, &Default::default())
 }
 
 /// A planned NoOp is a genuine forced no-op only if the machine still agrees.
