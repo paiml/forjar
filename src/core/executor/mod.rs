@@ -227,6 +227,27 @@ fn selective_force_locks(
 /// Returns 0 if the locks are not yet loaded (first apply on a fresh
 /// state directory) or on lock-load failure — both are correct: there
 /// is no "forced no-op" if there was nothing to be forced over.
+///
+/// # GH-210: the lock alone cannot answer the question
+///
+/// The count used to be `shadow_plan.unchanged` — purely a config-vs-lock
+/// comparison — and the caller invoked it AFTER the apply, when the lock had
+/// already been rewritten to match the config. Both mistakes point the same
+/// way: everything looks unchanged. Measured on 1.12.3, a file tampered with
+/// on disk and restored by `apply --force` reported
+///
+/// ```text
+///   note: --force re-ran 3 resource(s) the lock reported as unchanged
+///         (0 actual change(s), 3 forced no-op(s))
+/// ```
+///
+/// while `forjar drift` called the same resource DRIFTED and the file's hash
+/// demonstrably changed. That is precisely the discrimination contract
+/// `apply-summary-distinguishability-v1` requires, failing.
+///
+/// A resource is a genuine forced no-op only if the lock says NoOp **and** the
+/// live machine still matches the lock. The live half costs a drift probe, so
+/// this runs only under `--force`, and only for a real apply.
 pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
     let execution_order = match resolver::build_execution_order(cfg.config) {
         Ok(o) => o,
@@ -238,7 +259,52 @@ pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
         Err(_) => return 0,
     };
     let shadow_plan = planner::plan(cfg.config, &execution_order, &real_locks, cfg.tag_filter);
-    shadow_plan.unchanged
+    let drifted = live_drifted_resources(cfg, &real_locks);
+    count_forced_noops(&shadow_plan.changes, &drifted)
+}
+
+/// A planned NoOp is a genuine forced no-op only if the machine still agrees.
+///
+/// Split out from [`forced_noop_count`] so the discrimination that contract
+/// `apply-summary-distinguishability-v1` requires can be tested without a
+/// machine: the shipped code was `shadow_plan.unchanged`, which counts a
+/// drifted resource as a no-op.
+pub fn count_forced_noops(
+    changes: &[crate::core::types::PlannedChange],
+    drifted: &std::collections::HashSet<String>,
+) -> u32 {
+    changes
+        .iter()
+        .filter(|c| c.action == crate::core::types::PlanAction::NoOp)
+        .filter(|c| !drifted.contains(&c.resource_id))
+        .count() as u32
+}
+
+/// Resource ids whose live state no longer matches the lock.
+///
+/// Uses the same `detect_drift_full` the `drift` command uses, over
+/// template-resolved resources (PMAT-197), so "changed on the machine" means
+/// the same thing in both places.
+fn live_drifted_resources(
+    cfg: &ApplyConfig,
+    locks: &HashMap<String, StateLock>,
+) -> std::collections::HashSet<String> {
+    let resolved = crate::core::resolver::resolve_all(
+        &cfg.config.resources,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    );
+    let mut out = std::collections::HashSet::new();
+    for (name, lock) in locks {
+        let Some(machine) = cfg.config.machines.get(name) else {
+            continue;
+        };
+        for f in crate::tripwire::drift::detect_drift_full(lock, machine, &resolved) {
+            out.insert(f.resource_id.clone());
+        }
+    }
+    out
 }
 
 /// Execute the apply loop.

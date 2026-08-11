@@ -88,9 +88,10 @@ pub(crate) fn apply_machine(
     let mut trace_session = tracer::TraceSession::start(&run_id);
 
     // FJ-2002: Compute config hash for provenance tracking
-    let config_hash = serde_yaml_ng::to_string(cfg.config)
-        .ok()
-        .map(|yaml| format!("blake3:{}", blake3::hash(yaml.as_bytes()).to_hex()));
+    // GH-212: the audit trail's config_hash must be reproducible. The plain
+    // serialisation ordered `HashMap` fields by iteration order, so two runs
+    // over the same file recorded different provenance hashes.
+    let config_hash = crate::core::config_hash::config_hash(cfg.config).ok();
 
     log_tripwire(
         cfg.state_dir,

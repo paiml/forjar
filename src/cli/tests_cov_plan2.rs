@@ -22,6 +22,7 @@ fn plan_basic_text() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -33,6 +34,7 @@ fn plan_basic_json() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         true, false, None, None, None, false, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -44,6 +46,7 @@ fn plan_verbose() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, true, None, None, None, false, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -55,6 +58,7 @@ fn plan_no_diff() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, true, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -66,6 +70,7 @@ fn plan_with_cost() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, true, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -77,6 +82,7 @@ fn plan_with_why() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &[], None, true,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -88,6 +94,7 @@ fn plan_tag_filter() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, Some("web"),
         false, false, None, None, None, false, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -99,6 +106,7 @@ fn plan_target_resource() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, Some("nginx"), false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -110,6 +118,7 @@ fn plan_target_with_deps() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, Some("my-config"), false, &[], None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -122,6 +131,7 @@ fn plan_what_if() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &what_if, None, false,
+        None,
     );
     assert!(r.is_ok());
 }
@@ -134,6 +144,7 @@ fn plan_what_if_invalid() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &what_if, None, false,
+        None,
     );
     assert!(r.is_err());
     assert!(r.unwrap_err().contains("--what-if"));
@@ -147,6 +158,7 @@ fn plan_save_to_file() {
     let r = super::plan::cmd_plan(
         cfg.path(), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &[], Some(&plan_out), false,
+        None,
     );
     assert!(r.is_ok());
     assert!(plan_out.exists());
@@ -158,6 +170,7 @@ fn plan_missing_config() {
     let r = super::plan::cmd_plan(
         std::path::Path::new("/nonexistent/f.yaml"), d.path(), None, None, None,
         false, false, None, None, None, false, None, false, &[], None, false,
+        None,
     );
     assert!(r.is_err());
 }

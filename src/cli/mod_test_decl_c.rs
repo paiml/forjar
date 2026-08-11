@@ -150,3 +150,5 @@ mod tests_flag_consumer_guard;
 mod tests_apply_scope;
 #[cfg(test)]
 mod tests_flag_surface;
+#[cfg(test)]
+mod tests_gh_dogfood_p1;

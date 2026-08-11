@@ -87,10 +87,6 @@ fn inert_apply_flags(a: &ApplyArgs) -> [(&'static str, bool); FLAG_COUNT] {
         ("--apply-window", a.apply_window.is_some()),
         ("--fail-fast-machine", a.fail_fast_machine),
         ("--cooldown", a.cooldown.is_some()),
-        (
-            "--notify-webhook-headers",
-            a.notify_webhook_headers.is_some(),
-        ),
         ("--notify-log", a.notify_log.is_some()),
         ("--notify-exec", a.notify_exec.is_some()),
         ("--notify-file", a.notify_file.is_some()),
@@ -103,7 +99,7 @@ fn inert_apply_flags(a: &ApplyArgs) -> [(&'static str, bool); FLAG_COUNT] {
 
 /// Number of refused `apply` flags. Kept as a named constant so the array
 /// length and the table cannot silently disagree.
-const FLAG_COUNT: usize = 59;
+const FLAG_COUNT: usize = 58;
 
 /// Refuse the run if any unimplemented flag was supplied.
 ///
