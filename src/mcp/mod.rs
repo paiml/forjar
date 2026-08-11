@@ -6,6 +6,7 @@
 
 pub mod handlers;
 pub mod handlers_state;
+pub mod paths;
 pub mod registry;
 pub mod types;
 

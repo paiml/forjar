@@ -8,7 +8,6 @@ use crate::core::state;
 use crate::core::types;
 use crate::tripwire::{anomaly, tracer};
 use pforge_runtime::Handler;
-use std::path::PathBuf;
 
 #[async_trait::async_trait]
 impl Handler for StatusHandler {
@@ -17,7 +16,8 @@ impl Handler for StatusHandler {
     type Error = pforge_runtime::Error;
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let state_dir =
+            super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
 
         let mut machines = Vec::new();
 
@@ -73,7 +73,8 @@ impl Handler for TraceHandler {
     type Error = pforge_runtime::Error;
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let state_dir =
+            super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
 
         let mut all_spans = Vec::new();
 
@@ -137,7 +138,8 @@ impl Handler for AnomalyHandler {
     type Error = pforge_runtime::Error;
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let state_dir =
+            super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
         let min_events = input.min_events.unwrap_or(3);
 
         let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =

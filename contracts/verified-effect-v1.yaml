@@ -1,0 +1,1191 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-11"
+  author: "PAIML Engineering"
+  description: |
+    VERIFIED EFFECT — a command may report success only after it has confirmed,
+    from a source independent of its own intent, that the work it claims
+    happened actually happened.
+
+    THE INVARIANT IN ONE LINE
+
+      report(C) = success  ⟹  every effect C claimed is observable in the world
+                              through a channel C did not author.
+
+    WHY THIS CLASS KEEPS HAPPENING HERE
+
+    forjar is a declarative tool. Its entire value proposition is that
+    `Apply complete: 1 converged` means something. Yet the 2026-08-10 dogfood of
+    the published 1.12.3 binary found 24 distinct commands that print a success
+    banner and exit 0 while doing nothing, doing the wrong thing, or observing
+    nothing at all. They are not 24 unrelated bugs. They are one bug written 24
+    times, and the codebase reproduces it because of five structural habits:
+
+    1. INTENT IS TREATED AS EVIDENCE. The success message is emitted from the
+       branch that DECIDED to act, not from a read-back of the world. `trigger`
+       counts the actions it MATCHED and prints "1 action(s) fired" —
+       `actions_count` is the length of a Vec, not a tally of executions. Nothing
+       downstream ever asks "did the action run?", so the count is unfalsifiable
+       by construction.
+
+    2. FEATURES SHIP AS PARSED-AND-DROPPED. clap declares the flag, --help
+       documents it with an FJ- ticket number, and the value is never read.
+       --checkpoint, --pre-check, --post-check, --pre-apply-hook,
+       --post-apply-hook all parse cleanly and vanish. Because clap accepts them
+       and the command exits 0, both the CLI surface and CI look healthy. This
+       makes --pre-check a GATE THAT CANNOT BLOCK: a script that exits 1 still
+       lets the apply through. An unpassable gate trains bypass; an unfailable
+       gate trains false confidence, which is worse, because nobody notices.
+
+    3. AN EMPTY SELECTION IS SCORED AS ZERO PROBLEMS RATHER THAN ZERO CHECKS.
+       `drift --tripwire -m ghost` filters the machine list to nothing, finds no
+       findings in nothing, and prints "No drift detected." while the only real
+       machine is drifting. `test -r nosuch` reports "0 pass, 0 fail, 0 skip".
+       In CI the exit code is frequently the ONLY signal read, so this converts a
+       typo into a green build. The same command family already knows better:
+       `explain nosuch` and `graph --subgraph NOSUCHRES` both exit 1 "not found".
+
+    4. UNSUPPORTED IS RENDERED AS SUCCEEDED. Where a capability is compiled out
+       or stubbed, the stub returns Ok. `plugin run --operation apply` reports
+       "success": true, "status": "Converged", "runtime": "stub". `state-decrypt`
+       counts ENC[age,...] files as "skipped" and exits 0. The binary contains
+       the correct behaviour for the identical situation one command over:
+       `state-encrypt` exits 1 "encryption feature not enabled". Two adjacent
+       code paths, opposite honesty.
+
+    5. THE FAILURE SIGNAL IS OBSERVED BUT NEVER ROUTED TO THE EXIT CODE.
+       `doctor --network` PRINTS "✗ bogus (nonexistent-host.invalid) —
+       unreachable" and exits 0, because the --network branch renders its own
+       results and returns before the shared counter that computes the exit code.
+       `bench --iterations 0` prints "✗ 0/6 targets met" and exits 0.
+       `validate --check-resource-names` prints "Resource naming violations (2)"
+       and exits 0. The tool sees the failure, says the failure, and then
+       reports success.
+
+    A SIXTH, SUBTLER FORM: SUCCESS THAT IS NEVER READ BACK THROUGH THE CONSUMER.
+    `image --user-data` writes a cloud-init file and reports "Wrote user-data",
+    but the file is not parseable YAML — no YAML parser was ever pointed at the
+    generator's output. `build --push` prints "Push complete: 3 uploaded" to a
+    hardcoded docker.io/app:latest with no auth. `apply --notify` shells out to
+    curl WITHOUT --fail, so a receiver returning HTTP 500 is indistinguishable
+    from acceptance while a refused connection (curl exit 7) is correctly warned
+    about. In every case the independent oracle already exists — a YAML parser,
+    the registry's HTTP status, curl's -w '%{http_code}' — and simply is not
+    consulted.
+
+    WHY THIS IS A `pattern` CONTRACT AND NOT A KERNEL ONE
+
+    The property quantifies over PROCESS EXIT CODES, THE FILESYSTEM AFTER A RUN,
+    and HTTP RESPONSES FROM A LIVE RECEIVER. None of that is in Kani's model. A
+    bounded harness here could only prove something about a stubbed executor —
+    i.e. it would prove that the code that already believes itself agrees with
+    itself, which is the exact epistemic error this contract exists to outlaw.
+    NO KANI HARNESS IS DECLARED, DELIBERATELY. The obligations are discharged by
+    21 falsification tests, each a runnable shell command that is RED today
+    against the published binary.
+
+    HOW THE FALSIFICATION TESTS WERE CONSTRUCTED
+
+    Every test below was EXECUTED against /home/noah/.cargo/bin/forjar (1.12.3,
+    crates.io) on 2026-08-11 and observed to fail. The `expected_red` blocks are
+    transcripts, ANSI stripped, not predictions. Each test also names a CONTROL —
+    a sibling command in the same binary that behaves correctly on the same
+    input — which is how we know the RED is a defect and not an unimplementable
+    demand, and which supplies the exact wording the fix should adopt.
+
+  verification_command: |
+    # Preamble. Every falsification_tests[].test below is a complete shell
+    # command that assumes only these two definitions.
+    #
+    #   RED   (bug present): the published 1.12.3 binary
+    #   GREEN (bug fixed)  : the fix branch build
+    #
+    export FORJAR=/home/noah/.cargo/bin/forjar          # RED — all 21 fail
+    # export FORJAR=/tmp/forjar-fix/target/release/forjar   # must go GREEN
+    #
+    # Minimal single-file repro config; $D is the fresh dir, cwd is $D.
+    mkrepro() {
+      D=$(mktemp -d); cd "$D" || return 1
+      cat > forjar.yaml <<YAML
+    version: "1.0"
+    name: repro
+    machines:
+      local: {hostname: localhost, addr: 127.0.0.1, user: noah,
+              ssh_key: ~/.ssh/id_ed25519, arch: x86_64}
+    resources:
+      f1: {type: file, machine: local, path: $D/f1.txt, content: "aaa\n",
+           mode: "0644"}
+    YAML
+    }
+    #
+    # Then run each falsification_tests[].test in its own subshell. No test
+    # touches a real fleet host: every machine is 127.0.0.1/localhost or an
+    # RFC-2606 .invalid name, and every artefact lands under mktemp -d.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/210 — family B,
+       unverified success (24 confirmed defects)"
+    - "issue: https://github.com/paiml/forjar/issues/208 — umbrella dogfood
+       inventory, 101 confirmed defects across 6 families"
+    - "build-semantics-v1.yaml INV-NO-EVIDENCE-IS-NOT-SUCCESS and
+       INV-EMPTY-SELECTION-IS-AN-ERROR — the v1.12 statement of the same rule,
+       which this contract generalises from `check`/`apply` to EVERY command"
+    - "source-content-identity-v1.yaml — the same disease in the planner:
+       'unchanged' printed over stale bytes because the hash could not differ"
+    - "idempotent-apply-v1.yaml — sound but vacuous if success is unverified"
+    - "apply-summary-distinguishability-v1.yaml — why a summary line must
+       distinguish outcomes it currently conflates"
+
+equations:
+  verified_effect:
+    formula: |
+      ∀ C ∈ Command:
+        report(C) = success
+          ⟹ ∀ e ∈ claims(C): observe(e, world_after(C)) = true
+      where observe is evaluated by an ORACLE independent of C:
+        the filesystem, a second process, a parser, or an HTTP status —
+        never C's own intent, plan, or match set.
+    domain: "C ∈ Command invocations, e ∈ claimed effects"
+    codomain: "{success, failure} × exit_code ∈ ℕ"
+    invariants:
+      - "Success implies every claimed effect is independently observable"
+      - "A claim counter (`N action(s) fired`, `N uploaded`, `N generation(s)`)
+         counts EXECUTIONS, never matches, intentions, or Vec lengths"
+      - "The contrapositive is the operative form: an unobservable effect makes
+         the report a failure, and a failure exits non-zero"
+
+  exit_code_totality:
+    formula: |
+      ∀ C: exit(C) = 0 ⟺ report(C) = success
+        ∧ printed_failure(C) ≠ ∅ ⟹ exit(C) ≠ 0
+    domain: "C ∈ Command invocations"
+    codomain: "exit_code ∈ ℕ"
+    invariants:
+      - "No command prints a failure it does not also exit non-zero for"
+      - "The exit code is computed once, at the end, from the SHARED result
+         set — never by an early-returning branch that renders its own output"
+      - "A tally the command itself printed as unmet (`0/6 targets met`,
+         `violations (2)`, `✗ unreachable`) forces a non-zero exit"
+
+  channel_agreement:
+    formula: |
+      ∀ C, ∀ channels t (text), j (--json):
+        effects(C, t) = effects(C, j) ∧ exit(C, t) = exit(C, j)
+        ∧ (j requested ⟹ stdout(C, j) ∈ WellFormedJSON)
+    domain: "C ∈ Command invocations, channel ∈ {text, json}"
+    codomain: "effect set × exit_code × stdout grammar"
+    invariants:
+      - "--json is an OUTPUT FORMAT, never a mode change: it must not skip
+         execution and must not alter the exit code"
+      - "When --json is set, stdout parses as JSON in EVERY mode of that
+         command, including --dry-run"
+      - "An artefact a command claims to have written parses in the format its
+         consumer will use (YAML for cloud-init, JSON for a manifest)"
+
+invariants:
+  - id: INV-SUCCESS-IMPLIES-VERIFIED-EFFECT
+    statement: >-
+      A command prints a success banner and exits 0 only after reading the
+      effect back. `trigger rb1` prints "Trigger 'rb1': 1 action(s) fired" while
+      f1.txt and state/ do not exist and a plain `apply` in the same directory
+      creates them; `promote -t prod` prints "Result: APPROVED (auto-approve:
+      true)" with nothing applied and "No history for environment 'prod'";
+      `apply --yes --checkpoint mycp` exits 0 with `snapshot list` saying
+      "No snapshots.". All three are the same violation.
+
+  - id: INV-NO-UNFALSIFIABLE-COUNTER
+    statement: >-
+      Every count in success output is derived from completed work, not from the
+      size of a candidate set. "1 action(s) fired" is the length of the matched
+      actions vector; "Push complete: 3 uploaded" is the blob count the packer
+      produced; "Rollback logged for environment 'prod' (1 generation(s))" is a
+      constant. A counter that cannot be wrong is not evidence.
+
+  - id: INV-A-GATE-MUST-BE-ABLE-TO-BLOCK
+    statement: >-
+      Any option documented as a validation gate can stop the operation. A
+      `--pre-check` script that exits 1 must abort the apply. Today it does not:
+      the apply completes and exits 0, while the sibling `--pre-flight` on the
+      identical script exits 1 with "error: Pre-flight check failed:" and writes
+      nothing. A flag that is parsed and dropped is worse than an absent flag,
+      because --help promises it and CI believes it.
+
+  - id: INV-EMPTY-SELECTION-IS-NOT-CLEAN
+    statement: >-
+      A selector that matches nothing is an error naming what IS available, never
+      a clean result. Zero checks performed must never be rendered as zero
+      problems found. `drift --tripwire -m ghost` → "No drift detected." rc=0
+      while the unfiltered run of the same tree exits 1 "Drift detected: 1
+      resource(s)"; `test -r nosuch` → "0 pass, 0 fail, 0 skip" rc=0;
+      `graph --prune NOSUCHRES` → "Pruned NOSUCHRES and 0 dependent(s)" rc=0.
+      The binary's own convention is already rc=1 "not found" (`explain`,
+      `graph --subgraph`, `graph --blast-radius`).
+
+  - id: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    statement: >-
+      A failure the command printed is a failure the command exits on. There is
+      exactly one place per command where the exit code is computed, and every
+      branch feeds it. `doctor --network` printing "✗ bogus
+      (nonexistent-host.invalid) — unreachable" must exit 1 the way every other
+      doctor failure does ("5 checks: 2 pass, 2 warn, 1 fail" / "error: doctor
+      found failures").
+
+  - id: INV-UNSUPPORTED-IS-AN-ERROR-NOT-A-SUCCESS
+    statement: >-
+      A compiled-out feature, a stub runtime, or an unimplemented renderer exits
+      non-zero naming what is missing. It never reports Converged, never reports
+      success: true, and never emits a synthesised artefact as though it were
+      real. `state-encrypt` already does this correctly ("error: encryption
+      feature not enabled — build with --features encryption"); `state-decrypt`,
+      `plugin run`, and `oci-pack --json` in the same binary do not.
+
+  - id: INV-JSON-IS-A-FORMAT-NOT-A-MODE
+    statement: >-
+      Adding --json never changes what a command DOES and never changes its exit
+      code, and its stdout parses as JSON in every mode. Today `run <task>
+      --json` skips execution entirely and turns a task that exits 3 (plain: rc=1
+      "error: task 'boom' failed with exit 3") into rc=0 with no status field;
+      `promote --dry-run --json` wraps the object in banner and footer lines so
+      stdout is unparseable; `build --json` prints "Warning: --json is not yet
+      implemented for build output. Flag ignored." and human text.
+
+  - id: INV-ARTIFACT-PARSES-IN-ITS-CONSUMER-FORMAT
+    statement: >-
+      "Wrote X" is claimed only after X has been read back with a parser for the
+      format its consumer uses. `image --user-data` reports success on a
+      cloud-init file whose embedded heredoc body sits at column 0 inside a `|`
+      block scalar, so PyYAML fails at line 29 — and the same generator feeds the
+      --base ISO path, so the broken artefact reaches real boots.
+
+  - id: INV-REMOTE-ACK-IS-PART-OF-THE-EFFECT
+    statement: >-
+      For a network side effect, delivery means the peer ACCEPTED it. HTTP status
+      is the independent oracle and must be checked. `apply --notify` shells out
+      to curl without --fail, so a receiver replying 500 produces no warning at
+      all, while a refused connection to a dead port correctly produces "Warning:
+      webhook POST to <url> failed (exit exit status: 7)". The rejection is
+      currently indistinguishable from acceptance.
+
+  - id: INV-RETENTION-IS-ORDERED-BEFORE-IT-IS-CUT
+    statement: >-
+      A retention policy stated as "keep the N newest" sorts by timestamp before
+      cutting. `logs --gc` enumerates run directories in filesystem/hash order
+      and keeps whichever N it meets first: with 15 known-ordered runs it deleted
+      oldest-first indices 2, 8, 9, 11 and 13, keeping index 1 (the OLDEST) and
+      destroying index 13 while claiming "within retention: 10 runs/machine".
+
+  - id: INV-SERVER-HONOURS-ITS-TRANSPORT-TERMINATION
+    statement: >-
+      A process that serves a transport implements that transport's shutdown
+      clause. `forjar mcp` serves MCP stdio, whose shutdown is "client closes the
+      child's stdin and waits for exit", but a zero-length read is treated as
+      "no message this iteration" and the loop parks forever. This is the
+      degenerate member of the family: rather than reporting an unverified
+      success, it never reports at all — a spec-following client hangs and every
+      scripted interaction returns 124 from `timeout`.
+
+proof_obligations:
+  - type: soundness
+    property: "Reported success entails the claimed effect occurred"
+    formal: "report(C) = success ⟹ ∀ e ∈ claims(C): observe(e, world_after(C))"
+    tolerance: 0.0
+    applies_to: "every command that prints a success banner or exits 0"
+
+  - type: independence
+    property: >-
+      The verification oracle is independent of the command's own intent — the
+      filesystem, a second process, a parser, or an HTTP status
+    formal: "observe ∉ σ(plan(C), match_set(C), intent(C))"
+    tolerance: 0.0
+    applies_to: "every success determination"
+
+  - type: completeness
+    property: "Every claim in the success output is covered by an observation"
+    formal: "∀ e ∈ claims(C): ∃ o ∈ observations(C): o verifies e"
+    tolerance: 0.0
+    applies_to: "counters, banners, and boolean status fields"
+
+  - type: postcondition
+    property: "exit(C) = 0 iff no failure was observed or printed"
+    formal: "printed_failure(C) ≠ ∅ ∨ unverified_claim(C) ≠ ∅ ⟹ exit(C) ≠ 0"
+    tolerance: 0.0
+    applies_to: all
+
+  - type: classification
+    property: "An empty selection classifies as error, not as clean"
+    formal: "selection(C) = ∅ ⟹ report(C) = failure ∧ exit(C) = 1"
+    tolerance: 0.0
+    applies_to: "-m, -r, -t, --prune, --highlight and every other selector"
+
+  - type: safety
+    property: "An unsupported or stubbed capability never reports success"
+    formal: "¬supported(feature(C)) ⟹ report(C) = failure ∧ exit(C) ≠ 0"
+    tolerance: 0.0
+    applies_to: "stub runtimes, compiled-out features, unimplemented renderers"
+
+  - type: equivalence
+    property: "Text and --json channels agree on effects and exit code"
+    formal: "effects(C, text) = effects(C, json) ∧ exit(C, text) = exit(C, json)"
+    tolerance: 0.0
+    applies_to: "every command accepting --json"
+
+  - type: precondition
+    property: >-
+      A gate option can refuse: a non-zero gate script aborts before any
+      resource is touched
+    formal: "gate(C) ≠ 0 ⟹ world_after(C) = world_before(C) ∧ exit(C) ≠ 0"
+    tolerance: 0.0
+    applies_to: "--pre-check, --post-check, --pre-apply-hook, --post-apply-hook"
+
+  - type: ordering
+    property: "Retention sorts by timestamp before applying the keep-N cut"
+    formal: "kept(runs, N) = take(N, sort_desc_by_start(runs))"
+    tolerance: 0.0
+    applies_to: "logs --gc and every other retention sweep"
+
+  - type: termination
+    property: "A stdio server exits when its input stream reaches EOF"
+    formal: "read(stdin) = EOF ⟹ ◇(process exits with 0)"
+    tolerance: 0.0
+    applies_to: "forjar mcp (stdio transport)"
+
+falsification_tests:
+  - id: FALSIFY-VE-001
+    rule: INV-SUCCESS-IMPLIES-VERIFIED-EFFECT
+    prediction: >-
+      `trigger <rulebook>` reports actions fired only if they executed.
+    test: |
+      mkrepro
+      cat > forjar-rules.yaml <<'EOF'
+      rulebooks:
+        - name: rb1
+          events:
+            - type: manual
+          actions:
+            - apply:
+                file: forjar.yaml
+      EOF
+      $FORJAR trigger rb1; echo "exit=$?"
+      test -e f1.txt && echo EFFECT_PRESENT || echo EFFECT_ABSENT
+      $FORJAR trigger rb1 --json
+      $FORJAR apply --yes >/dev/null 2>&1   # control: same dir, same config
+      test -e f1.txt && echo CONTROL_APPLY_WORKS
+    expected_red: |
+      Trigger 'rb1': 1 action(s) fired
+        [0] apply
+      exit=0
+      EFFECT_ABSENT
+      {"rulebook": "rb1", "fired": true, "actions_count": 1}
+      CONTROL_APPLY_WORKS
+    red_is_reachable: >-
+      Executed 2026-08-11 against 1.12.3 — output above is the transcript. The
+      control line proves the action is executable in that exact directory, so
+      "1 action(s) fired" is a fabricated count, not an environment problem.
+      GREEN requires EFFECT_PRESENT, or fired:false with a non-zero exit.
+    if_fails: >-
+      A rulebook is a promise that infrastructure repairs itself on an
+      event. If this is RED, every event-driven repair in the fleet is a no-
+      op that logs 'fired' — the automation reports it healed something it
+      never touched.
+    owner: forjar
+
+  - id: FALSIFY-VE-002
+    rule: INV-SUCCESS-IMPLIES-VERIFIED-EFFECT
+    prediction: >-
+      `promote -t <env>` applies and records before reporting APPROVED, and its
+      --dry-run --json stdout parses.
+    test: |
+      mkrepro
+      cat >> forjar.yaml <<'EOF'
+      environments:
+        dev: {}
+        prod:
+          promotion:
+            from: dev
+            gates:
+              - validate: {}
+            auto_approve: true
+      EOF
+      $FORJAR promote -t prod < /dev/null | tail -1; echo "exit=$?"
+      test -e f1.txt && echo EFFECT_PRESENT || echo EFFECT_ABSENT
+      $FORJAR environments history prod
+      $FORJAR promote -t prod --dry-run --json 2>/dev/null \
+        | python3 -m json.tool >/dev/null; echo "dryrun_json_parse=$?"
+      $FORJAR promote -t prod --json 2>/dev/null \
+        | python3 -m json.tool >/dev/null; echo "plain_json_parse=$?"
+    expected_red: |
+      Result: APPROVED (auto-approve: true)
+      exit=0
+      EFFECT_ABSENT
+      No history for environment 'prod'
+      dryrun_json_parse=1
+      plain_json_parse=0
+    red_is_reachable: >-
+      Executed 2026-08-11. Covers two family-B members at once: the promotion
+      that approves without applying, and the --dry-run banner/footer that break
+      its own JSON. plain_json_parse=0 is the control — the same command emits
+      clean JSON in its other mode, so the dry-run breakage is a defect, not a
+      limitation. GREEN requires EFFECT_PRESENT, a history entry, and
+      dryrun_json_parse=0.
+    if_fails: >-
+      A promotion that approves without applying means prod is declared to
+      match dev while still running the previous release, and the empty
+      history removes the audit trail that would reveal it.
+    owner: forjar
+
+  - id: FALSIFY-VE-003
+    rule: INV-NO-UNFALSIFIABLE-COUNTER
+    prediction: "`apply --checkpoint NAME` creates a checkpoint discoverable by `snapshot list`."
+    test: |
+      mkrepro
+      $FORJAR apply --yes >/dev/null 2>&1
+      sed -i 's/"aaa/"AAA2/' forjar.yaml
+      $FORJAR apply --yes --checkpoint mycp >/dev/null 2>&1; echo "exit=$?"
+      $FORJAR snapshot list
+      echo "mycp artifacts: $(find . -name '*mycp*' | wc -l)"
+      $FORJAR apply --yes --force --snapshot-before snap1 >/dev/null 2>&1
+      $FORJAR snapshot list          # control: the storage path works
+    expected_red: |
+      exit=0
+      No snapshots.
+      mycp artifacts: 0
+        pre-apply-<epoch>
+        snap1
+    red_is_reachable: >-
+      Executed 2026-08-11. The control `--snapshot-before snap1` in the SAME
+      directory writes two snapshots, so the writer is functional and
+      --checkpoint is parsed-and-dropped. GREEN requires "mycp" in `snapshot
+      list` (or a checkpoint record `--resume` can consume), or a non-zero exit.
+    if_fails: >-
+      --checkpoint is the documented safety net taken BEFORE a risky apply.
+      If it is RED, the rollback point the operator believes exists does
+      not, and they discover it only when they need it.
+    owner: forjar
+
+  - id: FALSIFY-VE-004
+    rule: INV-A-GATE-MUST-BE-ABLE-TO-BLOCK
+    prediction: "A `--pre-check` script exiting 1 aborts the apply with a non-zero exit."
+    test: |
+      mkrepro
+      printf '#!/bin/sh\nexit 1\n' > fail.sh; chmod +x fail.sh
+      $FORJAR apply --yes --pre-check "$PWD/fail.sh" 2>&1 | tail -1
+      echo "pre_check_exit=${PIPESTATUS[0]:-$?}"
+      test -e f1.txt && echo APPLIED_ANYWAY || echo BLOCKED
+      rm -rf state f1.txt
+      $FORJAR apply --yes --pre-flight "$PWD/fail.sh" 2>&1 | tail -1
+      test -e f1.txt && echo CONTROL_APPLIED || echo CONTROL_BLOCKED
+    expected_red: |
+      Apply complete: 1 converged, 0 unchanged.
+      pre_check_exit=0
+      APPLIED_ANYWAY
+      error: Pre-flight check failed:
+      CONTROL_BLOCKED
+    red_is_reachable: >-
+      Executed 2026-08-11. `--pre-flight` is the control: the identical failing
+      script blocks the apply and exits 1 there. --pre-check/--post-check/
+      --pre-apply-hook/--post-apply-hook are all parsed and dropped (verified by
+      a hook that touches a marker file: only --pre-flight and --post-flight ran).
+      GREEN requires BLOCKED and pre_check_exit=1.
+    if_fails: >-
+      A validation gate that cannot refuse is worse than no gate: --pre-
+      check exists specifically so a policy script can stop an apply, and CI
+      will treat its exit 0 as evidence the policy passed.
+    owner: forjar
+
+  - id: FALSIFY-VE-005
+    rule: INV-EMPTY-SELECTION-IS-NOT-CLEAN
+    prediction: "`drift -m <unknown>` errors instead of reporting the tree clean."
+    test: |
+      mkrepro
+      $FORJAR apply --yes >/dev/null 2>&1
+      echo TAMPER > f1.txt
+      $FORJAR drift --tripwire -m ghost; echo "ghost_exit=$?"
+      $FORJAR drift --tripwire 2>&1 | tail -2; echo "control_exit=${PIPESTATUS[0]}"
+    expected_red: |
+      No drift detected.
+      ghost_exit=0
+      Drift detected: 1 resource(s)
+      error: 1 drift finding(s)
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. Same tree, same instant: the unfiltered tripwire
+      exits 1 on real drift while `-m ghost` reports clean. A cron tripwire
+      pinned to a renamed machine is therefore permanently green. GREEN requires
+      ghost_exit=1 with an "unknown machine 'ghost'" style error.
+    if_fails: >-
+      A cron tripwire pinned to a machine that was renamed or removed
+      reports 'No drift detected.' forever. Drift monitoring silently stops
+      monitoring, and the absence of an alarm is read as the absence of
+      drift.
+    owner: forjar
+
+  - id: FALSIFY-VE-006
+    rule: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    prediction: "`doctor --network` exits non-zero when a connectivity check fails."
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > net.yaml <<'EOF'
+      version: "1.0"
+      name: repro
+      machines:
+        bogus: {hostname: bogus, addr: nonexistent-host.invalid, user: noah,
+                ssh_key: ~/.ssh/id_ed25519, arch: x86_64}
+      resources: {}
+      EOF
+      $FORJAR doctor -f net.yaml --network --no-color; echo "exit=$?"
+      $FORJAR doctor -f missing.yaml --no-color 2>&1 | tail -2
+      echo "control_exit=${PIPESTATUS[0]}"
+    expected_red: |2
+        ✗ bogus (nonexistent-host.invalid) — unreachable (22ms)
+      exit=0
+      5 checks: 2 pass, 2 warn, 1 fail
+      error: doctor found failures
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11 (also reproduced in the original dogfood in 2 fresh
+      dirs). The control shows the shared counter path exits 1 correctly; only
+      the --network branch bypasses it by rendering and returning early.
+      nonexistent-host.invalid is RFC 2606 — it can never resolve, so the check
+      genuinely fails every run. GREEN requires exit=1.
+    if_fails: >-
+      The one doctor check that actually touches the network is the one that
+      cannot fail the command, so `forjar doctor --network` in a pre-flight
+      script certifies an unreachable fleet as healthy.
+    owner: forjar
+
+  - id: FALSIFY-VE-007
+    rule: INV-EMPTY-SELECTION-IS-NOT-CLEAN
+    prediction: "`test -r <unknown>` errors instead of reporting an all-green empty run."
+    test: |
+      mkrepro
+      $FORJAR test -r nosuch --no-color | tail -1; echo "exit=${PIPESTATUS[0]}"
+      $FORJAR test -r nosuch --json | tr -d ' \n'; echo
+      $FORJAR explain nosuch; echo "control_exit=$?"
+    expected_red: |
+      0 pass, 0 fail, 0 skip (0.000s)
+      exit=0
+      {"pass":0,"fail":0,"skip":0,"duration_seconds":0.00021,"results":[]}
+      error: resource 'nosuch' not found
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. `explain` on the identical unknown name is the
+      binary's own established convention (rc=1 "not found"), so the demand is
+      already implemented one command over. A mistyped `-r` in a CI test gate is
+      currently a silent green. GREEN requires exit=1.
+    if_fails: >-
+      A typo in a CI test selector turns the test gate green with zero tests
+      executed. The pipeline reports 'tests passed' having run none.
+    owner: forjar
+
+  - id: FALSIFY-VE-008
+    rule: INV-EMPTY-SELECTION-IS-NOT-CLEAN
+    prediction: "`graph --prune`/`--highlight` reject unknown resources like their siblings do."
+    test: |
+      mkrepro
+      $FORJAR graph --no-color --prune NOSUCHRES | tail -1
+      echo "prune_exit=${PIPESTATUS[0]}"
+      $FORJAR graph --no-color --highlight NOSUCHRES >/dev/null 2>&1
+      echo "highlight_exit=$?"
+      $FORJAR graph --no-color --subgraph NOSUCHRES; echo "control_exit=$?"
+    expected_red: |
+      ── Pruned NOSUCHRES and 0 dependent(s)
+      prune_exit=0
+      highlight_exit=0
+      error: Resource 'NOSUCHRES' not found
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. Six resource-taking flags on this one command already
+      exit 1 "not found" (--subgraph, --blast-radius, --affected,
+      --impact-radius, --change-impact, --resource-dependency-chain); two do not.
+      The inconsistency inside a single command is the proof. GREEN requires
+      prune_exit=1 and highlight_exit=1.
+    if_fails: >-
+      Graph output is used to reason about blast radius before a change. A
+      --prune that silently pruned nothing produces a picture of the
+      dependency graph that is not the graph, and the operator plans against
+      it.
+    owner: forjar
+
+  - id: FALSIFY-VE-009
+    rule: INV-JSON-IS-A-FORMAT-NOT-A-MODE
+    prediction: "`run <task> --json` executes the task and propagates its exit code."
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: repro
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah,
+                ssh_key: ~/.ssh/id_ed25519, arch: x86_64}
+      resources:
+        side-effect: {type: task, machine: local, command: "touch $D/effect.txt"}
+        boom:        {type: task, machine: local, command: "exit 3"}
+      EOF
+      $FORJAR run side-effect >/dev/null 2>&1
+      test -e effect.txt && echo PLAIN_RAN; rm -f effect.txt
+      $FORJAR run side-effect --json >/dev/null 2>&1; echo "json_exit=$?"
+      test -e effect.txt && echo JSON_RAN || echo JSON_DID_NOT_RUN
+      $FORJAR run boom >/dev/null 2>&1;        echo "boom_plain_exit=$?"
+      $FORJAR run boom --json;                 echo "boom_json_exit=$?"
+    expected_red: |
+      PLAIN_RAN
+      json_exit=0
+      JSON_DID_NOT_RUN
+      boom_plain_exit=1
+      {"task":"boom","command":"exit 3","script":"set -euo pipefail\nexit 3\n","timeout_secs":null}
+      boom_json_exit=0
+    red_is_reachable: >-
+      Executed 2026-08-11. PLAIN_RAN and boom_plain_exit=1 are the controls from
+      the same binary and same config: adding an output-format flag both skips
+      the side effect and converts a failing task into a success. The emitted
+      object has no status/exit_code field, so a JSON consumer cannot recover the
+      failure either. GREEN requires JSON_RAN and boom_json_exit=1.
+    if_fails: >-
+      Any automation that chose --json for machine-readability gets a tool
+      that never runs the task and never reports failure — the strictly
+      worst combination, because the script's own error handling is disarmed
+      at the same moment the work stops happening.
+    owner: forjar
+
+  - id: FALSIFY-VE-010
+    rule: INV-UNSUPPORTED-IS-AN-ERROR-NOT-A-SUCCESS
+    prediction: "`oci-pack` either produces the layout or exits non-zero in both channels."
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir src; echo x > src/a.txt
+      $FORJAR oci-pack src --tag t:1 | tail -2; echo "exit=${PIPESTATUS[0]}"
+      test -d oci-output && echo LAYOUT_PRESENT || echo LAYOUT_ABSENT
+      $FORJAR oci-pack src --tag t:3 --output "$D/j" --json | head -3
+      echo "json_exit=${PIPESTATUS[0]}"
+      test -d "$D/j" && echo JSON_LAYOUT_PRESENT || echo JSON_LAYOUT_ABSENT
+    expected_red: |
+      OCI layout generation requires sha2+flate2 crates.
+      Use `forjar apply` with type: image resources for full builds.
+      exit=0
+      LAYOUT_ABSENT
+      {
+        "source": "src",
+        "tag": "t:3",
+      json_exit=0
+      JSON_LAYOUT_ABSENT
+    red_is_reachable: >-
+      Executed 2026-08-11. Two independent falsifications: the stated reason is
+      untrue (`forjar build` writes a real OCI layout with sha256 blobs in the
+      same binary, so those crates are compiled in), and --json suppresses even
+      the honest caveat, emitting a full schemaVersion-2 manifest for a directory
+      that does not exist. GREEN requires LAYOUT_PRESENT, or exit=1 in BOTH
+      channels with the caveat present in the JSON too.
+    if_fails: >-
+      A synthesised OCI manifest for a directory that does not exist will be
+      consumed by whatever reads that JSON, so the lie propagates downstream
+      instead of stopping at the command that told it.
+    owner: forjar
+
+  - id: FALSIFY-VE-011
+    rule: INV-SUCCESS-IMPLIES-VERIFIED-EFFECT
+    prediction: "`contracts -f <missing>` reports the read failure instead of an empty report."
+    test: |
+      D=$(mktemp -d); cd "$D"
+      $FORJAR contracts -f "$D/absent.yaml" | head -3; echo "exit=${PIPESTATUS[0]}"
+      $FORJAR contracts -f "$D/absent.yaml" --json | head -2
+      $FORJAR complexity -f "$D/absent.yaml"; echo "control_exit=$?"
+    expected_red: |
+      Contract Coverage Report
+      ========================
+      Resources analyzed: 0
+      exit=0
+      {
+        "total_resources": 0,
+      error: read <D>/absent.yaml: No such file or directory (os error 2)
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. "Resources analyzed: 0" over an absent file is
+      indistinguishable from a genuinely empty config; the JSON carries no error
+      field at all. `complexity -f` and `impact -f` on the same path exit 1 —
+      every other -f consumer in the binary is the control. The root cause is a
+      single `unwrap_or_default()` degrading a read error to an empty config.
+      GREEN requires exit=1 naming the file, and an "error" key under --json.
+    if_fails: >-
+      Contract-coverage reporting is a quality signal. Pointed at a path
+      typo it reports a clean zero-resource run, so the coverage metric
+      silently measures nothing and trends beautifully.
+    owner: forjar
+
+  - id: FALSIFY-VE-012
+    rule: INV-UNSUPPORTED-IS-AN-ERROR-NOT-A-SUCCESS
+    prediction: >-
+      A compiled-out feature and a stub runtime both exit non-zero rather than
+      reporting skipped/Converged.
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir -p state/local
+      echo 'secret1: ENC[age,data:abcdef0123456789]' > state/forjar.lock.yaml
+      echo 'secret1: ENC[age,data:abcdef0123456789]' > state/local/state.lock.yaml
+      BEFORE=$(md5sum state/forjar.lock.yaml | cut -d' ' -f1)
+      $FORJAR state-decrypt --passphrase totally-wrong; echo "decrypt_exit=$?"
+      AFTER=$(md5sum state/forjar.lock.yaml | cut -d' ' -f1)
+      [ "$BEFORE" = "$AFTER" ] && echo FILES_UNTOUCHED
+      $FORJAR state-encrypt --passphrase totally-wrong; echo "control_exit=$?"
+      $FORJAR plugin init good >/dev/null 2>&1
+      $FORJAR plugin run good --operation apply --json; echo "plugin_exit=$?"
+    expected_red: |
+      Decrypted 0 file(s), skipped 2, errors 0
+      decrypt_exit=0
+      FILES_UNTOUCHED
+      error: encryption feature not enabled — build with --features encryption
+      control_exit=1
+      {"plugin":"good","operation":"apply","success":true,"message":"apply: stub (enable --features wasm-runtime)","status":"Converged","runtime":"stub"}
+      plugin_exit=0
+    red_is_reachable: >-
+      Executed 2026-08-11. `state-encrypt` is the control and it is CORRECT in
+      the very same build, on the very same wrong passphrase — the binary even
+      ships the string "ENC[age,...] markers found but forjar was compiled
+      without encryption support" that state-decrypt never prints. The plugin
+      case is the same shape: a stub that executed nothing reports
+      status Converged. GREEN requires decrypt_exit=1 and plugin_exit=1 with
+      success:false.
+    if_fails: >-
+      A build without the encryption or wasm feature reports secrets handled
+      and plugins converged. Operators conclude state is encrypted and
+      plugin policy is enforced when neither code path exists in the binary
+      they are running.
+    owner: forjar
+
+  - id: FALSIFY-VE-013
+    rule: INV-NO-UNFALSIFIABLE-COUNTER
+    prediction: >-
+      `build --push` targets the declared tag, authenticates, and fails
+      non-zero when it cannot; `build --json` emits JSON.
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir ctx; echo hi > ctx/a.txt
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: repro
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah,
+                ssh_key: ~/.ssh/id_ed25519, arch: x86_64}
+      resources:
+        img: {type: image, machine: local, path: $D/ctx,
+              tag: "ghcr.io/foo/bar:1.2.3"}
+      EOF
+      unshare -rn $FORJAR build --resource img --push 2>&1 | tail -5
+      echo "push_exit=${PIPESTATUS[0]}"
+      $FORJAR build --resource img --json 2>&1 | head -1
+      $FORJAR build --resource img --json 2>/dev/null \
+        | python3 -m json.tool >/dev/null; echo "json_parse=$?"
+    expected_red: |
+      --push: OCI Distribution v1.1
+        registry: docker.io
+        name: app
+        tag: latest
+        blobs: 3 to push
+        push skipped: registry unreachable (no Location header in upload response)
+      push_exit=0
+      Warning: --json is not yet implemented for build output. Flag ignored.
+      json_parse=1
+    red_is_reachable: >-
+      Executed 2026-08-11 (BLOCKER). Two independent proofs the push is
+      fabricated: the registry/name/tag are the hardcoded constants
+      docker.io/app:latest regardless of the declared ghcr.io/foo/bar:1.2.3, and
+      under `unshare -rn` — no network at all — it still exits 0. With a network
+      it prints "Push complete: 3 uploaded" while docker.io answers HTTP/2 401 to
+      anonymous uploads and ~/.docker/config.json holds no docker.io credential.
+      The build half is the control: it writes a real OCI layout under
+      state/images/<res>/blobs/sha256/. GREEN requires push_exit≠0 offline, the
+      declared tag echoed, and json_parse=0.
+    if_fails: >-
+      The BLOCKER: an image reported as pushed was never uploaded, to a
+      registry nobody named, under a tag nobody declared. A deploy that
+      pulls the declared tag gets whatever was there before, and the build
+      log says the push completed.
+    owner: forjar
+
+  - id: FALSIFY-VE-014
+    rule: INV-ARTIFACT-PARSES-IN-ITS-CONSUMER-FORMAT
+    prediction: "`image --user-data` writes cloud-init that a YAML parser accepts."
+    test: |
+      mkrepro
+      $FORJAR image -m local --user-data -o ud.yaml; echo "exit=$?"
+      python3 -c "import yaml; yaml.safe_load(open('ud.yaml'))" 2>&1 | tail -3
+      echo "parse_exit=$?"
+      awk 'NR>=27&&NR<=30{printf "%d|%s\n",NR,$0}' ud.yaml
+    expected_red: |
+      Wrote user-data for 'local' to ud.yaml
+      exit=0
+      yaml.scanner.ScannerError: while scanning a simple key
+        in "ud.yaml", line 29, column 1
+      could not find expected ':'
+      parse_exit=0
+      27|    - |
+      28|      cat > /target/etc/systemd/system/forjar-firstboot.service <<'UNIT'
+      29|[Unit]
+      30|Description=Forjar First Boot Convergence
+    red_is_reachable: >-
+      Executed 2026-08-11 (also 2/2 fresh dirs in the original dogfood). The
+      oracle is a stock YAML parser, exactly the consumer cloud-init uses. Line
+      29 leaves the `|` block scalar because the embedded heredoc body is
+      interpolated without re-indentation. The same generator feeds the --base
+      ISO path, so this artefact reaches real first boots. GREEN requires
+      yaml.safe_load to succeed.
+    if_fails: >-
+      The unparseable cloud-init reaches real first boots via the same
+      generator that feeds --base. The failure appears as an unattended
+      install that silently skips forjar convergence, far from the command
+      that reported 'Wrote user-data'.
+    owner: forjar
+
+  - id: FALSIFY-VE-015
+    rule: INV-SUCCESS-IMPLIES-VERIFIED-EFFECT
+    prediction: >-
+      `apply --preview` and `apply --output-scripts` either apply, or say
+      plainly that they did not.
+    test: |
+      mkrepro
+      $FORJAR apply --yes --output-scripts ./sc 2>&1 | head -1
+      test -e f1.txt && echo OS_APPLIED || echo OS_NOT_APPLIED
+      test -d state  && echo OS_STATE    || echo OS_NO_STATE
+      rm -rf state sc f1.txt
+      $FORJAR apply --yes --preview 2>&1 | head -1; echo "preview_exit=${PIPESTATUS[0]}"
+      test -e f1.txt && echo PV_APPLIED || echo PV_NOT_APPLIED
+      $FORJAR status; echo "status_exit=$?"
+    expected_red: |
+      Exported 3 scripts to ./sc
+      OS_NOT_APPLIED
+      OS_NO_STATE
+      Planning repro (1 machines, 1 resources)
+      preview_exit=0
+      PV_NOT_APPLIED
+      error: cannot read state dir state: No such file or directory (os error 2)
+      status_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. `apply --yes` is an explicit instruction to apply;
+      both flags silently downgrade it to a plan and still exit 0, and --preview
+      — documented as "Show generated scripts before execution" — never shows a
+      script, it prints a plan. `status` exiting 1 immediately afterwards is the
+      independent oracle that nothing was applied. GREEN requires OS_APPLIED and
+      PV_APPLIED, or an explicit "apply skipped" line.
+    if_fails: >-
+      `apply --yes` is an explicit instruction to converge. Downgrading it
+      to a plan while exiting 0 means a deploy pipeline reports success
+      having changed nothing — and --preview does not even show the scripts
+      it is named for.
+    owner: forjar
+
+  - id: FALSIFY-VE-016
+    rule: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    prediction: >-
+      `validate --check-resource-names` compiles the pattern as a regex and
+      exits non-zero on violations.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: repro
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah,
+                ssh_key: ~/.ssh/id_ed25519, arch: x86_64}
+      resources:
+        good-name: {type: file, machine: local, path: $D/a.txt, content: "a\n"}
+        Bad_Name:  {type: file, machine: local, path: $D/b.txt, content: "b\n"}
+      EOF
+      $FORJAR validate --check-resource-names '.*' --no-color; echo "exit=$?"
+      $FORJAR validate --check-resource-names '^[a-z-]+$' --no-color; echo "exit=$?"
+      $FORJAR validate --check-naming --no-color 2>&1 | tail -1
+      echo "control_exit=${PIPESTATUS[0]}"
+    expected_red: |
+      Resource naming violations (2):
+        Bad_Name — does not match '.*'
+        good-name — does not match '.*'
+      exit=0
+      Resource naming violations (2):
+        Bad_Name — does not match '^[a-z-]+$'
+        good-name — does not match '^[a-z-]+$'
+      exit=0
+      error: 1 naming violations
+      control_exit=1
+    red_is_reachable: >-
+      Executed 2026-08-11. `.*` matching NOTHING is decisive: the pattern is
+      applied as `name.contains(pattern)`, not a regex, so the documented
+      "naming regex pattern" is a literal substring test that flags every
+      well-named resource. The sibling --check-naming exits 1 on violations,
+      which is the control for the exit-code half. GREEN requires exit=0 for
+      '.*', exit=1 for '^[a-z-]+$' flagging only Bad_Name.
+    if_fails: >-
+      The naming policy is enforced by substring, so '.*' flags every well-
+      named resource and no pattern can ever fail the build. A lint gate
+      that cannot fail is a gate nobody will notice is off.
+    owner: forjar
+
+  - id: FALSIFY-VE-017
+    rule: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    prediction: >-
+      `bench --iterations 0` is rejected at the argument boundary, and an unmet
+      target set never exits 0.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      $FORJAR bench --iterations 0 --no-color 2>&1 | grep -E 'NaN|targets met'
+      echo "exit=${PIPESTATUS[0]}"
+      $FORJAR bench --iterations abc 2>&1 | tail -1; echo "control_exit=${PIPESTATUS[0]}"
+    expected_red: |2
+        validate (3m, 20r)   NaNµs    0.0µs    0.0µs    < 10ms   [fail] FAIL
+      ✗ 0/6 targets met
+      exit=0
+      error: invalid value 'abc' for '--iterations <ITERATIONS>': invalid digit found in string
+      control_exit=2
+    red_is_reachable: >-
+      Executed 2026-08-11. The command prints its own verdict — "✗ 0/6 targets
+      met" — and exits 0 anyway; the NaN is a literal divide-by-zero surfacing in
+      user-visible output. clap already rejects a non-numeric value with rc=2, so
+      the argument-validation machinery exists and simply has no lower bound.
+      GREEN requires exit≠0 (rc=2 from value_parser range(1..) is preferred).
+    if_fails: >-
+      A benchmark that prints NaN and '0/6 targets met' while exiting 0
+      makes a perf regression gate structurally unable to catch a perf
+      regression.
+    owner: forjar
+
+  - id: FALSIFY-VE-018
+    rule: INV-NO-UNFALSIFIABLE-COUNTER
+    prediction: >-
+      `environments rollback` resolves and restores a generation before logging,
+      and rejects --generations 0.
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir -p state/prod
+      $FORJAR environments rollback prod; echo "exit=$?"
+      $FORJAR environments rollback prod --generations 0; echo "gen0_exit=$?"
+      find state -type f
+    expected_red: |
+      Rollback logged for environment 'prod' (1 generation(s))
+      exit=0
+      Rollback logged for environment 'prod' (0 generation(s))
+      gen0_exit=0
+      state/prod/events.jsonl
+    red_is_reachable: >-
+      Executed 2026-08-11. There are ZERO generations to roll back to — state/prod
+      was created empty by mkdir — yet it reports "(1 generation(s))" and, when
+      asked for zero, reports "(0 generation(s))" as a success. The only file on
+      disk afterwards is the audit log it just fabricated: the command's sole
+      observable effect is the record claiming it did something else. GREEN
+      requires exit=1 ("no generations for environment 'prod'") and gen0_exit=2.
+    if_fails: >-
+      Rollback is the last-resort operation. If it fabricates an audit event
+      without restoring anything, the incident record says the environment
+      was rolled back while it is still serving the bad generation.
+    owner: forjar
+
+  - id: FALSIFY-VE-019
+    rule: INV-REMOTE-ACK-IS-PART-OF-THE-EFFECT
+    prediction: >-
+      A webhook receiver that rejects the notification with HTTP 500 produces
+      the same warning as an unreachable one.
+    test: |
+      mkrepro
+      cat > sink500.py <<'EOF'
+      import http.server, sys
+      class H(http.server.BaseHTTPRequestHandler):
+          def do_POST(self):
+              n = int(self.headers.get('Content-Length', 0)); self.rfile.read(n)
+              self.send_response(500); self.send_header('Content-Length', '5')
+              self.end_headers(); self.wfile.write(b'boom!')
+          def log_message(self, *a): pass
+      http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+      EOF
+      setsid nohup python3 sink500.py 19831 >/dev/null 2>&1 < /dev/null & sleep 1
+      $FORJAR apply --yes --notify http://127.0.0.1:19831/n 2>&1 | tail -1
+      echo "http500_exit=${PIPESTATUS[0]}"
+      rm -rf state f1.txt
+      $FORJAR apply --yes --notify http://127.0.0.1:19999/n 2>&1 | tail -1
+      kill %1 2>/dev/null
+    expected_red: |
+      Apply complete: 1 converged, 0 unchanged.
+      http500_exit=0
+      Warning: webhook POST to http://127.0.0.1:19999/n failed (exit exit status: 7)
+    red_is_reachable: >-
+      Executed 2026-08-11 (2/2 runs, fresh dirs). The RED signal is the ABSENCE
+      of a warning in the first case: the 500 receiver logs the hit, so delivery
+      was attempted and refused, yet forjar says nothing. The dead-port control
+      proves the warning path exists and fires — the difference is solely that
+      curl is invoked without --fail, so it exits 0 for any completed HTTP
+      transaction including 5xx. Port 19831/19999 on 127.0.0.1 only; no fleet
+      host is contacted. GREEN requires the 500 case to print "Warning: webhook
+      POST to http://127.0.0.1:19831/n failed (HTTP 500)".
+    if_fails: >-
+      A rejected webhook is indistinguishable from an accepted one, so a
+      notification pipeline that has been failing since its receiver broke
+      looks identical to one that works. This is the fleet's proven silent-
+      green shape.
+    owner: forjar
+
+  - id: FALSIFY-VE-020
+    rule: INV-RETENTION-IS-ORDERED-BEFORE-IT-IS-CUT
+    prediction: "`logs --gc` keeps the 10 NEWEST runs per machine."
+    test: |
+      mkrepro
+      for i in $(seq 1 15); do $FORJAR apply --yes --force >/dev/null 2>&1; sleep 0.4; done
+      ls -1tr state/local/runs > order.txt
+      $FORJAR logs --gc --dry-run > gc.out 2>&1; echo "exit=$?"
+      grep 'would delete' gc.out | sed 's#.*local/##;s/ .*//' > del.txt
+      python3 - <<'PY'
+      order = [l.strip() for l in open('order.txt') if l.strip()]
+      idx = {n: i + 1 for i, n in enumerate(order)}
+      dels = [idx[l.strip()] for l in open('del.txt') if l.strip() in idx]
+      print("runs=%d deleted_oldest_first_indices=%s" % (len(order), sorted(dels)))
+      print("CORRECT" if sorted(dels) == list(range(1, len(order) - 9))
+            else "RETENTION_VIOLATED")
+      PY
+    expected_red: |
+      exit=0
+      runs=15 deleted_oldest_first_indices=[2, 8, 9, 11, 13]
+      RETENTION_VIOLATED
+    red_is_reachable: >-
+      Executed 2026-08-11 with 15 timestamp-ordered runs. Correct behaviour is
+      deleting exactly indices [1, 2, 3, 4, 5]. Observed: index 1 — the OLDEST
+      run — was KEPT while index 13 (3rd newest) was deleted. Two earlier trials
+      showed different arbitrary subsets, which is the signature of
+      filesystem/hash enumeration order rather than a sort. This is destructive
+      data loss reported as routine housekeeping ("deleted N runs"). The 0.4s
+      sleep guarantees distinct start timestamps so the correct answer is
+      unambiguous. GREEN requires CORRECT.
+    if_fails: >-
+      Log retention deletes arbitrary runs including recent ones while
+      claiming to keep the 10 newest. Forensic evidence for the incident you
+      are investigating may already be gone, and the gc log says the policy
+      was honoured.
+    owner: forjar
+
+  - id: FALSIFY-VE-021
+    rule: INV-SERVER-HONOURS-ITS-TRANSPORT-TERMINATION
+    prediction: "`forjar mcp` exits shortly after its stdin reaches EOF."
+    test: |
+      D=$(mktemp -d); cd "$D"
+      printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"c","version":"1"}}}' > eof.jsonl
+      $FORJAR mcp < eof.jsonl > eof.out 2>/dev/null &
+      PID=$!; sleep 6
+      if kill -0 $PID 2>/dev/null; then
+        echo "STILL RUNNING 6s after stdin EOF"; kill -9 $PID
+      else echo "EXITED"; fi
+      head -c 60 eof.out; echo
+      timeout 5 $FORJAR mcp < eof.jsonl >/dev/null 2>&1; echo "timeout_exit=$?"
+    expected_red: |
+      STILL RUNNING 6s after stdin EOF
+      {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2
+      timeout_exit=124
+    red_is_reachable: >-
+      Executed 2026-08-11 (2/2 background-PID runs). timeout_exit=124 is the
+      machine-readable form and every scripted MCP interaction in the dogfood
+      returned it. The server DOES answer initialize, so it is alive and
+      correct — it simply never observes its own termination condition, leaking
+      one forjar process per client session. This is the family's degenerate
+      member: unverified non-termination rather than unverified success. GREEN
+      requires EXITED and timeout_exit=0.
+    if_fails: >-
+      Every MCP client leaks one forjar process per session and a spec-
+      following client hangs at shutdown. Hosts accumulate parked servers
+      until something else on the box fails first.
+    owner: forjar
+
+enforcement:
+  black_box_oracle:
+    layer: cli
+    failure_mode: nonzero_exit
+    ci_gate: required
+    severity: "ERROR"
+    check: "falsification_tests[*].test, executed against the release binary"
+    description: |
+      ENFORCED AT THE CLI BOUNDARY, NOT BY debug_assert.
+
+      Every other contract in this directory enforces with debug_assert! inside
+      a pure function. That is unavailable here for a structural reason worth
+      stating: the property is about what the PROCESS tells the outside world,
+      and a debug_assert on an internal struct is authored by the same code
+      whose honesty is in question. Asserting `summary.converged ==
+      plan.to_create` proves the planner agrees with itself. The oracle has to
+      be outside.
+
+      So enforcement is: each falsification_tests[].test is a black-box shell
+      command whose oracle is the filesystem, a second process, a YAML/JSON
+      parser, an HTTP status, or a sibling command in the same binary that is
+      already correct. They run in CI against the RELEASE binary, in a fresh
+      mktemp -d, with no fleet host reachable.
+
+  one_exit_code_site_per_command:
+    layer: cli
+    failure_mode: nonzero_exit
+    ci_gate: required
+    severity: "ERROR"
+    check: "FALSIFY-VE-006, FALSIFY-VE-016, FALSIFY-VE-017"
+    description: |
+      Results accumulate into a single collection; the exit code is computed
+      from it once, after all branches. No branch may render output and return.
+      `doctor --network`, `validate --check-resource-names` and `bench` are all
+      this bug. A fix that merely adds a second `std::process::exit` will
+      regress within a release.
+
+  one_selector_resolver:
+    layer: cli
+    failure_mode: nonzero_exit
+    ci_gate: required
+    severity: "ERROR"
+    check: "FALSIFY-VE-005, FALSIFY-VE-007, FALSIFY-VE-008"
+    description: |
+      `resolve_resource(name)?` / `resolve_machine(name)?` used by EVERY
+      consumer, so a new flag cannot opt out of the membership check. Six graph
+      flags already do it and two do not, which is precisely how the exemption
+      arises: the check is per-call-site instead of per-type.
+
+  json_is_a_renderer_not_a_branch:
+    layer: cli
+    failure_mode: nonzero_exit
+    ci_gate: required
+    severity: "ERROR"
+    check: "FALSIFY-VE-009, FALSIFY-VE-010, FALSIFY-VE-002, FALSIFY-VE-013"
+    description: |
+      --json runs AFTER the work, over the same result value the text renderer
+      consumes, and never before it. It must not skip execution, must not alter
+      the exit code, and must not print human banners around its object in any
+      mode. `run`, `oci-pack`, `promote --dry-run` and `build` are all this bug.
+
+  release_gate:
+    layer: release
+    failure_mode: block_publish
+    ci_gate: required
+    severity: "ERROR"
+    check: "full falsification set GREEN against the exact artifact being published"
+    description: |
+      Family B is why 1.12.3 must not be the reference for "forjar works". A
+      crate release whose falsification set is not fully GREEN against the exact
+      artifact being published is not releasable: the dogfood that found these
+      24 defects ran against the PUBLISHED binary, and not one of them was
+      visible from inside the test suite.
+
+qa_gate:
+  id: F-VE-001
+  name: "Verified Effect Contract"
+  description: >-
+    Gates the claim that forjar's success output means something: no command
+    reports success, and no command exits 0, without having confirmed its
+    claimed effect through an oracle it did not author.
+  checks:
+    - "INV-SUCCESS-IMPLIES-VERIFIED-EFFECT"
+    - "INV-NO-UNFALSIFIABLE-COUNTER"
+    - "INV-A-GATE-MUST-BE-ABLE-TO-BLOCK"
+    - "INV-EMPTY-SELECTION-IS-NOT-CLEAN"
+    - "INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE"
+    - "INV-UNSUPPORTED-IS-AN-ERROR-NOT-A-SUCCESS"
+    - "INV-JSON-IS-A-FORMAT-NOT-A-MODE"
+    - "INV-ARTIFACT-PARSES-IN-ITS-CONSUMER-FORMAT"
+    - "INV-REMOTE-ACK-IS-PART-OF-THE-EFFECT"
+    - "INV-RETENTION-IS-ORDERED-BEFORE-IT-IS-CUT"
+    - "INV-SERVER-HONOURS-ITS-TRANSPORT-TERMINATION"
+  pass_criteria: >-
+    All 21 falsification tests GREEN against the release binary, covering all
+    24 confirmed members of family B (issue #210). Every test is RED today
+    against forjar 1.12.3 from crates.io — that asymmetry is the gate's teeth.
+  falsification: >-
+    Restore any single early-returning render-and-return branch — e.g. make
+    `doctor --network` print its results and return Ok(()) again — and
+    FALSIFY-VE-006 goes RED. Re-introduce `unwrap_or_default()` on the config
+    load in `contracts` and FALSIFY-VE-011 goes RED. Drop `--fail-with-body`
+    from the notify curl invocation and FALSIFY-VE-019 goes RED.
+
+verification_level: L2

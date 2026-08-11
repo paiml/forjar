@@ -1,0 +1,1152 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-11"
+  author: "PAIML Engineering"
+  description: |
+    Flag-has-effect — every flag a command accepts must either change
+    observable behaviour or be rejected at parse time. A flag that parses and
+    does nothing is a lie in `--help`.
+
+    WHY THIS CLASS KEEPS HAPPENING HERE
+
+    forjar's CLI surface is declared in clap structs and its behaviour is
+    dispatched somewhere else entirely. Adding a field to `ApplyArgs` makes the
+    flag appear in `--help`, accepted, documented with an FJ- ticket number, and
+    exit 0 — with no compiler obligation to ever read it. `Option<String>` that
+    is never matched on is not dead code to rustc, it is a struct field. So the
+    declared surface and the dispatch surface drift apart silently, and every
+    smoke test that runs the flag and checks `rc == 0` passes.
+
+    The 15 defects behind issue #211 share a signature that makes this
+    diagnosable rather than merely embarrassing: EVERY ONE OF THEM HAS A WORKING
+    SIBLING IN THE SAME BINARY.
+
+      * `--skip / --only-machine / --exclude-machine / --resource-filter` are
+        inert; `--subset / -r / -m` filter correctly in the same command line.
+      * `--notify-slack-webhook` and `--notify-webhook-v2` never POST;
+        `--notify-slack` and `--notify-webhook` POST to the identical
+        127.0.0.1 receiver in the same run.
+      * `apply --explain` prints nothing; `plan --why` prints per-resource
+        explanations from a renderer that already exists.
+      * `forjar validate` misnames a mis-indented `addr` as a missing field;
+        forjar's OWN language server, on the identical bytes, reports the true
+        indentation error.
+
+    That sibling is simultaneously (a) the proof the defect is a defect and not
+    an environment problem, and (b) the reason nobody noticed: the capability
+    demonstrably works, just not from the surface that advertises it.
+
+    The consequence is worse than a missing feature. An inert flag is a
+    NEGATIVE-value feature: an operator who wires alerting to
+    `--notify-slack-webhook` gets exit 0 and total silence; an operator who adds
+    `--approval-webhook` believes change control is enforced while zero HTTP
+    requests are made and convergence proceeds unconditionally. Removing the
+    flag would leave them better off than shipping it.
+
+    SCOPE
+
+    "Flag" here means any element of the declared surface that promises an
+    effect: a CLI flag, an MCP tool argument, and — for the subcommands whose
+    entire declared effect is inert (`saga`, `undo`, `import`, `canary`) — the
+    subcommand's own help text. The invariant is identical in all three cases:
+    the declared effect must be observable, or the input must be refused.
+
+    NO KANI HARNESS, DELIBERATELY. This property quantifies over PROCESS
+    behaviour — argv parsing, filesystem deltas, network egress, TTY
+    confirmation, subprocess execution — none of which is in Kani's model. A
+    harness here could only prove something about a stubbed dispatcher, i.e.
+    prove nothing about the bug. Obligations are discharged by the 16
+    falsification tests below, each of which is a command that goes RED against
+    the published binary today. Declaring an unrunnable harness to satisfy a
+    schema would be exactly the vacuous-contract failure that let these 15
+    defects ship.
+
+    CI-RESIDENT FORM. Fifteen hand-written per-flag tests do not stop the
+    SIXTEENTH inert flag. FALSIFY-FLAG-A16 is the only test in this contract
+    that scales: enumerate every option field on the args structs BY REFLECTION
+    over their serialised form and assert each is referenced by a dispatcher.
+    A hand-written list of flags to check has precisely the same failure mode as
+    the hand-written list of flags to consume — the next flag added is missing
+    from both.
+  verification_command: |
+    # GREEN leg (CI-resident, must stay green):
+    cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test --lib
+    # RED leg (must still reproduce against the shipped defect):
+    #   export FORJAR=/home/noah/.cargo/bin/forjar   # 1.12.3 from crates.io
+    #   run fixtures[].setup, then each falsification_tests[].command
+    #   every command must emit its recorded red_output
+    # FIXED leg:
+    #   export FORJAR=/tmp/forjar-fix/target/release/forjar
+    #   the same commands must NOT emit red_output
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/211 — family A,
+       flag-declared-never-consumed (15 confirmed defects)"
+    - "issue: https://github.com/paiml/forjar/issues/208 — umbrella dogfood
+       inventory (101 confirmed defects across 6 families)"
+    - "build-semantics-v1.yaml § INV-EMPTY-SELECTION-IS-AN-ERROR — the v1.12
+       precedent: a selector that matches nothing is an error, never a
+       successful no-op. This contract is that principle applied to the flag
+       that never reaches the selector at all."
+    - "apply-summary-distinguishability-v1.yaml — the sibling failure mode:
+       an effect that happened but is unreportable. Here the effect never
+       happened and is reported as success."
+    - "execution-safety-v1.yaml — fail-closed obligation that
+       --approval-webhook violates"
+    - "measured against forjar 1.12.3 (crates.io) on 2026-08-11: all 16
+       falsification tests below were extracted from this file and executed
+       verbatim, and all 16 emitted their recorded red_output byte-for-byte"
+
+equations:
+  flag_effect_or_reject:
+    formula: |
+      Let obs(c, A, E) = ⟨exit, stdout, stderr, Δfs, Δstate, egress, subprocs⟩
+      be the complete observable trace of running command c with argv A in
+      environment E.
+
+      ∀ c ∈ Commands, ∀ f ∈ declared_flags(c):
+          ( ∃ A, E :  obs(c, A ⊕ f, E) ≠ obs(c, A, E) )      -- f has an effect
+        ∨ ( ∀ A, E :  exit(c, A ⊕ f, E) ≠ 0 )                -- or f is refused
+
+      Negation (the falsifiable form actually tested): f is INERT iff over the
+      witness set W of environments chosen to exercise its documented effect,
+        ∀ E ∈ W : obs(c, A ⊕ f, E) = obs(c, A, E)  ∧  exit = 0.
+    domain: "c ∈ Commands, f ∈ declared_flags(c), A ∈ Argv, E ∈ Environment"
+    codomain: "Bool"
+    invariants:
+      - "A flag present in `--help` is present in some dispatch path"
+      - "An unimplemented flag exits non-zero naming itself, rather than
+         exiting 0 and doing nothing"
+      - "`rc == 0` is never sufficient evidence that a flag was honoured"
+
+  sibling_parity:
+    formula: |
+      variants(f) = { g ∈ declared_flags(c) : help(g) declares the same
+                      capability as help(f), modulo a documented delta }
+
+      ∀ f, g ∈ variants(f) : consumed(f) ⟺ consumed(g)
+
+      where consumed(f) ⟺ the struct field backing f is read on some path
+      reachable from the dispatcher for c.
+    domain: "f, g ∈ declared_flags(c)"
+    codomain: "Bool"
+    invariants:
+      - "--notify-webhook consumed ⟹ --notify-webhook-v2 consumed"
+      - "--notify-slack consumed ⟹ --notify-slack-webhook consumed"
+      - "--subset consumed ⟹ --skip, --only-machine, --exclude-machine and
+         --resource-filter are consumed"
+      - "plan --why renders ⟹ apply --explain renders"
+      - "the LSP parses to an untyped Value before typing ⟹ the CLI config
+         loader does too"
+
+  gate_fails_closed:
+    formula: |
+      ∀ f ∈ gate_flags(c) with external dependency d:
+        ¬granted(d)  ⟹  exit ≠ 0  ∧  Δfs = ∅  ∧  Δstate = ∅
+
+      where ¬granted(d) covers: non-2xx response, connection failure, timeout,
+      and an operator answering 'n' at a TTY prompt. Contacting d is a
+      precondition of applying, not a side effect of it.
+    domain: "f ∈ {--approval-webhook, canary confirmation, --auto-proceed}"
+    codomain: "⟨exit, Δfs, Δstate⟩"
+    invariants:
+      - "A gate that cannot deny is not a gate"
+      - "Zero requests to the approval endpoint is a denial, not an approval"
+      - "No resource executes before the gate resolves"
+
+  derived_values_recomputed:
+    formula: |
+      ∀ filter φ applied to a plan P:
+        summary(P_φ) = summarise(changes(P_φ))
+        ⟹ to_create + to_update + to_destroy + unchanged = |changes|
+
+      A flag consumed at one site but not at the sites deriving values from it
+      is a PARTIAL consumption, and produces output that contradicts itself.
+    domain: "P ∈ ExecutionPlan, φ ∈ {resource, tag, machine} filter"
+    codomain: "PlanSummary"
+    invariants:
+      - "Counts describe the array they are returned with"
+      - "conservation of the change set survives every filter"
+      - "A filter naming something that does not exist is an error, not an
+         empty result with non-empty counts"
+
+invariants:
+  - id: INV-FLAG-EFFECT-OR-REJECT
+    statement: >-
+      Every flag in `--help` either changes the observable trace on some input,
+      or is refused at parse time with a non-zero exit that names it. There is
+      no third state. `apply --yes --skip a-file` writing a.txt, b.txt and
+      c.txt at rc=0 is the canonical violation: the operator asked for less and
+      got everything, with a success summary.
+
+  - id: INV-SIBLING-PARITY
+    statement: >-
+      When two flags are documented as variants of one capability, either both
+      reach the dispatcher or the unimplemented one is refused. Parity is
+      checkable without knowing what either flag means, which is why it is the
+      cheapest guard in this contract. Its violations are the sharpest evidence
+      in the dogfood corpus: `--notify-slack` and `--notify-slack-webhook`
+      pointed at the SAME 127.0.0.1 receiver in the SAME command line, and only
+      one arrived.
+
+  - id: INV-GATE-FAILS-CLOSED
+    statement: >-
+      A flag whose help text promises a gate must be able to STOP the
+      operation. `--approval-webhook` (FJ-546, "POST for approval before
+      applying (GitOps gate)") must POST before applying and must abort
+      non-zero on non-2xx, timeout or connection failure. `canary` must not
+      proceed to the fleet without an affirmative answer. Failing open is worse
+      than having no gate, because the operator has stopped watching.
+
+  - id: INV-SINK-FLAGS-PRODUCE-ARTIFACTS
+    statement: >-
+      A flag naming a sink — a file path, a log path, a URL, a command to run —
+      must, after a run that reports success, have written that file, emitted
+      that JSON, reached that URL, or executed that command. If the sink cannot
+      be written the run exits non-zero. Silence is not an acceptable outcome
+      for a flag whose entire purpose is to break silence.
+
+  - id: INV-HEADER-FLAGS-REACH-THE-WIRE
+    statement: >-
+      A flag carrying transport metadata (`--notify-webhook-headers`,
+      `--notify-custom-headers`) must appear on the request. Dropping it does
+      not merely lose a feature: most real webhook receivers authenticate via a
+      header, so the notification goes out unauthenticated and is rejected —
+      and forjar does not report that rejection either. Malformed JSON is an
+      error, never a silent drop.
+
+  - id: INV-METADATA-FLAGS-ARE-RETRIEVABLE
+    statement: >-
+      `--label`, `--comment` (FJ-430, "attach a comment to the apply run in
+      event log") and `--runbook` (FJ-566, "attach runbook URL to apply for
+      audit trail") must be recoverable afterwards from state, `history --json`
+      or `audit`. "Attached to the audit trail" means grep-able. Metadata that
+      cannot be read back was not recorded.
+
+  - id: INV-ENUM-FLAGS-VALIDATE-THEIR-DOMAIN
+    statement: >-
+      A flag documented with a value set rejects values outside it at parse
+      time. `--sandbox` documents "pepita, container, chroot" and accepts
+      `bogusbackend` at rc=0; the same binary rejects
+      `completion powershell` at rc=2 with a possible-values list, so the
+      mechanism exists and is simply not applied. Accepting a typo'd backend
+      silently is how an operator concludes a sandbox was used when none was.
+
+  - id: INV-EFFECT-COMPLETENESS
+    statement: >-
+      A flag's effect is applied at ONE point, before any value derived from it
+      is computed. Partial consumption is a distinct and nastier failure than
+      no consumption, because the output is self-contradictory rather than
+      merely wrong: MCP `forjar_plan` with `resource: hello-file` returns
+      `changes` of length 1 alongside `to_create: 2`. The sibling `tag` filter
+      in the same handler filters before summarising and is correct — internal
+      proof this is a bug, not a "global totals" design.
+
+  - id: INV-REACHABLE-RENDERER-MUST-BE-REACHED
+    statement: >-
+      Where correct behaviour is demonstrably implemented elsewhere in the same
+      binary, the surface that declares it dispatches to it rather than to a
+      degraded fallback. `apply --explain` must invoke the renderer `plan --why`
+      already uses. The CLI config loader must parse to an untyped Value first
+      and propagate scanner errors verbatim, as forjar's own LSP already does —
+      otherwise a mis-indented `addr:` that is textually present is reported as
+      "missing field `addr`", byte-identical to the genuinely-absent case, and
+      the user retypes a key that was already there.
+
+  - id: INV-DECLARED-OPERATION-HAPPENS
+    statement: >-
+      The flag invariant generalised to subcommands: a subcommand's declared
+      effect must be observable or the command must fail. `saga` must not print
+      `Success: true` with `Applied: 0` and every step `[PENDING]`; success
+      derived from `failed == 0` rather than `applied == total` makes any CI job
+      gating on `.success` pass on a no-op. `undo` must restore the target
+      generation's content rather than re-converging forward against the
+      current config. `import` against an unreachable host must exit non-zero
+      rather than spend 15s failing to connect and print
+      "Imported 0 resources".
+
+fixtures:
+  - id: FX-3FILE
+    description: >-
+      Three file resources on one local machine. Used by every apply-flag test.
+      Writes only inside /tmp/forjar-dogfood — never a real host.
+    setup: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      export D=/tmp/forjar-dogfood/flagA/base
+      rm -rf "$D" && mkdir -p "$D" && cd "$D"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: dogfood-sandbox
+      params:
+        sandbox: $D
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        a-file: {type: file, machine: local, path: "{{params.sandbox}}/a.txt", content: "A\n", mode: "0644"}
+        b-file: {type: file, machine: local, path: "{{params.sandbox}}/b.txt", content: "B\n", mode: "0644"}
+        c-file: {type: file, machine: local, path: "{{params.sandbox}}/c.txt", content: "C\n", mode: "0644"}
+      EOF
+
+  - id: FX-HTTP-SINK
+    description: >-
+      A localhost HTTP receiver that logs method, path, headers and body of
+      every POST. 127.0.0.1 only; no fleet host is ever contacted.
+    setup: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      export H=/tmp/forjar-dogfood/flagA/http
+      rm -rf "$H" && mkdir -p "$H" && cd "$H"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: appr
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        hello-file: {type: file, machine: local, path: $H/hello.txt, content: "hi\n", mode: "0644"}
+      EOF
+      cat > sink.py <<'PY'
+      import http.server, sys
+      class Handler(http.server.BaseHTTPRequestHandler):
+          def do_POST(self):
+              n = int(self.headers.get('Content-Length', 0))
+              body = self.rfile.read(n)
+              print("HIT %s hdrs=%s body=%s" % (self.path, dict(self.headers),
+                                                body.decode()), flush=True)
+              self.send_response(200); self.send_header('Content-Length', '2')
+              self.end_headers(); self.wfile.write(b'ok')
+          def log_message(self, *a): pass
+      http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+      PY
+      pkill -f "sink.py 19871" 2>/dev/null; sleep 1   # a stale sink would
+      setsid nohup python3 sink.py 19871 > s.log 2>&1 < /dev/null &   # keep the
+      sleep 1                                         # port and log elsewhere
+      # teardown: pkill -f "sink.py 19871"
+
+proof_obligations:
+  - type: completeness
+    property: "The dispatch surface covers the declared surface"
+    formal: "∀ f ∈ declared_flags(c) : consumed(f) ∨ refused(f)"
+    tolerance: 0.0
+    applies_to: "every clap args struct and every MCP tool input schema"
+    discharged_by: "FALSIFY-FLAG-A16 (reflection), A01, A02, A07, A08, A09, A10"
+
+  - type: soundness
+    property: "`--help` never claims an effect that does not occur"
+    formal: "help(f) asserts E ⟹ ∃ input : E observable in obs(c, A ⊕ f)"
+    tolerance: 0.0
+    applies_to: "all documented flags and subcommands"
+    discharged_by: "FALSIFY-FLAG-A01..A15"
+
+  - type: safety
+    property: "Gate flags fail closed; nothing executes before the gate resolves"
+    formal: "¬granted(d) ⟹ exit ≠ 0 ∧ Δfs = ∅ ∧ Δstate = ∅"
+    tolerance: 0.0
+    applies_to: "--approval-webhook, canary fleet phase, --auto-proceed"
+    discharged_by: "FALSIFY-FLAG-A05, FALSIFY-FLAG-A06"
+
+  - type: liveness
+    property: "Every named sink is written, reached, or executed before exit 0"
+    formal: "sink(f) = s ∧ exit = 0 ⟹ observed_at(s)"
+    tolerance: 0.0
+    applies_to: "--notify-file, --notify-log, --notify-json, --notify-exec,
+                 --log-file, all --notify-*-webhook URLs"
+    discharged_by: "FALSIFY-FLAG-A02, FALSIFY-FLAG-A03"
+
+  - type: equivalence
+    property: "Sibling flags are consumed together"
+    formal: "∀ f, g ∈ variants : consumed(f) ⟺ consumed(g)"
+    tolerance: 0.0
+    applies_to: "--notify-webhook/-v2, --notify-slack/-webhook,
+                 --subset/--skip/--only-machine/--exclude-machine/--resource-filter,
+                 plan --why / apply --explain, LSP loader / CLI loader"
+    discharged_by: "FALSIFY-FLAG-A01, A03, A07, A15"
+
+  - type: classification
+    property: "Enum-valued flags reject values outside their documented set"
+    formal: "v ∉ values(f) ⟹ exit = 2 ∧ stderr names the possible values"
+    tolerance: 0.0
+    applies_to: "--sandbox {pepita, container, chroot}"
+    discharged_by: "FALSIFY-FLAG-A10"
+
+  - type: frame
+    property: "A restricting flag restricts the write frame"
+    formal: "frame(apply --exclude-machine m) ∩ resources_on(m) = ∅"
+    tolerance: 0.0
+    applies_to: "--skip, --only-machine, --exclude-machine, --resource-filter"
+    discharged_by: "FALSIFY-FLAG-A01"
+
+  - type: conservation
+    property: "Plan counters are derived from the change set they accompany"
+    formal: "to_create + to_update + to_destroy + unchanged = |changes|"
+    tolerance: 0.0
+    applies_to: "MCP forjar_plan under every filter argument"
+    discharged_by: "FALSIFY-FLAG-A14"
+
+  - type: postcondition
+    property: "Run metadata supplied on the command line is retrievable"
+    formal: "apply --comment X ⟹ X ∈ history --json ∪ audit ∪ state/"
+    tolerance: 0.0
+    applies_to: "--label, --comment, --runbook"
+    discharged_by: "FALSIFY-FLAG-A08"
+
+  - type: old_state
+    property: "Undo converges to the restored generation, not to the current config"
+    formal: "content_after(undo) = content_at(generation N-1)"
+    tolerance: 0.0
+    applies_to: "undo, generation rollback"
+    discharged_by: "FALSIFY-FLAG-A12"
+
+  - type: invariant
+    property: "A declared operation that performed nothing does not report success"
+    formal: "applied < total ⟹ success = false ∧ exit ≠ 0"
+    tolerance: 0.0
+    applies_to: "saga, import"
+    discharged_by: "FALSIFY-FLAG-A11, FALSIFY-FLAG-A13"
+
+falsification_tests:
+  - id: FALSIFY-FLAG-A01
+    rule: INV-FLAG-EFFECT-OR-REJECT
+    defect: apply-targeting-flags-silently-ignored
+    severity: HIGH
+    prediction: >-
+      Each of --skip, --only-machine, --exclude-machine and --resource-filter
+      changes the set of converged resources, or exits non-zero.
+    fixture: FX-3FILE
+    command: |
+      cd "$D"
+      t(){ rm -rf state a.txt b.txt c.txt; "$FORJAR" apply --yes "$@" >out 2>&1
+           echo "[$*] rc=$? files=[$(ls | grep '\.txt$' | tr '\n' ' ')]"; }
+      t --skip a-file
+      t --only-machine ghost
+      t --exclude-machine local
+      t --resource-filter 'a-*'
+      t --subset 'a-*'       # in-binary control
+      t -r a-file            # in-binary control
+      t -m ghost             # in-binary control
+    red_output: |
+      [--skip a-file] rc=0 files=[a.txt b.txt c.txt ]
+      [--only-machine ghost] rc=0 files=[a.txt b.txt c.txt ]
+      [--exclude-machine local] rc=0 files=[a.txt b.txt c.txt ]
+      [--resource-filter a-*] rc=0 files=[a.txt b.txt c.txt ]
+      [--subset a-*] rc=0 files=[a.txt ]
+      [-r a-file] rc=0 files=[a.txt ]
+      [-m ghost] rc=0 files=[]
+    can_go_red: >-
+      Confirmed RED on forjar 1.12.3 on 2026-08-11. The last three lines are the
+      control: the identical harness, same binary, same config, produces a
+      RESTRICTED file set for --subset/-r/-m, so the test can distinguish
+      "filtering is broken" from "filtering is unimplemented". It goes GREEN
+      only when the first four lines restrict too, or exit non-zero.
+    if_fails: >-
+      An operator excluding a machine from a fleet apply gets a full apply to it
+      with a green summary — the exact shape of a production incident.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A02
+    rule: INV-SINK-FLAGS-PRODUCE-ARTIFACTS
+    defect: apply-local-notification-and-log-sinks-do-nothing
+    severity: HIGH
+    prediction: >-
+      --notify-file writes a file, --notify-log appends JSON lines,
+      --notify-json prints JSON on stdout, --notify-exec runs the command, and
+      --log-file writes a log — or apply exits non-zero.
+    fixture: FX-3FILE
+    command: |
+      cd "$D"; rm -rf state a.txt b.txt c.txt st.txt ev.jsonl EXECMARK apply.log
+      "$FORJAR" apply --yes \
+        --notify-file "$D/st.txt" --notify-log "$D/ev.jsonl" --notify-json \
+        --notify-exec "/usr/bin/touch $D/EXECMARK" --log-file "$D/apply.log" \
+        > nout 2>&1; echo "rc=$?"
+      for x in st.txt ev.jsonl EXECMARK apply.log; do
+        test -e "$D/$x" && echo "$x EXISTS" || echo "$x MISSING"; done
+      echo "json lines: $(grep -c '^{' nout)"
+    red_output: |
+      rc=0
+      st.txt MISSING
+      ev.jsonl MISSING
+      EXECMARK MISSING
+      apply.log MISSING
+      json lines: 0
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11, with both relative and absolute
+      paths. Each assertion is a filesystem fact, not a string match, so it
+      cannot pass vacuously: creating any one of the four files flips its line.
+    if_fails: "Alerting and audit logging are configured and silently absent."
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A03
+    rule: INV-SIBLING-PARITY
+    defect: notify-webhook-v2-and-slack-webhook-noop
+    severity: HIGH
+    prediction: >-
+      All four notification URLs supplied in one command line receive a POST.
+    fixture: FX-HTTP-SINK
+    command: |
+      cd "$H"; rm -rf state hello.txt; : > s.log
+      "$FORJAR" apply --yes --force \
+        --notify-slack         http://127.0.0.1:19871/A \
+        --notify-slack-webhook http://127.0.0.1:19871/B \
+        --notify-webhook       http://127.0.0.1:19871/C \
+        --notify-webhook-v2    http://127.0.0.1:19871/D > out 2>&1
+      echo "exit=$?"; grep -ci warn out; sleep 2
+      echo "hits: $(grep -o 'HIT /[A-Z]' s.log | tr '\n' ' ' | sed 's/ *$//')"
+    red_output: |
+      exit=0
+      0
+      hits: HIT /A HIT /C
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. /A and /C arriving is the control
+      that proves the receiver, the network path and curl all work in this very
+      process; only /B (--notify-slack-webhook, FJ-784) and /D
+      (--notify-webhook-v2, FJ-800) are missing. GREEN requires
+      "hits: HIT /A HIT /B HIT /C HIT /D" in any order, or a non-zero exit
+      naming the unimplemented flags. There is no way to satisfy this test
+      without egress actually happening.
+    if_fails: "Alerting wired to the v2 flags is exit-0 silence."
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A04
+    rule: INV-HEADER-FLAGS-REACH-THE-WIRE
+    defect: notify-webhook-headers-noop
+    severity: MEDIUM
+    prediction: >-
+      A header supplied via --notify-webhook-headers / --notify-custom-headers
+      appears on the outgoing request; malformed JSON is an error.
+    fixture: FX-HTTP-SINK
+    command: |
+      cd "$H"; rm -rf state hello.txt; : > s.log
+      "$FORJAR" apply --yes --force \
+        --notify-webhook         http://127.0.0.1:19871/E \
+        --notify-webhook-headers '{"X-Auth":"SECRET123"}' \
+        --notify-custom-webhook  http://127.0.0.1:19871/F \
+        --notify-custom-headers  '{"X-Custom":"CUSTOMFLAG"}' > out 2>&1
+      echo "exit=$?"; sleep 2
+      echo "requests arrived: $(grep -c '^HIT ' s.log)"
+      echo "header matches: $(grep -c 'SECRET123\|CUSTOMFLAG' s.log)"
+    red_output: |
+      exit=0
+      requests arrived: 2
+      header matches: 0
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. The requests DO arrive (/E and /F
+      are hit), carrying only curl's defaults plus Content-Type — so a zero
+      match count isolates the header path specifically rather than reporting a
+      dead receiver. GREEN is "header matches: 2".
+    if_fails: >-
+      Webhook notifications go out unauthenticated; combined with the swallowed
+      5xx defect the resulting 401/403 is never reported either.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A05
+    rule: INV-GATE-FAILS-CLOSED
+    defect: approval-webhook-noop-gate
+    severity: HIGH
+    prediction: >-
+      --approval-webhook POSTs before applying and aborts non-zero when the
+      endpoint denies (500) or is unreachable; no resource is created.
+    fixture: FX-HTTP-SINK
+    command: |
+      cd "$H"; rm -rf state hello.txt
+      "$FORJAR" apply --yes --approval-webhook http://127.0.0.1:19999/approve \
+        > outB 2>&1; echo "exit=$?"; tail -1 outB | sed 's/\x1b\[[0-9;]*m//g'
+      test -e hello.txt && echo "RESOURCE CREATED" || echo "resource withheld"
+    red_output: |
+      exit=0
+      Apply complete: 1 converged, 0 unchanged.
+      RESOURCE CREATED
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11, both against a live endpoint
+      replying 500 (which logged ZERO hits — never contacted) and against port
+      19999 where nothing listens. The same binary's --notify-webhook reaches
+      127.0.0.1 in the same fixture, so an unreachable approval endpoint cannot
+      be blamed on egress. GREEN is a non-zero exit with hello.txt absent;
+      "resource withheld" alone is not enough, the exit code must also flip.
+    if_fails: >-
+      A GitOps change-control gate is believed to be enforced while nothing is
+      enforced — a compliance claim with no mechanism behind it.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A06
+    rule: INV-GATE-FAILS-CLOSED
+    defect: canary-has-no-confirmation-gate
+    severity: HIGH
+    prediction: >-
+      Under a real PTY, answering 'n' to the canary confirmation aborts before
+      the fleet phase; --auto-proceed is what skips it.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      C=/tmp/forjar-dogfood/flagA/canary; rm -rf "$C"; mkdir -p "$C"; cd "$C"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: canaryrepro
+      machines:
+        m1: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+        m2: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        r1: {type: file, machine: m1, path: $C/r1.txt, content: "1\n", mode: "0644"}
+        r2: {type: file, machine: m2, path: $C/r2.txt, content: "2\n", mode: "0644"}
+      EOF
+      printf 'n\n' | script -qec "$FORJAR canary -f forjar.yaml --machine m1" /dev/null > o 2>&1
+      echo "canary rc=$?"; grep -c 'Fleet Phase' o
+      test -e r2.txt && echo "FLEET APPLIED" || echo "fleet withheld"
+      rm -rf state r1.txt r2.txt
+      printf 'n\n' | script -qec "$FORJAR apply -f forjar.yaml" /dev/null > o2 2>&1
+      echo "control apply rc=$?"; tail -1 o2 | tr -d '\r'
+    red_output: |
+      canary rc=0
+      1
+      FLEET APPLIED
+      control apply rc=1
+      Apply 2 change(s) (2 create, 0 update, 0 destroy)? [y/N] error: aborted by user
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. The control lines are load-bearing:
+      the identical PTY harness feeding the identical 'n' to plain `apply`
+      produces "error: aborted by user" and rc=1, so the test cannot be dismissed
+      as "stdin was not a TTY". GREEN is canary rc≠0 with "fleet withheld".
+    if_fails: >-
+      The canary safety pattern does not exist; a bad change reaches the whole
+      fleet with the operator's 'n' discarded, and --auto-proceed is decoration.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A07
+    rule: INV-REACHABLE-RENDERER-MUST-BE-REACHED
+    defect: apply-explain-prints-nothing
+    severity: LOW
+    prediction: "`apply --explain` output differs from a plain apply."
+    fixture: FX-3FILE
+    command: |
+      cd "$D"
+      rm -rf state a.txt b.txt c.txt; "$FORJAR" apply --yes --explain > w.out 2>&1
+      rm -rf state a.txt b.txt c.txt; "$FORJAR" apply --yes            > wo.out 2>&1
+      if diff <(sed 's/[0-9]\.[0-9]*s//g' w.out) <(sed 's/[0-9]\.[0-9]*s//g' wo.out) \
+        >/dev/null; then echo "IDENTICAL"; else echo "DIFFERS"; fi
+      # in-binary control: the renderer --explain should have called
+      "$FORJAR" plan --why 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -m1 'Change Explanations'
+      echo "explained resources: $("$FORJAR" plan --why 2>&1 | grep -c 'hash changed')"
+    red_output: |
+      IDENTICAL
+      Change Explanations (--why):
+      explained resources: 3
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11: byte-identical after stripping
+      durations. The `plan --why` control shows the explanation renderer exists
+      and produces exactly the text --explain (FJ-636) promises, so GREEN
+      ("DIFFERS") is reachable by a dispatch change alone.
+    if_fails: "A documented explain mode is decoration."
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A08
+    rule: INV-METADATA-FLAGS-ARE-RETRIEVABLE
+    defect: apply-label-comment-runbook-not-recorded
+    severity: MEDIUM
+    prediction: >-
+      A comment, label and runbook URL supplied at apply time are retrievable
+      from state/, `history --json` or `audit`.
+    fixture: FX-3FILE
+    command: |
+      cd "$D"; rm -rf state a.txt b.txt c.txt
+      "$FORJAR" apply --yes --label owner=alice \
+        --comment 'MY-UNIQUE-COMMENT-XYZ' --runbook 'http://rb/x' > lout 2>&1
+      echo "rc=$?"
+      echo "state hits: $(grep -rl 'MY-UNIQUE-COMMENT-XYZ\|alice\|http://rb/x' state/ 2>/dev/null | wc -l)"
+      echo "history hits: $("$FORJAR" history --json 2>/dev/null | grep -c MY-UNIQUE-COMMENT-XYZ)"
+    red_output: |
+      rc=0
+      state hits: 0
+      history hits: 0
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. The sentinel string is unique and
+      searched across the whole state tree plus the machine-readable history, so
+      any recording anywhere flips a count to non-zero. GREEN requires both
+      counts > 0.
+    if_fails: >-
+      FJ-430/FJ-566 promise an audit trail that contains nothing the operator
+      wrote; a post-incident review cannot answer "who changed this and why".
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A09
+    rule: INV-FLAG-EFFECT-OR-REJECT
+    defect: bench-compare-flag-is-a-noop
+    severity: MEDIUM
+    prediction: >-
+      `bench --compare` reads benchmarks/RESULTS.md: absent → error, present →
+      a comparison column, a 180x regression → a non-zero exit.
+    fixture: FX-3FILE
+    command: |
+      cd "$D"; mkdir -p benchmarks; rm -rf benchmarks/RESULTS.md
+      strip(){ sed 's/[0-9]//g' "$1" | md5sum | cut -c1-32; }
+      "$FORJAR" bench --iterations 5 --no-color            > b1 2>&1; echo "plain rc=$?"
+      "$FORJAR" bench --iterations 5 --no-color --compare  > b2 2>&1; echo "compare-no-baseline rc=$?"
+      printf '# Results\n\n| target | time |\n|---|---|\n| plan | 1.0µs |\n' > benchmarks/RESULTS.md
+      "$FORJAR" bench --iterations 5 --no-color --compare  > b3 2>&1; echo "compare-regression rc=$?"
+      rm -f benchmarks/RESULTS.md; mkdir -p benchmarks/RESULTS.md
+      "$FORJAR" bench --iterations 5 --no-color --compare  > b4 2>&1; echo "compare-dir rc=$?"
+      for f in b1 b2 b3 b4; do echo "$f $(strip $f)"; done
+    red_output: |
+      plain rc=0
+      compare-no-baseline rc=0
+      compare-regression rc=0
+      compare-dir rc=0
+      b1 08a95ddb44c7acdceff398d85ec5c4d8
+      b2 08a95ddb44c7acdceff398d85ec5c4d8
+      b3 08a95ddb44c7acdceff398d85ec5c4d8
+      b4 08a95ddb44c7acdceff398d85ec5c4d8
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11: all four digit-stripped structures
+      hash identically, including the case where the baseline path is a
+      DIRECTORY — which the same binary refuses elsewhere (`graph -f nope.yaml`
+      exits 1). The 1.0µs baseline is a ~180x regression and produces
+      "6/6 targets met". Any comparison column, delta, warning or non-zero exit
+      changes at least one of the four hashes, so GREEN is reachable and the
+      four-way equality cannot hold by accident.
+    if_fails: "A perf-regression gate in CI can never fail."
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A10
+    rule: INV-ENUM-FLAGS-VALIDATE-THEIR-DOMAIN
+    defect: test-sandbox-pairs-and-mutations-inert
+    severity: MEDIUM
+    prediction: >-
+      --sandbox rejects a value outside {pepita, container, chroot}; --pairs
+      adds pairwise results; --mutations N adds mutation results.
+    fixture: FX-3FILE
+    command: |
+      cd "$D"; rm -rf state a.txt b.txt c.txt
+      "$FORJAR" apply --yes >/dev/null 2>&1   # `test` needs converged resources
+      norm(){ python3 -c "import re,sys;print(re.sub(r'[0-9]+','N',open(sys.argv[1]).read()))" "$1"; }
+      "$FORJAR" test --json                      > t0 2>&1; echo "base rc=$?"
+      "$FORJAR" test --sandbox bogusbackend --json > t1 2>&1; echo "bogus-backend rc=$?"
+      "$FORJAR" test --pairs --json              > t2 2>&1; echo "pairs rc=$?"
+      "$FORJAR" test --mutations 500 --json      > t3 2>&1; echo "mutations rc=$?"
+      for f in t1 t2 t3; do
+        diff <(norm t0) <(norm $f) >/dev/null && echo "$f SAME-as-base" || echo "$f DIFFERS"
+      done
+    red_output: |
+      base rc=0
+      bogus-backend rc=0
+      pairs rc=0
+      mutations rc=0
+      t1 SAME-as-base
+      t2 SAME-as-base
+      t3 SAME-as-base
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11 (numbers normalised so durations
+      cannot mask equality). The result set is always the three per-resource
+      checks; no pairwise or mutation result ever appears. GREEN is
+      "bogus-backend rc=2" plus DIFFERS for t2 and t3. The same binary already
+      emits rc=2 with a possible-values list for `completion powershell`, so
+      value-set validation is reachable.
+    if_fails: >-
+      A typo'd sandbox backend runs unsandboxed while reporting the same green
+      output, and two advertised test strategies never execute.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A11
+    rule: INV-DECLARED-OPERATION-HAPPENS
+    defect: saga-reports-success-true-having-applied-nothing
+    severity: MEDIUM
+    prediction: >-
+      `forjar saga` either applies its stacks, or reports Success: false with a
+      non-zero exit. success ⟺ applied == total, never failed == 0.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      S=/tmp/forjar-dogfood/flagA/saga; rm -rf "$S"; mkdir -p "$S"; cd "$S"
+      cat > a.yaml <<EOF
+      version: "1.0"
+      name: dogfood-sandbox
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        a-file: {type: file, machine: local, path: $S/a.txt, content: "A\n", mode: "0644"}
+      EOF
+      "$FORJAR" saga -f a.yaml > o 2>&1; echo "rc=$?"
+      grep -E 'Applied:|Success:|PENDING' o
+      test -e a.txt && echo "applied" || echo "NOTHING APPLIED"
+      test -e state/.saga-snapshot-dogfood-sandbox && echo "snapshot present" \
+        || echo "NAMED SNAPSHOT ABSENT"
+    red_output: |
+      rc=0
+      Stacks: 1 | Applied: 0 | Failed: 0 | Compensated: 0
+      Success: true
+        [PENDING] dogfood-sandbox (a.yaml)
+      NOTHING APPLIED
+      NAMED SNAPSHOT ABSENT
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. `forjar apply` on the identical
+      config creates a.txt, so "NOTHING APPLIED" is a property of saga, not of
+      the config. GREEN requires either the resource to exist or
+      "Success: false" with rc≠0 — both are single-predicate changes, so this
+      test cannot be satisfied by output rewording alone.
+    if_fails: "Any CI job gating on saga's `.success` passes on a total no-op."
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A12
+    rule: INV-DECLARED-OPERATION-HAPPENS
+    defect: undo-reports-rollback-but-machine-is-unchanged
+    severity: HIGH
+    prediction: >-
+      After three applies with contents ONE, TWO, THREE, `undo --yes` leaves the
+      deployed file at the generation-0 content.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      U=/tmp/forjar-dogfood/flagA/undo; rm -rf "$U"; mkdir -p "$U"; cd "$U"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: undorepro
+      policy: {snapshot_generations: 10}
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        f: {type: file, machine: local, path: $U/f.txt, content: "ONE\n", mode: "0644"}
+      EOF
+      "$FORJAR" apply --yes >/dev/null 2>&1; sleep 1
+      sed -i 's/ONE/TWO/'   forjar.yaml; "$FORJAR" apply --yes >/dev/null 2>&1; sleep 1
+      sed -i 's/TWO/THREE/' forjar.yaml; "$FORJAR" apply --yes >/dev/null 2>&1
+      echo "before: $(cat f.txt)"
+      "$FORJAR" undo --yes > o 2>&1; echo "rc=$?"
+      grep -E 'Rolled back|Re-applying' o
+      echo "after: $(cat f.txt)"
+    red_output: |
+      before: THREE
+      rc=0
+      Rolled back to generation 0
+      Re-applying config to converge to generation 0...
+      after: THREE
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. "after:" is a byte read of the
+      deployed file, not a parse of forjar's own claim, so the test cannot be
+      satisfied by the success message it currently prints. GREEN is
+      "after: TWO" (generation 0 = the state before the last apply). The
+      re-convergence line is what gives the mechanism away: it re-applies the
+      on-disk forjar.yaml, i.e. the newest desired state.
+    if_fails: >-
+      Rollback is a no-op that reports success, and drift/status then read green
+      against the un-rolled-back content — the operator believes they recovered.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A13
+    rule: INV-DECLARED-OPERATION-HAPPENS
+    defect: import-reports-success-for-an-unreachable-host
+    severity: HIGH
+    prediction: >-
+      `import --addr <unreachable>` exits non-zero rather than writing a config
+      for a machine it never reached.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      I=/tmp/forjar-dogfood/flagA/import; rm -rf "$I"; mkdir -p "$I"; cd "$I"
+      # 192.0.2.1 is RFC 5737 TEST-NET-1: guaranteed non-routable, never a real host
+      "$FORJAR" import --addr 192.0.2.1 --user noah \
+        --scan packages,files,services -o out.yaml > o 2>&1
+      echo "rc=$?"; cat o
+      test -e out.yaml && echo "CONFIG WRITTEN" || echo "no config written"
+    red_output: |
+      rc=0
+      Imported 0 resources from 192.0.2.1 → out.yaml
+      CONFIG WRITTEN
+    can_go_red: >-
+      Recorded in the dogfood corpus for 1.12.3 (~15s spent failing to connect
+      before the success message). The control in that run was
+      `import --addr 127.0.0.1 --user noah --scan packages`, which reports
+      "Imported 1 resources" with a real package list — so zero resources from
+      TEST-NET-1 is a swallowed transport error, not an empty host. GREEN is a
+      non-zero exit naming the connection failure. Uses only RFC 5737 space; no
+      fleet host is contacted.
+    if_fails: >-
+      "Imported 0 resources" is indistinguishable from a completed import of a
+      minimal host, and CI gating on the exit code cannot tell them apart.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A14
+    rule: INV-EFFECT-COMPLETENESS
+    defect: mcp-plan-resource-filter-count-mismatch
+    severity: MEDIUM
+    prediction: >-
+      MCP forjar_plan's `resource` filter is applied before summarising, so the
+      counts describe the returned `changes`; an unknown resource id is an error.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      M=/tmp/forjar-dogfood/flagA/mcp; rm -rf "$M"; mkdir -p "$M"; cd "$M"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: dogfood-sandbox
+      params: {sandbox: $M}
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        hello-file: {type: file, machine: local, path: "{{params.sandbox}}/hello.txt", content: "hello\n", mode: "0644"}
+        marker-task: {type: task, machine: local, command: 'touch "{{params.sandbox}}/marker"', depends_on: [hello-file]}
+      EOF
+      P=$M/forjar.yaml
+      printf '%s\n' \
+       '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"c","version":"1"}}}' \
+       "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"forjar_plan\",\"arguments\":{\"path\":\"$P\",\"resource\":\"hello-file\"}}}" \
+       "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"forjar_plan\",\"arguments\":{\"path\":\"$P\",\"resource\":\"totally-bogus\"}}}" \
+       "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"forjar_plan\",\"arguments\":{\"path\":\"$P\",\"tag\":\"nosuchtag\"}}}" \
+       > req.jsonl
+      timeout 15 "$FORJAR" mcp < req.jsonl > out.json 2>/dev/null
+      python3 - <<'PY'
+      import json
+      for line in open('out.json'):
+          line = line.strip()
+          if not line:
+              continue
+          o = json.loads(line)
+          if o.get('id') not in (2, 3, 4):
+              continue
+          if 'error' in o:
+              print('id%d ERROR' % o['id']); continue
+          p = json.loads(o['result']['content'][0]['text'])
+          print('id%d to_create=%d changes=%d isError=%s'
+                % (o['id'], p['to_create'], len(p['changes']),
+                   o['result'].get('isError')))
+      PY
+    red_output: |
+      id2 to_create=2 changes=1 isError=False
+      id3 to_create=2 changes=0 isError=False
+      id4 to_create=0 changes=0 isError=False
+    can_go_red: >-
+      Recorded in the dogfood corpus for 1.12.3. id4 is the in-handler control:
+      the sibling `tag` filter DOES recompute its counts from the filtered set
+      (0/0), which is why "these are intentional global totals" is not available
+      as an explanation. GREEN is `id2 "to_create":1 changes=1` and id3 an
+      error — forjar_show already returns
+      "Resource 'no-such-resource' not found" for exactly that input.
+    if_fails: >-
+      An agent reading the MCP plan sees a self-contradictory object and a typo
+      in a resource name silently plans the whole config.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A15
+    rule: INV-REACHABLE-RENDERER-MUST-BE-REACHED
+    defect: validate-misreports-misindented-key-as-missing-field
+    severity: MEDIUM
+    prediction: >-
+      A mis-indented but textually PRESENT `addr:` produces a message naming the
+      indentation error and line 6, distinct from the genuinely-absent case.
+    fixture: none
+    command: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      V=/tmp/forjar-dogfood/flagA/validate; rm -rf "$V"; mkdir -p "$V"; cd "$V"
+      # line 6: `addr` indented 3 spaces instead of 4 -- addr IS present
+      printf 'version: "1.0"\nname: bad-yaml\nmachines:\n  local:\n    hostname: localhost\n   addr: 127.0.0.1\n    user: noah\nresources:\n  a:\n    type: file\n    machine: local\n    path: /tmp/x\n    content: "y"\n' > misindented.yaml
+      # same file with addr genuinely deleted
+      printf 'version: "1.0"\nname: bad-yaml\nmachines:\n  local:\n    hostname: localhost\n    user: noah\nresources:\n  a:\n    type: file\n    machine: local\n    path: /tmp/x\n    content: "y"\n' > missing.yaml
+      # the same mistake one line later -- forjar gets THIS one right (control)
+      printf 'version: "1.0"\nname: t\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\n   user: noah\nresources:\n  a:\n    type: file\n    machine: local\n    path: /tmp/x\n    content: "y"\n' > mis2.yaml
+      for f in misindented.yaml missing.yaml mis2.yaml; do
+        "$FORJAR" validate -f "$f" > "$f.out" 2>&1; echo "$f exit=$?"; cat "$f.out"; done
+      diff misindented.yaml.out missing.yaml.out >/dev/null \
+        && echo "INDISTINGUISHABLE FROM GENUINELY-MISSING" \
+        || echo "distinguishable"
+    red_output: |
+      misindented.yaml exit=3
+      error: YAML parse error: machines.local: missing field `addr` at line 5 column 5
+      missing.yaml exit=3
+      error: YAML parse error: machines.local: missing field `addr` at line 5 column 5
+      mis2.yaml exit=3
+      error: YAML parse error: did not find expected key at line 7 column 4, while parsing a block mapping at line 4 column 3
+      INDISTINGUISHABLE FROM GENUINELY-MISSING
+    can_go_red: >-
+      Confirmed RED on 1.12.3 on 2026-08-11. Three independent controls make
+      this unarguable: (1) mis2.yaml, the same mistake one line later, gets the
+      CORRECT scanner message from the same binary; (2) forjar's own LSP on the
+      identical bytes publishes "did not find expected key at line 6 column 4";
+      (3) an independent YAML parser (PyYAML) agrees on line 6. GREEN requires
+      the first message to mention line 6 AND to differ from missing.yaml's.
+    if_fails: >-
+      The user deletes and retypes a key that was already there instead of
+      fixing the indentation, and forjar's two surfaces keep disagreeing about
+      the same file.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A16
+    rule: INV-FLAG-EFFECT-OR-REJECT
+    defect: "systemic — the guard that stops the sixteenth inert flag"
+    severity: SYSTEMIC
+    prediction: >-
+      Reflection over the serialised form of every args struct finds no option
+      field that is unreferenced by any dispatcher and not listed in an explicit
+      REFUSED table.
+    fixture: none
+    command: |
+      # cheap RED probe: does the scaling guard exist at all?
+      cd /tmp/forjar-fix
+      echo "guard defined: $(grep -rl 'every_declared_flag_is_consumed_or_refused' src/ 2>/dev/null | wc -l)"
+      # GREEN check once it does (a name filter that matches nothing runs 0 tests
+      # and still exits 0, which is why the existence probe above comes first):
+      #   cargo test --lib every_declared_flag_is_consumed_or_refused
+    red_output: |
+      guard defined: 0
+    can_go_red: >-
+      This is the only test in the contract that scales, and it is currently RED
+      in the strongest possible way: the guard does not exist, which is exactly
+      how 15 inert flags shipped. Note the trap the probe is written around —
+      `cargo test --lib <name>` with a filter matching nothing prints
+      "0 passed; 0 failed" and EXITS 0, so wiring CI to the cargo command alone
+      would reproduce this contract's own subject matter one level up: an
+      invocation that is accepted and does nothing. The probe therefore asserts
+      the guard's existence first. It goes GREEN when the reflection test lands
+      and passes; it goes RED again the moment a new option field is added to an
+      args struct without a dispatch site. The field set MUST be discovered by
+      reflection over the serialised form, following the precedent of
+      build-semantics-v1 FALSIFY-BUILD-203 — a hand-written list of flags to
+      check has the same failure mode as the hand-written list of flags to
+      consume.
+    if_fails: >-
+      Fifteen per-flag tests pass and the sixteenth inert flag ships anyway.
+    owner: forjar
+
+enforcement:
+  declared_surface_is_consumed:
+    description: >-
+      Every option field on every args struct has a dispatch site or an entry
+      in an explicit REFUSED table.
+    check: "cargo test --lib every_declared_flag_is_consumed_or_refused"
+    severity: "ERROR"
+    layer: ci
+    failure_mode: test_failure
+    ci_gate: required
+    notes: |
+      LEG 1 — the reflection guard (FALSIFY-FLAG-A16) is the only part of this
+      contract that scales. It enumerates option fields by reflection over the
+      serialised args structs and fails CI when one has no dispatch site and no
+      REFUSED entry. Adding a flag to the REFUSED table is allowed and is the
+      honest interim state: `--pairs` exiting 2 with "not implemented" is
+      strictly better than `--pairs` exiting 0 and doing nothing.
+
+  flag_behaviour_is_observed_in_the_world:
+    description: >-
+      Each of the 15 confirmed defects has a process-level test that reads a
+      filesystem fact, a receiver log, a subprocess marker or an exit code.
+    check: "contract_tests::FALSIFY-FLAG-A01..A15 (dogfood lane, release binary)"
+    severity: "ERROR"
+    layer: process
+    failure_mode: test_failure
+    ci_gate: required
+    notes: |
+      LEG 2 — these tests fork the binary and write only to a sandbox under
+      /tmp/forjar-dogfood. They cannot live in `cargo test --lib` unchanged:
+      `std::env::set_current_dir` is disallowed in this repo as process-global
+      and flaky, so each must be ported as an integration test that passes an
+      explicit working directory rather than mutating the process's. Until then
+      they run as the dogfood lane against the release binary.
+
+      ASSERT ON THE WORLD, NOT ON THE TEXT. Asserting that stdout contains
+      "Apply complete" is what let this family survive: all fifteen defects
+      print a correct-looking success message. Same lesson build-semantics-v1
+      records for `forjar check`, where `script.contains(...)` assertions stayed
+      green for five months over an unfailable check script.
+
+  every_finding_carries_an_in_binary_control:
+    description: >-
+      Each falsification test exercises a working sibling in the same process,
+      fixture and command line wherever one exists.
+    check: "review gate on falsification_tests[].can_go_red"
+    severity: "ERROR"
+    layer: review
+    failure_mode: review_rejection
+    ci_gate: required
+    notes: |
+      Without the control, "the webhook did not arrive" is indistinguishable
+      from "the receiver is down" and the finding is dismissible. The controls
+      in this contract are: --subset/-r/-m for A01; --notify-slack and
+      --notify-webhook hitting the same receiver for A03/A04/A05; plain `apply`
+      under the same PTY for A06; `plan --why` for A07; localhost import for
+      A13; the `tag` filter in the same MCP handler for A14; mis2.yaml plus
+      forjar's own LSP plus PyYAML for A15.
+
+  red_before_green:
+    description: >-
+      A test that is green against BOTH forjar 1.12.3 and the fixed binary is
+      rejected as unfalsifiable.
+    check: "run falsification_tests[].command with FORJAR=/home/noah/.cargo/bin/forjar"
+    severity: "ERROR"
+    layer: review
+    failure_mode: review_rejection
+    ci_gate: required
+    notes: |
+      Each test records its exact red_output against the published binary. A
+      test that cannot reproduce it is not evidence of a fix; it is evidence of
+      a test that cannot fail — which is the defect class this whole contract
+      exists to catch, reappearing one level up.
+
+known_gaps:
+  - id: GAP-EXISTENTIAL-QUANTIFIER
+    statement: >-
+      The core equation is existential — a flag has an effect if SOME input
+      distinguishes it. No test can search that space exhaustively, so each
+      falsification test uses the witness set the flag's own help text implies.
+      A flag that only takes effect on some input nobody thought to try will
+      still be reported inert. That is the correct bias: if the documented
+      scenario does not exercise the flag, the documentation is wrong too.
+
+  - id: GAP-REFUSAL-IS-A-VALID-FIX
+    statement: >-
+      This contract does NOT require any flag to be implemented. Refusing
+      `--skip` with a non-zero exit satisfies it exactly as well as making
+      `--skip` work, and is a one-line change. The contract is about honesty of
+      the CLI surface, not feature completeness. Removing the flag from `--help`
+      also satisfies it.
+
+  - id: GAP-REFLECTION-CANNOT-JUDGE-CORRECTNESS
+    statement: >-
+      FALSIFY-FLAG-A16 proves a field is READ somewhere. It cannot prove it is
+      read correctly, at the right point, or by the right dispatcher — it would
+      not have caught the MCP count mismatch (A14), where the filter IS consumed
+      but after the summary was computed. Reflection is the scaling guard;
+      per-flag behavioural tests remain necessary for semantics.
+
+  - id: GAP-HELP-TEXT-IS-NOT-MACHINE-READABLE
+    statement: >-
+      Sibling parity (INV-SIBLING-PARITY) is stated over "flags documented as
+      variants of one capability", which no tool can currently derive. It is
+      enforced by the hand-maintained variant groups listed in the
+      sibling_parity equation. A future `variant_of = "notify_webhook"` attribute
+      on the args struct would make the grouping machine-checkable and is the
+      right eventual fix.
+
+  - id: GAP-SUBCOMMAND-SCOPE
+    statement: >-
+      A01..A15 cover the fifteen defects confirmed in issue #211. They are a
+      sample of the surface, not a proof over it: `--approval-required`,
+      `--require-approval` and `--approval-timeout` sit next to the proven-inert
+      `--approval-webhook` and were never exercised. Only FALSIFY-FLAG-A16
+      quantifies over the whole surface, which is why it is the only test whose
+      absence is itself recorded as RED.
+
+qa_gate:
+  id: F-FLAG-A01
+  name: "Flag Has Effect Contract (family A, issue #211)"
+  description: >-
+    Gates the honesty of forjar's declared surface: every flag in --help either
+    changes the observable trace or is refused, gates can deny, sinks receive,
+    metadata is retrievable, enum flags validate their domain, and a filter's
+    effect reaches every value derived from it.
+  checks:
+    - "INV-FLAG-EFFECT-OR-REJECT"
+    - "INV-SIBLING-PARITY"
+    - "INV-GATE-FAILS-CLOSED"
+    - "INV-SINK-FLAGS-PRODUCE-ARTIFACTS"
+    - "INV-HEADER-FLAGS-REACH-THE-WIRE"
+    - "INV-METADATA-FLAGS-ARE-RETRIEVABLE"
+    - "INV-ENUM-FLAGS-VALIDATE-THEIR-DOMAIN"
+    - "INV-EFFECT-COMPLETENESS"
+    - "INV-REACHABLE-RENDERER-MUST-BE-REACHED"
+    - "INV-DECLARED-OPERATION-HAPPENS"
+  pass_criteria: >-
+    All 16 falsification tests pass against the fixed binary, AND all 16 still
+    reproduce their recorded red_output against forjar 1.12.3. A test that is
+    green against BOTH binaries is not evidence of a fix, it is evidence of a
+    test that cannot fail — reject it.
+  falsification: >-
+    Delete the dispatch site for --subset and A01's control lines stop
+    restricting; move the MCP resource filter back after the summariser and A14
+    returns to `"to_create":2 changes=1`; delete the reflection guard and A16
+    returns to RED by absence.
+
+verification_level: L2

@@ -84,6 +84,13 @@ pub struct DriftOutput {
     pub drifted: bool,
     /// Individual drift findings.
     pub findings: Vec<DriftFindingOutput>,
+    /// GH-208: machines that could NOT be compared (no state recorded yet), so a
+    /// caller can distinguish "clean" from "not looked at". Previously an
+    /// uncomparable machine simply contributed no findings and the tool answered
+    /// `drifted: false`, which reads as a clean bill of health for a machine that
+    /// was never inspected.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unchecked: Vec<String>,
 }
 
 /// A single drift finding for a resource.
@@ -154,6 +161,12 @@ pub struct ShowOutput {
 /// MCP status handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct StatusInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine
@@ -179,6 +192,12 @@ pub struct MachineStatusOutput {
 /// MCP trace handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TraceInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine
@@ -226,6 +245,12 @@ pub struct TraceSpanOutput {
 /// MCP anomaly handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AnomalyInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine

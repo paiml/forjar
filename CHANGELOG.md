@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`build --push` fabricated a push** ([#210](https://github.com/paiml/forjar/issues/210)).
+
+  With a network it printed `Push complete: 3 uploaded` and exited 0 having
+  uploaded nothing; with no network at all it printed
+  `push skipped: registry unreachable` and **still exited 0**. The target was
+  `docker.io/app:latest` whatever the resource declared:
+
+  ```console
+  $ unshare -rn forjar build --resource img --push   # no network whatsoever
+    registry: docker.io
+    name: app
+    tag: latest
+    push skipped: registry unreachable (no Location header in upload response)
+  $ echo $?
+  0
+  ```
+
+  Five defects, each sufficient on its own to make the success line false:
+
+  1. Transport failures were swallowed into a "skipped" line and `Ok(())`.
+  2. The push target was re-derived from `name`/`version` with a different
+     default (`app`/`latest`) than the build used, and split at the first `/`,
+     so `myorg/app` parsed as registry `myorg`. `tag:` on an image resource was
+     parsed and dropped entirely. The push now reuses the exact reference the
+     build stamped into the image, parsed by
+     `core::store::image_ref::parse_image_ref`.
+  3. Success was gated on the presence of a `Location:` header. `docker.io` is
+     a website: it answers the upload POST with a 301 to the marketing site,
+     whose `Location` was taken as an upload session — the blob was PUT at a
+     web page, which returned 200. The status code is now the gate (202
+     Accepted), and Docker Hub resolves to `registry-1.docker.io`.
+  4. The manifest was uploaded as a *blob* and never PUT to the tag, so even a
+     fully successful run created no pullable tag. It is now PUT to the tag.
+  5. `?digest=` was concatenated onto session URLs that already carry a query
+     string (`?_state=…`), which every real registry rejects with
+     `BLOB_UPLOAD_INVALID`.
+
+  `Push complete` is now printed only after forjar re-reads the tag from the
+  registry and confirms it resolves to the manifest just pushed; every other
+  outcome is a non-zero exit. HTTP 401 is reported as what it is — forjar
+  implements no registry credentials, so an authenticated registry is refused
+  with a pointer to `--load` + `docker push` or `--far`. Anonymous-write
+  registries push and verify for real (`docker pull` of the pushed digest
+  succeeds).
+
+
 ## [1.12.3] - 2026-08-10
 
 ### Fixed

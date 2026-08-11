@@ -241,7 +241,7 @@ pub struct LintArgs {
     #[arg(long)]
     pub fix: bool,
 
-    /// FJ-374: Custom lint rules from YAML file
+    /// FJ-374: Custom lint rules from YAML file [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rules: Option<PathBuf>,
 

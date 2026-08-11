@@ -360,6 +360,12 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             rules: _rules,
             bashrs_version,
         }) => {
+            // GH-211: FJ-374 was destructured to `_rules` and dropped — rustc
+            // silenced, the operator not. A custom rule file that is never
+            // loaded means lint reports clean against rules it never ran. The
+            // underscore binding is KEPT so the guard test still classifies
+            // `rules` as unconsumed; the refusal below is its only reader.
+            super::inert_flags::reject_inert_flag("--rules", _rules.is_some())?;
             if bashrs_version {
                 // Version extracted from Cargo.toml dependency
                 const BASHRS_VERSION: &str = "6.64.0";

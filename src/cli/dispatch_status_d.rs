@@ -141,8 +141,13 @@ pub(super) fn dispatch_status_cmd_tail(args: StatusArgs) -> Result<(), String> {
         machine_resource_drift_pattern_classification,
         fleet_resource_convergence_window_analysis,
         connectivity,
+        dependency_count: _dependency_count,
         ..
     } = args;
+    // GH-211: FJ-742 was hidden behind the `..` rest pattern above — accepted,
+    // never read, and invisible to rustc. Refuse rather than print a normal
+    // status report that silently omits what was asked for.
+    super::inert_flags::reject_inert_flag("--dependency-count", _dependency_count)?;
     let m = machine.as_deref();
     // FJ-2300/E19: Active machine connectivity probing
     if connectivity {

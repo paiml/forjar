@@ -83,7 +83,10 @@ pub(crate) fn cmd_plan(
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);
     let execution_order = resolver::build_execution_order(&config)?;
-    let plan = planner::plan(&config, &execution_order, &locks, tag_filter);
+    let mut plan = planner::plan(&config, &execution_order, &locks, tag_filter);
+
+    super::plan_selector::apply_machine_filter(&mut plan, machine_filter);
+    let plan = plan;
 
     if let Some(dir) = output_dir {
         export_scripts(&config, dir)?;
@@ -474,3 +477,7 @@ fn action_icon(action: &types::PlanAction) -> String {
         types::PlanAction::NoOp => dim("="),
     }
 }
+
+#[cfg(test)]
+#[path = "plan_tests_selector_scope.rs"]
+mod tests_selector_scope;

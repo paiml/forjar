@@ -311,7 +311,11 @@ pub struct BuildArgs {
     #[arg(long)]
     pub load: bool,
 
-    /// Push to registry after build
+    /// Push to the built reference's registry (OCI Distribution v1.1) and
+    /// verify the tag resolves; exits non-zero if it cannot. NOTE: forjar
+    /// implements no registry credentials, so an authenticated registry
+    /// (docker.io, ghcr.io, …) is refused with HTTP 401 rather than pushed —
+    /// use `--load` + `docker push`, or `--far`.
     #[arg(long)]
     pub push: bool,
 

@@ -247,7 +247,7 @@ pub struct StatusArgs {
     /// FJ-737: Show overall health per machine
     #[arg(long)]
     pub machine_health_summary: bool,
-    /// FJ-742: Show inbound/outbound dependency count per resource
+    /// FJ-742: Show inbound/outbound dependency count per resource [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub dependency_count: bool,
 

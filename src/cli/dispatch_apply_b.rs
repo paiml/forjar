@@ -17,6 +17,11 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     };
     let verbose = verbose || args.trace;
 
+    // GH-211: refuse before ANY early exit, hook or backup runs. A flag that
+    // does nothing must not be able to reach a code path that does something —
+    // the whole defect class is "forjar acted while ignoring what it was told".
+    super::inert_flags::reject_inert_apply_flags(&args)?;
+
     if let Some(r) = apply_early_exits(&args) {
         return r;
     }
@@ -26,6 +31,38 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     }
     apply_backups(&args);
     apply_execute(&args, verbose)
+}
+
+/// GH-208: every flag in the dry-run family must mean "change nothing".
+///
+/// `apply_early_exits` intercepts `--dry-run-verbose`, `--dry-run-graph` and
+/// `--dry-run-cost`, and `args.dry_run` was passed through to `cmd_apply` — but
+/// `--dry-run-shell`, `--dry-run-json`, `--dry-run-summary` and `--dry-run-diff`
+/// were handled NOWHERE. They fell through to a REAL apply: files created, state
+/// written, and none of their documented output produced. Measured on the
+/// published 1.12.3 binary:
+///
+/// ```text
+///   --dry-run          rc=0  a.txt=none     state=none      (correct)
+///   --dry-run-shell    rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-json     rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-summary  rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-diff     rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+/// ```
+///
+/// Asking for a preview and getting a mutation is the most dangerous shape a
+/// flag can have, so this is deliberately computed ONCE, fail-safe: any member
+/// of the family suppresses execution. Adding a new `--dry-run-*` flag without
+/// adding it here can only ever be too cautious, never destructive.
+pub(super) fn effective_dry_run(args: &ApplyArgs) -> bool {
+    args.dry_run
+        || args.dry_run_shell
+        || args.dry_run_json
+        || args.dry_run_summary
+        || args.dry_run_diff
+        || args.dry_run_cost
+        || args.dry_run_graph
+        || args.dry_run_verbose
 }
 
 /// Early exits for dry-run and canary modes.
@@ -238,7 +275,15 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         check_compliance_packs(&args.file, &args.policy_dir, verbose)?;
     }
 
-    let result = cmd_apply(
+    // GH-211: the four scope selectors that were declared and never read.
+    let scope = super::apply_scope::ApplyScope {
+        skip: args.skip.as_deref(),
+        only_machine: args.only_machine.as_deref(),
+        exclude_machine: args.exclude_machine.as_deref(),
+        resource_filter: args.resource_filter.as_deref(),
+    };
+
+    let result = cmd_apply_scoped(
         &args.file,
         &sd,
         args.machine.as_deref(),
@@ -246,12 +291,12 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.tag.as_deref(),
         args.group.as_deref(),
         args.force,
-        args.dry_run,
+        effective_dry_run(args),
         args.no_tripwire,
         &args.params,
         args.auto_commit,
         args.timeout,
-        args.json,
+        args.json || args.dry_run_json,
         verbose,
         args.env_file.as_deref(),
         args.workspace.as_deref(),
@@ -275,6 +320,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.refresh,
         args.force_tag.as_deref(),
         &[],
+        &scope,
     );
 
     // FJ-1240: Encrypt state files after apply
@@ -371,4 +417,64 @@ fn check_compliance_packs(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests_gh208_dry_run_family {
+    use super::*;
+
+    // GH-208: --dry-run-shell/-json/-summary/-diff performed a REAL apply on the
+    // published 1.12.3 binary — files created, state written — because only
+    // `args.dry_run` reached the execute guard. Asking for a preview and getting
+    // a mutation is the most dangerous shape a flag can have.
+
+    fn args_with(f: impl FnOnce(&mut ApplyArgs)) -> ApplyArgs {
+        let mut a = ApplyArgs::default();
+        f(&mut a);
+        a
+    }
+
+    #[test]
+    fn every_dry_run_flag_suppresses_execution() {
+        // Asserted one flag at a time: a table of fn pointers trips the
+        // very-complex-type lint and reads no better.
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run = true)),
+            "--dry-run"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_shell = true)),
+            "--dry-run-shell must suppress execution: a flag named dry-run must never mutate"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_json = true)),
+            "--dry-run-json must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_summary = true)),
+            "--dry-run-summary must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_diff = true)),
+            "--dry-run-diff must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_cost = true)),
+            "--dry-run-cost"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_graph = true)),
+            "--dry-run-graph"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_verbose = true)),
+            "--dry-run-verbose"
+        );
+    }
+
+    #[test]
+    fn a_plain_apply_is_not_dry_run() {
+        // The guard against "fixed" meaning "never applies anything".
+        assert!(!effective_dry_run(&ApplyArgs::default()));
+    }
 }
