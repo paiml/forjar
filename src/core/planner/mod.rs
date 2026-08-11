@@ -67,7 +67,13 @@ pub fn plan_with_probes(
             }
 
             let action = determine_action(resource_id, &resolved, machine_name, &locks, probes);
-            let description = describe_action(resource_id, resource, &action);
+            // GH-212: describe the RESOLVED resource. `determine_action` was
+            // already given `resolved`, but the description was rendered from
+            // the raw config, so `plan` named the file it would create as the
+            // literal `{{params.sandbox}}/a.txt` while `show` and `apply` both
+            // used the real path — the pre-flight review surface disagreed with
+            // what the apply actually wrote.
+            let description = describe_action(resource_id, &resolved, &action);
 
             match action {
                 PlanAction::Create => to_create += 1,

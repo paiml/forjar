@@ -31,9 +31,10 @@
 //! # What this test cannot see (stated, not hidden)
 //!
 //! It proves a field is READ, not that reading it changes behaviour. A field
-//! forwarded into a function that ignores it still counts as consumed —
-//! `--notify-custom-headers` is assigned into `NotifyOpts` and never becomes a
-//! `-H` argument, and this test is blind to that. Partial consumption is
+//! forwarded into a function that ignores it still counts as consumed — for a
+//! year `--notify-custom-headers` was assigned into `NotifyOpts` and never
+//! became a `-H` argument (fixed under GH-211), and this test was blind to
+//! that the whole time. Partial consumption is
 //! covered by the process-level falsification tests in
 //! `contracts/flag-has-effect-v1.yaml`, not here. What this test does cover
 //! completely is the "read by nothing at all" class, which is 15 of the 15

@@ -22,15 +22,38 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     // the whole defect class is "forjar acted while ignoring what it was told".
     super::inert_flags::reject_inert_apply_flags(&args)?;
 
+    // GH-211: a malformed --notify-*-headers value must be refused BEFORE the
+    // apply, not silently dropped after it. Dropping it delivers the
+    // notification unauthenticated, and the 401 that follows was swallowed too.
+    validate_notify_headers(&args)?;
+
     if let Some(r) = apply_early_exits(&args) {
         return r;
     }
     apply_pre_checks(&args)?;
+    // GH-210: --preview shows the scripts and then the apply RUNS. It used to
+    // print a plan and return Ok(()) having converged nothing and written no
+    // state, while exiting 0.
+    if args.preview && !effective_dry_run(&args) {
+        super::apply_preview::print_generated_scripts(&args)?;
+    }
     if let Some(r) = apply_mode_exits(&args, verbose) {
         return r;
     }
     apply_backups(&args);
     apply_execute(&args, verbose)
+}
+
+/// GH-211: reject a `--notify-webhook-headers` value that is not a JSON object.
+///
+/// `--notify-custom-headers` is deliberately NOT checked here: its legacy
+/// `URL|Header: Value` form is still supported, so "not JSON" is a valid value.
+pub(super) fn validate_notify_headers(args: &ApplyArgs) -> Result<(), String> {
+    if let Some(raw) = args.notify_webhook_headers.as_deref() {
+        super::webhook_post::parse_header_json(raw)
+            .map_err(|e| format!("--notify-webhook-headers: {e}"))?;
+    }
+    Ok(())
 }
 
 /// GH-208: every flag in the dry-run family must mean "change nothing".
@@ -134,29 +157,17 @@ fn apply_pre_checks(args: &ApplyArgs) -> Result<(), String> {
 
 /// Mode-specific exits: preview, output_scripts, diff_only, check, refresh, plan_file.
 fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String>> {
-    if args.preview {
-        let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_plan(
-            &args.file,
-            &sd,
-            args.machine.as_deref(),
-            args.resource.as_deref(),
-            args.tag.as_deref(),
-            false,
-            true,
-            None,
-            args.env_file.as_deref(),
-            args.workspace.as_deref(),
-            false,
-            None,
-            false,
-            &[],
-            None,
-            false,
-        ));
-    }
+    // GH-210: `--preview` is NOT an exit — the scripts have already been
+    // printed by `dispatch_apply_cmd` and the apply proceeds below.
     if let Some(ref dir) = args.output_scripts {
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+        // GH-210: exporting scripts "for manual review" legitimately replaces
+        // the apply — but say so. The shipped version exited 0 with a plan and
+        // no state, and the next command failed with "cannot read state dir".
+        println!(
+            "--output-scripts: scripts written to {}; the apply was SKIPPED (nothing was changed).",
+            dir.display()
+        );
         return Some(cmd_plan(
             &args.file,
             &sd,
@@ -174,6 +185,7 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             &[],
             None,
             false,
+            args.group.as_deref(),
         ));
     }
     if args.diff_only {
@@ -195,6 +207,7 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             &[],
             None,
             false,
+            args.group.as_deref(),
         ));
     }
     if args.check {
@@ -330,6 +343,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         slack: args.notify_slack.as_deref(),
         email: args.notify_email.as_deref(),
         webhook: args.notify_webhook.as_deref(),
+        webhook_headers: args.notify_webhook_headers.as_deref(),
         teams: args.notify_teams.as_deref(),
         discord: args.notify_discord.as_deref(),
         opsgenie: args.notify_opsgenie.as_deref(),

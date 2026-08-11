@@ -567,7 +567,7 @@ pub struct ApplyArgs {
     /// FJ-736: Apply only to specific machine
     #[arg(long)]
     pub only_machine: Option<String>,
-    /// FJ-744: Custom headers for webhook notifications (JSON string) [UNIMPLEMENTED — rejected, see GH-211]
+    /// FJ-744: Custom headers for --notify-webhook, as a JSON object: '{"X-Auth":"tok"}'
     #[arg(long)]
     pub notify_webhook_headers: Option<String>,
     /// FJ-752: Append structured JSON events to a local file [UNIMPLEMENTED — rejected, see GH-211]
@@ -618,7 +618,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_custom_webhook: Option<String>,
 
-    /// FJ-856: Custom HTTP headers for webhook notifications
+    /// FJ-856: Custom HTTP headers for --notify-custom-webhook, as a JSON object: '{"X-Custom":"v"}' (legacy 'URL|H: V' form still accepted)
     #[arg(long)]
     pub notify_custom_headers: Option<String>,
 
