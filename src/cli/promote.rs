@@ -114,7 +114,10 @@ fn print_json(from: &str, to: &str, gates: &[GateResult], all_passed: bool, auto
         "auto_approve": auto_approve,
     });
 
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&output).unwrap_or_else(|_| "{}".to_string())
+    );
 }
 
 #[cfg(test)]
