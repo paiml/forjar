@@ -48,7 +48,10 @@ fn cmd_plugin_list(plugin_dir: &Path, json: bool) -> Result<(), String> {
                 Err(_) => serde_json::json!({"name": name, "status": "error"}),
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries).unwrap());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         if names.is_empty() {
             println!("No plugins found in {}", plugin_dir.display());
@@ -101,7 +104,10 @@ fn cmd_plugin_verify(manifest_path: &Path, json: bool) -> Result<(), String> {
                 "env": result.manifest.permissions.env,
                 "exec": result.manifest.permissions.exec },
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         println!(
             "Plugin: {} v{}",

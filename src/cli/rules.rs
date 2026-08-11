@@ -88,7 +88,7 @@ fn print_validate_json(summary: &ValidationSummary) {
         "issues": issues,
     });
 
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    println!("{output:#}");
 }
 
 /// Show event type coverage across rulebooks.
@@ -106,7 +106,7 @@ fn cmd_rules_coverage(file: &Path, json: bool) -> Result<(), String> {
             .iter()
             .map(|(et, count)| (et.to_string(), serde_json::json!(count)))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&map).unwrap());
+        println!("{:#}", serde_json::Value::Object(map));
     } else {
         println!("Event Type Coverage");
         println!("{}", "-".repeat(40));
