@@ -11,6 +11,8 @@ pub mod registry;
 pub mod types;
 
 #[cfg(test)]
+mod tests_dogfood;
+#[cfg(test)]
 mod tests_handlers;
 #[cfg(test)]
 mod tests_handlers_more;

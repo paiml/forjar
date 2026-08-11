@@ -32,7 +32,8 @@ pub struct PlanInput {
     pub path: String,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
-    /// Filter to specific resource
+    /// Filter to a specific resource. The counts below describe the FILTERED
+    /// set, and an id that is not in the config is an error (GH-214).
     pub resource: Option<String>,
     /// Filter by tag
     pub tag: Option<String>,
@@ -129,7 +130,9 @@ pub struct LintOutput {
 pub struct GraphInput {
     /// Path to forjar.yaml
     pub path: String,
-    /// Output format: "mermaid" (default) or "dot"
+    /// Output format: "mermaid" (default) or "dot". Any other value is an
+    /// error — "ascii" and "svg" exist on the CLI only, and an unrecognised
+    /// value is rejected exactly as `forjar graph --format` rejects it (GH-212).
     pub format: Option<String>,
 }
 
@@ -138,7 +141,8 @@ pub struct GraphInput {
 pub struct GraphOutput {
     /// Rendered dependency graph.
     pub graph: String,
-    /// Output format (mermaid or dot).
+    /// The format ACTUALLY rendered — always one of "mermaid" or "dot", never
+    /// an echo of an unsupported request (GH-212).
     pub format: String,
 }
 

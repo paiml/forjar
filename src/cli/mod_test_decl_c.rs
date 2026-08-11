@@ -105,6 +105,8 @@ mod tests_observe_cov;
 #[cfg(test)]
 mod tests_lsp_cov;
 #[cfg(test)]
+mod tests_lsp_dogfood;
+#[cfg(test)]
 mod tests_destroy_ext_cov;
 #[cfg(test)]
 mod tests_workspace_ext_cov;

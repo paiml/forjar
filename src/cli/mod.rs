@@ -80,7 +80,9 @@ mod graph_analysis;
 mod graph_analytics;
 mod graph_analytics_ext;
 mod graph_compliance;
-mod graph_core;
+// GH-212: `graph_core::parse_graph_format` is the single format parser shared
+// with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
+pub(crate) mod graph_core;
 mod graph_cross;
 mod graph_export;
 mod graph_export_b;
@@ -136,7 +138,10 @@ mod lock_repair;
 mod lock_security;
 mod logs;
 pub mod lsp;
+// GH-215: maps a diagnostic message back to a range in the document.
+mod lsp_locate;
 mod lsp_publish;
+mod lsp_validate;
 mod make;
 mod makefile_cmd;
 mod makefile_import;
@@ -292,6 +297,14 @@ include!("mod_test_decl_c.rs");
 /// `cli::plan`, or the two disagree about whether a converged project has
 /// pending work. Re-exported through one named function so there is a single
 /// definition, not a second implementation.
-pub(crate) fn strip_unrequested_phony_for_mcp(config: &mut crate::core::types::ForjarConfig) {
-    apply_selection::strip_unrequested_phony(config, &[]);
+///
+/// GH-214 (#208): `goals` carries the ids the caller explicitly asked for
+/// (e.g. `forjar_plan`'s `resource` selector). A phony resource named by the
+/// caller is REQUESTED, so it must survive the strip — otherwise selecting it
+/// by name would make it vanish and then be reported as "not found".
+pub(crate) fn strip_unrequested_phony_for_mcp(
+    config: &mut crate::core::types::ForjarConfig,
+    goals: &[String],
+) {
+    apply_selection::strip_unrequested_phony(config, goals);
 }
