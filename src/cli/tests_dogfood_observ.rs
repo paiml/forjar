@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)] // helpers and imports are used only from #[test] fns; --all-targets compiles this
+// file in a non-test cfg where they appear unused (GH-208 integration).
 //! Regression tests for the P3-observ dogfood defects (issue #208).
 //!
 //! Every test here corresponds to a defect reproduced twice against the

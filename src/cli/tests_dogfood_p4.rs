@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports)] // imports are used only from #[test] fns; --all-targets compiles this
+// file in a non-test cfg where they appear unused (GH-208 integration).
 //! Refs #208 partition P4 (artifact surfaces): image / plugin / dist / build.
 //!
 //! One test per confirmed defect, plus the non-regression guard that stops
