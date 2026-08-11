@@ -216,63 +216,63 @@ mod tests {
     #[test]
     fn test_history_resource_no_events_dir_text() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_history_resource(dir.path(), "f", 10, false).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, false).is_ok());
     }
 
     #[test]
     fn test_history_resource_no_events_dir_json() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_history_resource(dir.path(), "f", 10, true).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, true).is_ok());
     }
 
     #[test]
     fn test_history_resource_with_events_text() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "f", 10, false).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, false).is_ok());
     }
 
     #[test]
     fn test_history_resource_with_events_json() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "f", 10, true).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, true).is_ok());
     }
 
     #[test]
     fn test_history_resource_no_matching_events_text() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "nonexistent", 10, false).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "nonexistent", 10, false).is_ok());
     }
 
     #[test]
     fn test_history_resource_no_matching_events_json() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "nonexistent", 10, true).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "nonexistent", 10, true).is_ok());
     }
 
     #[test]
     fn test_history_resource_limit_1() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "f", 1, false).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 1, false).is_ok());
     }
 
     #[test]
     fn test_history_resource_limit_1_json() {
         let dir = make_state_dir_with_events();
-        assert!(cmd_history_resource(dir.path(), "f", 1, true).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 1, true).is_ok());
     }
 
     #[test]
     fn test_history_resource_empty_events_dir() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("events")).unwrap();
-        assert!(cmd_history_resource(dir.path(), "f", 10, false).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, false).is_ok());
     }
 
     #[test]
     fn test_history_resource_empty_events_dir_json() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("events")).unwrap();
-        assert!(cmd_history_resource(dir.path(), "f", 10, true).is_ok());
+        assert!(crate::cli::history_resource::cmd_history_resource(dir.path(), None, "f", 10, true).is_ok());
     }
 
     // ========================================================================

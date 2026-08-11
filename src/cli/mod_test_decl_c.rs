@@ -154,3 +154,4 @@ mod tests_apply_scope;
 mod tests_flag_surface;
 #[cfg(test)]
 mod tests_gh_dogfood_p1;
+mod tests_dogfood_observ;

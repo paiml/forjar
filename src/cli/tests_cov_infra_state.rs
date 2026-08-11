@@ -277,7 +277,7 @@ fn history_since_json() {
 #[test]
 fn history_resource_no_state() {
     let d = tempfile::tempdir().unwrap();
-    let r = super::history::cmd_history_resource(d.path(), "nginx", 10, false);
+    let r = super::history_resource::cmd_history_resource(d.path(), None, "nginx", 10, false);
     assert!(r.is_ok());
 }
 
@@ -286,7 +286,7 @@ fn history_resource_with_events() {
     let d = tempfile::tempdir().unwrap();
     setup_state(d.path());
     setup_events(d.path());
-    let r = super::history::cmd_history_resource(d.path(), "nginx", 10, false);
+    let r = super::history_resource::cmd_history_resource(d.path(), None, "nginx", 10, false);
     assert!(r.is_ok());
 }
 
@@ -295,7 +295,7 @@ fn history_resource_with_events_json() {
     let d = tempfile::tempdir().unwrap();
     setup_state(d.path());
     setup_events(d.path());
-    let r = super::history::cmd_history_resource(d.path(), "nginx", 10, true);
+    let r = super::history_resource::cmd_history_resource(d.path(), None, "nginx", 10, true);
     assert!(r.is_ok());
 }
 
@@ -304,6 +304,6 @@ fn history_resource_not_found() {
     let d = tempfile::tempdir().unwrap();
     setup_state(d.path());
     setup_events(d.path());
-    let r = super::history::cmd_history_resource(d.path(), "nonexistent", 10, false);
+    let r = super::history_resource::cmd_history_resource(d.path(), None, "nonexistent", 10, false);
     assert!(r.is_ok());
 }

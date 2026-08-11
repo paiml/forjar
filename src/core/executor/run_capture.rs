@@ -18,11 +18,17 @@ pub fn ensure_run_dir(dir: &Path, run_id: &str, machine_name: &str, command: &st
         return;
     }
     let _ = std::fs::create_dir_all(dir);
-    let meta = RunMeta::new(
+    let mut meta = RunMeta::new(
         run_id.to_string(),
         machine_name.to_string(),
         command.to_string(),
     );
+    // Dogfood #208 (logs-gc-deletes-arbitrary-runs-including-the-newest): every
+    // run must carry a start timestamp. When it was left `None` the retention
+    // sort in `logs --gc` compared "" to "" for every run, the stable sort then
+    // preserved readdir (hash) order, and GC deleted an arbitrary subset —
+    // including the 2nd-newest run — while keeping the oldest.
+    meta.started_at = Some(crate::tripwire::eventlog::now_iso8601());
     let _ = serde_yaml_ng::to_string(&meta).map(|yaml| std::fs::write(dir.join("meta.yaml"), yaml));
 }
 

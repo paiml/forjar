@@ -125,7 +125,12 @@ resources:
             }),
             false,
         );
-        assert!(result.is_ok());
+        // Dogfood #208: bench exits non-zero on a missed target; debug builds
+        // miss the release-tuned budgets, so assert it routed and gave a verdict.
+        assert!(
+            crate::cli::infra_bench_baseline::bench_routed(&result),
+            "bench gives a verdict: {result:?}"
+        );
     }
 
     #[test]
@@ -138,7 +143,12 @@ resources:
             }),
             false,
         );
-        assert!(result.is_ok());
+        // Dogfood #208: bench exits non-zero on a missed target; debug builds
+        // miss the release-tuned budgets, so assert it routed and gave a verdict.
+        assert!(
+            crate::cli::infra_bench_baseline::bench_routed(&result),
+            "bench gives a verdict: {result:?}"
+        );
     }
 
     // ========================================================================

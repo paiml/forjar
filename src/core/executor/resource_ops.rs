@@ -238,6 +238,10 @@ fn execute_resource(
     }
 
     let ssh_retries = cfg.config.policy.ssh_retries;
+    // Dogfood #208 (logs-script-flag-noop): capture the generated script so the
+    // `.script` sidecar and `script_hash` are not empty and `--script` has
+    // something to show.
+    let mut executed_script = String::new();
     let output = if resolved.resource_type == ResourceType::File
         && resolved
             .source
@@ -252,12 +256,15 @@ fn execute_resource(
         if cfg.trace {
             eprintln!("[TRACE] {} script:\n{}", change.resource_id, script);
         }
-        transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries)
+        let result = transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries);
+        executed_script = script;
+        result
     };
     let duration = resource_start.elapsed().as_secs_f64();
 
+    let s = &executed_script;
     handle_resource_output(
-        output, cfg, change, resource, resolved, machine, ctx, duration,
+        output, cfg, change, resource, resolved, machine, ctx, duration, s,
     )
 }
 
@@ -286,6 +293,7 @@ fn check_task_input_cache(
 }
 
 /// FJ-2301: Persist ExecOutput to .log files for post-mortem debugging.
+#[allow(clippy::too_many_arguments)]
 fn capture_exec_output(
     ctx: &RecordCtx,
     run_id: Option<&str>,
@@ -293,6 +301,7 @@ fn capture_exec_output(
     action: &str,
     output: &transport::ExecOutput,
     duration: f64,
+    script: &str,
 ) {
     let rid = run_id.unwrap_or("run-adhoc");
     let run_dir = run_capture::run_dir(ctx.state_dir, ctx.machine_name, rid);
@@ -305,7 +314,7 @@ fn capture_exec_output(
         action,
         ctx.machine_name,
         "transport",
-        "",
+        script,
         output,
         duration,
     );
@@ -322,6 +331,7 @@ fn handle_resource_output(
     machine: &Machine,
     ctx: &mut RecordCtx,
     duration: f64,
+    executed_script: &str,
 ) -> Result<ResourceOutcome, String> {
     // FJ-2301: Capture output to run log directory
     if let Ok(ref out) = output {
@@ -333,6 +343,7 @@ fn handle_resource_output(
             &action_str,
             out,
             duration,
+            executed_script,
         );
     }
     match output {
