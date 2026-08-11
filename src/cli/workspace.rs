@@ -207,10 +207,23 @@ pub(crate) fn resolve_state_dir(state_dir: &Path, workspace_flag: Option<&str>) 
 }
 
 /// Inject `{{workspace}}` template variable into config params.
+///
+/// A user-defined `params.workspace` wins and is left untouched. Overwriting it
+/// silently corrupted configs: a `workspace: /home/noah/workspace` param was
+/// replaced by the workspace *name*, so `{{params.workspace}}` expanded to the
+/// `--workspace` value (or `"default"`) and the resource still reported
+/// `converged` — a file resource created `~/yoga` instead of `~/workspace`.
 pub(crate) fn inject_workspace_param(
     config: &mut types::ForjarConfig,
     workspace_flag: Option<&str>,
 ) {
+    if config.params.contains_key("workspace") {
+        eprintln!(
+            "warning: config defines param 'workspace' — keeping it; \
+             the built-in {{{{workspace}}}} name is not injected"
+        );
+        return;
+    }
     let ws = workspace_flag
         .map(|s| s.to_string())
         .or_else(current_workspace)
