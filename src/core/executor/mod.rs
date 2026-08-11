@@ -297,33 +297,6 @@ pub fn count_forced_noops(
         .count() as u32
 }
 
-/// Resource ids whose live state no longer matches the lock.
-///
-/// Uses the same `detect_drift_full` the `drift` command uses, over
-/// template-resolved resources (PMAT-197), so "changed on the machine" means
-/// the same thing in both places.
-fn live_drifted_resources(
-    cfg: &ApplyConfig,
-    locks: &HashMap<String, StateLock>,
-) -> std::collections::HashSet<String> {
-    let resolved = crate::core::resolver::resolve_all(
-        &cfg.config.resources,
-        &cfg.config.params,
-        &cfg.config.machines,
-        &cfg.config.secrets,
-    );
-    let mut out = std::collections::HashSet::new();
-    for (name, lock) in locks {
-        let Some(machine) = cfg.config.machines.get(name) else {
-            continue;
-        };
-        for f in crate::tripwire::drift::detect_drift_full(lock, machine, &resolved) {
-            out.insert(f.resource_id.clone());
-        }
-    }
-    out
-}
-
 /// Execute the apply loop.
 pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();
