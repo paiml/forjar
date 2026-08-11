@@ -95,7 +95,14 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             resource,
         }) => {
             if let Some(ref res) = resource {
-                return cmd_history_resource(&state_dir, res, limit, json);
+                // Dogfood #208: --resource must compose with --machine.
+                return super::history_resource::cmd_history_resource(
+                    &state_dir,
+                    machine.as_deref(),
+                    res,
+                    limit,
+                    json,
+                );
             }
             cmd_history(
                 &state_dir,
@@ -396,7 +403,7 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             iterations,
             json,
             compare,
-        }) => cmd_bench(iterations, json, compare),
+        }) => cmd_bench(iterations as usize, json, compare),
         Commands::Watch(WatchArgs {
             file,
             state_dir,

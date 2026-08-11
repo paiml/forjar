@@ -277,41 +277,10 @@ pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), 
     Ok(())
 }
 
-// FJ-371: Expand recipe template to stdout
-pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(recipe)
-        .map_err(|e| format!("cannot read recipe {}: {}", recipe.display(), e))?;
-
-    // Parse vars into map
-    let mut var_map = std::collections::HashMap::new();
-    for v in vars {
-        if let Some((key, val)) = v.split_once('=') {
-            var_map.insert(key.to_string(), val.to_string());
-        }
-    }
-
-    // Simple template expansion: replace {{inputs.KEY}} with value
-    let mut expanded = content.clone();
-    for (key, val) in &var_map {
-        let pattern = format!("{{{{inputs.{key}}}}}");
-        expanded = expanded.replace(&pattern, val);
-    }
-
-    if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "recipe": recipe.display().to_string(),
-                "vars": var_map,
-                "expanded": expanded,
-            })
-        );
-    } else {
-        println!("{expanded}");
-    }
-
-    Ok(())
-}
+// FJ-371 / Refs #211: `template` is a real expander in `template_cmd.rs` now,
+// not a `read_to_string` + `println!`. Re-exported so the dispatcher (and the
+// existing coverage tests) keep their call site.
+pub(crate) use super::template_cmd::cmd_template;
 
 // FJ-220 + FJ-3200: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool, sarif: bool) -> Result<(), String> {

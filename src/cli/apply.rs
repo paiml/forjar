@@ -134,6 +134,14 @@ pub(crate) fn cmd_apply_scoped(
     // FJ-1388: Record pre-apply generation for rollback-on-failure
     let pre_apply_gen = pre_apply_generation(state_dir);
 
+    // GH-210 (FJ-129): measured BEFORE the apply. Measuring afterwards read a
+    // lock the apply had just rewritten, so every resource looked unchanged.
+    let forced_noop_count = if cfg.force && !dry_run {
+        executor::forced_noop_count(&cfg)
+    } else {
+        0
+    };
+
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
     let dur_apply = t_apply.elapsed();
@@ -143,17 +151,6 @@ pub(crate) fn cmd_apply_scoped(
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
-
-    // FJ-129: When --force was used, count how many of the converged
-    // resources were no-ops the lock would have skipped. That's what
-    // makes claim C3 (idempotency) observable through --force —
-    // without it, a forced re-apply of a fully-converged stack looks
-    // identical to a legitimate re-converge after drift.
-    let forced_noop_count = if cfg.force {
-        executor::forced_noop_count(&cfg)
-    } else {
-        0
-    };
 
     for result in &results {
         if let Err(e) = state::save_apply_report(state_dir, result) {
@@ -186,6 +183,16 @@ pub(crate) fn cmd_apply_scoped(
     if total_failed > 0 {
         // FJ-1388: Generation-based rollback on failure
         maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
+        // GH-210: `--notify` must fire on the failure path too. See
+        // `apply_output::notify_on_failure`.
+        super::apply_output::notify_on_failure(
+            notify,
+            &config,
+            &results,
+            (total_converged, total_failed, total_unchanged),
+            &t_total,
+            verbose,
+        );
         return Err(format!("{total_failed} resource(s) failed"));
     }
 

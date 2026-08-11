@@ -1,12 +1,16 @@
 //! History commands.
 #![allow(clippy::manual_is_multiple_of)] // i64 doesn't support is_multiple_of
 
-use super::helpers::*;
 use super::helpers_time::*;
 use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
 
+/// Print (or emit as JSON) the apply history for one or all machines.
+///
+/// Reads every `state/<machine>/events.jsonl`, sorts newest-first, applies the
+/// optional `--since` window and shows the `apply_started`/`apply_completed`
+/// pairs. Per-resource history lives in [`super::history_resource`].
 pub(crate) fn cmd_history(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -14,39 +18,7 @@ pub(crate) fn cmd_history(
     json: bool,
     since: Option<&str>,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-
-    let mut all_events: Vec<types::TimestampedEvent> = Vec::new();
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-
-        let log_path = eventlog::event_log_path(state_dir, &name);
-        if !log_path.exists() {
-            continue;
-        }
-
-        let content = std::fs::read_to_string(&log_path)
-            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
-
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                all_events.push(event);
-            }
-        }
-    }
+    let mut all_events = load_machine_events(state_dir, machine_filter)?;
 
     // Sort by timestamp descending (most recent first)
     all_events.sort_by(|a, b| b.ts.cmp(&a.ts));
@@ -79,6 +51,51 @@ pub(crate) fn cmd_history(
     }
 
     Ok(())
+}
+
+/// Machine directories under `state_dir` that hold an event log.
+fn machines_with_event_logs(state_dir: &Path, filter: Option<&str>) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|name| filter.is_none_or(|f| name == f))
+        .filter(|name| eventlog::event_log_path(state_dir, name).exists())
+        .collect()
+}
+
+/// Parse every JSONL line of one machine's event log, skipping malformed rows.
+fn parse_event_log(path: &Path) -> Result<Vec<types::TimestampedEvent>, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read {}: {}", path.display(), e))?;
+    Ok(content
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str::<types::TimestampedEvent>(l).ok())
+        .collect())
+}
+
+/// Load every event from every in-scope machine's `events.jsonl`.
+pub(crate) fn load_machine_events(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<Vec<types::TimestampedEvent>, String> {
+    if !state_dir.exists() {
+        return Err(format!(
+            "cannot read state dir {}: not found",
+            state_dir.display()
+        ));
+    }
+    let mut all = Vec::new();
+    for name in machines_with_event_logs(state_dir, machine_filter) {
+        all.extend(parse_event_log(&eventlog::event_log_path(
+            state_dir, &name,
+        ))?);
+    }
+    Ok(all)
 }
 
 /// Convert epoch seconds to ISO 8601 date string (manual UTC formatting).
@@ -208,62 +225,4 @@ fn print_apply_events(apply_events: &[&types::TimestampedEvent]) {
             _ => {}
         }
     }
-}
-
-// FJ-357: Show change history for a specific resource
-/// Collect matching event lines from JSONL log files for a specific resource.
-fn collect_resource_events(log_dir: &Path, resource: &str) -> Result<Vec<String>, String> {
-    let mut entries = Vec::new();
-    for entry in std::fs::read_dir(log_dir).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        if path.extension().is_some_and(|e| e == "jsonl") {
-            let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            for line in content.lines() {
-                if line.contains(resource) {
-                    entries.push(line.to_string());
-                }
-            }
-        }
-    }
-    Ok(entries)
-}
-
-pub(crate) fn cmd_history_resource(
-    state_dir: &Path,
-    resource: &str,
-    limit: usize,
-    json: bool,
-) -> Result<(), String> {
-    let log_dir = state_dir.join("events");
-    if !log_dir.exists() {
-        if json {
-            println!("[]");
-        } else {
-            println!("No event logs found.");
-        }
-        return Ok(());
-    }
-
-    let mut entries = collect_resource_events(&log_dir, resource)?;
-
-    entries.sort();
-    if entries.len() > limit {
-        entries = entries.split_off(entries.len() - limit);
-    }
-
-    if json {
-        println!("[{}]", entries.join(","));
-    } else {
-        println!("History for resource '{}':\n", bold(resource));
-        if entries.is_empty() {
-            println!("  (no events found)");
-        } else {
-            for entry in &entries {
-                println!("  {entry}");
-            }
-        }
-    }
-
-    Ok(())
 }

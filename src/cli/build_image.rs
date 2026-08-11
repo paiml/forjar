@@ -21,9 +21,25 @@ pub(crate) fn cmd_build(
     sandbox: bool,
     json: bool,
 ) -> Result<(), String> {
-    // GH-91: Warn that --json is not yet implemented for build
+    // Refs #212: `--json` used to print "not yet implemented, flag ignored"
+    // and then the human build log, so `forjar build --json | jq` failed while
+    // the command exited 0. It now emits a real manifest — and refuses the
+    // combinations whose stdout it cannot own, rather than emitting JSON with
+    // `docker load` progress interleaved into it.
     if json {
-        eprintln!("Warning: --json is not yet implemented for build output. Flag ignored.");
+        let blocking = [
+            (load, "--load"),
+            (push, "--push"),
+            (far, "--far"),
+            (sandbox, "--sandbox"),
+        ];
+        if let Some((_, flag)) = blocking.into_iter().find(|(on, _)| *on) {
+            return Err(format!(
+                "--json is not supported together with {flag}: {flag} streams \
+                 human-readable progress on stdout, which would not parse as JSON. \
+                 Run the build with --json first, then {flag} separately."
+            ));
+        }
     }
     let config = super::helpers::parse_and_validate(file)?;
     let res = config
@@ -47,6 +63,10 @@ pub(crate) fn cmd_build(
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
     let input_hash = compute_layer_input_hash(&layer_entries);
     if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
+        if json {
+            print_build_json(&plan.tag, &output_dir, None, true);
+            return Ok(());
+        }
         println!("\nBuilding {resource} ({}) — CACHED", plan.tag);
         println!("  {cached}");
         println!("  Input hash: {input_hash}");
@@ -72,25 +92,27 @@ pub(crate) fn cmd_build(
     )?;
     let duration = start.elapsed();
 
-    println!("\nBuilding {resource} ({})", plan.tag);
-    for (i, layer) in result.layers.iter().enumerate() {
+    if !json {
+        println!("\nBuilding {resource} ({})", plan.tag);
+        for (i, layer) in result.layers.iter().enumerate() {
+            println!(
+                "  Layer {}/{}: {} files, {} -> {} bytes",
+                i + 1,
+                result.layers.len(),
+                layer.file_count,
+                layer.uncompressed_size,
+                layer.compressed_size
+            );
+        }
         println!(
-            "  Layer {}/{}: {} files, {} -> {} bytes",
-            i + 1,
+            "\n  Image: {} ({} layers, {} bytes)",
+            plan.tag,
             result.layers.len(),
-            layer.file_count,
-            layer.uncompressed_size,
-            layer.compressed_size
+            result.total_size
         );
+        println!("  Layout: {}", output_dir.display());
+        println!("  Built in {:.1}s", duration.as_secs_f64());
     }
-    println!(
-        "\n  Image: {} ({} layers, {} bytes)",
-        plan.tag,
-        result.layers.len(),
-        result.total_size
-    );
-    println!("  Layout: {}", output_dir.display());
-    println!("  Built in {:.1}s", duration.as_secs_f64());
 
     // FJ-2403/E17: Collect and persist image build metrics.
     let metrics = ImageBuildMetrics {
@@ -116,6 +138,11 @@ pub(crate) fn cmd_build(
     }
     write_build_cache(&output_dir, &input_hash);
 
+    if json {
+        print_build_json(&plan.tag, &output_dir, Some(&result), false);
+        return Ok(());
+    }
+
     if load {
         cmd_build_load(&output_dir)?;
     }
@@ -126,6 +153,48 @@ pub(crate) fn cmd_build(
         cmd_build_far(resource, &output_dir)?;
     }
     Ok(())
+}
+
+/// Refs #212: the machine-readable form of a build.
+///
+/// Reports the layout that is on disk, not a synthesised description of one:
+/// `layout_exists` is a stat of `index.json`, so a consumer can tell a real
+/// build from a claim. On a cache hit there is no fresh `AssembledImage`, and
+/// the manifest is read back from the layout the earlier build wrote.
+fn print_build_json(
+    tag: &str,
+    output_dir: &std::path::Path,
+    result: Option<&crate::core::store::image_assembler::AssembledImage>,
+    cached: bool,
+) {
+    let layers: Vec<serde_json::Value> = result
+        .map(|r| {
+            r.layers
+                .iter()
+                .map(|l| {
+                    serde_json::json!({
+                        "file_count": l.file_count,
+                        "uncompressed_size": l.uncompressed_size,
+                        "compressed_size": l.compressed_size,
+                        "digest": l.digest,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let doc = serde_json::json!({
+        "tag": tag,
+        "layout": output_dir.display().to_string(),
+        "layout_exists": output_dir.join("index.json").exists(),
+        "cached": cached,
+        "layers": layers,
+        "layer_count": result.map(|r| r.layers.len()),
+        "total_size": result.map(|r| r.total_size),
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&doc).unwrap_or_else(|_| "{}".to_string())
+    );
 }
 
 /// FJ-2103: Build image inside container sandbox (Docker/Podman).

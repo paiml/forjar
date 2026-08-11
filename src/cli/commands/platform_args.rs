@@ -327,7 +327,9 @@ pub struct BuildArgs {
     #[arg(long)]
     pub sandbox: bool,
 
-    /// JSON output
+    /// JSON build manifest on stdout (tag, layout, per-layer digests and
+    /// sizes). Refused with --load/--push/--far/--sandbox, which stream
+    /// human-readable progress that would not parse.
     #[arg(long)]
     pub json: bool,
 }

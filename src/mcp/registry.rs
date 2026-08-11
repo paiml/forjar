@@ -42,7 +42,7 @@ pub fn export_schema() -> serde_json::Value {
         }),
         serde_json::json!({
             "name": "forjar_graph",
-            "description": "Generate resource dependency graph (Mermaid/DOT)",
+            "description": "Generate resource dependency graph (format: mermaid or dot only)",
             "input_schema": schema_for!(GraphInput),
             "output_schema": schema_for!(GraphOutput),
         }),
@@ -162,7 +162,8 @@ fn build_forge_config() -> ForgeConfig {
             },
             ToolDef::Native {
                 name: "forjar_graph".to_string(),
-                description: "Generate resource dependency graph (Mermaid/DOT)".to_string(),
+                description: "Generate resource dependency graph (format: mermaid or dot only)"
+                    .to_string(),
                 handler: HandlerRef {
                     path: "handlers::graph".to_string(),
                     inline: None,

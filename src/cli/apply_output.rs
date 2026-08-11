@@ -57,7 +57,7 @@ pub(super) fn apply_dry_run_output(
             serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
-        println!("Dry run — no changes applied.");
+        super::apply_dry_run::print_dry_run_actions(config, state_dir, machine_filter, tag_filter)?;
     }
     Ok(())
 }
@@ -397,7 +397,37 @@ pub(super) fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
 
 /// Send webhook notification for apply results.
 #[allow(clippy::too_many_arguments)]
-fn send_apply_webhook(
+/// GH-210: deliver the `--notify` (FJ-317) result webhook for a FAILED apply.
+///
+/// `--notify` was dispatched only from `apply_post_actions`, which the failure
+/// path returns before ever reaching — so a monitoring integration built on it
+/// could never alert on the one case it exists for. Measured on 1.12.3 with all
+/// three flags on one command line against one receiver:
+///
+/// ```text
+///   failing apply:  HIT /SLACK   HIT /WEBHOOK   (no /NOTIFY, no warning)
+///   passing apply:  HIT /NOTIFY  HIT /WEBHOOK
+/// ```
+///
+/// The payload's own `total_failed` field was therefore unreachable. Counts are
+/// passed as a tuple so this stays one call at the return site.
+pub(super) fn notify_on_failure(
+    notify: Option<&str>,
+    config: &types::ForjarConfig,
+    results: &[types::ApplyResult],
+    counts: (u32, u32, u32),
+    t_total: &std::time::Instant,
+    verbose: bool,
+) {
+    let Some(url) = notify else { return };
+    let (converged, failed, unchanged) = counts;
+    send_apply_webhook(
+        url, config, results, converged, failed, unchanged, t_total, verbose,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn send_apply_webhook(
     url: &str,
     config: &types::ForjarConfig,
     results: &[types::ApplyResult],
@@ -422,28 +452,15 @@ fn send_apply_webhook(
         })).collect::<Vec<_>>(),
     });
     let payload_str = serde_json::to_string(&payload).unwrap_or_default();
-    let result = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-X",
-            "POST",
-            "-H",
-            "Content-Type: application/json",
-            "-d",
-            &payload_str,
-            url,
-        ])
-        .output();
-    match result {
-        Ok(output) if output.status.success() => {
+    // GH-210: bounded in time and judged on the HTTP status, not on curl's
+    // process exit. A receiver replying 500 rejected the notification and used
+    // to produce no warning at all.
+    match super::webhook_post::post_json(url, &payload_str, &[]) {
+        Ok(()) => {
             if verbose {
                 eprintln!("Webhook notification sent to {url}");
             }
         }
-        Ok(output) => eprintln!(
-            "Warning: webhook POST to {} failed (exit {})",
-            url, output.status
-        ),
-        Err(e) => eprintln!("Warning: webhook POST failed: {e}"),
+        Err(e) => eprintln!("Warning: webhook POST to {url} failed ({e})"),
     }
 }

@@ -7,6 +7,7 @@ pub mod compliance_gate;
 pub mod compliance_pack;
 pub mod compliance_pack_builtin;
 pub mod conditions;
+pub mod config_hash;
 pub mod cron_source;
 pub mod ephemeral;
 pub mod executor;

@@ -1,6 +1,7 @@
 //! Tests for cli/logs.rs — real file I/O against run directories.
 
-use super::logs::{cmd_logs, cmd_logs_gc, cmd_logs_follow};
+use super::logs::cmd_logs;
+use super::logs_gc::cmd_logs_gc;
 
 /// Create a realistic run directory with meta.yaml and log files.
 fn create_run(
@@ -239,31 +240,35 @@ fn gc_json_dry_run() {
 #[test]
 fn follow_empty() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs_follow(dir.path(), false);
-    assert!(r.is_ok());
+    let r = super::logs::resolve_follow_target(dir.path(), None, None, false);
+    assert!(matches!(r, Ok(None)));
 }
 
 #[test]
 fn follow_with_runs() {
     let dir = tempfile::tempdir().unwrap();
     create_run(dir.path(), "intel", "r-latest", 0);
-    let r = cmd_logs_follow(dir.path(), false);
-    assert!(r.is_ok());
+    let target = super::logs::resolve_follow_target(dir.path(), None, None, false)
+        .expect("resolve")
+        .expect("a run to follow");
+    assert_eq!(target.run_id, "r-latest");
 }
 
 #[test]
 fn follow_json_empty() {
     let dir = tempfile::tempdir().unwrap();
-    let r = cmd_logs_follow(dir.path(), true);
-    assert!(r.is_ok());
+    let r = super::logs::resolve_follow_target(dir.path(), None, None, true);
+    assert!(matches!(r, Ok(None)));
 }
 
 #[test]
 fn follow_json_with_runs() {
     let dir = tempfile::tempdir().unwrap();
     create_run(dir.path(), "intel", "r-latest", 0);
-    let r = cmd_logs_follow(dir.path(), true);
-    assert!(r.is_ok());
+    let target = super::logs::resolve_follow_target(dir.path(), None, None, true)
+        .expect("resolve")
+        .expect("a run to follow");
+    assert_eq!(target.machine, "intel");
 }
 
 // ── Edge cases ──

@@ -132,39 +132,51 @@ pub(super) fn send_custom_webhook_notification(
         send_webhook(url, &payload);
     }
 }
+/// GH-211: `--notify-custom-headers`.
+///
+/// `--help` documents this as "Custom HTTP headers for webhook notifications",
+/// but the only implementation treated the whole value as its own
+/// `URL|Header: Value` channel. Passing what the help describes — a JSON
+/// object of headers — therefore made curl POST to a URL of `{"X":"y"}`
+/// (exit 3, warning text that never mentions the header) and no custom header
+/// reached any request.
+///
+/// Both readings are now honoured, decided by the shape of the value:
+/// a JSON object means "headers for `--notify-custom-webhook`", anything else
+/// keeps the legacy `URL|Header: Value` channel so existing callers do not
+/// break.
 pub(super) fn send_custom_headers_notification(
     headers: Option<&str>,
+    custom_webhook: Option<&str>,
     result: &Result<(), String>,
     config: &Path,
 ) {
     let Some(headers_str) = headers else { return };
     let status = if result.is_ok() { "success" } else { "failure" };
     let payload = event_json(status, config);
-    // Parse "url|Header1:Value1|Header2:Value2" format
+
+    if let Ok(parsed) = super::webhook_post::parse_header_json(headers_str) {
+        // Documented form. Without a URL to decorate there is nothing to send;
+        // say so rather than exiting 0 having silently dropped the headers.
+        let Some(url) = custom_webhook else {
+            eprintln!(
+                "Warning: --notify-custom-headers was given but no --notify-custom-webhook \
+                 URL to attach them to; no notification sent"
+            );
+            return;
+        };
+        send_webhook_with_headers(url, &parsed, &payload);
+        return;
+    }
+
+    // Legacy "url|Header1: Value1|Header2: Value2" form.
     let (url, extra_headers) = headers_str.split_once('|').unwrap_or((headers_str, ""));
-    let mut args = vec!["-sf", "-X", "POST", "-H", "Content-Type: application/json"];
     let header_parts: Vec<String> = extra_headers
         .split('|')
         .filter(|h| !h.is_empty())
-        .map(|h| h.to_string())
+        .map(str::to_string)
         .collect();
-    for h in &header_parts {
-        args.push("-H");
-        args.push(h);
-    }
-    args.push("-d");
-    args.push(&payload);
-    args.push(url);
-    match std::process::Command::new("curl").args(&args).output() {
-        Ok(o) if !o.status.success() => {
-            eprintln!(
-                "warning: custom webhook failed (exit {})",
-                o.status.code().unwrap_or(-1)
-            );
-        }
-        Err(e) => eprintln!("warning: custom webhook error: {e}"),
-        _ => {}
-    }
+    send_webhook_with_headers(url, &header_parts, &payload);
 }
 pub(super) fn send_custom_json_notification(
     template: Option<&str>,
