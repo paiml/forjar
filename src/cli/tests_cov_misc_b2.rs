@@ -136,15 +136,15 @@ fn contracts_without_detail_flag() {
 #[test]
 fn logs_gc_mode() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_gc(dir.path(), false, false, false, None);
+    let r = super::logs_gc::cmd_logs_gc(dir.path(), false, false, false, None);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_follow_mode() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_follow(dir.path(), false);
-    assert!(r.is_ok());
+    let r = super::logs::resolve_follow_target(dir.path(), None, None, false);
+    assert!(matches!(r, Ok(None)));
 }
 
 #[test]
@@ -187,15 +187,15 @@ fn logs_json_default() {
 #[test]
 fn logs_json_gc() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_gc(dir.path(), false, false, true, None);
+    let r = super::logs_gc::cmd_logs_gc(dir.path(), false, false, true, None);
     assert!(r.is_ok());
 }
 
 #[test]
 fn logs_json_follow() {
     let dir = tempfile::tempdir().unwrap();
-    let r = super::logs::cmd_logs_follow(dir.path(), true);
-    assert!(r.is_ok());
+    let r = super::logs::resolve_follow_target(dir.path(), None, None, true);
+    assert!(matches!(r, Ok(None)));
 }
 
 #[test]

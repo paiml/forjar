@@ -85,10 +85,21 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             json,
         }) => {
             if gc {
-                return super::logs::cmd_logs_gc(&state_dir, dry_run, keep_failed, json, None);
+                return super::logs_gc::cmd_logs_gc(&state_dir, dry_run, keep_failed, json, None);
             }
             if follow {
-                return super::logs::cmd_logs_follow(&state_dir, json);
+                // Dogfood #208: --follow must honour --machine/--run, not
+                // silently watch the newest run.
+                return super::logs::cmd_logs_follow(
+                    &state_dir,
+                    if all_machines {
+                        None
+                    } else {
+                        machine.as_deref()
+                    },
+                    run.as_deref(),
+                    json,
+                );
             }
             super::logs::cmd_logs(
                 &state_dir,
