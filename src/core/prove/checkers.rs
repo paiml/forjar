@@ -68,7 +68,14 @@ pub fn acyclicity(cfg: &ForjarConfig) -> InvariantResult {
             let deps = cfg.resources.get(node).map(|r| &r.depends_on);
             let next = deps.and_then(|d| d.get(idx));
             if let Some(dep) = next {
-                stack.last_mut().unwrap().1 += 1;
+                // `stack` is non-empty here — the enclosing `while let` borrows
+                // `stack.last()`. Matched rather than force-unwrapped: pmat's
+                // TDG scanner treats a force-unwrap as a critical defect and
+                // zeroes the whole file to 0.0/F, which capped the project
+                // grade at B and broke the pre-commit gate (see #219).
+                if let Some(top) = stack.last_mut() {
+                    top.1 += 1;
+                }
                 let dep = dep.as_str();
                 match color.get(dep).copied() {
                     Some(1) => {
