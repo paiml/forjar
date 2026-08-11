@@ -283,40 +283,10 @@ pub(crate) fn which_runtime(name: &str) -> bool {
         .is_ok_and(|s| s.success())
 }
 
-/// FJ-2101: Pack a directory into an OCI image layout.
-pub(crate) fn cmd_oci_pack(
-    dir: &std::path::Path,
-    tag: &str,
-    output: &std::path::Path,
-    json: bool,
-) -> Result<(), String> {
-    if !dir.is_dir() {
-        return Err(format!("directory '{}' does not exist", dir.display()));
-    }
-    let manifest = serde_json::json!({
-        "schemaVersion": 2,
-        "mediaType": "application/vnd.oci.image.manifest.v1+json",
-        "config": { "mediaType": "application/vnd.oci.image.config.v1+json" },
-        "layers": [{ "mediaType": "application/vnd.oci.image.layer.v1.tar" }],
-        "annotations": { "org.opencontainers.image.ref.name": tag }
-    });
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "source": dir, "tag": tag, "output": output, "manifest": manifest
-            }))
-            .unwrap_or_default()
-        );
-    } else {
-        println!("OCI Pack: {} -> {}", dir.display(), output.display());
-        println!("  tag: {tag}");
-        println!("  output: {}", output.display());
-        println!("\nOCI layout generation requires sha2+flate2 crates.");
-        println!("Use `forjar apply` with type: image resources for full builds.");
-    }
-    Ok(())
-}
+// FJ-2101 / Refs #210: `oci-pack` is a real implementation in `oci_pack.rs`
+// now, not a stub that exits 0 having written nothing. Re-exported here so the
+// dispatcher and the existing coverage tests keep their call site.
+pub(crate) use super::oci_pack::cmd_oci_pack;
 
 /// Route state-query subcommand to the right handler.
 fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {

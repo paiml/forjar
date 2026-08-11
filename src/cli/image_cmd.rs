@@ -306,6 +306,33 @@ pub fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
+/// Re-indent every line of an embedded multi-line block by `n` spaces.
+///
+/// Refs #212 (`machine-output-parses-v1`): a `|` block scalar in YAML claims
+/// every line of its body, and a line that starts at column 0 ENDS the scalar
+/// and is re-parsed as a mapping key. Interpolating a heredoc body without
+/// re-indenting it therefore produced a `user-data` that no cloud-init (and no
+/// YAML parser) can read — while `image --user-data` exited 0 saying "Wrote
+/// user-data". Blank lines stay blank: trailing whitespace is not content, and
+/// YAML treats an empty line inside a block scalar as a newline either way.
+///
+/// The block indentation is stripped again by the YAML loader, so the shell
+/// that eventually runs the body sees it back at column 0 — which is what a
+/// `<<'UNIT'` heredoc terminator requires.
+pub fn indent_block(text: &str, n: usize) -> String {
+    let pad = " ".repeat(n);
+    text.lines()
+        .map(|line| {
+            if line.is_empty() {
+                String::new()
+            } else {
+                format!("{pad}{line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Generate the late-command that installs the forjar-firstboot systemd service.
 pub fn firstboot_service_command() -> String {
     let unit = r#"[Unit]
@@ -323,11 +350,19 @@ TimeoutSec=1800
 [Install]
 WantedBy=multi-user.target"#;
 
+    // Refs #212: the body is indented INTO the block scalar (6 spaces, matching
+    // the `cat >` line), including the `UNIT` terminator. YAML strips those 6
+    // spaces on load, so the shell gets the unit at column 0 and the heredoc
+    // terminates. The previous code emitted the body at column 0 in the YAML,
+    // which broke the document AND left the heredoc unterminated in the shell.
+    const BLOCK_INDENT: usize = 6;
     let mut cmd = String::new();
     cmd.push_str("    - |\n");
     cmd.push_str("      cat > /target/etc/systemd/system/forjar-firstboot.service <<'UNIT'\n");
-    cmd.push_str(unit);
-    cmd.push_str("\n      UNIT\n");
+    cmd.push_str(&indent_block(unit, BLOCK_INDENT));
+    cmd.push('\n');
+    cmd.push_str(&indent_block("UNIT", BLOCK_INDENT));
+    cmd.push('\n');
     cmd.push_str("    - curtin in-target -- systemctl enable forjar-firstboot\n");
     cmd
 }

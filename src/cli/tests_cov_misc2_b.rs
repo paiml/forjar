@@ -211,17 +211,38 @@ resources:
     }
 
     // ========================================================================
-    // show::cmd_template
+    // template_cmd::cmd_template
+    //
+    // Refs #211: these used to feed a bare YAML fragment such as
+    // `host: {{inputs.hostname}}` and assert `is_ok()`. They passed on 1.12.3
+    // for the wrong reason — `template` printed its input back unchanged and
+    // returned Ok whatever it was handed, so `is_ok()` could not distinguish
+    // an expansion from a no-op. `template` now expands a RECIPE or a CONFIG
+    // and refuses anything else, so the fixtures are real documents and the
+    // assertions are about the expansion.
     // ========================================================================
+
+    const RECIPE_YAML: &str = concat!(
+        "recipe:\n",
+        "  name: demo\n",
+        "  inputs:\n",
+        "    hostname:\n",
+        "      type: string\n",
+        "      default: localhost\n",
+        "    port:\n",
+        "      type: string\n",
+        "      default: \"80\"\n",
+        "resources:\n",
+        "  cfg:\n",
+        "    type: file\n",
+        "    path: /etc/demo.conf\n",
+        "    content: \"{{inputs.hostname}}:{{inputs.port}}\"\n",
+    );
 
     #[test]
     fn test_template_simple_expansion_plain() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(
-            dir.path(),
-            "recipe.yaml",
-            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
-        );
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         let vars = vec!["hostname=myserver".to_string(), "port=8080".to_string()];
         assert!(cmd_template(&recipe, &vars, false).is_ok());
     }
@@ -229,42 +250,30 @@ resources:
     #[test]
     fn test_template_simple_expansion_json() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(
-            dir.path(),
-            "recipe.yaml",
-            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
-        );
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         let vars = vec!["hostname=myserver".to_string(), "port=8080".to_string()];
         assert!(cmd_template(&recipe, &vars, true).is_ok());
     }
 
     #[test]
-    fn test_template_no_vars() {
+    fn test_template_no_vars_uses_declared_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(
-            dir.path(),
-            "recipe.yaml",
-            "static: content\nno: templates\n",
-        );
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         assert!(cmd_template(&recipe, &[], false).is_ok());
     }
 
     #[test]
     fn test_template_no_vars_json() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(
-            dir.path(),
-            "recipe.yaml",
-            "static: content\nno: templates\n",
-        );
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         assert!(cmd_template(&recipe, &[], true).is_ok());
     }
 
     #[test]
-    fn test_template_empty_file() {
+    fn test_template_empty_file_is_refused() {
         let dir = tempfile::tempdir().unwrap();
         let recipe = write_yaml(dir.path(), "empty.yaml", "");
-        assert!(cmd_template(&recipe, &[], false).is_ok());
+        assert!(cmd_template(&recipe, &[], false).is_err());
     }
 
     #[test]
@@ -277,22 +286,26 @@ resources:
     }
 
     #[test]
-    fn test_template_partial_var_match() {
+    fn test_template_partial_var_uses_default_for_the_rest() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(
-            dir.path(),
-            "recipe.yaml",
-            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
-        );
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         let vars = vec!["hostname=server1".to_string()];
         assert!(cmd_template(&recipe, &vars, false).is_ok());
     }
 
     #[test]
-    fn test_template_var_without_equals() {
+    fn test_template_var_without_equals_is_refused() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "content: here");
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
         let vars = vec!["no_equals_here".to_string()];
-        assert!(cmd_template(&recipe, &vars, false).is_ok());
+        assert!(cmd_template(&recipe, &vars, false).is_err());
+    }
+
+    #[test]
+    fn test_template_undeclared_var_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipe = write_yaml(dir.path(), "recipe.yaml", RECIPE_YAML);
+        let vars = vec!["nosuch=1".to_string()];
+        assert!(cmd_template(&recipe, &vars, false).is_err());
     }
 }

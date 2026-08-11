@@ -67,11 +67,13 @@ pub struct DistArgs {
     #[arg(long, value_name = "PATH")]
     pub checksums_file: Option<PathBuf>,
 
-    /// Output file (for single artifact) or directory (with --all)
+    /// Output file when exactly one artifact is selected; output directory
+    /// when several are (an alias for --output-dir). Mutually exclusive
+    /// with --output-dir.
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
-    /// Output directory (with --all)
+    /// Output directory for every generated artifact (default: dist/)
     #[arg(long)]
     pub output_dir: Option<PathBuf>,
 
@@ -99,7 +101,7 @@ pub struct ImageArgs {
     #[arg(long)]
     pub android: bool,
 
-    /// Path to base Ubuntu ISO (required for --iso)
+    /// Path to base Ubuntu ISO (enables ISO generation)
     #[arg(long)]
     pub base: Option<PathBuf>,
 

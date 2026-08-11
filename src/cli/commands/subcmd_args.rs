@@ -243,7 +243,8 @@ pub enum PluginCmd {
     Init {
         /// Plugin name
         name: String,
-        /// Output directory (default: plugins/<name>)
+        /// Plugin directory to create — receives plugin.yaml directly
+        /// (default: plugins/<name>)
         #[arg(long)]
         output: Option<PathBuf>,
         /// JSON output
@@ -273,7 +274,8 @@ pub enum PluginCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Execute a plugin's check/apply/destroy via WASM runtime
+    /// Execute a plugin's check/apply/destroy via WASM runtime (requires a
+    /// build with `--features wasm-runtime`; refuses otherwise)
     Run {
         /// Plugin name
         name: String,
