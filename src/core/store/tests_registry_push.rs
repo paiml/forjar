@@ -445,3 +445,30 @@ fn large_blob_uses_chunked() {
     };
     assert!(blob.size >= CHUNKED_UPLOAD_THRESHOLD);
 }
+
+/// GH-224: the preflight must actually PROBE for curl, not just return Ok.
+///
+/// On any host that has curl this must succeed. If it fails there, the probe
+/// itself is broken — wrong binary name, bad argument — which would make
+/// `forjar build --push` refuse to run everywhere, turning a helpful guard into
+/// an outage. That is the failure mode worth a test; the missing-curl branch
+/// cannot be exercised without mutating PATH process-wide, which would race
+/// every other test in this binary.
+#[test]
+fn require_curl_accepts_an_installed_curl() {
+    // Skip loudly rather than assert green where curl is genuinely absent — a
+    // test that passes because it tested nothing is the thing this repo keeps
+    // getting bitten by.
+    if std::process::Command::new("curl")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("SKIP require_curl_accepts_an_installed_curl: curl not installed on this host");
+        return;
+    }
+    assert!(
+        require_curl().is_ok(),
+        "curl is installed but the GH-224 preflight rejected it"
+    );
+}
