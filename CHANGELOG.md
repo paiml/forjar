@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.5] - 2026-08-12
+
+### Changed
+
+- **bashrs floor raised `6.64.0` → `6.66.3`** (lockfile moves 6.66.0 → 6.66.3).
+  forjar surfaces bashrs' linter directly to users — `bashrs::linter::lint_shell`
+  in the purifier, plus `forjar lint` and the MCP handlers — so bashrs' lint
+  fixes are forjar's user-visible behaviour.
+
+  This is a **floor** bump, not just a lockfile refresh, and deliberately so:
+  bashrs 6.66.3 retires MAKE016, whose autofix **corrupted Makefiles**. A caret
+  range still admitting 6.64.0 would let a consumer resolve back into a
+  Makefile-corrupting autofix, which matters because v1.12's headline feature is
+  Makefile ingest.
+
+  What forjar users gain: no more spurious diagnostics inside quoted heredocs
+  (`<<'EOF'` bodies are literal text, not shell — provisioning scripts and
+  `command:` blocks are full of them), MAKE003 no longer trips over Make's `$$`
+  escape, and MAKE010 recognises `|| exit` / `|| return` / `|| die` tails as
+  error handling.
+
+  No API changes were required: the full suite passes unmodified against 6.66.3
+  (12776 passed, 0 failed).
+
 ## [1.12.4] - 2026-08-11
 
 ### Fixed

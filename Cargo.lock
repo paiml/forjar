@@ -300,9 +300,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bashrs"
-version = "6.66.0"
+version = "6.66.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8da1542ffb7192d409a83da0e7ba805f91666decdb78d23d847deeb3c3f95d4e"
+checksum = "5a6717d878d405cebef3b94c95e5e9d2e23605a5bbe6029da3c7f9e757ff6172"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1117,7 +1117,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "forjar"
-version = "1.12.4"
+version = "1.12.5"
 dependencies = [
  "age",
  "aprender-contracts",
