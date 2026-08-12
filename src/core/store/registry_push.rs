@@ -288,6 +288,27 @@ pub fn push_manifest(
     })
 }
 
+/// Verify the `curl` binary this module depends on is actually available.
+///
+/// GH-224. `curl` is an **undeclared runtime dependency** of `forjar build
+/// --push`: nothing in Cargo.toml or the docs says you need it, and it is only
+/// discovered when a push fails. Probing with `--version` (rather than scanning
+/// PATH by hand) tests the thing that actually matters — that we can spawn it.
+///
+/// Returns Ok(()) when curl can be spawned, otherwise an actionable error.
+pub(crate) fn require_curl() -> Result<(), String> {
+    match std::process::Command::new("curl").arg("--version").output() {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(
+            "`forjar build --push` requires the `curl` binary on PATH, and it was not found.\n\
+             OCI registry requests (HEAD/POST/PUT) are made by shelling out to curl.\n\
+             Install it and retry — e.g. `apt-get install -y curl` or `dnf install -y curl`."
+                .to_string(),
+        ),
+        Err(e) => Err(format!("could not execute `curl`: {e}")),
+    }
+}
+
 /// Push a complete OCI image to a registry.
 ///
 /// Follows OCI Distribution Spec v1.1:
@@ -295,6 +316,22 @@ pub fn push_manifest(
 /// 2. Push config blob
 /// 3. Push manifest
 pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<PushResult>, String> {
+    // GH-224: fail with a message that names the actual problem. Every registry
+    // request in this module shells out to `curl`, so on a host without it the
+    // first HEAD died as:
+    //
+    //   curl HEAD: No such file or directory (os error 2)
+    //
+    // which names neither curl nor "a required external binary is missing", and
+    // reads like a network or registry fault. It was found by infra's clean-room
+    // gate (a container with only declared deps) while GitHub CI stayed green,
+    // because CI's image happens to ship curl.
+    //
+    // Checked once here rather than at each of the ~13 call sites: this is the
+    // single funnel every push goes through, so one probe covers the CLI and any
+    // library caller, and the message is emitted before a partial upload starts.
+    require_curl()?;
+
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
         return Err(format!(
