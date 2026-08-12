@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.6] - 2026-08-12
+
+### Fixed
+
+- **`build --push` now names the missing binary instead of reporting an errno**
+  ([#224](https://github.com/paiml/forjar/issues/224)). Every OCI registry
+  request shells out to `curl`, an undeclared runtime dependency. On a host
+  without it the first HEAD died as `curl HEAD: No such file or directory (os
+  error 2)` — which names neither curl nor the fact that a required external
+  binary is absent, and reads like a network or registry fault.
+
+  A preflight at `push_image()` — the single funnel every push goes through —
+  now fails early with an actionable message, before any partial upload begins.
+
+  Found by infra's clean-room gate (a container holding only what the crate
+  declares) while GitHub CI was green on the same commit, because the CI image
+  happens to ship curl. A user running `cargo install forjar` on a minimal host
+  would have hit the original error.
+
+  This makes the dependency legible; it does not remove it. The crate already
+  compiles `reqwest`, so doing the registry HEAD/PUT natively would drop the
+  shell-out entirely — tracked in #224.
+
 ## [1.12.5] - 2026-08-12
 
 ### Changed
