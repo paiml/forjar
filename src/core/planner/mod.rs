@@ -217,7 +217,7 @@ fn determine_action(
         .unwrap_or_else(|| default_state(&resource.resource_type));
 
     if state == "absent" {
-        let action = determine_absent_action(resource_id, machine_name, locks);
+        let action = determine_absent_action(resource_id, resource, machine_name, locks);
 
         // FJ-1220: prevent_destroy blocks Destroy actions
         if action == PlanAction::Destroy {
@@ -236,17 +236,51 @@ fn determine_action(
 }
 
 /// Determine action for a resource with state=absent.
+///
+/// GH-229: this used to return `Destroy` for any resource present in the lock,
+/// using "is in the lock" as a proxy for "still exists on the machine". That
+/// proxy is false — a SUCCESSFUL destroy writes the resource back into the lock
+/// as `converged`, so the plan re-emitted `Destroy` on every subsequent run and
+/// never reached a fixed point (observed as a permanent "N to destroy" on
+/// infra's lambda-labs, pending for days across two unrelated resource sets).
+///
+/// Two situations look identical under `status: converged` and must not be
+/// conflated:
+///   (A) converged as PRESENT, now redeclared absent  -> must Destroy
+///   (B) converged TO ABSENT (destroy already ran)    -> must NoOp
+///
+/// The stored hash separates them, because `state` is itself a component of
+/// `hash_desired_state` (see hashing.rs `push_opt(components, &resource.state)`).
+/// A lock written by a present-state apply cannot match the absent form's hash.
+/// This is the same rule `determine_present_action` already applies, so the two
+/// branches now share one idempotency contract rather than one having none.
+///
+/// The FJ-2200 idempotency postcondition (converged + matching hash → NoOp) is
+/// structural here — it is the literal final branch — so it needs no
+/// `debug_assert` to restate it.
 fn determine_absent_action(
     resource_id: &str,
+    resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
 ) -> PlanAction {
-    if let Some(lock) = locks.get(machine_name) {
-        if lock.resources.contains_key(resource_id) {
-            return PlanAction::Destroy;
-        }
+    let Some(rl) = locks
+        .get(machine_name)
+        .and_then(|lock| lock.resources.get(resource_id))
+    else {
+        return PlanAction::NoOp;
+    };
+
+    // A destroy that failed or drifted must be retried.
+    if rl.status != ResourceStatus::Converged {
+        return PlanAction::Destroy;
     }
-    PlanAction::NoOp
+
+    if rl.hash == hash_desired_state(resource) {
+        PlanAction::NoOp // (B) already converged to absent
+    } else {
+        PlanAction::Destroy // (A) lock holds a present-state hash
+    }
 }
 
 /// Determine action for a resource with a present/running/mounted state.
