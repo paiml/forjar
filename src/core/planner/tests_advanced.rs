@@ -116,6 +116,148 @@ fn test_fj036_plan_absent_resource_destroy() {
     assert_eq!(p.changes[0].resource_id, "old-config");
 }
 
+/// GH-229: the plan must reach a fixed point for `state: absent`.
+///
+/// A successful destroy writes the resource back into the lock as `converged`
+/// with the ABSENT form's desired hash. Before the fix, the planner treated
+/// mere presence in the lock as "still exists" and re-emitted Destroy forever,
+/// so `apply` never converged (observed as a permanent "N to destroy" on
+/// infra's lambda-labs).
+#[test]
+fn test_gh229_absent_converged_to_absent_is_noop() {
+    let yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  old-config:\n    type: file\n    machine: m1\n    path: /etc/old.conf\n    state: absent\n";
+    let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let order = vec!["old-config".to_string()];
+
+    // Exactly what apply records after the destroy succeeds: converged, with
+    // the hash of the ABSENT declaration.
+    let absent_hash = hash_desired_state(&config.resources["old-config"]);
+    let mut lock_resources = indexmap::IndexMap::new();
+    lock_resources.insert(
+        "old-config".to_string(),
+        ResourceLock {
+            resource_type: ResourceType::File,
+            status: ResourceStatus::Converged,
+            applied_at: None,
+            duration_seconds: None,
+            hash: absent_hash,
+            details: HashMap::new(),
+        },
+    );
+    let lock = StateLock {
+        schema: "1.0".to_string(),
+        machine: "m1".to_string(),
+        hostname: "m1".to_string(),
+        generated_at: "2026-01-01T00:00:00Z".to_string(),
+        generator: "forjar".to_string(),
+        blake3_version: "1.8".to_string(),
+        resources: lock_resources,
+    };
+    let mut locks = HashMap::new();
+    locks.insert("m1".to_string(), lock);
+
+    let p = plan(&config, &order, &locks, None);
+
+    assert_eq!(
+        p.to_destroy, 0,
+        "an already-destroyed absent resource must not be re-destroyed"
+    );
+    assert_eq!(p.unchanged, 1, "it should count as unchanged");
+}
+
+/// GH-229 companion: the fix must NOT silently stop destroying things.
+///
+/// A resource that converged while declared PRESENT and is now redeclared
+/// `absent` still has to be destroyed. `state` is a component of
+/// hash_desired_state, so the lock's present-form hash cannot match the absent
+/// form — which is exactly what keeps these two cases apart.
+#[test]
+fn test_gh229_absent_converged_as_present_still_destroys() {
+    let present_yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  old-config:\n    type: file\n    machine: m1\n    path: /etc/old.conf\n    content: hello\n";
+    let absent_yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  old-config:\n    type: file\n    machine: m1\n    path: /etc/old.conf\n    content: hello\n    state: absent\n";
+    let present: ForjarConfig = serde_yaml_ng::from_str(present_yaml).unwrap();
+    let config: ForjarConfig = serde_yaml_ng::from_str(absent_yaml).unwrap();
+    let order = vec!["old-config".to_string()];
+
+    let present_hash = hash_desired_state(&present.resources["old-config"]);
+    assert_ne!(
+        present_hash,
+        hash_desired_state(&config.resources["old-config"]),
+        "state must participate in the desired-state hash, or the two cases alias"
+    );
+
+    let mut lock_resources = indexmap::IndexMap::new();
+    lock_resources.insert(
+        "old-config".to_string(),
+        ResourceLock {
+            resource_type: ResourceType::File,
+            status: ResourceStatus::Converged,
+            applied_at: None,
+            duration_seconds: None,
+            hash: present_hash,
+            details: HashMap::new(),
+        },
+    );
+    let lock = StateLock {
+        schema: "1.0".to_string(),
+        machine: "m1".to_string(),
+        hostname: "m1".to_string(),
+        generated_at: "2026-01-01T00:00:00Z".to_string(),
+        generator: "forjar".to_string(),
+        blake3_version: "1.8".to_string(),
+        resources: lock_resources,
+    };
+    let mut locks = HashMap::new();
+    locks.insert("m1".to_string(), lock);
+
+    let p = plan(&config, &order, &locks, None);
+
+    assert_eq!(
+        p.to_destroy, 1,
+        "present->absent transition must still destroy"
+    );
+    assert_eq!(p.changes[0].action, PlanAction::Destroy);
+}
+
+/// GH-229: a destroy that FAILED must be retried, not swallowed by the new
+/// NoOp path.
+#[test]
+fn test_gh229_absent_failed_destroy_is_retried() {
+    let yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  old-config:\n    type: file\n    machine: m1\n    path: /etc/old.conf\n    state: absent\n";
+    let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let order = vec!["old-config".to_string()];
+
+    // Same hash as the absent declaration, but the apply did not succeed.
+    let absent_hash = hash_desired_state(&config.resources["old-config"]);
+    let mut lock_resources = indexmap::IndexMap::new();
+    lock_resources.insert(
+        "old-config".to_string(),
+        ResourceLock {
+            resource_type: ResourceType::File,
+            status: ResourceStatus::Failed,
+            applied_at: None,
+            duration_seconds: None,
+            hash: absent_hash,
+            details: HashMap::new(),
+        },
+    );
+    let lock = StateLock {
+        schema: "1.0".to_string(),
+        machine: "m1".to_string(),
+        hostname: "m1".to_string(),
+        generated_at: "2026-01-01T00:00:00Z".to_string(),
+        generator: "forjar".to_string(),
+        blake3_version: "1.8".to_string(),
+        resources: lock_resources,
+    };
+    let mut locks = HashMap::new();
+    locks.insert("m1".to_string(), lock);
+
+    let p = plan(&config, &order, &locks, None);
+
+    assert_eq!(p.to_destroy, 1, "a failed destroy must be retried");
+}
+
 #[test]
 fn test_plan_absent_resource_no_lock() {
     let yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  gone-file:\n    type: file\n    machine: m1\n    path: /tmp/gone.txt\n    state: absent\n";
