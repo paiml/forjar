@@ -7,6 +7,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-15
+
+Two new resource types, both born from the same failure mode on one machine:
+a guard that was deployed, enabled, reporting success, and doing nothing.
+
+### Added
+
+- **`disk_budget` — free space as declared machine state** (FJ-036).
+
+  lambda-labs reached 100% on `/` (1.2 G free) while a reaper ran nightly on
+  schedule and exited 0 every time. Over the preceding month it reclaimed 1.6 G
+  total, across a slide from 370 G free to 1.2 G and through an earlier
+  100%-full event. It was deployed, enabled, and `systemctl` reported it active
+  throughout. Three independent defects, each individually sufficient:
+
+  - a fixed 7-day idle TTL on a box whose build trees turn over in two days, so
+    every candidate was legitimately "recent" and it correctly declined to
+    delete anything, all the way to full;
+  - build directories matched by **name** (`target|target-local|target-private`),
+    so the 189 G living in `.target` was never even enumerated;
+  - it never read `df`, so a run that reclaimed nothing at 100% pressure was
+    indistinguishable from a healthy no-op.
+
+  A `disk_budget` declares watermarks per filesystem. A high watermark triggers
+  a reclaim pass; the pass runs until a low watermark is restored, oldest-first,
+  and halts there rather than exhausting its candidates. The two thresholds
+  cannot be collapsed into one — hysteresis is enforced at parse time, because a
+  pass that stops while still above its trigger re-fires on every tick.
+
+  Candidates are found **behaviourally, never by name**: cargo build directories
+  by the markers cargo itself writes (`CACHEDIR.TAG` *and* `.rustc_info.json`),
+  git worktrees by asking git. Requiring both cargo markers is what keeps the
+  reaper out of `~/.cargo/registry`, which carries the tag and not the info file.
+
+  Crucially, **a triggered pass that misses its target exits non-zero**, so an
+  inert reaper becomes a failed unit and is visible to `forjar drift` instead of
+  silently green. `state_query` publishes health *classes* on stdout and raw
+  byte counts on stderr, so volatile values never enter the drift hash.
+
+- **`backup_sync` — an offsite copy that must prove it exists** (FJ-037).
+
+  The same machine held ~2.1 TB of irreplaceable media on a 4-wide RAID0 with no
+  parity, and zero bytes of it anywhere off that array, while an hourly job
+  reported `Backup complete` for months. It rsynced a directory to a symlink
+  pointing back at that same directory, and its success metric ran `find` on
+  that symlink without `-L` — printing `Files: 0` while 77 matching files sat
+  there. Structurally zero on every input, not merely on an empty one.
+
+  `backup_sync` rejects a destination that is not an rclone `remote:path`, and
+  proves at runtime that the remote is *configured and reachable* before a byte
+  moves — an unconfigured rclone remote silently degrades to a local path, which
+  is the same self-referential failure by another route.
+
+  Health is a count of files verified present in the remote **by checksum**
+  (`rclone check --combined`), compared against the source. Zero examined or zero
+  matched is a failure, not a pass. A run below the declared coverage threshold
+  exits non-zero.
+
+  `apply` deliberately does *not* run the sync, unlike `disk_budget`: seeding
+  terabytes takes days under provider upload caps, and a deployer that runs the
+  job also writes the status file that is supposed to be evidence the *service*
+  ran. `apply` arms the timer; `state_query` reads the journal, which the
+  deployer cannot forge.
+
+  forjar owns the generated `rclone.conf` so the remote definition is declared
+  state rather than a manual step that can go missing. Backend and options live
+  in the repo; the OAuth token arrives through the secrets provider. A literal
+  token is refused at parse time, an unresolved `{{secrets.x}}` at codegen, and
+  the file is written under `umask 077` at 0600 with an atomic rename.
+
+### Fixed
+
+- **Removing a systemd resource no longer leaves an orphaned unit.** `state:
+  absent` deleted unit files while the unit was still loaded, leaving it
+  `Active: failed` with *"Unit to trigger vanished"* — invisible to an apply
+  that reported converged. Teardown now stops, disables, removes, reloads, and
+  clears the failed state, in that order.
+
+- **`hash_desired_state` now covers scripts a handler generates.** A resource
+  whose payload is synthesised is not fully described by its declaration: two
+  forjar versions can emit different scripts from identical YAML. The planner
+  compared only the declaration, reported `unchanged`, and left machines running
+  the previous generated artifact. All three emitted scripts are hashed — folding
+  in only `apply` would pin `apply`=unchanged against `drift`=drifted forever,
+  with nothing re-recording state.
+
+- **`RESOURCE_FIELDS` completeness is now enforced by reflection.** A field added
+  to `Resource` but missing from the parser's hand-maintained allow-list was
+  accepted by serde and then rejected by validation as `unknown field`, so a
+  fully-implemented, fully-tested feature was undeclarable in YAML. A test walks
+  the serialised struct, so the next omission fails a test instead of shipping.
+
+- Templated values in reclaim roots and backup sources are resolved. An
+  unexpanded `{{params.home}}` silently matches nothing, which for a reaper or a
+  backup means "protects nothing" while reporting success.
+
+### Notes for handler authors
+
+Both handlers ship a test that runs every emitted script through
+`purifier::validate_script` — the same call `forjar apply` makes. Its absence let
+six I8 violations ship in `disk_budget`: the resource passed 12,000+ tests and
+was rejected on every machine, because nothing in the suite exercised the
+purification path production uses. If you add a resource type, add that test.
+
 ## [1.12.6] - 2026-08-12
 
 ### Fixed
