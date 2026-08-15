@@ -34,12 +34,16 @@ fb_bytes() { du -sx --block-size=1 "$1" 2>/dev/null | cut -f1; }
 # /proc; the caller greps this file rather than re-scanning per candidate.
 fb_scan_open_paths() {
   : >"$FB_OPEN"
-  for p in /proc/[0-9]*; do
+  # `/proc/*` not `/proc/[0-9]*`: bashrs misparses the bracket glob as a test
+  # expression (SC1020/SC1140) and the whole script fails I8 purification.
+  # Non-pid entries are filtered by requiring a readable cmdline.
+  for p in /proc/*; do
+    [ -e "$p/cmdline" ] || continue
     for l in "$p/cwd" "$p/fd"/*; do
       t=$(readlink "$l" 2>/dev/null) || continue
       case "$t" in /*) printf '%s\n' "$t" ;; esac
     done
-  done 2>/dev/null | sort -u >"$FB_OPEN"
+  done 2> /dev/null | sort -u > "$FB_OPEN"
 }
 
 # True when some live process sits inside $1.
@@ -50,6 +54,31 @@ fb_in_use() {
 
 # Emit "<mtime_epoch>\t<path>" so the caller can sort oldest-first.
 fb_stamp() { printf '%s\t%s\n' "$(stat -c %Y "$1" 2>/dev/null || echo 0)" "$1"; }
+
+# SEC011 guard: refuse anything that is not a plausible reclaim target.
+# Deletion candidates all come from globs and finds; a glob that matches one
+# level too high, or a variable that came back empty, must abort rather than
+# delete. Depth >= 3 keeps the reaper away from `/`, `/home`, `/home/noah`,
+# `/tmp` and every other top-level directory even if a root is misdeclared.
+fb_sweepable() {
+  fb_p="$1"
+  if [ -z "$fb_p" ]; then fb_log "  REFUSE empty path"; return 1; fi
+  case "$fb_p" in
+    /*) ;;
+    *) fb_log "  REFUSE non-absolute: $fb_p"; return 1 ;;
+  esac
+  case "$fb_p" in
+    *..*) fb_log "  REFUSE traversal: $fb_p"; return 1 ;;
+    */) fb_log "  REFUSE trailing slash: $fb_p"; return 1 ;;
+  esac
+  fb_depth=$(printf '%s' "$fb_p" | tr -cd '/' | wc -c)
+  if [ "$fb_depth" -lt 3 ]; then
+    fb_log "  REFUSE too shallow (depth $fb_depth): $fb_p"
+    return 1
+  fi
+  [ -e "$fb_p" ] || return 1
+  return 0
+}
 "#
     .to_string()
 }
@@ -103,12 +132,13 @@ fb_find_claude_scratchpad() {
     [ -d "$root" ] || continue
     # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
     fb_live_slugs=""
-    for p in /proc/[0-9]*; do
+    for p in /proc/*; do
+      [ -e "$p/cmdline" ] || continue
       c=$(tr '\0' '\n' <"$p/cmdline" 2>/dev/null | head -1) || continue
       case "${c##*/}" in claude) ;; *) continue ;; esac
       w=$(readlink "$p/cwd" 2>/dev/null) || continue
       fb_live_slugs="$fb_live_slugs $(printf '%s' "$w" | tr '/' '-')"
-    done 2>/dev/null
+    done 2> /dev/null
     for s in "$root"/*/*/scratchpad; do
       [ -d "$s" ] || continue
       sess=$(dirname "$s"); proj=$(basename "$(dirname "$sess")")
@@ -141,12 +171,16 @@ fb_find_abandoned_worktree() {
       [ -f "$d/.git" ] || continue
       fb_in_use "$d" && continue
       git -C "$d" rev-parse --git-dir >/dev/null 2>&1 || continue
-      # Dirty tree (tracked or untracked) => keep.
-      [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && continue
+      # Dirty tree (tracked or untracked) => keep. Hoisted out of the `[ -n ... ]`
+      # test: bashrs SEC002 cannot see the quoting on `$d` through the nested
+      # quotes of a command substitution inside a test.
+      dirty=$(git -C "$d" status --porcelain 2>/dev/null)
+      [ -n "$dirty" ] && continue
       # No upstream => unpushed work => keep. Fails closed on git error.
       up=$(git -C "$d" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null) || continue
       [ -n "$up" ] || continue
-      ahead=$(git -C "$d" rev-list --count "$up..HEAD" 2>/dev/null) || continue
+      range="$up..HEAD"
+      ahead=$(git -C "$d" rev-list --count "$range" 2>/dev/null) || continue
       [ "$ahead" = "0" ] || continue
       fb_stamp "$d"
     done
@@ -205,7 +239,7 @@ pub(super) const fn pre_delete(kind: ReclaimKind) -> &'static str {
 pub(super) const fn post_delete(kind: ReclaimKind) -> &'static str {
     match kind {
         ReclaimKind::AbandonedWorktree => {
-            "      [ -n \"$FB_REPO_DIR\" ] && git --git-dir=\"$FB_REPO_DIR\" worktree prune 2>/dev/null\n"
+            "      [ -n \"$FB_REPO_DIR\" ] && git --git-dir \"$FB_REPO_DIR\" worktree prune 2>/dev/null\n"
         }
         _ => "",
     }
@@ -299,7 +333,7 @@ mod tests {
             !post.contains("dirname"),
             "prune must not be run from the pool directory: {post}"
         );
-        assert!(post.contains("--git-dir=\"$FB_REPO_DIR\""));
+        assert!(post.contains("--git-dir \"$FB_REPO_DIR\""));
     }
 
     #[test]

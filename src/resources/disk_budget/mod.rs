@@ -151,13 +151,19 @@ pub fn check_script(resource: &Resource) -> String {
     let p = sh_squote(&budget.path);
     let svc = service_path(&budget.path);
     let scr = script_path(&budget.path);
-    let target_used = budget.target_used_pct();
+    // The health boundary is the TRIGGER, not the target. Between the two lies
+    // the hysteresis band, which is where a healthy machine spends most of its
+    // life: reclaim has run, brought usage below the target, and usage has
+    // since crept back up without yet being due for another pass. Judging
+    // health against the target would report a permanently over-budget fleet
+    // and train everyone to ignore it.
+    let high = budget.high_watermark_pct;
     format!(
         "set -u\n\
          if [ ! -f {scr} ] || [ ! -f {svc} ]; then echo 'absent'; exit 0; fi\n\
          set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,\"\",$5); print $5, $4}}')\n\
          USED=\"${{1:-0}}\"; FREEGB=$((${{2:-0}} / 1024 / 1024))\n\
-         if [ \"$USED\" -le {target_used} ]; then echo 'present'; else echo 'over-budget'; fi\n\
+         if [ \"$USED\" -lt {high} ]; then echo 'present'; else echo 'over-budget'; fi\n\
          echo \"used_pct=$USED free_gb=$FREEGB\" >&2\n"
     )
 }
@@ -236,32 +242,45 @@ pub fn state_query_script(resource: &Resource) -> String {
     let p = sh_squote(&budget.path);
     let status = sh_squote(&status_json(&budget.path));
     let name = service_name(&budget.path);
-    let target_used = budget.target_used_pct();
+    // Must match the reaper's own tier logic exactly, or `forjar drift` and the
+    // status file disagree about the same machine in the hysteresis band.
+    let high = budget.high_watermark_pct;
     let crit = budget.critical_free_gb;
-    let stale = stale_secs(&budget.schedule);
+    let stale_min = stale_secs(&budget.schedule) / 60;
     let scr = script_path(&budget.path);
+    let svc = service_path(&budget.path);
+    let tmr = timer_path(&budget.path);
 
     format!(
         "set -u\n\
          set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,\"\",$5); print $5, $4}}')\n\
          USED=\"${{1:-0}}\"; FREEGB=$((${{2:-0}} / 1024 / 1024))\n\
          if [ \"$FREEGB\" -lt {crit} ]; then echo 'disk_budget_tier=critical'\n\
-         elif [ \"$USED\" -gt {target_used} ]; then echo 'disk_budget_tier=pressure'\n\
+         elif [ \"$USED\" -ge {high} ]; then echo 'disk_budget_tier=pressure'\n\
          else echo 'disk_budget_tier=ok'; fi\n\
          echo \"disk_budget_installed=$([ -f {scr} ] && echo yes || echo no)\"\n\
-         echo \"disk_budget_timer=$(systemctl is-active {name}.timer 2>/dev/null || echo unknown)\"\n\
-         echo \"disk_budget_unit=$(systemctl is-failed {name}.service 2>/dev/null || echo unknown)\"\n\
-         LR=\"$(sed -n 's/.*\"last_run\":\\([0-9][0-9]*\\).*/\\1/p' {status} 2>/dev/null | head -1)\"\n\
+         # Hash the DEPLOYED reaper. Without this, the state hash is computed\n\
+         # only from runtime classes, so regenerating the script (a forjar\n\
+         # upgrade, an edited reclaim rule) is invisible: `apply` reports\n\
+         # \"unchanged\" and the machine keeps running the OLD reaper forever.\n\
+         # That is the same silent-desync this resource exists to eliminate.\n\
+         echo \"disk_budget_script_sha=$( (sha256sum {scr} 2>/dev/null || echo missing) | awk '{{print $1}}')\"\n\
+         echo \"disk_budget_unit_sha=$( (sha256sum {svc} 2>/dev/null || echo missing) | awk '{{print $1}}')\"\n\
+         echo \"disk_budget_timer_sha=$( (sha256sum {tmr} 2>/dev/null || echo missing) | awk '{{print $1}}')\"\n\
+         # `systemctl is-active`/`is-failed` PRINT a state and still exit non-zero\n\
+         # for most states, so `$(... || echo unknown)` captures BOTH and emits a\n\
+         # stray second line into the drift-hashed output. Take the first line\n\
+         # and default only when it is genuinely empty.\n\
+         TMR_STATE=\"$(systemctl is-active {name}.timer 2>/dev/null | head -1)\"\n\
+         UNIT_STATE=\"$(systemctl is-failed {name}.service 2>/dev/null | head -1)\"\n\
+         echo \"disk_budget_timer=${{TMR_STATE:-unknown}}\"\n\
+         echo \"disk_budget_unit=${{UNIT_STATE:-unknown}}\"\n\
          HE=\"$(sed -n 's/.*\"health\":\"\\([a-z][a-z]*\\)\".*/\\1/p' {status} 2>/dev/null | head -1)\"\n\
          RB=\"$(sed -n 's/.*\"reclaimed_bytes\":\\([0-9][0-9]*\\).*/\\1/p' {status} 2>/dev/null | head -1)\"\n\
-         if [ -z \"$LR\" ]; then\n\
-         \x20 echo 'disk_budget_heartbeat=missing'\n\
-         else\n\
-         \x20 NOW=\"$(date +%s 2>/dev/null || echo 0)\"\n\
-         \x20 AGE=$((NOW - LR))\n\
-         \x20 if [ \"$AGE\" -ge 0 ] && [ \"$AGE\" -le {stale} ]; then echo 'disk_budget_heartbeat=fresh'\n\
-         \x20 else echo 'disk_budget_heartbeat=stale'; fi\n\
-         fi\n\
+         AGED=\"$(find {status} -mmin +{stale_min} 2>/dev/null)\"\n\
+         if [ ! -f {status} ]; then echo 'disk_budget_heartbeat=missing'\n\
+         elif [ -n \"$AGED\" ]; then echo 'disk_budget_heartbeat=stale'\n\
+         else echo 'disk_budget_heartbeat=fresh'; fi\n\
          echo \"disk_budget_health=${{HE:-unknown}}\"\n\
          # raw, volatile values -> stderr only (never drift-hashed)\n\
          echo \"disk_budget_used_pct=$USED disk_budget_free_gb=$FREEGB disk_budget_last_reclaimed=${{RB:-0}}\" >&2\n"

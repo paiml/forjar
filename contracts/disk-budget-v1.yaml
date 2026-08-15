@@ -139,7 +139,61 @@ equations:
       - "A git invocation that errors yields KEEP, never delete"
       - "The primary checkout (.git directory, not file) is never a candidate"
 
+  emitted_scripts_are_purifiable:
+    formula: |
+      ∀ r ∈ DiskBudget: validate_script(apply_script(r)) ∧ validate_script(check_script(r))
+                        ∧ validate_script(state_query_script(r))
+    domain: "r ∈ Resource where resource_type = DiskBudget"
+    codomain: "Result<(), String>"
+    invariants:
+      - "A handler whose scripts fail I8 is fully tested and completely undeployable — `forjar apply` rejects it on every machine"
+      - "The unit suite MUST run the same purifier production runs, not a text approximation of it"
+
+  generated_surface_is_desired_state:
+    formula: |
+      hash_desired_state(r) ⊇ hash(apply_script(r) ‖ state_query_script(r) ‖ check_script(r))
+    domain: "r ∈ Resource where resource_type = DiskBudget"
+    codomain: "String (blake3)"
+    invariants:
+      - "A disk_budget's real payload is SYNTHESISED, so two forjar versions can emit different reapers from identical YAML"
+      - "Without this the planner compares only the declaration, reports `unchanged`, and the machine keeps running the OLD reaper — the silent desync this resource exists to remove, one level up"
+      - "The state query is included too: if only `apply` were hashed, a change to the query shape would leave `apply`=unchanged and `drift`=drifted permanently, with nothing to re-record state"
+
+  hysteresis_band_is_healthy:
+    formula: |
+      healthy(fs) ⟺ used%(fs) < high_watermark
+    domain: "fs ∈ declared budgets"
+    codomain: "{present, over-budget} × {ok, pressure, critical}"
+    invariants:
+      - "Between target and trigger lies the hysteresis band, where a healthy machine spends most of its life"
+      - "Judging health against the TARGET reports a permanently over-budget fleet, and a permanently-red signal is one everyone learns to ignore"
+      - "check_script and state_query_script MUST use the same boundary as the reaper's own tier logic, or drift and the status file contradict each other"
+
 proof_obligations:
+  - type: safety
+    property: "Every emitted script survives forjar's own I8 purification gate"
+    formal: "∀ r: validate_script(apply|check|state_query(r)) = Ok"
+    applies_to: emitted_scripts_are_purifiable
+    enforced_by: "src/resources/disk_budget/tests.rs::every_emitted_script_passes_the_purifier"
+
+  - type: liveness
+    property: "A regenerated reaper re-converges exactly once"
+    formal: "codegen(r) ≠ deployed(r) ⟹ plan(r) = Update"
+    applies_to: generated_surface_is_desired_state
+    enforced_by: "src/core/planner/hashing.rs::canonical_generated_script"
+
+  - type: safety
+    property: "State-query keys are exactly one line each"
+    formal: "∀ k ∈ stdout(state_query(r)): k matches ^[a-z_]+=[^\\n]*$"
+    applies_to: volatile_values_excluded
+    enforced_by: "src/resources/disk_budget/tests.rs::systemctl_probes_emit_exactly_one_line_each"
+
+  - type: safety
+    property: "Health is judged against the trigger, not the target"
+    formal: "healthy(fs) ⟺ used% < high_watermark"
+    applies_to: hysteresis_band_is_healthy
+    enforced_by: "src/resources/disk_budget/tests.rs::health_is_judged_against_the_trigger_not_the_target"
+
   - type: safety
     property: "Cargo build dirs are detected by cargo's own markers, never by name"
     formal: "∀ d: candidate(d) ⟹ exists(d/CACHEDIR.TAG) ∧ exists(d/.rustc_info.json)"
@@ -272,6 +326,30 @@ falsification_tests:
     prediction: "the generated unit carries neither SuccessExitStatus nor RemainAfterExit"
     test: "src/resources/disk_budget/units.rs::tests::service_does_not_mask_failure"
     if_fails: "A failing reaper shows as active/success and the silent-green failure returns"
+
+  - id: FALSIFY-DBG-012
+    rule: "emitted scripts are purifiable"
+    prediction: "apply/check/state_query all pass forjar's I8 purifier for every reclaim kind"
+    test: "src/resources/disk_budget/tests.rs::every_emitted_script_passes_the_purifier"
+    if_fails: "The resource is fully tested and completely undeployable — `forjar apply` rejects it on every machine, exactly as it did on first deploy (SEC011/SC2242/DET002/SEC002)"
+
+  - id: FALSIFY-DBG-013
+    rule: "a regenerated reaper re-converges"
+    prediction: "the desired-state hash covers apply + state_query + check"
+    test: "src/resources/disk_budget/tests.rs::state_query_hashes_the_deployed_artifacts"
+    if_fails: "A forjar upgrade leaves every machine running the OLD generated reaper while `apply` reports unchanged, or pins apply=unchanged against drift=drifted forever"
+
+  - id: FALSIFY-DBG-014
+    rule: "state-query keys are one line each"
+    prediction: "no systemctl probe appends a fallback to captured output"
+    test: "src/resources/disk_budget/tests.rs::systemctl_probes_emit_exactly_one_line_each"
+    if_fails: "`is-failed` prints a state AND exits non-zero, so `|| echo unknown` injects a bare second line into the drift-hashed stdout"
+
+  - id: FALSIFY-DBG-015
+    rule: "the hysteresis band is healthy"
+    prediction: "check and state_query judge health at the trigger (85), not the target (80)"
+    test: "src/resources/disk_budget/tests.rs::health_is_judged_against_the_trigger_not_the_target"
+    if_fails: "Every machine between its target and trigger reports over-budget — a permanently-red signal nobody reads"
 
 kani_harnesses:
   - id: KANI-DBG-001

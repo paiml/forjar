@@ -62,29 +62,47 @@ fn rule_block(rule: &ReclaimRule) -> String {
     let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
 
+    // Candidates go to a file and the loop reads from it, rather than
+    // `finder | while read`. Two reasons: a piped `while` runs in a SUBSHELL, so
+    // `FB_MET` set inside it is lost (which is why an earlier revision needed a
+    // flag file); and bashrs cannot see the loop through the pipe, so every
+    // `continue` in the body trips SC2242 and the whole script fails forjar's
+    // I8 purification gate.
     format!(
         r#"
 # -- rule: {name} ({kind}) --
 if [ "$FB_MET" != "1" ]; then
   fb_log {log_msg}
-  {finder} {roots} | while IFS= read -r cand; do
+  {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+  while IFS= read -r cand; do
     [ -n "$cand" ] || continue
     fb_read_df
     if [ "$FB_USED_PCT" -le "$FB_TARGET_USED" ]; then
-      echo met >"$FB_MET_FLAG"
+      FB_MET=1
       break
     fi
     fb_is_idle "$cand" {idle} || {{ fb_log "  keep (active <{idle}m): $cand"; continue; }}
+    # SEC011: last line of defence for a script whose job is `rm -rf`. Every
+    # candidate arrives from a glob or a find; if one ever resolves a level too
+    # high, or to empty, abort on it rather than delete. `fb_sweepable` also
+    # re-checks it against the declared reclaim roots.
+    fb_sweepable "$cand" || continue
     sz=$(fb_bytes "$cand")
 {pre}    if [ "$FB_DRY" = "1" ]; then
       fb_log "  DRY-RUN would reclaim ${{sz:-0}} bytes: $cand"
     else
+      # SEC011: re-assert immediately adjacent to the rm. `fb_sweepable` above
+      # is the real check; this is the one a reader — and the linter — sees
+      # without following a call.
+      if [ -z "$cand" ] || [ "$cand" = "/" ]; then
+        fb_log "  REFUSE to remove: $cand"
+        continue
+      fi
       rm -rf -- "$cand" || {{ fb_log "  FAILED to remove: $cand"; continue; }}
 {post}      fb_log "  reclaimed ${{sz:-0}} bytes: $cand"
     fi
     echo "${{sz:-0}}" >>"$FB_LEDGER"
-  done
-  [ -s "$FB_MET_FLAG" ] && FB_MET=1
+  done < "$FB_CANDS"
 fi
 "#,
         kind = rule.kind,
@@ -94,6 +112,9 @@ fi
 /// Generate the complete reaper script for a budget.
 pub(super) fn script(budget: &DiskBudget, status_json: &str, log_tag: &str) -> String {
     let path_q = sh_squote(&budget.path);
+    // Shell-quoting is for the SHELL; inside the JSON body the path needs JSON
+    // quoting, or the status file is not parseable ({{"path":'/'}} is not JSON).
+    let path_json = budget.path.replace('\\', "\\\\").replace('"', "\\\"");
     let tag = sh_squote(log_tag);
     let high = budget.high_watermark_pct;
     let target_used = budget.target_used_pct();
@@ -112,17 +133,18 @@ FB_CRIT_GB={crit}
 FB_DRY="${{FORJAR_BUDGET_DRY_RUN:-0}}"
 FB_STATUS="${{FORJAR_BUDGET_STATUS:-{status_json}}}"
 FB_LEDGER=$(mktemp) || exit 1
-FB_MET_FLAG=$(mktemp) || exit 1
+FB_CANDS=$(mktemp) || exit 1
 FB_OPEN=$(mktemp) || exit 1
 FB_MET=0
-trap 'rm -f "$FB_LEDGER" "$FB_MET_FLAG" "$FB_OPEN"' EXIT INT TERM
+trap 'rm -f "$FB_LEDGER" "$FB_CANDS" "$FB_OPEN"' EXIT INT TERM
 
-fb_log() {{ echo "[{tag}] $*"; }}
+# Tag carries no square brackets: bashrs parses `[...]` inside the string
+# as a test expression (SC1140) and rejects the script.
+fb_log() {{ echo "{tag}: $*"; }}
 {df_reader}{prelude}{detectors}
 fb_read_df
 FB_USED_BEFORE="$FB_USED_PCT"
 FB_FREE_GB_BEFORE="$FB_FREE_GB"
-FB_START=$(date +%s 2>/dev/null || echo 0)
 fb_log "start: {path_q} at ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free (trigger ${{FB_HIGH}}%, target ${{FB_TARGET_USED}}%)"
 
 if [ "$FB_USED_PCT" -lt "$FB_HIGH" ]; then
@@ -153,10 +175,12 @@ else
 fi
 
 cat >"$FB_STATUS" <<EOF
-{{"last_run":$FB_START,"path":{path_q},"used_pct_before":$FB_USED_BEFORE,"used_pct_after":$FB_USED_PCT,"free_gb_before":$FB_FREE_GB_BEFORE,"free_gb_after":$FB_FREE_GB,"reclaimed_bytes":$FB_RECLAIMED,"triggered":$FB_TRIGGERED,"target_met":$FB_MET_FINAL,"tier":"$FB_TIER","health":"$FB_HEALTH","dry_run":$FB_DRY}}
+{{"path":"{path_json}","used_pct_before":$FB_USED_BEFORE,"used_pct_after":$FB_USED_PCT,"free_gb_before":$FB_FREE_GB_BEFORE,"free_gb_after":$FB_FREE_GB,"reclaimed_bytes":$FB_RECLAIMED,"triggered":$FB_TRIGGERED,"target_met":$FB_MET_FINAL,"tier":"$FB_TIER","health":"$FB_HEALTH","dry_run":$FB_DRY}}
 EOF
 
-fb_log "done: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, reclaimed ${{FB_RECLAIMED}} bytes, tier=$FB_TIER health=$FB_HEALTH"
+# "complete", not "done": bashrs reads a leading `done` inside the string
+# as the loop keyword (SC1035) and rejects the script.
+fb_log "complete: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, reclaimed ${{FB_RECLAIMED}} bytes, tier=$FB_TIER health=$FB_HEALTH"
 
 # Exit non-zero when a triggered pass failed to reach target. systemd marks the
 # unit failed, `forjar drift` sees it, and an inert reaper stops being invisible.
@@ -248,8 +272,12 @@ mod tests {
     fn writes_status_json_every_run() {
         let s = script(&budget(vec![rule()]), "/run/budget-root.json", "budget");
         assert!(s.contains("/run/budget-root.json"));
+        // No `last_run` epoch: the status file's own mtime IS the heartbeat, so
+        // there is no clock arithmetic to keep in sync and no `date` call —
+        // which forjar's I8 purification gate rejects as non-deterministic
+        // (DET002). state_query reads freshness with `find -mmin` instead.
+        assert!(!s.contains("date +%s"), "reaper must not call date");
         for field in [
-            "last_run",
             "reclaimed_bytes",
             "triggered",
             "target_met",
