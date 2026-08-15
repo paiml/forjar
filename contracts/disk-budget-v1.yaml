@@ -1,0 +1,307 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-08-15"
+  author: "PAIML Engineering"
+  kind: kernel
+  description: |
+    disk_budget resource (FJ-036 / PMAT-215) — free space as declared machine
+    state, with a reclaim reaper whose ineffectiveness is itself a failure.
+
+    Origin. lambda-labs reached 100% on `/` (1.2G free) on 2026-08-15 while a
+    shell reaper ran nightly on schedule and exited 0 every time. Over the
+    preceding month it reclaimed 1.6G total, across a slide from 370G free to
+    1.2G and through a prior 100%-full event on 2026-07-28. Three independent
+    defects, each individually sufficient to produce that outcome:
+
+      D1  A fixed 7-day idle TTL on a machine whose build trees turn over in
+          two days. Every candidate was legitimately "recent"; the reaper
+          declined correctly, all the way to full.
+      D2  Build directories matched by NAME (target|target-local|target-private),
+          so the 189G living in `.target` was never even enumerated.
+      D3  No observation of the resource being defended. The script never read
+          `df`, so a run that reclaimed nothing under 100% pressure was
+          indistinguishable from a healthy no-op — and exited 0 either way.
+
+    This contract pins the properties that make each defect unrepresentable.
+
+  references:
+    - "src/resources/disk_budget/ — handler (check/apply/state_query)"
+    - "src/resources/disk_budget/reaper.rs — watermark loop"
+    - "src/resources/disk_budget/detect.rs — marker-based detection"
+    - "src/core/types/disk_budget_types.rs — watermark hysteresis"
+    - "tests/falsification_disk_budget.rs — executes the generated shell"
+    - "kubelet image GC: imageGCLowThreshold < imageGCHighThreshold"
+    - "RFC 2119 keywords used throughout"
+
+  quorum_validation:
+    # Design validated against three production systems that solve
+    # reclaim-under-pressure, per the fleet's quorum requirement.
+    - system: "Kubernetes kubelet (image/container GC + eviction)"
+      adopted: |
+        Two-watermark model with hysteresis: a HIGH threshold triggers a pass
+        and the pass runs until a LOW threshold is restored. Collapsing them to
+        one number produces a reaper that re-triggers on every tick.
+      encoded_as: "equation `watermark_hysteresis`"
+    - system: "Terraform (plan / apply / drift)"
+      adopted: |
+        Budget is DECLARED desired state; divergence is surfaced by a drift
+        check rather than by a human noticing. Raw volatile telemetry is kept
+        out of the compared state so drift stays meaningful.
+      encoded_as: "equations `drift_visible_classes`, `volatile_values_excluded`"
+    - system: "Prometheus / dead-man's-switch alerting"
+      adopted: |
+        Alert on ABSENCE of the expected signal, not only on bad values. A
+        reaper that stops reclaiming must fail, not go quiet. This mirrors the
+        fleet's own lane-liveness switch.
+      encoded_as: "equations `inert_pass_fails`, `heartbeat_staleness`"
+
+equations:
+  watermark_hysteresis:
+    formula: |
+      valid(high, target_free) ⟺ (100 - target_free) < high
+    domain: "high ∈ 1..=99, target_free ∈ 1..=99"
+    codomain: "Result<DiskBudget, String>"
+    invariants:
+      - "The reclaim target MUST sit strictly below the trigger"
+      - "A pair that would leave used% at or above the trigger after a full pass is REJECTED at parse time, not at 03:00 on a full disk"
+      - "Shipped defaults (85 / 20) satisfy the predicate"
+
+  detection_is_behavioural:
+    formula: |
+      is_cargo_target(d) ⟺ exists(d/CACHEDIR.TAG) ∧ exists(d/.rustc_info.json)
+    domain: "d ∈ directories under a declared reclaim root"
+    codomain: "bool"
+    invariants:
+      - "Detection MUST NOT depend on the directory's name (D2)"
+      - "BOTH markers are required — `~/.cargo/registry` carries CACHEDIR.TAG and no .rustc_info.json, so the conjunction is exactly what excludes the registry"
+      - "A source directory named `target` (the `cc` crate ships one at src/target/) is NEVER a candidate"
+      - "Dot-prefixed `.target` IS a candidate"
+
+  reclaim_is_watermark_driven:
+    formula: |
+      pass(fs) reads df before start ∧ after every delete ∧ halts when used% ≤ target_used
+    domain: "fs ∈ declared budgets"
+    codomain: "exit code ∈ {0, 1}"
+    invariants:
+      - "The pass MUST observe actual free space, never only file age (D3)"
+      - "The idle floor is a safety floor on in-flight work, NOT the reclaim policy (D1)"
+      - "The pass halts at the low watermark — it MUST NOT delete every candidate it can find"
+      - "Candidates are consumed oldest-first"
+
+  inert_pass_fails:
+    formula: |
+      triggered(pass) ∧ ¬target_met(pass) ⟹ exit ≠ 0
+      triggered(pass) ∧ reclaimed = 0    ⟹ health = "inert"
+    domain: "one reclaim pass"
+    codomain: "exit code, status.health"
+    invariants:
+      - "A triggered pass that misses its budget MUST exit non-zero so systemd records a failed unit"
+      - "The service unit MUST NOT set SuccessExitStatus or RemainAfterExit — either would restore the silent-green failure"
+      - "Reclaiming nothing while under pressure is reported as `inert`, distinct from `idle` (never triggered)"
+
+  drift_visible_classes:
+    formula: |
+      state_query(r) ⊇ {disk_budget_tier, disk_budget_heartbeat, disk_budget_health, disk_budget_timer}
+    domain: "r ∈ Resource where resource_type = DiskBudget"
+    codomain: "String (purified shell)"
+    invariants:
+      - "Tier ∈ {ok, pressure, critical} is emitted on stdout and therefore drift-hashed"
+      - "`forjar drift` FAILS when a machine is over budget or its reaper is stale/inert"
+
+  volatile_values_excluded:
+    formula: |
+      raw_free_bytes ∈ stderr(state_query) ∧ raw_free_bytes ∉ stdout(state_query)
+    domain: "r ∈ Resource where resource_type = DiskBudget"
+    codomain: "String (purified shell)"
+    invariants:
+      - "Raw used%/free-GiB/reclaimed-bytes go to STDERR only"
+      - "Hashing a value that changes every second would mark every machine drifted on every run and train operators to ignore drift"
+
+  heartbeat_staleness:
+    formula: |
+      age(status.last_run) > 3 × timer_period ⟹ heartbeat = "stale"
+    domain: "r ∈ Resource where resource_type = DiskBudget"
+    codomain: "{fresh, stale, missing}"
+    invariants:
+      - "Freshness window scales with the declared cadence, never a hardcoded constant"
+      - "An unrecognised OnCalendar expression falls back to hourly, never to zero (which would report every host permanently stale)"
+
+  unpushed_work_is_never_reclaimed:
+    formula: |
+      removable(wt) ⟺ is_linked_worktree(wt) ∧ clean(wt) ∧ has_upstream(wt) ∧ ahead(wt) = 0 ∧ ¬in_use(wt)
+    domain: "wt ∈ directories under an abandoned_worktree root"
+    codomain: "bool"
+    invariants:
+      - "This is the only rule that can destroy work a rebuild cannot recreate; it MUST fail closed"
+      - "A worktree with no upstream is unpushed work and is KEPT"
+      - "A dirty tree (tracked or untracked) is KEPT"
+      - "A git invocation that errors yields KEEP, never delete"
+      - "The primary checkout (.git directory, not file) is never a candidate"
+
+proof_obligations:
+  - type: safety
+    property: "Cargo build dirs are detected by cargo's own markers, never by name"
+    formal: "∀ d: candidate(d) ⟹ exists(d/CACHEDIR.TAG) ∧ exists(d/.rustc_info.json)"
+    applies_to: detection_is_behavioural
+    enforced_by: "tests/falsification_disk_budget.rs::never_deletes_a_source_dir_named_target"
+
+  - type: safety
+    property: "A dot-prefixed .target is reclaimable (no name blind spot)"
+    formal: "∀ d named `.target` with both markers: candidate(d)"
+    applies_to: detection_is_behavioural
+    enforced_by: "tests/falsification_disk_budget.rs::reclaims_dot_prefixed_target_dirs"
+
+  - type: liveness
+    property: "A triggered pass that misses its budget fails loudly"
+    formal: "∀ pass: triggered(pass) ∧ ¬target_met(pass) ⟹ exit ≠ 0"
+    applies_to: inert_pass_fails
+    enforced_by: "tests/falsification_disk_budget.rs::triggered_pass_that_cannot_reach_target_exits_nonzero"
+
+  - type: safety
+    property: "systemd never masks a failed reclaim pass"
+    formal: "∀ r: service_unit(r) ∌ {SuccessExitStatus, RemainAfterExit}"
+    applies_to: inert_pass_fails
+    enforced_by: "src/resources/disk_budget/units.rs::tests::service_does_not_mask_failure"
+
+  - type: safety
+    property: "Reclaim halts at the low watermark instead of exhausting candidates"
+    formal: "∀ pass: used% ≤ target_used ⟹ halt"
+    applies_to: reclaim_is_watermark_driven
+    enforced_by: "tests/falsification_disk_budget.rs::stops_as_soon_as_the_target_watermark_is_met"
+
+  - type: safety
+    property: "Below the trigger, nothing is reclaimed"
+    formal: "∀ pass: used% < high ⟹ deletions = ∅ ∧ exit = 0"
+    applies_to: reclaim_is_watermark_driven
+    enforced_by: "tests/falsification_disk_budget.rs::does_nothing_when_under_the_watermark"
+
+  - type: safety
+    property: "In-flight builds survive the idle floor"
+    formal: "∀ d: mtime(d) > now - min_idle ⟹ ¬delete(d)"
+    applies_to: reclaim_is_watermark_driven
+    enforced_by: "tests/falsification_disk_budget.rs::respects_the_idle_floor"
+
+  - type: safety
+    property: "Unpushed git work is never destroyed (fails closed)"
+    formal: "∀ wt: ¬(clean(wt) ∧ has_upstream(wt) ∧ ahead(wt)=0 ∧ ¬in_use(wt)) ⟹ keep(wt)"
+    applies_to: unpushed_work_is_never_reclaimed
+    enforced_by: "tests/falsification_disk_budget.rs::abandoned_worktree_with_unpushed_work_is_never_removed"
+
+  - type: safety
+    property: "No accepted watermark pair can thrash"
+    formal: "∀ (high, tf): accept(high, tf) ⟹ (100 - tf) < high"
+    applies_to: watermark_hysteresis
+    enforced_by: "src/core/kani_proofs_disk_budget.rs::proof_disk_budget_hysteresis_total"
+
+  - type: safety
+    property: "Volatile byte counts are excluded from the drift hash"
+    formal: "∀ r: raw_free_bytes ∈ stderr(state_query(r)) ∧ ∉ stdout(state_query(r))"
+    applies_to: volatile_values_excluded
+    enforced_by: "src/resources/disk_budget/tests.rs::state_query_publishes_classes_not_raw_bytes"
+
+  - type: liveness
+    property: "A reaper that stops running becomes visible as a stale heartbeat"
+    formal: "age(last_run) > 3 × period ⟹ heartbeat = stale"
+    applies_to: heartbeat_staleness
+    enforced_by: "src/resources/disk_budget/tests.rs::heartbeat_window_scales_with_cadence"
+
+falsification_tests:
+  - id: FALSIFY-DBG-001
+    rule: "detection is behavioural, not name-based"
+    prediction: "a dot-prefixed `.target` carrying both cargo markers IS reclaimed"
+    test: "tests/falsification_disk_budget.rs::reclaims_dot_prefixed_target_dirs"
+    if_fails: "The exact 189G blind spot returns: build output the reaper cannot see accumulates until the disk is full"
+
+  - id: FALSIFY-DBG-002
+    rule: "both cargo markers required"
+    prediction: "a source dir named `target` and a CACHEDIR.TAG-only dir both survive a 99%-pressure pass"
+    test: "tests/falsification_disk_budget.rs::never_deletes_a_source_dir_named_target"
+    if_fails: "The reaper eats ~/.cargo/registry; .cargo-ok survives so cargo notices nothing until a later build fails with `could not compile cc`"
+
+  - id: FALSIFY-DBG-003
+    rule: "an inert pass is a failure"
+    prediction: "a triggered pass with nothing reclaimable exits 1 and reports health=inert"
+    test: "tests/falsification_disk_budget.rs::triggered_pass_that_cannot_reach_target_exits_nonzero"
+    if_fails: "A reaper that has stopped working is indistinguishable from a healthy one — the original defect, invisible for a month across two 100%-full events"
+
+  - id: FALSIFY-DBG-004
+    rule: "halt at the low watermark"
+    prediction: "with two candidates and target met after the first delete, the second survives"
+    test: "tests/falsification_disk_budget.rs::stops_as_soon_as_the_target_watermark_is_met"
+    if_fails: "Transient pressure wipes every build cache on the box instead of the minimum needed"
+
+  - id: FALSIFY-DBG-005
+    rule: "idle floor protects in-flight builds"
+    prediction: "a target written seconds ago survives a 99%-pressure pass"
+    test: "tests/falsification_disk_budget.rs::respects_the_idle_floor"
+    if_fails: "The reaper deletes a running build's output mid-compile"
+
+  - id: FALSIFY-DBG-006
+    rule: "no reclaim below the trigger"
+    prediction: "at 40% used the pass exits 0 and deletes nothing"
+    test: "tests/falsification_disk_budget.rs::does_nothing_when_under_the_watermark"
+    if_fails: "The reaper deletes caches on a healthy machine, destroying build times for no reason"
+
+  - id: FALSIFY-DBG-007
+    rule: "unpushed work is never reclaimed"
+    prediction: "a git worktree on a branch with no upstream survives a 99%-pressure pass"
+    test: "tests/falsification_disk_budget.rs::abandoned_worktree_with_unpushed_work_is_never_removed"
+    if_fails: "Unpushed commits are destroyed — the one loss in this system that no rebuild can undo"
+
+  - id: FALSIFY-DBG-008
+    rule: "dry-run is inert"
+    prediction: "FORJAR_BUDGET_DRY_RUN=1 under pressure deletes nothing"
+    test: "tests/falsification_disk_budget.rs::dry_run_reclaims_nothing"
+    if_fails: "Operators cannot preview a reclaim before authorising it"
+
+  - id: FALSIFY-DBG-009
+    rule: "watermark hysteresis"
+    prediction: "high=85 with target_free<=15 is rejected; 16 is accepted"
+    test: "src/core/types/disk_budget_types.rs::tests::rejects_missing_hysteresis"
+    if_fails: "The reaper deletes on every tick while never clearing its own alarm"
+
+  - id: FALSIFY-DBG-010
+    rule: "volatile values excluded from drift"
+    prediction: "raw used%/free-GiB appear only after a `>&2` redirect"
+    test: "src/resources/disk_budget/tests.rs::state_query_publishes_classes_not_raw_bytes"
+    if_fails: "Every machine reports drifted on every run; operators learn to ignore drift"
+
+  - id: FALSIFY-DBG-011
+    rule: "systemd must not mask a failed pass"
+    prediction: "the generated unit carries neither SuccessExitStatus nor RemainAfterExit"
+    test: "src/resources/disk_budget/units.rs::tests::service_does_not_mask_failure"
+    if_fails: "A failing reaper shows as active/success and the silent-green failure returns"
+
+kani_harnesses:
+  - id: KANI-DBG-001
+    obligation: "no accepted budget can thrash"
+    property: "forall (high, target_free) in u8 x u8: DiskBudget::new(..) = Ok(b) => b.target_used_pct() < b.high_watermark_pct"
+    bound: 256
+    strategy: bounded_int
+    harness: proof_disk_budget_hysteresis_total
+
+  - id: KANI-DBG-002
+    obligation: "target_used_pct is total (no u8 underflow)"
+    property: "forall accepted b: b.target_free_pct in 1..=99 and b.target_used_pct() <= 99"
+    bound: 256
+    strategy: bounded_int
+    harness: proof_disk_budget_target_used_no_underflow
+
+  - id: KANI-DBG-003
+    obligation: "shipped defaults are valid"
+    property: "DiskBudget::new(DEFAULT_HIGH, DEFAULT_TARGET_FREE, ..) = Ok(b) and b.target_used_pct() < DEFAULT_HIGH"
+    bound: 1
+    strategy: exhaustive
+    harness: proof_disk_budget_defaults_are_accepted
+
+qa_gate:
+  id: F-DBG-001
+  name: "Disk Budget Contract"
+  description: |
+    Free space is declared machine state, and a reclaim pass that fails to
+    restore it is a failed unit — not a quiet success. Gate fails on any
+    falsification test going red.
+  check: "cargo test --test falsification_disk_budget && cargo test --lib disk_budget"
+  severity: error
+  reference: "src/resources/disk_budget/"

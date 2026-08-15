@@ -113,6 +113,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 overlay_iface: None,
                 overlay_hosts: None,
                 overlay_firewall: None,
+                ..Default::default()
             },
         );
     }
@@ -263,5 +264,6 @@ pub(super) fn make_base_resource() -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }

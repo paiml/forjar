@@ -1,5 +1,6 @@
 //! Type-specific required-field validation for each resource type.
 
+use super::disk_budget_validate::validate_disk_budget;
 use super::*;
 
 /// Validate type-specific required fields for a resource.
@@ -26,6 +27,7 @@ pub(super) fn validate_resource_type(
         ResourceType::Build => validate_build(id, resource, errors),
         ResourceType::GithubRelease => validate_github_release(id, resource, errors),
         ResourceType::OverlayInterface => validate_overlay_interface(id, resource, errors),
+        ResourceType::DiskBudget => validate_disk_budget(id, resource, errors),
     }
 }
 

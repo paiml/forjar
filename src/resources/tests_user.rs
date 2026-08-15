@@ -103,6 +103,7 @@ fn make_user_resource(name: &str) -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

@@ -131,6 +131,7 @@ fn test_fj003_resolve_all_fields() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -303,6 +304,7 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

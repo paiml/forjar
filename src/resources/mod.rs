@@ -7,6 +7,7 @@
 
 pub mod build;
 pub mod cron;
+pub mod disk_budget;
 pub mod docker;
 pub mod file;
 pub mod github_release;

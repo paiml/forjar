@@ -199,7 +199,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::Image
         | ResourceType::Build
         | ResourceType::GithubRelease
-        | ResourceType::OverlayInterface => "present",
+        | ResourceType::OverlayInterface
+        | ResourceType::DiskBudget => "present",
     }
 }
 
@@ -393,7 +394,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Image
             | ResourceType::Build
             | ResourceType::GithubRelease
-            | ResourceType::OverlayInterface => format!("{resource_id}: create"),
+            | ResourceType::OverlayInterface
+            | ResourceType::DiskBudget => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

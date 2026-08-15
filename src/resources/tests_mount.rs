@@ -103,6 +103,7 @@ pub(super) fn make_mount_resource() -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

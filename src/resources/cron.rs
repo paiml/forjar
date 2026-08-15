@@ -179,6 +179,7 @@ mod tests {
             overlay_iface: None,
             overlay_hosts: None,
             overlay_firewall: None,
+            ..Default::default()
         }
     }
 
