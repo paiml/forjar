@@ -124,6 +124,12 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "overlay_iface",
     "overlay_hosts",
     "overlay_firewall",
+    // FJ-036: disk_budget
+    "budget_high_watermark_pct",
+    "budget_target_free_pct",
+    "budget_critical_free_gb",
+    "budget_schedule",
+    "budget_reclaim",
 ];
 
 pub(crate) const MACHINE_FIELDS: &[&str] = &[

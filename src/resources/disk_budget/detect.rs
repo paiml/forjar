@@ -183,11 +183,29 @@ pub(super) fn all_detectors() -> String {
     )
 }
 
+/// Pre-delete hook: capture state that only exists while the candidate does.
+///
+/// A linked worktree knows where its parent repository is; the directory it
+/// sits in does not. `dirname "$cand"` is a worktree POOL (`.claude/worktrees`,
+/// `aprender-worktrees/`), which is not a repo — for an in-repo pool git would
+/// silently walk up and find the right repo anyway, but for a sibling pool
+/// outside any repository the prune simply fails and git's registry keeps
+/// growing stale entries (aprender had 223 registered worktrees on 08-15).
+/// So resolve the repo from the worktree itself, before it is removed.
+pub(super) const fn pre_delete(kind: ReclaimKind) -> &'static str {
+    match kind {
+        ReclaimKind::AbandonedWorktree => {
+            "    FB_REPO_DIR=$(git -C \"$cand\" rev-parse --git-common-dir 2>/dev/null || echo '')\n"
+        }
+        _ => "",
+    }
+}
+
 /// Post-delete hook for a kind (e.g. pruning git's worktree registry).
 pub(super) const fn post_delete(kind: ReclaimKind) -> &'static str {
     match kind {
         ReclaimKind::AbandonedWorktree => {
-            "  git -C \"$(dirname \"$cand\")\" worktree prune 2>/dev/null || true\n"
+            "      [ -n \"$FB_REPO_DIR\" ] && git --git-dir=\"$FB_REPO_DIR\" worktree prune 2>/dev/null\n"
         }
         _ => "",
     }
@@ -268,6 +286,32 @@ mod tests {
         assert_eq!(post_delete(ReclaimKind::CargoTarget), "");
         assert_eq!(post_delete(ReclaimKind::Glob), "");
         assert_eq!(post_delete(ReclaimKind::ClaudeScratchpad), "");
+    }
+
+    #[test]
+    fn prune_targets_the_repo_not_the_pool_directory() {
+        // `dirname "$cand"` is the worktree POOL, which is not a repository.
+        // For an in-repo pool git walks up and it accidentally works; for a
+        // sibling pool (~/src/aprender-worktrees) it fails and git's registry
+        // accumulates stale entries forever.
+        let post = post_delete(ReclaimKind::AbandonedWorktree);
+        assert!(
+            !post.contains("dirname"),
+            "prune must not be run from the pool directory: {post}"
+        );
+        assert!(post.contains("--git-dir=\"$FB_REPO_DIR\""));
+    }
+
+    #[test]
+    fn repo_dir_is_captured_before_the_worktree_is_deleted() {
+        // The path can only be resolved while the worktree still exists.
+        let pre = pre_delete(ReclaimKind::AbandonedWorktree);
+        assert!(pre.contains("--git-common-dir"));
+        assert!(pre.contains("FB_REPO_DIR="));
+        // Other kinds need no capture.
+        assert_eq!(pre_delete(ReclaimKind::CargoTarget), "");
+        assert_eq!(pre_delete(ReclaimKind::Glob), "");
+        assert_eq!(pre_delete(ReclaimKind::ClaudeScratchpad), "");
     }
 
     #[test]

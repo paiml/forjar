@@ -44,6 +44,14 @@ pub(super) fn validate_disk_budget(
             });
         }
         for root in &rule.roots {
+            // Validation runs on the RAW config, before template resolution, so
+            // a templated root (`{{params.home}}/src`) is not yet absolute and
+            // must be skipped here — same convention as `validate_cron`'s
+            // schedule check. The resolver expands `budget_reclaim[].roots`, and
+            // an unexpanded template would simply match nothing at reap time.
+            if root.contains("{{") {
+                continue;
+            }
             if !root.starts_with('/') {
                 errors.push(ValidationError {
                     message: format!(

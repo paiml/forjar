@@ -59,6 +59,7 @@ fn rule_block(rule: &ReclaimRule) -> String {
     let idle = rule.min_idle_minutes;
     let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
     let roots = roots.join(" ");
+    let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
 
     format!(
@@ -75,7 +76,7 @@ if [ "$FB_MET" != "1" ]; then
     fi
     fb_is_idle "$cand" {idle} || {{ fb_log "  keep (active <{idle}m): $cand"; continue; }}
     sz=$(fb_bytes "$cand")
-    if [ "$FB_DRY" = "1" ]; then
+{pre}    if [ "$FB_DRY" = "1" ]; then
       fb_log "  DRY-RUN would reclaim ${{sz:-0}} bytes: $cand"
     else
       rm -rf -- "$cand" || {{ fb_log "  FAILED to remove: $cand"; continue; }}

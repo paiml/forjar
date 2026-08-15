@@ -151,6 +151,7 @@ fn default_resource() -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

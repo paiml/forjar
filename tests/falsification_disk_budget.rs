@@ -10,125 +10,18 @@
 //! pressure level deterministically. Everything else — `find`, `du`, `stat`,
 //! `git`, `rm` — is the real thing, so what is under test is the actual
 //! detection and deletion behaviour, not a description of it.
+//!
+//! The harness lives in `tests/common/budget_harness.rs` (file-health limit).
 
-use forjar::core::types::{MachineTarget, ReclaimKind, ReclaimRule, Resource, ResourceType};
-use forjar::resources::disk_budget;
+#[path = "common/budget_harness.rs"]
+mod harness;
+
+use forjar::core::types::{ReclaimKind, ReclaimRule};
+use harness::*;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-
-/// Unique temp dir (no external tempfile dep in this test target).
-fn tmpdir(tag: &str) -> PathBuf {
-    let base = std::env::temp_dir().join(format!(
-        "forjar-budget-{tag}-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&base).unwrap();
-    base
-}
-
-/// A directory that looks exactly like a cargo target dir to the detector.
-fn mk_cargo_target(p: &Path) {
-    fs::create_dir_all(p.join("debug")).unwrap();
-    fs::write(p.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172").unwrap();
-    fs::write(p.join(".rustc_info.json"), "{}").unwrap();
-    fs::write(p.join("debug/blob"), vec![0u8; 4096]).unwrap();
-}
-
-/// Install a `df` shim that pops one "used_pct free_kb" line per invocation.
-fn install_df_stub(bin: &Path, sequence: &[(u32, u64)]) {
-    fs::create_dir_all(bin).unwrap();
-    let state = bin.join("df.state");
-    let mut s = String::new();
-    for (used, free_kb) in sequence {
-        s.push_str(&format!("{used} {free_kb}\n"));
-    }
-    fs::write(&state, s).unwrap();
-    let shim = format!(
-        "#!/bin/sh\n\
-         S={state:?}\n\
-         L=$(head -1 \"$S\")\n\
-         if [ \"$(wc -l <\"$S\")\" -gt 1 ]; then tail -n +2 \"$S\" >\"$S.tmp\" && mv \"$S.tmp\" \"$S\"; fi\n\
-         set -- $L\n\
-         echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'\n\
-         echo \"/dev/stub 1000000000 1 $2 $1% /\"\n"
-    );
-    let p = bin.join("df");
-    fs::write(&p, shim).unwrap();
-    fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
-}
-
-fn budget_resource(path: &Path, rules: Vec<ReclaimRule>) -> Resource {
-    Resource {
-        resource_type: ResourceType::DiskBudget,
-        machine: MachineTarget::Single("test".into()),
-        path: Some(path.to_string_lossy().into_owned()),
-        budget_high_watermark_pct: Some(85),
-        budget_target_free_pct: Some(20),
-        budget_reclaim: rules,
-        ..Default::default()
-    }
-}
-
-/// Extract the reaper body from the apply script and run it directly.
-struct RunResult {
-    code: i32,
-    stdout: String,
-}
-
-/// Pull the reaper body out of the apply script's heredoc.
-fn reaper_body(res: &Resource) -> String {
-    const OPEN: &str = "<<'FORJAR_REAPER_EOF'\n";
-    const CLOSE: &str = "\nFORJAR_REAPER_EOF\n";
-    let apply = disk_budget::apply_script(res);
-    let start = apply.find(OPEN).expect("reaper heredoc open") + OPEN.len();
-    let end = apply[start..].find(CLOSE).expect("reaper heredoc close") + start;
-    apply[start..end].to_string()
-}
-
-fn run_reaper(res: &Resource, bin: &Path, work: &Path) -> RunResult {
-    let body = reaper_body(res);
-
-    let script = work.join("reaper.sh");
-    fs::write(&script, &body).unwrap();
-    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
-
-    let path_env = format!(
-        "{}:{}",
-        bin.display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
-    let out = Command::new("/bin/sh")
-        .arg(&script)
-        .env("PATH", path_env)
-        .env("FORJAR_BUDGET_STATUS", work.join("status.json"))
-        .output()
-        .expect("run reaper");
-    RunResult {
-        code: out.status.code().unwrap_or(-1),
-        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-    }
-}
-
-/// Backdate everything under `p` so the idle floor is satisfied.
-fn backdate(p: &Path) {
-    let _ = Command::new("find")
-        .args([
-            p.to_str().unwrap(),
-            "-exec",
-            "touch",
-            "-d",
-            "3 days ago",
-            "{}",
-            "+",
-        ])
-        .output();
-}
 
 #[test]
 fn reclaims_dot_prefixed_target_dirs() {
@@ -384,6 +277,102 @@ fn abandoned_worktree_with_unpushed_work_is_never_removed() {
     assert!(
         wt.join("f.txt").exists(),
         "a worktree with no upstream is unpushed work and must be kept\n{}",
+        r.stdout
+    );
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn abandoned_worktree_is_removed_and_pruned_from_a_sibling_pool() {
+    // A pool OUTSIDE the repository (~/src/aprender-worktrees is the real
+    // shape). Pruning from `dirname "$cand"` cannot work here — that directory
+    // is not a repo and git has nothing to walk up to. If the prune is wrong,
+    // the tree is deleted but git keeps a stale registration forever.
+    let root = tmpdir("prune");
+    let bin = root.join("bin");
+    let repo = root.join("repo");
+    fs::create_dir_all(&repo).unwrap();
+    let git = |args: &[&str], dir: &Path| {
+        Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .output()
+            .expect("git")
+    };
+    // A bare "remote" so the worktree branch can have a real upstream.
+    let remote = root.join("remote.git");
+    git(&["init", "-q", "--bare", remote.to_str().unwrap()], &root);
+    git(&["init", "-q", "-b", "main"], &repo);
+    fs::write(repo.join("f.txt"), "hello").unwrap();
+    git(&["add", "."], &repo);
+    git(&["commit", "-qm", "init"], &repo);
+    git(
+        &["remote", "add", "origin", remote.to_str().unwrap()],
+        &repo,
+    );
+    git(&["push", "-q", "-u", "origin", "main"], &repo);
+
+    // Sibling pool, deliberately NOT under `repo/`.
+    let pool = root.join("repo-worktrees");
+    fs::create_dir_all(&pool).unwrap();
+    let wt = pool.join("done");
+    // A branch tracking origin/main and level with it: clean, has upstream,
+    // zero commits ahead — i.e. genuinely abandoned. (`worktree add <p> main`
+    // would fail: main is already checked out in the primary worktree.)
+    let add = git(
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "--track",
+            "-b",
+            "done",
+            wt.to_str().unwrap(),
+            "origin/main",
+        ],
+        &repo,
+    );
+    assert!(
+        wt.exists(),
+        "setup: worktree add failed: {}",
+        String::from_utf8_lossy(&add.stderr)
+    );
+
+    assert_eq!(
+        String::from_utf8_lossy(&git(&["worktree", "list"], &repo).stdout)
+            .lines()
+            .count(),
+        2,
+        "setup: repo + one linked worktree"
+    );
+
+    backdate(&pool);
+    install_df_stub(&bin, &[(95, 1_000), (95, 1_000), (50, 900_000_000)]);
+
+    let res = budget_resource(
+        &root,
+        vec![ReclaimRule {
+            name: "worktrees".into(),
+            roots: vec![pool.to_string_lossy().into_owned()],
+            kind: ReclaimKind::AbandonedWorktree,
+            min_idle_minutes: 60,
+        }],
+    );
+    let r = run_reaper(&res, &bin, &root);
+
+    assert!(
+        !wt.exists(),
+        "abandoned worktree must be removed\n{}",
+        r.stdout
+    );
+    let listed = String::from_utf8_lossy(&git(&["worktree", "list"], &repo).stdout).to_string();
+    assert!(
+        !listed.contains("done"),
+        "git's worktree registry must be pruned, not left stale:\n{listed}\n{}",
         r.stdout
     );
     fs::remove_dir_all(&root).ok();

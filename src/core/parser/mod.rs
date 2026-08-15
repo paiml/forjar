@@ -28,6 +28,8 @@ mod tests_format_validation;
 #[cfg(test)]
 mod tests_includes;
 #[cfg(test)]
+mod tests_known_fields_completeness;
+#[cfg(test)]
 mod tests_misc;
 #[cfg(test)]
 mod tests_misc_2;
