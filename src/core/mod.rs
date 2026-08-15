@@ -57,6 +57,7 @@ pub mod ferrocene;
 pub mod flight_grade;
 mod kani_production_proofs;
 mod kani_proofs;
+mod kani_proofs_disk_budget;
 mod kani_proofs_overlay;
 pub mod mcdc;
 pub mod repro_build;

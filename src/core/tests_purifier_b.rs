@@ -102,6 +102,7 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

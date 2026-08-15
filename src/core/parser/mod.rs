@@ -6,6 +6,7 @@
 //! - depends_on references must exist
 //! - Required fields per resource type
 
+mod disk_budget_validate;
 mod expansion;
 mod format_validation;
 mod includes;
@@ -26,6 +27,8 @@ mod tests_expansion;
 mod tests_format_validation;
 #[cfg(test)]
 mod tests_includes;
+#[cfg(test)]
+mod tests_known_fields_completeness;
 #[cfg(test)]
 mod tests_misc;
 #[cfg(test)]

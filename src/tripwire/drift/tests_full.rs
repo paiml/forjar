@@ -268,6 +268,7 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

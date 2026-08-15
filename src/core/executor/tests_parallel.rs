@@ -196,6 +196,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let machine = Machine {
         hostname: "localhost".to_string(),

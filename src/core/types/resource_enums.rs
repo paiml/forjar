@@ -51,6 +51,8 @@ pub enum ResourceType {
     /// FJ-35: DNS/DHCP-independent fleet overlay interface (static secondary IP
     /// + self-heal service/timer/dispatcher).
     OverlayInterface,
+    /// FJ-36: Filesystem disk budget — watermarks + reclaim reaper + drift.
+    DiskBudget,
 }
 
 impl fmt::Display for ResourceType {
@@ -74,6 +76,7 @@ impl fmt::Display for ResourceType {
             Self::Build => write!(f, "build"),
             Self::GithubRelease => write!(f, "github_release"),
             Self::OverlayInterface => write!(f, "overlay_interface"),
+            Self::DiskBudget => write!(f, "disk_budget"),
         }
     }
 }
@@ -200,6 +203,7 @@ mod tests {
             (ResourceType::Build, "build"),
             (ResourceType::GithubRelease, "github_release"),
             (ResourceType::OverlayInterface, "overlay_interface"),
+            (ResourceType::DiskBudget, "disk_budget"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

@@ -139,6 +139,16 @@ fn resolve_build_and_overlay_fields(
     r.overlay_work = resolve_opt(&r.overlay_work, params, machines, secrets)?;
     r.overlay_merged = resolve_opt(&r.overlay_merged, params, machines, secrets)?;
 
+    // Disk budget — the cadence, and every reclaim root. Roots are the paths
+    // the reaper DELETES under, so an unexpanded `{{params.home}}` there is not
+    // a cosmetic bug: the literal would simply never match and the rule would
+    // silently reclaim nothing, which is the exact silent-inertness this
+    // resource exists to prevent.
+    r.budget_schedule = resolve_opt(&r.budget_schedule, params, machines, secrets)?;
+    for rule in &mut r.budget_reclaim {
+        rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
+    }
+
     Ok(())
 }
 

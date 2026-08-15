@@ -170,6 +170,7 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
