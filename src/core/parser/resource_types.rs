@@ -1,5 +1,6 @@
 //! Type-specific required-field validation for each resource type.
 
+use super::backup_sync_validate::validate_backup_sync;
 use super::disk_budget_validate::validate_disk_budget;
 use super::*;
 
@@ -28,6 +29,7 @@ pub(super) fn validate_resource_type(
         ResourceType::GithubRelease => validate_github_release(id, resource, errors),
         ResourceType::OverlayInterface => validate_overlay_interface(id, resource, errors),
         ResourceType::DiskBudget => validate_disk_budget(id, resource, errors),
+        ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
     }
 }
 

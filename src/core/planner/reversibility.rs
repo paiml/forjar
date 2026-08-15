@@ -64,6 +64,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         // not un-reclaim. (The reclaim itself is irreversible by design — that
         // is what `budget_reclaim` authorises.)
         ResourceType::DiskBudget => Reversibility::Reversible,
+        // Destroying the resource removes the schedule, never the remote data.
+        ResourceType::BackupSync => Reversibility::Reversible,
     }
 }
 

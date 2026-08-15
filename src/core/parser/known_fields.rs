@@ -130,6 +130,16 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "budget_critical_free_gb",
     "budget_schedule",
     "budget_reclaim",
+    // FJ-037: backup_sync
+    "backup_source",
+    "backup_remote",
+    "backup_schedule",
+    "backup_verify_pct",
+    "backup_daily_cap_gb",
+    "backup_bandwidth_limit",
+    "backup_remote_type",
+    "backup_remote_config",
+    "backup_token",
 ];
 
 pub(crate) const MACHINE_FIELDS: &[&str] = &[
