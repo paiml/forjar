@@ -6,6 +6,7 @@
 //! - depends_on references must exist
 //! - Required fields per resource type
 
+mod backup_sync_validate;
 mod disk_budget_validate;
 mod expansion;
 mod format_validation;

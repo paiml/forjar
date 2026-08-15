@@ -1,5 +1,6 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::backup_sync_types::BackupSpec;
 use super::disk_budget_types::ReclaimRule;
 use super::resource_enums::{MachineTarget, ResourceType};
 use super::service_mode_types::RestartPolicy;
@@ -448,6 +449,11 @@ pub struct Resource {
     /// Ordered reclaim rules, most-disposable first.
     #[serde(default)]
     pub budget_reclaim: Vec<ReclaimRule>,
+
+    // -- Backup sync (FJ-037) --
+    /// Verified offsite copy. Flattened, so the YAML keys stay top level.
+    #[serde(flatten)]
+    pub backup: BackupSpec,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

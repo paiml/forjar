@@ -149,6 +149,21 @@ fn resolve_build_and_overlay_fields(
         rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
     }
 
+    // Backup sync. `backup_token` is the important one: it arrives as
+    // `{{secrets.NAME}}` and an unresolved value would be written into
+    // rclone.conf as the literal credential. The sources matter for the same
+    // reason budget roots do — an unexpanded path matches nothing, and a backup
+    // that silently protects nothing is exactly what this resource replaced.
+    r.backup.remote = resolve_opt(&r.backup.remote, params, machines, secrets)?;
+    r.backup.remote_type = resolve_opt(&r.backup.remote_type, params, machines, secrets)?;
+    r.backup.schedule = resolve_opt(&r.backup.schedule, params, machines, secrets)?;
+    r.backup.bandwidth_limit = resolve_opt(&r.backup.bandwidth_limit, params, machines, secrets)?;
+    r.backup.token = resolve_opt(&r.backup.token, params, machines, secrets)?;
+    r.backup.source = resolve_list(&r.backup.source, params, machines, secrets)?;
+    for v in r.backup.remote_config.values_mut() {
+        *v = resolve_template_with_secrets(v, params, machines, secrets)?;
+    }
+
     Ok(())
 }
 
