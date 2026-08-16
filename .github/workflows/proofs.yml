@@ -64,6 +64,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # elan installs into ~/.elan, which is not on the runners' PATH (they get
+      # ~/.cargo/bin). Same shape as the existing Rust-toolchain PATH steps.
+      # This only exposes it — if it is absent, the assertion below still fails.
+      - name: Put the Lean toolchain on PATH
+        run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
       - name: Assert lean is available
         run: |
           if ! command -v lean >/dev/null 2>&1; then
