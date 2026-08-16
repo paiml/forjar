@@ -33,7 +33,18 @@ jobs:
   kani:
     name: kani
     runs-on: [self-hosted, clean-room]
-    timeout-minutes: 45
+    # 45 was too short, but NOT because proving is slow — measured 2026-08-16:
+    #
+    #   proof_applicable_operators_valid   22+ min  -> 2s   (after the fix below)
+    #   every other completed harness      0-5s each
+    #   9 harnesses in 36 min = ~11s of proving, ~35 min of COMPILATION
+    #
+    # Kani rebuilds the crate with its own compiler and CI carries no cache for
+    # that, so the cost is almost entirely the build. Raising this buys the
+    # compile, not slow proofs. If a single harness ever dominates again, that
+    # is the disk_budget/applicable_operators shape — an allocating function in
+    # the harness — and the fix is to retarget it, not to raise this further.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5
 
