@@ -38,7 +38,7 @@ proof_obligations:
     property: "Acyclicity is a config-transferable theorem"
     formal: "acyclic(R,E) => a topological apply order of length |R| exists"
     applies_to: I1
-  - type: honesty
+  - type: soundness
     property: "No vacuous green"
     formal: "exists opaque r in R => state(I3) in {Unknown} (never Proved/Checked as if total)"
     applies_to: I3

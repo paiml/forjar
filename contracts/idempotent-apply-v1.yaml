@@ -64,7 +64,7 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/core/planner/mod.rs::plan debug_assert_eq!"
 
-  - type: test
+  - type: idempotency
     property: "Second plan over converged locks is all-NoOp (f(f(x)) = f(x))"
     formal: "locks = converged(c) ⟹ plan(c, locks).{to_create, to_update, to_destroy} = 0"
     applies_to: all
