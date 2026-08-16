@@ -63,7 +63,7 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/cli/generation.rs::rollback_to_generation debug_assert_eq!"
 
-  - type: test
+  - type: roundtrip
     property: "Roundtrip restores the snapshot byte-for-byte"
     formal: "snapshot(S → g); mutate(S); rollback(g) ⟹ locks(state_dir) = locks(S)"
     applies_to: all

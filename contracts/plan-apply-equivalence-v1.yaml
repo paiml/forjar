@@ -56,7 +56,7 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/core/executor/machine.rs::apply_machine debug_assert!"
 
-  - type: test
+  - type: equivalence
     property: "Apply outcome counts match the plan's prediction"
     formal: |
       apply(fresh)     → converged = to_create + to_update ∧ unchanged = plan.unchanged

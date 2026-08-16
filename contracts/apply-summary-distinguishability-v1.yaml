@@ -65,7 +65,7 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/cli/apply_output.rs::print_apply_summary"
 
-  - type: test
+  - type: classification
     property: "All four step shapes from issue #129 hold (Q1 semantics)"
     formal: |
       apply(fresh)            → converged=N, forced=0
