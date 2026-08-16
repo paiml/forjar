@@ -265,4 +265,15 @@ Under the handler invariant, three Kani proofs verify idempotency:
 
 Additional proofs cover the OCI build pipeline:
 - `proof_layer_determinism`: same files produce same layer digest
-- `proof_store_idempotency`: content-addressable put is idempotent
+
+`proof_store_idempotency` was **removed** (GH-242). It computed one expression
+twice and asserted the halves equal — `x == x`, which cannot fail — over a
+hand-written model rather than the real address function. It also took **83
+minutes** of a 150-minute CI budget, against a 3-second median for every other
+harness, and was the reason the proof suite never ran to completion.
+
+Content-addressable determinism is tested where it can actually fail, by
+executing the real function: `tests/falsification_composite_hash_injectivity.rs`
+covers determinism *and* injectivity of `composite_hash` over real inputs —
+including a collision (GH-235) that the removed model could never have
+detected.

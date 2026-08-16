@@ -361,24 +361,42 @@ fn proof_layer_determinism() {
     assert_eq!(digest1, digest2, "layer build must be deterministic");
 }
 
-/// FJ-2201: Store put idempotency — storing same content twice is no-op.
-///
-/// Models content-addressable store: put(hash, data) is idempotent because
-/// the address is derived from the content.
-#[cfg(kani)]
-#[kani::proof]
-fn proof_store_idempotency() {
-    let content: u32 = kani::any();
-    // Content-addressable: address = hash(content)
-    let addr1 = content.wrapping_mul(2654435761); // model hash
-    let addr2 = content.wrapping_mul(2654435761);
-    assert_eq!(addr1, addr2, "store address must be deterministic");
-
-    // Second put to same address is no-op (same content, same address)
-    let stored = addr1;
-    let re_stored = addr2;
-    assert_eq!(stored, re_stored, "store_put twice must be idempotent");
-}
+// FJ-2201 `proof_store_idempotency` REMOVED (GH-242). It was a tautology that
+// consumed 96% of the proof budget.
+//
+// The body computed one expression twice and asserted the halves equal:
+//
+//     let addr1 = content.wrapping_mul(2654435761);   // "model hash"
+//     let addr2 = content.wrapping_mul(2654435761);   // the same expression
+//     assert_eq!(addr1, addr2);
+//     let stored = addr1; let re_stored = addr2;
+//     assert_eq!(stored, re_stored);                  // and again
+//
+// In Rust `f(x) == f(x)` cannot fail, so this proved `x == x`. It touched no
+// production code — the hash was hand-written, and the comment said so.
+//
+// Measured 2026-08-16, per-harness, from the CI log:
+//
+//     proof_store_idempotency        4996s   (83 minutes)
+//     next slowest                     37s
+//     median across 23 harnesses        3s
+//
+// 83 of the 86 measured minutes, and the reason the 150-minute job never
+// reached the end of the suite. CBMC models symbolic 32-bit multiplication as a
+// large bit-vector formula, twice, to conclude that a value equals itself.
+//
+// It is deleted rather than retargeted because it cannot be made meaningful in
+// place: any assertion over a locally-computed model is a tautology, and the
+// REAL store address function (`composite_hash` via `store_path`) allocates, so
+// driving it here reproduces the intractability that
+// `proof_disk_budget_hysteresis_total` and `proof_applicable_operators_valid`
+// were both fixed for.
+//
+// The property it claimed to cover is tested where it can actually fail, by
+// executing the real function: `tests/falsification_composite_hash_injectivity.rs`
+// (GH-235) checks determinism AND injectivity of the true address function over
+// real inputs, including the collision this file's model could never have
+// detected.
 
 // ── Verus-Style Conditional Proofs (FJ-2202) ────────────────────────
 //
