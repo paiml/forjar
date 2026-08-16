@@ -180,6 +180,35 @@ fn batch_script(resource: &Resource) -> String {
     if let Some(gather) = gather_script(resource) {
         script.push_str(&gather);
     }
+
+    // GH-254: re-assert the completion_check AFTER running.
+    //
+    // The check was used only as a guard on whether to run, never as evidence
+    // that running worked, so `converged` meant "the command exited 0" rather
+    // than "the resource reached its declared state". A task could do
+    // everything right, exit 0, and leave the declared condition false — and
+    // the lock recorded success, so the next `plan` reported `no changes` over
+    // a host that never converged.
+    //
+    // Observed on paiml/infra's `lean-toolchain`: `sudo: true` made $HOME=/root,
+    // so the toolchain installed where the runner user could not read it. Every
+    // command succeeded, `forjar apply` reported `1 converged, 0 failed`, and
+    // `command -v lean` failed immediately afterwards.
+    //
+    // The check is already written and already cheap — it just ran. Running it
+    // once more turns an exit code into a statement about the world.
+    if let Some(ref check) = resource.completion_check {
+        script.push_str("if ! { ");
+        script.push_str(check);
+        script.push_str(" ; }; then\n");
+        script.push_str(
+            "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",
+        );
+        script.push_str("  echo 'task=not-converged: the declared state was not reached' >&2\n");
+        script.push_str("  exit 1\n");
+        script.push_str("fi\n");
+    }
+
     script
 }
 
