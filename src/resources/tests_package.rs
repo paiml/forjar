@@ -147,10 +147,16 @@ fn test_fj006_apply_apt_sudo_detection() {
 
 #[test]
 fn test_fj006_cargo_check() {
+    // GH-257: asks CARGO, not the PATH. Behavioural coverage that EXECUTES
+    // the script lives in tests/falsification_cargo_check.rs.
     let mut r = make_apt_resource(&["batuta"]);
     r.provider = Some("cargo".to_string());
     let script = check_script(&r);
-    assert!(script.contains("command -v 'batuta'"));
+    assert!(script.contains("cargo install --list"));
+    assert!(
+        !script.contains("command -v"),
+        "a crate's name is not its binary's name; PATH lookup cannot answer this"
+    );
 }
 
 #[test]
@@ -197,10 +203,12 @@ fn test_fj006_quoted_packages() {
 fn test_fj006_state_query_cargo() {
     let mut r = make_apt_resource(&["batuta", "renacer"]);
     r.provider = Some("cargo".to_string());
+    // GH-257: drift is answered by cargo's record, not a PATH lookup.
     let script = state_query_script(&r);
-    assert!(script.contains("command -v 'batuta'"));
-    assert!(script.contains("command -v 'renacer'"));
+    assert!(script.contains("'^batuta v'"));
+    assert!(script.contains("'^renacer v'"));
     assert!(script.contains("installed"));
+    assert!(!script.contains("command -v"));
 }
 
 #[test]
@@ -444,9 +452,10 @@ fn test_cargo_check_strips_features() {
     let mut r = make_apt_resource(&["whisper-apr[cli]"]);
     r.provider = Some("cargo".to_string());
     let script = check_script(&r);
+    // GH-257: same intent, cargo's record instead of a PATH lookup.
     assert!(
-        script.contains("command -v 'whisper-apr'"),
-        "check must use bare crate name, got: {script}"
+        script.contains("'^whisper-apr v'"),
+        "check must use the bare crate name, got: {script}"
     );
     assert!(
         !script.contains("[cli]"),
@@ -460,9 +469,14 @@ fn test_cargo_state_query_strips_features() {
     let mut r = make_apt_resource(&["whisper-apr[cli]"]);
     r.provider = Some("cargo".to_string());
     let script = state_query_script(&r);
+    // GH-257: same intent, cargo's record instead of a PATH lookup.
     assert!(
-        script.contains("command -v 'whisper-apr'"),
-        "state query must use bare crate name, got: {script}"
+        script.contains("'^whisper-apr v'"),
+        "state query must use the bare crate name, got: {script}"
+    );
+    assert!(
+        !script.contains("[cli]"),
+        "features must not reach the needle"
     );
 }
 

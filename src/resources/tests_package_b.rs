@@ -267,13 +267,23 @@ fn test_fj_cargo_source_ignores_version() {
 /// check_script still uses package name (binary name) even with source set.
 #[test]
 fn test_fj_cargo_source_check_uses_binary_name() {
+    // GH-257: the intent — `source:` must not change the crate's identity —
+    // is kept; the mechanism is not. This asserted
+    // `script.contains("command -v 'apr-cli'")`, which enshrined the defect:
+    // `apr-cli` installs a binary called `apr`, so that lookup FAILS on a host
+    // where the crate is installed and working. The check now consults cargo's
+    // own record, which is keyed by crate name.
     let mut r = make_apt_resource(&["apr-cli"]);
     r.provider = Some("cargo".to_string());
     r.source = Some("/build/apr-cli".to_string());
     let script = check_script(&r);
     assert!(
-        script.contains("command -v 'apr-cli'"),
-        "check_script must use package name even with source: {script}"
+        script.contains("'^apr-cli v'"),
+        "check must identify the crate by name even with source: {script}"
+    );
+    assert!(
+        !script.contains("command -v"),
+        "PATH lookup cannot answer this"
     );
 }
 
