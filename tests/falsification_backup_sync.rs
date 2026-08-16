@@ -154,11 +154,15 @@ fn a_fully_matched_backup_is_verified_and_exits_zero() {
 fn zero_matched_files_fails_even_though_rclone_exited_zero() {
     // THE regression. Every rclone invocation succeeds; nothing is in the
     // remote. The predecessor printed "Backup complete" here.
+    //
+    // `+` is rclone's character for "missing on the destination" — i.e. present
+    // locally and NOT backed up. Using `-` here (only-in-remote) would make
+    // this test pass against an implementation that cannot see a missing file.
     let (root, bin, src) = setup(
         "nomatch",
         &Stub {
             remotes: "gdrive:\n",
-            combined: Some("- a.mp4\n- b.mp4\n- c.mp4\n"),
+            combined: Some("+ a.mp4\n+ b.mp4\n+ c.mp4\n"),
         },
     );
     let r = run(&resource(&root, &src), &root, &bin);
@@ -223,7 +227,7 @@ fn coverage_below_the_threshold_fails() {
         "partial",
         &Stub {
             remotes: "gdrive:\n",
-            combined: Some("= a.mp4\n= b.mp4\n- c.mp4\n* d.mp4\n"),
+            combined: Some("= a.mp4\n= b.mp4\n+ c.mp4\n* d.mp4\n"),
         },
     );
     let r = run(&resource(&root, &src), &root, &bin);
@@ -280,26 +284,61 @@ fn a_missing_rclone_binary_stops_the_run() {
     fs::create_dir_all(&bin).unwrap();
     let src = root.join("media");
     fs::create_dir_all(&src).unwrap();
-    // No rclone stub installed. PATH keeps the system entries so `mktemp` and
-    // friends still resolve — emptying it would abort on mktemp before the
-    // preflight could speak, testing the wrong thing.
+
+    // Hermetic PATH: symlink in exactly the utilities the preflight needs and
+    // nothing else. Relying on "rclone happens not to be installed on this
+    // host" is not a test — it broke the moment rclone was deployed here.
+    for tool in [
+        "sh", "mktemp", "grep", "find", "rmdir", "head", "awk", "sed", "cat", "du", "stat",
+    ] {
+        for dir in ["/usr/bin", "/bin", "/usr/local/bin"] {
+            let p = Path::new(dir).join(tool);
+            if p.exists() {
+                let _ = std::os::unix::fs::symlink(&p, bin.join(tool));
+                break;
+            }
+        }
+    }
+    assert!(
+        !bin.join("rclone").exists(),
+        "the hermetic bin must not contain rclone"
+    );
+
     let script = root.join("sync.sh");
     fs::write(&script, sync_body(&resource(&root, &src))).unwrap();
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
     let out = Command::new("/bin/sh")
         .arg(&script)
-        .env(
-            "PATH",
-            format!(
-                "{}:{}",
-                bin.display(),
-                std::env::var("PATH").unwrap_or_default()
-            ),
-        )
+        .env("PATH", bin.display().to_string())
         .env("FORJAR_BACKUP_STATUS", root.join("status.json"))
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stdout).contains("rclone is not installed"));
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn files_only_in_the_remote_are_stale_and_do_not_fail_the_backup() {
+    // `-` = missing on the source = present only in the remote. That means the
+    // local file was deleted, not that anything is unprotected. It must be
+    // reported but must not drag coverage below threshold, or every legitimate
+    // local deletion would show up as a backup failure until the next sync.
+    let (root, bin, src) = setup(
+        "stale",
+        &Stub {
+            remotes: "gdrive:\n",
+            combined: Some("= a.mp4\n= b.mp4\n- old.mp4\n"),
+        },
+    );
+    let r = run(&resource(&root, &src), &root, &bin);
+    assert_eq!(
+        r.code, 0,
+        "stale remote files must not fail a fully-covered backup\n{}\n{}",
+        r.out, r.status
+    );
+    assert!(r.status.contains(r#""health":"verified""#), "{}", r.status);
+    assert!(r.status.contains(r#""coverage_pct":100"#), "{}", r.status);
+    assert!(r.status.contains(r#""stale_in_remote":1"#), "{}", r.status);
     fs::remove_dir_all(&root).ok();
 }
