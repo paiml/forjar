@@ -87,5 +87,5 @@ forjar store sync <hash> --apply       # re-import upstream, replay derivation c
 |-----------|--------|----------------|
 | Provider invocation | ✅ | `provider_exec::execute_import()` — shells out to 7 provider CLIs with I8 gate |
 | Derivation builder | ✅ | `derivation_exec::execute_derivation_dag_live()` → `sandbox_run::execute_sandbox_plan()` |
-| Store diff/sync | ✅ | `sync_exec::execute_diff()` / `execute_sync()` — re-import + replay derivation chains |
+| Store diff/sync | ⚠️ partial | `sync_exec::execute_diff()` / `execute_sync()` — re-imports leaf nodes. **Derivation replay is NOT wired** (GH-249): a `SyncPlan` carries store hashes, not derivation recipes, so nothing can drive `execute_derivation_dag_live` from it. `execute_sync` reports `derivations_replayed: 0` and `is_complete() == false`; `store sync --apply` exits non-zero rather than reporting a stale store as synced. |
 | CLI wiring | ✅ | `forjar store-import`, `forjar store diff/sync --apply` |

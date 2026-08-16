@@ -293,3 +293,78 @@ forjar dist --installer --verify
 # Docker/Podman and implies --verify; cleanly skips when no runtime is found.
 forjar dist --installer --verify-containers
 ```
+
+## `forjar codegen`
+
+Emit the shell a resource *generates*, resolved exactly as `apply` would resolve
+it — templates expanded, secrets substituted.
+
+```bash
+forjar codegen -f machines/lambda-labs/forjar.yaml -r media-backup --phase apply
+forjar codegen -f forjar.yaml -r root-disk-budget --phase state-query
+```
+
+`--phase` is `apply` (default), `check`, or `state-query`.
+
+Most resource types describe state directly; a few — `disk_budget`, `backup_sync`
+— have a *synthesised shell script* as their real payload. That artifact cannot
+be reviewed, debugged, or dogfooded unless you can get at it, and reading the
+handler's source is not the same thing as reading what it emits for your config.
+
+Pair it with the resource's dry-run switch to preview destructive behaviour
+before authorising an apply:
+
+```bash
+forjar codegen -f forjar.yaml -r root-disk-budget --phase apply > /tmp/reaper.sh
+FORJAR_BUDGET_DRY_RUN=1 sh /tmp/reaper.sh    # lists what it WOULD reclaim
+```
+
+## `forjar dogfood`
+
+Exercise forjar's generated artifacts against **real external tools and real
+on-disk shapes**, and fail when reality disagrees with what the code assumes.
+
+```bash
+forjar dogfood          # human-readable
+forjar dogfood --json   # machine-readable, for release receipts
+```
+
+This is not a second test suite. Unit tests are written by the same person as
+the code, so a fixture can only ever confirm the assumption it was built from —
+which is how three releases in two days each shipped a bug that 12,904 passing
+tests, a five-gate clean room and a 19-check CI run all missed:
+
+- `backup_sync` read rclone's `--combined` status characters inverted, so files
+  that were **not** backed up left the coverage denominator and a backup missing
+  data reported *higher* coverage than one with everything. The test stub emitted
+  whichever characters the author believed in.
+- `disk_budget` required both `CACHEDIR.TAG` and `.rustc_info.json` on a cargo
+  target dir. Across a real 4.6 TB tree, **zero of sixteen** marker-bearing
+  directories had the pair. The fixture had both because the author believed both
+  were present.
+
+So each exercise invokes the actual tool (`rclone check --combined`, not a stub
+of it), builds the layouts that really occur on disk, and executes emitted shell
+under `bash` — the interpreter every forjar transport actually uses. **A missing
+external tool is a failure, not a skip:** dogfooding a resource built on a tool's
+output format, without that tool, proves nothing.
+
+Coverage is declared by an exhaustive match over `ResourceType`, so a new
+resource type **fails to compile** until its dogfood status is stated, and
+`NotApplicable` requires a written reason that prints on every run:
+
+```
+PASS  disk_budget   detection rule correct on all 4 real shapes: repo root,
+                    per-arch, registry (excluded), cc source dir (excluded)
+PASS  backup_sync   rclone v1.75.0: --combined characters confirmed = * + -
+
+not exercised (16 types):
+  package     mutates system packages
+  docker      requires a docker daemon
+  ...
+```
+
+That property is the point. The previous shell-script gate covered only `file`
+resources and still reported success while two new resource types shipped
+broken — a gate that can quietly stop covering things is worse than none,
+because it reports GO with authority.

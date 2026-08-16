@@ -15,7 +15,75 @@ use forjar::transport::container;
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn cuda_machine() -> Machine {
+/// Is an NVIDIA GPU actually usable from a container on this host?
+///
+/// The `gpu-container-test` feature documents its requirement as "NVIDIA
+/// Container Toolkit **or** AMD ROCm drivers" — an `or` that no single machine
+/// satisfies both halves of. Enabling the feature therefore ran the ROCm tests
+/// on an NVIDIA box, where `docker run --device /dev/kfd` fails with "no such
+/// file or directory". That is absent hardware, not a transport defect, so each
+/// vendor's tests now check for their own device before asserting on it.
+fn cuda_available() -> bool {
+    if !docker_available() {
+        return false;
+    }
+    if !std::path::Path::new("/dev/nvidiactl").exists() {
+        eprintln!("SKIP: no NVIDIA device node (/dev/nvidiactl) on this host");
+        return false;
+    }
+    true
+}
+
+/// Is an AMD ROCm GPU actually usable from a container on this host?
+///
+/// `/dev/kfd` is the AMD kernel-fusion-driver node the ROCm container requires.
+fn rocm_available() -> bool {
+    if !docker_available() {
+        return false;
+    }
+    if !std::path::Path::new("/dev/kfd").exists() {
+        eprintln!("SKIP: no AMD ROCm device node (/dev/kfd) on this host");
+        return false;
+    }
+    true
+}
+
+fn docker_available() -> bool {
+    let ok = std::process::Command::new("docker")
+        .args(["info"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !ok {
+        eprintln!("SKIP: docker is not available on this host");
+    }
+    ok
+}
+
+macro_rules! require_cuda {
+    () => {
+        if !cuda_available() {
+            return;
+        }
+    };
+}
+
+macro_rules! require_rocm {
+    () => {
+        if !rocm_available() {
+            return;
+        }
+    };
+}
+
+/// Per-test CUDA machine. The container NAME must be unique.
+///
+/// Every CUDA test shared `forjar-gpu-cuda-test`, and cargo runs a test
+/// binary's tests in parallel threads, so three of them raced one container
+/// name and died on `Conflict. The container name is already in use` — the same
+/// fixture collision already fixed in `container_transport.rs`. It reads as a
+/// GPU/transport failure and is really shared mutable state in the fixture.
+fn cuda_machine_named(name: &str) -> Machine {
     Machine {
         hostname: "gpu-cuda".to_string(),
         addr: "container".to_string(),
@@ -27,7 +95,7 @@ fn cuda_machine() -> Machine {
         container: Some(ContainerConfig {
             runtime: "docker".to_string(),
             image: Some("nvidia/cuda:12.4.1-runtime-ubuntu22.04".to_string()),
-            name: Some("forjar-gpu-cuda-test".to_string()),
+            name: Some(format!("forjar-gpu-cuda-test-{name}")),
             ephemeral: true,
             privileged: false,
             init: true,
@@ -45,7 +113,9 @@ fn cuda_machine() -> Machine {
     }
 }
 
-fn rocm_machine() -> Machine {
+/// Per-test ROCm machine. Unique container name, for the reason on
+/// [`cuda_machine_named`].
+fn rocm_machine_named(name: &str) -> Machine {
     Machine {
         hostname: "gpu-rocm".to_string(),
         addr: "container".to_string(),
@@ -57,7 +127,7 @@ fn rocm_machine() -> Machine {
         container: Some(ContainerConfig {
             runtime: "docker".to_string(),
             image: Some("rocm/dev-ubuntu-22.04:6.1".to_string()),
-            name: Some("forjar-gpu-rocm-test".to_string()),
+            name: Some(format!("forjar-gpu-rocm-test-{name}")),
             ephemeral: true,
             privileged: false,
             init: true,
@@ -81,7 +151,8 @@ fn rocm_machine() -> Machine {
 
 #[test]
 fn test_fj739_cuda_lifecycle() {
-    let machine = cuda_machine();
+    require_cuda!();
+    let machine = cuda_machine_named("lifecycle");
     container::ensure_container(&machine).expect("CUDA ensure_container failed");
 
     let out = container::exec_container(&machine, "echo cuda-ok", None)
@@ -94,7 +165,8 @@ fn test_fj739_cuda_lifecycle() {
 
 #[test]
 fn test_fj739_cuda_nvidia_smi() {
-    let machine = cuda_machine();
+    require_cuda!();
+    let machine = cuda_machine_named("smi");
     container::ensure_container(&machine).expect("CUDA ensure failed");
 
     let out = container::exec_container(
@@ -115,7 +187,8 @@ fn test_fj739_cuda_nvidia_smi() {
 
 #[test]
 fn test_fj739_cuda_env_vars() {
-    let machine = cuda_machine();
+    require_cuda!();
+    let machine = cuda_machine_named("env");
     container::ensure_container(&machine).expect("CUDA ensure failed");
 
     let out = container::exec_container(&machine, "echo $CUDA_VISIBLE_DEVICES", None)
@@ -136,7 +209,8 @@ fn test_fj739_cuda_env_vars() {
 
 #[test]
 fn test_fj739_rocm_lifecycle() {
-    let machine = rocm_machine();
+    require_rocm!();
+    let machine = rocm_machine_named("lifecycle");
     container::ensure_container(&machine).expect("ROCm ensure_container failed");
 
     let out = container::exec_container(&machine, "echo rocm-ok", None)
@@ -149,7 +223,8 @@ fn test_fj739_rocm_lifecycle() {
 
 #[test]
 fn test_fj739_rocm_device_access() {
-    let machine = rocm_machine();
+    require_rocm!();
+    let machine = rocm_machine_named("devices");
     container::ensure_container(&machine).expect("ROCm ensure failed");
 
     let out = container::exec_container(&machine, "ls /dev/kfd /dev/dri 2>&1", None)
@@ -161,7 +236,8 @@ fn test_fj739_rocm_device_access() {
 
 #[test]
 fn test_fj739_rocm_env_vars() {
-    let machine = rocm_machine();
+    require_rocm!();
+    let machine = rocm_machine_named("env");
     container::ensure_container(&machine).expect("ROCm ensure failed");
 
     let out = container::exec_container(&machine, "echo $ROCR_VISIBLE_DEVICES", None)
@@ -182,6 +258,13 @@ fn test_fj739_rocm_env_vars() {
 
 #[test]
 fn test_fj739_cross_vendor_same_config() {
+    // The only test that genuinely needs BOTH vendors present, which is why it
+    // is the one that can essentially never run on a real machine. It is kept
+    // rather than deleted because it is the actual cross-vendor claim; the
+    // guard states the requirement instead of failing on absent hardware.
+    require_cuda!();
+    require_rocm!();
+
     // Deploy identical model config to both CUDA and ROCm containers
     let config_script = r#"
 set -euo pipefail
@@ -199,7 +282,7 @@ cat /workspace/models/model.yaml
 "#;
 
     // CUDA
-    let cuda = cuda_machine();
+    let cuda = cuda_machine_named("crossvendor");
     container::ensure_container(&cuda).expect("CUDA ensure failed");
     let cuda_out = transport::exec_script(&cuda, config_script).expect("CUDA exec failed");
     assert!(
@@ -210,7 +293,7 @@ cat /workspace/models/model.yaml
     assert!(cuda_out.stdout.contains("g1_model_loads"));
 
     // ROCm
-    let rocm = rocm_machine();
+    let rocm = rocm_machine_named("crossvendor");
     container::ensure_container(&rocm).expect("ROCm ensure failed");
     let rocm_out = transport::exec_script(&rocm, config_script).expect("ROCm exec failed");
     assert!(

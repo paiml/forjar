@@ -190,6 +190,15 @@ fn oci_pack_file_argument_is_not_reported_as_missing() {
 
 // ── #210: plugin run must not report Converged from a stub ────────────
 
+/// Only meaningful WITHOUT `wasm-runtime`: it asserts that a build lacking the
+/// runtime refuses rather than reporting `Converged` from a stub.
+///
+/// It carried no cfg guard, so `cargo test --all-features` — which the release
+/// dogfood gate runs — enabled `wasm-runtime`, the refusal never happened, and
+/// the test failed parsing an empty stdout. A test that only holds in one
+/// feature configuration has to say so, or it reports a false failure in every
+/// other one.
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn plugin_run_on_a_stub_runtime_refuses() {
     let d = sandbox(CONFIG);

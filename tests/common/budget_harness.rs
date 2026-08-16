@@ -34,12 +34,29 @@ pub fn tmpdir(tag: &str) -> PathBuf {
     base
 }
 
-/// A directory that looks exactly like a cargo target dir to the detector.
+/// A cargo target dir in the shape a REPO ROOT actually has: `.rustc_info.json`
+/// and, on the measured fleet, no `CACHEDIR.TAG`.
 pub fn mk_cargo_target(p: &Path) {
     fs::create_dir_all(p.join("debug")).unwrap();
-    fs::write(p.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172").unwrap();
     fs::write(p.join(".rustc_info.json"), "{}").unwrap();
     fs::write(p.join("debug/blob"), vec![0u8; 4096]).unwrap();
+}
+
+/// The other real shape: a per-arch subdirectory, which carries `CACHEDIR.TAG`
+/// and no `.rustc_info.json`. Requiring both markers made these invisible.
+pub fn mk_cargo_target_arch(p: &Path) {
+    fs::create_dir_all(p.join("release")).unwrap();
+    fs::write(p.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172").unwrap();
+    fs::write(p.join("release/blob"), vec![0u8; 4096]).unwrap();
+}
+
+/// A cargo REGISTRY: `CACHEDIR.TAG`, no `.rustc_info.json`, and children that
+/// are source/cache/index rather than build output. Must never be reclaimed.
+pub fn mk_cargo_registry(p: &Path) {
+    fs::create_dir_all(p.join("src")).unwrap();
+    fs::create_dir_all(p.join("cache")).unwrap();
+    fs::write(p.join("CACHEDIR.TAG"), "Signature: 8a477f597d28d172").unwrap();
+    fs::write(p.join("src/lib.rs"), "// vendored source").unwrap();
 }
 
 /// Install a `df` shim that pops one "used_pct free_kb" line per invocation.

@@ -55,7 +55,7 @@ mod tests {
     fn purity_pure_config() {
         let dir = TempDir::new().unwrap();
         let config = write_config(&dir, pure_config());
-        let result = cmd_validate_check_recipe_purity(&config, false);
+        let result = cmd_validate_check_recipe_purity(&config, false, None);
         assert!(result.is_ok());
     }
 
@@ -63,7 +63,7 @@ mod tests {
     fn purity_pure_config_json() {
         let dir = TempDir::new().unwrap();
         let config = write_config(&dir, pure_config());
-        let result = cmd_validate_check_recipe_purity(&config, true);
+        let result = cmd_validate_check_recipe_purity(&config, true, None);
         assert!(result.is_ok());
     }
 
@@ -71,7 +71,7 @@ mod tests {
     fn purity_mixed_config() {
         let dir = TempDir::new().unwrap();
         let config = write_config(&dir, mixed_config());
-        let result = cmd_validate_check_recipe_purity(&config, false);
+        let result = cmd_validate_check_recipe_purity(&config, false, None);
         assert!(result.is_ok());
     }
 
@@ -79,7 +79,7 @@ mod tests {
     fn purity_constrained_config() {
         let dir = TempDir::new().unwrap();
         let config = write_config(&dir, constrained_config());
-        let result = cmd_validate_check_recipe_purity(&config, false);
+        let result = cmd_validate_check_recipe_purity(&config, false, None);
         assert!(result.is_ok());
     }
 
@@ -87,7 +87,7 @@ mod tests {
     fn purity_missing_file() {
         let dir = TempDir::new().unwrap();
         let config = dir.path().join("missing.yaml");
-        let result = cmd_validate_check_recipe_purity(&config, false);
+        let result = cmd_validate_check_recipe_purity(&config, false, None);
         assert!(result.is_err());
     }
 
@@ -95,7 +95,7 @@ mod tests {
     fn purity_no_resources_section() {
         let dir = TempDir::new().unwrap();
         let config = write_config(&dir, "name: test\nmachines:\n  - hostname: web\n");
-        let result = cmd_validate_check_recipe_purity(&config, false);
+        let result = cmd_validate_check_recipe_purity(&config, false, None);
         assert!(result.is_err());
     }
 

@@ -54,7 +54,32 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 - Distribution-artifact generation — `forjar dist` emits a shell installer, Homebrew formula, Nix flake, cargo-binstall metadata, deb, and rpm with real checksum resolution, plus `--verify` (static installer checks) and `--verify-containers` (gnu/musl container runs)
 - age-encrypted state at rest — `forjar state-encrypt` / `state-decrypt` / `state-rekey`
 - WASM resource plugins (opt-in `--features wasm-runtime`) via `forjar plugin`
-- Pure Rust with zero C dependencies
+- Rust throughout, with a small, named set of C-backed transitive dependencies
+  (see [C dependencies](#c-dependencies))
+
+## C dependencies
+
+forjar's own code is Rust, but the default dependency tree links C through five
+transitive `-sys` crates:
+
+| crate | pulled in by | compiles C |
+|---|---|---|
+| `openssl-sys` | TLS for registry/OCI operations | yes |
+| `aws-lc-sys` | rustls' default crypto provider | yes |
+| `libsqlite3-sys` | `rusqlite`, the state/event store | yes |
+| `bzip2-sys`, `zstd-sys` | archive handling in `dist`/store | yes |
+
+`libc`, `linux-raw-sys` and `inotify-sys` also appear; those are FFI
+declarations rather than bundled C, so they need no C toolchain.
+
+The README previously claimed "Pure Rust with zero C dependencies" (GH-238).
+That was false for every build since the store gained SQLite, and it is the kind
+of claim a reader uses to decide whether forjar will build in a minimal
+container — so it is stated accurately rather than aspirationally.
+
+Trimming these is tracked as GH-237: `default-features = false` is currently a
+no-op because the crate declares no default feature set, so there is no
+supported way to opt out of `rusqlite`/`openssl` today.
 
 ## Build semantics
 

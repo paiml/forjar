@@ -269,8 +269,8 @@ fn proof_dag_ordering_bounded() {
     let dep_12: bool = kani::any(); // res-b → res-c
 
     // Compute order twice with same edges
-    let order1 = super::compute_order(dep_01, dep_02, dep_12);
-    let order2 = super::compute_order(dep_01, dep_02, dep_12);
+    let order1 = compute_order(dep_01, dep_02, dep_12);
+    let order2 = compute_order(dep_01, dep_02, dep_12);
     assert_eq!(order1, order2, "DAG ordering must be deterministic");
 
     // Verify topological property: if edge exists, source < target in order

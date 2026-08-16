@@ -121,9 +121,13 @@ fn test_fj1326_mark_sweep_empty_store() {
 
 #[test]
 fn test_fj1326_mark_sweep_store_not_found() {
+    // GH-239: an absent store holds nothing to collect, so gc is a no-op rather
+    // than an error. `gc --dry-run` failing on a first run blocked the operator
+    // at exactly the moment they were checking whether the store was safe.
     let roots = BTreeSet::new();
     let result = mark_and_sweep(&roots, Path::new("/no/such/store"));
-    assert!(result.is_err());
+    let report = result.expect("absent store must sweep as empty");
+    assert_eq!(report.dead.len(), 0);
 }
 
 #[test]

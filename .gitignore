@@ -25,3 +25,8 @@ state/*/events.jsonl
 # Claude Code session state (ignore everything except shared skills)
 .claude/*
 !.claude/skills/
+
+# Local tool output — dogfood receipts and dhat heap profiles are per-run
+# artifacts of a developer machine, not repo content.
+.dogfood/
+dhat-heap.json
