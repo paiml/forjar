@@ -10,8 +10,17 @@
 //! with a status character, so coverage is a count of files the remote
 //! actually holds with a matching hash — not a log line saying "complete".
 //!
-//! `-` means present locally and MISSING from the remote. That is the number
-//! that was silently 2.1 TB.
+//! Verified against `rclone check --help` on v1.75.0 — the characters are NOT
+//! the intuitive way round, and getting them backwards inflates coverage:
+//!
+//!   `=` in both, identical          `*` in both, different
+//!   `+` missing on the DESTINATION  -> present locally, NOT backed up
+//!   `-` missing on the SOURCE       -> only in the remote (stale/extra)
+//!   `!` error reading or hashing
+//!
+//! `+` is the number that was silently 2.1 TB. Counting `-` instead would leave
+//! un-backed-up files out of the denominator entirely, so a backup missing data
+//! would report BETTER coverage than one that had it all.
 
 use super::preflight;
 use crate::core::shell_escape::sh_squote;
@@ -52,17 +61,22 @@ rclone check {src_q} {dest_q} --checksum --combined "$BS_TMP/check-{leaf}" >/dev
 if [ -f "$BS_TMP/check-{leaf}" ]; then
   bs_m=$(bs_count '^= ' "$BS_TMP/check-{leaf}")
   bs_x=$(bs_count '^\* ' "$BS_TMP/check-{leaf}")
-  bs_o=$(bs_count '^- ' "$BS_TMP/check-{leaf}")
+  # `+` = missing on the destination = present locally and NOT in the remote.
+  bs_o=$(bs_count '^+ ' "$BS_TMP/check-{leaf}")
+  # `-` = missing on the source = only in the remote. Stale, not unprotected,
+  # so it is reported but never counted against coverage.
+  bs_s=$(bs_count '^- ' "$BS_TMP/check-{leaf}")
   bs_e=$(bs_count '^! ' "$BS_TMP/check-{leaf}")
 else
-  bs_m=0; bs_x=0; bs_o=0; bs_e=1
+  bs_m=0; bs_x=0; bs_o=0; bs_s=0; bs_e=1
   bs_log "verify {leaf}: rclone check produced NO output - treating as unverified"
 fi
 BS_MATCH=$((BS_MATCH + bs_m))
 BS_DIFFER=$((BS_DIFFER + bs_x))
 BS_MISSING=$((BS_MISSING + bs_o))
 BS_ERROR=$((BS_ERROR + bs_e))
-bs_log "verify {leaf_q}: matched=$bs_m differing=$bs_x missing=$bs_o errors=$bs_e"
+BS_STALE=$((BS_STALE + bs_s))
+bs_log "verify {leaf_q}: matched=$bs_m differing=$bs_x missing=$bs_o stale=$bs_s errors=$bs_e"
 "#
     )
 }
@@ -106,6 +120,7 @@ trap bs_cleanup EXIT INT TERM
 BS_MATCH=0
 BS_DIFFER=0
 BS_MISSING=0
+BS_STALE=0
 BS_ERROR=0
 BS_VERIFY_PCT={verify_pct}
 
@@ -149,10 +164,10 @@ else
 fi
 
 cat > "$BS_STATUS" <<EOF
-{{"remote":"{remote}","matched":$BS_MATCH,"differing":$BS_DIFFER,"missing":$BS_MISSING,"errors":$BS_ERROR,"total":$BS_TOTAL,"coverage_pct":$BS_COVERAGE,"verify_pct":$BS_VERIFY_PCT,"health":"$BS_HEALTH"}}
+{{"remote":"{remote}","matched":$BS_MATCH,"differing":$BS_DIFFER,"missing":$BS_MISSING,"stale_in_remote":$BS_STALE,"errors":$BS_ERROR,"total":$BS_TOTAL,"coverage_pct":$BS_COVERAGE,"verify_pct":$BS_VERIFY_PCT,"health":"$BS_HEALTH"}}
 EOF
 
-bs_log "complete: coverage=${{BS_COVERAGE}}% (matched=$BS_MATCH missing=$BS_MISSING differing=$BS_DIFFER errors=$BS_ERROR) health=$BS_HEALTH"
+bs_log "complete: coverage=${{BS_COVERAGE}}% (matched=$BS_MATCH missing=$BS_MISSING differing=$BS_DIFFER stale=$BS_STALE errors=$BS_ERROR) health=$BS_HEALTH"
 
 # A backup that cannot prove coverage is a failed backup. systemd records it,
 # `forjar drift` sees it, and it stops looking like a healthy no-op.
@@ -194,11 +209,38 @@ mod tests {
 
     #[test]
     fn counts_files_missing_from_the_remote() {
-        // `-` = present locally, absent remotely. This is the number that was
-        // silently 2.1 TB on lambda-labs.
+        // Verified against `rclone check --help` v1.75.0: `+` means missing on
+        // the DESTINATION, i.e. present locally and not backed up. `-` means
+        // missing on the SOURCE, i.e. only in the remote.
+        //
+        // These are easy to get backwards, and backwards is not a harmless
+        // mislabel: un-backed-up files would leave the denominator entirely and
+        // coverage would read HIGHER for a backup that is missing data.
         let s = script(&cfg(), "/run/x.json", "backup");
-        assert!(s.contains(r"bs_count '^- '"));
+        assert!(
+            s.contains(r"bs_o=$(bs_count '^+ '"),
+            "missing-from-remote must count `+`, not `-`"
+        );
+        assert!(
+            s.contains(r"bs_s=$(bs_count '^- '"),
+            "`-` is only-in-remote and must be tracked separately as stale"
+        );
         assert!(s.contains("BS_MISSING"));
+        assert!(s.contains("BS_STALE"));
+    }
+
+    #[test]
+    fn stale_remote_files_do_not_inflate_or_deflate_coverage() {
+        // Files present only in the remote are stale, not unprotected. They are
+        // reported for operator visibility but must not enter the coverage
+        // denominator, or deleting a local file would look like a backup fault.
+        let s = script(&cfg(), "/run/x.json", "backup");
+        assert!(s.contains("BS_TOTAL=$((BS_MATCH + BS_DIFFER + BS_MISSING + BS_ERROR))"));
+        assert!(
+            !s.contains("BS_STALE))"),
+            "stale count must stay out of BS_TOTAL"
+        );
+        assert!(s.contains(r#""stale_in_remote":$BS_STALE"#));
     }
 
     #[test]

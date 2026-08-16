@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-08-15
+
+### Fixed
+
+- **`backup_sync` read rclone's `--combined` status characters backwards, and
+  the error inflated coverage.** They are not the intuitive way round:
+
+  ```
+  + path   missing on the DESTINATION  -> present locally, NOT backed up
+  - path   missing on the SOURCE       -> only in the remote (stale)
+  ```
+
+  1.13.0 counted `-` as "missing from the remote". Files that were genuinely
+  not backed up produce `+`, which nothing counted — so they fell out of the
+  coverage denominator entirely and a backup **missing data reported higher
+  coverage than one that had all of it**. That is the precise class of
+  overstated-health failure the resource exists to prevent, shipped inside it.
+
+  `+` now feeds the missing count. `-` is tracked separately as
+  `stale_in_remote` and deliberately excluded from the denominator: a file
+  present only in the remote means the local copy was deleted, not that
+  anything is unprotected, and counting it would make every local deletion read
+  as a backup fault until the next sync.
+
+  Caught by running `rclone check --combined` against a real fixture rather
+  than trusting the flag's name. The regression test now asserts the mapping
+  explicitly, and the falsification stub emits rclone's real characters.
+
+- **`a_missing_rclone_binary_stops_the_run` was host-dependent.** It relied on
+  rclone not being installed on the machine running the tests, and broke the
+  moment rclone was deployed. It now builds a hermetic PATH containing only the
+  utilities the preflight needs.
+
+
 ## [1.13.0] - 2026-08-15
 
 Two new resource types, both born from the same failure mode on one machine:

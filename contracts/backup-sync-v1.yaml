@@ -72,14 +72,16 @@ equations:
 
   coverage_is_checksum_verified:
     formula: |
-      coverage = |{f : hash_local(f) = hash_remote(f)}| / |files(sources)| × 100
+      coverage = |{= }| / (|{= }| + |{* }| + |{+ }| + |{! }|) × 100
+                 (|{- }| — only-in-remote — is excluded from the denominator)
     domain: "sources ∈ [Path], remote ∈ rclone remote"
     codomain: "0..=100"
     invariants:
       - "Health is a count of files proven present in the remote BY CHECKSUM"
       - "The sync tool's exit code is NEVER the health signal (rsync exits 0 copying a directory onto itself)"
-      - "`rclone check --combined` status characters are counted: `=` matched, `*` differing, `-` MISSING from remote, `!` error"
-      - "`-` is the number that was silently 2.1 TB"
+      - "`rclone check --combined` characters, verified against rclone v1.75.0 --help and an executed fixture: `=` identical, `*` differing, `+` missing on the DESTINATION (present locally, NOT backed up), `-` missing on the SOURCE (only in the remote), `!` error"
+      - "`+` is the number that was silently 2.1 TB — NOT `-`. Reading them backwards drops un-backed-up files out of the denominator, so a backup missing data reports HIGHER coverage than one that has it all"
+      - "Files only in the remote (`-`) are stale, not unprotected; they are reported but never counted against coverage, or every local deletion would read as a backup fault"
 
   empty_verification_fails_closed:
     formula: |
@@ -277,6 +279,12 @@ falsification_tests:
     prediction: "nested sources are rejected because they double-count coverage"
     test: "src/core/types/backup_sync_types.rs::tests::rejects_overlapping_sources"
     if_fails: "verify_pct is computed over a multiset and can exceed real coverage"
+
+  - id: FALSIFY-BKP-014
+    rule: "stale remote files do not affect coverage"
+    prediction: "a `-` line (only in remote) leaves a fully-covered backup at 100% and exit 0"
+    test: "tests/falsification_backup_sync.rs::files_only_in_the_remote_are_stale_and_do_not_fail_the_backup"
+    if_fails: "Every local deletion reads as a backup failure until the next sync"
 
   - id: FALSIFY-BKP-013
     rule: "emitted scripts are purifiable"
