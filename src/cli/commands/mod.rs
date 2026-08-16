@@ -66,6 +66,10 @@ pub enum Commands {
     Import(ImportArgs),
     /// Show fully resolved config (recipes expanded, templates resolved)
     Show(ShowArgs),
+    /// Emit the shell a resource generates (apply/check/state-query)
+    Codegen(CodegenArgs),
+    /// Exercise generated artifacts against real tools and real on-disk shapes
+    Dogfood(DogfoodArgs),
     /// Show resource dependency graph
     Graph(GraphArgs),
     /// Run check scripts to verify pre-conditions without applying

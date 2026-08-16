@@ -95,22 +95,41 @@ pub(super) const fn fn_name(kind: ReclaimKind) -> &'static str {
 
 /// Cargo build directories, identified by cargo's own markers.
 ///
-/// Requires **both** `CACHEDIR.TAG` and `.rustc_info.json`. That conjunction is
-/// load-bearing, not belt-and-braces: `~/.cargo/registry/` carries a
-/// `CACHEDIR.TAG` and no `.rustc_info.json`, so requiring both is precisely
-/// what keeps the reaper out of the registry. Verified on lambda-labs
-/// 2026-08-15 — the registry has the tag, lacks the info file, and no directory
-/// beneath it carries the pair.
+/// A directory is a cargo target dir when EITHER:
+///   * it holds `.rustc_info.json` — definitive, cargo writes it at the target
+///     root; or
+///   * it holds `CACHEDIR.TAG` **and** a `debug/` or `release/` subdirectory.
+///
+/// `CACHEDIR.TAG` alone is not sufficient: `~/.cargo/registry` carries one, and
+/// sweeping the registry corrupts it in a way cargo does not notice until a
+/// much later build fails on `could not compile cc`. The build-output subdir is
+/// what separates the two — the registry's children are `src/`, `cache/`,
+/// `index/`.
+///
+/// Requiring BOTH markers (the original rule) looked safer and was catastrophic:
+/// measured on lambda-labs 2026-08-16, **zero** of the 16 marker-bearing
+/// directories under a 4.6 TB `targets/` tree carried the pair. Repo roots have
+/// `.rustc_info.json` without the tag; per-arch subdirectories have the tag
+/// without the info file. The reaper matched nothing at all and reported
+/// `health=inert` while the array sat at 94%.
 fn cargo_target() -> String {
     r#"
 fb_find_cargo_target() {
   for root in "$@"; do
     [ -d "$root" ] || continue
-    find "$root" -mindepth 1 -maxdepth 7 -type f -name CACHEDIR.TAG 2>/dev/null | while read -r tag; do
-      d=$(dirname "$tag")
-      # BOTH markers required — CACHEDIR.TAG alone matches the cargo registry.
-      [ -f "$d/.rustc_info.json" ] || continue
-      fb_stamp "$d"
+    find "$root" -mindepth 1 -maxdepth 7 -type f \
+      \( -name .rustc_info.json -o -name CACHEDIR.TAG \) 2> /dev/null |
+    while IFS= read -r fb_marker; do
+      dirname "$fb_marker"
+    done | sort -u |
+    while IFS= read -r d; do
+      if [ -f "$d/.rustc_info.json" ]; then
+        fb_stamp "$d"
+      elif [ -f "$d/CACHEDIR.TAG" ] && { [ -d "$d/debug" ] || [ -d "$d/release" ]; }; then
+        # CACHEDIR.TAG alone also matches ~/.cargo/registry, whose children are
+        # src/ cache/ index/ — a build-output subdir is what tells them apart.
+        fb_stamp "$d"
+      fi
     done
   done | sort -n | cut -f2-
 }
@@ -250,16 +269,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cargo_detector_requires_both_markers() {
+    fn cargo_detector_accepts_either_real_layout() {
+        // Measured on lambda-labs 2026-08-16 across a 4.6 TB targets/ tree:
+        //   targets/<repo>                  .rustc_info.json, NO CACHEDIR.TAG
+        //   targets/<repo>/<arch-triple>    CACHEDIR.TAG, NO .rustc_info.json
+        //   BOTH markers: 0 of 16
+        // Requiring the conjunction matched nothing and the reaper reported
+        // health=inert while the array sat at 94%.
         let s = cargo_target();
-        assert!(s.contains("CACHEDIR.TAG"));
-        assert!(s.contains(".rustc_info.json"));
-        // The conjunction is what excludes ~/.cargo/registry. If this `continue`
-        // guard is ever dropped, the reaper eats the registry.
         assert!(
-            s.contains("[ -f \"$d/.rustc_info.json\" ] || continue"),
-            "cargo target detection must require BOTH markers"
+            s.contains(r#"if [ -f "$d/.rustc_info.json" ]; then"#),
+            ".rustc_info.json alone must be sufficient"
         );
+        assert!(
+            s.contains(
+                r#"[ -f "$d/CACHEDIR.TAG" ] && { [ -d "$d/debug" ] || [ -d "$d/release" ]; }"#
+            ),
+            "CACHEDIR.TAG must be accepted when a build-output subdir is present"
+        );
+    }
+
+    #[test]
+    fn cargo_detector_still_excludes_the_registry() {
+        // ~/.cargo/registry carries CACHEDIR.TAG and no .rustc_info.json, and
+        // its children are src/ cache/ index/ — no debug/ or release/. The
+        // build-output requirement is the only thing keeping the reaper out of
+        // it now that CACHEDIR.TAG alone can qualify a directory.
+        let s = cargo_target();
+        let tag_branch = s
+            .find(r#"[ -f "$d/CACHEDIR.TAG" ]"#)
+            .expect("tag branch present");
+        let rest = &s[tag_branch..];
+        assert!(
+            rest.starts_with(r#"[ -f "$d/CACHEDIR.TAG" ] && {"#),
+            "CACHEDIR.TAG must never qualify a directory on its own"
+        );
+        assert!(rest.contains(r#"-d "$d/debug""#) && rest.contains(r#"-d "$d/release""#));
     }
 
     #[test]

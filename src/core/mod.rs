@@ -53,6 +53,7 @@ pub mod webhook_server;
 pub mod webhook_source;
 
 pub mod do330;
+pub mod dogfood;
 pub mod ferrocene;
 pub mod flight_grade;
 mod kani_production_proofs;
