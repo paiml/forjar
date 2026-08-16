@@ -59,6 +59,23 @@ jobs:
           fi
           cargo kani --version
 
+      # A cancelled kani run leaves a half-written `.d` in target/kani, and the
+      # NEXT run then dies on it with a message that names no code:
+      #
+      #   error: could not parse/generate dep info at: .../deps/bashrs-*.d
+      #   error: Failed to execute cargo (exit status: 101). Found 0 compilation errors.
+      #
+      # "0 compilation errors" is the tell — nothing is wrong with the crate.
+      # This workflow has cancel-in-progress: true, and a 35-minute build gets
+      # cancelled often, so inheriting that state is the normal case rather than
+      # the exception. Same dep-info corruption paiml/rmedia#268 documents for
+      # concurrent builds; here it comes from cancellation rather than sharing.
+      #
+      # Discarding the directory costs nothing we were not already paying: kani
+      # rebuilds the crate with its own compiler every run regardless.
+      - name: Discard any target/kani left by a cancelled run
+        run: rm -rf target/kani
+
       # Compilation is a distinct failure from non-verification, and it is the
       # one that actually happened. Surfacing it separately means a broken
       # harness reports as broken rather than as an opaque proof failure.
