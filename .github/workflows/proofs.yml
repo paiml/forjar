@@ -16,10 +16,35 @@
 # So this gate exists to make "verified" mean the machine checked it.
 name: Proofs
 
+# WHEN this runs, and why not on every PR.
+#
+# Measured on intel 2026-08-17, while this workflow ran on a PR:
+#
+#   runners executing a job   15 / 16
+#   ci.slice cap utilisation  17.99 of 18 cores  (pinned at 100% of quota)
+#   cpu.pressure some avg10   40.67%             (full = 0.00 — not wedged)
+#
+# Judged by pressure and cap utilisation, NOT load average: under a CPUQuota
+# throttled tasks stay runnable, so load reads high and means little. intel's
+# own ci.slice unit says exactly that, and the first draft of this comment
+# ignored it and quoted load 65.6.
+#
+# The kani job is bare-metal (no `container:`), so it draws from that same
+# 18-core budget as every other job, and it holds one of 16 runner slots for
+# the duration — 90 minutes under that contention, against ~36 minutes
+# measured for the same work on an idle box. Every pull_request paid it.
+#
+# So: main stays proven post-merge, a nightly catches drift, and a PR that
+# actually touches the harnesses opts in with the `proofs` label. This is a
+# scheduling change, not a weakening — `proofs` is not a required context
+# (the org ruleset requires `gate`), so it never gated a merge anyway.
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '17 6 * * *'
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
@@ -33,6 +58,9 @@ jobs:
   kani:
     name: kani
     runs-on: [self-hosted, clean-room]
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'proofs')
     # 45 was too short, but NOT because proving is slow — measured 2026-08-16:
     #
     #   proof_applicable_operators_valid   22+ min  -> 2s   (after the fix below)
@@ -71,20 +99,57 @@ jobs:
       # the exception. Same dep-info corruption paiml/rmedia#268 documents for
       # concurrent builds; here it comes from cancellation rather than sharing.
       #
-      # Discarding the directory costs nothing we were not already paying: kani
-      # rebuilds the crate with its own compiler every run regardless.
-      - name: Discard any target/kani left by a cancelled run
-        run: rm -rf target/kani
+      # The earlier version of this step wiped unconditionally, on the reasoning
+      # that "kani rebuilds the crate with its own compiler every run
+      # regardless, so discarding costs nothing". That reasoning was wrong.
+      # These are SELF-HOSTED runners with a persistent workspace, so cargo does
+      # reuse target/kani across runs — the unconditional wipe is precisely what
+      # guaranteed a cold ~35-minute build every single time. It turned a cache
+      # into a cost.
+      #
+      # The corruption it defended against is real but is specific to a run that
+      # was INTERRUPTED mid-build. So: leave a sentinel while a build is in
+      # flight and clear it when the job reaches a verdict. Finding the sentinel
+      # at startup means the previous run died holding it, and only then is the
+      # tree suspect.
+      - name: Discard target/kani only if the previous run was interrupted
+        run: |
+          set -eu
+          sentinel=target/kani/.forjar-build-in-flight
+          if [ -e "$sentinel" ]; then
+            echo "previous kani run did not reach a verdict — discarding target/kani"
+            rm -rf target/kani
+          else
+            echo "previous kani run finished cleanly — reusing target/kani"
+          fi
+          mkdir -p target/kani
+          touch "$sentinel"
 
       # Compilation is a distinct failure from non-verification, and it is the
       # one that actually happened. Surfacing it separately means a broken
       # harness reports as broken rather than as an opaque proof failure.
+      #
+      # `nice -n 19` because this job is bare-metal inside the shared 18-core
+      # ci.slice: at niceness 19 it still gets the whole box when the box is
+      # idle, but yields to interactive PR CI instead of competing with it. It
+      # bounds proofs' effect on everyone else's latency, not its own runtime.
       - name: Harnesses must compile
-        run: cargo kani --only-codegen
+        run: nice -n 19 cargo kani --only-codegen
 
       - name: Verify all harnesses
-        run: cargo kani --output-format terse
+        run: nice -n 19 cargo kani --output-format terse
 
+      # Deliberately not `always()`: on cancellation the sentinel must SURVIVE,
+      # so the next run knows the tree was left mid-build. success()||failure()
+      # covers "reached a verdict" and excludes exactly that case.
+      - name: Mark the kani build tree as clean
+        if: success() || failure()
+        run: rm -f target/kani/.forjar-build-in-flight
+
+  # Deliberately NOT gated behind the `proofs` label the way kani is. Measured
+  # 2026-08-17: lean verified all 7 proofs in 67 seconds. The contention this
+  # workflow was trimmed for is entirely kani's ~35-minute compile, so every PR
+  # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
     runs-on: [self-hosted, clean-room]
@@ -131,14 +196,23 @@ jobs:
     needs: [kani, lean]
     if: always()
     steps:
+      # `skipped` is a PASS here and nothing else is. On an unlabelled PR the
+      # proof jobs do not run at all, and treating that as failure would make
+      # every such PR red — the shape that trains people to ignore a red check.
+      # A genuine failure, cancellation or timeout is still `failure`/`cancelled`
+      # and still fails this gate.
       - name: Check proof jobs
         run: |
-          if [ "${{ needs.kani.result }}" != "success" ]; then
-            echo "kani failed: ${{ needs.kani.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.lean.result }}" != "success" ]; then
-            echo "lean failed: ${{ needs.lean.result }}"
-            exit 1
-          fi
-          echo "All proofs verified"
+          set -eu
+          rc=0
+          for job in kani:"${{ needs.kani.result }}" lean:"${{ needs.lean.result }}"; do
+            name=${job%%:*}
+            result=${job#*:}
+            case "$result" in
+              success) echo "$name: verified" ;;
+              skipped) echo "$name: skipped (not selected for this event)" ;;
+              *)       echo "$name FAILED: $result" >&2; rc=1 ;;
+            esac
+          done
+          [ "$rc" -eq 0 ] && echo "All proofs accounted for"
+          exit "$rc"
