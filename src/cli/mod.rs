@@ -83,6 +83,7 @@ mod graph_analysis;
 mod graph_analytics;
 mod graph_analytics_ext;
 mod graph_compliance;
+mod verify;
 // GH-212: `graph_core::parse_graph_format` is the single format parser shared
 // with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
 pub(crate) mod graph_core;

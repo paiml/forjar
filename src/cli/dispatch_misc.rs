@@ -56,6 +56,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Undo(..)
         | Commands::UndoDestroy(..)) => dispatch_misc_fleet(cmd, verbose),
         cmd @ (Commands::Check(..)
+        | Commands::Verify(..)
         | Commands::Fmt(..)
         | Commands::Lint(..)
         | Commands::Doctor(..)
@@ -366,6 +367,7 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             verbose,
         ),
+        Commands::Verify(args) => super::verify::cmd_verify(&args, verbose),
         Commands::Fmt(FmtArgs { file, check }) => cmd_fmt(&file, check),
         Commands::Lint(LintArgs {
             file,
