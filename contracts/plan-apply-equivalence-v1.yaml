@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-06-12"
   author: "PAIML Engineering"
   description: |
@@ -70,14 +71,30 @@ proof_obligations:
       those flags the executed set equals the planned set.
 
 enforcement:
-  layer: runtime
-  failure_mode: debug_assert
-  ci_gate: required
-  notes: |
-    The runtime debug_assert! aborts a debug build if the executor records
-    more outcomes than the plan predicted changes (planner/executor
-    disagreement). Release builds skip the assert; the integration test
-    catches the same shape on CI.
+  plan_determinism:
+    description: "plan() called twice with identical inputs yields identical plans"
+    check: "contract_tests::FALSIFY-PAE-001"
+    severity: "ERROR"
+  executed_matches_planned:
+    description: |
+      The executor must not record more outcomes than the plan predicted.
+      A debug_assert! aborts a debug build on planner/executor disagreement;
+      release builds skip the assert, so the integration test carries the
+      same shape on CI.
+    check: "contract_tests::FALSIFY-PAE-002"
+    severity: "ERROR"
+  noop_does_not_execute:
+    description: "A second apply over converged state re-runs no scripts without --force"
+    check: "contract_tests::FALSIFY-PAE-003"
+    severity: "ERROR"
+  reported_count_matches_executed_scope:
+    description: |
+      GH-253: the change count shown to the operator must describe the same
+      set the executor will act on. `plan -r X` promised 1 while apply's
+      prompt offered 69, because the prompt counted the unscoped plan — the
+      plan is only a promise if the number approved is the number acted on.
+    check: "tests/falsification_apply_scope_prompt.rs::plan_and_apply_agree_under_the_same_selector"
+    severity: "ERROR"
 
 falsification_tests:
   - id: FALSIFY-PAE-001

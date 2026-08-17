@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-05-06"
   author: "PAIML Engineering"
   description: |
@@ -84,12 +85,12 @@ proof_obligations:
       is a separate runtime concern documented in this YAML's notes.
 
 enforcement:
-  layer: runtime
-  failure_mode: debug_assert
-  ci_gate: required
-  notes: |
-    The runtime debug_assert! aborts a debug build if forced_noop > converged
-    (which would mean a planner / executor disagreement). Release builds
-    skip the assert but the integration test catches the same shape on CI.
+  forced_noop_not_counted_as_converged:
+    description: |
+      forced_noop must never exceed converged; a debug_assert! aborts a debug
+      build on planner/executor disagreement. Release builds skip the assert,
+      so the integration test carries the same shape on CI.
+    check: "src/core/executor/mod.rs::forced_noop_count"
+    severity: "ERROR"
 
 verification_level: L3
