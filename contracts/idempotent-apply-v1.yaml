@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-06-12"
   author: "PAIML Engineering"
   description: |
@@ -71,14 +72,17 @@ proof_obligations:
     enforced_by: "src/core/planner/tests_plan.rs::test_gh97_second_plan_over_converged_locks_is_noop"
 
 enforcement:
-  layer: runtime
-  failure_mode: debug_assert
-  ci_gate: required
-  notes: |
-    The debug_assert! call-sites abort a debug build when the fixed point
-    is violated; release builds skip the asserts, but unit tests and the
-    bounded Kani harness (src/core/kani_proofs.rs::
-    proof_planner_idempotency_bounded) cover the same shapes on CI.
+  second_apply_is_a_fixed_point:
+    description: |
+      A debug_assert! aborts a debug build when the fixed point is violated.
+      Release builds skip the asserts, so unit tests and the bounded Kani
+      harness cover the same shapes on CI.
+    check: "contract_tests::FALSIFY-IDEM-001"
+    severity: "ERROR"
+  bounded_proof_backs_the_assert:
+    description: "The planner's idempotency is proved bounded, not merely tested"
+    check: "src/core/kani_proofs.rs::proof_planner_idempotency_bounded"
+    severity: "ERROR"
 
 falsification_tests:
   - id: FALSIFY-IDEM-001
@@ -104,7 +108,7 @@ kani_harnesses:
     obligation: "NoOp fixed point"
     property: "converged + matching hash → NoOp"
     bound: 4
-    strategy: bounded
+    strategy: bounded_int
     harness: proof_planner_idempotency_bounded
 
 qa_gate:

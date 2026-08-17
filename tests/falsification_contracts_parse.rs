@@ -21,6 +21,19 @@
 //! silently stops running when the tool is missing — which is precisely how the
 //! contracts went unvalidated in the first place, and how the kani/lean gate in
 //! GH-242 currently reports red.
+//!
+//! **That choice has a cost, and it was paid.** Re-running `pv validate` over
+//! `contracts/` on 2026-08-17 found the SAME five files still rejected — for
+//! different reasons than GH-251 (a flat `enforcement` block where the schema
+//! wants named rule structs; `bound: "4 keys"` in a u32 field;
+//! `strategy: bounded` against a vocabulary of four; and kernel-by-default
+//! contracts with nothing bounded to prove). Every test here passed throughout,
+//! because each asserted a hand-copied *fragment* of the schema and the files
+//! got those fragments right.
+//!
+//! A proxy only covers what you thought to copy. So the rule for this file:
+//! when `pv` rejects a contract, do not just fix the contract — add the check
+//! that should have caught it here, and confirm it fails on the old file.
 
 use std::path::{Path, PathBuf};
 
@@ -173,6 +186,125 @@ fn every_contract_declares_metadata() {
             path.display()
         );
     }
+}
+
+/// Kani strategies the schema accepts, copied from its own error message.
+const KNOWN_KANI_STRATEGIES: &[&str] =
+    &["exhaustive", "stub_float", "compositional", "bounded_int"];
+
+#[test]
+fn every_enforcement_entry_is_a_rule_not_a_scalar() {
+    // `enforcement` is a MAP OF NAMED RULES, each a struct. Four contracts
+    // instead used a flat `layer:/failure_mode:/ci_gate:/notes:` block, so the
+    // schema read `layer` as a rule name whose value should have been a struct
+    // and rejected the file outright.
+    //
+    // This test exists because the checks above did NOT catch that: they
+    // validate obligation types and `metadata`, both of which those files got
+    // right. They passed while `pv validate` rejected all four — a green test
+    // asserting a *copy* of part of the schema, which is the same
+    // proxy-instead-of-artifact shape this whole file was written about.
+    let mut offenders = Vec::new();
+    for path in contract_files() {
+        let text = std::fs::read_to_string(&path).expect("readable");
+        let Ok(doc) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&text) else {
+            continue;
+        };
+        let Some(rules) = doc.get("enforcement").and_then(|v| v.as_mapping()) else {
+            continue;
+        };
+        for (name, rule) in rules {
+            if !rule.is_mapping() {
+                offenders.push(format!(
+                    "{}: enforcement.{} is a scalar; it must be a rule with \
+                     description/check/severity",
+                    path.display(),
+                    name.as_str().unwrap_or("?")
+                ));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "malformed enforcement blocks never validate:\n  {}",
+        offenders.join("\n  ")
+    );
+}
+
+#[test]
+fn every_kani_harness_declares_a_numeric_bound_and_known_strategy() {
+    // `bound: "4 keys"` (a unit smuggled into a u32 field) and
+    // `strategy: bounded` (against a 12-to-1 majority using `bounded_int`)
+    // each rejected a whole contract — including provable-iac-v1, whose
+    // results are mapped straight into the `N/N proofs passed` line.
+    let mut offenders = Vec::new();
+    for path in contract_files() {
+        let text = std::fs::read_to_string(&path).expect("readable");
+        let Ok(doc) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&text) else {
+            continue;
+        };
+        let Some(harnesses) = doc.get("kani_harnesses").and_then(|v| v.as_sequence()) else {
+            continue;
+        };
+        for (i, h) in harnesses.iter().enumerate() {
+            if let Some(bound) = h.get("bound") {
+                if !bound.is_u64() {
+                    offenders.push(format!(
+                        "{}: kani_harnesses[{i}].bound is not an integer: {bound:?}",
+                        path.display()
+                    ));
+                }
+            }
+            if let Some(s) = h.get("strategy").and_then(|v| v.as_str()) {
+                if !KNOWN_KANI_STRATEGIES.contains(&s) {
+                    offenders.push(format!(
+                        "{}: kani_harnesses[{i}].strategy `{s}` is not in the schema vocabulary",
+                        path.display()
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "malformed kani harness declarations never validate:\n  {}",
+        offenders.join("\n  ")
+    );
+}
+
+#[test]
+fn a_contract_without_kani_harnesses_declares_itself_a_pattern() {
+    // PROVABILITY-001: `pv validate` defaults to KERNEL, where equations and
+    // kani harnesses are mandatory. A cross-cutting behavioural contract that
+    // proves nothing bounded must say `metadata.kind: pattern` — otherwise it
+    // is silently judged against a bar it was never meant to meet, and fails.
+    let mut offenders = Vec::new();
+    for path in contract_files() {
+        let text = std::fs::read_to_string(&path).expect("readable");
+        let Ok(doc) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&text) else {
+            continue;
+        };
+        let has_harnesses = doc
+            .get("kani_harnesses")
+            .and_then(|v| v.as_sequence())
+            .is_some_and(|s| !s.is_empty());
+        let kind = doc
+            .get("metadata")
+            .and_then(|m| m.get("kind"))
+            .and_then(|v| v.as_str());
+        if !has_harnesses && kind != Some("pattern") {
+            offenders.push(format!(
+                "{}: no kani_harnesses and kind is {:?}; declare `kind: pattern`",
+                path.display(),
+                kind
+            ));
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "contracts judged as kernel with nothing to prove:\n  {}",
+        offenders.join("\n  ")
+    );
 }
 
 #[test]
