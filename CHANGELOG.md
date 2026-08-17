@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-17
+
+A release about one failure shape: **a check that reported confidently on
+something it had not measured.** Sixteen issues, all of that family.
+
+### Fixed
+
+- **`composite_hash` was not injective** (#235). NUL-separated components with
+  no length framing collide: `["a\0b"]` and `["a", "b"]` hashed identically.
+  This is the store's address function, so two different derivations could
+  claim one store path. Now domain-separated and length-prefixed.
+
+- **`prove` reported hash-determinism PASS for non-deterministic builds**
+  (#248). It compared one pure function against itself — a tautology that
+  could not fail. It now checks the codegen phases that can actually differ.
+
+- **`execute_sync` reported the planned replay count as the executed count**
+  (#249). A partial replay reported as complete.
+
+- **Purity was reported but never enforced** (#241), and its monotonicity
+  invariant was dead in production because `dep_levels` was always empty.
+
+- **The store root was a hardcoded root-owned const** (#239) — unprivileged
+  users could not use the store at all. Now resolved with a writability probe
+  and a `FORJAR_STORE` override.
+
+- **A task reported converged without reaching its declared state** (#254).
+  `completion_check` gated whether the command *ran* and was never
+  re-evaluated after, so "converged" meant "the command exited 0". On
+  paiml/infra's `lean-toolchain`, `sudo: true` made `$HOME=/root`; every
+  command succeeded, forjar reported `1 converged, 0 failed`, and
+  `command -v lean` failed immediately afterwards.
+
+- **The cargo package check asked the PATH, not cargo** (#257). `command -v`
+  finds a binary whose name matches; it cannot tell you the crate is
+  installed. Now `cargo install --list`.
+
+- **`apply -r` prompted with a count it would not act on** (#253). The
+  confirmation counted the *unscoped* plan: `plan -r X` promised 1 while apply
+  offered 69. Execution was correctly scoped throughout — apply acted on 1 —
+  but the prompt is the number an operator approves on, and
+  `plan-apply-equivalence-v1` obliges the two to agree.
+
+- **Two container tests asserted a wall-clock budget** (#259) — 4s in
+  isolation, over 30s under the full suite, same commit. They measured how
+  busy the machine was. They now assert dispatch provenance.
+
+- **Five contracts had never validated** (#251), for two layers of reasons:
+  proof-obligation types outside the schema vocabulary, then a flat
+  `enforcement` block where the schema wants named rule structs, a unit
+  smuggled into a u32 `bound`, and an unknown kani `strategy`.
+
+### Added
+
+- **A named library surface** (#240, #245) — `forjar::api` re-exports the 7
+  functions and 4 types a consumer needs for content-hash staleness, instead
+  of 1844 public items across 195 modules with no supported subset.
+
+- **A CI job that runs the proofs, and proofs that can actually run** (#242).
+  Kani harnesses and Lean proofs sat in the tree, cited by name as evidence in
+  `contracts/*.yaml`, and nothing executed them — they did not even compile.
+  Fixing the compilation only revealed the real state: of 21 harnesses, 7
+  failed, 2 were never reached, and 2 were intractable (117 min, and 48 GB of
+  RSS at 48 min).
+
+  Two root causes, both now rules rather than one-off fixes:
+
+  1. **Symbolic input reaching allocating code.** `format!` on a validator's
+     error path drags `core::fmt` into the model, and CBMC models every path —
+     not merely the one the property asserts on. Validators a harness drives
+     now return a verdict (`classify_remote`, `hysteresis_holds`) and render
+     the message in the caller. 117 min → 104 s; 48 min → 35 s.
+  2. **A model checker cannot verify through a cryptographic hash.** Measured:
+     blake3's default build fails outright (`foreign "C" function syscall`),
+     and its portable `pure` build reached 29.1 GB of RSS still running at 36
+     minutes. Nine harnesses reached a hash. Three were tautologies about the
+     `blake3` crate; the rest are discharged executably, two of them by tests
+     written to replace them because they had no coverage at all.
+
+  A contract citing a proof that does not exist is the same defect one level
+  up, so `every_harness_a_contract_names_actually_exists` now guards it — and
+  found two pre-existing cases on its first run, where Lean theorems were
+  declared under `kani_harnesses:`.
+
+  Result: **20 harnesses, 20 verified, 0 failed.**
+
+- `LICENSE-APACHE`, which `Cargo.toml` had claimed for some time (#243).
+
+### Changed
+
+- The README no longer claims "Pure Rust with zero C dependencies" (#238);
+  there are 8 C-backed crates in the default tree.
+
+- `dist-output/` is removed and gitignored (#256). Release generates into
+  `/tmp/dist-output`; the copy committed at the repo root had drifted from the
+  maintained `install.sh` and carried all 7 of the repo's bashrs SEC findings.
+
+### Known limitations
+
+Six issues remain open and are **features, not defects** — deliberately not
+rushed into this release:
+
+| # | |
+|---|---|
+| #236 | store has no output-content digest (no dedup, no corruption detection) |
+| #244 | undeclared task inputs are undetectable |
+| #246 | byte-identity is the only equivalence predicate |
+| #247 | no regenerate-and-compare verification mode |
+| #237 | no default feature set — `default-features = false` is a no-op |
+| #228 | registry push still shells out to curl |
+
+
 ## [1.13.2] - 2026-08-16
 
 ### Added
