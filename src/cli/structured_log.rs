@@ -174,6 +174,21 @@ impl Drop for Span {
 
 #[cfg(test)]
 mod tests {
+
+    /// Serialises the tests that mutate the PROCESS-GLOBAL log level.
+    ///
+    /// `set_level` writes a global, and cargo runs these tests in parallel, so
+    /// `test_set_and_get_level` could assert `!is_enabled(Info)` while
+    /// `test_log_event_no_panic` had just set `Debug`. Observed as a ~1-in-N
+    /// failure in a 13k-test suite, which is the worst frequency: rare enough
+    /// to look like noise, common enough to erode trust in every other result.
+    static LEVEL_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Take the lock, ignoring poisoning — a panic in one of these tests must
+    /// not cascade into unrelated failures in the others.
+    fn level_guard() -> std::sync::MutexGuard<'static, ()> {
+        LEVEL_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
     use super::*;
 
     #[test]
@@ -199,6 +214,7 @@ mod tests {
 
     #[test]
     fn test_set_and_get_level() {
+        let _guard = level_guard();
         set_level(Level::Warn);
         assert_eq!(current_level(), Level::Warn);
         assert!(!is_enabled(Level::Debug));
@@ -210,6 +226,7 @@ mod tests {
 
     #[test]
     fn test_log_event_no_panic() {
+        let _guard = level_guard();
         set_level(Level::Debug);
         log_event(Level::Info, "test", "hello", &[("key", "value")]);
         set_level(Level::Info);
@@ -237,6 +254,7 @@ mod tests {
 
     #[test]
     fn test_span_lifecycle() {
+        let _guard = level_guard();
         set_level(Level::Debug);
         {
             let _span = Span::new("test-span").with_field("id", "42");

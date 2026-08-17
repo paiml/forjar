@@ -95,6 +95,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "task_mode",
     "task_inputs",
     "output_artifacts",
+    "output_equivalence",
     "phony",
     "completion_check",
     "timeout",
