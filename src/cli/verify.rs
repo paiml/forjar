@@ -7,7 +7,7 @@
 
 use super::commands::VerifyArgs;
 use super::helpers::*;
-use crate::core::verify::{verify_resource, Verdict, VerifyOutcome};
+use crate::core::verify::{verify_hermetic, verify_resource, Verdict, VerifyOutcome};
 use std::path::Path;
 
 /// Exit non-zero if any resource diverged or failed to regenerate.
@@ -19,8 +19,9 @@ pub(crate) fn cmd_verify(args: &VerifyArgs, verbose: bool) -> Result<(), String>
         state_dir,
         json,
         keep_scratch,
+        check_declared_inputs,
     } = args;
-    let (json, keep_scratch) = (*json, *keep_scratch);
+    let (json, keep_scratch, hermetic) = (*json, *keep_scratch, *check_declared_inputs);
     let (resource_filter, tag_filter) = (resource_filter.as_deref(), tag_filter.as_deref());
     let config = parse_and_validate(file)?;
 
@@ -41,7 +42,11 @@ pub(crate) fn cmd_verify(args: &VerifyArgs, verbose: bool) -> Result<(), String>
         if verbose {
             eprintln!("verify {id}: scratch {}", scratch.display());
         }
-        outcomes.push(verify_resource(id, resource, recorded.as_deref(), &scratch));
+        outcomes.push(if hermetic {
+            verify_hermetic(id, resource, recorded.as_deref(), &scratch)
+        } else {
+            verify_resource(id, resource, recorded.as_deref(), &scratch)
+        });
     }
 
     if !keep_scratch {
@@ -108,6 +113,13 @@ fn print_human(outcomes: &[VerifyOutcome]) {
             Verdict::CommandFailed { status } => {
                 println!("  FAILED       {} ({status})", o.resource_id);
             }
+            Verdict::UndeclaredInput { hermetic } => {
+                println!(
+                    "  UNDECLARED   {} — reproduces from the full tree but not from \n\
+                     \x20              its declared inputs alone: {hermetic}",
+                    o.resource_id
+                );
+            }
             Verdict::Skipped(r) => println!("  skipped      {} ({})", o.resource_id, r.as_str()),
         }
     }
@@ -139,6 +151,9 @@ fn print_json(outcomes: &[VerifyOutcome]) {
                 ),
                 Verdict::CommandFailed { status } => {
                     format!(r#","error":"{}""#, status.replace('"', "'"))
+                }
+                Verdict::UndeclaredInput { hermetic } => {
+                    format!(r#","hermetic":"{}""#, hermetic.replace('"', "'"))
                 }
                 Verdict::Skipped(r) => format!(r#","reason":"{}""#, r.as_str()),
                 Verdict::Reproduced => String::new(),
