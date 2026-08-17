@@ -322,3 +322,68 @@ fn excluded_files_are_excluded_for_a_reason_and_still_exist() {
         );
     }
 }
+
+/// Source files that may define a `#[kani::proof]` harness.
+fn harness_sources() -> Vec<PathBuf> {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut out = Vec::new();
+    let mut stack = vec![src];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for e in entries.filter_map(Result::ok) {
+            let p = e.path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn every_harness_a_contract_names_actually_exists() {
+    // GH-242 in miniature, and the reason that issue exists: a contract citing
+    // a proof by name reads as evidence. If the proof is renamed or deleted,
+    // nothing else notices — `pv validate` checks the contract's SHAPE, not
+    // whether the Rust item is real.
+    //
+    // Caught by hand on 2026-08-17 while removing seven unverifiable harnesses:
+    // `idempotent-apply-v1` and `overlay-interface-v1` between them named three
+    // that were about to stop existing. This makes the next one fail a test
+    // instead of surviving as a citation.
+    let sources: String = harness_sources()
+        .iter()
+        .filter_map(|p| std::fs::read_to_string(p).ok())
+        .collect();
+
+    let mut dangling = Vec::new();
+    for path in contract_files() {
+        let text = std::fs::read_to_string(&path).expect("readable");
+        for line in text.lines() {
+            let Some(rest) = line.trim().strip_prefix("harness:") else {
+                continue;
+            };
+            let name = rest.trim().trim_matches('"');
+            // Contracts sometimes qualify with a module path; the item name is
+            // the last segment.
+            let item = name.rsplit("::").next().unwrap_or(name);
+            if item.is_empty() {
+                continue;
+            }
+            if !sources.contains(&format!("fn {item}(")) {
+                dangling.push(format!("{}: names `{item}`", path.display()));
+            }
+        }
+    }
+
+    assert!(
+        dangling.is_empty(),
+        "contracts cite proof harnesses that do not exist — either restore the \
+         harness or discharge the obligation another way and say so:\n  {}",
+        dangling.join("\n  ")
+    );
+}

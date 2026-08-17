@@ -1,5 +1,12 @@
 metadata:
   version: "2.0.0"   # GH-235: composite_hash framing changed; every composite digest differs from v1
+  # kind: pattern — GH-242. These obligations are about the OUTPUT SHAPE of
+  # `hash_string`, so discharging them in Kani means verifying through BLAKE3:
+  # the default SIMD build fails with `foreign "C" function syscall`, and the
+  # portable `pure` build was measured at 29.1 GB RSS still running at 36 min.
+  # Discharged by Lean (lean/BlakeState.lean) plus the executable FALSIFY-B3-*
+  # tests below — which is why this is not a kernel contract.
+  kind: pattern
   created: "2026-02-24"
   author: "PAIML Engineering"
   description: "BLAKE3 content-addressed state hashing — tripwire integrity foundation"
@@ -118,13 +125,14 @@ falsification_tests:
       both satisfied by a non-injective function, which is why this obligation
       had to be added rather than being caught by the existing three.
 
-kani_harnesses:
-  - id: KANI-B3-001
-    obligation: "Prefix format"
-    property: "hash_string output format"
-    bound: 32
-    strategy: exhaustive
-    harness: verify_hash_string_prefix
+# GH-242: this was declared as a `kani_harnesses` entry naming
+# `verify_hash_string_prefix`, but that is a LEAN theorem, not a Rust Kani
+# harness — no such `fn` exists and the kani job could never have run it, while
+# the lean job verified it without the contract knowing. Category error, not a
+# missing proof. Re-declared where it belongs:
+# (The prefix obligation is proved in the `lean_proofs` section below —
+# `blake3-state-lean-001`, theorem `HashHasBlakePrefix` — so no separate entry
+# is added here.)
 
 qa_gate:
   id: F-B3-001

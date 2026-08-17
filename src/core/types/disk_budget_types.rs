@@ -157,16 +157,34 @@ impl DiskBudget {
     ///
     /// Returns `Err` when `100 - target_free_pct >= high_watermark_pct`.
     pub fn validate_hysteresis(high_watermark_pct: u8, target_free_pct: u8) -> Result<(), String> {
-        let target_used = 100u8.saturating_sub(target_free_pct);
-        if target_used >= high_watermark_pct {
-            return Err(format!(
-                "disk_budget hysteresis violated: reclaiming to {target_free_pct}% free leaves \
-                 used at {target_used}%, which is still at or above the {high_watermark_pct}% \
-                 trigger — every pass would immediately re-trigger. Require \
-                 100 - target_free_pct < high_watermark_pct."
-            ));
+        if Self::hysteresis_holds(high_watermark_pct, target_free_pct) {
+            return Ok(());
         }
-        Ok(())
+        let target_used = 100u8.saturating_sub(target_free_pct);
+        Err(format!(
+            "disk_budget hysteresis violated: reclaiming to {target_free_pct}% free leaves \
+             used at {target_used}%, which is still at or above the {high_watermark_pct}% \
+             trigger — every pass would immediately re-trigger. Require \
+             100 - target_free_pct < high_watermark_pct."
+        ))
+    }
+
+    /// The hysteresis rule itself: allocation-free, so a proof can reach it.
+    ///
+    /// GH-242. `proof_disk_budget_hysteresis_total` had already been retargeted
+    /// away from `DiskBudget::new` at this predicate and STILL cost **48 GB of
+    /// RSS at 48 minutes** — to prove integer algebra over 65,536 points. The
+    /// remaining cost was `format!` on the error path of `validate_hysteresis`:
+    /// CBMC models every path, not merely the one the property asserts on, so
+    /// `core::fmt` and a `String` allocation entered the model regardless.
+    ///
+    /// Splitting the decision from the message is the same fix
+    /// `classify_remote` got in `backup_sync_types`, and it is now the rule for
+    /// any validator a harness drives: return the verdict, render the text in
+    /// the caller.
+    #[must_use]
+    pub fn hysteresis_holds(high_watermark_pct: u8, target_free_pct: u8) -> bool {
+        100u8.saturating_sub(target_free_pct) < high_watermark_pct
     }
 }
 

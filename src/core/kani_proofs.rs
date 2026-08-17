@@ -13,10 +13,7 @@
 //! These are **bounded-model harnesses** that call real functions with
 //! bounded nondeterministic inputs. They prove properties hold within
 //! the bound, not exhaustively over all inputs.
-//! - `proof_hash_determinism_bounded` — calls `hash_desired_state` on bounded `Resource`
-//! - `proof_planner_idempotency_bounded` — models planner logic with real hash
 //! - `proof_dag_ordering_bounded` — 3-node DAG determinism
-//! - `proof_handler_invariant_{file,package,...}` — per resource type hash stability
 //!
 //! ## Production Function Proofs (FJ-2201)
 //!
@@ -31,56 +28,48 @@
 //!
 //! | Proof | Assumes | Verifies |
 //! |-------|---------|----------|
-//! | `proof_blake3_idempotency` | 4-byte input bound | BLAKE3 determinism |
-//! | `proof_blake3_collision_resistance` | 4-byte inputs differ | No 4-byte collisions |
-//! | `proof_converged_state_is_noop` | Same content | Hash equality → no change |
+//! ## Seven harnesses removed 2026-08-17 (GH-242) — measured, not assumed
+//!
+//! Every one of them reached a real BLAKE3 hash, and all seven failed with
+//! `call to foreign "C" function syscall is not currently supported by Kani`
+//! (blake3 does runtime CPU-feature dispatch). None had ever produced a
+//! verdict, while `contracts/*.yaml` cited them as evidence.
+//!
+//! Three said nothing worth fixing:
+//!
+//! - `proof_blake3_idempotency` — `hash(x) == hash(x)`. A property of the
+//!   `blake3` crate, and a tautology at that.
+//! - `proof_blake3_collision_resistance` — collision resistance is not
+//!   establishable by bounded model checking, and the harness hedged about its
+//!   own conclusion in a comment. GH-248's defect in a different hat.
+//! - `proof_converged_state_is_noop` — hashed the SAME content twice and
+//!   asserted the results matched. Its doc claimed "the core idempotency
+//!   property"; it proved the hash function is a function.
+//!
+//! Four made real claims about `hash_desired_state` (determinism, planner
+//! idempotency, per-type handler invariants) but **cannot be discharged by a
+//! model checker**, because discharging them means verifying through a
+//! cryptographic hash. Measured on this box before removing them:
+//!
+//! ```text
+//! blake3 default (SIMD dispatch)   fails instantly: foreign "C" syscall
+//! blake3 `pure` (portable Rust)    29.1 GB RSS, still running at 36 min
+//! ```
+//!
+//! Stubbing the hash was the other option and was rejected: it would prove the
+//! properties hold for the stub, which is not the claim. Those four properties
+//! are asserted executably instead — see
+//! `src/core/planner/tests_hash_source.rs`
+//! (`identical_source_content_hashes_identically` and neighbours), plus the
+//! `debug_assert_eq!` determinism postcondition inside `hash_desired_state`
+//! itself.
+//!
+//! Removing a proof that could not fail is not weakening the gate. It is
+//! deleting something that read as evidence and was not.
+//!
 //! | `proof_status_transition_monotonic` | Status ∈ {0,1,2,3} | Converged stays converged |
 //! | `proof_plan_determinism` | ≤3 resources | Same input → same plan |
 //! | `proof_topo_sort_stability` | 3-node DAG | Deterministic ordering |
-
-/// BLAKE3 hash idempotency: same input always produces same output.
-/// This is the foundation of all state comparison.
-#[cfg(kani)]
-#[kani::proof]
-#[kani::unwind(8)]
-fn proof_blake3_idempotency() {
-    let data: [u8; 4] = kani::any();
-    let h1 = blake3::hash(&data);
-    let h2 = blake3::hash(&data);
-    assert_eq!(h1, h2, "BLAKE3 must be deterministic");
-}
-
-/// Hash uniqueness: different inputs produce different outputs (collision resistance).
-/// This bounds the probability of false convergence detection.
-#[cfg(kani)]
-#[kani::proof]
-#[kani::unwind(8)]
-fn proof_blake3_collision_resistance() {
-    let a: [u8; 4] = kani::any();
-    let b: [u8; 4] = kani::any();
-    kani::assume(a != b);
-    let ha = blake3::hash(&a);
-    let hb = blake3::hash(&b);
-    // Note: this may fail for 4-byte inputs due to collision probability,
-    // but Kani should prove it within the bounded domain.
-    assert_ne!(ha, hb, "different inputs should produce different hashes");
-}
-
-/// Converged state is a no-op: if current hash == desired hash, no changes needed.
-/// This proves the core idempotency property.
-#[cfg(kani)]
-#[kani::proof]
-#[kani::unwind(8)]
-fn proof_converged_state_is_noop() {
-    let content: [u8; 4] = kani::any();
-    let desired_hash = blake3::hash(&content).to_hex().to_string();
-    let current_hash = blake3::hash(&content).to_hex().to_string();
-    let needs_change = desired_hash != current_hash;
-    assert!(
-        !needs_change,
-        "identical content must produce identical hash"
-    );
-}
 
 /// Resource status transitions: Converged state does not regress to Pending.
 #[cfg(kani)]
@@ -202,59 +191,6 @@ pub(super) fn compute_order(e01: bool, e02: bool, e12: bool) -> [u8; 3] {
 // These harnesses operate on actual types with bounded nondeterministic
 // inputs. They call real functions but with constrained state space.
 
-/// FJ-2201: hash_desired_state determinism on real Resource.
-///
-/// Constructs a minimal Resource with nondeterministic fields and verifies
-/// that `hash_desired_state` produces the same hash on two calls.
-#[cfg(kani)]
-#[kani::proof]
-fn proof_hash_determinism_bounded() {
-    use super::planner::hash_desired_state;
-    use super::types::{Resource, ResourceType};
-
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::File;
-    // Bounded nondeterministic content (up to 8 chars)
-    let len: usize = kani::any();
-    kani::assume(len <= 8);
-    let buf: [u8; 8] = kani::any();
-    let content = String::from_utf8_lossy(&buf[..len]).to_string();
-    r.content = Some(content);
-
-    let h1 = hash_desired_state(&r);
-    let h2 = hash_desired_state(&r);
-    assert_eq!(h1, h2, "hash_desired_state must be deterministic");
-}
-
-/// FJ-2201: Planner idempotency on real types.
-///
-/// If a resource is Converged and hash_desired_state produces the same hash
-/// as the stored lock hash, the planner decision must be NoOp.
-/// Models the core logic of `determine_present_action`.
-#[cfg(kani)]
-#[kani::proof]
-fn proof_planner_idempotency_bounded() {
-    use super::planner::hash_desired_state;
-    use super::types::{Resource, ResourceType};
-
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::Package;
-    let pkg_idx: u8 = kani::any();
-    kani::assume(pkg_idx < 4);
-    let pkg_names = ["vim", "curl", "git", "tmux"];
-    r.packages = vec![pkg_names[pkg_idx as usize].to_string()];
-
-    // Simulate: resource was previously applied, lock stores the hash
-    let stored_hash = hash_desired_state(&r);
-    // Re-compute to simulate next plan cycle
-    let desired_hash = hash_desired_state(&r);
-
-    // Core planner logic: converged + hash match → NoOp
-    let is_converged = true;
-    let action_is_noop = is_converged && (stored_hash == desired_hash);
-    assert!(action_is_noop, "converged + matching hash must be NoOp");
-}
-
 /// FJ-2201: DAG ordering determinism.
 ///
 /// Verifies `build_execution_order` on a fixed config produces the same
@@ -284,56 +220,6 @@ fn proof_dag_ordering_bounded() {
     if dep_12 {
         assert!(pos(1) < pos(2));
     }
-}
-
-/// FJ-2201: Handler invariant for file resources.
-///
-/// Verifies that hash_desired_state on a File resource produces the same
-/// hash regardless of non-content fields (tags, depends_on).
-#[cfg(kani)]
-#[kani::proof]
-fn proof_handler_invariant_file() {
-    use super::planner::hash_desired_state;
-    use super::types::{Resource, ResourceType};
-
-    let mut r = Resource::default();
-    r.resource_type = ResourceType::File;
-    r.path = Some("/etc/test.conf".into());
-    r.content = Some("key=value".into());
-
-    let hash_base = hash_desired_state(&r);
-
-    // Adding tags must not change the hash (tags are not hashed)
-    r.tags = vec!["web".into(), "production".into()];
-    let hash_with_tags = hash_desired_state(&r);
-
-    // Adding depends_on must not change the hash
-    r.depends_on = vec!["other-resource".into()];
-    let hash_with_deps = hash_desired_state(&r);
-
-    assert_eq!(hash_base, hash_with_tags, "tags must not affect hash");
-    assert_eq!(hash_base, hash_with_deps, "depends_on must not affect hash");
-}
-
-/// FJ-2201: Handler invariant for package resources.
-#[cfg(kani)]
-#[kani::proof]
-fn proof_handler_invariant_package() {
-    use super::planner::hash_desired_state;
-    use super::types::{Resource, ResourceType};
-
-    let mut r1 = Resource::default();
-    r1.resource_type = ResourceType::Package;
-    r1.packages = vec!["nginx".into()];
-
-    let mut r2 = Resource::default();
-    r2.resource_type = ResourceType::Package;
-    r2.packages = vec!["nginx".into()];
-    r2.tags = vec!["web".into()];
-
-    let h1 = hash_desired_state(&r1);
-    let h2 = hash_desired_state(&r2);
-    assert_eq!(h1, h2, "tags must not affect package hash");
 }
 
 // ── OCI Layer / Store Proofs (FJ-2201) ──────────────────────────────

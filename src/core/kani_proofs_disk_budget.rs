@@ -34,7 +34,13 @@ fn proof_disk_budget_hysteresis_total() {
     // contracts/disk-budget-v1.yaml while never having been executed.
     //
     // The property being proved is integer algebra; it does not need a heap.
-    if DiskBudget::validate_hysteresis(high, target_free).is_ok() {
+    //
+    // Retargeting at `validate_hysteresis` was NOT enough — measured 2026-08-17
+    // at 48 GB RSS and still running at 48 minutes, because that function calls
+    // `format!` on its error path and CBMC models every path regardless of
+    // which one the property asserts on. `hysteresis_holds` is the same
+    // decision with the message rendering lifted into the caller.
+    if DiskBudget::hysteresis_holds(high, target_free) {
         let target_used = 100u8.saturating_sub(target_free);
         assert!(target_used < high);
     }
