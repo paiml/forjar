@@ -21,26 +21,52 @@
 #[kani::proof]
 #[kani::unwind(10)]
 fn proof_backup_remote_never_local() {
-    use super::types::BackupSync;
+    // MEASURED 2026-08-17: the previous form of this harness ran a single cbmc
+    // process for 117 minutes at 6.5 GB RSS and was killed by the job timeout,
+    // on an otherwise IDLE box (1 core of 18 in use). It was not slow because
+    // the machine was busy — it was intractable, which is the exact shape this
+    // workflow's header warns about and the second harness in this crate to
+    // take it.
+    //
+    // The input space was never the problem: 6 characters, length 3, is 216
+    // cases. Two other things were.
+    //
+    //   1. It drove `BackupSync::new`, which allocates a `Vec<String>` of
+    //      sources plus several `String`s, so CBMC had to model the allocator
+    //      across the whole symbolic space to prove a property about a STRING.
+    //   2. The indices were `usize` — 64-bit symbolic values, pruned by an
+    //      assume to 6 possibilities but still reasoned about as bitvectors.
+    //
+    // Retargeting to `validate_remote` alone was not enough — it still runs
+    // `format!` on its error paths, and CBMC models every path regardless of
+    // which one the property asserts on. `classify_remote` is that same
+    // decision with the message rendering lifted out, so the model contains no
+    // `core::fmt` and no allocation at all. The property proved is identical in
+    // force: `BackupSync::new` accepts a remote exactly when this returns None.
+    use super::types::classify_remote;
 
     // A small alphabet that deliberately includes every rejected prefix.
     const ALPHABET: [u8; 6] = [b'/', b'.', b'~', b':', b'a', b'1'];
-    let i0: usize = kani::any();
-    let i1: usize = kani::any();
-    let i2: usize = kani::any();
-    kani::assume(i0 < ALPHABET.len() && i1 < ALPHABET.len() && i2 < ALPHABET.len());
+    let i0: u8 = kani::any();
+    let i1: u8 = kani::any();
+    let i2: u8 = kani::any();
+    kani::assume(i0 < 6 && i1 < 6 && i2 < 6);
 
-    let bytes = [ALPHABET[i0], ALPHABET[i1], ALPHABET[i2]];
+    let bytes = [
+        ALPHABET[i0 as usize],
+        ALPHABET[i1 as usize],
+        ALPHABET[i2 as usize],
+    ];
     let remote = core::str::from_utf8(&bytes).unwrap();
 
-    if let Ok(b) = BackupSync::new(vec!["/mnt/a".to_string()], remote, "daily", 99, 700, None) {
+    if classify_remote(remote).is_none() {
         // Accepted => provably not a local path.
-        assert!(b.remote.contains(':'));
-        assert!(!b.remote.starts_with('/'));
-        assert!(!b.remote.starts_with('.'));
-        assert!(!b.remote.starts_with('~'));
+        assert!(remote.contains(':'));
+        assert!(!remote.starts_with('/'));
+        assert!(!remote.starts_with('.'));
+        assert!(!remote.starts_with('~'));
         // ...and the remote name is non-empty, so `name:` is well formed.
-        assert!(!b.remote_name().is_empty());
+        assert!(!remote.split(':').next().unwrap_or("").is_empty());
     }
 }
 

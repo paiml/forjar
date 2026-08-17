@@ -31,6 +31,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::StateDecrypt(..)
         | Commands::StateRekey(..)) => dispatch_misc_state(cmd),
         cmd @ (Commands::Show(..)
+        | Commands::Codegen(..)
+        | Commands::Dogfood(..)
         | Commands::Diff(..)
         | Commands::StackDiff(..)
         | Commands::Compare(..)
@@ -203,6 +205,12 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
             resource,
             json,
         }) => cmd_show(&file, resource.as_deref(), json),
+        Commands::Codegen(CodegenArgs {
+            file,
+            resource,
+            phase,
+        }) => crate::core::codegen::emit_for_cli(&file, &resource, &phase),
+        Commands::Dogfood(DogfoodArgs { json }) => crate::core::dogfood::report(json),
         Commands::Diff(DiffArgs {
             from,
             to,

@@ -4,28 +4,38 @@ Forjar provides formal verification capabilities for safety-critical and high-as
 
 ## Kani Bounded Model Checking
 
-Forjar includes [Kani](https://model-checking.github.io/kani/) proof harnesses for critical algorithms. These verify properties like idempotency, collision resistance, and determinism under bounded symbolic execution.
+Forjar includes [Kani](https://model-checking.github.io/kani/) proof harnesses for critical algorithms. These verify properties like ordering, monotonicity and determinism under bounded symbolic execution.
 
 ```rust
 // From src/core/kani_proofs.rs
 #[kani::proof]
-fn proof_blake3_idempotency() {
-    let data: [u8; 16] = kani::any();
-    let h1 = blake3::hash(&data);
-    let h2 = blake3::hash(&data);
-    assert_eq!(h1, h2);  // Same input always produces same hash
+fn proof_topo_sort_stability() {
+    let (e01, e02, e12): (bool, bool, bool) = (kani::any(), kani::any(), kani::any());
+    // The same DAG must always yield the same order.
+    assert_eq!(compute_order(e01, e02, e12), compute_order(e01, e02, e12));
 }
 ```
 
-21 proof harnesses across two modules:
+**What Kani can and cannot discharge here.** Seven harnesses were removed on
+2026-08-17 because every one of them verified *through a cryptographic hash*.
+With blake3's default build they failed instantly (`foreign "C" function
+syscall is not currently supported`); with its portable `pure` implementation a
+single harness reached 29.1 GB of RSS and was still running at 36 minutes.
+Three of the seven were also tautologies about the `blake3` crate rather than
+claims about forjar — including a collision-resistance "proof", which bounded
+model checking cannot establish at all.
+
+Those properties are now discharged **executably** (see
+`src/core/planner/tests_hash_source.rs`). Pick the tool that can actually
+answer the question: a model checker for finite algorithmic properties, a test
+for anything that hashes.
+
+Proof harnesses across two modules:
 
 **Abstract model proofs** (`src/core/kani_proofs.rs`):
 
 | Harness | Property |
 |---------|----------|
-| `proof_blake3_idempotency` | Hashing is deterministic |
-| `proof_blake3_collision_resistance` | Different inputs produce different hashes |
-| `proof_converged_state_is_noop` | Re-applying a converged state changes nothing |
 | `proof_status_transition_monotonic` | Status transitions are monotonic (never regress) |
 | `proof_plan_determinism` | Same input produces same plan |
 | `proof_topo_sort_stability` | Topological sort is stable |
@@ -44,7 +54,7 @@ Production function proofs call **real production code** under bounded
 symbolic inputs, not abstract models. This catches actual implementation
 bugs rather than proving properties of a separate model.
 
-Run with: `cargo kani --harness proof_blake3_idempotency`
+Run with: `cargo kani --harness proof_topo_sort_stability`
 
 ## TLA+ Execution Specification
 
@@ -139,7 +149,7 @@ in the `contracts/` directory, each backed by a Kani harness and/or runtime
 
 | Contract spec | ID | What It Guarantees |
 |---------------|----|--------------------|
-| `idempotent-apply-v1.yaml` | `F-IDEM-001` | Re-planning a fully converged lock set is a no-op (`apply(apply(s)) == apply(s)`). Bounded by Kani `proof_planner_idempotency_bounded`. |
+| `idempotent-apply-v1.yaml` | `F-IDEM-001` | Re-planning a fully converged lock set is a no-op (`apply(apply(s)) == apply(s)`). Discharged executably by `tests_hash_source.rs::identical_source_content_hashes_identically` — the Kani harness that once backed this was removed (see above). |
 | `plan-apply-equivalence-v1.yaml` | `F-PAE-001` | The actions executed by `apply` are exactly the actions reported by `plan` — no hidden work, no skipped work. |
 | `destroy-undo-roundtrip-v1.yaml` | `F-UNDO-001` | `destroy` followed by `undo` restores the pre-destroy generation snapshot bit-for-bit. |
 
@@ -265,4 +275,15 @@ Under the handler invariant, three Kani proofs verify idempotency:
 
 Additional proofs cover the OCI build pipeline:
 - `proof_layer_determinism`: same files produce same layer digest
-- `proof_store_idempotency`: content-addressable put is idempotent
+
+`proof_store_idempotency` was **removed** (GH-242). It computed one expression
+twice and asserted the halves equal — `x == x`, which cannot fail — over a
+hand-written model rather than the real address function. It also took **83
+minutes** of a 150-minute CI budget, against a 3-second median for every other
+harness, and was the reason the proof suite never ran to completion.
+
+Content-addressable determinism is tested where it can actually fail, by
+executing the real function: `tests/falsification_composite_hash_injectivity.rs`
+covers determinism *and* injectivity of `composite_hash` over real inputs —
+including a collision (GH-235) that the removed model could never have
+detected.

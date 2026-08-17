@@ -175,33 +175,73 @@ impl BackupSync {
 ///
 /// Returns `Err` for absolute paths, relative paths, bare names with no colon,
 /// and empty remote names.
-fn validate_remote(remote: &str) -> Result<(), String> {
+/// Why a remote was rejected — classification only, no message rendering.
+///
+/// Split out from `validate_remote` so `kani_proofs_backup_sync` can drive the
+/// decision without `core::fmt` or `String` in the model. Driving the full
+/// constructor made that harness run 117 minutes and get killed by the job
+/// timeout; the `format!` calls below were the rest of the cost, because CBMC
+/// must model every path, not merely the one the property asserts on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RemoteRejection {
+    /// Absolute, relative or `~`-prefixed — a local destination.
+    LocalPath,
+    /// No `remote:` prefix at all.
+    NoColonPrefix,
+    /// `:path` with nothing before the colon.
+    EmptyName,
+    /// Remote name contains something rclone will not accept.
+    InvalidNameChar,
+}
+
+/// The decision `validate_remote` makes, allocation-free.
+///
+/// `None` means accepted. Byte-wise rather than `chars()`: for this predicate
+/// the two agree — a name passes only if every byte is ASCII alphanumeric,
+/// `-` or `_`, which already implies the whole name is ASCII — and bytes cost
+/// CBMC far less than UTF-8 decoding.
+pub(crate) fn classify_remote(remote: &str) -> Option<RemoteRejection> {
     if remote.starts_with('/') || remote.starts_with('.') || remote.starts_with('~') {
-        return Err(format!(
+        return Some(RemoteRejection::LocalPath);
+    }
+    let Some((name, _path)) = remote.split_once(':') else {
+        return Some(RemoteRejection::NoColonPrefix);
+    };
+    if name.is_empty() {
+        return Some(RemoteRejection::EmptyName);
+    }
+    if !name
+        .bytes()
+        .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+    {
+        return Some(RemoteRejection::InvalidNameChar);
+    }
+    None
+}
+
+fn validate_remote(remote: &str) -> Result<(), String> {
+    let Some(reason) = classify_remote(remote) else {
+        return Ok(());
+    };
+    Err(match reason {
+        RemoteRejection::LocalPath => format!(
             "backup_sync remote '{remote}' is a LOCAL path. The destination must be an \
              rclone remote in `remote:path` form — a local destination is how the \
              predecessor came to copy the array onto itself and report success."
-        ));
-    }
-    let Some((name, _path)) = remote.split_once(':') else {
-        return Err(format!(
-            "backup_sync remote '{remote}' has no `remote:` prefix; expected `remote:path`"
-        ));
-    };
-    if name.is_empty() {
-        return Err(format!(
-            "backup_sync remote '{remote}' has an empty remote name"
-        ));
-    }
-    if !name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(format!(
-            "backup_sync remote name '{name}' must be alphanumeric/-/_ (rclone remote name)"
-        ));
-    }
-    Ok(())
+        ),
+        RemoteRejection::NoColonPrefix => {
+            format!("backup_sync remote '{remote}' has no `remote:` prefix; expected `remote:path`")
+        }
+        RemoteRejection::EmptyName => {
+            format!("backup_sync remote '{remote}' has an empty remote name")
+        }
+        RemoteRejection::InvalidNameChar => {
+            let name = remote.split(':').next().unwrap_or("");
+            format!(
+                "backup_sync remote name '{name}' must be alphanumeric/-/_ (rclone remote name)"
+            )
+        }
+    })
 }
 
 /// Overlapping sources double-count coverage and make the percentage a lie.

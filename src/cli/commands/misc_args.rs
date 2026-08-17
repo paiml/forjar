@@ -146,6 +146,36 @@ pub struct ShowArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `codegen` command.
+///
+/// FJ-038: emit the shell a resource GENERATES, resolved exactly as `apply`
+/// would resolve it. Without this, a resource whose real payload is synthesised
+/// shell can only be tested against fixtures its own author wrote — which is
+/// how three inverted-assumption bugs shipped in 1.13.0/1.13.1. Dogfooding a
+/// generated artifact requires being able to get at it.
+#[derive(clap::Args, Debug)]
+pub struct CodegenArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Resource id to emit
+    #[arg(short, long)]
+    pub resource: String,
+
+    /// Which script to emit
+    #[arg(long, default_value = "apply", value_parser = ["apply", "check", "state-query"])]
+    pub phase: String,
+}
+
+/// CLI arguments for the `dogfood` command.
+#[derive(clap::Args, Debug)]
+pub struct DogfoodArgs {
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// CLI arguments for the `check` command.
 #[derive(clap::Args, Debug)]
 pub struct CheckArgs {

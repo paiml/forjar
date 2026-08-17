@@ -421,3 +421,64 @@ fn dry_run_reclaims_nothing() {
     );
     fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn reclaims_a_per_arch_target_dir_that_has_only_cachedir_tag() {
+    // The layout that made the reaper inert on a 4.6 TB tree: per-arch
+    // subdirectories carry CACHEDIR.TAG and no .rustc_info.json, so a
+    // both-markers rule matched nothing at all.
+    let root = tmpdir("archdir");
+    let bin = root.join("bin");
+    let arch = root.join("src/targets/aprender/wasm32-unknown-unknown");
+    mk_cargo_target_arch(&arch);
+    backdate(&root.join("src"));
+    install_df_stub(&bin, &[(95, 1_000), (95, 1_000), (50, 900_000_000)]);
+
+    let res = budget_resource(
+        &root,
+        vec![ReclaimRule {
+            name: "targets".into(),
+            roots: vec![root.join("src").to_string_lossy().into_owned()],
+            kind: ReclaimKind::CargoTarget,
+            min_idle_minutes: 60,
+        }],
+    );
+    let r = run_reaper(&res, &bin, &root);
+    assert!(
+        !arch.exists(),
+        "a per-arch target dir with only CACHEDIR.TAG must be reclaimed\n{}",
+        r.stdout
+    );
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn never_reclaims_a_cargo_registry() {
+    // The registry has CACHEDIR.TAG and no .rustc_info.json — the same marker
+    // set as a per-arch target dir. Only the absence of debug/ or release/
+    // separates them, so this is the test standing between the reaper and a
+    // corrupted registry.
+    let root = tmpdir("registry");
+    let bin = root.join("bin");
+    let reg = root.join("src/registry");
+    mk_cargo_registry(&reg);
+    backdate(&root.join("src"));
+    install_df_stub(&bin, &[(99, 100)]);
+
+    let res = budget_resource(
+        &root,
+        vec![ReclaimRule {
+            name: "targets".into(),
+            roots: vec![root.join("src").to_string_lossy().into_owned()],
+            kind: ReclaimKind::CargoTarget,
+            min_idle_minutes: 60,
+        }],
+    );
+    let r = run_reaper(&res, &bin, &root);
+    assert!(
+        reg.join("src/lib.rs").exists(),
+        "the cargo registry must never be reclaimed\n{}",
+        r.stdout
+    );
+    fs::remove_dir_all(&root).ok();
+}

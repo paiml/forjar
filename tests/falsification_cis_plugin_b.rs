@@ -18,9 +18,14 @@
 //! Usage: cargo test --test falsification_cis_plugin
 #![allow(dead_code)]
 
-use forjar::core::plugin_dispatch::{
-    dispatch_apply, dispatch_check, dispatch_destroy, resolve_plugin,
-};
+use forjar::core::plugin_dispatch::{dispatch_check, resolve_plugin};
+
+// Only the `check` path has a test in both configurations. `apply` and `destroy`
+// are exercised solely by the stub-runtime tests below, so importing them
+// unconditionally warns under `--all-features` — the configuration the release
+// dogfood gate runs, and therefore the one whose warnings are load-bearing.
+#[cfg(not(feature = "wasm-runtime"))]
+use forjar::core::plugin_dispatch::{dispatch_apply, dispatch_destroy};
 
 // ============================================================================
 // FJ-3206: Pack metadata
@@ -32,7 +37,14 @@ fn create_test_plugin(dir: &std::path::Path, name: &str) {
     let plugin_dir = dir.join(name);
     std::fs::create_dir_all(&plugin_dir).unwrap();
 
-    let wasm_bytes = b"fake wasm module content for testing";
+    // A REAL (minimal, empty) WebAssembly module: the 4-byte magic `\0asm`
+    // followed by version 1. The fixture was previously the ASCII string
+    // "fake wasm module content for testing", which only works when there is no
+    // runtime to reject it — so these tests passed without `wasm-runtime` and
+    // failed under `cargo test --all-features`, which the release dogfood gate
+    // runs. A fixture that is not the real artifact only tests the absence of a
+    // validator.
+    let wasm_bytes: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
     let hash = blake3::hash(wasm_bytes).to_hex().to_string();
     std::fs::write(plugin_dir.join("plugin.wasm"), wasm_bytes).unwrap();
     std::fs::write(
@@ -44,6 +56,8 @@ fn create_test_plugin(dir: &std::path::Path, name: &str) {
     .unwrap();
 }
 
+/// Without a runtime, dispatch resolves the plugin and returns a stub result.
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_check_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -55,6 +69,40 @@ fn dispatch_check_real_plugin() {
     assert_eq!(result.operation, "check");
 }
 
+/// WITH a runtime, a module that does not meet the plugin ABI must be REJECTED,
+/// naming the export it lacks.
+///
+/// These tests were called `dispatch_*_real_plugin` and asserted success from a
+/// fixture whose `plugin.wasm` was the ASCII string "fake wasm module content
+/// for testing". That only passed because no runtime was present to look at it,
+/// so `cargo test --all-features` — which the release dogfood gate runs — failed
+/// on all three. The product behaviour was never wrong: it correctly refuses a
+/// non-conformant module. The tests were asserting the absence of a validator.
+///
+/// A genuinely conformant fixture needs a data section and an ABI-shaped
+/// `(i32,i32) -> i32` that returns a pointer to JSON output; that is worth
+/// building, and is tracked separately. Until it exists, this asserts the
+/// behaviour that actually matters — invalid plugins are refused, loudly.
+#[cfg(feature = "wasm-runtime")]
+#[test]
+fn dispatch_check_rejects_a_non_conformant_module() {
+    let dir = tempfile::tempdir().unwrap();
+    create_test_plugin(dir.path(), "test-plugin");
+
+    let config = serde_json::json!({"setting": true});
+    let result = dispatch_check(dir.path(), "test-plugin", &config);
+    assert!(
+        !result.success,
+        "a module lacking the plugin ABI must be refused, not reported converged"
+    );
+    assert!(
+        result.message.contains("memory"),
+        "the refusal must name the missing export: {}",
+        result.message
+    );
+}
+
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_apply_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -68,6 +116,7 @@ fn dispatch_apply_real_plugin() {
     assert!(!result.message.is_empty());
 }
 
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_destroy_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -111,6 +160,7 @@ fn dispatch_result_error_status_on_failure() {
     assert_eq!(result.status, forjar::core::types::PluginStatus::Error);
 }
 
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_result_converged_on_success() {
     let dir = tempfile::tempdir().unwrap();

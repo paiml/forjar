@@ -1,5 +1,19 @@
 # 09: Provable Design by Contract
 
+> **Removed 2026-08-17 (GH-242).** Seven harnesses listed in earlier revisions
+> of this spec — `proof_blake3_idempotency`, `proof_blake3_collision_resistance`,
+> `proof_converged_state_is_noop`, `proof_hash_determinism_bounded`,
+> `proof_planner_idempotency_bounded`, `proof_handler_invariant_file`,
+> `proof_handler_invariant_package` — verified *through a cryptographic hash*
+> and could not be discharged. Measured: instant failure on blake3's default
+> SIMD build (`foreign "C" function syscall is not currently supported`), and
+> 29.1 GB RSS still running at 36 minutes with the portable `pure` build. Three
+> were also tautologies about the `blake3` crate rather than claims about
+> forjar. The sections below are retained as design rationale; the properties
+> themselves are discharged executably in
+> `src/core/planner/tests_hash_source.rs`.
+
+
 > Four-tier verification architecture: from runtime assertions to machine-checked proofs.
 
 **Spec IDs**: FJ-2200 (runtime contracts), FJ-2201 (Kani real-code harnesses), FJ-2202 (Verus narrowed proofs), FJ-2203 (structural enforcement) | **Parent**: [forjar-platform-spec.md](../forjar-platform-spec.md)
@@ -30,9 +44,6 @@ Forjar has verification infrastructure at four levels. Each has specific gaps th
 
 | Harness | What It Models | Bound |
 |---------|---------------|-------|
-| `proof_blake3_idempotency` | Hash determinism | 4 bytes |
-| `proof_blake3_collision_resistance` | Hash uniqueness | 4 bytes |
-| `proof_converged_state_is_noop` | Idempotency gate | 4 bytes |
 | `proof_status_transition_monotonic` | Status enum transition | u8 |
 | `proof_plan_determinism` | Plan consistency | 3 resources |
 | `proof_topo_sort_stability` | DAG ordering | 3 nodes |

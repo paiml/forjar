@@ -69,7 +69,7 @@ fn collect_proofs(
         prove_codegen_completeness(config, machine_filter),
         prove_dag_acyclicity(config),
         prove_state_coverage(config, state_dir, machine_filter),
-        prove_hash_determinism(config, machine_filter),
+        prove_codegen_determinism(config, machine_filter),
         prove_idempotency_structure(config, machine_filter),
     ];
     // Provable-IaC structural invariants (three-state; I1/I5 already covered above).
@@ -234,7 +234,55 @@ fn prove_state_coverage(
     }
 }
 
-fn prove_hash_determinism(
+/// A codegen phase: its name, and the function that emits it.
+type CodegenPhase = (&'static str, fn(&types::Resource) -> Result<String, String>);
+
+/// The emitted phases whose determinism is checked.
+///
+/// All three, not just `state_query`: `check` and `apply` are hashed into
+/// desired state too, so nondeterminism in either produces the same
+/// phantom-drift failure. Sampling one of the three was arbitrary.
+const CODEGEN_PHASES: [CodegenPhase; 3] = [
+    ("state_query", codegen::state_query_script),
+    ("check", codegen::check_script),
+    ("apply", codegen::apply_script),
+];
+
+/// Emit each phase twice and report the phases whose text differed.
+///
+/// `emitted` is false when no phase produced a script at all, which is how the
+/// caller distinguishes "checked and clean" from "nothing to check".
+fn nondeterministic_phases(resource: &types::Resource) -> (bool, Vec<&'static str>) {
+    let mut emitted = false;
+    let mut differing = Vec::new();
+    for (phase, emit) in CODEGEN_PHASES {
+        let (Ok(first), Ok(second)) = (emit(resource), emit(resource)) else {
+            continue;
+        };
+        emitted = true;
+        if first != second {
+            differing.push(phase);
+        }
+    }
+    (emitted, differing)
+}
+
+/// Prove that codegen is a pure function of the resource.
+///
+/// GH-248: this was called `hash-determinism`, and the book described it as
+/// "BLAKE3 hashes are deterministic (same resource → same hash)". It never
+/// tested that. It emits one resource's scripts twice in-process and compares
+/// the text, so what it proves is that **`forjar`'s own code generation** is
+/// deterministic — chiefly that `HashMap`/`HashSet` iteration order does not
+/// leak into emitted script text, which it genuinely would catch, since std
+/// gives each map instance a distinct hash key.
+///
+/// It says nothing about whether the resource's *build output* is reproducible.
+/// A task with a non-deterministic generator passes this and then produces
+/// different artifact bytes on the next `apply`. Proving that requires
+/// double-execution and artifact comparison (GH-247), which `prove` cannot do
+/// from the config alone — so the name now claims only what is checked.
+fn prove_codegen_determinism(
     config: &types::ForjarConfig,
     machine_filter: Option<&str>,
 ) -> ProofResult {
@@ -242,31 +290,28 @@ fn prove_hash_determinism(
     let mut failures = Vec::new();
 
     for (id, resource) in &config.resources {
-        if let Some(filter) = machine_filter {
-            if !machine_matches(resource, filter) {
-                continue;
-            }
+        if machine_filter.is_some_and(|f| !machine_matches(resource, f)) {
+            continue;
         }
         if resource.resource_type == types::ResourceType::Recipe {
             continue;
         }
 
-        if let (Ok(s1), Ok(s2)) = (
-            codegen::state_query_script(resource),
-            codegen::state_query_script(resource),
-        ) {
+        let (emitted, differing) = nondeterministic_phases(resource);
+        if emitted {
             tested += 1;
-            if s1 != s2 {
-                failures.push(id.to_string());
-            }
         }
+        failures.extend(differing.into_iter().map(|phase| format!("{id} ({phase})")));
     }
 
     ProofResult {
-        name: "hash-determinism".to_string(),
+        name: "codegen-determinism".to_string(),
         passed: failures.is_empty(),
         detail: if failures.is_empty() {
-            format!("{tested} resources: state_query scripts are deterministic")
+            format!(
+                "{tested} resources: check/apply/state_query codegen is deterministic \
+                 (does NOT prove build-output reproducibility — see GH-247)"
+            )
         } else {
             format!(
                 "{} non-deterministic: {}",

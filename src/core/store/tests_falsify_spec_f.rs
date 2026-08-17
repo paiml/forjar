@@ -151,15 +151,17 @@ fn falsify_l05_diff_exec_result_fields() {
     assert!(result.upstream_command.is_some());
 }
 
-/// L-06: SyncExecResult has re_imported, derivations_replayed fields.
+/// L-06: SyncExecResult has re_imported, derivations_planned/replayed fields.
 #[test]
 fn falsify_l06_sync_exec_result_fields() {
     let result = SyncExecResult {
         re_imported: vec![],
+        derivations_planned: 0,
         derivations_replayed: 0,
         new_profile_hash: None,
     };
     assert_eq!(result.derivations_replayed, 0);
+    assert_eq!(result.derivations_planned, 0);
 }
 
 /// L-07: ConversionApplyResult has changes_applied, backup_path, new_purity.

@@ -1,0 +1,144 @@
+# Formal proofs — Kani bounded-model checking + Lean theorem proving.
+#
+# GH-242: before this workflow, no CI job invoked kani, lean or verus. 32 Kani
+# harnesses and 7 Lean proofs sat in the tree, cited by name as evidence in
+# contracts/*.yaml, and were never executed by anything.
+#
+# They were not merely unrun — they did not COMPILE. The first `cargo kani`
+# invocation failed with two E0425 errors in kani_proofs.rs (`super::compute_order`
+# for a function defined in that same module), so every harness in the crate was
+# unbuildable while the contracts referencing them read as verified.
+#
+# One harness also ran past ten minutes without terminating, because it drove
+# `DiskBudget::new` — which allocates Strings — across a 65,536-point input
+# space. An intractable proof is indistinguishable from an absent one.
+#
+# So this gate exists to make "verified" mean the machine checked it.
+name: Proofs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: proofs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kani:
+    name: kani
+    runs-on: [self-hosted, clean-room]
+    # 45 was too short, but NOT because proving is slow — measured 2026-08-16:
+    #
+    #   proof_applicable_operators_valid   22+ min  -> 2s   (after the fix below)
+    #   every other completed harness      0-5s each
+    #   9 harnesses in 36 min = ~11s of proving, ~35 min of COMPILATION
+    #
+    # Kani rebuilds the crate with its own compiler and CI carries no cache for
+    # that, so the cost is almost entirely the build. Raising this buys the
+    # compile, not slow proofs. If a single harness ever dominates again, that
+    # is the disk_budget/applicable_operators shape — an allocating function in
+    # the harness — and the fix is to retarget it, not to raise this further.
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+
+      # Kani is preinstalled in the sovereign-ci image. Asserting it rather than
+      # installing it: a runtime toolchain install makes the gate depend on the
+      # network and hides a drifted image behind a green run.
+      - name: Assert kani is available
+        run: |
+          if ! command -v cargo-kani >/dev/null 2>&1; then
+            echo "cargo-kani is not in the CI image — add it there, do not install at runtime" >&2
+            exit 1
+          fi
+          cargo kani --version
+
+      # A cancelled kani run leaves a half-written `.d` in target/kani, and the
+      # NEXT run then dies on it with a message that names no code:
+      #
+      #   error: could not parse/generate dep info at: .../deps/bashrs-*.d
+      #   error: Failed to execute cargo (exit status: 101). Found 0 compilation errors.
+      #
+      # "0 compilation errors" is the tell — nothing is wrong with the crate.
+      # This workflow has cancel-in-progress: true, and a 35-minute build gets
+      # cancelled often, so inheriting that state is the normal case rather than
+      # the exception. Same dep-info corruption paiml/rmedia#268 documents for
+      # concurrent builds; here it comes from cancellation rather than sharing.
+      #
+      # Discarding the directory costs nothing we were not already paying: kani
+      # rebuilds the crate with its own compiler every run regardless.
+      - name: Discard any target/kani left by a cancelled run
+        run: rm -rf target/kani
+
+      # Compilation is a distinct failure from non-verification, and it is the
+      # one that actually happened. Surfacing it separately means a broken
+      # harness reports as broken rather than as an opaque proof failure.
+      - name: Harnesses must compile
+        run: cargo kani --only-codegen
+
+      - name: Verify all harnesses
+        run: cargo kani --output-format terse
+
+  lean:
+    name: lean
+    runs-on: [self-hosted, clean-room]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # elan installs into ~/.elan, which is not on the runners' PATH (they get
+      # ~/.cargo/bin). Same shape as the existing Rust-toolchain PATH steps.
+      # This only exposes it — if it is absent, the assertion below still fails.
+      - name: Put the Lean toolchain on PATH
+        run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Assert lean is available
+        run: |
+          if ! command -v lean >/dev/null 2>&1; then
+            echo "lean is not in the CI image — add it there, do not install at runtime" >&2
+            exit 1
+          fi
+          lean --version
+
+      # Every .lean file, and the count is asserted: a proof deleted or renamed
+      # out of the glob would otherwise make this job pass by checking nothing,
+      # which is the failure mode this whole workflow was written to end.
+      - name: Verify Lean proofs
+        run: |
+          set -euo pipefail
+          n=0
+          for f in lean/*.lean; do
+            echo "--- $f"
+            lean "$f"
+            n=$((n + 1))
+          done
+          echo "verified $n Lean proof(s)"
+          if [ "$n" -lt 7 ]; then
+            echo "expected at least 7 Lean proofs, found $n — a proof was removed" >&2
+            exit 1
+          fi
+
+  # Aggregator so branch protection can require one context for both.
+  proofs:
+    name: proofs
+    runs-on: ubuntu-latest
+    needs: [kani, lean]
+    if: always()
+    steps:
+      - name: Check proof jobs
+        run: |
+          if [ "${{ needs.kani.result }}" != "success" ]; then
+            echo "kani failed: ${{ needs.kani.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.lean.result }}" != "success" ]; then
+            echo "lean failed: ${{ needs.lean.result }}"
+            exit 1
+          fi
+          echo "All proofs verified"

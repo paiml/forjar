@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.2] - 2026-08-16
+
+### Added
+
+- **`forjar dogfood` — exercise generated artifacts against reality** (FJ-038).
+
+  Three releases in two days each fixed the previous one, and every one had
+  passed 12,904 unit tests, a five-gate clean room and a 19-check CI run. The
+  common cause was not missing tests: it was that the fixtures and the code
+  shared an author, so each fixture confirmed the assumption it was meant to
+  test. The rclone stub emitted whichever status characters the author believed
+  in. The cargo fixture carried both marker files because the author believed
+  both were present.
+
+  **A test you author cannot falsify a premise you hold.** `forjar dogfood`
+  invokes the real external tool and builds the on-disk shapes that really
+  occur, then asserts reality agrees with what the code assumes:
+
+  - `backup_sync` runs `rclone check --combined` against a four-case fixture and
+    confirms `= * + -` mean what the coverage counters assume;
+  - `disk_budget` builds all four real cargo layouts — repo target root, per-arch
+    subdirectory, cargo registry, and a `cc`-style source dir named `target` —
+    and confirms the first two are detected and the last two are not;
+  - `file` and `cron` execute their emitted shell under **bash**, the interpreter
+    every forjar transport actually uses.
+
+  A missing external tool is a FAILURE, not a skip: dogfooding a resource built
+  on a tool's output format, without that tool, proves nothing.
+
+  Coverage is declared by an **exhaustive match** over `ResourceType` with no
+  wildcard arm, so a new resource type fails to compile until its dogfood status
+  is stated, and `NotApplicable` requires a written reason that is printed on
+  every run. The previous `scripts/dogfood-use.sh` covered only `file` resources
+  and still reported success while two new resource types shipped broken; a gate
+  that can silently stop covering things is worse than none, because it reports
+  GO with authority.
+
+  Verified by mutation — reintroducing each shipped bug turns the gate RED:
+
+  ```
+  both-markers cargo rule (1.13.1) -> FAIL disk_budget: repo target root NOT detected
+  inverted rclone +/-     (1.13.0) -> FAIL backup_sync: counter keyed on wrong character
+  ```
+
+- **`forjar codegen -r <resource> --phase apply|check|state-query`** — emit the
+  shell a resource generates, resolved as `apply` would resolve it. A resource
+  whose real payload is synthesised shell cannot be dogfooded, or debugged, if
+  the artifact cannot be got at.
+
+### Fixed
+
+- **`disk_budget` matched no cargo target directory on a real fleet machine.**
+  Detection required BOTH `CACHEDIR.TAG` and `.rustc_info.json`. Measured on
+  lambda-labs across a 4.6 TB `targets/` tree: **zero of 16** marker-bearing
+  directories carried the pair.
+
+  ```
+  targets/<repo>                 .rustc_info.json,  NO CACHEDIR.TAG
+  targets/<repo>/<arch-triple>   CACHEDIR.TAG,      NO .rustc_info.json
+  ```
+
+  cargo writes `.rustc_info.json` at the target root and `CACHEDIR.TAG` in the
+  per-arch subdirectories, so the conjunction is satisfied by neither. The
+  reaper triggered at 94% used, enumerated nothing, reclaimed 0 bytes and
+  reported `health=inert` — the exact silent-inertness the resource exists to
+  prevent, reached by a different route.
+
+  A directory is now a cargo target dir when it has `.rustc_info.json`
+  (definitive), **or** `CACHEDIR.TAG` together with a `debug/` or `release/`
+  subdirectory. That second clause is what still keeps the reaper out of
+  `~/.cargo/registry`, which carries `CACHEDIR.TAG`, lacks `.rustc_info.json`,
+  and whose children are `src/`, `cache/`, `index/` rather than build output.
+
+  Both directions are pinned by falsification tests built from the measured
+  layouts, and both were verified to turn RED under mutation: restoring the
+  conjunction fails the per-arch test, and dropping the build-output
+  requirement fails the registry-protection test.
+
+
 ## [1.13.1] - 2026-08-15
 
 ### Fixed

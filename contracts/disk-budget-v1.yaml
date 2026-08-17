@@ -69,12 +69,15 @@ equations:
 
   detection_is_behavioural:
     formula: |
-      is_cargo_target(d) ⟺ exists(d/CACHEDIR.TAG) ∧ exists(d/.rustc_info.json)
+      is_cargo_target(d) ⟺ exists(d/.rustc_info.json)
+                         ∨ ( exists(d/CACHEDIR.TAG) ∧ ( isdir(d/debug) ∨ isdir(d/release) ) )
     domain: "d ∈ directories under a declared reclaim root"
     codomain: "bool"
     invariants:
       - "Detection MUST NOT depend on the directory's name (D2)"
-      - "BOTH markers are required — `~/.cargo/registry` carries CACHEDIR.TAG and no .rustc_info.json, so the conjunction is exactly what excludes the registry"
+      - "The two markers do NOT co-occur, so requiring both matches nothing. Measured across a real 4.6 TB tree: zero of sixteen marker-bearing directories carried the pair. A repo target root has .rustc_info.json and no CACHEDIR.TAG; a per-arch subdirectory has CACHEDIR.TAG and no .rustc_info.json. The conjunction shipped in 1.13.1 and made the reaper inert at 94% used."
+      - "`.rustc_info.json` alone is sufficient — cargo writes it at the target root and nothing else does"
+      - "`CACHEDIR.TAG` alone is NOT sufficient: `~/.cargo/registry` carries one. It qualifies only alongside a `debug/` or `release/` subdirectory, which the registry (src/ cache/ index/) never has — that conjunct is what now excludes the registry"
       - "A source directory named `target` (the `cc` crate ships one at src/target/) is NEVER a candidate"
       - "Dot-prefixed `.target` IS a candidate"
 
@@ -196,13 +199,13 @@ proof_obligations:
 
   - type: safety
     property: "Cargo build dirs are detected by cargo's own markers, never by name"
-    formal: "∀ d: candidate(d) ⟹ exists(d/CACHEDIR.TAG) ∧ exists(d/.rustc_info.json)"
+    formal: "∀ d: candidate(d) ⟹ is_cargo_target(d)"
     applies_to: detection_is_behavioural
     enforced_by: "tests/falsification_disk_budget.rs::never_deletes_a_source_dir_named_target"
 
   - type: safety
     property: "A dot-prefixed .target is reclaimable (no name blind spot)"
-    formal: "∀ d named `.target` with both markers: candidate(d)"
+    formal: "∀ d named `.target` satisfying is_cargo_target(d): candidate(d)"
     applies_to: detection_is_behavioural
     enforced_by: "tests/falsification_disk_budget.rs::reclaims_dot_prefixed_target_dirs"
 
@@ -263,13 +266,13 @@ proof_obligations:
 falsification_tests:
   - id: FALSIFY-DBG-001
     rule: "detection is behavioural, not name-based"
-    prediction: "a dot-prefixed `.target` carrying both cargo markers IS reclaimed"
+    prediction: "a dot-prefixed `.target` satisfying is_cargo_target IS reclaimed"
     test: "tests/falsification_disk_budget.rs::reclaims_dot_prefixed_target_dirs"
     if_fails: "The exact 189G blind spot returns: build output the reaper cannot see accumulates until the disk is full"
 
   - id: FALSIFY-DBG-002
-    rule: "both cargo markers required"
-    prediction: "a source dir named `target` and a CACHEDIR.TAG-only dir both survive a 99%-pressure pass"
+    rule: "CACHEDIR.TAG alone never qualifies a directory"
+    prediction: "a source dir named `target` and a bare CACHEDIR.TAG dir with no debug/ or release/ (the ~/.cargo/registry shape) both survive a 99%-pressure pass"
     test: "tests/falsification_disk_budget.rs::never_deletes_a_source_dir_named_target"
     if_fails: "The reaper eats ~/.cargo/registry; .cargo-ok survives so cargo notices nothing until a later build fails with `could not compile cc`"
 

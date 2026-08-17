@@ -104,9 +104,10 @@ fn list_store_entries_skips_files() {
 
 #[test]
 fn list_store_entries_nonexistent() {
+    // GH-239: absent store == empty store.
     let result =
         super::store_ops::list_store_entries(Path::new("/tmp/forjar-nonexistent-store-xyz"));
-    assert!(result.is_err());
+    assert_eq!(result.expect("absent store must read as empty"), vec![]);
 }
 
 // ── collect_profile_hashes ──────────────────────────────────────

@@ -197,6 +197,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_tag_value_format,
         check_resource_provider_version_pinning,
         check_recipe_purity,
+        min_purity,
         check_reproducibility_score,
         deny_unknown_fields,
     } = args;
@@ -235,6 +236,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         json,
         check_recipe_purity,
         check_reproducibility_score,
+        min_purity.as_deref(),
     )
     .or_else(|| {
         try_validate_checks_early_a(

@@ -15,6 +15,28 @@ identical inputs always produce identical store paths.
 └── .gc-roots/          # Symlinks to live store paths
 ```
 
+### Where the store lives
+
+`/var/lib/forjar/store` is the **system** store, used when forjar can write it.
+It is not the only location — the root is resolved per process, in this order:
+
+1. `$FORJAR_STORE`, if set. An explicit choice always wins, so a
+   misconfiguration surfaces on the path you named rather than being silently
+   redirected somewhere else.
+2. `/var/lib/forjar/store`, when this process can write there — the system
+   install, and the packaged deployment case.
+3. `$XDG_DATA_HOME/forjar/store`, else `~/.local/share/forjar/store` — the
+   per-user store.
+
+Before this resolution existed the base was a compile-time constant, so an
+unprivileged user could neither create the store nor point forjar elsewhere, and
+every store subcommand failed with a bare `No such file or directory` (GH-239).
+Any `--store-dir` flag still overrides all of the above.
+
+A store directory that does not exist yet reads as an **empty** store, not an
+error: the store is created by the first import, not by listing it. A store that
+exists but cannot be read is still an error.
+
 Store entries are **write-once**: once created, they are never modified.
 Updates produce new entries with new hashes. The hash is computed from:
 
