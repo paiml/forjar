@@ -30,13 +30,49 @@ pub fn check_script(resource: &Resource) -> String {
             verdict::check_script_from(&checks)
         }
         "cargo" => {
+            // GH-257: ask CARGO what it installed, not the PATH.
+            //
+            // This was `command -v <crate_name>`, which is wrong twice over.
+            //
+            // 1. A crate's name is not its binary's name. `kani-verifier`
+            //    installs `cargo-kani` and `kani`; `command -v kani-verifier`
+            //    can never succeed, so the resource reported missing forever
+            //    even with the crate installed and working. Observed on intel:
+            //    `forjar check -r kani-verifier` FAILED while
+            //    `cargo-kani --version` printed 0.67.0.
+            //
+            // 2. `command -v` tests that a path exists and carries the
+            //    executable bit — not that it RUNS. A dangling symlink passes.
+            //    Also observed on intel: ~/.cargo/bin/rustup was gone while
+            //    ~/.cargo/bin/cargo remained as a symlink to it, and every
+            //    existence-check was satisfied by a link that executed nothing.
+            //
+            // `cargo install --list` is cargo's own record of what it
+            // installed, keyed by CRATE name and carrying the version:
+            //
+            //     kani-verifier v0.67.0:
+            //         cargo-kani
+            //         kani
+            //
+            // So it answers the question actually being asked, and it does so
+            // without depending on PATH — which differs between a login shell
+            // and the runner service that will use the tool.
+            let version = resource.version.as_deref();
             let checks: Vec<String> = packages
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
-                    let q = sh_squote(crate_name);
+                    // Anchor on the crate name and the ` v` that precedes the
+                    // version, so `pmat` cannot be satisfied by `pmat-extra`.
+                    let needle = match version {
+                        Some(v) => format!("^{crate_name} v{v}:"),
+                        None => format!("^{crate_name} v"),
+                    };
                     verdict::assert_that(
-                        &format!("command -v {q} >/dev/null 2>&1"),
+                        &format!(
+                            "cargo install --list 2>/dev/null | grep -q {}",
+                            sh_squote(&needle)
+                        ),
                         &format!("installed:{crate_name}"),
                         &format!("missing:{crate_name}"),
                     )

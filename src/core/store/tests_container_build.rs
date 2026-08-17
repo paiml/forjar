@@ -26,7 +26,9 @@ fn build_image_creates_oci_layout() {
     match result {
         Ok(r) => {
             assert!(!r.runtime.is_empty());
-            assert!(r.duration_ms < 60_000);
+            // GH-259: no wall-clock budget here. The OCI-layout assertions below
+            // are what make this test meaningful; a duration bound on a docker
+            // build adds no signal and fails on a contended host.
             // Verify OCI layout structure
             assert!(output_dir.path().join("oci-layout").exists());
             assert!(output_dir.path().join("index.json").exists());

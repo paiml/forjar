@@ -26,7 +26,7 @@ state/*/events.jsonl
 .claude/*
 !.claude/skills/
 
-# Local tool output — dogfood receipts and dhat heap profiles are per-run
-# artifacts of a developer machine, not repo content.
-.dogfood/
-dhat-heap.json
+# GH-256: `forjar dist` output. Release builds it into /tmp/dist-output; a copy
+# committed at the repo root in March went stale against the maintained
+# install.sh and carried 7 bashrs SEC findings the real one does not.
+/dist-output/

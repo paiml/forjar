@@ -384,13 +384,21 @@ pub fn state_query_script(resource: &Resource) -> String {
             queries.join("\n")
         }
         "cargo" => {
+            // GH-257: ask cargo, not the PATH — see package_check.rs for the
+            // full reasoning. This one feeds DRIFT, so its blindness is the
+            // more expensive half: with `command -v <crate_name>`, a crate
+            // whose binary is named differently (kani-verifier -> cargo-kani)
+            // reads as MISSING forever, and a dangling symlink reads as
+            // installed. Neither state produces a useful drift signal, which is
+            // why an intel host lost rustup, cargo and forjar without a single
+            // drift finding.
             let queries: Vec<String> = packages
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
                     format!(
-                        "command -v {} >/dev/null 2>&1 && echo {} || echo {}",
-                        sh_squote(crate_name),
+                        "cargo install --list 2>/dev/null | grep -q {} && echo {} || echo {}",
+                        sh_squote(&format!("^{crate_name} v")),
                         sh_squote(&format!("{crate_name}=installed")),
                         sh_squote(&format!("{crate_name}=MISSING"))
                     )

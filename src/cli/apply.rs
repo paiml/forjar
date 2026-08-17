@@ -95,6 +95,7 @@ pub(crate) fn cmd_apply_scoped(
         state_dir,
         machine_filter,
         tag_filter,
+        resource_filter,
         confirm_destructive,
         dry_run,
         force,
@@ -367,6 +368,7 @@ fn apply_pre_validate(
     state_dir: &Path,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
+    resource_filter: Option<&str>,
     confirm_destructive: bool,
     dry_run: bool,
     force: bool,
@@ -381,11 +383,10 @@ fn apply_pre_validate(
         let order = resolver::build_execution_order(config)?;
         let cd_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let plan = planner::plan(config, &order, &cd_locks, tag_filter);
-        let destroy_count = plan
-            .changes
-            .iter()
-            .filter(|p| p.action == types::PlanAction::Destroy)
-            .count();
+        // GH-253: scoped, so `-r` on a non-destructive resource is not blocked
+        // by destroys the operator did not select and apply would not perform.
+        let (_, _, destroy_count) =
+            super::apply_gates::scoped_action_counts(&plan.changes, resource_filter);
         if let Some(msg) = super::apply_gates::should_block_destructive(
             destroy_count,
             confirm_destructive,
@@ -414,11 +415,12 @@ fn apply_pre_validate(
         let execution_order = resolver::build_execution_order(config)?;
         let preview_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let preview_plan = planner::plan(config, &execution_order, &preview_locks, tag_filter);
-        let n_changes = preview_plan.to_create + preview_plan.to_update + preview_plan.to_destroy;
+        let (to_create, to_update, to_destroy) =
+            super::apply_gates::scoped_action_counts(&preview_plan.changes, resource_filter);
+        let n_changes = to_create + to_update + to_destroy;
         if n_changes > 0 {
             eprint!(
-                "Apply {} change(s) ({} create, {} update, {} destroy)? [y/N] ",
-                n_changes, preview_plan.to_create, preview_plan.to_update, preview_plan.to_destroy
+                "Apply {n_changes} change(s) ({to_create} create, {to_update} update, {to_destroy} destroy)? [y/N] "
             );
             let mut answer = String::new();
             std::io::stdin()

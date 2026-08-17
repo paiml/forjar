@@ -98,7 +98,8 @@ kani_harnesses:
     obligation: "Conflict detector is sound and complete"
     harness: "core::prove::checkers::kani_proofs::conflict_detector_sound"
     strategy: exhaustive
-    bound: "4 keys"
+    # 4 keys — the unit is keys; the schema types `bound` as u32.
+    bound: 4
     status: PROVED
 
 lean_proofs:
