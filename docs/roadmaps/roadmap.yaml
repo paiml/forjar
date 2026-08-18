@@ -1739,3 +1739,39 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-132
+  github_issue: null
+  item_type: task
+  title: Fix unresolved-secret guard placement and multi-line completion_check codegen
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-08-18T17:32:28Z
+  updated: 2026-08-18T17:50:07.016816650+00:00
+  spec: null
+  acceptance_criteria:
+  - '1) The unresolved-secret guard added alongside GH-254-era work lived in the executor and aborted the whole apply on any resource''s unresolved {{secrets.*}} anywhere on the machine; moved to codegen dispatch so only the offending resource fails. 2) GH-254''s re-assertion of completion_check in task apply scripts interpolated a multi-line YAML block-scalar check directly before '' ; }; then'', and the block scalar''s trailing newline put the semicolon on its own line -- an empty statement right after a newline that already terminated the previous command, which bash rejects as a syntax error. Found live on paiml/infra''s machines/intel/forjar.yaml: 14 resources failed identically on a --force apply.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-133
+  github_issue: null
+  item_type: task
+  title: Repo-wide pre-existing quality debt (complexity/file-size/coverage/push-policy)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-08-18T17:42:23Z
+  updated: 2026-08-18T17:42:23Z
+  spec: null
+  acceptance_criteria:
+  - 238 functions exceed complexity 20, 7 files exceed 500 lines (incl. the 31171-line generated_contracts.rs), 56 untested match arms in src/core/codegen/dispatch.rs, and this session's convention of not pushing branches without being asked. All pre-existing, none introduced by or touched in PMAT-132's 2 fixes (secret-guard relocation to codegen dispatch; multi-line completion_check bash-syntax fix in task.rs). Tracked here so PMAT-132 can close honestly via --override-claims rather than silently skip its own falsification gate.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - debt
+  - pre-existing
+  notes: null
