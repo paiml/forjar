@@ -1,0 +1,1747 @@
+# forjar unified verb surface — GENERATED, DO NOT EDIT
+#
+# Regenerate: cargo test --lib regenerate_surface_manifest -- --ignored
+#
+# Derived from the clap command tree in src/cli/commands/mod.rs.
+# Columns: verb, effects, then one line per parameter.
+
+verbs: 160
+params: 1258
+
+[agent] effects=mutating
+  description: FJ-059+060: Pull agent / hybrid push-pull enforcement
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param interval kind=Value required=false long=--interval default=60
+  param auto_apply kind=Flag required=false long=--auto-apply
+  param max_iterations kind=Value required=false long=--max-iterations
+  param pull kind=Flag required=false long=--pull
+  param json kind=Flag required=false long=--json
+
+[agent-registry] effects=mutating
+  description: FJ-1437: Agent recipe registry
+  param registry_dir kind=Value required=false long=--registry-dir
+  param category kind=Value required=false long=--category
+  param json kind=Flag required=false long=--json
+
+[agent-sbom] effects=mutating
+  description: FJ-1408: Generate agent-specific SBOM
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[anomaly] effects=mutating
+  description: Detect anomalous resource behavior from event history
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param min_events kind=Value required=false long=--min-events default=3
+  param json kind=Flag required=false long=--json
+
+[apply] effects=mutating
+  description: Converge infrastructure to desired state
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param resource kind=Value required=false long=--resource
+  param tag kind=Value required=false long=--tag
+  param group kind=Value required=false long=--group
+  param force kind=Flag required=false long=--force
+  param refresh kind=Flag required=false long=--refresh
+  param force_tag kind=Value required=false long=--force-tag
+  param dry_run kind=Flag required=false long=--dry-run
+  param no_tripwire kind=Flag required=false long=--no-tripwire
+  param params kind=Multi required=false long=--param
+  param auto_commit kind=Flag required=false long=--auto-commit
+  param timeout kind=Value required=false long=--timeout
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+  param env_file kind=Value required=false long=--env-file
+  param workspace kind=Value required=false long=--workspace
+  param check kind=Flag required=false long=--check
+  param report kind=Flag required=false long=--report
+  param force_unlock kind=Flag required=false long=--force-unlock
+  param output kind=Value required=false long=--output
+  param progress kind=Flag required=false long=--progress
+  param timing kind=Flag required=false long=--timing
+  param retry kind=Value required=false long=--retry default=0
+  param yes kind=Flag required=false long=--yes
+  param parallel kind=Flag required=false long=--parallel
+  param resource_timeout kind=Value required=false long=--resource-timeout
+  param rollback_on_failure kind=Flag required=false long=--rollback-on-failure
+  param max_parallel kind=Value required=false long=--max-parallel
+  param notify kind=Value required=false long=--notify
+  param subset kind=Value required=false long=--subset
+  param confirm_destructive kind=Flag required=false long=--confirm-destructive
+  param backup kind=Flag required=false long=--backup
+  param exclude kind=Value required=false long=--exclude
+  param sequential kind=Flag required=false long=--sequential
+  param trace kind=Flag required=false long=--trace
+  param diff_only kind=Flag required=false long=--diff-only
+  param notify_slack kind=Value required=false long=--notify-slack
+  param cost_limit kind=Value required=false long=--cost-limit
+  param preview kind=Flag required=false long=--preview
+  param tag_filter kind=Value required=false long=--tag-filter
+  param output_scripts kind=Value required=false long=--output-scripts
+  param resume kind=Flag required=false long=--resume
+  param confirm kind=Flag required=false long=--confirm
+  param max_failures kind=Value required=false long=--max-failures
+  param rate_limit kind=Value required=false long=--rate-limit
+  param labels kind=Multi required=false long=--label
+  param plan_file kind=Value required=false long=--plan-file
+  param notify_email kind=Value required=false long=--notify-email
+  param skip kind=Value required=false long=--skip
+  param snapshot_before kind=Value required=false long=--snapshot-before
+  param concurrency kind=Value required=false long=--concurrency
+  param webhook_before kind=Value required=false long=--webhook-before
+  param rollback_snapshot kind=Value required=false long=--rollback-snapshot
+  param retry_delay kind=Value required=false long=--retry-delay
+  param tags kind=Multi required=false long=--tags
+  param log_file kind=Value required=false long=--log-file
+  param comment kind=Value required=false long=--comment
+  param only_changed kind=Flag required=false long=--only-changed
+  param pre_script kind=Value required=false long=--pre-script
+  param dry_run_json kind=Flag required=false long=--dry-run-json
+  param notify_webhook kind=Value required=false long=--notify-webhook
+  param post_script kind=Value required=false long=--post-script
+  param approval_required kind=Flag required=false long=--approval-required
+  param canary_percent kind=Value required=false long=--canary-percent
+  param schedule kind=Value required=false long=--schedule
+  param env-name kind=Value required=false long=--env-name
+  param dry_run_diff kind=Flag required=false long=--dry-run-diff
+  param notify_pagerduty kind=Value required=false long=--notify-pagerduty
+  param batch_size kind=Value required=false long=--batch-size
+  param notify_teams kind=Value required=false long=--notify-teams
+  param abort_on_drift kind=Flag required=false long=--abort-on-drift
+  param dry_run_summary kind=Flag required=false long=--dry-run-summary
+  param notify_discord kind=Value required=false long=--notify-discord
+  param rollback_on_threshold kind=Value required=false long=--rollback-on-threshold
+  param metrics_port kind=Value required=false long=--metrics-port
+  param notify_opsgenie kind=Value required=false long=--notify-opsgenie
+  param circuit_breaker kind=Value required=false long=--circuit-breaker
+  param require_approval kind=Value required=false long=--require-approval
+  param notify_datadog kind=Value required=false long=--notify-datadog
+  param change_window kind=Value required=false long=--change-window
+  param canary_machine kind=Value required=false long=--canary-machine
+  param notify_newrelic kind=Value required=false long=--notify-newrelic
+  param max_duration kind=Value required=false long=--max-duration
+  param notify_grafana kind=Value required=false long=--notify-grafana
+  param rate_limit_resources kind=Value required=false long=--rate-limit-resources
+  param checkpoint_interval kind=Value required=false long=--checkpoint-interval
+  param notify_victorops kind=Value required=false long=--notify-victorops
+  param blue_green kind=Value required=false long=--blue-green
+  param dry_run_cost kind=Flag required=false long=--dry-run-cost
+  param notify_msteams_adaptive kind=Value required=false long=--notify-msteams-adaptive
+  param progressive kind=Value required=false long=--progressive
+  param approval_webhook kind=Value required=false long=--approval-webhook
+  param notify_incident kind=Value required=false long=--notify-incident
+  param sign_off kind=Value required=false long=--sign-off
+  param notify_sns kind=Value required=false long=--notify-sns
+  param telemetry_endpoint kind=Value required=false long=--telemetry-endpoint
+  param runbook kind=Value required=false long=--runbook
+  param notify_pubsub kind=Value required=false long=--notify-pubsub
+  param fleet_strategy kind=Value required=false long=--fleet-strategy
+  param pre_check kind=Value required=false long=--pre-check
+  param notify_eventbridge kind=Value required=false long=--notify-eventbridge
+  param dry_run_graph kind=Flag required=false long=--dry-run-graph
+  param post_check kind=Value required=false long=--post-check
+  param notify_kafka kind=Value required=false long=--notify-kafka
+  param max_retries kind=Value required=false long=--max-retries
+  param rollback_window kind=Value required=false long=--rollback-window
+  param notify_azure_servicebus kind=Value required=false long=--notify-azure-servicebus
+  param approval_timeout kind=Value required=false long=--approval-timeout
+  param pre_flight kind=Value required=false long=--pre-flight
+  param notify_gcp_pubsub_v2 kind=Value required=false long=--notify-gcp-pubsub-v2
+  param checkpoint kind=Value required=false long=--checkpoint
+  param post_flight kind=Value required=false long=--post-flight
+  param notify_rabbitmq kind=Value required=false long=--notify-rabbitmq
+  param gate kind=Value required=false long=--gate
+  param notify_nats kind=Value required=false long=--notify-nats
+  param dry_run_verbose kind=Flag required=false long=--dry-run-verbose
+  param explain kind=Flag required=false long=--explain
+  param notify_mqtt kind=Value required=false long=--notify-mqtt
+  param confirmation_message kind=Value required=false long=--confirmation-message
+  param summary_only kind=Flag required=false long=--summary-only
+  param notify_redis kind=Value required=false long=--notify-redis
+  param notify_amqp kind=Value required=false long=--notify-amqp
+  param pre_apply_hook kind=Value required=false long=--pre-apply-hook
+  param resource_filter kind=Value required=false long=--resource-filter
+  param notify_stomp kind=Value required=false long=--notify-stomp
+  param post_apply_hook kind=Value required=false long=--post-apply-hook
+  param dry_run_shell kind=Flag required=false long=--dry-run-shell
+  param notify_zeromq kind=Value required=false long=--notify-zeromq
+  param canary_resource kind=Value required=false long=--canary-resource
+  param timeout_per_resource kind=Value required=false long=--timeout-per-resource
+  param notify_grpc kind=Value required=false long=--notify-grpc
+  param skip_unchanged kind=Flag required=false long=--skip-unchanged
+  param retry_backoff kind=Value required=false long=--retry-backoff
+  param notify_sqs kind=Value required=false long=--notify-sqs
+  param plan_output_file kind=Value required=false long=--plan-output-file
+  param resource_priority kind=Multi required=false long=--resource-priority
+  param apply_window kind=Value required=false long=--apply-window
+  param fail_fast_machine kind=Flag required=false long=--fail-fast-machine
+  param notify_mattermost kind=Value required=false long=--notify-mattermost
+  param cooldown kind=Value required=false long=--cooldown
+  param exclude_machine kind=Value required=false long=--exclude-machine
+  param notify_ntfy kind=Value required=false long=--notify-ntfy
+  param only_machine kind=Value required=false long=--only-machine
+  param notify_webhook_headers kind=Value required=false long=--notify-webhook-headers
+  param notify_log kind=Value required=false long=--notify-log
+  param notify_exec kind=Value required=false long=--notify-exec
+  param notify_file kind=Value required=false long=--notify-file
+  param notify_json kind=Flag required=false long=--notify-json
+  param notify_slack_webhook kind=Value required=false long=--notify-slack-webhook
+  param notify_telegram kind=Value required=false long=--notify-telegram
+  param notify_webhook_v2 kind=Value required=false long=--notify-webhook-v2
+  param notify_discord_webhook kind=Value required=false long=--notify-discord-webhook
+  param notify_teams_webhook kind=Value required=false long=--notify-teams-webhook
+  param notify_slack_blocks kind=Value required=false long=--notify-slack-blocks
+  param notify_custom_template kind=Value required=false long=--notify-custom-template
+  param notify_custom_webhook kind=Value required=false long=--notify-custom-webhook
+  param notify_custom_headers kind=Value required=false long=--notify-custom-headers
+  param notify_custom_json kind=Value required=false long=--notify-custom-json
+  param notify_custom_filter kind=Value required=false long=--notify-custom-filter
+  param notify_custom_retry kind=Value required=false long=--notify-custom-retry
+  param notify_custom_transform kind=Value required=false long=--notify-custom-transform
+  param notify_custom_batch kind=Value required=false long=--notify-custom-batch
+  param notify_custom_deduplicate kind=Value required=false long=--notify-custom-deduplicate
+  param notify_custom_throttle kind=Value required=false long=--notify-custom-throttle
+  param notify_custom_aggregate kind=Value required=false long=--notify-custom-aggregate
+  param notify_custom_priority kind=Value required=false long=--notify-custom-priority
+  param notify_custom_routing kind=Value required=false long=--notify-custom-routing
+  param notify_custom_dedup_window kind=Value required=false long=--notify-custom-dedup-window
+  param notify_custom_rate_limit kind=Value required=false long=--notify-custom-rate-limit
+  param notify_custom_backoff kind=Value required=false long=--notify-custom-backoff
+  param notify_custom_circuit_breaker kind=Value required=false long=--notify-custom-circuit-breaker
+  param notify_custom_dead_letter kind=Value required=false long=--notify-custom-dead-letter
+  param notify_custom_escalation kind=Value required=false long=--notify-custom-escalation
+  param notify_custom_correlation kind=Value required=false long=--notify-custom-correlation
+  param notify_custom_sampling kind=Value required=false long=--notify-custom-sampling
+  param notify_custom_digest kind=Value required=false long=--notify-custom-digest
+  param notify_custom_severity_filter kind=Value required=false long=--notify-custom-severity-filter
+  param policy_check kind=Flag required=false long=--policy-check
+  param policy_dir kind=Value required=false long=--policy-dir default=policies
+  param refresh_only kind=Flag required=false long=--refresh-only
+  param encrypt_state kind=Flag required=false long=--encrypt-state
+  param operator kind=Value required=false long=--operator
+
+[archive] effects=mutating subcommands=pack,unpack,inspect,verify
+  description: FJ-1346: Forjar Archive (FAR) operations (pack, unpack, inspect, verify)
+
+[audit] effects=read-only
+  description: FJ-341: Show full audit trail — who applied what, when, from which config
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param limit kind=Value required=false long=--limit default=20
+  param json kind=Flag required=false long=--json
+
+[bench] effects=mutating
+  description: Run performance benchmarks (spec §9 targets)
+  param iterations kind=Value required=false long=--iterations default=1000
+  param json kind=Flag required=false long=--json
+  param compare kind=Flag required=false long=--compare
+
+[bootstrap] effects=mutating
+  description: FJ-49: Bootstrap machine for forjar management
+  param addr kind=Value required=true long=--addr
+  param user kind=Value required=false long=--user default=root
+  param password_stdin kind=Flag required=false long=--password-stdin
+  param ssh_key kind=Value required=false long=--ssh-key
+  param hostname kind=Value required=false long=--hostname
+  param skip_key_if_working kind=Flag required=false long=--skip-key-if-working
+
+[build] effects=mutating
+  description: FJ-2104: Build container image from resource definition
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=true long=--resource
+  param load kind=Flag required=false long=--load
+  param push kind=Flag required=false long=--push
+  param far kind=Flag required=false long=--far
+  param sandbox kind=Flag required=false long=--sandbox
+  param json kind=Flag required=false long=--json
+
+[bundle] effects=mutating
+  description: FJ-1406: Package config + dependencies into self-contained bundle
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param output kind=Value required=false long=--output
+  param include_state kind=Flag required=false long=--include-state
+  param verify kind=Flag required=false long=--verify
+
+[cache] effects=mutating subcommands=list,push,pull,verify
+  description: FJ-1323: Binary cache operations (list, push, pull, verify)
+
+[canary] effects=mutating
+  description: FJ-325: Canary deployment — apply to one machine first, confirm, then rest
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=true long=--machine
+  param auto_proceed kind=Flag required=false long=--auto-proceed
+  param params kind=Multi required=false long=--param
+  param timeout kind=Value required=false long=--timeout
+
+[catalog-list] effects=read-only
+  description: FJ-1427: Service catalog listing
+  param catalog_dir kind=Value required=false long=--catalog-dir
+  param category kind=Value required=false long=--category
+  param json kind=Flag required=false long=--json
+
+[cbom] effects=read-only
+  description: FJ-1400: Generate CBOM (Cryptographic Bill of Materials) for managed infrastructure
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[check] effects=mutating
+  description: Run check scripts to verify pre-conditions without applying
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param resource kind=Value required=false long=--resource
+  param tag kind=Value required=false long=--tag
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[checkpoint] effects=mutating
+  description: FJ-1412: Training checkpoint management
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param gc kind=Flag required=false long=--gc
+  param keep kind=Value required=false long=--keep default=5
+  param json kind=Flag required=false long=--json
+
+[codegen] effects=mutating
+  description: Emit the shell a resource generates (apply/check/state-query)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=true long=--resource
+  param phase kind=Value required=false long=--phase default=apply choices=apply|check|state-query
+
+[compare] effects=read-only
+  description: FJ-363: Compare two config files and show differences
+  param file1 kind=Positional required=true
+  param file2 kind=Positional required=true
+  param json kind=Flag required=false long=--json
+
+[completion] effects=mutating
+  description: FJ-253: Generate shell completions
+  param shell kind=Positional required=true choices=bash|zsh|fish
+
+[complexity] effects=read-only
+  description: FJ-1450: Configuration complexity analysis
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[compliance] effects=read-only
+  description: FJ-351: Validate infrastructure against policy rules
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[config-merge] effects=mutating
+  description: FJ-1383: Merge two forjar config files into one
+  param file_a kind=Positional required=true
+  param file_b kind=Positional required=true
+  param output kind=Value required=false long=--output
+  param allow_collisions kind=Flag required=false long=--allow-collisions
+
+[contracts] effects=read-only
+  description: FJ-2200: Design-by-contract coverage report
+  param coverage kind=Flag required=false long=--coverage
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[convert] effects=mutating
+  description: FJ-1328: Convert recipe to reproducible format (version pin, store, lock)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param reproducible kind=Flag required=false long=--reproducible
+  param apply kind=Flag required=false long=--apply
+  param json kind=Flag required=false long=--json
+
+[cost-estimate] effects=read-only
+  description: FJ-1415: Cost estimation and resource budgeting
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[cross-deps] effects=read-only
+  description: FJ-1424: Cross-machine dependency analysis
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[data-freshness] effects=mutating
+  description: FJ-1410: Data freshness monitoring — detect stale artifacts
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param max_age kind=Value required=false long=--max-age
+  param json kind=Flag required=false long=--json
+
+[data-validate] effects=mutating
+  description: FJ-1411: Declarative data validation checks
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=false long=--resource
+  param json kind=Flag required=false long=--json
+
+[dataset-lineage] effects=mutating
+  description: FJ-1413: Dataset versioning and lineage tracking
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[destroy] effects=mutating
+  description: Remove all managed resources (reverse order)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param yes kind=Flag required=false long=--yes
+  param state_dir kind=Value required=false long=--state-dir default=state
+
+[diff] effects=read-only
+  description: Compare two state snapshots (show what changed between applies)
+  param from kind=Positional required=true
+  param to kind=Positional required=true
+  param machine kind=Value required=false long=--machine
+  param resource kind=Value required=false long=--resource
+  param json kind=Flag required=false long=--json
+
+[dist] effects=mutating
+  description: FJ-3600: Generate distribution artifacts (installer, Homebrew, Nix, etc.)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param installer kind=Flag required=false long=--installer
+  param homebrew kind=Flag required=false long=--homebrew
+  param binstall kind=Flag required=false long=--binstall
+  param nix kind=Flag required=false long=--nix
+  param github_action kind=Flag required=false long=--github-action
+  param deb kind=Flag required=false long=--deb
+  param rpm kind=Flag required=false long=--rpm
+  param all kind=Flag required=false long=--all
+  param verify kind=Flag required=false long=--verify
+  param verify_containers kind=Flag required=false long=--verify-containers
+  param checksums_file kind=Value required=false long=--checksums-file
+  param output kind=Value required=false long=--output
+  param output_dir kind=Value required=false long=--output-dir
+  param json kind=Flag required=false long=--json
+
+[doctor] effects=read-only
+  description: FJ-251: Pre-flight system checker
+  param file kind=Value required=false long=--file
+  param json kind=Flag required=false long=--json
+  param fix kind=Flag required=false long=--fix
+  param network kind=Flag required=false long=--network
+
+[dogfood] effects=mutating
+  description: Exercise generated artifacts against real tools and real on-disk shapes
+  param json kind=Flag required=false long=--json
+
+[drift] effects=mutating
+  description: Detect unauthorized changes (tripwire)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param tripwire kind=Flag required=false long=--tripwire
+  param alert_cmd kind=Value required=false long=--alert-cmd
+  param auto_remediate kind=Flag required=false long=--auto-remediate
+  param dry_run kind=Flag required=false long=--dry-run
+  param json kind=Flag required=false long=--json
+  param env_file kind=Value required=false long=--env-file
+  param workspace kind=Value required=false long=--workspace
+
+[drift-predict] effects=mutating
+  description: FJ-1452: Configuration drift prediction
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param limit kind=Value required=false long=--limit default=0
+  param json kind=Flag required=false long=--json
+
+[env] effects=read-only
+  description: FJ-277: Show resolved environment info
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[env-diff] effects=read-only
+  description: FJ-367: Compare environments (workspaces) for drift
+  param env1 kind=Positional required=true
+  param env2 kind=Positional required=true
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[environments] effects=mutating subcommands=list,diff,rollback,history
+  description: FJ-3500: Manage named environments (dev, staging, prod)
+
+[explain] effects=read-only
+  description: FJ-271: Show full resolution chain for a resource
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Positional required=true
+  param json kind=Flag required=false long=--json
+
+[export] effects=mutating
+  description: FJ-352: Export state to external formats (terraform, ansible, csv)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param format kind=Value required=false long=--format default=csv
+  param machine kind=Value required=false long=--machine
+  param output kind=Value required=false long=--output
+
+[extract] effects=mutating
+  description: FJ-1384: Extract resources matching tag/group/glob into sub-config
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param tags kind=Value required=false long=--tags
+  param group kind=Value required=false long=--group
+  param glob kind=Value required=false long=--glob
+  param output kind=Value required=false long=--output
+  param json kind=Flag required=false long=--json
+
+[fault-inject] effects=mutating
+  description: FJ-1420: Fault injection testing
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=false long=--resource
+  param json kind=Flag required=false long=--json
+
+[fmt] effects=mutating
+  description: Format (normalize) a forjar.yaml config file
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param check kind=Flag required=false long=--check
+
+[generation] effects=mutating subcommands=list,gc,diff
+  description: FJ-1386: Manage state generations (Nix-style numbered snapshots)
+
+[graph] effects=read-only
+  description: Show resource dependency graph
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param format kind=Value required=false long=--format default=mermaid
+  param machine kind=Value required=false long=--machine
+  param group kind=Value required=false long=--group
+  param affected kind=Value required=false long=--affected
+  param critical_path kind=Flag required=false long=--critical-path
+  param reverse kind=Flag required=false long=--reverse
+  param depth kind=Value required=false long=--depth
+  param cluster kind=Flag required=false long=--cluster
+  param orphans kind=Flag required=false long=--orphans
+  param stats kind=Flag required=false long=--stats
+  param json_output kind=Flag required=false long=--json
+  param highlight kind=Value required=false long=--highlight
+  param prune kind=Value required=false long=--prune
+  param layers kind=Flag required=false long=--layers
+  param critical_resources kind=Flag required=false long=--critical-resources
+  param weight kind=Flag required=false long=--weight
+  param subgraph kind=Value required=false long=--subgraph
+  param impact_radius kind=Value required=false long=--impact-radius
+  param dependency_matrix kind=Flag required=false long=--dependency-matrix
+  param hotspots kind=Flag required=false long=--hotspots
+  param timeline_graph kind=Flag required=false long=--timeline-graph
+  param what_if kind=Value required=false long=--what-if
+  param blast_radius kind=Value required=false long=--blast-radius
+  param change_impact kind=Value required=false long=--change-impact
+  param resource_types kind=Flag required=false long=--resource-types
+  param topological_levels kind=Flag required=false long=--topological-levels
+  param execution_order kind=Flag required=false long=--execution-order
+  param security_boundaries kind=Flag required=false long=--security-boundaries
+  param resource_age kind=Flag required=false long=--resource-age
+  param parallel_groups kind=Flag required=false long=--parallel-groups
+  param critical_chain kind=Flag required=false long=--critical-chain
+  param dependency_depth kind=Flag required=false long=--dependency-depth
+  param orphan_detection kind=Flag required=false long=--orphan-detection
+  param cross_machine_deps kind=Flag required=false long=--cross-machine-deps
+  param machine_groups kind=Flag required=false long=--machine-groups
+  param resource_clusters kind=Flag required=false long=--resource-clusters
+  param fan_out kind=Flag required=false long=--fan-out
+  param leaf_resources kind=Flag required=false long=--leaf-resources
+  param reverse_deps kind=Flag required=false long=--reverse-deps
+  param depth_first kind=Flag required=false long=--depth-first
+  param breadth_first kind=Flag required=false long=--breadth-first
+  param subgraph_stats kind=Flag required=false long=--subgraph-stats
+  param dependency_count kind=Flag required=false long=--dependency-count
+  param root_resources kind=Flag required=false long=--root-resources
+  param edge_list kind=Flag required=false long=--edge-list
+  param connected_components kind=Flag required=false long=--connected-components
+  param adjacency_matrix kind=Flag required=false long=--adjacency-matrix
+  param longest_path kind=Flag required=false long=--longest-path
+  param in_degree kind=Flag required=false long=--in-degree
+  param out_degree kind=Flag required=false long=--out-degree
+  param density kind=Flag required=false long=--density
+  param topological_sort kind=Flag required=false long=--topological-sort
+  param critical_path_resources kind=Flag required=false long=--critical-path-resources
+  param sink_resources kind=Flag required=false long=--sink-resources
+  param bipartite_check kind=Flag required=false long=--bipartite-check
+  param strongly_connected kind=Flag required=false long=--strongly-connected
+  param dependency_matrix_csv kind=Flag required=false long=--dependency-matrix-csv
+  param resource_weight kind=Flag required=false long=--resource-weight
+  param dependency_depth_per_resource kind=Flag required=false long=--dependency-depth-per-resource
+  param resource_fanin kind=Flag required=false long=--resource-fanin
+  param isolated_subgraphs kind=Flag required=false long=--isolated-subgraphs
+  param resource_dependency_chain kind=Value required=false long=--resource-dependency-chain
+  param bottleneck_resources kind=Flag required=false long=--bottleneck-resources
+  param critical_dependency_path kind=Flag required=false long=--critical-dependency-path
+  param resource_depth_histogram kind=Flag required=false long=--resource-depth-histogram
+  param resource_coupling_score kind=Flag required=false long=--resource-coupling-score
+  param resource_change_frequency kind=Flag required=false long=--resource-change-frequency
+  param resource_impact_score kind=Flag required=false long=--resource-impact-score
+  param resource_stability_score kind=Flag required=false long=--resource-stability-score
+  param resource_dependency_fanout kind=Flag required=false long=--resource-dependency-fanout
+  param resource_dependency_weight kind=Flag required=false long=--resource-dependency-weight
+  param resource_dependency_bottleneck kind=Flag required=false long=--resource-dependency-bottleneck
+  param resource_type_clustering kind=Flag required=false long=--resource-type-clustering
+  param resource_dependency_cycle_risk kind=Flag required=false long=--resource-dependency-cycle-risk
+  param resource_impact_radius kind=Flag required=false long=--resource-impact-radius
+  param resource_dependency_health_map kind=Flag required=false long=--resource-dependency-health-map
+  param resource_change_propagation kind=Flag required=false long=--resource-change-propagation
+  param resource_dependency_depth_analysis kind=Flag required=false long=--resource-dependency-depth-analysis
+  param resource_dependency_fan_analysis kind=Flag required=false long=--resource-dependency-fan-analysis
+  param resource_dependency_isolation_score kind=Flag required=false long=--resource-dependency-isolation-score
+  param resource_dependency_stability_score kind=Flag required=false long=--resource-dependency-stability-score
+  param resource_dependency_critical_path_length kind=Flag required=false long=--resource-dependency-critical-path-length
+  param resource_dependency_redundancy_score kind=Flag required=false long=--resource-dependency-redundancy-score
+  param resource_dependency_centrality_score kind=Flag required=false long=--resource-dependency-centrality-score
+  param resource_dependency_bridge_detection kind=Flag required=false long=--resource-dependency-bridge-detection
+  param resource_dependency_cluster_coefficient kind=Flag required=false long=--resource-dependency-cluster-coefficient
+  param resource_dependency_modularity_score kind=Flag required=false long=--resource-dependency-modularity-score
+  param resource_dependency_diameter kind=Flag required=false long=--resource-dependency-diameter
+  param resource_dependency_eccentricity kind=Flag required=false long=--resource-dependency-eccentricity
+  param resource_dependency_density kind=Flag required=false long=--resource-dependency-density
+  param resource_dependency_transitivity kind=Flag required=false long=--resource-dependency-transitivity
+  param resource_dependency_fan_out kind=Flag required=false long=--resource-dependency-fan-out
+  param resource_dependency_fan_in kind=Flag required=false long=--resource-dependency-fan-in
+  param resource_dependency_path_count kind=Flag required=false long=--resource-dependency-path-count
+  param resource_dependency_articulation_points kind=Flag required=false long=--resource-dependency-articulation-points
+  param resource_dependency_longest_path kind=Flag required=false long=--resource-dependency-longest-path
+  param resource_dependency_strongly_connected kind=Flag required=false long=--resource-dependency-strongly-connected
+  param resource_dependency_topological_depth kind=Flag required=false long=--resource-dependency-topological-depth
+  param resource_dependency_weak_links kind=Flag required=false long=--resource-dependency-weak-links
+  param resource_dependency_minimum_cut kind=Flag required=false long=--resource-dependency-minimum-cut
+  param resource_dependency_dominator_tree kind=Flag required=false long=--resource-dependency-dominator-tree
+  param resource_dependency_resilience_score kind=Flag required=false long=--resource-dependency-resilience-score
+  param resource_dependency_pagerank kind=Flag required=false long=--resource-dependency-pagerank
+  param resource_dependency_betweenness_centrality kind=Flag required=false long=--resource-dependency-betweenness-centrality
+  param resource_dependency_closure_size kind=Flag required=false long=--resource-dependency-closure-size
+  param resource_dependency_eccentricity_map kind=Flag required=false long=--resource-dependency-eccentricity-map
+  param resource_dependency_diameter_path kind=Flag required=false long=--resource-dependency-diameter-path
+  param resource_dependency_bridge_criticality kind=Flag required=false long=--resource-dependency-bridge-criticality
+  param resource_dependency_conditional_subgraph kind=Flag required=false long=--resource-dependency-conditional-subgraph
+  param resource_dependency_parallel_groups kind=Flag required=false long=--resource-dependency-parallel-groups
+  param resource_dependency_execution_cost kind=Flag required=false long=--resource-dependency-execution-cost
+  param resource_recipe_expansion_map kind=Flag required=false long=--resource-recipe-expansion-map
+  param resource_dependency_critical_chain_path kind=Flag required=false long=--resource-dependency-critical-chain-path
+  param resource_apply_order_simulation kind=Flag required=false long=--resource-apply-order-simulation
+  param resource_provenance_summary kind=Flag required=false long=--resource-provenance-summary
+  param resource_dependency_risk_score kind=Flag required=false long=--resource-dependency-risk-score
+  param resource_dependency_layering kind=Flag required=false long=--resource-dependency-layering
+  param resource_lifecycle_stage_map kind=Flag required=false long=--resource-lifecycle-stage-map
+  param resource_dependency_age_overlay kind=Flag required=false long=--resource-dependency-age-overlay
+  param resource_dependency_health_overlay kind=Flag required=false long=--resource-dependency-health-overlay
+  param resource_dependency_width_analysis kind=Flag required=false long=--resource-dependency-width-analysis
+  param resource_dependency_critical_path_highlight kind=Flag required=false long=--resource-dependency-critical-path-highlight
+  param resource_dependency_bottleneck_detection kind=Flag required=false long=--resource-dependency-bottleneck-detection
+  param resource_topology_cluster_analysis kind=Flag required=false long=--resource-topology-cluster-analysis
+  param resource_dependency_island_detection kind=Flag required=false long=--resource-dependency-island-detection
+  param resource_dependency_depth_histogram_analysis kind=Flag required=false long=--resource-dependency-depth-histogram-analysis
+  param resource_dependency_redundancy_analysis kind=Flag required=false long=--resource-dependency-redundancy-analysis
+  param resource_dependency_change_impact_radius kind=Flag required=false long=--resource-dependency-change-impact-radius
+  param resource_dependency_sibling_analysis kind=Flag required=false long=--resource-dependency-sibling-analysis
+  param resource_dependency_fan_in_hotspot kind=Flag required=false long=--resource-dependency-fan-in-hotspot
+  param resource_dependency_cross_machine_bridge kind=Flag required=false long=--resource-dependency-cross-machine-bridge
+  param resource_dependency_weight_analysis kind=Flag required=false long=--resource-dependency-weight-analysis
+  param resource_dependency_topological_summary kind=Flag required=false long=--resource-dependency-topological-summary
+  param resource_dependency_critical_path kind=Flag required=false long=--resource-dependency-critical-path
+  param resource_dependency_cluster_analysis kind=Flag required=false long=--resource-dependency-cluster-analysis
+
+[history] effects=read-only
+  description: Show apply history from event logs
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param limit kind=Value required=false long=--limit default=10
+  param json kind=Flag required=false long=--json
+  param since kind=Value required=false long=--since
+  param resource kind=Value required=false long=--resource
+
+[image] effects=mutating
+  description: FJ-52: Generate autoinstall ISO or user-data
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param user_data kind=Flag required=false long=--user-data
+  param android kind=Flag required=false long=--android
+  param base kind=Value required=false long=--base
+  param output kind=Value required=false long=--output
+  param disk kind=Value required=false long=--disk default=auto-lvm
+  param locale kind=Value required=false long=--locale default=en_US.UTF-8
+  param timezone kind=Value required=false long=--timezone default=UTC
+  param json kind=Flag required=false long=--json
+
+[impact] effects=read-only
+  description: FJ-1451: Dependency impact analysis
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=true long=--resource
+  param json kind=Flag required=false long=--json
+
+[import] effects=mutating
+  description: Import existing infrastructure from a machine into forjar.yaml
+  param addr kind=Value required=true long=--addr
+  param user kind=Value required=false long=--user default=root
+  param name kind=Value required=false long=--name
+  param output kind=Value required=false long=--output default=forjar.yaml
+  param scan kind=Multi required=false long=--scan default=packages,files,services
+  param smart kind=Flag required=false long=--smart
+
+[import-brownfield] effects=mutating
+  description: FJ-1423: Brownfield state import
+  param machine kind=Value required=false long=--machine default=localhost
+  param scan_types kind=Multi required=false long=--scan-types
+  param output kind=Value required=false long=--output
+  param json kind=Flag required=false long=--json
+
+[import-makefile] effects=mutating
+  description: FJ-2726: Import a Makefile's build graph into forjar.yaml
+  param makefile kind=Positional required=false default=Makefile
+  param output kind=Value required=false long=--output default=-
+  param machine kind=Value required=false long=--machine default=local
+
+[init] effects=mutating
+  description: Initialize a new forjar project
+  param path kind=Positional required=false default=.
+
+[invariants] effects=mutating
+  description: FJ-1421: Runtime invariant monitors
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[inventory] effects=read-only
+  description: FJ-326: List all machines with connection status
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[iso-export] effects=mutating
+  description: FJ-1422: ISO distribution export
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param output kind=Value required=true long=--output
+  param include_binary kind=Flag required=false long=--include-binary
+  param json kind=Flag required=false long=--json
+
+[lineage] effects=read-only
+  description: FJ-1405: Show Merkle DAG configuration lineage
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[lint] effects=read-only
+  description: Lint config for best practices (beyond validation)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+  param strict kind=Flag required=false long=--strict
+  param fix kind=Flag required=false long=--fix
+  param rules kind=Value required=false long=--rules
+  param bashrs_version kind=Flag required=false long=--bashrs-version
+
+[lock] effects=mutating
+  description: FJ-256: Generate lock file without applying
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param env_file kind=Value required=false long=--env-file
+  param workspace kind=Value required=false long=--workspace
+  param verify kind=Flag required=false long=--verify
+  param dry_run kind=Flag required=false long=--dry-run
+  param json kind=Flag required=false long=--json
+
+[lock-archive] effects=mutating
+  description: FJ-615: Archive old lock files to compressed storage
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-audit] effects=mutating
+  description: FJ-555: Verify lock file integrity and show tampering evidence
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-audit-trail] effects=mutating
+  description: FJ-495: Show full audit trail of lock file changes with timestamps
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[lock-backup] effects=mutating
+  description: FJ-515: Create timestamped backup of all lock files
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-compact] effects=mutating
+  description: FJ-395: Compact lock file — remove historical entries, keep latest per resource
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param yes kind=Flag required=false long=--yes
+  param json kind=Flag required=false long=--json
+
+[lock-compact-all] effects=mutating
+  description: FJ-485: Compact all machine lock files in one operation
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param yes kind=Flag required=false long=--yes
+  param json kind=Flag required=false long=--json
+
+[lock-compress] effects=mutating
+  description: FJ-565: Compress old lock files with zstd
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-defrag] effects=mutating
+  description: FJ-575: Defragment lock files (reorder resources alphabetically)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-diff] effects=mutating
+  description: FJ-435: Compare two lock files and show resource-level differences
+  param from kind=Positional required=true
+  param to kind=Positional required=true
+  param json kind=Flag required=false long=--json
+
+[lock-export] effects=mutating
+  description: FJ-415: Export lock file in alternative format
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param format kind=Value required=false long=--format default=json
+  param machine kind=Value required=false long=--machine
+
+[lock-gc] effects=mutating
+  description: FJ-425: Garbage collect orphaned lock entries with no matching config
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param yes kind=Flag required=false long=--yes
+  param json kind=Flag required=false long=--json
+
+[lock-history] effects=mutating
+  description: FJ-645: Show lock file change history with diffs
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+  param limit kind=Value required=false long=--limit default=20
+
+[lock-info] effects=read-only
+  description: FJ-384: Show lock file metadata
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-integrity] effects=mutating
+  description: FJ-675: Check lock file structural integrity
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-merge] effects=mutating
+  description: FJ-445: Merge two lock files (multi-team workflow)
+  param from kind=Positional required=true
+  param to kind=Positional required=true
+  param output kind=Value required=false long=--output default=state
+  param json kind=Flag required=false long=--json
+
+[lock-migrate] effects=mutating
+  description: FJ-725: Migrate lock file schema between versions
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param from_version kind=Value required=true long=--from-version
+  param json kind=Flag required=false long=--json
+
+[lock-normalize] effects=mutating
+  description: FJ-585: Normalize lock file format (consistent key ordering, whitespace)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-prune] effects=mutating
+  description: FJ-366: Remove lock entries for resources no longer in config
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param yes kind=Flag required=false long=--yes
+
+[lock-rebase] effects=mutating
+  description: FJ-455: Rebase lock file from one config version to another
+  param from kind=Positional required=true
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param output kind=Value required=false long=--output default=state
+  param json kind=Flag required=false long=--json
+
+[lock-rehash] effects=mutating
+  description: FJ-685: Rehash all lock file entries with current BLAKE3
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-repair] effects=mutating
+  description: FJ-635: Attempt automatic repair of corrupted lock files
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-restore] effects=mutating
+  description: FJ-695: Restore lock state from a named snapshot
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param name kind=Value required=false long=--name
+  param json kind=Flag required=false long=--json
+
+[lock-rotate-keys] effects=mutating
+  description: FJ-505: Rotate all lock file signing keys
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param old_key kind=Value required=true long=--old-key
+  param new_key kind=Value required=true long=--new-key
+  param json kind=Flag required=false long=--json
+
+[lock-sign] effects=mutating
+  description: FJ-465: Cryptographically sign lock file with BLAKE3
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param key kind=Value required=true long=--key
+  param json kind=Flag required=false long=--json
+
+[lock-snapshot] effects=mutating
+  description: FJ-625: Create point-in-time lock file snapshot with metadata
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-stats] effects=read-only
+  description: FJ-545: Show lock file statistics (sizes, ages, resource counts)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-tag] effects=mutating
+  description: FJ-715: Add metadata tags to lock files
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param name kind=Value required=true long=--name
+  param value kind=Value required=true long=--value
+  param json kind=Flag required=false long=--json
+
+[lock-validate] effects=mutating
+  description: FJ-595: Validate lock file schema and cross-references
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-verify] effects=read-only
+  description: FJ-405: Verify lock file integrity (BLAKE3 checksums)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-verify-chain] effects=read-only
+  description: FJ-535: Verify full chain of custody from lock signatures
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-verify-hmac] effects=read-only
+  description: FJ-605: Verify lock file HMAC signatures
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-verify-schema] effects=read-only
+  description: FJ-705: Verify lock file schema version compatibility
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[lock-verify-sig] effects=read-only
+  description: FJ-475: Verify lock file signature against signing key
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param key kind=Value required=true long=--key
+  param json kind=Flag required=false long=--json
+
+[logs] effects=mutating
+  description: FJ-2300: Live log streaming during apply
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param run kind=Value required=false long=--run
+  param resource kind=Value required=false long=--resource
+  param failures kind=Flag required=false long=--failures
+  param script kind=Flag required=false long=--script
+  param all_machines kind=Flag required=false long=--all-machines
+  param follow kind=Flag required=false long=--follow
+  param gc kind=Flag required=false long=--gc
+  param dry_run kind=Flag required=false long=--dry-run
+  param keep_failed kind=Flag required=false long=--keep-failed
+  param json kind=Flag required=false long=--json
+
+[lsp] effects=transport
+  description: Run the forjar.yaml language server on stdio (editor integration)
+
+[make] effects=mutating
+  description: FJ-2724: Build goals and their prerequisites, like `make <goal>`
+  param goals kind=Positional required=false
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param dry_run kind=Flag required=false long=--dry-run
+  param always_make kind=Flag required=false long=--always-make
+  param jobs kind=Value required=false long=--jobs
+  param param kind=Multi required=false long=--param
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param no_tripwire kind=Flag required=false long=--no-tripwire
+  param yes kind=Flag required=false long=--yes
+  param json kind=Flag required=false long=--json
+
+[mcp] effects=transport
+  description: Start MCP server (pforge integration, FJ-063)
+  param schema kind=Flag required=false long=--schema
+  param legacy kind=Flag required=false long=--legacy
+
+[migrate] effects=mutating
+  description: Migrate Docker resources to pepita kernel isolation (FJ-044)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param output kind=Value required=false long=--output
+
+[model-card] effects=read-only
+  description: FJ-1407: Generate model card for ML resources
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[model-eval] effects=mutating
+  description: FJ-1416: Model evaluation pipeline
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=false long=--resource
+  param json kind=Flag required=false long=--json
+
+[multi-apply] effects=mutating
+  description: FJ-1428: Multi-config apply ordering
+  param file kind=Multi required=true long=--file
+  param json kind=Flag required=false long=--json
+
+[oci-pack] effects=mutating
+  description: FJ-2101: Pack directory into OCI image layout
+  param dir kind=Positional required=true
+  param tag kind=Value required=true long=--tag
+  param output kind=Value required=false long=--output default=oci-output
+  param json kind=Flag required=false long=--json
+
+[output] effects=read-only
+  description: Show computed output values from forjar.yaml (FJ-215)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param key kind=Positional required=false
+  param json kind=Flag required=false long=--json
+
+[parallel-apply] effects=mutating
+  description: FJ-1435: Parallel multi-stack apply
+  param file kind=Multi required=true long=--file
+  param max_parallel kind=Value required=false long=--max-parallel default=4
+  param json kind=Flag required=false long=--json
+
+[pin] effects=mutating
+  description: FJ-1311: Pin all inputs to current versions (lock file management)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param update kind=Value required=false long=--update
+  param check kind=Flag required=false long=--check
+  param json kind=Flag required=false long=--json
+
+[plan] effects=read-only
+  description: Show execution plan (diff desired vs current)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param resource kind=Value required=false long=--resource
+  param tag kind=Value required=false long=--tag
+  param group kind=Value required=false long=--group
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+  param output_dir kind=Value required=false long=--output-dir
+  param env_file kind=Value required=false long=--env-file
+  param workspace kind=Value required=false long=--workspace
+  param no_diff kind=Flag required=false long=--no-diff
+  param target kind=Value required=false long=--target
+  param cost kind=Flag required=false long=--cost
+  param what_if kind=Multi required=false long=--what-if
+  param out kind=Value required=false long=--out
+  param why kind=Flag required=false long=--why
+
+[plan-compact] effects=read-only
+  description: FJ-344: One-line-per-resource plan output for large configs
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[plugin] effects=mutating subcommands=list,verify,init,install,build,run,remove
+  description: FJ-3403: Manage WASM resource plugins
+
+[policy] effects=read-only
+  description: FJ-220: Evaluate policy rules against config
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+  param sarif kind=Flag required=false long=--sarif
+
+[policy-coverage] effects=read-only
+  description: FJ-3208: Policy rule coverage analysis
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[policy-install] effects=mutating
+  description: FJ-3206: Install a compliance pack
+  param pack kind=Positional required=true
+  param output_dir kind=Value required=false long=--output-dir default=policies
+  param json kind=Flag required=false long=--json
+
+[preservation] effects=read-only
+  description: FJ-1434: Preservation checking
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[privilege-analysis] effects=read-only
+  description: FJ-1403: Analyze minimum privileges required per resource
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[promote] effects=mutating
+  description: FJ-3506: Promote between environments (evaluate gates)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param target kind=Value required=true long=--target
+  param yes kind=Flag required=false long=--yes
+  param dry_run kind=Flag required=false long=--dry-run
+  param json kind=Flag required=false long=--json
+
+[prove] effects=mutating
+  description: FJ-1401: Prove convergence from current or arbitrary state
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[provenance] effects=mutating
+  description: FJ-1404: Generate SLSA provenance attestation
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[query] effects=read-only
+  description: FJ-1430+1431: Infrastructure query
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param pattern kind=Value required=false long=--pattern
+  param resource_type kind=Value required=false long=--type
+  param machine kind=Value required=false long=--machine
+  param tag kind=Value required=false long=--tag
+  param details kind=Flag required=false long=--details
+  param live kind=Flag required=false long=--live
+  param json kind=Flag required=false long=--json
+
+[registry-list] effects=read-only
+  description: FJ-1426: Recipe registry listing
+  param registry_dir kind=Value required=false long=--registry-dir
+  param json kind=Flag required=false long=--json
+
+[repro-proof] effects=mutating
+  description: FJ-1409: Generate training reproducibility certificate
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[reseal] effects=mutating
+  description: FJ-118: Regenerate BLAKE3 integrity sidecars from current lock contents
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param file kind=Value required=false long=--file
+  param all kind=Flag required=false long=--all
+  param machine kind=Value required=false long=--machine
+  param dry_run kind=Flag required=false long=--dry-run
+
+[retry-failed] effects=mutating
+  description: FJ-327: Re-run only previously failed resources
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param params kind=Multi required=false long=--param
+  param timeout kind=Value required=false long=--timeout
+
+[rollback] effects=mutating
+  description: Rollback to a previous config revision from git history
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param revision kind=Value required=false long=--revision default=1
+  param generation kind=Value required=false long=--generation
+  param machine kind=Value required=false long=--machine
+  param dry_run kind=Flag required=false long=--dry-run
+  param yes kind=Flag required=false long=--yes
+  param state_dir kind=Value required=false long=--state-dir default=state
+
+[rolling] effects=mutating
+  description: FJ-324: Rolling deployment — apply N machines at a time
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param batch_size kind=Value required=false long=--batch-size default=1
+  param params kind=Multi required=false long=--param
+  param timeout kind=Value required=false long=--timeout
+
+[rules] effects=mutating subcommands=validate,coverage
+  description: FJ-3108: Manage event-driven rulebooks
+
+[run] effects=mutating
+  description: FJ-2700: Run a dispatch-mode task
+  param task kind=Positional required=true
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param params kind=Multi required=false long=--param
+  param json kind=Flag required=false long=--json
+
+[saga] effects=mutating
+  description: FJ-1436: Saga-pattern multi-stack apply
+  param file kind=Multi required=true long=--file
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[sbom] effects=read-only
+  description: FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[schema] effects=read-only
+  description: FJ-264: Export JSON Schema for forjar.yaml
+
+[score] effects=read-only
+  description: Score a forjar config — multi-dimensional quality grade (A–F)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param status kind=Value required=false long=--status default=qualified
+  param idempotency kind=Value required=false long=--idempotency default=strong
+  param budget_ms kind=Value required=false long=--budget-ms default=0
+  param json kind=Flag required=false long=--json
+  param state_dir kind=Value required=false long=--state-dir default=state
+
+[secrets] effects=mutating subcommands=encrypt,decrypt,keygen,view,rekey,rotate
+  description: FJ-200: Manage age-encrypted secrets
+
+[security-scan] effects=read-only
+  description: FJ-1390: Static IaC security scanner
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+  param fail_on kind=Value required=false long=--fail-on
+
+[serve] effects=transport
+  description: GH-267: Serve the verb registry over HTTP (derived surface)
+  param port kind=Value required=false long=--port default=8737
+  param host kind=Value required=false long=--host default=127.0.0.1
+  param read_only kind=Flag required=false long=--read-only
+
+[show] effects=read-only
+  description: Show fully resolved config (recipes expanded, templates resolved)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param resource kind=Value required=false long=--resource
+  param json kind=Flag required=false long=--json
+
+[sign] effects=mutating
+  description: FJ-1432+1433: Recipe signing
+  param recipe kind=Positional required=true
+  param verify kind=Flag required=false long=--verify
+  param signer kind=Value required=false long=--signer
+  param pq kind=Flag required=false long=--pq
+  param json kind=Flag required=false long=--json
+
+[snapshot] effects=mutating subcommands=save,list,restore,delete
+  description: FJ-260: Manage state snapshots
+
+[sovereignty] effects=mutating
+  description: FJ-1414: Data sovereignty tagging and compliance
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[stack-diff] effects=read-only
+  description: FJ-1389: Unified stack diff — compare two configs
+  param file1 kind=Positional required=true
+  param file2 kind=Positional required=true
+  param json kind=Flag required=false long=--json
+
+[stack-graph] effects=read-only
+  description: FJ-1429: Stack dependency graph
+  param file kind=Multi required=true long=--file
+  param json kind=Flag required=false long=--json
+
+[state-backend] effects=mutating
+  description: FJ-1425: Remote state backend operations
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param prefix kind=Value required=false long=--prefix
+  param json kind=Flag required=false long=--json
+
+[state-decrypt] effects=mutating
+  description: FJ-3304: Decrypt state files
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param passphrase kind=Value required=false long=--passphrase
+  param json kind=Flag required=false long=--json
+
+[state-encrypt] effects=mutating
+  description: FJ-3304: Encrypt state files at rest
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param passphrase kind=Value required=false long=--passphrase
+  param json kind=Flag required=false long=--json
+
+[state-list] effects=read-only
+  description: List all resources in state with type, status, hash prefix (FJ-214)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[state-mv] effects=mutating
+  description: Rename a resource in state without re-applying (FJ-212)
+  param old_id kind=Positional required=true
+  param new_id kind=Positional required=true
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+
+[state-query] effects=mutating
+  description: FJ-2001: Query state database
+  param query kind=Positional required=false
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param resource_type kind=Value required=false long=--type
+  param history kind=Flag required=false long=--history
+  param drift kind=Flag required=false long=--drift
+  param health kind=Flag required=false long=--health
+  param timing kind=Flag required=false long=--timing
+  param churn kind=Flag required=false long=--churn
+  param reversibility kind=Flag required=false long=--reversibility
+  param git_history kind=Flag required=false long=--git-history
+  param json kind=Flag required=false long=--json
+  param csv kind=Flag required=false long=--csv
+  param sql kind=Flag required=false long=--sql
+  param events kind=Flag required=false long=--events
+  param failures kind=Flag required=false long=--failures
+  param since kind=Value required=false long=--since
+  param status kind=Value required=false long=--status
+  param run kind=Value required=false long=--run
+
+[state-reconstruct] effects=mutating
+  description: FJ-1280: Reconstruct state at a point in time from event log
+  param machine kind=Value required=true long=--machine
+  param at kind=Value required=true long=--at
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param json kind=Flag required=false long=--json
+
+[state-rekey] effects=mutating
+  description: FJ-3309: Re-encrypt state files with a new passphrase
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param old_passphrase kind=Value required=false long=--old-passphrase
+  param new_passphrase kind=Value required=false long=--new-passphrase
+  param json kind=Flag required=false long=--json
+
+[state-rm] effects=mutating
+  description: Remove a resource from state without destroying it on the machine (FJ-213)
+  param resource_id kind=Positional required=true
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param force kind=Flag required=false long=--force
+
+[status] effects=read-only
+  description: Show current state from lock files
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+  param file kind=Value required=false long=--file
+  param summary kind=Flag required=false long=--summary
+  param watch kind=Value required=false long=--watch
+  param stale kind=Value required=false long=--stale
+  param health kind=Flag required=false long=--health
+  param drift_details kind=Flag required=false long=--drift-details
+  param timeline kind=Flag required=false long=--timeline
+  param changes_since kind=Value required=false long=--changes-since
+  param summary_by kind=Value required=false long=--summary-by
+  param prometheus kind=Flag required=false long=--prometheus
+  param expired kind=Value required=false long=--expired
+  param count kind=Flag required=false long=--count
+  param format kind=Value required=false long=--format
+  param anomalies kind=Flag required=false long=--anomalies
+  param diff_from kind=Value required=false long=--diff-from
+  param resources_by_type kind=Flag required=false long=--resources-by-type
+  param machines_only kind=Flag required=false long=--machines-only
+  param stale_resources kind=Flag required=false long=--stale-resources
+  param health_threshold kind=Value required=false long=--health-threshold
+  param json_lines kind=Flag required=false long=--json-lines
+  param since kind=Value required=false long=--since
+  param export kind=Value required=false long=--export
+  param compact kind=Flag required=false long=--compact
+  param alerts kind=Flag required=false long=--alerts
+  param diff_lock kind=Value required=false long=--diff-lock
+  param compliance kind=Value required=false long=--compliance
+  param histogram kind=Flag required=false long=--histogram
+  param dependency_health kind=Flag required=false long=--dependency-health
+  param top_failures kind=Flag required=false long=--top-failures
+  param convergence_rate kind=Flag required=false long=--convergence-rate
+  param drift_summary kind=Flag required=false long=--drift-summary
+  param resource_age kind=Flag required=false long=--resource-age
+  param sla_report kind=Flag required=false long=--sla-report
+  param compliance_report kind=Value required=false long=--compliance-report
+  param mttr kind=Flag required=false long=--mttr
+  param trend kind=Value required=false long=--trend
+  param prediction kind=Flag required=false long=--prediction
+  param capacity kind=Flag required=false long=--capacity
+  param cost_estimate kind=Flag required=false long=--cost-estimate
+  param staleness_report kind=Value required=false long=--staleness-report
+  param health_score kind=Flag required=false long=--health-score
+  param connectivity kind=Flag required=false long=--connectivity
+  param executive_summary kind=Flag required=false long=--executive-summary
+  param audit_trail kind=Flag required=false long=--audit-trail
+  param resource_graph kind=Flag required=false long=--resource-graph
+  param drift_velocity kind=Flag required=false long=--drift-velocity
+  param fleet_overview kind=Flag required=false long=--fleet-overview
+  param machine_health kind=Flag required=false long=--machine-health
+  param config_drift kind=Flag required=false long=--config-drift
+  param convergence_time kind=Flag required=false long=--convergence-time
+  param resource_timeline kind=Flag required=false long=--resource-timeline
+  param error_summary kind=Flag required=false long=--error-summary
+  param security_posture kind=Flag required=false long=--security-posture
+  param resource_cost kind=Flag required=false long=--resource-cost
+  param drift_forecast kind=Flag required=false long=--drift-forecast
+  param pipeline_status kind=Flag required=false long=--pipeline-status
+  param resource_dependencies kind=Flag required=false long=--resource-dependencies
+  param diagnostic kind=Flag required=false long=--diagnostic
+  param uptime kind=Flag required=false long=--uptime
+  param recommendations kind=Flag required=false long=--recommendations
+  param machine_summary kind=Flag required=false long=--machine-summary
+  param change_frequency kind=Flag required=false long=--change-frequency
+  param lock_age kind=Flag required=false long=--lock-age
+  param failed_since kind=Value required=false long=--failed-since
+  param hash_verify kind=Flag required=false long=--hash-verify
+  param resource_size kind=Flag required=false long=--resource-size
+  param drift_details_all kind=Flag required=false long=--drift-details-all
+  param last_apply_duration kind=Flag required=false long=--last-apply-duration
+  param config_hash kind=Flag required=false long=--config-hash
+  param convergence_history kind=Flag required=false long=--convergence-history
+  param resource_inputs kind=Flag required=false long=--resource-inputs
+  param drift_trend kind=Flag required=false long=--drift-trend
+  param failed_resources kind=Flag required=false long=--failed-resources
+  param resource_types_summary kind=Flag required=false long=--resource-types-summary
+  param resource_health kind=Flag required=false long=--resource-health
+  param machine_health_summary kind=Flag required=false long=--machine-health-summary
+  param dependency_count kind=Flag required=false long=--dependency-count
+  param last_apply_status kind=Flag required=false long=--last-apply-status
+  param resource_staleness kind=Flag required=false long=--resource-staleness
+  param convergence_percentage kind=Flag required=false long=--convergence-percentage
+  param failed_count kind=Flag required=false long=--failed-count
+  param drift_count kind=Flag required=false long=--drift-count
+  param resource_duration kind=Flag required=false long=--resource-duration
+  param machine_resource_map kind=Flag required=false long=--machine-resource-map
+  param fleet_convergence kind=Flag required=false long=--fleet-convergence
+  param resource_hash kind=Flag required=false long=--resource-hash
+  param machine_drift_summary kind=Flag required=false long=--machine-drift-summary
+  param apply_history_count kind=Flag required=false long=--apply-history-count
+  param lock_file_count kind=Flag required=false long=--lock-file-count
+  param resource_type_distribution kind=Flag required=false long=--resource-type-distribution
+  param resource_apply_age kind=Flag required=false long=--resource-apply-age
+  param machine_uptime kind=Flag required=false long=--machine-uptime
+  param resource_churn kind=Flag required=false long=--resource-churn
+  param last_drift_time kind=Flag required=false long=--last-drift-time
+  param machine_resource_count kind=Flag required=false long=--machine-resource-count
+  param convergence_score kind=Flag required=false long=--convergence-score
+  param apply_success_rate kind=Flag required=false long=--apply-success-rate
+  param error_rate kind=Flag required=false long=--error-rate
+  param fleet_health_summary kind=Flag required=false long=--fleet-health-summary
+  param machine_convergence_history kind=Flag required=false long=--machine-convergence-history
+  param drift_history kind=Flag required=false long=--drift-history
+  param resource_failure_rate kind=Flag required=false long=--resource-failure-rate
+  param machine_last_apply kind=Flag required=false long=--machine-last-apply
+  param fleet_drift_summary kind=Flag required=false long=--fleet-drift-summary
+  param resource_apply_duration kind=Flag required=false long=--resource-apply-duration
+  param machine_resource_health kind=Flag required=false long=--machine-resource-health
+  param fleet_convergence_trend kind=Flag required=false long=--fleet-convergence-trend
+  param resource_state_distribution kind=Flag required=false long=--resource-state-distribution
+  param machine_apply_count kind=Flag required=false long=--machine-apply-count
+  param fleet_apply_history kind=Flag required=false long=--fleet-apply-history
+  param resource_hash_changes kind=Flag required=false long=--resource-hash-changes
+  param machine_uptime_estimate kind=Flag required=false long=--machine-uptime-estimate
+  param fleet_resource_type_breakdown kind=Flag required=false long=--fleet-resource-type-breakdown
+  param resource_convergence_time kind=Flag required=false long=--resource-convergence-time
+  param machine_drift_age kind=Flag required=false long=--machine-drift-age
+  param fleet_failed_resources kind=Flag required=false long=--fleet-failed-resources
+  param resource_dependency_health kind=Flag required=false long=--resource-dependency-health
+  param machine_resource_age_distribution kind=Flag required=false long=--machine-resource-age-distribution
+  param fleet_convergence_velocity kind=Flag required=false long=--fleet-convergence-velocity
+  param resource_failure_correlation kind=Flag required=false long=--resource-failure-correlation
+  param machine_resource_churn_rate kind=Flag required=false long=--machine-resource-churn-rate
+  param fleet_resource_staleness kind=Flag required=false long=--fleet-resource-staleness
+  param machine_convergence_trend kind=Flag required=false long=--machine-convergence-trend
+  param machine_capacity_utilization kind=Flag required=false long=--machine-capacity-utilization
+  param fleet_configuration_entropy kind=Flag required=false long=--fleet-configuration-entropy
+  param machine_resource_freshness kind=Flag required=false long=--machine-resource-freshness
+  param machine_error_budget kind=Flag required=false long=--machine-error-budget
+  param fleet_compliance_score kind=Flag required=false long=--fleet-compliance-score
+  param machine_mean_time_to_recovery kind=Flag required=false long=--machine-mean-time-to-recovery
+  param machine_resource_dependency_health kind=Flag required=false long=--machine-resource-dependency-health
+  param fleet_resource_type_health kind=Flag required=false long=--fleet-resource-type-health
+  param machine_resource_convergence_rate kind=Flag required=false long=--machine-resource-convergence-rate
+  param machine_resource_failure_correlation kind=Flag required=false long=--machine-resource-failure-correlation
+  param fleet_resource_age_distribution kind=Flag required=false long=--fleet-resource-age-distribution
+  param machine_resource_rollback_readiness kind=Flag required=false long=--machine-resource-rollback-readiness
+  param machine_resource_health_trend kind=Flag required=false long=--machine-resource-health-trend
+  param fleet_resource_drift_velocity kind=Flag required=false long=--fleet-resource-drift-velocity
+  param machine_resource_apply_success_trend kind=Flag required=false long=--machine-resource-apply-success-trend
+  param machine_resource_mttr_estimate kind=Flag required=false long=--machine-resource-mttr-estimate
+  param fleet_resource_convergence_forecast kind=Flag required=false long=--fleet-resource-convergence-forecast
+  param machine_resource_error_budget_forecast kind=Flag required=false long=--machine-resource-error-budget-forecast
+  param machine_resource_dependency_lag kind=Flag required=false long=--machine-resource-dependency-lag
+  param fleet_resource_dependency_lag kind=Flag required=false long=--fleet-resource-dependency-lag
+  param machine_resource_config_drift_rate kind=Flag required=false long=--machine-resource-config-drift-rate
+  param machine_resource_convergence_lag kind=Flag required=false long=--machine-resource-convergence-lag
+  param fleet_resource_convergence_lag kind=Flag required=false long=--fleet-resource-convergence-lag
+  param machine_resource_dependency_depth kind=Flag required=false long=--machine-resource-dependency-depth
+  param machine_resource_convergence_velocity kind=Flag required=false long=--machine-resource-convergence-velocity
+  param fleet_resource_convergence_velocity kind=Flag required=false long=--fleet-resource-convergence-velocity
+  param machine_resource_failure_recurrence kind=Flag required=false long=--machine-resource-failure-recurrence
+  param machine_resource_drift_frequency kind=Flag required=false long=--machine-resource-drift-frequency
+  param fleet_resource_drift_frequency kind=Flag required=false long=--fleet-resource-drift-frequency
+  param machine_resource_apply_duration_trend kind=Flag required=false long=--machine-resource-apply-duration-trend
+  param machine_resource_convergence_streak kind=Flag required=false long=--machine-resource-convergence-streak
+  param fleet_resource_convergence_streak kind=Flag required=false long=--fleet-resource-convergence-streak
+  param machine_resource_error_distribution kind=Flag required=false long=--machine-resource-error-distribution
+  param machine_resource_drift_age kind=Flag required=false long=--machine-resource-drift-age
+  param fleet_resource_drift_age kind=Flag required=false long=--fleet-resource-drift-age
+  param machine_resource_recovery_rate kind=Flag required=false long=--machine-resource-recovery-rate
+  param machine_resource_drift_velocity kind=Flag required=false long=--machine-resource-drift-velocity
+  param fleet_resource_recovery_rate kind=Flag required=false long=--fleet-resource-recovery-rate
+  param machine_resource_convergence_efficiency kind=Flag required=false long=--machine-resource-convergence-efficiency
+  param machine_resource_apply_frequency kind=Flag required=false long=--machine-resource-apply-frequency
+  param fleet_resource_health_score kind=Flag required=false long=--fleet-resource-health-score
+  param machine_resource_staleness_index kind=Flag required=false long=--machine-resource-staleness-index
+  param machine_resource_drift_recurrence kind=Flag required=false long=--machine-resource-drift-recurrence
+  param fleet_resource_drift_heatmap kind=Flag required=false long=--fleet-resource-drift-heatmap
+  param machine_resource_convergence_trend_p90 kind=Flag required=false long=--machine-resource-convergence-trend-p90
+  param machine_resource_drift_age_hours kind=Flag required=false long=--machine-resource-drift-age-hours
+  param fleet_resource_convergence_percentile kind=Flag required=false long=--fleet-resource-convergence-percentile
+  param machine_resource_error_rate kind=Flag required=false long=--machine-resource-error-rate
+  param machine_resource_convergence_gap kind=Flag required=false long=--machine-resource-convergence-gap
+  param fleet_resource_error_distribution kind=Flag required=false long=--fleet-resource-error-distribution
+  param machine_resource_convergence_stability kind=Flag required=false long=--machine-resource-convergence-stability
+  param machine_resource_apply_latency_p95 kind=Flag required=false long=--machine-resource-apply-latency-p95
+  param fleet_resource_security_posture_score kind=Flag required=false long=--fleet-resource-security-posture-score
+  param fleet_apply_success_rate_trend kind=Flag required=false long=--fleet-apply-success-rate-trend
+  param machine_resource_drift_flapping kind=Flag required=false long=--machine-resource-drift-flapping
+  param fleet_resource_type_drift_heatmap kind=Flag required=false long=--fleet-resource-type-drift-heatmap
+  param machine_ssh_connection_health kind=Flag required=false long=--machine-ssh-connection-health
+  param lock_file_staleness_report kind=Flag required=false long=--lock-file-staleness-report
+  param fleet_transport_method_summary kind=Flag required=false long=--fleet-transport-method-summary
+  param fleet_state_churn_analysis kind=Flag required=false long=--fleet-state-churn-analysis
+  param config_maturity_score kind=Flag required=false long=--config-maturity-score
+  param fleet_capacity_utilization kind=Flag required=false long=--fleet-capacity-utilization
+  param fleet_drift_velocity_trend kind=Flag required=false long=--fleet-drift-velocity-trend
+  param machine_convergence_window kind=Flag required=false long=--machine-convergence-window
+  param fleet_resource_age_histogram kind=Flag required=false long=--fleet-resource-age-histogram
+  param fleet_security_posture_summary kind=Flag required=false long=--fleet-security-posture-summary
+  param machine_resource_freshness_index kind=Flag required=false long=--machine-resource-freshness-index
+  param fleet_resource_type_coverage kind=Flag required=false long=--fleet-resource-type-coverage
+  param fleet_apply_cadence kind=Flag required=false long=--fleet-apply-cadence
+  param machine_resource_error_classification kind=Flag required=false long=--machine-resource-error-classification
+  param fleet_resource_convergence_summary kind=Flag required=false long=--fleet-resource-convergence-summary
+  param fleet_resource_staleness_report kind=Flag required=false long=--fleet-resource-staleness-report
+  param machine_resource_type_distribution kind=Flag required=false long=--machine-resource-type-distribution
+  param fleet_machine_health_score kind=Flag required=false long=--fleet-machine-health-score
+  param fleet_resource_dependency_lag_report kind=Flag required=false long=--fleet-resource-dependency-lag-report
+  param machine_resource_convergence_rate_trend kind=Flag required=false long=--machine-resource-convergence-rate-trend
+  param fleet_resource_apply_lag kind=Flag required=false long=--fleet-resource-apply-lag
+  param fleet_resource_error_rate_trend kind=Flag required=false long=--fleet-resource-error-rate-trend
+  param machine_resource_drift_recovery_time kind=Flag required=false long=--machine-resource-drift-recovery-time
+  param fleet_resource_config_complexity_score kind=Flag required=false long=--fleet-resource-config-complexity-score
+  param fleet_resource_maturity_index kind=Flag required=false long=--fleet-resource-maturity-index
+  param machine_resource_convergence_stability_index kind=Flag required=false long=--machine-resource-convergence-stability-index
+  param fleet_resource_drift_pattern_analysis kind=Flag required=false long=--fleet-resource-drift-pattern-analysis
+  param fleet_resource_apply_success_trend kind=Flag required=false long=--fleet-resource-apply-success-trend
+  param machine_resource_drift_age_distribution_report kind=Flag required=false long=--machine-resource-drift-age-distribution-report
+  param fleet_resource_convergence_gap_analysis kind=Flag required=false long=--fleet-resource-convergence-gap-analysis
+  param fleet_resource_type_drift_correlation kind=Flag required=false long=--fleet-resource-type-drift-correlation
+  param machine_resource_apply_cadence_report kind=Flag required=false long=--machine-resource-apply-cadence-report
+  param fleet_resource_drift_recovery_trend kind=Flag required=false long=--fleet-resource-drift-recovery-trend
+  param fleet_resource_quality_score kind=Flag required=false long=--fleet-resource-quality-score
+  param machine_resource_drift_pattern_classification kind=Flag required=false long=--machine-resource-drift-pattern-classification
+  param fleet_resource_convergence_window_analysis kind=Flag required=false long=--fleet-resource-convergence-window-analysis
+
+[store] effects=mutating subcommands=gc,list,diff,sync
+  description: FJ-1327: Content-addressed store operations (gc, list, diff, sync)
+
+[store-import] effects=mutating
+  description: FJ-1333: Universal store import (apt, cargo, uv, nix, docker, tofu, terraform, apr)
+  param provider kind=Positional required=true
+  param reference kind=Positional required=true
+  param store_dir kind=Value required=false long=--store-dir default=/home/noah/.local/share/forjar/store
+  param json kind=Flag required=false long=--json
+  param list_providers kind=Flag required=false long=--list-providers
+
+[suggest] effects=read-only
+  description: FJ-361: Analyze config and suggest improvements
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param json kind=Flag required=false long=--json
+
+[template] effects=read-only
+  description: FJ-371: Expand a recipe template to stdout without applying
+  param recipe kind=Positional required=true
+  param vars kind=Multi required=false long=--var
+  param json kind=Flag required=false long=--json
+
+[test] effects=mutating
+  description: FJ-273: Run check scripts for all resources, report pass/fail table
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param machine kind=Value required=false long=--machine
+  param resource kind=Value required=false long=--resource
+  param tag kind=Value required=false long=--tag
+  param group kind=Value required=false long=--group
+  param json kind=Flag required=false long=--json
+  param sandbox kind=Value required=false long=--sandbox default=pepita
+  param parallel kind=Value required=false long=--parallel default=4
+  param pairs kind=Flag required=false long=--pairs
+  param mutations kind=Value required=false long=--mutations default=50
+
+[trace] effects=mutating
+  description: View trace provenance data from apply runs (FJ-050)
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param json kind=Flag required=false long=--json
+
+[trigger] effects=mutating
+  description: FJ-3107: Manually trigger a rulebook
+  param rulebook kind=Positional required=true
+  param file kind=Value required=false long=--file default=forjar-rules.yaml
+  param payload kind=Multi required=false long=--payload
+  param dry_run kind=Flag required=false long=--dry-run
+  param json kind=Flag required=false long=--json
+
+[undo] effects=mutating
+  description: FJ-2003: Undo last apply (active undo with re-convergence)
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param generations kind=Value required=false long=--generations default=1
+  param machine kind=Value required=false long=--machine
+  param dry_run kind=Flag required=false long=--dry-run
+  param resume kind=Flag required=false long=--resume
+  param yes kind=Flag required=false long=--yes
+
+[undo-destroy] effects=mutating
+  description: FJ-2005: Re-create resources from destroy log
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param machine kind=Value required=false long=--machine
+  param force kind=Flag required=false long=--force
+  param dry_run kind=Flag required=false long=--dry-run
+
+[validate] effects=read-only
+  description: Validate forjar.yaml without connecting to machines
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param strict kind=Flag required=false long=--strict
+  param json kind=Flag required=false long=--json
+  param dry_expand kind=Flag required=false long=--dry-expand
+  param schema_version kind=Value required=false long=--schema-version
+  param exhaustive kind=Flag required=false long=--exhaustive
+  param deep kind=Flag required=false long=--deep
+  param policy_file kind=Value required=false long=--policy-file
+  param check_connectivity kind=Flag required=false long=--check-connectivity
+  param check_templates kind=Flag required=false long=--check-templates
+  param strict_deps kind=Flag required=false long=--strict-deps
+  param check_secrets kind=Flag required=false long=--check-secrets
+  param check_idempotency kind=Flag required=false long=--check-idempotency
+  param check_drift_coverage kind=Flag required=false long=--check-drift-coverage
+  param check_cycles_deep kind=Flag required=false long=--check-cycles-deep
+  param check_naming kind=Flag required=false long=--check-naming
+  param check_overlaps kind=Flag required=false long=--check-overlaps
+  param check_limits kind=Flag required=false long=--check-limits
+  param check_complexity kind=Flag required=false long=--check-complexity
+  param check_security kind=Flag required=false long=--check-security
+  param check_deprecation kind=Flag required=false long=--check-deprecation
+  param check_drift_risk kind=Flag required=false long=--check-drift-risk
+  param check_compliance kind=Value required=false long=--check-compliance
+  param check_portability kind=Flag required=false long=--check-portability
+  param check_resource_limits kind=Flag required=false long=--check-resource-limits
+  param check_unused kind=Flag required=false long=--check-unused
+  param check_dependencies kind=Flag required=false long=--check-dependencies
+  param check_permissions kind=Flag required=false long=--check-permissions
+  param check_idempotency_deep kind=Flag required=false long=--check-idempotency-deep
+  param check_machine_reachability kind=Flag required=false long=--check-machine-reachability
+  param check_circular_refs kind=Flag required=false long=--check-circular-refs
+  param check_naming_conventions kind=Flag required=false long=--check-naming-conventions
+  param check_owner_consistency kind=Flag required=false long=--check-owner-consistency
+  param check_path_conflicts kind=Flag required=false long=--check-path-conflicts
+  param check_service_deps kind=Flag required=false long=--check-service-deps
+  param check_template_vars kind=Flag required=false long=--check-template-vars
+  param check_mode_consistency kind=Flag required=false long=--check-mode-consistency
+  param check_group_consistency kind=Flag required=false long=--check-group-consistency
+  param check_mount_points kind=Flag required=false long=--check-mount-points
+  param check_cron_syntax kind=Flag required=false long=--check-cron-syntax
+  param check_env_refs kind=Flag required=false long=--check-env-refs
+  param check_resource_names kind=Value required=false long=--check-resource-names
+  param check_resource_count kind=Value required=false long=--check-resource-count
+  param check_duplicate_paths kind=Flag required=false long=--check-duplicate-paths
+  param check_circular_deps kind=Flag required=false long=--check-circular-deps
+  param check_machine_refs kind=Flag required=false long=--check-machine-refs
+  param check_provider_consistency kind=Flag required=false long=--check-provider-consistency
+  param check_state_values kind=Flag required=false long=--check-state-values
+  param check_unused_machines kind=Flag required=false long=--check-unused-machines
+  param check_tag_consistency kind=Flag required=false long=--check-tag-consistency
+  param check_dependency_exists kind=Flag required=false long=--check-dependency-exists
+  param check_path_conflicts_strict kind=Flag required=false long=--check-path-conflicts-strict
+  param check_duplicate_names kind=Flag required=false long=--check-duplicate-names
+  param check_resource_groups kind=Flag required=false long=--check-resource-groups
+  param check_orphan_resources kind=Flag required=false long=--check-orphan-resources
+  param check_machine_arch kind=Flag required=false long=--check-machine-arch
+  param check_resource_health_conflicts kind=Flag required=false long=--check-resource-health-conflicts
+  param check_resource_overlap kind=Flag required=false long=--check-resource-overlap
+  param check_resource_tags kind=Flag required=false long=--check-resource-tags
+  param check_resource_state_consistency kind=Flag required=false long=--check-resource-state-consistency
+  param check_resource_dependencies_complete kind=Flag required=false long=--check-resource-dependencies-complete
+  param check_machine_connectivity kind=Flag required=false long=--check-machine-connectivity
+  param check_resource_naming_pattern kind=Value required=false long=--check-resource-naming-pattern
+  param check_resource_provider_support kind=Flag required=false long=--check-resource-provider-support
+  param check_resource_secret_refs kind=Flag required=false long=--check-resource-secret-refs
+  param check_resource_idempotency_hints kind=Flag required=false long=--check-resource-idempotency-hints
+  param check_resource_dependency_depth kind=Value required=false long=--check-resource-dependency-depth
+  param check_resource_machine_affinity kind=Flag required=false long=--check-resource-machine-affinity
+  param check_resource_drift_risk kind=Flag required=false long=--check-resource-drift-risk
+  param check_resource_tag_coverage kind=Flag required=false long=--check-resource-tag-coverage
+  param check_resource_lifecycle_hooks kind=Flag required=false long=--check-resource-lifecycle-hooks
+  param check_resource_provider_version kind=Flag required=false long=--check-resource-provider-version
+  param check_resource_naming_convention kind=Flag required=false long=--check-resource-naming-convention
+  param check_resource_idempotency kind=Flag required=false long=--check-resource-idempotency
+  param check_resource_documentation kind=Flag required=false long=--check-resource-documentation
+  param check_resource_ownership kind=Flag required=false long=--check-resource-ownership
+  param check_resource_secret_exposure kind=Flag required=false long=--check-resource-secret-exposure
+  param check_resource_tag_standards kind=Flag required=false long=--check-resource-tag-standards
+  param check_resource_privilege_escalation kind=Flag required=false long=--check-resource-privilege-escalation
+  param check_resource_update_safety kind=Flag required=false long=--check-resource-update-safety
+  param check_resource_cross_machine_consistency kind=Flag required=false long=--check-resource-cross-machine-consistency
+  param check_resource_version_pinning kind=Flag required=false long=--check-resource-version-pinning
+  param check_resource_dependency_completeness kind=Flag required=false long=--check-resource-dependency-completeness
+  param check_resource_state_coverage kind=Flag required=false long=--check-resource-state-coverage
+  param check_resource_rollback_safety kind=Flag required=false long=--check-resource-rollback-safety
+  param check_resource_config_maturity kind=Flag required=false long=--check-resource-config-maturity
+  param check_resource_dependency_ordering kind=Flag required=false long=--check-resource-dependency-ordering
+  param check_resource_tag_completeness kind=Flag required=false long=--check-resource-tag-completeness
+  param check_resource_naming_standards kind=Flag required=false long=--check-resource-naming-standards
+  param check_resource_dependency_symmetry kind=Flag required=false long=--check-resource-dependency-symmetry
+  param check_resource_circular_alias kind=Flag required=false long=--check-resource-circular-alias
+  param check_resource_dependency_depth_limit kind=Flag required=false long=--check-resource-dependency-depth-limit
+  param check_resource_unused_params kind=Flag required=false long=--check-resource-unused-params
+  param check_resource_machine_balance kind=Flag required=false long=--check-resource-machine-balance
+  param check_resource_content_hash_consistency kind=Flag required=false long=--check-resource-content-hash-consistency
+  param check_resource_dependency_refs kind=Flag required=false long=--check-resource-dependency-refs
+  param check_resource_trigger_refs kind=Flag required=false long=--check-resource-trigger-refs
+  param check_resource_param_type_safety kind=Flag required=false long=--check-resource-param-type-safety
+  param check_resource_env_consistency kind=Flag required=false long=--check-resource-env-consistency
+  param check_resource_secret_rotation kind=Flag required=false long=--check-resource-secret-rotation
+  param check_resource_lifecycle_completeness kind=Flag required=false long=--check-resource-lifecycle-completeness
+  param check_resource_provider_compatibility kind=Flag required=false long=--check-resource-provider-compatibility
+  param check_resource_naming_convention_strict kind=Flag required=false long=--check-resource-naming-convention-strict
+  param check_resource_idempotency_annotations kind=Flag required=false long=--check-resource-idempotency-annotations
+  param check_resource_content_size_limit kind=Flag required=false long=--check-resource-content-size-limit
+  param check_resource_dependency_fan_limit kind=Flag required=false long=--check-resource-dependency-fan-limit
+  param check_resource_gpu_backend_consistency kind=Flag required=false long=--check-resource-gpu-backend-consistency
+  param check_resource_when_condition_syntax kind=Flag required=false long=--check-resource-when-condition-syntax
+  param check_resource_lifecycle_hook_coverage kind=Flag required=false long=--check-resource-lifecycle-hook-coverage
+  param check_resource_secret_rotation_age kind=Flag required=false long=--check-resource-secret-rotation-age
+  param check_resource_dependency_chain_depth kind=Flag required=false long=--check-resource-dependency-chain-depth
+  param check_recipe_input_completeness kind=Flag required=false long=--check-recipe-input-completeness
+  param check_resource_cross_machine_content_duplicates kind=Flag required=false long=--check-resource-cross-machine-content-duplicates
+  param check_resource_machine_reference_validity kind=Flag required=false long=--check-resource-machine-reference-validity
+  param check_resource_health_correlation kind=Flag required=false long=--check-resource-health-correlation
+  param check_dependency_optimization kind=Flag required=false long=--check-dependency-optimization
+  param check_resource_consolidation_opportunities kind=Flag required=false long=--check-resource-consolidation-opportunities
+  param check_resource_compliance_tags kind=Flag required=false long=--check-resource-compliance-tags
+  param check_resource_rollback_coverage kind=Flag required=false long=--check-resource-rollback-coverage
+  param check_resource_dependency_balance kind=Flag required=false long=--check-resource-dependency-balance
+  param check_resource_secret_scope kind=Flag required=false long=--check-resource-secret-scope
+  param check_resource_deprecation_usage kind=Flag required=false long=--check-resource-deprecation-usage
+  param check_resource_when_condition_coverage kind=Flag required=false long=--check-resource-when-condition-coverage
+  param check_resource_dependency_symmetry_deep kind=Flag required=false long=--check-resource-dependency-symmetry-deep
+  param check_resource_tag_namespace kind=Flag required=false long=--check-resource-tag-namespace
+  param check_resource_machine_capacity kind=Flag required=false long=--check-resource-machine-capacity
+  param check_resource_dependency_fan_out_limit kind=Flag required=false long=--check-resource-dependency-fan-out-limit
+  param check_resource_tag_required_keys kind=Flag required=false long=--check-resource-tag-required-keys
+  param check_resource_content_drift_risk kind=Flag required=false long=--check-resource-content-drift-risk
+  param check_resource_circular_dependency_depth kind=Flag required=false long=--check-resource-circular-dependency-depth
+  param check_resource_orphan_detection_deep kind=Flag required=false long=--check-resource-orphan-detection-deep
+  param check_resource_provider_diversity kind=Flag required=false long=--check-resource-provider-diversity
+  param check_resource_dependency_isolation kind=Flag required=false long=--check-resource-dependency-isolation
+  param check_resource_tag_value_consistency kind=Flag required=false long=--check-resource-tag-value-consistency
+  param check_resource_machine_distribution_balance kind=Flag required=false long=--check-resource-machine-distribution-balance
+  param check_resource_dependency_version_drift kind=Flag required=false long=--check-resource-dependency-version-drift
+  param check_resource_naming_length_limit kind=Flag required=false long=--check-resource-naming-length-limit
+  param check_resource_type_coverage_per_machine kind=Flag required=false long=--check-resource-type-coverage-per-machine
+  param check_resource_dependency_depth_variance kind=Flag required=false long=--check-resource-dependency-depth-variance
+  param check_resource_tag_key_naming kind=Flag required=false long=--check-resource-tag-key-naming
+  param check_resource_content_length_limit kind=Flag required=false long=--check-resource-content-length-limit
+  param check_resource_dependency_completeness_audit kind=Flag required=false long=--check-resource-dependency-completeness-audit
+  param check_resource_machine_coverage_gap kind=Flag required=false long=--check-resource-machine-coverage-gap
+  param check_resource_path_depth_limit kind=Flag required=false long=--check-resource-path-depth-limit
+  param check_resource_dependency_ordering_consistency kind=Flag required=false long=--check-resource-dependency-ordering-consistency
+  param check_resource_tag_value_format kind=Flag required=false long=--check-resource-tag-value-format
+  param check_resource_provider_version_pinning kind=Flag required=false long=--check-resource-provider-version-pinning
+  param check_recipe_purity kind=Flag required=false long=--check-recipe-purity
+  param min_purity kind=Value required=false long=--min-purity choices=pure|pinned|constrained|impure
+  param check_reproducibility_score kind=Flag required=false long=--check-reproducibility-score
+  param deny_unknown_fields kind=Flag required=false long=--deny-unknown-fields
+
+[watch] effects=transport
+  description: FJ-267: Watch config for changes and auto-plan
+  param file kind=Value required=false long=--file default=forjar.yaml
+  param state_dir kind=Value required=false long=--state-dir default=state
+  param interval kind=Value required=false long=--interval default=2
+  param apply kind=Flag required=false long=--apply
+  param yes kind=Flag required=false long=--yes
+
+[workspace] effects=mutating subcommands=new,list,select,delete,current
+  description: FJ-210: Manage workspaces (isolated state directories)

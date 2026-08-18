@@ -182,6 +182,7 @@ mod recipe_signing;
 mod remote_state;
 mod repro_proof;
 mod reseal;
+pub mod root;
 mod rules;
 mod run_task;
 mod runtime_invariants;
@@ -297,6 +298,7 @@ mod webhook_post;
 mod workspace;
 pub use commands::Commands;
 pub use dispatch::dispatch;
+pub use root::Cli;
 
 // Test module declarations (split across include files for file size).
 include!("mod_test_decl.rs");

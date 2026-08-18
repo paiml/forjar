@@ -1559,17 +1559,29 @@ The distinction between exit code 1 (tool error) and exit code 2 (drift signal) 
 
 ### `forjar mcp`
 
-Start the MCP (Model Context Protocol) server using pforge. This enables
-AI agents to manage infrastructure through the same validated pipeline.
+Start the MCP (Model Context Protocol) server on stdio. This enables AI agents
+to manage infrastructure through the same validated pipeline.
 
 ```bash
 forjar mcp
 ```
 
-The server runs on stdio transport and exposes 9 tools:
-`forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`,
-`forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`,
-`forjar_anomaly`.
+**Changed in 2.0.** The server now exposes **every invocable forjar verb**
+— around 155 of them — instead of the nine hand-written tools 1.x shipped.
+Tool names are the CLI subcommand names (`plan`, `validate`, `lock-verify`),
+not the old `forjar_`-prefixed ones, and arguments are the command's own
+flags.
+
+Nothing here is hand-maintained. The tool list, every description and every
+input schema are derived at runtime from the same clap command tree `forjar`
+parses argv with (see the Architecture chapter, *Unified Verb Surface*), and a
+`tools/call` is executed by running the shipped binary. An MCP answer is
+therefore the CLI answer by construction — in 1.x the two were separate
+implementations and had already diverged twice.
+
+Each tool's description is prefixed with its effect class, so an agent can
+tell `[read-only] plan` from `[mutating] destroy` without invoking it.
+Transport verbs (`serve`, `mcp`, `lsp`, `watch`) are not listed at all.
 
 Configure in your MCP client:
 
@@ -1584,13 +1596,74 @@ Configure in your MCP client:
 }
 ```
 
-Export tool schemas as JSON (for external consumers, IDEs, documentation):
+Export the tool catalogue as JSON (for external consumers, IDEs, documentation):
 
 ```bash
 forjar mcp --schema > docs/mcp-schema.json
 ```
 
-See Architecture chapter for full tool reference and handler details.
+The pre-2.0 pforge server with its nine tools remains available for one
+release, for clients pinned to the old tool names:
+
+```bash
+forjar mcp --legacy
+forjar mcp --schema --legacy
+```
+
+It is deprecated and will be removed in the next major version.
+
+### `forjar serve`
+
+Serve the same verb registry over HTTP. Added in 2.0.
+
+```bash
+forjar serve --port 8737
+```
+
+| Method | Path                | Meaning                            |
+|--------|---------------------|------------------------------------|
+| GET    | `/health`           | liveness and verb count            |
+| GET    | `/v1/verbs`         | the whole catalogue, with schemas  |
+| GET    | `/v1/verbs/{name}`  | one verb's schema and effect class |
+| POST   | `/v1/{name}`        | invoke it; params are the JSON body |
+
+```bash
+curl localhost:8737/v1/verbs/plan
+curl -X POST localhost:8737/v1/validate -d '{"file": "forjar.yaml"}'
+```
+
+Every invocation returns the same envelope:
+
+```json
+{
+  "verb": "validate",
+  "ok": true,
+  "exit_code": 0,
+  "stdout": "OK: my-infra (2 machines, 7 resources)\n",
+  "stderr": "",
+  "json": { }
+}
+```
+
+`json` is present only when the verb's stdout parses as a JSON document —
+typically when you passed that verb's `--json` flag.
+
+A verb that runs and reports a problem is a **successful exchange**: HTTP 200
+carrying `ok: false` and the verb's real exit code. Non-200 statuses mean the
+request never ran — 400 invalid params, 403 refused, 404 no such verb, 500
+could not execute.
+
+**Security.** The server binds `127.0.0.1` by default and has no
+authentication. It executes infrastructure verbs, so treat exposing it as
+equivalent to handing out shell access. `--read-only` restricts it to verbs
+classified as read-only, refusing anything that could change the world:
+
+```bash
+forjar serve --port 8737 --read-only
+```
+
+Effect classification defaults to *mutating*, so a verb nobody has classified
+is refused by a `--read-only` server rather than admitted to it.
 
 ### `forjar bench`
 

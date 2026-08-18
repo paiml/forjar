@@ -13,6 +13,7 @@ mod state_args;
 mod status_args;
 mod store_args;
 mod subcmd_args;
+mod transport_args;
 mod validate_args;
 pub use apply_args::*;
 use clap::Subcommand;
@@ -30,6 +31,7 @@ pub use state_args::*;
 pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
+pub use transport_args::*;
 pub use validate_args::*;
 /// Top-level CLI subcommands.
 #[derive(Subcommand, Debug)]
@@ -436,4 +438,6 @@ pub enum Commands {
     Trigger(TriggerArgs),
     /// FJ-3600: Generate distribution artifacts (installer, Homebrew, Nix, etc.)
     Dist(DistArgs),
+    /// GH-267: Serve the verb registry over HTTP (derived surface)
+    Serve(ServeArgs),
 }

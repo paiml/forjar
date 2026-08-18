@@ -1,0 +1,387 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-18"
+  author: "PAIML Engineering"
+  kind_rationale: |
+    `pattern`, not `kernel`. PROVABILITY-001 makes kernel contracts require
+    Kani harnesses, and paiml/forjar#242 records that no CI job runs kani,
+    lean or verus. A harness here would be an unverified proof claim in a
+    repository where that is already a filed defect.
+
+    Two equations below (`argv_projection`, `error_totality`) are pure and
+    finite and would be reasonable Kani candidates once #242 lands. The
+    remaining three quantify over a clap tree built at runtime, which is not
+    a bounded model — they are falsified by execution, not by proof.
+  description: |
+    The Unified Verb Surface — forjar has ONE definition of what it can do,
+    and every transport is a projection of it rather than a restatement.
+
+    Filed because forjar 1.x had two definitions and they had already
+    diverged. The CLI declared 159 subcommands in `src/cli/commands/mod.rs`.
+    Separately, `src/mcp/` declared nine MCP tools, each with its own
+    handler reimplementing what the CLI command of the same name did.
+
+    `src/mcp/tests_parity.rs` records the cost in the maintainers' own
+    words: two defects "found by driving the PUBLISHED 1.12.0 binary over
+    stdio and comparing each tool against its CLI counterpart on the same
+    project. Neither was visible from the schema, from `tools/list`, or from
+    a handler test that only asserted 'returns Ok'." In one, a fully
+    converged project reported six pending changes over MCP and zero over
+    the CLI.
+
+    That is not nine handler bugs. It is what a second definition does.
+
+    v1.0.0 removes the second definition rather than testing the two against
+    each other. The registry is derived at runtime from the same
+    `clap::Command` tree `main` parses argv with, and a verb invocation on
+    any transport is reduced to an argv and an execution of the shipped
+    binary. Agreement is therefore structural: there is no second
+    implementation available to disagree.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/267"
+    - "prior defect: forjar src/mcp/tests_parity.rs — MCP/CLI divergence found only on the published binary"
+    - "prior defect: forjar FJ-2730 — the LSP server had 80 passing tests, a complete stdio implementation and NO entry point"
+    - "prior defect: paiml/rmedia#247 — a four-way transport-parity suite green while MCP and HTTP had no caller from main.rs"
+    - "quorum: kubectl — one API discovery document; every client is generated from it"
+    - "quorum: git — porcelain and plumbing over one object model, not two implementations"
+    - "quorum: AWS botocore — every SDK and the CLI generated from one service model"
+
+equations:
+  surface_derivation:
+    formula: |
+      registry = { spec(s) | s ∈ subcommands(clap_tree) , s ≠ help }
+      names(registry) = names(subcommands(clap_tree)) \ {help}
+    domain: "clap_tree ∈ Command"
+    codomain: "Set[VerbSpec]"
+    invariants:
+      - "the registry is a function of the clap tree and of nothing else"
+      - "every CLI subcommand appears in the registry exactly once"
+      - "no registry entry lacks a corresponding CLI subcommand"
+      - "the projection is total: no subcommand is skipped for want of a description or a parameter"
+      - "verb order is deterministic (sorted by name), so the manifest diff is reviewable"
+    notes: |
+      The direction of derivation is registry-FROM-args, which is
+      single-sourcing regardless of direction: the requirement is one
+      definition, not a particular one. Deriving args-from-registry would
+      have meant rewriting 159 `#[derive(clap::Args)]` structs and 781 files
+      of CLI code, changing the artifact under test while claiming to
+      describe it.
+
+  params_schema_projection:
+    formula: |
+      schema(v) = object( { p ↦ type(kind(p)) | p ∈ params(v) },
+                          required = { p | required(p) },
+                          additionalProperties = false )
+      kind(p) = f(action(p), positional(p), num_args(p))
+    domain: "v ∈ VerbSpec"
+    codomain: "JsonSchema"
+    invariants:
+      - "kind is decided by clap's ArgAction BEFORE its possible_values"
+      - "a SetTrue/SetFalse arg is boolean and exposes no enum"
+      - "a Count arg is a non-negative integer"
+      - "an Append arg is an array"
+      - "a ValueEnum arg carries its domain as a closed enum"
+      - "an unknown key is rejected, never silently dropped"
+    notes: |
+      The action-before-possible-values ordering is load-bearing and is the
+      subtlest fact in the implementation. clap reports the possible values
+      of every boolean flag as ["true", "false"], so a schema built from
+      possible values alone renders `--json` as a string enum over the
+      strings "true" and "false". Falsifier UVS-004.
+
+      `additionalProperties: false` is a safety property, not tidiness. A
+      dropped `state_dir` runs the verb against the default state directory
+      and answers confidently about the wrong thing.
+
+  argv_projection:
+    formula: |
+      argv(v, params) = [name(v)] ++ (subcommand if grouped)
+                        ++ concat{ render(p, params[p]) | p ∈ options(v) }
+                        ++ [ params[p] | p ∈ positionals(v) ]
+      render(p, false) = []                    when kind(p) = Flag
+      render(p, true)  = ["--" ++ long(p)]     when kind(p) = Flag
+      render(p, xs)    = concat{ ["--" ++ long(p), x] | x ∈ xs }  when Multi
+    domain: "v ∈ VerbSpec, params ∈ JsonObject"
+    codomain: "List[String]"
+    invariants:
+      - "every argv produced is accepted by the same parser main uses, or is rejected only for a missing required VALUE"
+      - "a false flag emits nothing; there is no --no-<flag> to undo an over-emission"
+      - "the CLI spelling (--state-dir) is used, never the JSON key (state_dir)"
+      - "a value of the wrong type is an error, never a dropped parameter"
+    notes: |
+      Rendering a false flag as `--json` would invert the caller's request,
+      and clap offers no negation to recover. Dropping a mistyped parameter
+      is worse than failing, because the verb then runs against defaults and
+      succeeds. Falsifiers UVS-005, UVS-007.
+
+  transport_equivalence:
+    formula: |
+      ∀ verb v, params q, transport t ∈ {cli, http, mcp}:
+        stdout(t, v, q) = stdout(cli, v, q) ∧ exit(t, v, q) = exit(cli, v, q)
+    domain: "v ∈ VerbSpec, q ∈ JsonObject"
+    codomain: "Bool"
+    invariants:
+      - "a transport has no execution path of its own; it builds argv and runs the shipped binary"
+      - "the exit code the verb produced is carried verbatim, never normalised to 0"
+      - "a verb that runs and fails is a successful transport exchange (HTTP 200) carrying ok:false"
+      - "transport verbs (serve, mcp, lsp, watch) are refused by every transport"
+    notes: |
+      Equivalence is enforced by construction rather than by comparison. The
+      HTTP and MCP adapters cannot answer differently from the CLI because
+      neither of them answers at all: both re-execute the binary and return
+      what it printed.
+
+      Re-execution rather than in-process capture is forced as well as
+      preferred — forjar's verbs report by printing, `cli::dispatch` returns
+      `Result<(), String>`, and capturing fd 1 in-process requires `unsafe`,
+      which this crate forbids at the workspace level.
+
+      Refusing transport verbs is termination, not policy: serving `serve`
+      from inside `serve` recurses without bound.
+
+  error_totality:
+    formula: |
+      ∀ e ∈ VerbError:
+        exit_code(e) ∈ [0, 255] ∧
+        jsonrpc_code(e) ∈ [-32768, -32000] ∧
+        http_status(e) ∈ [100, 600)
+      kind : VerbError → String is injective
+    domain: "e ∈ VerbError"
+    codomain: "(i32, i32, u16)"
+    invariants:
+      - "each mapping is a total match with no wildcard arm"
+      - "a new variant fails to compile until all three mappings are given"
+      - "no transport invents a code; each reads the mapping"
+      - "unknown_verb and not_invocable are distinguishable over HTTP (404 vs 403)"
+    notes: |
+      What this replaces: `main` chose an exit code by matching substrings
+      against a `String` error — `error.contains("SSH")` meant exit 4. Every
+      new transport would have had to reproduce that guess, and rewording
+      any message would have silently changed the code two of them returned.
+
+proof_obligations:
+  - type: invariant
+    property: "The registry and the CLI describe the same set of verbs"
+    formal: "names(registry) = names(subcommands(clap_tree)) \\ {help}"
+    applies_to: all
+    enforced_by: "src/verb/derive.rs::registry (test: registry_covers_every_cli_subcommand)"
+    notes: |
+      Both sides are read from the same tree, so this can only fail if the
+      projection drops a verb — which is the bug worth catching. Falsifier
+      UVS-003 confirmed RED by dropping `plan` from the derivation.
+
+  - type: invariant
+    property: "Every transport is reachable from the process entry point"
+    formal: "∀ t ∈ {cli, http, mcp}: spawn(binary, entry_args(t)) responds"
+    applies_to: all
+    enforced_by: "tests/uvs_e2e.rs (every test spawns CARGO_BIN_EXE_forjar)"
+    notes: |
+      This obligation exists because an in-process harness cannot discharge
+      it. paiml/rmedia#247 kept a four-way parity suite green for the whole
+      period its MCP and HTTP servers had no caller from `main.rs`; the
+      transports agreed with each other perfectly and could not be reached
+      by running the program. forjar has the same failure in its own
+      history: FJ-2730 records that the LSP server had 80 passing tests, a
+      complete stdio implementation, and no entry point.
+
+      Falsifiers UVS-001 and UVS-002 are exactly that defect, injected:
+      pointing `cmd_mcp` and the `Serve` dispatch arm at `Ok(())` leaves
+      every transport module and its unit tests untouched and green, and
+      turns the e2e suite RED. Both confirmed.
+
+  - type: invariant
+    property: "A verb's parameters are validated before anything is executed"
+    formal: "dispatch(v, q) = Err(InvalidParams) ⇒ ¬spawned(v)"
+    applies_to: all
+    enforced_by: "src/verb/exec.rs::dispatch_spec (test: params_are_validated_before_the_binary_is_touched)"
+    notes: |
+      The test points the context at a binary that does not exist, so a
+      Spawn error rather than InvalidParams proves the ordering was
+      reversed. Falsifier UVS-009 confirmed RED.
+
+  - type: invariant
+    property: "The committed surface manifest equals the derived surface"
+    formal: "read(docs/surface-manifest.txt) = render(registry)"
+    applies_to: all
+    enforced_by: "src/verb/manifest.rs (test: the_committed_manifest_matches_the_derived_surface)"
+    notes: |
+      Compared via `include_str!`, so the bytes checked are the bytes on
+      disk at build time rather than a value the test computes and then
+      compares against itself. A hand-maintained surface list cannot pass:
+      falsifier UVS-008 adds a verb without regenerating and is RED.
+
+  - type: classification
+    property: "The four states a surface claim can be in"
+    formal: |
+      declared ∧ derived ∧ reachable   → the verb works on every transport
+      declared ∧ derived ∧ ¬reachable  → rmedia #247 / FJ-2730           ← e2e catches
+      declared ∧ ¬derived              → a hand-written second definition ← manifest catches
+      ¬declared ∧ reachable            → an undocumented surface          ← manifest catches
+    applies_to: all
+    enforced_by: "tests/uvs_e2e.rs + src/verb/manifest.rs"
+
+enforcement:
+  surface_manifest_regenerates_clean:
+    description: |
+      Regenerating the manifest must leave the tree unchanged. This is the
+      gate a hand-maintained surface fails, and it is declared in
+      Cargo.toml under [package.metadata.transports] so the dogfood
+      protocol can find it without being told.
+    check: "cargo test --lib regenerate_surface_manifest -- --ignored && git diff --exit-code docs/surface-manifest.txt"
+    severity: "ERROR"
+
+  transports_reachable_from_the_binary:
+    description: |
+      Every transport answers when the SHIPPED binary is spawned. Not when
+      its module is called — when the program is run.
+    check: "tests/uvs_e2e.rs::cli_http_and_mcp_agree_on_every_read_only_verb_they_share"
+    severity: "ERROR"
+
+  error_taxonomy_is_total:
+    description: |
+      Every VerbError variant maps to a valid exit code, a reserved
+      JSON-RPC code, and a real HTTP status, and the `kind` tag is
+      injective so a client can branch without parsing prose.
+    check: "src/verb/error.rs::tests (every_variant_maps_to_*)"
+    severity: "ERROR"
+
+  effect_allowlist_names_only_live_verbs:
+    description: |
+      Effects are the one property clap cannot supply, so they are
+      declared — and a declaration rots. A renamed or removed verb leaves
+      an entry claiming a verb is read-only when no such verb exists.
+      The default is `mutating`, so an unclassified verb is excluded from
+      read-only surfaces rather than admitted to them.
+    check: "src/verb/derive.rs::tests::the_effects_allowlist_names_only_live_verbs"
+    severity: "ERROR"
+
+# Falsifiers. Every one below was CONFIRMED to turn RED under the named
+# mutation on 2026-08-18; the harness and its log are reproduced in the PR.
+# A falsifier that has not been observed failing is a claim, not a test.
+falsification_tests:
+  - id: UVS-001
+    rule: "The MCP transport is reachable from the process entry point"
+    prediction: "pointing cli::infra::cmd_mcp at Ok(()) turns the spawned-binary MCP tests RED while every mcpd unit test stays green"
+    test: "tests/uvs_e2e.rs::mcp_initialize_and_tools_list_over_real_pipes"
+    if_fails: "the rmedia #247 / FJ-2730 defect ships: a complete, tested, unreachable transport"
+
+  - id: UVS-002
+    rule: "The HTTP transport is reachable from the process entry point"
+    prediction: "stubbing the Commands::Serve dispatch arm to Ok(()) turns every http_ test RED while serve::router unit tests stay green"
+    test: "tests/uvs_e2e.rs::http_health_answers_from_the_spawned_server"
+    if_fails: "forjar serve exits 0 and binds nothing; the port is closed and the tests do not notice"
+
+  - id: UVS-003
+    rule: "The registry covers every CLI subcommand"
+    prediction: "filtering one verb out of the derivation turns the coverage test RED"
+    test: "src/verb/derive.rs::tests::registry_covers_every_cli_subcommand"
+    if_fails: "a verb is invocable on the CLI and invisible to every other transport"
+
+  - id: UVS-004
+    rule: "A boolean flag is a boolean, not an enum over \"true\"/\"false\""
+    prediction: "reading clap possible_values before the ArgAction turns the flag-kind test RED"
+    test: "src/verb/schema.rs::tests::set_true_flags_are_booleans_not_string_enums"
+    if_fails: "every --flag in 160 verbs is published as a string enum; agents send \"true\" and get a type error"
+
+  - id: UVS-005
+    rule: "A false flag emits nothing"
+    prediction: "emitting the flag regardless of the boolean turns the argv test RED"
+    test: "src/verb/argv.rs::tests::a_false_flag_emits_nothing"
+    if_fails: "{\"json\": false} runs the verb with --json; clap has no negation to undo it"
+
+  - id: UVS-006
+    rule: "The default effect classification is mutating"
+    prediction: "moving #[default] to ReadOnly turns the default-effects test RED"
+    test: "src/verb/spec.rs::tests::default_effects_are_mutating_not_read_only"
+    if_fails: "a newly added verb is admitted to a --read-only server without anyone classifying it"
+
+  - id: UVS-007
+    rule: "argv uses the CLI spelling, not the JSON key"
+    prediction: "building the flag from p.name turns the spelling test and the multi-value test RED"
+    test: "src/verb/argv.rs::tests::kebab_case_flag_spelling_is_used_not_the_json_key"
+    if_fails: "--state_dir is passed to a parser that only accepts --state-dir; every hyphenated parameter is unreachable"
+
+  - id: UVS-008
+    rule: "The committed manifest equals the derived surface"
+    prediction: "adding a verb to Commands without regenerating turns the manifest test RED"
+    test: "src/verb/manifest.rs::tests::the_committed_manifest_matches_the_derived_surface"
+    if_fails: "the surface list becomes hand-maintained again and drifts silently"
+
+  - id: UVS-009
+    rule: "Params are validated before anything is executed"
+    prediction: "removing validate::check from dispatch_spec turns the ordering test RED"
+    test: "src/verb/exec.rs::tests::params_are_validated_before_the_binary_is_touched"
+    if_fails: "a malformed call reaches a host before anyone checks it"
+
+  - id: UVS-010
+    rule: "A --read-only server refuses mutating verbs"
+    prediction: "disabling the read_only gate turns the read-only e2e test RED"
+    test: "tests/uvs_e2e.rs::http_read_only_mode_refuses_mutating_verbs"
+    if_fails: "--read-only is a comment; POST /v1/destroy converges"
+
+  - id: UVS-011
+    rule: "The transport carries the verb's real exit code"
+    prediction: "hard-coding exit_code to 0 in the envelope turns the three-way agreement test RED"
+    test: "tests/uvs_e2e.rs::cli_http_and_mcp_agree_on_every_read_only_verb_they_share"
+    if_fails: "every remote caller believes every verb succeeded"
+
+  - id: UVS-012
+    rule: "The effect allowlist names only live verbs"
+    prediction: "adding a nonexistent verb name to READ_ONLY turns the liveness test RED"
+    test: "src/verb/derive.rs::tests::the_effects_allowlist_names_only_live_verbs"
+    if_fails: "the classification list rots and its next reader trusts a claim about a verb that is gone"
+
+  - id: UVS-013
+    rule: "Every derived argv is accepted by the parser main uses"
+    prediction: "a fabricated flag is rejected by check_argv with a non-shape error"
+    test: "src/verb/argv.rs::tests::a_fabricated_flag_is_rejected_by_the_real_parser"
+    if_fails: "the round-trip sweep over 160 verbs is vacuous — it would pass on argv the CLI cannot parse"
+
+verification_level: L1
+
+# Equations specified here but deliberately NOT bound in binding.yaml.
+#
+# This repo's build.rs rejects any binding whose status is not `implemented`,
+# so an equation that is specified-but-unsatisfied cannot be recorded there at
+# a softer status. Recording it here keeps the gap visible instead of making it
+# disappear by relabelling.
+unbound:
+  - equation: transport_equivalence
+    reason: |
+      The equation quantifies over ALL verbs and ALL params. What is
+      measured is five read-only verbs (validate, show, graph, lint, score)
+      on one fixture, across all three transports, in
+      tests/uvs_e2e.rs::cli_http_and_mcp_agree_on_every_read_only_verb_they_share.
+      That is a sample, not the quantifier.
+
+      Full coverage is not merely expensive, it is unsafe: discharging it
+      for `destroy`, `apply`, `bootstrap` or `state-rm` means executing
+      them, and the honest sample is the read-only subset. Binding this as
+      `implemented` would claim a universal that a five-verb sample cannot
+      support.
+    partial_progress: |
+      The structural half holds unconditionally and is bound below as
+      `argv_projection`: every transport reduces to argv + an execution of
+      the shipped binary, so there is no second implementation that could
+      diverge. What is unproven is the empirical claim over all 160 verbs,
+      not the design.
+
+  - equation: params_schema_projection
+    reason: |
+      The projection is implemented and falsified per-kind (UVS-004), but
+      the emitted JSON Schema is never validated by a JSON Schema
+      *validator* — forjar has no such dependency, and `verb::validate`
+      re-checks the derived parameter list rather than interpreting the
+      schema document. So the claim "the published schema describes exactly
+      what the validator accepts" is argued from shared provenance, not
+      verified against a reference implementation.
+
+      Binding it would assert conformance to draft 2020-12 that nothing in
+      this repository checks.
+    partial_progress: |
+      Both the schema and the validator are projections of one derived
+      `Vec<VerbParam>`, so they cannot disagree about which parameters
+      exist, their kinds, or their closed value sets. The unverified part is
+      the schema *document's* conformance, not the agreement.

@@ -366,6 +366,11 @@ pub struct McpArgs {
     /// Export tool schemas as JSON instead of starting server
     #[arg(long)]
     pub schema: bool,
+
+    /// GH-267: Serve the pre-2.0 pforge server (9 hand-written tools) instead
+    /// of the derived registry. Deprecated; removed in the next major.
+    #[arg(long)]
+    pub legacy: bool,
 }
 
 /// CLI arguments for the `bench` command.

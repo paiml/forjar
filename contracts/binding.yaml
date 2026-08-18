@@ -305,3 +305,47 @@ bindings:
       round-trips to the log. paiml/infra#208 is a deletion — every real file under
       ~/.cargo/bin removed, every symlink left — so the one event class that would
       have named it did not exist. Falsifier RCP-001."
+
+  # ── Unified Verb Surface (GH-267) ──────────────────────
+  #
+  # Three of the five equations are bound. `transport_equivalence` and
+  # `params_schema_projection` are recorded under `unbound:` in
+  # unified-verb-surface-v1.yaml with their reasons — the first because a
+  # five-verb read-only sample cannot support a claim quantified over all
+  # 160 verbs, the second because nothing in this repo validates the emitted
+  # schema against a JSON Schema implementation.
+  - contract: unified-verb-surface-v1.yaml
+    equation: surface_derivation
+    module_path: "forjar::verb::derive::registry"
+    function: registry
+    signature: "fn registry() -> &'static [VerbSpec]"
+    status: implemented
+    notes: "Projects the same clap::Command tree main parses argv with; 160 verbs,
+      1258 parameters, zero hand-written specs. Built once on a 16 MiB thread —
+      the tree overflows a default 2 MiB stack, which aborts rather than unwinds
+      under panic=abort. Falsifier UVS-003 (drop a verb from the projection)
+      confirmed RED."
+
+  - contract: unified-verb-surface-v1.yaml
+    equation: argv_projection
+    module_path: "forjar::verb::argv::build"
+    function: build
+    signature: "fn build(spec: &VerbSpec, params: &Value) -> Result<Vec<String>, VerbError>"
+    status: implemented
+    notes: "params -> argv, the join between every transport and the command line.
+      Every argv built for all 160 verbs parses back through the real parser
+      (test: every_argv_built_from_the_registry_parses_back_through_clap), with a
+      negative control proving that check can fail. Falsifiers UVS-005 (false flag
+      emitted) and UVS-007 (JSON key used as the flag spelling) confirmed RED."
+
+  - contract: unified-verb-surface-v1.yaml
+    equation: error_totality
+    module_path: "forjar::verb::error::VerbError::exit_code"
+    function: exit_code
+    signature: "fn exit_code(&self) -> i32"
+    status: implemented
+    notes: "One variant, three total mappings — exit code, JSON-RPC code, HTTP
+      status — each a match with no wildcard arm, so a new variant fails to compile
+      until all three are given. Replaces substring matching on error text in
+      main.rs (error.contains(\"SSH\") meant exit 4). Sibling mappings jsonrpc_code
+      and http_status are falsified alongside it in src/verb/error.rs::tests."

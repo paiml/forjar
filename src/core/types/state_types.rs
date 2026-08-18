@@ -211,8 +211,16 @@ pub struct ExecutionPlan {
 // ============================================================================
 
 /// Provenance event for the JSONL event log.
+///
+/// `#[non_exhaustive]`: this is a LOG SCHEMA, and a log schema gains variants.
+/// FJ-266 alone adds one, and the retention work (per-class levels, the chain
+/// digest, an explicit exhaustion action) implies more. Without this marker
+/// every future event type is a semver-major break for anyone matching on it;
+/// with it, they are additive. Taken once, here, while the enum is already
+/// being broken — 2.0.0 is the last cheap moment to do it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ProvenanceEvent {
     ApplyStarted {
         /// Target machine name.

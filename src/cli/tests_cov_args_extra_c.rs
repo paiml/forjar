@@ -242,7 +242,10 @@ mod tests {
 
     #[test]
     fn test_cov_mcp_args_construct() {
-        let a = McpArgs { schema: false };
+        let a = McpArgs {
+            schema: false,
+            legacy: false,
+        };
         let _ = format!("{a:?}");
     }
 

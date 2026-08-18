@@ -479,8 +479,8 @@ fn dispatch_audit_routes() {
 
 #[test]
 fn dispatch_mcp_schema_routes() {
-    let result = dispatch_misc_cmd(Commands::Mcp(McpArgs { schema: true }), false);
-    assert!(result.is_ok());
+    let args = McpArgs { schema: true, legacy: false };
+    assert!(dispatch_misc_cmd(Commands::Mcp(args), false).is_ok());
 }
 
 #[test]

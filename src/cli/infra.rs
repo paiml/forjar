@@ -56,13 +56,31 @@ pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), Stri
     Ok(())
 }
 
+/// GH-267: serve the DERIVED registry — every invocable verb, no handlers.
 pub(crate) fn cmd_mcp() -> Result<(), String> {
+    crate::mcpd::serve_stdio()
+}
+
+/// The pre-2.0 pforge server with its nine hand-written tools.
+///
+/// Kept reachable for one release so a pinned client is not broken by the
+/// cutover. It is a second definition of nine verbs and is why GH-267 exists.
+pub(crate) fn cmd_mcp_legacy() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| format!("Failed to create tokio runtime: {e}"))?;
     rt.block_on(crate::mcp::serve())
 }
 
+/// The derived tool catalogue.
 pub(crate) fn cmd_mcp_schema() -> Result<(), String> {
+    let json = serde_json::to_string_pretty(&crate::verb::catalogue())
+        .map_err(|e| format!("JSON error: {e}"))?;
+    println!("{json}");
+    Ok(())
+}
+
+/// The pre-2.0 hand-written tool schemas.
+pub(crate) fn cmd_mcp_schema_legacy() -> Result<(), String> {
     let schema = crate::mcp::export_schema();
     let json = serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?;
     println!("{json}");

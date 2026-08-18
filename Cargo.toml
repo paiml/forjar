@@ -1,6 +1,6 @@
 [package]
 name = "forjar"
-version = "1.14.0"
+version = "2.0.0"
 edition.workspace = true
 rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
@@ -36,6 +36,32 @@ undocumented_unsafe_blocks = "deny"
 
 [lints]
 workspace = true
+
+# FJ-266 / dogfood 7d: every interface this release ships, declared and
+# versioned with the code that implements it.
+#
+# GH-267 corrects the previous note here, which claimed forjar shipped "a CLI
+# and NOTHING ELSE — no HTTP surface, no MCP server". That was false when it
+# was written: `forjar mcp` already started a pforge MCP server with nine
+# hand-written tools, reachable from main via cli::infra::cmd_mcp. The
+# declaration is only worth having if it is measured, so it is now three
+# transports, each with a target that SPAWNS THE SHIPPED BINARY.
+#
+# The e2e target must spawn the binary (CARGO_BIN_EXE_), not call the library.
+# rmedia's four-way parity suite was green for the whole period its MCP and
+# HTTP transports had no caller from main.rs (paiml/rmedia#247) — the
+# transports agreed with each other perfectly and were unreachable. forjar has
+# the same defect in its own history: FJ-2730 records an LSP server with 80
+# passing tests, a complete stdio implementation, and no entry point.
+#
+# `manifest` is generated from the clap command tree; `regen` names the
+# #[ignore]d test that rewrites it. The surface-derivation gate regenerates and
+# fails if the tree changes, so a hand-maintained surface cannot pass.
+[package.metadata.transports]
+manifest = { path = "docs/surface-manifest.txt", regen = "regenerate_surface_manifest" }
+cli = { e2e = "dogfood_p4_cli" }
+mcp = { e2e = "uvs_e2e", features = [] }
+http = { e2e = "uvs_e2e", features = [] }
 
 [dependencies]
 blake3 = "1.8"

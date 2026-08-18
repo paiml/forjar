@@ -5,25 +5,7 @@
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 use clap::Parser;
-
-#[derive(Parser, Debug)]
-#[command(
-    name = "forjar",
-    version,
-    about = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
-)]
-struct Cli {
-    /// Increase verbosity (-v info, -vv debug, -vvv trace)
-    #[arg(short, long, global = true, action = clap::ArgAction::Count)]
-    verbose: u8,
-
-    /// Disable colored output
-    #[arg(long, global = true)]
-    no_color: bool,
-
-    #[command(subcommand)]
-    command: forjar::cli::Commands,
-}
+use forjar::cli::Cli;
 
 /// FJ-2301: Structured exit codes.
 ///  0 — Success (all resources converged)

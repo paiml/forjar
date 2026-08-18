@@ -60,6 +60,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Lint(..)
         | Commands::Doctor(..)
         | Commands::Mcp(..)
+        | Commands::Serve(..)
         | Commands::Bench(..)
         | Commands::Watch(..)) => dispatch_misc_tools(cmd, verbose),
         cmd @ (Commands::Import(..)
@@ -400,13 +401,17 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             }
             cmd_doctor(file.as_deref(), json, fix)
         }
-        Commands::Mcp(McpArgs { schema }) => {
-            if schema {
-                cmd_mcp_schema()
-            } else {
-                cmd_mcp()
-            }
-        }
+        Commands::Mcp(McpArgs { schema, legacy }) => match (schema, legacy) {
+            (true, true) => cmd_mcp_schema_legacy(),
+            (true, false) => cmd_mcp_schema(),
+            (false, true) => cmd_mcp_legacy(),
+            (false, false) => cmd_mcp(),
+        },
+        Commands::Serve(ServeArgs {
+            port,
+            host,
+            read_only,
+        }) => crate::serve::serve(&host, port, read_only),
         Commands::Bench(BenchArgs {
             iterations,
             json,
