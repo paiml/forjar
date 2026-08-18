@@ -286,7 +286,16 @@ pub fn unresolved_secret_resources(
 ) -> Vec<String> {
     resources
         .iter()
-        .filter(|(_, r)| serde_yaml_ng::to_string(r).is_ok_and(|s| s.contains("{{secrets.")))
+        .filter(|(_, r)| has_unresolved_secret(r))
         .map(|(id, _)| id.clone())
         .collect()
+}
+
+/// True when this single resource still carries a `{{secrets.*}}` placeholder.
+///
+/// Checked at the codegen chokepoint so ONE unresolvable secret fails ONE
+/// resource, the way `backup_sync` has always behaved — rather than aborting an
+/// otherwise-fine apply of the whole machine.
+pub fn has_unresolved_secret(resource: &Resource) -> bool {
+    serde_yaml_ng::to_string(resource).is_ok_and(|s| s.contains("{{secrets."))
 }

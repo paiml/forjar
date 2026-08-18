@@ -348,22 +348,6 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         &cfg.config.machines,
         &cfg.config.secrets,
     );
-    // A `{{secrets.*}}` that survives resolution is a credential-shaped
-    // PLACEHOLDER, not a credential, and `resolve_or_fallback` hands it back
-    // verbatim by design. `backup_sync` has guarded its own token since FJ-037,
-    // but every other resource type wrote the literal through: a `file` with
-    // `content: "API_KEY={{secrets.x}}"` emitted a script that put that exact
-    // string on disk, behind nothing but a stderr warning. Refuse here, before
-    // the dry-run return, so `plan` predicts what `apply` will do.
-    let unresolved = crate::core::resolver::unresolved_secret_resources(&resolved_for_probe);
-    if !unresolved.is_empty() {
-        return Err(format!(
-            "unresolved secret templates in: {}. The secrets provider did not supply \
-             them, and applying would write the literal placeholder as if it were the \
-             credential. Fix the provider or remove the resource.",
-            unresolved.join(", ")
-        ));
-    }
     let probes = crate::core::task::probe_all(&resolved_for_probe, |m| {
         cfg.config
             .machines

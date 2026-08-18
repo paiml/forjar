@@ -14,7 +14,7 @@ pub(crate) mod template;
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::resolve_data_sources;
 pub use resource::{
-    resolve_all, resolve_or_fallback, resolve_resource_templates,
+    has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,
     resolve_resource_templates_with_secrets, unresolved_secret_resources,
 };
 pub use template::resolve_template;
