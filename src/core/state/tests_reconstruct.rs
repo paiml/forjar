@@ -46,6 +46,7 @@ fn reconstruct_at_midpoint() {
                 resource: "nginx".to_string(),
                 duration_seconds: 1.5,
                 hash: "abc123".to_string(),
+                previous_hash: None,
             },
         ),
         ts_event(
@@ -55,6 +56,7 @@ fn reconstruct_at_midpoint() {
                 resource: "app".to_string(),
                 duration_seconds: 2.0,
                 hash: "def456".to_string(),
+                previous_hash: None,
             },
         ),
         // Second apply at a later time
@@ -65,6 +67,7 @@ fn reconstruct_at_midpoint() {
                 resource: "nginx".to_string(),
                 duration_seconds: 0.5,
                 hash: "updated123".to_string(),
+                previous_hash: None,
             },
         ),
     ];
@@ -88,6 +91,7 @@ fn reconstruct_at_latest() {
                 resource: "nginx".to_string(),
                 duration_seconds: 1.0,
                 hash: "old-hash".to_string(),
+                previous_hash: None,
             },
         ),
         ts_event(
@@ -97,6 +101,7 @@ fn reconstruct_at_latest() {
                 resource: "nginx".to_string(),
                 duration_seconds: 0.5,
                 hash: "new-hash".to_string(),
+                previous_hash: None,
             },
         ),
     ];
@@ -116,6 +121,7 @@ fn reconstruct_at_epoch_is_empty() {
             resource: "nginx".to_string(),
             duration_seconds: 1.0,
             hash: "abc".to_string(),
+            previous_hash: None,
         },
     )];
     write_events(tmp.path(), "web", &events);
@@ -136,6 +142,7 @@ fn reconstruct_with_failure() {
                 resource: "nginx".to_string(),
                 duration_seconds: 1.0,
                 hash: "abc".to_string(),
+                previous_hash: None,
             },
         ),
         ts_event(
@@ -165,6 +172,7 @@ fn reconstruct_with_drift() {
                 resource: "nginx".to_string(),
                 duration_seconds: 1.0,
                 hash: "original".to_string(),
+                previous_hash: None,
             },
         ),
         ts_event(
@@ -195,6 +203,7 @@ fn reconstruct_reconverge_after_drift() {
                 resource: "nginx".to_string(),
                 duration_seconds: 1.0,
                 hash: "v1".to_string(),
+                previous_hash: None,
             },
         ),
         ts_event(
@@ -213,6 +222,7 @@ fn reconstruct_reconverge_after_drift() {
                 resource: "nginx".to_string(),
                 duration_seconds: 0.8,
                 hash: "v2".to_string(),
+                previous_hash: None,
             },
         ),
     ];
@@ -241,6 +251,7 @@ fn reconstruct_generator_contains_version() {
             resource: "nginx".to_string(),
             duration_seconds: 1.0,
             hash: "abc".to_string(),
+            previous_hash: None,
         },
     )];
     write_events(tmp.path(), "web", &events);

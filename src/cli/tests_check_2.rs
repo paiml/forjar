@@ -37,6 +37,7 @@ mod tests {
                         resource: "config-file".to_string(),
                         duration_seconds: 0.5,
                         hash: "def".to_string(),
+                        previous_hash: None,
                     },
                 })
                 .unwrap(),
@@ -81,6 +82,7 @@ mod tests {
                         resource: "pkg".to_string(),
                         duration_seconds: 1.0,
                         hash: "xyz".to_string(),
+                        previous_hash: None,
                     },
                 })
                 .unwrap(),

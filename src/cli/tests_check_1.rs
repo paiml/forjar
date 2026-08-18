@@ -463,6 +463,7 @@ resources:
                     resource: "flaky-pkg".to_string(),
                     duration_seconds: 1.0,
                     hash: "abc".to_string(),
+                    previous_hash: None,
                 },
             })
             .unwrap(),
