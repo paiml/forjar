@@ -270,3 +270,23 @@ pub fn resolve_all(
         })
         .collect()
 }
+
+/// Resource IDs whose RESOLVED form still carries a `{{secrets.*}}` placeholder.
+///
+/// `resolve_or_fallback` above deliberately returns the UNRESOLVED resource when
+/// template resolution fails, so plan/drift/destroy all make the same decision.
+/// The cost is that a secret which cannot be resolved survives as the literal
+/// string `{{secrets.name}}` — and a credential-shaped placeholder shipped to a
+/// machine is not a credential. `forjar apply` must refuse rather than write it.
+///
+/// Serialising the whole resource, rather than checking a hand-written list of
+/// secret-bearing fields, means a newly added field is covered the day it lands.
+pub fn unresolved_secret_resources(
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<String> {
+    resources
+        .iter()
+        .filter(|(_, r)| serde_yaml_ng::to_string(r).is_ok_and(|s| s.contains("{{secrets.")))
+        .map(|(id, _)| id.clone())
+        .collect()
+}
