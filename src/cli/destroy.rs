@@ -221,6 +221,27 @@ pub(crate) fn cmd_destroy(
                 machine_name,
                 &locks,
             );
+            // FJ-266: ALSO emit into the machine's provenance stream. The
+            // destroy log alone is not enough: `forjar history` never read it,
+            // so a deletion recorded there produced silence at the one surface
+            // an investigator actually queries — and "ran but did not record"
+            // is indistinguishable from "never ran" (paiml/infra#208).
+            let previous_hash = locks
+                .get(machine_name)
+                .and_then(|l| l.resources.get(resource_id))
+                .map(|rl| rl.hash.clone())
+                .filter(|h| !h.is_empty());
+            crate::tripwire::eventlog::log_tripwire(
+                state_dir,
+                machine_name,
+                config.policy.tripwire,
+                types::ProvenanceEvent::ResourceDeleted {
+                    machine: machine_name.to_string(),
+                    resource: resource_id.to_string(),
+                    previous_hash,
+                    reason: "destroy".to_string(),
+                },
+            );
         } else {
             failed += 1;
         }

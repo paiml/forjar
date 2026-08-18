@@ -159,3 +159,38 @@ pub fn log_tripwire(
 pub fn displaced_hash(previous: Option<ResourceLock>) -> Option<String> {
     previous.map(|p| p.hash).filter(|h| !h.is_empty())
 }
+
+/// FJ-266: refuse to apply to any machine whose provenance log is unwritable.
+///
+/// Coverage has to follow membership, not a separate opt-in — the reference
+/// quorum (CloudTrail organization trails, Kubernetes catch-all audit rules,
+/// host-global auditd rules) is unanimous on that. Checked BEFORE any resource
+/// is touched, because the alternative is discovering it after the host has
+/// already changed and the record of that change is the thing that failed.
+///
+/// Skipped when tripwire is off: the operator has explicitly said they do not
+/// want a provenance log, and refusing then would block a supported
+/// configuration rather than protect anything.
+pub fn ensure_machines_loggable<'a>(
+    state_dir: &Path,
+    machines: impl Iterator<Item = &'a String>,
+    machine_filter: Option<&str>,
+    tripwire: bool,
+) -> Result<(), String> {
+    if !tripwire {
+        return Ok(());
+    }
+    for machine in machines {
+        if machine_filter.is_some_and(|f| f != machine.as_str()) {
+            continue;
+        }
+        ensure_event_log_writable(state_dir, machine).map_err(|e| {
+            format!(
+                "refusing to apply: {e}\n  This apply would change '{machine}' without \
+                 being able to record what it changed. Fix the state dir, or pass \
+                 --no-tripwire to proceed deliberately without a provenance log."
+            )
+        })?;
+    }
+    Ok(())
+}

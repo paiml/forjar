@@ -85,6 +85,14 @@ pub(crate) fn cmd_apply_scoped(
     }
     apply_param_overrides(&mut config, param_overrides)?;
 
+    // FJ-266: see `eventlog::ensure_machines_loggable`.
+    crate::tripwire::eventlog::ensure_machines_loggable(
+        state_dir,
+        config.machines.keys(),
+        machine_filter,
+        config.policy.tripwire,
+    )?;
+
     reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
     apply_scope(&mut config, scope, verbose)?;
     apply_goal_closure(&mut config, goals, verbose)?;

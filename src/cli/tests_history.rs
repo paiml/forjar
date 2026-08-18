@@ -242,3 +242,45 @@ mod tests {
 
     // ── Phase 22: Infrastructure Intelligence (FJ-360→FJ-367) ──
 }
+
+/// FALSIFY-RCP-009 — a deletion is VISIBLE through the query surface.
+///
+/// RED under: removing `ResourceDeleted` from `history::is_history_event`.
+///
+/// The first version of this test duplicated the predicate inline and so
+/// passed against a build where the variant had been removed from it — a test
+/// that could not fail, written into the fix for tests that could not fail.
+/// It now calls the production rule.
+///
+/// Deletions were already recorded before FJ-266 — to `destroy-log.jsonl`,
+/// which `forjar history` never read. A record written into a channel that
+/// produces silence at the surface an investigator queries is not an audit
+/// trail; it is paiml/infra#211 again, where auditd wrote to disk and
+/// `ausearch` returned "<no matches>".
+#[test]
+fn a_deletion_survives_the_history_filter() {
+    use crate::core::types::ProvenanceEvent as PE;
+
+    let deletion = PE::ResourceDeleted {
+        machine: "intel".to_string(),
+        resource: "stack-tool-rustup".to_string(),
+        previous_hash: Some("blake3:gone".to_string()),
+        reason: "destroy".to_string(),
+    };
+    let noise = PE::ResourceStarted {
+        machine: "intel".to_string(),
+        resource: "noise".to_string(),
+        action: "converge".to_string(),
+    };
+
+    assert!(
+        super::history::is_history_event(&deletion),
+        "a removal must be visible in `forjar history` — otherwise it is \
+         indistinguishable from a removal that never happened"
+    );
+    assert!(
+        !super::history::is_history_event(&noise),
+        "history must stay a run-level summary; unrelated resource events \
+         would bury the signal"
+    );
+}

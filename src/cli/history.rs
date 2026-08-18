@@ -11,6 +11,21 @@ use std::path::Path;
 /// Reads every `state/<machine>/events.jsonl`, sorts newest-first, applies the
 /// optional `--since` window and shows the `apply_started`/`apply_completed`
 /// pairs. Per-resource history lives in [`super::history_resource`].
+/// FJ-266: does this event appear in `forjar history`?
+///
+/// Extracted so a falsifier can assert the REAL rule. The first attempt at
+/// that test duplicated this `matches!` inline and therefore passed against a
+/// build where `ResourceDeleted` had been removed from it — a test that could
+/// not fail, written into the fix for tests that could not fail.
+pub(crate) fn is_history_event(event: &types::ProvenanceEvent) -> bool {
+    matches!(
+        event,
+        types::ProvenanceEvent::ApplyStarted { .. }
+            | types::ProvenanceEvent::ApplyCompleted { .. }
+            | types::ProvenanceEvent::ResourceDeleted { .. }
+    )
+}
+
 pub(crate) fn cmd_history(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -29,16 +44,17 @@ pub(crate) fn cmd_history(
         all_events.retain(|e| e.ts.as_str() >= cutoff_str.as_str());
     }
 
-    // Filter to apply_started/apply_completed events for summary, then limit
+    // Filter to the run-level events, then limit.
+    //
+    // FJ-266: ResourceDeleted is included deliberately. It is a resource-level
+    // event, not a run-level one, but a deletion is the single fact an incident
+    // is most likely to be looking for — and before this it was written only to
+    // destroy-log.jsonl, which this command never read. A removal that produces
+    // silence at the surface an investigator queries is indistinguishable from
+    // a removal that never happened (paiml/infra#208).
     let apply_events: Vec<&types::TimestampedEvent> = all_events
         .iter()
-        .filter(|e| {
-            matches!(
-                e.event,
-                types::ProvenanceEvent::ApplyStarted { .. }
-                    | types::ProvenanceEvent::ApplyCompleted { .. }
-            )
-        })
+        .filter(|e| is_history_event(&e.event))
         .take(limit)
         .collect();
 
@@ -202,6 +218,18 @@ fn print_apply_events(apply_events: &[&types::TimestampedEvent]) {
                 machine, run_id, ..
             } => {
                 println!("{} started  {} ({})", event.ts, machine, run_id);
+            }
+            types::ProvenanceEvent::ResourceDeleted {
+                machine,
+                resource,
+                previous_hash,
+                reason,
+            } => {
+                let was = previous_hash.as_deref().unwrap_or("<no recorded hash>");
+                println!(
+                    "{} DELETED  {machine} — {resource} (reason={reason}, was {was})",
+                    event.ts
+                );
             }
             types::ProvenanceEvent::ApplyCompleted {
                 machine,
