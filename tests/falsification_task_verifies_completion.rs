@@ -117,6 +117,39 @@ fn a_task_without_a_completion_check_is_unaffected() {
 }
 
 #[test]
+fn a_multiline_completion_check_still_emits_valid_bash() {
+    // A YAML `|` block scalar keeps its trailing newline. completion_check
+    // was interpolated directly into `if ! { <check> ; }; then`, so a
+    // multi-line check like "test A &&\ntest B\n" put the closing `; }; then`
+    // on its own line — right after a newline that already terminated the
+    // previous command, making the leading `;` an empty statement: "syntax
+    // error near unexpected token `;'". Every multi-line completion_check in
+    // paiml/infra's machines/intel/forjar.yaml hit this on --force apply
+    // (2026-08-18): 14 resources failed with the same parse error before any
+    // command in the script ran.
+    let script =
+        forjar::resources::task::apply_script(&task("true", Some("test 1 = 1 &&\ntest 2 = 2\n")));
+
+    assert!(
+        std::process::Command::new("bash")
+            .arg("-n")
+            .arg("-c")
+            .arg(&script)
+            .status()
+            .expect("bash must run")
+            .success(),
+        "a multi-line completion_check must still produce syntactically valid bash:\n{script}"
+    );
+
+    let out = run(&script);
+    assert!(
+        out.status.success(),
+        "a task whose multi-line completion_check genuinely holds must converge.\nstderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
 fn the_check_runs_after_the_command_not_before() {
     // Ordering is the whole point. If the verification ran first it would test
     // the pre-command state and pass vacuously for any task whose check
