@@ -76,11 +76,21 @@ fn run_check(script: &str, stub_dir: &std::path::Path) -> bool {
 /// This is what `cargo install --list` is a RECORD of. The record and the
 /// binary are separate facts, and GH-2xx is what happens when they disagree.
 fn install_bin(cargo_home: &std::path::Path, name: &str) {
+    install_bin_version(cargo_home, name, "1.0.0");
+}
+
+/// Same, but the binary reports a specific version.
+///
+/// The version now comes from the BINARY rather than cargo's record, so a stub
+/// that always says 1.0.0 cannot exercise a pin. That is not a detail: on intel
+/// the record said `copia v0.1.3` while the binary said 0.2.0, and believing
+/// the record reported a correctly-installed crate as missing.
+fn install_bin_version(cargo_home: &std::path::Path, name: &str, version: &str) {
     let bindir = cargo_home.join("bin");
     std::fs::create_dir_all(&bindir).unwrap();
     let p = bindir.join(name);
     let mut f = std::fs::File::create(&p).unwrap();
-    writeln!(f, "#!/usr/bin/env bash\necho '{name} 1.0.0'").unwrap();
+    writeln!(f, "#!/usr/bin/env bash\necho '{name} {version}'").unwrap();
     drop(f);
     let mut perms = std::fs::metadata(&p).unwrap().permissions();
     std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
@@ -293,7 +303,7 @@ fn a_pinned_version_must_match_the_installed_one() {
     // check has to compare it, or a stale build silently satisfies a bump.
     let dir = tempfile::tempdir().unwrap();
     stub_cargo(dir.path(), "forjar v1.13.1:\n    forjar");
-    install_bin(dir.path(), "forjar");
+    install_bin_version(dir.path(), "forjar", "1.13.1");
 
     let matching =
         forjar::resources::package_check::check_script(&cargo_pkg(&["forjar"], Some("1.13.1")));
@@ -406,5 +416,71 @@ fn the_install_script_can_overwrite_a_dangling_symlink() {
     assert!(
         placed.is_file() && !placed.is_symlink(),
         "the dangling symlink must be replaced by the real binary"
+    );
+}
+
+#[test]
+fn a_path_installed_crate_with_a_version_pin_is_found() {
+    // FOUND BY DOGFOODING ON THE FLEET, not by this suite.
+    //
+    // `cargo install --path` records the source dir in the header line:
+    //     probador v1.0.3 (/home/noah/src/probar/crates/probar-cli):
+    // A needle anchored as `^probador v1.0.3:` cannot match that — the path
+    // sits between the version and the colon. On intel, `probador --version`
+    // printed 1.0.3 and matched its pin exactly, and the check still said FAIL.
+    let dir = tempfile::tempdir().unwrap();
+    stub_cargo(
+        dir.path(),
+        "probador v1.0.3 (/home/noah/src/probar):\n    probador",
+    );
+    install_bin_version(dir.path(), "probador", "1.0.3");
+
+    let script =
+        forjar::resources::package_check::check_script(&cargo_pkg(&["probador"], Some("1.0.3")));
+    assert!(
+        run_check(&script, dir.path()),
+        "a path-installed crate at the pinned version must not report missing.\n\
+         script:\n{script}"
+    );
+}
+
+#[test]
+fn the_binary_decides_the_version_not_the_record() {
+    // ALSO FOUND BY DOGFOODING. On intel:
+    //     cargo install --list  ->  copia v0.1.3
+    //     copia --version       ->  copia 0.2.0      (pin: 0.2.0)
+    // The record was stale — the binary had been replaced out of band. The
+    // first cut of this fix took existence from the binary but VERSION from
+    // the record, so it reported a correctly-installed 0.2.0 as missing.
+    //
+    // A record is not a binary. That has to hold for the version too, or the
+    // fix is only half applied.
+    let dir = tempfile::tempdir().unwrap();
+    stub_cargo(dir.path(), "copia v0.1.3:\n    copia");
+    let bindir = dir.path().join("bin");
+    std::fs::create_dir_all(&bindir).unwrap();
+    let p = bindir.join("copia");
+    let mut f = std::fs::File::create(&p).unwrap();
+    // The BINARY is 0.2.0 even though cargo's record still says 0.1.3.
+    writeln!(f, "#!/usr/bin/env bash\necho 'copia 0.2.0'").unwrap();
+    drop(f);
+    let mut perms = std::fs::metadata(&p).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
+    std::fs::set_permissions(&p, perms).unwrap();
+
+    let script =
+        forjar::resources::package_check::check_script(&cargo_pkg(&["copia"], Some("0.2.0")));
+    assert!(
+        run_check(&script, dir.path()),
+        "the installed binary reports the pinned version; a stale record must \
+         not override it.\nscript:\n{script}"
+    );
+
+    // And the gate must still fail when the BINARY is genuinely the wrong one.
+    let bumped =
+        forjar::resources::package_check::check_script(&cargo_pkg(&["copia"], Some("0.3.0")));
+    assert!(
+        !run_check(&bumped, dir.path()),
+        "a binary at 0.2.0 must not satisfy a 0.3.0 pin"
     );
 }

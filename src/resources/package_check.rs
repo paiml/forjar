@@ -97,10 +97,18 @@ pub fn check_script(resource: &Resource) -> String {
                     let (crate_name, _) = parse_cargo_features(p);
                     // Anchor on the crate name and the ` v` that precedes the
                     // version, so `pmat` cannot be satisfied by `pmat-extra`.
-                    let needle = match version {
-                        Some(v) => format!("^{crate_name} v{v}:"),
-                        None => format!("^{crate_name} v"),
-                    };
+                    //
+                    // The VERSION is deliberately NOT part of this needle. The
+                    // record's header carries the source dir for a path install:
+                    //     probador v1.0.3 (/home/noah/src/probar/crates/...):
+                    // so `^probador v1.0.3:` can never match one. Found by
+                    // dogfooding on intel, where probador was installed, running,
+                    // and at exactly its pinned version — and reported missing.
+                    //
+                    // The record is used for the one thing it alone knows: WHICH
+                    // binaries this crate owns. The version comes from the
+                    // binary below.
+                    let needle = format!("^{crate_name} v");
                     // A crate recorded with NO binaries cannot satisfy the
                     // check either — `[ -n ]` makes an empty extraction fail
                     // rather than vacuously pass an empty for-loop.
@@ -117,21 +125,38 @@ pub fn check_script(resource: &Resource) -> String {
                     // on every apply — a different lie, not a fix. The fallback
                     // is narrow (only `cargo-*`, only after the plain form has
                     // already failed), so it cannot rescue an absent binary.
+                    // The pin is checked against what the BINARY reports, not
+                    // what the record claims. Dogfooded on intel: cargo's record
+                    // said `copia v0.1.3` while `copia --version` printed 0.2.0
+                    // — the binary had been replaced out of band and the record
+                    // was stale. Taking existence from the binary and version
+                    // from the record applies the lesson by halves and reports a
+                    // correctly-installed crate as missing.
+                    //
+                    // `_fj_seen` requires at least ONE of the crate's binaries
+                    // to report the pin, not all of them: a multi-binary crate
+                    // may ship a helper that versions itself differently, and
+                    // failing on that would be a new false negative.
                     let condition = format!(
                         "_fj_bins=\"$(cargo install --list 2>/dev/null \
                          | awk -v p={} {})\"; \
                          [ -n \"$_fj_bins\" ] && ( \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
+                         _fj_want={}; _fj_seen=0; \
                          for _fj_b in $_fj_bins; do \
                          _fj_p=\"$_fj_root/$_fj_b\"; \
-                         \"$_fj_p\" --version >/dev/null 2>&1 && continue; \
-                         case \"$_fj_b\" in cargo-*) \
-                         \"$_fj_p\" \"${{_fj_b#cargo-}}\" --version >/dev/null 2>&1 \
-                         && continue;; esac; \
-                         exit 1; \
-                         done )",
+                         _fj_v=\"$(\"$_fj_p\" --version 2>/dev/null)\" || _fj_v=\"\"; \
+                         if [ -z \"$_fj_v\" ]; then case \"$_fj_b\" in cargo-*) \
+                         _fj_v=\"$(\"$_fj_p\" \"${{_fj_b#cargo-}}\" --version 2>/dev/null)\" \
+                         || _fj_v=\"\";; esac; fi; \
+                         [ -n \"$_fj_v\" ] || exit 1; \
+                         if [ -z \"$_fj_want\" ]; then _fj_seen=1; \
+                         else case \"$_fj_v\" in *\"$_fj_want\"*) _fj_seen=1;; esac; fi; \
+                         done; \
+                         [ \"$_fj_seen\" = 1 ] )",
                         sh_squote(&needle),
                         sh_squote(BINS_UNDER_HEADER),
+                        sh_squote(version.unwrap_or("")),
                     );
                     verdict::assert_that(
                         &condition,
