@@ -33,4 +33,11 @@ pub struct VerifyArgs {
     /// Keep the scratch tree instead of removing it (for inspecting a mismatch)
     #[arg(long)]
     pub keep_scratch: bool,
+
+    /// GH-244: also re-run from the DECLARED INPUTS ONLY, to detect a recipe
+    /// that reads a project file it never declared. Detection, not proof — it
+    /// cannot see reads of system paths, which `data:` sources of type
+    /// `command` are for.
+    #[arg(long)]
+    pub check_declared_inputs: bool,
 }
