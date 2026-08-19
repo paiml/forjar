@@ -319,6 +319,32 @@ forjar codegen -f forjar.yaml -r root-disk-budget --phase apply > /tmp/reaper.sh
 FORJAR_BUDGET_DRY_RUN=1 sh /tmp/reaper.sh    # lists what it WOULD reclaim
 ```
 
+## `forjar verify`
+
+Regenerate a resource's declared outputs into a **scratch tree** and report
+whether they still reproduce.
+
+```bash
+forjar verify                      # every resource in forjar.yaml
+forjar verify -r apr-build         # one resource
+forjar verify --tag stack-tools    # a tagged subset
+forjar verify --json               # machine-readable, for CI gating
+forjar verify --keep-scratch       # leave the scratch tree to inspect a mismatch
+```
+
+Exits non-zero if any resource diverged or failed to regenerate, so it gates
+cleanly in CI.
+
+The defining property is a **negative** one: `verify` never writes a declared
+output path. That is why there is no `--fix`, `--restore` or `--write` flag —
+a flag that relaxed the guarantee would make it conditional on every caller
+remembering not to pass it, which is not a guarantee at all. The restriction is
+enforced structurally in `core::verify` rather than by convention.
+
+Use it to answer "would this still build the same thing?" without disturbing the
+artifact you are asking about — the question `apply` cannot answer, because
+answering it is the same act as changing it.
+
 ## `forjar dogfood`
 
 Exercise forjar's generated artifacts against **real external tools and real
