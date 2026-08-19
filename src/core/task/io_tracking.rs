@@ -118,7 +118,7 @@ pub fn should_skip_cached(
 }
 
 /// Expand a glob pattern to matching file paths.
-fn expand_glob(pattern: &str, base_dir: &Path) -> Result<Vec<String>, String> {
+pub(crate) fn expand_glob(pattern: &str, base_dir: &Path) -> Result<Vec<String>, String> {
     let full_pattern = if Path::new(pattern).is_absolute() {
         pattern.to_string()
     } else {

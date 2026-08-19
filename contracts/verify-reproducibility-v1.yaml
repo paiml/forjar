@@ -1,0 +1,127 @@
+---
+metadata:
+  version: "1.0.0"
+  # kind: pattern — the obligations here are about process behaviour (what is
+  # written, what a verdict means) rather than a decidable mathematical core, so
+  # they are discharged by execution rather than by a bounded model checker.
+  # See GH-242: a harness that reaches a real hash cannot produce a verdict.
+  kind: pattern
+  created: "2026-08-17"
+  author: "PAIML Engineering"
+  description: |
+    GH-247: `forjar verify` regenerates a task's declared outputs into a scratch
+    tree and reports whether they still reproduce, WITHOUT ever writing the
+    declared output path.
+
+    Every regeneration path forjar had before this was a restore-in-place, so
+    there was no way to ask "does this still reproduce?" without risking the
+    artifact. That is unusable for the case it exists to serve — an expensive,
+    human-corrected output (an LLM-filled SVG, a corrected .srt, a rendered
+    mp4), where overwriting on mismatch destroys the thing being checked.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/247"
+    - "GH-244 — the under-declaration case this deliberately does NOT claim to answer"
+
+equations:
+  verdict:
+    formula: |
+      verify(r) = Reproduced        if hash(outputs(run(r, scratch))) = recorded(r)
+                = Diverged          if it differs
+                = CommandFailed     if run(r, scratch) exits non-zero
+                = Skipped(reason)   if the question does not apply
+    domain: "r ∈ Resource with type=task, recorded ∈ Option<Hash>"
+    codomain: "Verdict"
+    invariants:
+      - "The declared output path is never written, on any branch"
+      - "A skip is never a gate failure; a divergence and a command failure always are"
+
+proof_obligations:
+  - type: safety
+    property: "Verify never writes a declared output artifact"
+    formal: "∀ r, ∀ verdict: content(artifact(r)) and mtime(artifact(r)) are unchanged"
+    applies_to: all
+    enforced_by: "The command runs with cwd = scratch copy; the real working_dir is never the cwd"
+    notes: |
+      Enforced structurally rather than by discipline. A relative artifact path
+      resolves against the process cwd, so pointing the cwd at a scratch copy
+      makes the guarantee a property of the construction rather than of the
+      author remembering it. There is deliberately no --write/--fix flag: a flag
+      that relaxes the guarantee makes it conditional on the caller.
+
+  - type: completeness
+    property: "A non-reproducing artifact is always reported, never silently passed"
+    formal: "hash(regenerated) ≠ recorded ⟹ verdict = Diverged ∧ exit ≠ 0"
+    applies_to: all
+    enforced_by: "src/core/verify.rs::verify_resource, src/cli/verify.rs::cmd_verify"
+
+  - type: independence
+    property: "The previous output cannot satisfy the regenerated run"
+    formal: "artifacts(r) ∉ copy(working_dir → scratch)"
+    applies_to: all
+    enforced_by: "src/core/verify.rs::copy_tree_excluding"
+    notes: |
+      A recipe that no-ops when its output already exists would reproduce
+      perfectly if the scratch copy inherited the artifact. Excluding the
+      declared artifacts from the copy is what makes the check discriminate.
+
+enforcement:
+  never_writes_the_declared_output:
+    description: |
+      The hard requirement from GH-247, stated there as "it must never write to
+      the declared output path, on match or mismatch". Checked on content AND
+      mtime, because a rewrite with identical bytes is still a write.
+    check: "src/core/tests_verify.rs::never_writes_the_declared_output_path"
+    severity: "ERROR"
+  divergence_fails_the_command:
+    description: "A non-reproducing artifact exits non-zero so CI can gate on it"
+    check: "tests/falsification_verify_cmd.rs::a_nondeterministic_artifact_is_reported_and_exits_nonzero"
+    severity: "ERROR"
+  machine_readable_output:
+    description: "--json emits parseable output, so consumers need not scrape prose"
+    check: "tests/falsification_verify_cmd.rs::json_output_is_machine_readable"
+    severity: "ERROR"
+  the_gate_is_passable:
+    description: |
+      A deterministic artifact reports reproduced and exits zero. An unpassable
+      gate trains people to bypass it.
+    check: "tests/falsification_verify_cmd.rs::a_deterministic_artifact_reproduces_and_exits_zero"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-VERIFY-001
+    rule: "Never writes the declared output"
+    prediction: "After verify on a diverging resource, the artifact's bytes and mtime are unchanged"
+    test: "src/core/tests_verify.rs::never_writes_the_declared_output_path"
+    if_fails: "verify clobbers the artifact it was asked to check — the tool is worse than useless"
+
+  - id: FALSIFY-VERIFY-002
+    rule: "Non-reproducing artifacts are reported"
+    prediction: "An opaque non-deterministic generator yields Diverged and a non-zero exit"
+    test: "tests/falsification_verify_cmd.rs::a_nondeterministic_artifact_is_reported_and_exits_nonzero"
+    if_fails: "A stale artifact passes verification; the verdict is unfalsifiable again"
+
+  - id: FALSIFY-VERIFY-003
+    rule: "The previous output is not visible to the regenerated run"
+    prediction: "A recipe that no-ops on an existing output still diverges"
+    test: "src/core/tests_verify.rs::the_previous_output_is_not_visible_to_the_regenerated_run"
+    if_fails: "Any no-op recipe reports reproduced; the check discriminates nothing"
+
+  - id: FALSIFY-VERIFY-004
+    rule: "A failing recipe is not reproducible"
+    prediction: "A command that exits non-zero yields CommandFailed, not Reproduced"
+    test: "src/core/tests_verify.rs::a_failing_command_is_not_reported_as_reproduced"
+    if_fails: "An artifact whose recipe no longer runs is certified reproducible"
+
+qa_gate:
+  id: F-VERIFY-001
+  name: "Regenerate-and-compare Contract"
+  description: "verify regenerates into scratch, compares, and never writes the declared output"
+  checks:
+    - "never_writes_the_declared_output"
+    - "divergence_fails_the_command"
+    - "machine_readable_output"
+    - "the_gate_is_passable"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Point the regenerated run's cwd at working_dir instead of the scratch copy"
+
+verification_level: L3

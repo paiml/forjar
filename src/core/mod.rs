@@ -49,6 +49,7 @@ pub mod store;
 pub mod strutil;
 pub mod task;
 pub mod types;
+pub mod verify;
 pub mod watch_daemon;
 pub mod webhook_server;
 pub mod webhook_source;
