@@ -2,13 +2,17 @@
 //!
 //! Manages local system users and groups via useradd/usermod/userdel/groupadd.
 
+use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Generate shell script to check if a user exists and its properties.
 pub fn check_script(resource: &Resource) -> String {
     let username = resource.name.as_deref().unwrap_or("unknown");
-    format!(
-        "id '{username}' >/dev/null 2>&1 && echo 'exists:{username}' || echo 'missing:{username}'"
+    verdict::single(
+        &format!("id {} >/dev/null 2>&1", sh_squote(username)),
+        &format!("exists:{username}"),
+        &format!("missing:{username}"),
     )
 }
 

@@ -4,6 +4,7 @@
 //! Supports multiple backends: nvidia (default), rocm (AMD), and cpu (no-op).
 
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Resolve the GPU backend from the resource config.
 /// Defaults to "nvidia" when `gpu_backend` is None.
@@ -17,7 +18,8 @@ pub fn check_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("present");
 
     match resolve_backend(resource) {
-        "cpu" => format!("echo 'match:{name}'"),
+        // A cpu backend has no GPU to converge; it is trivially satisfied.
+        "cpu" => verdict::single("true", &format!("match:{name}"), &format!("missing:{name}")),
         "rocm" => check_script_rocm(name, state, resource),
         _ => check_script_nvidia(name, state, resource),
     }
@@ -27,11 +29,16 @@ fn check_script_nvidia(name: &str, state: &str, _resource: &Resource) -> String 
     // FJ-1009: If nvidia-smi works, accept the driver regardless of version.
     // Vendor/host drivers (Lambda, RunPod, --gpus all) can't be swapped.
     match state {
-        "absent" => format!(
-            "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{name}'\nelse\n  echo 'absent:{name}'\nfi"
+        // INVERTED: `absent` converges when the driver is NOT present.
+        "absent" => verdict::single(
+            "! command -v nvidia-smi >/dev/null 2>&1",
+            &format!("absent:{name}"),
+            &format!("exists:{name}"),
         ),
-        _ => format!(
-            "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'match:{name}'\nelse\n  echo 'missing:{name}'\nfi"
+        _ => verdict::single(
+            "command -v nvidia-smi >/dev/null 2>&1",
+            &format!("match:{name}"),
+            &format!("missing:{name}"),
         ),
     }
 }
@@ -39,18 +46,24 @@ fn check_script_nvidia(name: &str, state: &str, _resource: &Resource) -> String 
 fn check_script_rocm(name: &str, state: &str, resource: &Resource) -> String {
     let driver_version = resource.driver_version.as_deref().unwrap_or("");
     match state {
-        "absent" => format!(
-            "if [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{name}'\nelse\n  echo 'absent:{name}'\nfi"
+        "absent" => verdict::single(
+            "! [ -e /sys/module/amdgpu ]",
+            &format!("absent:{name}"),
+            &format!("exists:{name}"),
         ),
         _ => {
             if driver_version.is_empty() {
-                format!(
-                    "if command -v rocminfo >/dev/null 2>&1 || [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{name}'\nelse\n  echo 'missing:{name}'\nfi"
+                verdict::single(
+                    "command -v rocminfo >/dev/null 2>&1 || [ -e /sys/module/amdgpu ]",
+                    &format!("exists:{name}"),
+                    &format!("missing:{name}"),
                 )
             } else {
-                format!(
-                    "if [ -f /sys/module/amdgpu/version ]; then\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null)\nelif [ -e /sys/module/amdgpu ]; then\n  VER=\"kernel-$(uname -r)\"\nelse\n  echo 'missing:{name}'; exit 0\nfi\nif [ \"$VER\" = '{driver_version}' ]; then\n  echo 'match:{name}'\nelse\n  echo 'mismatch:{name}'\nfi"
-                )
+                // `exit 0` on the missing branch was a false pass; a driver
+                // that is absent or the wrong version is divergence.
+                verdict::check_script_from(&[format!(
+                    "if [ -f /sys/module/amdgpu/version ]; then\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null)\nelif [ -e /sys/module/amdgpu ]; then\n  VER=\"kernel-$(uname -r)\"\nelse\n  echo 'missing:{name}'; exit 1\nfi\nif [ \"$VER\" = '{driver_version}' ]; then\n  echo 'match:{name}'\nelse\n  echo 'mismatch:{name}'; __fj_diverged=1\nfi"
+                )])
             }
         }
     }

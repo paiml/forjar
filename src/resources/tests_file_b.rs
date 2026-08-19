@@ -3,6 +3,7 @@ use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -102,6 +103,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

@@ -6,6 +6,8 @@
 mod helpers;
 mod machine;
 mod machine_wave;
+mod output_verify;
+mod refresh;
 mod resource_ops;
 pub mod run_capture;
 mod strategies;
@@ -27,6 +29,8 @@ mod tests_converge2;
 mod tests_core;
 #[cfg(test)]
 mod tests_core_b;
+#[cfg(test)]
+mod tests_displaced_hash;
 #[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
@@ -77,10 +81,11 @@ use std::time::Instant;
 pub use helpers::collect_machines;
 
 // Re-export internal items for sibling submodule access via `use super::*;`
+pub(crate) use crate::tripwire::eventlog::log_tripwire;
+pub(crate) use helpers::copia_apply_file;
 pub(crate) use helpers::{
     apply_and_record_outcome, build_resource_details, compute_resource_waves,
 };
-pub(crate) use helpers::{copia_apply_file, log_tripwire};
 pub(crate) use machine::apply_machine;
 pub(crate) use resource_ops::{
     apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,
@@ -226,6 +231,27 @@ fn selective_force_locks(
 /// Returns 0 if the locks are not yet loaded (first apply on a fresh
 /// state directory) or on lock-load failure — both are correct: there
 /// is no "forced no-op" if there was nothing to be forced over.
+///
+/// # GH-210: the lock alone cannot answer the question
+///
+/// The count used to be `shadow_plan.unchanged` — purely a config-vs-lock
+/// comparison — and the caller invoked it AFTER the apply, when the lock had
+/// already been rewritten to match the config. Both mistakes point the same
+/// way: everything looks unchanged. Measured on 1.12.3, a file tampered with
+/// on disk and restored by `apply --force` reported
+///
+/// ```text
+///   note: --force re-ran 3 resource(s) the lock reported as unchanged
+///         (0 actual change(s), 3 forced no-op(s))
+/// ```
+///
+/// while `forjar drift` called the same resource DRIFTED and the file's hash
+/// demonstrably changed. That is precisely the discrimination contract
+/// `apply-summary-distinguishability-v1` requires, failing.
+///
+/// A resource is a genuine forced no-op only if the lock says NoOp **and** the
+/// live machine still matches the lock. The live half costs a drift probe, so
+/// this runs only under `--force`, and only for a real apply.
 pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
     let execution_order = match resolver::build_execution_order(cfg.config) {
         Ok(o) => o,
@@ -237,7 +263,42 @@ pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
         Err(_) => return 0,
     };
     let shadow_plan = planner::plan(cfg.config, &execution_order, &real_locks, cfg.tag_filter);
-    shadow_plan.unchanged
+    // GH-208 REGRESSION FIX: this briefly subtracted live-filesystem drift
+    // (`count_forced_noops(&changes, &live_drifted_resources(..))`) as a fix for
+    // "--force restores a tampered file but reports 0 actual changes".
+    //
+    // That misread the contract. apply-summary-distinguishability-v1 defines:
+    //
+    //     forced_noop_count(cfg) =
+    //       if cfg.force then shadow_plan(config, real_locks).unchanged else 0
+    //
+    // — LOCK-based, deliberately. The contract even states the reported
+    // behaviour as an invariant, not a bug:
+    //   "actual_changes = 0 ∧ f > 0 ⇒ stack was fully converged before --force ran"
+    //
+    // This is the Q1/Q2 split that tests/test_fj129_force_distinguishability.rs
+    // documents: Q1 "how many did --force re-run that the LOCK called
+    // unchanged?" is cheap and deterministic; Q2 "how many have live drift?" is
+    // what `forjar drift` answers. Conflating them was the ORIGINAL bug, and
+    // subtracting drift here re-introduced it — FJ-129 shape 4 went 2 -> 1.
+    count_forced_noops(&shadow_plan.changes, &Default::default())
+}
+
+/// A planned NoOp is a genuine forced no-op only if the machine still agrees.
+///
+/// Split out from [`forced_noop_count`] so the discrimination that contract
+/// `apply-summary-distinguishability-v1` requires can be tested without a
+/// machine: the shipped code was `shadow_plan.unchanged`, which counts a
+/// drifted resource as a no-op.
+pub fn count_forced_noops(
+    changes: &[crate::core::types::PlannedChange],
+    drifted: &std::collections::HashSet<String>,
+) -> u32 {
+    changes
+        .iter()
+        .filter(|c| c.action == crate::core::types::PlanAction::NoOp)
+        .filter(|c| !drifted.contains(&c.resource_id))
+        .count() as u32
 }
 
 /// Execute the apply loop.
@@ -266,16 +327,49 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     // FJ-2300/FJ-3010: Force mode selection
     // --force: nuclear — empty locks, all resources re-applied
     // --force-tag: selective — empty locks only for resources matching tag
-    // --refresh: re-run checks but use real locks (planner plans normally,
-    //   check scripts re-evaluate live state during execution)
+    // --refresh: run each in-scope resource's check script against its HOST and
+    //   evict the lock entry for any that fails, so the planner re-plans exactly
+    //   those. The previous comment claimed "check scripts re-evaluate live
+    //   state during execution" — they do not: a resource the planner calls
+    //   NoOp is never executed, so its check never runs. See refresh_locks.
     let plan_locks = if cfg.force {
         HashMap::new()
     } else if let Some(tag) = cfg.force_tag {
         selective_force_locks(&locks, cfg.config, tag)
+    } else if cfg.refresh {
+        refresh::refresh_locks(cfg, &locks)
     } else {
         locks.clone()
     };
-    let plan = planner::plan(cfg.config, &execution_order, &plan_locks, cfg.tag_filter);
+    // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
+    // whose sources changed on disk plans as Update rather than NoOp.
+    // Probing is controller-local, so only resources targeting a local machine
+    // are probed — hashing this host's files for a remote target would compare
+    // the wrong tree and produce confidently wrong build decisions.
+    // Resources MUST be template-resolved before probing: `working_dir` is
+    // routinely `{{params.proj}}`, and probing the raw form makes every
+    // declared artifact look missing, which rebuilds the world on every apply.
+    // This is the same class as the drift bug fixed alongside it — hence the
+    // shared resolver.
+    let resolved_for_probe = crate::core::resolver::resolve_all(
+        &cfg.config.resources,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    );
+    let probes = crate::core::task::probe_all(&resolved_for_probe, |m| {
+        cfg.config
+            .machines
+            .get(m)
+            .is_some_and(crate::transport::machine_is_local)
+    });
+    let plan = planner::plan_with_probes(
+        cfg.config,
+        &execution_order,
+        &plan_locks,
+        cfg.tag_filter,
+        &probes,
+    );
 
     if cfg.dry_run {
         return Ok(vec![ApplyResult {

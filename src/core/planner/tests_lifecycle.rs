@@ -53,7 +53,13 @@ fn test_prevent_destroy_blocks_destroy_action() {
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
-    let action = determine_action("protected-file", &resource, "m1", &locks);
+    let action = determine_action(
+        "protected-file",
+        &resource,
+        "m1",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(
         action,
         PlanAction::NoOp,
@@ -75,7 +81,13 @@ fn test_destroy_allowed_without_prevent_destroy() {
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
-    let action = determine_action("normal-file", &resource, "m1", &locks);
+    let action = determine_action(
+        "normal-file",
+        &resource,
+        "m1",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(
         action,
         PlanAction::Destroy,
@@ -102,7 +114,13 @@ fn test_prevent_destroy_false_allows_destroy() {
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
-    let action = determine_action("removable", &resource, "m1", &locks);
+    let action = determine_action(
+        "removable",
+        &resource,
+        "m1",
+        &locks,
+        &std::collections::HashMap::new(),
+    );
     assert_eq!(
         action,
         PlanAction::Destroy,

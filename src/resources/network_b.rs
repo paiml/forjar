@@ -10,6 +10,7 @@ mod tests {
 
     fn make_network_resource(port: &str, action: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Network,
             machine: MachineTarget::Single("m1".to_string()),
             state: None,
@@ -109,6 +110,7 @@ mod tests {
             overlay_iface: None,
             overlay_hosts: None,
             overlay_firewall: None,
+            ..Default::default()
         }
     }
 

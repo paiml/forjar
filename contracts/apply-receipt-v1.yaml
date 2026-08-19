@@ -1,0 +1,265 @@
+---
+metadata:
+  version: "1.1.0"
+  kind: pattern
+  created: "2026-08-18"
+  revised: "2026-08-18"
+  author: "PAIML Engineering"
+  kind_rationale: |
+    `pattern`, not `kernel`, and deliberately so. PROVABILITY-001 makes kernel
+    contracts require Kani harnesses; this contract proves nothing bounded, so
+    claiming kernel would judge it against a bar it was never meant to meet.
+
+    A Kani harness over `displaced_hash` would be feasible — it is pure — but
+    paiml/forjar#242 records that no CI job runs kani, lean or verus, so adding
+    one here would ship an unverified proof claim into a repo where that is
+    already a filed defect. When #242 lands, this contract is a reasonable
+    candidate for promotion to kernel.
+  description: |
+    Apply receipt completeness — every forjar apply that mutates a host
+    leaves a durable, per-resource record of WHAT changed, not merely how
+    many resources converged. An apply log that records counts cannot
+    answer "did forjar remove this file?", which is the question a host
+    incident actually asks.
+
+    Filed after a 48-hour outage in which ~/.cargo/bin on the intel
+    clean-room host was destroyed three times, taking rustup, forjar and
+    ~20 cargo-installed binaries, failing all 16 runners at once. forjar
+    could neither be confirmed nor eliminated as the cause: its own
+    events.jsonl for `intel` stops at 2026-07-05, and even a recorded
+    apply would have said only "4 converged, 0 unchanged, 0 failed".
+
+    v1.1.0 adds three mechanisms from the reference quorum, each of which
+    replaces a cruder rule in v1.0.0:
+      - per-class LEVELS instead of one global verbosity (Kubernetes)
+      - retention differentiated by mutation instead of uniform TTL (git)
+      - an explicit exhaustion action instead of implicit drop (auditd)
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/266"
+    - "issue: https://github.com/paiml/infra/issues/208"
+    - "issue: https://github.com/paiml/infra/issues/213"
+    - "issue: https://github.com/paiml/infra/issues/211"
+    - "prior art: paiml/catalogue docs/schema.md — grades regenerate in place, receipts are append-only"
+    - "quorum: Kubernetes audit policy — per-rule levels (None/Metadata/Request/RequestResponse), stages"
+    - "quorum: AWS CloudTrail — organization trails; hash-chained digest files"
+    - "quorum: git reflog — gc.reflogExpire vs gc.reflogExpireUnreachable, differentiated TTL"
+    - "quorum: systemd-journald — SystemMaxUse / SystemKeepFree / MaxRetentionSec"
+    - "quorum: auditd — max_log_file_action, disk_full_action; exhaustion behaviour is explicit"
+    - "quorum: Puppet reports, Chef Data Collector, Pulumi stack history — resource-level before/after"
+
+equations:
+  receipt_level:
+    formula: |
+      level(resource) ∈ { none, metadata, content }
+      content  ⇒ row carries (id, action, before_digest, after_digest)
+      metadata ⇒ row carries (id, action)
+      none     ⇒ no row, and the omission is itself recorded once per run
+    domain: "resource ∈ Resource"
+    codomain: "Level"
+    invariants:
+      - "level is a property of the resource class, not of the run"
+      - "a resource whose provider mutates PATH-visible binaries defaults to `content`"
+      - "level = none requires an explicit config opt-out; the default is never none"
+      - "the effective level for every resource is itself recorded in the run header"
+    notes: |
+      Kubernetes audit policy is the precedent: verbosity is chosen per
+      rule, so high-churn resources cost `metadata` while the ones an
+      incident would investigate cost `content`. v1.0.0 demanded full
+      before/after everywhere, which is why its own retention obligation
+      had to warn that detail "multiplies each apply by its resource
+      count". Levels remove that tension rather than managing it.
+
+  receipt_completeness:
+    formula: |
+      mutating_apply(run) ⇒ ∃ receipt(run) ∧
+        receipt(run).resources = { row(r, level(r)) | r ∈ run.planned }
+    domain: "run ∈ ApplyRun"
+    codomain: "Receipt"
+    invariants:
+      - "every resource in run.planned appears at its level, including skipped"
+      - "action ∈ {created, changed, deleted, unchanged, failed}"
+      - "action = deleted ⇒ after_digest = null ∧ before_digest ≠ null"
+      - "action = unchanged ⇒ before_digest = after_digest"
+      - "a --force run that re-executes a converged resource still emits a row"
+
+  receipt_coverage:
+    formula: |
+      ∀ m ∈ config.machines: apply(m) ⇒ events(m) receives a line
+      ¬writable(events(m)) ⇒ apply(m) aborts before mutating
+    domain: "m ∈ Machine"
+    codomain: "Bool"
+    invariants:
+      - "coverage is derived from config.machines, never configured separately"
+      - "a machine added to the config is covered without a second action"
+      - "an unwritable event log is a hard failure, not a warning"
+    notes: |
+      CloudTrail organization trails are the precedent: coverage follows
+      membership, including accounts created later. The alternative — an
+      opt-in per machine — is what produced this contract's originating
+      incident, where `intel` was managed for six weeks while recording
+      nothing.
+
+  receipt_durability:
+    formula: |
+      append_only(events.jsonl) ∧
+      keep(e, now) = if e.mutated then now − e.ts < TTL_MUTATING
+                                  else now − e.ts < TTL_NOOP
+      TTL_MUTATING ≫ TTL_NOOP
+    domain: "e ∈ Event, now ∈ Instant"
+    codomain: "Bool"
+    invariants:
+      - "no line is ever rewritten in place"
+      - "pruning never removes a mutating event inside TTL_MUTATING"
+      - "a removed prefix leaves a gap marker; a silent gap is indistinguishable from tampering"
+      - "each line carries a sequence number and a chain digest over its predecessor"
+      - "bounds are multi-dimensional: total size, per-machine age, and free-space floor"
+      - "on exhaustion the configured action runs and is itself recorded; silent drop is not a permitted action"
+    notes: |
+      git reflog is the precedent for differentiated TTL — reachable
+      entries outlive unreachable ones roughly 3:1. The mapping here is
+      mutation rather than reachability, and it is favourable: most
+      applies are no-ops (`0 converged, 12 unchanged`), so the class that
+      matters for forensics is a small fraction of the volume and can be
+      retained far longer than a uniform policy would allow.
+
+      journald contributes the free-space floor (SystemKeepFree), which
+      matters on a host whose root filesystem is at 84%. auditd
+      contributes the principle that exhaustion behaviour is an explicit
+      configured action — ROTATE / SUSPEND / SYSLOG / KEEP_LOGS — rather
+      than an implementation detail.
+
+proof_obligations:
+  - type: invariant
+    property: "A mutating apply cannot complete without a receipt"
+    formal: "∀ run: run.mutated ⇒ receipt_written(run.run_id)"
+    applies_to: all
+    enforced_by: "src/core/executor/helpers.rs::log_tripwire (warns on write failure; no longer `let _`)"
+    notes: |
+      The failure this closes is not a missing feature. The emitter exists
+      and works; `forjar history` reads it and is current for lambda-labs
+      and forjar-cr. What it cannot do is distinguish "forjar did not run
+      on intel" from "forjar ran on intel and did not record it". Those
+      are the two hypotheses an incident must separate, and the current
+      log collapses them into the same silence.
+
+  - type: invariant
+    property: "The receipt opens before the mutation and closes after"
+    formal: "receipt.opened_at < first_mutation(run) < receipt.closed_at"
+    applies_to: all
+    enforced_by: "TODO"
+    notes: |
+      Kubernetes emits `stage: RequestReceived` before the operation, so a
+      panic still leaves a trace. A receipt written only on success cannot
+      describe the run that broke the host — which is precisely the run
+      anyone will want to read.
+
+  - type: invariant
+    property: "Coverage is total across machines under management"
+    formal: "∀ m ∈ config.machines: apply(m) ⇒ events(m) receives a line"
+    applies_to: all
+    enforced_by: "src/core/executor/helpers.rs::ensure_event_log_writable (preflight; NOT yet wired into the apply path — see notes)"
+    notes: |
+      Measured 2026-08-18 across paiml/infra state/: 29 machine dirs carry
+      events.jsonl. `intel` — the host running all 16 clean-room runners —
+      last recorded 2026-07-05, six weeks before the outage it is now
+      needed to explain. Its history is unbroken from 2026-02-18, so this
+      is silence, not truncation.
+
+  - type: invariant
+    property: "Retention preserves the forensic window, differentiated by mutation"
+    formal: |
+      ∀ e: e.mutated ∧ now − e.ts < TTL_MUTATING ⇒ e ∈ prune(log, now)
+    applies_to: all
+    enforced_by: "TODO"
+    notes: |
+      No prune exists today. That is currently benign — intel's log is 120
+      lines over five months, yoga's 558 — because an intent-level record
+      is bounded by how often the system is changed, not by how many
+      syscalls it makes. Retention must ship WITH the per-resource detail,
+      since that is what changes the volume class.
+
+  - type: classification
+    property: "The four shapes an incident needs to distinguish"
+    formal: |
+      forjar never ran            → no receipt in window       (eliminates forjar)
+      forjar ran, touched nothing → receipt, all unchanged      (eliminates forjar)
+      forjar ran, changed it      → receipt names the resource  (confirms forjar)
+      forjar ran, did not record  → INDISTINGUISHABLE FROM #1   ← the defect
+    applies_to: all
+    enforced_by: "TODO"
+
+enforcement:
+  receipt_readback:
+    description: |
+      A sentinel receipt must be retrievable through the same path an
+      investigator uses (`forjar history`), not merely present on disk.
+      infra#211 is this failure one level down: an auditd rule that was
+      listed, fired, wrote to /var/log/audit/audit.log — and could not be
+      read back by ausearch. A listed rule proves shape, not behaviour.
+    check: "tests/falsification_apply_receipt.rs::a_deleted_resource_is_recorded_with_what_it_used_to_be"
+    severity: "ERROR"
+
+  gap_detectable:
+    description: |
+      Sequence numbers plus a chain digest over the predecessor line, so a
+      deleted middle line is visible. CloudTrail's hash-chained digest
+      files are the precedent — they exist to prove no log file was
+      removed. The incident under investigation deletes files; a log that
+      cannot detect its own truncation is weak evidence.
+    check: "TODO"
+    severity: "ERROR"
+
+  exhaustion_action_explicit:
+    description: |
+      When a size or free-space bound is reached, the configured action
+      runs and the action itself is recorded. Silent truncation is not a
+      permitted configuration. auditd's max_log_file_action and
+      disk_full_action are the precedent: what happens when the log is
+      full is a decision the operator makes, not one the implementation
+      makes quietly.
+    check: "TODO"
+    severity: "ERROR"
+
+  level_never_defaults_to_none:
+    description: |
+      A resource with no explicit level gets `content` if its provider
+      mutates PATH-visible binaries, `metadata` otherwise. `none` requires
+      an explicit opt-out in config, so a resource cannot become invisible
+      by omission — the failure mode this whole contract exists to close.
+    check: "TODO"
+    severity: "ERROR"
+
+verification_level: L1
+
+# Equations specified here but deliberately NOT bound in binding.yaml.
+#
+# This repo's build.rs rejects any binding whose status is not `implemented`,
+# so an equation that is specified-but-unsatisfied cannot be recorded there at
+# a softer status. Recording it here keeps the gap visible instead of making
+# it disappear by relabelling.
+unbound:
+  - equation: receipt_coverage
+    reason: |
+      `tripwire::eventlog::ensure_event_log_writable` exists and is falsified
+      (RCP-005), but is NOT called from the apply path. Until it is, coverage
+      is not total and the equation does not hold. Wiring it makes an
+      unwritable log abort before mutation — a behaviour change for a tool
+      that has just shipped 1.14.0, and the maintainers' call rather than
+      this patch's.
+    partial_progress: |
+      `core::executor::helpers::log_tripwire` no longer discards the append
+      result; a failed write now warns instead of vanishing.
+
+  - equation: receipt_durability
+    reason: |
+      Append-only holds and write errors now surface, but the retention
+      mechanisms are unbuilt: differentiated TTL (TTL_MUTATING >> TTL_NOOP),
+      the chain digest for gap detection, and the explicit exhaustion action.
+      No prune exists at all today — benign while the log is intent-level and
+      low-volume, and it must land WITH per-class verbosity rather than after.
+
+  - equation: receipt_level
+    reason: |
+      Per-class levels (none/metadata/content), from the Kubernetes
+      audit-policy precedent. Every resource currently emits at full content
+      level. Deferred because it changes the config surface.

@@ -36,6 +36,7 @@ fn main() {
 
     // 5. Validate a generated codegen script
     let codegen_script = forjar::core::codegen::check_script(&forjar::core::types::Resource {
+        phony: false,
         resource_type: forjar::core::types::ResourceType::File,
         machine: forjar::core::types::MachineTarget::Single("m1".into()),
         path: Some("/etc/test.conf".into()),
@@ -135,6 +136,7 @@ fn main() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     })
     .unwrap();
 

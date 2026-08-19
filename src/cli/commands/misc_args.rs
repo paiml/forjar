@@ -146,6 +146,36 @@ pub struct ShowArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `codegen` command.
+///
+/// FJ-038: emit the shell a resource GENERATES, resolved exactly as `apply`
+/// would resolve it. Without this, a resource whose real payload is synthesised
+/// shell can only be tested against fixtures its own author wrote — which is
+/// how three inverted-assumption bugs shipped in 1.13.0/1.13.1. Dogfooding a
+/// generated artifact requires being able to get at it.
+#[derive(clap::Args, Debug)]
+pub struct CodegenArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Resource id to emit
+    #[arg(short, long)]
+    pub resource: String,
+
+    /// Which script to emit
+    #[arg(long, default_value = "apply", value_parser = ["apply", "check", "state-query"])]
+    pub phase: String,
+}
+
+/// CLI arguments for the `dogfood` command.
+#[derive(clap::Args, Debug)]
+pub struct DogfoodArgs {
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// CLI arguments for the `check` command.
 #[derive(clap::Args, Debug)]
 pub struct CheckArgs {
@@ -241,7 +271,7 @@ pub struct LintArgs {
     #[arg(long)]
     pub fix: bool,
 
-    /// FJ-374: Custom lint rules from YAML file
+    /// FJ-374: Custom lint rules from YAML file [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub rules: Option<PathBuf>,
 
@@ -341,15 +371,20 @@ pub struct McpArgs {
 /// CLI arguments for the `bench` command.
 #[derive(clap::Args, Debug)]
 pub struct BenchArgs {
-    /// Number of iterations per benchmark (default: 1000)
-    #[arg(long, default_value = "1000")]
-    pub iterations: usize,
+    /// Number of iterations per benchmark (must be >= 1; default: 1000)
+    // Dogfood #208 (bench-iterations-zero-nan-and-exit-zero): `--iterations 0`
+    // divided by zero, printed "NaNµs", marked all six targets FAIL and still
+    // exited 0. clap already rejects `abc` here — apply the same mechanism to
+    // the value's domain.
+    #[arg(long, default_value = "1000", value_parser = clap::value_parser!(u64).range(1..))]
+    pub iterations: u64,
 
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
 
-    /// Compare against stored baseline in benchmarks/RESULTS.md
+    /// Compare against stored baseline in benchmarks/RESULTS.md (errors if the
+    /// baseline is absent or unparseable; exits non-zero on regression)
     #[arg(long)]
     pub compare: bool,
 }

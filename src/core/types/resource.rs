@@ -1,5 +1,7 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::backup_sync_types::BackupSpec;
+use super::disk_budget_types::ReclaimRule;
 use super::resource_enums::{MachineTarget, ResourceType};
 use super::service_mode_types::RestartPolicy;
 use super::task_types::{HealthCheck, PipelineStage, QualityGate, TaskMode};
@@ -327,6 +329,14 @@ pub struct Resource {
     /// Enable content-addressed stage caching.
     #[serde(default)]
     pub cache: bool,
+    /// FJ-2725: make-style phony target — names an ACTION, not a file.
+    ///
+    /// Excluded from bulk `apply`/`plan` entirely, and runs unconditionally
+    /// when named as an explicit goal (`forjar make clean`). See
+    /// `cli::apply_selection::strip_unrequested_phony` for why the alternative
+    /// readings of make's rule are not convergent.
+    #[serde(default)]
+    pub phony: bool,
     /// GPU device index for CUDA_VISIBLE_DEVICES.
     #[serde(default)]
     pub gpu_device: Option<u32>,
@@ -417,6 +427,33 @@ pub struct Resource {
     /// Optional: open the overlay /24 subnet through ufw.
     #[serde(default)]
     pub overlay_firewall: Option<bool>,
+
+    // -- Disk budget fields (FJ-036: fleet disk budget + reclaim reaper) --
+    /// Used-% at or above which a reclaim pass is triggered (default 85).
+    #[serde(default)]
+    pub budget_high_watermark_pct: Option<u8>,
+
+    /// Free-% a reclaim pass must restore before it stops (default 20).
+    /// Must satisfy `100 - target_free_pct < high_watermark_pct` (hysteresis).
+    #[serde(default)]
+    pub budget_target_free_pct: Option<u8>,
+
+    /// Free-GiB below which the budget is CRITICAL — hard drift failure.
+    #[serde(default)]
+    pub budget_critical_free_gb: Option<u64>,
+
+    /// systemd `OnCalendar` cadence for the reaper (default "hourly").
+    #[serde(default)]
+    pub budget_schedule: Option<String>,
+
+    /// Ordered reclaim rules, most-disposable first.
+    #[serde(default)]
+    pub budget_reclaim: Vec<ReclaimRule>,
+
+    // -- Backup sync (FJ-037) --
+    /// Verified offsite copy. Flattened, so the YAML keys stay top level.
+    #[serde(flatten)]
+    pub backup: BackupSpec,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

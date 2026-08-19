@@ -38,7 +38,7 @@ proof_obligations:
     property: "Acyclicity is a config-transferable theorem"
     formal: "acyclic(R,E) => a topological apply order of length |R| exists"
     applies_to: I1
-  - type: honesty
+  - type: soundness
     property: "No vacuous green"
     formal: "exists opaque r in R => state(I3) in {Unknown} (never Proved/Checked as if total)"
     applies_to: I3
@@ -98,7 +98,8 @@ kani_harnesses:
     obligation: "Conflict detector is sound and complete"
     harness: "core::prove::checkers::kani_proofs::conflict_detector_sound"
     strategy: exhaustive
-    bound: "4 keys"
+    # 4 keys — the unit is keys; the schema types `bound` as u32.
+    bound: 4
     status: PROVED
 
 lean_proofs:

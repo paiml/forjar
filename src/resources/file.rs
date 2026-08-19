@@ -2,6 +2,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 use base64::Engine;
 
 /// Read a local file and return its base64-encoded content.
@@ -17,17 +18,29 @@ pub fn check_script(resource: &Resource) -> String {
     let p = sh_squote(path);
 
     match state {
-        "directory" => {
-            format!("test -d {p} && echo 'exists:directory' || echo 'missing:directory'")
-        }
-        "absent" => format!("test -e {p} && echo 'exists:present' || echo 'missing:absent'"),
-        "symlink" => format!("test -L {p} && echo 'exists:symlink' || echo 'missing:symlink'"),
-        "file" => format!("test -f {p} && echo 'exists:file' || echo 'missing:file'"),
-        // `other` is the config-derived state string; escape the label.
-        other => format!(
-            "echo {}",
-            sh_squote(&format!("unsupported file state: {other}"))
+        "directory" => verdict::single(
+            &format!("test -d {p}"),
+            "exists:directory",
+            "missing:directory",
         ),
+        // INVERTED: `absent` converges when the path is GONE, so the passing
+        // condition is the negation and `missing:` is the SUCCESS marker. This
+        // is why the verdict cannot be derived from the marker text at the
+        // codegen boundary — only the generator knows which way the resource
+        // points.
+        "absent" => verdict::single(
+            &format!("! test -e {p}"),
+            "missing:absent",
+            "exists:present",
+        ),
+        "symlink" => verdict::single(&format!("test -L {p}"), "exists:symlink", "missing:symlink"),
+        "file" => verdict::single(&format!("test -f {p}"), "exists:file", "missing:file"),
+        // `other` is the config-derived state string; escape the label. An
+        // unrecognised state is not a pass — forjar cannot show the resource
+        // is converged, so it must say so.
+        other => verdict::check_script_from(&[verdict::always_diverged(&format!(
+            "unsupported file state: {other}"
+        ))]),
     }
 }
 

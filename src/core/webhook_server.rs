@@ -171,8 +171,36 @@ mod tests {
         std::thread::spawn(move || {
             let _ = run_webhook_server(&config, tx, shutdown_clone);
         });
-        // Give the listener time to bind.
-        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // WAIT FOR THE CONDITION, do not guess a duration.
+        //
+        // This was `sleep(100ms)`, which is a race: it asserts nothing and is
+        // only ever "long enough" for the machine it was written on. It passed
+        // on an idle dev box and FAILED the clean room, where the container is
+        // CPU-contended and the spawned thread had not bound yet:
+        //
+        //   panicked at src/core/webhook_server.rs:180
+        //   Err(Os { code: 111, kind: ConnectionRefused })
+        //
+        // Readiness is probed by trying to BIND the port and expecting to fail:
+        // once the server owns it, nobody else can. That observes the real
+        // condition without opening a connection the server would then have to
+        // accept and handle, which would perturb the test it is preparing.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut bound = false;
+        while std::time::Instant::now() < deadline {
+            if TcpListener::bind(("127.0.0.1", port)).is_err() {
+                bound = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(
+            bound,
+            "webhook server never bound 127.0.0.1:{port} within 10s — a real \
+             bind failure, reported here rather than as ECONNREFUSED later"
+        );
+
         (port, rx, shutdown)
     }
 

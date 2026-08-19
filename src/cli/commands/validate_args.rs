@@ -15,7 +15,7 @@ pub struct ValidateArgs {
     /// FJ-330: Show fully expanded config after template resolution
     #[arg(long)]
     pub dry_expand: bool,
-    /// FJ-381: Validate against specific schema version
+    /// FJ-381: Validate against specific schema version [UNIMPLEMENTED — rejected, see GH-211]
     #[arg(long)]
     pub schema_version: Option<String>,
     /// FJ-391: Validate all cross-references, machine existence, and param usage
@@ -256,15 +256,12 @@ pub struct ValidateArgs {
     /// FJ-853: Score drift risk per resource based on type + deps
     #[arg(long)]
     pub check_resource_drift_risk: bool,
-
     /// FJ-857: Verify all resources have required tags
     #[arg(long)]
     pub check_resource_tag_coverage: bool,
-
     /// FJ-861: Verify lifecycle hook references are valid
     #[arg(long)]
     pub check_resource_lifecycle_hooks: bool,
-
     /// FJ-865: Verify provider version compatibility
     #[arg(long)]
     pub check_resource_provider_version: bool,
@@ -495,9 +492,12 @@ pub struct ValidateArgs {
     /// FJ-1124: Check resource provider version pinning
     #[arg(long)]
     pub check_resource_provider_version_pinning: bool,
-    /// FJ-1306: Report per-resource purity levels
+    /// FJ-1306: Report per-resource purity levels (use --min-purity to gate)
     #[arg(long)]
     pub check_recipe_purity: bool,
+    /// GH-241: Fail if recipe purity is worse than LEVEL; reports only without it
+    #[arg(long, value_name = "LEVEL", value_parser = crate::cli::validate_store_purity::PURITY_LEVELS)]
+    pub min_purity: Option<String>,
     /// FJ-1329: Output reproducibility score (0-100)
     #[arg(long)]
     pub check_reproducibility_score: bool,

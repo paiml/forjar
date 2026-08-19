@@ -5,6 +5,7 @@
 
 use crate::core::shell_escape::{sh_squote, slugify_identifier};
 use crate::core::types::{Resource, TaskMode};
+use crate::resources::verdict;
 
 /// Slugified service id used in `/tmp/forjar-svc-<rid>.{pid,log}` paths.
 ///
@@ -59,29 +60,40 @@ pub fn check_script(resource: &Resource) -> String {
             })
             .unwrap_or_default();
         return format!(
-            "{ldd_check}\
-             if [ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null; then \
-             echo 'task=completed'; else echo 'task=pending'; fi"
+            "{ldd_check}{}",
+            verdict::single(
+                &format!("[ -f {pidfile} ] && kill -0 \"$(cat {pidfile})\" 2>/dev/null"),
+                "task=completed",
+                "task=pending",
+            )
         );
     }
 
     if let Some(ref check) = resource.completion_check {
-        return format!("if {check}; then echo 'task=completed'; else echo 'task=pending'; fi");
+        return verdict::single(check, "task=completed", "task=pending");
     }
 
     if !resource.output_artifacts.is_empty() {
-        let checks: Vec<String> = resource
+        // One assertion per artifact, so a partially-built target names the
+        // artifact that is actually missing instead of a bare `task=pending`.
+        let assertions: Vec<String> = resource
             .output_artifacts
             .iter()
-            .map(|a| format!("[ -e {} ]", sh_squote(a)))
+            .map(|a| {
+                verdict::assert_that(
+                    &format!("[ -e {} ]", sh_squote(a)),
+                    &format!("task=completed:{a}"),
+                    &format!("task=pending:{a}"),
+                )
+            })
             .collect();
-        return format!(
-            "if {} ; then echo 'task=completed'; else echo 'task=pending'; fi",
-            checks.join(" && ")
-        );
+        return verdict::check_script_from(&assertions);
     }
 
-    "echo 'task=pending'".to_string()
+    // No completion_check and no output_artifacts: there is no evidence this
+    // task ever ran. It previously echoed `task=pending` and exited 0, which
+    // `forjar check` read as a pass. Absence of evidence is not convergence.
+    verdict::check_script_from(&[verdict::always_diverged("task=pending")])
 }
 
 /// Generate pipeline script with inter-stage gate enforcement.
@@ -168,6 +180,40 @@ fn batch_script(resource: &Resource) -> String {
     if let Some(gather) = gather_script(resource) {
         script.push_str(&gather);
     }
+
+    // GH-254: re-assert the completion_check AFTER running.
+    //
+    // The check was used only as a guard on whether to run, never as evidence
+    // that running worked, so `converged` meant "the command exited 0" rather
+    // than "the resource reached its declared state". A task could do
+    // everything right, exit 0, and leave the declared condition false — and
+    // the lock recorded success, so the next `plan` reported `no changes` over
+    // a host that never converged.
+    //
+    // Observed on paiml/infra's `lean-toolchain`: `sudo: true` made $HOME=/root,
+    // so the toolchain installed where the runner user could not read it. Every
+    // command succeeded, `forjar apply` reported `1 converged, 0 failed`, and
+    // `command -v lean` failed immediately afterwards.
+    //
+    // The check is already written and already cheap — it just ran. Running it
+    // once more turns an exit code into a statement about the world.
+    if let Some(ref check) = resource.completion_check {
+        // A YAML `|` block scalar always keeps its trailing newline. Pushing
+        // " ; }; then" right after it put the `;` on its own line — and a
+        // newline is already a command separator, so a bare `;` right after
+        // one is an empty statement: "syntax error near unexpected token `;'".
+        // trim_end() puts the `;` on the same line as the check's last command.
+        script.push_str("if ! { ");
+        script.push_str(check.trim_end());
+        script.push_str(" ; }; then\n");
+        script.push_str(
+            "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",
+        );
+        script.push_str("  echo 'task=not-converged: the declared state was not reached' >&2\n");
+        script.push_str("  exit 1\n");
+        script.push_str("fi\n");
+    }
+
     script
 }
 

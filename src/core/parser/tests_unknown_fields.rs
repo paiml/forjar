@@ -497,3 +497,28 @@ dist:
         "expected `dist` to be a known top-level field: {unknowns:?}"
     );
 }
+
+#[test]
+fn second_pass_parse_failure_is_not_reported_as_clean() {
+    // The unknown-field check is a SECOND pass that re-parses the raw YAML into
+    // a `Value`. Swallowing that parse error and returning an empty Vec makes an
+    // UNCHECKED config indistinguishable from a CLEAN one: `validate` prints OK
+    // and every unknown field in the file goes unreported.
+    //
+    // The old comment claimed "parse errors handled by first pass", but the two
+    // passes deserialize into different targets (`ForjarConfig` vs `Value`), so
+    // pass one can succeed where pass two fails. Observed on infra's
+    // machines/lambda-labs/forjar.yaml: it reported `OK: 82 resources` while
+    // carrying `fs_type:` (the field is spelled `fstype`), and the same typo in
+    // machines/intel/forjar.yaml was correctly rejected.
+    let broken = "version: \"1.0\"\nname: t\nresources: [unclosed\n";
+    assert!(
+        detect_unknown_fields(broken).is_err(),
+        "precondition: this YAML must fail the second-pass parse"
+    );
+    let errors = super::check_unknown_fields(broken);
+    assert!(
+        !errors.is_empty(),
+        "a check that could not run must report that, not return an empty (= clean) result"
+    );
+}

@@ -25,3 +25,8 @@ state/*/events.jsonl
 # Claude Code session state (ignore everything except shared skills)
 .claude/*
 !.claude/skills/
+
+# GH-256: `forjar dist` output. Release builds it into /tmp/dist-output; a copy
+# committed at the repo root in March went stale against the maintained
+# install.sh and carried 7 bashrs SEC findings the real one does not.
+/dist-output/

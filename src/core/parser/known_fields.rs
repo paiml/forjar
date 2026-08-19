@@ -95,6 +95,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "task_mode",
     "task_inputs",
     "output_artifacts",
+    "phony",
     "completion_check",
     "timeout",
     "working_dir",
@@ -123,6 +124,22 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "overlay_iface",
     "overlay_hosts",
     "overlay_firewall",
+    // FJ-036: disk_budget
+    "budget_high_watermark_pct",
+    "budget_target_free_pct",
+    "budget_critical_free_gb",
+    "budget_schedule",
+    "budget_reclaim",
+    // FJ-037: backup_sync
+    "backup_source",
+    "backup_remote",
+    "backup_schedule",
+    "backup_verify_pct",
+    "backup_daily_cap_gb",
+    "backup_bandwidth_limit",
+    "backup_remote_type",
+    "backup_remote_config",
+    "backup_token",
 ];
 
 pub(crate) const MACHINE_FIELDS: &[&str] = &[

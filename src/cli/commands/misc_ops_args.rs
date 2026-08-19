@@ -306,14 +306,34 @@ pub struct EnvDiffArgs {
     pub json: bool,
 }
 
+/// Refs #213: `-V` takes `KEY=VALUE`, and anything else is refused at parse
+/// time. `-V novaluehere` used to be accepted silently and then dropped on the
+/// floor by a `split_once('=')` whose `None` arm did nothing — a typo'd
+/// override looked exactly like an applied one.
+pub fn parse_var_assignment(raw: &str) -> Result<String, String> {
+    let Some((key, _)) = raw.split_once('=') else {
+        return Err(format!("expected KEY=VALUE, got '{raw}' (no '=' found)"));
+    };
+    if key.trim().is_empty() {
+        return Err(format!("expected KEY=VALUE, got '{raw}' (empty key)"));
+    }
+    Ok(raw.to_string())
+}
+
 /// CLI arguments for the `template` command.
 #[derive(clap::Args, Debug)]
 pub struct TemplateArgs {
     /// Path to recipe YAML file
     pub recipe: PathBuf,
 
-    /// Variable overrides (KEY=VALUE)
-    #[arg(short = 'V', long = "var", value_name = "KEY=VALUE")]
+    /// Variable overrides (KEY=VALUE) — recipe inputs for a recipe file,
+    /// params for a forjar.yaml
+    #[arg(
+        short = 'V',
+        long = "var",
+        value_name = "KEY=VALUE",
+        value_parser = parse_var_assignment
+    )]
     pub vars: Vec<String>,
 
     /// Output as JSON

@@ -167,6 +167,58 @@ pub(crate) fn cmd_store_diff(hash: &str, store_dir: &Path, json: bool) -> Result
     Ok(())
 }
 
+/// Report the outcome of `store sync --apply`.
+///
+/// GH-249: an incomplete sync must not print "complete" and exit 0.
+/// Planned-but-unreplayed derivation chains leave derived entries stale, and
+/// the operator's next action is taken on the belief that they are fresh.
+fn report_sync_apply(
+    hash: &str,
+    result: &sync_exec::SyncExecResult,
+    json: bool,
+) -> Result<(), String> {
+    let complete = result.is_complete();
+
+    if json {
+        let j = serde_json::json!({
+            "hash": hash,
+            "re_imported": result.re_imported.len(),
+            "derivations_planned": result.derivations_planned,
+            "derivations_replayed": result.derivations_replayed,
+            "complete": complete,
+            "new_profile_hash": result.new_profile_hash,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+        );
+    } else {
+        let headline = if complete {
+            "Store sync complete"
+        } else {
+            "Store sync INCOMPLETE"
+        };
+        println!("{headline}: {}", &hash[..20.min(hash.len())]);
+        println!("  Re-imported: {}", result.re_imported.len());
+        println!(
+            "  Derivations: {} planned, {} replayed",
+            result.derivations_planned, result.derivations_replayed
+        );
+    }
+
+    if complete {
+        Ok(())
+    } else {
+        Err(format!(
+            "sync did not complete: {} of {} derivation chain(s) were not replayed, \
+             so the derived entries are still stale. Derivation replay is not yet \
+             driven from a sync plan (GH-249)",
+            result.derivations_planned - result.derivations_replayed,
+            result.derivations_planned
+        ))
+    }
+}
+
 /// Sync: re-import upstream and replay derivation chain.
 pub(crate) fn cmd_store_sync(
     hash: &str,
@@ -184,22 +236,7 @@ pub(crate) fn cmd_store_sync(
         let machine = local_machine();
         let plan = build_sync_plan(&[(meta, None)]);
         let result = sync_exec::execute_sync(&plan, &machine, store_dir, Some(300))?;
-        if json {
-            let j = serde_json::json!({
-                "hash": hash,
-                "re_imported": result.re_imported.len(),
-                "derivations_replayed": result.derivations_replayed,
-                "new_profile_hash": result.new_profile_hash,
-            });
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
-            );
-        } else {
-            println!("Store sync complete: {}", &hash[..20.min(hash.len())]);
-            println!("  Re-imported: {}", result.re_imported.len());
-            println!("  Derivations replayed: {}", result.derivations_replayed);
-        }
+        return report_sync_apply(hash, &result, json);
     } else if json {
         let j = serde_json::json!({
             "hash": hash,
@@ -268,8 +305,16 @@ pub(super) fn collect_profile_hashes(store_dir: &Path) -> Vec<String> {
 pub(super) fn list_store_entries(
     store_dir: &Path,
 ) -> Result<Vec<(String, String, String)>, String> {
-    let rd =
-        std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
+    // GH-239: an absent store is an EMPTY store, not an error. Before, a first
+    // run reported `No such file or directory` and left the user with nothing to
+    // act on — the store is created by the first import, not by listing it.
+    // Only ENOENT is treated this way; a permission error is still a real error,
+    // because that one the operator must know about.
+    let rd = match std::fs::read_dir(store_dir) {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("read {}: {e}", store_dir.display())),
+    };
     let mut entries: Vec<(String, String, String)> = rd
         .flatten()
         .filter(|e| e.path().is_dir())

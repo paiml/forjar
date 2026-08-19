@@ -3,7 +3,7 @@
 
 use forjar::core::store::chunker::{chunk_bytes, reassemble, tree_hash, CHUNK_SIZE};
 use forjar::core::store::closure::{all_closures, closure_hash, input_closure, ResourceInputs};
-use forjar::core::store::path::{store_entry_path, store_path, STORE_BASE};
+use forjar::core::store::path::{store_entry_path, store_path, store_root, STORE_BASE};
 use std::collections::BTreeMap;
 
 // ── FJ-1347: chunk_bytes ──
@@ -232,14 +232,16 @@ fn store_path_order_independent() {
 
 #[test]
 fn entry_path_strips_prefix() {
+    // GH-239: the base is the RESOLVED store root, not the STORE_BASE const —
+    // an unprivileged process resolves to a per-user directory.
     let p = store_entry_path("blake3:abcdef1234567890");
-    assert_eq!(p, format!("{STORE_BASE}/abcdef1234567890"));
+    assert_eq!(p, format!("{}/abcdef1234567890", store_root().display()));
 }
 
 #[test]
 fn entry_path_no_prefix() {
     let p = store_entry_path("abcdef1234567890");
-    assert_eq!(p, format!("{STORE_BASE}/abcdef1234567890"));
+    assert_eq!(p, format!("{}/abcdef1234567890", store_root().display()));
 }
 
 #[test]

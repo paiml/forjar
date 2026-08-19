@@ -6,6 +6,8 @@
 //! - depends_on references must exist
 //! - Required fields per resource type
 
+mod backup_sync_validate;
+mod disk_budget_validate;
 mod expansion;
 mod format_validation;
 mod includes;
@@ -26,6 +28,8 @@ mod tests_expansion;
 mod tests_format_validation;
 #[cfg(test)]
 mod tests_includes;
+#[cfg(test)]
+mod tests_known_fields_completeness;
 #[cfg(test)]
 mod tests_misc;
 #[cfg(test)]
@@ -215,7 +219,14 @@ fn check_sudo_inference(
 pub fn check_unknown_fields(yaml: &str) -> Vec<ValidationError> {
     match unknown_fields::detect_unknown_fields(yaml) {
         Ok(unknowns) => unknown_fields::unknown_fields_to_errors(&unknowns),
-        Err(_) => Vec::new(), // Parse errors handled by first pass
+        // A check that could not RUN is not a clean result. This pass parses
+        // into a raw `Value` while the first parses into `ForjarConfig`, so the
+        // first can succeed where this one fails — and swallowing the error
+        // made every unknown field in the file invisible while `validate`
+        // printed OK.
+        Err(e) => vec![ValidationError {
+            message: format!("could not check for unknown fields: {e}"),
+        }],
     }
 }
 
@@ -223,7 +234,9 @@ pub fn check_unknown_fields(yaml: &str) -> Vec<ValidationError> {
 pub fn check_unknown_recipe_fields(yaml: &str) -> Vec<ValidationError> {
     match unknown_fields::detect_unknown_recipe_fields(yaml) {
         Ok(unknowns) => unknown_fields::unknown_fields_to_errors(&unknowns),
-        Err(_) => Vec::new(),
+        Err(e) => vec![ValidationError {
+            message: format!("could not check for unknown recipe fields: {e}"),
+        }],
     }
 }
 

@@ -18,11 +18,11 @@ use crate::core::types::Resource;
 pub fn check_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
 
-    let mut script = String::from("set -euo pipefail\n");
+    let mut script = String::from("set -euo pipefail\n__fj_diverged=0\n");
 
     // Check if the WASM file exists
     script.push_str(&format!(
-        "if [ ! -f '{path}' ]; then\n  echo 'wasm=missing'\n  exit 0\nfi\n"
+        "if [ ! -f '{path}' ]; then\n  echo 'wasm=missing'\n  exit 1\nfi\n"
     ));
 
     // Validate WASM magic bytes: \0asm (00 61 73 6d)
@@ -30,7 +30,7 @@ pub fn check_script(resource: &Resource) -> String {
         "MAGIC=$(od -A n -t x1 -N 4 '{path}' | tr -d ' ')\n\
          if [ \"$MAGIC\" != '0061736d' ]; then\n\
          \x20 echo 'wasm=invalid'\n\
-         \x20 exit 0\n\
+         \x20 exit 1\n\
          fi\n"
     ));
 
@@ -39,6 +39,7 @@ pub fn check_script(resource: &Resource) -> String {
         "SIZE=$(stat -c %s '{path}' 2>/dev/null || stat -f %z '{path}')\n\
          echo \"wasm=present size=$SIZE\"\n"
     ));
+    script.push_str("exit \"$__fj_diverged\"\n");
 
     script
 }

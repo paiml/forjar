@@ -149,7 +149,7 @@ pub fn export_from_state_dir(
         if !path.is_dir() {
             continue;
         }
-        let machine = path.file_name().unwrap().to_string_lossy().to_string();
+        let machine = entry.file_name().to_string_lossy().to_string();
         let spans = super::tracer::read_trace(state_dir, &machine)?;
         if !spans.is_empty() {
             export_traces(endpoint, &spans, service_name)?;

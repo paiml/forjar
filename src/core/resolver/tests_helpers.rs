@@ -13,6 +13,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         resources.insert(
             name.to_string(),
             Resource {
+                phony: false,
                 resource_type: ResourceType::Package,
                 machine: MachineTarget::Single("m1".to_string()),
                 state: None,
@@ -112,6 +113,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 overlay_iface: None,
                 overlay_hosts: None,
                 overlay_firewall: None,
+                ..Default::default()
             },
         );
     }
@@ -162,6 +164,7 @@ pub(super) fn test_params() -> HashMap<String, serde_yaml_ng::Value> {
 
 pub(super) fn make_base_resource() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -261,5 +264,6 @@ pub(super) fn make_base_resource() -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }

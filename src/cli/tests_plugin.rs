@@ -1,3 +1,7 @@
+//! Refs #211: `plugin init --output DIR` now creates DIR itself (the help
+//! always said the default was `plugins/<name>`, i.e. the name is INCLUDED),
+//! so every call below passes the plugin directory rather than its parent.
+
 use super::*;
 
 #[test]
@@ -30,7 +34,7 @@ fn dispatch_list() {
 #[test]
 fn init_creates_scaffold() {
     let dir = tempfile::tempdir().unwrap();
-    assert!(cmd_plugin_init("my-plugin", Some(dir.path()), false).is_ok());
+    assert!(cmd_plugin_init("my-plugin", Some(&dir.path().join("my-plugin")), false).is_ok());
     assert!(dir.path().join("my-plugin/plugin.yaml").exists());
     assert!(dir.path().join("my-plugin/plugin.wasm").exists());
     let m = std::fs::read_to_string(dir.path().join("my-plugin/plugin.yaml")).unwrap();
@@ -40,20 +44,20 @@ fn init_creates_scaffold() {
 #[test]
 fn init_json_output() {
     let dir = tempfile::tempdir().unwrap();
-    assert!(cmd_plugin_init("test-plugin", Some(dir.path()), true).is_ok());
+    assert!(cmd_plugin_init("test-plugin", Some(&dir.path().join("test-plugin")), true).is_ok());
 }
 #[test]
 fn init_already_exists() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("existing")).unwrap();
-    let r = cmd_plugin_init("existing", Some(dir.path()), false);
+    let r = cmd_plugin_init("existing", Some(&dir.path().join("existing")), false);
     assert!(r.is_err());
     assert!(r.unwrap_err().contains("already exists"));
 }
 #[test]
 fn init_verify_roundtrip() {
     let dir = tempfile::tempdir().unwrap();
-    cmd_plugin_init("roundtrip", Some(dir.path()), false).unwrap();
+    cmd_plugin_init("roundtrip", Some(&dir.path().join("roundtrip")), false).unwrap();
     let v = resolve_and_verify(dir.path(), "roundtrip");
     assert!(v.is_ok(), "verify failed: {:?}", v.err());
     assert_eq!(v.unwrap().status, PluginStatus::Converged);
@@ -63,7 +67,7 @@ fn dispatch_init() {
     let dir = tempfile::tempdir().unwrap();
     let cmd = PluginCmd::Init {
         name: "d-test".into(),
-        output: Some(dir.path().into()),
+        output: Some(dir.path().join("d-test")),
         json: false,
     };
     assert!(dispatch_plugin(cmd).is_ok());
@@ -71,7 +75,7 @@ fn dispatch_init() {
 #[test]
 fn install_from_local_dir() {
     let src = tempfile::tempdir().unwrap();
-    cmd_plugin_init("src-plug", Some(src.path()), false).unwrap();
+    cmd_plugin_init("src-plug", Some(&src.path().join("src-plug")), false).unwrap();
     let dest = tempfile::tempdir().unwrap();
     let r = cmd_plugin_install(
         src.path().join("src-plug").to_str().unwrap(),
@@ -84,7 +88,7 @@ fn install_from_local_dir() {
 #[test]
 fn install_already_exists() {
     let src = tempfile::tempdir().unwrap();
-    cmd_plugin_init("dup", Some(src.path()), false).unwrap();
+    cmd_plugin_init("dup", Some(&src.path().join("dup")), false).unwrap();
     let dest = tempfile::tempdir().unwrap();
     cmd_plugin_install(src.path().join("dup").to_str().unwrap(), dest.path(), false).unwrap();
     let r = cmd_plugin_install(src.path().join("dup").to_str().unwrap(), dest.path(), false);
@@ -105,14 +109,14 @@ fn install_no_manifest() {
 #[test]
 fn remove_plugin() {
     let dir = tempfile::tempdir().unwrap();
-    cmd_plugin_init("removable", Some(dir.path()), false).unwrap();
+    cmd_plugin_init("removable", Some(&dir.path().join("removable")), false).unwrap();
     cmd_plugin_remove("removable", dir.path(), true, false).unwrap();
     assert!(!dir.path().join("removable").exists());
 }
 #[test]
 fn remove_without_yes() {
     let dir = tempfile::tempdir().unwrap();
-    cmd_plugin_init("keep", Some(dir.path()), false).unwrap();
+    cmd_plugin_init("keep", Some(&dir.path().join("keep")), false).unwrap();
     cmd_plugin_remove("keep", dir.path(), false, false).unwrap();
     assert!(dir.path().join("keep").exists());
 }
@@ -157,25 +161,22 @@ fn build_no_package_name() {
 #[test]
 fn run_check_with_plugin() {
     let dir = tempfile::tempdir().unwrap();
-    cmd_plugin_init("test-run", Some(dir.path()), false).unwrap();
+    cmd_plugin_init("test-run", Some(&dir.path().join("test-run")), false).unwrap();
     let r = cmd_plugin_run("test-run", "check", dir.path(), "{}", false);
-    if crate::core::plugin_runtime::is_runtime_available() {
-        // Stub WASM bytes fail real parsing — expected error
-        assert!(r.is_err());
-    } else {
-        assert!(r.is_ok(), "run check failed: {:?}", r.err());
+    // Refs #210: with a real runtime the stub WASM bytes fail parsing; without
+    // one, nothing can execute at all — either way this is an error. It used
+    // to return Ok with status Converged from a runtime that ran nothing.
+    assert!(r.is_err(), "a stub runtime must not report success");
+    if !crate::core::plugin_runtime::is_runtime_available() {
+        assert!(r.unwrap_err().contains("wasm-runtime"));
     }
 }
 #[test]
 fn run_apply_with_plugin() {
     let dir = tempfile::tempdir().unwrap();
-    cmd_plugin_init("test-apply", Some(dir.path()), false).unwrap();
+    cmd_plugin_init("test-apply", Some(&dir.path().join("test-apply")), false).unwrap();
     let r = cmd_plugin_run("test-apply", "apply", dir.path(), "{}", true);
-    if crate::core::plugin_runtime::is_runtime_available() {
-        assert!(r.is_err());
-    } else {
-        assert!(r.is_ok(), "run apply failed: {:?}", r.err());
-    }
+    assert!(r.is_err(), "a stub runtime must not report success");
 }
 #[test]
 fn run_invalid_operation() {

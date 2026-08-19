@@ -132,6 +132,7 @@ fn test_plan_basic() {
     let result = super::plan::cmd_plan(
         f.path(), dir.path(), None, None, None, false, false, None, None, None, false, None,
         false, &[], None, false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -143,6 +144,7 @@ fn test_plan_json() {
     let result = super::plan::cmd_plan(
         f.path(), dir.path(), None, None, None, true, false, None, None, None, false, None,
         false, &[], None, false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -175,6 +177,7 @@ resources:
     let result = super::plan::cmd_plan(
         f.path(), dir.path(), None, None, Some("web"), false, false, None, None, None, false,
         None, false, &[], None, false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -186,6 +189,7 @@ fn test_plan_with_machine_filter() {
     let result = super::plan::cmd_plan(
         f.path(), dir.path(), Some("m"), None, None, false, false, None, None, None, false,
         None, false, &[], None, false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -197,6 +201,7 @@ fn test_plan_missing_config() {
         std::path::Path::new("/nonexistent.yaml"),
         dir.path(), None, None, None, false, false, None, None, None, false, None, false, &[],
         None, false,
+        None,
     );
     assert!(result.is_err());
 }

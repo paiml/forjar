@@ -332,9 +332,10 @@ pub(super) fn try_validate_store(
     json: bool,
     check_recipe_purity: bool,
     check_reproducibility_score: bool,
+    min_purity: Option<&str>,
 ) -> Option<Result<(), String>> {
     if check_recipe_purity {
-        return Some(cmd_validate_check_recipe_purity(file, json));
+        return Some(cmd_validate_check_recipe_purity(file, json, min_purity));
     }
     if check_reproducibility_score {
         return Some(cmd_validate_check_reproducibility_score(file, json));

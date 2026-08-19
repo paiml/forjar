@@ -37,6 +37,7 @@ mod tests {
                         resource: "config-file".to_string(),
                         duration_seconds: 0.5,
                         hash: "def".to_string(),
+                        previous_hash: None,
                     },
                 })
                 .unwrap(),
@@ -81,6 +82,7 @@ mod tests {
                         resource: "pkg".to_string(),
                         duration_seconds: 1.0,
                         hash: "xyz".to_string(),
+                        previous_hash: None,
                     },
                 })
                 .unwrap(),
@@ -163,15 +165,23 @@ machines:
     addr: 127.0.0.1
 resources:
   pkg:
-    type: package
+    type: file
     machine: local
-    provider: apt
-    packages: [curl]
+    path: /tmp/forjar-fj017-machine-filter.txt
+    content: hi
 "#,
         )
         .unwrap();
-        // Check with machine filter
-        cmd_check(&config, Some("local"), None, None, std::path::Path::new("state"), false, false).unwrap();
+        // FJ-2720: this test exercises the MACHINE FILTER, so it must not
+        // depend on host state. It previously asserted `curl` was installed via
+        // apt and passed only because checks always passed; once checks began
+        // observing the world it failed in any container without curl.
+        std::fs::write("/tmp/forjar-fj017-machine-filter.txt", "hi").unwrap();
+        cmd_check(&config, Some("local"), None, None, std::path::Path::new("state"), false, false)
+            .expect("the filter selected a converged resource");
+        // A filter naming no machine selects nothing, which is still a pass.
+        cmd_check(&config, Some("no-such-machine"), None, None, std::path::Path::new("state"), false, false)
+            .expect("filtering everything out is not a failure");
     }
 
     #[test]
@@ -189,20 +199,29 @@ machines:
     addr: 127.0.0.1
 resources:
   pkg1:
-    type: package
+    type: file
     machine: local
-    provider: apt
-    packages: [curl]
+    path: /tmp/forjar-fj017-res-filter-1.txt
+    content: hi
   pkg2:
-    type: package
+    type: file
     machine: local
-    provider: apt
-    packages: [wget]
+    path: /tmp/forjar-fj017-res-filter-absent.txt
+    content: hi
 "#,
         )
         .unwrap();
-        // Check only specific resource
-        cmd_check(&config, None, Some("pkg1"), None, std::path::Path::new("state"), false, false).unwrap();
+        // FJ-2720: hermetic. pkg1 is converged, pkg2 deliberately is not, so
+        // the assertions below prove the RESOURCE FILTER selected one and not
+        // the other — which is what this test is named for. It previously used
+        // apt packages and passed only because checks always passed.
+        std::fs::write("/tmp/forjar-fj017-res-filter-1.txt", "hi").unwrap();
+        let _ = std::fs::remove_file("/tmp/forjar-fj017-res-filter-absent.txt");
+
+        cmd_check(&config, None, Some("pkg1"), None, std::path::Path::new("state"), false, false)
+            .expect("filtering to the converged resource passes");
+        cmd_check(&config, None, Some("pkg2"), None, std::path::Path::new("state"), false, false)
+            .expect_err("filtering to the unconverged resource must fail");
     }
 
     #[test]
@@ -227,8 +246,12 @@ resources:
 "#,
         )
         .unwrap();
-        // JSON output
-        cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false).unwrap();
+        // JSON output. FJ-2720: the resource is not converged, so the command
+        // reports failure; the point of this test is that the JSON branch is
+        // exercised and reports honestly.
+        let result =
+            cmd_check(&config, None, None, None, std::path::Path::new("state"), true, false);
+        assert!(result.is_err(), "unconverged resource must not pass check");
     }
 
     // ── Rollback error tests ───────────────────────────────────

@@ -131,20 +131,20 @@ mod tests {
         assert!(try_validate_phase107(f.path(), false, false, false, false).is_none());
     }
 
-    // try_validate_store: file, json, 2 bools
+    // try_validate_store: file, json, 2 bools, optional --min-purity
     #[test]
     fn test_store_purity() {
         let f = write_cfg(CFG);
-        assert!(try_validate_store(f.path(), false, true, false).is_some());
+        assert!(try_validate_store(f.path(), false, true, false, None).is_some());
     }
     #[test]
     fn test_store_repro() {
         let f = write_cfg(CFG);
-        assert!(try_validate_store(f.path(), false, false, true).is_some());
+        assert!(try_validate_store(f.path(), false, false, true, None).is_some());
     }
     #[test]
     fn test_store_none() {
         let f = write_cfg(CFG);
-        assert!(try_validate_store(f.path(), false, false, false).is_none());
+        assert!(try_validate_store(f.path(), false, false, false, None).is_none());
     }
 }

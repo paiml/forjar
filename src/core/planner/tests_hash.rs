@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[test]
 fn test_fj004_hash_deterministic() {
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -104,6 +105,7 @@ fn test_fj004_hash_deterministic() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -135,6 +137,7 @@ fn test_golden_hash_pinned_value() {
 #[test]
 fn test_fj004_hash_includes_all_fields() {
     let r1 = Resource {
+        phony: false,
         resource_type: ResourceType::Mount,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("mounted".to_string()),
@@ -234,6 +237,7 @@ fn test_fj004_hash_includes_all_fields() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     // Changing any field should change the hash
     let mut r2 = r1.clone();
@@ -252,6 +256,7 @@ fn test_fj004_hash_includes_all_fields() {
 #[test]
 fn test_fj004_hash_content_change_changes_hash() {
     let r1 = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -351,6 +356,7 @@ fn test_fj004_hash_content_change_changes_hash() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut r2 = r1.clone();
     r2.content = Some("version=2".to_string());

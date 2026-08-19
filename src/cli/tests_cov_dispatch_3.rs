@@ -222,6 +222,7 @@ resources:
                     resource: "pkg".to_string(),
                     duration_seconds: 1.0,
                     hash: "blake3:abc".to_string(),
+                    previous_hash: None,
                 },
             })
             .unwrap();

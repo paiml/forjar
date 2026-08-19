@@ -100,8 +100,14 @@ fn scan_gc_roots_dir(dir: &Path) -> Vec<String> {
 
 /// List all store entry hashes (directory names under store_dir).
 fn list_store_entries(store_dir: &Path) -> Result<BTreeSet<String>, String> {
-    let read_dir = std::fs::read_dir(store_dir)
-        .map_err(|e| format!("read store dir {}: {e}", store_dir.display()))?;
+    // GH-239: an absent store holds nothing to collect. Reporting ENOENT as an
+    // error made `store gc --dry-run` fail on a first run, which is exactly when
+    // an operator is trying to find out whether the store is safe to enable.
+    let read_dir = match std::fs::read_dir(store_dir) {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeSet::new()),
+        Err(e) => return Err(format!("read store dir {}: {e}", store_dir.display())),
+    };
     let entries = read_dir
         .flatten()
         .filter(|e| e.path().is_dir())

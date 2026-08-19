@@ -54,7 +54,15 @@ pub struct Diagnostic {
 }
 
 /// LSP completion item.
+///
+/// GH-212 (#208): `rename_all = "camelCase"` is load-bearing, not cosmetic.
+/// The wire name of this field is `insertText`; serialised as the Rust
+/// `insert_text` every LSP client ignores it and inserts the bare `label`, so
+/// the deliberately chosen `"type: "` (trailing colon and space) was silently
+/// discarded and users got `type`. Every other struct this server puts on the
+/// wire is already camelCase — this one was the outlier.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompletionItem {
     /// Display label.
     pub label: String,
@@ -168,6 +176,22 @@ impl LspServer {
             "textDocument/hover" => {
                 let hover = self.handle_hover(msg);
                 Some(make_response(id, hover))
+            }
+            // GH-210 (#208): `initialize` advertises `diagnosticProvider`,
+            // which per the LSP spec DECLARES that this method is handled.
+            // It was not: clients that honour the capability (recent VS Code
+            // and nvim prefer pull diagnostics when advertised) fell through
+            // to the default arm and got -32601 "Method not found" instead of
+            // diagnostics. Serve a full DocumentDiagnosticReport from exactly
+            // the same validation that feeds push diagnostics, so the two
+            // mechanisms cannot disagree.
+            "textDocument/diagnostic" => {
+                let uri = msg
+                    .pointer("/params/textDocument/uri")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let diags = self.validate_document(uri);
+                Some(make_response(id, super::lsp_publish::full_report(&diags)))
             }
             _ => {
                 if id.is_some() {
@@ -315,72 +339,11 @@ pub(super) fn hover_info(line: &str) -> serde_json::Value {
     }
 }
 
-/// Basic YAML validation for forjar configs.
-pub fn validate_yaml(content: &str) -> Vec<Diagnostic> {
-    let mut diags = Vec::new();
-    // Check YAML parse
-    if let Err(e) = serde_yaml_ng::from_str::<serde_json::Value>(content) {
-        diags.push(Diagnostic {
-            line: 0,
-            character: 0,
-            end_line: 0,
-            end_character: 80,
-            severity: DiagnosticSeverity::Error,
-            message: format!("YAML parse error: {e}"),
-            source: "forjar-lsp".to_string(),
-        });
-        return diags;
-    }
-
-    // Check for common line-level issues
-    for (i, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-        if trimmed.contains('\t') {
-            diags.push(make_diag(
-                i,
-                line,
-                DiagnosticSeverity::Warning,
-                "Tabs should not be used in YAML; use spaces",
-            ));
-        }
-        if trimmed.starts_with("ensure:") {
-            let val = trimmed.trim_start_matches("ensure:").trim();
-            if !["present", "absent", "latest", "running", "stopped", ""].contains(&val) {
-                diags.push(make_diag(i, line, DiagnosticSeverity::Warning,
-                    &format!("Unknown ensure value '{val}'; expected present|absent|latest|running|stopped")));
-            }
-        }
-    }
-
-    // FJ-2504: Unknown field detection + structural validation
-    for w in &crate::core::parser::check_unknown_fields(content) {
-        diags.push(make_diag(0, "", DiagnosticSeverity::Warning, &w.message));
-    }
-    if let Ok(config) = crate::core::parser::parse_config(content) {
-        for e in &crate::core::parser::validate_config(&config) {
-            diags.push(make_diag(0, "", DiagnosticSeverity::Error, &e.message));
-        }
-    }
-
-    diags
-}
-
-pub(super) fn make_diag(
-    line_idx: usize,
-    line: &str,
-    severity: DiagnosticSeverity,
-    msg: &str,
-) -> Diagnostic {
-    Diagnostic {
-        line: line_idx as u32,
-        character: 0,
-        end_line: line_idx as u32,
-        end_character: line.len() as u32,
-        severity,
-        message: msg.to_string(),
-        source: "forjar-lsp".to_string(),
-    }
-}
+// GH-215: validation lives in `lsp_validate` (file-size ceiling); re-exported
+// here so callers and tests keep using `lsp::validate_yaml` / `lsp::make_diag`.
+#[cfg(test)]
+pub(super) use super::lsp_validate::make_diag;
+pub use super::lsp_validate::validate_yaml;
 
 /// Build an LSP initialize result.
 pub(super) fn initialize_result() -> serde_json::Value {

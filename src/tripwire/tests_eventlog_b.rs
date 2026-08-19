@@ -60,6 +60,7 @@ fn test_fj015_append_all_event_types_roundtrip() {
                 resource: "r".to_string(),
                 duration_seconds: 0.5,
                 hash: "blake3:abc".to_string(),
+                previous_hash: None,
             },
             "resource_converged",
         ),
@@ -183,6 +184,7 @@ fn test_fj132_event_json_has_ts_field() {
         resource: "r".to_string(),
         duration_seconds: 0.1,
         hash: "blake3:abc".to_string(),
+        previous_hash: None,
     };
     append_event(dir.path(), "m", event).unwrap();
     let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
@@ -261,6 +263,7 @@ fn test_fj132_append_multiple_events_jsonl_format() {
             resource: format!("r-{i}"),
             duration_seconds: 0.1,
             hash: "blake3:abc".to_string(),
+            previous_hash: None,
         };
         append_event(dir.path(), "m", event).unwrap();
     }

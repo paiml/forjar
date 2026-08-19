@@ -93,6 +93,7 @@ pub(crate) fn cmd_apply_canary_machine(
         None,  // telemetry_endpoint
         false, // refresh
         None,  // force_tag
+        &[],
     )?;
 
     println!("\n{} Canary '{}' succeeded.", green("✓"), canary);
@@ -150,6 +151,7 @@ pub(crate) fn cmd_apply_canary_machine(
             None,  // telemetry_endpoint
             false, // refresh
             None,  // force_tag
+            &[],
         )?;
     }
 

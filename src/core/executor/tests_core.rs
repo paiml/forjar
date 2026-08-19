@@ -45,6 +45,7 @@ fn test_fj012_build_resource_details() {
     let file_path = dir.path().join("test.txt");
     std::fs::write(&file_path, "hello").unwrap();
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m".to_string()),
         state: None,
@@ -144,6 +145,7 @@ fn test_fj012_build_resource_details() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -163,6 +165,7 @@ fn test_fj012_build_resource_details() {
 #[test]
 fn test_fj012_build_resource_details_service() {
     let r = Resource {
+        phony: false,
         resource_type: ResourceType::Service,
         machine: MachineTarget::Single("m".to_string()),
         state: None,
@@ -262,6 +265,7 @@ fn test_fj012_build_resource_details_service() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("service_name"));

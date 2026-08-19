@@ -64,11 +64,18 @@ fn test_fj1300_store_path_empty_inputs() {
 
 #[test]
 fn test_fj1300_store_entry_path_basic() {
+    // GH-239: the base is `store_root()`, not the STORE_BASE const — an
+    // unprivileged process resolves to a per-user directory. Asserting against
+    // the const here would pin the very behaviour that made the store unusable
+    // for non-root callers.
     let hash = "blake3:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
     let path = store_entry_path(hash);
     assert_eq!(
         path,
-        format!("{STORE_BASE}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+        format!(
+            "{}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            super::path::store_root().display()
+        )
     );
 }
 

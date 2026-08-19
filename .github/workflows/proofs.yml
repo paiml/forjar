@@ -1,0 +1,218 @@
+# Formal proofs — Kani bounded-model checking + Lean theorem proving.
+#
+# GH-242: before this workflow, no CI job invoked kani, lean or verus. 32 Kani
+# harnesses and 7 Lean proofs sat in the tree, cited by name as evidence in
+# contracts/*.yaml, and were never executed by anything.
+#
+# They were not merely unrun — they did not COMPILE. The first `cargo kani`
+# invocation failed with two E0425 errors in kani_proofs.rs (`super::compute_order`
+# for a function defined in that same module), so every harness in the crate was
+# unbuildable while the contracts referencing them read as verified.
+#
+# One harness also ran past ten minutes without terminating, because it drove
+# `DiskBudget::new` — which allocates Strings — across a 65,536-point input
+# space. An intractable proof is indistinguishable from an absent one.
+#
+# So this gate exists to make "verified" mean the machine checked it.
+name: Proofs
+
+# WHEN this runs, and why not on every PR.
+#
+# Measured on intel 2026-08-17, while this workflow ran on a PR:
+#
+#   runners executing a job   15 / 16
+#   ci.slice cap utilisation  17.99 of 18 cores  (pinned at 100% of quota)
+#   cpu.pressure some avg10   40.67%             (full = 0.00 — not wedged)
+#
+# Judged by pressure and cap utilisation, NOT load average: under a CPUQuota
+# throttled tasks stay runnable, so load reads high and means little. intel's
+# own ci.slice unit says exactly that, and the first draft of this comment
+# ignored it and quoted load 65.6.
+#
+# The kani job is bare-metal (no `container:`), so it draws from that same
+# 18-core budget as every other job, and it holds one of 16 runner slots for
+# the duration — 90 minutes under that contention, against ~36 minutes
+# measured for the same work on an idle box. Every pull_request paid it.
+#
+# So: main stays proven post-merge, a nightly catches drift, and a PR that
+# actually touches the harnesses opts in with the `proofs` label. This is a
+# scheduling change, not a weakening — `proofs` is not a required context
+# (the org ruleset requires `gate`), so it never gated a merge anyway.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * *'
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: proofs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kani:
+    name: kani
+    runs-on: [self-hosted, clean-room]
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'proofs')
+    # 45 was too short, but NOT because proving is slow — measured 2026-08-16:
+    #
+    #   proof_applicable_operators_valid   22+ min  -> 2s   (after the fix below)
+    #   every other completed harness      0-5s each
+    #   9 harnesses in 36 min = ~11s of proving, ~35 min of COMPILATION
+    #
+    # Kani rebuilds the crate with its own compiler and CI carries no cache for
+    # that, so the cost is almost entirely the build. Raising this buys the
+    # compile, not slow proofs. If a single harness ever dominates again, that
+    # is the disk_budget/applicable_operators shape — an allocating function in
+    # the harness — and the fix is to retarget it, not to raise this further.
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+
+      # Kani is preinstalled in the sovereign-ci image. Asserting it rather than
+      # installing it: a runtime toolchain install makes the gate depend on the
+      # network and hides a drifted image behind a green run.
+      - name: Assert kani is available
+        run: |
+          if ! command -v cargo-kani >/dev/null 2>&1; then
+            echo "cargo-kani is not in the CI image — add it there, do not install at runtime" >&2
+            exit 1
+          fi
+          cargo kani --version
+
+      # A cancelled kani run leaves a half-written `.d` in target/kani, and the
+      # NEXT run then dies on it with a message that names no code:
+      #
+      #   error: could not parse/generate dep info at: .../deps/bashrs-*.d
+      #   error: Failed to execute cargo (exit status: 101). Found 0 compilation errors.
+      #
+      # "0 compilation errors" is the tell — nothing is wrong with the crate.
+      # This workflow has cancel-in-progress: true, and a 35-minute build gets
+      # cancelled often, so inheriting that state is the normal case rather than
+      # the exception. Same dep-info corruption paiml/rmedia#268 documents for
+      # concurrent builds; here it comes from cancellation rather than sharing.
+      #
+      # The earlier version of this step wiped unconditionally, on the reasoning
+      # that "kani rebuilds the crate with its own compiler every run
+      # regardless, so discarding costs nothing". That reasoning was wrong.
+      # These are SELF-HOSTED runners with a persistent workspace, so cargo does
+      # reuse target/kani across runs — the unconditional wipe is precisely what
+      # guaranteed a cold ~35-minute build every single time. It turned a cache
+      # into a cost.
+      #
+      # The corruption it defended against is real but is specific to a run that
+      # was INTERRUPTED mid-build. So: leave a sentinel while a build is in
+      # flight and clear it when the job reaches a verdict. Finding the sentinel
+      # at startup means the previous run died holding it, and only then is the
+      # tree suspect.
+      - name: Discard target/kani only if the previous run was interrupted
+        run: |
+          set -eu
+          sentinel=target/kani/.forjar-build-in-flight
+          if [ -e "$sentinel" ]; then
+            echo "previous kani run did not reach a verdict — discarding target/kani"
+            rm -rf target/kani
+          else
+            echo "previous kani run finished cleanly — reusing target/kani"
+          fi
+          mkdir -p target/kani
+          touch "$sentinel"
+
+      # Compilation is a distinct failure from non-verification, and it is the
+      # one that actually happened. Surfacing it separately means a broken
+      # harness reports as broken rather than as an opaque proof failure.
+      #
+      # `nice -n 19` because this job is bare-metal inside the shared 18-core
+      # ci.slice: at niceness 19 it still gets the whole box when the box is
+      # idle, but yields to interactive PR CI instead of competing with it. It
+      # bounds proofs' effect on everyone else's latency, not its own runtime.
+      - name: Harnesses must compile
+        run: nice -n 19 cargo kani --only-codegen
+
+      - name: Verify all harnesses
+        run: nice -n 19 cargo kani --output-format terse
+
+      # Deliberately not `always()`: on cancellation the sentinel must SURVIVE,
+      # so the next run knows the tree was left mid-build. success()||failure()
+      # covers "reached a verdict" and excludes exactly that case.
+      - name: Mark the kani build tree as clean
+        if: success() || failure()
+        run: rm -f target/kani/.forjar-build-in-flight
+
+  # Deliberately NOT gated behind the `proofs` label the way kani is. Measured
+  # 2026-08-17: lean verified all 7 proofs in 67 seconds. The contention this
+  # workflow was trimmed for is entirely kani's ~35-minute compile, so every PR
+  # keeps real proof coverage at a cost that does not register.
+  lean:
+    name: lean
+    runs-on: [self-hosted, clean-room]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # elan installs into ~/.elan, which is not on the runners' PATH (they get
+      # ~/.cargo/bin). Same shape as the existing Rust-toolchain PATH steps.
+      # This only exposes it — if it is absent, the assertion below still fails.
+      - name: Put the Lean toolchain on PATH
+        run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Assert lean is available
+        run: |
+          if ! command -v lean >/dev/null 2>&1; then
+            echo "lean is not in the CI image — add it there, do not install at runtime" >&2
+            exit 1
+          fi
+          lean --version
+
+      # Every .lean file, and the count is asserted: a proof deleted or renamed
+      # out of the glob would otherwise make this job pass by checking nothing,
+      # which is the failure mode this whole workflow was written to end.
+      - name: Verify Lean proofs
+        run: |
+          set -euo pipefail
+          n=0
+          for f in lean/*.lean; do
+            echo "--- $f"
+            lean "$f"
+            n=$((n + 1))
+          done
+          echo "verified $n Lean proof(s)"
+          if [ "$n" -lt 7 ]; then
+            echo "expected at least 7 Lean proofs, found $n — a proof was removed" >&2
+            exit 1
+          fi
+
+  # Aggregator so branch protection can require one context for both.
+  proofs:
+    name: proofs
+    runs-on: ubuntu-latest
+    needs: [kani, lean]
+    if: always()
+    steps:
+      # `skipped` is a PASS here and nothing else is. On an unlabelled PR the
+      # proof jobs do not run at all, and treating that as failure would make
+      # every such PR red — the shape that trains people to ignore a red check.
+      # A genuine failure, cancellation or timeout is still `failure`/`cancelled`
+      # and still fails this gate.
+      - name: Check proof jobs
+        run: |
+          set -eu
+          rc=0
+          for job in kani:"${{ needs.kani.result }}" lean:"${{ needs.lean.result }}"; do
+            name=${job%%:*}
+            result=${job#*:}
+            case "$result" in
+              success) echo "$name: verified" ;;
+              skipped) echo "$name: skipped (not selected for this event)" ;;
+              *)       echo "$name FAILED: $result" >&2; rc=1 ;;
+            esac
+          done
+          [ "$rc" -eq 0 ] && echo "All proofs accounted for"
+          exit "$rc"

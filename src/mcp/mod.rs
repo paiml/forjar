@@ -5,13 +5,19 @@
 //! O(1) dispatch and pforge McpServer for protocol handling.
 
 pub mod handlers;
+pub mod handlers_state;
+pub mod paths;
 pub mod registry;
 pub mod types;
 
 #[cfg(test)]
+mod tests_dogfood;
+#[cfg(test)]
 mod tests_handlers;
 #[cfg(test)]
 mod tests_handlers_more;
+#[cfg(test)]
+mod tests_parity;
 #[cfg(test)]
 mod tests_registry;
 

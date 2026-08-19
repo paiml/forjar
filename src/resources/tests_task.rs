@@ -16,7 +16,18 @@ fn make_task_resource(cmd: &str) -> Resource {
 fn test_check_no_completion_check_no_artifacts() {
     let r = make_task_resource("echo hello");
     let script = check_script(&r);
-    assert_eq!(script, "echo 'task=pending'");
+    // FJ-2720: a task with no completion evidence must FAIL its check. It used
+    // to be exactly `echo 'task=pending'`, which exits 0 — so `forjar check`
+    // reported every unrun task as converged.
+    assert!(script.contains("task=pending"), "{script}");
+    let code = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&script)
+        .status()
+        .unwrap()
+        .code()
+        .unwrap_or(-1);
+    assert_ne!(code, 0, "no completion evidence must not report success");
 }
 
 #[test]

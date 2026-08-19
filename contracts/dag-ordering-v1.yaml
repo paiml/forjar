@@ -75,13 +75,31 @@ falsification_tests:
     test: "proptest with random DAGs, call twice and compare"
     if_fails: "Non-deterministic iteration order in HashMap"
 
+# GH-242: declared as a `kani_harnesses` entry naming
+# `verify_topological_ordering`, which is a LEAN theorem rather than a Rust Kani
+# harness. Same category error as blake3-state-v1: the kani job could never run
+# it, the lean job verified it anyway, and the contract cited a harness that
+# does not exist in Rust. Re-declared where it belongs:
 kani_harnesses:
+  # The Rust harnesses that actually run in CI and actually pass. The entry that
+  # stood here named `verify_topological_ordering`, a Lean theorem, so this
+  # kernel contract claimed a Kani proof that no `fn` implemented.
   - id: KANI-DAG-001
-    obligation: "Topological ordering"
-    property: "All edges respect ordering"
-    bound: 6
+    obligation: "Topological ordering is deterministic"
+    property: "compute_order(e) = compute_order(e) for every 3-node DAG"
+    bound: 3
     strategy: exhaustive
-    harness: verify_topological_ordering
+    harness: proof_topo_sort_stability
+
+  - id: KANI-DAG-002
+    obligation: "Bounded DAG ordering"
+    property: "Emitted order respects every declared edge"
+    bound: 3
+    strategy: bounded_int
+    harness: proof_dag_ordering_bounded
+
+# (The ordering obligation is also proved in Lean — see the `lean_proofs`
+# section below — so no separate entry is added here.)
 
 qa_gate:
   id: F-DAG-001

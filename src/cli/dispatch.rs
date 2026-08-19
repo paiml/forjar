@@ -41,10 +41,6 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             out,
             why,
         }) => {
-            // GH-91: Warn that --group filtering is not yet implemented
-            if group.is_some() {
-                eprintln!("Warning: --group is not yet implemented for plan. Flag ignored.");
-            }
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
                 &file,
@@ -63,9 +59,16 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 &what_if,
                 out.as_deref(),
                 why,
+                group.as_deref(),
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),
+        Commands::Make(args) => super::make::cmd_make(&args, verbose),
+        Commands::ImportMakefile(args) => super::makefile_cmd::cmd_import_makefile(&args),
+        // FJ-2730: the LSP server had 80 passing tests, a complete stdio
+        // implementation and NO entry point — `forjar lsp` was an unrecognized
+        // subcommand. Found by sweeping every interface.
+        Commands::Lsp => super::lsp::cmd_lsp(),
         Commands::Drift(DriftArgs {
             file,
             machine,

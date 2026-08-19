@@ -77,6 +77,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
     }
@@ -144,6 +145,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
 
@@ -208,6 +210,7 @@ resources: {}
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
