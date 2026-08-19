@@ -6,7 +6,7 @@
 mod helpers;
 mod machine;
 mod machine_wave;
-mod output_verify;
+pub mod output_verify;
 mod refresh;
 mod resource_ops;
 pub mod run_capture;

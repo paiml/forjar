@@ -226,7 +226,15 @@ fn test_executor_local_config_minimal() {
     );
     let r = &config.resources["test-file"];
     assert_eq!(r.resource_type, ResourceType::File);
-    assert_eq!(r.path.as_deref(), Some("/tmp/forjar-test-executor.txt"));
+    // The fixture now generates a unique path per call so parallel tests do
+    // not race on one file; assert the shape, not the exact name.
+    assert!(
+        r.path
+            .as_deref()
+            .is_some_and(|p| p.starts_with("/tmp/forjar-test-executor-")),
+        "unexpected path: {:?}",
+        r.path
+    );
     assert_eq!(r.content.as_deref(), Some("hello from forjar"));
     assert!(config.policy.tripwire, "policy.tripwire should be true");
     assert!(config.policy.lock_file, "policy.lock_file should be true");
