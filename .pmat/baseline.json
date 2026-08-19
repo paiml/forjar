@@ -1,6 +1,6 @@
 {
   "version": "3.32.0",
-  "created_at": "2026-08-19T16:13:05.540353069Z",
+  "created_at": "2026-08-19T16:45:19.320823435Z",
   "git_context": null,
   "files": {
     "./build.rs": {
@@ -29701,48 +29701,48 @@
     },
     "./src/core/mod.rs": {
       "content_hash": [
-        42,
-        100,
-        82,
-        164,
-        241,
-        173,
-        167,
-        250,
-        184,
-        199,
-        162,
-        217,
-        46,
-        248,
-        60,
-        14,
-        195,
-        57,
-        231,
-        53,
-        83,
-        53,
-        124,
-        189,
+        107,
+        160,
+        77,
+        222,
+        121,
+        212,
+        48,
+        235,
+        155,
+        32,
+        56,
         232,
-        241,
-        90,
-        58,
-        47,
-        76,
-        236,
-        199
+        221,
+        164,
+        61,
+        144,
+        2,
+        151,
+        249,
+        13,
+        126,
+        102,
+        88,
+        65,
+        186,
+        188,
+        171,
+        251,
+        102,
+        54,
+        245,
+        22
       ],
       "score": {
         "structural_complexity": 25.0,
         "semantic_complexity": 20.0,
-        "duplication_ratio": 17.362637,
+        "duplication_ratio": 17.391304,
         "coupling_score": 15.0,
         "doc_coverage": 10.0,
         "consistency_score": 10.0,
         "entropy_score": 9.0,
-        "total": 96.693306,
+        "total": 96.71937,
         "grade": "A+",
         "confidence": 1.0,
         "language": "Rust",
@@ -29758,11 +29758,90 @@
           },
           {
             "source_metric": "Duplication",
-            "amount": 2.6373627,
+            "amount": 2.6086955,
             "applied_to": [
               "Duplication"
             ],
-            "issue": "Code duplication: 13.2%"
+            "issue": "Code duplication: 13.0%"
+          }
+        ],
+        "critical_defects_count": 0,
+        "has_critical_defects": false,
+        "has_contract_coverage": false
+      },
+      "components": {
+        "complexity_breakdown": {},
+        "duplication_sources": [],
+        "coupling_dependencies": [],
+        "doc_missing_items": [],
+        "consistency_violations": []
+      },
+      "git_context": null
+    },
+    "./src/core/observe/mod.rs": {
+      "content_hash": [
+        232,
+        237,
+        86,
+        122,
+        27,
+        130,
+        242,
+        182,
+        121,
+        195,
+        221,
+        6,
+        178,
+        91,
+        242,
+        248,
+        62,
+        243,
+        181,
+        20,
+        76,
+        42,
+        220,
+        12,
+        171,
+        105,
+        187,
+        78,
+        18,
+        77,
+        253,
+        32
+      ],
+      "score": {
+        "structural_complexity": 21.5,
+        "semantic_complexity": 20.0,
+        "duplication_ratio": 20.0,
+        "coupling_score": 15.0,
+        "doc_coverage": 10.0,
+        "consistency_score": 10.0,
+        "entropy_score": 8.0,
+        "total": 95.0,
+        "grade": "A+",
+        "confidence": 1.0,
+        "language": "Rust",
+        "file_path": "./src/core/observe/mod.rs",
+        "penalties_applied": [
+          {
+            "source_metric": "Duplication",
+            "amount": 2.0,
+            "applied_to": [
+              "Duplication"
+            ],
+            "issue": "Found 4 duplicate code patterns"
+          },
+          {
+            "source_metric": "StructuralComplexity",
+            "amount": 3.5,
+            "applied_to": [
+              "StructuralComplexity"
+            ],
+            "issue": "High cyclomatic complexity: 37"
           }
         ],
         "critical_defects_count": 0,
@@ -47252,10 +47331,10 @@
     }
   },
   "summary": {
-    "total_files": 572,
-    "avg_score": 92.45267,
+    "total_files": 573,
+    "avg_score": 92.45715,
     "grade_distribution": {
-      "A+": 261,
+      "A+": 262,
       "A": 201,
       "A-": 35,
       "B+": 23,
@@ -47265,7 +47344,7 @@
     },
     "languages": {
       "Python": 3,
-      "Rust": 569
+      "Rust": 570
     }
   }
 }

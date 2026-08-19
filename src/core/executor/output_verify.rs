@@ -118,99 +118,6 @@ pub(crate) fn check_post_hook(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::types::ResourceType;
-
-    fn local() -> Machine {
-        serde_yaml_ng::from_str("hostname: localhost\naddr: localhost\n").unwrap()
-    }
-    fn remote() -> Machine {
-        serde_yaml_ng::from_str("hostname: far\naddr: 10.9.9.9\n").unwrap()
-    }
-    fn task(dir: &std::path::Path, outs: &[&str]) -> Resource {
-        Resource {
-            resource_type: ResourceType::Task,
-            output_artifacts: outs.iter().map(|s| s.to_string()).collect(),
-            working_dir: Some(dir.display().to_string()),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn a_missing_declared_artifact_is_reported() {
-        let d = tempfile::tempdir().unwrap();
-        let r = task(d.path(), &["second.txt"]);
-        assert_eq!(
-            missing_outputs(&r, &local()),
-            vec!["second.txt".to_string()]
-        );
-    }
-
-    #[test]
-    fn a_produced_artifact_is_not_reported() {
-        let d = tempfile::tempdir().unwrap();
-        std::fs::write(d.path().join("second.txt"), "ok").unwrap();
-        assert!(missing_outputs(&task(d.path(), &["second.txt"]), &local()).is_empty());
-    }
-
-    #[test]
-    fn only_the_missing_ones_are_named() {
-        let d = tempfile::tempdir().unwrap();
-        std::fs::write(d.path().join("there.txt"), "ok").unwrap();
-        assert_eq!(
-            missing_outputs(&task(d.path(), &["there.txt", "gone.txt"]), &local()),
-            vec!["gone.txt".to_string()]
-        );
-    }
-
-    #[test]
-    fn a_directory_artifact_counts_as_produced() {
-        // Consistent with the staleness probe, which identifies a directory
-        // artifact by EXISTENCE — hashing its contents was the v1.11.0
-        // idempotency pump.
-        let d = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(d.path().join("build")).unwrap();
-        assert!(missing_outputs(&task(d.path(), &["build"]), &local()).is_empty());
-    }
-
-    #[test]
-    fn a_resource_declaring_no_outputs_is_not_verified() {
-        // Most infra resources declare nothing; they must be unaffected.
-        let d = tempfile::tempdir().unwrap();
-        assert!(missing_outputs(&task(d.path(), &[]), &local()).is_empty());
-    }
-
-    #[test]
-    fn a_remote_resource_is_never_verified_against_this_host() {
-        // The artifact lives on the far machine. Checking the controller's
-        // filesystem would fail every remote task that works perfectly.
-        let d = tempfile::tempdir().unwrap();
-        assert!(
-            missing_outputs(&task(d.path(), &["second.txt"]), &remote()).is_empty(),
-            "a remote target must not be judged by this host's filesystem"
-        );
-    }
-
-    #[test]
-    fn the_apply_entry_point_is_silent_when_there_is_nothing_to_answer_for() {
-        let d = tempfile::tempdir().unwrap();
-        std::fs::write(d.path().join("x"), "ok").unwrap();
-        assert!(unproduced_outputs_error(&task(d.path(), &["x"]), &local()).is_none());
-        assert!(unproduced_outputs_error(&task(d.path(), &[]), &local()).is_none());
-        assert!(unproduced_outputs_error(&task(d.path(), &["gone"]), &remote()).is_none());
-        assert!(unproduced_outputs_error(&task(d.path(), &["gone"]), &local()).is_some());
-    }
-
-    #[test]
-    fn the_error_names_the_artifacts_and_the_likely_cause() {
-        let e = missing_outputs_error(&["a.txt".into(), "b.txt".into()]);
-        assert!(e.contains("a.txt") && e.contains("b.txt"), "{e}");
-        assert!(e.contains("NOT converged"), "{e}");
-    }
-}
-
 /// FJ-2732 / PMAT-137: exit 0 is not proof the host reached its declared state.
 ///
 /// `apply` was the only verb that never asked a question. `check_script` has 16
@@ -307,4 +214,97 @@ pub(crate) fn post_apply_failure(
         return Some(error);
     }
     unverified_after_apply(resolved, machine)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::ResourceType;
+
+    fn local() -> Machine {
+        serde_yaml_ng::from_str("hostname: localhost\naddr: localhost\n").unwrap()
+    }
+    fn remote() -> Machine {
+        serde_yaml_ng::from_str("hostname: far\naddr: 10.9.9.9\n").unwrap()
+    }
+    fn task(dir: &std::path::Path, outs: &[&str]) -> Resource {
+        Resource {
+            resource_type: ResourceType::Task,
+            output_artifacts: outs.iter().map(|s| s.to_string()).collect(),
+            working_dir: Some(dir.display().to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_missing_declared_artifact_is_reported() {
+        let d = tempfile::tempdir().unwrap();
+        let r = task(d.path(), &["second.txt"]);
+        assert_eq!(
+            missing_outputs(&r, &local()),
+            vec!["second.txt".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_produced_artifact_is_not_reported() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("second.txt"), "ok").unwrap();
+        assert!(missing_outputs(&task(d.path(), &["second.txt"]), &local()).is_empty());
+    }
+
+    #[test]
+    fn only_the_missing_ones_are_named() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("there.txt"), "ok").unwrap();
+        assert_eq!(
+            missing_outputs(&task(d.path(), &["there.txt", "gone.txt"]), &local()),
+            vec!["gone.txt".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_directory_artifact_counts_as_produced() {
+        // Consistent with the staleness probe, which identifies a directory
+        // artifact by EXISTENCE — hashing its contents was the v1.11.0
+        // idempotency pump.
+        let d = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(d.path().join("build")).unwrap();
+        assert!(missing_outputs(&task(d.path(), &["build"]), &local()).is_empty());
+    }
+
+    #[test]
+    fn a_resource_declaring_no_outputs_is_not_verified() {
+        // Most infra resources declare nothing; they must be unaffected.
+        let d = tempfile::tempdir().unwrap();
+        assert!(missing_outputs(&task(d.path(), &[]), &local()).is_empty());
+    }
+
+    #[test]
+    fn a_remote_resource_is_never_verified_against_this_host() {
+        // The artifact lives on the far machine. Checking the controller's
+        // filesystem would fail every remote task that works perfectly.
+        let d = tempfile::tempdir().unwrap();
+        assert!(
+            missing_outputs(&task(d.path(), &["second.txt"]), &remote()).is_empty(),
+            "a remote target must not be judged by this host's filesystem"
+        );
+    }
+
+    #[test]
+    fn the_apply_entry_point_is_silent_when_there_is_nothing_to_answer_for() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::write(d.path().join("x"), "ok").unwrap();
+        assert!(unproduced_outputs_error(&task(d.path(), &["x"]), &local()).is_none());
+        assert!(unproduced_outputs_error(&task(d.path(), &[]), &local()).is_none());
+        assert!(unproduced_outputs_error(&task(d.path(), &["gone"]), &remote()).is_none());
+        assert!(unproduced_outputs_error(&task(d.path(), &["gone"]), &local()).is_some());
+    }
+
+    #[test]
+    fn the_error_names_the_artifacts_and_the_likely_cause() {
+        let e = missing_outputs_error(&["a.txt".into(), "b.txt".into()]);
+        assert!(e.contains("a.txt") && e.contains("b.txt"), "{e}");
+        assert!(e.contains("NOT converged"), "{e}");
+    }
 }
