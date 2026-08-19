@@ -357,3 +357,54 @@ fn feature_syntax_is_stripped_before_matching() {
         "the feature suffix must be stripped before matching cargo's record"
     );
 }
+
+#[test]
+fn the_install_script_can_overwrite_a_dangling_symlink() {
+    // Detecting damage you cannot repair is half a tool.
+    //
+    // Measured on intel 2026-08-19: once --refresh correctly noticed that
+    // `pzsh` had been reduced to a dangling symlink, the apply died with
+    //     cp: not writing through dangling symlink '/home/noah/.cargo/bin/pzsh'
+    // `cp -f` is refused the same way (verified on the host). That is the exact
+    // wreckage a CI cache-prune leaves in a shared ~/.cargo/bin, so the one
+    // state this resource most needs to repair was the one it could not.
+    //
+    // Asserts on the emitted script's BEHAVIOUR: build the broken destination
+    // for real and run the placement command against it.
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("staging");
+    let dst = dir.path().join("bin");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::create_dir_all(&dst).unwrap();
+    std::fs::write(src.join("pzsh"), "#!/bin/sh\necho pzsh 1.0.0\n").unwrap();
+    std::os::unix::fs::symlink(dst.join("deleted-by-rust-cache"), dst.join("pzsh")).unwrap();
+
+    let script = forjar::resources::package::apply_script(&cargo_pkg(&["pzsh"], None));
+    let placement = script
+        .lines()
+        .find(|l| l.contains("$_STAGING/bin/"))
+        .expect("the script must place the staged binaries");
+    assert!(
+        !placement.trim_start().starts_with("cp "),
+        "plain `cp` cannot overwrite a dangling symlink: {placement}"
+    );
+
+    // Run the real placement form against the real broken destination.
+    let ok = Command::new("bash")
+        .arg("-c")
+        .arg(format!(
+            "install -m 755 {}/* {}/",
+            src.display(),
+            dst.display()
+        ))
+        .status()
+        .expect("bash must run")
+        .success();
+    assert!(ok, "placement must succeed over a dangling symlink");
+
+    let placed = dst.join("pzsh");
+    assert!(
+        placed.is_file() && !placed.is_symlink(),
+        "the dangling symlink must be replaced by the real binary"
+    );
+}
