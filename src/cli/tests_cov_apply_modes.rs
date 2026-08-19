@@ -67,11 +67,21 @@ mod tests {
 
     // ── apply_mode_exits branches ──
 
+    // GH-210: `--preview` used to short-circuit into the plan renderer and
+    // return Ok(()) having converged NOTHING and written no state. It now
+    // prints the generated scripts and then performs the apply, so these tests
+    // assert the apply really happened rather than that a no-op exited 0.
     #[test]
-    fn mode_preview_ok() {
-        let (_d, cfg, sd) = setup();
-        let r = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--preview"]);
-        assert!(r.is_ok());
+    fn mode_preview_shows_scripts_and_then_applies() {
+        let (d, cfg, sd) = setup();
+        let target = d.path().join("out.txt");
+        let r = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--preview", "--yes"]);
+        assert!(r.is_ok(), "{r:?}");
+        assert!(
+            target.exists(),
+            "--preview is documented as showing scripts BEFORE execution; \
+             the execution must follow"
+        );
     }
 
     #[test]
@@ -123,9 +133,11 @@ mod tests {
     #[test]
     fn mode_check_json_ok() {
         let (_d, cfg, sd) = setup();
-        // Check scripts are observational (exit 0) — JSON output branch.
+        // FJ-2720: check scripts are no longer observational — the verdict is
+        // the exit code. Nothing has been applied in this fixture, so the JSON
+        // branch must report divergence.
         let r = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--check", "--json"]);
-        assert!(r.is_ok());
+        assert!(r.is_err(), "nothing applied yet, so check must not pass: {r:?}");
     }
 
     #[test]
@@ -223,6 +235,7 @@ mod tests {
             "--pre-flight",
             "true",
             "--preview",
+            "--yes",
         ]);
         assert!(r.is_ok());
     }
@@ -272,6 +285,7 @@ mod tests {
             "--webhook-before",
             "http://127.0.0.1:9/forjar",
             "--preview",
+            "--yes",
         ]);
         assert!(r.is_ok());
     }
@@ -289,6 +303,7 @@ mod tests {
             &s(&sd),
             "--abort-on-drift",
             "--preview",
+            "--yes",
         ]);
         assert!(r.is_ok(), "clean state should not abort: {r:?}");
     }

@@ -86,17 +86,25 @@ pub fn mutation_script(operator: MutationOperator, resource_id: &str) -> String 
 }
 
 /// Get applicable mutation operators for a resource type.
+/// Every mutation operator, as a fixed set.
+///
+/// Hoisted out of `applicable_operators` so a Kani harness can range over the
+/// operators WITHOUT going through the `.collect()` that builds a Vec — Kani
+/// then has to model the allocator on top of the string comparisons in
+/// `applicable_types()`, and the harness stops terminating (GH-242).
+pub const ALL_MUTATION_OPERATORS: [MutationOperator; 8] = [
+    MutationOperator::DeleteFile,
+    MutationOperator::ModifyContent,
+    MutationOperator::ChangePermissions,
+    MutationOperator::StopService,
+    MutationOperator::RemovePackage,
+    MutationOperator::KillProcess,
+    MutationOperator::UnmountFilesystem,
+    MutationOperator::CorruptConfig,
+];
+
 pub fn applicable_operators(resource_type: &str) -> Vec<MutationOperator> {
-    let all = [
-        MutationOperator::DeleteFile,
-        MutationOperator::ModifyContent,
-        MutationOperator::ChangePermissions,
-        MutationOperator::StopService,
-        MutationOperator::RemovePackage,
-        MutationOperator::KillProcess,
-        MutationOperator::UnmountFilesystem,
-        MutationOperator::CorruptConfig,
-    ];
+    let all = ALL_MUTATION_OPERATORS;
 
     all.iter()
         .filter(|op| op.applicable_types().contains(&resource_type))

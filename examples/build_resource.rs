@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 fn base_build() -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Build,
         machine: MachineTarget::Single("jetson".to_string()),
         state: None,
@@ -112,6 +113,7 @@ fn base_build() -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

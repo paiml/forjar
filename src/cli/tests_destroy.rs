@@ -114,6 +114,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         assert!(target.exists());
@@ -195,6 +196,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -277,6 +279,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         assert!(target_a.exists());
@@ -354,6 +357,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
         dispatch(

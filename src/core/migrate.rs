@@ -131,6 +131,7 @@ mod tests {
 
     fn make_docker(name: &str, image: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Docker,
             machine: MachineTarget::Single("m1".to_string()),
             state: Some("running".to_string()),
@@ -230,6 +231,7 @@ mod tests {
             overlay_iface: None,
             overlay_hosts: None,
             overlay_firewall: None,
+            ..Default::default()
         }
     }
 

@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-06-25"
   author: "PAIML Engineering"
   description: |
@@ -198,20 +199,36 @@ falsification_tests:
     test: "tests/falsification_overlay_interface.rs::contract_apply_idempotent_hash_stable"
     if_fails: "f(f(x)) ≠ f(x): overlay apply churns on every run"
 
-kani_harnesses:
-  - id: KANI-OVL-001
-    obligation: "overlay_hosts hash is insertion-order independent"
-    property: "hash_desired_state(r{hosts in order A}) = hash_desired_state(r{hosts in order B})"
-    bound: 4
-    strategy: bounded_int
-    harness: proof_overlay_hosts_hash_order_independent
+  - id: FALSIFY-OVL-HOSTS-001
+    rule: "overlay_hosts hash is insertion-order independent"
+    prediction: "hash_desired_state(r{hosts order A}) == hash_desired_state(r{hosts order B})"
+    test: "src/core/planner/tests_hash_overlay.rs::overlay_hosts_hash_is_insertion_order_independent"
+    if_fails: "Canonicalisation does not sort; two operators writing the same fleet in a different order diff forever"
 
-  - id: KANI-OVL-002
-    obligation: "overlay_hosts is a hash component (MATERIAL FIX)"
-    property: "hash_desired_state(r{with hosts}) ≠ hash_desired_state(r{without hosts})"
-    bound: 4
-    strategy: bounded_int
-    harness: proof_overlay_hosts_distinguishes_hash
+  - id: FALSIFY-OVL-HOSTS-002
+    rule: "overlay_hosts is a hash component (MATERIAL FIX)"
+    prediction: "hash_desired_state(r{with hosts}) != hash_desired_state(r{without hosts})"
+    test: "src/core/planner/tests_hash_overlay.rs::overlay_hosts_presence_changes_the_hash"
+    if_fails: "plan reports NoOp over a changed /etc/hosts block and apply never writes it"
+
+  - id: FALSIFY-OVL-HOSTS-003
+    rule: "overlay_hosts CONTENT is part of the hash"
+    prediction: "same host key with a different address hashes differently"
+    test: "src/core/planner/tests_hash_overlay.rs::overlay_hosts_content_changes_the_hash"
+    if_fails: "A sort keyed on hostname alone silently ignores a re-pointed host"
+
+# No kani_harnesses. GH-242: KANI-OVL-001/002 named
+# proof_overlay_hosts_hash_order_independent and
+# proof_overlay_hosts_distinguishes_hash, and NEITHER had ever produced a
+# verdict — both drive `hash_desired_state`, so both reach a real BLAKE3 hash,
+# and a bounded model checker cannot verify through one (the default SIMD build
+# fails with `foreign "C" function syscall`; the portable `pure` build was
+# measured at 29.1 GB RSS still running at 36 minutes on a comparable harness).
+#
+# Both obligations are discharged executably instead — see the three
+# FALSIFY-OVL-HOSTS-* entries above. That is a strict improvement: the harnesses
+# were cited here as evidence while proving nothing, and the tests additionally
+# cover a case neither harness did (same host key, different address).
 
 qa_gate:
   id: F-OVL-001
@@ -229,3 +246,16 @@ qa_gate:
   falsification: "Add RemainAfterExit to the service, or drop the arping -D probe, or omit overlay_hosts from the hash"
 
 verification_level: L2
+
+lean_proofs:
+  # L4 — Lean 4 proof of this contract's decidable core. Verify: `lean lean/OverlayInterface.lean` (0 errors, no sorry).
+  - id: overlay-interface-lean-001
+    file: lean/OverlayInterface.lean
+    theorems: [ServiceNeverRemainAfterExit, TimerHasOnCalendar, TimerHasRandomizedDelay, TimerNeverOnUnitActiveSec, EmitDeterministic]
+    status: proved
+verification_summary:
+  total_obligations: 7
+  l4_lean_proved: 2
+  l4_not_applicable: 5   # I/O obligations, falsification-tested not Lean-proved
+  l4_sorry_count: 0
+  # no-self-pin + wall-clock-jittered-timer proved on the emitted directives; the rest are emitter/systemd I/O

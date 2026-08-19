@@ -61,7 +61,12 @@ pub(crate) fn apply_machine(
     locks: &mut HashMap<String, StateLock>,
 ) -> Result<ApplyResult, String> {
     let machine_start = Instant::now();
-    let run_id = eventlog::generate_run_id();
+    // Dogfood #208 (family #212, logs-run-id-disagrees-with-history-audit-state-query):
+    // the run id MUST be minted once per apply invocation and threaded to every
+    // writer. Previously the event/audit stream minted its own id here while the
+    // run-log directory used `cfg.run_id`, so one apply produced two ids and a run
+    // id copied out of `history`/`audit` was unusable with `logs --run`.
+    let run_id = cfg.run_id.clone().unwrap_or_else(eventlog::generate_run_id);
 
     // Container lifecycle: ensure container is running before apply
     if machine.is_container_transport() && !cfg.dry_run {
@@ -88,9 +93,10 @@ pub(crate) fn apply_machine(
     let mut trace_session = tracer::TraceSession::start(&run_id);
 
     // FJ-2002: Compute config hash for provenance tracking
-    let config_hash = serde_yaml_ng::to_string(cfg.config)
-        .ok()
-        .map(|yaml| format!("blake3:{}", blake3::hash(yaml.as_bytes()).to_hex()));
+    // GH-212: the audit trail's config_hash must be reproducible. The plain
+    // serialisation ordered `HashMap` fields by iteration order, so two runs
+    // over the same file recorded different provenance hashes.
+    let config_hash = crate::core::config_hash::config_hash(cfg.config).ok();
 
     log_tripwire(
         cfg.state_dir,

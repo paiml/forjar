@@ -56,6 +56,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
     use crate::core::types::{MachineTarget, Resource, ResourceType};
 
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::Mount,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -155,6 +156,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -173,6 +175,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
     use crate::core::types::{MachineTarget, Resource, ResourceType};
 
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("m1".to_string()),
         state: None,
@@ -272,6 +275,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

@@ -4,73 +4,6 @@
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
-/// Generate shell script to check if packages are installed.
-pub fn check_script(resource: &Resource) -> String {
-    let provider = resource.provider.as_deref().unwrap_or("apt");
-    let packages = &resource.packages;
-
-    match provider {
-        "apt" => {
-            let checks: Vec<String> = packages
-                .iter()
-                .map(|p| {
-                    let q = sh_squote(p);
-                    format!(
-                        "dpkg -l {q} 2>/dev/null | grep -q '^ii ' && echo {} || echo {}",
-                        sh_squote(&format!("installed:{p}")),
-                        sh_squote(&format!("missing:{p}"))
-                    )
-                })
-                .collect();
-            checks.join("\n")
-        }
-        "cargo" => {
-            let checks: Vec<String> = packages
-                .iter()
-                .map(|p| {
-                    let (crate_name, _) = parse_cargo_features(p);
-                    let q = sh_squote(crate_name);
-                    format!(
-                        "command -v {q} >/dev/null 2>&1 && echo {} || echo {}",
-                        sh_squote(&format!("installed:{crate_name}")),
-                        sh_squote(&format!("missing:{crate_name}"))
-                    )
-                })
-                .collect();
-            checks.join("\n")
-        }
-        "uv" => {
-            let checks: Vec<String> = packages
-                .iter()
-                .map(|p| {
-                    format!(
-                        "uv tool list 2>/dev/null | grep -q {} && echo {} || echo {}",
-                        sh_squote(&format!("^{p}")),
-                        sh_squote(&format!("installed:{p}")),
-                        sh_squote(&format!("missing:{p}"))
-                    )
-                })
-                .collect();
-            checks.join("\n")
-        }
-        "brew" => {
-            let checks: Vec<String> = packages
-                .iter()
-                .map(|p| {
-                    let q = sh_squote(p);
-                    format!(
-                        "brew list {q} >/dev/null 2>&1 && echo {} || echo {}",
-                        sh_squote(&format!("installed:{p}")),
-                        sh_squote(&format!("missing:{p}"))
-                    )
-                })
-                .collect();
-            checks.join("\n")
-        }
-        other => format!("echo 'unsupported provider: {other}'"),
-    }
-}
-
 /// Generate shell script to install packages.
 pub fn apply_script(resource: &Resource) -> String {
     let provider = resource.provider.as_deref().unwrap_or("apt");
@@ -326,6 +259,19 @@ fn apply_cargo_present(resource: &Resource) -> String {
 ///
 /// Detects empty staging bin dir (no binaries produced) and emits a clear error
 /// with a hint about `--features`, instead of failing on `cp` with a cryptic message.
+///
+/// Uses `install`, not `cp`, to place the binaries. `cp` REFUSES to overwrite a
+/// dangling symlink — "cp: not writing through dangling symlink" — and that is
+/// precisely the wreckage this resource has to repair: a CI cache-prune step
+/// deletes the real files in a shared `~/.cargo/bin` and leaves the symlinks
+/// behind, pointing at nothing.
+///
+/// Measured on paiml/infra's intel 2026-08-19: with `pzsh` reduced to a dangling
+/// symlink, `forjar apply --refresh` correctly DETECTED the divergence and then
+/// died on `cp`, so it could see the damage and not fix it. `cp -f` does not
+/// help — coreutils refuses that too (verified on the host). `install` replaces
+/// the destination outright, and unlike `cp --remove-destination` it is not
+/// GNU-only, so it also works on the fleet's macOS box.
 fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
     let (crate_name, features) = parse_cargo_features(pkg);
     let ver_tag = version.unwrap_or("latest");
@@ -349,7 +295,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
          if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
-           cp \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
+           install -m 755 \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
            _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
@@ -364,7 +310,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
              mkdir -p \"$_CACHE_DIR\"\n\
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
            fi\n\
-           cp \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
+           install -m 755 \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
            rm -rf \"$_STAGING\"\n\
            echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\
          fi"
@@ -451,13 +397,21 @@ pub fn state_query_script(resource: &Resource) -> String {
             queries.join("\n")
         }
         "cargo" => {
+            // GH-257: ask cargo, not the PATH — see package_check.rs for the
+            // full reasoning. This one feeds DRIFT, so its blindness is the
+            // more expensive half: with `command -v <crate_name>`, a crate
+            // whose binary is named differently (kani-verifier -> cargo-kani)
+            // reads as MISSING forever, and a dangling symlink reads as
+            // installed. Neither state produces a useful drift signal, which is
+            // why an intel host lost rustup, cargo and forjar without a single
+            // drift finding.
             let queries: Vec<String> = packages
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
                     format!(
-                        "command -v {} >/dev/null 2>&1 && echo {} || echo {}",
-                        sh_squote(crate_name),
+                        "cargo install --list 2>/dev/null | grep -q {} && echo {} || echo {}",
+                        sh_squote(&format!("^{crate_name} v")),
                         sh_squote(&format!("{crate_name}=installed")),
                         sh_squote(&format!("{crate_name}=MISSING"))
                     )

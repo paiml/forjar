@@ -96,6 +96,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
     std::fs::write(&managed_file, "test content").unwrap();
     let mut lock = state::new_lock("test", "test-box");
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::File,
         machine: MachineTarget::Single("test".to_string()),
         state: None,
@@ -195,6 +196,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let machine = Machine {
         hostname: "localhost".to_string(),

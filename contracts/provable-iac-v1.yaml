@@ -1,0 +1,133 @@
+metadata:
+  version: "1.0.0"
+  created: "2026-07-04"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: >
+    Provable IaC — `forjar prove` raises config validation to the proof ladder.
+    Each invariant is a pure function of the parsed forjar.yaml (this is the honest
+    analog of `terraform validate` with machine-checked validators, NOT "safe to
+    apply": the remote shell that mutates the machine is outside the TCB). Results
+    are three-state (PROVED / CHECKED / UNKNOWN) and never collapsed; opaque
+    (imperative) resources downgrade the invariants they touch to UNKNOWN.
+  references:
+    - "docs/specifications/provable-iac.md (quorum-validated design, 6 lenses)"
+    - "Terraform validate + Sentinel/OPA; Pulumi CrossGuard; Nix derivation purity"
+
+equations:
+  provability:
+    formula: "prove(C) = { I_k -> (class_k, state_k) : k in 1..9 }"
+    domain: "C = parsed forjar.yaml (resources R, dependency edges E, targets, kinds)"
+    codomain: "ProofReport{ invariants, plan_hash }"
+    invariants:
+      - "I1 dag-acyclicity (HARD): (R,E) has no cycle => a finite apply ORDER exists"
+      - "I2 dependency-completeness (HARD): every edge in E targets a declared resource"
+      - "I3 conflict-freedom (HARD): no two declarative resources on one machine write an overlapping target namespace"
+      - "I5 idempotency (ADV): plan-idempotence for declarative resources; effect-idempotence UNKNOWN for opaque"
+      - "I6 protected-safety (HARD): no resource removes a target another depends on"
+      - "I9 input-purity (ADV): unpinned package versions / remote sources are flagged"
+      - "plan_hash is a stable, order-independent blake3 of the canonical resource set"
+      - "opaque resources (command/exec/script/cron/recipe) downgrade I3/I5/I6 to UNKNOWN — never a vacuous PROVED"
+
+proof_obligations:
+  - type: soundness
+    property: "Conflict detector is sound and complete"
+    formal: "has_conflict(keys) = true  <=>  exists i<j: keys[i] = keys[j]"
+    applies_to: I3
+  - type: soundness
+    property: "Acyclicity is a config-transferable theorem"
+    formal: "acyclic(R,E) => a topological apply order of length |R| exists"
+    applies_to: I1
+  - type: soundness
+    property: "No vacuous green"
+    formal: "exists opaque r in R => state(I3) in {Unknown} (never Proved/Checked as if total)"
+    applies_to: I3
+  - type: invariant
+    property: "Plan hash is order-independent"
+    formal: "forall permutations P of R: plan_hash(P(C)) = plan_hash(C)"
+    applies_to: plan_hash
+
+enforcement:
+  hard_invariants:
+    description: "A falsified HARD invariant (I1/I2/I3/I6) makes `forjar prove` exit non-zero — apply is blocked"
+    check: "cli::prove::structural_invariants + core::prove::prove"
+    severity: "ERROR"
+  honest_three_state:
+    description: "Opaque resources must downgrade their invariants to UNKNOWN"
+    check: "core::prove::tests::opaque_resource_downgrades_i3_to_unknown"
+    severity: "ERROR"
+  advisory_purity:
+    description: "Unpinned inputs warn (advisory) but never block"
+    check: "core::prove::tests::unpinned_package_is_advisory_not_blocking"
+    severity: "WARNING"
+
+falsification_tests:
+  - id: FALSIFY-PIAC-001
+    rule: "Acyclicity (I1)"
+    prediction: "An acyclic config proves I1; a dependency cycle falsifies it and blocks apply"
+    test: "core::prove::tests::acyclic_config_proves_i1 + cycle_falsifies_i1_and_blocks"
+    if_fails: "cycle detection unsound — apply could loop forever"
+  - id: FALSIFY-PIAC-002
+    rule: "Dependency completeness (I2)"
+    prediction: "A dangling depends_on falsifies I2 and blocks"
+    test: "core::prove::tests::dangling_dep_falsifies_i2"
+    if_fails: "apply orders against a nonexistent resource"
+  - id: FALSIFY-PIAC-003
+    rule: "Conflict-freedom (I3)"
+    prediction: "Two files at one path on one machine falsify I3; the same path on different machines does not"
+    test: "core::prove::tests::two_files_same_path_falsify_i3 + same_path_different_machines_is_not_a_conflict"
+    if_fails: "two writers silently fight over one target"
+  - id: FALSIFY-PIAC-004
+    rule: "No vacuous green (honesty)"
+    prediction: "An opaque (cron/exec) resource downgrades I3 to UNKNOWN, never PROVED"
+    test: "core::prove::tests::opaque_resource_downgrades_i3_to_unknown"
+    if_fails: "the gate reports safe where it cannot see — worse than no gate"
+  - id: FALSIFY-PIAC-005
+    rule: "Advisory purity (I9)"
+    prediction: "An unpinned package is advisory UNKNOWN (warns, does not block); shell syntax in file content is NOT impurity"
+    test: "core::prove::tests::unpinned_package_is_advisory_not_blocking + file_content_with_shell_syntax_does_not_falsify_i9"
+    if_fails: "prove blocks every real-world config, or false-positives on legitimate payloads"
+  - id: FALSIFY-PIAC-006
+    rule: "Plan-hash stability"
+    prediction: "plan_hash is identical regardless of resource declaration order"
+    test: "core::prove::tests::plan_hash_is_stable_and_order_independent"
+    if_fails: "the plan-artifact binding (prove->apply) is not reproducible"
+
+kani_harnesses:
+  - id: provable-iac-kani-001
+    obligation: "Conflict detector is sound and complete"
+    harness: "core::prove::checkers::kani_proofs::conflict_detector_sound"
+    strategy: exhaustive
+    # 4 keys — the unit is keys; the schema types `bound` as u32.
+    bound: 4
+    status: PROVED
+
+lean_proofs:
+  # L4 — forjar's FIRST Lean proof. Verify: `lean lean/ProvableIac.lean` (0 errors, no sorry).
+  - id: provable-iac-lean-001
+    obligation: "Conflict detector soundness + completeness (I3 decidable core)"
+    file: "lean/ProvableIac.lean"
+    theorems:
+      - "NoConflictHeadFresh — a NO-conflict verdict implies the head key does not reappear (soundness)"
+      - "NoConflictTailFree — no-conflict holds hereditarily on the tail (soundness)"
+      - "ConflictInheritsFromTail — a tail collision is never masked (completeness)"
+      - "DuplicateHeadConflicts — a repeated head key is always detected (completeness)"
+    status: proved
+
+verification_summary:
+  total_obligations: 4
+  l2_property_tested: 4
+  l3_kani_proved: 1
+  l4_lean_proved: 1
+  l4_sorry_count: 0
+
+# The remaining L4 Lean obligations (I1 acyclic->order) + the full L5 climb of forjar's
+# other 11 contracts are tracked under the Phase-2 contract-hardening initiative.
+qa_gate:
+  id: F-PIAC-001
+  name: Provable IaC Contract
+  checks: [provability]
+  pass_criteria: >
+    All 6 FALSIFY-PIAC tests pass (L2); the conflict detector is Kani-verified sound
+    (L3); every HARD invariant blocks apply on falsification; opaque resources never
+    report a vacuous PROVED.

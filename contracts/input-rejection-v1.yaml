@@ -1,0 +1,766 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-11"
+  author: "PAIML Engineering"
+  description: |
+    Input rejection — invalid input must produce a NON-ZERO exit and an error
+    naming the REAL cause. It must never panic, and it must never silently
+    succeed.
+
+    WHY THIS CLASS KEEPS HAPPENING IN THIS CODEBASE
+
+    Four distinct mechanics, all observed in the same dogfooding run of the
+    published 1.12.3 binary (paiml/forjar#213, inventory #208):
+
+    1. DECLARING A FLAG IS ONE EDIT; CONSUMING IT IS A DIFFERENT ONE.
+       The CLI surface is clap-derive structs. Adding `--rules <FILE>` or
+       `--schema-version <V>` to the struct makes it appear in `--help`, which
+       is the only surface most reviewers (and most tests) inspect. Wiring it
+       to a loader/comparator is a separate edit in a separate module. The
+       DEFAULT STATE OF A NEW FLAG IS THEREFORE "documented, parsed, ignored" —
+       and an ignored flag is indistinguishable from a working one at exit-code
+       level, because ignoring it exits 0.
+
+    2. THE SUCCESS PATH IS THE CHEAP PATH.
+       Commands summarise what they ATTEMPTED, not what they VERIFIED. An
+       unknown `--scan` token has no matching scanner, so it contributes zero
+       resources, and "zero resources" is printed by the same code that prints
+       a legitimate empty result: `Imported 0 resources ... ` rc=0. Nothing in
+       that path can tell "you asked for nothing" from "you asked for something
+       that does not exist".
+
+    3. UNVALIDATED USER INTEGERS REACH PANICKING STD PRECONDITIONS.
+       `--batch-size 0` and `--max-parallel 0` flow into `slice::chunks(n)`,
+       whose documented precondition is n > 0. The rejection that should have
+       been a one-line `value_parser!(usize).range(1..)` becomes a SIGABRT
+       (rc=134) that prints a crates.io registry path to the user's terminal.
+
+    4. VERIFICATION SUBCOMMANDS MEASURE PRESENCE, NOT AGREEMENT.
+       `status --hash-verify` counts lock entries that HAVE a hash field and
+       prints n/n; it never recomputes. `drift` compares only hashable
+       artifacts and skips task resources entirely, so a task whose own
+       `completion_check` fails is reported CONVERGED. In both cases a second,
+       independent reader over the SAME state disagrees out loud — which is how
+       we know the comparison is computable and simply is not being done.
+
+    THE TELL
+
+    For every one of the nine defects below there is a SIBLING PATH IN THE SAME
+    COMMAND that already gets it right:
+      * `rolling --batch-size notanumber` -> rc=2 "error: invalid value
+        'notanumber' for '--batch-size <BATCH_SIZE>': invalid digit found in
+        string" (clap rejects the type but not the range)
+      * `lint -f nope.yaml` -> rc=1 "error: failed to read nope.yaml: No such
+        file or directory (os error 2)" (`-f` hard-errors on a missing file;
+        `--rules` does not even open one)
+      * `status --format bogus` -> rc=1 "error: unknown format ..."
+        (an enumerated value IS validated; `--schema-version` is not)
+      * `drift` after `rm hello.txt` -> "Drift detected: 1 resource(s)"
+        (the comparator works; task resources are simply never handed to it)
+    The capability exists in every case. It is just not wired to the new input.
+    This contract exists so that "the flag parses" can never again be mistaken
+    for "the flag works".
+
+    NO KANI HARNESS, DELIBERATELY. Every obligation here quantifies over
+    PROCESS BEHAVIOUR: exit codes, stderr text, files on disk, an LSP wire
+    message. None of that is in Kani's model. A harness could only prove
+    something about a stubbed argument parser — i.e. prove nothing about any of
+    these nine defects. `metadata.kind: pattern`; the obligations are
+    discharged by the ten falsification tests below, nine of which are bundled
+    into the single runnable harness in `verification_command`.
+
+  verification_command: |
+    # Self-contained falsification harness for this contract. Point FORJAR at
+    # the binary under test. Exits 0 only when ALL nine checks PASS.
+    #
+    #   FORJAR=/home/noah/.cargo/bin/forjar bash <this block>   # -> 9 FAIL, rc=1
+    #   FORJAR=./target/release/forjar      bash <this block>   # -> must be rc=0
+    #
+    # It never touches a real host: the only addresses used are 127.0.0.1 and
+    # 198.51.100.7 (RFC 5737 TEST-NET-2, guaranteed non-routable).
+    set -u
+    F="${FORJAR:-forjar}"
+    W=$(mktemp -d); trap 'rm -rf "$W"' EXIT; cd "$W" || exit 99
+    bad=0
+    say() { if [ "$1" = FAIL ]; then bad=1; fi; printf '%-4s %s\n' "$1" "$2"; }
+    cat > forjar.yaml <<YML
+    version: "1.0"
+    name: inrej
+    machines: {local: {hostname: localhost, addr: 127.0.0.1, user: $USER, arch: x86_64}}
+    resources:
+      a: {type: file, machine: local, path: $W/a.txt, content: "a\n"}
+      t: {type: task, machine: local, command: "touch $W/m", completion_check: "test -f $W/m"}
+    YML
+    $F rolling -f forjar.yaml --batch-size 0 </dev/null >/dev/null 2>&1
+    [ $? -eq 134 ] && say FAIL "E1  rolling --batch-size 0 aborted (panic, rc=134)" || say PASS "E1"
+    $F parallel-apply -f forjar.yaml --max-parallel 0 >/dev/null 2>&1
+    [ $? -eq 134 ] && say FAIL "E2  parallel-apply --max-parallel 0 aborted (panic, rc=134)" || say PASS "E2"
+    $F validate -f forjar.yaml --schema-version not-a-version >/dev/null 2>&1 \
+      && say FAIL "E3  validate --schema-version not-a-version exited 0" || say PASS "E3"
+    $F lint -f forjar.yaml --no-color --rules /does/not/exist.yaml >/dev/null 2>&1 \
+      && say FAIL "E4  lint --rules <missing file> exited 0" || say PASS "E4"
+    $F import --addr 127.0.0.1 --user "$USER" --scan totally-bogus-category -o z.yaml >/dev/null 2>&1 \
+      && say FAIL "E5  import --scan totally-bogus-category exited 0" || say PASS "E5"
+    $F import --addr 198.51.100.7 --user "$USER" --scan totally-bogus-category -o o.yaml >/dev/null 2>&1
+    grep -q '^  198:' o.yaml 2>/dev/null \
+      && say FAIL "E6  import derived machine key '198' from an IPv4 first octet" || say PASS "E6"
+    $F apply -f forjar.yaml --yes >/dev/null 2>&1 || { say FAIL "E7-E9 setup: apply failed"; exit $bad; }
+    rm -f "$W/m"
+    $F drift -f forjar.yaml 2>&1 | grep -q 'No drift detected' \
+      && say FAIL "E7  drift says 'No drift detected' while completion_check fails" || say PASS "E7"
+    sed -i 's/hash: blake3:[0-9a-f]*/hash: blake3:'"$(printf '0%.0s' $(seq 64))"'/' state/local/state.lock.yaml
+    $F status -f forjar.yaml --hash-verify >/dev/null 2>&1 \
+      && say FAIL "E8  status --hash-verify exited 0 over a fully zeroed lock" || say PASS "E8"
+    $F destroy -f forjar.yaml --yes >/dev/null 2>&1
+    $F undo-destroy >/dev/null 2>&1
+    $F state-list 2>&1 | grep -q 'No resources in state' \
+      && say FAIL "E9  undo-destroy replayed resources but recorded no state" || say PASS "E9"
+    exit $bad
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/213 (family E — input validation)"
+    - "inventory: https://github.com/paiml/forjar/issues/208 (101 confirmed defects)"
+    - "sibling family: https://github.com/paiml/forjar/issues/211 (A — flag declared,
+       never consumed; E is the subset where the ignored input is also INVALID)"
+    - "sibling family: https://github.com/paiml/forjar/issues/210 (B — unverified success)"
+    - "observed on: forjar 1.12.3 from crates.io, and still present on
+       fix/dogfood-defects HEAD (target/release/forjar) as of 2026-08-11"
+    - "src/cli/fleet_ops.rs:136 — slice::chunks(batch_size), unvalidated"
+    - "src/cli/parallel_multi_stack.rs:111 — slice::chunks(max_parallel), unvalidated"
+
+equations:
+  input_rejection:
+    formula: |
+      ∀ c ∈ Command, ∀ v ∈ UserInput accepted by the argument parser of c:
+        honoured(c, v) = false ⟹
+              exit(c, v) ≠ 0
+            ∧ names_cause(stderr(c, v), v)
+            ∧ ¬aborted(c, v)
+      where
+        honoured(c, v)  ≡ v measurably changed what c did, in the direction
+                          c's own --help text promises
+        names_cause(s,v)≡ s identifies the offending token, path, value or
+                          source location — not a generic message, not a
+                          different location
+        aborted(c, v)   ≡ the process terminated by panic/SIGABRT (rc 134)
+    domain: "c ∈ Command, v ∈ UserInput (flag value, config, or on-disk state)"
+    codomain: "(exit_code ∈ ℤ, stderr ∈ String)"
+    invariants:
+      - "An input the tool cannot honour never exits 0"
+      - "No user-supplied value can abort the process; range violations are
+         rejected by the parser, not by std's panicking preconditions"
+      - "The diagnostic names the real cause: the token, the path, the value,
+         or the line/column — never a placeholder and never the wrong location"
+      - "A value that is silently dropped is a rejection that failed to happen"
+
+  success_is_a_claim:
+    formula: |
+      ∀ c ∈ Command: exit(c, args) = 0 ⟹ ∀ v ∈ args: honoured(c, v)
+      ∧  ∀ c ∈ VerifyCommand: exit(c) = 0 ⟹ compared(c) ∧ agreed(c)
+      where compared(c) ≡ c recomputed the quantity it reports on, rather than
+      counting the presence of a field that stores it
+    domain: "c ∈ Command; VerifyCommand = {check, drift, status --hash-verify, validate}"
+    codomain: "Bool"
+    invariants:
+      - "exit 0 asserts that EVERY accepted argument was honoured, not that the
+         command reached its final print statement"
+      - "A verification subcommand exiting 0 asserts agreement, not presence:
+         `n/n resources have hashes` is not a verification result"
+      - "Two independent readers of the same state must not disagree; if
+         `check` fails, `drift`/`status`/`plan` must not report convergence"
+      - "A command that reports 'N replayed' must leave the state readers able
+         to see those N resources"
+
+  observable_effect:
+    formula: |
+      ∀ c ∈ Command, ∀ f ∈ Flags(c), ∀ v₁ ≠ v₂ ∈ Domain(f) with distinct
+      documented meanings:
+        output(c, f=v₁) ≠ output(c, f=v₂)  ∨  exit(c, f=vᵢ) ≠ 0 for some i
+    domain: "f ∈ Flags(c) with a documented effect"
+    codomain: "Bool"
+    invariants:
+      - "A missing file, a directory, and a valid rules file are three distinct
+         inputs; byte-identical output for all three proves the flag is inert"
+      - "Flag inertness is falsifiable by md5-comparing outputs; a contract that
+         only asserts 'exit 0' cannot catch it"
+
+proof_obligations:
+  - type: safety
+    property: "No user-supplied value can abort the process"
+    formal: "∀ c, v: ¬aborted(c, v) — in particular no rc=134 / SIGABRT / panic message"
+    tolerance: 0.0
+    applies_to: "every numeric or enumerated CLI argument"
+
+  - type: postcondition
+    property: "Exit 0 asserts that every accepted argument was honoured"
+    formal: "exit(c, args) = 0 ⟹ ∀ v ∈ args: honoured(c, v)"
+    tolerance: 0.0
+    applies_to: all
+
+  - type: completeness
+    property: "Every input the tool cannot honour is diagnosed"
+    formal: "honoured(c, v) = false ⟹ ∃ a diagnostic on stderr mentioning v"
+    tolerance: 0.0
+    applies_to: "unknown tokens, unknown versions, unreadable paths, out-of-range integers"
+
+  - type: classification
+    property: "The diagnostic names the real cause, at the real location"
+    formal: |
+      names_cause(stderr, v) ∧
+      (surface = lsp ⟹ diagnostic.range = location_of(v) ∧ range is non-empty)
+    tolerance: 0.0
+    applies_to: "all error surfaces, CLI stderr and LSP publishDiagnostics alike"
+
+  - type: soundness
+    property: "A verification subcommand's success means it actually compared"
+    formal: "exit(verify) = 0 ⟹ compared(verify) ∧ agreed(verify)"
+    tolerance: 0.0
+    applies_to: "check, drift, status --hash-verify, validate --schema-version"
+
+  - type: invariant
+    property: "A derived default is either correct or refused, never silently wrong"
+    formal: |
+      derive_default(f, ctx) = d ⟹ valid(d, ctx) ∨ exit ≠ 0
+      (import's machine key derived from an IPv4 address is not a valid key)
+    tolerance: 0.0
+    applies_to: "import -n / --name derivation from --addr"
+
+invariants:
+  - id: INREJ-I1
+    statement: "No exit code 134 (SIGABRT) is reachable from any CLI argument value"
+    observable: "run the command; rc must be 0, 1, 2 or 3 — never 134, and stderr
+                 must never contain 'panicked at'"
+  - id: INREJ-I2
+    statement: "An unhonourable input exits non-zero"
+    observable: "`$?` after the command"
+  - id: INREJ-I3
+    statement: "stderr names the offending token/path/value"
+    observable: "the rejected value appears verbatim in the error text"
+  - id: INREJ-I4
+    statement: "A flag with a documented effect is not inert"
+    observable: "md5sum of output under two semantically different values differs"
+  - id: INREJ-I5
+    statement: "A verification command that exits 0 has recomputed, not counted"
+    observable: "corrupt the stored value; the verifier must now exit non-zero"
+  - id: INREJ-I6
+    statement: "No two readers of one state contradict each other"
+    observable: "check FAIL ⟹ drift/status/plan do not report CONVERGED/unchanged"
+  - id: INREJ-I7
+    statement: "A success message implies a readable state"
+    observable: "'N replayed' ⟹ state-list shows N resources"
+  - id: INREJ-I8
+    statement: "A location-bearing error is anchored at that location"
+    observable: "LSP diagnostic.range matches the line named in its own message,
+                 and is never a zero-width range at 0:0"
+
+falsification_tests:
+  # All commands below are RUNNABLE AS WRITTEN against the buggy binary at
+  # /home/noah/.cargo/bin/forjar (1.12.3). Every `observed_red` block is the
+  # VERBATIM output captured on 2026-08-11 in a scratch dir, not a paraphrase.
+  # Fixture used by INREJ-001..009 (write it into an empty scratch dir first):
+  #
+  #   version: "1.0"
+  #   name: contract-e
+  #   machines:
+  #     local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+  #   resources:
+  #     a: {type: file, machine: local, path: $PWD/a.txt, content: "a\n"}
+  #     t: {type: task, machine: local, command: "touch $PWD/m",
+  #         completion_check: "test -f $PWD/m"}
+  #
+  # HONESTY NOTE ON THE COUNTS IN `observed_red`: the capture runs used
+  # differently-sized fixtures for different defects — a 1-resource config for
+  # INREJ-003 ("1 machines, 1 resources"), a 3-file config for INREJ-008/009
+  # ("3/3", "3 replayed"), and the 2-resource file+task config above for
+  # INREJ-007. The counts are therefore fixture-dependent; the exit codes, the
+  # message TEXT, and the md5 identities are not, and those are what each test
+  # asserts on. Re-running with the fixture above reproduces every RED verdict,
+  # only with the resource counts of that fixture.
+
+  - id: FALSIFY-INREJ-001
+    defect: "rolling-and-parallel-apply-panic-on-zero-batch-size (MEDIUM)"
+    rule: "No user-supplied value can abort the process (INREJ-I1, safety)"
+    prediction: "`--batch-size 0` is rejected by the argument parser with rc=2"
+    test: |
+      forjar rolling -f forjar.yaml --batch-size 0 </dev/null; echo "rc=$?"
+    observed_red: |
+      thread 'main' (2566177) panicked at /home/noah/.cargo/registry/src/\
+      index.crates.io-1949cf8c6b5b557f/forjar-1.12.3/src/cli/fleet_ops.rs:136:10:
+      chunk size must be non-zero
+      note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+      rc=134
+    expected_green: |
+      error: invalid value '0' for '--batch-size <BATCH_SIZE>': 0 is not in 1..
+      rc=2
+    red_proof: |
+      CAN FAIL, and the passing shape is already implemented one layer up:
+      `"$FORJAR" rolling -f forjar.yaml --batch-size notanumber` returns rc=2 with
+      "error: invalid value 'notanumber' for '--batch-size <BATCH_SIZE>':
+      invalid digit found in string". clap validates the TYPE and not the
+      RANGE, so the delta between RED and GREEN is one `.range(1..)`.
+    if_fails: "a one-character typo core-dumps the fleet driver and leaks a
+               crates.io registry path to the operator"
+
+  - id: FALSIFY-INREJ-002
+    defect: "rolling-and-parallel-apply-panic-on-zero-batch-size (second call site)"
+    rule: "No user-supplied value can abort the process (INREJ-I1, safety)"
+    prediction: "`--max-parallel 0` is rejected by the argument parser with rc=2"
+    test: |
+      forjar parallel-apply -f forjar.yaml --max-parallel 0; echo "rc=$?"
+    observed_red: |
+      thread 'main' (2566181) panicked at /home/noah/.cargo/registry/src/\
+      index.crates.io-1949cf8c6b5b557f/forjar-1.12.3/src/cli/parallel_multi_stack.rs:111:28:
+      chunk size must be non-zero
+      rc=134
+    expected_green: |
+      error: invalid value '0' for '--max-parallel <MAX_PARALLEL>': 0 is not in 1..
+      rc=2
+    red_proof: |
+      CAN FAIL — and it is a SEPARATE call site from 001, which is why both are
+      listed: fixing fleet_ops.rs alone leaves this one red. Verified 134 on
+      both /home/noah/.cargo/bin/forjar and target/release/forjar.
+    if_fails: "the same defect ships twice; a single-site fix looks green"
+
+  - id: FALSIFY-INREJ-003
+    defect: "validate-schema-version-accepts-anything (MEDIUM)"
+    rule: "Unknown enumerated values are rejected (INREJ-I2/I3, completeness)"
+    prediction: "an unknown --schema-version exits non-zero naming the value"
+    test: |
+      for v in 99.0 not-a-version '' 0.0.0-bogus; do
+        forjar validate -f forjar.yaml --schema-version "$v" >o 2>&1
+        echo "[$v] rc=$? $(cat o)"
+      done
+    observed_red: |
+      [99.0] rc=0 OK: contract-e (1 machines, 1 resources)
+      [not-a-version] rc=0 OK: contract-e (1 machines, 1 resources)
+      [] rc=0 OK: contract-e (1 machines, 1 resources)
+      [0.0.0-bogus] rc=0 OK: contract-e (1 machines, 1 resources)
+      (the config declares version "1.0"; all four are reported OK)
+    expected_green: |
+      [99.0] rc=1 error: unknown schema version '99.0' (known: 1.0)
+      ... and rc=0 only for --schema-version 1.0
+    red_proof: |
+      CAN FAIL: `"$FORJAR" status --format bogus` on the same binary already
+      returns rc=1 "error: unknown format ...", so the enumerated-value
+      rejection pattern exists in this CLI — --schema-version simply never
+      reaches it. Empty string is included deliberately: it is the value most
+      likely to be produced by an unset shell variable in CI.
+    if_fails: "a CI job pinning a schema version it does not have is green"
+
+  - id: FALSIFY-INREJ-004
+    defect: "lint-rules-flag-is-a-noop (HIGH)"
+    rule: "A flag with a documented effect is not inert (INREJ-I4, observable_effect)"
+    prediction: "a missing rules path hard-errors; a real rules file changes findings"
+    test: |
+      printf 'rules:\n  - id: no-tasks\n    severity: error\n' > rules.yaml
+      forjar lint -f forjar.yaml --no-color                            > base.txt 2>&1; echo "base rc=$?"
+      forjar lint -f forjar.yaml --no-color --rules /does/not/exist.yaml > a.txt 2>&1; echo "missing rc=$?"
+      forjar lint -f forjar.yaml --no-color --rules /tmp                 > b.txt 2>&1; echo "dir rc=$?"
+      forjar lint -f forjar.yaml --no-color --rules rules.yaml           > c.txt 2>&1; echo "real rc=$?"
+      md5sum base.txt a.txt b.txt c.txt
+    observed_red: |
+      base rc=0
+      missing rc=0
+      dir rc=0
+      real rc=0
+      f704b0b23a6ac2d069d42ff89aeff3ae  base.txt
+      f704b0b23a6ac2d069d42ff89aeff3ae  a.txt
+      f704b0b23a6ac2d069d42ff89aeff3ae  b.txt
+      f704b0b23a6ac2d069d42ff89aeff3ae  c.txt
+      (a DIRECTORY produces no EISDIR; four semantically distinct inputs are
+       byte-identical, so the file is provably never opened)
+    expected_green: |
+      missing rc=1  error: failed to read /does/not/exist.yaml: No such file or directory (os error 2)
+      dir     rc=1  error: failed to read /tmp: Is a directory (os error 21)
+      real    md5 differs from base
+    red_proof: |
+      CAN FAIL: on the same binary `"$FORJAR" lint -f nope.yaml` returns rc=1
+      "error: failed to read nope.yaml: No such file or directory (os error 2)".
+      `-f` opens its argument and `--rules` does not, in the same invocation of
+      the same subcommand — the md5 identity is the proof, and it is exactly the
+      assertion an "exit 0" test cannot make.
+    if_fails: "a policy file believed to be enforcing lint rules enforces nothing"
+
+  - id: FALSIFY-INREJ-005
+    defect: "import-bogus-machine-name-and-unknown-scan-accepted (MEDIUM, scan half)"
+    rule: "Unknown tokens are rejected, not dropped (INREJ-I2, completeness)"
+    prediction: "an unknown --scan category exits non-zero naming the token"
+    test: |
+      forjar import --addr 127.0.0.1 --user "$USER" \
+        --scan totally-bogus-category -o z.yaml; echo "rc=$?"; grep -A1 '^resources:' z.yaml
+    observed_red: |
+      Imported 0 resources from 127.0.0.1 → z.yaml
+      rc=0
+      resources:
+      (empty resources: block, success message, exit 0)
+    expected_green: |
+      error: unknown --scan category 'totally-bogus-category' (known: packages, files, services)
+      rc=1
+    red_proof: |
+      CAN FAIL: the control `--scan packages` on the same address returns
+      "Imported 1 resources from 127.0.0.1 → p.yaml", so the token IS being
+      matched against a known set — unmatched tokens are dropped instead of
+      erroring. Uses 127.0.0.1 only; no fleet host is contacted.
+    if_fails: "a typo'd --scan silently produces an empty config that is then
+               applied, and apply over an empty resource set is vacuously green"
+
+  - id: FALSIFY-INREJ-006
+    defect: "import-bogus-machine-name-and-unknown-scan-accepted (MEDIUM, name half)"
+    rule: "A derived default is correct or refused (INREJ-I2, invariant)"
+    prediction: "an IPv4 --addr without -n either uses the full sanitized address
+                 or requires -n; it never keys the machine on the first octet"
+    test: |
+      forjar import --addr 198.51.100.7 --user "$USER" \
+        --scan totally-bogus-category -o out.yaml; sed -n '3,10p' out.yaml
+    observed_red: |
+      version: "1.0"
+      name: imported-198
+
+      machines:
+        198:
+          hostname: 198
+          addr: 198.51.100.7
+    expected_green: |
+      either machines: {198-51-100-7: {hostname: 198.51.100.7, ...}}
+      or rc=1 "error: --addr is an IP address; pass -n/--name for the machine key"
+    red_proof: |
+      CAN FAIL: the same command WITH `-n edge01` produces the correct
+      `machines: {edge01: ...}`, so the non-default path is right and only the
+      derivation `addr.split('.').next()` is wrong. 198.51.100.7 is RFC 5737
+      TEST-NET-2 — a documentation address, never a real host.
+    if_fails: "the generated config names a machine '198' with hostname '198',
+               which resolves to nothing; the artifact import promises is
+               un-appliable and the failure surfaces far from its cause"
+
+  - id: FALSIFY-INREJ-007
+    defect: "drift-and-plan-blind-to-failing-task-completion-check (HIGH)"
+    rule: "Two readers of one state must not contradict (INREJ-I6, soundness)"
+    prediction: "with a task's completion_check failing, drift reports drift"
+    test: |
+      forjar apply -f forjar.yaml --yes >/dev/null   # creates a.txt and the marker
+      rm -f "$PWD/m"                                 # completion_check now fails
+      forjar drift  -f forjar.yaml | tail -1
+      forjar check  -f forjar.yaml; echo "check rc=$?"
+      forjar status -f forjar.yaml | grep -i 't:'
+      forjar plan   -f forjar.yaml | tail -1
+    observed_red: |
+      No drift detected.
+        ok a (local)
+        FAIL t (local) — exit 1
+      Check: 1 pass, 1 fail, 0 skip
+      error: 1 check(s) failed
+      check rc=1
+          t: CONVERGED [task] (0.00s)
+      Plan: 0 to add, 0 to change, 0 to destroy, 2 unchanged.
+    expected_green: |
+      Drift detected: 1 resource(s)      # and status must not say CONVERGED
+    red_proof: |
+      CAN FAIL: the control in the same directory — `rm a.txt; "$FORJAR" drift`
+      — prints "Drift detected: 1 resource(s)". The comparator works; task
+      resources carry no hash and are skipped rather than verified via their
+      own completion_check, which `check` runs successfully on the same state.
+      The contradiction between two readers is itself the falsification.
+    if_fails: "the tripwire (`drift --help`: 'Detect unauthorized changes') is
+               blind to every task resource in the fleet — silent green"
+
+  - id: FALSIFY-INREJ-008
+    defect: "status-hash-verify-verifies-nothing (HIGH)"
+    rule: "Verification recomputes, it does not count (INREJ-I5, soundness)"
+    prediction: "a zeroed lock hash makes --hash-verify report MISMATCH and exit 1"
+    test: |
+      forjar apply -f forjar.yaml --yes >/dev/null
+      sed -i "s/hash: blake3:[0-9a-f]*/hash: blake3:$(printf '0%.0s' $(seq 64))/" \
+        state/local/state.lock.yaml
+      grep -c 'blake3:0000' state/local/state.lock.yaml
+      forjar status -f forjar.yaml --hash-verify; echo "rc=$?"
+      forjar drift -f forjar.yaml | tail -1
+    observed_red: |
+      9
+      Hash verification: 3/3 resources have BLAKE3 hashes
+      rc=0
+      Drift detected: 3 resource(s)
+    expected_green: |
+      MISMATCH a (local): lock blake3:0000... != computed blake3:cce93142...
+      rc=1
+    red_proof: |
+      CAN FAIL: `drift` over the IDENTICAL corrupted lock prints "Drift
+      detected: 3 resource(s)" and even shows
+      "Actual: blake3:cce93142a50fe50cd9793536462c032b092d3b671757c101ad108f9259292e92".
+      The recomputation exists and is already wired into another subcommand;
+      --hash-verify counts hash FIELDS and prints n/n. (Numbers above are for a
+      3-resource fixture — 9 zeroed occurrences across lock + history.)
+    if_fails: "the FJ-677 integrity check that operators run to detect state
+               tampering passes on a fully tampered lock"
+
+  - id: FALSIFY-INREJ-009
+    defect: "undo-destroy-recreates-resources-without-recording-state (HIGH)"
+    rule: "A success message implies a readable state (INREJ-I7, postcondition)"
+    prediction: "after '3 replayed', state-list shows 3 resources"
+    test: |
+      forjar apply   -f forjar.yaml --yes >/dev/null
+      forjar destroy -f forjar.yaml --yes >/dev/null
+      forjar undo-destroy | tail -1          # NB: undo-destroy takes no -f
+      forjar state-list
+      forjar status -f forjar.yaml | tail -1
+      forjar plan   -f forjar.yaml | tail -1
+      forjar drift  -f forjar.yaml | tail -1
+    observed_red: |
+      Undo-destroy: 3 replayed, 0 failed.
+      No resources in state.
+      No state found. Run `forjar apply` first.
+      Plan: 3 to add, 0 to change, 0 to destroy, 0 unchanged.
+      No drift detected.
+      (a.txt b.txt c.txt really do exist on disk — four readers contradict both
+       reality and the command's own success message, and drift is vacuously
+       green because it has no state to compare against)
+    expected_green: |
+      Undo-destroy: 3 replayed, 0 failed.
+      ... state-list shows 3 resources; status reports them; plan says
+      "0 to add ... 3 unchanged" — or undo-destroy exits non-zero telling the
+      operator to re-seed state.
+    red_proof: |
+      CAN FAIL: `"$FORJAR" apply` on the same config writes the lock and all four
+      readers then agree, so the record-state path exists; the replay simply
+      does not route through it. Note also `"$FORJAR" undo-destroy -f forjar.yaml`
+      is rc=2 "error: unexpected argument '-f' found" — the subcommand takes
+      --state-dir, not -f.
+    if_fails: "the disaster-recovery command leaves the fleet with resources
+               that exist but are invisible to every state reader, and drift is
+               green precisely because nothing is tracked"
+
+  - id: FALSIFY-INREJ-010
+    defect: "lsp-diagnostics-always-anchored-at-line-0 (LOW)"
+    rule: "The diagnostic names the real location (INREJ-I8, classification)"
+    prediction: "the published range points at the offending line, non-empty"
+    test: |
+      # Runnable LSP client, no external harness needed. Run in an empty dir.
+      # dep2.yaml puts the dangling `depends_on` on file line 23 (1-based),
+      # i.e. LSP line 22 (0-based). Paths are absolute because forjar's
+      # validator rejects relative ones and the extra diagnostics obscure the
+      # one under test.
+      cat > dep2.yaml <<'YML'
+      version: "1.0"
+      name: range-test
+
+      machines:
+        local:
+          hostname: localhost
+          addr: 127.0.0.1
+          user: noah
+          arch: x86_64
+
+      resources:
+        r1:
+          type: file
+          machine: local
+          path: /tmp/forjar-lsp-probe-r1.txt
+          content: "one\n"
+
+        r2:
+          type: file
+          machine: local
+          path: /tmp/forjar-lsp-probe-r2.txt
+          content: "two\n"
+          depends_on: [ghost-resource]
+      YML
+      python3 - dep2.yaml <<'PY'
+      import json, os, subprocess, sys
+      F = os.path.expanduser("~/.cargo/bin/forjar"); d = os.getcwd(); f = sys.argv[1]
+      p = subprocess.Popen([F, "lsp"], cwd=d, stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+      def send(m):
+          b = json.dumps(m).encode()
+          p.stdin.write(b"Content-Length: %d\r\n\r\n" % len(b) + b); p.stdin.flush()
+      def recv():
+          h = b""
+          while b"\r\n\r\n" not in h:
+              c = p.stdout.read(1)
+              if not c: return None
+              h += c
+          n = int([l for l in h.decode().split("\r\n")
+                   if l.lower().startswith("content-length")][0].split(":")[1])
+          return json.loads(p.stdout.read(n))
+      send({"jsonrpc":"2.0","id":1,"method":"initialize",
+            "params":{"processId":None,"rootUri":"file://"+d,"capabilities":{}}}); recv()
+      send({"jsonrpc":"2.0","method":"initialized","params":{}})
+      send({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":
+            {"uri":"file://"+os.path.join(d,f),"languageId":"yaml","version":1,
+             "text":open(f).read()}}})
+      for _ in range(6):
+          m = recv()
+          if m and m.get("method") == "textDocument/publishDiagnostics":
+              print("DIAG:", json.dumps(m["params"]["diagnostics"])); break
+      p.kill()
+      PY
+    observed_red: |
+      DIAG: [{"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0,
+      "character": 0}}, "severity": 1, "source": "forjar-lsp", "message":
+      "resource 'r2' depends on unknown resource 'ghost-resource'"}]
+
+      And for a YAML syntax error, the server INTERPOLATES the true position
+      into the message while still anchoring the range at line 0:
+      DIAG: [{"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0,
+      "character": 80}}, "severity": 1, "source": "forjar-lsp", "message":
+      "YAML parse error: did not find expected key at line 7 column 4, while
+      parsing a block mapping at line 5 column 3"}]
+    expected_green: |
+      range.start.line == 22 (0-based; file line 23) for the depends_on case,
+      with a non-empty range covering the `depends_on:` key;
+      range.start.line == 6, character 3 for the parse error above, which is
+      exactly the "line 7 column 4" the server already prints in its own message
+    red_proof: |
+      CAN FAIL: the server already HAS the position — it is printed inside the
+      message string it publishes ("at line 7 column 4"). Reproduced 2/2 in a
+      fresh directory and identical for every broken config tested. A
+      zero-width range at 0:0 also renders as NO visible squiggle in most
+      editors, so the user sees an error list entry pointing at the wrong line
+      and no marker at the real one.
+    if_fails: "every forjar diagnostic in an editor points at line 1; the error
+               text is right and the cause it names by position is wrong"
+
+enforcement:
+  # NOTE ON SHAPE: `enforcement` is a MAP of named rules (pv parses each value
+  # as an EnforcementRule; a list, or a bare `layer:` string at the top level,
+  # is rejected). The layer / failure_mode / ci_gate / notes of this contract
+  # are carried per-rule below.
+  #
+  # Runtime debug_assert! is the WRONG instrument for this whole family and is
+  # deliberately absent: the property is about what a RELEASE binary does to a
+  # user who typed something wrong, and release builds strip asserts. Every
+  # enforcement point here is the argument parser or the subcommand exit path.
+
+  argument_range_validation:
+    description: |
+      Numeric CLI arguments are range-checked by the parser, never by std's
+      panicking preconditions. `--batch-size` and `--max-parallel` must be
+      `value_parser!(usize).range(1..)` so 0 is a clap error (rc=2), not a
+      slice::chunks SIGABRT (rc=134).
+    check: "FALSIFY-INREJ-001, FALSIFY-INREJ-002 (two independent call sites)"
+    severity: "ERROR"
+    layer: "cli-arg-parsing"
+    failure_mode: "non_zero_exit (rc=2, clap); NEVER abort"
+    ci_gate: required
+    notes: |
+      Two call sites — src/cli/fleet_ops.rs:136 and
+      src/cli/parallel_multi_stack.rs:111. Fixing one leaves the family red.
+
+  enumerated_value_rejection:
+    description: |
+      Unknown enumerated inputs are rejected naming the offending token and the
+      known set: `--schema-version`, `import --scan`. Dropping an unmatched
+      token and reporting a zero-count success is the defect.
+    check: "FALSIFY-INREJ-003, FALSIFY-INREJ-005"
+    severity: "ERROR"
+    layer: "cli-arg-parsing / subcommand entry"
+    failure_mode: "non_zero_exit (rc=1) with the token quoted verbatim"
+    ci_gate: required
+    notes: |
+      `status --format bogus` already implements this shape (rc=1 'error:
+      unknown format ...'). Reuse it; do not invent a second convention.
+
+  eager_path_open:
+    description: |
+      A flag that names a file opens it eagerly and propagates the io::Error
+      verbatim, so a missing path and a directory both hard-error. A flag whose
+      output is byte-identical across a missing file, a directory and a valid
+      file is inert by definition.
+    check: "FALSIFY-INREJ-004 (md5 identity across four inputs)"
+    severity: "ERROR"
+    layer: "subcommand entry (lint --rules)"
+    failure_mode: "non_zero_exit (rc=1); plus severity:error findings exit 1"
+    ci_gate: required
+    notes: |
+      The `-f` argument of the SAME subcommand already does this. The gate is
+      an output-difference assertion, not an exit-code assertion — an exit-code
+      test cannot catch an inert flag.
+
+  verification_recomputes:
+    description: |
+      A verification subcommand recomputes and compares; it never reports a
+      presence count as a result. `status --hash-verify` must print MATCH /
+      MISMATCH per resource and exit 1 on any mismatch or missing hash; `drift`
+      must run a task resource's own completion_check when it has no hashable
+      artifact, and report DRIFTED on non-zero.
+    check: "FALSIFY-INREJ-007, FALSIFY-INREJ-008"
+    severity: "ERROR"
+    layer: "state verification (drift/status/check/plan readers)"
+    failure_mode: "non_zero_exit (rc=1) on mismatch; no reader may report
+                   CONVERGED while another reports FAIL on the same state"
+    ci_gate: required
+    notes: |
+      The cross-reader contradiction is the cheapest oracle in this contract:
+      `check` and `drift` disagreeing on one state directory is a defect
+      regardless of which one is right.
+
+  success_implies_recorded_state:
+    description: |
+      A command that reports N resources affected leaves those N visible to
+      state-list / status / plan / drift, or it exits non-zero telling the
+      operator to re-seed state. `undo-destroy` currently reports '3 replayed'
+      and writes no lock.
+    check: "FALSIFY-INREJ-009"
+    severity: "ERROR"
+    layer: "state lock commit path"
+    failure_mode: "non_zero_exit (rc=1) if the lock cannot be written"
+    ci_gate: required
+    notes: |
+      Route the replay through the converge-and-record path (lock entries,
+      hashes, events) that `apply` already uses.
+
+  diagnostic_locality:
+    description: |
+      An error that knows its location publishes that location. The LSP server
+      must map the parser's line/column into the Range instead of interpolating
+      it into the message, and must locate the offending resource key for
+      semantic errors. A zero-width Range at 0:0 is not a diagnostic position.
+    check: "FALSIFY-INREJ-010"
+    severity: "WARNING"
+    layer: "lsp wire (textDocument/publishDiagnostics)"
+    failure_mode: "non-empty Range at the real line; no silent 0:0 fallback"
+    ci_gate: required
+    notes: |
+      WARNING severity because it degrades the diagnostic rather than
+      fabricating success — but it is the same root pattern: the real cause is
+      known and not surfaced.
+
+  ci_harness:
+    description: |
+      metadata.verification_command is the gate. It runs against the freshly
+      built release binary and exits non-zero while ANY of the nine CLI defects
+      is present, so it goes green only as the family is retired.
+    check: "bash the metadata.verification_command block with FORJAR=<built binary>"
+    severity: "ERROR"
+    layer: "ci"
+    failure_mode: "non_zero_exit (harness rc=1, one FAIL line per live defect)"
+    ci_gate: required
+    notes: |
+      Required, not advisory: this family is how a tool 'succeeds' at doing
+      nothing. FALSIFY-INREJ-010 is excluded from the harness because it needs
+      an LSP client; its test block is self-contained and runnable on its own.
+
+qa_gate:
+  id: F-INREJ-001
+  name: "Input Rejection Contract"
+  description: |
+    Invalid input exits non-zero, names the real cause, never panics, never
+    silently succeeds. Gates family E of paiml/forjar#208 (issue #213).
+  checks:
+    - "input_rejection"
+    - "success_is_a_claim"
+    - "observable_effect"
+  pass_criteria: |
+    All 10 FALSIFY-INREJ tests pass. Specifically: zero rc=134 outcomes, zero
+    rc=0 outcomes for an unhonourable input, and no two state readers
+    contradicting each other on one state directory.
+  falsification: |
+    Re-introduce any one defect and the harness must go red again — e.g. drop
+    `.range(1..)` from --batch-size (FALSIFY-INREJ-001 returns rc=134), or
+    revert --hash-verify to counting hash fields (FALSIFY-INREJ-008 returns
+    rc=0 "3/3 resources have BLAKE3 hashes" over a zeroed lock).
+    Anti-vacuity evidence: the harness was observed emitting PASS for E8 in an
+    early ordering of the same script, so the PASS branch is reachable — this
+    is not a script that can only print FAIL.
+
+verification_level: L2

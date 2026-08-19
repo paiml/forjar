@@ -124,17 +124,58 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
     Ok(format!("blake3:{}", hasher.finalize().to_hex()))
 }
 
+/// Domain-separation tag for the framed composite hash.
+///
+/// Present so a v2 digest can never coincide with a v1 digest of any input:
+/// the two schemes address the same store, and a silent overlap between them
+/// would be a collision across versions rather than a clean re-address.
+const COMPOSITE_DOMAIN: &[u8] = b"forjar-composite-v2\0";
+
 /// Compute a composite hash from multiple component hashes.
 ///
 /// FJ-2200: Contract — determinism: same components always produce same hash.
+///
+/// # Injectivity (GH-235)
+///
+/// Distinct component vectors must produce distinct digests. This previously
+/// separated components with a NUL byte without *framing* them, and separation
+/// alone is not injective — a NUL inside a component is indistinguishable from
+/// a boundary between components:
+///
+/// ```text
+/// composite_hash(["a\0b"])    -> a \0 b \0
+/// composite_hash(["a", "b"])  -> a \0 b \0    // same bytes, same digest
+/// ```
+///
+/// That matters because this is the store's address function. `store_path`
+/// builds `[recipe_hash, ...sorted_inputs, arch, provider]` where `arch` and
+/// `provider` are free-form strings from user YAML, and
+/// `task::io_tracking` feeds it components it has itself NUL-joined
+/// (`format!("{artifact}\0{hash}")`) — precisely the shape that re-partitions.
+/// Two different derivations sharing a store entry is silent corruption.
+///
+/// The fix is length-prefixed framing: each component is preceded by its
+/// byte length as a fixed-width integer, so the boundary is carried
+/// out-of-band and cannot be forged from component content. The component
+/// count is hashed too, so a one-component vector can never reproduce an
+/// n-component one.
+///
+/// # This changes every digest
+///
+/// Deliberately. Store entries re-address once and task artifacts re-run once;
+/// neither is recoverable-by-guessing, and both are self-healing. Machine state
+/// and drift hashes do NOT go through this function, so `forjar drift` is
+/// unaffected.
 #[contract("blake3-state-v1", equation = "composite_hash")]
 pub fn composite_hash(components: &[&str]) -> String {
     // Contract: blake3-state-v1.yaml precondition (pv codegen)
     contract_pre_composite_hash!(components);
     let mut hasher = blake3::Hasher::new();
+    hasher.update(COMPOSITE_DOMAIN);
+    hasher.update(&(components.len() as u64).to_le_bytes());
     for c in components {
+        hasher.update(&(c.len() as u64).to_le_bytes());
         hasher.update(c.as_bytes());
-        hasher.update(b"\0");
     }
     let result = format!("blake3:{}", hasher.finalize().to_hex());
     debug_assert!(

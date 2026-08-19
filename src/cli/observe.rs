@@ -1,144 +1,16 @@
 //! Observability.
+//!
+//! `anomaly` lives in [`super::observe_anomaly`]; it is re-exported here so the
+//! existing `use super::observe::*` importers keep working.
 
 use super::helpers::*;
 use super::helpers_state::*;
 use super::print_helpers::*;
 use crate::core::{executor, planner, resolver, types};
-use crate::tripwire::{anomaly, tracer};
+use crate::tripwire::tracer;
 use std::path::Path;
 
-/// Detect anomalous resource behavior from event history.
-///
-/// Analyzes event logs to find resources with abnormally high change frequency,
-/// failure rates, or drift counts. Uses statistical z-score to flag outliers.
-pub(crate) fn cmd_anomaly(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-    min_events: usize,
-    json: bool,
-) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-
-    // Per-resource metrics: (converge_count, fail_count, drift_count)
-    let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
-        std::collections::HashMap::new();
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-
-        let log_path = entry.path().join("events.jsonl");
-        if !log_path.exists() {
-            continue;
-        }
-
-        let content = std::fs::read_to_string(&log_path)
-            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
-
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                match te.event {
-                    types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key).or_insert((0, 0, 0));
-                        entry.0 += 1;
-                    }
-                    types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key).or_insert((0, 0, 0));
-                        entry.1 += 1;
-                    }
-                    types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key).or_insert((0, 0, 0));
-                        entry.2 += 1;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    // Convert metrics HashMap to Vec for detect_anomalies()
-    let metrics_vec: Vec<(String, u32, u32, u32)> = metrics
-        .into_iter()
-        .map(|(k, (c, f, d))| (k, c, f, d))
-        .collect();
-
-    // FJ-051: Use anomaly module for detection
-    let findings = anomaly::detect_anomalies(&metrics_vec, min_events);
-
-    if findings.is_empty() {
-        if json {
-            println!("{{\"anomalies\":0,\"findings\":[]}}");
-        } else {
-            let total = metrics_vec.len();
-            println!(
-                "No anomalies detected ({total} resources analyzed, min {min_events} events)."
-            );
-        }
-        return Ok(());
-    }
-
-    output_anomaly_findings(&findings, json)?;
-    Ok(())
-}
-
-/// Output anomaly findings in JSON or text format.
-pub(super) fn output_anomaly_findings(
-    findings: &[anomaly::AnomalyFinding],
-    json: bool,
-) -> Result<(), String> {
-    if json {
-        let json_findings: Vec<serde_json::Value> = findings
-            .iter()
-            .map(|f| {
-                serde_json::json!({
-                    "resource": f.resource,
-                    "score": f.score,
-                    "status": format!("{:?}", f.status),
-                    "reasons": f.reasons,
-                })
-            })
-            .collect();
-        let report = serde_json::json!({
-            "anomalies": json_findings.len(),
-            "findings": json_findings,
-        });
-        let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
-    } else {
-        for finding in findings {
-            let status_label = match finding.status {
-                anomaly::DriftStatus::Drift => "DRIFT",
-                anomaly::DriftStatus::Warning => "WARNING",
-                anomaly::DriftStatus::Stable => "STABLE",
-            };
-            println!(
-                "  ANOMALY: {} [{}] (score={:.2}) — {}",
-                finding.resource,
-                status_label,
-                finding.score,
-                finding.reasons.join("; ")
-            );
-        }
-        println!();
-        println!("Anomaly detection: {} anomaly(ies) found.", findings.len());
-    }
-    Ok(())
-}
+pub(crate) use super::observe_anomaly::cmd_anomaly;
 
 /// View trace provenance data from apply runs (FJ-050).
 /// Output trace spans as JSON.

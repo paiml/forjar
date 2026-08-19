@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-06-12"
   author: "PAIML Engineering"
   description: |
@@ -64,21 +65,29 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/core/planner/mod.rs::plan debug_assert_eq!"
 
-  - type: test
+  - type: idempotency
     property: "Second plan over converged locks is all-NoOp (f(f(x)) = f(x))"
     formal: "locks = converged(c) ⟹ plan(c, locks).{to_create, to_update, to_destroy} = 0"
     applies_to: all
     enforced_by: "src/core/planner/tests_plan.rs::test_gh97_second_plan_over_converged_locks_is_noop"
 
 enforcement:
-  layer: runtime
-  failure_mode: debug_assert
-  ci_gate: required
-  notes: |
-    The debug_assert! call-sites abort a debug build when the fixed point
-    is violated; release builds skip the asserts, but unit tests and the
-    bounded Kani harness (src/core/kani_proofs.rs::
-    proof_planner_idempotency_bounded) cover the same shapes on CI.
+  second_apply_is_a_fixed_point:
+    description: |
+      A debug_assert! aborts a debug build when the fixed point is violated.
+      Release builds skip the asserts, so unit tests and the bounded Kani
+      harness cover the same shapes on CI.
+    check: "contract_tests::FALSIFY-IDEM-001"
+    severity: "ERROR"
+  executable_test_backs_the_assert:
+    description: |
+      GH-242: this cited `proof_planner_idempotency_bounded` until 2026-08-17.
+      That harness was removed because discharging it means verifying through a
+      cryptographic hash — measured at 29.1 GB RSS and still running at 36 min
+      with blake3's portable implementation, and an instant failure with the
+      default SIMD build. The obligation is discharged executably instead.
+    check: "src/core/planner/tests_hash_source.rs::identical_source_content_hashes_identically"
+    severity: "ERROR"
 
 falsification_tests:
   - id: FALSIFY-IDEM-001
@@ -99,13 +108,11 @@ falsification_tests:
     test: "src/core/planner/tests_plan.rs::test_gh97_second_plan_over_converged_locks_is_noop"
     if_fails: "f(f(x)) ≠ f(x): apply is not idempotent at the plan level"
 
-kani_harnesses:
-  - id: KANI-IDEM-001
-    obligation: "NoOp fixed point"
-    property: "converged + matching hash → NoOp"
-    bound: 4
-    strategy: bounded
-    harness: proof_planner_idempotency_bounded
+# No kani_harnesses. GH-242: the one declared here
+# (proof_planner_idempotency_bounded) was removed on 2026-08-17 — see the
+# enforcement block above for the measurement. `metadata.kind: pattern` is what
+# makes that legitimate rather than a gap: this is a behavioural contract, and
+# pv only demands harnesses of kernel contracts.
 
 qa_gate:
   id: F-IDEM-001

@@ -347,7 +347,8 @@ mod tests {
             true, // cost = true
             &[],
             None,  // plan_out
-            false, // why
+            false, // why,
+            None,
         );
         assert!(result.is_ok());
     }

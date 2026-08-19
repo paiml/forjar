@@ -2,6 +2,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Escape sed BRE metacharacters so a path is matched literally inside a
 /// `\|PATTERN|d` address. Escapes the `|` delimiter, `\` and the regex
@@ -24,10 +25,10 @@ pub fn check_script(resource: &Resource) -> String {
     // The status labels embed the config-derived `target`, so route them
     // through sh_squote too — a raw label could close the single quote and
     // run command substitution (matches docker.rs/package.rs).
-    format!(
-        "mountpoint -q {t} 2>/dev/null && echo {} || echo {}",
-        sh_squote(&format!("mounted:{target}")),
-        sh_squote(&format!("unmounted:{target}"))
+    verdict::single(
+        &format!("mountpoint -q {t} 2>/dev/null"),
+        &format!("mounted:{target}"),
+        &format!("unmounted:{target}"),
     )
 }
 

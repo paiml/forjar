@@ -1,55 +1,17 @@
 //! Apply notification dispatch helpers — sends apply results to notification channels.
 use std::path::Path;
 pub(super) fn send_webhook(url: &str, payload: &str) {
-    match std::process::Command::new("curl")
-        .args([
-            "-sf",
-            "-X",
-            "POST",
-            "-H",
-            "Content-Type: application/json",
-            "-d",
-            payload,
-            url,
-        ])
-        .output()
-    {
-        Ok(o) if !o.status.success() => {
-            eprintln!(
-                "warn: webhook to {} failed (exit {})",
-                url,
-                o.status.code().unwrap_or(-1)
-            );
-        }
-        Err(e) => eprintln!("warn: webhook to {url} error: {e}"),
-        _ => {}
-    }
+    send_webhook_with_headers(url, &[], payload);
 }
 pub(super) fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
-    match std::process::Command::new("curl")
-        .args([
-            "-sf",
-            "-X",
-            "POST",
-            "-H",
-            "Content-Type: application/json",
-            "-H",
-            header,
-            "-d",
-            payload,
-            url,
-        ])
-        .output()
-    {
-        Ok(o) if !o.status.success() => {
-            eprintln!(
-                "warn: webhook to {} failed (exit {})",
-                url,
-                o.status.code().unwrap_or(-1)
-            );
-        }
-        Err(e) => eprintln!("warn: webhook to {url} error: {e}"),
-        _ => {}
+    send_webhook_with_headers(url, &[header.to_string()], payload);
+}
+/// GH-210: every notification POST goes through the bounded, status-checked
+/// helper. `-sf` reported connection failures but not a 5xx rejection, and no
+/// invocation had a timeout.
+pub(super) fn send_webhook_with_headers(url: &str, headers: &[String], payload: &str) {
+    if let Err(e) = super::webhook_post::post_json(url, payload, headers) {
+        eprintln!("Warning: webhook POST to {url} failed ({e})");
     }
 }
 pub(super) fn event_json(status: &str, config: &Path) -> String {
@@ -72,6 +34,10 @@ pub(crate) struct NotifyOpts<'a> {
     pub slack: Option<&'a str>,
     pub email: Option<&'a str>,
     pub webhook: Option<&'a str>,
+    /// GH-211/FJ-744: `--notify-webhook-headers`, a JSON object of headers to
+    /// put on the `--notify-webhook` request. Was parsed and dropped, so a
+    /// receiver that authenticates by header got an unauthenticated POST.
+    pub webhook_headers: Option<&'a str>,
     pub teams: Option<&'a str>,
     pub discord: Option<&'a str>,
     pub opsgenie: Option<&'a str>,
@@ -152,8 +118,16 @@ pub(super) fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, co
         );
     }
     if let Some(url) = opts.webhook {
-        send_webhook(
+        // GH-211: --notify-webhook-headers rides on this request. Malformed
+        // JSON is refused up front by `validate_notify_headers`, so an Err
+        // here cannot reach a live apply.
+        let headers = opts
+            .webhook_headers
+            .map(|h| super::webhook_post::parse_header_json(h).unwrap_or_default())
+            .unwrap_or_default();
+        send_webhook_with_headers(
             url,
+            &headers,
             &format!(
                 r#"{{"event":"apply_complete","status":"{}","config":"{}"}}"#,
                 status,
@@ -205,11 +179,9 @@ pub(super) fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, co
     if let Some(topic) = opts.ntfy {
         let url = format!("https://ntfy.sh/{topic}");
         let msg = format!("forjar apply {}: {}", status, config.display());
-        if let Err(e) = std::process::Command::new("curl")
-            .args(["-sf", "-d", &msg, &url])
-            .output()
-        {
-            eprintln!("warning: ntfy notification error: {e}");
+        // GH-210: bounded and status-checked like every other channel.
+        if let Err(e) = super::webhook_post::post_json(&url, &msg, &[]) {
+            eprintln!("Warning: ntfy notification to {url} failed ({e})");
         }
     }
     if let Some(url) = opts.grafana {
@@ -299,7 +271,7 @@ pub(super) fn send_incident_notifications(
     send_slack_blocks_notification(opts.slack_blocks, result, config);
     send_custom_template_notification(opts.custom_template, result, config);
     send_custom_webhook_notification(opts.custom_webhook, result, config);
-    send_custom_headers_notification(opts.custom_headers, result, config);
+    send_custom_headers_notification(opts.custom_headers, opts.custom_webhook, result, config);
     send_custom_json_notification(opts.custom_json, result, config);
     send_custom_filter_notification(opts.custom_filter, result, config);
     send_custom_retry_notification(opts.custom_retry, result, config);

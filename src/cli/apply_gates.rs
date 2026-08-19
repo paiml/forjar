@@ -145,6 +145,34 @@ pub(crate) fn parallel_flag(parallel: bool) -> Option<bool> {
     }
 }
 
+/// Count planned actions within the scope the executor will actually act on.
+///
+/// GH-253: `planner::plan` honours `tag_filter` but knows nothing about `-r`,
+/// which is applied later by the executor
+/// (`resource_ops.rs`: `cfg.resource_filter.is_some_and(|f| change.resource_id != f)`).
+/// Counting the unscoped plan told an operator "Apply 69 change(s)" for
+/// `-r stack-tool-forjar`, where `plan -r` promised 1 and apply acted on 1.
+///
+/// The predicate here is deliberately the same shape as the executor's, so the
+/// number shown and the set acted on cannot drift apart again.
+pub(crate) fn scoped_action_counts(
+    changes: &[types::PlannedChange],
+    resource_filter: Option<&str>,
+) -> (usize, usize, usize) {
+    let count = |action: types::PlanAction| {
+        changes
+            .iter()
+            .filter(|c| resource_filter.is_none_or(|f| c.resource_id == f))
+            .filter(|c| c.action == action)
+            .count()
+    };
+    (
+        count(types::PlanAction::Create),
+        count(types::PlanAction::Update),
+        count(types::PlanAction::Destroy),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

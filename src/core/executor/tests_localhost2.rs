@@ -70,6 +70,7 @@ fn test_fj131_record_success_no_live_hash_for_package() {
     let dir = tempfile::tempdir().unwrap();
     let mut lock = state::new_lock("test", "test-box");
     let resource = Resource {
+        phony: false,
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("test".to_string()),
         provider: Some("apt".to_string()),
@@ -169,6 +170,7 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,

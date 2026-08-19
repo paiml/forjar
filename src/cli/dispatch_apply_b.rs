@@ -17,15 +17,75 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     };
     let verbose = verbose || args.trace;
 
+    // GH-211: refuse before ANY early exit, hook or backup runs. A flag that
+    // does nothing must not be able to reach a code path that does something —
+    // the whole defect class is "forjar acted while ignoring what it was told".
+    super::inert_flags::reject_inert_apply_flags(&args)?;
+
+    // GH-211: a malformed --notify-*-headers value must be refused BEFORE the
+    // apply, not silently dropped after it. Dropping it delivers the
+    // notification unauthenticated, and the 401 that follows was swallowed too.
+    validate_notify_headers(&args)?;
+
     if let Some(r) = apply_early_exits(&args) {
         return r;
     }
     apply_pre_checks(&args)?;
+    // GH-210: --preview shows the scripts and then the apply RUNS. It used to
+    // print a plan and return Ok(()) having converged nothing and written no
+    // state, while exiting 0.
+    if args.preview && !effective_dry_run(&args) {
+        super::apply_preview::print_generated_scripts(&args)?;
+    }
     if let Some(r) = apply_mode_exits(&args, verbose) {
         return r;
     }
     apply_backups(&args);
     apply_execute(&args, verbose)
+}
+
+/// GH-211: reject a `--notify-webhook-headers` value that is not a JSON object.
+///
+/// `--notify-custom-headers` is deliberately NOT checked here: its legacy
+/// `URL|Header: Value` form is still supported, so "not JSON" is a valid value.
+pub(super) fn validate_notify_headers(args: &ApplyArgs) -> Result<(), String> {
+    if let Some(raw) = args.notify_webhook_headers.as_deref() {
+        super::webhook_post::parse_header_json(raw)
+            .map_err(|e| format!("--notify-webhook-headers: {e}"))?;
+    }
+    Ok(())
+}
+
+/// GH-208: every flag in the dry-run family must mean "change nothing".
+///
+/// `apply_early_exits` intercepts `--dry-run-verbose`, `--dry-run-graph` and
+/// `--dry-run-cost`, and `args.dry_run` was passed through to `cmd_apply` — but
+/// `--dry-run-shell`, `--dry-run-json`, `--dry-run-summary` and `--dry-run-diff`
+/// were handled NOWHERE. They fell through to a REAL apply: files created, state
+/// written, and none of their documented output produced. Measured on the
+/// published 1.12.3 binary:
+///
+/// ```text
+///   --dry-run          rc=0  a.txt=none     state=none      (correct)
+///   --dry-run-shell    rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-json     rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-summary  rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+///   --dry-run-diff     rc=0  a.txt=CREATED  state=WRITTEN   (!!)
+/// ```
+///
+/// Asking for a preview and getting a mutation is the most dangerous shape a
+/// flag can have, so this is deliberately computed ONCE, fail-safe: any member
+/// of the family suppresses execution. Adding a new `--dry-run-*` flag without
+/// adding it here can only ever be too cautious, never destructive.
+pub(super) fn effective_dry_run(args: &ApplyArgs) -> bool {
+    args.dry_run
+        || args.dry_run_shell
+        || args.dry_run_json
+        || args.dry_run_summary
+        || args.dry_run_diff
+        || args.dry_run_cost
+        || args.dry_run_graph
+        || args.dry_run_verbose
 }
 
 /// Early exits for dry-run and canary modes.
@@ -97,29 +157,17 @@ fn apply_pre_checks(args: &ApplyArgs) -> Result<(), String> {
 
 /// Mode-specific exits: preview, output_scripts, diff_only, check, refresh, plan_file.
 fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String>> {
-    if args.preview {
-        let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_plan(
-            &args.file,
-            &sd,
-            args.machine.as_deref(),
-            args.resource.as_deref(),
-            args.tag.as_deref(),
-            false,
-            true,
-            None,
-            args.env_file.as_deref(),
-            args.workspace.as_deref(),
-            false,
-            None,
-            false,
-            &[],
-            None,
-            false,
-        ));
-    }
+    // GH-210: `--preview` is NOT an exit — the scripts have already been
+    // printed by `dispatch_apply_cmd` and the apply proceeds below.
     if let Some(ref dir) = args.output_scripts {
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+        // GH-210: exporting scripts "for manual review" legitimately replaces
+        // the apply — but say so. The shipped version exited 0 with a plan and
+        // no state, and the next command failed with "cannot read state dir".
+        println!(
+            "--output-scripts: scripts written to {}; the apply was SKIPPED (nothing was changed).",
+            dir.display()
+        );
         return Some(cmd_plan(
             &args.file,
             &sd,
@@ -137,6 +185,7 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             &[],
             None,
             false,
+            args.group.as_deref(),
         ));
     }
     if args.diff_only {
@@ -158,6 +207,7 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             &[],
             None,
             false,
+            args.group.as_deref(),
         ));
     }
     if args.check {
@@ -238,7 +288,15 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         check_compliance_packs(&args.file, &args.policy_dir, verbose)?;
     }
 
-    let result = cmd_apply(
+    // GH-211: the four scope selectors that were declared and never read.
+    let scope = super::apply_scope::ApplyScope {
+        skip: args.skip.as_deref(),
+        only_machine: args.only_machine.as_deref(),
+        exclude_machine: args.exclude_machine.as_deref(),
+        resource_filter: args.resource_filter.as_deref(),
+    };
+
+    let result = cmd_apply_scoped(
         &args.file,
         &sd,
         args.machine.as_deref(),
@@ -246,12 +304,12 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.tag.as_deref(),
         args.group.as_deref(),
         args.force,
-        args.dry_run,
+        effective_dry_run(args),
         args.no_tripwire,
         &args.params,
         args.auto_commit,
         args.timeout,
-        args.json,
+        args.json || args.dry_run_json,
         verbose,
         args.env_file.as_deref(),
         args.workspace.as_deref(),
@@ -274,6 +332,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.telemetry_endpoint.as_deref(),
         args.refresh,
         args.force_tag.as_deref(),
+        &[],
+        &scope,
     );
 
     // FJ-1240: Encrypt state files after apply
@@ -283,6 +343,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         slack: args.notify_slack.as_deref(),
         email: args.notify_email.as_deref(),
         webhook: args.notify_webhook.as_deref(),
+        webhook_headers: args.notify_webhook_headers.as_deref(),
         teams: args.notify_teams.as_deref(),
         discord: args.notify_discord.as_deref(),
         opsgenie: args.notify_opsgenie.as_deref(),
@@ -370,4 +431,64 @@ fn check_compliance_packs(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests_gh208_dry_run_family {
+    use super::*;
+
+    // GH-208: --dry-run-shell/-json/-summary/-diff performed a REAL apply on the
+    // published 1.12.3 binary — files created, state written — because only
+    // `args.dry_run` reached the execute guard. Asking for a preview and getting
+    // a mutation is the most dangerous shape a flag can have.
+
+    fn args_with(f: impl FnOnce(&mut ApplyArgs)) -> ApplyArgs {
+        let mut a = ApplyArgs::default();
+        f(&mut a);
+        a
+    }
+
+    #[test]
+    fn every_dry_run_flag_suppresses_execution() {
+        // Asserted one flag at a time: a table of fn pointers trips the
+        // very-complex-type lint and reads no better.
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run = true)),
+            "--dry-run"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_shell = true)),
+            "--dry-run-shell must suppress execution: a flag named dry-run must never mutate"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_json = true)),
+            "--dry-run-json must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_summary = true)),
+            "--dry-run-summary must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_diff = true)),
+            "--dry-run-diff must suppress execution"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_cost = true)),
+            "--dry-run-cost"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_graph = true)),
+            "--dry-run-graph"
+        );
+        assert!(
+            effective_dry_run(&args_with(|a| a.dry_run_verbose = true)),
+            "--dry-run-verbose"
+        );
+    }
+
+    #[test]
+    fn a_plain_apply_is_not_dry_run() {
+        // The guard against "fixed" meaning "never applies anything".
+        assert!(!effective_dry_run(&ApplyArgs::default()));
+    }
 }

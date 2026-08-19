@@ -17,7 +17,7 @@ Convergence Proof: my-stack
 [PASS] codegen-completeness: all resources produce check/apply/state_query scripts
 [PASS] dag-acyclicity: DAG is acyclic (8 resources)
 [PASS] state-coverage: 0/8 resources have state entries (0%)
-[PASS] hash-determinism: 8 resources: state_query scripts are deterministic
+[PASS] codegen-determinism: 8 resources: check/apply/state_query codegen is deterministic (does NOT prove build-output reproducibility — see GH-247)
 [PASS] idempotency-structure: 8/8 apply scripts use set -euo pipefail (100%)
 ------------------------------------------------------------------------
 5/5 proofs passed
@@ -30,7 +30,7 @@ The five proof obligations:
 | codegen-completeness | Every resource type produces valid check/apply/state_query scripts |
 | dag-acyclicity | No cycles in the dependency graph |
 | state-coverage | State entries match declared resources |
-| hash-determinism | BLAKE3 hashes are deterministic (same resource → same hash) |
+| codegen-determinism | forjar's own code generation is a pure function of the resource — the same resource emits byte-identical check/apply/state_query scripts. **This does not prove your build output is reproducible**; a task with a non-deterministic generator passes it. Proving that needs regenerate-and-compare (GH-247). |
 | idempotency-structure | Apply scripts use `set -euo pipefail` for safe execution |
 
 ## SLSA Provenance Attestation

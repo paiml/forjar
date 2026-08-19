@@ -29,63 +29,63 @@ mod tests {
     fn test_plan_basic() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_json() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, true, false, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, true, false, None, None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_verbose() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, true, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, true, None, None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_machine_filter() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), Some("m1"), None, None, false, false, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), Some("m1"), None, None, false, false, None, None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_no_diff() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, true, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, true, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_cost() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, true, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, true, &[], None, false, None);
     }
     #[test]
     fn test_plan_why() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], None, true);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], None, true, None);
     }
     #[test]
     fn test_plan_what_if() {
         let f = write_cfg(CFG);
         let d = setup_state();
         let what_if = vec!["pkg=removed".to_string()];
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &what_if, None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &what_if, None, false, None);
     }
     #[test]
     fn test_plan_target() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, Some("pkg"), false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, Some("pkg"), false, &[], None, false, None);
     }
     #[test]
     fn test_plan_output_dir() {
         let f = write_cfg(CFG);
         let d = setup_state();
         let out = tempfile::tempdir().unwrap();
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, Some(out.path()), None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, Some(out.path()), None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_plan_out() {
@@ -93,7 +93,7 @@ mod tests {
         let d = setup_state();
         let out = tempfile::tempdir().unwrap();
         let plan_file = out.path().join("plan.json");
-        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], Some(plan_file.as_path()), false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, None, false, false, None, None, None, false, None, false, &[], Some(plan_file.as_path()), false, None);
     }
     #[test]
     fn test_plan_compact() {
@@ -117,12 +117,12 @@ mod tests {
     fn test_plan_tag_filter() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, None, Some("web"), false, false, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, None, Some("web"), false, false, None, None, None, false, None, false, &[], None, false, None);
     }
     #[test]
     fn test_plan_resource_filter() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_plan(f.path(), d.path(), None, Some("pkg"), None, false, false, None, None, None, false, None, false, &[], None, false);
+        let _ = cmd_plan(f.path(), d.path(), None, Some("pkg"), None, false, false, None, None, None, false, None, false, &[], None, false, None);
     }
 }

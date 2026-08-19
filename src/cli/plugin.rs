@@ -1,5 +1,6 @@
 //! FJ-3403: `forjar plugin` CLI handler — list, verify, init, install, build, remove.
 
+use super::plugin_run::cmd_plugin_run;
 use crate::cli::commands::PluginCmd;
 use crate::core::plugin_loader::{list_plugins, resolve_and_verify, resolve_manifest};
 use crate::core::types::PluginStatus;
@@ -47,7 +48,10 @@ fn cmd_plugin_list(plugin_dir: &Path, json: bool) -> Result<(), String> {
                 Err(_) => serde_json::json!({"name": name, "status": "error"}),
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries).unwrap());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&entries).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         if names.is_empty() {
             println!("No plugins found in {}", plugin_dir.display());
@@ -100,7 +104,10 @@ fn cmd_plugin_verify(manifest_path: &Path, json: bool) -> Result<(), String> {
                 "env": result.manifest.permissions.env,
                 "exec": result.manifest.permissions.exec },
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
+        );
     } else {
         println!(
             "Plugin: {} v{}",
@@ -120,10 +127,39 @@ fn cmd_plugin_verify(manifest_path: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Refs #213: a plugin name is a single directory component, never empty.
+///
+/// `plugin init ""` used to scaffold `plugins/plugin.yaml` — a manifest at the
+/// plugin ROOT, which `plugin list` cannot see (it enumerates subdirectories)
+/// while `plugin run ""` happily resolved it. A name that one half of the
+/// command set can address and the other half cannot is not a name.
+pub(crate) fn validate_plugin_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("plugin name must not be empty".to_string());
+    }
+    if name == "." || name == ".." {
+        return Err(format!("invalid plugin name: '{name}'"));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(format!(
+            "invalid plugin name '{name}': a plugin name is a single directory component, \
+             not a path (use --plugin-dir/--output to choose the location)"
+        ));
+    }
+    Ok(())
+}
+
 /// FJ-3407: Scaffold a new plugin project directory.
 fn cmd_plugin_init(name: &str, output: Option<&Path>, json: bool) -> Result<(), String> {
-    let base = output.unwrap_or_else(|| Path::new("plugins"));
-    let dir = base.join(name);
+    validate_plugin_name(name)?;
+    // Refs #211: `--output` is documented as "the plugin directory
+    // (default: plugins/<name>)" — the stated default INCLUDES the name, so
+    // `--output X` must yield `X/plugin.yaml`, not `X/<name>/plugin.yaml`.
+    // Treating it as a parent made the flag mean something the help never said.
+    let dir = match output {
+        Some(o) => o.to_path_buf(),
+        None => Path::new("plugins").join(name),
+    };
     if dir.exists() {
         return Err(format!(
             "plugin directory already exists: {}",
@@ -335,67 +371,6 @@ fn cmd_plugin_remove(name: &str, plugin_dir: &Path, yes: bool, json: bool) -> Re
         println!("Removed plugin '{}' v{}", name, version);
     }
     Ok(())
-}
-
-/// FJ-3404: Execute a plugin operation via the WASM runtime.
-fn cmd_plugin_run(
-    name: &str,
-    operation: &str,
-    plugin_dir: &Path,
-    config: &str,
-    json: bool,
-) -> Result<(), String> {
-    let valid_ops = ["check", "apply", "destroy"];
-    if !valid_ops.contains(&operation) {
-        return Err(format!(
-            "invalid operation '{operation}': use check, apply, or destroy"
-        ));
-    }
-    let config_json: serde_json::Value =
-        serde_json::from_str(config).map_err(|e| format!("parse config: {e}"))?;
-    let result = crate::core::plugin_dispatch::dispatch_check(plugin_dir, name, &config_json);
-    if !result.success {
-        return Err(format!("plugin resolve failed: {}", result.message));
-    }
-    let dispatch_fn = match operation {
-        "check" => crate::core::plugin_dispatch::dispatch_check,
-        "apply" => crate::core::plugin_dispatch::dispatch_apply,
-        "destroy" => crate::core::plugin_dispatch::dispatch_destroy,
-        _ => unreachable!(),
-    };
-    let result = dispatch_fn(plugin_dir, name, &config_json);
-    let runtime = if crate::core::plugin_runtime::is_runtime_available() {
-        "wasmi"
-    } else {
-        "stub"
-    };
-    if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "plugin": result.plugin_name,
-                "operation": result.operation,
-                "success": result.success,
-                "message": result.message,
-                "status": format!("{:?}", result.status),
-                "runtime": runtime,
-            })
-        );
-    } else {
-        println!("Plugin:    {}", result.plugin_name);
-        println!("Operation: {}", result.operation);
-        println!("Runtime:   {runtime}");
-        println!("Status:    {:?}", result.status);
-        println!("Success:   {}", result.success);
-        if !result.message.is_empty() {
-            println!("Message:   {}", result.message);
-        }
-    }
-    if !result.success {
-        Err(format!("plugin {operation} failed: {}", result.message))
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

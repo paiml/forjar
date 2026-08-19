@@ -107,15 +107,24 @@ pub fn cmd_fault_inject(file: &Path, resource: Option<&str>, json: bool) -> Resu
             ));
         }
 
-        // Scenario 6: Idempotency violation
-        scenarios.push(make_scenario(
-            id,
-            "idempotency-check",
-            "convergence",
-            "Apply twice: second apply should be no-op",
-            "Check script returns 0 on second apply; resource reported unchanged",
-            check_idempotency_contract(res),
-        ));
+        // Scenario 6: Idempotency violation.
+        //
+        // FJ-2725: a phony resource has no idempotency obligation — it names an
+        // ACTION and re-runs every time it is requested. Bulk apply drops it
+        // entirely, so it never runs twice within one apply. Asserting the
+        // property here would report a permanent failure for behaving exactly
+        // as designed.
+        if !res.phony {
+            scenarios.push(make_scenario(
+                id,
+                "idempotency-check",
+                "convergence",
+                "Apply twice: second apply should be no-op",
+                "Resource has an observable convergence signal, so a second \
+                 apply reports unchanged",
+                check_idempotency_contract(res),
+            ));
+        }
     }
 
     let total = scenarios.len();
@@ -163,6 +172,19 @@ fn make_scenario(
 }
 
 /// Check if resource has idempotency contract (check script or content-addressed).
+/// Does this resource have an observable signal that a second apply can read?
+///
+/// NOTE this is a STATIC property of the declaration, not an executed
+/// apply-twice experiment — the scenario text used to promise the latter
+/// ("Check script returns 0 on second apply"), which nothing here does.
+///
+/// FJ-2725: declared build I/O counts. A task with `output_artifacts` or
+/// `task_inputs` is exactly what the v1.11 staleness probe reads, so it has a
+/// stronger convergence signal than a bare `completion_check` — yet it failed
+/// this check, which meant every Makefile imported by `forjar import-makefile`
+/// reported an idempotency violation for its real build targets. Verified
+/// separately that those targets ARE idempotent: apply twice gives
+/// `0 converged, N unchanged`.
 fn check_idempotency_contract(res: &crate::core::types::Resource) -> bool {
     use crate::core::types::ResourceType;
     matches!(
@@ -170,6 +192,8 @@ fn check_idempotency_contract(res: &crate::core::types::Resource) -> bool {
         ResourceType::File | ResourceType::Package | ResourceType::Service
     ) || res.content.is_some()
         || res.completion_check.is_some()
+        || !res.output_artifacts.is_empty()
+        || !res.task_inputs.is_empty()
 }
 
 fn print_fault_report(report: &FaultReport) {

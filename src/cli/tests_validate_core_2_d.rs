@@ -168,6 +168,7 @@ mod tests {
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
+            min_purity: None,
             check_reproducibility_score: false,
             deny_unknown_fields: false,
         });
@@ -331,6 +332,7 @@ mod tests {
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
+            min_purity: None,
             check_reproducibility_score: false,
             deny_unknown_fields: false,
         });

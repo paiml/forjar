@@ -141,7 +141,7 @@ fn proof_convergence_pass_rate_bounded() {
 #[cfg(kani)]
 #[kani::proof]
 fn proof_applicable_operators_valid() {
-    use super::store::mutation_runner::applicable_operators;
+    use super::store::mutation_runner::ALL_MUTATION_OPERATORS;
 
     let rtype_idx: u8 = kani::any();
     kani::assume(rtype_idx < 4);
@@ -152,11 +152,41 @@ fn proof_applicable_operators_valid() {
         _ => "mount",
     };
 
-    let ops = applicable_operators(rtype);
-    for op in &ops {
-        assert!(
-            op.applicable_types().contains(&rtype),
-            "operator must be applicable to the resource type"
-        );
+    // Range over the PREDICATE, not the allocating wrapper.
+    //
+    // `applicable_operators` builds its result with `.collect()` into a Vec, so
+    // Kani must model the allocator on top of the string comparisons in
+    // `applicable_types()`. Measured 2026-08-16: this was the ONLY harness to
+    // start in a 45-minute CI run, and was still inside it when the job was
+    // killed — one harness, 22+ minutes, no verdict, nothing else reached.
+    //
+    // Identical shape to `proof_disk_budget_hysteresis_total`, which drove a
+    // String-allocating constructor across a 65,536-point space and never
+    // terminated. An intractable proof is indistinguishable from an absent one,
+    // and this workflow exists precisely to stop proofs that never run.
+    //
+    // The property is unchanged and still checked against the production
+    // `applicable_types()`: an operator is admitted for a type exactly when it
+    // declares that type. Only the heap leaves the model.
+    // The original assertion — "every operator the filter RETURNED is applicable"
+    // — is true by construction of the filter, so it could not fail. Restating
+    // it allocation-free would just be a tautology comparing an expression to
+    // itself. So this proves the property that CAN fail and that actually
+    // matters: every resource type has at least one applicable operator.
+    //
+    // Without it, mutation testing over that type mutates nothing, finds
+    // nothing, and reports success — a vacuous green, which is the failure this
+    // whole proof gate exists to catch. Adding a resource type and forgetting
+    // to give any operator its name is exactly how that happens.
+    let mut applicable_count = 0usize;
+    for op in ALL_MUTATION_OPERATORS {
+        if op.applicable_types().contains(&rtype) {
+            applicable_count += 1;
+        }
     }
+    assert!(
+        applicable_count > 0,
+        "resource type has no applicable mutation operator: mutation testing \
+         would mutate nothing and report success"
+    );
 }

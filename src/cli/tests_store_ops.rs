@@ -151,11 +151,15 @@ provenance:
 
     #[test]
     fn test_store_list_nonexistent() {
+        // GH-239: an absent store is an EMPTY store, not an error. The store is
+        // created by the first import, not by listing it, so a first run must
+        // not fail. This test previously pinned the opposite.
         let dir = TempDir::new().unwrap();
         let store = dir.path().join("no-store");
 
         let result = cmd_store_list(&store, false, false);
-        assert!(result.is_err());
+        assert!(result.is_ok(), "absent store must list as empty: {result:?}");
+        assert!(!store.exists(), "listing must not create the store");
     }
 
     #[test]

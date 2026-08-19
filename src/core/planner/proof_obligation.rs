@@ -50,6 +50,14 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Build => ProofObligation::Convergent,
         ResourceType::GithubRelease => ProofObligation::Idempotent,
         ResourceType::OverlayInterface => ProofObligation::Idempotent,
+        // Convergent, not idempotent: a second pass legitimately reclaims a
+        // different set of paths — the invariant is the watermark it converges
+        // to, never the specific deletions it performs to get there.
+        ResourceType::DiskBudget => ProofObligation::Convergent,
+        // Convergent: repeated passes drive coverage toward the declared
+        // threshold; the invariant is verified coverage, not a byte-identical
+        // transfer set.
+        ResourceType::BackupSync => ProofObligation::Convergent,
     }
 }
 
@@ -81,7 +89,9 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Destructive,
         ResourceType::Build => ProofObligation::Convergent,
         ResourceType::GithubRelease => ProofObligation::Convergent,
-        ResourceType::OverlayInterface => ProofObligation::Convergent,
+        ResourceType::OverlayInterface | ResourceType::DiskBudget | ResourceType::BackupSync => {
+            ProofObligation::Convergent
+        }
     }
 }
 

@@ -65,6 +65,7 @@ mod tests {
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         )
         .unwrap();
     }
@@ -137,6 +138,7 @@ policies:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -207,6 +209,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly

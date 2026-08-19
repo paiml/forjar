@@ -197,9 +197,15 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_tag_value_format,
         check_resource_provider_version_pinning,
         check_recipe_purity,
+        min_purity,
         check_reproducibility_score,
         deny_unknown_fields,
     } = args;
+
+    // GH-211: FJ-381 was destructured to `_schema_version` — accepted, never
+    // read. `validate --schema-version 99.0` reported the config valid against
+    // a schema version that was never consulted.
+    super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
 
     // FJ-2500: Unknown fields are always errors during validate (P0 — silent data loss).
     // The --deny-unknown-fields flag is now the default behavior; kept for backward compat.
@@ -230,6 +236,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         json,
         check_recipe_purity,
         check_reproducibility_score,
+        min_purity.as_deref(),
     )
     .or_else(|| {
         try_validate_checks_early_a(

@@ -243,3 +243,65 @@ bindings:
     signature: "fn state_query_script(resource: &Resource) -> String"
     status: implemented
     notes: "Heartbeat class (fresh/stale/missing) on stdout (drift-visible); raw monotonic values to stderr to avoid false drift; re-run is a plan-level NoOp"
+
+  # ── Provable IaC (provable-iac-v1) ─────────────────────
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::prove"
+    function: prove
+    signature: "fn prove(cfg: &ForjarConfig, file: &str) -> ProofReport"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::checkers::acyclicity"
+    function: acyclicity
+    signature: "fn acyclicity(cfg: &ForjarConfig) -> InvariantResult"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::checkers::conflict_freedom"
+    function: conflict_freedom
+    signature: "fn conflict_freedom(cfg: &ForjarConfig) -> InvariantResult"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::has_conflict"
+    function: has_conflict
+    signature: "fn has_conflict(keys: &[u64]) -> bool"
+    status: implemented
+  - contract: provable-iac-v1.yaml
+    equation: provability
+    module_path: "forjar::core::prove::plan_hash"
+    function: plan_hash
+    signature: "fn plan_hash(cfg: &ForjarConfig) -> String"
+    status: implemented
+
+  # ── FJ-266 Apply Receipt (paiml/infra#208) ─────────────
+  #
+  # Only the two equations that are FULLY satisfied are bound. This repo's
+  # build.rs policy requires every binding to be `implemented`, so an
+  # equation that is specified but not yet satisfied is left UNBOUND rather
+  # than bound at a softer status — see apply-receipt-v1.yaml §unbound for
+  # which ones, and why. Binding them as `implemented` would be the lie the
+  # contract exists to prevent.
+  - contract: apply-receipt-v1.yaml
+    equation: receipt_completeness
+    module_path: "forjar::core::executor::resource_ops::displaced_hash"
+    function: displaced_hash
+    signature: "fn displaced_hash(previous: Option<ResourceLock>) -> Option<String>"
+    status: implemented
+    notes: "The before-side of a converge. `BTreeMap::insert` returns the displaced
+      entry, so this costs no extra read. An empty stored hash collapses to None —
+      a recorded failure is not a previous state. Falsifiers RCP-006/007/008, all
+      three confirmed RED under mutation."
+
+  - contract: apply-receipt-v1.yaml
+    equation: receipt_deletion
+    module_path: "forjar::tripwire::eventlog::append_event"
+    function: append_event
+    signature: "fn append_event(state_dir: &Path, machine: &str, event: ProvenanceEvent) -> Result<(), String>"
+    status: implemented
+    notes: "Deletion is now representable via ProvenanceEvent::ResourceDeleted and
+      round-trips to the log. paiml/infra#208 is a deletion — every real file under
+      ~/.cargo/bin removed, every symlink left — so the one event class that would
+      have named it did not exist. Falsifier RCP-001."

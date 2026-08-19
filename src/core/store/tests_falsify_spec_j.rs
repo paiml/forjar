@@ -215,6 +215,7 @@ fn falsify_l22_diff_exec_carries_diff() {
 fn falsify_l23_sync_exec_profile_hash() {
     let result = SyncExecResult {
         re_imported: vec![],
+        derivations_planned: 0,
         derivations_replayed: 0,
         new_profile_hash: Some("blake3:new_profile".to_string()),
     };
@@ -222,6 +223,7 @@ fn falsify_l23_sync_exec_profile_hash() {
 
     let result_none = SyncExecResult {
         re_imported: vec![],
+        derivations_planned: 0,
         derivations_replayed: 0,
         new_profile_hash: None,
     };

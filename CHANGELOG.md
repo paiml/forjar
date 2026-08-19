@@ -7,6 +7,950 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-19
+
+Same failure shape as 1.14.0 — **reporting a result that was never measured** —
+found this time from the consuming side, during a live fleet outage.
+
+Note: 1.14.0 was prepared but never published to crates.io, so this release
+also carries everything listed under 1.14.0 below.
+
+### Fixed
+
+- **A check that could not run reported the config as clean.**
+  `check_unknown_fields` re-parses raw YAML as a second pass and swallowed a
+  parse failure as `Vec::new()` — indistinguishable from a clean config.
+  paiml/infra's `machines/lambda-labs/forjar.yaml` reported `OK: 82 resources`
+  while carrying `fs_type:` (the field is `fstype`), and the identical typo in
+  a sibling config was correctly rejected. Same binary, opposite answers. The
+  cause was a duplicate resource key 1200 lines away, which disabled
+  unknown-field checking for the entire file.
+
+- **Unresolved secret placeholders were emitted as credentials.**
+  `resolve_or_fallback` returns the unresolved resource by design; nothing
+  bounded the consequence. A `file` with `content: "API_KEY={{secrets.NAME}}"`
+  wrote that literal string to disk. Guarded at codegen dispatch, so one
+  unresolvable secret fails one resource rather than the whole machine.
+
+- **A multi-line `completion_check` emitted invalid bash.** A YAML `|` block
+  scalar keeps its trailing newline, so the appended `; }; then` landed on its
+  own line — an empty statement, `syntax error near unexpected token ';'`.
+  Fourteen resources on one host failed identically on a single apply.
+
+- **The cargo check trusted cargo's install record, not the binary.**
+  `cargo install --list` is a *record*; it is a different file from the
+  binaries and nothing keeps them in agreement. After a CI cache-prune emptied
+  a shared `~/.cargo/bin`, `apply -t stack-tools` reported 5 of 5 resources
+  converged on a host with no rustup, no cargo and no rustc. The record is now
+  used only for *which binaries a crate owns*; each one is then run.
+  Includes a cargo-subcommand fallback (`cargo-X X --version`), without which
+  `cargo-mutants` and `cargo-llvm-cov` are reported missing forever, and the
+  version is matched against what the **binary** reports — a path-installed
+  crate records its source dir in the header, and a record can be stale while
+  the binary is correct.
+
+- **`--refresh` was a dead flag.** Documented as "Re-run check scripts, only
+  re-apply what fails" and read by nothing in production code. It returned in
+  0.1s without contacting the host and reported `1 unchanged` over a binary
+  that had been reduced to a dangling symlink. This is why a broken host could
+  report converged: `apply` compares config to its lock and never looks at the
+  machine. It now runs each in-scope resource's check on its host and evicts
+  failing lock entries. Plain `apply` deliberately stays lock-based.
+
+- **Repair could not overwrite a dangling symlink.** `cp` refuses
+  ("not writing through dangling symlink"), and so does `cp -f` — which is the
+  exact state a cache-prune leaves behind, so the one thing most needing
+  repair was the one thing that could not be repaired. Placement now uses
+  `install`, which is also portable to macOS unlike `cp --remove-destination`.
+
+### Security
+
+- **h2 0.4.13 → 0.4.16** for RUSTSEC-2026-0258 (unbounded empty DATA frames;
+  unbounded memory growth or a panic on overflow). Transitive via
+  hyper/reqwest; lockfile-only.
+
+## [1.14.0] - 2026-08-17
+
+A release about one failure shape: **a check that reported confidently on
+something it had not measured.** Sixteen issues, all of that family.
+
+### Fixed
+
+- **`composite_hash` was not injective** (#235). NUL-separated components with
+  no length framing collide: `["a\0b"]` and `["a", "b"]` hashed identically.
+  This is the store's address function, so two different derivations could
+  claim one store path. Now domain-separated and length-prefixed.
+
+- **`prove` reported hash-determinism PASS for non-deterministic builds**
+  (#248). It compared one pure function against itself — a tautology that
+  could not fail. It now checks the codegen phases that can actually differ.
+
+- **`execute_sync` reported the planned replay count as the executed count**
+  (#249). A partial replay reported as complete.
+
+- **Purity was reported but never enforced** (#241), and its monotonicity
+  invariant was dead in production because `dep_levels` was always empty.
+
+- **The store root was a hardcoded root-owned const** (#239) — unprivileged
+  users could not use the store at all. Now resolved with a writability probe
+  and a `FORJAR_STORE` override.
+
+- **A task reported converged without reaching its declared state** (#254).
+  `completion_check` gated whether the command *ran* and was never
+  re-evaluated after, so "converged" meant "the command exited 0". On
+  paiml/infra's `lean-toolchain`, `sudo: true` made `$HOME=/root`; every
+  command succeeded, forjar reported `1 converged, 0 failed`, and
+  `command -v lean` failed immediately afterwards.
+
+- **The cargo package check asked the PATH, not cargo** (#257). `command -v`
+  finds a binary whose name matches; it cannot tell you the crate is
+  installed. Now `cargo install --list`.
+
+- **`apply -r` prompted with a count it would not act on** (#253). The
+  confirmation counted the *unscoped* plan: `plan -r X` promised 1 while apply
+  offered 69. Execution was correctly scoped throughout — apply acted on 1 —
+  but the prompt is the number an operator approves on, and
+  `plan-apply-equivalence-v1` obliges the two to agree.
+
+- **Two container tests asserted a wall-clock budget** (#259) — 4s in
+  isolation, over 30s under the full suite, same commit. They measured how
+  busy the machine was. They now assert dispatch provenance.
+
+- **Five contracts had never validated** (#251), for two layers of reasons:
+  proof-obligation types outside the schema vocabulary, then a flat
+  `enforcement` block where the schema wants named rule structs, a unit
+  smuggled into a u32 `bound`, and an unknown kani `strategy`.
+
+### Added
+
+- **A named library surface** (#240, #245) — `forjar::api` re-exports the 7
+  functions and 4 types a consumer needs for content-hash staleness, instead
+  of 1844 public items across 195 modules with no supported subset.
+
+- **A CI job that runs the proofs, and proofs that can actually run** (#242).
+  Kani harnesses and Lean proofs sat in the tree, cited by name as evidence in
+  `contracts/*.yaml`, and nothing executed them — they did not even compile.
+  Fixing the compilation only revealed the real state: of 21 harnesses, 7
+  failed, 2 were never reached, and 2 were intractable (117 min, and 48 GB of
+  RSS at 48 min).
+
+  Two root causes, both now rules rather than one-off fixes:
+
+  1. **Symbolic input reaching allocating code.** `format!` on a validator's
+     error path drags `core::fmt` into the model, and CBMC models every path —
+     not merely the one the property asserts on. Validators a harness drives
+     now return a verdict (`classify_remote`, `hysteresis_holds`) and render
+     the message in the caller. 117 min → 104 s; 48 min → 35 s.
+  2. **A model checker cannot verify through a cryptographic hash.** Measured:
+     blake3's default build fails outright (`foreign "C" function syscall`),
+     and its portable `pure` build reached 29.1 GB of RSS still running at 36
+     minutes. Nine harnesses reached a hash. Three were tautologies about the
+     `blake3` crate; the rest are discharged executably, two of them by tests
+     written to replace them because they had no coverage at all.
+
+  A contract citing a proof that does not exist is the same defect one level
+  up, so `every_harness_a_contract_names_actually_exists` now guards it — and
+  found two pre-existing cases on its first run, where Lean theorems were
+  declared under `kani_harnesses:`.
+
+  Result: **20 harnesses, 20 verified, 0 failed.**
+
+- `LICENSE-APACHE`, which `Cargo.toml` had claimed for some time (#243).
+
+### Changed
+
+- The README no longer claims "Pure Rust with zero C dependencies" (#238);
+  there are 8 C-backed crates in the default tree.
+
+- `dist-output/` is removed and gitignored (#256). Release generates into
+  `/tmp/dist-output`; the copy committed at the repo root had drifted from the
+  maintained `install.sh` and carried all 7 of the repo's bashrs SEC findings.
+
+### Known limitations
+
+Six issues remain open and are **features, not defects** — deliberately not
+rushed into this release:
+
+| # | |
+|---|---|
+| #236 | store has no output-content digest (no dedup, no corruption detection) |
+| #244 | undeclared task inputs are undetectable |
+| #246 | byte-identity is the only equivalence predicate |
+| #247 | no regenerate-and-compare verification mode |
+| #237 | no default feature set — `default-features = false` is a no-op |
+| #228 | registry push still shells out to curl |
+
+
+## [1.13.2] - 2026-08-16
+
+### Added
+
+- **`forjar dogfood` — exercise generated artifacts against reality** (FJ-038).
+
+  Three releases in two days each fixed the previous one, and every one had
+  passed 12,904 unit tests, a five-gate clean room and a 19-check CI run. The
+  common cause was not missing tests: it was that the fixtures and the code
+  shared an author, so each fixture confirmed the assumption it was meant to
+  test. The rclone stub emitted whichever status characters the author believed
+  in. The cargo fixture carried both marker files because the author believed
+  both were present.
+
+  **A test you author cannot falsify a premise you hold.** `forjar dogfood`
+  invokes the real external tool and builds the on-disk shapes that really
+  occur, then asserts reality agrees with what the code assumes:
+
+  - `backup_sync` runs `rclone check --combined` against a four-case fixture and
+    confirms `= * + -` mean what the coverage counters assume;
+  - `disk_budget` builds all four real cargo layouts — repo target root, per-arch
+    subdirectory, cargo registry, and a `cc`-style source dir named `target` —
+    and confirms the first two are detected and the last two are not;
+  - `file` and `cron` execute their emitted shell under **bash**, the interpreter
+    every forjar transport actually uses.
+
+  A missing external tool is a FAILURE, not a skip: dogfooding a resource built
+  on a tool's output format, without that tool, proves nothing.
+
+  Coverage is declared by an **exhaustive match** over `ResourceType` with no
+  wildcard arm, so a new resource type fails to compile until its dogfood status
+  is stated, and `NotApplicable` requires a written reason that is printed on
+  every run. The previous `scripts/dogfood-use.sh` covered only `file` resources
+  and still reported success while two new resource types shipped broken; a gate
+  that can silently stop covering things is worse than none, because it reports
+  GO with authority.
+
+  Verified by mutation — reintroducing each shipped bug turns the gate RED:
+
+  ```
+  both-markers cargo rule (1.13.1) -> FAIL disk_budget: repo target root NOT detected
+  inverted rclone +/-     (1.13.0) -> FAIL backup_sync: counter keyed on wrong character
+  ```
+
+- **`forjar codegen -r <resource> --phase apply|check|state-query`** — emit the
+  shell a resource generates, resolved as `apply` would resolve it. A resource
+  whose real payload is synthesised shell cannot be dogfooded, or debugged, if
+  the artifact cannot be got at.
+
+### Fixed
+
+- **`disk_budget` matched no cargo target directory on a real fleet machine.**
+  Detection required BOTH `CACHEDIR.TAG` and `.rustc_info.json`. Measured on
+  lambda-labs across a 4.6 TB `targets/` tree: **zero of 16** marker-bearing
+  directories carried the pair.
+
+  ```
+  targets/<repo>                 .rustc_info.json,  NO CACHEDIR.TAG
+  targets/<repo>/<arch-triple>   CACHEDIR.TAG,      NO .rustc_info.json
+  ```
+
+  cargo writes `.rustc_info.json` at the target root and `CACHEDIR.TAG` in the
+  per-arch subdirectories, so the conjunction is satisfied by neither. The
+  reaper triggered at 94% used, enumerated nothing, reclaimed 0 bytes and
+  reported `health=inert` — the exact silent-inertness the resource exists to
+  prevent, reached by a different route.
+
+  A directory is now a cargo target dir when it has `.rustc_info.json`
+  (definitive), **or** `CACHEDIR.TAG` together with a `debug/` or `release/`
+  subdirectory. That second clause is what still keeps the reaper out of
+  `~/.cargo/registry`, which carries `CACHEDIR.TAG`, lacks `.rustc_info.json`,
+  and whose children are `src/`, `cache/`, `index/` rather than build output.
+
+  Both directions are pinned by falsification tests built from the measured
+  layouts, and both were verified to turn RED under mutation: restoring the
+  conjunction fails the per-arch test, and dropping the build-output
+  requirement fails the registry-protection test.
+
+
+## [1.13.1] - 2026-08-15
+
+### Fixed
+
+- **`backup_sync` read rclone's `--combined` status characters backwards, and
+  the error inflated coverage.** They are not the intuitive way round:
+
+  ```
+  + path   missing on the DESTINATION  -> present locally, NOT backed up
+  - path   missing on the SOURCE       -> only in the remote (stale)
+  ```
+
+  1.13.0 counted `-` as "missing from the remote". Files that were genuinely
+  not backed up produce `+`, which nothing counted — so they fell out of the
+  coverage denominator entirely and a backup **missing data reported higher
+  coverage than one that had all of it**. That is the precise class of
+  overstated-health failure the resource exists to prevent, shipped inside it.
+
+  `+` now feeds the missing count. `-` is tracked separately as
+  `stale_in_remote` and deliberately excluded from the denominator: a file
+  present only in the remote means the local copy was deleted, not that
+  anything is unprotected, and counting it would make every local deletion read
+  as a backup fault until the next sync.
+
+  Caught by running `rclone check --combined` against a real fixture rather
+  than trusting the flag's name. The regression test now asserts the mapping
+  explicitly, and the falsification stub emits rclone's real characters.
+
+- **`a_missing_rclone_binary_stops_the_run` was host-dependent.** It relied on
+  rclone not being installed on the machine running the tests, and broke the
+  moment rclone was deployed. It now builds a hermetic PATH containing only the
+  utilities the preflight needs.
+
+
+## [1.13.0] - 2026-08-15
+
+Two new resource types, both born from the same failure mode on one machine:
+a guard that was deployed, enabled, reporting success, and doing nothing.
+
+### Added
+
+- **`disk_budget` — free space as declared machine state** (FJ-036).
+
+  lambda-labs reached 100% on `/` (1.2 G free) while a reaper ran nightly on
+  schedule and exited 0 every time. Over the preceding month it reclaimed 1.6 G
+  total, across a slide from 370 G free to 1.2 G and through an earlier
+  100%-full event. It was deployed, enabled, and `systemctl` reported it active
+  throughout. Three independent defects, each individually sufficient:
+
+  - a fixed 7-day idle TTL on a box whose build trees turn over in two days, so
+    every candidate was legitimately "recent" and it correctly declined to
+    delete anything, all the way to full;
+  - build directories matched by **name** (`target|target-local|target-private`),
+    so the 189 G living in `.target` was never even enumerated;
+  - it never read `df`, so a run that reclaimed nothing at 100% pressure was
+    indistinguishable from a healthy no-op.
+
+  A `disk_budget` declares watermarks per filesystem. A high watermark triggers
+  a reclaim pass; the pass runs until a low watermark is restored, oldest-first,
+  and halts there rather than exhausting its candidates. The two thresholds
+  cannot be collapsed into one — hysteresis is enforced at parse time, because a
+  pass that stops while still above its trigger re-fires on every tick.
+
+  Candidates are found **behaviourally, never by name**: cargo build directories
+  by the markers cargo itself writes (`CACHEDIR.TAG` *and* `.rustc_info.json`),
+  git worktrees by asking git. Requiring both cargo markers is what keeps the
+  reaper out of `~/.cargo/registry`, which carries the tag and not the info file.
+
+  Crucially, **a triggered pass that misses its target exits non-zero**, so an
+  inert reaper becomes a failed unit and is visible to `forjar drift` instead of
+  silently green. `state_query` publishes health *classes* on stdout and raw
+  byte counts on stderr, so volatile values never enter the drift hash.
+
+- **`backup_sync` — an offsite copy that must prove it exists** (FJ-037).
+
+  The same machine held ~2.1 TB of irreplaceable media on a 4-wide RAID0 with no
+  parity, and zero bytes of it anywhere off that array, while an hourly job
+  reported `Backup complete` for months. It rsynced a directory to a symlink
+  pointing back at that same directory, and its success metric ran `find` on
+  that symlink without `-L` — printing `Files: 0` while 77 matching files sat
+  there. Structurally zero on every input, not merely on an empty one.
+
+  `backup_sync` rejects a destination that is not an rclone `remote:path`, and
+  proves at runtime that the remote is *configured and reachable* before a byte
+  moves — an unconfigured rclone remote silently degrades to a local path, which
+  is the same self-referential failure by another route.
+
+  Health is a count of files verified present in the remote **by checksum**
+  (`rclone check --combined`), compared against the source. Zero examined or zero
+  matched is a failure, not a pass. A run below the declared coverage threshold
+  exits non-zero.
+
+  `apply` deliberately does *not* run the sync, unlike `disk_budget`: seeding
+  terabytes takes days under provider upload caps, and a deployer that runs the
+  job also writes the status file that is supposed to be evidence the *service*
+  ran. `apply` arms the timer; `state_query` reads the journal, which the
+  deployer cannot forge.
+
+  forjar owns the generated `rclone.conf` so the remote definition is declared
+  state rather than a manual step that can go missing. Backend and options live
+  in the repo; the OAuth token arrives through the secrets provider. A literal
+  token is refused at parse time, an unresolved `{{secrets.x}}` at codegen, and
+  the file is written under `umask 077` at 0600 with an atomic rename.
+
+### Fixed
+
+- **Removing a systemd resource no longer leaves an orphaned unit.** `state:
+  absent` deleted unit files while the unit was still loaded, leaving it
+  `Active: failed` with *"Unit to trigger vanished"* — invisible to an apply
+  that reported converged. Teardown now stops, disables, removes, reloads, and
+  clears the failed state, in that order.
+
+- **`hash_desired_state` now covers scripts a handler generates.** A resource
+  whose payload is synthesised is not fully described by its declaration: two
+  forjar versions can emit different scripts from identical YAML. The planner
+  compared only the declaration, reported `unchanged`, and left machines running
+  the previous generated artifact. All three emitted scripts are hashed — folding
+  in only `apply` would pin `apply`=unchanged against `drift`=drifted forever,
+  with nothing re-recording state.
+
+- **`RESOURCE_FIELDS` completeness is now enforced by reflection.** A field added
+  to `Resource` but missing from the parser's hand-maintained allow-list was
+  accepted by serde and then rejected by validation as `unknown field`, so a
+  fully-implemented, fully-tested feature was undeclarable in YAML. A test walks
+  the serialised struct, so the next omission fails a test instead of shipping.
+
+- Templated values in reclaim roots and backup sources are resolved. An
+  unexpanded `{{params.home}}` silently matches nothing, which for a reaper or a
+  backup means "protects nothing" while reporting success.
+
+### Notes for handler authors
+
+Both handlers ship a test that runs every emitted script through
+`purifier::validate_script` — the same call `forjar apply` makes. Its absence let
+six I8 violations ship in `disk_budget`: the resource passed 12,000+ tests and
+was rejected on every machine, because nothing in the suite exercised the
+purification path production uses. If you add a resource type, add that test.
+
+## [1.12.6] - 2026-08-12
+
+### Fixed
+
+- **`build --push` now names the missing binary instead of reporting an errno**
+  ([#224](https://github.com/paiml/forjar/issues/224)). Every OCI registry
+  request shells out to `curl`, an undeclared runtime dependency. On a host
+  without it the first HEAD died as `curl HEAD: No such file or directory (os
+  error 2)` — which names neither curl nor the fact that a required external
+  binary is absent, and reads like a network or registry fault.
+
+  A preflight at `push_image()` — the single funnel every push goes through —
+  now fails early with an actionable message, before any partial upload begins.
+
+  Found by infra's clean-room gate (a container holding only what the crate
+  declares) while GitHub CI was green on the same commit, because the CI image
+  happens to ship curl. A user running `cargo install forjar` on a minimal host
+  would have hit the original error.
+
+  This makes the dependency legible; it does not remove it. The crate already
+  compiles `reqwest`, so doing the registry HEAD/PUT natively would drop the
+  shell-out entirely — tracked in #224.
+
+## [1.12.5] - 2026-08-12
+
+### Changed
+
+- **bashrs floor raised `6.64.0` → `6.66.3`** (lockfile moves 6.66.0 → 6.66.3).
+  forjar surfaces bashrs' linter directly to users — `bashrs::linter::lint_shell`
+  in the purifier, plus `forjar lint` and the MCP handlers — so bashrs' lint
+  fixes are forjar's user-visible behaviour.
+
+  This is a **floor** bump, not just a lockfile refresh, and deliberately so:
+  bashrs 6.66.3 retires MAKE016, whose autofix **corrupted Makefiles**. A caret
+  range still admitting 6.64.0 would let a consumer resolve back into a
+  Makefile-corrupting autofix, which matters because v1.12's headline feature is
+  Makefile ingest.
+
+  What forjar users gain: no more spurious diagnostics inside quoted heredocs
+  (`<<'EOF'` bodies are literal text, not shell — provisioning scripts and
+  `command:` blocks are full of them), MAKE003 no longer trips over Make's `$$`
+  escape, and MAKE010 recognises `|| exit` / `|| return` / `|| die` tails as
+  error handling.
+
+  No API changes were required: the full suite passes unmodified against 6.66.3
+  (12776 passed, 0 failed).
+
+## [1.12.4] - 2026-08-11
+
+### Fixed
+
+- **Dogfooding sweep of the published 1.12.3 across CLI / MCP / LSP / HTTP**
+  ([#208](https://github.com/paiml/forjar/issues/208)): 101 confirmed defects,
+  4 of them BLOCKERs. Resolved in
+  [#216](https://github.com/paiml/forjar/pull/216) together with
+  [#211](https://github.com/paiml/forjar/issues/211),
+  [#212](https://github.com/paiml/forjar/issues/212),
+  [#213](https://github.com/paiml/forjar/issues/213),
+  [#214](https://github.com/paiml/forjar/issues/214) and
+  [#215](https://github.com/paiml/forjar/issues/215):
+
+  - **[A]** 15 flags were declared on the clap struct and never consumed —
+    accepted on the command line and silently ignored. Notably every one of the
+    eight dry-run spellings is now ORed fail-safe, so `--dry-run` cannot be
+    dropped by a code path that only checked one of them.
+  - **[C]** 26 defects where machine-readable output was malformed or leaked
+    Rust `Debug` formatting into what callers parse as JSON.
+  - **[D]** 5 selectors that filtered part of the output but not the rest,
+    leaving precomputed counters disagreeing with the rows they summarise.
+  - **[E]** 8 cases where invalid input was accepted or crashed instead of
+    being rejected — including workspace names containing `..`, which are now
+    refused before any filesystem access rather than after.
+  - **[Z]** 19 assorted correctness defects, including MCP state-directory
+    resolution, which resolved relative to the process working directory
+    instead of the config file's directory.
+
+  These were found by `cargo install`-ing the published crate and driving every
+  interface, not by the test suite: two MCP handlers had been wrong since they
+  were written and had passing tests that only asserted `Ok`.
+
+
+- **`build --push` fabricated a push** ([#210](https://github.com/paiml/forjar/issues/210)).
+
+  With a network it printed `Push complete: 3 uploaded` and exited 0 having
+  uploaded nothing; with no network at all it printed
+  `push skipped: registry unreachable` and **still exited 0**. The target was
+  `docker.io/app:latest` whatever the resource declared:
+
+  ```console
+  $ unshare -rn forjar build --resource img --push   # no network whatsoever
+    registry: docker.io
+    name: app
+    tag: latest
+    push skipped: registry unreachable (no Location header in upload response)
+  $ echo $?
+  0
+  ```
+
+  Five defects, each sufficient on its own to make the success line false:
+
+  1. Transport failures were swallowed into a "skipped" line and `Ok(())`.
+  2. The push target was re-derived from `name`/`version` with a different
+     default (`app`/`latest`) than the build used, and split at the first `/`,
+     so `myorg/app` parsed as registry `myorg`. `tag:` on an image resource was
+     parsed and dropped entirely. The push now reuses the exact reference the
+     build stamped into the image, parsed by
+     `core::store::image_ref::parse_image_ref`.
+  3. Success was gated on the presence of a `Location:` header. `docker.io` is
+     a website: it answers the upload POST with a 301 to the marketing site,
+     whose `Location` was taken as an upload session — the blob was PUT at a
+     web page, which returned 200. The status code is now the gate (202
+     Accepted), and Docker Hub resolves to `registry-1.docker.io`.
+  4. The manifest was uploaded as a *blob* and never PUT to the tag, so even a
+     fully successful run created no pullable tag. It is now PUT to the tag.
+  5. `?digest=` was concatenated onto session URLs that already carry a query
+     string (`?_state=…`), which every real registry rejects with
+     `BLOB_UPLOAD_INVALID`.
+
+  `Push complete` is now printed only after forjar re-reads the tag from the
+  registry and confirms it resolves to the manifest just pushed; every other
+  outcome is a non-zero exit. HTTP 401 is reported as what it is — forjar
+  implements no registry credentials, so an authenticated registry is refused
+  with a pointer to `--load` + `docker push` or `--far`. Anonymous-write
+  registries push and verify for real (`docker pull` of the pushed digest
+  succeeds).
+
+
+## [1.12.3] - 2026-08-10
+
+### Fixed
+
+- **`apply` deployed stale content while reporting "unchanged"** when a file
+  resource's `source:` file changed ([#206](https://github.com/paiml/forjar/issues/206)).
+
+  `hash_desired_state` hashes resource *field strings*. For `content:` that is
+  correct — the content **is** the field. For `source:` the field is a **path**, so
+  editing the referenced file left the hash identical, `determine_present_action`
+  planned `NoOp`, and apply skipped the resource:
+
+  ```console
+  $ echo VERSION-ONE > payload.txt && forjar apply -f repro.yaml --yes
+  Apply complete: 1 converged, 0 unchanged.
+  $ echo VERSION-TWO > payload.txt && forjar apply -f repro.yaml --yes
+  Apply complete: 0 converged, 1 unchanged.
+  $ cat /tmp/deployed          # -> VERSION-ONE   (stale)
+  ```
+
+  `--force` was the only workaround. For a tool whose contract is "converge to
+  declared state", silently not converging while printing success is the worst
+  available failure mode. Observed live in paiml/infra PMAT-204, where an edited
+  reconciler script reported "converged" three times while the machine kept
+  executing the previous copy.
+
+  The planner now folds the **content hash** of the `source:` file into the
+  desired state. The component is **appended**, and only for resources that
+  declare `source:`, so no recorded hash for any other resource on any machine is
+  invalidated. Path identity is preserved (same bytes at different paths still
+  hash differently), and a source that appears or disappears now changes the hash
+  rather than staying pinned at "unchanged".
+
+  Note: source-based file resources will show one `Update` on the first apply
+  after upgrading, as their hash gains the new component. That re-apply is
+  convergent and expected.
+
+### Added
+
+- `contracts/source-content-identity-v1.yaml` — the **completeness** leg of
+  `idempotent-apply-v1`. That contract asserts "differing hash always plans
+  Update", which is sound but vacuous if the hash cannot differ when the deployed
+  artifact differs. 7 falsification tests, including an end-to-end reproduction.
+- `src/core/planner/tests_hash_source.rs` — 5 tests covering content change,
+  determinism, path identity, source appearance, and non-regression of
+  source-less resources.
+
+## [1.12.2] - 2026-07-29
+
+Four design defects, each one a place where forjar reported on something other
+than the thing that would actually run. They were found by a design review of
+1.12.1 rather than by a failing test, because in every case the test suite and
+the CLI output agreed with each other and both were wrong.
+
+### Fixed
+
+- **`apply` treated a zero exit code as proof the work happened.** A task
+  declaring `output_artifacts` whose command exited 0 without producing them was
+  recorded as converged, and the state lock then asserted an artifact that was
+  not on disk. Apply now verifies declared outputs exist on local machines
+  before recording success, and names the missing ones when they don't.
+- **The script was readable as its own stdin.** The transport feeds the
+  generated script to `bash` on stdin, so a task command that itself reads stdin
+  (`cat > f`, `read`, `xargs`) consumed the remaining script lines. The task
+  half-executed and reported success, having silently eaten its own tail. Every
+  script is now wrapped `{ ... } < /dev/null` at the one point where scripts are
+  executed, so a command's stdin can never be the script.
+- **`forjar prove` proved the unresolved config.** It read `config.resources`
+  before template expansion, so a proof about conflict-freedom examined
+  `${var}/out` rather than the path two targets would really write. Two targets
+  that genuinely collide after expansion were reported as
+  `[PASS] I3 conflict-freedom: [CHECKED] 2 targets disjoint`. `prove` now
+  resolves first.
+- **`forjar lock` hashed the unresolved config.** The lockfile therefore
+  fingerprinted the template text rather than the values, so two configs that
+  expand to different infrastructure could share a hash. `lock` now resolves
+  before hashing.
+
+## [1.12.1] - 2026-07-28
+
+Three interface defects found by installing 1.12.0 from crates.io and driving
+every CLI, MCP and LSP surface against a real project. None was visible from a
+schema, a `tools/list`, or a handler test that only asserted "returns Ok".
+
+### Fixed
+
+- **MCP `forjar_plan` reported every resource as a pending change.**
+  `ExecutionPlan::changes` carries EVERY resource with its action, NoOp
+  included; `cli::plan` filters those before counting and the MCP handler did
+  not. A fully converged project reported all 6 of its resources as pending
+  while the CLI reported `0 to change`. It also included phony resources, which
+  are goal-only.
+- **MCP `forjar_status` returned no machines, ever.** It scanned the state
+  directory for files with a `.json` extension; a machine's state is a
+  DIRECTORY, `state/<machine>/state.lock.yaml`. The CLI printed
+  `Machine: local (localhost)` for the same project.
+- **`forjar lsp` was an unrecognized subcommand.** The language server is
+  complete and has 80 passing tests, but no `Commands` variant dispatched it,
+  so no editor could start it. Now wired and documented.
+
+### Known
+
+`core::webhook_server` implements an HTTP endpoint with 16 tests including live
+socket accept/reject, but nothing starts it — there is no `forjar webhook`
+command. Exposing a listening socket needs bind-address and authentication
+decisions, so it is a design question rather than a wiring fix; tracked in
+PMAT-200 rather than added unilaterally in a patch release.
+
+## [1.12.0] - 2026-07-28
+
+forjar can now **replace and ingest** a trivial Makefile. Getting there required
+fixing five defects, four of which shared one shape: a signal that reported
+success without ever consulting the world.
+
+### Added
+
+**`forjar make [GOALS...]`** — builds each goal and its transitive
+prerequisites, and nothing else. `resolver::goal_closure` walks `depends_on`
+upward; the result is downward-closed by construction, so a pruned config can
+never execute against an unconverged prerequisite. That is the property that
+makes goal selection safe where `--subset`/`--exclude` pattern filters are not,
+and it is what `-r` never had: `-r` is exact-match with NO closure, so
+`apply -r link` runs link and silently skips the compile step it depends on,
+linking whatever objects happen to be on disk. That is `make -o`, not `make`.
+
+**`phony: true`** — a make-style target that names an ACTION, not a file. It is
+excluded from bulk apply and plan entirely, and runs unconditionally when named
+as a goal. Goal-only is the only reading that preserves idempotency: "runs on
+every apply" would propagate dirtiness through its whole transitive closure and
+stop `plan` ever reaching "0 to change"; "phony prerequisites auto-run when
+reached" is not convergent, because a `clean` that `build` depends on deletes
+the outputs that make `build` stale, forever.
+
+**`forjar import-makefile`** — ingests a single-makefile, non-recursive build by
+joining two streams from one `make` invocation: `-p` gives structure with
+UNEXPANDED recipes, `--trace` gives the expanded commands. The join key is
+`(recipe file, recipe line, target)` — the target name is load-bearing, because
+`build/main.o` and `build/util.o` both trace as `Makefile:14` when they share a
+pattern rule.
+
+Two measured hazards shaped the invocation more than the parser. An up-to-date
+tree emits NO commands (`Nothing to be done`), so `-B` is mandatory or the
+import yields structure with no commands for exactly the targets that matter.
+And pattern rules only instantiate during goal resolution, so import is two
+passes: enumerate names, then ask for them all by name.
+
+Recipes emit one **subshell per logical line** (after folding backslash
+continuations), reproducing make's per-line shell isolation exactly — so
+`cd build && ./app`, an idiom far too common to refuse, imports faithfully.
+Order-only prerequisites become `depends_on` edges and never `task_inputs`;
+hashing a directory as an input is what made 1.11.0 an idempotency pump.
+
+Recursive make, `.ONESHELL`, double-colon rules, VPATH and GNU make < 4.0 are
+**refused with reasons, writing nothing**. An importer that silently
+mistranslates is worse than none: its output looks like your build and is not
+one.
+
+### Fixed
+
+**`forjar check` reported `pass` for every resource, unconditionally** — for
+every resource type, since at least 2026-02-27. Verified on the published
+1.11.1 binary against a config that had never been applied, in an empty
+directory: `2 pass, 0 fail, exit 0`. The cause was a protocol mismatch, not a
+missing comparison: generators emitted their verdict as a stdout marker
+(`<test> && echo exists || echo missing` — a branch whose arms are both `echo`
+always exits 0) while the consumer read the exit code, and nothing anywhere
+parsed the markers. `apply --check` shares the path, so its documented
+"exit 2 = changes needed" was unreachable too.
+
+The fix cannot live at the codegen boundary: the same marker means opposite
+things depending on desired state — for `state: absent`, `missing:` IS
+convergence. All 17 generators now report through `resources::verdict`. Also
+corrected while converting: `service` asserted a fixed "active AND enabled", so
+a `state: stopped` service would have become a permanent failure; gpu's rocm
+path did `echo missing; exit 0`; a model checksum MISMATCH reported pass — the
+most dangerous case, since the file exists and looks fine.
+
+**24 templatable `Resource` fields were never resolved**, including
+`task_inputs` — the field 1.11's entire incremental-build release is about,
+while its sibling `output_artifacts` was resolved. A config that templated its
+inputs got `Apply complete: 0 converged, 1 unchanged` over a stale artifact:
+precisely the failure 1.11 shipped to eliminate. Also `scatter`/`gather` (spliced
+into executed shell), `state` (selects the absent/directory/symlink branch), the
+six `overlay_*` fields that configure the fleet's overlay IPs, and `stages`.
+
+**`forjar destroy` executed unresolved templates** — generating
+`rm -rf '{{params.x}}/...'` against a literal path, reporting success while the
+real resource survived and its lock entry was removed. Third code path to make
+this mistake. **And it RAN builds instead of removing them**: task, build and
+wasm_bundle ignore `state`, so converging them to `absent` executed the command
+— running a build or a deploy as the way of "removing" it.
+
+**A selector matching nothing is now an error.** `apply -r <typo>` printed
+`0 converged, 0 unchanged` and exited 0; in CI, where the exit code is often the
+only signal read, a typo'd targeted apply looked like a completed deploy.
+
+### Guards against recurrence
+
+Both guards are constructed so that a future addition is covered without anyone
+remembering to update them:
+
+- `no_resource_type_generates_an_unfailable_check_script` EXECUTES each
+  generated script against a real filesystem. Asserting on script TEXT is what
+  let the check defect live for months — the text was always plausible.
+- `every_string_field_on_resource_is_template_resolved` REFLECTS over the
+  serialised `Resource` to discover which fields accept a string. A hand-written
+  list of fields to check has the same failure mode as the hand-written list of
+  fields to resolve.
+
+Contract: `contracts/build-semantics-v1.yaml` (L3, 9 falsification tests).
+
+### Known differences from make
+
+- **Shell options.** forjar wraps a `command:` in `set -euo pipefail`; make sets
+  none. Imported recipes restore make's semantics per line. An earlier draft of
+  this entry called the difference "strictly stricter — it surfaces errors make
+  swallows"; dogfooding the built binary falsified that. Under pipefail
+  `seq 1 100000 | head -1` exits 141 on SIGPIPE where make returns 0, and
+  `cmd | head` is a stock Makefile idiom, so the claim described a working build
+  becoming a failing one as a safety improvement. A hand-written forjar
+  `command:` still runs under `set -euo pipefail`.
+- A `-` prefixed recipe line (ignore errors) imports as `... || true`. `--trace`
+  strips the prefix, so it is read from the make database instead.
+- A real file target that depends on a `.PHONY` target is **refused**: make runs
+  the phony prerequisite when it reaches it, goal-only phony cannot, and the
+  imported config would build without the action ever running.
+- `include`, `$(shell …)` and `$(wildcard …)` are resolved by make before the
+  import sees them, so their values are frozen at import time.
+- Staleness is BLAKE3 content, not mtime: `touch` does not trigger a rebuild,
+  and recompiling to identical bytes correctly does not relink.
+- The staleness probe runs on the controller and skips remote resources rather
+  than hashing the wrong host, so `forjar make` is a build system for LOCAL
+  targets.
+
+### What this release does NOT fix
+
+v1.12 does not make the three read paths agree; it makes each one honest about
+the level it observes. `check` is existence/state level — `rm build/demo` now
+fails it, but editing a file's content in place does not. `plan` is config-hash
+plus the build probe. `drift` remains the only content-level comparison.
+Measured: tamper with a file resource's content and check says `1 pass`, plan
+says `0 to change`, drift says `Drift detected`. Raising check to content level
+means every generator hashing its artifact — a feature, not a bug fix.
+
+Also outstanding, now recorded as `known_gaps` in the contract rather than left
+implicit: the transport writes the script to bash's stdin, so a task that reads
+stdin consumes the rest of its own script (pre-existing); the bashrs determinism
+gate rejects idioms like `date +%s` at apply time, so such a Makefile imports
+cleanly and then cannot run; and order-only edges participate in propagation
+because there is no `order_only` field.
+
+## [1.11.1] - 2026-07-27
+
+### Fixed — two defects in 1.11.0, found by dogfooding it
+
+**Directory `output_artifacts` created an idempotency pump.** Hashing a
+directory's *contents* meant the canonical translation of make's `| build`
+order-only prerequisite — `output_artifacts: ["build"]` — went stale the moment
+the next rule wrote into it. Observed: apply #1 converged, apply #2 reported
+`stale — output artifact modified` and **re-ran the entire graph**, and only
+apply #3 settled. That violates `f(f(x)) = f(x)`, forjar's core idempotency
+contract.
+
+A directory artifact is now identified by **existence**, never by contents. Its
+contents are the products of *other* rules; they are not the identity of the
+rule that created it. Files declared alongside a directory are still hashed.
+
+**The read paths were blind to the staleness `apply` acts on.** `planner::plan`
+forwarded an EMPTY probe map, so after `rm build/demo`:
+
+```
+forjar plan  -> Plan: 0 to add, 0 to change, 0 to destroy, 3 unchanged
+forjar check -> Check: 3 pass, 0 fail, 0 skip
+forjar drift -> No drift detected
+forjar apply -> stale — output artifact missing ... rebuilt
+```
+
+A planner that cannot predict its own apply is worse than one that is merely
+conservative. `plan` now probes, so `plan`/`drift`/`observe` and `apply` give
+one answer. `plan_with_probes` remains pure for unit tests.
+
+### Known limitation
+
+`forjar check` still over-reports. Its generated scripts echo a marker
+(`task=completed` / `task=pending`) but exit 0 either way, and the CLI grades on
+process success — so `check` currently means "a shell ran", not "the resource is
+converged". Fixing it touches all 14 resource generators and changes what
+`check` means for non-build resources, so it is deferred rather than rushed into
+a patch release.
+
+
+## [1.11.0] - 2026-07-27
+
+### Added — incremental builds: forjar now plans from the world, not just the config
+
+Until now forjar decided what to do by hashing the *desired config*. A task whose
+`task_inputs` had changed on disk hashed identically as a desired state, so the
+planner returned `NoOp`, the executor never ran, and forjar printed
+`Apply complete: 0 converged, N unchanged` over a **stale artifact**. That is the
+worst failure mode a build tool has: a wrong binary under a green summary.
+
+The pre-existing `cache:` / `task_inputs` machinery could not fix it.
+`check_task_input_cache` ran inside `apply_one_resource`, i.e. *downstream* of a
+planner that had already said `NoOp` — structurally able to *suppress* work,
+never to *schedule* it.
+
+**What changed**
+
+- New `core::task::probe`: before planning, forjar hashes each resource's
+  declared `task_inputs` and `output_artifacts` and hands the result to the
+  planner. The planner stays **pure** — it never touches the filesystem.
+- A converged resource is now re-run when its inputs changed, an output artifact
+  is missing, or an output was modified out of band. `rm build/demo` rebuilds;
+  previously it reported `unchanged`.
+- **Change propagation**: a rebuilt prerequisite now invalidates its dependents.
+  `depends_on` was ordering-only, so a rebuilt object file left the link step
+  converged and the binary stale. One forward sweep over the topological order.
+- `output_hash` is now recorded alongside `input_hash`.
+
+**Fixed along the way**
+
+- I/O hashing resolved paths against `state_dir.parent()`, not `working_dir`.
+  Since builds declare paths relative to their project root, every relative path
+  hashed as absent — which silently disabled caching whenever `--state-dir` was
+  relative. Added `hash_outputs_in(artifacts, base_dir)`.
+- Hash tracking no longer requires `cache: true`. Tracking is what makes
+  correctness possible; `cache` remains the switch for *skipping* work.
+
+**Verified against `make`** on a 3-target C project: clean build, true no-op
+re-apply, minimal rebuild on edit (2 of 3 targets — not rebuild-everything),
+artifact restore after `rm`, and identical program output to `make` across
+multiple source mutations.
+
+### Fixed — `forjar drift` reported permanent false positives on templated resources
+
+`drift` compared **raw** config resources against state the executor had stored
+from **resolved** ones, so anything containing `{{params.*}}` drifted forever.
+For `type: task` the state query is `echo "command=<command>"`, so the lock held
+the resolved command while the probe regenerated the literal template.
+
+This was not cosmetic: the apply-time drift gate is **global**, so one
+self-drifting resource blocked every *targeted* apply on that machine. Downstream
+fleets were running `forjar apply -t <tag> --no-tripwire` because of it.
+
+This class had already appeared twice (planner FJ-154; drift), and `destroy`
+still had it — so resolution now lives in exactly one place,
+`resolver::resolve_or_fallback` / `resolve_all`, rather than being re-derived per
+call site.
+
+### Security
+
+- `cargo update -p crossbeam-epoch` 0.9.18 → 0.9.20, clearing **RUSTSEC-2026-0204**
+  (invalid pointer dereference in `fmt::Pointer` for `Atomic`/`Shared` when the
+  underlying pointer is invalid). Transitive via `rayon` → `sysinfo`/`bashrs`.
+  Lockfile-only; pre-existing, not introduced by this release, but a release
+  should not ship a known advisory.
+
+### Known limitations
+
+forjar is **not** a general-purpose build system and this release does not claim
+to be one. Specifically:
+
+- Staleness is **content-hash** based, not mtime. `touch` alone does not trigger
+  a rebuild — timestamp-only stamp-file idioms do not carry over, and
+  round-trip tests against `make` must mutate content.
+- Probing is **controller-local**. Resources targeting remote machines are not
+  probed and keep the previous config-hash behaviour, rather than hashing the
+  wrong host's files.
+- No pattern rules, no `$@`/`$<` automatic variables, no `make <goal>` target
+  invocation, no `.PHONY`. Deferred deliberately.
+
+
+### Changed — copia delta is now TRUE ROLLING delta (the real fix)
+
+forjar's large-file provisioning delta was fixed-block: a 1-byte insertion made
+every later block differ, forcing a full re-transfer. It now computes a **true
+rolling delta** via the copia crate (`copia::CopiaSync::delta` matches blocks at
+ANY byte offset), so an insertion/deletion reuses the unchanged bulk of the file.
+
+The elegant part: **no copia binary is staged on the receiver.** The receiver
+reports a `copia::Signature` computed with `od`+`awk` (the Adler weak checksum,
+verified bit-for-bit against `copia::RollingChecksum`) and `b3sum` (blake3 strong
+hash) — all universal tools; forjar does the rolling match locally with the library.
+A checksum disagreement (e.g. busybox) can only degrade to all-literal (correct
+output), never corrupt — the strong hash and the whole-file blake3 are re-verified
+before the atomic rename. `copia-provisioning-v1` gains FALSIFY-COPIA-005..007.
+
+
+### Security — copia provisioning hardening (copia-provisioning-v1)
+Fixes 5 defects a 6-lens quorum found in the generated remote delta-sync shell
+(`src/copia`): perms (chown/chmod) now run on the temp file **before** the atomic
+rename (closing a world-readable window for 0600 secrets); literal payloads stream
+via a base64 **heredoc** (no `echo` ARG_MAX blowup); the reconstructed file's
+**blake3 is verified** before commit; every interpolated path/owner/group/mode is
+**shell-quoted** (injection guard); and a **cleanup trap** prevents temp-file litter.
+
+### Added — 33 verified Lean 4 proofs (6 contracts to L4)
+forjar's first Lean proofs: `blake3-state`, `dag-ordering`, `recipe-determinism`,
+`execution-safety`, `codegen-dispatch`, `overlay-interface` each gain a machine-checked
+proof of their decidable core (0 `sorry`), with honest verification_summary
+(l4_lean_proved for the pure core, l4_not_applicable for genuine I/O).
+
+
+### Added — Provable IaC: `forjar prove` invariant ladder (provable-iac-v1)
+
+`forjar prove` is enhanced from a convergence proof into a **pv-style L1–L5
+provability report over the forjar.yaml itself** — the honest analog of
+`terraform validate` with machine-checked validators (NOT "safe to apply": the
+remote shell that mutates the machine is outside the trusted computing base).
+
+- **Three-state assurance** (never collapsed): `PROVED` (a theorem transfers to
+  this config), `CHECKED` (a Kani-verified decision procedure ran and found
+  nothing), `UNKNOWN` (an opaque/imperative resource the analysis can't see through).
+- **Structural invariants** added alongside the existing convergence proofs:
+  I2 dependency-completeness, I3 conflict-freedom (target-namespace disjointness),
+  I6 protected/blast-radius, I9 input-purity (advisory) — plus a stable,
+  order-independent `plan-hash` (the artifact `apply` will bind to).
+- **No vacuous green**: any `command`/`cron`/`script`/`recipe` resource downgrades
+  the invariants it touches to `UNKNOWN` — the gate never reports safe where it
+  cannot see (a real risk this fleet's exec-heavy configs surface).
+- **HARD invariants** (I1/I2/I3/I6) block apply on falsification; advisory ones warn.
+- Backed by `contracts/provable-iac-v1.yaml` (6 falsification tests + a Kani-verified
+  conflict-detector, `provable-iac-kani-001`); quorum-validated design in
+  `docs/specifications/provable-iac.md` (6 world-class lenses).
+
+
 ### Added — `overlay_interface` resource type (FJ-035)
 
 A new first-class resource type that provides a DNS/DHCP-independent fleet

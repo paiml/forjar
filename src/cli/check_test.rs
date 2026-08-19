@@ -242,6 +242,18 @@ pub(crate) fn cmd_test(
             }
         }
 
+        // FJ-2725: skip phony resources, exactly as `cli::check` does. A phony
+        // target names an ACTION with no artifact to observe, so since FJ-2720
+        // made "no evidence of convergence" a failure, testing one reports a
+        // permanent FAIL for something that has nothing to observe. `check` and
+        // `test` disagreeing about the same resource is the class of defect
+        // this release exists to remove — found by dogfooding an imported
+        // Makefile, where `all`, `clean` and `test` all failed.
+        if resource.phony {
+            total_skip += 1;
+            continue;
+        }
+
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 

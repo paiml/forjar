@@ -182,10 +182,21 @@ pub fn resolve_cached(
         resolved.wasm_path.clone(),
     );
 
+    // `cache.insert` above stored this exact key, so the lookup always hits.
+    // Reuse the cached hash rather than recomputing it from the file: the
+    // returned entry must stay byte-identical to the map entry even if the
+    // .wasm changes underneath us, and a recomputed hash would describe bytes
+    // never checked against manifest.blake3 by `resolve_and_verify`.
+    let loaded_hash = cache
+        .plugins
+        .get(plugin_name)
+        .map(|c| c.loaded_hash.clone())
+        .unwrap_or_default();
+
     Ok(CachedPlugin {
         manifest: resolved.manifest,
         wasm_path: resolved.wasm_path,
-        loaded_hash: cache.plugins.get(plugin_name).unwrap().loaded_hash.clone(),
+        loaded_hash,
         load_generation: cache.generation,
     })
 }

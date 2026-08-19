@@ -161,6 +161,24 @@ struct LevelInfo {
     resources: Vec<String>,
 }
 
+/// Release one edge into `dep`, queueing `dep` once its in-degree reaches zero.
+///
+/// `dep` always names a graph node: `dependents` and `in_degree` are both seeded
+/// from `config.resources`, so the lookup cannot miss.
+fn release_dependent(
+    dep: String,
+    level: usize,
+    in_degree: &mut BTreeMap<String, usize>,
+    queue: &mut VecDeque<(String, usize)>,
+) {
+    if let Some(d) = in_degree.get_mut(&dep) {
+        *d -= 1;
+        if *d == 0 {
+            queue.push_back((dep, level + 1));
+        }
+    }
+}
+
 fn compute_levels(config: &types::ForjarConfig) -> Vec<LevelInfo> {
     if config.resources.is_empty() {
         return Vec::new();
@@ -200,11 +218,7 @@ fn compute_levels(config: &types::ForjarConfig) -> Vec<LevelInfo> {
         let mut deps = dependents.get(&node).cloned().unwrap_or_default();
         deps.sort();
         for dep in deps {
-            let d = in_degree.get_mut(&dep).unwrap();
-            *d -= 1;
-            if *d == 0 {
-                queue.push_back((dep, level + 1));
-            }
+            release_dependent(dep, level, &mut in_degree, &mut queue);
         }
     }
     level_map

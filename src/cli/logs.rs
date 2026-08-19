@@ -3,20 +3,35 @@
 //! Replaces the stub in dispatch_misc_b.rs with actual file I/O.
 //! Reads `meta.yaml` and `*.log` files from the run directory structure.
 
-use crate::core::types::{LogRetention, RunMeta};
+use crate::core::types::RunMeta;
 use std::path::Path;
 
 /// A discovered run on disk.
 #[derive(Debug)]
-struct DiscoveredRun {
-    machine: String,
-    run_id: String,
-    meta: RunMeta,
-    run_dir: std::path::PathBuf,
+pub(crate) struct DiscoveredRun {
+    pub(crate) machine: String,
+    pub(crate) run_id: String,
+    pub(crate) meta: RunMeta,
+    pub(crate) run_dir: std::path::PathBuf,
+}
+
+/// Modification time of a run directory, in nanoseconds since the epoch.
+///
+/// Dogfood #208: the retention sort must be a TOTAL order. `started_at` alone
+/// has second resolution (and is absent on runs written by older forjars), so
+/// runs tie, the stable sort falls back to readdir/hash order, and `--gc`
+/// deletes an arbitrary subset. mtime breaks the tie deterministically.
+fn run_mtime_nanos(dir: &Path) -> u128 {
+    std::fs::metadata(dir)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 
 /// Discover all runs under a state directory, optionally filtered.
-fn discover_runs(
+pub(crate) fn discover_runs(
     state_dir: &Path,
     machine_filter: Option<&str>,
     run_filter: Option<&str>,
@@ -95,21 +110,52 @@ fn discover_runs(
         }
     }
 
-    // Sort by started_at descending (most recent first)
-    runs.sort_by(|a, b| {
-        b.meta
-            .started_at
-            .as_deref()
-            .unwrap_or("")
-            .cmp(a.meta.started_at.as_deref().unwrap_or(""))
-    });
+    sort_runs_newest_first(&mut runs);
     runs
+}
+
+/// Sort runs newest-first under a total order: started_at, then directory
+/// mtime, then run id. Deterministic even when timestamps tie or are absent.
+pub(crate) fn sort_runs_newest_first(runs: &mut [DiscoveredRun]) {
+    let mtimes: std::collections::HashMap<String, u128> = runs
+        .iter()
+        .map(|r| (r.run_id.clone(), run_mtime_nanos(&r.run_dir)))
+        .collect();
+    runs.sort_by(|a, b| {
+        let ka = (
+            a.meta.started_at.as_deref().unwrap_or(""),
+            mtimes.get(&a.run_id).copied().unwrap_or(0),
+            a.run_id.as_str(),
+        );
+        let kb = (
+            b.meta.started_at.as_deref().unwrap_or(""),
+            mtimes.get(&b.run_id).copied().unwrap_or(0),
+            b.run_id.as_str(),
+        );
+        kb.cmp(&ka)
+    });
 }
 
 /// Read a specific log file content for a resource in a run.
 fn read_log_file(run_dir: &Path, resource_id: &str, action: &str) -> Option<String> {
     let log_path = run_dir.join(format!("{resource_id}.{action}.log"));
     std::fs::read_to_string(&log_path).ok()
+}
+
+/// Actions actually recorded on disk for `resource_id` in this run.
+///
+/// Dogfood #208 (logs-resource-filter-drops-the-matching-resource): the filter
+/// used to probe a hardcoded `apply`/`check`/`destroy` action list, but forjar
+/// writes the PLANNED action (`create`, `update`, `delete`, …). Every probe
+/// missed, so `--resource <existing>` was byte-identical to
+/// `--resource <nonexistent>`: all rows suppressed, rc=0. Discover the actions
+/// from the run directory instead of guessing them.
+pub(crate) fn actions_for_resource(run_dir: &Path, resource_id: &str) -> Vec<String> {
+    list_log_files(run_dir)
+        .into_iter()
+        .filter(|(res, _)| res == resource_id)
+        .map(|(_, action)| action)
+        .collect()
 }
 
 /// Read the script file for a resource in a run.
@@ -199,6 +245,20 @@ fn print_logs_text(
                     None => "unknown",
                 };
                 println!("  {res_id} ({action}) — {status_str}");
+                // Dogfood #208 (logs-script-flag-noop): --script must add the
+                // executed script to the output. It used to be byte-identical
+                // to plain `logs`.
+                if show_script {
+                    match read_script_file(&run.run_dir, res_id) {
+                        Some(script) if !script.is_empty() => {
+                            println!("    --- {res_id}.script ---");
+                            for line in script.lines() {
+                                println!("    {line}");
+                            }
+                        }
+                        _ => println!("    (no script recorded)"),
+                    }
+                }
             }
         }
     }
@@ -213,17 +273,24 @@ fn print_run_summary(summary: &crate::core::types::RunSummary) {
 }
 
 fn print_resource_log(run_dir: &Path, resource_id: &str, show_script: bool) {
-    // Try apply, then check, then destroy
-    for action in &["apply", "check", "destroy"] {
+    let actions = actions_for_resource(run_dir, resource_id);
+    if actions.is_empty() {
+        println!("  (no log for resource '{resource_id}' in this run)");
+        return;
+    }
+    for action in &actions {
         if let Some(content) = read_log_file(run_dir, resource_id, action) {
             println!("\n--- {resource_id}.{action}.log ---");
             println!("{content}");
         }
     }
     if show_script {
-        if let Some(script) = read_script_file(run_dir, resource_id) {
-            println!("\n--- {resource_id}.script ---");
-            println!("{script}");
+        match read_script_file(run_dir, resource_id) {
+            Some(script) if !script.is_empty() => {
+                println!("\n--- {resource_id}.script ---");
+                println!("{script}");
+            }
+            _ => println!("  (no script recorded for '{resource_id}')"),
         }
     }
 }
@@ -272,6 +339,14 @@ fn print_logs_json(
                 .map(|(r, a)| format!("{r}.{a}.log"))
                 .collect();
             run_obj["log_files"] = serde_json::json!(file_list);
+            if show_script {
+                let mut scripts = serde_json::Map::new();
+                for (res_id, _) in &log_files {
+                    let body = read_script_file(&run.run_dir, res_id).unwrap_or_default();
+                    scripts.insert(res_id.clone(), serde_json::Value::String(body));
+                }
+                run_obj["scripts"] = serde_json::Value::Object(scripts);
+            }
         }
         entries.push(run_obj);
     }
@@ -284,85 +359,48 @@ fn print_logs_json(
     Ok(())
 }
 
-/// FJ-2301: Garbage-collect old run logs based on retention policy.
-pub(crate) fn cmd_logs_gc(
+/// FJ-2301: Follow mode — tail a run's log directory until interrupted.
+///
+/// Dogfood #208 (logs-follow-does-not-follow-and-ignores-run): this used to
+/// print a "watching …" banner and return in ~5ms without streaming a byte,
+/// and it resolved the target as "newest" before consulting `--run`, so
+/// `--follow --run <older>` silently watched a different run.
+pub(crate) fn cmd_logs_follow(
     state_dir: &Path,
-    dry_run: bool,
-    keep_failed: bool,
+    machine: Option<&str>,
+    run: Option<&str>,
     json: bool,
-    retention: Option<&LogRetention>,
 ) -> Result<(), String> {
-    let default_retention = LogRetention::default();
-    let retention = retention.unwrap_or(&default_retention);
-    let runs = discover_runs(state_dir, None, None, false);
-
-    // Group by machine
-    let mut by_machine: std::collections::HashMap<String, Vec<&DiscoveredRun>> =
-        std::collections::HashMap::new();
-    for run in &runs {
-        by_machine.entry(run.machine.clone()).or_default().push(run);
-    }
-
-    let mut total_cleaned = 0u64;
-    let mut total_deleted = 0u32;
-
-    for (machine, machine_runs) in &by_machine {
-        let to_keep = retention.keep_runs as usize;
-        if machine_runs.len() <= to_keep {
-            continue;
-        }
-
-        for run in machine_runs.iter().skip(to_keep) {
-            if keep_failed && run.meta.summary.failed > 0 {
-                continue;
-            }
-            let size = dir_size(&run.run_dir);
-            if dry_run {
-                if !json {
-                    println!(
-                        "  would delete: {}/{} ({} bytes)",
-                        machine, run.run_id, size
-                    );
-                }
-            } else {
-                let _ = std::fs::remove_dir_all(&run.run_dir);
-            }
-            total_cleaned += size;
-            total_deleted += 1;
-        }
-    }
-
-    if json {
-        let output = serde_json::json!({
-            "action": if dry_run { "dry_run" } else { "gc" },
-            "state_dir": state_dir.display().to_string(),
-            "deleted_runs": total_deleted,
-            "freed_bytes": total_cleaned,
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&output).unwrap_or_default()
-        );
-    } else if total_deleted == 0 {
-        println!(
-            "Log garbage collection: nothing to clean (within retention: {} runs/machine)",
-            retention.keep_runs
-        );
-    } else {
-        let verb = if dry_run { "would delete" } else { "deleted" };
-        println!(
-            "Log garbage collection: {} {} runs, {} bytes freed",
-            verb, total_deleted, total_cleaned
-        );
-    }
+    let Some(target) = resolve_follow_target(state_dir, machine, run, json)? else {
+        return Ok(());
+    };
+    super::logs_follow::tail_run_dir(
+        &target.run_dir,
+        json,
+        &mut super::logs_follow::Forever,
+        std::time::Duration::from_millis(400),
+    );
     Ok(())
 }
 
-/// FJ-2301: Follow mode — tail the most recent run's log directory.
-pub(crate) fn cmd_logs_follow(state_dir: &Path, json: bool) -> Result<(), String> {
-    // Find the most recent run across all machines
-    let runs = discover_runs(state_dir, None, None, false);
+/// Resolve which run `--follow` should watch, and print the banner.
+///
+/// Dogfood #208: `--run` is consulted BEFORE "newest wins". An explicit run id
+/// that matches nothing is an error, not a silent fallback to another run.
+/// Returns `Ok(None)` when there is simply nothing to follow yet.
+pub(crate) fn resolve_follow_target(
+    state_dir: &Path,
+    machine: Option<&str>,
+    run: Option<&str>,
+    json: bool,
+) -> Result<Option<DiscoveredRun>, String> {
+    let mut runs = discover_runs(state_dir, machine, run, false);
     if runs.is_empty() {
+        if let Some(requested) = run {
+            return Err(format!(
+                "no run logs found for run id '{requested}' (see `forjar logs` for known run ids)"
+            ));
+        }
         if json {
             let output = serde_json::json!({
                 "action": "follow",
@@ -377,10 +415,10 @@ pub(crate) fn cmd_logs_follow(state_dir: &Path, json: bool) -> Result<(), String
             println!("Follow mode: no run logs found.");
             println!("  Start `forjar apply` in another terminal to generate logs.");
         }
-        return Ok(());
+        return Ok(None);
     }
 
-    let latest = &runs[0];
+    let latest = runs.remove(0);
     if json {
         let output = serde_json::json!({
             "action": "follow",
@@ -402,17 +440,5 @@ pub(crate) fn cmd_logs_follow(state_dir: &Path, json: bool) -> Result<(), String
         );
         println!("  Press Ctrl+C to stop.");
     }
-    Ok(())
-}
-
-fn dir_size(path: &Path) -> u64 {
-    let mut size = 0u64;
-    if let Ok(entries) = std::fs::read_dir(path) {
-        for entry in entries.flatten() {
-            if let Ok(meta) = entry.metadata() {
-                size += meta.len();
-            }
-        }
-    }
-    size
+    Ok(Some(latest))
 }

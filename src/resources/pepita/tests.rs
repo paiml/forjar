@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 fn make_pepita_resource(name: &str) -> Resource {
     Resource {
+        phony: false,
         resource_type: ResourceType::Pepita,
         machine: MachineTarget::Single("m1".to_string()),
         state: Some("present".to_string()),
@@ -106,6 +107,7 @@ fn make_pepita_resource(name: &str) -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 

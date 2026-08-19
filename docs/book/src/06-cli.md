@@ -3952,10 +3952,27 @@ forjar build -f <FILE> --resource <NAME> [--load] [--push] [--sandbox] [--json]
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `--resource` | required | Resource name (must be `type: image`) |
 | `--load` | false | Tar OCI layout and pipe to `docker load` / `podman load` |
-| `--push` | false | Push to registry via OCI Distribution v1.1 |
+| `--push` | false | Push to the built reference's registry via OCI Distribution v1.1, then verify the tag resolves (see below) |
 | `--far` | false | Wrap OCI layout in FAR archive (zstd + BLAKE3 Merkle) |
 | `--sandbox` | false | Build inside ephemeral container (Docker/Podman) |
 | `--json` | false | JSON output |
+
+**Registry push** (`--push`): pushes exactly the reference the build stamped
+into the image — `tag:` if the resource declares a full `registry/repo:tag`,
+otherwise `name:version` (defaulting to the resource name and `latest`). It
+uploads the layer and config blobs, PUTs the manifest to the tag, and then
+**re-reads the tag from the registry**; `Push complete` is printed only after
+that read-back matches the manifest just pushed. Anything else — unreachable
+registry, HTTP 401, rejected upload, tag that will not resolve — is an error
+and a non-zero exit, never a skip.
+
+forjar implements **no registry credentials**: there is no Bearer-token
+exchange and `~/.docker/config.json` is not read, so an authenticated registry
+(Docker Hub, GHCR, ECR, …) answers 401 and the push is refused with that
+message. Anonymous-write registries — a local `registry:2`, an internal mirror
+— push and verify normally; loopback hosts (`localhost`, `127.0.0.1`) are
+addressed over plain HTTP, as with Docker's insecure-registry default. For an
+authenticated registry use `--load` and `docker push`, or `--far`.
 
 **Container sandbox builds** (`--sandbox`): starts an ephemeral Docker/Podman
 container from the base image, executes resource scripts inside it, extracts

@@ -141,6 +141,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
@@ -230,6 +231,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }
@@ -317,6 +319,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }
@@ -401,6 +404,7 @@ policy:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }
