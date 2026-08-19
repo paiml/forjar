@@ -1,0 +1,152 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-10"
+  author: "PAIML Engineering"
+  description: |
+    Source-content identity — the BYTES a `source:` names are part of the
+    desired state, not just the path string.
+
+    hash_desired_state hashes resource FIELD STRINGS. For `content:` that is
+    correct: the content IS the field. For `source:` the field is a PATH, so
+    editing the referenced file left the hash identical, determine_present_action
+    planned NoOp, and `apply` printed "unchanged" over stale content on the
+    machine.
+
+    This is the completeness leg of idempotent-apply-v1. That contract asserts
+    "Converged lock entry with differing hash always plans Update", which is
+    sound but vacuous if the hash cannot differ when the deployed artifact
+    differs. A declarative tool that reports success while not converging is
+    strictly worse than one that fails loudly.
+
+    IMPLEMENTATION NOTES
+
+    canonical_source_content returns the empty string when `source:` is absent,
+    and the component is pushed only when non-empty — APPENDING, never inserting,
+    because field order is hash identity and a reorder would invalidate every
+    recorded hash on every machine in the fleet.
+
+    The path is read exactly as written, matching resources::file's own
+    source_file_base64: both resolve relative to the process CWD, so the planner
+    hashes precisely the bytes that apply would upload.
+
+    An unreadable source folds its error into the component rather than hashing
+    as absent, so a file that appears or disappears changes the hash instead of
+    masquerading as "unchanged"; apply still fails loudly with
+    "cannot read source file".
+
+    Failure mode is plan_update rather than an assert: when the bytes differ the
+    resource simply plans Update, which is the correct convergent behaviour.
+
+    NO KANI HARNESS, DELIBERATELY. The property quantifies over the CONTENTS OF
+    THE FILESYSTEM, which is outside Kani's model — a harness here could only
+    prove something about a stubbed read, i.e. prove nothing about the bug. The
+    obligations are discharged by the seven falsification tests instead, of which
+    FALSIFY-SRC-006 is the end-to-end one that actually reproduces the reported
+    defect. Declaring an unrunnable harness to satisfy a schema would be exactly
+    the vacuous-contract failure this repo's review process exists to catch.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/206"
+    - "idempotent-apply-v1.yaml — the soundness leg this completes"
+    - "paiml/infra PMAT-204 — observed live: an edited reconciler script reported
+       'converged' three times while the machine kept running the previous copy"
+    - "src/core/planner/hashing.rs — canonical_source_content"
+
+equations:
+  source_content_identity:
+    formula: |
+      ∀ r ∈ Resource with r.source = Some(p):
+        bytes(p) ≠ bytes'(p) ⟹ hash_desired_state(r) ≠ hash_desired_state'(r)
+    domain: "r ∈ Resource, p ∈ Path"
+    codomain: "String ('blake3:' || hex digest)"
+    invariants:
+      - "Changing the bytes at `source:` changes the desired-state hash"
+      - "Identical bytes at an identical path hash identically (determinism)"
+      - "Identical bytes at DIFFERENT paths hash differently: the path remains
+         part of resource identity"
+      - "A source file appearing or disappearing changes the hash"
+
+  source_free_stability:
+    formula: |
+      ∀ r ∈ Resource with r.source = None:
+        hash_desired_state_after(r) = hash_desired_state_before(r)
+    domain: "r ∈ Resource without a source field"
+    codomain: "String"
+    invariants:
+      - "Resources without `source:` keep their pre-existing hash: the content
+         component is APPENDED and only when non-empty, so no recorded hash on
+         any machine in the fleet is invalidated"
+
+proof_obligations:
+  - type: completeness
+    property: "A change to deployed bytes is always observable in the hash"
+    formal: "bytes(p) ≠ bytes'(p) ⟹ hash ≠ hash'"
+    tolerance: 0.0
+    applies_to: "file resources declaring source:"
+  - type: determinism
+    property: "Hashing the same resource over unchanged bytes is stable"
+    formal: "hash_desired_state(r) = hash_desired_state(r)"
+    tolerance: 0.0
+    applies_to: all
+  - type: independence
+    property: "Path identity survives content equality"
+    formal: "p ≠ q ∧ bytes(p) = bytes(q) ⟹ hash(r_p) ≠ hash(r_q)"
+    tolerance: 0.0
+    applies_to: "file resources declaring source:"
+  - type: invariant
+    property: "Source-less resources retain their existing hash identity"
+    formal: "r.source = None ⟹ hash unchanged across this change"
+    tolerance: 0.0
+    applies_to: "resources without source:"
+
+falsification_tests:
+  - id: FALSIFY-SRC-001
+    rule: "Source content change is observable"
+    prediction: "Rewriting a source file changes hash_desired_state"
+    test: "src/core/planner/tests_hash_source.rs::source_content_change_changes_desired_hash"
+    if_fails: "plan reports NoOp and apply deploys stale content while printing 'unchanged'"
+  - id: FALSIFY-SRC-002
+    rule: "Determinism preserved"
+    prediction: "Two hashes over unchanged bytes are equal"
+    test: "src/core/planner/tests_hash_source.rs::identical_source_content_hashes_identically"
+    if_fails: "every apply re-uploads every source file — spurious churn, no fixed point"
+  - id: FALSIFY-SRC-003
+    rule: "Path remains part of identity"
+    prediction: "Same bytes at two paths hash differently"
+    test: "src/core/planner/tests_hash_source.rs::two_sources_with_same_content_but_different_paths_differ"
+    if_fails: "two resources collide whenever their sources happen to match"
+  - id: FALSIFY-SRC-004
+    rule: "Appearance of a source file is observable"
+    prediction: "missing → present changes the hash"
+    test: "src/core/planner/tests_hash_source.rs::missing_source_is_distinguishable_from_present_source"
+    if_fails: "a resource stays pinned at 'unchanged' after its source appears"
+  - id: FALSIFY-SRC-005
+    rule: "Source-less resources unaffected"
+    prediction: "package and inline-content resources hash as before"
+    test: "src/core/planner/tests_hash_source.rs::resource_without_source_is_unaffected"
+    if_fails: "every recorded hash on every machine in the fleet is invalidated"
+  - id: FALSIFY-SRC-006
+    rule: "End-to-end convergence"
+    prediction: "apply → edit source → apply deploys the NEW bytes without --force"
+    test: "manual: see contracts/README or the GH-206 reproduction; asserts deployed
+           content equals the edited source after a second plain apply"
+    if_fails: "the user-visible bug is still present regardless of unit-test status"
+  - id: FALSIFY-SRC-007
+    rule: "No regression in the existing suite"
+    prediction: "cargo test --lib reports 0 failures"
+    test: "cargo test --lib"
+    if_fails: "hash identity change broke planner, lock, or drift behaviour"
+
+qa_gate:
+  id: F-SRC-001
+  name: "Source Content Identity Contract"
+  description: "The bytes behind `source:` are part of the desired state"
+  checks:
+    - "source_content_identity"
+    - "source_free_stability"
+  pass_criteria: "All 7 falsification tests pass, including the end-to-end reproduction"
+  falsification: "Revert canonical_source_content to hashing only the path string;
+                  FALSIFY-SRC-001 and -004 must then fail"
+
+verification_level: L3

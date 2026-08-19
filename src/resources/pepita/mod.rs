@@ -11,47 +11,59 @@
 //! containers. Pepita provides bare-metal kernel isolation without a container runtime.
 
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Generate shell script to check isolation state.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
 
-    let mut checks = vec!["set -euo pipefail".to_string()];
+    let mut checks: Vec<String> = Vec::new();
 
     // Check if namespace/cgroup exists
     if resource.cpuset.is_some() || resource.memory_limit.is_some() {
-        checks.push(format!(
-            "if [ -d '/sys/fs/cgroup/forjar-{name}' ]; then echo 'cgroup:present:{name}'; else echo 'cgroup:absent:{name}'; fi"
+        checks.push(verdict::assert_that(
+            &format!("[ -d '/sys/fs/cgroup/forjar-{name}' ]"),
+            &format!("cgroup:present:{name}"),
+            &format!("cgroup:absent:{name}"),
         ));
     }
 
     // Check chroot directory
     if let Some(ref chroot) = resource.chroot_dir {
-        checks.push(format!(
-            "if [ -d '{chroot}' ]; then echo 'chroot:present:{name}'; else echo 'chroot:absent:{name}'; fi"
+        checks.push(verdict::assert_that(
+            &format!("[ -d '{chroot}' ]"),
+            &format!("chroot:present:{name}"),
+            &format!("chroot:absent:{name}"),
         ));
     }
 
     // Check overlay mount
     if let Some(ref merged) = resource.overlay_merged {
-        checks.push(format!(
-            "if mountpoint -q '{merged}' 2>/dev/null; then echo 'overlay:mounted:{name}'; else echo 'overlay:unmounted:{name}'; fi"
+        checks.push(verdict::assert_that(
+            &format!("mountpoint -q '{merged}' 2>/dev/null"),
+            &format!("overlay:mounted:{name}"),
+            &format!("overlay:unmounted:{name}"),
         ));
     }
 
     // Check network namespace
     if resource.netns {
-        checks.push(format!(
-            "if ip netns list 2>/dev/null | grep -q 'forjar-{name}'; then echo 'netns:present:{name}'; else echo 'netns:absent:{name}'; fi"
+        checks.push(verdict::assert_that(
+            &format!("ip netns list 2>/dev/null | grep -q 'forjar-{name}'"),
+            &format!("netns:present:{name}"),
+            &format!("netns:absent:{name}"),
         ));
     }
 
-    if checks.len() == 1 {
-        // No specific checks — just report the name
-        checks.push(format!("echo 'pepita:{name}:unconfigured'"));
+    if checks.is_empty() {
+        // An unconfigured pepita resource declares nothing observable, so
+        // forjar cannot show it is converged.
+        checks.push(verdict::always_diverged(&format!(
+            "pepita:{name}:unconfigured"
+        )));
     }
 
-    checks.join("\n")
+    format!("set -euo pipefail\n{}", verdict::check_script_from(&checks))
 }
 
 /// Generate shell script to apply namespace isolation.

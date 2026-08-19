@@ -4,6 +4,40 @@ use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
 
+/// GH-212 (#208): the graph formats forjar knows how to render.
+///
+/// This exists so the CLI and the `forjar_graph` MCP tool cannot drift again.
+/// The MCP handler used to branch `if format == "dot" { dot } else { mermaid }`
+/// and echo the CALLER's string back in its `format` field, so it answered
+/// `{"graph": "graph LR …", "format": "svg"}` — Mermaid source labelled SVG —
+/// and accepted `format: "BOGUS"` with `isError: false`, while the CLI exits 1
+/// on the identical flag value. Both surfaces now parse through this one enum,
+/// and a new variant forces both matches to be updated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GraphFormat {
+    /// Mermaid `graph` source (the default).
+    Mermaid,
+    /// Graphviz DOT source.
+    Dot,
+    /// Human-readable ASCII tree (CLI only — needs a terminal renderer).
+    Ascii,
+    /// Standalone SVG document (CLI only).
+    Svg,
+}
+
+/// Parse a `--format` value, with the CLI's exact error message.
+pub(crate) fn parse_graph_format(s: &str) -> Result<GraphFormat, String> {
+    match s {
+        "mermaid" => Ok(GraphFormat::Mermaid),
+        "dot" => Ok(GraphFormat::Dot),
+        "ascii" => Ok(GraphFormat::Ascii),
+        "svg" => Ok(GraphFormat::Svg),
+        other => Err(format!(
+            "unknown graph format '{other}': use mermaid, dot, ascii, or svg"
+        )),
+    }
+}
+
 /// Get the machine label string for a resource.
 fn machine_label(resource: &types::Resource) -> String {
     match &resource.machine {
@@ -113,16 +147,11 @@ pub(crate) fn cmd_graph(
         });
     }
 
-    match format {
-        "mermaid" => print_graph_mermaid(&config),
-        "dot" => print_graph_dot(&config),
-        "ascii" => print_graph_ascii(&config)?,
-        "svg" => super::graph_svg::print_graph_svg(&config),
-        other => {
-            return Err(format!(
-                "unknown graph format '{other}': use mermaid, dot, ascii, or svg"
-            ))
-        }
+    match parse_graph_format(format)? {
+        GraphFormat::Mermaid => print_graph_mermaid(&config),
+        GraphFormat::Dot => print_graph_dot(&config),
+        GraphFormat::Ascii => print_graph_ascii(&config)?,
+        GraphFormat::Svg => super::graph_svg::print_graph_svg(&config),
     }
 
     Ok(())

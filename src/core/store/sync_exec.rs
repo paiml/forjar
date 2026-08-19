@@ -25,14 +25,39 @@ pub struct DiffExecResult {
 }
 
 /// Result of executing a sync plan.
+///
+/// GH-249: `derivations_planned` and `derivations_replayed` are separate fields
+/// on purpose. They were one field that held the PLAN's length, so a caller
+/// could not tell "3 replayed" from "3 planned, 0 executed" — and 0 executed was
+/// always the truth. This is the same planned-vs-actual split
+/// `apply-summary-distinguishability-v1` already draws for `apply`.
 #[derive(Debug, Clone)]
 pub struct SyncExecResult {
     /// Store entries that were re-imported
     pub re_imported: Vec<ImportResult>,
-    /// Number of derivation chains replayed
+    /// Number of derivation chains the plan called for.
+    pub derivations_planned: usize,
+    /// Number of derivation chains actually replayed.
+    ///
+    /// Currently always 0 — see [`execute_sync`] for why replay cannot yet be
+    /// driven from a [`SyncPlan`]. Read [`SyncExecResult::is_complete`] rather
+    /// than assuming a returned `Ok` means the store is in sync.
     pub derivations_replayed: usize,
     /// New profile hash (if profile was updated)
     pub new_profile_hash: Option<String>,
+}
+
+impl SyncExecResult {
+    /// Whether the plan was carried out in full.
+    ///
+    /// `execute_sync` returns `Ok` when the re-imports it *can* do succeeded.
+    /// That is not the same as the store being in sync: any planned derivation
+    /// chain that was not replayed leaves derived entries stale. Callers that
+    /// report success to an operator MUST gate on this.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.derivations_replayed >= self.derivations_planned
+    }
 }
 
 /// Execute a live diff: re-invoke the upstream provider and compute hash.
@@ -81,11 +106,34 @@ pub fn execute_diff(
     })
 }
 
-/// Execute a sync plan: re-import changed leaf nodes and replay derivations.
+/// Execute a sync plan: re-import changed leaf nodes.
 ///
 /// 1. Re-import each leaf node via provider execution
-/// 2. Track derivation replay count (actual replay delegated to sandbox_run)
-/// 3. Return overall result
+/// 2. Report planned vs replayed derivation chains — see below
+///
+/// # Derivations are NOT replayed here
+///
+/// GH-249. A [`SyncPlan`]'s `derivation_replays` are
+/// [`DerivationReplayStep`](super::store_diff::DerivationReplayStep)s, which
+/// carry `store_hash`, `derived_from` and `derivation_depth` — the *fact* that
+/// an entry is derived. They do not carry the derivation itself (builder, args,
+/// env), so there is nothing in a plan that could drive
+/// [`execute_derivation_dag_live`](super::derivation_exec::execute_derivation_dag_live),
+/// which in turn has no caller under `src/cli/` or `src/core/executor/`.
+///
+/// This function previously reported `plan.derivation_replays.len()` as the
+/// number replayed. That is intent reported as outcome: `forjar store sync
+/// --apply` printed "Derivations replayed: 1" over an entry it had not touched,
+/// and exited 0, so an operator read a stale store as fresh.
+///
+/// Wiring real replay requires the plan to carry recipes, which is a store
+/// meta-format change. Until then the count is 0 and
+/// [`SyncExecResult::is_complete`] reports the shortfall.
+///
+/// # Errors
+///
+/// Returns `Err` if any leaf re-import fails. A returned `Ok` means the
+/// re-imports succeeded — NOT that the plan completed; check `is_complete`.
 pub fn execute_sync(
     plan: &SyncPlan,
     machine: &Machine,
@@ -124,11 +172,12 @@ pub fn execute_sync(
         }
     }
 
-    let derivations_replayed = plan.derivation_replays.len();
-
     Ok(SyncExecResult {
         re_imported,
-        derivations_replayed,
+        derivations_planned: plan.derivation_replays.len(),
+        // Not a placeholder to be filled in later by whoever reads this: it is
+        // the measured truth. Nothing in this function replays a derivation.
+        derivations_replayed: 0,
         new_profile_hash: None,
     })
 }

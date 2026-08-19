@@ -18,14 +18,32 @@ mod tests {
 
     #[test]
     fn test_fj139_cmd_bench_runs() {
+        // Dogfood #208: `cmd_bench` is the STRICT entry point (unmet targets ->
+        // non-zero). These tests run on a debug build, so assert the run
+        // completes and yields a verdict rather than asserting debug-build
+        // latency budgets.
         let result = cmd_bench(10, false, false);
-        assert!(result.is_ok(), "bench should succeed: {result:?}");
+        assert!(
+            result.is_ok() || result.as_ref().unwrap_err().contains("targets met"),
+            "bench must run and produce a verdict: {result:?}"
+        );
     }
 
     #[test]
     fn test_fj139_cmd_bench_json() {
         let result = cmd_bench(10, true, false);
-        assert!(result.is_ok(), "bench JSON should succeed: {result:?}");
+        assert!(
+            result.is_ok() || result.as_ref().unwrap_err().contains("targets met"),
+            "bench JSON must run and produce a verdict: {result:?}"
+        );
+    }
+
+    #[test]
+    fn bench_rejects_zero_iterations() {
+        // Dogfood #208 (bench-iterations-zero-nan-and-exit-zero): 0 iterations
+        // divided by zero into "NaNµs" rows and still exited 0.
+        let err = cmd_bench(0, false, false).expect_err("0 iterations must be refused");
+        assert!(err.contains("--iterations must be >= 1"), "{err}");
     }
 
     // ── FJ-205: --json output tests ────────────────────────────────
@@ -290,7 +308,7 @@ mod tests {
         use crate::cli::output::TestWriter;
         use crate::cli::infra_bench::cmd_bench_with_writer;
         let mut w = TestWriter::new();
-        cmd_bench_with_writer(1, true, false, &mut w).unwrap();
+        cmd_bench_with_writer(1, true, false, &mut w).expect("bench runs");
         let json_out = w.stdout_text();
         assert!(
             json_out.contains("\"name\""),
@@ -307,7 +325,7 @@ mod tests {
         use crate::cli::output::TestWriter;
         use crate::cli::infra_bench::cmd_bench_with_writer;
         let mut w = TestWriter::new();
-        cmd_bench_with_writer(5, true, false, &mut w).unwrap();
+        cmd_bench_with_writer(5, true, false, &mut w).expect("bench runs");
         let json_out = w.stdout_text();
         assert!(json_out.contains("\"p50_us\""), "should contain p50: {json_out:?}");
         assert!(json_out.contains("\"p95_us\""), "should contain p95: {json_out:?}");
@@ -315,12 +333,40 @@ mod tests {
 
     #[test]
     fn test_fj2900_bench_compare_no_baseline() {
+        use crate::cli::infra_bench::cmd_bench_at;
         use crate::cli::output::TestWriter;
-        use crate::cli::infra_bench::cmd_bench_with_writer;
+        // Dogfood #208 (bench-compare-flag-is-a-noop): --compare with no
+        // baseline used to silently produce output identical to a run without
+        // the flag. It must now refuse.
+        let tmp = tempfile::tempdir().expect("tempdir");
         let mut w = TestWriter::new();
-        // --compare with no RESULTS.md should still succeed
-        let result = cmd_bench_with_writer(1, false, true, &mut w);
-        assert!(result.is_ok());
+        let err = cmd_bench_at(1, false, true, &tmp.path().join("RESULTS.md"), &mut w)
+            .expect_err("--compare without a baseline must fail");
+        assert!(err.contains("no baseline"), "{err}");
+    }
+
+    #[test]
+    fn bench_compare_with_baseline_emits_delta_column() {
+        use crate::cli::infra_bench::cmd_bench_at;
+        use crate::cli::output::TestWriter;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("RESULTS.md");
+        std::fs::write(
+            &path,
+            "<!-- BENCH-TABLE-START -->\n| Operation | Target | Last Run | p50 | p95 | Status |\n| validate (3m, 20r) | < 10ms | 1.0us | 1.0us | 1.0us | pass |\n<!-- BENCH-TABLE-END -->\n",
+        )
+        .expect("write baseline");
+        let mut w = TestWriter::new();
+        let outcome = cmd_bench_at(1, false, true, &path, &mut w).expect("bench runs");
+        assert!(
+            w.stdout_text().contains("Delta"),
+            "--compare must render a Delta column: {}",
+            w.stdout_text()
+        );
+        assert!(
+            !outcome.regressions.is_empty(),
+            "a 1.0us baseline must be reported as a regression"
+        );
     }
 
 }

@@ -1,0 +1,520 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-11"
+  author: "PAIML Engineering"
+  description: |
+    Selector scope — a selector must apply to EVERY part of a response, or be
+    rejected. Body, summary counts, and machine-readable output are three
+    projections of one selected set; a selector that reaches some of them and
+    not the others produces output that is internally inconsistent and, worse,
+    quietly wrong in exactly the surface CI reads.
+
+    WHY THIS CLASS KEEPS HAPPENING IN THIS CODEBASE
+
+    forjar's commands are built as: (1) load config / state, (2) render a human
+    body, (3) print a summary line computed from the loaded set, (4) optionally
+    serialise a JSON/SARIF view of the loaded set. A selector flag is added
+    later, by a different change, and gets threaded into whichever of those four
+    stages the author had open. Nothing forces the other three to agree, because
+    each stage recomputes from its own variable. The result is five distinct
+    shapes of the same bug, all present in v1.12.3:
+
+      * SELECTOR REACHES THE BODY BUT NOT THE COUNTS. `logs --resource f-file`
+        empties `resource_logs` while `summary.total` still says 2 — and the
+        emptying is itself wrong, because the filter compares against a field
+        that is blank in every run-log record, so an EXISTING resource and a
+        nonexistent one produce byte-identical output.
+      * SELECTOR REACHES EXECUTION BUT NOT THE PREVIEW. `rollback -m m1
+        --dry-run` previews both machines; `rollback -m m1 --yes` applies one.
+        The preview is the artifact humans approve, so the filter is absent
+        precisely where the human decision is made.
+      * SELECTOR REACHES THE SUMMARY TEXT BUT NOTHING ELSE. `anomaly
+        --min-events 9999` prints "min 9999 events" and still analyzes every
+        resource. The flag is echoed, never used as a predicate — the summary
+        line is evidence the value arrived, and evidence of nothing else.
+      * SELECTOR IS ACCEPTED BY VALIDATE AND COUNTED BY COVERAGE BUT HAS NO
+        EVALUATION BRANCH. Policy rules selected by `tag` or by
+        `max_count`/`min_count` are accepted, are counted in
+        `policy-coverage`'s "By resource scope", and can never fire.
+      * SELECTOR IS HONESTLY WARNED ABOUT ON stderr AND SILENTLY IGNORED ON
+        stdout. `plan -r` and `plan -g` print "Flag ignored." to stderr — which
+        `forjar plan --json | jq` never sees. The machine-readable projection
+        reports `to_create: 2` with no trace that a filter was requested.
+
+    The common root is that "the selected set" is not a value in this codebase.
+    It is re-derived, differently, at each projection. The fix shape is
+    therefore structural, not per-command: compute σ = select(S, universe) ONCE,
+    before the body/summary/serialise fan-out, and make every projection a pure
+    function of σ. A selector that cannot be pushed into σ must be rejected at
+    argument-parse time rather than accepted and dropped.
+
+    This contract is the scope leg of build-semantics-v1's
+    INV-EMPTY-SELECTION-IS-AN-ERROR. That invariant says a selector matching
+    nothing must fail; this one says a selector matching SOMETHING must apply
+    everywhere. Together they close the two ways a filter can lie.
+
+    NO KANI HARNESS, DELIBERATELY. Every obligation here quantifies over the
+    observable output of a PROCESS — stdout text, a summary line, a JSON
+    document, an exit code — and over on-disk state and git history. That is
+    outside Kani's model; a harness could only prove something about a stubbed
+    renderer, which is precisely the vacuous-contract failure this repo's
+    review process exists to catch. The obligations are discharged by the seven
+    falsification tests below, each of which is a real command that is RED
+    against the published 1.12.3 binary today.
+  verification_command: "pv validate contracts/selector-scope-v1.yaml"
+  verification_procedure: |
+    1. pv validate contracts/selector-scope-v1.yaml
+    2. For each falsification_tests[].test below, run the block verbatim under
+       `bash`. Each block opens with
+       `FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}`, so it targets the
+       published 1.12.3 binary by default and a rebuilt one via
+       `FORJAR=target/release/forjar bash <block>`.
+    3. Compare against the RED output quoted in that test's `if_fails`. All six
+       shell blocks were executed against forjar 1.12.3 on 2026-08-11 and every
+       quoted string is transcribed from that run, not composed. FALSIFY-SEL-007
+       is the structural ratchet and currently matches no test — writing it is
+       part of closing #214.
+    All fixtures live under /tmp/forjar-dogfood/sel00N, declare
+    `hostname: localhost, addr: 127.0.0.1`, and touch no fleet host.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/214 — family D, selector scope"
+    - "issue: https://github.com/paiml/forjar/issues/208 — umbrella dogfood inventory"
+    - "build-semantics-v1.yaml — INV-EMPTY-SELECTION-IS-AN-ERROR, the empty-match leg"
+    - "plan-apply-equivalence-v1.yaml — the plan/apply agreement this extends to selectors"
+    - "apply-summary-distinguishability-v1.yaml — summary counts as a first-class contract surface"
+    - "binary under test: forjar 1.12.3 (crates.io), /home/noah/.cargo/bin/forjar"
+
+equations:
+  selector_totality:
+    formula: |
+      Let U be the universe a command loads (resources, run-log records,
+      event-history resources, policy rules, git-diff changes) and let
+      σ(S, U) ⊆ U be the set selected by selector S.
+
+      ∀ π ∈ {body, summary, machine_readable}:
+        π(response(C, S, U)) = π(render(σ(S, U)))
+
+      Equivalently: σ is computed ONCE, and body / summary / JSON are three
+      pure functions of the same σ. No projection may re-derive its own
+      selection from U.
+    domain: "C ∈ Command, S ∈ Selector, U ∈ Universe"
+    codomain: "Response = (body, summary, machine_readable, exit_code)"
+    invariants:
+      - "The rows a command prints are exactly the members of σ"
+      - "Every count in the summary line is a cardinality over σ, never over U"
+      - "The JSON/SARIF document describes σ, never U"
+      - "No projection is filtered while another is not"
+
+  selector_liveness:
+    formula: |
+      ∀ declared selector S with parameter space P:
+        ∃ p₁, p₂ ∈ P : σ(S(p₁), U) ≠ σ(S(p₂), U)   for some reachable U
+
+      A selector that cannot change the selected set for ANY input is inert
+      and must not be declared. `--min-events 1` and `--min-events 9999`
+      selecting the same set falsifies this; so does a policy `tag:` selector
+      with no evaluation branch.
+    domain: "S ∈ DeclaredSelector, P = the flag's value domain"
+    codomain: "Bool"
+    invariants:
+      - "A declared selector has at least one pair of values that select differently"
+      - "Echoing a selector's value into the summary text is not evidence it was applied"
+      - "Accepting a selector in validate, or counting it in coverage, asserts an
+         evaluation branch exists for it"
+
+  preview_execute_agreement:
+    formula: |
+      σ_preview(S, U) = σ_execute(S, U)
+
+      for every command pair (dry-run, apply) and for every sibling pair
+      (plan, apply) that documents the same selector flag.
+    domain: "S ∈ Selector, U ∈ Universe"
+    codomain: "Set"
+    invariants:
+      - "`--dry-run` previews exactly the set the real run would touch"
+      - "`plan -r X` plans exactly the set `apply -r X` would apply"
+      - "A disagreement means the artifact a human approved is not the artifact
+         that ran"
+
+  unmatched_selector_is_an_error:
+    formula: |
+      σ(S, U) = ∅ ∧ S ≠ ⊤  ⟹  exit_code ≠ 0 ∧ stderr names what IS available
+
+      and, dually, a selector the command cannot push into σ is rejected at
+      argument-parse time (exit_code ≠ 0), never accepted-and-dropped.
+    domain: "S ∈ Selector, U ∈ Universe"
+    codomain: "ExitCode"
+    invariants:
+      - "A typo'd selector never exits 0"
+      - "An unimplemented selector fails at parse time, not on stderr while
+         stdout reports an unfiltered result"
+
+proof_obligations:
+  - type: completeness
+    property: "Every projection of the response is filtered by the selector"
+    formal: "∀ π ∈ {body, summary, machine_readable}: π(response(C,S,U)) = π(render(σ(S,U)))"
+    tolerance: 0.0
+    applies_to: "every command declaring a -r/-t/-g/-m/--resource/--min-events selector"
+
+  - type: conservation
+    property: "Summary counts are cardinalities over the selected set, not the universe"
+    formal: "summary.total = |σ(S,U)| ∧ Σ summary.{converged,noop,failed,skipped} = |σ(S,U)|"
+    tolerance: 0.0
+    applies_to: "logs, anomaly, policy, policy-coverage, plan, apply, rollback"
+    notes: |
+      `logs --resource f-file --json` emits `"resource_logs": {}` alongside
+      `"summary": {"total": 2, "converged": 2}`. The body says zero, the
+      counts say two, over the same run. Neither number is |σ|.
+
+  - type: equivalence
+    property: "Preview selection equals execution selection"
+    formal: "σ_preview(S,U) = σ_execute(S,U) for (dry-run, apply) and (plan, apply)"
+    tolerance: 0.0
+    applies_to: "rollback --dry-run vs rollback --yes; plan -r vs apply -r"
+
+  - type: classification
+    property: "A declared selector is non-vacuous — it can partition the universe"
+    formal: "∀ declared S: ∃ p₁,p₂ ∈ P: σ(S(p₁),U) ≠ σ(S(p₂),U)"
+    tolerance: 0.0
+    applies_to: "anomaly --min-events; policy tag / max_count / min_count; plan -r / -g"
+    notes: |
+      The falsification for this obligation always needs a CONTROL selector on
+      the same command, proving the counter is live and the inert flag is the
+      variable that changed. `anomaly -m bogus` reports 0 resources analyzed
+      while `--min-events 9999` reports 2 — same command, same state, one
+      selector works and one does not.
+
+  - type: soundness
+    property: "A selector never widens the selected set beyond what it names"
+    formal: "σ(S,U) ⊆ {u ∈ U : matches(S,u)}"
+    tolerance: 0.0
+    applies_to: "rollback -m, plan -r/-g, policy tag/limit"
+
+  - type: precondition
+    property: "An empty or unsupported selection fails loudly"
+    formal: "σ(S,U) = ∅ ⟹ exit ≠ 0; S unsupported by C ⟹ C rejects S at parse time"
+    tolerance: 0.0
+    applies_to: "all selector-bearing commands"
+
+invariants:
+  - id: INV-SELECT-ONCE
+    statement: >-
+      The selected set σ is computed once, before the body / summary /
+      serialise fan-out, and every projection is a pure function of σ. No
+      projection may re-derive its own selection from the loaded universe. This
+      is the structural invariant; the four below are the observable
+      consequences that a test can catch.
+
+  - id: INV-COUNTS-COUNT-THE-SELECTION
+    statement: >-
+      Every number a selector-bearing command prints is a cardinality over σ.
+      Measured RED on 1.12.3: `forjar logs --resource f-file` prints
+      `2 total: 2 converged, 0 noop, 0 failed, 0 skipped` with zero resource
+      rows beneath it, and `--json` makes the contradiction explicit —
+      `"resource_logs": {}` next to `"summary": {"total": 2, "converged": 2}`.
+      A count over the universe under a filtered body is worse than no filter,
+      because it reads as "the filter matched everything".
+
+  - id: INV-PREVIEW-IS-THE-RUN
+    statement: >-
+      A `--dry-run` preview is the set the real run touches. Measured RED on
+      1.12.3: `forjar rollback -m m1 --dry-run` prints
+      `~ f1 (modified)` AND `~ f2 (modified)` / `Dry run: 2 change(s) would be
+      applied.`, while `forjar rollback -m m1 --yes` reports
+      `m1: 1 converged` and creates only the m1 artifact. The preview is the
+      artifact a human approves; a filter missing there is missing at the
+      decision point.
+
+  - id: INV-NO-INERT-SELECTORS
+    statement: >-
+      A flag that cannot change the selected set for any value is not declared.
+      Echoing its value into the summary is not application. Measured RED on
+      1.12.3: `anomaly --min-events 1` and `anomaly --min-events 9999` both
+      print `(2 resources analyzed, ...)` differing only in the echoed number,
+      and `forjar policy` prints `All 2 policy rules passed.` rc=0 for a config
+      whose two rules — one selected by `tag: prod`, one by `max_count: 0` —
+      forbid the single resource present.
+
+  - id: INV-UNSUPPORTED-SELECTOR-IS-REJECTED
+    statement: >-
+      A selector a command cannot honour is rejected at argument-parse time
+      with a non-zero exit, never accepted and dropped. A stderr warning does
+      not discharge this: `forjar plan -r f-file --json 2>/dev/null` emits
+      clean JSON reporting `"to_create": 2` for a two-resource config while the
+      only notice of the ignored filter went to a stream the machine consumer
+      redirected away. Honesty that is invisible to the consumer is not
+      honesty.
+
+  - id: INV-VALIDATE-AND-COVERAGE-ASSERT-EVALUABILITY
+    statement: >-
+      If `validate` accepts a selector field and `policy-coverage` counts the
+      rule bearing it under "By resource scope", the engine has asserted that
+      an evaluation branch exists. Accepting-and-counting a selector with no
+      branch converts coverage from a completeness signal into a false one: on
+      1.12.3, `policy-coverage` reports
+      `Rules: 2 total, 0 triggered, 2 untriggered` with the `tag: prod` rule
+      listed under scope `*`, for two rules that are structurally incapable of
+      triggering.
+
+falsification_tests:
+  - id: FALSIFY-SEL-001
+    rule: INV-COUNTS-COUNT-THE-SELECTION
+    prediction: >-
+      `logs --resource <existing>` prints only that resource's rows and a
+      summary whose total is 1; `logs --resource <nonexistent>` differs from it.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      # Setup (scratch only; no real host is contacted — machine is localhost/local)
+      D=/tmp/forjar-dogfood/sel001; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'YAML'
+      version: "1.0"
+      name: sel001
+      machines: {local: {hostname: localhost, addr: 127.0.0.1}}
+      resources:
+        t-fast: {type: task, machine: local, command: "true", completion_check: "true"}
+        f-file: {type: file, machine: local, path: /tmp/forjar-dogfood/sel001/a.txt, content: "hi\n"}
+      YAML
+      $FORJAR apply --yes --no-color >/dev/null
+      $FORJAR logs --resource f-file --no-color > m.txt
+      $FORJAR logs --resource ZZZ-does-not-exist --no-color > n.txt
+      diff m.txt n.txt && echo "RED: existing and nonexistent resource are byte-identical"
+      $FORJAR logs --resource f-file --json | grep -E '"resource_logs"|"total"'
+      $FORJAR logs --machine local  --no-color | tail -2   # CONTROL: a live selector
+      $FORJAR logs --machine nosuch --no-color             # CONTROL: unmatched
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 — `diff m.txt n.txt` succeeds and prints
+      `RED: existing and nonexistent resource are byte-identical`; m.txt
+      contains `  2 total: 2 converged, 0 noop, 0 failed, 0 skipped` with NO
+      resource rows beneath it (the run has two resources; σ should be 1, the
+      body shows 0, the count shows 2 — three different answers to one
+      question); and the grep prints `        "total": 2,` alongside
+      `      "resource_logs": {}`.
+      HOW WE KNOW IT CAN GO RED: it IS red on the published binary, and the two
+      controls in the block prove the filtering machinery is live —
+      `logs --machine local` still prints `  f-file (create) — converged` and
+      `  t-fast (create) — converged`, while `logs --machine nosuch` prints
+      `No run logs found.` So only the `--resource` predicate is wrong; it
+      compares against a run-log field that is blank in every record.
+      GREEN means the body lists f-file only, the summary reads `1 total: 1
+      converged`, the JSON `resource_logs` has one entry, and
+      `--resource ZZZ-does-not-exist` exits non-zero naming the known ids.
+    owner: forjar
+
+  - id: FALSIFY-SEL-002
+    rule: INV-PREVIEW-IS-THE-RUN
+    prediction: >-
+      `rollback -m m1 --dry-run` previews only m1's changes, and
+      `rollback -m bogusmachine --dry-run` exits non-zero.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      D=/tmp/forjar-dogfood/sel002; rm -rf $D; mkdir -p $D; cd $D
+      git init -q .; git config user.email t@t.t; git config user.name t
+      git config core.hooksPath /dev/null
+      cat > forjar.yaml <<'YAML'
+      version: "1.0"
+      name: sel002
+      machines:
+        m1: {hostname: localhost, addr: 127.0.0.1}
+        m2: {hostname: localhost, addr: 127.0.0.1}
+      resources:
+        f1: {type: file, machine: m1, path: /tmp/forjar-dogfood/sel002/old1.txt, content: "old1\n"}
+        f2: {type: file, machine: m2, path: /tmp/forjar-dogfood/sel002/old2.txt, content: "old2\n"}
+      YAML
+      git add -A; git commit -qm c1
+      sed -i 's|old1|new1|g; s|old2|new2|g' forjar.yaml
+      git add -A; git commit -qm c2
+      $FORJAR apply --yes --no-color | tail -1
+      $FORJAR rollback -m m1 --dry-run --no-color        # must mention f1 only
+      $FORJAR rollback -m bogusmachine --dry-run --no-color; echo "rc=$?"
+      # CONTROL: the execution branch of the SAME invocation
+      $FORJAR rollback -m m1 --yes --no-color | grep converged
+      ls *.txt
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 — the `-m m1` dry-run prints
+      `Rollback to HEAD~1 (sel002):` / `  ~ f1 (modified)` / `  ~ f2 (modified)`
+      / `Dry run: 2 change(s) would be applied.` (f2 is an m2 resource), and
+      `-m bogusmachine` prints the SAME two changes with `rc=0`.
+      HOW WE KNOW IT CAN GO RED: the execution branch on the identical
+      invocation honours the filter — `forjar rollback -m m1 --yes` reports
+      `m1: 1 converged, 0 unchanged, 0 failed` and `ls *.txt` shows
+      `new1.txt new2.txt old1.txt` with old2.txt absent. Preview says 2,
+      execution does 1: the two branches provably disagree today.
+      GREEN means the dry-run lists `~ f1 (modified)` only with
+      `Dry run: 1 change(s) would be applied.`, and `-m bogusmachine` exits
+      non-zero naming m1 and m2.
+    owner: forjar
+
+  - id: FALSIFY-SEL-003
+    rule: INV-NO-INERT-SELECTORS
+    prediction: >-
+      `anomaly --min-events N` excludes resources with fewer than N events, so
+      a large N analyzes zero resources.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      D=/tmp/forjar-dogfood/sel003; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'YAML'
+      version: "1.0"
+      name: sel003
+      machines: {local: {hostname: localhost, addr: 127.0.0.1}}
+      resources:
+        t-fast: {type: task, machine: local, command: "true", completion_check: "true"}
+        f-file: {type: file, machine: local, path: /tmp/forjar-dogfood/sel003/a.txt, content: "hi\n"}
+      YAML
+      for i in 1 2 3 4; do $FORJAR apply --yes --force --no-color >/dev/null; done
+      $FORJAR anomaly --min-events 1    --no-color
+      $FORJAR anomaly --min-events 9999 --no-color   # must analyze 0
+      $FORJAR anomaly -m bogus          --no-color   # CONTROL: a live selector
+      $FORJAR anomaly --min-events 9999 --json
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 —
+      `No anomalies detected (2 resources analyzed, min 1 events).` and
+      `No anomalies detected (2 resources analyzed, min 9999 events).`
+      Identical selected set; only the echoed number changed. `--json` emits
+      `{"anomalies":0,"findings":[]}` — the machine-readable projection carries
+      neither the count nor the selector, so a consumer cannot even detect the
+      inconsistency.
+      HOW WE KNOW IT CAN GO RED: the control on the same command and same state,
+      `forjar anomaly -m bogus`, prints
+      `No anomalies detected (0 resources analyzed, min 3 events).` — the
+      counter moves for a selector that IS wired, so `2` under `--min-events
+      9999` is a real inertness result and not a dead counter.
+      GREEN means `--min-events 9999` reports `0 resources analyzed`.
+    owner: forjar
+
+  - id: FALSIFY-SEL-004
+    rule: INV-NO-INERT-SELECTORS
+    prediction: >-
+      A `deny` rule selected by `tag:` and a `limit` rule with `max_count: 0`
+      both fire against a config that violates them, so `policy` exits 1.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      D=/tmp/forjar-dogfood/sel004; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'YAML'
+      version: "1.0"
+      name: sel004
+      machines: {local: {hostname: localhost, addr: 127.0.0.1}}
+      resources:
+        a-file:
+          type: file
+          machine: local
+          path: /tmp/forjar-dogfood/sel004/a.txt
+          content: "hello\n"
+          tags: [prod]
+      policies:
+        - {id: t1, type: deny,  message: "no prod-tagged resources allowed", tag: prod}
+        - {id: t2, type: limit, message: "no file resources allowed", resource_type: file, max_count: 0}
+      YAML
+      $FORJAR validate --no-color; echo "validate rc=$?"
+      $FORJAR policy --no-color;   echo "policy rc=$?"
+      $FORJAR policy --json
+      # CONTROL: the same engine, a selector that IS implemented
+      cp forjar.yaml control.yaml
+      cat >> control.yaml <<'YAML'
+        - {id: t3, type: deny, message: "content must not be hello", resource_type: file, condition_field: content, condition_value: "hello\n"}
+      YAML
+      $FORJAR policy --no-color -f control.yaml; echo "control rc=$?"
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 — `validate rc=0`, then
+      `All 2 policy rules passed.` with `policy rc=0`, and
+      `{"passed": true, "rules_evaluated": 2, "resources_checked": 1,
+      "error_count": 0, ..., "violations": []}`. `rules_evaluated: 2` is the
+      lie: two rules were COUNTED, zero were evaluable.
+      HOW WE KNOW IT CAN GO RED: the control run on the same engine and the
+      same resource prints
+      `  [ERROR] [t3] a-file: content must not be hello` /
+      `Policy check failed: 1 error(s), 0 warning(s)` with `control rc=1`, so
+      the deny path fires — the `tag:` and `max_count:` selectors specifically
+      have no evaluation branch.
+      GREEN means `policy rc=1` with a violation reported for t1 and t2.
+    owner: forjar
+
+  - id: FALSIFY-SEL-005
+    rule: INV-VALIDATE-AND-COVERAGE-ASSERT-EVALUABILITY
+    prediction: >-
+      `policy-coverage` does not report a rule as an in-scope untriggered rule
+      when that rule has no evaluation branch; it reports it as unevaluable.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      cd /tmp/forjar-dogfood/sel004      # reuses the FALSIFY-SEL-004 fixture
+      $FORJAR policy-coverage --no-color
+      $FORJAR policy-coverage --no-color -f control.yaml | head -4   # CONTROL
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 —
+      `Rules: 2 total, 0 triggered, 2 untriggered` /
+      `Resources: 1 total, 1 clean (no violations)` / under `By resource scope:`
+      the `tag: prod` rule is counted as `*            1` and the limit rule as
+      `file         1`, and both t1 and t2 are listed under
+      `Untriggered rules (no violations found):`. The parenthetical is false:
+      no violations were LOOKED FOR.
+      HOW WE KNOW IT CAN GO RED: the control run in the block, over the same
+      config plus the evaluable rule t3, prints
+      `Rules: 3 total, 1 triggered, 2 untriggered` — the triggered counter does
+      move, so `0 triggered` above is a real result over two rules that were
+      counted in scope and never evaluated. That is what makes coverage a FALSE
+      completeness signal here rather than a merely empty report.
+      GREEN means unevaluable rules are reported in a distinct bucket
+      (e.g. `2 unevaluable`) and never silently absorbed into "untriggered".
+    owner: forjar
+
+  - id: FALSIFY-SEL-006
+    rule: INV-UNSUPPORTED-SELECTOR-IS-REJECTED
+    prediction: >-
+      `plan -r X` and `plan -g Y` either filter, or exit non-zero at parse time
+      — and in no case do they emit an unfiltered result on stdout.
+    test: |
+      FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}   # 1.12.3 crates.io: RED
+      D=/tmp/forjar-dogfood/sel006; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'YAML'
+      version: "1.0"
+      name: sel006
+      machines: {local: {hostname: localhost, addr: 127.0.0.1}}
+      resources:
+        t-fast: {type: task, machine: local, command: "true", completion_check: "true"}
+        f-file: {type: file, machine: local, path: /tmp/forjar-dogfood/sel006/a.txt, content: "hi\n"}
+      YAML
+      $FORJAR plan -r f-file --no-color | tail -1
+      $FORJAR plan -g nosuchgroup --no-color | tail -1
+      $FORJAR plan -r nosuchresource --no-color >/dev/null; echo "typo rc=$?"
+      # the machine-readable projection, with the stderr warning discarded
+      $FORJAR plan -r f-file --json 2>/dev/null | grep '"to_create"'
+    if_fails: >-
+      RED OUTPUT ON 1.12.3 — every line reads
+      `Plan: 2 to add, 0 to change, 0 to destroy, 0 unchanged.` for a
+      two-resource config under a one-resource filter; `typo rc=0`; and the
+      JSON grep prints `  "to_create": 2,`. On stderr only, forjar admits
+      `Warning: --resource filter is not yet implemented for plan. Flag
+      ignored.` and `Warning: --group is not yet implemented for plan. Flag
+      ignored.` — invisible to `forjar plan --json | jq`.
+      HOW WE KNOW IT CAN GO RED: on the SAME config, the sibling command does
+      filter — `forjar apply -r f-file --yes --no-color` reports
+      `Apply complete: 1 converged, 0 unchanged.` — and `plan -t nosuchtag`
+      reports `Planning: sel006 (0 resources)`, proving plan's own filter
+      plumbing exists for `-t`. So `-r`/`-g` are individually unimplemented,
+      not a limitation of the command.
+      GREEN means `plan -r f-file` reports `Plan: 1 to add, ...` (matching
+      `apply -r f-file`) and `plan -r nosuchresource` exits non-zero.
+    owner: forjar
+
+  - id: FALSIFY-SEL-007
+    rule: INV-SELECT-ONCE
+    prediction: >-
+      The structural ratchet exists and passes. A selector applied to a plan must
+      leave body, summary counters and --json mutually consistent; an unknown
+      machine yields an empty body AND zero counts.
+    test: >-
+      grep -rq 'mod tests_selector_scope' src/cli/plan.rs &&
+      cargo test --lib tests_selector_scope 2>&1 | grep -qE 'test result: ok\. [1-9]'
+    if_fails: >-
+      Either the ratchet module was deleted, or a selector was added that filters
+      the body without recomputing the counters.
+    red_state: >-
+      EXISTENCE PROBE FIRST, DELIBERATELY. `cargo test --lib <name>` with a filter
+      matching nothing prints "running 0 tests / test result: ok. 0 passed" and
+      EXITS 0 — green against every binary, buggy or fixed. An earlier revision of
+      this contract shipped exactly that: SEL-007 named a module that did not
+      exist, so the one test whose job was to stop this defect class recurring
+      could not fail. The grep asserts the module is present and the `[1-9]`
+      asserts at least one test actually ran; on forjar 1.12.3, where the module
+      does not exist, the grep fails and the test goes RED.

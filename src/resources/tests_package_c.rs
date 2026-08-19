@@ -1,6 +1,7 @@
 //! FJ-51: Cargo binary cache tests.
 
 use super::package::*;
+use super::package_check::check_script;
 use super::tests_package::make_apt_resource;
 
 /// Cache hit path: script checks FORJAR_CACHE_DIR before compiling.
@@ -143,9 +144,24 @@ fn test_fj51_cargo_cache_copies_to_cargo_bin() {
         script.contains("CARGO_HOME"),
         "must respect CARGO_HOME: {script}"
     );
+    // Asserts the staged binaries are PLACED into _CARGO_BIN, not that a
+    // particular tool does it. This used to pin the literal
+    // `cp "$_STAGING/bin/"* "$_CARGO_BIN/"`, and that spelling was wrong: `cp`
+    // refuses to overwrite a dangling symlink, which is exactly the state a CI
+    // cache-prune leaves in a shared ~/.cargo/bin and exactly what this
+    // resource must repair. Placement is now `install`. A test that pins the
+    // command text fails when the command is corrected — the defect it should
+    // have caught was in the text it was protecting.
+    // Behavioural coverage: tests/falsification_cargo_check.rs
+    // `the_install_script_can_overwrite_a_dangling_symlink`.
     assert!(
-        script.contains("cp \"$_STAGING/bin/\"* \"$_CARGO_BIN/\""),
-        "must copy staging binaries to cargo bin: {script}"
+        script.contains("\"$_STAGING/bin/\"* \"$_CARGO_BIN/\""),
+        "must place staging binaries into cargo bin: {script}"
+    );
+    assert!(
+        !script.contains("cp \"$_STAGING/bin/\""),
+        "placement must not use plain `cp` — it cannot overwrite a dangling \
+         symlink: {script}"
     );
 }
 

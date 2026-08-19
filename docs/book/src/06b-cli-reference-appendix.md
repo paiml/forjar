@@ -6,6 +6,69 @@ A CI parity test (`tests/doc_cli_parity.rs`) ensures every subcommand in the
 `Commands` enum appears somewhere in this book, so new commands must be added
 here (or in a full chapter) before they can merge.
 
+## Build Semantics
+
+### forjar make
+
+Build the named goals and their transitive `depends_on` prerequisites, and
+nothing else — what `make <goal>` means.
+
+```bash
+forjar make [GOALS...] [-f forjar.yaml] [-n] [-B] [-j <N>] [-p KEY=VALUE] [--yes]
+```
+
+The goal closure is downward-closed, so a targeted build can never run against
+an unconverged prerequisite. This is what distinguishes it from `apply -r`,
+which is exact-match with no closure (make's `-o` semantics), and from
+`--subset`/`--exclude`, whose patterns can cut a resource out from under a
+dependent.
+
+With no goals it is equivalent to `forjar apply`. An unknown goal is an error
+listing the known targets, never a silent no-op.
+
+Flags mirror make: `-n` dry run, `-B` always-make, `-j` parallel jobs.
+
+Targets marked `phony: true` name an ACTION rather than a file. They are
+excluded from bulk `apply`/`plan` and run unconditionally when named as a goal,
+which is what keeps a repeated `forjar apply` idempotent.
+
+### forjar import-makefile
+
+Import a single-makefile, non-recursive build into a forjar config.
+
+```bash
+forjar import-makefile [MAKEFILE] [-o <OUTPUT>] [-m <MACHINE>]
+```
+
+Runs `make -p --trace -n -B` and joins the two streams it produces: the parsed
+database (structure, with unexpanded recipes) and the trace (expanded commands).
+Emits one `type: task` resource per target, with `output_artifacts` for file
+targets, `phony: true` for `.PHONY` members, `task_inputs` for source
+prerequisites, and `depends_on` for prerequisites that are themselves targets —
+including order-only (`| dir`) prerequisites, which become edges and never
+inputs.
+
+Each logical recipe line is emitted inside its own subshell, reproducing make's
+per-line shell isolation, so a `cd` on one line does not affect the next.
+
+**It refuses rather than mistranslates.** Recursive make, `.ONESHELL`,
+double-colon rules, VPATH, and GNU make older than 4.0 (which macOS still ships)
+are detected and reported, and nothing is written. Review the generated config
+before applying it: recipes are make's own expansion, and forjar injects
+`set -euo pipefail` where make sets no shell options.
+
+### forjar lsp
+
+Run the forjar.yaml language server on stdio, for editor integration.
+
+```bash
+forjar lsp
+```
+
+Speaks LSP over stdin/stdout with `Content-Length` framing: diagnostics from the
+same validator `forjar validate` uses, plus completion for resource types and
+fields. Point your editor's LSP client at this command for `forjar.yaml` files.
+
 ## Config Analysis & Composition
 
 ### forjar stack-diff
@@ -230,3 +293,78 @@ forjar dist --installer --verify
 # Docker/Podman and implies --verify; cleanly skips when no runtime is found.
 forjar dist --installer --verify-containers
 ```
+
+## `forjar codegen`
+
+Emit the shell a resource *generates*, resolved exactly as `apply` would resolve
+it — templates expanded, secrets substituted.
+
+```bash
+forjar codegen -f machines/lambda-labs/forjar.yaml -r media-backup --phase apply
+forjar codegen -f forjar.yaml -r root-disk-budget --phase state-query
+```
+
+`--phase` is `apply` (default), `check`, or `state-query`.
+
+Most resource types describe state directly; a few — `disk_budget`, `backup_sync`
+— have a *synthesised shell script* as their real payload. That artifact cannot
+be reviewed, debugged, or dogfooded unless you can get at it, and reading the
+handler's source is not the same thing as reading what it emits for your config.
+
+Pair it with the resource's dry-run switch to preview destructive behaviour
+before authorising an apply:
+
+```bash
+forjar codegen -f forjar.yaml -r root-disk-budget --phase apply > /tmp/reaper.sh
+FORJAR_BUDGET_DRY_RUN=1 sh /tmp/reaper.sh    # lists what it WOULD reclaim
+```
+
+## `forjar dogfood`
+
+Exercise forjar's generated artifacts against **real external tools and real
+on-disk shapes**, and fail when reality disagrees with what the code assumes.
+
+```bash
+forjar dogfood          # human-readable
+forjar dogfood --json   # machine-readable, for release receipts
+```
+
+This is not a second test suite. Unit tests are written by the same person as
+the code, so a fixture can only ever confirm the assumption it was built from —
+which is how three releases in two days each shipped a bug that 12,904 passing
+tests, a five-gate clean room and a 19-check CI run all missed:
+
+- `backup_sync` read rclone's `--combined` status characters inverted, so files
+  that were **not** backed up left the coverage denominator and a backup missing
+  data reported *higher* coverage than one with everything. The test stub emitted
+  whichever characters the author believed in.
+- `disk_budget` required both `CACHEDIR.TAG` and `.rustc_info.json` on a cargo
+  target dir. Across a real 4.6 TB tree, **zero of sixteen** marker-bearing
+  directories had the pair. The fixture had both because the author believed both
+  were present.
+
+So each exercise invokes the actual tool (`rclone check --combined`, not a stub
+of it), builds the layouts that really occur on disk, and executes emitted shell
+under `bash` — the interpreter every forjar transport actually uses. **A missing
+external tool is a failure, not a skip:** dogfooding a resource built on a tool's
+output format, without that tool, proves nothing.
+
+Coverage is declared by an exhaustive match over `ResourceType`, so a new
+resource type **fails to compile** until its dogfood status is stated, and
+`NotApplicable` requires a written reason that prints on every run:
+
+```
+PASS  disk_budget   detection rule correct on all 4 real shapes: repo root,
+                    per-arch, registry (excluded), cc source dir (excluded)
+PASS  backup_sync   rclone v1.75.0: --combined characters confirmed = * + -
+
+not exercised (16 types):
+  package     mutates system packages
+  docker      requires a docker daemon
+  ...
+```
+
+That property is the point. The previous shell-script gate covered only `file`
+resources and still reported success while two new resource types shipped
+broken — a gate that can quietly stop covering things is worse than none,
+because it reports GO with authority.

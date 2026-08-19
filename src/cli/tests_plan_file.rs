@@ -215,8 +215,11 @@ resources:
     }
 
     /// Helper to compute config hash for test plan files.
+    /// GH-212: the ONE canonical hash. This helper used to re-implement the
+    /// production expression (`serde_yaml_ng::to_string` + blake3), which is a
+    /// second copy of exactly the thing that was nondeterministic — so the
+    /// suite could not have caught the plan-file roundtrip failing in the wild.
     fn compute_config_hash(config: &ForjarConfig) -> String {
-        let yaml = serde_yaml_ng::to_string(config).unwrap();
-        crate::tripwire::hasher::hash_string(&yaml)
+        crate::core::config_hash::config_hash(config).expect("hashable")
     }
 }

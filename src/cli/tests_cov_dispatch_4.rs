@@ -108,6 +108,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         // This will either fail on "aborted by user" or stdin error
         assert!(result.is_err());
@@ -179,6 +180,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
         assert!(t1.exists());
@@ -252,6 +254,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
         assert!(t1.exists());
@@ -301,6 +304,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -366,6 +370,7 @@ resources:
             None, // telemetry_endpoint
             false, // refresh
             None, // force_tag
+        &[],
         );
         assert!(result.is_ok());
     }

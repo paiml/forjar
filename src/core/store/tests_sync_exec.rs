@@ -199,11 +199,80 @@ fn diff_exec_result_fields() {
 fn sync_exec_result_fields() {
     let result = SyncExecResult {
         re_imported: Vec::new(),
+        derivations_planned: 3,
         derivations_replayed: 3,
         new_profile_hash: None,
     };
     assert_eq!(result.derivations_replayed, 3);
     assert!(result.re_imported.is_empty());
+    assert!(result.is_complete());
+}
+
+/// GH-249: planned and replayed are distinguishable, and a shortfall is visible.
+#[test]
+fn a_plan_with_unreplayed_derivations_is_not_complete() {
+    let result = SyncExecResult {
+        re_imported: Vec::new(),
+        derivations_planned: 3,
+        derivations_replayed: 0,
+        new_profile_hash: None,
+    };
+    assert!(
+        !result.is_complete(),
+        "3 planned and 0 replayed must not read as a completed sync"
+    );
+}
+
+/// GH-249: `execute_sync` must report what it did, not what was asked of it.
+///
+/// This is the regression itself. The old code assigned
+/// `plan.derivation_replays.len()` to `derivations_replayed`, so this plan —
+/// which nothing in `execute_sync` acts on — reported two chains replayed.
+#[test]
+fn execute_sync_reports_zero_replayed_because_it_replays_nothing() {
+    use super::store_diff::{DerivationReplayStep, SyncPlan};
+
+    let plan = SyncPlan {
+        re_imports: vec![],
+        derivation_replays: vec![
+            DerivationReplayStep {
+                store_hash: "blake3:aaa".to_string(),
+                derived_from: "blake3:src".to_string(),
+                derivation_depth: 1,
+            },
+            DerivationReplayStep {
+                store_hash: "blake3:bbb".to_string(),
+                derived_from: "blake3:aaa".to_string(),
+                derivation_depth: 2,
+            },
+        ],
+        total_steps: 2,
+    };
+
+    let machine = crate::core::types::Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        ssh_key: None,
+        roles: Vec::new(),
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+        allowed_operators: vec![],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let result = super::sync_exec::execute_sync(&plan, &machine, dir.path(), Some(5))
+        .expect("no re-imports to fail");
+
+    assert_eq!(result.derivations_planned, 2);
+    assert_eq!(
+        result.derivations_replayed, 0,
+        "nothing in execute_sync replays a derivation; any non-zero count here \
+         is the plan's length being reported as an outcome"
+    );
+    assert!(!result.is_complete());
 }
 
 #[test]

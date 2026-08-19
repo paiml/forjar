@@ -18,7 +18,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_check_script!(resource);
     match &resource.resource_type {
-        ResourceType::Package => Ok(resources::package::check_script(resource)),
+        ResourceType::Package => Ok(resources::package_check::check_script(resource)),
         ResourceType::File => Ok(resources::file::check_script(resource)),
         ResourceType::Service => Ok(resources::service::check_script(resource)),
         ResourceType::Mount => Ok(resources::mount::check_script(resource)),
@@ -35,6 +35,8 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Build => Ok(resources::build::check_script(resource)),
         ResourceType::GithubRelease => Ok(resources::github_release::check_script(resource)),
         ResourceType::OverlayInterface => Ok(resources::overlay_interface::check_script(resource)),
+        ResourceType::DiskBudget => Ok(resources::disk_budget::check_script(resource)),
+        ResourceType::BackupSync => Ok(resources::backup_sync::check_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -49,6 +51,48 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
 pub fn apply_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_apply_script!(resource);
+
+    // A `{{secrets.*}}` that survives template resolution is a
+    // credential-shaped PLACEHOLDER, not a credential. `resolve_or_fallback`
+    // hands the unresolved resource back by design, so without this the literal
+    // string is spliced into the generated script and written to the machine —
+    // demonstrated with a file resource whose `content` became
+    // `API_KEY={{secrets.some-token}}` on disk, behind only a stderr warning.
+    //
+    // `backup_sync` has guarded its own token since FJ-037; this generalises
+    // that to every resource type, at the one place every apply script is born.
+    // Failing HERE fails this resource only, leaving `policy.failure` to decide
+    // the run — an unrelated unresolvable secret must not block a whole machine.
+    if crate::core::resolver::has_unresolved_secret(resource) {
+        return Err(format!(
+            "resource carries an unresolved secret template — the secrets provider \
+             did not supply it, and applying would write the placeholder as if it \
+             were the credential (type: {})",
+            resource.resource_type
+        ));
+    }
+
+    // FJ-2722 (PMAT-199): `state: absent` must never RUN the thing.
+    //
+    // `destroy` converges every resource to `state: absent`. For a task, build
+    // or wasm_bundle these handlers ignore `state` entirely, so `forjar destroy`
+    // executed the task's command — running a build, a training job or a deploy
+    // as its way of "removing" it, then reporting `- <id> (task)` as a success.
+    // These types describe an ACTION, and an action has no absent form; the
+    // artifacts they produce are removed by whatever file resource declares
+    // them.
+    if resource.state.as_deref() == Some("absent")
+        && matches!(
+            resource.resource_type,
+            ResourceType::Task | ResourceType::Build | ResourceType::WasmBundle
+        )
+    {
+        return Ok(format!(
+            "echo 'forjar: {} resources have no absent form — nothing to remove'",
+            resource.resource_type
+        ));
+    }
+
     let script = match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::apply_script(resource)),
         ResourceType::File => Ok(resources::file::apply_script(resource)),
@@ -67,6 +111,8 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Build => Ok(resources::build::apply_script(resource)),
         ResourceType::GithubRelease => Ok(resources::github_release::apply_script(resource)),
         ResourceType::OverlayInterface => Ok(resources::overlay_interface::apply_script(resource)),
+        ResourceType::DiskBudget => Ok(resources::disk_budget::apply_script(resource)),
+        ResourceType::BackupSync => Ok(resources::backup_sync::apply_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -113,6 +159,8 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::OverlayInterface => {
             Ok(resources::overlay_interface::state_query_script(resource))
         }
+        ResourceType::DiskBudget => Ok(resources::disk_budget::state_query_script(resource)),
+        ResourceType::BackupSync => Ok(resources::backup_sync::state_query_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }

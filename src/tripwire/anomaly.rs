@@ -303,6 +303,31 @@ pub fn detect_anomalies(
     findings
 }
 
+/// Run duration-outlier detection over per-resource convergence durations.
+///
+/// Only resources with at least `min_events` samples are considered, so
+/// `--min-events` is a real predicate here too.
+pub fn detect_duration_anomalies(
+    durations: &[(String, Vec<f64>)],
+    min_events: usize,
+) -> Vec<AnomalyFinding> {
+    let mut findings = Vec::new();
+    for (key, samples) in durations {
+        if samples.len() < min_events.max(1) {
+            continue;
+        }
+        if let Some((score, reason)) = duration_outlier(samples) {
+            findings.push(AnomalyFinding {
+                resource: key.clone(),
+                score,
+                status: classify_score(score),
+                reasons: vec![reason],
+            });
+        }
+    }
+    findings
+}
+
 /// Score one resource's metrics against the population, building reasons.
 ///
 /// Returns `(max_score, reasons)` where reasons is empty when no signal fired.
@@ -337,6 +362,17 @@ fn score_resource_metrics(
         max_score = max_score.max(fail_score);
     }
 
+    // Dogfood #208 (anomaly-never-detects-anything): the two scores above are
+    // POPULATION-RELATIVE. With a single resource under analysis — the normal
+    // case for a small config — the population has one member, isolation is ~0,
+    // and a resource that failed 3 of 6 applies produced "No anomalies
+    // detected". A failure rate is anomalous on its own evidence, so add an
+    // absolute detector that does not need peers to compare against.
+    if let Some((score, reason)) = absolute_failure_rate(converge, fail) {
+        reasons.push(reason);
+        max_score = max_score.max(score);
+    }
+
     // Any drift events are always flagged
     if drift > 0 {
         reasons.push(format!("{drift} drift event(s)"));
@@ -344,6 +380,89 @@ fn score_resource_metrics(
     }
 
     (max_score, reasons)
+}
+
+/// Population-independent failure-rate detector.
+///
+/// Returns `(score, reason)` when at least 3 attempts were made and at least a
+/// quarter of them failed. Score is `0.5 + rate/2`, so a 50% failure rate lands
+/// in WARNING and a 100% failure rate in DRIFT.
+pub fn absolute_failure_rate(converge: u32, fail: u32) -> Option<(f64, String)> {
+    let attempts = converge + fail;
+    if fail == 0 || attempts < 3 {
+        return None;
+    }
+    let rate = fail as f64 / attempts as f64;
+    if rate < 0.25 {
+        return None;
+    }
+    Some((
+        0.5 + rate / 2.0,
+        format!(
+            "failure rate {:.0}% ({fail}/{attempts} applies failed)",
+            rate * 100.0
+        ),
+    ))
+}
+
+/// Robust duration-outlier detector (Iglewicz–Hoaglin modified z-score).
+///
+/// Dogfood #208: a 130x duration outlier went unreported. A plain
+/// mean + k·stddev test cannot see it — the outlier itself inflates the
+/// stddev — so use median/MAD, which the outlier cannot move.
+///
+/// Returns `(score, reason)` for the most extreme sample when it exceeds the
+/// threshold. Needs at least 4 samples to have an opinion.
+pub fn duration_outlier(durations: &[f64]) -> Option<(f64, String)> {
+    if durations.len() < 4 {
+        return None;
+    }
+    let median = median_of(durations);
+    let deviations: Vec<f64> = durations.iter().map(|d| (d - median).abs()).collect();
+    let mad = median_of(&deviations);
+
+    let worst = durations
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+    if worst <= median {
+        return None;
+    }
+
+    let (magnitude, detail) = if mad < 1e-9 {
+        // Degenerate spread: fall back to a ratio test against the median.
+        if median <= 0.0 || worst < 3.0 * median {
+            return None;
+        }
+        (worst / median, format!("{:.0}x median", worst / median))
+    } else {
+        let mz = 0.6745 * (worst - median) / mad;
+        if mz < 3.5 {
+            return None;
+        }
+        (mz, format!("modified z={mz:.1}"))
+    };
+
+    let score = (0.5 + magnitude / 20.0).min(1.0);
+    Some((
+        score,
+        format!("duration outlier {worst:.3}s vs median {median:.3}s ({detail})"),
+    ))
+}
+
+/// Median of a slice (returns 0.0 for an empty slice).
+fn median_of(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mid = sorted.len() / 2;
+    if sorted.len().is_multiple_of(2) {
+        (sorted[mid - 1] + sorted[mid]) / 2.0
+    } else {
+        sorted[mid]
+    }
 }
 
 /// Classify an anomaly score into a drift status.

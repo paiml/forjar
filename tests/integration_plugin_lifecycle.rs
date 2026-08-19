@@ -4,9 +4,14 @@
 //! schema validation → dispatch check → dispatch apply → dispatch destroy.
 
 use forjar::core::plugin_dispatch::{
-    available_plugin_types, dispatch_apply, dispatch_check, dispatch_destroy, is_plugin_type,
-    parse_plugin_type,
+    available_plugin_types, dispatch_check, is_plugin_type, parse_plugin_type,
 };
+
+// `apply` and `destroy` are only dispatched by the stub-runtime lifecycle
+// tests. Importing them unconditionally warns under `--all-features`, which is
+// the configuration the release dogfood gate runs — so its warnings matter.
+#[cfg(not(feature = "wasm-runtime"))]
+use forjar::core::plugin_dispatch::{dispatch_apply, dispatch_destroy};
 use forjar::core::plugin_hot_reload::{PluginCache, ReloadCheck};
 use forjar::core::plugin_loader::{
     list_plugins, resolve_and_verify, resolve_manifest, verify_plugin,
@@ -50,11 +55,28 @@ schema:
     hash
 }
 
-/// Test: full check → apply → destroy lifecycle.
+/// A REAL (minimal, empty) WebAssembly module: the `\0asm` magic plus version 1.
+///
+/// Only the *dispatch* tests need this. The verification and hot-reload tests
+/// below deliberately keep arbitrary bytes — they assert on BLAKE3 identity and
+/// change detection, for which the payload is opaque and a real module would
+/// prove nothing extra.
+///
+/// The dispatch tests used arbitrary bytes too, which passes only when no
+/// runtime exists to reject them. Under `--all-features` the real wasmtime
+/// runtime loads the file and fails with `magic header not detected`. A fixture
+/// that is not the real artifact tests only the absence of a validator.
+const REAL_EMPTY_WASM: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+
+/// Full check -> apply -> destroy lifecycle, stub-runtime configuration.
+///
+/// With `wasm-runtime` enabled the empty module exports no `check`, so success
+/// is not the right assertion — see `dispatch_rejects_a_module_without_exports`.
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn plugin_lifecycle_check_apply_destroy() {
     let dir = TempDir::new().unwrap();
-    create_plugin(dir.path(), "nginx-config", b"nginx wasm module v1");
+    create_plugin(dir.path(), "nginx-config", REAL_EMPTY_WASM);
     let config = serde_json::json!({"host": "web-01", "port": 8080});
 
     // Check
@@ -246,11 +268,12 @@ fn resolve_and_verify_pipeline() {
     assert_eq!(resolved.status, PluginStatus::Converged);
 }
 
-/// Test: multiple operations on same plugin.
+/// Multiple operations on the same plugin, stub-runtime configuration.
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn multiple_operations_same_plugin() {
     let dir = TempDir::new().unwrap();
-    create_plugin(dir.path(), "multi-op", b"multi wasm");
+    create_plugin(dir.path(), "multi-op", REAL_EMPTY_WASM);
     let config = serde_json::json!({"host": "app-01"});
 
     // Check twice
@@ -264,4 +287,27 @@ fn multiple_operations_same_plugin() {
     assert!(apply.success);
     let destroy = dispatch_destroy(dir.path(), "multi-op", &config);
     assert!(destroy.success);
+}
+
+/// With a runtime, a structurally valid module that exports no entrypoint is
+/// rejected rather than reported as a successful dispatch.
+#[cfg(feature = "wasm-runtime")]
+#[test]
+fn dispatch_rejects_a_module_without_exports() {
+    let dir = TempDir::new().unwrap();
+    create_plugin(dir.path(), "nginx-config", REAL_EMPTY_WASM);
+    let config = serde_json::json!({"host": "web-01", "port": 8080});
+
+    let check = dispatch_check(dir.path(), "nginx-config", &config);
+    assert!(
+        !check.success,
+        "an empty module exports no `check`; dispatch must not report success"
+    );
+    // It must fail on the missing export, NOT the magic number — a magic-number
+    // failure would mean the fixture stopped being a real module.
+    assert!(
+        !check.message.contains("magic header"),
+        "fixture is not a real wasm module: {}",
+        check.message
+    );
 }

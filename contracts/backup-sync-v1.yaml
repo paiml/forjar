@@ -1,0 +1,325 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-08-15"
+  author: "PAIML Engineering"
+  kind: kernel
+  description: |
+    backup_sync resource (FJ-037 / PMAT-216) — an offsite copy that has to prove
+    it exists.
+
+    Origin. Measured on lambda-labs 2026-08-15: ~2.1 TB of irreplaceable media
+    (RecordedCourses 1.6T, home-Videos 134G, long-form-videos 236G, coursera
+    assets 168G, mac-backup 34G) on a 4-wide RAID0 with no parity, and ZERO
+    bytes of it anywhere off that array. An hourly job had reported
+    "Backup complete" for months, deployed, enabled, exiting 0 throughout.
+
+    Four independent defects, each of which this contract makes
+    unrepresentable:
+
+      D1  The destination was LOCAL. SOURCE=/mnt/nvme-raid0/videos,
+          DEST=/videos, and /videos was a symlink back to the source. rsync
+          copied a directory onto itself and exited 0.
+      D2  The success metric could not fail. `find "$DEST"` does not descend a
+          symlink without -L or a trailing slash, so it printed "Files: 0"
+          while 77 matching files sat in that exact directory. Structurally 0
+          on EVERY input — not merely wrong on an empty set.
+      D3  Coverage was never compared to anything. The job covered a 16 GB
+          directory (0.12% of the array) and nothing asserted the rest.
+      D4  There was no alerting path for the array itself: mdmonitor inactive,
+          no MAILADDR, and smartd mailing `root` on a host with no MTA.
+          (D4 is tracked separately; this contract covers D1-D3.)
+
+  references:
+    - "src/resources/backup_sync/ — handler (check/apply/state_query)"
+    - "src/resources/backup_sync/sync.rs — sync + checksum verification"
+    - "src/resources/backup_sync/preflight.rs — remote reachability gate"
+    - "src/resources/backup_sync/config.rs — forjar-managed rclone.conf"
+    - "src/core/types/backup_sync_types.rs — remote/source validation"
+    - "rclone check --combined — per-file status characters (= * - !)"
+    - "Google Drive upload limit: ~750 GB/day/account"
+
+  quorum_validation:
+    - system: "ZFS send/recv + zfs-auto-snapshot"
+      adopted: |
+        A replica is only trustworthy if verified against the source, not
+        inferred from the transfer tool's exit status. Verification is a
+        separate, explicit step with its own result.
+      encoded_as: "equation `coverage_is_checksum_verified`"
+    - system: "restic / borg `check --read-data`"
+      adopted: |
+        Backups are assumed broken until proven otherwise; an integrity check
+        that examines zero objects is an error, never a pass.
+      encoded_as: "equation `empty_verification_fails_closed`"
+    - system: "Prometheus dead-man's switch (and the fleet's own lane-liveness)"
+      adopted: |
+        Alert on the ABSENCE of the expected signal. A backup that stops
+        running must fail, not go quiet; execution evidence must come from a
+        source the deployer cannot forge.
+      encoded_as: "equations `execution_evidence_is_journal`, `heartbeat_staleness`"
+
+equations:
+  remote_cannot_be_local:
+    formula: |
+      valid(dest) ⟺ dest matches `name:path` ∧ name ∈ [A-Za-z0-9_-]+
+                    ∧ dest ∌ prefix{"/", ".", "~"}
+    domain: "dest ∈ String (backup_remote)"
+    codomain: "Result<BackupSync, String>"
+    invariants:
+      - "A local destination is REJECTED at parse time (D1)"
+      - "An unconfigured rclone remote silently degrades to a local path, so the remote must also be proven configured and reachable before any byte moves"
+      - "The self-referential backup is unrepresentable, not merely discouraged"
+
+  coverage_is_checksum_verified:
+    formula: |
+      coverage = |{= }| / (|{= }| + |{* }| + |{+ }| + |{! }|) × 100
+                 (|{- }| — only-in-remote — is excluded from the denominator)
+    domain: "sources ∈ [Path], remote ∈ rclone remote"
+    codomain: "0..=100"
+    invariants:
+      - "Health is a count of files proven present in the remote BY CHECKSUM"
+      - "The sync tool's exit code is NEVER the health signal (rsync exits 0 copying a directory onto itself)"
+      - "`rclone check --combined` characters, verified against rclone v1.75.0 --help and an executed fixture: `=` identical, `*` differing, `+` missing on the DESTINATION (present locally, NOT backed up), `-` missing on the SOURCE (only in the remote), `!` error"
+      - "`+` is the number that was silently 2.1 TB — NOT `-`. Reading them backwards drops un-backed-up files out of the denominator, so a backup missing data reports HIGHER coverage than one that has it all"
+      - "Files only in the remote (`-`) are stale, not unprotected; they are reported but never counted against coverage, or every local deletion would read as a backup fault"
+
+  empty_verification_fails_closed:
+    formula: |
+      (|examined| = 0 ∨ |matched| = 0) ∧ sources ≠ ∅ ⟹ health = unverified ∧ exit ≠ 0
+    domain: "one sync pass"
+    codomain: "{verified, partial, unverified} × exit code"
+    invariants:
+      - "Zero files examined is a BROKEN CHECK, never an empty backup (D2)"
+      - "Zero files matched fails even when the check ran"
+      - "Missing check output counts as an error, not as a pass"
+      - "A run below the declared verify_pct exits non-zero so systemd records a failed unit"
+
+  execution_evidence_is_journal:
+    formula: |
+      ever_ran(r) ⟺ ∃ journal entries for the service unit
+    domain: "r ∈ Resource where resource_type = BackupSync"
+    codomain: "{yes, no}"
+    invariants:
+      - "`apply` MUST NOT run the sync: a deployer that runs the job also writes the status file that is supposed to prove the SERVICE ran"
+      - "Execution evidence is read from journalctl, which the deployer cannot forge"
+      - "A /run/*.json is treated as untrusted for the question 'did this ever run'"
+
+  credential_is_never_committed:
+    formula: |
+      backup_token ∈ repo ⟹ backup_token matches `{{secrets.*}}`
+    domain: "r ∈ Resource where resource_type = BackupSync"
+    codomain: "Vec<ValidationError>"
+    invariants:
+      - "Configuration (backend, scope, folder id) lives in the repo — reviewable and drift-checked"
+      - "The OAuth refresh token is a bearer credential and is resolved through the secrets provider"
+      - "A literal token in a declaration is REJECTED at parse time"
+      - "An unresolved `{{secrets.x}}` reaching codegen is refused: writing it would set the remote's credential to that literal string"
+      - "The generated rclone.conf is created under umask 077 and chmod 0600, then renamed atomically"
+
+  heartbeat_staleness:
+    formula: |
+      age(status) > 3 × cadence ⟹ heartbeat = stale
+    domain: "r ∈ Resource where resource_type = BackupSync"
+    codomain: "{fresh, stale, missing}"
+    invariants:
+      - "Freshness scales with the declared cadence, never a hardcoded constant"
+      - "An unrecognised OnCalendar expression falls back to daily, never to zero"
+
+  teardown_orders_stop_before_delete:
+    formula: |
+      index(stop) < index(disable) < index(rm) < index(daemon-reload)
+    domain: "r ∈ Resource where state = absent"
+    codomain: "String (purified shell)"
+    invariants:
+      - "PMAT-219: deleting a unit file out from under a loaded unit leaves it Active: failed with 'Unit to trigger vanished'"
+      - "reset-failed clears the orphan so a converged apply does not leave systemd holding a failed unit"
+
+proof_obligations:
+  - type: safety
+    property: "A local destination is rejected before any sync can run"
+    formal: "∀ dest ∈ prefix{/,.,~}: BackupSync::new(.., dest, ..) = Err"
+    applies_to: remote_cannot_be_local
+    enforced_by: "src/core/types/backup_sync_types.rs::tests::rejects_an_absolute_local_destination"
+
+  - type: safety
+    property: "The remote is proven configured and reachable before bytes move"
+    formal: "∀ r: apply emits listremotes ∧ (about ∨ lsd) guards preceding any rclone sync"
+    applies_to: remote_cannot_be_local
+    enforced_by: "src/resources/backup_sync/preflight.rs::tests::requires_the_remote_to_be_configured_not_just_named"
+
+  - type: safety
+    property: "Coverage is computed from checksum comparison, not exit status"
+    formal: "∀ r: sync_script(r) ⊇ {rclone check, --checksum, --combined}"
+    applies_to: coverage_is_checksum_verified
+    enforced_by: "src/resources/backup_sync/sync.rs::tests::verifies_by_checksum_not_by_exit_code"
+
+  - type: liveness
+    property: "Zero examined or zero matched files fails the run"
+    formal: "|examined| = 0 ∨ |matched| = 0 ⟹ exit ≠ 0"
+    applies_to: empty_verification_fails_closed
+    enforced_by: "src/resources/backup_sync/sync.rs::tests::zero_examined_files_is_a_failure_not_a_success"
+
+  - type: safety
+    property: "systemd never masks a failed verification"
+    formal: "∀ r: service_unit(r) ∌ {SuccessExitStatus, RemainAfterExit}"
+    applies_to: empty_verification_fails_closed
+    enforced_by: "src/resources/backup_sync/units.rs::tests::service_does_not_mask_a_failed_verification"
+
+  - type: safety
+    property: "apply does not manufacture the evidence it will later read"
+    formal: "∀ r: apply_script(r) ∌ invocation of script_path(r)"
+    applies_to: execution_evidence_is_journal
+    enforced_by: "src/resources/backup_sync/tests.rs::apply_does_not_run_the_sync"
+
+  - type: liveness
+    property: "Execution evidence comes from the journal"
+    formal: "∀ r: state_query(r) ⊇ journalctl -u service"
+    applies_to: execution_evidence_is_journal
+    enforced_by: "src/resources/backup_sync/tests.rs::state_query_takes_execution_evidence_from_the_journal"
+
+  - type: safety
+    property: "A literal credential cannot be declared"
+    formal: "∀ r: literal(backup_token) ∧ len > 24 ⟹ ValidationError"
+    applies_to: credential_is_never_committed
+    enforced_by: "src/core/parser/backup_sync_validate.rs::validate_backup_sync"
+
+  - type: safety
+    property: "An unresolved secret template never reaches rclone.conf"
+    formal: "∀ r: is_unresolved(token) ⟹ apply_script(r) = refusal"
+    applies_to: credential_is_never_committed
+    enforced_by: "src/resources/backup_sync/tests.rs::an_unresolved_secret_template_is_refused"
+
+  - type: safety
+    property: "The credential is never world-readable, not even transiently"
+    formal: "∀ r: install emits umask 077 before creat, chmod 0600, atomic mv"
+    applies_to: credential_is_never_committed
+    enforced_by: "src/resources/backup_sync/config.rs::tests::install_is_atomic_and_never_world_readable"
+
+  - type: ordering
+    property: "Teardown stops and disables before deleting unit files"
+    formal: "index(stop) < index(disable) < index(rm) < index(daemon-reload)"
+    applies_to: teardown_orders_stop_before_delete
+    enforced_by: "src/resources/backup_sync/tests.rs::removal_stops_before_it_deletes"
+
+  - type: safety
+    property: "Every emitted script survives forjar's I8 purification gate"
+    formal: "∀ r: validate_script(apply|check|state_query(r)) = Ok"
+    applies_to: coverage_is_checksum_verified
+    enforced_by: "src/resources/backup_sync/tests.rs::every_emitted_script_passes_the_purifier"
+
+falsification_tests:
+  - id: FALSIFY-BKP-001
+    rule: "the destination cannot be local"
+    prediction: "backup_remote of `/videos` is rejected with a LOCAL path error"
+    test: "src/core/types/backup_sync_types.rs::tests::rejects_an_absolute_local_destination"
+    if_fails: "The exact predecessor returns: rsync copies the array onto itself and exits 0 forever"
+
+  - id: FALSIFY-BKP-002
+    rule: "an unconfigured remote is not a destination"
+    prediction: "preflight fails when `rclone listremotes` does not list the remote"
+    test: "src/resources/backup_sync/preflight.rs::tests::requires_the_remote_to_be_configured_not_just_named"
+    if_fails: "rclone treats `name:path` as a LOCAL directory and the backup silently lands on the same disk"
+
+  - id: FALSIFY-BKP-003
+    rule: "coverage is checksum-verified"
+    prediction: "the sync script runs `rclone check --checksum --combined` and counts per-file status"
+    test: "src/resources/backup_sync/sync.rs::tests::verifies_by_checksum_not_by_exit_code"
+    if_fails: "Health degenerates to the transfer tool's exit code, which is 0 for a no-op"
+
+  - id: FALSIFY-BKP-004
+    rule: "zero examined files is a failure"
+    prediction: "|examined| = 0 with declared sources yields health=unverified and exit 1"
+    test: "src/resources/backup_sync/sync.rs::tests::zero_examined_files_is_a_failure_not_a_success"
+    if_fails: "The vacuous 'Files: 0 — Backup complete' metric returns verbatim"
+
+  - id: FALSIFY-BKP-005
+    rule: "zero matched files is a failure"
+    prediction: "|matched| = 0 yields health=unverified"
+    test: "src/resources/backup_sync/sync.rs::tests::zero_matched_files_is_a_failure"
+    if_fails: "A backup where nothing transferred reports healthy"
+
+  - id: FALSIFY-BKP-006
+    rule: "missing check output is an error"
+    prediction: "an absent --combined file counts as an error, not zero differences"
+    test: "src/resources/backup_sync/sync.rs::tests::missing_check_output_counts_as_an_error_not_a_pass"
+    if_fails: "A crashed verification reads as a clean one"
+
+  - id: FALSIFY-BKP-007
+    rule: "apply does not run the sync"
+    prediction: "apply_script arms the timer and never invokes the sync script"
+    test: "src/resources/backup_sync/tests.rs::apply_does_not_run_the_sync"
+    if_fails: "The deployer writes the status file that is supposed to prove the service ran (§0.2)"
+
+  - id: FALSIFY-BKP-008
+    rule: "execution evidence is the journal"
+    prediction: "state_query reads journalctl for backup_ever_ran"
+    test: "src/resources/backup_sync/tests.rs::state_query_takes_execution_evidence_from_the_journal"
+    if_fails: "A deployer-written /run/*.json is mistaken for proof of execution"
+
+  - id: FALSIFY-BKP-009
+    rule: "an unresolved secret template is refused"
+    prediction: "backup_token of `{{secrets.x}}` at codegen produces a refusal, not a config"
+    test: "src/resources/backup_sync/tests.rs::an_unresolved_secret_template_is_refused"
+    if_fails: "rclone.conf gets the literal string as its credential and fails later as an auth error"
+
+  - id: FALSIFY-BKP-010
+    rule: "the credential is never world-readable"
+    prediction: "install emits umask 077, chmod 0600 and an atomic mv"
+    test: "src/resources/backup_sync/config.rs::tests::install_is_atomic_and_never_world_readable"
+    if_fails: "A refresh token is briefly (or permanently) readable by any local user"
+
+  - id: FALSIFY-BKP-011
+    rule: "teardown stops before it deletes"
+    prediction: "stop < disable < rm < daemon-reload, plus reset-failed"
+    test: "src/resources/backup_sync/tests.rs::removal_stops_before_it_deletes"
+    if_fails: "PMAT-219 recurs: an orphaned unit sits Active: failed while apply reports converged"
+
+  - id: FALSIFY-BKP-012
+    rule: "sources cannot overlap"
+    prediction: "nested sources are rejected because they double-count coverage"
+    test: "src/core/types/backup_sync_types.rs::tests::rejects_overlapping_sources"
+    if_fails: "verify_pct is computed over a multiset and can exceed real coverage"
+
+  - id: FALSIFY-BKP-014
+    rule: "stale remote files do not affect coverage"
+    prediction: "a `-` line (only in remote) leaves a fully-covered backup at 100% and exit 0"
+    test: "tests/falsification_backup_sync.rs::files_only_in_the_remote_are_stale_and_do_not_fail_the_backup"
+    if_fails: "Every local deletion reads as a backup failure until the next sync"
+
+  - id: FALSIFY-BKP-013
+    rule: "emitted scripts are purifiable"
+    prediction: "apply/check/state_query pass forjar's I8 purifier"
+    test: "src/resources/backup_sync/tests.rs::every_emitted_script_passes_the_purifier"
+    if_fails: "The resource is fully tested and completely undeployable"
+
+kani_harnesses:
+  - id: KANI-BKP-001
+    obligation: "no accepted remote can be a local path"
+    property: "forall s: BackupSync::new(.., s, ..) = Ok => s contains ':' and s[0] not in {/,.,~}"
+    bound: 8
+    strategy: bounded_int
+    harness: proof_backup_remote_never_local
+
+  - id: KANI-BKP-002
+    obligation: "coverage is bounded 0..=100"
+    property: "forall matched <= total: (matched * 100 / total) <= 100"
+    bound: 256
+    strategy: bounded_int
+    harness: proof_backup_coverage_bounded
+
+  - id: KANI-BKP-003
+    obligation: "a declaration with no sources is refused"
+    property: "forall verify_pct: BackupSync::new(vec![], ..) = Err"
+    bound: 256
+    strategy: bounded_int
+    harness: proof_backup_empty_sources_rejected
+
+qa_gate:
+  id: F-BKP-001
+  name: "Backup Sync Contract"
+  description: |
+    An offsite copy is declared state and must prove it exists. Gate fails on
+    any falsification test going red.
+  check: "cargo test --lib backup_sync && cargo test --test falsification_backup_sync"
+  severity: error
+  reference: "src/resources/backup_sync/"

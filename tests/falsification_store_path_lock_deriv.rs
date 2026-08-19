@@ -31,7 +31,7 @@ use forjar::core::store::lockfile::{
     check_completeness, check_staleness, parse_lockfile, read_lockfile, write_lockfile, LockFile,
     Pin,
 };
-use forjar::core::store::path::{store_entry_path, store_path, STORE_BASE};
+use forjar::core::store::path::{store_entry_path, store_path, store_root};
 use forjar::core::store::purity::PurityLevel;
 use std::collections::BTreeMap;
 
@@ -80,14 +80,15 @@ fn store_path_differs_for_different_provider() {
 
 #[test]
 fn store_entry_path_with_prefix() {
+    // GH-239: the base is the RESOLVED root, not the STORE_BASE const.
     let path = store_entry_path("blake3:abc123");
-    assert_eq!(path, format!("{STORE_BASE}/abc123"));
+    assert_eq!(path, format!("{}/abc123", store_root().display()));
 }
 
 #[test]
 fn store_entry_path_without_prefix() {
     let path = store_entry_path("abc123");
-    assert_eq!(path, format!("{STORE_BASE}/abc123"));
+    assert_eq!(path, format!("{}/abc123", store_root().display()));
 }
 
 // ============================================================================

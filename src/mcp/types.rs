@@ -32,7 +32,8 @@ pub struct PlanInput {
     pub path: String,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
-    /// Filter to specific resource
+    /// Filter to a specific resource. The counts below describe the FILTERED
+    /// set, and an id that is not in the config is an error (GH-214).
     pub resource: Option<String>,
     /// Filter by tag
     pub tag: Option<String>,
@@ -84,6 +85,13 @@ pub struct DriftOutput {
     pub drifted: bool,
     /// Individual drift findings.
     pub findings: Vec<DriftFindingOutput>,
+    /// GH-208: machines that could NOT be compared (no state recorded yet), so a
+    /// caller can distinguish "clean" from "not looked at". Previously an
+    /// uncomparable machine simply contributed no findings and the tool answered
+    /// `drifted: false`, which reads as a clean bill of health for a machine that
+    /// was never inspected.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unchecked: Vec<String>,
 }
 
 /// A single drift finding for a resource.
@@ -122,7 +130,9 @@ pub struct LintOutput {
 pub struct GraphInput {
     /// Path to forjar.yaml
     pub path: String,
-    /// Output format: "mermaid" (default) or "dot"
+    /// Output format: "mermaid" (default) or "dot". Any other value is an
+    /// error — "ascii" and "svg" exist on the CLI only, and an unrecognised
+    /// value is rejected exactly as `forjar graph --format` rejects it (GH-212).
     pub format: Option<String>,
 }
 
@@ -131,7 +141,8 @@ pub struct GraphInput {
 pub struct GraphOutput {
     /// Rendered dependency graph.
     pub graph: String,
-    /// Output format (mermaid or dot).
+    /// The format ACTUALLY rendered — always one of "mermaid" or "dot", never
+    /// an echo of an unsupported request (GH-212).
     pub format: String,
 }
 
@@ -154,6 +165,12 @@ pub struct ShowOutput {
 /// MCP status handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct StatusInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine
@@ -179,6 +196,12 @@ pub struct MachineStatusOutput {
 /// MCP trace handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TraceInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine
@@ -226,6 +249,12 @@ pub struct TraceSpanOutput {
 /// MCP anomaly handler input.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AnomalyInput {
+    /// GH-208: path to the project's forjar.yaml. Optional for backward
+    /// compatibility, but without it the tool cannot know WHICH project it
+    /// is being asked about and falls back to `./state` relative to the
+    /// server's cwd — which for an MCP stdio server is chosen by the client
+    /// and is arbitrary.
+    pub path: Option<String>,
     /// State directory (default: "state")
     pub state_dir: Option<String>,
     /// Filter to specific machine

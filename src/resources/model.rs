@@ -5,6 +5,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+use crate::resources::verdict;
 
 /// Generate shell script to check if a model exists and matches checksum.
 pub fn check_script(resource: &Resource) -> String {
@@ -14,25 +15,29 @@ pub fn check_script(resource: &Resource) -> String {
     let p = sh_squote(path);
 
     match state {
-        "absent" => format!(
-            "[ -f {p} ] && echo {} || echo {}",
-            sh_squote(&format!("exists:{name}")),
-            sh_squote(&format!("absent:{name}"))
+        // INVERTED: `absent` converges when the file is gone.
+        "absent" => verdict::single(
+            &format!("! [ -f {p} ]"),
+            &format!("absent:{name}"),
+            &format!("exists:{name}"),
         ),
         _ => {
             if let Some(ref checksum) = resource.checksum {
                 let cs = sh_squote(checksum);
-                format!(
-                    "if [ -f {p} ]; then\n  HASH=$(b3sum {p} 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = {cs} ]; then\n    echo {}\n  else\n    echo {}\n  fi\nelse\n  echo {}\nfi",
+                // A checksum mismatch is divergence, not a pass — this is the
+                // case where reporting `ok` is most dangerous, because the file
+                // exists and looks fine.
+                verdict::check_script_from(&[format!(
+                    "if [ -f {p} ]; then\n  HASH=$(b3sum {p} 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = {cs} ]; then\n    echo {}\n  else\n    echo {}; __fj_diverged=1\n  fi\nelse\n  echo {}; __fj_diverged=1\nfi",
                     sh_squote(&format!("match:{name}")),
                     sh_squote(&format!("mismatch:{name}")),
                     sh_squote(&format!("missing:{name}"))
-                )
+                )])
             } else {
-                format!(
-                    "[ -f {p} ] && echo {} || echo {}",
-                    sh_squote(&format!("exists:{name}")),
-                    sh_squote(&format!("missing:{name}"))
+                verdict::single(
+                    &format!("[ -f {p} ]"),
+                    &format!("exists:{name}"),
+                    &format!("missing:{name}"),
                 )
             }
         }
@@ -152,6 +157,7 @@ mod tests {
 
     fn make_model_resource(name: &str) -> Resource {
         Resource {
+            phony: false,
             resource_type: ResourceType::Model,
             machine: MachineTarget::Single("gpu-box".to_string()),
             state: None,
@@ -251,6 +257,7 @@ mod tests {
             overlay_iface: None,
             overlay_hosts: None,
             overlay_firewall: None,
+            ..Default::default()
         }
     }
 

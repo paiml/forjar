@@ -1,6 +1,7 @@
 ---
 metadata:
   version: "1.0.0"
+  kind: pattern
   created: "2026-06-12"
   author: "PAIML Engineering"
   description: |
@@ -63,7 +64,7 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/cli/generation.rs::rollback_to_generation debug_assert_eq!"
 
-  - type: test
+  - type: roundtrip
     property: "Roundtrip restores the snapshot byte-for-byte"
     formal: "snapshot(S → g); mutate(S); rollback(g) ⟹ locks(state_dir) = locks(S)"
     applies_to: all
@@ -76,17 +77,21 @@ proof_obligations:
     enforced_by: "src/cli/undo.rs::cmd_undo guard (current < generations)"
 
 enforcement:
-  layer: runtime
-  failure_mode: debug_assert
-  ci_gate: required
-  notes: |
-    The debug_assert! call-sites abort a debug build if the `current`
-    symlink does not resolve to the generation just created/restored
-    (a torn symlink switch). Release builds skip the asserts; the
-    roundtrip unit test catches the same shape on CI. The replay path
-    (cmd_undo_destroy) is best-effort by design — entries flagged
-    reliable_recreate=false require --force and are excluded from the
-    byte-for-byte guarantee.
+  current_symlink_resolves_to_new_generation:
+    description: |
+      The `current` symlink must resolve to the generation just created or
+      restored; a debug_assert! aborts a debug build on a torn symlink
+      switch. Release builds skip the asserts, so the roundtrip unit test
+      carries the same shape on CI.
+    check: "contract_tests::FALSIFY-UNDO-001"
+    severity: "ERROR"
+  unreliable_entries_excluded_from_the_guarantee:
+    description: |
+      The replay path (cmd_undo_destroy) is best-effort by design: entries
+      flagged reliable_recreate=false require --force and are excluded from
+      the byte-for-byte guarantee rather than silently counted within it.
+    check: "contract_tests::FALSIFY-UNDO-002"
+    severity: "ERROR"
 
 falsification_tests:
   - id: FALSIFY-UNDO-001

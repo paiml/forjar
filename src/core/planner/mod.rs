@@ -3,7 +3,6 @@
 use super::conditions;
 use super::resolver;
 use super::types::*;
-use crate::tripwire::hasher;
 
 /// Generate an execution plan by comparing desired config to lock state.
 pub fn plan(
@@ -11,6 +10,34 @@ pub fn plan(
     execution_order: &[String],
     locks: &std::collections::HashMap<String, StateLock>,
     tag_filter: Option<&str>,
+) -> ExecutionPlan {
+    // v1.11.0 forwarded an EMPTY map here, which made every READ path
+    // (plan/check/drift/observe) blind to the staleness that `apply` acts on.
+    // Probing here means one answer for both.
+    plan_with_probes(
+        config,
+        execution_order,
+        locks,
+        tag_filter,
+        &crate::core::task::probe_config(config),
+    )
+}
+
+/// FJ-2710 (PMAT-197): plan with world-derived staleness.
+///
+/// `probes` carries the observed on-disk state of each resource's declared
+/// `task_inputs` / `output_artifacts`. Without it the planner compares only
+/// desired-config hashes, so a task whose sources changed plans as `NoOp` and
+/// forjar reports success over a stale artifact.
+///
+/// The planner stays PURE — it never touches the filesystem or a transport.
+/// The caller probes and hands the result in.
+pub fn plan_with_probes(
+    config: &ForjarConfig,
+    execution_order: &[String],
+    locks: &std::collections::HashMap<String, StateLock>,
+    tag_filter: Option<&str>,
+    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
 ) -> ExecutionPlan {
     // FJ-1210: Apply moved blocks — rename resource keys in lock state
     let locks = moved::apply_moved_blocks(&config.moved, locks);
@@ -39,8 +66,14 @@ pub fn plan(
                 continue;
             }
 
-            let action = determine_action(resource_id, &resolved, machine_name, &locks);
-            let description = describe_action(resource_id, resource, &action);
+            let action = determine_action(resource_id, &resolved, machine_name, &locks, probes);
+            // GH-212: describe the RESOLVED resource. `determine_action` was
+            // already given `resolved`, but the description was rendered from
+            // the raw config, so `plan` named the file it would create as the
+            // literal `{{params.sandbox}}/a.txt` while `show` and `apply` both
+            // used the real path — the pre-flight review surface disagreed with
+            // what the apply actually wrote.
+            let description = describe_action(resource_id, &resolved, &action);
 
             match action {
                 PlanAction::Create => to_create += 1,
@@ -58,6 +91,12 @@ pub fn plan(
             });
         }
     }
+
+    // FJ-2711 (PMAT-197): a rebuilt prerequisite must invalidate its dependents.
+    // See planner::propagation for why this cannot live in the probe.
+    let promoted = self::propagation::propagate_changes(config, execution_order, &mut changes);
+    unchanged -= promoted;
+    to_update += promoted;
 
     // idempotent-apply-v1 contract: action counters partition the change
     // set — every planned change is counted exactly once, so a fully
@@ -96,16 +135,13 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 /// with the default (env) provider here made every secret-bearing resource
 /// replan as a spurious Update forever, violating f(f(x)) = f(x).
 fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
-    resolver::resolve_resource_templates_with_secrets(
+    resolver::resolve_or_fallback(
+        resource_id,
         resource,
         &config.params,
         &config.machines,
         &config.secrets,
     )
-    .unwrap_or_else(|e| {
-        eprintln!("warning: template resolution failed for {resource_id}: {e}");
-        resource.clone()
-    })
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.
@@ -163,7 +199,9 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::Image
         | ResourceType::Build
         | ResourceType::GithubRelease
-        | ResourceType::OverlayInterface => "present",
+        | ResourceType::OverlayInterface
+        | ResourceType::DiskBudget
+        | ResourceType::BackupSync => "present",
     }
 }
 
@@ -173,6 +211,7 @@ fn determine_action(
     resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
+    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
 ) -> PlanAction {
     let state = resource
         .state
@@ -180,7 +219,7 @@ fn determine_action(
         .unwrap_or_else(|| default_state(&resource.resource_type));
 
     if state == "absent" {
-        let action = determine_absent_action(resource_id, machine_name, locks);
+        let action = determine_absent_action(resource_id, resource, machine_name, locks);
 
         // FJ-1220: prevent_destroy blocks Destroy actions
         if action == PlanAction::Destroy {
@@ -195,21 +234,55 @@ fn determine_action(
         return action;
     }
 
-    determine_present_action(resource_id, resource, machine_name, locks)
+    determine_present_action(resource_id, resource, machine_name, locks, probes)
 }
 
 /// Determine action for a resource with state=absent.
+///
+/// GH-229: this used to return `Destroy` for any resource present in the lock,
+/// using "is in the lock" as a proxy for "still exists on the machine". That
+/// proxy is false — a SUCCESSFUL destroy writes the resource back into the lock
+/// as `converged`, so the plan re-emitted `Destroy` on every subsequent run and
+/// never reached a fixed point (observed as a permanent "N to destroy" on
+/// infra's lambda-labs, pending for days across two unrelated resource sets).
+///
+/// Two situations look identical under `status: converged` and must not be
+/// conflated:
+///   (A) converged as PRESENT, now redeclared absent  -> must Destroy
+///   (B) converged TO ABSENT (destroy already ran)    -> must NoOp
+///
+/// The stored hash separates them, because `state` is itself a component of
+/// `hash_desired_state` (see hashing.rs `push_opt(components, &resource.state)`).
+/// A lock written by a present-state apply cannot match the absent form's hash.
+/// This is the same rule `determine_present_action` already applies, so the two
+/// branches now share one idempotency contract rather than one having none.
+///
+/// The FJ-2200 idempotency postcondition (converged + matching hash → NoOp) is
+/// structural here — it is the literal final branch — so it needs no
+/// `debug_assert` to restate it.
 fn determine_absent_action(
     resource_id: &str,
+    resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
 ) -> PlanAction {
-    if let Some(lock) = locks.get(machine_name) {
-        if lock.resources.contains_key(resource_id) {
-            return PlanAction::Destroy;
-        }
+    let Some(rl) = locks
+        .get(machine_name)
+        .and_then(|lock| lock.resources.get(resource_id))
+    else {
+        return PlanAction::NoOp;
+    };
+
+    // A destroy that failed or drifted must be retried.
+    if rl.status != ResourceStatus::Converged {
+        return PlanAction::Destroy;
     }
-    PlanAction::NoOp
+
+    if rl.hash == hash_desired_state(resource) {
+        PlanAction::NoOp // (B) already converged to absent
+    } else {
+        PlanAction::Destroy // (A) lock holds a present-state hash
+    }
 }
 
 /// Determine action for a resource with a present/running/mounted state.
@@ -223,7 +296,21 @@ fn determine_present_action(
     resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
+    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
 ) -> PlanAction {
+    // FJ-2725 (PMAT-199): a phony resource that reaches the planner was named
+    // as an explicit goal — `strip_unrequested_phony` removed every other one
+    // before planning. It names an ACTION with no observable artifact, so it
+    // runs unconditionally: no lock read, no hash compare, no probe.
+    //
+    // This does not weaken the idempotency contract. `plan` over a config with
+    // no goals contains no phony resources at all, so the plan fixed point is
+    // untouched; requesting an action by name is the user asking for it to
+    // happen, which is a different thing from convergence.
+    if resource.phony {
+        return PlanAction::Update;
+    }
+
     let lock = match locks.get(machine_name) {
         Some(l) => l,
         None => return PlanAction::Create,
@@ -235,6 +322,20 @@ fn determine_present_action(
 
     if rl.status != ResourceStatus::Converged {
         return PlanAction::Update; // Previously failed or drifted
+    }
+
+    // FJ-2710 (PMAT-197): world-derived staleness OVERRIDES a matching config
+    // hash. A build task whose sources changed has an identical desired state
+    // — only the filesystem knows it must re-run. Checked before the hash
+    // comparison because a stale artifact is a correctness bug, not a
+    // preference.
+    if let Some(probe) = probes.get(resource_id) {
+        let stored_in = rl.details.get("input_hash").and_then(|v| v.as_str());
+        let stored_out = rl.details.get("output_hash").and_then(|v| v.as_str());
+        if let Some(reason) = crate::core::task::staleness_reason(probe, stored_in, stored_out) {
+            eprintln!("  {resource_id}: stale — {reason}");
+            return PlanAction::Update;
+        }
     }
 
     let desired_hash = hash_desired_state(resource);
@@ -257,142 +358,6 @@ fn determine_present_action(
 }
 
 /// Push an optional field's value onto the components list.
-fn push_opt<'a>(components: &mut Vec<&'a str>, field: &'a Option<String>) {
-    if let Some(ref val) = *field {
-        components.push(val);
-    }
-}
-
-/// Push all items from a Vec<String> onto the components list.
-fn push_list<'a>(components: &mut Vec<&'a str>, items: &'a [String]) {
-    for item in items {
-        components.push(item);
-    }
-}
-
-/// Collect core resource fields (phase 1) into hash components.
-///
-/// Field order is stable and must not change — it determines hash identity.
-fn collect_core_fields<'a>(components: &mut Vec<&'a str>, resource: &'a Resource) {
-    push_opt(components, &resource.state);
-    push_opt(components, &resource.provider);
-    push_list(components, &resource.packages);
-    push_opt(components, &resource.path);
-    push_opt(components, &resource.content);
-    push_opt(components, &resource.source);
-    push_opt(components, &resource.name);
-    push_opt(components, &resource.owner);
-    push_opt(components, &resource.group);
-    push_opt(components, &resource.mode);
-    push_opt(components, &resource.fs_type);
-    push_opt(components, &resource.options);
-    push_opt(components, &resource.target);
-    push_opt(components, &resource.version);
-}
-
-/// Canonicalize `overlay_hosts` (a `HashMap`) into a stable, hashable string.
-///
-/// FJ-035: the `/etc/hosts` managed block is part of the converged state, so
-/// two overlay_interface resources differing ONLY in `overlay_hosts` MUST hash
-/// differently or `plan` will false-report `NoOp` and never rewrite the block.
-/// `HashMap` iteration order is non-deterministic, so we sort by (name, ip) to
-/// get a deterministic, order-independent serialization. Returns an empty
-/// string when the map is absent/empty (no contribution to the hash).
-fn canonical_overlay_hosts(resource: &Resource) -> String {
-    let Some(hosts) = resource.overlay_hosts.as_ref() else {
-        return String::new();
-    };
-    if hosts.is_empty() {
-        return String::new();
-    }
-    let mut entries: Vec<(&String, &String)> = hosts.iter().collect();
-    entries.sort_by(|a, b| a.0.cmp(b.0).then(a.1.cmp(b.1)));
-    let mut out = String::from("overlay_hosts:");
-    for (name, ip) in entries {
-        out.push_str(name);
-        out.push('=');
-        out.push_str(ip);
-        out.push(';');
-    }
-    out
-}
-
-/// Collect phase 2 resource fields into hash components.
-///
-/// Field order is stable and must not change — it determines hash identity.
-/// `overlay_hosts_canon` is the pre-computed canonical serialization of
-/// `overlay_hosts` (see `canonical_overlay_hosts`); it is threaded in as an
-/// owned `&str` because the source map cannot be borrowed as a single slice.
-fn collect_phase2_fields<'a>(
-    components: &mut Vec<&'a str>,
-    resource: &'a Resource,
-    overlay_hosts_canon: &'a str,
-) {
-    push_opt(components, &resource.image);
-    push_opt(components, &resource.command);
-    push_opt(components, &resource.schedule);
-    push_opt(components, &resource.restart);
-    push_opt(components, &resource.port);
-    push_opt(components, &resource.protocol);
-    push_opt(components, &resource.action);
-    push_opt(components, &resource.from_addr);
-    push_opt(components, &resource.shell);
-    push_opt(components, &resource.home);
-    if let Some(ref enabled) = resource.enabled {
-        components.push(if *enabled { "enabled" } else { "disabled" });
-    }
-    push_list(components, &resource.ports);
-    push_list(components, &resource.environment);
-    push_list(components, &resource.volumes);
-    push_list(components, &resource.restart_on);
-    // FJ-035: overlay_interface identity-bearing fields. overlay_ip changes the
-    // bound address / ExecStart line, overlay_iface changes the target NIC,
-    // overlay_firewall changes the converged ufw state, and overlay_hosts
-    // changes the managed /etc/hosts block — all must alter the desired-state
-    // hash so plan does not wrongly report NoOp.
-    push_opt(components, &resource.overlay_ip);
-    push_opt(components, &resource.overlay_iface);
-    if let Some(fw) = resource.overlay_firewall {
-        components.push(if fw {
-            "overlay_fw_on"
-        } else {
-            "overlay_fw_off"
-        });
-    }
-    // FJ-035 MATERIAL FIX: overlay_hosts was omitted from the hash collector, so
-    // two resources differing ONLY in their /etc/hosts map hashed equal and plan
-    // false-reported NoOp. Folding the canonical serialization closes that hole.
-    if !overlay_hosts_canon.is_empty() {
-        components.push(overlay_hosts_canon);
-    }
-}
-
-/// Compute a hash of the desired state for comparison.
-///
-/// FJ-2200: Contract — determinism: same resource always produces same hash.
-pub fn hash_desired_state(resource: &Resource) -> String {
-    let type_str = resource.resource_type.to_string();
-    // Owned canonicalization of overlay_hosts; kept alive for the borrow below.
-    let overlay_hosts_canon = canonical_overlay_hosts(resource);
-    let mut components: Vec<&str> = vec![&type_str];
-
-    collect_core_fields(&mut components, resource);
-    collect_phase2_fields(&mut components, resource, &overlay_hosts_canon);
-
-    let joined = components.join("\0");
-    let result = hasher::hash_string(&joined);
-
-    // FJ-2200 / idempotent-apply-v1 contract: determinism postcondition —
-    // calling again must produce the same hash
-    debug_assert_eq!(
-        result,
-        hasher::hash_string(&joined),
-        "hash_desired_state: determinism violated"
-    );
-
-    result
-}
-
 /// Generate a human-readable description of a planned action.
 fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) -> String {
     match action {
@@ -430,7 +395,9 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Image
             | ResourceType::Build
             | ResourceType::GithubRelease
-            | ResourceType::OverlayInterface => format!("{resource_id}: create"),
+            | ResourceType::OverlayInterface
+            | ResourceType::DiskBudget
+            | ResourceType::BackupSync => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),
@@ -438,9 +405,12 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
     }
 }
 
+pub mod hashing;
+pub use hashing::hash_desired_state;
 pub mod minimal_changeset;
 pub mod moved;
 pub mod proof_obligation;
+pub mod propagation;
 pub mod reversibility;
 pub mod sat_deps;
 pub mod why;
@@ -457,6 +427,10 @@ mod tests_filter;
 mod tests_hash;
 #[cfg(test)]
 mod tests_hash_b;
+#[cfg(test)]
+mod tests_hash_overlay;
+#[cfg(test)]
+mod tests_hash_source;
 #[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]

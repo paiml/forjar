@@ -2,14 +2,18 @@
 
 use super::apply_helpers::*;
 use super::apply_output::*;
+use super::apply_scope::{apply_scope, ApplyScope};
+use super::apply_selection::*;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
 use crate::core::{executor, parser, planner, resolver, state, types};
 use std::path::Path;
 
+pub(crate) use super::apply_scope::cmd_apply;
+
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn cmd_apply(
+pub(crate) fn cmd_apply_scoped(
     file: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -45,6 +49,10 @@ pub(crate) fn cmd_apply(
     telemetry_endpoint: Option<&str>,
     refresh: bool,
     force_tag: Option<&str>,
+    // FJ-2724: `make`-style goals. Empty means "the whole config".
+    goals: &[String],
+    // GH-211: --skip / --only-machine / --exclude-machine / --resource-filter.
+    scope: &ApplyScope,
 ) -> Result<(), String> {
     // GH-91: Warn that --sequential is not yet implemented
     if sequential {
@@ -77,12 +85,17 @@ pub(crate) fn cmd_apply(
     }
     apply_param_overrides(&mut config, param_overrides)?;
 
+    reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
+    apply_scope(&mut config, scope, verbose)?;
+    apply_goal_closure(&mut config, goals, verbose)?;
+    strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
     apply_pre_validate(
         &config,
         state_dir,
         machine_filter,
         tag_filter,
+        resource_filter,
         confirm_destructive,
         dry_run,
         force,
@@ -122,6 +135,14 @@ pub(crate) fn cmd_apply(
     // FJ-1388: Record pre-apply generation for rollback-on-failure
     let pre_apply_gen = pre_apply_generation(state_dir);
 
+    // GH-210 (FJ-129): measured BEFORE the apply. Measuring afterwards read a
+    // lock the apply had just rewritten, so every resource looked unchanged.
+    let forced_noop_count = if cfg.force && !dry_run {
+        executor::forced_noop_count(&cfg)
+    } else {
+        0
+    };
+
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
     let dur_apply = t_apply.elapsed();
@@ -131,17 +152,6 @@ pub(crate) fn cmd_apply(
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
-
-    // FJ-129: When --force was used, count how many of the converged
-    // resources were no-ops the lock would have skipped. That's what
-    // makes claim C3 (idempotency) observable through --force —
-    // without it, a forced re-apply of a fully-converged stack looks
-    // identical to a legitimate re-converge after drift.
-    let forced_noop_count = if cfg.force {
-        executor::forced_noop_count(&cfg)
-    } else {
-        0
-    };
 
     for result in &results {
         if let Err(e) = state::save_apply_report(state_dir, result) {
@@ -174,6 +184,16 @@ pub(crate) fn cmd_apply(
     if total_failed > 0 {
         // FJ-1388: Generation-based rollback on failure
         maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
+        // GH-210: `--notify` must fire on the failure path too. See
+        // `apply_output::notify_on_failure`.
+        super::apply_output::notify_on_failure(
+            notify,
+            &config,
+            &results,
+            (total_converged, total_failed, total_unchanged),
+            &t_total,
+            verbose,
+        );
         return Err(format!("{total_failed} resource(s) failed"));
     }
 
@@ -202,33 +222,6 @@ pub(crate) fn cmd_apply(
         &t_total,
     )?;
 
-    Ok(())
-}
-
-/// Apply subset and exclude filters to config.
-fn apply_filters(
-    config: &mut types::ForjarConfig,
-    subset: Option<&str>,
-    exclude: Option<&str>,
-    verbose: bool,
-) -> Result<(), String> {
-    if let Some(pattern) = subset {
-        let count = super::apply_gates::filter_subset(&mut config.resources, pattern)?;
-        if verbose {
-            eprintln!("Subset filter '{pattern}': {count} resources selected");
-        }
-    }
-    if let Some(pattern) = exclude {
-        let removed = super::apply_gates::filter_exclude(&mut config.resources, pattern);
-        if verbose {
-            eprintln!(
-                "Exclude filter '{}': removed {} resources ({} remaining)",
-                pattern,
-                removed,
-                config.resources.len()
-            );
-        }
-    }
     Ok(())
 }
 
@@ -375,6 +368,7 @@ fn apply_pre_validate(
     state_dir: &Path,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
+    resource_filter: Option<&str>,
     confirm_destructive: bool,
     dry_run: bool,
     force: bool,
@@ -389,11 +383,10 @@ fn apply_pre_validate(
         let order = resolver::build_execution_order(config)?;
         let cd_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let plan = planner::plan(config, &order, &cd_locks, tag_filter);
-        let destroy_count = plan
-            .changes
-            .iter()
-            .filter(|p| p.action == types::PlanAction::Destroy)
-            .count();
+        // GH-253: scoped, so `-r` on a non-destructive resource is not blocked
+        // by destroys the operator did not select and apply would not perform.
+        let (_, _, destroy_count) =
+            super::apply_gates::scoped_action_counts(&plan.changes, resource_filter);
         if let Some(msg) = super::apply_gates::should_block_destructive(
             destroy_count,
             confirm_destructive,
@@ -422,11 +415,12 @@ fn apply_pre_validate(
         let execution_order = resolver::build_execution_order(config)?;
         let preview_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let preview_plan = planner::plan(config, &execution_order, &preview_locks, tag_filter);
-        let n_changes = preview_plan.to_create + preview_plan.to_update + preview_plan.to_destroy;
+        let (to_create, to_update, to_destroy) =
+            super::apply_gates::scoped_action_counts(&preview_plan.changes, resource_filter);
+        let n_changes = to_create + to_update + to_destroy;
         if n_changes > 0 {
             eprint!(
-                "Apply {} change(s) ({} create, {} update, {} destroy)? [y/N] ",
-                n_changes, preview_plan.to_create, preview_plan.to_update, preview_plan.to_destroy
+                "Apply {n_changes} change(s) ({to_create} create, {to_update} update, {to_destroy} destroy)? [y/N] "
             );
             let mut answer = String::new();
             std::io::stdin()

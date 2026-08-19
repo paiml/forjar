@@ -18,7 +18,7 @@ use super::derivation::{
 use super::far::{ChunkEntry, FarFileEntry, FarManifest, FarProvenance, FAR_MAGIC};
 use super::lockfile::{check_completeness, check_staleness, LockFile, Pin, StalenessEntry};
 use super::meta::{new_meta, Provenance, StoreMeta};
-use super::path::{store_entry_path, store_path, STORE_BASE};
+use super::path::{store_entry_path, store_path, store_root, STORE_BASE};
 use super::provider::{
     all_providers, capture_method, import_command, origin_ref_string, validate_import,
     ImportConfig, ImportProvider, ImportResult,
@@ -86,8 +86,9 @@ fn falsify_a05_store_path_collision_resistance() {
 fn falsify_a06_store_entry_path_format() {
     let path = store_entry_path("blake3:abc123");
     assert!(
-        path.starts_with(STORE_BASE),
-        "entry path must start with STORE_BASE"
+        path.starts_with(&*store_root().to_string_lossy()),
+        "entry path must start with the RESOLVED store root (GH-239), not \
+         necessarily the STORE_BASE const"
     );
     assert!(
         path.ends_with("abc123"),

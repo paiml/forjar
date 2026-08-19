@@ -77,7 +77,13 @@ fn available_plugins_empty_dir() {
 fn setup_plugin(dir: &std::path::Path, name: &str) {
     let pdir = dir.join(name);
     std::fs::create_dir_all(&pdir).unwrap();
-    let wasm = b"fake wasm content";
+    // A REAL (minimal, empty) WebAssembly module: the 4-byte magic `\0asm`
+    // followed by version 1. This was `b"fake wasm content"`, which only passes
+    // when no runtime exists to reject it — so these tests were green without
+    // `wasm-runtime` and failed under `--all-features`, the configuration the
+    // release dogfood gate runs. A fixture that is not the real artifact tests
+    // only the absence of a validator.
+    let wasm: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
     let hash = blake3::hash(wasm).to_hex().to_string();
     std::fs::write(pdir.join("plugin.wasm"), wasm).unwrap();
     std::fs::write(
@@ -89,6 +95,14 @@ fn setup_plugin(dir: &std::path::Path, name: &str) {
     .unwrap();
 }
 
+// Without a runtime, dispatch resolves and BLAKE3-verifies the plugin and then
+// returns a stub success. That is the property these three pin. With a runtime
+// the same module is loaded for real and must be rejected — it carries no
+// entrypoint — which is what `dispatch_rejects_a_module_with_no_entrypoint`
+// covers below. Asserting success in both configurations is what made the fake
+// fixture necessary in the first place.
+
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_check_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -98,6 +112,7 @@ fn dispatch_check_real_plugin() {
     assert_eq!(r.operation, "check");
 }
 
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_apply_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -107,6 +122,7 @@ fn dispatch_apply_real_plugin() {
     assert_eq!(r.operation, "apply");
 }
 
+#[cfg(not(feature = "wasm-runtime"))]
 #[test]
 fn dispatch_destroy_real_plugin() {
     let dir = tempfile::tempdir().unwrap();
@@ -114,6 +130,27 @@ fn dispatch_destroy_real_plugin() {
     let r = dispatch_destroy(dir.path(), "test-plug", &serde_json::json!({}));
     assert!(r.success, "failed: {}", r.message);
     assert_eq!(r.operation, "destroy");
+}
+
+/// With a runtime, a structurally valid module that exports no entrypoint is
+/// rejected rather than reported as a successful dispatch.
+#[cfg(feature = "wasm-runtime")]
+#[test]
+fn dispatch_rejects_a_module_with_no_entrypoint() {
+    let dir = tempfile::tempdir().unwrap();
+    setup_plugin(dir.path(), "test-plug");
+    let r = dispatch_check(dir.path(), "test-plug", &serde_json::json!({}));
+    assert!(
+        !r.success,
+        "an empty module exports no `check`; dispatch must not report success"
+    );
+    // And it must fail on the missing export, NOT on the magic number — that
+    // would mean the fixture is not a real module again.
+    assert!(
+        !r.message.contains("magic header"),
+        "fixture is not a real wasm module: {}",
+        r.message
+    );
 }
 
 #[test]

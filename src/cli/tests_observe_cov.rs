@@ -316,7 +316,7 @@ fn output_anomaly_findings_json_direct() {
         status: crate::tripwire::anomaly::DriftStatus::Drift,
         reasons: vec!["high change frequency".to_string()],
     }];
-    assert!(super::observe::output_anomaly_findings(&findings, true).is_ok());
+    assert!(super::observe_anomaly::output_anomaly_findings(&findings, true).is_ok());
 }
 
 #[test]
@@ -327,7 +327,7 @@ fn output_anomaly_findings_text_warning() {
         status: crate::tripwire::anomaly::DriftStatus::Warning,
         reasons: vec!["elevated failures".to_string()],
     }];
-    assert!(super::observe::output_anomaly_findings(&findings, false).is_ok());
+    assert!(super::observe_anomaly::output_anomaly_findings(&findings, false).is_ok());
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn output_anomaly_findings_text_stable() {
         status: crate::tripwire::anomaly::DriftStatus::Stable,
         reasons: vec!["minor drift".to_string()],
     }];
-    assert!(super::observe::output_anomaly_findings(&findings, false).is_ok());
+    assert!(super::observe_anomaly::output_anomaly_findings(&findings, false).is_ok());
 }
 
 // ── output_trace_json direct tests ───────────────────────────────────

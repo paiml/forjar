@@ -174,3 +174,63 @@ fn kahn_sort(
     contract_post_configuration!(&order);
     order
 }
+
+/// FJ-2724 (PMAT-199): make's prerequisite closure over N goals.
+///
+/// Returns the goals plus every resource reachable from them through
+/// `depends_on`, and nothing else. `make foo` builds foo and what foo needs;
+/// this is the set that makes that possible.
+///
+/// # Why this is the safe filter
+///
+/// `--subset` and `--exclude` can cut a resource out from under a dependent,
+/// so a targeted apply can execute against prerequisites that were never
+/// converged. A `depends_on` closure is downward-closed by construction: if a
+/// resource is in the set, everything it needs is too. That is exactly why
+/// `make` is safe where an arbitrary pattern filter is not.
+///
+/// `-r` has the opposite problem — it is exact-match with no closure, so
+/// `apply -r link` silently skips the compile step `link` depends on and
+/// builds against whatever happened to be on disk. That is `make -o`, not
+/// `make`.
+///
+/// An unknown goal is an error. Silently applying nothing is the failure mode
+/// this release exists to remove.
+///
+/// Cycles are not reported here: `visited` guarantees termination, and
+/// `build_execution_order` reports the cycle with its member list when the
+/// pruned config is ordered.
+pub fn goal_closure(config: &ForjarConfig, goals: &[String]) -> Result<HashSet<String>, String> {
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut stack: Vec<String> = Vec::new();
+
+    for goal in goals {
+        if !config.resources.contains_key(goal) {
+            let mut known: Vec<&str> = config.resources.keys().map(String::as_str).collect();
+            known.sort_unstable();
+            return Err(format!(
+                "no rule to make target '{goal}'. Known targets: {}",
+                known.join(", ")
+            ));
+        }
+        stack.push(goal.clone());
+    }
+
+    while let Some(id) = stack.pop() {
+        if !visited.insert(id.clone()) {
+            continue;
+        }
+        let Some(resource) = config.resources.get(&id) else {
+            continue;
+        };
+        for dep in &resource.depends_on {
+            if !visited.contains(dep) {
+                // An unknown dependency is reported by build_execution_order
+                // with full context; skipping here keeps the closure total.
+                stack.push(dep.clone());
+            }
+        }
+    }
+
+    Ok(visited)
+}

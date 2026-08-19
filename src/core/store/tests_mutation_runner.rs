@@ -370,10 +370,30 @@ fn dispatch_container_backend_available() {
         ..MutationRunConfig::default()
     };
     let result = run_mutation_test_dispatch(&target, MutationOperator::DeleteFile, &config);
-    // Container runs real scripts; the key assertion is that the dispatch
-    // path completes without panicking. Drift detection may or may not
-    // detect changes depending on container state.
-    assert!(result.duration_ms < 30_000, "should complete within 30s");
+
+    // Container runs real scripts, so `detected` legitimately varies with
+    // container state and is not assertable here. What IS assertable is that
+    // dispatch returned a result describing THIS request rather than a default
+    // or another target's.
+    //
+    // GH-259: this was `duration_ms < 30_000`, which measured how busy the
+    // machine was and not the code — 4s for this test alone, over 30s under the
+    // full suite. A budget that a loaded host fails is a load meter, and it
+    // also passed on a result that was entirely wrong so long as it was fast.
+    assert_eq!(
+        result.resource_id, "container-dispatch",
+        "dispatch must return a result for the target it was given"
+    );
+    assert_eq!(result.resource_type, "file");
+    assert!(
+        matches!(result.operator, MutationOperator::DeleteFile),
+        "the recorded operator must be the one requested, got {:?}",
+        result.operator
+    );
+    assert_eq!(
+        result.reconverged, None,
+        "test_reconvergence: false must be honoured by the dispatched path"
+    );
 }
 
 #[test]

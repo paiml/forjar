@@ -163,23 +163,89 @@ fn cmd_build_with_far_flag() {
     assert!(r.is_ok(), "far flag should succeed: {:?}", r);
 }
 
+// ── --push (Refs #210) ───────────────────────────────────────────────
+//
+// These two used to assert `is_ok()`. They passed only because the push
+// swallowed every failure: it printed "push skipped: registry unreachable"
+// (or, with a network, "Push complete: 3 uploaded" after PUTting the blob at
+// whatever a 301 redirect pointed to) and returned Ok. Both now target a
+// closed loopback port, so they are hermetic AND assert the honest outcome.
+
+/// A registry that is guaranteed not to answer: port 1 on loopback.
+const DEAD_REGISTRY: &str = "127.0.0.1:1";
+
 #[test]
-fn cmd_build_with_push_flag() {
+fn cmd_build_with_push_flag_fails_when_the_push_cannot_happen() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("forjar.yaml");
-    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: registry.io/myapp\n    version: \"1.0\"\n    path: /app/bin\n").unwrap();
-    let r = cmd_build(&path, "img", false, true, false, false, false);
-    assert!(r.is_ok(), "push flag should succeed: {:?}", r);
+    std::fs::write(&path, format!("version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img-push-210:\n    type: image\n    machine: m\n    name: {DEAD_REGISTRY}/myapp\n    version: \"1.0\"\n    path: /app/bin\n")).unwrap();
+    let r = cmd_build(&path, "img-push-210", false, true, false, false, false);
+    let err = r.expect_err("a build whose push never reached a registry must exit non-zero");
+    assert!(
+        !err.to_lowercase().contains("skip"),
+        "a push that did not happen is a failure, not a skip: {err}"
+    );
 }
 
 #[test]
-fn cmd_build_push_with_local_name() {
+fn push_targets_the_declared_reference_not_a_hardcoded_default() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("forjar.yaml");
-    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    path: /app/bin\n").unwrap();
-    // No version → defaults to "latest", no slash in name → docker.io default
-    let r = cmd_build(&path, "img", false, true, false, false, false);
-    assert!(r.is_ok(), "push with local name: {:?}", r);
+    // The resource declares a full reference via `tag:` — which the build used
+    // to drop on the floor while the push invented `docker.io/app:latest`.
+    std::fs::write(&path, format!("version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img-ref-210:\n    type: image\n    machine: m\n    tag: \"{DEAD_REGISTRY}/foo/bar:1.2.3\"\n    path: /app/bin\n")).unwrap();
+    let err = cmd_build(&path, "img-ref-210", false, true, false, false, false)
+        .expect_err("push to a dead registry must fail");
+    assert!(
+        err.contains(DEAD_REGISTRY) && err.contains("foo/bar"),
+        "the push must target the DECLARED reference, not docker.io/app:latest: {err}"
+    );
+    assert!(
+        !err.contains("docker.io") && !err.contains("/app:latest"),
+        "no hardcoded fallback target may appear: {err}"
+    );
+}
+
+/// NON-REGRESSION GUARD for the half that was always correct: the build must
+/// still write a real OCI layout (index.json → manifest → config + layer
+/// blobs) under state/images/<resource>/.
+#[test]
+fn build_half_still_writes_a_real_oci_layout() {
+    use crate::core::types::{OciIndex, OciManifest};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  cfg-210:\n    type: file\n    machine: m\n    path: /etc/gh210.conf\n    content: \"gh210\\n\"\n  img-guard-210:\n    type: image\n    machine: m\n    name: guard/app\n    version: \"1.0\"\n    path: /etc/gh210.conf\n").unwrap();
+
+    let out = std::path::Path::new("state/images/img-guard-210");
+    let _ = std::fs::remove_dir_all(out);
+    cmd_build(&path, "img-guard-210", false, false, false, false, false)
+        .expect("build without --push must still succeed");
+
+    let index: OciIndex =
+        serde_json::from_str(&std::fs::read_to_string(out.join("index.json")).unwrap())
+            .expect("index.json must parse as an OCI index");
+    assert_eq!(index.manifests.len(), 1);
+
+    let blobs = out.join("blobs").join("sha256");
+    let digest_path = |digest: &str| blobs.join(digest.strip_prefix("sha256:").unwrap());
+    let manifest_path = digest_path(&index.manifests[0].digest);
+    let manifest: OciManifest =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap())
+            .expect("the manifest blob must parse");
+    assert!(
+        digest_path(&manifest.config.digest).is_file(),
+        "config blob must exist on disk"
+    );
+    assert!(!manifest.layers.is_empty(), "image must have layers");
+    for layer in &manifest.layers {
+        assert!(
+            digest_path(&layer.digest).is_file(),
+            "layer blob {} must exist on disk",
+            layer.digest
+        );
+    }
+    let _ = std::fs::remove_dir_all(out);
 }
 
 #[test]
