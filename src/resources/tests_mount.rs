@@ -111,7 +111,14 @@ pub(super) fn make_mount_resource() -> Resource {
 fn test_fj009_check_mount() {
     let r = make_mount_resource();
     let script = check_script(&r);
-    assert!(script.contains("mountpoint -q '/mnt/lambda-raid'"));
+    // The check must DISCRIMINATE on the declared source, not merely ask
+    // whether the path is a mountpoint — `mountpoint -q` is satisfied equally
+    // by the right filesystem and the wrong one (paiml/infra 2026-08-19).
+    assert!(script.contains("'/mnt/lambda-raid'"), "{script}");
+    assert!(
+        script.contains("findmnt"),
+        "check must read the mounted source: {script}"
+    );
 }
 
 #[test]
@@ -202,8 +209,14 @@ fn test_fj009_fstab_entry_format() {
 fn test_fj009_fstab_idempotency() {
     let r = make_mount_resource();
     let script = apply_script(&r);
-    // Should check if already in fstab before adding
-    assert!(script.contains("grep -q '/mnt/lambda-raid' /etc/fstab"));
+    // Idempotence must key on the DECLARED LINE, not on the path appearing
+    // anywhere in fstab: `grep -q <target> /etc/fstab` was satisfied by a stale
+    // entry, so a changed source was never written.
+    assert!(script.contains("/etc/fstab"), "{script}");
+    assert!(
+        script.contains("grep -qxF") || script.contains("awk"),
+        "fstab convergence must compare the whole declared line: {script}"
+    );
 }
 
 #[test]

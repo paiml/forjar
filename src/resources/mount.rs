@@ -22,11 +22,26 @@ fn sed_escape(s: &str) -> String {
 pub fn check_script(resource: &Resource) -> String {
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
     let t = sh_squote(target);
+    let source = resource.source.as_deref().unwrap_or("none");
+    let s = sh_squote(source);
+    // `mountpoint -q` answers "is ANYTHING mounted here", which is not the
+    // question the resource asks. A cifs mount of the wrong share satisfies it
+    // exactly as well as the right one, so `check` reported converged on two
+    // hosts still mounted to a share the config had stopped declaring
+    // (paiml/infra, 2026-08-19).
+    //
+    // Compare the MOUNTED source against the DECLARED one. `state: mounted`
+    // with no `source:` keeps the old semantics — there is nothing to compare.
+    let condition = if resource.source.is_some() {
+        format!("[ \"$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1)\" = {s} ]")
+    } else {
+        format!("mountpoint -q {t} 2>/dev/null")
+    };
     // The status labels embed the config-derived `target`, so route them
     // through sh_squote too — a raw label could close the single quote and
     // run command substitution (matches docker.rs/package.rs).
     verdict::single(
-        &format!("mountpoint -q {t} 2>/dev/null"),
+        &condition,
         &format!("mounted:{target}"),
         &format!("unmounted:{target}"),
     )
@@ -49,18 +64,56 @@ pub fn apply_script(resource: &Resource) -> String {
 
     match state {
         "mounted" => {
+            // APPLY MUST BE CORRECTIVE, NOT MERELY CREATIVE.
+            //
+            // Both guards here used to test the TARGET PATH and never the
+            // source: `mountpoint -q <target>` for the mount, and
+            // `grep -q <target> /etc/fstab` for the declaration. On a bare host
+            // that works. On a host that is PRESENT BUT WRONG, both
+            // short-circuit, apply exits 0, and forjar reports converged over a
+            // host it never touched.
+            //
+            // Measured on paiml/infra 2026-08-19: `source` changed from
+            // //192.168.1.179/Personal-Drive to //192.168.1.179/media, applied
+            // to intel and lambda-labs, both reported `1 converged` — and both
+            // kept the old share mounted AND the old fstab line. The fstab half
+            // is the worse one: it is written once at first apply and never
+            // corrected, so every later change to source/fs_type/options is
+            // discarded permanently while forjar keeps reporting success.
+            //
+            // So: compare against the DECLARED state, not the path's existence.
             lines.push(format!("mkdir -p {t}"));
-            // Check if already mounted
+
+            // Remount when the mounted source differs from the declared one.
+            // `findmnt` answers what is ACTUALLY mounted; `mountpoint -q` only
+            // answers whether something is.
             lines.push(format!(
-                "if ! mountpoint -q {t}; then\n  mount -t {ft} -o {o} {s} {t}\nfi"
+                "_fj_cur=$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\n\
+                 if [ \"$_fj_cur\" != {s} ]; then\n  \
+                 if mountpoint -q {t}; then umount {t} 2>/dev/null || umount -l {t} 2>/dev/null || true; fi\n  \
+                 mount -t {ft} -o {o} {s} {t}\n\
+                 fi"
             ));
-            // Add to fstab if not already there. The whole fstab line is
-            // escaped as one shell word, so embedded quotes can't break out;
-            // the literal field values still land in /etc/fstab verbatim.
-            let fstab_line = sh_squote(&format!("{source} {target} {fstype} {options} 0 0"));
+
+            // Rewrite the fstab line whenever it differs from the declared one.
+            // Matching on the MOUNTPOINT FIELD (second whitespace-separated
+            // column) rather than a substring: a bare `grep <target>` also hits
+            // /mnt/unas-backup and any comment mentioning the path.
+            let fstab_line = format!("{source} {target} {fstype} {options} 0 0");
+            let q_line = sh_squote(&fstab_line);
+            // The target must be a STRING literal in awk, not a bare word:
+            // `$2 != /mnt/unas` makes awk parse /mnt/unas/ as a REGEX and
+            // compare $2 against the match result, silently dropping every
+            // line. Quote it.
+            let awk_drop = sh_squote(&format!("$2 != \"{target}\""));
             lines.push(format!(
-                "if ! grep -q {t} /etc/fstab 2>/dev/null; then\n  \
-                 echo {fstab_line} >> /etc/fstab\nfi"
+                "if ! grep -qxF {q_line} /etc/fstab 2>/dev/null; then\n  \
+                 _fj_tmp=$(mktemp)\n  \
+                 awk {awk_drop} /etc/fstab > \"$_fj_tmp\" 2>/dev/null || true\n  \
+                 printf '%s\\n' {q_line} >> \"$_fj_tmp\"\n  \
+                 cat \"$_fj_tmp\" > /etc/fstab\n  \
+                 rm -f \"$_fj_tmp\"\n\
+                 fi"
             ));
         }
         "unmounted" => {
@@ -118,7 +171,9 @@ mod tests {
         let r = mount_resource();
         let script = apply_script(&r);
         assert!(script.contains("mount -t 'nfs' -o 'rw,noatime' 'nas:/export' '/mnt/data'"));
-        assert!(script.contains("echo 'nas:/export /mnt/data nfs rw,noatime 0 0' >> /etc/fstab"));
+        // Asserts the declared fstab LINE is emitted, not the command emitting
+        // it. `echo ... >> /etc/fstab` was only correct on a bare host.
+        assert!(script.contains("'nas:/export /mnt/data nfs rw,noatime 0 0'"));
     }
 
     #[test]
@@ -155,7 +210,13 @@ mod tests {
     #[test]
     fn fj154_mount_check_and_query_quoted() {
         let r = mount_resource();
-        assert!(check_script(&r).contains("mountpoint -q '/mnt/data'"));
+        // This test pins SHELL QUOTING of config-derived values, so it asserts
+        // the quoted forms appear — not which command consumes them. It used to
+        // pin `mountpoint -q '/mnt/data'` and failed when the check was
+        // corrected to compare the mounted SOURCE against the declared one.
+        let c = check_script(&r);
+        assert!(c.contains("'/mnt/data'"), "target must be quoted: {c}");
+        assert!(c.contains("'nas:/export'"), "source must be quoted: {c}");
         assert!(state_query_script(&r).contains("mountpoint -q '/mnt/data'"));
     }
 

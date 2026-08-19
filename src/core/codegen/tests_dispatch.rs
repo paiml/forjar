@@ -29,7 +29,11 @@ fn test_fj005_check_dispatches_service() {
 fn test_fj005_check_dispatches_mount() {
     let r = make_mount();
     let script = check_script(&r).unwrap();
-    assert!(script.contains("mountpoint"));
+    // Dispatch-level: only that a mount check was produced.
+    assert!(
+        script.contains("findmnt") || script.contains("mountpoint"),
+        "{script}"
+    );
 }
 
 #[test]

@@ -350,25 +350,14 @@ fn handle_resource_output(
     }
     match output {
         Ok(out) if out.success() => {
-            if let Some(ref post_hook) = resolved.post_apply {
-                if let Some(error) =
-                    super::output_verify::check_post_hook(machine, post_hook, ctx.timeout_secs)
-                {
-                    let should_stop = record_failure(
-                        ctx,
-                        &change.resource_id,
-                        &resource.resource_type,
-                        duration,
-                        &error,
-                    );
-                    return Ok(ResourceOutcome::Failed {
-                        should_stop,
-                        retryable: true,
-                    });
-                }
-            }
-            // FJ-2731: exit 0 is not proof the work happened.
-            if let Some(error) = super::output_verify::unproduced_outputs_error(resolved, machine) {
+            // Three post-apply questions, asked in one place: did the hook
+            // pass, were the declared outputs produced, and does the HOST
+            // report the declared state? Each used to be its own near-identical
+            // record_failure block here; consolidated into output_verify so
+            // adding a fourth does not grow this file again.
+            if let Some(error) =
+                super::output_verify::post_apply_failure(resolved, machine, ctx.timeout_secs)
+            {
                 let should_stop = record_failure(
                     ctx,
                     &change.resource_id,
