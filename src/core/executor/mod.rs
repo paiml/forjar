@@ -7,6 +7,7 @@ mod helpers;
 mod machine;
 mod machine_wave;
 mod output_verify;
+mod refresh;
 mod resource_ops;
 pub mod run_capture;
 mod strategies;
@@ -28,6 +29,8 @@ mod tests_converge2;
 mod tests_core;
 #[cfg(test)]
 mod tests_core_b;
+#[cfg(test)]
+mod tests_displaced_hash;
 #[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
@@ -78,10 +81,11 @@ use std::time::Instant;
 pub use helpers::collect_machines;
 
 // Re-export internal items for sibling submodule access via `use super::*;`
+pub(crate) use crate::tripwire::eventlog::log_tripwire;
+pub(crate) use helpers::copia_apply_file;
 pub(crate) use helpers::{
     apply_and_record_outcome, build_resource_details, compute_resource_waves,
 };
-pub(crate) use helpers::{copia_apply_file, log_tripwire};
 pub(crate) use machine::apply_machine;
 pub(crate) use resource_ops::{
     apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,
@@ -323,12 +327,17 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     // FJ-2300/FJ-3010: Force mode selection
     // --force: nuclear — empty locks, all resources re-applied
     // --force-tag: selective — empty locks only for resources matching tag
-    // --refresh: re-run checks but use real locks (planner plans normally,
-    //   check scripts re-evaluate live state during execution)
+    // --refresh: run each in-scope resource's check script against its HOST and
+    //   evict the lock entry for any that fails, so the planner re-plans exactly
+    //   those. The previous comment claimed "check scripts re-evaluate live
+    //   state during execution" — they do not: a resource the planner calls
+    //   NoOp is never executed, so its check never runs. See refresh_locks.
     let plan_locks = if cfg.force {
         HashMap::new()
     } else if let Some(tag) = cfg.force_tag {
         selective_force_locks(&locks, cfg.config, tag)
+    } else if cfg.refresh {
+        refresh::refresh_locks(cfg, &locks)
     } else {
         locks.clone()
     };

@@ -234,6 +234,7 @@ fn eventlog_append_accumulates() {
             resource: format!("r-{i}"),
             duration_seconds: 1.0,
             hash: format!("blake3:hash{i}"),
+            previous_hash: None,
         };
         append_event(dir.path(), "m1", event).unwrap();
     }
