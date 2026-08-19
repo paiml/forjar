@@ -311,3 +311,57 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
     assert_eq!(resolved.group.as_deref(), Some("www-data"));
     assert_eq!(resolved.mode.as_deref(), Some("0644"));
 }
+
+#[test]
+fn unresolved_secret_placeholder_is_detected() {
+    // `resolve_or_fallback` deliberately falls back to the UNRESOLVED resource
+    // so plan/drift/destroy agree (see its doc comment). The cost is that a
+    // secret which fails to resolve survives as the literal string
+    // `{{secrets.name}}` and would be shipped to the machine as if it were the
+    // credential. Observed on paiml/infra machines/lambda-labs/forjar.yaml:
+    // `backup_token: "{{secrets.rclone-gdrive-token}}"` against a sops file
+    // that has never existed — `plan` printed a warning and carried on.
+    use crate::core::types::{MachineTarget, Resource, ResourceType};
+    let mut resources = indexmap::IndexMap::new();
+    resources.insert(
+        "media-backup".to_string(),
+        Resource {
+            resource_type: ResourceType::BackupSync,
+            machine: MachineTarget::Single("m1".to_string()),
+            backup: crate::core::types::BackupSpec {
+                token: Some("{{secrets.rclone-gdrive-token}}".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+    resources.insert(
+        "fine".to_string(),
+        Resource {
+            resource_type: ResourceType::Package,
+            machine: MachineTarget::Single("m1".to_string()),
+            ..Default::default()
+        },
+    );
+    let found = super::resource::unresolved_secret_resources(&resources);
+    assert_eq!(found, vec!["media-backup".to_string()]);
+}
+
+#[test]
+fn fully_resolved_resources_are_not_flagged() {
+    use crate::core::types::{MachineTarget, Resource, ResourceType};
+    let mut resources = indexmap::IndexMap::new();
+    resources.insert(
+        "media-backup".to_string(),
+        Resource {
+            resource_type: ResourceType::BackupSync,
+            machine: MachineTarget::Single("m1".to_string()),
+            backup: crate::core::types::BackupSpec {
+                token: Some("ya29.a0-real-token".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+    assert!(super::resource::unresolved_secret_resources(&resources).is_empty());
+}

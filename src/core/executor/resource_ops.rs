@@ -62,7 +62,9 @@ pub(crate) fn record_success(
     // staleness. See core::task::probe::record_io_hashes.
     crate::core::task::probe::record_io_hashes(resolved, &mut details);
 
-    ctx.lock.resources.insert(
+    // FJ-266: `insert` returns the entry it displaced, which is the
+    // before-state this converge overwrote. Free — no extra read.
+    let previous = ctx.lock.resources.insert(
         resource_id.to_string(),
         ResourceLock {
             resource_type: resource.resource_type.clone(),
@@ -73,19 +75,20 @@ pub(crate) fn record_success(
             details,
         },
     );
+    let previous_hash = crate::tripwire::eventlog::displaced_hash(previous);
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceConverged {
-                machine: ctx.machine_name.to_string(),
-                resource: resource_id.to_string(),
-                duration_seconds: duration,
-                hash: desired_hash,
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceConverged {
+            machine: ctx.machine_name.to_string(),
+            resource: resource_id.to_string(),
+            duration_seconds: duration,
+            hash: desired_hash,
+            previous_hash,
+        },
+    );
 }
 
 /// Record a resource failure into the lock and event log. Returns true if jidoka should stop.
@@ -110,17 +113,16 @@ pub(crate) fn record_failure(
         },
     );
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceFailed {
-                machine: ctx.machine_name.to_string(),
-                resource: resource_id.to_string(),
-                error: error.to_string(),
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceFailed {
+            machine: ctx.machine_name.to_string(),
+            resource: resource_id.to_string(),
+            error: error.to_string(),
+        },
+    );
 
     if *ctx.failure_policy == FailurePolicy::StopOnFirst {
         eprintln!(
@@ -471,17 +473,16 @@ pub(crate) fn apply_single_resource(
         None => return Ok(ResourceOutcome::Skipped),
     };
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceStarted {
-                machine: ctx.machine_name.to_string(),
-                resource: change.resource_id.clone(),
-                action: change.action.to_string(),
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceStarted {
+            machine: ctx.machine_name.to_string(),
+            resource: change.resource_id.clone(),
+            action: change.action.to_string(),
+        },
+    );
 
     let resolved = resolver::resolve_resource_templates_with_secrets(
         resource,

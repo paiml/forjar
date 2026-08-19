@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-19
+
+Same failure shape as 1.14.0 — **reporting a result that was never measured** —
+found this time from the consuming side, during a live fleet outage.
+
+Note: 1.14.0 was prepared but never published to crates.io, so this release
+also carries everything listed under 1.14.0 below.
+
+### Fixed
+
+- **A check that could not run reported the config as clean.**
+  `check_unknown_fields` re-parses raw YAML as a second pass and swallowed a
+  parse failure as `Vec::new()` — indistinguishable from a clean config.
+  paiml/infra's `machines/lambda-labs/forjar.yaml` reported `OK: 82 resources`
+  while carrying `fs_type:` (the field is `fstype`), and the identical typo in
+  a sibling config was correctly rejected. Same binary, opposite answers. The
+  cause was a duplicate resource key 1200 lines away, which disabled
+  unknown-field checking for the entire file.
+
+- **Unresolved secret placeholders were emitted as credentials.**
+  `resolve_or_fallback` returns the unresolved resource by design; nothing
+  bounded the consequence. A `file` with `content: "API_KEY={{secrets.NAME}}"`
+  wrote that literal string to disk. Guarded at codegen dispatch, so one
+  unresolvable secret fails one resource rather than the whole machine.
+
+- **A multi-line `completion_check` emitted invalid bash.** A YAML `|` block
+  scalar keeps its trailing newline, so the appended `; }; then` landed on its
+  own line — an empty statement, `syntax error near unexpected token ';'`.
+  Fourteen resources on one host failed identically on a single apply.
+
+- **The cargo check trusted cargo's install record, not the binary.**
+  `cargo install --list` is a *record*; it is a different file from the
+  binaries and nothing keeps them in agreement. After a CI cache-prune emptied
+  a shared `~/.cargo/bin`, `apply -t stack-tools` reported 5 of 5 resources
+  converged on a host with no rustup, no cargo and no rustc. The record is now
+  used only for *which binaries a crate owns*; each one is then run.
+  Includes a cargo-subcommand fallback (`cargo-X X --version`), without which
+  `cargo-mutants` and `cargo-llvm-cov` are reported missing forever, and the
+  version is matched against what the **binary** reports — a path-installed
+  crate records its source dir in the header, and a record can be stale while
+  the binary is correct.
+
+- **`--refresh` was a dead flag.** Documented as "Re-run check scripts, only
+  re-apply what fails" and read by nothing in production code. It returned in
+  0.1s without contacting the host and reported `1 unchanged` over a binary
+  that had been reduced to a dangling symlink. This is why a broken host could
+  report converged: `apply` compares config to its lock and never looks at the
+  machine. It now runs each in-scope resource's check on its host and evicts
+  failing lock entries. Plain `apply` deliberately stays lock-based.
+
+- **Repair could not overwrite a dangling symlink.** `cp` refuses
+  ("not writing through dangling symlink"), and so does `cp -f` — which is the
+  exact state a cache-prune leaves behind, so the one thing most needing
+  repair was the one thing that could not be repaired. Placement now uses
+  `install`, which is also portable to macOS unlike `cp --remove-destination`.
+
+### Security
+
+- **h2 0.4.13 → 0.4.16** for RUSTSEC-2026-0258 (unbounded empty DATA frames;
+  unbounded memory growth or a panic on overflow). Transitive via
+  hyper/reqwest; lockfile-only.
+
 ## [1.14.0] - 2026-08-17
 
 A release about one failure shape: **a check that reported confidently on

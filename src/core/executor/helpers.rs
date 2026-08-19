@@ -287,15 +287,3 @@ pub(crate) fn copia_apply_file(
         }
     }
 }
-
-/// Log a tripwire event if tripwire is enabled.
-pub(crate) fn log_tripwire(
-    state_dir: &std::path::Path,
-    machine: &str,
-    tripwire: bool,
-    event: ProvenanceEvent,
-) {
-    if tripwire {
-        let _ = eventlog::append_event(state_dir, machine, event);
-    }
-}
