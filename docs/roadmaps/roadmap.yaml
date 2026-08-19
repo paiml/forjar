@@ -1775,3 +1775,37 @@ roadmap:
   - debt
   - pre-existing
   notes: null
+- id: PMAT-134
+  github_issue: null
+  item_type: task
+  title: cargo package check trusted the install record, not the binary
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-08-19T08:51:46Z
+  updated: 2026-08-19T08:51:46Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar''s cargo provider check ran ''cargo install --list'' — cargo''s install RECORD — and treated a listed crate as installed. rust-cache''s post step deletes the real files in a shared ~/.cargo/bin without updating that record, so on intel 2026-08-19 forjar reported rustup-installer and stack-tool-{copia,forjar,pmat,pzsh} as ''no changes'' on a host with no rustup, no cargo and no rustc: 5 of 5 falsely converged, exit 0. Fix: use the record only to learn WHICH binaries a crate owns, then run each one, resolving through $CARGO_HOME/bin so GH-257''s PATH-independence survives. Includes a cargo-subcommand fallback (cargo-X X --version) because cargo-mutants and cargo-llvm-cov reject a bare --version and would otherwise be reported missing forever, forcing a ~10min recompile per apply.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-135
+  github_issue: null
+  item_type: task
+  title: forjar --refresh was a dead flag, and repair failed on dangling symlinks
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-08-19T09:12:10Z
+  updated: 2026-08-19T09:12:10Z
+  spec: null
+  acceptance_criteria:
+  - 'Two defects found by falsifying the PMAT-134 fix against the live host. (1) ApplyConfig::refresh was declared, documented in --help as ''Re-run check scripts, only re-apply what fails'', threaded through every call site, and read by NOTHING in production code. ''forjar apply --refresh'' returned in 0.1s without contacting the host and reported ''1 unchanged'' over a dangling symlink whose own check script printed ''missing:'' and exited 1. This is the mechanism by which the 2026-08-19 toolchain outage stayed invisible: apply decides from the lock file, never the host. Fixed via refresh_locks - run each in-scope resource''s check on its host, evict failing lock entries so the planner re-plans exactly those; scoped by -t/-r/-m; exit 2 (not-applicable) and transport errors are not failures. Plain apply stays lock-based, pinned by a test. (2) Once refresh worked the apply died on ''cp: not writing through dangling symlink'' - the one state the resource most needs to repair. ''cp -f'' is refused too (verified on host). Placement changed to ''install -m 755'' (POSIX; cp --remove-destination is GNU-only). Verified end-to-end on intel: inject dangling symlink, apply --refresh, 1 converged, pzsh 0.3.6 restored as a real file.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

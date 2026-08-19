@@ -1,6 +1,6 @@
 {
   "version": "3.32.0",
-  "created_at": "2026-08-19T08:52:05.848844930Z",
+  "created_at": "2026-08-19T09:18:30.536720603Z",
   "git_context": null,
   "files": {
     "./build.rs": {
@@ -28358,48 +28358,48 @@
     },
     "./src/core/executor/mod.rs": {
       "content_hash": [
-        252,
-        199,
-        10,
-        221,
-        154,
-        133,
-        198,
-        162,
-        164,
-        30,
         26,
+        215,
+        6,
+        79,
+        161,
+        134,
+        243,
+        94,
+        195,
         164,
-        105,
-        227,
-        126,
-        24,
-        141,
-        184,
-        25,
-        39,
-        128,
-        172,
-        43,
-        28,
-        186,
+        220,
+        182,
+        20,
+        106,
+        148,
+        131,
+        8,
+        15,
+        9,
+        2,
+        194,
+        175,
         173,
-        126,
-        125,
-        62,
-        36,
-        41,
-        229
+        133,
+        18,
+        122,
+        180,
+        241,
+        214,
+        105,
+        246,
+        210
       ],
       "score": {
-        "structural_complexity": 22.0,
+        "structural_complexity": 21.1,
         "semantic_complexity": 20.0,
-        "duplication_ratio": 17.847221,
+        "duplication_ratio": 17.869415,
         "coupling_score": 15.0,
         "doc_coverage": 10.0,
         "consistency_score": 10.0,
         "entropy_score": 5.0,
-        "total": 99.84722,
+        "total": 98.96941,
         "grade": "A+",
         "confidence": 1.0,
         "language": "Rust",
@@ -28415,19 +28415,19 @@
           },
           {
             "source_metric": "Duplication",
-            "amount": 2.1527777,
+            "amount": 2.1305842,
             "applied_to": [
               "Duplication"
             ],
-            "issue": "Code duplication: 10.8%"
+            "issue": "Code duplication: 10.7%"
           },
           {
             "source_metric": "StructuralComplexity",
-            "amount": 3.0,
+            "amount": 3.9,
             "applied_to": [
               "StructuralComplexity"
             ],
-            "issue": "High cognitive complexity: 25"
+            "issue": "High cognitive complexity: 28"
           }
         ],
         "critical_defects_count": 0,
@@ -28499,6 +28499,77 @@
               "Duplication"
             ],
             "issue": "Found 12 duplicate code patterns"
+          }
+        ],
+        "critical_defects_count": 0,
+        "has_critical_defects": false,
+        "has_contract_coverage": false
+      },
+      "components": {
+        "complexity_breakdown": {},
+        "duplication_sources": [],
+        "coupling_dependencies": [],
+        "doc_missing_items": [],
+        "consistency_violations": []
+      },
+      "git_context": null
+    },
+    "./src/core/executor/refresh.rs": {
+      "content_hash": [
+        81,
+        112,
+        150,
+        87,
+        128,
+        153,
+        154,
+        154,
+        14,
+        79,
+        11,
+        95,
+        220,
+        88,
+        220,
+        73,
+        152,
+        209,
+        161,
+        66,
+        230,
+        190,
+        27,
+        96,
+        165,
+        18,
+        237,
+        56,
+        233,
+        111,
+        148,
+        25
+      ],
+      "score": {
+        "structural_complexity": 25.0,
+        "semantic_complexity": 20.0,
+        "duplication_ratio": 20.0,
+        "coupling_score": 15.0,
+        "doc_coverage": 10.0,
+        "consistency_score": 10.0,
+        "entropy_score": 8.5,
+        "total": 98.63637,
+        "grade": "A+",
+        "confidence": 1.0,
+        "language": "Rust",
+        "file_path": "./src/core/executor/refresh.rs",
+        "penalties_applied": [
+          {
+            "source_metric": "Duplication",
+            "amount": 1.5,
+            "applied_to": [
+              "Duplication"
+            ],
+            "issue": "Found 3 duplicate code patterns"
           }
         ],
         "critical_defects_count": 0,
@@ -45419,38 +45490,38 @@
     },
     "./src/resources/package.rs": {
       "content_hash": [
-        64,
-        227,
-        94,
-        183,
-        41,
-        3,
-        84,
-        47,
-        33,
-        174,
-        182,
-        139,
-        207,
-        151,
-        121,
-        96,
-        207,
-        225,
-        115,
-        5,
         103,
-        60,
-        151,
-        88,
-        65,
-        30,
-        114,
-        150,
-        110,
-        159,
-        210,
-        145
+        191,
+        207,
+        146,
+        18,
+        225,
+        84,
+        12,
+        231,
+        105,
+        250,
+        99,
+        0,
+        0,
+        226,
+        158,
+        156,
+        194,
+        194,
+        198,
+        222,
+        223,
+        85,
+        45,
+        252,
+        236,
+        236,
+        244,
+        66,
+        22,
+        40,
+        197
       ],
       "score": {
         "structural_complexity": 19.6,
@@ -47181,10 +47252,10 @@
     }
   },
   "summary": {
-    "total_files": 571,
-    "avg_score": 92.43858,
+    "total_files": 572,
+    "avg_score": 92.44788,
     "grade_distribution": {
-      "A+": 260,
+      "A+": 261,
       "A": 200,
       "A-": 36,
       "B+": 23,
@@ -47194,7 +47265,7 @@
     },
     "languages": {
       "Python": 3,
-      "Rust": 568
+      "Rust": 569
     }
   }
 }
