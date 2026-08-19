@@ -2,9 +2,11 @@
 
 use super::backup_sync_types::BackupSpec;
 use super::disk_budget_types::ReclaimRule;
+use super::output_equivalence::OutputEquivalence;
 use super::resource_enums::{MachineTarget, ResourceType};
 use super::service_mode_types::RestartPolicy;
 use super::task_types::{HealthCheck, PipelineStage, QualityGate, TaskMode};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -314,6 +316,14 @@ pub struct Resource {
     /// Output artifacts to hash for idempotency.
     #[serde(default)]
     pub output_artifacts: Vec<String>,
+    /// GH-246: per-artifact equivalence predicate, keyed by artifact path.
+    ///
+    /// Absent entries mean `bytes` — the previous behaviour, unchanged. Declare
+    /// an escape only for a producer that cannot reach byte-identity: keying an
+    /// artifact by a hash it can never reproduce is not "uncached", it is
+    /// content-addressed with the wrong key.
+    #[serde(default)]
+    pub output_equivalence: IndexMap<String, OutputEquivalence>,
     /// Completion check command (exit 0 = done).
     #[serde(default)]
     pub completion_check: Option<String>,

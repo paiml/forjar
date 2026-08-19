@@ -8,8 +8,10 @@ pub mod pipeline;
 mod quality_gate;
 pub mod service;
 
+pub(crate) mod output_hash;
 pub mod probe;
 pub use io_tracking::{hash_inputs, hash_outputs, hash_outputs_in, should_skip_cached};
+pub use output_hash::hash_outputs_with;
 pub use probe::{probe_all, probe_config, probe_resource, staleness_reason, IoDigest};
 pub use quality_gate::{evaluate_gate, gpu_env_vars, GateAction, GateResult};
 

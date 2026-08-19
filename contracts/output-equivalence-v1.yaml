@@ -1,0 +1,135 @@
+---
+metadata:
+  version: "1.0.0"
+  # kind: pattern — these obligations are about a comparison predicate over
+  # real files and a declared normaliser subprocess, discharged by execution.
+  # A bounded model checker cannot reach them: the predicate hashes, and per
+  # GH-242 a harness that reaches a hash cannot produce a verdict.
+  kind: pattern
+  created: "2026-08-17"
+  author: "PAIML Engineering"
+  description: |
+    GH-246: byte-identity is not the only way two artifacts can be "the same".
+
+    Byte-equivalence is exactly right for source and object files — recompiling
+    to identical bytes correctly does not relink. It is wrong for producers that
+    CANNOT reach byte-identity, and wrong in the dangerous direction: such an
+    artifact is not "uncached", it is content-addressed with the wrong key.
+
+    The sharp case is a human-corrected artifact. An ASR pass writes a
+    transcript, a person edits it, and under byte-equivalence that edit reads as
+    staleness — so the next apply regenerates the machine draft over the human's
+    work. Reproduced end to end before the fix.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/246"
+    - "GH-241 — PurityLevel names the same distinction one level down"
+    - "GH-247 — verify, which compares under the same predicate"
+
+equations:
+  output_hash:
+    formula: |
+      hash(a) = bytes(a)                 if equivalence(a) = Bytes
+              = hash(stdout(cmd, a))     if equivalence(a) = Command(cmd)
+              = <declaration token>      if equivalence(a) ∈ {None, External}
+    domain: "a ∈ output_artifacts, equivalence ∈ IndexMap<String, OutputEquivalence>"
+    codomain: "Option<Hash>"
+    invariants:
+      - "An absent artifact is distinguishable from a present one under EVERY predicate"
+      - "Two different declarations never produce the same component"
+      - "An artifact with no declared predicate hashes exactly as it did before this feature"
+
+proof_obligations:
+  - type: invariant
+    property: "A missing artifact remains staleness under every predicate"
+    formal: "∀ predicate p: hash(present, p) ≠ hash(absent, p)"
+    applies_to: all
+    enforced_by: "src/core/task/io_tracking.rs::hash_outputs_with"
+    notes: |
+      `none` and `external` say "do not key on my CONTENT" — not "stop tracking
+      me". A predicate that swallowed a missing output would turn an escape
+      hatch into a hole.
+
+  - type: independence
+    property: "The declaration itself is part of the hash"
+    formal: "declaration(a) ≠ declaration'(a) ⟹ hash(a) ≠ hash'(a)"
+    applies_to: all
+    enforced_by: "src/core/task/io_tracking.rs::hash_outputs_with"
+    notes: |
+      Flipping an artifact from `external` back to `bytes` must not look
+      identical to never having declared it, or the artifact stays keyed by the
+      old predicate forever.
+
+  - type: soundness
+    property: "A failed normaliser is an error, never a silent fallback to bytes"
+    formal: "exit(cmd) ≠ 0 ⟹ Err"
+    applies_to: "equivalence = Command"
+    enforced_by: "src/core/task/io_tracking.rs::normalised_hash"
+    notes: |
+      Falling back to byte-comparison would reintroduce exactly the spurious
+      staleness the author declared the normaliser to avoid, and silently.
+
+  - type: equivalence
+    property: "Undeclared artifacts behave exactly as before"
+    formal: "equivalence = ∅ ⟹ hash_outputs_with ≡ hash_outputs_in"
+    applies_to: all
+    enforced_by: "hash_outputs_in delegates to hash_outputs_with with an empty map"
+
+enforcement:
+  human_correction_survives_an_unforced_apply:
+    description: |
+      The case from the issue, verified DIFFERENTIALLY: without the declaration
+      the correction is destroyed, with it the correction survives. "The
+      artifact survived" proves nothing unless the default destroys it.
+    check: "tests/falsification_output_equivalence.rs::declaring_external_preserves_the_human_correction"
+    severity: "ERROR"
+  the_default_still_destroys_it:
+    description: "The precondition that makes the test above meaningful"
+    check: "tests/falsification_output_equivalence.rs::without_the_declaration_a_human_correction_is_destroyed"
+    severity: "ERROR"
+  missing_is_still_staleness:
+    description: "Every predicate keeps a missing artifact distinguishable"
+    check: "tests/falsification_output_equivalence.rs::a_missing_artifact_is_still_staleness_under_every_predicate"
+    severity: "ERROR"
+  normaliser_failure_is_an_error:
+    description: "A failing normaliser errors rather than reverting to bytes"
+    check: "tests/falsification_output_equivalence.rs::a_failing_normaliser_is_an_error_not_a_silent_fallback"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-OE-001
+    rule: "external preserves a human correction on an unforced apply"
+    prediction: "apply → human edit → apply reports unchanged and leaves the edit in place"
+    test: "tests/falsification_output_equivalence.rs::declaring_external_preserves_the_human_correction"
+    if_fails: "The producer overwrites human work — the exact corruption this ticket reports"
+
+  - id: FALSIFY-OE-002
+    rule: "Byte-equivalence is unchanged for everything that did not opt in"
+    prediction: "An undeclared artifact hashes identically before and after this feature"
+    test: "tests/falsification_output_equivalence.rs::bytes_is_the_default_and_is_unchanged"
+    if_fails: "A silent cache invalidation across every existing project"
+
+  - id: FALSIFY-OE-003
+    rule: "A normaliser absorbs an irrelevant difference but not a real one"
+    prediction: "A stripped timestamp does not re-trigger; a changed body does"
+    test: "tests/falsification_output_equivalence.rs::a_normaliser_command_absorbs_an_irrelevant_difference"
+    if_fails: "Either spurious re-runs persist, or the escape hides real changes"
+
+  - id: FALSIFY-OE-004
+    rule: "Declarations are distinguishable from each other and from bytes"
+    prediction: "none, external and bytes produce three different hashes"
+    test: "tests/falsification_output_equivalence.rs::changing_the_declaration_changes_the_hash"
+    if_fails: "Re-enabling content-keying produces no re-apply"
+
+qa_gate:
+  id: F-OE-001
+  name: "Output Equivalence Contract"
+  description: "Per-artifact equivalence predicate with byte-identity as the default"
+  checks:
+    - "human_correction_survives_an_unforced_apply"
+    - "the_default_still_destroys_it"
+    - "missing_is_still_staleness"
+    - "normaliser_failure_is_an_error"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Make `external` contribute its bytes to the hash again"
+
+verification_level: L3
