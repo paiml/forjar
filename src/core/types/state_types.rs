@@ -248,6 +248,34 @@ pub enum ProvenanceEvent {
         duration_seconds: f64,
         /// BLAKE3 hash of the converged state.
         hash: String,
+        /// FJ-266: BLAKE3 hash this converge REPLACED, from the prior lock
+        /// entry. `None` on first converge (the resource did not exist).
+        ///
+        /// Without it the log says what a resource became and not what it
+        /// replaced, so a converge that silently overwrote a good artifact
+        /// reads identically to one that created it. Costs no extra I/O:
+        /// `BTreeMap::insert` already returns the displaced entry.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_hash: Option<String>,
+    },
+    /// FJ-266: a resource that forjar REMOVED.
+    ///
+    /// `ProvenanceEvent` had no way to express deletion — converged, failed
+    /// and drifted, but never gone. The incident this was filed for is a
+    /// deletion (paiml/infra#208: every real file under ~/.cargo/bin removed,
+    /// every symlink left), so the one event class that would have named it
+    /// could not be represented at all.
+    ResourceDeleted {
+        /// Target machine name.
+        machine: String,
+        /// Resource identifier.
+        resource: String,
+        /// BLAKE3 hash of the state that was removed, from the prior lock
+        /// entry. `None` when the resource had no recorded hash.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_hash: Option<String>,
+        /// What asked for the removal — e.g. "destroy", "prune", "replace".
+        reason: String,
     },
     ResourceFailed {
         /// Target machine name.

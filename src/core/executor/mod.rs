@@ -30,6 +30,8 @@ mod tests_core;
 #[cfg(test)]
 mod tests_core_b;
 #[cfg(test)]
+mod tests_displaced_hash;
+#[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
 mod tests_edge_apply;
@@ -79,10 +81,11 @@ use std::time::Instant;
 pub use helpers::collect_machines;
 
 // Re-export internal items for sibling submodule access via `use super::*;`
+pub(crate) use crate::tripwire::eventlog::log_tripwire;
+pub(crate) use helpers::copia_apply_file;
 pub(crate) use helpers::{
     apply_and_record_outcome, build_resource_details, compute_resource_waves,
 };
-pub(crate) use helpers::{copia_apply_file, log_tripwire};
 pub(crate) use machine::apply_machine;
 pub(crate) use resource_ops::{
     apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,

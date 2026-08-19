@@ -146,6 +146,7 @@ fn test_fj131_provenance_event_all_variants_serde() {
             resource: "pkg".to_string(),
             duration_seconds: 1.5,
             hash: "blake3:h".to_string(),
+            previous_hash: None,
         },
         ProvenanceEvent::ResourceFailed {
             machine: "m".to_string(),

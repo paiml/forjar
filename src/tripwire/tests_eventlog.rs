@@ -50,6 +50,7 @@ fn test_fj015_append_multiple() {
             resource: format!("r{i}"),
             duration_seconds: 1.0,
             hash: "blake3:xxx".to_string(),
+            previous_hash: None,
         };
         append_event(dir.path(), "m", event).unwrap();
     }
@@ -134,6 +135,7 @@ fn test_fj015_events_are_valid_json() {
             resource: "r".to_string(),
             duration_seconds: 0.5,
             hash: "blake3:abc".to_string(),
+            previous_hash: None,
         },
         ProvenanceEvent::ApplyCompleted {
             machine: "m".to_string(),
