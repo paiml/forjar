@@ -198,8 +198,13 @@ fn batch_script(resource: &Resource) -> String {
     // The check is already written and already cheap — it just ran. Running it
     // once more turns an exit code into a statement about the world.
     if let Some(ref check) = resource.completion_check {
+        // A YAML `|` block scalar always keeps its trailing newline. Pushing
+        // " ; }; then" right after it put the `;` on its own line — and a
+        // newline is already a command separator, so a bare `;` right after
+        // one is an empty statement: "syntax error near unexpected token `;'".
+        // trim_end() puts the `;` on the same line as the check's last command.
         script.push_str("if ! { ");
-        script.push_str(check);
+        script.push_str(check.trim_end());
         script.push_str(" ; }; then\n");
         script.push_str(
             "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",

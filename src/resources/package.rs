@@ -259,6 +259,19 @@ fn apply_cargo_present(resource: &Resource) -> String {
 ///
 /// Detects empty staging bin dir (no binaries produced) and emits a clear error
 /// with a hint about `--features`, instead of failing on `cp` with a cryptic message.
+///
+/// Uses `install`, not `cp`, to place the binaries. `cp` REFUSES to overwrite a
+/// dangling symlink — "cp: not writing through dangling symlink" — and that is
+/// precisely the wreckage this resource has to repair: a CI cache-prune step
+/// deletes the real files in a shared `~/.cargo/bin` and leaves the symlinks
+/// behind, pointing at nothing.
+///
+/// Measured on paiml/infra's intel 2026-08-19: with `pzsh` reduced to a dangling
+/// symlink, `forjar apply --refresh` correctly DETECTED the divergence and then
+/// died on `cp`, so it could see the damage and not fix it. `cp -f` does not
+/// help — coreutils refuses that too (verified on the host). `install` replaces
+/// the destination outright, and unlike `cp --remove-destination` it is not
+/// GNU-only, so it also works on the fleet's macOS box.
 fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
     let (crate_name, features) = parse_cargo_features(pkg);
     let ver_tag = version.unwrap_or("latest");
@@ -282,7 +295,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
          if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
-           cp \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
+           install -m 755 \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
            _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
@@ -297,7 +310,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
              mkdir -p \"$_CACHE_DIR\"\n\
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
            fi\n\
-           cp \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
+           install -m 755 \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
            rm -rf \"$_STAGING\"\n\
            echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\
          fi"

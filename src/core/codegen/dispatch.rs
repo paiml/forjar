@@ -52,6 +52,26 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_apply_script!(resource);
 
+    // A `{{secrets.*}}` that survives template resolution is a
+    // credential-shaped PLACEHOLDER, not a credential. `resolve_or_fallback`
+    // hands the unresolved resource back by design, so without this the literal
+    // string is spliced into the generated script and written to the machine —
+    // demonstrated with a file resource whose `content` became
+    // `API_KEY={{secrets.some-token}}` on disk, behind only a stderr warning.
+    //
+    // `backup_sync` has guarded its own token since FJ-037; this generalises
+    // that to every resource type, at the one place every apply script is born.
+    // Failing HERE fails this resource only, leaving `policy.failure` to decide
+    // the run — an unrelated unresolvable secret must not block a whole machine.
+    if crate::core::resolver::has_unresolved_secret(resource) {
+        return Err(format!(
+            "resource carries an unresolved secret template — the secrets provider \
+             did not supply it, and applying would write the placeholder as if it \
+             were the credential (type: {})",
+            resource.resource_type
+        ));
+    }
+
     // FJ-2722 (PMAT-199): `state: absent` must never RUN the thing.
     //
     // `destroy` converges every resource to `state: absent`. For a task, build
