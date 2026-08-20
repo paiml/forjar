@@ -198,6 +198,34 @@ fn codegen_rejects_the_unknown_field_too() {
     );
 }
 
+/// `validate --check-recipe-purity` reads the raw YAML directly, because purity
+/// keys like `sandbox` are not typed resource fields. That made it the one path
+/// where an unknown field could still slip through after validate's inline
+/// check was consolidated into the parser — and it did: consolidating turned
+/// `pure_is_unreachable_because_sandbox_is_not_a_resource_field` red, because
+/// the purity classifier happily read a `sandbox:` key out of a config nothing
+/// had validated. A third bypass, found only because the second fix removed the
+/// thing that had been masking it.
+#[test]
+fn the_recipe_purity_path_rejects_the_unknown_field_too() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = config_with_typo(dir.path());
+    let out = forjar()
+        .args([
+            "validate",
+            "-f",
+            cfg.to_str().unwrap(),
+            "--check-recipe-purity",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "the purity path classified a config nothing had validated. stdout:\n{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
 /// The counter-case. Without this, every assertion above would also pass if the
 /// commands had simply been broken for all mount configs.
 #[test]

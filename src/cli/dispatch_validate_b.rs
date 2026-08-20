@@ -207,13 +207,16 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     // a schema version that was never consulted.
     super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
 
-    // FJ-2500 / GH-272: unknown fields are errors. This used to be an inline
-    // copy of the check here, which is exactly how validate and every other
-    // verb came to disagree about whether the same file was valid — two
-    // implementations, one of them permissive. `parse_and_validate` now denies
-    // by default, so the check lives in ONE place and validate inherits it
-    // rather than reimplementing it. The flag is kept for backward compat.
+    // FJ-2500 / GH-272: unknown fields are errors. This was an inline copy of
+    // the check, which is how validate and every other verb came to disagree
+    // about whether the same file was valid. `parse_and_validate` now denies,
+    // so validate inherits the rule instead of reimplementing it — and loading
+    // here, BEFORE dispatch, covers every sub-check rather than only the ones
+    // that happen to load the config themselves. `--check-recipe-purity` reads
+    // raw YAML by design (purity keys are not typed fields) and so consulted
+    // no validation at all; it was the inline copy that had been masking that.
     let _ = deny_unknown_fields; // always true for validate
+    crate::core::parser::parse_and_validate(&file)?;
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass
     if deep {
