@@ -95,8 +95,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_out_degree(&f, false).is_ok());
     }
@@ -124,8 +124,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_density(&f, false).is_ok());
     }
@@ -137,8 +137,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_density(&f, true).is_ok());
     }
@@ -180,8 +180,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n",
+resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n",
         );
         assert!(cmd_status_resource_type_distribution(&f, false).is_ok());
     }

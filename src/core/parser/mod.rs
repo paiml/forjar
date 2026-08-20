@@ -10,6 +10,8 @@ mod backup_sync_validate;
 mod disk_budget_validate;
 mod expansion;
 mod format_validation;
+mod unknown_policy;
+pub use unknown_policy::rejects_unknown;
 mod includes;
 mod known_fields;
 mod policy;
@@ -242,8 +244,11 @@ pub fn check_unknown_recipe_fields(yaml: &str) -> Vec<ValidationError> {
 
 /// Parse, validate, and expand recipes in a config file.
 /// This is the main entry point for loading a config for plan/apply.
+///
+/// Unknown fields are ERRORS here (GH-272); opt out with
+/// `parse_and_validate_opts(path, false)`.
 pub fn parse_and_validate(path: &Path) -> Result<ForjarConfig, String> {
-    parse_and_validate_opts(path, false)
+    parse_and_validate_opts(path, true)
 }
 
 /// Parse, validate, expand — with strict mode for unknown fields (FJ-2500).
@@ -257,7 +262,7 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
     // FJ-2500: Detect unknown fields (two-pass parsing)
     let unknown_warnings = check_unknown_fields(&content);
     if !unknown_warnings.is_empty() {
-        if deny_unknown {
+        if rejects_unknown(deny_unknown, unknown_warnings.len()) {
             return Err(format!(
                 "unknown field errors:\n{}",
                 unknown_warnings

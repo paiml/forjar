@@ -219,7 +219,6 @@ resources:
     type: service
     machine: m
     name: nginx
-    service_name: nginx
   cfg:
     type: file
     machine: m

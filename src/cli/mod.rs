@@ -199,6 +199,7 @@ mod stack_dep_graph;
 mod stack_diff;
 mod state_encrypt;
 mod state_import_brownfield;
+pub(crate) mod state_visibility;
 mod status_alerts;
 mod status_analytics;
 mod status_compliance;

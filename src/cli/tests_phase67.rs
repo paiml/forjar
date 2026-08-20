@@ -31,8 +31,8 @@ mod tests {
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_validate_check_orphan_resources(&f, false).is_ok());
     }
@@ -43,8 +43,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
         let f = write_config(
             dir.path(),
             "\
-machines: {}\nresources:\n  a:\n    type: package\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: package\n    provider: apt\n    packages: [vim]\n",
+machines: {}\nresources:\n  a:\n    type: package\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: package\n    provider: apt\n    packages: [vim]\n",
         );
         assert!(cmd_validate_check_orphan_resources(&f, false).is_ok());
     }
@@ -64,8 +64,8 @@ machines: {}\nresources:\n  a:\n    type: package\n    provider: apt\n    packag
         let f = write_config(
             dir.path(),
             "\
-machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n    arch: x86_64\n\
-  arm:\n    hostname: arm\n    addr: 2.3.4.5\n    arch: aarch64\n\
+machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n    arch: x86_64\n  \
+arm:\n    hostname: arm\n    addr: 2.3.4.5\n    arch: aarch64\n\
 resources: {}\n",
         );
         assert!(cmd_validate_check_machine_arch(&f, false).is_ok());
@@ -105,8 +105,8 @@ machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\nresources: {}\n",
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_strongly_connected(&f, false).is_ok());
     }
@@ -134,8 +134,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_dependency_matrix_csv(&f, false).is_ok());
     }
