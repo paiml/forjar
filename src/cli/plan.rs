@@ -76,6 +76,9 @@ pub(crate) fn cmd_plan(
     }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+
+    // GH-273: say WHERE state came from, and when there was none.
+    super::state_visibility::report(state_dir, &config, &locks);
     // FJ-2725: phony resources are goal-only; a bulk plan must not report them
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);

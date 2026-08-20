@@ -1,0 +1,148 @@
+metadata:
+  version: "1.0.0"
+  created: "2026-08-20"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: "plan must name the state directory it resolved, and say when it found none"
+  references:
+    - "paiml/forjar#273 — plan reported every resource unconverged when run from a git worktree"
+
+# THE DEFECT
+#
+# `--state-dir` defaults to the literal `state`, which is CWD-RELATIVE. The same
+# command, naming the same config by the same -f path, answers differently
+# depending on the directory it runs from — silently, because state::load_lock
+# returns None for "no such lock" with no comment.
+#
+# Measured in paiml/infra 2026-08-20, same commit, same host, host provably
+# converged and serving 16 CI runners:
+#
+#   repo root  ->  Plan: 0 to add, 1 to change, 100 unchanged
+#   worktree   ->  Plan: 101 to add, 0 to change, 0 unchanged
+#
+# "101 to add" reads as catastrophic host drift and invites re-creating every
+# resource on a live machine. Worse than the misreading: applying from the wrong
+# directory WRITES state there too, so the canonical state and the stray copy
+# diverge without anyone being told.
+
+equations:
+  missing_mask:
+    formula: "missing_mask(d, h) = d ∧ ¬h"
+    domain: "d ∈ 𝔹⁸ (declared machines), h ∈ 𝔹⁸ (machines with a loaded lock), h ⊆ d"
+    codomain: "𝔹⁸"
+    invariants:
+      - "Sound: missing_mask(d,h) ∧ h = 0 — nothing present is reported missing"
+      - "Complete: missing_mask(d,h) ∨ h = d — every declared machine is accounted for"
+      - "Bounded: missing_mask(d,h) ∧ ¬d = 0 — nothing undeclared is reported"
+      - "missing_mask(d,0) = d and missing_mask(d,d) = 0"
+
+  resolve_state_dir:
+    formula: "resolve_state_dir(flag, cwd) = flag if given else cwd/'state'"
+    domain: "flag ∈ Option<Path>, cwd ∈ Path"
+    codomain: "Path"
+    invariants:
+      - "VIOLATED — the result depends on cwd; see the independence obligation"
+
+proof_obligations:
+  - type: soundness
+    property: "No false positives — a machine holding a lock is never reported missing"
+    formal: "∀ d,h ⊆ d: missing_mask(d,h) ∧ h = 0"
+    applies_to: all
+
+  - type: completeness
+    property: "No false negatives — every declared machine is reported missing or holds a lock"
+    formal: "∀ d,h ⊆ d: missing_mask(d,h) ∨ h = d"
+    applies_to: all
+
+  - type: equivalence
+    property: "The implementation computes the proved specification"
+    formal: "∀ d,h ⊆ d: names(machines_missing_state(names(d), names(h))) = names(missing_mask(d,h))"
+    applies_to: all
+
+  - type: independence
+    property: "KNOWN VIOLATED — plan's verdict must not depend on the working directory"
+    formal: "∀ c ∈ ConfigFile, ∀ w₁,w₂ ∈ Dir: plan(c, cwd=w₁) = plan(c, cwd=w₂)"
+    applies_to: all
+
+enforcement:
+  soundness:
+    description: "Proved exhaustively over the bitmask spec"
+    check: "KANI-SV-001"
+    severity: "ERROR"
+  completeness:
+    description: "Proved exhaustively over the bitmask spec"
+    check: "KANI-SV-001"
+    severity: "ERROR"
+  equivalence:
+    description: "Differential — every subset pair up to 6 machines"
+    check: "cli::state_visibility::tests::spec_agrees_with_implementation"
+    severity: "ERROR"
+  independence:
+    description: >-
+      NOT ENFORCED. Recorded as debt, not silently dropped. Making the default
+      config-relative would relocate paiml/infra's state (config at
+      machines/<m>/forjar.yaml, state at the repo root) and break every existing
+      caller. Until a migration exists, the mitigation is that plan NAMES the
+      directory it resolved, so a divergent verdict is self-explaining rather
+      than mysterious.
+    check: "tests/falsification_plan_names_its_state_dir.rs"
+    severity: "WARNING"
+
+falsification_tests:
+  - id: FALSIFY-SV-001
+    rule: "Visibility"
+    prediction: "plan output names the resolved state directory"
+    test: "plan_names_the_state_directory_it_resolved"
+    if_fails: "A reader seeing 'N to add' cannot distinguish a drifted host from a wrong cwd"
+
+  - id: FALSIFY-SV-002
+    rule: "Absence is stated"
+    prediction: "plan says 'no prior state' when a declared machine has no lock"
+    test: "plan_says_when_it_found_no_prior_state"
+    if_fails: "'never applied' and 'converged' remain indistinguishable in the summary"
+
+  - id: FALSIFY-SV-003
+    rule: "No crying wolf"
+    prediction: "plan does NOT report missing state for a machine that has a lock"
+    test: "plan_does_not_claim_missing_state_when_state_exists"
+    if_fails: "A warning that always fires is one people learn to ignore — see this repo's other decayed gates"
+
+  - id: FALSIFY-SV-004
+    rule: "Spec binds to implementation"
+    prediction: "machines_missing_state agrees with missing_mask on every subset pair up to 6 machines"
+    test: "spec_agrees_with_implementation"
+    if_fails: "KANI-SV-001 proves a bitmask nobody calls — a proof about a model that drifted from the code"
+
+kani_harnesses:
+  - id: KANI-SV-001
+    obligation: "Soundness and completeness of the missing-state set difference"
+    strategy: exhaustive
+    solver: cadical
+    bound: 8
+    description: >-
+      Symbolic declared/with_locks over 8 machines; asserts no false positives,
+      no false negatives, nothing undeclared, and both boundaries. Proved over
+      the bitmask spec rather than the &str implementation, which builds a
+      BTreeSet of heap strings that CBMC would model path-by-path — the shape
+      that once ran 117 minutes here before being killed. FALSIFY-SV-004 is what
+      keeps the proof honest about the real code.
+
+qa_gate:
+  id: F-SV-001
+  name: "State Directory Visibility"
+  description: "plan explains where its state came from"
+  checks:
+    - "soundness"
+    - "completeness"
+    - "equivalence"
+  pass_criteria: "All 4 falsification tests pass and KANI-SV-001 verifies"
+  falsification: "Drop the negation in missing_mask — KANI-SV-001 fails both soundness and completeness"
+
+verification_summary:
+  total_obligations: 4
+  l4_lean_proved: 0
+  l4_kani_proved: 2      # soundness + completeness, KANI-SV-001
+  l4_not_applicable: 1   # equivalence is a differential test over concrete sets, not a Lean obligation
+  l4_violated: 1         # independence — recorded deliberately, see enforcement.independence
+  l4_sorry_count: 0
+  kani_falsified: true   # `& with_locks` and `declared` both rejected; restored and re-verified

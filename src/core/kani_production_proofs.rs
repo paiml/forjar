@@ -16,6 +16,7 @@
 //! | `proof_convergence_pass_rate_bounded` | `ConvergenceSummary::pass_rate()` | Result in [0,100] |
 //! | `proof_applicable_operators_valid` | `applicable_operators()` | Operator applicability invariant |
 //! | `proof_rejects_unknown_total_and_monotone` | `parser::rejects_unknown()` | Total; monotone in the unknown-field count |
+//! | `proof_missing_state_is_exact` | `state_visibility::missing_mask()` | No false positives or negatives |
 
 /// MutationScore::grade() is monotonic: higher score_pct → higher/equal grade.
 ///
@@ -231,4 +232,49 @@ fn proof_rejects_unknown_total_and_monotone() {
     if deny && n2 > 0 {
         assert!(r2);
     }
+}
+
+/// KANI-SV-001 — the missing-state set difference is EXACT.
+///
+/// Contract: contracts/state-dir-visibility-v1.yaml
+///
+/// Two directions, and both matter operationally:
+///
+///   no false positives — a machine that HAS a lock is never reported missing.
+///     A warning that fires when nothing is wrong is one people learn to
+///     ignore, and this repo has watched exactly that happen to other gates.
+///
+///   no false negatives — every declared machine is either reported missing or
+///     is one of the lock-holders. A silent omission is how "101 to add"
+///     stayed mysterious in the first place.
+///
+/// Proved over the bitmask spec rather than the `&str` implementation: the
+/// latter builds a BTreeSet of heap strings, and CBMC models every path
+/// through that. `cli::state_visibility::tests::spec_agrees_with_implementation`
+/// binds the implementation to this spec over every subset pair up to 6
+/// machines, so the proof is not about a model nobody calls.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_missing_state_is_exact() {
+    use crate::cli::state_visibility::missing_mask;
+
+    let declared: u8 = kani::any();
+    let with_locks: u8 = kani::any();
+    // a lock for an undeclared machine is not meaningful input
+    let have = with_locks & declared;
+
+    let missing = missing_mask(declared, have);
+
+    // No false positives: nothing reported missing is actually present.
+    assert!(missing & have == 0);
+
+    // No false negatives: every declared machine is missing or present.
+    assert!(missing | have == declared);
+
+    // Nothing reported that was never declared.
+    assert!(missing & !declared == 0);
+
+    // Boundaries: no locks at all -> everything missing; all locks -> none.
+    assert!(missing_mask(declared, 0) == declared);
+    assert!(missing_mask(declared, declared) == 0);
 }
