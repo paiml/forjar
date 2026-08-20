@@ -3,9 +3,13 @@
 //! `moved` entries declaratively rename resource keys in lock state so a
 //! rename does not show up as destroy+create in the plan. They must be applied
 //! as an atomic permutation: chained (`a→b`, `b→c`) or colliding (`x→z`,
-//! `y→z`) moves must never silently overwrite existing lock state. Colliding /
-//! chained moves are rejected at validate time; `apply_moved_blocks` then
-//! resolves the remaining entries in a single pass into a fresh map.
+//! `y→z`) moves must never silently overwrite existing lock state.
+//!
+//! What is decidable WHERE matters here, and getting it wrong made the feature
+//! unusable. From config alone you can decide: `from == to`, duplicate `from`,
+//! duplicate `to`, and chains. You CANNOT decide whether a rename would clobber
+//! converged state — that is a fact about the lock. A `to` that names a declared
+//! resource is the REQUIRED shape of a rename, not a collision.
 
 use crate::core::parser::ValidationError;
 use crate::core::types::*;
@@ -59,6 +63,34 @@ fn rename_lock(moved: &[MovedEntry], lock: &StateLock, machine: &str) -> StateLo
             }
             None => id.clone(),
         };
+        // THE REAL COLLISION, and the only place it is decidable.
+        //
+        // Validation cannot see this: `moved: a → b` with `b` also declared in
+        // config is the CANONICAL rename and perfectly safe when the lock holds
+        // no `b`. It is destructive only when the lock holds BOTH — which is
+        // state, not config. The old config-time check could not tell those
+        // apart and so rejected every correct use of the feature.
+        //
+        // Losing an entry here would silently discard a resource's converged
+        // state, so it is loud and it keeps the MOVED entry (the declared
+        // intent) rather than whichever happened to be iterated last.
+        if let Some(existing) = new_lock.resources.get(&new_key) {
+            let moved_in = rename.contains_key(id.as_str());
+            eprintln!(
+                "warning: moved target '{new_key}' on {machine} already holds state \
+                 (hash {}); {} entry kept. Remove the stale resource or pick a \
+                 different target — two resources cannot share one state key.",
+                &existing.hash.chars().take(12).collect::<String>(),
+                if moved_in {
+                    "the moved"
+                } else {
+                    "the existing"
+                }
+            );
+            if !moved_in {
+                continue;
+            }
+        }
         new_lock.resources.insert(new_key, rl.clone());
     }
     new_lock
@@ -105,12 +137,23 @@ pub(crate) fn validate_moved_blocks(config: &ForjarConfig, errors: &mut Vec<Vali
                 "moved block has colliding 'to: {to}' — two moves target the same resource id"
             )));
         }
-        // Collision with a managed resource whose own state we'd clobber. A
-        // `to` that is itself being moved away (`to` ∈ froms) is a chain, not
-        // a destructive collision, and is reported separately below.
-        if managed_collision(to, &config.resources, &froms) {
-            errors.push(managed_collision_err(to));
-        }
+        // NO config-time "collides with an existing resource" check here.
+        //
+        // It used to reject `to` whenever the config declared a resource by
+        // that name — which is the CANONICAL usage and the only correct one:
+        // after a rename the resource IS declared under its new name, and a
+        // `to` that is not declared would point the rename at nothing.
+        //
+        // The stated concern ("would overwrite its converged state") is a claim
+        // about the LOCK, and config-contains-`to` cannot decide it:
+        //
+        //   canonical rename   config has `to`: YES   lock has `to`: no   safe
+        //   genuine clobber    config has `to`: YES   lock has `to`: YES  destructive
+        //
+        // True in both, so it discriminated nothing and forbade the feature's
+        // only working shape — paiml/forjar-cookbook recipes/34-moved-blocks.yaml
+        // (the documented example) failed validation. The real collision is
+        // detected against the lock in `rename_lock`, which has it.
         // Chained move: this entry's `to` is some other entry's `from`.
         if to != from && froms.contains(to) {
             errors.push(err(format!(
@@ -122,54 +165,14 @@ pub(crate) fn validate_moved_blocks(config: &ForjarConfig, errors: &mut Vec<Vali
     }
 }
 
-/// #165: Re-check `moved.to` collisions against the POST-expansion resource
-/// set so a `to` that lands on a recipe-expanded key is rejected too.
-///
-/// [`validate_moved_blocks`] runs at validate time, before `expand_recipes` /
-/// `expand_resources` insert namespaced keys (`recipe_id/foo`). A `moved.to`
-/// equal to such a key would pass validation and then clobber the expanded
-/// resource's converged lock. This runs against the fully expanded
-/// `config.resources` and reports any collision (deduped per `to`).
-pub(crate) fn validate_moved_targets(config: &ForjarConfig) -> Vec<ValidationError> {
-    let moved = &config.moved;
-    if moved.is_empty() {
-        return Vec::new();
-    }
-
-    let froms: std::collections::HashSet<&str> = moved.iter().map(|m| m.from.as_str()).collect();
-    let mut errors = Vec::new();
-    let mut reported: std::collections::HashSet<&str> = std::collections::HashSet::new();
-
-    for entry in moved {
-        let to = entry.to.as_str();
-        if reported.contains(to) {
-            continue;
-        }
-        if managed_collision(to, &config.resources, &froms) {
-            reported.insert(to);
-            errors.push(managed_collision_err(to));
-        }
-    }
-    errors
-}
-
-/// True when `to` would rename onto a managed resource and overwrite its
-/// converged state. A `to` that is itself being moved away (`to` ∈ `froms`)
-/// is a chain, not a destructive collision.
-fn managed_collision(
-    to: &str,
-    resources: &indexmap::IndexMap<String, Resource>,
-    froms: &std::collections::HashSet<&str>,
-) -> bool {
-    resources.contains_key(to) && !froms.contains(to)
-}
-
-fn managed_collision_err(to: &str) -> ValidationError {
-    err(format!(
-        "moved 'to: {to}' collides with existing resource '{to}' — \
-         renaming onto a managed resource would overwrite its converged state"
-    ))
-}
+// #165's `validate_moved_targets` is removed: it re-ran the config-time
+// collision check against the POST-expansion resource set, so a `moved.to`
+// landing on a recipe-expanded key (`recipe_id/foo`) was rejected too.
+//
+// It went with the check it duplicated. The premise — that `to` naming a
+// declared resource is destructive — is false; that is the required shape of a
+// rename, expanded keys included. Such a `to` is destructive only when the LOCK
+// already holds the key, which `rename_lock` now detects with the state in hand.
 
 fn err(message: String) -> ValidationError {
     ValidationError { message }
@@ -329,18 +332,28 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_to_colliding_with_managed_resource() {
-        // `to: existing` where `existing` is a real managed resource → would
-        // overwrite its converged state.
+    fn validate_accepts_to_naming_the_renamed_resource() {
+        // INVERTED from what this test used to assert.
+        //
+        // It required an error when `to` named a declared resource — which is
+        // the REQUIRED shape of a rename: after `old → existing`, the resource
+        // IS declared as `existing`. A `to` that is not declared would point
+        // the rename at nothing and the resource would be destroyed.
+        //
+        // The old error claimed the rename "would overwrite its converged
+        // state", which is a fact about the LOCK. Config-contains-`to` is true
+        // both when the lock holds `to` (destructive) and when it does not
+        // (the normal rename), so it decided nothing and forbade the feature's
+        // only working shape. forjar's own cookbook example
+        // (recipes/34-moved-blocks.yaml) failed validation because of it.
         let yaml = format!(
             "{HEADER}resources:\n  existing:\n    type: file\n    path: /tmp/e\n    content: x\n\
              moved:\n  - from: old\n    to: existing\n"
         );
         let errs = errors_for(&yaml);
         assert!(
-            errs.iter()
-                .any(|m| m.contains("collides with existing resource 'existing'")),
-            "expected managed-collision error, got {errs:?}"
+            errs.is_empty(),
+            "the canonical rename must validate, got {errs:?}"
         );
     }
 
@@ -408,16 +421,17 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_to_colliding_with_recipe_expanded_key() {
-        // `to: setup/config-file` only EXISTS after recipe expansion. Before
-        // #165 the pre-expansion collision check missed it; now the parser
-        // re-checks against the post-expansion resource set and rejects it.
+    fn validate_accepts_to_naming_a_recipe_expanded_key() {
+        // Same inversion, post-expansion (#165). `to: setup/config-file` names
+        // a key that exists only after recipe expansion — which is exactly what
+        // renaming a recipe-produced resource looks like, not a collision.
         let result =
             parse_and_validate_with_recipe("moved:\n  - from: old\n    to: setup/config-file\n");
-        let err = result.expect_err("collision with expanded recipe key must be rejected");
         assert!(
-            err.contains("collides with existing resource 'setup/config-file'"),
-            "expected post-expansion managed-collision error, got: {err}"
+            result.is_ok(),
+            "a rename onto an expanded key must validate; the destructive case \
+             (the LOCK already holding it) is caught in rename_lock: {:?}",
+            result.err()
         );
     }
 

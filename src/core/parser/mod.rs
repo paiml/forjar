@@ -296,17 +296,11 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
     // set. validate_config ran before expansion, so a `to` that lands on a
     // recipe-expanded key (e.g. `recipe_id/foo`) would otherwise pass and then
     // silently clobber that expanded resource's converged lock.
-    let post_errors = crate::core::planner::moved::validate_moved_targets(&config);
-    if !post_errors.is_empty() {
-        return Err(format!(
-            "validation errors:\n{}",
-            post_errors
-                .iter()
-                .map(|e| format!("  - {e}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
-    }
+    // #165's post-expansion `moved.to` collision re-check is gone with the
+    // config-time check it duplicated: `to` naming a declared resource is the
+    // required shape of a rename, not a collision. The genuinely destructive
+    // case — the LOCK already holding `to` — is detected in `rename_lock`,
+    // which has the state this function does not.
 
     Ok(config)
 }
