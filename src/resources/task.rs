@@ -74,14 +74,38 @@ pub fn check_script(resource: &Resource) -> String {
     }
 
     if !resource.output_artifacts.is_empty() {
-        // One assertion per artifact, so a partially-built target names the
-        // artifact that is actually missing instead of a bare `task=pending`.
+        // Artifacts are declared RELATIVE TO `working_dir`, which is where the
+        // command ran and produced them. Testing them relative to whatever the
+        // check happens to be invoked from asks about a different filesystem
+        // location than the one the resource wrote to.
+        //
+        // This was harmless while nothing on the apply path consulted
+        // check_script. FJ-2732 made the executor verify against the host after
+        // every apply, and the mismatch surfaced immediately: a task with
+        // `working_dir: <tmp>/work` and `output_artifacts: ["narration.srt"]`
+        // produced the file, exited 0, and then failed verification with
+        // `task=pending:narration.srt` because the check looked in the CWD.
+        //
+        // `probe_base_dir` is the same resolution the FJ-2731 output check and
+        // the build prober already use, so all three now agree about where an
+        // artifact lives.
+        let base = crate::core::task::probe::probe_base_dir(resource);
         let assertions: Vec<String> = resource
             .output_artifacts
             .iter()
             .map(|a| {
+                // With no `working_dir` the base is "." and the artifact is
+                // already relative to the invoking directory — emit it bare so
+                // the script stays readable (`[ -e 'out/x' ]`, not
+                // `[ -e './out/x' ]`). Behaviour is identical either way.
+                let resolved = crate::core::task::probe::resolve_under(&base, a);
+                let path = if base == std::path::Path::new(".") {
+                    a.clone()
+                } else {
+                    resolved.to_string_lossy().into_owned()
+                };
                 verdict::assert_that(
-                    &format!("[ -e {} ]", sh_squote(a)),
+                    &format!("[ -e {} ]", sh_squote(&path)),
                     &format!("task=completed:{a}"),
                     &format!("task=pending:{a}"),
                 )
