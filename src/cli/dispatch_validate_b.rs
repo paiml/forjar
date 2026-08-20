@@ -207,24 +207,13 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     // a schema version that was never consulted.
     super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
 
-    // FJ-2500: Unknown fields are always errors during validate (P0 — silent data loss).
-    // The --deny-unknown-fields flag is now the default behavior; kept for backward compat.
+    // FJ-2500 / GH-272: unknown fields are errors. This used to be an inline
+    // copy of the check here, which is exactly how validate and every other
+    // verb came to disagree about whether the same file was valid — two
+    // implementations, one of them permissive. `parse_and_validate` now denies
+    // by default, so the check lives in ONE place and validate inherits it
+    // rather than reimplementing it. The flag is kept for backward compat.
     let _ = deny_unknown_fields; // always true for validate
-    {
-        let content = std::fs::read_to_string(&file)
-            .map_err(|e| format!("failed to read {}: {}", file.display(), e))?;
-        let unknown_warnings = crate::core::parser::check_unknown_fields(&content);
-        if !unknown_warnings.is_empty() {
-            return Err(format!(
-                "unknown field errors:\n{}",
-                unknown_warnings
-                    .iter()
-                    .map(|e| format!("  - {e}"))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ));
-        }
-    }
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass
     if deep {

@@ -15,6 +15,7 @@
 //! | `proof_mutation_score_pct_bounded` | `MutationScore::score_pct()` | Result in [0,100] |
 //! | `proof_convergence_pass_rate_bounded` | `ConvergenceSummary::pass_rate()` | Result in [0,100] |
 //! | `proof_applicable_operators_valid` | `applicable_operators()` | Operator applicability invariant |
+//! | `proof_rejects_unknown_total_and_monotone` | `parser::rejects_unknown()` | Total; monotone in the unknown-field count |
 
 /// MutationScore::grade() is monotonic: higher score_pct → higher/equal grade.
 ///
@@ -189,4 +190,45 @@ fn proof_applicable_operators_valid() {
         "resource type has no applicable mutation operator: mutation testing \
          would mutate nothing and report success"
     );
+}
+
+/// KANI-CLC-001 — `parser::rejects_unknown()` is total and monotone.
+///
+/// Contract: contracts/config-load-consistency-v1.yaml
+///
+/// This is the decision `parse_and_validate_opts` makes about whether unknown
+/// fields are fatal (GH-272). Proving it here rather than proving something
+/// about `parse_and_validate_opts` is deliberate: that function reads a file
+/// and allocates a diagnostic string per unknown field, and CBMC models every
+/// path through both. A harness aimed there would explode the state space
+/// without establishing anything the falsification tests do not already cover.
+///
+/// Monotonicity is the property that matters operationally: finding MORE
+/// unknown fields must never turn a rejection back into an acceptance.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_rejects_unknown_total_and_monotone() {
+    use super::parser::rejects_unknown;
+
+    let deny: bool = kani::any();
+    let n1: usize = kani::any();
+    let n2: usize = kani::any();
+    kani::assume(n1 <= 8);
+    kani::assume(n2 <= 8);
+    kani::assume(n1 <= n2);
+
+    // Total: both calls terminate and produce a value for every input.
+    let r1 = rejects_unknown(deny, n1);
+    let r2 = rejects_unknown(deny, n2);
+
+    // Monotone in the count: more unknown fields never un-rejects a config.
+    assert!(!r1 || r2);
+
+    // A clean config is never rejected on this ground, whatever the mode.
+    assert!(!rejects_unknown(deny, 0));
+
+    // And in strict mode any unknown field at all is fatal.
+    if deny && n2 > 0 {
+        assert!(r2);
+    }
 }

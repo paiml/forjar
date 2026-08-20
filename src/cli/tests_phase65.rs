@@ -31,8 +31,8 @@ mod tests {
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_validate_check_dependency_exists(&f, false).is_ok());
     }
@@ -60,8 +60,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n",
+resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n",
         );
         assert!(cmd_validate_check_path_conflicts_strict(&f, false).is_ok());
     }
@@ -101,8 +101,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_topological_sort(&f, false).is_ok());
     }
@@ -130,9 +130,9 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n  \
+c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
         );
         assert!(cmd_graph_critical_path_resources(&f, false).is_ok());
     }

@@ -57,8 +57,8 @@ resources:\n  svc:\n    type: service\n    machine: web\n    service_name: nginx
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n",
+resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n",
         );
         assert!(cmd_validate_check_resource_overlap(&f, false).is_ok());
     }
@@ -98,9 +98,9 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n  \
+c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_resource_weight(&f, false).is_ok());
     }
@@ -133,9 +133,9 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n  \
+c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
         );
         assert!(cmd_graph_dependency_depth_per_resource(&f, false).is_ok());
     }

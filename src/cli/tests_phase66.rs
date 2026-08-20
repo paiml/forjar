@@ -29,8 +29,8 @@ mod tests {
         let f = write_config(
             dir.path(),
             "\
-machines: {}\nresources:\n  web/pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n\
-  db/pkg2:\n    type: package\n    provider: apt\n    packages: [vim]\n",
+machines: {}\nresources:\n  web/pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n  \
+db/pkg2:\n    type: package\n    provider: apt\n    packages: [vim]\n",
         );
         assert!(cmd_validate_check_duplicate_names(&f, false).is_ok());
     }
@@ -57,8 +57,8 @@ machines: {}\nresources:\n  web/pkg1:\n    type: package\n    provider: apt\n   
         let f = write_config(
             dir.path(),
             "\
-machines: {}\nresources:\n  web/pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n\
-  web/cfg1:\n    type: file\n    path: /opt/cfg\n",
+machines: {}\nresources:\n  web/pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n  \
+web/cfg1:\n    type: file\n    path: /opt/cfg\n",
         );
         assert!(cmd_validate_check_resource_groups(&f, false).is_ok());
     }
@@ -90,8 +90,8 @@ machines: {}\nresources:\n  pkg1:\n    type: package\n    provider: apt\n    pac
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: package\n    machine: web\n    provider: apt\n    packages: [vim]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: package\n    machine: web\n    provider: apt\n    packages: [vim]\n",
         );
         assert!(cmd_graph_sink_resources(&f, false).is_ok());
     }
@@ -103,8 +103,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_sink_resources(&f, false).is_ok());
     }
@@ -132,8 +132,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
         );
         assert!(cmd_graph_bipartite_check(&f, false).is_ok());
     }
@@ -168,8 +168,8 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n",
+resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n",
         );
         assert!(cmd_status_machine_resource_count(&f, false).is_ok());
     }

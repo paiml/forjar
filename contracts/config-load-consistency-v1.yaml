@@ -1,0 +1,139 @@
+metadata:
+  version: "1.0.0"
+  created: "2026-08-20"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: "One config, one verdict — every verb that loads a config agrees with validate on whether it is acceptable"
+  references:
+    - "paiml/forjar#272 — plan/apply/codegen accepted a config validate rejects"
+    - "Forjar spec §2 Parse → Validate pipeline"
+
+# THE DEFECT THIS CONTRACT PINS DOWN
+#
+# `validate` carried its own inline unknown-field check that hard-errors, under
+# a comment naming the stakes correctly: "P0 — silent data loss". Every other
+# verb loaded configs through `parse_and_validate()`, which delegated to
+# `parse_and_validate_opts(path, false)` — unknown fields printed as a warning
+# and then DISCARDED, so the typed field they were meant to set fell back to
+# its default.
+#
+# Measured in paiml/infra 2026-08-20: a CIFS mount declared `fs_type: cifs`
+# (the field is `fstype`). validate exited 3 with "did you mean 'fstype'?";
+# plan reported `1 to add ... mount /mnt/unas`; apply would have written an
+# fstab line carrying a filesystem type nobody asked for.
+#
+# The asymmetry was the danger: validate was the ONLY verb that caught it, and
+# it is the one verb not in the plan -> apply path the tool documents.
+
+equations:
+  accepts:
+    formula: "accepts(v, c) = (exit_status(v, c) = 0)"
+    domain: "v ∈ Verb, c ∈ ConfigFile"
+    codomain: "Bool"
+    invariants:
+      - "accepts is a function of the config alone, not of which verb asked"
+      - "A config carrying an unknown field is accepted by no verb"
+
+  rejects_unknown:
+    formula: "rejects_unknown(deny, n) = deny ∧ n > 0"
+    domain: "deny ∈ Bool, n ∈ ℕ (count of unknown fields found)"
+    codomain: "Bool"
+    invariants:
+      - "Total — defined for every (deny, n)"
+      - "Monotone in n: rejecting at n implies rejecting at n+1"
+      - "deny = true is the default for every config-loading verb"
+
+proof_obligations:
+  - type: equivalence
+    property: "Every config-loading verb agrees with validate"
+    formal: "∀ c ∈ ConfigFile, ∀ v ∈ Verb: accepts(v, c) ⟺ accepts(validate, c)"
+    applies_to: all
+
+  - type: safety
+    property: "Refusal precedes mutation — a rejected config touches no host"
+    formal: "∀ c: ¬accepts(apply, c) ⟹ hostState(after) = hostState(before)"
+    applies_to: apply
+
+  - type: monotonicity
+    property: "The decision predicate is total and monotone in the unknown-field count"
+    formal: "∀ deny, n: rejects_unknown(deny, n) is defined ∧ (n₁ ≤ n₂ ⟹ rejects_unknown(d,n₁) ⟹ rejects_unknown(d,n₂))"
+    applies_to: all
+
+enforcement:
+  equivalence:
+    description: "plan, apply and codegen must reject what validate rejects"
+    check: "tests/falsification_unknown_field_is_rejected_everywhere.rs"
+    severity: "ERROR"
+  safety:
+    description: "apply must refuse before writing"
+    check: "tests/falsification_unknown_field_is_rejected_everywhere.rs::apply_rejects_the_unknown_field_and_writes_nothing"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-CLC-001
+    rule: "Equivalence"
+    prediction: "plan exits non-zero on a config validate rejects"
+    test: "plan_rejects_the_unknown_field_too"
+    if_fails: "A config-loading path is still calling parse_and_validate_opts(_, false)"
+
+  - id: FALSIFY-CLC-002
+    rule: "Safety"
+    prediction: "apply exits non-zero AND the declared file does not exist afterwards"
+    test: "apply_rejects_the_unknown_field_and_writes_nothing"
+    if_fails: "Refusal happens after the executor has begun writing"
+    # This case is built on a `file` resource, NOT the mount that exposed the
+    # bug. The first draft used the mount and passed BEFORE the fix — because
+    # mount.cifs cannot reach 198.51.100.9 and failed for its own reasons. A
+    # test that goes green with the defect fully present is worse than none, so
+    # the resource here is one that WOULD succeed, and the side-effect
+    # assertion is what pins the verdict.
+
+  - id: FALSIFY-CLC-003
+    rule: "Equivalence"
+    prediction: "codegen refuses to emit shell for a config validate rejects"
+    test: "codegen_rejects_the_unknown_field_too"
+    if_fails: "Emitted shell carries the defaulted field rather than the declared one"
+
+  - id: FALSIFY-CLC-004
+    rule: "No over-reach"
+    prediction: "A config differing ONLY by the field being spelled correctly is accepted by every verb"
+    test: "the_same_config_spelled_correctly_is_accepted"
+    if_fails: "The fix rejects valid configs — every assertion above would also pass if the verbs were simply broken"
+
+kani_harnesses:
+  - id: KANI-CLC-001
+    obligation: "The decision predicate is total and monotone"
+    strategy: exhaustive
+    solver: cadical
+    bound: 4
+    description: >-
+      Verify rejects_unknown(deny, n) over symbolic deny and bounded n:
+      total, and monotone in n. Deliberately targeted at the allocation-free
+      predicate rather than at parse_and_validate itself — the latter reads a
+      file, allocates per-field diagnostic strings, and would explode the
+      symbolic space without proving anything the falsification tests do not
+      already cover.
+
+qa_gate:
+  id: F-CLC-001
+  name: "Config Load Consistency"
+  description: "Every verb that loads a config agrees with validate"
+  checks:
+    - "equivalence"
+    - "safety"
+    - "monotonicity"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Revert parse_and_validate to parse_and_validate_opts(path, false) — FALSIFY-CLC-001 and -003 must go red"
+
+verification_summary:
+  total_obligations: 3
+  l4_lean_proved: 0
+  l4_kani_proved: 1      # monotonicity — KANI-CLC-001, verified in 0.04s
+  l4_not_applicable: 2   # equivalence and safety are process-level (exit status, host mutation) — falsification-tested, not provable in Lean
+  kani_falsified: true   # harness rejected `||` for `&&`, and an off-by-one on the count; restored, re-verified
+  l4_sorry_count: 0
+  # Stated plainly rather than papered over: the end-to-end obligations are
+  # about CLI exit codes and filesystem side effects. Claiming a Lean or Kani
+  # proof over those would be the exact failure this project has repeatedly
+  # found in its own contracts — citing a proof that was never run against the
+  # thing it names (see forjar#250, ten defects of that shape).
