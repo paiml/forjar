@@ -340,3 +340,50 @@ fn the_check_script_reports_each_directory_separately() {
     );
     assert!(c.contains("archive-pending:albor-data"), "{c}");
 }
+
+#[test]
+fn a_declaration_without_a_path_is_refused() {
+    let mut r = Resource {
+        resource_type: ResourceType::NasArchive,
+        ..Default::default()
+    };
+    r.archive.destination = Some("/mnt/unas/media".to_string());
+    r.archive.dirs = vec!["corpus".to_string()];
+    let e = archive_of(&r).unwrap_err();
+    assert!(e.contains("requires `path`"), "{e}");
+    // And every entry point refuses rather than emitting a live script.
+    assert!(check_script(&r).contains("ERROR:"));
+    assert!(apply_script(&r).contains("ERROR:"));
+    assert!(state_query_script(&r).contains("ERROR:"));
+}
+
+#[test]
+fn the_unit_names_are_derived_from_the_path_and_never_empty() {
+    // A path of nothing but separators would otherwise slug to "", producing
+    // `/usr/local/sbin/forjar-archive-.sh` and a unit named `forjar-archive-`.
+    assert_eq!(slug("/"), "root");
+    assert_eq!(slug("///"), "root");
+    assert_eq!(slug("/mnt/nvme-raid0"), "mnt-nvme-raid0");
+    assert!(script_path("/").ends_with("forjar-archive-root.sh"));
+    assert_eq!(
+        service_name("/mnt/nvme-raid0"),
+        "forjar-archive-mnt-nvme-raid0"
+    );
+}
+
+#[test]
+fn the_installed_units_run_the_script_and_survive_a_missed_window() {
+    let r = resource("/mnt/nvme-raid0", "/mnt/unas/media", &["corpus"]);
+    let apply = apply_script(&r);
+    // The service must actually invoke the deployed script with EXECUTE set,
+    // or the timer fires forever and archives nothing.
+    assert!(apply.contains("ARCHIVE_EXECUTE=1"), "{apply}");
+    assert!(
+        apply.contains("/usr/local/sbin/forjar-archive-mnt-nvme-raid0.sh"),
+        "{apply}"
+    );
+    // Persistent=true: absence of a run is this fleet's proven silent-green
+    // failure mode, so a machine that was off must archive on next boot.
+    assert!(apply.contains("Persistent=true"), "{apply}");
+    assert!(apply.contains("systemctl enable --now"), "{apply}");
+}

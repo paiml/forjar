@@ -83,6 +83,24 @@ const _: () = assert!(
 );
 const _: () = assert!(SMALL_FILE_BYTES > 0);
 
+// The real shape of `/home/noah/data/courses` on intel, measured 2026-08-21:
+// 755 G in 7,426 files, 46% of them under 64 KiB, but only ~23.4 MB of BYTES in
+// those small files — about 3 seconds of small-file transfer inside a
+// ~36-minute move, 0.14% of it.
+//
+// The first cut guarded on file COUNT (ceiling 2000, which refused this
+// outright) and on the small-file SHARE (ceiling 50%, which passed it at 46%
+// for the wrong reason). Pinned as a compile-time assertion rather than a test
+// because it is a claim about the DEFAULT, and a default that refuses this
+// ships to every machine that omits the knob.
+const _: () = assert!(
+    23_400_000 <= DEFAULT_MAX_SMALL_BYTES,
+    "the default budget would refuse a 755 G tree whose small files cost 3 seconds"
+);
+// ...while a genuinely round-trip-bound tree — 200k files at 50 KiB, 10 GB of
+// small-file transfer, ~21 minutes — is still refused.
+const _: () = assert!(200_000 * 50 * 1024 > DEFAULT_MAX_SMALL_BYTES);
+
 /// Declaration fields for a `nas_archive` resource.
 ///
 /// `#[serde(flatten)]`-ed into `Resource`, so the YAML shape stays flat
@@ -459,25 +477,17 @@ mod tests {
         assert!(contains_path("/", "/anything"));
     }
 
-    /// The real shape of `/home/noah/data/courses` on intel, measured
-    /// 2026-08-21: 755 G in 7,426 files, 46% of them under 64 KiB, but only
-    /// 23.4 MB of BYTES in those small files.
-    ///
-    /// The first cut guarded on file COUNT (ceiling 2000) and on the small-file
-    /// SHARE (ceiling 50%). The count refused this outright; the share passed it
-    /// at 46%, which would have been the right answer for the wrong reason. Both
-    /// were measuring something other than what the move costs: ~3 seconds of
-    /// small-file transfer inside a ~36-minute move, 0.14% of it.
     #[test]
-    fn the_real_courses_shape_is_admitted_by_the_byte_budget() {
-        const COURSES_SMALL_BYTES: u64 = 23_400_000;
-        assert!(
-            COURSES_SMALL_BYTES <= DEFAULT_MAX_SMALL_BYTES,
-            "the default budget would refuse a 755 G tree whose small files cost 3 seconds"
-        );
-        // And a genuinely round-trip-bound tree is still refused: 200k files at
-        // 50 KiB is 10 GB of small-file transfer, ~21 minutes.
-        const ROUND_TRIP_BOUND: u64 = 200_000 * 50 * 1024;
-        assert!(ROUND_TRIP_BOUND > DEFAULT_MAX_SMALL_BYTES);
+    fn rejects_an_empty_entry() {
+        let e = build("/mnt/nvme-raid0", Some("/mnt/unas/media"), &["a", ""]).unwrap_err();
+        assert!(e.contains("empty entry"), "{e}");
+    }
+
+    #[test]
+    fn source_and_dest_paths_are_joined_under_their_roots() {
+        let a = build("/mnt/raid/", Some("/mnt/unas/media/"), &["corpus"]).unwrap();
+        // Trailing slashes are normalised away, so no double separator appears.
+        assert_eq!(a.source_of("corpus"), "/mnt/raid/corpus");
+        assert_eq!(a.dest_of("corpus"), "/mnt/unas/media/corpus");
     }
 }
