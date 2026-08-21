@@ -47,15 +47,19 @@ impl McpServer {
     /// assumes ordering fails for a reason that has nothing to do with the
     /// property under test.
     fn request(&mut self, id: u64, method: &str, params: &str) -> serde_json::Value {
-        let msg =
-            format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"{method}\",\"params\":{params}}}\n");
+        let msg = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"{method}\",\"params\":{params}}}\n"
+        );
         self.stdin.write_all(msg.as_bytes()).expect("write");
         self.stdin.flush().expect("flush");
 
         for _ in 0..64 {
             let mut line = String::new();
             let n = self.out.read_line(&mut line).expect("read");
-            assert!(n > 0, "server closed stdout while awaiting id={id} ({method})");
+            assert!(
+                n > 0,
+                "server closed stdout while awaiting id={id} ({method})"
+            );
             let Ok(v) = serde_json::from_str::<serde_json::Value>(line.trim()) else {
                 continue;
             };
@@ -201,7 +205,8 @@ fn an_unadvertised_tool_is_refused() {
         r#"{"name":"forjar_this_tool_does_not_exist","arguments":{}}"#,
     );
     assert!(
-        r.get("error").is_some() || r.pointer("/result/isError").and_then(|v| v.as_bool()) == Some(true),
+        r.get("error").is_some()
+            || r.pointer("/result/isError").and_then(|v| v.as_bool()) == Some(true),
         "the server accepted a tool it never advertised: {r}"
     );
 }
