@@ -37,10 +37,10 @@ const FLAG: &str = "__fj_diverged";
 /// `condition` is a shell condition (`test -f 'p'`, `command -v x >/dev/null`).
 /// Markers are quoted here, so pass them unquoted.
 pub fn assert_that(condition: &str, converged_marker: &str, divergent_marker: &str) -> String {
-    format!(
-        "if {condition}; then echo {}; else echo {}; {FLAG}=1; fi",
-        sh_squote(converged_marker),
-        sh_squote(divergent_marker)
+    assert_block(
+        condition,
+        &format!("echo {}", sh_squote(converged_marker)),
+        &format!("echo {}", sh_squote(divergent_marker)),
     )
 }
 
@@ -50,7 +50,21 @@ pub fn assert_that(condition: &str, converged_marker: &str, divergent_marker: &s
 /// `on_converged` and `on_divergent` are shell fragments. The flag is raised
 /// automatically after `on_divergent`.
 pub fn assert_block(condition: &str, on_converged: &str, on_divergent: &str) -> String {
-    format!("if {condition}; then\n  {on_converged}\nelse\n  {on_divergent}\n  {FLAG}=1\nfi")
+    // The condition gets a line to itself.
+    //
+    // `if {condition}; then` put forjar's `if`/`then` on the SAME physical line
+    // as whatever the condition contained. A `completion_check` written as a
+    // YAML folded scalar (`>-`) arrives already collapsed onto one line, so a
+    // loop inside it produced `if sh -c 'for ...; do ...; done'; then`, which
+    // bashrs' line-based SC2135/SC2136 regexes read as a malformed `if`. Both
+    // are SC2*, so `validate_script` does not filter them, and both are Error
+    // severity — `forjar apply` aborted on a check whose source has no `if`.
+    //
+    // POSIX allows a newline wherever the `;` after `if` may appear, so this
+    // is the same program. It immunises the generator against the entire
+    // class of line-scoped shell heuristics rather than the two rules that
+    // happened to fire, because forjar cannot know what a condition contains.
+    format!("if\n  {condition}\nthen\n  {on_converged}\nelse\n  {on_divergent}\n  {FLAG}=1\nfi")
 }
 
 /// Report divergence unconditionally — for a resource that cannot be checked
@@ -200,5 +214,101 @@ mod tests {
         assert_eq!(run(&s), 0);
         let s = format!("set -eu\n{}", single("false", "ok:x", "bad:x"));
         assert_ne!(run(&s), 0);
+    }
+
+    /// A `completion_check` written as a YAML FOLDED scalar (`>-`) arrives as
+    /// ONE physical line: `machines/lambda-labs/forjar.yaml:1430` collapses a
+    /// `for u in ...; do ...; done` loop that way. Emitting `if {condition};
+    /// then` then puts `if`, `do`, `done` and `then` on that same line, and
+    /// bashrs' line-based regexes match it:
+    ///
+    ///   SC2136  `\bif\b[^\n]*;\s*do\b`   -> "'if' statements use 'then', not 'do'"
+    ///   SC2135  `\bfor\b[^\n]*\bthen\b`  -> "'for' loops use 'do', not 'then'"
+    ///
+    /// Both are SC2*, so `validate_script` does NOT filter them, and both are
+    /// Error severity, so `forjar apply` aborts as an I8 violation — on a check
+    /// script whose source contains no `if` and no `then` at all. forjar
+    /// manufactured the text that was rejected.
+    #[test]
+    fn a_folded_condition_containing_a_loop_still_passes_i8() {
+        let condition = "sh -c 'for u in a b; do echo \"$u\"; done; exit 0'";
+        let script = single(condition, "forjar=converged", "forjar=diverged");
+        assert!(
+            crate::core::purifier::validate_script(&script).is_ok(),
+            "forjar generated a script its own I8 gate rejects:\n{}\n{}",
+            script,
+            crate::core::purifier::validate_script(&script).unwrap_err()
+        );
+    }
+
+    /// The same collision reached through `assert_block`.
+    #[test]
+    fn a_folded_condition_passes_i8_through_assert_block() {
+        let condition = "sh -c 'for u in a b; do test -n \"$u\"; done'";
+        let script = check_script_from(&[assert_block(condition, "echo ok", "echo no")]);
+        assert!(
+            crate::core::purifier::validate_script(&script).is_ok(),
+            "assert_block generated a script its own I8 gate rejects:\n{script}"
+        );
+    }
+
+    /// The generated shell must still RUN, in POSIX sh and not just bash.
+    /// A layout change that lints clean but breaks `dash` would be worse than
+    /// the bug it fixes.
+    #[test]
+    fn the_generated_check_runs_and_reports_the_right_verdict() {
+        use std::io::Write;
+        for (cond, want_code) in [("true", 0), ("false", 1)] {
+            let script = single(cond, "forjar=converged", "forjar=diverged");
+            let dir = std::env::temp_dir().join(format!("fj-verdict-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.join(format!("check-{cond}.sh"));
+            let mut f = std::fs::File::create(&path).unwrap();
+            f.write_all(script.as_bytes()).unwrap();
+            drop(f);
+            let out = std::process::Command::new("sh")
+                .arg(&path)
+                .output()
+                .unwrap();
+            assert_eq!(
+                out.status.code(),
+                Some(want_code),
+                "condition `{cond}` gave the wrong verdict.\nscript:\n{script}\nstderr: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+
+    /// The exact condition from `machines/lambda-labs/forjar.yaml`, as YAML
+    /// hands it to forjar: a folded scalar (`>-`) is delivered already
+    /// collapsed onto ONE line, newlines replaced by spaces.
+    ///
+    /// This is the input that aborted `forjar apply` on that machine and
+    /// cascaded to eight `audio-legacy-*` dependents. Keeping the real text
+    /// here means a regression fails on the string that actually caused it,
+    /// rather than on a synthetic stand-in that might not share its shape.
+    #[test]
+    fn the_lambda_labs_audio_check_that_aborted_apply_now_passes_i8() {
+        let condition = concat!(
+            "sh -c 'for u in pipewire-monitor.service scarlett-pulse-remap.service; do ",
+            "test -e \"/home/noah/.config/systemd/user/$u\" && exit 1; ",
+            "ls \"/home/noah\"/.config/systemd/user/*.wants/\"$u\" >/dev/null 2>&1 && exit 1; ",
+            "done; exit 0'"
+        );
+        let script = single(condition, "forjar=converged", "forjar=diverged");
+
+        // No line may contain both forjar's `if` and the condition's `do`,
+        // which is the collision SC2136 detects.
+        for line in script.lines() {
+            assert!(
+                !(line.contains("if") && line.contains("; do")),
+                "forjar put its `if` on the same line as the condition's `do`:\n{line}"
+            );
+        }
+
+        if let Err(e) = crate::core::purifier::validate_script(&script) {
+            panic!("forjar generated a script its own I8 gate rejects:\n{script}\n\n{e}");
+        }
     }
 }
