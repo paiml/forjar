@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`nas_archive` resource type** ([#282](https://github.com/paiml/forjar/issues/282)).
+  Disk *reclaim* has been a first-class resource since FJ-036; disk *archival* —
+  its mirror, and the operation that **deletes originals** — was a shell script
+  with its policy in a string literal. Five directories on lambda-labs were never
+  archived because their names were not typed into that string, invisible to
+  `plan` and `drift` because "a file exists with this sha" was perfectly
+  converged over a wrong list.
+
+  The type forbids the dangerous shapes: a destination inside or equal to the
+  source (the move-onto-itself shape), an empty dir list, and a path where a
+  directory name belongs. Containment is component-wise, so `/mnt/unas-old`
+  beside `/mnt/unas` is still accepted.
+
+  Six defects found reviewing the predecessor script are encoded once instead of
+  per-copy: the verify fails **closed**, caches are dropped before comparing,
+  inventories are compared as well as rsync output, `lsof` cannot abort the run,
+  the source inventory is captured before the copy, and CIFS-hostile trees are
+  refused.
+
+  Admission is measured in **bytes held in small files**, not file count and not
+  the small-file share of the count. Both proxies were tried and both misfire:
+  `/home/noah/data/courses` is 755 G in 7,426 files, 46% under 64 KiB — but
+  23.4 MB in small files against 754.9 GB in large ones, so the small files cost
+  ~3 seconds inside a ~36-minute move. A file-count ceiling refused it outright;
+  a 50% share threshold passed it for the wrong reason.
+
+  `apply` installs the script and arms the timer; it does not move data. Running
+  the script by hand is a dry run unless `ARCHIVE_EXECUTE=1`.
+
+  Contract: `contracts/nas-archive-v1.yaml` — 6 equations, 14 proof obligations,
+  14 falsification tests, 3 Kani harnesses, quorum-validated against git-annex,
+  Nix gc roots and Terraform plan/apply.
+
+### Fixed
+
+- **forjar's own `if` collided with the condition it was given**
+  ([#281](https://github.com/paiml/forjar/issues/281)). A `completion_check`
+  written as a YAML folded scalar (`>-`) arrives collapsed onto one line, and
+  `verdict::assert_that` inlined it into `if {condition}; then`, putting
+  forjar's `if`/`then` on the same line as the condition's `do`/`done`. bashrs
+  SC2136 and SC2135 read that as a malformed `if`; both are `SC2*`, which
+  `validate_script` does not filter, and both are Error severity — so
+  `forjar apply` aborted the resource and JIDOKA cascaded to its eight
+  dependents, on a check whose source contains no `if` at all. The condition now
+  gets a line of its own, verified running under both `dash` and `bash`.
+
+- **An I8 rejection never showed what it rejected** (also #281). The sanitised
+  script was built, linted and dropped, so the error named a rule and a line
+  number for text nobody could see — and the script is *generated*, then
+  rewritten again by `strip_data_payloads`. The rejection now prints that exact
+  text, line-numbered.
+
+### Changed
+
+- bashrs 6.66.3 → **6.68.0**. 6.66.3 raised two SEC010 false positives on
+  forjar's own generated scripts, so the I8 gate rejected output forjar
+  produced. 6.68.0 also fixes SC1028/SC2104/SC1078 quote-blindness
+  ([paiml/bashrs#243](https://github.com/paiml/bashrs/issues/243), #244, #245).
+  Related: [#285](https://github.com/paiml/forjar/issues/285) — with 6.68.0
+  linked, `purifier.rs`'s blanket `SC1*` exclusion can likely be retired.
+
 ## [1.15.0] - 2026-08-19
 
 Same failure shape as 1.14.0 — **reporting a result that was never measured** —
