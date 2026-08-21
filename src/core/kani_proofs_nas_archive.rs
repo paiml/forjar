@@ -96,7 +96,7 @@ fn proof_archive_dest_never_inside_source() {
         "d".to_string()
     }];
 
-    if classify_declaration(path, Some(dest), &dirs, 10, 50).is_none() {
+    if classify_declaration(path, Some(dest), &dirs, 1024).is_none() {
         // Accepted => neither path encloses the other, in either direction.
         assert!(!contains_path(path, dest));
         assert!(!contains_path(dest, path));
@@ -105,29 +105,33 @@ fn proof_archive_dest_never_inside_source() {
     }
 }
 
-/// Contract `cifs_hostile_trees_are_refused`: the small-file percentage is
-/// bounded and cannot divide by zero.
+/// Contract `cifs_hostile_trees_are_refused`: the small-byte budget admits a
+/// directory exactly when its small-file bytes fit, with no overflow.
 ///
-/// Computed in POSIX shell integer arithmetic as `small * 100 / files`. A
-/// percentage that could exceed 100 would make the comparison against
-/// `max_small_file_pct` meaningless at the top of its range, and a division by
-/// zero would abort the pass for every remaining directory.
+/// The comparison runs in POSIX shell integer arithmetic, and the reported
+/// figure is divided down to MB for the operator. This pins that the admission
+/// decision is a plain total order — a directory at exactly the budget is
+/// admitted, one byte over is refused — and that the MB rendering never claims
+/// a refused tree was smaller than the budget.
 #[cfg(kani)]
 #[kani::proof]
-fn proof_archive_small_file_pct_bounded() {
-    let small: u32 = kani::any();
-    let files: u32 = kani::any();
-    kani::assume(files > 0 && files <= 1_000_000);
-    kani::assume(small <= files);
+fn proof_archive_small_byte_budget_is_a_total_order() {
+    let small_bytes: u64 = kani::any();
+    let budget: u64 = kani::any();
+    kani::assume(small_bytes <= 1 << 40);
+    kani::assume(budget > 0 && budget <= 1 << 40);
 
-    let pct = small * 100 / files;
-    assert!(pct <= 100);
-    // 100% is reachable only when every file is small.
-    if pct == 100 {
-        assert!(small == files);
+    let admitted = small_bytes <= budget;
+
+    // Exactly at the budget is admitted; one byte over is not.
+    if small_bytes == budget {
+        assert!(admitted);
     }
-    // And a tree with no small files never trips a non-zero threshold.
-    if small == 0 {
-        assert!(pct == 0);
+    if small_bytes > budget {
+        assert!(!admitted);
+    }
+    // The MB rendering shown to the operator never understates a refusal.
+    if !admitted {
+        assert!(small_bytes / 1_048_576 >= budget / 1_048_576);
     }
 }

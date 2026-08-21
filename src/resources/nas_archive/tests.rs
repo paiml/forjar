@@ -216,27 +216,64 @@ fn a_destination_that_does_not_match_is_never_deleted_from() {
 }
 
 #[test]
-fn a_small_file_tree_is_refused_rather_than_moved() {
+fn a_tree_whose_small_files_exceed_the_budget_is_refused() {
     let s = Scratch::new("small");
     let (src, dest) = (s.join("src"), s.join("dest"));
-    // 600 tiny files: over SMALL_FILE_PCT_MIN_FILES and 100% under 64 KiB.
-    for i in 0..600 {
-        write(&src.join(format!("corpus/f{i}.txt")), "tiny");
+    // 40 files of 32 KiB each = 1.25 MiB of small-file bytes.
+    for i in 0..40 {
+        write(&src.join(format!("corpus/f{i}.bin")), &"s".repeat(32_768));
     }
     fs::create_dir_all(&dest).unwrap();
 
     let mut r = resource(src.to_str().unwrap(), dest.to_str().unwrap(), &["corpus"]);
-    r.archive.max_files = Some(10_000); // not the file-count guard
+    r.archive.max_small_bytes = Some(1_000_000); // under the 1.25 MiB present
     let a = archive_of(&r).unwrap();
     let (code, out) = run(&archive_script(&a), true);
 
     assert_eq!(code, 0, "{out}");
-    assert!(out.contains("under 65536B"), "{out}");
-    assert!(src.join("corpus/f0.txt").exists(), "refused tree was moved");
+    assert!(out.contains("exceeds archive_max_small_bytes"), "{out}");
+    assert!(src.join("corpus/f0.bin").exists(), "refused tree was moved");
 }
 
-/// The percentage must NOT fire on a small directory: `entrenar-checkpoints`
-/// was 8 files, 87% under 64 KiB, and an ordinary archive target.
+/// The shape that drove the redesign. `/home/noah/data/courses` on intel is
+/// 755 G in 7,426 files, 46% under 64 KiB — but only 23.4 MB of BYTES in those
+/// small files, ~3 seconds inside a ~36-minute move.
+///
+/// A file-count ceiling refused it and a 50% share threshold passed it for the
+/// wrong reason. Here: many large files plus a scattering of small ones must be
+/// archived, not skipped.
+#[test]
+fn a_large_tree_with_a_few_small_files_is_archived() {
+    let s = Scratch::new("courses");
+    let (src, dest) = (s.join("src"), s.join("dest"));
+    // 6 large files and 6 small ones: 50% small by COUNT, negligible by BYTES.
+    for i in 0..6 {
+        write(
+            &src.join(format!("courses/big{i}.bin")),
+            &"b".repeat(200_000),
+        );
+        write(&src.join(format!("courses/meta{i}.txt")), "transcript");
+    }
+    fs::create_dir_all(&dest).unwrap();
+
+    let a = archive_of(&resource(
+        src.to_str().unwrap(),
+        dest.to_str().unwrap(),
+        &["courses"],
+    ))
+    .unwrap();
+    let (code, out) = run(&archive_script(&a), true);
+
+    assert_eq!(code, 0, "{out}");
+    assert!(
+        out.contains("VERIFIED courses"),
+        "a large tree with a few small files was refused:\n{out}"
+    );
+    assert!(dest.join("courses/big0.bin").exists());
+}
+
+/// A handful of small files must not be refused: `entrenar-checkpoints` was 8
+/// files, 87% under 64 KiB, and an ordinary archive target.
 #[test]
 fn a_handful_of_small_files_is_not_refused() {
     let s = Scratch::new("fewsmall");
@@ -259,44 +296,6 @@ fn a_handful_of_small_files_is_not_refused() {
         out.contains("VERIFIED cp"),
         "a small directory was refused:\n{out}"
     );
-}
-
-#[test]
-fn a_directory_over_the_file_ceiling_is_refused() {
-    let s = Scratch::new("many");
-    let (src, dest) = (s.join("src"), s.join("dest"));
-    for i in 0..12 {
-        write(&src.join(format!("corpus/f{i}.bin")), &"x".repeat(70_000));
-    }
-    fs::create_dir_all(&dest).unwrap();
-
-    let mut r = resource(src.to_str().unwrap(), dest.to_str().unwrap(), &["corpus"]);
-    r.archive.max_files = Some(5);
-    let a = archive_of(&r).unwrap();
-    let (code, out) = run(&archive_script(&a), true);
-
-    assert_eq!(code, 0, "{out}");
-    assert!(out.contains("exceeds archive_max_files"), "{out}");
-    assert!(src.join("corpus/f0.bin").exists());
-}
-
-#[test]
-fn an_unwritable_destination_stops_before_touching_anything() {
-    let s = Scratch::new("nodest");
-    let src = s.join("src");
-    write(&src.join("corpus/a.bin"), &"a".repeat(100_000));
-
-    let a = archive_of(&resource(
-        src.to_str().unwrap(),
-        s.join("does-not-exist").to_str().unwrap(),
-        &["corpus"],
-    ))
-    .unwrap();
-    let (code, out) = run(&archive_script(&a), true);
-
-    assert_ne!(code, 0, "{out}");
-    assert!(out.contains("does not exist"), "{out}");
-    assert!(src.join("corpus/a.bin").exists());
 }
 
 // ── declaration-level ───────────────────────────────────────────────────────

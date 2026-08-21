@@ -127,14 +127,15 @@ equations:
 
   cifs_hostile_trees_are_refused:
     formula: |
-      admit(d) ⟺ files(d) ≤ max_files
-                 ∧ (files(d) < SMALL_FILE_PCT_MIN_FILES
-                    ∨ small(d)/files(d) × 100 ≤ max_small_file_pct)
+      admit(d) ⟺ small_bytes(d) ≤ max_small_bytes
+      small_bytes(d) = Σ { size(f) | f ∈ files(d), size(f) ≤ 64 KiB }
     domain: "one candidate directory"
     codomain: "{admitted, skipped}"
     invariants:
       - "A refused directory is SKIPPED, not failed: one CIFS-hostile tree must not stop the pass for every other directory"
-      - "The percentage applies only at or above SMALL_FILE_PCT_MIN_FILES files. It is a claim about AGGREGATE transfer shape and says nothing about a handful of files — applying it at any size refused entrenar-checkpoints, 8 files and 87% small, an ordinary archive target (M6)"
+      - "The admission metric is BYTES HELD IN SMALL FILES, not the file count and not the small-file share of the count. Measured on this fleet: CIFS moves large files at ~350 MB/s and small files at ~7.9 MB/s, so what the difference costs is a function of bytes"
+      - "Both proxies were tried first and both misfire on real data. /home/noah/data/courses is 755 G in 7,426 files, 46% under 64 KiB — which weighs out as 23.4 MB small against 754.9 GB large: ~3 seconds inside a ~36-minute move, 0.14% of the cost. A file-count ceiling of 2000 refused it outright; a 50% share threshold passed it for the wrong reason"
+      - "The default budget of 2 GiB is ~4.5 minutes at the measured small-file rate — long enough to admit any ordinary archive target, short enough that a genuinely round-trip-bound tree (200k files at 50 KiB = 10 GB, ~21 minutes) is refused rather than holding a pending delete open"
       - "A directory with files modified inside archive_min_age_days is skipped: archival deletes the source, and data still being written belongs to someone who has not finished with it"
 
   apply_does_not_move_data:
@@ -187,14 +188,20 @@ proof_obligations:
     enforced_by: "src/core/types/nas_archive_types.rs::tests::rejects_a_path_in_place_of_a_name"
 
   - type: safety
-    property: "A CIFS-hostile tree is skipped, and its data survives"
-    formal: "small(d)/files(d) > pct ∧ files(d) ≥ MIN ⟹ d skipped ∧ src retained"
+    property: "A tree whose small files exceed the budget is skipped, and its data survives"
+    formal: "small_bytes(d) > max_small_bytes ⟹ d skipped ∧ src retained"
     applies_to: cifs_hostile_trees_are_refused
-    enforced_by: "src/resources/nas_archive/tests.rs::a_small_file_tree_is_refused_rather_than_moved"
+    enforced_by: "src/resources/nas_archive/tests.rs::a_tree_whose_small_files_exceed_the_budget_is_refused"
+
+  - type: liveness
+    property: "A large tree with a scattering of small files is ADMITTED"
+    formal: "small_bytes(d) ≤ max_small_bytes ⟹ admitted, whatever the count or share"
+    applies_to: cifs_hostile_trees_are_refused
+    enforced_by: "src/resources/nas_archive/tests.rs::a_large_tree_with_a_few_small_files_is_archived"
 
   - type: liveness
     property: "A handful of small files is NOT refused"
-    formal: "files(d) < SMALL_FILE_PCT_MIN_FILES ⟹ percentage not applied"
+    formal: "small_bytes(d) ≈ 0 ⟹ admitted"
     applies_to: cifs_hostile_trees_are_refused
     enforced_by: "src/resources/nas_archive/tests.rs::a_handful_of_small_files_is_not_refused"
 
@@ -248,10 +255,10 @@ falsification_tests:
     if_fails: "A valid declaration is refused, and the refusal trains operators to work around the type"
 
   - id: FALSIFY-ARCH-004
-    rule: "the small-file percentage has a floor"
-    prediction: "8 files, 87% under 64 KiB, is archived rather than skipped"
-    test: "src/resources/nas_archive/tests.rs::a_handful_of_small_files_is_not_refused"
-    if_fails: "entrenar-checkpoints is refused again — the exact false positive found on the first cut of this guard"
+    rule: "admission is measured in bytes held in small files, not file count or share"
+    prediction: "a tree that is 50% small BY COUNT but negligible by bytes is archived; 8 files at 87% small is archived; and a tree over the byte budget is skipped with its data intact"
+    test: "src/resources/nas_archive/tests.rs::a_large_tree_with_a_few_small_files_is_archived"
+    if_fails: "The first cut returns: a file-count ceiling refuses /home/noah/data/courses (755 G, 7,426 files, 23.4 MB of small-file bytes) and a percentage passes trees for the wrong reason"
 
   - id: FALSIFY-ARCH-005
     rule: "archiving is idempotent"
@@ -301,6 +308,12 @@ falsification_tests:
     test: "src/core/types/nas_archive_types.rs::tests::rejects_a_path_in_place_of_a_name"
     if_fails: "A declaration can name a directory outside the source root and delete it"
 
+  - id: FALSIFY-ARCH-014
+    rule: "a tree whose small files exceed the budget is skipped, not moved"
+    prediction: "40 files of 32 KiB against archive_max_small_bytes=1000000 is skipped and the source survives"
+    test: "src/resources/nas_archive/tests.rs::a_tree_whose_small_files_exceed_the_budget_is_refused"
+    if_fails: "A round-trip-bound tree starts a move that holds a pending delete open for as long as it takes"
+
   - id: FALSIFY-ARCH-013
     rule: "every emitted script survives forjar's own I8 gate"
     prediction: "validate_script accepts the archive, check, apply and state_query scripts"
@@ -323,11 +336,11 @@ kani_harnesses:
     harness: proof_archive_dest_never_inside_source
 
   - id: KANI-ARCH-003
-    obligation: "the small-file percentage is bounded 0..=100 and never divides by zero"
-    property: "forall small <= files, files > 0: (small * 100 / files) <= 100"
+    obligation: "the small-byte budget is a total order, and the MB rendering never understates a refusal"
+    property: "forall small_bytes,budget>0: admitted <=> small_bytes <= budget, and not admitted => small_bytes/1MiB >= budget/1MiB"
     bound: 256
     strategy: bounded_int
-    harness: proof_archive_small_file_pct_bounded
+    harness: proof_archive_small_byte_budget_is_a_total_order
 
 qa_gate:
   id: F-ARCH-001

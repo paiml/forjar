@@ -53,8 +53,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::{
-    NasArchive, Resource, DEFAULT_ARCHIVE_SCHEDULE, DEFAULT_MAX_FILES, DEFAULT_MAX_SMALL_FILE_PCT,
-    DEFAULT_MIN_AGE_DAYS,
+    NasArchive, Resource, DEFAULT_ARCHIVE_SCHEDULE, DEFAULT_MAX_SMALL_BYTES, DEFAULT_MIN_AGE_DAYS,
 };
 
 mod mover;
@@ -81,11 +80,10 @@ pub fn archive_of(resource: &Resource) -> Result<NasArchive, String> {
         path,
         resource.archive.destination.as_deref(),
         resource.archive.dirs.clone(),
-        resource.archive.max_files.unwrap_or(DEFAULT_MAX_FILES),
         resource
             .archive
-            .max_small_file_pct
-            .unwrap_or(DEFAULT_MAX_SMALL_FILE_PCT),
+            .max_small_bytes
+            .unwrap_or(DEFAULT_MAX_SMALL_BYTES),
         resource
             .archive
             .min_age_days

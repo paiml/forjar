@@ -42,25 +42,28 @@
 //!     ~350 MB/s for large files — measured on this fleet, a 45x difference that
 //!     turns a bounded move into an unbounded one.
 
-/// Default ceiling on files in one archived directory.
+/// Default ceiling on the BYTES a directory holds in small files.
 ///
-/// Measured on this fleet: CIFS large-file throughput is ~350 MB/s and
-/// small-file throughput ~7.9 MB/s. A tree of thousands of small files is not
-/// slightly slower, it is a different operation — and the move deletes the
-/// source at the end, so an operation that cannot finish is an operation that
-/// holds a delete open indefinitely.
-pub const DEFAULT_MAX_FILES: u64 = 2000;
-
-/// Default ceiling on the share of files under 64 KiB, as a percentage.
-pub const DEFAULT_MAX_SMALL_FILE_PCT: u8 = 50;
-
-/// Below this many files, the percentage is not applied.
+/// Measured on this fleet: CIFS moves large files at ~350 MB/s and small files
+/// at ~7.9 MB/s — a 45x difference. What that difference costs is a function of
+/// how many BYTES sit in small files, not how many files there are and not what
+/// share of the file count they represent.
 ///
-/// A directory of 8 files that are 87% small is `entrenar-checkpoints` — a
-/// perfectly ordinary archive target. The percentage is a statement about
-/// *aggregate* transfer shape, and on a handful of files it says nothing. The
-/// first cut applied it at any size and refused exactly that directory.
-pub const SMALL_FILE_PCT_MIN_FILES: u64 = 500;
+/// Both of those proxies were tried first and both misfire on this fleet's real
+/// data. `/home/noah/data/courses` is 755 G in 7,426 files, 46% of them under
+/// 64 KiB — which reads alarming until you weigh it: 23.4 MB in small files
+/// against 754.9 GB in large ones. That is ~3 seconds of small-file transfer
+/// inside a ~36-minute move, 0.14% of the cost. A file-count ceiling of 2000
+/// refused it outright; a 50% share threshold passed it for the wrong reason.
+///
+/// 2 GiB is ~4.5 minutes at the measured small-file rate: long enough to admit
+/// any ordinary archive target, short enough that a genuinely round-trip-bound
+/// tree (200k files at 50 KiB = 10 GB, ~21 minutes) is refused rather than
+/// holding a pending delete open.
+pub const DEFAULT_MAX_SMALL_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
+/// Files at or under this size are "small" for the CIFS cost model.
+pub const SMALL_FILE_BYTES: u64 = 65_536;
 
 /// Default minimum age before a directory may be archived, in days.
 ///
@@ -74,16 +77,11 @@ pub const DEFAULT_ARCHIVE_SCHEDULE: &str = "daily";
 
 // Compile-time, not tests: a bad default ships to every machine that omits the
 // knob, which is the common case.
-const _: () = assert!(DEFAULT_MAX_SMALL_FILE_PCT <= 100);
-const _: () = assert!(DEFAULT_MAX_FILES > 0, "a zero ceiling archives nothing");
-// The percentage guard must not fire on a small directory. The first cut
-// applied it at any size and refused `entrenar-checkpoints` — 8 files, 87%
-// under 64 KiB, and a perfectly ordinary archive target. A floor below 100
-// would bring that back, so it fails the BUILD rather than a test.
 const _: () = assert!(
-    SMALL_FILE_PCT_MIN_FILES >= 100,
-    "the small-file percentage needs a floor, or a handful of files is refused"
+    DEFAULT_MAX_SMALL_BYTES > 0,
+    "a zero budget admits no directory at all"
 );
+const _: () = assert!(SMALL_FILE_BYTES > 0);
 
 /// Declaration fields for a `nas_archive` resource.
 ///
@@ -100,13 +98,9 @@ pub struct ArchiveSpec {
     #[serde(rename = "archive_destination", default)]
     pub destination: Option<String>,
 
-    /// Refuse a directory with more than this many files.
-    #[serde(rename = "archive_max_files", default)]
-    pub max_files: Option<u64>,
-
-    /// Refuse a directory where more than this % of files are under 64 KiB.
-    #[serde(rename = "archive_max_small_file_pct", default)]
-    pub max_small_file_pct: Option<u8>,
+    /// Refuse a directory holding more than this many bytes in small files.
+    #[serde(rename = "archive_max_small_bytes", default)]
+    pub max_small_bytes: Option<u64>,
 
     /// Refuse a directory modified more recently than this many days ago.
     #[serde(rename = "archive_min_age_days", default)]
@@ -145,10 +139,8 @@ pub enum ArchiveRejection {
     DestinationInsideSource,
     /// The source lies inside the destination.
     SourceInsideDestination,
-    /// A percentage above 100.
-    PercentOutOfRange,
-    /// A ceiling of zero files, which can never admit anything.
-    ZeroMaxFiles,
+    /// A budget of zero bytes, which can never admit anything.
+    ZeroSmallByteBudget,
 }
 
 /// A validated `nas_archive` declaration.
@@ -160,10 +152,8 @@ pub struct NasArchive {
     pub destination: String,
     /// Directory names under `path`, validated as names.
     pub dirs: Vec<String>,
-    /// Ceiling on files per directory.
-    pub max_files: u64,
-    /// Ceiling on the share of files under 64 KiB.
-    pub max_small_file_pct: u8,
+    /// Ceiling on bytes held in small files.
+    pub max_small_bytes: u64,
     /// Minimum age before a directory may be archived.
     pub min_age_days: u64,
     /// Leave a symlink behind.
@@ -207,8 +197,7 @@ pub(crate) fn classify_declaration(
     path: &str,
     destination: Option<&str>,
     dirs: &[String],
-    max_files: u64,
-    max_small_file_pct: u8,
+    max_small_bytes: u64,
 ) -> Option<ArchiveRejection> {
     if !path.starts_with('/') {
         return Some(ArchiveRejection::SourceNotAbsolute);
@@ -230,11 +219,8 @@ pub(crate) fn classify_declaration(
     if dirs.is_empty() {
         return Some(ArchiveRejection::NoDirs);
     }
-    if max_files == 0 {
-        return Some(ArchiveRejection::ZeroMaxFiles);
-    }
-    if max_small_file_pct > 100 {
-        return Some(ArchiveRejection::PercentOutOfRange);
+    if max_small_bytes == 0 {
+        return Some(ArchiveRejection::ZeroSmallByteBudget);
     }
     for (i, d) in dirs.iter().enumerate() {
         if d.is_empty() {
@@ -257,23 +243,19 @@ impl NasArchive {
         path: &str,
         destination: Option<&str>,
         dirs: Vec<String>,
-        max_files: u64,
-        max_small_file_pct: u8,
+        max_small_bytes: u64,
         min_age_days: u64,
         leave_symlink: bool,
         schedule: &str,
     ) -> Result<Self, String> {
-        if let Some(reason) =
-            classify_declaration(path, destination, &dirs, max_files, max_small_file_pct)
-        {
+        if let Some(reason) = classify_declaration(path, destination, &dirs, max_small_bytes) {
             return Err(explain(reason, path, destination, &dirs));
         }
         Ok(Self {
             path: norm(path).to_string(),
             destination: norm(destination.unwrap_or_default()).to_string(),
             dirs,
-            max_files,
-            max_small_file_pct,
+            max_small_bytes,
             min_age_days,
             leave_symlink,
             schedule: schedule.to_string(),
@@ -350,11 +332,8 @@ fn explain(
             "nas_archive source '{path}' is inside destination '{dest}'; the move would \
              enclose its own source"
         ),
-        ArchiveRejection::PercentOutOfRange => format!(
-            "nas_archive archive_max_small_file_pct at '{path}' exceeds 100; it is a percentage"
-        ),
-        ArchiveRejection::ZeroMaxFiles => format!(
-            "nas_archive archive_max_files at '{path}' is 0, which admits no directory at all"
+        ArchiveRejection::ZeroSmallByteBudget => format!(
+            "nas_archive archive_max_small_bytes at '{path}' is 0, which admits no directory at all"
         ),
     }
 }
@@ -372,8 +351,7 @@ mod tests {
             path,
             dest,
             dirs(d),
-            DEFAULT_MAX_FILES,
-            DEFAULT_MAX_SMALL_FILE_PCT,
+            DEFAULT_MAX_SMALL_BYTES,
             DEFAULT_MIN_AGE_DAYS,
             true,
             DEFAULT_ARCHIVE_SCHEDULE,
@@ -459,30 +437,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_degenerate_ceilings() {
+    fn rejects_a_zero_budget() {
         let zero = NasArchive::new(
             "/mnt/x",
             Some("/mnt/unas"),
             dirs(&["a"]),
             0,
-            50,
             30,
             true,
             "daily",
         );
         assert!(zero.unwrap_err().contains("admits no directory"));
-
-        let pct = NasArchive::new(
-            "/mnt/x",
-            Some("/mnt/unas"),
-            dirs(&["a"]),
-            10,
-            101,
-            30,
-            true,
-            "daily",
-        );
-        assert!(pct.unwrap_err().contains("percentage"));
     }
 
     #[test]
@@ -492,5 +457,27 @@ mod tests {
         assert!(!contains_path("/mnt/unas", "/mnt/unas-old"));
         assert!(!contains_path("/mnt/unas/media", "/mnt/unas"));
         assert!(contains_path("/", "/anything"));
+    }
+
+    /// The real shape of `/home/noah/data/courses` on intel, measured
+    /// 2026-08-21: 755 G in 7,426 files, 46% of them under 64 KiB, but only
+    /// 23.4 MB of BYTES in those small files.
+    ///
+    /// The first cut guarded on file COUNT (ceiling 2000) and on the small-file
+    /// SHARE (ceiling 50%). The count refused this outright; the share passed it
+    /// at 46%, which would have been the right answer for the wrong reason. Both
+    /// were measuring something other than what the move costs: ~3 seconds of
+    /// small-file transfer inside a ~36-minute move, 0.14% of it.
+    #[test]
+    fn the_real_courses_shape_is_admitted_by_the_byte_budget() {
+        const COURSES_SMALL_BYTES: u64 = 23_400_000;
+        assert!(
+            COURSES_SMALL_BYTES <= DEFAULT_MAX_SMALL_BYTES,
+            "the default budget would refuse a 755 G tree whose small files cost 3 seconds"
+        );
+        // And a genuinely round-trip-bound tree is still refused: 200k files at
+        // 50 KiB is 10 GB of small-file transfer, ~21 minutes.
+        const ROUND_TRIP_BOUND: u64 = 200_000 * 50 * 1024;
+        assert!(ROUND_TRIP_BOUND > DEFAULT_MAX_SMALL_BYTES);
     }
 }

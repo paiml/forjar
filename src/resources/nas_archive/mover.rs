@@ -11,10 +11,7 @@
 //! Each guard below cites the defect it exists for.
 
 use crate::core::shell_escape::sh_squote;
-use crate::core::types::{NasArchive, SMALL_FILE_PCT_MIN_FILES};
-
-/// Files at or under this size are "small" for the CIFS shape test.
-const SMALL_FILE_BYTES: u64 = 65_536;
+use crate::core::types::{NasArchive, SMALL_FILE_BYTES};
 
 /// Emit the archive script for one declared resource.
 pub fn archive_script(a: &NasArchive) -> String {
@@ -36,9 +33,7 @@ set -euo pipefail
 SRC_ROOT={src}
 DEST_ROOT={dest}
 DIRS=({dirs})
-MAX_FILES={max_files}
-MAX_SMALL_PCT={max_small_pct}
-SMALL_PCT_MIN_FILES={small_min}
+MAX_SMALL_BYTES={max_small_bytes}
 MIN_AGE_DAYS={min_age}
 LEAVE_SYMLINK={leave_symlink}
 EXECUTE="${{ARCHIVE_EXECUTE:-0}}"
@@ -71,26 +66,20 @@ for d in "${{DIRS[@]}}"; do
   [ -d "$src" ] || {{ skip "$d" "no such directory"; skipped=$((skipped+1)); continue; }}
 
   # ── Defect M6: CIFS collapses on small files ─────────────────────────────
-  # Measured on this fleet: ~350 MB/s for large files, ~7.9 MB/s for small
-  # ones. A large small-file tree is not a slower move, it is an unbounded
-  # one — and it holds a pending delete open the whole time.
-  n_files=$(find "$src" -type f 2>/dev/null | wc -l)
-  if [ "$n_files" -gt "$MAX_FILES" ]; then
-    skip "$d" "$n_files files exceeds archive_max_files=$MAX_FILES"
+  # Measured on this fleet: ~350 MB/s for large files, ~7.9 MB/s for small ones.
+  # What that costs is a function of the BYTES held in small files, not of how
+  # many files there are or what share of the count they represent.
+  #
+  # Both of those proxies were tried and both misfire on real data.
+  # /home/noah/data/courses is 755 G in 7,426 files, 46% under 64 KiB — which
+  # weighs out as 23.4 MB small against 754.9 GB large: ~3 seconds inside a
+  # ~36-minute move. A file-count ceiling refused it; a percentage passed it for
+  # the wrong reason. Neither was measuring the thing that costs.
+  small_bytes=$(find "$src" -type f -size -{small_bytes}c -printf '%s\n' 2>/dev/null \
+                | awk '{{s+=$1}} END {{print s+0}}')
+  if [ "$small_bytes" -gt "$MAX_SMALL_BYTES" ]; then
+    skip "$d" "$(( small_bytes / 1048576 )) MB in files under {small_bytes}B exceeds archive_max_small_bytes=$(( MAX_SMALL_BYTES / 1048576 )) MB"
     skipped=$((skipped+1)); continue
-  fi
-  # The percentage is a claim about aggregate transfer shape and says nothing
-  # about a handful of files. Applying it at any size refused
-  # entrenar-checkpoints: 8 files, 87% small, an ordinary archive target.
-  if [ "$n_files" -ge "$SMALL_PCT_MIN_FILES" ]; then
-    n_small=$(find "$src" -type f -size -{small_bytes}c 2>/dev/null | wc -l)
-    if [ "$n_files" -gt 0 ]; then
-      pct=$(( n_small * 100 / n_files ))
-      if [ "$pct" -gt "$MAX_SMALL_PCT" ]; then
-        skip "$d" "$pct% of $n_files files are under {small_bytes}B (max $MAX_SMALL_PCT%)"
-        skipped=$((skipped+1)); continue
-      fi
-    fi
   fi
 
   # ── Live data ────────────────────────────────────────────────────────────
@@ -189,9 +178,7 @@ log "archived=$archived skipped=$skipped"
         src = sh_squote(&a.path),
         dest = sh_squote(&a.destination),
         dirs = dirs,
-        max_files = a.max_files,
-        max_small_pct = a.max_small_file_pct,
-        small_min = SMALL_FILE_PCT_MIN_FILES,
+        max_small_bytes = a.max_small_bytes,
         min_age = a.min_age_days,
         leave_symlink = u8::from(a.leave_symlink),
         small_bytes = SMALL_FILE_BYTES,

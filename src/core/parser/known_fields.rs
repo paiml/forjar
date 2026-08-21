@@ -137,8 +137,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     // FJ-038 nas_archive
     "archive_dirs",
     "archive_destination",
-    "archive_max_files",
-    "archive_max_small_file_pct",
+    "archive_max_small_bytes",
     "archive_min_age_days",
     "archive_leave_symlink",
     "archive_schedule",
