@@ -52,6 +52,24 @@ fn write(p: &Path, body: &str) {
     fs::write(p, body).unwrap();
 }
 
+/// Is `rsync` available? The generated script's verify-before-delete guard is
+/// expressed in `rsync --itemize-changes`, so the tests that RUN the script
+/// cannot mean anything without it.
+///
+/// They skip loudly rather than silently: `sovereign-ci:stable` ships no rsync
+/// (paiml/forjar#284), and a test that quietly passes in the environment the
+/// release gate runs in is worse than one that is absent — it reports the
+/// safety property as verified when nothing checked it.
+fn rsync_or_skip(test: &str) -> bool {
+    if Command::new("rsync").arg("--version").output().is_ok() {
+        return true;
+    }
+    eprintln!(
+        "SKIP {test}: rsync is not installed — the verify-before-delete guard cannot be exercised"
+    );
+    false
+}
+
 /// Run a generated archive script with `bash`, returning (code, stdout+stderr).
 fn run(script: &str, execute: bool) -> (i32, String) {
     let dir = std::env::temp_dir().join(format!(
@@ -109,6 +127,9 @@ fn the_check_and_apply_scripts_pass_the_i8_gate() {
 
 #[test]
 fn a_dry_run_moves_nothing() {
+    if !rsync_or_skip("a_dry_run_moves_nothing") {
+        return;
+    }
     let s = Scratch::new("dry");
     let (src, dest) = (s.join("src"), s.join("dest"));
     write(&src.join("corpus/a.bin"), &"x".repeat(200_000));
@@ -133,6 +154,9 @@ fn a_dry_run_moves_nothing() {
 
 #[test]
 fn an_archived_directory_is_verified_then_replaced_by_a_symlink() {
+    if !rsync_or_skip("an_archived_directory_is_verified_then_replaced_by_a_symlink") {
+        return;
+    }
     let s = Scratch::new("move");
     let (src, dest) = (s.join("src"), s.join("dest"));
     write(&src.join("corpus/a.bin"), &"a".repeat(200_000));
@@ -168,6 +192,9 @@ fn an_archived_directory_is_verified_then_replaced_by_a_symlink() {
 
 #[test]
 fn a_second_pass_is_a_no_op() {
+    if !rsync_or_skip("a_second_pass_is_a_no_op") {
+        return;
+    }
     let s = Scratch::new("idem");
     let (src, dest) = (s.join("src"), s.join("dest"));
     write(&src.join("corpus/a.bin"), &"a".repeat(100_000));
@@ -193,6 +220,9 @@ fn a_second_pass_is_a_no_op() {
 /// then deleted the source.
 #[test]
 fn a_destination_that_does_not_match_is_never_deleted_from() {
+    if !rsync_or_skip("a_destination_that_does_not_match_is_never_deleted_from") {
+        return;
+    }
     let s = Scratch::new("mismatch");
     let (src, dest) = (s.join("src"), s.join("dest"));
     write(&src.join("corpus/a.bin"), &"a".repeat(100_000));
@@ -217,6 +247,9 @@ fn a_destination_that_does_not_match_is_never_deleted_from() {
 
 #[test]
 fn a_tree_whose_small_files_exceed_the_budget_is_refused() {
+    if !rsync_or_skip("a_tree_whose_small_files_exceed_the_budget_is_refused") {
+        return;
+    }
     let s = Scratch::new("small");
     let (src, dest) = (s.join("src"), s.join("dest"));
     // 40 files of 32 KiB each = 1.25 MiB of small-file bytes.
@@ -244,6 +277,9 @@ fn a_tree_whose_small_files_exceed_the_budget_is_refused() {
 /// archived, not skipped.
 #[test]
 fn a_large_tree_with_a_few_small_files_is_archived() {
+    if !rsync_or_skip("a_large_tree_with_a_few_small_files_is_archived") {
+        return;
+    }
     let s = Scratch::new("courses");
     let (src, dest) = (s.join("src"), s.join("dest"));
     // 6 large files and 6 small ones: 50% small by COUNT, negligible by BYTES.
@@ -276,6 +312,9 @@ fn a_large_tree_with_a_few_small_files_is_archived() {
 /// files, 87% under 64 KiB, and an ordinary archive target.
 #[test]
 fn a_handful_of_small_files_is_not_refused() {
+    if !rsync_or_skip("a_handful_of_small_files_is_not_refused") {
+        return;
+    }
     let s = Scratch::new("fewsmall");
     let (src, dest) = (s.join("src"), s.join("dest"));
     for i in 0..7 {
@@ -386,4 +425,20 @@ fn the_installed_units_run_the_script_and_survive_a_missed_window() {
     // failure mode, so a machine that was off must archive on next boot.
     assert!(apply.contains("Persistent=true"), "{apply}");
     assert!(apply.contains("systemctl enable --now"), "{apply}");
+}
+
+/// The script must refuse BEFORE it creates anything when a tool is missing.
+#[test]
+fn a_missing_tool_is_refused_before_the_destination_is_touched() {
+    let a = archive_of(&resource("/mnt/nvme-raid0", "/mnt/unas/media", &["corpus"])).unwrap();
+    let script = archive_script(&a);
+    let preflight = script
+        .find("command -v \"$tool\"")
+        .expect("no tool preflight");
+    let first_mkdir = script.find("mkdir -p").expect("no mkdir");
+    assert!(
+        preflight < first_mkdir,
+        "the tool check runs AFTER the destination is created, so a machine \
+         without rsync gets a half-made destination and then a missing-binary error"
+    );
 }

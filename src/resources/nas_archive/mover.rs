@@ -46,6 +46,15 @@ skip() {{ printf 'SKIP %s: %s\n' "$1" "$2"; }}
 # whose server has gone keeps reporting a source while every operation fails,
 # so `mountpoint -q` is not evidence — this fleet has been caught by exactly
 # that.
+# The tools this pass depends on must exist BEFORE anything is touched.
+# Without this the run gets as far as creating the destination directory and
+# then dies on `rsync: command not found` — an operator sees a half-made
+# destination and a message about a missing binary, in that order.
+for tool in rsync find; do
+  command -v "$tool" >/dev/null 2>&1 \
+    || die "$tool is not installed — refusing to archive (the verify-before-delete guard needs it)"
+done
+
 [ -d "$DEST_ROOT" ] || die "$DEST_ROOT does not exist"
 probe="$DEST_ROOT/.forjar-archive-probe.$$"
 : > "$probe" 2>/dev/null || die "$DEST_ROOT is not writable — refusing to archive"
