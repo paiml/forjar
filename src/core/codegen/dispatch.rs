@@ -37,6 +37,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::OverlayInterface => Ok(resources::overlay_interface::check_script(resource)),
         ResourceType::DiskBudget => Ok(resources::disk_budget::check_script(resource)),
         ResourceType::BackupSync => Ok(resources::backup_sync::check_script(resource)),
+        ResourceType::NasArchive => Ok(resources::nas_archive::check_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -113,6 +114,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::OverlayInterface => Ok(resources::overlay_interface::apply_script(resource)),
         ResourceType::DiskBudget => Ok(resources::disk_budget::apply_script(resource)),
         ResourceType::BackupSync => Ok(resources::backup_sync::apply_script(resource)),
+        ResourceType::NasArchive => Ok(resources::nas_archive::apply_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -161,6 +163,7 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         }
         ResourceType::DiskBudget => Ok(resources::disk_budget::state_query_script(resource)),
         ResourceType::BackupSync => Ok(resources::backup_sync::state_query_script(resource)),
+        ResourceType::NasArchive => Ok(resources::nas_archive::state_query_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }

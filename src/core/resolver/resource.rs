@@ -157,6 +157,12 @@ fn resolve_build_and_overlay_fields(
     r.backup.remote = resolve_opt(&r.backup.remote, params, machines, secrets)?;
     r.backup.remote_type = resolve_opt(&r.backup.remote_type, params, machines, secrets)?;
     r.backup.schedule = resolve_opt(&r.backup.schedule, params, machines, secrets)?;
+    // FJ-038: `{{params.home}}`-style templates must expand here too, or the
+    // literal reaches the generated archive script and names a path that does
+    // not exist.
+    r.archive.destination = resolve_opt(&r.archive.destination, params, machines, secrets)?;
+    r.archive.schedule = resolve_opt(&r.archive.schedule, params, machines, secrets)?;
+    r.archive.dirs = resolve_list(&r.archive.dirs, params, machines, secrets)?;
     r.backup.bandwidth_limit = resolve_opt(&r.backup.bandwidth_limit, params, machines, secrets)?;
     r.backup.token = resolve_opt(&r.backup.token, params, machines, secrets)?;
     r.backup.source = resolve_list(&r.backup.source, params, machines, secrets)?;

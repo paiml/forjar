@@ -55,6 +55,9 @@ pub enum ResourceType {
     DiskBudget,
     /// FJ-37: Verified offsite backup sync (rclone remote + checksum proof).
     BackupSync,
+    /// FJ-38: NAS archival — declared directories moved and originals deleted
+    /// only after the copy is proven identical.
+    NasArchive,
 }
 
 impl fmt::Display for ResourceType {
@@ -80,6 +83,7 @@ impl fmt::Display for ResourceType {
             Self::OverlayInterface => write!(f, "overlay_interface"),
             Self::DiskBudget => write!(f, "disk_budget"),
             Self::BackupSync => write!(f, "backup_sync"),
+            Self::NasArchive => write!(f, "nas_archive"),
         }
     }
 }
@@ -207,6 +211,7 @@ mod tests {
             (ResourceType::GithubRelease, "github_release"),
             (ResourceType::OverlayInterface, "overlay_interface"),
             (ResourceType::DiskBudget, "disk_budget"),
+            (ResourceType::NasArchive, "nas_archive"),
             (ResourceType::BackupSync, "backup_sync"),
         ];
         for (variant, expected) in &cases {

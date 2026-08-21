@@ -43,7 +43,7 @@ fn every_resource_type_appears_in_all_types() {
     }
     assert_eq!(
         listed.len(),
-        20,
+        21,
         "ALL_TYPES has {} entries; update this test when a type is added",
         listed.len()
     );

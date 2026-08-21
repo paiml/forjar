@@ -134,6 +134,14 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     // FJ-037: backup_sync
     "backup_source",
     "backup_remote",
+    // FJ-038 nas_archive
+    "archive_dirs",
+    "archive_destination",
+    "archive_max_files",
+    "archive_max_small_file_pct",
+    "archive_min_age_days",
+    "archive_leave_symlink",
+    "archive_schedule",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",
