@@ -62,6 +62,7 @@ mod kani_production_proofs;
 mod kani_proofs;
 mod kani_proofs_backup_sync;
 mod kani_proofs_disk_budget;
+mod kani_proofs_nas_archive;
 pub mod mcdc;
 pub mod repro_build;
 mod scoring_b;

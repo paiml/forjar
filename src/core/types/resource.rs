@@ -2,6 +2,7 @@
 
 use super::backup_sync_types::BackupSpec;
 use super::disk_budget_types::ReclaimRule;
+use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
 use super::resource_enums::{MachineTarget, ResourceType};
 use super::service_mode_types::RestartPolicy;
@@ -464,6 +465,10 @@ pub struct Resource {
     /// Verified offsite copy. Flattened, so the YAML keys stay top level.
     #[serde(flatten)]
     pub backup: BackupSpec,
+
+    /// FJ-038: `nas_archive` declaration fields.
+    #[serde(flatten)]
+    pub archive: ArchiveSpec,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

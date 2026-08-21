@@ -66,6 +66,9 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::DiskBudget => Reversibility::Reversible,
         // Destroying the resource removes the schedule, never the remote data.
         ResourceType::BackupSync => Reversibility::Reversible,
+        // Destroying the resource removes the script and units, not the archived
+        // data — the NAS copy outlives the declaration.
+        ResourceType::NasArchive => Reversibility::Reversible,
     }
 }
 

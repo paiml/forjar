@@ -27,6 +27,8 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         types::ResourceType::OverlayInterface => 3,
         types::ResourceType::DiskBudget => 3,
         types::ResourceType::BackupSync => 3,
+        // Archival installs a script + two units; the move itself is the timer's.
+        types::ResourceType::NasArchive => 3,
     }
 }
 

@@ -201,7 +201,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::GithubRelease
         | ResourceType::OverlayInterface
         | ResourceType::DiskBudget
-        | ResourceType::BackupSync => "present",
+        | ResourceType::BackupSync
+        | ResourceType::NasArchive => "present",
     }
 }
 
@@ -397,7 +398,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::GithubRelease
             | ResourceType::OverlayInterface
             | ResourceType::DiskBudget
-            | ResourceType::BackupSync => format!("{resource_id}: create"),
+            | ResourceType::BackupSync
+            | ResourceType::NasArchive => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

@@ -70,7 +70,9 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
         // Generated shell whose correctness depends on an external tool's
         // output format, or on real on-disk layouts. These are the ones that
         // shipped broken, and they are exercised for real.
-        ResourceType::DiskBudget | ResourceType::BackupSync => Coverage::Exercised,
+        ResourceType::DiskBudget | ResourceType::BackupSync | ResourceType::NasArchive => {
+            Coverage::Exercised
+        }
 
         // Emit shell, but against interfaces that are stable, self-evident from
         // the emitted text, and already pinned by falsification suites.
@@ -123,6 +125,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::OverlayInterface,
     ResourceType::DiskBudget,
     ResourceType::BackupSync,
+    ResourceType::NasArchive,
 ];
 
 /// Run every exercised resource type against reality.

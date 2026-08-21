@@ -1,0 +1,355 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-08-21"
+  author: "PAIML Engineering"
+  kind: kernel
+  description: |
+    nas_archive resource (FJ-038 / forjar#282) — archival as declared state,
+    with the delete gated on proof.
+
+    Origin. Disk RECLAIM is a first-class forjar resource (disk_budget, FJ-036)
+    whose policy you can read in the YAML. Disk ARCHIVAL — its mirror, and the
+    operation that DELETES ORIGINALS — was a shell script with its policy in a
+    string literal:
+
+      DIRS="${DIRS:-mac-backup mastering-github-coursera-assets ... RecordedCourses}"
+
+    Measured on lambda-labs 2026-08-21, that asymmetry cost three things:
+
+      A1  Five directories were never archived — corpus (21 G),
+          entrenar-checkpoints (13 G), hf-coursera-assets (6.3 G),
+          albor-data (6.1 G), gemma2-models (1.6 G) — not because they were
+          unsuitable but because their names were not typed into that string.
+          Four are naming PEERS of directories that were. One held 90 files
+          that existed nowhere but a 4-wide RAID0 with no parity.
+      A2  `forjar drift` was structurally blind. Declared state was "a file
+          exists with this sha", so a WRONG DIRS list was perfectly converged.
+      A3  There was no `plan` before a destructive act. An edit to DIRS reached
+          `--execute` within one 30-minute timer cadence, unreviewed.
+
+    And six defects lived in the hand-rolled verify-then-delete path, four of
+    which this contract makes unrepresentable:
+
+      M1  The verify did not fail closed: it printed "verified: 0 files differ"
+          when rsync had FAILED — an error was indistinguishable from agreement
+          — and then deleted the source.
+      M2  The CIFS page cache (cache=strict) served the bytes just written, so
+          the checksum comparison read the copy it was meant to be checking.
+      M3  `lsof` exits 1 when it finds nothing, which under `set -e` aborted the
+          script BEFORE the delete rather than skipping one directory.
+      M4  Zero rsync differences is also what a FOREIGN tree at the destination
+          produces, because rsync says nothing about paths it never touched.
+      M5  Nothing recorded the source inventory before copying, so a partial
+          copy and a complete one were indistinguishable at verify time.
+      M6  Small-file trees collapse over CIFS (measured on this fleet: ~7.9 MB/s
+          against ~350 MB/s for large files, a 45x difference) turning a bounded
+          move into an unbounded one that holds a pending delete open.
+
+  references:
+    - "src/resources/nas_archive/ — handler (check/apply/state_query)"
+    - "src/resources/nas_archive/mover.rs — the generated archive script"
+    - "src/core/types/nas_archive_types.rs — declaration validation"
+    - "src/core/parser/nas_archive_validate.rs — parse-time refusal"
+    - "machines/unas/nas-move.sh — the predecessor, and where M1-M6 were found"
+    - "contracts/disk-budget-v1.yaml — the reclaim mirror of this resource"
+
+  quorum_validation:
+    - system: "git-annex"
+      adopted: |
+        A file may only be dropped from one location after the content is
+        verifiably present in another. `numcopies` is declared, and the drop
+        refuses when the requirement cannot be PROVEN at drop time — not when a
+        transfer tool merely exited 0.
+      encoded_as: "equations `delete_requires_proof`, `verify_fails_closed`"
+    - system: "Nix garbage collection (gc roots)"
+      adopted: |
+        What is retained is a declared set, and reachability is computed from
+        that declaration rather than accumulated imperatively. A store path is
+        never deleted because a list somewhere failed to mention it — absence
+        from the declaration is visible, not silent.
+      encoded_as: "equation `every_declared_dir_is_accounted_for`"
+    - system: "Terraform plan/apply"
+      adopted: |
+        A destructive change is shown and reviewed before it is executed, and
+        the plan is derived from a diff between declared and observed state, so
+        a policy edit cannot reach execution unreviewed.
+      encoded_as: "equations `state_query_names_every_dir`, `apply_does_not_move_data`"
+
+equations:
+  delete_requires_proof:
+    formula: |
+      delete(src) ⟹ verified(src, dest)
+      verified(src, dest) ⟺ rsync_checksum_ok ∧ pending_paths = 0
+                             ∧ inventory(src) = inventory(dest)
+    domain: "one declared directory"
+    codomain: "{deleted, retained}"
+    invariants:
+      - "The source is deleted ONLY after the destination is proven identical (M1)"
+      - "The copy tool's exit code is never the proof; the proof is a separate comparison with its own result"
+      - "Inventory equality is checked in ADDITION to rsync agreement, because zero differences is also what a FOREIGN tree produces (M4)"
+      - "The source inventory is captured BEFORE the copy, or a partial copy and a complete one are indistinguishable (M5)"
+      - "Caches are dropped between copy and verify, or a cache=strict CIFS mount serves back the bytes just written (M2)"
+
+  verify_fails_closed:
+    formula: |
+      ¬can_compare(src, dest) ⟹ retained ∧ exit ≠ 0
+    domain: "one verify pass"
+    codomain: "{verified, refused} × exit code"
+    invariants:
+      - "An UNUSABLE comparison is a refusal, never a pass (M1)"
+      - "A failed rsync must not read as 'no differences found'"
+      - "A diagnostic pipeline may not abort the script before the error message that explains the refusal: under `set -euo pipefail` a `diff` that finds differences exits 1 and a `head` that closes early SIGPIPEs its producer, either of which turns a CORRECT refusal into an unexplained failure"
+
+  every_declared_dir_is_accounted_for:
+    formula: |
+      ∀ d ∈ archive_dirs: state(d) ∈ {archived, pending, absent}
+      archived(d) ⟺ is_symlink(src/d) ∧ readlink(src/d) = dest/d ∧ is_dir(dest/d)
+    domain: "r ∈ Resource where resource_type = NasArchive"
+    codomain: "Vec<(dir, state)>"
+    invariants:
+      - "Every declared directory is NAMED in the state query, so one that was never archived is visible rather than silently missing from a policy string (A1, A2)"
+      - "A symlink pointing anywhere but the declared destination, or whose target is missing, is DIVERGENCE — a broken archive, not an unfinished one"
+      - "A pending directory is NOT divergence: it is the ordinary state between a declaration landing and the timer's next pass, and failing on it would make every fresh declaration red for up to a cadence"
+
+  destination_cannot_be_the_source:
+    formula: |
+      valid(path, dest) ⟺ ¬contains(path, dest) ∧ ¬contains(dest, path)
+      contains(a, b) ⟺ norm(a) = norm(b) ∨ norm(b) starts with norm(a) ++ "/"
+    domain: "path, dest ∈ AbsolutePath"
+    codomain: "Result<NasArchive, String>"
+    invariants:
+      - "A destination inside or equal to the source is REJECTED at parse time — the move-onto-itself shape that let this fleet's previous backup job report success for months while zero bytes existed off the array"
+      - "Containment is COMPONENT-WISE: /mnt/unas-old is not inside /mnt/unas, and a raw string-prefix test would refuse that valid declaration"
+      - "Trailing slashes do not defeat the check"
+      - "An entry in archive_dirs is a NAME, never a path: '..' and '/' are rejected, so a declaration can never reach outside the source root"
+      - "An empty archive_dirs is rejected: an archive that moves nothing and reports converged is the unconditional-success bug in miniature"
+
+  cifs_hostile_trees_are_refused:
+    formula: |
+      admit(d) ⟺ small_bytes(d) ≤ max_small_bytes
+      small_bytes(d) = Σ { size(f) | f ∈ files(d), size(f) ≤ 64 KiB }
+    domain: "one candidate directory"
+    codomain: "{admitted, skipped}"
+    invariants:
+      - "A refused directory is SKIPPED, not failed: one CIFS-hostile tree must not stop the pass for every other directory"
+      - "The admission metric is BYTES HELD IN SMALL FILES, not the file count and not the small-file share of the count. Measured on this fleet: CIFS moves large files at ~350 MB/s and small files at ~7.9 MB/s, so what the difference costs is a function of bytes"
+      - "Both proxies were tried first and both misfire on real data. /home/noah/data/courses is 755 G in 7,426 files, 46% under 64 KiB — which weighs out as 23.4 MB small against 754.9 GB large: ~3 seconds inside a ~36-minute move, 0.14% of the cost. A file-count ceiling of 2000 refused it outright; a 50% share threshold passed it for the wrong reason"
+      - "The default budget of 2 GiB is ~4.5 minutes at the measured small-file rate — long enough to admit any ordinary archive target, short enough that a genuinely round-trip-bound tree (200k files at 50 KiB = 10 GB, ~21 minutes) is refused rather than holding a pending delete open"
+      - "A directory with files modified inside archive_min_age_days is skipped: archival deletes the source, and data still being written belongs to someone who has not finished with it"
+
+  apply_does_not_move_data:
+    formula: |
+      apply(r) ∌ invocation(archive_script(r)) with ARCHIVE_EXECUTE=1
+    domain: "r ∈ Resource where resource_type = NasArchive"
+    codomain: "String (purified shell)"
+    invariants:
+      - "apply installs the script and arms the timer; the first real pass is systemd's"
+      - "Moving 755 G over CIFS takes hours, so an apply that blocked on it would never return"
+      - "If the deployer performs the move, the deployer writes the evidence that the SERVICE ran"
+      - "This deliberately differs from disk_budget, which DOES reclaim during apply: reclaim is bounded and destroys nothing declared; archival is neither"
+      - "Running the script by hand is a DRY RUN unless ARCHIVE_EXECUTE=1, so an accidental invocation inspects rather than deletes"
+
+proof_obligations:
+  - type: safety
+    property: "A mismatched destination never leads to a delete"
+    formal: "inventory(src) ≠ inventory(dest) ⟹ src retained ∧ exit ≠ 0"
+    applies_to: delete_requires_proof
+    enforced_by: "src/resources/nas_archive/tests.rs::a_destination_that_does_not_match_is_never_deleted_from"
+
+  - type: safety
+    property: "The archived state is a symlink resolving into the declared destination"
+    formal: "archived(d) ⟹ readlink(src/d) = dest/d"
+    applies_to: every_declared_dir_is_accounted_for
+    enforced_by: "src/resources/nas_archive/tests.rs::an_archived_directory_is_verified_then_replaced_by_a_symlink"
+
+  - type: idempotency
+    property: "A second pass over an archived directory is a no-op"
+    formal: "archive(archive(s)) = archive(s)"
+    applies_to: every_declared_dir_is_accounted_for
+    enforced_by: "src/resources/nas_archive/tests.rs::a_second_pass_is_a_no_op"
+
+  - type: safety
+    property: "A destination inside the source is rejected before anything is installed"
+    formal: "contains(path, dest) ⟹ NasArchive::new(..) = Err"
+    applies_to: destination_cannot_be_the_source
+    enforced_by: "src/core/types/nas_archive_types.rs::tests::rejects_a_destination_inside_the_source"
+
+  - type: safety
+    property: "Containment is component-wise, so a shared prefix is not containment"
+    formal: "¬contains(/mnt/unas, /mnt/unas-old)"
+    applies_to: destination_cannot_be_the_source
+    enforced_by: "src/core/types/nas_archive_types.rs::tests::a_sibling_with_a_shared_prefix_is_not_containment"
+
+  - type: safety
+    property: "An entry naming a path rather than a directory is rejected"
+    formal: "d ∈ {'..', '.', contains '/'} ⟹ Err"
+    applies_to: destination_cannot_be_the_source
+    enforced_by: "src/core/types/nas_archive_types.rs::tests::rejects_a_path_in_place_of_a_name"
+
+  - type: safety
+    property: "A tree whose small files exceed the budget is skipped, and its data survives"
+    formal: "small_bytes(d) > max_small_bytes ⟹ d skipped ∧ src retained"
+    applies_to: cifs_hostile_trees_are_refused
+    enforced_by: "src/resources/nas_archive/tests.rs::a_tree_whose_small_files_exceed_the_budget_is_refused"
+
+  - type: liveness
+    property: "A large tree with a scattering of small files is ADMITTED"
+    formal: "small_bytes(d) ≤ max_small_bytes ⟹ admitted, whatever the count or share"
+    applies_to: cifs_hostile_trees_are_refused
+    enforced_by: "src/resources/nas_archive/tests.rs::a_large_tree_with_a_few_small_files_is_archived"
+
+  - type: liveness
+    property: "A handful of small files is NOT refused"
+    formal: "small_bytes(d) ≈ 0 ⟹ admitted"
+    applies_to: cifs_hostile_trees_are_refused
+    enforced_by: "src/resources/nas_archive/tests.rs::a_handful_of_small_files_is_not_refused"
+
+  - type: safety
+    property: "An unwritable destination stops before anything is touched"
+    formal: "¬writable(dest) ⟹ exit ≠ 0 ∧ no source modified"
+    applies_to: verify_fails_closed
+    enforced_by: "src/resources/nas_archive/tests.rs::an_unwritable_destination_stops_before_touching_anything"
+
+  - type: safety
+    property: "A dry run moves nothing and writes nothing"
+    formal: "ARCHIVE_EXECUTE ≠ 1 ⟹ dest unchanged ∧ src unchanged"
+    applies_to: apply_does_not_move_data
+    enforced_by: "src/resources/nas_archive/tests.rs::a_dry_run_moves_nothing"
+
+  - type: safety
+    property: "Every declared directory appears in the state query"
+    formal: "∀ d ∈ archive_dirs: d ∈ state_query_script(r)"
+    applies_to: every_declared_dir_is_accounted_for
+    enforced_by: "src/resources/nas_archive/tests.rs::state_query_names_every_declared_directory"
+
+  - type: safety
+    property: "A bad declaration produces a refusal from every entry point, not a live script"
+    formal: "invalid(r) ⟹ check|apply|state_query(r) = refusal ∧ exit 1"
+    applies_to: destination_cannot_be_the_source
+    enforced_by: "src/resources/nas_archive/tests.rs::a_bad_declaration_is_refused_by_every_entry_point"
+
+  - type: safety
+    property: "Every emitted script survives forjar's own I8 purification gate"
+    formal: "∀ r: validate_script(apply|check|state_query|archive(r)) = Ok"
+    applies_to: apply_does_not_move_data
+    enforced_by: "src/resources/nas_archive/tests.rs::the_check_and_apply_scripts_pass_the_i8_gate"
+
+falsification_tests:
+  - id: FALSIFY-ARCH-001
+    rule: "the source is deleted only after the destination is proven identical"
+    prediction: "with a foreign file already at the destination, the run exits non-zero, says VERIFY FAILED, and the source still exists"
+    test: "src/resources/nas_archive/tests.rs::a_destination_that_does_not_match_is_never_deleted_from"
+    if_fails: "The predecessor's exact defect returns: `verified: 0 files differ` over a failed comparison, followed by rm -rf of the only copy"
+
+  - id: FALSIFY-ARCH-002
+    rule: "a destination inside the source is unrepresentable"
+    prediction: "archive_destination of `<path>/archive` is rejected naming the move-onto-itself shape"
+    test: "src/core/types/nas_archive_types.rs::tests::rejects_a_destination_inside_the_source"
+    if_fails: "The resource can be declared to move a tree onto itself, delete the source, and report converged"
+
+  - id: FALSIFY-ARCH-003
+    rule: "containment is component-wise"
+    prediction: "/mnt/unas-old beside /mnt/unas is accepted"
+    test: "src/core/types/nas_archive_types.rs::tests::a_sibling_with_a_shared_prefix_is_not_containment"
+    if_fails: "A valid declaration is refused, and the refusal trains operators to work around the type"
+
+  - id: FALSIFY-ARCH-004
+    rule: "admission is measured in bytes held in small files, not file count or share"
+    prediction: "a tree that is 50% small BY COUNT but negligible by bytes is archived; 8 files at 87% small is archived; and a tree over the byte budget is skipped with its data intact"
+    test: "src/resources/nas_archive/tests.rs::a_large_tree_with_a_few_small_files_is_archived"
+    if_fails: "The first cut returns: a file-count ceiling refuses /home/noah/data/courses (755 G, 7,426 files, 23.4 MB of small-file bytes) and a percentage passes trees for the wrong reason"
+
+  - id: FALSIFY-ARCH-005
+    rule: "archiving is idempotent"
+    prediction: "a second pass reports `already a symlink` and archived=0"
+    test: "src/resources/nas_archive/tests.rs::a_second_pass_is_a_no_op"
+    if_fails: "The timer re-archives every cadence, and a symlink is copied into the destination it points at"
+
+  - id: FALSIFY-ARCH-006
+    rule: "apply does not move data"
+    prediction: "apply_script installs the script and enables the timer, and never invokes it with ARCHIVE_EXECUTE=1"
+    test: "src/resources/nas_archive/tests.rs::the_check_and_apply_scripts_pass_the_i8_gate"
+    if_fails: "`forjar apply` blocks for hours moving terabytes, and the deployer writes the evidence the service was supposed to produce"
+
+  - id: FALSIFY-ARCH-007
+    rule: "an unwritable destination stops before anything is touched"
+    prediction: "a missing destination exits non-zero and no source is modified"
+    test: "src/resources/nas_archive/tests.rs::an_unwritable_destination_stops_before_touching_anything"
+    if_fails: "A CIFS mount whose server has gone reports a source while every operation fails, and the pass proceeds toward a delete"
+
+  - id: FALSIFY-ARCH-008
+    rule: "a dry run moves nothing"
+    prediction: "without ARCHIVE_EXECUTE=1 the destination is not created and the source is untouched"
+    test: "src/resources/nas_archive/tests.rs::a_dry_run_moves_nothing"
+    if_fails: "Running the script by hand to inspect it deletes data"
+
+  - id: FALSIFY-ARCH-009
+    rule: "a directory over the file ceiling is skipped, not moved"
+    prediction: "12 files against archive_max_files=5 is skipped and the source survives"
+    test: "src/resources/nas_archive/tests.rs::a_directory_over_the_file_ceiling_is_refused"
+    if_fails: "An unbounded small-file move holds a pending delete open for hours over CIFS"
+
+  - id: FALSIFY-ARCH-010
+    rule: "every declared directory is named in the state query"
+    prediction: "state_query_script mentions each of archive_dirs"
+    test: "src/resources/nas_archive/tests.rs::state_query_names_every_declared_directory"
+    if_fails: "A1 returns: a directory absent from the policy is invisible to plan and drift, exactly as it was in the DIRS string"
+
+  - id: FALSIFY-ARCH-011
+    rule: "an invalid declaration never produces a live script"
+    prediction: "check, apply and state_query all emit a refusal that exits 1"
+    test: "src/resources/nas_archive/tests.rs::a_bad_declaration_is_refused_by_every_entry_point"
+    if_fails: "A rejected declaration still installs a timer that runs a destructive pass"
+
+  - id: FALSIFY-ARCH-012
+    rule: "an entry naming a path is rejected"
+    prediction: "'..', '.', and 'a/b' are all refused as archive_dirs entries"
+    test: "src/core/types/nas_archive_types.rs::tests::rejects_a_path_in_place_of_a_name"
+    if_fails: "A declaration can name a directory outside the source root and delete it"
+
+  - id: FALSIFY-ARCH-014
+    rule: "a tree whose small files exceed the budget is skipped, not moved"
+    prediction: "40 files of 32 KiB against archive_max_small_bytes=1000000 is skipped and the source survives"
+    test: "src/resources/nas_archive/tests.rs::a_tree_whose_small_files_exceed_the_budget_is_refused"
+    if_fails: "A round-trip-bound tree starts a move that holds a pending delete open for as long as it takes"
+
+  - id: FALSIFY-ARCH-013
+    rule: "every emitted script survives forjar's own I8 gate"
+    prediction: "validate_script accepts the archive, check, apply and state_query scripts"
+    test: "src/resources/nas_archive/tests.rs::the_check_and_apply_scripts_pass_the_i8_gate"
+    if_fails: "The resource is permanently red and JIDOKA cascades to its dependents — the lambda-labs audio failure mode"
+
+kani_harnesses:
+  - id: KANI-ARCH-001
+    obligation: "containment is component-wise and reflexive"
+    property: "forall outer,inner: contains(outer,outer) and (contains(outer,inner) and outer != inner => inner[len(outer)] = '/')"
+    bound: 8
+    strategy: bounded_int
+    harness: proof_archive_containment_is_component_wise
+
+  - id: KANI-ARCH-002
+    obligation: "no accepted declaration is a move onto itself, and no entry is a path"
+    property: "forall path,dest,dirs: classify_declaration(..) = None => not contains(path,dest) and not contains(dest,path) and '..' not in dirs"
+    bound: 6
+    strategy: bounded_int
+    harness: proof_archive_dest_never_inside_source
+
+  - id: KANI-ARCH-003
+    obligation: "the small-byte budget is a total order, and the MB rendering never understates a refusal"
+    property: "forall small_bytes,budget>0: admitted <=> small_bytes <= budget, and not admitted => small_bytes/1MiB >= budget/1MiB"
+    bound: 256
+    strategy: bounded_int
+    harness: proof_archive_small_byte_budget_is_a_total_order
+
+qa_gate:
+  id: F-ARCH-001
+  name: "NAS Archive Contract"
+  description: |
+    Which directories belong on the NAS is declared machine state, and the
+    delete at the end of an archive pass is gated on proof that the copy is
+    identical. Gate fails on any falsification test going red — this is the one
+    resource whose output deletes data.
+  check: "cargo test --lib nas_archive && cargo test --lib nas_archive_types"
+  severity: error
+  reference: "src/resources/nas_archive/"

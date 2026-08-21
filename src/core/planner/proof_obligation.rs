@@ -58,6 +58,7 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         // threshold; the invariant is verified coverage, not a byte-identical
         // transfer set.
         ResourceType::BackupSync => ProofObligation::Convergent,
+        ResourceType::NasArchive => ProofObligation::Convergent,
     }
 }
 
@@ -89,9 +90,10 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Destructive,
         ResourceType::Build => ProofObligation::Convergent,
         ResourceType::GithubRelease => ProofObligation::Convergent,
-        ResourceType::OverlayInterface | ResourceType::DiskBudget | ResourceType::BackupSync => {
-            ProofObligation::Convergent
-        }
+        ResourceType::OverlayInterface
+        | ResourceType::DiskBudget
+        | ResourceType::BackupSync
+        | ResourceType::NasArchive => ProofObligation::Convergent,
     }
 }
 

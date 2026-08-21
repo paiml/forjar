@@ -47,6 +47,7 @@ pub(super) fn run_for(t: &ResourceType) -> Outcome {
     match t {
         ResourceType::DiskBudget => disk_budget(t),
         ResourceType::BackupSync => backup_sync(t),
+        ResourceType::NasArchive => nas_archive(t),
         ResourceType::File => file(t),
         ResourceType::Cron => cron(t),
         other => bad(
@@ -295,4 +296,107 @@ fn cron(t: &ResourceType) -> Outcome {
         ),
         Err(e) => bad(t, format!("could not parse-check emitted shell: {e}")),
     }
+}
+
+/// FJ-038: run the generated archive script and prove it does not delete data
+/// it has not verified.
+///
+/// This is the resource whose output deletes originals, so the dogfood is the
+/// SAFETY property rather than the happy path: a destination that does not
+/// match the source must leave the source alive. The happy path is proved too,
+/// because a guard that refuses everything would also pass the safety check.
+fn nas_archive(t: &ResourceType) -> Outcome {
+    use crate::core::types::{Resource, ResourceType as RT};
+
+    if Command::new("rsync").arg("--version").output().is_err() {
+        return bad(
+            t,
+            "rsync is not installed — the verify-before-delete guard is expressed \
+             in rsync's --itemize-changes output and cannot be dogfooded without it",
+        );
+    }
+    let Ok(root) = scratch("nasarchive") else {
+        return bad(t, "could not create scratch dir");
+    };
+
+    let declare = |src: &PathBuf, dst: &PathBuf| {
+        let mut r = Resource {
+            resource_type: RT::NasArchive,
+            path: Some(src.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        r.archive.destination = Some(dst.to_string_lossy().to_string());
+        r.archive.dirs = vec!["payload".to_string()];
+        r.archive.min_age_days = Some(0);
+        r
+    };
+    let run = |script: &str, dir: &PathBuf| -> (i32, String) {
+        let f = dir.join("archive.sh");
+        let _ = fs::write(&f, script);
+        match Command::new("bash")
+            .arg(&f)
+            .env("ARCHIVE_EXECUTE", "1")
+            .output()
+        {
+            Ok(o) => {
+                let mut text = String::from_utf8_lossy(&o.stdout).to_string();
+                text.push_str(&String::from_utf8_lossy(&o.stderr));
+                (o.status.code().unwrap_or(-1), text)
+            }
+            Err(e) => (-1, e.to_string()),
+        }
+    };
+
+    // ── A. a foreign tree at the destination must NOT lead to a delete ──────
+    let (src_a, dst_a) = (root.join("a/src"), root.join("a/dst"));
+    let _ = fs::create_dir_all(src_a.join("payload"));
+    let _ = fs::create_dir_all(dst_a.join("payload"));
+    let _ = fs::write(src_a.join("payload/real.bin"), "x".repeat(100_000));
+    let _ = fs::write(dst_a.join("payload/intruder.bin"), "z".repeat(100_000));
+
+    let r_a = declare(&src_a, &dst_a);
+    let script_a = match crate::resources::nas_archive::archive_of(&r_a) {
+        Ok(a) => crate::resources::nas_archive::archive_script(&a),
+        Err(e) => return bad(t, format!("declaration refused: {e}")),
+    };
+    let (code_a, out_a) = run(&script_a, &root);
+    if code_a == 0 {
+        return bad(t, "a mismatched destination did NOT fail the archive pass");
+    }
+    if !src_a.join("payload/real.bin").exists() {
+        return bad(
+            t,
+            format!("THE SOURCE WAS DELETED after a failed verify:\n{out_a}"),
+        );
+    }
+
+    // ── B. and a matching pass must still archive, or A proves nothing ──────
+    let (src_b, dst_b) = (root.join("b/src"), root.join("b/dst"));
+    let _ = fs::create_dir_all(src_b.join("payload"));
+    let _ = fs::create_dir_all(&dst_b);
+    let _ = fs::write(src_b.join("payload/real.bin"), "x".repeat(100_000));
+
+    let r_b = declare(&src_b, &dst_b);
+    let script_b = match crate::resources::nas_archive::archive_of(&r_b) {
+        Ok(a) => crate::resources::nas_archive::archive_script(&a),
+        Err(e) => return bad(t, format!("declaration refused: {e}")),
+    };
+    let (code_b, out_b) = run(&script_b, &root);
+    if code_b != 0 {
+        return bad(t, format!("a valid archive pass failed:\n{out_b}"));
+    }
+    if !dst_b.join("payload/real.bin").exists() {
+        return bad(t, "the archived data is not at the destination");
+    }
+    match fs::symlink_metadata(src_b.join("payload")) {
+        Ok(m) if m.file_type().is_symlink() => {}
+        _ => return bad(t, "no symlink was left at the old location"),
+    }
+
+    let _ = fs::remove_dir_all(&root);
+    ok(
+        t,
+        "verified-then-deleted on a matching tree, and REFUSED to delete against \
+         a mismatched destination (the predecessor's defect)",
+    )
 }
