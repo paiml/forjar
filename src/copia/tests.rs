@@ -165,6 +165,20 @@ fn patch_script_hardening() {
         chmod_at < mv_at,
         "perms must be set before the atomic rename"
     );
+
+    // ...and OWNERSHIP before it too. copia-provisioning-v1 FALSIFY-COPIA-001
+    // claims "chmod/chown on $TMPFILE strictly before `mv`", and only the chmod
+    // half was ever asserted. `chown` is emitted (copia/mod.rs:212,259) and its
+    // ordering was untested, so the contract made a claim about half a property.
+    // The window this guards is ownership as much as mode: a 0600 file owned by
+    // the wrong user is still readable by the wrong user.
+    let chown_at = script
+        .find("chown 'root' \"$TMPFILE\"")
+        .expect("owner was requested, so chown must be emitted");
+    assert!(
+        chown_at < mv_at,
+        "ownership must be set before the atomic rename"
+    );
 }
 
 #[test]
