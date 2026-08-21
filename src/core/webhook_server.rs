@@ -157,13 +157,31 @@ mod tests {
     use std::sync::mpsc;
 
     /// Find an available port by binding to :0.
+    /// Serialises every test that binds a real port.
+    ///
+    /// `free_port` asks the OS for an ephemeral port and then DROPS the
+    /// listener, so the number it returns is only reserved until it returns.
+    /// Two tests running in parallel can be handed the same port, and the loser
+    /// fails with a bind error that has nothing to do with what it was testing.
+    /// Serialising them makes the window unreachable rather than merely narrow.
+    static PORT_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     fn free_port() -> u16 {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.local_addr().unwrap().port()
     }
 
     /// Spin up the server in a background thread and return (port, rx, shutdown).
-    fn start_server(config: WebhookConfig) -> (u16, mpsc::Receiver<InfraEvent>, Arc<AtomicBool>) {
+    fn start_server(
+        config: WebhookConfig,
+    ) -> (
+        u16,
+        mpsc::Receiver<InfraEvent>,
+        Arc<AtomicBool>,
+        std::sync::MutexGuard<'static, ()>,
+    ) {
+        // Held until the caller drops it, i.e. for the whole test.
+        let guard = PORT_GUARD.lock().unwrap_or_else(|e| e.into_inner());
         let port = config.port;
         let (tx, rx) = mpsc::channel();
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -182,14 +200,26 @@ mod tests {
         //   panicked at src/core/webhook_server.rs:180
         //   Err(Os { code: 111, kind: ConnectionRefused })
         //
-        // Readiness is probed by trying to BIND the port and expecting to fail:
-        // once the server owns it, nobody else can. That observes the real
-        // condition without opening a connection the server would then have to
-        // accept and handle, which would perturb the test it is preparing.
+        // Readiness is probed by CONNECTING, not by binding.
+        //
+        // The previous probe tried to BIND the port and treated failure as
+        // "the server owns it". That competes with the very thread it is
+        // waiting for (forjar#276): if the probe wins the race it HOLDS the
+        // port, the server's own bind fails, the probe drops its listener and
+        // tries again — starving the server until the 10s assert fires. Under
+        // `cargo test`'s default parallelism that happened often enough to make
+        // three webhook tests flaky, and a flaky test is worse than a missing
+        // one because it teaches people to re-run rather than read.
+        //
+        // A connect cannot steal the port. The earlier note worried that the
+        // server would have to accept and handle the probe connection; it does,
+        // and dropping it immediately is a read returning EOF, which every one
+        // of these handlers already tolerates — the tests below then make their
+        // own request on a fresh connection.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let mut bound = false;
         while std::time::Instant::now() < deadline {
-            if TcpListener::bind(("127.0.0.1", port)).is_err() {
+            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
                 bound = true;
                 break;
             }
@@ -201,7 +231,7 @@ mod tests {
              bind failure, reported here rather than as ECONNREFUSED later"
         );
 
-        (port, rx, shutdown)
+        (port, rx, shutdown, guard)
     }
 
     fn send_raw(port: u16, raw: &str) -> String {
@@ -235,7 +265,7 @@ mod tests {
             port,
             ..WebhookConfig::default()
         };
-        let (_port, rx, shutdown) = start_server(config);
+        let (_port, rx, shutdown, _guard) = start_server(config);
 
         let resp = post_json(port, "/webhook", r#"{"action":"deploy"}"#);
         assert!(resp.contains("200 OK"), "response: {resp}");
@@ -253,7 +283,7 @@ mod tests {
             port,
             ..WebhookConfig::default()
         };
-        let (_port, _rx, shutdown) = start_server(config);
+        let (_port, _rx, shutdown, _guard) = start_server(config);
 
         let resp = post_json(port, "/evil", r#"{}"#);
         assert!(resp.contains("403"), "response: {resp}");
@@ -268,7 +298,7 @@ mod tests {
             port,
             ..WebhookConfig::default()
         };
-        let (_port, _rx, shutdown) = start_server(config);
+        let (_port, _rx, shutdown, _guard) = start_server(config);
 
         let raw = "GET /webhook HTTP/1.1\r\nHost: localhost\r\n\r\n".to_string();
         let resp = send_raw(port, &raw);
@@ -284,7 +314,7 @@ mod tests {
             port,
             ..WebhookConfig::default()
         };
-        let (_port, _rx, shutdown) = start_server(config);
+        let (_port, _rx, shutdown, _guard) = start_server(config);
 
         let resp = post_json(port, "/webhook", "not json");
         assert!(resp.contains("400"), "response: {resp}");
