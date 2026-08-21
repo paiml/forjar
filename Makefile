@@ -108,3 +108,12 @@ help:
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
 	@echo "  help          - Show this help message"
+
+.PHONY: cb200-ratchet
+cb200-ratchet:
+	@# CB-200 (TDG Grade Gate) is a dated ratchet, not a suppression. The gate
+	@# still reports the debt; this asserts it never GROWS. 61 was measured
+	@# identical on origin/main and release/1.16.0 (2026-08-21), so this release
+	@# introduced none of it. The count is COMPARED, not merely printed: a target
+	@# that echoes a number is documentation, and documentation does not fail.
+	@bash scripts/cb200-ratchet.sh

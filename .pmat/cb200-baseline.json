@@ -1,0 +1,22 @@
+{
+  "check": "CB-200",
+  "name": "TDG Grade Gate",
+  "recorded": "2026-08-21",
+  "ceiling": 61,
+  "unit": "functions below minimum grade A",
+  "rule": "MAY ONLY SHRINK. A run reporting more than `ceiling` is a regression and fails. Lowering this number is the only permitted edit.",
+  "why": [
+    "Measured identical on origin/main and on release/1.16.0, so this release introduces zero new debt.",
+    "All 61 are grade [B] with complexity 13-15, spread across unrelated subsystems (parser/includes, resolver, state, prove, mcp, cli/lsp).",
+    "Refactoring them is its own project, not a rider on a bug-fix release. Holding fixes hostage to unrelated debt is how a gate trains people to bypass it.",
+    "The pre-commit TDG hook already enforces no-regression per commit, so this ratchet formalises what is already true rather than adding a new constraint."
+  ],
+  "not_a_bypass": "The gate still reports CB-200 as failing against grade A. This records the number so it cannot silently grow, per the dogfood protocol: 'Record a dated baseline in the crate rather than weakening a gate.'",
+  "sample": [
+    "src/core/parser/includes.rs:22 merge_includes_inner [B] complexity 14",
+    "src/core/resolver/data.rs:68 resolve_forjar_state_source [B] complexity 15",
+    "src/core/resolver/functions.rs:70 parse_func_args [B] complexity 15",
+    "src/core/state/process_lock.rs:187 reap_stale_if_unchanged [B] complexity 15",
+    "src/mcp/handlers_state.rs:140 handle [B] complexity 15"
+  ]
+}
