@@ -300,9 +300,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bashrs"
-version = "6.67.0"
+version = "6.68.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf300677f69c2593492d60662fd7d2af20f5d42fb0329801fe984ccef18a8847"
+checksum = "c42d8147fb1f92590550df72c943fad876041548c1e9aa21e627980c9c72e644"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
