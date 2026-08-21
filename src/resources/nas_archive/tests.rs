@@ -56,10 +56,16 @@ fn write(p: &Path, body: &str) {
 /// expressed in `rsync --itemize-changes`, so the tests that RUN the script
 /// cannot mean anything without it.
 ///
-/// They skip loudly rather than silently: `sovereign-ci:stable` ships no rsync
-/// (paiml/forjar#284), and a test that quietly passes in the environment the
-/// release gate runs in is worse than one that is absent — it reports the
-/// safety property as verified when nothing checked it.
+/// The individual tests skip when it is missing, so one absent tool produces
+/// one clear failure rather than seven confusing ones. The failure comes from
+/// [`the_environment_can_exercise_the_safety_property`], which asserts the tool
+/// is present.
+///
+/// The `eprintln!` below is NOT the signal. `cargo nextest` — which this repo's
+/// CI uses — captures stderr and prints it only for FAILING tests, so a skip
+/// message on a passing test is invisible. That was the first cut of this, and
+/// it produced exactly the silent green it was written to prevent: seven tests
+/// reported PASS in CI while none of them ran.
 fn rsync_or_skip(test: &str) -> bool {
     if Command::new("rsync").arg("--version").output().is_ok() {
         return true;
@@ -440,5 +446,24 @@ fn a_missing_tool_is_refused_before_the_destination_is_touched() {
         preflight < first_mkdir,
         "the tool check runs AFTER the destination is created, so a machine \
          without rsync gets a half-made destination and then a missing-binary error"
+    );
+}
+
+/// The environment must be able to exercise the safety property, or say so.
+///
+/// This is the one test that FAILS when rsync is absent. Everything else skips.
+/// Without it, `sovereign-ci:stable` (which shipped no rsync — paiml/infra#250)
+/// produced a fully green suite in which the guard that protects data was never
+/// executed, and nextest's stderr capture hid the skip messages.
+///
+/// If this is red, the image is missing a runtime dependency of a shipped
+/// resource; `make -C machines/intel ci-image` after infra#250.
+#[test]
+fn the_environment_can_exercise_the_safety_property() {
+    assert!(
+        Command::new("rsync").arg("--version").output().is_ok(),
+        "rsync is absent, so every test that RUNS the archive script skipped — \
+         the verify-before-delete guard was not exercised at all. This suite \
+         cannot certify the one property that protects data without it."
     );
 }
