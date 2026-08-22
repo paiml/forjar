@@ -1,0 +1,755 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-11"
+  author: "PAIML Engineering"
+  description: |
+    Machine output parses — anything forjar advertises as machine-readable must
+    parse with a STANDARD parser on EVERY exit path, including error paths, and
+    must never carry Rust `Debug` formatting as data.
+
+    This is the output-contract family (26 defects) from the 1.12.3 dogfooding
+    inventory: paiml/forjar#212, umbrella #208. Every observation below was
+    taken from the PUBLISHED binary, `forjar 1.12.3` from crates.io at
+    /home/noah/.cargo/bin/forjar, in throwaway sandboxes under
+    /tmp/forjar-dogfood/contract-C on 2026-08-11.
+
+    WHY THIS CLASS KEEPS HAPPENING HERE
+
+    1. The renderer is chosen AFTER the fallible work, not before it. `--json`
+       is honoured by a success-path renderer, while errors return `Err` to a
+       top-level handler that prints `error: …` text regardless of the flag.
+       So every `--json` command is a JSON emitter on exactly the path where
+       the caller least needs structure, and a text emitter on the path where
+       a caller most needs it. Measured across four commands on one malformed
+       config: `validate`, `plan` and `drift` all exit 3 with
+       `error: YAML parse error: …` on stdout; none parse.
+
+    2. `{:?}` is a plausible-looking `Display`. A `serde_yaml::Value` renders
+       as `String("hello-dev")`, a `SystemTime` as
+       `SystemTime { tv_sec: 1786430893, tv_nsec: 541515783 }`. Both look like
+       a value when you eyeball the terminal, and both are lossy garbage to a
+       consumer: the field is a String whose contents are Rust source syntax.
+       Because the surrounding document is still well-formed JSON, every
+       "does it parse" smoke test passes. Parsing is necessary, not sufficient
+       — the VALUES have to be the data too.
+
+    3. Two renderers, one command, no shared type. The text path re-derives
+       what the JSON path serialises, so they drift silently:
+       `environments history prod` prints `? | ?` for columns that
+       `environments history prod --json` returns correctly as
+       `"ts": "2026-08-11T06:49:12Z"`, `"event": "rollback_triggered"`.
+       The JSON is the proof the data existed; the text renderer looked up
+       different keys and fell back to a placeholder.
+
+    4. Filters are applied in the rendering loop, not to the data. `plan -m`
+       empties the printed body while the summary line and the whole `--json`
+       document stay unfiltered, so a machine reading the JSON sees a
+       selection that was never requested, and a human reading the text sees
+       an empty plan next to "1 to add".
+
+    5. Nothing feeds forjar's own output back into forjar. `migrate`'s
+       documented default is stdout, and it appends
+       `Migration complete: 1 resource(s) converted, 2 warning(s)` AFTER the
+       YAML document. It is still parseable YAML — which is exactly why it
+       went unnoticed — but the extra top-level key makes the document a
+       config forjar itself rejects.
+
+    SCOPE. This contract covers OUTPUT FORMAT fidelity only. That a command
+    reports success it did not achieve is #210 (B-unverified-success); that a
+    declared flag is never consumed is #211; that a selector matches nothing
+    is #214. Where a defect has both faces — `plan -m` is a selector bug AND a
+    document-consistency bug — this contract owns only the document.
+
+    NOT MACHINE-CHECKABLE BY KANI, DELIBERATELY. Every obligation here
+    quantifies over the BYTES A PROCESS WRITES TO A PIPE under a real
+    filesystem, a real config, and a real LSP/JSON-RPC client. A bounded model
+    checker can only see a stubbed writer, so a harness here would prove
+    something about the stub and nothing about the defect. `metadata.kind` is
+    therefore `pattern` and `kani_harnesses` is deliberately absent: declaring
+    a harness that cannot run is the vacuous-contract failure this repo's
+    review process exists to catch. The obligations are discharged by eleven
+    falsification tests, all of which are shell commands that go RED against
+    the published binary today.
+
+    against whatever binary `$FORJAR` names and exits non-zero if any is RED.
+    Measured 2026-08-11 against 1.12.3: 14 RED checks (MOP-301 expands to four
+    — one semantic-error path and three parse-error paths), runner exit 1. The
+    GREEN branch of every check is reachable by construction and demonstrated
+    for MOP-301 by the same command on a VALID config, which returns
+    {"valid": true, …, "errors": []} at rc=0.
+  verification_command: "run each falsification_tests[].test below with FORJAR set to the binary under test"
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/212 — C-output-contract (26 defects)"
+    - "issue: https://github.com/paiml/forjar/issues/208 — dogfooding inventory (umbrella)"
+    - "evidence: /tmp/families.json key 'C-output-contract'; binary forjar 1.12.3 (crates.io)"
+    - "note: a convenience runner was dropped — it embedded Python in heredocs, which bashrs mis-parses as shell (paiml/bashrs#217), so the repo linter rejected it. The eleven tests below are self-contained and run individually."
+    - "apply-summary-distinguishability-v1.yaml — the sibling claim that a summary line
+       must distinguish outcomes; this contract is the same demand for structured output"
+    - "build-semantics-v1.yaml INV-CHECK-EXIT-CODE — 'assert on behaviour, not on
+       plausible-looking text' is the same lesson one layer down"
+
+equations:
+  parse_on_every_path:
+    formula: |
+      ∀ c ∈ Commands, ∀ f ∈ MachineFormats(c), ∀ i ∈ Inputs:
+        parse_f(stdout(c, f, i)) ≠ ⊥
+      — including every i for which exit_code(c, f, i) ≠ 0
+    domain: "c ∈ Commands advertising a machine format (--json, --out, documented stdout)"
+    codomain: "Bool (a standard parser for f accepts the byte stream)"
+    invariants:
+      - "The error path emits the SAME format as the success path, not text"
+      - "A non-zero exit code is preserved; structure is added, failure is not hidden"
+      - "Diagnostics that are not part of the document go to stderr, never stdout"
+
+  debug_free_data:
+    formula: |
+      ∀ v ∈ leaves(machine_output):
+        v ∉ image(Debug) — i.e. v matches none of
+        /^(String|Number|Bool|Sequence|Mapping)\(/ , /^[A-Z][A-Za-z]* \{ /
+    domain: "leaf scalars of any emitted JSON/YAML document, and any rendered text field"
+    codomain: "Bool"
+    invariants:
+      - "A serde_yaml::Value is serialised as the value, never as {:?}"
+      - "A SystemTime is serialised as RFC3339, matching events.jsonl and history"
+      - "An event enum is serialised through serde/Display, never as struct Debug"
+
+  renderer_agreement:
+    formula: |
+      ∀ c ∈ Commands with both a text and a --json renderer, ∀ i:
+        facts(text(c, i)) = facts(json(c, i))
+    domain: "commands exposing two renderings of one computation"
+    codomain: "the set of (field, value) pairs a reader can recover"
+    invariants:
+      - "Neither renderer may show a placeholder for a field the other resolves"
+      - "A filter applied to one rendering is applied to the other"
+
+  document_conservation:
+    formula: |
+      ∀ d ∈ machine_output with a summary S over a body B:
+        S.added + S.changed + S.removed + S.unchanged = |B|
+    domain: "documents carrying both counters and the rows they count"
+    codomain: "ℕ"
+    invariants:
+      - "Filtering happens once, before both counting and rendering"
+
+  artifact_roundtrip:
+    formula: |
+      ∀ a ∈ Artifacts emitted as a forjar-ingestible document:
+        load(emit(a)) succeeds ∧ load(emit(a)) ≡ a
+    domain: "migrate stdout, migrate -o, show, show -r, plan --out"
+    codomain: "Config | Plan | ⊥"
+    invariants:
+      - "forjar's own loader accepts forjar's own output"
+      - "An identity field of the artifact (config_hash) is a function of input bytes only"
+
+invariants:
+  - id: INV-PARSE-ON-EVERY-PATH
+    statement: >-
+      A command that advertises a machine-readable format emits that format on
+      EVERY exit path. The error path is not an exception, it is the case that
+      matters: a caller that shells out with --json does so precisely to
+      classify failures. Measured on 1.12.3 against one malformed config,
+      `validate --json`, `plan --json` and `drift --json` all exit 3 having
+      written `error: YAML parse error: …` — three commands, zero JSON. The
+      structured failure payload must carry the non-zero exit code with it;
+      "parses" must never be achieved by reporting success.
+
+  - id: INV-NO-DEBUG-AS-DATA
+    statement: >-
+      No value a consumer reads may be a Rust `Debug` rendering.
+      `"source_value": "String(\"hello-dev\")"` is well-formed JSON and still a
+      contract breach, because the datum is `hello-dev` and what crosses the
+      wire is Rust source syntax for it. This is why parseability alone is a
+      useless gate: `{:?}` produces output that passes every JSON linter and no
+      consumer. The same rule binds text output — `greeting: String("hello-dev")
+      → String("hello-prod")` is not a rendering of a value either.
+
+  - id: INV-TIMESTAMPS-ARE-ONE-FORMAT
+    statement: >-
+      Every timestamp forjar emits anywhere is RFC3339/ISO-8601 UTC, as
+      events.jsonl, `history` and `state-query --json` already do
+      (`"ts": "2026-08-11T06:49:12Z"`). `agent --json` emitting
+      `SystemTime { tv_sec: 1786430893, tv_nsec: 541515783 }` is not a second
+      valid encoding, it is an unencoded Rust struct. One format, no exceptions,
+      so a consumer never needs to sniff.
+
+  - id: INV-RENDERERS-AGREE
+    statement: >-
+      Text and JSON renderings of one command carry the same facts, because
+      they deserialise the same typed value rather than each re-deriving it from
+      the store. A `?` placeholder in one rendering beside a correct value in
+      the other is proof the data existed and one renderer looked in the wrong
+      place.
+
+  - id: INV-SUMMARY-CONSERVES-BODY
+    statement: >-
+      Within one document, counters conserve the rows they summarise. A filter
+      is applied to the data once, before both counting and rendering — never
+      inside the render loop. An empty body beside "1 to add", or
+      `"diffs": []` beside `"removed": 1`, is a document that contradicts
+      itself, and a machine reading only one half acts on a selection nobody
+      requested.
+
+  - id: INV-OUTPUT-IS-RESOLVED-DATA
+    statement: >-
+      Machine output carries resolved values, never template source. `plan
+      --json` describing `a-file: create {{params.sandbox}}/a.txt` hands a
+      consumer a path that exists nowhere on disk, while `show --json` on the
+      same config reports `/tmp/.../a.txt`. Template resolution happens once,
+      immediately after load, so no emitter can be reached with an unresolved
+      Config.
+
+  - id: INV-OUTPUT-IS-STRUCTURALLY-FAITHFUL
+    statement: >-
+      A document must denote the thing it claims to describe, not merely parse.
+      `show -r a-file` emits a YAML document that loads to
+      `{'a-file': None, 'type': 'file', …}` — the resource name is a null-valued
+      key and its fields are the name's SIBLINGS. It parses; it does not
+      describe the resource; and it disagrees with the shape `show` itself
+      prints for the whole config. Serialise the data structure, never
+      hand-print a header and then serialise the body at the wrong indent.
+
+  - id: INV-OWN-OUTPUT-REINGESTS
+    statement: >-
+      forjar's loader accepts forjar's output. Anything emitted as a config or
+      plan artifact round-trips through `validate -f` / `apply --plan-file`.
+      Human-facing summaries are stderr; stdout is the document. `migrate`
+      appending `Migration complete: 1 resource(s) converted, 2 warning(s)` to
+      stdout still parses as YAML — that is the trap — and then fails forjar's
+      own loader with `unknown field 'Migration complete'`.
+
+  - id: INV-ARTIFACT-IDENTITY-IS-DETERMINISTIC
+    statement: >-
+      An identity field inside a machine-readable artifact is a pure function of
+      the input bytes. `plan --out` writes a `config_hash` that varies run to
+      run over a byte-identical config (10 runs → 2 distinct BLAKE3 values),
+      because the hash folds parsed maps in HashMap iteration order. A
+      nondeterministic identity turns `apply --plan-file` into a coin flip and
+      makes every audit record unreproducible.
+
+  - id: INV-WIRE-NAMES-ARE-THE-SPECS-NAMES
+    statement: >-
+      On a standardised protocol, field names are the SPEC's names, not Rust's.
+      The language server returns CompletionItems keyed `insert_text`; the LSP
+      wire name is `insertText`, so every client silently discards the
+      deliberately-computed insert string and falls back to the bare label. The
+      same session camelCases `textDocumentSync`, `completionProvider`,
+      `triggerCharacters` and `interFileDependencies` correctly — the server
+      already knows the convention, one struct is missing the rename.
+
+  - id: INV-ADVERTISED-SURFACE-IS-IMPLEMENTED
+    statement: >-
+      A capability announced in a machine-readable handshake is served. The
+      language server advertises
+      `"diagnosticProvider": {"interFileDependencies": false,
+      "workspaceDiagnostics": false}` in its initialize result and then answers
+      `textDocument/diagnostic` with JSON-RPC `-32601 Method not found`. A
+      protocol handshake is a promise a machine will act on; either implement
+      the method or stop advertising it.
+
+proof_obligations:
+  - type: postcondition
+    property: "Machine output parses on every exit path, including errors"
+    formal: "∀ c, f, i: parse_f(stdout(c, f, i)) ≠ ⊥ ∧ exit_code preserved"
+    tolerance: 0.0
+    applies_to: "every command accepting --json / --out or documenting stdout as a document"
+    enforced_by: "FALSIFY-MOP-301"
+
+  - type: invariant
+    property: "No leaf value is a Rust Debug rendering"
+    formal: "∀ v ∈ leaves(output): v ∉ image(Debug)"
+    tolerance: 0.0
+    applies_to: "all emitted documents and all rendered text fields"
+    enforced_by: "FALSIFY-MOP-302, FALSIFY-MOP-303"
+
+  - type: classification
+    property: "Every emitted timestamp is RFC3339 UTC"
+    formal: "∀ t ∈ timestamps(output): matches(t, RFC3339)"
+    tolerance: 0.0
+    applies_to: "agent, audit, history, events.jsonl, state-query, environments"
+    enforced_by: "FALSIFY-MOP-303"
+
+  - type: equivalence
+    property: "Text and JSON renderings of one command are informationally equal"
+    formal: "facts(text(c, i)) = facts(json(c, i))"
+    tolerance: 0.0
+    applies_to: "commands exposing both renderings"
+    enforced_by: "FALSIFY-MOP-306"
+
+  - type: conservation
+    property: "Summary counters conserve the body they summarise"
+    formal: "S.added + S.changed + S.removed + S.unchanged = |B|"
+    tolerance: 0.0
+    applies_to: "plan, diff, stack-diff, state-list — text and JSON alike"
+    enforced_by: "FALSIFY-MOP-307"
+
+  - type: completeness
+    property: "Template resolution reaches every emitter"
+    formal: "∀ o ∈ machine_output: '{{' ∉ o"
+    tolerance: 0.0
+    applies_to: "plan, show, MCP forjar_show, apply descriptions"
+    enforced_by: "FALSIFY-MOP-308"
+
+  - type: soundness
+    property: "A document denotes the object it names"
+    formal: "load_yaml(show -r n) = { n: fields(n) }"
+    tolerance: 0.0
+    applies_to: "show -r, and every hand-printed header + serialised body"
+    enforced_by: "FALSIFY-MOP-305"
+
+  - type: roundtrip
+    property: "forjar's loader accepts forjar's emitted artifacts"
+    formal: "∀ a: load(emit(a)) succeeds ∧ load(emit(a)) ≡ a"
+    tolerance: 0.0
+    applies_to: "migrate stdout, migrate -o, plan --out + apply --plan-file"
+    enforced_by: "FALSIFY-MOP-304"
+
+  - type: determinism
+    property: "An artifact identity field depends only on input bytes"
+    formal: "bytes(cfg) = bytes'(cfg) ⟹ config_hash = config_hash'"
+    tolerance: 0.0
+    applies_to: "plan --out config_hash, audit config_hash"
+    enforced_by: "FALSIFY-MOP-309"
+
+  - type: invariant
+    property: "Protocol field names are the protocol's names"
+    formal: "∀ k ∈ keys(lsp_message): k ∈ LSP_spec_names"
+    tolerance: 0.0
+    applies_to: "lsp, mcp — every serialised protocol struct"
+    enforced_by: "FALSIFY-MOP-310"
+
+  - type: invariant
+    property: "Every advertised capability has a dispatcher arm"
+    formal: "∀ cap ∈ initialize.capabilities: dispatch(method_of(cap)) ≠ -32601"
+    tolerance: 0.0
+    applies_to: "lsp initialize result, mcp tools/list"
+    enforced_by: "FALSIFY-MOP-311"
+
+falsification_tests:
+  - id: FALSIFY-MOP-301
+    rule: INV-PARSE-ON-EVERY-PATH
+    prediction: >-
+      Every command advertising --json emits parseable JSON on its failure path,
+      with the non-zero exit code preserved.
+    test: |
+      D=/tmp/forjar-dogfood/contract-C/t1; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'EOF'
+      version: "1.0"
+      name: c-sandbox
+      params: {sandbox: /tmp/forjar-dogfood/contract-C/t1}
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        r1: {type: file, machine: ghostmachine, path: "{{params.sandbox}}/a.txt",
+             content: "a\n", mode: "0644"}
+      EOF
+      forjar validate --json > out.txt 2>&1; echo "rc=$?"
+      python3 -c "import json;json.load(open('out.txt'))"   # must succeed
+      # and the malformed-input path, across three commands:
+      printf 'version: "1.0"\nname: b\nresources:\n  r1:\n    type: file\n  - bad\n' > forjar.yaml
+      for c in validate plan drift; do
+        forjar $c --json 2>&1 | python3 -c "import json,sys;json.load(sys.stdin)" || echo "NOT-JSON: $c"
+      done
+    observed_red_1_12_3: |
+      rc=3
+      error: validation errors:
+        - resource 'r1' references unknown machine 'ghostmachine'
+      json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+      NOT-JSON: validate   (rc=3, "error: YAML parse error: did not find expected key at line 6 column 3")
+      NOT-JSON: plan       (rc=3, same text)
+      NOT-JSON: drift      (rc=3, same text)
+    red_condition: >-
+      RED whenever json.load raises, or NOT-JSON is printed for any command, or
+      the exit code drops to 0. Confirmed RED on forjar 1.12.3 today: 0 of 4
+      invocations produced JSON. Confirmed CAPABLE OF GREEN: the same command on
+      a VALID config emits {"valid": true, …, "errors": []} at rc=0, so the
+      renderer exists and only the error path bypasses it.
+    if_fails: >-
+      A CI job that shells out to `forjar validate --json` can only distinguish
+      "invalid config" from "forjar crashed" by scraping English prose.
+    owner: forjar
+
+  - id: FALSIFY-MOP-302
+    rule: INV-NO-DEBUG-AS-DATA
+    prediction: >-
+      `environments diff --json` returns the configured parameter values;
+      no leaf matches /^(String|Number|Bool|Mapping|Sequence)\(/.
+    test: |
+      D=/tmp/forjar-dogfood/contract-C/t2   # config with environments dev/prod,
+      cd $D                                 # params.greeting = hello-dev / hello-prod
+      forjar environments diff dev prod --json \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);v=d['param_diffs'][0];\
+      assert v['source_value']=='hello-dev', v; assert v['target_value']=='hello-prod', v"
+      forjar environments diff dev prod --no-color | grep -q 'String(' && echo RED-TEXT
+    observed_red_1_12_3: |
+      "source_value": "String(\"hello-dev\")",
+      "target_value": "String(\"hello-prod\")"
+      AssertionError: {'key': 'greeting', 'source_value': 'String("hello-dev")', ...}
+      text: greeting: String("hello-dev") → String("hello-prod")
+      RED-TEXT
+    red_condition: >-
+      RED when either assert trips or RED-TEXT is printed. Confirmed RED on
+      1.12.3. Note the document is VALID JSON throughout — that is the point of
+      this test: a parse-only gate is green here while the payload is Rust
+      source syntax. `stack-diff` shows the same shape as `+ z (Number(1))`.
+    if_fails: >-
+      Any consumer comparing environments must strip `String("…")` by regex,
+      and a value that legitimately contains a quote is unrecoverable.
+    owner: forjar
+
+  - id: FALSIFY-MOP-303
+    rule: INV-TIMESTAMPS-ARE-ONE-FORMAT
+    prediction: >-
+      `agent --json` timestamps parse as RFC3339, like every other timestamp
+      forjar emits.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t2
+      timeout 60 forjar agent -f forjar.yaml --json > ag.json
+      python3 -c "import json,datetime;t=json.load(open('ag.json'))['results'][0]['timestamp'];\
+      datetime.datetime.fromisoformat(t.replace('Z','+00:00'))"
+    observed_red_1_12_3: |
+      "timestamp": "SystemTime { tv_sec: 1786430893, tv_nsec: 541515783 }"
+      ValueError: Invalid isoformat string: 'SystemTime { tv_sec: 1786430893, tv_nsec: 541515783 }'
+    red_condition: >-
+      RED when fromisoformat raises. Confirmed RED on 1.12.3. Confirmed the
+      GREEN form exists elsewhere in the same tool: `environments history prod
+      --json` on the same machine returns `"ts": "2026-08-11T06:49:12Z"`, so
+      this is one un-serialised field, not a missing convention.
+    if_fails: >-
+      Agent results cannot be ordered, bucketed or joined against events.jsonl
+      without a bespoke parser for Rust's SystemTime Debug format.
+    owner: forjar
+
+  - id: FALSIFY-MOP-304
+    rule: INV-OWN-OUTPUT-REINGESTS
+    prediction: >-
+      `forjar migrate > out.yaml` (the documented default per
+      `-o, --output <OUTPUT> Write migrated config to file (default: stdout)`)
+      produces a config forjar loads.
+    test: |
+      D=/tmp/forjar-dogfood/contract-C/t4; rm -rf $D; mkdir -p $D; cd $D
+      cat > forjar.yaml <<'EOF'
+      version: "1.0"
+      name: c-migrate-sandbox
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        web: {type: docker, machine: local, image: nginx:alpine, name: web,
+              ports: ["8080:80"]}
+      EOF
+      forjar migrate > migrated.yaml 2>/dev/null; echo "migrate rc=$?"
+      forjar validate -f migrated.yaml; echo "validate rc=$?"   # must be 0
+    observed_red_1_12_3: |
+      migrate rc=0
+      last line of migrated.yaml: Migration complete: 1 resource(s) converted, 2 warning(s)
+      error: unknown field errors:
+        - unknown field 'Migration complete' at 'Migration complete'
+      validate rc=1
+    red_condition: >-
+      RED when `validate -f migrated.yaml` exits non-zero. Confirmed RED on
+      1.12.3. The sibling `-o` path is GREEN (validate rc=0) on the same input,
+      which proves the migration itself is fine and only the stdout channel is
+      contaminated — and note `yaml.safe_load` ACCEPTS the contaminated file,
+      so a parse-only assertion would have missed this entirely.
+    if_fails: >-
+      The documented `forjar migrate > new.yaml` workflow produces a file that
+      forjar refuses, while exiting 0 — a silent-green migration.
+    owner: forjar
+
+  - id: FALSIFY-MOP-305
+    rule: INV-OUTPUT-IS-STRUCTURALLY-FAITHFUL
+    prediction: >-
+      `show -r <name>` emits a YAML document that loads to a single-key mapping
+      from the resource name to its fields.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t5   # one resource: a-file
+      forjar show -r a-file > r.yaml 2>&1
+      python3 -c "import yaml;d=yaml.safe_load(open('r.yaml'));\
+      assert list(d.keys())==['a-file'], d; assert d['a-file']['type']=='file', d"
+    observed_red_1_12_3: |
+      a-file:
+      type: file
+      machine: local
+      path: /tmp/forjar-dogfood/contract-C/t5/a.txt
+      ...
+      AssertionError: {'a-file': None, 'type': 'file', 'machine': 'local',
+                       'path': '/tmp/.../a.txt', 'content': 'a\n', 'mode': '0644'}
+    red_condition: >-
+      RED when the assert trips. Confirmed RED on 1.12.3. The GREEN reference is
+      the tool's own two other renderings of the same data: full `show` nests
+      the fields two levels under `resources:`/`a-file:`, and
+      `show -r a-file --json` is correctly nested.
+    if_fails: >-
+      Piping `show -r` into any YAML consumer yields a document in which the
+      resource has no fields and the fields belong to no resource.
+    owner: forjar
+
+  - id: FALSIFY-MOP-306
+    rule: INV-RENDERERS-AGREE
+    prediction: >-
+      `environments history <env>` prints the same timestamp and event type its
+      `--json` sibling returns.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t2 && mkdir -p state/prod
+      forjar environments rollback prod >/dev/null
+      forjar environments history prod --no-color | tee h.txt
+      grep -q '?' h.txt && echo RED-PLACEHOLDER
+      forjar environments history prod --json \
+        | python3 -c "import json,sys;d=json.load(sys.stdin)[0];print(d['ts'],d['event'])"
+    observed_red_1_12_3: |
+      History for 'prod' (last 1 events):
+        ? | ?                         | manual rollback
+      RED-PLACEHOLDER
+      2026-08-11T06:49:12Z rollback_triggered
+    red_condition: >-
+      RED when RED-PLACEHOLDER is printed, i.e. the text renderer shows `?` for
+      a field the JSON renderer resolves in the same process on the same store.
+      Confirmed RED on 1.12.3. The JSON line is the GREEN witness that both
+      fields exist on disk.
+    if_fails: >-
+      The human-facing rendering of forjar's audit trail loses the timestamp and
+      the event type — exactly the two columns an operator reads first.
+    owner: forjar
+
+  - id: FALSIFY-MOP-307
+    rule: INV-SUMMARY-CONSERVES-BODY
+    prediction: >-
+      A machine filter is applied to the data, so body and summary agree, and
+      `--json` reflects the same selection the text body does.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t5   # single resource on machine 'local'
+      forjar plan -m nosuchmachine --no-color            # body AND summary must be empty
+      forjar plan -m nosuchmachine --json \
+        | python3 -c "import json,sys;d=json.load(sys.stdin);\
+      assert d['to_create']==len(d['changes']), d; assert d['changes']==[], d"
+    observed_red_1_12_3: |
+      Planning: c-show-sandbox (1 resources)
+
+      Plan: 1 to add, 0 to change, 0 to destroy, 0 unchanged.     <- empty body, "1 to add"
+      --json: {"to_create": 1, "changes": [{"resource_id": "a-file", ...}]}  <- unfiltered
+      AssertionError: {'to_create': 1, ..., 'changes': [{'resource_id': 'a-file', ...}]}
+    red_condition: >-
+      RED when the assert trips or the text summary is non-zero beside an empty
+      body. Confirmed RED on 1.12.3 — and note the two halves fail in OPPOSITE
+      directions: text filters the body but not the counters, JSON filters
+      neither. `diff -r NOSUCH --json` shows the same defect as
+      `"diffs": []` beside `"removed": 1`.
+    if_fails: >-
+      A machine consumer of `plan -m` acts on resources belonging to other
+      machines; a human reading the text sees an empty plan that claims work.
+    owner: forjar
+
+  - id: FALSIFY-MOP-308
+    rule: INV-OUTPUT-IS-RESOLVED-DATA
+    prediction: >-
+      No emitted document contains `{{`; plan descriptions name the same
+      resolved path `show --json` reports.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t5
+      forjar plan --json | python3 -c "import json,sys;\
+      d=json.load(sys.stdin);s=d['changes'][0]['description'];assert '{{' not in s, s"
+      forjar show --json | python3 -c "import json,sys;\
+      print(json.load(sys.stdin)['resources']['a-file']['path'])"
+    observed_red_1_12_3: |
+      AssertionError: a-file: create {{params.sandbox}}/a.txt
+      /tmp/forjar-dogfood/contract-C/t5/a.txt          <- show resolves it correctly
+    red_condition: >-
+      RED when the assert trips. Confirmed RED on 1.12.3. The second line is the
+      GREEN witness from the same binary and the same config, so the resolver
+      works and only the planner's description path never calls it. The MCP
+      `forjar_show` whole-config form has the identical defect while its
+      `resource` form is resolved.
+    if_fails: >-
+      An agent reading plan output to learn what forjar will write gets a path
+      containing literal braces that exists nowhere on disk.
+    owner: forjar
+
+  - id: FALSIFY-MOP-309
+    rule: INV-ARTIFACT-IDENTITY-IS-DETERMINISTIC
+    prediction: >-
+      `plan --out` over a byte-identical config yields one distinct
+      `config_hash` across repeated runs, so `apply --plan-file` always accepts
+      the plan it just produced.
+    test: |
+      cd /tmp/forjar-dogfood/contract-C/t5
+      for i in $(seq 1 10); do
+        forjar plan --out p.json >/dev/null
+        python3 -c "import json;print(json.load(open('p.json'))['config_hash'])"
+      done | sort -u | wc -l          # must print 1
+    observed_red_1_12_3: |
+      2
+      (5× blake3:6d33cc83e82a0abd13001614a9870324c54ae8d0fdf18d9eaf16c47a6aa94d34
+       5× blake3:beef360ef39f7d674788b01f13e7dd94e97ed18e04c98741d25c3b7b091963d4)
+      downstream: apply --yes --plan-file p.json intermittently exits 1 with
+      "error: config has changed since plan was created — re-run `forjar plan`"
+    red_condition: >-
+      RED when the count exceeds 1. Confirmed RED on 1.12.3 (2 distinct values
+      in 10 runs; md5sum of forjar.yaml constant throughout). This test is
+      inherently flaky-toward-green — a single run always looks fine — which is
+      why it must iterate; ten runs made it deterministic in practice.
+    if_fails: >-
+      `apply --plan-file` is a coin flip and no audit record's config_hash is
+      reproducible, so the plan artifact cannot be used as evidence.
+    owner: forjar
+
+  - id: FALSIFY-MOP-310
+    rule: INV-WIRE-NAMES-ARE-THE-SPECS-NAMES
+    prediction: >-
+      `textDocument/completion` items carry the LSP wire name `insertText`.
+    test: |
+      # drive.py: initialize -> initialized -> didOpen -> textDocument/completion
+      # over Content-Length framed stdio (see #212 for the full 25-line driver)
+      python3 drive.py | grep 'ITEM KEYS'
+      # assertion: 'insertText' in keys and 'insert_text' not in keys
+    observed_red_1_12_3: |
+      ITEM KEYS: ['detail', 'insert_text', 'kind', 'label']
+      FIRST 2: [{"label": "name", "detail": "Resource identifier (unique within config)",
+                 "insert_text": "name: ", "kind": 6},
+                {"label": "type", "detail": "Resource type (package, file, service, etc.)",
+                 "insert_text": "type: ", "kind": 6}]
+    red_condition: >-
+      RED while `insert_text` appears in the item keys. Confirmed RED on 1.12.3
+      over a live stdio session. The GREEN witness is in the SAME session's
+      initialize result — `textDocumentSync`, `completionProvider`,
+      `triggerCharacters`, `interFileDependencies` are all correctly camelCased
+      — so one struct is missing `#[serde(rename_all = "camelCase")]`.
+    if_fails: >-
+      Every LSP client silently discards the computed insert text and inserts
+      the bare label: `type` instead of `type: `.
+    owner: forjar
+
+  - id: FALSIFY-MOP-311
+    rule: INV-ADVERTISED-SURFACE-IS-IMPLEMENTED
+    prediction: >-
+      Every capability in the initialize result has a dispatcher arm; either
+      `textDocument/diagnostic` answers, or `diagnosticProvider` is not
+      advertised.
+    test: |
+      python3 drive.py | grep -E 'CAPABILITIES|PULL DIAGNOSTIC'
+      # assertion: ('diagnosticProvider' in capabilities) implies the
+      # textDocument/diagnostic response carries no error object
+    observed_red_1_12_3: |
+      CAPABILITIES: {"textDocumentSync": 1,
+                     "completionProvider": {"triggerCharacters": [":", " ", "-"]},
+                     "hoverProvider": true,
+                     "diagnosticProvider": {"interFileDependencies": false,
+                                            "workspaceDiagnostics": false}}
+      PULL DIAGNOSTIC: [{"jsonrpc": "2.0", "id": 2,
+                         "error": {"code": -32601, "message": "Method not found"}}]
+    red_condition: >-
+      RED while the capability is advertised and the response is -32601.
+      Confirmed RED on 1.12.3. Either half of the fix turns it GREEN, which is
+      the point: the contract constrains the PAIR, not the feature.
+    if_fails: >-
+      Clients that prefer pull diagnostics when advertised (recent VS Code,
+      nvim) show an error instead of diagnostics for every forjar.yaml.
+    owner: forjar
+
+enforcement:
+  output_boundary:
+    description: >-
+      Every obligation is checked by EXECUTING the binary and parsing what it
+      writes to the pipe — never by asserting on rendered text.
+    layer: cli_surface
+    failure_mode: test_failure
+    ci_gate: required
+    severity: "ERROR"
+    check: "FALSIFY-MOP-301 … -311 run against the release binary"
+    notes: |
+      Asserting on output TEXT is how this family survived a release: `{:?}`
+      renders something that looks like a value, and a YAML document with a
+      prose line appended still parses. Both pass an eyeball and a linter.
+      The tests must therefore parse the bytes and assert on the recovered
+      VALUES, and must run the release profile, since these are properties of
+      the artifact users actually run.
+
+  error_path_sweep:
+    description: >-
+      Enumerate every subcommand accepting --json from clap's own command tree,
+      run each against a malformed config, and require parseable stdout with a
+      preserved non-zero exit code.
+    layer: cli_surface
+    failure_mode: test_failure
+    ci_gate: required
+    severity: "ERROR"
+    check: "seeded by FALSIFY-MOP-301; the sweep is the gate"
+    notes: |
+      DISCOVERED from the command tree, never a hand-written list: a
+      hand-written list has exactly the failure mode it is meant to catch —
+      the next command added is missing from both the list and the renderer.
+      Eleven per-defect tests do not stop the twelfth.
+
+  debug_leak_scanner:
+    description: >-
+      No leaf of any emitted document may match /^(String|Number|Bool|Mapping|
+      Sequence)\(/ or /^[A-Z][A-Za-z]* \{ /, and no timestamp field may fail
+      RFC3339 parsing.
+    layer: cli_surface
+    failure_mode: test_failure
+    ci_gate: required
+    severity: "ERROR"
+    check: "corpus scan over every document the test suite captures"
+    notes: |
+      Runs over text renderings too — `greeting: String(\"hello-dev\") →
+      String(\"hello-prod\")` is the same defect with no JSON involved.
+
+  roundtrip_and_determinism:
+    description: >-
+      Everything forjar emits as a config or plan artifact is fed back through
+      `validate -f` / `apply --plan-file`, with the config_hash determinism
+      loop (n ≥ 10) inside the same gate.
+    layer: cli_surface
+    failure_mode: test_failure
+    ci_gate: required
+    severity: "ERROR"
+    check: "FALSIFY-MOP-304, FALSIFY-MOP-309"
+    notes: |
+      The determinism leg must iterate: a single run of a hash that varies
+      50/50 is green half the time, so a one-shot assertion is a coin flip
+      dressed as a gate.
+
+  not_a_debug_assert:
+    description: >-
+      Failure mode is a red test, never debug_assert!.
+    layer: cli_surface
+    failure_mode: test_failure
+    ci_gate: required
+    severity: "WARNING"
+    check: "review-time rule for anyone extending this contract"
+    notes: |
+      A debug-only assertion is absent from precisely the artifact that
+      exhibits the defect — the published release binary.
+
+qa_gate:
+  id: F-MOP-301
+  name: "Machine Output Parses Contract"
+  description: >-
+    Gates the claim that forjar can be scripted: structured output on every
+    path including errors, values instead of Rust Debug, renderers that agree,
+    documents that do not contradict themselves, and artifacts forjar can read
+    back.
+  checks:
+    - "INV-PARSE-ON-EVERY-PATH"
+    - "INV-NO-DEBUG-AS-DATA"
+    - "INV-TIMESTAMPS-ARE-ONE-FORMAT"
+    - "INV-RENDERERS-AGREE"
+    - "INV-SUMMARY-CONSERVES-BODY"
+    - "INV-OUTPUT-IS-RESOLVED-DATA"
+    - "INV-OUTPUT-IS-STRUCTURALLY-FAITHFUL"
+    - "INV-OWN-OUTPUT-REINGESTS"
+    - "INV-ARTIFACT-IDENTITY-IS-DETERMINISTIC"
+    - "INV-WIRE-NAMES-ARE-THE-SPECS-NAMES"
+    - "INV-ADVERTISED-SURFACE-IS-IMPLEMENTED"
+  pass_criteria: >-
+    All 11 falsification tests pass against the RELEASE binary, plus the three
+    structural gates in `enforcement.notes` (clap-derived error-path sweep,
+    Debug-leak scanner, round-trip + determinism loop).
+  falsification: >-
+    Re-route any one `--json` error path through the text handler, or replace
+    one `serde_json::to_string` of a value with `format!("{:?}", v)`, and
+    FALSIFY-MOP-301 or -302 must go RED. Both are RED on the published 1.12.3
+    binary today, which is the evidence that these tests can fail.
+
+verification_level: L3

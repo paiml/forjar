@@ -156,6 +156,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -274,6 +275,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

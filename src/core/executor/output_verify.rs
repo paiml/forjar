@@ -118,6 +118,104 @@ pub(crate) fn check_post_hook(
     }
 }
 
+/// FJ-2732 / PMAT-137: exit 0 is not proof the host reached its declared state.
+///
+/// `apply` was the only verb that never asked a question. `check_script` has 16
+/// call sites and, before this, not one was on the apply path — it was reachable
+/// only through opt-in `--refresh`. So "converged" meant
+/// `hash(config_now) == hash(config_at_last_apply)`: a statement about the lock
+/// file, never about the machine. Whatever proxy a resource author chose became
+/// the system's definition of reality, and the lock laundered it into a
+/// permanent claim.
+///
+/// Measured cost of that, 2026-08-19: mount's apply guarded on
+/// `mountpoint -q <path>` and `grep -q <path> /etc/fstab`, so changing the
+/// declared `source` reported `1 converged` on two hosts that both kept the old
+/// share mounted and the old fstab line.
+///
+/// This is Terraform's `AssertObjectCompatible` in miniature — after apply,
+/// core asks the host whether the declared state is actually there, and a
+/// resource does not get to answer on its own behalf.
+///
+/// NOT A COMPLETE FIX, and worth stating so nobody reads its arrival as
+/// coverage: this makes `check_script` the permission slip for `Converged`, so
+/// a WEAK check makes this a no-op rather than a guard. mount's old
+/// `mountpoint -q` check would have passed verification of the wrong share.
+/// The checks themselves have to be honest; this only ensures they are ASKED.
+///
+/// Exit 2 is "not applicable on this host" (FJ-2720) and is not a failure.
+/// A transport error is not one either — "I could not look" must not fail a
+/// resource that may well be fine, or a briefly unreachable host turns every
+/// apply red.
+pub fn unverified_after_apply(resource: &Resource, machine: &Machine) -> Option<String> {
+    if !verification_enabled() {
+        return None;
+    }
+    verify_against_host(resource, machine)
+}
+
+/// Is post-apply verification on?
+///
+/// `FORJAR_VERIFY=warn` suppresses it entirely. That hatch exists to drain the
+/// first backlog of newly-red applies without blocking the fleet — it is not for
+/// living in. Terraform's `LegacyTypeSystem` escape hatch outlived a major
+/// version and still suppresses this exact bug class, so: **remove this by
+/// 2026-10-01**. Kept as a separate function so the policy is greppable and so
+/// the substance below stays testable without touching process env (this crate
+/// forbids `unsafe`, and `set_var` is unsafe in edition 2024).
+pub fn verification_enabled() -> bool {
+    std::env::var("FORJAR_VERIFY").as_deref() != Ok("warn")
+}
+
+/// Ask the host whether the resource's declared state is actually there.
+///
+/// Separated from the policy above so tests can drive real host conditions.
+pub fn verify_against_host(resource: &Resource, machine: &Machine) -> Option<String> {
+    let script = crate::core::codegen::check_script(resource).ok()?;
+    match crate::transport::exec_script(machine, &script) {
+        Ok(out) if out.success() => None,
+        // FJ-2720: not applicable here. Neither converged nor diverged.
+        Ok(out) if out.exit_code == 2 => None,
+        Ok(out) => Some(format!(
+            "apply exited 0 but the host does not report the declared state \
+             (check exit {}). {}",
+            out.exit_code,
+            out.stdout.trim()
+        )),
+        // Could not observe. Do not invent a verdict in either direction.
+        Err(_) => None,
+    }
+}
+
+/// Every post-apply question, asked in one place.
+///
+/// `apply` exiting 0 proves a script ran, not that the work happened. Three
+/// independent things can still be wrong, and each used to carry its own
+/// near-identical failure block in `resource_ops.rs`:
+///
+///   1. a declared `post_apply` hook rejects the result,
+///   2. declared `output_artifacts` were never produced (FJ-2731),
+///   3. the HOST does not report the declared state (FJ-2732).
+///
+/// Returns the first failure, or None when the resource may be recorded
+/// converged. Order matters: the cheapest and most specific checks run first,
+/// so the error a human sees names the narrowest cause.
+pub(crate) fn post_apply_failure(
+    resolved: &Resource,
+    machine: &Machine,
+    timeout_secs: Option<u64>,
+) -> Option<String> {
+    if let Some(ref post_hook) = resolved.post_apply {
+        if let Some(error) = check_post_hook(machine, post_hook, timeout_secs) {
+            return Some(error);
+        }
+    }
+    if let Some(error) = unproduced_outputs_error(resolved, machine) {
+        return Some(error);
+    }
+    unverified_after_apply(resolved, machine)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

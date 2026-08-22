@@ -6,8 +6,14 @@
 //! - depends_on references must exist
 //! - Required fields per resource type
 
+mod backup_sync_validate;
+mod disk_budget_validate;
 mod expansion;
 mod format_validation;
+mod nas_archive_validate;
+mod overlay_interface_validate;
+mod unknown_policy;
+pub use unknown_policy::rejects_unknown;
 mod includes;
 mod known_fields;
 mod policy;
@@ -26,6 +32,8 @@ mod tests_expansion;
 mod tests_format_validation;
 #[cfg(test)]
 mod tests_includes;
+#[cfg(test)]
+mod tests_known_fields_completeness;
 #[cfg(test)]
 mod tests_misc;
 #[cfg(test)]
@@ -137,7 +145,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
 
     // FJ-035 QUORUM MUST-1: overlay addresses must be injective across all
     // present overlay_interface resources (plan-time duplicate-IP rejection).
-    resource_types::validate_overlay_ip_injective(config, &mut errors);
+    overlay_interface_validate::validate_overlay_ip_injective(config, &mut errors);
 
     for (key, machine) in &config.machines {
         validation::validate_machine(key, machine, &mut errors);
@@ -215,7 +223,14 @@ fn check_sudo_inference(
 pub fn check_unknown_fields(yaml: &str) -> Vec<ValidationError> {
     match unknown_fields::detect_unknown_fields(yaml) {
         Ok(unknowns) => unknown_fields::unknown_fields_to_errors(&unknowns),
-        Err(_) => Vec::new(), // Parse errors handled by first pass
+        // A check that could not RUN is not a clean result. This pass parses
+        // into a raw `Value` while the first parses into `ForjarConfig`, so the
+        // first can succeed where this one fails — and swallowing the error
+        // made every unknown field in the file invisible while `validate`
+        // printed OK.
+        Err(e) => vec![ValidationError {
+            message: format!("could not check for unknown fields: {e}"),
+        }],
     }
 }
 
@@ -223,14 +238,19 @@ pub fn check_unknown_fields(yaml: &str) -> Vec<ValidationError> {
 pub fn check_unknown_recipe_fields(yaml: &str) -> Vec<ValidationError> {
     match unknown_fields::detect_unknown_recipe_fields(yaml) {
         Ok(unknowns) => unknown_fields::unknown_fields_to_errors(&unknowns),
-        Err(_) => Vec::new(),
+        Err(e) => vec![ValidationError {
+            message: format!("could not check for unknown recipe fields: {e}"),
+        }],
     }
 }
 
 /// Parse, validate, and expand recipes in a config file.
 /// This is the main entry point for loading a config for plan/apply.
+///
+/// Unknown fields are ERRORS here (GH-272); opt out with
+/// `parse_and_validate_opts(path, false)`.
 pub fn parse_and_validate(path: &Path) -> Result<ForjarConfig, String> {
-    parse_and_validate_opts(path, false)
+    parse_and_validate_opts(path, true)
 }
 
 /// Parse, validate, expand — with strict mode for unknown fields (FJ-2500).
@@ -244,7 +264,7 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
     // FJ-2500: Detect unknown fields (two-pass parsing)
     let unknown_warnings = check_unknown_fields(&content);
     if !unknown_warnings.is_empty() {
-        if deny_unknown {
+        if rejects_unknown(deny_unknown, unknown_warnings.len()) {
             return Err(format!(
                 "unknown field errors:\n{}",
                 unknown_warnings
@@ -283,17 +303,11 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
     // set. validate_config ran before expansion, so a `to` that lands on a
     // recipe-expanded key (e.g. `recipe_id/foo`) would otherwise pass and then
     // silently clobber that expanded resource's converged lock.
-    let post_errors = crate::core::planner::moved::validate_moved_targets(&config);
-    if !post_errors.is_empty() {
-        return Err(format!(
-            "validation errors:\n{}",
-            post_errors
-                .iter()
-                .map(|e| format!("  - {e}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
-    }
+    // #165's post-expansion `moved.to` collision re-check is gone with the
+    // config-time check it duplicated: `to` naming a declared resource is the
+    // required shape of a rename, not a collision. The genuinely destructive
+    // case — the LOCK already holding `to` — is detected in `rename_lock`,
+    // which has the state this function does not.
 
     Ok(config)
 }

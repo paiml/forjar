@@ -88,8 +88,8 @@ resources:\n  f1:\n    type: file\n    path: /etc/same\n  f2:\n    type: file\n 
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n",
+resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n",
         );
         assert!(cmd_graph_root_resources(&f, false).is_ok());
     }
@@ -101,8 +101,8 @@ resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n   
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
         );
         assert!(cmd_graph_root_resources(&f, false).is_ok());
     }
@@ -132,8 +132,8 @@ resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n   
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
         );
         assert!(cmd_graph_edge_list(&f, false).is_ok());
     }
@@ -145,8 +145,8 @@ resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n   
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
         );
         assert!(cmd_graph_edge_list(&f, true).is_ok());
     }

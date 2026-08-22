@@ -197,28 +197,26 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_tag_value_format,
         check_resource_provider_version_pinning,
         check_recipe_purity,
+        min_purity,
         check_reproducibility_score,
         deny_unknown_fields,
     } = args;
 
-    // FJ-2500: Unknown fields are always errors during validate (P0 — silent data loss).
-    // The --deny-unknown-fields flag is now the default behavior; kept for backward compat.
+    // GH-211: FJ-381 was destructured to `_schema_version` — accepted, never
+    // read. `validate --schema-version 99.0` reported the config valid against
+    // a schema version that was never consulted.
+    super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
+
+    // FJ-2500 / GH-272: unknown fields are errors. This was an inline copy of
+    // the check, which is how validate and every other verb came to disagree
+    // about whether the same file was valid. `parse_and_validate` now denies,
+    // so validate inherits the rule instead of reimplementing it — and loading
+    // here, BEFORE dispatch, covers every sub-check rather than only the ones
+    // that happen to load the config themselves. `--check-recipe-purity` reads
+    // raw YAML by design (purity keys are not typed fields) and so consulted
+    // no validation at all; it was the inline copy that had been masking that.
     let _ = deny_unknown_fields; // always true for validate
-    {
-        let content = std::fs::read_to_string(&file)
-            .map_err(|e| format!("failed to read {}: {}", file.display(), e))?;
-        let unknown_warnings = crate::core::parser::check_unknown_fields(&content);
-        if !unknown_warnings.is_empty() {
-            return Err(format!(
-                "unknown field errors:\n{}",
-                unknown_warnings
-                    .iter()
-                    .map(|e| format!("  - {e}"))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ));
-        }
-    }
+    crate::core::parser::parse_and_validate(&file)?;
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass
     if deep {
@@ -230,6 +228,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         json,
         check_recipe_purity,
         check_reproducibility_score,
+        min_purity.as_deref(),
     )
     .or_else(|| {
         try_validate_checks_early_a(

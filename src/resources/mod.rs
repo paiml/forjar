@@ -5,14 +5,17 @@
 //! 2. An "apply" script that converges to desired state
 //! 3. A "hash" function that computes the BLAKE3 of observable state
 
+pub mod backup_sync;
 pub mod build;
 pub mod cron;
+pub mod disk_budget;
 pub mod docker;
 pub mod file;
 pub mod github_release;
 pub mod gpu;
 pub mod model;
 pub mod mount;
+pub mod nas_archive;
 pub mod network;
 pub mod overlay_interface;
 pub mod package;

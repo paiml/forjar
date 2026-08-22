@@ -62,7 +62,9 @@ pub(crate) fn record_success(
     // staleness. See core::task::probe::record_io_hashes.
     crate::core::task::probe::record_io_hashes(resolved, &mut details);
 
-    ctx.lock.resources.insert(
+    // FJ-266: `insert` returns the entry it displaced, which is the
+    // before-state this converge overwrote. Free — no extra read.
+    let previous = ctx.lock.resources.insert(
         resource_id.to_string(),
         ResourceLock {
             resource_type: resource.resource_type.clone(),
@@ -73,19 +75,20 @@ pub(crate) fn record_success(
             details,
         },
     );
+    let previous_hash = crate::tripwire::eventlog::displaced_hash(previous);
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceConverged {
-                machine: ctx.machine_name.to_string(),
-                resource: resource_id.to_string(),
-                duration_seconds: duration,
-                hash: desired_hash,
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceConverged {
+            machine: ctx.machine_name.to_string(),
+            resource: resource_id.to_string(),
+            duration_seconds: duration,
+            hash: desired_hash,
+            previous_hash,
+        },
+    );
 }
 
 /// Record a resource failure into the lock and event log. Returns true if jidoka should stop.
@@ -110,17 +113,16 @@ pub(crate) fn record_failure(
         },
     );
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceFailed {
-                machine: ctx.machine_name.to_string(),
-                resource: resource_id.to_string(),
-                error: error.to_string(),
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceFailed {
+            machine: ctx.machine_name.to_string(),
+            resource: resource_id.to_string(),
+            error: error.to_string(),
+        },
+    );
 
     if *ctx.failure_policy == FailurePolicy::StopOnFirst {
         eprintln!(
@@ -238,6 +240,10 @@ fn execute_resource(
     }
 
     let ssh_retries = cfg.config.policy.ssh_retries;
+    // Dogfood #208 (logs-script-flag-noop): capture the generated script so the
+    // `.script` sidecar and `script_hash` are not empty and `--script` has
+    // something to show.
+    let mut executed_script = String::new();
     let output = if resolved.resource_type == ResourceType::File
         && resolved
             .source
@@ -252,12 +258,15 @@ fn execute_resource(
         if cfg.trace {
             eprintln!("[TRACE] {} script:\n{}", change.resource_id, script);
         }
-        transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries)
+        let result = transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries);
+        executed_script = script;
+        result
     };
     let duration = resource_start.elapsed().as_secs_f64();
 
+    let s = &executed_script;
     handle_resource_output(
-        output, cfg, change, resource, resolved, machine, ctx, duration,
+        output, cfg, change, resource, resolved, machine, ctx, duration, s,
     )
 }
 
@@ -286,6 +295,7 @@ fn check_task_input_cache(
 }
 
 /// FJ-2301: Persist ExecOutput to .log files for post-mortem debugging.
+#[allow(clippy::too_many_arguments)]
 fn capture_exec_output(
     ctx: &RecordCtx,
     run_id: Option<&str>,
@@ -293,6 +303,7 @@ fn capture_exec_output(
     action: &str,
     output: &transport::ExecOutput,
     duration: f64,
+    script: &str,
 ) {
     let rid = run_id.unwrap_or("run-adhoc");
     let run_dir = run_capture::run_dir(ctx.state_dir, ctx.machine_name, rid);
@@ -305,7 +316,7 @@ fn capture_exec_output(
         action,
         ctx.machine_name,
         "transport",
-        "",
+        script,
         output,
         duration,
     );
@@ -322,6 +333,7 @@ fn handle_resource_output(
     machine: &Machine,
     ctx: &mut RecordCtx,
     duration: f64,
+    executed_script: &str,
 ) -> Result<ResourceOutcome, String> {
     // FJ-2301: Capture output to run log directory
     if let Ok(ref out) = output {
@@ -333,29 +345,19 @@ fn handle_resource_output(
             &action_str,
             out,
             duration,
+            executed_script,
         );
     }
     match output {
         Ok(out) if out.success() => {
-            if let Some(ref post_hook) = resolved.post_apply {
-                if let Some(error) =
-                    super::output_verify::check_post_hook(machine, post_hook, ctx.timeout_secs)
-                {
-                    let should_stop = record_failure(
-                        ctx,
-                        &change.resource_id,
-                        &resource.resource_type,
-                        duration,
-                        &error,
-                    );
-                    return Ok(ResourceOutcome::Failed {
-                        should_stop,
-                        retryable: true,
-                    });
-                }
-            }
-            // FJ-2731: exit 0 is not proof the work happened.
-            if let Some(error) = super::output_verify::unproduced_outputs_error(resolved, machine) {
+            // Three post-apply questions, asked in one place: did the hook
+            // pass, were the declared outputs produced, and does the HOST
+            // report the declared state? Each used to be its own near-identical
+            // record_failure block here; consolidated into output_verify so
+            // adding a fourth does not grow this file again.
+            if let Some(error) =
+                super::output_verify::post_apply_failure(resolved, machine, ctx.timeout_secs)
+            {
                 let should_stop = record_failure(
                     ctx,
                     &change.resource_id,
@@ -460,17 +462,16 @@ pub(crate) fn apply_single_resource(
         None => return Ok(ResourceOutcome::Skipped),
     };
 
-    if ctx.tripwire {
-        let _ = eventlog::append_event(
-            ctx.state_dir,
-            ctx.machine_name,
-            ProvenanceEvent::ResourceStarted {
-                machine: ctx.machine_name.to_string(),
-                resource: change.resource_id.clone(),
-                action: change.action.to_string(),
-            },
-        );
-    }
+    crate::core::executor::log_tripwire(
+        ctx.state_dir,
+        ctx.machine_name,
+        ctx.tripwire,
+        ProvenanceEvent::ResourceStarted {
+            machine: ctx.machine_name.to_string(),
+            resource: change.resource_id.clone(),
+            action: change.action.to_string(),
+        },
+    );
 
     let resolved = resolver::resolve_resource_templates_with_secrets(
         resource,

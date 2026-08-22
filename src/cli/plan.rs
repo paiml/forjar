@@ -6,7 +6,6 @@ use super::helpers_state::*;
 use super::print_helpers::*;
 use super::workspace::*;
 use crate::core::{planner, resolver, types};
-use crate::tripwire::hasher;
 use std::path::Path;
 
 #[allow(clippy::too_many_arguments)]
@@ -27,12 +26,10 @@ pub(crate) fn cmd_plan(
     what_if: &[String],
     plan_out: Option<&Path>,
     why: bool,
+    // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
+    // whole plan. It is a real filter now, so it has to reach the planner.
+    group_filter: Option<&str>,
 ) -> Result<(), String> {
-    // GH-91: Warn that --resource filter is not yet implemented
-    if resource_filter.is_some() {
-        eprintln!("Warning: --resource filter is not yet implemented for plan. Flag ignored.");
-    }
-
     let mut config = parse_and_validate(file)?;
 
     // FJ-333: Apply hypothetical param overrides
@@ -79,11 +76,21 @@ pub(crate) fn cmd_plan(
     }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+
+    // GH-273: say WHERE state came from, and when there was none.
+    super::state_visibility::report(state_dir, &config, &locks);
     // FJ-2725: phony resources are goal-only; a bulk plan must not report them
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);
     let execution_order = resolver::build_execution_order(&config)?;
-    let plan = planner::plan(&config, &execution_order, &locks, tag_filter);
+    let mut plan = planner::plan(&config, &execution_order, &locks, tag_filter);
+
+    super::plan_selector::apply_machine_filter(&mut plan, machine_filter);
+    // GH-214: -r and -g used to print "not yet implemented … Flag ignored"
+    // followed by the whole plan, while `apply -r/-g` filtered correctly.
+    super::plan_selector::apply_resource_filter(&mut plan, &config, resource_filter)?;
+    super::plan_selector::apply_group_filter(&mut plan, &config, group_filter)?;
+    let plan = plan;
 
     if let Some(dir) = output_dir {
         export_scripts(&config, dir)?;
@@ -97,7 +104,9 @@ pub(crate) fn cmd_plan(
     }
 
     if why {
-        print_why_explanation(&config, &locks, &execution_order, tag_filter);
+        // GH-214: explain only what the (possibly filtered) plan contains, so
+        // `--why` cannot contradict the plan printed beside it.
+        print_why_explanation(&config, &locks, &plan.execution_order, tag_filter);
     }
 
     if json {
@@ -274,9 +283,9 @@ pub(crate) fn save_plan_file(
     config_path: &Path,
     out_path: &Path,
 ) -> Result<(), String> {
-    let config_yaml =
-        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {e}"))?;
-    let config_hash = hasher::hash_string(&config_yaml);
+    // GH-212: canonical (sorted-map) hash — the plain serialisation varied per
+    // process, so `apply --plan-file` rejected plans nobody had touched.
+    let config_hash = crate::core::config_hash::config_hash(config)?;
 
     let changes: Vec<serde_json::Value> = plan
         .changes
@@ -328,9 +337,7 @@ pub(crate) fn load_plan_file(
         .get("config_hash")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let config_yaml =
-        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {e}"))?;
-    let current_hash = hasher::hash_string(&config_yaml);
+    let current_hash = crate::core::config_hash::config_hash(config)?;
     if stored_hash != current_hash {
         return Err(
             "config has changed since plan was created — re-run `forjar plan` to regenerate"
@@ -455,8 +462,18 @@ fn collect_why_reasons(
                 continue;
             }
         }
+        // GH-212: explain the RESOLVED resource. Comparing the raw config
+        // against a lock that stores resolved values produced nonsense like
+        // "path changed: /tmp/x/a.txt -> {{params.sandbox}}/a.txt".
+        let resolved = crate::core::resolver::resolve_or_fallback(
+            resource_id,
+            resource,
+            &config.params,
+            &config.machines,
+            &config.secrets,
+        );
         for machine_name in resource.machine.iter() {
-            let reason = why::explain_why(resource_id, resource, machine_name, locks);
+            let reason = why::explain_why(resource_id, &resolved, machine_name, locks);
             if reason.action != types::PlanAction::NoOp {
                 results.push(reason);
             }
@@ -474,3 +491,7 @@ fn action_icon(action: &types::PlanAction) -> String {
         types::PlanAction::NoOp => dim("="),
     }
 }
+
+#[cfg(test)]
+#[path = "plan_tests_selector_scope.rs"]
+mod tests_selector_scope;

@@ -59,10 +59,35 @@ fn main() {
             duration_seconds: 0.42,
             hash: "blake3:a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd"
                 .to_string(),
+            // FJ-266: what this converge REPLACED. `None` would mean the
+            // resource did not exist before; a value means it did, and the
+            // log can now say what was overwritten rather than only what
+            // the result was.
+            previous_hash: Some(
+                "blake3:0000111122223333444455556666777788889999aaaabbbbccccddddeeee".to_string(),
+            ),
         },
     )
     .expect("write event");
     println!("Logged: resource_converged (nginx-config, 0.42s)");
+
+    // 3b. FJ-266: a resource forjar REMOVED. Before this variant existed the
+    // event log could express converged, failed and drifted — but never gone,
+    // so a deletion left no trace of its own (paiml/infra#208).
+    eventlog::append_event(
+        state_dir,
+        machine,
+        ProvenanceEvent::ResourceDeleted {
+            machine: machine.to_string(),
+            resource: "nginx-legacy-vhost".to_string(),
+            previous_hash: Some(
+                "blake3:deadbeef00112233445566778899aabbccddeeff00112233445566778899".to_string(),
+            ),
+            reason: "destroy".to_string(),
+        },
+    )
+    .expect("write event");
+    println!("Logged: resource_deleted (nginx-legacy-vhost, reason=destroy)");
 
     // 4. Another resource that fails
     eventlog::append_event(

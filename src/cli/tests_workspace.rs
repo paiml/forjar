@@ -69,6 +69,79 @@ resources: {}
         assert!(config.params.contains_key("workspace"));
     }
 
+    /// A user-defined `params.workspace` must survive injection.
+    ///
+    /// Regression for #217: injection used to `insert()` unconditionally, so a
+    /// config param `workspace: /home/noah/workspace` was replaced by the
+    /// workspace *name*. `{{params.workspace}}` then expanded to the
+    /// `--workspace` value and a file resource created `./yoga` instead of
+    /// `/home/noah/workspace`, while still reporting `converged`.
+    #[test]
+    fn inject_workspace_param_preserves_user_defined_param() {
+        let yaml = r#"
+version: "1.0"
+name: test
+params:
+  workspace: /home/noah/workspace
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        inject_workspace_param(&mut config, Some("yoga"));
+        assert_eq!(
+            config.params.get("workspace").unwrap(),
+            &serde_yaml_ng::Value::String("/home/noah/workspace".to_string()),
+            "user-defined params.workspace must not be clobbered by --workspace"
+        );
+    }
+
+    /// Same protection when no `--workspace` flag is given (used to become "default").
+    #[test]
+    fn inject_workspace_param_preserves_user_param_without_flag() {
+        let yaml = r#"
+version: "1.0"
+name: test
+params:
+  workspace: /srv/data
+machines: {}
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        inject_workspace_param(&mut config, None);
+        assert_eq!(
+            config.params.get("workspace").unwrap(),
+            &serde_yaml_ng::Value::String("/srv/data".to_string()),
+            "user-defined params.workspace must not become \"default\""
+        );
+    }
+
+    /// Injection still happens for configs that do not define the param.
+    #[test]
+    fn inject_workspace_param_still_injects_when_absent() {
+        let yaml = r#"
+version: "1.0"
+name: test
+params:
+  other: keep-me
+machines: {}
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        inject_workspace_param(&mut config, Some("staging"));
+        assert_eq!(
+            config.params.get("workspace").unwrap(),
+            &serde_yaml_ng::Value::String("staging".to_string())
+        );
+        assert_eq!(
+            config.params.get("other").unwrap(),
+            &serde_yaml_ng::Value::String("keep-me".to_string()),
+            "unrelated params must be untouched"
+        );
+    }
+
     #[test]
     fn test_fj210_workspace_new_and_select() {
         let dir = tempfile::tempdir().unwrap();

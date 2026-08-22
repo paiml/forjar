@@ -20,6 +20,20 @@ use std::time::{Duration, Instant};
 
 const SECRET: &str = "test-secret";
 
+/// Serialises every test that binds a real port.
+///
+/// `free_port` asks the OS for an ephemeral port and then DROPS the listener, so
+/// the number it returns is reserved only until it returns. Two tests running in
+/// parallel can be handed the same port, and the loser fails with a bind error
+/// that has nothing to do with what it was testing. Serialising makes that
+/// window unreachable rather than merely narrow.
+///
+/// The readiness probe below already CONNECTS rather than binding, which is the
+/// other half of this race and the half that mattered most — a probe that binds
+/// competes with the server it is waiting for, holds the port when it wins, and
+/// starves the server until the timeout (forjar#276).
+static PORT_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn free_port() -> u16 {
     let l = TcpListener::bind("127.0.0.1:0").unwrap();
     l.local_addr().unwrap().port()
@@ -38,6 +52,8 @@ impl Drop for Server {
 }
 
 fn start(config: WebhookConfig) -> Server {
+    // Held until the returned Server is dropped, i.e. for the whole test.
+    let _guard = PORT_GUARD.lock().unwrap_or_else(|e| e.into_inner());
     let port = config.port;
     let (tx, rx) = mpsc::channel();
     let shutdown = Arc::new(AtomicBool::new(false));

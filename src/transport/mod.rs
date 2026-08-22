@@ -19,6 +19,8 @@ mod tests_dispatch;
 #[cfg(test)]
 mod tests_dispatch_b;
 #[cfg(test)]
+mod tests_i8_diagnosis;
+#[cfg(test)]
 mod tests_ssh;
 #[cfg(test)]
 mod tests_timeout;
@@ -147,8 +149,36 @@ impl ExecOutput {
 /// executed as shell — it is written to files via pipe or heredoc redirection.
 fn validate_before_exec(script: &str) -> Result<(), String> {
     let sanitised = strip_data_payloads(script);
-    crate::core::purifier::validate_script(&sanitised)
-        .map_err(|e| format!("I8 violation — script failed bashrs validation: {e}"))
+    crate::core::purifier::validate_script(&sanitised).map_err(|e| {
+        format!(
+            "I8 violation — script failed bashrs validation: {e}\n\n{}",
+            numbered_for_diagnosis(&sanitised)
+        )
+    })
+}
+
+/// Render the exact text bashrs judged, with line numbers.
+///
+/// forjar#281: the sanitised script was built, linted, and thrown away, so an
+/// I8 rejection named a rule and a line number for text nobody could see. That
+/// matters here more than in a normal linter, because the rejected script is
+/// GENERATED — `strip_data_payloads` rewrites it through four regex passes, and
+/// a `completion_check` written as a YAML folded scalar arrives already
+/// collapsed onto one line. The offending text existed in neither the YAML the
+/// author wrote nor in bashrs; forjar manufactured it, and then hid it.
+///
+/// Line numbers are what make the diagnostic actionable: bashrs reports the
+/// line it rejected, and this is the only rendering of the file that has those
+/// lines.
+fn numbered_for_diagnosis(sanitised: &str) -> String {
+    let mut out = String::from(
+        "--- the script bashrs judged (after forjar's own data-payload stripping) ---\n",
+    );
+    for (i, line) in sanitised.lines().enumerate() {
+        out.push_str(&format!("{:>4} | {}\n", i + 1, line));
+    }
+    out.push_str("--- end ---");
+    out
 }
 
 /// Strip opaque data payloads that bashrs should not lint.

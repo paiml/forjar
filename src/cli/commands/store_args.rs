@@ -3,6 +3,20 @@
 use clap::Subcommand;
 use std::path::PathBuf;
 
+/// Default `--store-dir`, resolved at parse time rather than baked in.
+///
+/// GH-239: this was the literal `/var/lib/forjar/store` on eleven arguments.
+/// `/var/lib` is root-owned on every mainstream distribution, so every store
+/// subcommand defaulted to a path an unprivileged user cannot create and had no
+/// way to redirect — `forjar store list` and `forjar store gc` failed with a
+/// bare `No such file or directory` for any non-root caller.
+///
+/// Delegates to `store::path::store_root`, so the CLI default and the library's
+/// path derivation cannot drift apart.
+fn default_store_dir() -> PathBuf {
+    crate::core::store::path::store_root().to_path_buf()
+}
+
 /// Pin command: pin all inputs to current versions.
 #[derive(clap::Args, Debug)]
 pub struct PinArgs {
@@ -33,7 +47,7 @@ pub enum CacheCmd {
     /// List local store entries
     List {
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Output as JSON
@@ -47,7 +61,7 @@ pub enum CacheCmd {
         remote: String,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Only push specific hash
@@ -65,14 +79,14 @@ pub enum CacheCmd {
         source: Option<String>,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
     },
 
     /// Verify all local store entries by re-hashing
     Verify {
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Output as JSON
@@ -87,7 +101,7 @@ pub enum StoreCmd {
     /// Delete unreachable store entries (garbage collection)
     Gc {
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// State directory (for lock file pins)
@@ -114,7 +128,7 @@ pub enum StoreCmd {
     /// List store entries with provenance info
     List {
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Show source provider for each entry
@@ -132,7 +146,7 @@ pub enum StoreCmd {
         hash: String,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Output as JSON
@@ -146,7 +160,7 @@ pub enum StoreCmd {
         hash: String,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Actually apply the sync (default: dry-run)
@@ -168,7 +182,7 @@ pub enum ArchiveCmd {
         hash: String,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
 
         /// Output file path (default: <hash>.far)
@@ -182,7 +196,7 @@ pub enum ArchiveCmd {
         file: PathBuf,
 
         /// Store directory
-        #[arg(long, default_value = "/var/lib/forjar/store")]
+        #[arg(long, default_value_os_t = default_store_dir())]
         store_dir: PathBuf,
     },
 
@@ -221,7 +235,7 @@ pub struct StoreImportArgs {
     pub version: Option<String>,
 
     /// Store directory
-    #[arg(long, default_value = "/var/lib/forjar/store")]
+    #[arg(long, default_value_os_t = default_store_dir())]
     pub store_dir: std::path::PathBuf,
 
     /// Output as JSON

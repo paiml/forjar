@@ -1,8 +1,13 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::backup_sync_types::BackupSpec;
+use super::disk_budget_types::ReclaimRule;
+use super::nas_archive_types::ArchiveSpec;
+use super::output_equivalence::OutputEquivalence;
 use super::resource_enums::{MachineTarget, ResourceType};
 use super::service_mode_types::RestartPolicy;
 use super::task_types::{HealthCheck, PipelineStage, QualityGate, TaskMode};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -312,6 +317,14 @@ pub struct Resource {
     /// Output artifacts to hash for idempotency.
     #[serde(default)]
     pub output_artifacts: Vec<String>,
+    /// GH-246: per-artifact equivalence predicate, keyed by artifact path.
+    ///
+    /// Absent entries mean `bytes` — the previous behaviour, unchanged. Declare
+    /// an escape only for a producer that cannot reach byte-identity: keying an
+    /// artifact by a hash it can never reproduce is not "uncached", it is
+    /// content-addressed with the wrong key.
+    #[serde(default)]
+    pub output_equivalence: IndexMap<String, OutputEquivalence>,
     /// Completion check command (exit 0 = done).
     #[serde(default)]
     pub completion_check: Option<String>,
@@ -425,6 +438,37 @@ pub struct Resource {
     /// Optional: open the overlay /24 subnet through ufw.
     #[serde(default)]
     pub overlay_firewall: Option<bool>,
+
+    // -- Disk budget fields (FJ-036: fleet disk budget + reclaim reaper) --
+    /// Used-% at or above which a reclaim pass is triggered (default 85).
+    #[serde(default)]
+    pub budget_high_watermark_pct: Option<u8>,
+
+    /// Free-% a reclaim pass must restore before it stops (default 20).
+    /// Must satisfy `100 - target_free_pct < high_watermark_pct` (hysteresis).
+    #[serde(default)]
+    pub budget_target_free_pct: Option<u8>,
+
+    /// Free-GiB below which the budget is CRITICAL — hard drift failure.
+    #[serde(default)]
+    pub budget_critical_free_gb: Option<u64>,
+
+    /// systemd `OnCalendar` cadence for the reaper (default "hourly").
+    #[serde(default)]
+    pub budget_schedule: Option<String>,
+
+    /// Ordered reclaim rules, most-disposable first.
+    #[serde(default)]
+    pub budget_reclaim: Vec<ReclaimRule>,
+
+    // -- Backup sync (FJ-037) --
+    /// Verified offsite copy. Flattened, so the YAML keys stay top level.
+    #[serde(flatten)]
+    pub backup: BackupSpec,
+
+    /// FJ-038: `nas_archive` declaration fields.
+    #[serde(flatten)]
+    pub archive: ArchiveSpec,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

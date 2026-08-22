@@ -349,10 +349,21 @@ fn dispatch_container_backend() {
     let target = sample_target("container-conv", "file");
     // Container backend with Docker available → routes through convergence_container
     let result = run_convergence_test_dispatch(&target, SandboxBackend::Container);
-    // Container runs echo scripts; hash of container output won't match expected_hash
-    // (which is computed from the script text itself). So converged=false is expected.
-    // The key assertion: the dispatch path was exercised without panicking.
-    assert!(result.duration_ms < 30_000, "should complete within 30s");
+
+    // Whether the container path or the simulated fallback runs depends on
+    // whether a container runtime exists on this host, so `converged` is not
+    // assertable here. Provenance is: the result must describe the target that
+    // was dispatched.
+    //
+    // GH-259: this was `duration_ms < 30_000`, a wall-clock budget that failed
+    // under the full suite while passing in isolation on the same commit. It
+    // measured the machine, not the dispatch — and would have passed on a
+    // result belonging to some other resource entirely.
+    assert_eq!(
+        result.resource_id, "container-conv",
+        "dispatch must return a result for the target it was given"
+    );
+    assert_eq!(result.resource_type, "file");
 }
 
 #[test]

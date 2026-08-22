@@ -1,5 +1,6 @@
 //! Inline performance benchmarks (FJ-139).
 
+use super::infra_bench_baseline as baseline;
 use crate::core::{parser, planner, resolver, state, types::*};
 use crate::tripwire::{drift as tripwire_drift, hasher};
 use std::time::Instant;
@@ -60,8 +61,15 @@ fn percentile(samples: &[u128], pct: u32) -> f64 {
 }
 
 /// Run inline performance benchmarks (FJ-139).
+///
+/// Dogfood #208: this is the STRICT entry point — unmet targets and baseline
+/// regressions become a non-zero exit. `cmd_bench_with_writer` stays
+/// informational so the crate's own tests can run it on a debug build without
+/// asserting release-tuned latency budgets.
 pub(crate) fn cmd_bench(iterations: usize, json: bool, compare: bool) -> Result<(), String> {
-    cmd_bench_with_writer(iterations, json, compare, &mut super::output::StdoutWriter)
+    let outcome =
+        cmd_bench_with_writer(iterations, json, compare, &mut super::output::StdoutWriter)?;
+    baseline::bench_verdict(&outcome)
 }
 
 /// Inner bench with injectable OutputWriter (FJ-2920).
@@ -70,19 +78,76 @@ pub(crate) fn cmd_bench_with_writer(
     json: bool,
     compare: bool,
     out: &mut dyn super::output::OutputWriter,
-) -> Result<(), String> {
+) -> Result<baseline::BenchOutcome, String> {
+    cmd_bench_at(
+        iterations,
+        json,
+        compare,
+        &baseline::default_baseline_path(),
+        out,
+    )
+}
+
+/// Bench with an explicit baseline path (testable without changing cwd).
+pub(crate) fn cmd_bench_at(
+    iterations: usize,
+    json: bool,
+    compare: bool,
+    baseline_path: &std::path::Path,
+    out: &mut dyn super::output::OutputWriter,
+) -> Result<baseline::BenchOutcome, String> {
+    // Dogfood #208: `--iterations 0` produced `NaNµs` rows, `0/6 targets met`
+    // and rc=0. clap now rejects 0 at parse time; this is the library-level
+    // backstop for callers that bypass clap.
+    if iterations == 0 {
+        return Err("bench: --iterations must be >= 1".to_string());
+    }
+
     let (dir, _guard) = create_bench_dir()?;
     let config_path = setup_bench_config(&dir)?;
     let state_dir = setup_bench_state(&dir)?;
 
     let results = run_benchmarks(&config_path, &state_dir, iterations)?;
 
-    let baseline = if compare { load_baseline() } else { None };
+    // Dogfood #208: refuse rather than silently skipping the comparison.
+    let baseline = if compare {
+        Some(baseline::load_baseline_from(baseline_path)?)
+    } else {
+        None
+    };
 
     if json {
-        render_bench_json(&results, &baseline, out)
+        render_bench_json(&results, &baseline, out)?;
     } else {
-        render_bench_table(&results, iterations, &baseline, out)
+        render_bench_table(&results, iterations, &baseline, out)?;
+    }
+    Ok(compute_outcome(&results, &baseline))
+}
+
+/// Derive the pass tally and baseline regressions from a completed run.
+fn compute_outcome(
+    results: &[BenchResult],
+    baseline: &Option<Vec<baseline::BaselineEntry>>,
+) -> baseline::BenchOutcome {
+    let passed = results.iter().filter(|r| r.meets_target()).count();
+    let mut regressions = Vec::new();
+    if let Some(entries) = baseline {
+        for r in results {
+            if let Some(b) = entries.iter().find(|b| b.name == r.name) {
+                if b.avg_us <= 0.0 {
+                    continue;
+                }
+                let delta = (r.avg_us() - b.avg_us) / b.avg_us * 100.0;
+                if delta > baseline::REGRESSION_PCT {
+                    regressions.push(format!("{} +{:.0}%", r.name, delta));
+                }
+            }
+        }
+    }
+    baseline::BenchOutcome {
+        passed,
+        total: results.len(),
+        regressions,
     }
 }
 
@@ -277,58 +342,6 @@ fn run_benchmarks(
     Ok(results)
 }
 
-/// Baseline entry parsed from benchmarks/RESULTS.md.
-struct BaselineEntry {
-    name: String,
-    avg_us: f64,
-}
-
-fn load_baseline() -> Option<Vec<BaselineEntry>> {
-    let path = std::path::Path::new("benchmarks/RESULTS.md");
-    let content = std::fs::read_to_string(path).ok()?;
-    let mut entries = Vec::new();
-    let mut in_table = false;
-    for line in content.lines() {
-        if line.contains("BENCH-TABLE-START") {
-            in_table = true;
-            continue;
-        }
-        if line.contains("BENCH-TABLE-END") {
-            break;
-        }
-        if !in_table || !line.starts_with('|') || line.contains("---") || line.contains("Operation")
-        {
-            continue;
-        }
-        let cols: Vec<&str> = line.split('|').collect();
-        if cols.len() >= 5 {
-            let name = cols[1].trim().to_string();
-            let avg_str = cols[3].trim();
-            if let Some(us) = parse_duration_to_us(avg_str) {
-                entries.push(BaselineEntry { name, avg_us: us });
-            }
-        }
-    }
-    if entries.is_empty() {
-        None
-    } else {
-        Some(entries)
-    }
-}
-
-fn parse_duration_to_us(s: &str) -> Option<f64> {
-    let s = s.trim();
-    if let Some(v) = s.strip_suffix("µs").or_else(|| s.strip_suffix("us")) {
-        v.trim().parse().ok()
-    } else if let Some(v) = s.strip_suffix("ms") {
-        v.trim().parse::<f64>().ok().map(|v| v * 1000.0)
-    } else if let Some(v) = s.strip_suffix('s') {
-        v.trim().parse::<f64>().ok().map(|v| v * 1_000_000.0)
-    } else {
-        None
-    }
-}
-
 fn format_us(us: f64) -> String {
     if us >= 1_000_000.0 {
         format!("{:.2}s", us / 1_000_000.0)
@@ -341,7 +354,7 @@ fn format_us(us: f64) -> String {
 
 fn render_bench_json(
     results: &[BenchResult],
-    baseline: &Option<Vec<BaselineEntry>>,
+    baseline: &Option<Vec<baseline::BaselineEntry>>,
     out: &mut dyn super::output::OutputWriter,
 ) -> Result<(), String> {
     let json_results: Vec<serde_json::Value> = results
@@ -376,7 +389,7 @@ fn render_bench_json(
 fn render_bench_table(
     results: &[BenchResult],
     iterations: usize,
-    baseline: &Option<Vec<BaselineEntry>>,
+    baseline: &Option<Vec<baseline::BaselineEntry>>,
     out: &mut dyn super::output::OutputWriter,
 ) -> Result<(), String> {
     use super::colors;

@@ -92,12 +92,34 @@ fn compare_invalid_file() {
 }
 
 // ── cmd_template ────────────────────────────────────────────
+//
+// Refs #211: these fed a bare `name: {{inputs.app}}` fragment and asserted
+// `is_ok()`. That held on 1.12.3 only because `template` echoed whatever it
+// was given. `template` now expands a RECIPE or a CONFIG and refuses anything
+// else, so the fixture is a real recipe.
+
+const TEMPLATE_RECIPE: &str = concat!(
+    "recipe:\n",
+    "  name: demo\n",
+    "  inputs:\n",
+    "    app:\n",
+    "      type: string\n",
+    "      default: web\n",
+    "    port:\n",
+    "      type: string\n",
+    "      default: \"80\"\n",
+    "resources:\n",
+    "  unit:\n",
+    "    type: file\n",
+    "    path: /etc/demo.conf\n",
+    "    content: \"{{inputs.app}}:{{inputs.port}}\"\n",
+);
 
 #[test]
 fn template_text_with_vars() {
     let d = tempfile::tempdir().unwrap();
     let recipe = d.path().join("recipe.yaml");
-    std::fs::write(&recipe, "name: {{inputs.app}}\nport: {{inputs.port}}\n").unwrap();
+    std::fs::write(&recipe, TEMPLATE_RECIPE).unwrap();
     assert!(cmd_template(
         &recipe,
         &["app=web".to_string(), "port=8080".to_string()],
@@ -110,16 +132,24 @@ fn template_text_with_vars() {
 fn template_json_output() {
     let d = tempfile::tempdir().unwrap();
     let recipe = d.path().join("recipe.yaml");
-    std::fs::write(&recipe, "name: {{inputs.svc}}\n").unwrap();
-    assert!(cmd_template(&recipe, &["svc=api".to_string()], true).is_ok());
+    std::fs::write(&recipe, TEMPLATE_RECIPE).unwrap();
+    assert!(cmd_template(&recipe, &["app=api".to_string()], true).is_ok());
 }
 
 #[test]
 fn template_no_vars() {
     let d = tempfile::tempdir().unwrap();
     let recipe = d.path().join("recipe.yaml");
-    std::fs::write(&recipe, "static: content\n").unwrap();
+    std::fs::write(&recipe, TEMPLATE_RECIPE).unwrap();
     assert!(cmd_template(&recipe, &[], false).is_ok());
+}
+
+#[test]
+fn template_plain_fragment_is_refused() {
+    let d = tempfile::tempdir().unwrap();
+    let recipe = d.path().join("fragment.yaml");
+    std::fs::write(&recipe, "static: content\n").unwrap();
+    assert!(cmd_template(&recipe, &[], false).is_err());
 }
 
 #[test]

@@ -120,14 +120,97 @@ fn collect_phase2_fields<'a>(
 /// Compute a hash of the desired state for comparison.
 ///
 /// FJ-2200: Contract — determinism: same resource always produces same hash.
+/// GH-206: fold the CONTENT of a `source:` file into the desired state.
+///
+/// `source:` names a PATH, but the bytes it points at are what actually gets
+/// deployed. Hashing only the path meant editing the referenced file left the
+/// hash identical, so `plan` reported `NoOp` and `apply` skipped the resource
+/// while printing "unchanged" over stale content on the machine. For a tool
+/// whose entire contract is "converge to declared state", silently not
+/// converging while reporting success is the worst available failure mode.
+/// Observed live in paiml/infra PMAT-204.
+///
+/// This is exactly the invariant `canonical_overlay_hosts` below already states
+/// for a different field: two resources differing ONLY in that field MUST hash
+/// differently or `plan` will false-report `NoOp`.
+///
+/// Returns an EMPTY string when there is no `source:`, so nothing is appended
+/// and every source-less resource keeps its existing hash. Field order is hash
+/// identity; only resources that declare `source:` gain a component.
+///
+/// The path is read exactly as written, matching `resources::file`'s own
+/// `source_file_base64` - both resolve relative to the process CWD - so the
+/// planner hashes precisely the bytes apply would upload.
+fn canonical_source_content(resource: &Resource) -> String {
+    let Some(src) = resource.source.as_deref() else {
+        return String::new();
+    };
+    match hasher::hash_file(std::path::Path::new(src)) {
+        Ok(digest) => format!("source_content:{digest}"),
+        // Unreadable is itself part of the observed state: fold the error kind
+        // in so a source file appearing or disappearing changes the hash rather
+        // than leaving the resource pinned at "unchanged". apply still fails
+        // loudly with "cannot read source file".
+        Err(e) => format!("source_unreadable:{src}:{e}"),
+    }
+}
+
+/// FJ-036: canonical form of the reaper a `disk_budget` resource GENERATES.
+///
+/// Every other resource's desired state is fully described by its declaration.
+/// A `disk_budget` is not: its real payload is a shell script synthesised by
+/// forjar, so two forjar versions can produce different reapers from an
+/// identical YAML block. Without this component the planner compares only the
+/// declaration, reports "unchanged", and leaves the machine running the OLD
+/// generated reaper indefinitely — which is precisely the silent desync the
+/// resource exists to eliminate, reintroduced one level up.
+///
+/// Empty for every other resource type, so no existing hash changes.
+fn canonical_generated_script(resource: &Resource) -> String {
+    if resource.resource_type != ResourceType::DiskBudget {
+        return String::new();
+    }
+    // Hash the WHOLE generated surface, not just `apply`. The state query is
+    // what drift compares against; if its shape changes and the desired-state
+    // hash does not, `apply` reports "unchanged" forever while `drift` reports
+    // "drifted" forever, and nothing re-records the state. Covering all three
+    // scripts makes any codegen change re-converge exactly once.
+    let parts = [
+        crate::core::codegen::apply_script(resource),
+        crate::core::codegen::state_query_script(resource),
+        crate::core::codegen::check_script(resource),
+    ];
+    let mut joined = String::new();
+    for part in &parts {
+        match part {
+            Ok(script) => joined.push_str(script),
+            Err(e) => return format!("generated_script_error:{e}"),
+        }
+        joined.push('\0');
+    }
+    format!("generated_script:{}", hasher::hash_string(&joined))
+}
+
 pub fn hash_desired_state(resource: &Resource) -> String {
     let type_str = resource.resource_type.to_string();
     // Owned canonicalization of overlay_hosts; kept alive for the borrow below.
     let overlay_hosts_canon = canonical_overlay_hosts(resource);
+    // Owned; kept alive for the borrow below. Empty when there is no `source:`.
+    let source_content_canon = canonical_source_content(resource);
+    // Owned; empty for every type except disk_budget.
+    let generated_script_canon = canonical_generated_script(resource);
     let mut components: Vec<&str> = vec![&type_str];
 
     collect_core_fields(&mut components, resource);
     collect_phase2_fields(&mut components, resource, &overlay_hosts_canon);
+    // APPENDED last on purpose: inserting or reordering would invalidate every
+    // recorded hash on every machine (see the module header).
+    if !source_content_canon.is_empty() {
+        components.push(&source_content_canon);
+    }
+    if !generated_script_canon.is_empty() {
+        components.push(&generated_script_canon);
+    }
 
     let joined = components.join("\0");
     let result = hasher::hash_string(&joined);

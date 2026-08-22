@@ -74,14 +74,38 @@ pub fn check_script(resource: &Resource) -> String {
     }
 
     if !resource.output_artifacts.is_empty() {
-        // One assertion per artifact, so a partially-built target names the
-        // artifact that is actually missing instead of a bare `task=pending`.
+        // Artifacts are declared RELATIVE TO `working_dir`, which is where the
+        // command ran and produced them. Testing them relative to whatever the
+        // check happens to be invoked from asks about a different filesystem
+        // location than the one the resource wrote to.
+        //
+        // This was harmless while nothing on the apply path consulted
+        // check_script. FJ-2732 made the executor verify against the host after
+        // every apply, and the mismatch surfaced immediately: a task with
+        // `working_dir: <tmp>/work` and `output_artifacts: ["narration.srt"]`
+        // produced the file, exited 0, and then failed verification with
+        // `task=pending:narration.srt` because the check looked in the CWD.
+        //
+        // `probe_base_dir` is the same resolution the FJ-2731 output check and
+        // the build prober already use, so all three now agree about where an
+        // artifact lives.
+        let base = crate::core::task::probe::probe_base_dir(resource);
         let assertions: Vec<String> = resource
             .output_artifacts
             .iter()
             .map(|a| {
+                // With no `working_dir` the base is "." and the artifact is
+                // already relative to the invoking directory — emit it bare so
+                // the script stays readable (`[ -e 'out/x' ]`, not
+                // `[ -e './out/x' ]`). Behaviour is identical either way.
+                let resolved = crate::core::task::probe::resolve_under(&base, a);
+                let path = if base == std::path::Path::new(".") {
+                    a.clone()
+                } else {
+                    resolved.to_string_lossy().into_owned()
+                };
                 verdict::assert_that(
-                    &format!("[ -e {} ]", sh_squote(a)),
+                    &format!("[ -e {} ]", sh_squote(&path)),
                     &format!("task=completed:{a}"),
                     &format!("task=pending:{a}"),
                 )
@@ -180,6 +204,40 @@ fn batch_script(resource: &Resource) -> String {
     if let Some(gather) = gather_script(resource) {
         script.push_str(&gather);
     }
+
+    // GH-254: re-assert the completion_check AFTER running.
+    //
+    // The check was used only as a guard on whether to run, never as evidence
+    // that running worked, so `converged` meant "the command exited 0" rather
+    // than "the resource reached its declared state". A task could do
+    // everything right, exit 0, and leave the declared condition false — and
+    // the lock recorded success, so the next `plan` reported `no changes` over
+    // a host that never converged.
+    //
+    // Observed on paiml/infra's `lean-toolchain`: `sudo: true` made $HOME=/root,
+    // so the toolchain installed where the runner user could not read it. Every
+    // command succeeded, `forjar apply` reported `1 converged, 0 failed`, and
+    // `command -v lean` failed immediately afterwards.
+    //
+    // The check is already written and already cheap — it just ran. Running it
+    // once more turns an exit code into a statement about the world.
+    if let Some(ref check) = resource.completion_check {
+        // A YAML `|` block scalar always keeps its trailing newline. Pushing
+        // " ; }; then" right after it put the `;` on its own line — and a
+        // newline is already a command separator, so a bare `;` right after
+        // one is an empty statement: "syntax error near unexpected token `;'".
+        // trim_end() puts the `;` on the same line as the check's last command.
+        script.push_str("if ! { ");
+        script.push_str(check.trim_end());
+        script.push_str(" ; }; then\n");
+        script.push_str(
+            "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",
+        );
+        script.push_str("  echo 'task=not-converged: the declared state was not reached' >&2\n");
+        script.push_str("  exit 1\n");
+        script.push_str("fi\n");
+    }
+
     script
 }
 

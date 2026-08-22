@@ -137,6 +137,7 @@ async fn test_fj063_status_handler_empty() {
     let dir = tempfile::tempdir().unwrap();
     let handler = StatusHandler;
     let input = StatusInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: None,
     };
@@ -148,6 +149,7 @@ async fn test_fj063_status_handler_empty() {
 async fn test_fj063_status_handler_nonexistent_dir() {
     let handler = StatusHandler;
     let input = StatusInput {
+        path: None,
         state_dir: Some("/nonexistent/state/dir".to_string()),
         machine: None,
     };
@@ -178,6 +180,7 @@ async fn test_fj063_status_handler_with_state() {
 
     let handler = StatusHandler;
     let input = StatusInput {
+        path: None,
         state_dir: Some(state_dir.to_str().unwrap().to_string()),
         machine: None,
     };
@@ -192,6 +195,7 @@ async fn test_fj063_trace_handler_empty() {
     let dir = tempfile::tempdir().unwrap();
     let handler = TraceHandler;
     let input = TraceInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: None,
     };
@@ -221,6 +225,7 @@ async fn test_fj063_trace_handler_with_data() {
 
     let handler = TraceHandler;
     let input = TraceInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: None,
     };
@@ -244,6 +249,7 @@ async fn test_fj063_trace_handler_machine_filter() {
 
     let handler = TraceHandler;
     let input = TraceInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: Some("web1".to_string()),
     };
@@ -256,6 +262,7 @@ async fn test_fj063_trace_handler_machine_filter() {
 async fn test_fj063_trace_handler_nonexistent_dir() {
     let handler = TraceHandler;
     let input = TraceInput {
+        path: None,
         state_dir: Some("/nonexistent/trace/dir".to_string()),
         machine: None,
     };
@@ -269,6 +276,7 @@ async fn test_fj063_anomaly_handler_empty() {
     let dir = tempfile::tempdir().unwrap();
     let handler = AnomalyHandler;
     let input = AnomalyInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: None,
         min_events: None,
@@ -282,6 +290,7 @@ async fn test_fj063_anomaly_handler_empty() {
 async fn test_fj063_anomaly_handler_nonexistent_dir() {
     let handler = AnomalyHandler;
     let input = AnomalyInput {
+        path: None,
         state_dir: Some("/nonexistent/anomaly/dir".to_string()),
         machine: None,
         min_events: None,
@@ -330,6 +339,7 @@ async fn test_fj063_anomaly_handler_with_events() {
 
     let handler = AnomalyHandler;
     let input = AnomalyInput {
+        path: None,
         state_dir: Some(dir.path().to_str().unwrap().to_string()),
         machine: None,
         min_events: Some(3),

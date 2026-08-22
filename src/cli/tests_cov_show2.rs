@@ -11,7 +11,7 @@ const CONFIG: &str = "version: '1.0'\nname: test\nmachines:\n  web1:\n    hostna
 
 const CONFIG2: &str = "version: '1.0'\nname: test2\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n      - nginx-extras\n";
 
-const CONFIG_WITH_POLICY: &str = "version: '1.0'\nname: test\npolicy:\n  require_tags: false\n  max_resources: 100\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n";
+const CONFIG_WITH_POLICY: &str = "version: '1.0'\nname: test\npolicy:\n  tripwire: true\n  lock_file: true\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\n";
 
 const CONFIG_WITH_OUTPUTS: &str = "version: '1.0'\nname: test\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  nginx:\n    type: package\n    provider: apt\n    packages:\n      - nginx\noutputs:\n  nginx_version:\n    value: \"1.24\"\n  server_name:\n    value: web1\n";
 

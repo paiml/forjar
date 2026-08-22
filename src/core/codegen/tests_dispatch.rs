@@ -29,7 +29,11 @@ fn test_fj005_check_dispatches_service() {
 fn test_fj005_check_dispatches_mount() {
     let r = make_mount();
     let script = check_script(&r).unwrap();
-    assert!(script.contains("mountpoint"));
+    // Dispatch-level: only that a mount check was produced.
+    assert!(
+        script.contains("findmnt") || script.contains("mountpoint"),
+        "{script}"
+    );
 }
 
 #[test]
@@ -306,4 +310,37 @@ fn action_types_are_unaffected_when_state_is_not_absent() {
         script.contains("cc -c a.c"),
         "a normal task must still run its command:\n{script}"
     );
+}
+
+#[test]
+fn unresolved_secret_never_reaches_a_generated_script() {
+    // `resolve_or_fallback` returns the UNRESOLVED resource when the secrets
+    // provider fails, by design. Before this guard, a `file` whose content held
+    // `{{secrets.NAME}}` generated a heredoc that wrote that literal string to
+    // disk as though it were the credential — behind only a stderr warning.
+    // `backup_sync` was the sole guarded type; this is the generic chokepoint.
+    let r = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/tmp/creds".to_string()),
+        content: Some("API_KEY={{secrets.some-token}}".to_string()),
+        ..Default::default()
+    };
+    let err = apply_script(&r).expect_err("must refuse to generate the script");
+    assert!(
+        err.contains("unresolved secret template"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn a_resource_with_no_secrets_still_generates() {
+    // The guard must not be a blanket refusal: ordinary resources are unaffected.
+    let r = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/tmp/plain".to_string()),
+        content: Some("hello".to_string()),
+        ..Default::default()
+    };
+    let script = apply_script(&r).expect("must still generate");
+    assert!(script.contains("/tmp/plain"), "unexpected script: {script}");
 }

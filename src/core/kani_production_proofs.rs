@@ -15,6 +15,8 @@
 //! | `proof_mutation_score_pct_bounded` | `MutationScore::score_pct()` | Result in [0,100] |
 //! | `proof_convergence_pass_rate_bounded` | `ConvergenceSummary::pass_rate()` | Result in [0,100] |
 //! | `proof_applicable_operators_valid` | `applicable_operators()` | Operator applicability invariant |
+//! | `proof_rejects_unknown_total_and_monotone` | `parser::rejects_unknown()` | Total; monotone in the unknown-field count |
+//! | `proof_missing_state_is_exact` | `state_visibility::missing_mask()` | No false positives or negatives |
 
 /// MutationScore::grade() is monotonic: higher score_pct → higher/equal grade.
 ///
@@ -141,7 +143,7 @@ fn proof_convergence_pass_rate_bounded() {
 #[cfg(kani)]
 #[kani::proof]
 fn proof_applicable_operators_valid() {
-    use super::store::mutation_runner::applicable_operators;
+    use super::store::mutation_runner::ALL_MUTATION_OPERATORS;
 
     let rtype_idx: u8 = kani::any();
     kani::assume(rtype_idx < 4);
@@ -152,11 +154,127 @@ fn proof_applicable_operators_valid() {
         _ => "mount",
     };
 
-    let ops = applicable_operators(rtype);
-    for op in &ops {
-        assert!(
-            op.applicable_types().contains(&rtype),
-            "operator must be applicable to the resource type"
-        );
+    // Range over the PREDICATE, not the allocating wrapper.
+    //
+    // `applicable_operators` builds its result with `.collect()` into a Vec, so
+    // Kani must model the allocator on top of the string comparisons in
+    // `applicable_types()`. Measured 2026-08-16: this was the ONLY harness to
+    // start in a 45-minute CI run, and was still inside it when the job was
+    // killed — one harness, 22+ minutes, no verdict, nothing else reached.
+    //
+    // Identical shape to `proof_disk_budget_hysteresis_total`, which drove a
+    // String-allocating constructor across a 65,536-point space and never
+    // terminated. An intractable proof is indistinguishable from an absent one,
+    // and this workflow exists precisely to stop proofs that never run.
+    //
+    // The property is unchanged and still checked against the production
+    // `applicable_types()`: an operator is admitted for a type exactly when it
+    // declares that type. Only the heap leaves the model.
+    // The original assertion — "every operator the filter RETURNED is applicable"
+    // — is true by construction of the filter, so it could not fail. Restating
+    // it allocation-free would just be a tautology comparing an expression to
+    // itself. So this proves the property that CAN fail and that actually
+    // matters: every resource type has at least one applicable operator.
+    //
+    // Without it, mutation testing over that type mutates nothing, finds
+    // nothing, and reports success — a vacuous green, which is the failure this
+    // whole proof gate exists to catch. Adding a resource type and forgetting
+    // to give any operator its name is exactly how that happens.
+    let mut applicable_count = 0usize;
+    for op in ALL_MUTATION_OPERATORS {
+        if op.applicable_types().contains(&rtype) {
+            applicable_count += 1;
+        }
     }
+    assert!(
+        applicable_count > 0,
+        "resource type has no applicable mutation operator: mutation testing \
+         would mutate nothing and report success"
+    );
+}
+
+/// KANI-CLC-001 — `parser::rejects_unknown()` is total and monotone.
+///
+/// Contract: contracts/config-load-consistency-v1.yaml
+///
+/// This is the decision `parse_and_validate_opts` makes about whether unknown
+/// fields are fatal (GH-272). Proving it here rather than proving something
+/// about `parse_and_validate_opts` is deliberate: that function reads a file
+/// and allocates a diagnostic string per unknown field, and CBMC models every
+/// path through both. A harness aimed there would explode the state space
+/// without establishing anything the falsification tests do not already cover.
+///
+/// Monotonicity is the property that matters operationally: finding MORE
+/// unknown fields must never turn a rejection back into an acceptance.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_rejects_unknown_total_and_monotone() {
+    use super::parser::rejects_unknown;
+
+    let deny: bool = kani::any();
+    let n1: usize = kani::any();
+    let n2: usize = kani::any();
+    kani::assume(n1 <= 8);
+    kani::assume(n2 <= 8);
+    kani::assume(n1 <= n2);
+
+    // Total: both calls terminate and produce a value for every input.
+    let r1 = rejects_unknown(deny, n1);
+    let r2 = rejects_unknown(deny, n2);
+
+    // Monotone in the count: more unknown fields never un-rejects a config.
+    assert!(!r1 || r2);
+
+    // A clean config is never rejected on this ground, whatever the mode.
+    assert!(!rejects_unknown(deny, 0));
+
+    // And in strict mode any unknown field at all is fatal.
+    if deny && n2 > 0 {
+        assert!(r2);
+    }
+}
+
+/// KANI-SV-001 — the missing-state set difference is EXACT.
+///
+/// Contract: contracts/state-dir-visibility-v1.yaml
+///
+/// Two directions, and both matter operationally:
+///
+///   no false positives — a machine that HAS a lock is never reported missing.
+///     A warning that fires when nothing is wrong is one people learn to
+///     ignore, and this repo has watched exactly that happen to other gates.
+///
+///   no false negatives — every declared machine is either reported missing or
+///     is one of the lock-holders. A silent omission is how "101 to add"
+///     stayed mysterious in the first place.
+///
+/// Proved over the bitmask spec rather than the `&str` implementation: the
+/// latter builds a BTreeSet of heap strings, and CBMC models every path
+/// through that. `cli::state_visibility::tests::spec_agrees_with_implementation`
+/// binds the implementation to this spec over every subset pair up to 6
+/// machines, so the proof is not about a model nobody calls.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_missing_state_is_exact() {
+    use crate::cli::state_visibility::missing_mask;
+
+    let declared: u8 = kani::any();
+    let with_locks: u8 = kani::any();
+    // a lock for an undeclared machine is not meaningful input
+    let have = with_locks & declared;
+
+    let missing = missing_mask(declared, have);
+
+    // No false positives: nothing reported missing is actually present.
+    assert!(missing & have == 0);
+
+    // No false negatives: every declared machine is missing or present.
+    assert!(missing | have == declared);
+
+    // Nothing reported that was never declared.
+    assert!(missing & !declared == 0);
+
+    // Boundaries: no locks at all -> everything missing; all locks -> none.
+    assert!(missing_mask(declared, 0) == declared);
+    assert!(missing_mask(declared, declared) == 0);
 }

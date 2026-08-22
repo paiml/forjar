@@ -300,9 +300,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bashrs"
-version = "6.66.0"
+version = "6.68.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8da1542ffb7192d409a83da0e7ba805f91666decdb78d23d847deeb3c3f95d4e"
+checksum = "c42d8147fb1f92590550df72c943fad876041548c1e9aa21e627980c9c72e644"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1117,7 +1117,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "forjar"
-version = "1.12.2"
+version = "1.15.0"
 dependencies = [
  "age",
  "aprender-contracts",
@@ -1345,9 +1345,9 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "h2"
-version = "0.4.13"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f44da3a8150a6703ed5d34e164b875fd14c2cdab9af1252a9a1020bde2bdc54"
+checksum = "a9f37a958b41b3b19ee2707c06439c0e9e547e847223eb791ecb0cb821c65e27"
 dependencies = [
  "atomic-waker",
  "bytes",

@@ -3,6 +3,7 @@
 //! Defines the YAML schema types for machines, resources, policy, state locks,
 //! and provenance events. All types derive Serialize/Deserialize for YAML roundtripping.
 
+mod backup_sync_types;
 mod behavior_types;
 mod build_metrics;
 mod ci_pipeline_types;
@@ -10,6 +11,7 @@ mod config;
 mod container_build_types;
 mod contract_tier_types;
 mod coverage_types;
+mod disk_budget_types;
 mod dist_config_types;
 mod distribution_types;
 mod doctor_types;
@@ -20,8 +22,10 @@ mod generation_types;
 mod handler_contract_types;
 mod image_log_types;
 mod mutation_types;
+mod nas_archive_types;
 mod observability_types;
 mod oci_types;
+mod output_equivalence;
 mod plugin_types;
 mod policy;
 mod policy_rule_types;
@@ -50,6 +54,7 @@ mod undo_types;
 mod validation_types;
 mod wasm_types;
 
+pub use backup_sync_types::*;
 pub use behavior_types::*;
 pub use build_metrics::*;
 pub use ci_pipeline_types::*;
@@ -57,6 +62,7 @@ pub use config::*;
 pub use container_build_types::*;
 pub use contract_tier_types::*;
 pub use coverage_types::*;
+pub use disk_budget_types::*;
 pub use dist_config_types::*;
 pub use distribution_types::*;
 pub use doctor_types::*;
@@ -67,8 +73,10 @@ pub use generation_types::*;
 pub use handler_contract_types::*;
 pub use image_log_types::*;
 pub use mutation_types::*;
+pub use nas_archive_types::*;
 pub use observability_types::*;
 pub use oci_types::*;
+pub use output_equivalence::*;
 pub use plugin_types::*;
 pub use policy::*;
 pub use policy_rule_types::*;

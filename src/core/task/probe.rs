@@ -32,7 +32,8 @@
 //! IoDigest>` and never touches the filesystem or a transport, so its unit
 //! tests just construct the map.
 
-use super::io_tracking::{hash_inputs, hash_outputs_in};
+use super::io_tracking::hash_inputs;
+use super::output_hash::hash_outputs_with;
 use crate::core::types::Resource;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -124,7 +125,13 @@ pub fn probe_resource(resource: &Resource) -> Option<IoDigest> {
     let output_hash = if file_artifacts.is_empty() || outputs_missing {
         None
     } else {
-        hash_outputs_in(&file_artifacts, &base).ok().flatten()
+        // GH-246: honour the per-artifact equivalence predicate. Passing the
+        // map here rather than defaulting is what makes the declaration take
+        // effect at all — a predicate the probe never consults is a config key
+        // that reads as supported and does nothing.
+        hash_outputs_with(&file_artifacts, &base, &resource.output_equivalence)
+            .ok()
+            .flatten()
     };
 
     Some(IoDigest {
@@ -241,7 +248,11 @@ pub fn record_io_hashes(
         }
     }
     if !resource.output_artifacts.is_empty() {
-        if let Ok(Some(hash)) = hash_outputs_in(&resource.output_artifacts, &base) {
+        if let Ok(Some(hash)) = hash_outputs_with(
+            &resource.output_artifacts,
+            &base,
+            &resource.output_equivalence,
+        ) {
             details.insert(
                 "output_hash".to_string(),
                 serde_yaml_ng::Value::String(hash),

@@ -1,0 +1,128 @@
+---
+metadata:
+  version: "1.0.0"
+  # kind: pattern — the obligations concern process behaviour observed by
+  # running a recipe twice under different trees. Not a decidable core, and per
+  # GH-242 a harness that reaches a hash cannot produce a verdict anyway.
+  kind: pattern
+  created: "2026-08-17"
+  author: "PAIML Engineering"
+  description: |
+    GH-244: detect a task that reads a file it never declared in `task_inputs`.
+
+    `staleness_reason` decides entirely from the DECLARED set, so a change to an
+    undeclared input yields `None` and plan/check/drift/apply all report a
+    clean, converged stack over a stale artifact. Under-declaration converts
+    "no build system" into "a build system that lies", which is strictly harder
+    to detect than having no cache at all.
+
+    Mechanism: sandboxing-by-omission. Run once from a full copy of
+    `working_dir`, once from a tree containing only the glob-expanded
+    `task_inputs`, and compare. No privileges, no ptrace, no LD_PRELOAD — the
+    three mechanisms the issue weighs and calls "inherently best-effort".
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/244"
+    - "GH-247 — verify, which this extends; the issue calls it option (b) and says it is what they would consume first"
+
+equations:
+  detection:
+    formula: |
+      verdict(r) = UndeclaredInput  if full(r) = Reproduced ∧ declared_only(r) ≠ Reproduced
+                 = full(r)          otherwise
+    domain: "r ∈ Resource with type=task"
+    codomain: "Verdict"
+    invariants:
+      - "UndeclaredInput is reported ONLY when the full-tree run reproduced"
+      - "A non-deterministic recipe fails both runs and stays Diverged"
+
+proof_obligations:
+  - type: soundness
+    property: "Under-declaration is never confused with non-determinism"
+    formal: "full(r) ≠ Reproduced ⟹ verdict(r) = full(r)"
+    applies_to: all
+    enforced_by: "src/core/verify.rs::verify_hermetic — early return before the hermetic run"
+    notes: |
+      The difference between the two runs is only attributable when the full-tree
+      run reproduced. A non-deterministic generator fails BOTH, and blaming the
+      declaration for a generator's own instability is precisely the misdiagnosis
+      this feature exists to replace.
+
+  - type: completeness
+    property: "A recipe reading an undeclared project file is detected"
+    formal: "reads(r) ⊄ expand(task_inputs(r)) ∧ full(r) = Reproduced ⟹ UndeclaredInput"
+    applies_to: "files inside working_dir"
+    enforced_by: "src/core/verify.rs::run_from_declared_inputs"
+    notes: |
+      SCOPE, stated plainly: this sees reads of files inside the project tree.
+      It cannot see a read of /usr/share/fonts or a tool version, because those
+      exist in the scratch tree too. That is the issue's option (c), which a
+      `data:` source of `type: command` already covers. Nothing here should be
+      read as "the declaration is now proven complete".
+
+  - type: safety
+    property: "Detection never writes the declared output path"
+    formal: "inherited from GH-247 — both runs execute in scratch trees"
+    applies_to: all
+    enforced_by: "src/core/verify.rs::verify_resource, run_from_declared_inputs"
+
+enforcement:
+  undeclared_input_is_detected:
+    description: "A recipe reading an undeclared project file is reported"
+    check: "tests/falsification_undeclared_inputs.rs::an_undeclared_project_file_is_detected"
+    severity: "ERROR"
+  nondeterminism_is_not_misattributed:
+    description: |
+      The discrimination that makes the verdict trustworthy: a non-deterministic
+      recipe stays `Diverged` rather than being blamed on the declaration.
+    check: "tests/falsification_undeclared_inputs.rs::nondeterminism_is_reported_as_divergence_not_as_under_declaration"
+    severity: "ERROR"
+  the_flag_is_actually_wired:
+    description: |
+      `--check-declared-inputs` must change the verdict. The first
+      implementation parsed the flag, bound the value, and still called the
+      non-hermetic path — correct code, unreachable feature.
+    check: "tests/falsification_undeclared_inputs.rs::the_flag_actually_changes_the_verdict"
+    severity: "ERROR"
+  the_gate_is_passable:
+    description: "A fully-declared recipe passes with the flag on"
+    check: "tests/falsification_undeclared_inputs.rs::a_fully_declared_project_passes_the_flag"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-UDI-001
+    rule: "An undeclared project file is detected"
+    prediction: "A recipe reading theme.txt while declaring only slide.txt reports UndeclaredInput"
+    test: "tests/falsification_undeclared_inputs.rs::an_undeclared_project_file_is_detected"
+    if_fails: "Under-declaration stays invisible and the cache keeps lying"
+
+  - id: FALSIFY-UDI-002
+    rule: "Non-determinism is not misattributed"
+    prediction: "A timestamp generator reports Diverged, never UndeclaredInput"
+    test: "tests/falsification_undeclared_inputs.rs::nondeterminism_is_reported_as_divergence_not_as_under_declaration"
+    if_fails: "Every unstable generator is blamed on its declaration; the verdict becomes noise"
+
+  - id: FALSIFY-UDI-003
+    rule: "The flag reaches the implementation"
+    prediction: "With the flag the verdict changes; without it the same project reproduces"
+    test: "tests/falsification_undeclared_inputs.rs::the_flag_actually_changes_the_verdict"
+    if_fails: "A feature that is correct and unreachable — which is how it first shipped locally"
+
+  - id: FALSIFY-UDI-004
+    rule: "The message names the undeclared file"
+    prediction: "The failure text carries the recipe's own stderr, e.g. `theme.txt: No such file`"
+    test: "tests/falsification_undeclared_inputs.rs::a_recipe_that_cannot_run_without_the_undeclared_file_names_the_failure"
+    if_fails: "A true verdict nobody can act on"
+
+qa_gate:
+  id: F-UDI-001
+  name: "Undeclared Input Detection Contract"
+  description: "Detect reads outside task_inputs by running from the declared set alone"
+  checks:
+    - "undeclared_input_is_detected"
+    - "nondeterminism_is_not_misattributed"
+    - "the_flag_is_actually_wired"
+    - "the_gate_is_passable"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Remove the early return so a non-reproducing full run still triggers the hermetic comparison"
+
+verification_level: L3

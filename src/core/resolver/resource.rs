@@ -139,6 +139,37 @@ fn resolve_build_and_overlay_fields(
     r.overlay_work = resolve_opt(&r.overlay_work, params, machines, secrets)?;
     r.overlay_merged = resolve_opt(&r.overlay_merged, params, machines, secrets)?;
 
+    // Disk budget — the cadence, and every reclaim root. Roots are the paths
+    // the reaper DELETES under, so an unexpanded `{{params.home}}` there is not
+    // a cosmetic bug: the literal would simply never match and the rule would
+    // silently reclaim nothing, which is the exact silent-inertness this
+    // resource exists to prevent.
+    r.budget_schedule = resolve_opt(&r.budget_schedule, params, machines, secrets)?;
+    for rule in &mut r.budget_reclaim {
+        rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
+    }
+
+    // Backup sync. `backup_token` is the important one: it arrives as
+    // `{{secrets.NAME}}` and an unresolved value would be written into
+    // rclone.conf as the literal credential. The sources matter for the same
+    // reason budget roots do — an unexpanded path matches nothing, and a backup
+    // that silently protects nothing is exactly what this resource replaced.
+    r.backup.remote = resolve_opt(&r.backup.remote, params, machines, secrets)?;
+    r.backup.remote_type = resolve_opt(&r.backup.remote_type, params, machines, secrets)?;
+    r.backup.schedule = resolve_opt(&r.backup.schedule, params, machines, secrets)?;
+    // FJ-038: `{{params.home}}`-style templates must expand here too, or the
+    // literal reaches the generated archive script and names a path that does
+    // not exist.
+    r.archive.destination = resolve_opt(&r.archive.destination, params, machines, secrets)?;
+    r.archive.schedule = resolve_opt(&r.archive.schedule, params, machines, secrets)?;
+    r.archive.dirs = resolve_list(&r.archive.dirs, params, machines, secrets)?;
+    r.backup.bandwidth_limit = resolve_opt(&r.backup.bandwidth_limit, params, machines, secrets)?;
+    r.backup.token = resolve_opt(&r.backup.token, params, machines, secrets)?;
+    r.backup.source = resolve_list(&r.backup.source, params, machines, secrets)?;
+    for v in r.backup.remote_config.values_mut() {
+        *v = resolve_template_with_secrets(v, params, machines, secrets)?;
+    }
+
     Ok(())
 }
 
@@ -244,4 +275,33 @@ pub fn resolve_all(
             )
         })
         .collect()
+}
+
+/// Resource IDs whose RESOLVED form still carries a `{{secrets.*}}` placeholder.
+///
+/// `resolve_or_fallback` above deliberately returns the UNRESOLVED resource when
+/// template resolution fails, so plan/drift/destroy all make the same decision.
+/// The cost is that a secret which cannot be resolved survives as the literal
+/// string `{{secrets.name}}` — and a credential-shaped placeholder shipped to a
+/// machine is not a credential. `forjar apply` must refuse rather than write it.
+///
+/// Serialising the whole resource, rather than checking a hand-written list of
+/// secret-bearing fields, means a newly added field is covered the day it lands.
+pub fn unresolved_secret_resources(
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<String> {
+    resources
+        .iter()
+        .filter(|(_, r)| has_unresolved_secret(r))
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
+/// True when this single resource still carries a `{{secrets.*}}` placeholder.
+///
+/// Checked at the codegen chokepoint so ONE unresolvable secret fails ONE
+/// resource, the way `backup_sync` has always behaved — rather than aborting an
+/// otherwise-fine apply of the whole machine.
+pub fn has_unresolved_secret(resource: &Resource) -> bool {
+    serde_yaml_ng::to_string(resource).is_ok_and(|s| s.contains("{{secrets."))
 }

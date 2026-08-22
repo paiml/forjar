@@ -41,6 +41,7 @@ resources:
             slack: None,
             email: None,
             webhook: None,
+            webhook_headers: None,
             teams: None,
             discord: None,
             opsgenie: None,

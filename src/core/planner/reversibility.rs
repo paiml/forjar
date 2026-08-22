@@ -60,6 +60,15 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::GithubRelease => Reversibility::Reversible,
         // Overlay IP / units can be re-bound and re-installed by re-applying
         ResourceType::OverlayInterface => Reversibility::Reversible,
+        // Destroying a budget only removes the reaper and its units; it does
+        // not un-reclaim. (The reclaim itself is irreversible by design — that
+        // is what `budget_reclaim` authorises.)
+        ResourceType::DiskBudget => Reversibility::Reversible,
+        // Destroying the resource removes the schedule, never the remote data.
+        ResourceType::BackupSync => Reversibility::Reversible,
+        // Destroying the resource removes the script and units, not the archived
+        // data — the NAS copy outlives the declaration.
+        ResourceType::NasArchive => Reversibility::Reversible,
     }
 }
 

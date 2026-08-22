@@ -105,6 +105,8 @@ mod tests_observe_cov;
 #[cfg(test)]
 mod tests_lsp_cov;
 #[cfg(test)]
+mod tests_lsp_dogfood;
+#[cfg(test)]
 mod tests_destroy_ext_cov;
 #[cfg(test)]
 mod tests_workspace_ext_cov;
@@ -144,3 +146,13 @@ mod tests_cov_check_blocks;
 mod tests_preflight_ssh_cov;
 #[cfg(test)]
 mod tests_dist_verify_tier2;
+#[cfg(test)]
+mod tests_flag_consumer_guard;
+#[cfg(test)]
+mod tests_apply_scope;
+#[cfg(test)]
+mod tests_flag_surface;
+#[cfg(test)]
+mod tests_gh_dogfood_p1;
+mod tests_dogfood_observ;
+mod tests_dogfood_p4;

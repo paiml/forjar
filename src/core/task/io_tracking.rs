@@ -5,6 +5,7 @@
 //! unchanged inputs can be skipped.
 
 use crate::tripwire::hasher;
+use indexmap::IndexMap;
 use std::path::Path;
 
 /// Hash all files matching input patterns in a directory.
@@ -77,39 +78,7 @@ pub fn hash_outputs(artifacts: &[String]) -> Result<Option<String>, String> {
 /// mismatch made every relative-path artifact hash as absent, so a resource
 /// could never observe its own output.
 pub fn hash_outputs_in(artifacts: &[String], base_dir: &Path) -> Result<Option<String>, String> {
-    if artifacts.is_empty() {
-        return Ok(None);
-    }
-
-    let mut components: Vec<String> = Vec::new();
-    for artifact in artifacts {
-        let joined;
-        let path = {
-            let p = Path::new(artifact);
-            if p.is_absolute() {
-                p
-            } else {
-                joined = base_dir.join(p);
-                joined.as_path()
-            }
-        };
-        if path.exists() {
-            let hash = if path.is_dir() {
-                hasher::hash_directory(path)?
-            } else {
-                hasher::hash_file(path)?
-            };
-            components.push(format!("{artifact}\0{hash}"));
-        }
-        // Missing artifacts are not an error — they may not exist yet
-    }
-
-    if components.is_empty() {
-        return Ok(None);
-    }
-
-    let refs: Vec<&str> = components.iter().map(|s| s.as_str()).collect();
-    Ok(Some(hasher::composite_hash(&refs)))
+    super::output_hash::hash_outputs_with(artifacts, base_dir, &IndexMap::new())
 }
 
 /// Determine if a stage can be skipped based on cached input hash.
@@ -149,7 +118,7 @@ pub fn should_skip_cached(
 }
 
 /// Expand a glob pattern to matching file paths.
-fn expand_glob(pattern: &str, base_dir: &Path) -> Result<Vec<String>, String> {
+pub(crate) fn expand_glob(pattern: &str, base_dir: &Path) -> Result<Vec<String>, String> {
     let full_pattern = if Path::new(pattern).is_absolute() {
         pattern.to_string()
     } else {

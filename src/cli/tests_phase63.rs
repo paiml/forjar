@@ -29,8 +29,8 @@ mod tests {
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n",
+resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n",
         );
         assert!(cmd_validate_check_provider_consistency(&f, false).is_ok());
     }
@@ -100,9 +100,9 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n  \
+c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
         );
         assert!(cmd_graph_longest_path(&f, false).is_ok());
     }
@@ -135,9 +135,9 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
             dir.path(),
             "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app1:\n    type: file\n    machine: web\n    path: /opt/a\n    depends_on: [base]\n\
-  app2:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [base]\n",
+resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n  \
+app1:\n    type: file\n    machine: web\n    path: /opt/a\n    depends_on: [base]\n  \
+app2:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [base]\n",
         );
         assert!(cmd_graph_in_degree(&f, false).is_ok());
     }

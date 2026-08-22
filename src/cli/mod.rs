@@ -3,9 +3,12 @@
 mod agent_registry;
 mod agent_sbom;
 mod apply;
+mod apply_dry_run;
 mod apply_gates;
 mod apply_helpers;
 mod apply_output;
+mod apply_preview;
+mod apply_scope;
 mod apply_selection;
 mod apply_variants;
 mod bootstrap_cmd;
@@ -60,6 +63,7 @@ pub mod dist_checksums;
 pub mod dist_generators;
 pub mod dist_generators_b;
 mod dist_homebrew;
+mod dist_output;
 mod dist_schema;
 pub mod dist_verify;
 mod dist_verify_tier2;
@@ -79,7 +83,10 @@ mod graph_analysis;
 mod graph_analytics;
 mod graph_analytics_ext;
 mod graph_compliance;
-mod graph_core;
+mod verify;
+// GH-212: `graph_core::parse_graph_format` is the single format parser shared
+// with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
+pub(crate) mod graph_core;
 mod graph_cross;
 mod graph_export;
 mod graph_export_b;
@@ -112,12 +119,15 @@ pub mod helpers;
 pub mod helpers_state;
 pub mod helpers_time;
 mod history;
+mod history_resource;
 pub mod image_android;
 pub mod image_cmd;
 mod impact_analysis;
 mod import_cmd;
+mod inert_flags;
 mod infra;
 mod infra_bench;
+mod infra_bench_baseline;
 mod infra_query;
 mod infra_query_live;
 mod init;
@@ -133,8 +143,13 @@ mod lock_output;
 mod lock_repair;
 mod lock_security;
 mod logs;
+mod logs_follow;
+mod logs_gc;
 pub mod lsp;
+// GH-215: maps a diagnostic message back to a range in the document.
+mod lsp_locate;
 mod lsp_publish;
+mod lsp_validate;
 mod make;
 mod makefile_cmd;
 mod makefile_import;
@@ -143,10 +158,14 @@ mod model_card;
 mod model_eval;
 mod multi_config;
 mod observe;
+mod observe_anomaly;
+mod oci_pack;
 pub(crate) mod output;
 mod parallel_multi_stack;
 mod plan;
+mod plan_selector;
 pub(crate) mod plugin;
+mod plugin_run;
 mod policy_coverage;
 mod policy_install;
 mod pq_signing;
@@ -181,6 +200,7 @@ mod stack_dep_graph;
 mod stack_diff;
 mod state_encrypt;
 mod state_import_brownfield;
+pub(crate) mod state_visibility;
 mod status_alerts;
 mod status_analytics;
 mod status_compliance;
@@ -239,6 +259,7 @@ mod store_import;
 mod store_ops;
 mod store_pin;
 pub mod structured_log;
+mod template_cmd;
 mod trigger;
 pub mod tui;
 mod undo;
@@ -275,6 +296,7 @@ mod validate_structural;
 mod validate_structural_constraints;
 mod validate_topology;
 mod validate_transport;
+mod webhook_post;
 mod workspace;
 pub use commands::Commands;
 pub use dispatch::dispatch;
@@ -290,6 +312,14 @@ include!("mod_test_decl_c.rs");
 /// `cli::plan`, or the two disagree about whether a converged project has
 /// pending work. Re-exported through one named function so there is a single
 /// definition, not a second implementation.
-pub(crate) fn strip_unrequested_phony_for_mcp(config: &mut crate::core::types::ForjarConfig) {
-    apply_selection::strip_unrequested_phony(config, &[]);
+///
+/// GH-214 (#208): `goals` carries the ids the caller explicitly asked for
+/// (e.g. `forjar_plan`'s `resource` selector). A phony resource named by the
+/// caller is REQUESTED, so it must survive the strip — otherwise selecting it
+/// by name would make it vanish and then be reported as "not found".
+pub(crate) fn strip_unrequested_phony_for_mcp(
+    config: &mut crate::core::types::ForjarConfig,
+    goals: &[String],
+) {
+    apply_selection::strip_unrequested_phony(config, goals);
 }

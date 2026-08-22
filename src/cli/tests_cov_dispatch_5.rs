@@ -397,7 +397,12 @@ fn dispatch_bench_routes() {
         }),
         false,
     );
-    assert!(result.is_ok());
+    // Dogfood #208: bench exits non-zero on a missed target; debug builds
+    // miss the release-tuned budgets, so assert it routed and gave a verdict.
+    assert!(
+        crate::cli::infra_bench_baseline::bench_routed(&result),
+        "bench must give a verdict: {result:?}"
+    );
 }
 
 #[test]

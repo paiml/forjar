@@ -14,6 +14,7 @@ mod status_args;
 mod store_args;
 mod subcmd_args;
 mod validate_args;
+mod verify_args;
 pub use apply_args::*;
 use clap::Subcommand;
 pub use dist_args::*;
@@ -31,6 +32,7 @@ pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
 pub use validate_args::*;
+pub use verify_args::*;
 /// Top-level CLI subcommands.
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -66,10 +68,17 @@ pub enum Commands {
     Import(ImportArgs),
     /// Show fully resolved config (recipes expanded, templates resolved)
     Show(ShowArgs),
+    /// Emit the shell a resource generates (apply/check/state-query)
+    Codegen(CodegenArgs),
+    /// Exercise generated artifacts against real tools and real on-disk shapes
+    Dogfood(DogfoodArgs),
     /// Show resource dependency graph
     Graph(GraphArgs),
     /// Run check scripts to verify pre-conditions without applying
     Check(CheckArgs),
+    /// GH-247: regenerate declared outputs into a scratch tree and report
+    /// whether they still reproduce — never writes the declared output path
+    Verify(VerifyArgs),
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
     /// FJ-1389: Unified stack diff — compare two configs

@@ -160,6 +160,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine

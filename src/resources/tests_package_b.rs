@@ -28,13 +28,24 @@ fn test_fj006_state_query_apt_output_format() {
 fn test_fj006_multi_package_check_preserves_all() {
     let r = make_apt_resource(&["a", "b", "c"]);
     let script = check_script(&r);
-    // All packages present in output
-    assert!(script.contains("dpkg -l 'a'"));
-    assert!(script.contains("dpkg -l 'b'"));
-    assert!(script.contains("dpkg -l 'c'"));
-    // Verify newline separation: one line per package, plus the FJ-2720
-    // divergence-flag prologue and the trailing `exit`.
-    assert_eq!(script.matches('\n').count(), 4, "{script}");
+
+    // Every package is checked, and in the declared order — which is what
+    // "preserves all" means. This used to assert a newline COUNT as a proxy
+    // for "one line per package"; that broke when verdict.rs gave the
+    // condition its own line so a folded YAML scalar could not collide with
+    // `if`/`then`, even though every package was still checked in order.
+    let positions: Vec<usize> = ["a", "b", "c"]
+        .iter()
+        .map(|p| {
+            script
+                .find(&format!("dpkg -l '{p}'"))
+                .unwrap_or_else(|| panic!("package {p} is not checked at all:\n{script}"))
+        })
+        .collect();
+    assert!(
+        positions.windows(2).all(|w| w[0] < w[1]),
+        "packages are checked out of declared order:\n{script}"
+    );
 }
 
 /// BH-MUT: cargo install uses conditional check before installing.
@@ -267,13 +278,23 @@ fn test_fj_cargo_source_ignores_version() {
 /// check_script still uses package name (binary name) even with source set.
 #[test]
 fn test_fj_cargo_source_check_uses_binary_name() {
+    // GH-257: the intent — `source:` must not change the crate's identity —
+    // is kept; the mechanism is not. This asserted
+    // `script.contains("command -v 'apr-cli'")`, which enshrined the defect:
+    // `apr-cli` installs a binary called `apr`, so that lookup FAILS on a host
+    // where the crate is installed and working. The check now consults cargo's
+    // own record, which is keyed by crate name.
     let mut r = make_apt_resource(&["apr-cli"]);
     r.provider = Some("cargo".to_string());
     r.source = Some("/build/apr-cli".to_string());
     let script = check_script(&r);
     assert!(
-        script.contains("command -v 'apr-cli'"),
-        "check_script must use package name even with source: {script}"
+        script.contains("'^apr-cli v'"),
+        "check must identify the crate by name even with source: {script}"
+    );
+    assert!(
+        !script.contains("command -v"),
+        "PATH lookup cannot answer this"
     );
 }
 

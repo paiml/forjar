@@ -35,8 +35,8 @@ fn test_fj132_fstab_grep_idempotency() {
     let r = make_mount_resource();
     let script = apply_script(&r);
     assert!(
-        script.contains("grep -q"),
-        "should check fstab before appending"
+        script.contains("grep -qxF") || script.contains("awk"),
+        "fstab convergence must compare the declared LINE, not the path"
     );
     assert!(script.contains("/etc/fstab"), "should reference fstab");
 }
@@ -99,8 +99,9 @@ fn test_fj036_mount_apply_adds_fstab() {
         "apply must add correctly formatted fstab entry"
     );
     assert!(
-        script.contains("grep -q '/mnt/shared' /etc/fstab"),
-        "apply must check fstab idempotently before appending"
+        script.contains("/etc/fstab") && (script.contains("grep -qxF") || script.contains("awk")),
+        "apply must converge fstab on the declared line, not append when the \
+         path is merely absent"
     );
 }
 
@@ -127,8 +128,8 @@ fn test_mount_check_mounted() {
     r.path = Some("/mnt/backup-vol".to_string());
     let script = check_script(&r);
     assert!(
-        script.contains("mountpoint -q '/mnt/backup-vol'"),
-        "check must use mountpoint -q on the target: {script}"
+        script.contains("'/mnt/backup-vol'") && script.contains("findmnt"),
+        "check must compare the MOUNTED source against the declared one: {script}"
     );
     assert!(
         script.contains("mounted:/mnt/backup-vol"),

@@ -31,6 +31,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::StateDecrypt(..)
         | Commands::StateRekey(..)) => dispatch_misc_state(cmd),
         cmd @ (Commands::Show(..)
+        | Commands::Codegen(..)
+        | Commands::Dogfood(..)
         | Commands::Diff(..)
         | Commands::StackDiff(..)
         | Commands::Compare(..)
@@ -54,6 +56,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::Undo(..)
         | Commands::UndoDestroy(..)) => dispatch_misc_fleet(cmd, verbose),
         cmd @ (Commands::Check(..)
+        | Commands::Verify(..)
         | Commands::Fmt(..)
         | Commands::Lint(..)
         | Commands::Doctor(..)
@@ -95,7 +98,14 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             resource,
         }) => {
             if let Some(ref res) = resource {
-                return cmd_history_resource(&state_dir, res, limit, json);
+                // Dogfood #208: --resource must compose with --machine.
+                return super::history_resource::cmd_history_resource(
+                    &state_dir,
+                    machine.as_deref(),
+                    res,
+                    limit,
+                    json,
+                );
             }
             cmd_history(
                 &state_dir,
@@ -196,6 +206,12 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
             resource,
             json,
         }) => cmd_show(&file, resource.as_deref(), json),
+        Commands::Codegen(CodegenArgs {
+            file,
+            resource,
+            phase,
+        }) => crate::core::codegen::emit_for_cli(&file, &resource, &phase),
+        Commands::Dogfood(DogfoodArgs { json }) => crate::core::dogfood::report(json),
         Commands::Diff(DiffArgs {
             from,
             to,
@@ -351,6 +367,7 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             verbose,
         ),
+        Commands::Verify(args) => super::verify::cmd_verify(&args, verbose),
         Commands::Fmt(FmtArgs { file, check }) => cmd_fmt(&file, check),
         Commands::Lint(LintArgs {
             file,
@@ -360,6 +377,12 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             rules: _rules,
             bashrs_version,
         }) => {
+            // GH-211: FJ-374 was destructured to `_rules` and dropped — rustc
+            // silenced, the operator not. A custom rule file that is never
+            // loaded means lint reports clean against rules it never ran. The
+            // underscore binding is KEPT so the guard test still classifies
+            // `rules` as unconsumed; the refusal below is its only reader.
+            super::inert_flags::reject_inert_flag("--rules", _rules.is_some())?;
             if bashrs_version {
                 // Version extracted from Cargo.toml dependency
                 const BASHRS_VERSION: &str = "6.64.0";
@@ -390,7 +413,7 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             iterations,
             json,
             compare,
-        }) => cmd_bench(iterations, json, compare),
+        }) => cmd_bench(iterations as usize, json, compare),
         Commands::Watch(WatchArgs {
             file,
             state_dir,

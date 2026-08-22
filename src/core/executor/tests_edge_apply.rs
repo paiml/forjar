@@ -141,6 +141,7 @@ fn test_fj012_build_resource_details_empty() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(
@@ -253,6 +254,7 @@ fn test_fj012_build_resource_details_path_only() {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));

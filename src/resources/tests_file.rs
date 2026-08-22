@@ -104,6 +104,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         overlay_iface: None,
         overlay_hosts: None,
         overlay_firewall: None,
+        ..Default::default()
     }
 }
 
