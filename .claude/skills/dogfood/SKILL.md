@@ -1,6 +1,7 @@
 ---
 allowed-tools: Bash(cargo:*), Bash(forjar:*), Bash(pmat:*), Bash(gh:*), Bash(git:*), Bash(find:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(grep:*), Bash(diff:*), Bash(timeout:*), Bash(jq:*), Bash(python3:*), Bash(echo:*), Bash(cat:*), Bash(rm:*), Bash(mktemp:*), Bash(mkdir:*), Bash(sh:*), Bash(bashrs:*), Read, Glob, Grep, Agent
 description: Dogfood forjar — rebuild, install, exercise every command, prove the C1–C10 claims and contracts against a sandboxed stack, check quality, file bugs
+effort: high
 ---
 
 # Forjar CLI Exhaustive QA — Contract-First Dogfood
