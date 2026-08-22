@@ -69,3 +69,86 @@ fn proof_fvs_partition_is_not_empty() {
         "the partition is empty — every totality proof over it is vacuous"
     );
 }
+
+// ── FVS-4: the error taxonomy ───────────────────────────────────────────
+//
+// Both harnesses below target `ErrorClass`, never `ForjarError`. That is the
+// allocation-free boundary: `ForjarError` carries a `String`, so a harness that
+// CONSTRUCTS one drags the allocator and `core::fmt` into the model — the
+// measurement recorded in kani_proofs_backup_sync is 117 minutes at 6.5 GB for
+// exactly that mistake, on an input space of 216 cases.
+//
+// The split is the same one nas_archive documents. Kani proves the decision
+// algebra; EXECUTION proves the delegation. `ForjarError::exit_code` is one line
+// — `self.class.exit_code()` — and that it ignores `message` is proved by
+// `error::tests`, which builds real errors with different messages and compares
+// codes. Modelling a String to prove a one-line delegation would buy nothing.
+
+/// Every `ErrorClass` variant, selected symbolically.
+///
+/// The `match` is EXHAUSTIVE over the enum rather than a `%`-wrapped index, so
+/// adding a sixth variant fails to compile here. A harness that silently stops
+/// covering a new variant is worse than no harness: it reports totality over a
+/// set that has grown behind it.
+#[cfg(kani)]
+fn any_class() -> crate::core::error::ErrorClass {
+    use crate::core::error::ErrorClass as C;
+    let i: u8 = kani::any();
+    kani::assume(i < 5);
+    match i {
+        0 => C::Other,
+        1 => C::Partial,
+        2 => C::Validation,
+        3 => C::Connection,
+        _ => C::Drift,
+    }
+}
+
+/// Contract `KANI-FVS-001`: classification is TOTAL — every class maps into the
+/// published exit-code set `{1, 2, 3, 4, 10}`.
+///
+/// These values are a public contract: CI scripts branch on them. A class that
+/// mapped to some sixth code would be a silent change to that contract, and
+/// nothing else in the build would notice.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_fvs_classification_is_total() {
+    let code = any_class().exit_code();
+    assert!(
+        matches!(code, 1 | 2 | 3 | 4 | 10),
+        "a class maps outside the published exit-code set"
+    );
+}
+
+/// Contract `KANI-FVS-002`: the exit code is a function of the VARIANT alone,
+/// and distinct classes never collapse onto one code.
+///
+/// Injectivity is the half worth proving mechanically, because losing it is
+/// precisely the defect this taxonomy replaced. The old classifier chose the
+/// code by substring-matching the error PROSE, so every failure whose message
+/// happened to contain "transport" collapsed onto 4 — the connection code CI
+/// retries — including a deterministic bashrs rejection that fails identically
+/// on every retry. A non-injective classifier cannot be acted on: the caller
+/// cannot tell which failure it has.
+///
+/// `exit_code` takes `self: ErrorClass` by value, so it is structurally
+/// incapable of reading a message. Injectivity plus that signature is the
+/// allocation-free statement of "never of message length or content".
+#[cfg(kani)]
+#[kani::proof]
+fn proof_fvs_classification_ignores_prose() {
+    let a = any_class();
+    let b = any_class();
+    if a == b {
+        // Determinism: the same variant always yields the same code, with no
+        // other input in scope that could vary it.
+        assert!(a.exit_code() == b.exit_code());
+    } else {
+        // Injectivity: two different classes never share a code.
+        assert!(
+            a.exit_code() != b.exit_code(),
+            "two distinct error classes share an exit code — a caller cannot \
+             tell them apart, which is the defect prose classification had"
+        );
+    }
+}

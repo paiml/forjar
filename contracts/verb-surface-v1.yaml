@@ -243,22 +243,14 @@ kani_harnesses:
     property: "forall e: classify(e) in {Validation,Connection,Partial,Drift,Other} and exit_code(classify(e)) in {3,4,2,10,1}"
     bound: 8
     strategy: bounded_int
-    # No `harness:` key: this obligation is UNDISCHARGED. Naming a harness that
-    # does not exist reads as coverage while proving nothing (forjar#250), and a
-    # placeholder in the field is the same lie with extra steps — the harness
-    # existence check treats any value here as a name it must find.
-    # See pending_obligations.error_taxonomy for why, and what discharges it.
+    harness: proof_fvs_classification_is_total
 
   - id: KANI-FVS-002
     obligation: "classification is a FUNCTION of the variant, never of message length or content"
     property: "forall v, m1, m2: exit_code(classify_variant(v, m1)) = exit_code(classify_variant(v, m2))"
     bound: 8
     strategy: bounded_int
-    # No `harness:` key: this obligation is UNDISCHARGED. Naming a harness that
-    # does not exist reads as coverage while proving nothing (forjar#250), and a
-    # placeholder in the field is the same lie with extra steps — the harness
-    # existence check treats any value here as a name it must find.
-    # See pending_obligations.error_taxonomy for why, and what discharges it.
+    harness: proof_fvs_classification_ignores_prose
 
   - id: KANI-FVS-003
     obligation: "the CLI-leaf partition is total and disjoint"
@@ -269,23 +261,28 @@ kani_harnesses:
 
 pending_obligations:
   error_taxonomy: |
-    KANI-FVS-001 and KANI-FVS-002 name harnesses that are NOT written, and they
-    are marked DEFERRED rather than left cited, because a contract naming a
-    harness that does not exist reads as coverage while proving nothing — the
-    exact defect forjar#250 catalogued ten instances of.
+    DISCHARGED 2026-08-22. KANI-FVS-001 and KANI-FVS-002 were undischarged while
+    `ErrorClass` lived on an unmerged branch; the taxonomy landed with this change
+    and both harnesses are written.
 
-    The reason is concrete: both obligations quantify over `ErrorClass`, and that
-    type is not on this branch. The taxonomy work (replacing
-    `main::classify_exit_code`'s prose substring matching with a variant-driven
-    exit code) was done separately and is unmerged. Writing a harness over a type
-    that does not exist is not possible; writing one over the CURRENT prose
-    classifier would prove the defect correct rather than the property.
+    Both target `ErrorClass`, never `ForjarError`. That is the allocation-free
+    boundary: `ForjarError` carries a `String`, so a harness CONSTRUCTING one
+    drags the allocator and core::fmt into the model — 117 minutes at 6.5 GB for
+    a 216-case space, measured, recorded in kani_proofs_backup_sync.
 
-    DISCHARGE: when the taxonomy lands, both harnesses become writable as
-    allocation-free predicates over a finite enum — `exit_code` is a `const fn`
-    of the variant, so the bound is the variant count and CBMC models no
-    allocation. Until then these two obligations are UNDISCHARGED and this file
-    says so rather than implying otherwise.
+    So KANI-FVS-002 is proved in two halves, the split nas_archive established:
+      * Kani proves `ErrorClass::exit_code` is variant-determined AND INJECTIVE.
+        Injectivity is the half worth a proof, because losing it IS the defect
+        this replaced — prose matching collapsed every message containing
+        "transport" onto exit 4, so a caller could not tell a dead SSH link from
+        a deterministic bashrs rejection.
+      * EXECUTION proves the delegation. `ForjarError::exit_code` is one line,
+        `self.class.exit_code()`; `error::tests::the_exit_code_ignores_the_message_entirely`
+        builds real errors across all five classes with eight messages —
+        including the verbatim gx10 string and every phrase the old heuristic
+        keyed on — and requires the code to come from the variant. Falsified by
+        injection: restoring the `contains("transport")` branch fails it with the
+        original bug's exact signature, exit 4.
 
   note: |
     The e2e obligations above name test targets that DO NOT EXIST YET. This

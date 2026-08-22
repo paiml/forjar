@@ -299,7 +299,7 @@ mod validate_transport;
 mod webhook_post;
 mod workspace;
 pub use commands::Commands;
-pub use dispatch::dispatch;
+pub use dispatch::{dispatch, dispatch_classified};
 
 // Test module declarations (split across include files for file size).
 include!("mod_test_decl.rs");

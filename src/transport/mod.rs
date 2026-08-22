@@ -25,6 +25,7 @@ mod tests_ssh;
 #[cfg(test)]
 mod tests_timeout;
 
+use crate::core::error::{ForjarError, I8_VALIDATION_MARKER};
 use crate::core::types::Machine;
 
 /// FJ-#154: Shared slot for publishing a spawned child's PID to the timeout
@@ -147,13 +148,21 @@ impl ExecOutput {
 ///
 /// Both contain data that bashrs misinterprets as shell syntax. The data is never
 /// executed as shell — it is written to files via pipe or heredoc redirection.
+///
+/// The rejection is a VALIDATION failure and says so: it is deterministic, and
+/// a caller that retries it will be rejected identically forever. It used to
+/// exit 4 (connection — retryable) purely because callers wrap it in the words
+/// "transport error"; see [`crate::core::error`]. The class is declared here,
+/// at the producer, and lowered onto this still-`String` boundary by
+/// [`ForjarError::into_untyped`].
 fn validate_before_exec(script: &str) -> Result<(), String> {
     let sanitised = strip_data_payloads(script);
     crate::core::purifier::validate_script(&sanitised).map_err(|e| {
-        format!(
-            "I8 violation — script failed bashrs validation: {e}\n\n{}",
+        ForjarError::validation(format!(
+            "{I8_VALIDATION_MARKER}: {e}\n\n{}",
             numbered_for_diagnosis(&sanitised)
-        )
+        ))
+        .into_untyped()
     })
 }
 

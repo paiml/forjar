@@ -10,6 +10,7 @@ pub mod conditions;
 pub mod config_hash;
 pub mod cron_source;
 pub mod ephemeral;
+pub mod error;
 pub mod executor;
 pub mod gitenv;
 pub mod metric_collector;

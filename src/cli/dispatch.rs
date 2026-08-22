@@ -14,9 +14,29 @@ use super::helpers::*;
 use super::init::*;
 use super::plan::*;
 use super::workspace::resolve_state_dir;
+use crate::core::error::ForjarError;
 use std::sync::atomic::Ordering;
 
+/// Dispatch a CLI command, returning an error that carries its classification.
+///
+/// This is the boundary `main` exits through: the process exit code is read off
+/// the error's VARIANT ([`ForjarError::exit_code`]), never off its prose. See
+/// [`crate::core::error`] for why that distinction is the whole point — an I8
+/// bashrs rejection wrapped in the words "transport error" used to exit 4 and
+/// tell CI to retry a failure that can never succeed.
+///
+/// [`dispatch`] itself still returns `Result<(), String>`, so every error it
+/// produces is classified here by the named, deliberately-temporary fallback
+/// [`ForjarError::from_untyped`]. Sites migrate one at a time; the fallback is
+/// what remains until the last one has.
+pub fn dispatch_classified(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), ForjarError> {
+    dispatch(cmd, verbose, no_color).map_err(ForjarError::from_untyped)
+}
+
 /// Dispatch a CLI command.
+///
+/// The router. Its `String` errors are unclassified — prefer
+/// [`dispatch_classified`] anywhere an exit code is derived.
 pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String> {
     let verbose = verbose > 0;
     NO_COLOR.store(no_color, Ordering::Relaxed);
