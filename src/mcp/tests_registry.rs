@@ -127,3 +127,59 @@ fn test_fj142_export_schema_metadata() {
     assert_eq!(schema["server"], "forjar-mcp");
     assert_eq!(schema["version"], env!("CARGO_PKG_VERSION"));
 }
+
+// ── FVS (paiml/forjar#288) ──────────────────────────────────────────────
+
+/// Handler registration is generic over each handler's type, so `register_all`
+/// cannot be a loop over the verb table. This is the assertion that keeps the
+/// two from drifting — and it is the only remaining place where the nine names
+/// are written twice.
+#[test]
+fn register_all_matches_the_verb_table() {
+    let registry = build_registry();
+    for v in crate::verb::verbs() {
+        assert!(
+            registry.has_handler(&v.mcp_name()),
+            "verb `{}` is in the registry table but no handler is registered for `{}` \
+             — MCP would advertise a tool that tools/call cannot dispatch",
+            v.name,
+            v.mcp_name()
+        );
+    }
+    assert_eq!(
+        registry.len(),
+        crate::verb::verbs().len(),
+        "a handler is registered that the verb table does not declare"
+    );
+}
+
+/// The served registry and the tested registry must be the same set. Before
+/// FVS these were two separate lists and only one of them shipped.
+#[test]
+fn export_schema_matches_the_verb_table() {
+    let schema = export_schema();
+    let names: Vec<String> = schema["tools"]
+        .as_array()
+        .expect("tools array")
+        .iter()
+        .map(|t| t["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    let expected: Vec<String> = crate::verb::verbs().iter().map(|v| v.mcp_name()).collect();
+    assert_eq!(names, expected, "export_schema drifted from the verb table");
+}
+
+/// Every tool must publish readOnlyHint. Its absence is not neutral: an agent
+/// that cannot tell a read-only verb from a mutating one must treat all of
+/// them as mutating, which is the same as having no MCP surface for automation.
+#[test]
+fn every_tool_publishes_a_read_only_hint() {
+    let schema = export_schema();
+    for t in schema["tools"].as_array().expect("tools array") {
+        let hint = &t["annotations"]["readOnlyHint"];
+        assert!(
+            hint.is_boolean(),
+            "{}: readOnlyHint missing or not a boolean",
+            t["name"]
+        );
+    }
+}

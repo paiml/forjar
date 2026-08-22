@@ -59,6 +59,25 @@ install: build-release
 coverage:
 	cargo llvm-cov --summary-only --fail-under-lines 95
 
+.PHONY: coverage-check
+coverage-check:
+	@# The name the pre-release protocol looks for, and the gate it enforces.
+	@#
+	@# The floor is enforced by llvm-cov ITSELF via --fail-under-lines, never by
+	@# parsing a percentage in shell. The protocol warns about precisely that
+	@# shape, having watched it print a pass on a broken run:
+	@#
+	@#     if [ -n "$$COV" ] && [ "$$COV" -lt 95 ]; then fail; else PASS; fi
+	@#
+	@# An EMPTY percentage — broken instrumentation, a changed summary format,
+	@# anything that stops TOTAL parsing — takes the else branch and reports
+	@# success. Here an unmeasurable run is a non-zero exit from the tool that
+	@# did the measuring, so "unmeasured" and "met" cannot be confused.
+	@#
+	@# No `|| true` on this line, and none on anything that produces the
+	@# measurement: that is the other half of the same defect.
+	cargo llvm-cov --summary-only --fail-under-lines 95
+
 # Run security audit
 audit:
 	cargo audit
@@ -85,6 +104,16 @@ help:
 	@echo "  clean         - Remove build artifacts"
 	@echo "  install       - Install the binary"
 	@echo "  coverage      - Run coverage analysis (95% minimum)"
+	@echo "  coverage-check - Enforce the 95% floor (pre-release gate)"
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
 	@echo "  help          - Show this help message"
+
+.PHONY: cb200-ratchet
+cb200-ratchet:
+	@# CB-200 (TDG Grade Gate) is a dated ratchet, not a suppression. The gate
+	@# still reports the debt; this asserts it never GROWS. 61 was measured
+	@# identical on origin/main and release/1.16.0 (2026-08-21), so this release
+	@# introduced none of it. The count is COMPARED, not merely printed: a target
+	@# that echoes a number is documentation, and documentation does not fail.
+	@bash scripts/cb200-ratchet.sh

@@ -27,19 +27,7 @@ pub(crate) fn cmd_build(
     // combinations whose stdout it cannot own, rather than emitting JSON with
     // `docker load` progress interleaved into it.
     if json {
-        let blocking = [
-            (load, "--load"),
-            (push, "--push"),
-            (far, "--far"),
-            (sandbox, "--sandbox"),
-        ];
-        if let Some((_, flag)) = blocking.into_iter().find(|(on, _)| *on) {
-            return Err(format!(
-                "--json is not supported together with {flag}: {flag} streams \
-                 human-readable progress on stdout, which would not parse as JSON. \
-                 Run the build with --json first, then {flag} separately."
-            ));
-        }
+        reject_json_stdout_conflicts(load, push, far, sandbox)?;
     }
     let config = super::helpers::parse_and_validate(file)?;
     let res = config
@@ -70,15 +58,7 @@ pub(crate) fn cmd_build(
         println!("\nBuilding {resource} ({}) — CACHED", plan.tag);
         println!("  {cached}");
         println!("  Input hash: {input_hash}");
-        if load {
-            cmd_build_load(&output_dir)?;
-        }
-        if push {
-            cmd_build_push(&plan.tag, &output_dir)?;
-        }
-        if far {
-            cmd_build_far(resource, &output_dir)?;
-        }
+        run_distribution(resource, &plan.tag, &output_dir, load, push, far)?;
         return Ok(());
     }
 
@@ -143,14 +123,53 @@ pub(crate) fn cmd_build(
         return Ok(());
     }
 
+    run_distribution(resource, &plan.tag, &output_dir, load, push, far)
+}
+
+/// Refs #212: the flags `--json` cannot share stdout with.
+///
+/// Lifted out of `cmd_build` unchanged, including the order the flags are
+/// tested in, which decides which one the message names.
+fn reject_json_stdout_conflicts(
+    load: bool,
+    push: bool,
+    far: bool,
+    sandbox: bool,
+) -> Result<(), String> {
+    let blocking = [
+        (load, "--load"),
+        (push, "--push"),
+        (far, "--far"),
+        (sandbox, "--sandbox"),
+    ];
+    if let Some((_, flag)) = blocking.into_iter().find(|(on, _)| *on) {
+        return Err(format!(
+            "--json is not supported together with {flag}: {flag} streams \
+             human-readable progress on stdout, which would not parse as JSON. \
+             Run the build with --json first, then {flag} separately."
+        ));
+    }
+    Ok(())
+}
+
+/// Hand a finished layout to the distribution flags, in the order a build
+/// has always applied them: `--load`, then `--push`, then `--far`.
+fn run_distribution(
+    resource: &str,
+    tag: &str,
+    output_dir: &std::path::Path,
+    load: bool,
+    push: bool,
+    far: bool,
+) -> Result<(), String> {
     if load {
-        cmd_build_load(&output_dir)?;
+        cmd_build_load(output_dir)?;
     }
     if push {
-        cmd_build_push(&plan.tag, &output_dir)?;
+        cmd_build_push(tag, output_dir)?;
     }
     if far {
-        cmd_build_far(resource, &output_dir)?;
+        cmd_build_far(resource, output_dir)?;
     }
     Ok(())
 }
@@ -234,16 +253,7 @@ fn cmd_build_sandbox(
     println!("  {}", container_build::format_container_build(&result));
     println!("  Layout: {}", output_dir.display());
 
-    if load {
-        cmd_build_load(output_dir)?;
-    }
-    if push {
-        cmd_build_push(&plan.tag, output_dir)?;
-    }
-    if far {
-        cmd_build_far(resource, output_dir)?;
-    }
-    Ok(())
+    run_distribution(resource, &plan.tag, output_dir, load, push, far)
 }
 
 /// Refs #210: the one place an image resource's reference is decided.

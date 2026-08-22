@@ -1,6 +1,6 @@
 [package]
 name = "forjar"
-version = "1.15.0"
+version = "1.16.0"
 edition.workspace = true
 rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
@@ -36,6 +36,43 @@ undocumented_unsafe_blocks = "deny"
 
 [lints]
 workspace = true
+
+# Every interface this release ships, declared where it is versioned with the
+# code that implements it. The pre-release protocol runs each e2e target BY NAME
+# (`cargo test --test <target>`), which turns "that target does not exist" or
+# "its features are not enabled" into a hard error instead of a bare `cargo test`
+# exiting 0 without mentioning it.
+#
+# forjar ships exactly two interfaces:
+#   cli — 159 subcommands, all advertised in `--help`
+#   mcp — `forjar mcp`, stdio JSON-RPC, 9 registered tools
+#
+# There is NO http/serve surface. `core::webhook_server` exists but is not
+# reachable from any subcommand, so it is not an interface this release ships;
+# the protocol's transport-absence gate asserts the binary advertises nothing
+# beyond what is declared here.
+#
+# Both targets spawn CARGO_BIN_EXE_forjar. That is load-bearing: an e2e suite
+# that calls the library cannot see reachability, and rmedia's four-way parity
+# suite was green throughout the period its transports had no caller from
+# main.rs.
+[package.metadata.transports]
+cli = { e2e = "dogfood_p4_cli" }
+mcp = { e2e = "e2e_mcp_stdio_t" }
+# Each key names the e2e that proves the transport is REACHABLE from the shipped
+# binary — not that it exists in the source. e2e_verb_http_t spawns
+# CARGO_BIN_EXE_forjar and talks to it over a real socket.
+http = { e2e = "e2e_verb_http_t" }
+
+# How the dogfood protocol asks THIS binary about its own surface, so the
+# transport-invariance gate is DERIVED rather than a hand-written probe list.
+# `list` must print one verb name per line; {verb} and {params} are substituted.
+[package.metadata.unified_surface]
+list = "verb list"
+cli = "verb call {verb} --json {params}"
+http = { serve = "verb serve --port {port}", path = "/v1/verbs/{verb}" }
+# A verb that is safe to invoke repeatedly and has no side effects.
+probe = { verb = "validate", params = "{\"path\":\"forjar.yaml\"}" }
 
 [dependencies]
 blake3 = "1.8"

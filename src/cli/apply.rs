@@ -64,12 +64,7 @@ pub(crate) fn cmd_apply_scoped(
 
     let events_mode = output_mode == Some("events");
     let t_parse = Instant::now();
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    let mut config = load_apply_config(file, env_file, workspace)?;
     let dur_parse = t_parse.elapsed();
 
     if verbose {
@@ -137,11 +132,7 @@ pub(crate) fn cmd_apply_scoped(
 
     // GH-210 (FJ-129): measured BEFORE the apply. Measuring afterwards read a
     // lock the apply had just rewritten, so every resource looked unchanged.
-    let forced_noop_count = if cfg.force && !dry_run {
-        executor::forced_noop_count(&cfg)
-    } else {
-        0
-    };
+    let forced_noop_count = measure_forced_noops(&cfg, dry_run);
 
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
@@ -153,11 +144,7 @@ pub(crate) fn cmd_apply_scoped(
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
 
-    for result in &results {
-        if let Err(e) = state::save_apply_report(state_dir, result) {
-            eprintln!("warning: cannot save apply report: {e}");
-        }
-    }
+    save_apply_reports(state_dir, &results);
 
     if events_mode {
         return print_events_output(&results);
@@ -198,18 +185,7 @@ pub(crate) fn cmd_apply_scoped(
     }
 
     // FJ-563: OTLP trace export (post-apply, non-blocking)
-    if let Some(endpoint) = telemetry_endpoint {
-        match crate::tripwire::otlp_export::export_from_state_dir(state_dir, endpoint, &config.name)
-        {
-            Ok(n) if n > 0 => {
-                if verbose {
-                    eprintln!("OTLP: exported {n} spans to {endpoint}");
-                }
-            }
-            Err(e) => eprintln!("warning: OTLP export failed: {e}"),
-            _ => {}
-        }
-    }
+    export_otlp_traces(state_dir, telemetry_endpoint, &config.name, verbose);
 
     apply_post_actions(
         state_dir,
@@ -223,6 +199,86 @@ pub(crate) fn cmd_apply_scoped(
     )?;
 
     Ok(())
+}
+
+/// Parse the config and fold in every *input* that can still change it before
+/// planning starts: the `--env-file` params, the injected workspace param and
+/// the resolved data sources.
+///
+/// Exists so `cmd_apply_scoped` names one "read the desired state" step instead
+/// of open-coding four, and so the optional `--env-file` branch is decided here
+/// rather than in the command body. Order is load-bearing: env params land
+/// before the workspace injection, and data sources resolve last so they can
+/// see both.
+fn load_apply_config(
+    file: &Path,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+) -> Result<types::ForjarConfig, String> {
+    let mut config = parse_and_validate(file)?;
+    if let Some(path) = env_file {
+        load_env_params(&mut config, path)?;
+    }
+    inject_workspace_param(&mut config, workspace);
+    resolver::resolve_data_sources(&mut config)?;
+    Ok(config)
+}
+
+/// GH-210 (FJ-129): how many already-converged resources `--force` will
+/// re-apply.
+///
+/// Decides when that count is defined at all: only on a real forced run.
+/// Without `--force` nothing is being forced, and a `--dry-run` re-applies
+/// nothing, so both report zero rather than paying for the measurement.
+/// Exists so that condition sits beside its own name instead of inline in the
+/// command body. The *timing* constraint — this must be measured before the
+/// apply rewrites the lock — belongs to the call site and is documented there.
+fn measure_forced_noops(cfg: &executor::ApplyConfig, dry_run: bool) -> u32 {
+    if cfg.force && !dry_run {
+        executor::forced_noop_count(cfg)
+    } else {
+        0
+    }
+}
+
+/// Persist one apply report per result.
+///
+/// Decides that a report that cannot be written is a *warning*, never a failed
+/// apply: the resources already converged, so losing the audit record must not
+/// turn a green run red. Exists to keep that policy in one named place instead
+/// of an inline loop in the command body.
+fn save_apply_reports(state_dir: &Path, results: &[types::ApplyResult]) {
+    for result in results {
+        if let Err(e) = state::save_apply_report(state_dir, result) {
+            eprintln!("warning: cannot save apply report: {e}");
+        }
+    }
+}
+
+/// FJ-563: Export the run's spans to an OTLP endpoint after a successful apply.
+///
+/// Decides the three outcomes of an export: spans sent (announced only under
+/// `--verbose`), export failed (a warning — telemetry must never fail the
+/// apply), and nothing to send (silent). Exists so that non-blocking policy is
+/// stated once, out of the command body.
+fn export_otlp_traces(
+    state_dir: &Path,
+    telemetry_endpoint: Option<&str>,
+    config_name: &str,
+    verbose: bool,
+) {
+    let Some(endpoint) = telemetry_endpoint else {
+        return;
+    };
+    match crate::tripwire::otlp_export::export_from_state_dir(state_dir, endpoint, config_name) {
+        Ok(n) if n > 0 => {
+            if verbose {
+                eprintln!("OTLP: exported {n} spans to {endpoint}");
+            }
+        }
+        Err(e) => eprintln!("warning: OTLP export failed: {e}"),
+        _ => {}
+    }
 }
 
 /// FJ-1270: Check state file integrity via BLAKE3 sidecars.

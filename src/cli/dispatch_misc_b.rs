@@ -299,6 +299,28 @@ pub(crate) fn which_runtime(name: &str) -> bool {
 // dispatcher and the existing coverage tests keep their call site.
 pub(crate) use super::oci_pack::cmd_oci_pack;
 
+/// Decide which search term `state-query` should run with, or refuse.
+///
+/// A bare `--history`/`--timing`/`--reversibility`/`--git-history` run is an
+/// enrichment listing over every resource, so it may omit the term (`Ok(None)`);
+/// every other termless invocation is a user error. Exists so
+/// `dispatch_state_query` stays a flat list of report modes instead of also
+/// carrying this four-way decision.
+fn resolve_state_query_term(
+    query: Option<&str>,
+    history: bool,
+    timing: bool,
+    reversibility: bool,
+    git_history: bool,
+) -> Result<Option<&str>, String> {
+    let needs_enrichment = history || timing || reversibility || git_history;
+    match query {
+        Some(q) => Ok(Some(q)),
+        None if needs_enrichment => Ok(None),
+        None => Err("query term required (e.g. forjar state-query \"nginx\")".into()),
+    }
+}
+
 /// Route state-query subcommand to the right handler.
 fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     let QueryArgs {
@@ -345,12 +367,13 @@ fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
     if churn && query.is_none() {
         return super::query_format::cmd_query_churn(&state_dir, json);
     }
-    let needs_enrichment = history || timing || reversibility || git_history;
-    let q = match query.as_deref() {
-        Some(q) => Some(q),
-        None if needs_enrichment => None,
-        None => return Err("query term required (e.g. forjar state-query \"nginx\")".into()),
-    };
+    let q = resolve_state_query_term(
+        query.as_deref(),
+        history,
+        timing,
+        reversibility,
+        git_history,
+    )?;
     cmd_query_state(
         q,
         &state_dir,

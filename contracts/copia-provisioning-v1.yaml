@@ -46,17 +46,17 @@ falsification_tests:
   - id: FALSIFY-COPIA-001
     rule: "Perms before rename"
     prediction: "patch_script emits chmod/chown on $TMPFILE strictly before `mv $TMPFILE $DEST`"
-    test: "copia::tests::test_fj242_patch_script_copy_and_literal (chmod_at < mv_at) + _owner_and_group"
+    test: "copia::tests::patch_script_hardening"
     if_fails: "a world-readable window exposes 0600 secrets during provisioning"
   - id: FALSIFY-COPIA-002
     rule: "Heredoc not argv"
     prediction: "literal data appears in a `base64 -d <<'FORJAR_B64'` heredoc, never in an `echo '<b64>'`"
-    test: "copia::tests::test_fj242_patch_script_copy_and_literal"
+    test: "copia::tests::patch_script_hardening"
     if_fails: "a >1MiB literal blows ARG_MAX/E2BIG and provisioning fails"
   - id: FALSIFY-COPIA-003
     rule: "Integrity verify + trap"
     prediction: "patch_script verifies blake3 before commit and traps cleanup on exit"
-    test: "copia::tests::test_fj242_patch_script_copy_and_literal"
+    test: "copia::tests::patch_script_hardening"
     if_fails: "a corrupt reconstruction commits, or an interrupted transfer litters temp files"
   - id: FALSIFY-COPIA-004
     rule: "Injection guard"

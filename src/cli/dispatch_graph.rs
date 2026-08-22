@@ -139,6 +139,24 @@ pub(super) fn try_impact(
     None
 }
 
+/// The visualizations that re-shape the graph around one named resource. Both
+/// honour `format`, and they keep their original relative order so the flag
+/// precedence `try_visualization` applies is unchanged.
+fn try_visualization_focus(
+    file: &Path,
+    format: &str,
+    prune: &Option<String>,
+    highlight: &Option<String>,
+) -> Option<Result<(), String>> {
+    if let Some(ref r) = prune {
+        return Some(cmd_graph_prune(file, format, r));
+    }
+    if let Some(ref r) = highlight {
+        return Some(cmd_graph_highlight(file, format, r));
+    }
+    None
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_visualization(
     file: &Path,
@@ -162,11 +180,8 @@ pub(super) fn try_visualization(
     if layers {
         return Some(cmd_graph_layers(file));
     }
-    if let Some(ref r) = prune {
-        return Some(cmd_graph_prune(file, format, r));
-    }
-    if let Some(ref r) = highlight {
-        return Some(cmd_graph_highlight(file, format, r));
+    if let Some(result) = try_visualization_focus(file, format, prune, highlight) {
+        return Some(result);
     }
     if json {
         return Some(cmd_graph_json(file));

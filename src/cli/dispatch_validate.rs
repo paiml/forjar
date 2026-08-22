@@ -11,6 +11,42 @@ use super::validate_resources::*;
 use super::validate_structural::*;
 use super::validate_structural_constraints::*;
 use std::path::Path;
+
+/// One `validate --check-*` handler. Every flag-selected check has the same
+/// shape: it re-reads the config file and reports its own findings, honouring
+/// `--json`.
+type ValidateCheck = fn(&Path, bool) -> Result<(), String>;
+
+/// Run the first check whose flag is set, in table order, and return its
+/// result; `None` when none of the flags in the table is set.
+///
+/// Exists because every `try_validate_*` dispatcher below is nothing but a
+/// precedence table — first flag wins — previously spelled out as a dozen
+/// identical `if flag { return Some(check(file, json)); }` lines each. Order is
+/// significant and is the table's order; only the selected check is called.
+fn first_enabled_check(
+    file: &Path,
+    json: bool,
+    checks: &[(bool, ValidateCheck)],
+) -> Option<Result<(), String>> {
+    checks
+        .iter()
+        .find(|(enabled, _)| *enabled)
+        .map(|(_, check)| check(file, json))
+}
+
+/// GH-91: `--strict` and `--dry-expand` are accepted by the `validate` CLI but
+/// do nothing yet. Warn per flag so a caller is never silently ignored. Kept
+/// separate from the dispatch table because these flags select no check.
+fn warn_unimplemented_core_flags(strict: bool, dry_expand: bool) {
+    if strict {
+        eprintln!("Warning: --strict is not yet implemented for validate. Flag ignored.");
+    }
+    if dry_expand {
+        eprintln!("Warning: --dry-expand is not yet implemented for validate. Flag ignored.");
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_structural(
     file: &Path,
@@ -26,37 +62,34 @@ pub(super) fn try_validate_structural(
     check_circular_refs: bool,
     check_machine_reachability: bool,
 ) -> Option<Result<(), String>> {
-    if check_mount_points {
-        return Some(cmd_validate_check_mount_points(file, json));
-    }
-    if check_group_consistency {
-        return Some(cmd_validate_check_group_consistency(file, json));
-    }
-    if check_mode_consistency {
-        return Some(cmd_validate_check_mode_consistency(file, json));
-    }
-    if check_template_vars {
-        return Some(cmd_validate_check_template_vars(file, json));
-    }
-    if check_service_deps {
-        return Some(cmd_validate_check_service_deps(file, json));
-    }
-    if check_path_conflicts {
-        return Some(cmd_validate_check_path_conflicts(file, json));
-    }
-    if check_owner_consistency {
-        return Some(cmd_validate_check_owner_consistency(file, json));
-    }
-    if check_naming_conventions {
-        return Some(cmd_validate_check_naming_conventions(file, json));
-    }
-    if check_circular_refs {
-        return Some(cmd_validate_check_circular_refs(file, json));
-    }
-    if check_machine_reachability {
-        return Some(cmd_validate_check_machine_reachability(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (check_mount_points, cmd_validate_check_mount_points),
+            (
+                check_group_consistency,
+                cmd_validate_check_group_consistency,
+            ),
+            (check_mode_consistency, cmd_validate_check_mode_consistency),
+            (check_template_vars, cmd_validate_check_template_vars),
+            (check_service_deps, cmd_validate_check_service_deps),
+            (check_path_conflicts, cmd_validate_check_path_conflicts),
+            (
+                check_owner_consistency,
+                cmd_validate_check_owner_consistency,
+            ),
+            (
+                check_naming_conventions,
+                cmd_validate_check_naming_conventions,
+            ),
+            (check_circular_refs, cmd_validate_check_circular_refs),
+            (
+                check_machine_reachability,
+                cmd_validate_check_machine_reachability,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_quality(
@@ -75,43 +108,34 @@ pub(super) fn try_validate_quality(
     check_complexity: bool,
     check_limits: bool,
 ) -> Option<Result<(), String>> {
-    if check_idempotency_deep {
-        return Some(cmd_validate_check_idempotency_deep(file, json));
-    }
-    if check_permissions {
-        return Some(cmd_validate_check_permissions(file, json));
-    }
-    if check_dependencies {
-        return Some(cmd_validate_check_dependencies(file, json));
-    }
-    if check_unused {
-        return Some(cmd_validate_check_unused(file, json));
-    }
-    if check_resource_limits {
-        return Some(cmd_validate_check_resource_limits(file, json));
-    }
-    if check_portability {
-        return Some(cmd_validate_check_portability(file, json));
+    if let Some(result) = first_enabled_check(
+        file,
+        json,
+        &[
+            (check_idempotency_deep, cmd_validate_check_idempotency_deep),
+            (check_permissions, cmd_validate_check_permissions),
+            (check_dependencies, cmd_validate_check_dependencies),
+            (check_unused, cmd_validate_check_unused),
+            (check_resource_limits, cmd_validate_check_resource_limits),
+            (check_portability, cmd_validate_check_portability),
+        ],
+    ) {
+        return Some(result);
     }
     if let Some(policy) = check_compliance {
         return Some(cmd_validate_check_compliance(file, policy, json));
     }
-    if check_drift_risk {
-        return Some(cmd_validate_check_drift_risk(file, json));
-    }
-    if check_deprecation {
-        return Some(cmd_validate_check_deprecation(file, json));
-    }
-    if check_security {
-        return Some(cmd_validate_check_security(file, json));
-    }
-    if check_complexity {
-        return Some(cmd_validate_check_complexity(file, json));
-    }
-    if check_limits {
-        return Some(cmd_validate_check_limits(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (check_drift_risk, cmd_validate_check_drift_risk),
+            (check_deprecation, cmd_validate_check_deprecation),
+            (check_security, cmd_validate_check_security),
+            (check_complexity, cmd_validate_check_complexity),
+            (check_limits, cmd_validate_check_limits),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_core(
@@ -132,46 +156,28 @@ pub(super) fn try_validate_core(
     exhaustive: bool,
 ) -> Option<Result<(), String>> {
     // GH-91: Warn on unimplemented validation flags
-    if strict {
-        eprintln!("Warning: --strict is not yet implemented for validate. Flag ignored.");
-    }
-    if dry_expand {
-        eprintln!("Warning: --dry-expand is not yet implemented for validate. Flag ignored.");
-    }
-    if check_overlaps {
-        return Some(cmd_validate_check_overlaps(file, json));
-    }
-    if check_naming {
-        return Some(cmd_validate_check_naming(file, json));
-    }
-    if check_cycles_deep {
-        return Some(cmd_validate_check_cycles_deep(file, json));
-    }
-    if check_drift_coverage {
-        return Some(cmd_validate_check_drift_coverage(file, json));
-    }
-    if check_idempotency {
-        return Some(cmd_validate_check_idempotency(file, json));
-    }
-    if check_secrets {
-        return Some(cmd_validate_check_secrets(file, json));
-    }
-    if strict_deps {
-        return Some(cmd_validate_strict_deps(file, json));
-    }
-    if check_templates {
-        return Some(cmd_validate_check_templates(file, json));
-    }
-    if check_connectivity {
-        return Some(cmd_validate_connectivity(file, json));
+    warn_unimplemented_core_flags(strict, dry_expand);
+    if let Some(result) = first_enabled_check(
+        file,
+        json,
+        &[
+            (check_overlaps, cmd_validate_check_overlaps),
+            (check_naming, cmd_validate_check_naming),
+            (check_cycles_deep, cmd_validate_check_cycles_deep),
+            (check_drift_coverage, cmd_validate_check_drift_coverage),
+            (check_idempotency, cmd_validate_check_idempotency),
+            (check_secrets, cmd_validate_check_secrets),
+            (strict_deps, cmd_validate_strict_deps),
+            (check_templates, cmd_validate_check_templates),
+            (check_connectivity, cmd_validate_connectivity),
+        ],
+    ) {
+        return Some(result);
     }
     if let Some(pf) = policy_file {
         return Some(cmd_validate_policy_file(file, pf, json));
     }
-    if exhaustive {
-        return Some(cmd_validate_exhaustive(file, json));
-    }
-    None
+    first_enabled_check(file, json, &[(exhaustive, cmd_validate_exhaustive)])
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_governance(
@@ -191,30 +197,49 @@ pub(super) fn try_validate_governance(
             file, json, pattern,
         ));
     }
-    if check_resource_provider_support {
-        return Some(cmd_validate_check_resource_provider_support(file, json));
-    }
-    if check_resource_secret_refs {
-        return Some(cmd_validate_check_resource_secret_refs(file, json));
-    }
-    if check_resource_idempotency_hints {
-        return Some(cmd_validate_check_resource_idempotency_hints(file, json));
+    if let Some(result) = first_enabled_check(
+        file,
+        json,
+        &[
+            (
+                check_resource_provider_support,
+                cmd_validate_check_resource_provider_support,
+            ),
+            (
+                check_resource_secret_refs,
+                cmd_validate_check_resource_secret_refs,
+            ),
+            (
+                check_resource_idempotency_hints,
+                cmd_validate_check_resource_idempotency_hints,
+            ),
+        ],
+    ) {
+        return Some(result);
     }
     if let Some(depth) = check_resource_dependency_depth {
         return Some(cmd_validate_check_resource_dependency_depth(
             file, json, depth,
         ));
     }
-    if check_resource_machine_affinity {
-        return Some(cmd_validate_check_resource_machine_affinity(file, json));
-    }
-    if check_resource_drift_risk {
-        return Some(cmd_validate_check_resource_drift_risk(file, json));
-    }
-    if check_resource_tag_coverage {
-        return Some(cmd_validate_check_resource_tag_coverage(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (
+                check_resource_machine_affinity,
+                cmd_validate_check_resource_machine_affinity,
+            ),
+            (
+                check_resource_drift_risk,
+                cmd_validate_check_resource_drift_risk,
+            ),
+            (
+                check_resource_tag_coverage,
+                cmd_validate_check_resource_tag_coverage,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_governance_b(
@@ -233,45 +258,60 @@ pub(super) fn try_validate_governance_b(
     check_resource_cross_machine_consistency: bool,
     check_resource_version_pinning: bool,
 ) -> Option<Result<(), String>> {
-    if check_resource_lifecycle_hooks {
-        return Some(cmd_validate_check_resource_lifecycle_hooks(file, json));
-    }
-    if check_resource_provider_version {
-        return Some(cmd_validate_check_resource_provider_version(file, json));
-    }
-    if check_resource_naming_convention {
-        return Some(cmd_validate_check_resource_naming_convention(file, json));
-    }
-    if check_resource_idempotency {
-        return Some(cmd_validate_check_resource_idempotency(file, json));
-    }
-    if check_resource_documentation {
-        return Some(cmd_validate_check_resource_documentation(file, json));
-    }
-    if check_resource_ownership {
-        return Some(cmd_validate_check_resource_ownership(file, json));
-    }
-    if check_resource_secret_exposure {
-        return Some(cmd_validate_check_resource_secret_exposure(file, json));
-    }
-    if check_resource_tag_standards {
-        return Some(cmd_validate_check_resource_tag_standards(file, json));
-    }
-    if check_resource_privilege_escalation {
-        return Some(cmd_validate_check_resource_privilege_escalation(file, json));
-    }
-    if check_resource_update_safety {
-        return Some(cmd_validate_check_resource_update_safety(file, json));
-    }
-    if check_resource_cross_machine_consistency {
-        return Some(cmd_validate_check_resource_cross_machine_consistency(
-            file, json,
-        ));
-    }
-    if check_resource_version_pinning {
-        return Some(cmd_validate_check_resource_version_pinning(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (
+                check_resource_lifecycle_hooks,
+                cmd_validate_check_resource_lifecycle_hooks,
+            ),
+            (
+                check_resource_provider_version,
+                cmd_validate_check_resource_provider_version,
+            ),
+            (
+                check_resource_naming_convention,
+                cmd_validate_check_resource_naming_convention,
+            ),
+            (
+                check_resource_idempotency,
+                cmd_validate_check_resource_idempotency,
+            ),
+            (
+                check_resource_documentation,
+                cmd_validate_check_resource_documentation,
+            ),
+            (
+                check_resource_ownership,
+                cmd_validate_check_resource_ownership,
+            ),
+            (
+                check_resource_secret_exposure,
+                cmd_validate_check_resource_secret_exposure,
+            ),
+            (
+                check_resource_tag_standards,
+                cmd_validate_check_resource_tag_standards,
+            ),
+            (
+                check_resource_privilege_escalation,
+                cmd_validate_check_resource_privilege_escalation,
+            ),
+            (
+                check_resource_update_safety,
+                cmd_validate_check_resource_update_safety,
+            ),
+            (
+                check_resource_cross_machine_consistency,
+                cmd_validate_check_resource_cross_machine_consistency,
+            ),
+            (
+                check_resource_version_pinning,
+                cmd_validate_check_resource_version_pinning,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_governance_c(
@@ -290,47 +330,60 @@ pub(super) fn try_validate_governance_c(
     check_resource_unused_params: bool,
     check_resource_machine_balance: bool,
 ) -> Option<Result<(), String>> {
-    if check_resource_dependency_completeness {
-        return Some(cmd_validate_check_resource_dependency_completeness(
-            file, json,
-        ));
-    }
-    if check_resource_state_coverage {
-        return Some(cmd_validate_check_resource_state_coverage(file, json));
-    }
-    if check_resource_rollback_safety {
-        return Some(cmd_validate_check_resource_rollback_safety(file, json));
-    }
-    if check_resource_config_maturity {
-        return Some(cmd_validate_check_resource_config_maturity(file, json));
-    }
-    if check_resource_dependency_ordering {
-        return Some(cmd_validate_check_resource_dependency_ordering(file, json));
-    }
-    if check_resource_tag_completeness {
-        return Some(cmd_validate_check_resource_tag_completeness(file, json));
-    }
-    if check_resource_naming_standards {
-        return Some(cmd_validate_check_resource_naming_standards(file, json));
-    }
-    if check_resource_dependency_symmetry {
-        return Some(cmd_validate_check_resource_dependency_symmetry(file, json));
-    }
-    if check_resource_circular_alias {
-        return Some(cmd_validate_check_resource_circular_alias(file, json));
-    }
-    if check_resource_dependency_depth_limit {
-        return Some(cmd_validate_check_resource_dependency_depth_limit(
-            file, json,
-        ));
-    }
-    if check_resource_unused_params {
-        return Some(cmd_validate_check_resource_unused_params(file, json));
-    }
-    if check_resource_machine_balance {
-        return Some(cmd_validate_check_resource_machine_balance(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (
+                check_resource_dependency_completeness,
+                cmd_validate_check_resource_dependency_completeness,
+            ),
+            (
+                check_resource_state_coverage,
+                cmd_validate_check_resource_state_coverage,
+            ),
+            (
+                check_resource_rollback_safety,
+                cmd_validate_check_resource_rollback_safety,
+            ),
+            (
+                check_resource_config_maturity,
+                cmd_validate_check_resource_config_maturity,
+            ),
+            (
+                check_resource_dependency_ordering,
+                cmd_validate_check_resource_dependency_ordering,
+            ),
+            (
+                check_resource_tag_completeness,
+                cmd_validate_check_resource_tag_completeness,
+            ),
+            (
+                check_resource_naming_standards,
+                cmd_validate_check_resource_naming_standards,
+            ),
+            (
+                check_resource_dependency_symmetry,
+                cmd_validate_check_resource_dependency_symmetry,
+            ),
+            (
+                check_resource_circular_alias,
+                cmd_validate_check_resource_circular_alias,
+            ),
+            (
+                check_resource_dependency_depth_limit,
+                cmd_validate_check_resource_dependency_depth_limit,
+            ),
+            (
+                check_resource_unused_params,
+                cmd_validate_check_resource_unused_params,
+            ),
+            (
+                check_resource_machine_balance,
+                cmd_validate_check_resource_machine_balance,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_validate_governance_d(
@@ -349,53 +402,60 @@ pub(super) fn try_validate_governance_d(
     check_resource_content_size_limit: bool,
     check_resource_dependency_fan_limit: bool,
 ) -> Option<Result<(), String>> {
-    if check_resource_content_hash_consistency {
-        return Some(cmd_validate_check_resource_content_hash_consistency(
-            file, json,
-        ));
-    }
-    if check_resource_dependency_refs {
-        return Some(cmd_validate_check_resource_dependency_refs(file, json));
-    }
-    if check_resource_trigger_refs {
-        return Some(cmd_validate_check_resource_trigger_refs(file, json));
-    }
-    if check_resource_param_type_safety {
-        return Some(cmd_validate_check_resource_param_type_safety(file, json));
-    }
-    if check_resource_env_consistency {
-        return Some(cmd_validate_check_resource_env_consistency(file, json));
-    }
-    if check_resource_secret_rotation {
-        return Some(cmd_validate_check_resource_secret_rotation(file, json));
-    }
-    if check_resource_lifecycle_completeness {
-        return Some(cmd_validate_check_resource_lifecycle_completeness(
-            file, json,
-        ));
-    }
-    if check_resource_provider_compatibility {
-        return Some(cmd_validate_check_resource_provider_compatibility(
-            file, json,
-        ));
-    }
-    if check_resource_naming_convention_strict {
-        return Some(cmd_validate_check_resource_naming_convention_strict(
-            file, json,
-        ));
-    }
-    if check_resource_idempotency_annotations {
-        return Some(cmd_validate_check_resource_idempotency_annotations(
-            file, json,
-        ));
-    }
-    if check_resource_content_size_limit {
-        return Some(cmd_validate_check_resource_content_size_limit(file, json));
-    }
-    if check_resource_dependency_fan_limit {
-        return Some(cmd_validate_check_resource_dependency_fan_limit(file, json));
-    }
-    None
+    first_enabled_check(
+        file,
+        json,
+        &[
+            (
+                check_resource_content_hash_consistency,
+                cmd_validate_check_resource_content_hash_consistency,
+            ),
+            (
+                check_resource_dependency_refs,
+                cmd_validate_check_resource_dependency_refs,
+            ),
+            (
+                check_resource_trigger_refs,
+                cmd_validate_check_resource_trigger_refs,
+            ),
+            (
+                check_resource_param_type_safety,
+                cmd_validate_check_resource_param_type_safety,
+            ),
+            (
+                check_resource_env_consistency,
+                cmd_validate_check_resource_env_consistency,
+            ),
+            (
+                check_resource_secret_rotation,
+                cmd_validate_check_resource_secret_rotation,
+            ),
+            (
+                check_resource_lifecycle_completeness,
+                cmd_validate_check_resource_lifecycle_completeness,
+            ),
+            (
+                check_resource_provider_compatibility,
+                cmd_validate_check_resource_provider_compatibility,
+            ),
+            (
+                check_resource_naming_convention_strict,
+                cmd_validate_check_resource_naming_convention_strict,
+            ),
+            (
+                check_resource_idempotency_annotations,
+                cmd_validate_check_resource_idempotency_annotations,
+            ),
+            (
+                check_resource_content_size_limit,
+                cmd_validate_check_resource_content_size_limit,
+            ),
+            (
+                check_resource_dependency_fan_limit,
+                cmd_validate_check_resource_dependency_fan_limit,
+            ),
+        ],
+    )
 }
 
 pub(super) use super::dispatch_validate_b::*;

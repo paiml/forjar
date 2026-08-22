@@ -186,21 +186,35 @@ fn reap_or_reject_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> {
 /// (#1) rather than a silently-ignored result that would loop forever.
 fn reap_stale_if_unchanged(lock_path: &Path, observed: &str) -> Result<ReapOutcome, String> {
     match std::fs::read_to_string(lock_path) {
-        Ok(current) if current == observed => match std::fs::remove_file(lock_path) {
-            Ok(()) => Ok(ReapOutcome::Retry),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ReapOutcome::Retry),
-            Err(e) => Err(format!(
-                "cannot remove stale lock {}: {} \
-                 (run: forjar apply --force-unlock)",
-                lock_path.display(),
-                e
-            )),
-        },
+        // Byte-identical to what we classified as stale — safe to unlink.
+        Ok(current) if current == observed => unlink_confirmed_stale_lock(lock_path),
         // Content changed (fresh valid lock) — leave it; re-evaluate next loop.
         Ok(_) => Ok(ReapOutcome::Retry),
         // Vanished — already handled by someone else.
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ReapOutcome::Retry),
         Err(e) => Err(format!("cannot re-read lock file: {e}")),
+    }
+}
+
+/// Unlink a lock whose staleness the caller has just re-confirmed, and decide
+/// what a failed removal means.
+///
+/// A concurrent reaper getting there first (`NotFound`) is success — the lock is
+/// gone either way, so the caller may `Retry`. Any other failure is the #165
+/// (#1) case: a confirmed-stale lock we cannot remove (EROFS, cross-UID EPERM)
+/// would make the acquire loop spin, so it is a hard error carrying the
+/// `--force-unlock` escape hatch. Exists to keep that removal policy in one
+/// place, separate from the TOCTOU re-read that authorises it.
+fn unlink_confirmed_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> {
+    match std::fs::remove_file(lock_path) {
+        Ok(()) => Ok(ReapOutcome::Retry),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ReapOutcome::Retry),
+        Err(e) => Err(format!(
+            "cannot remove stale lock {}: {} \
+             (run: forjar apply --force-unlock)",
+            lock_path.display(),
+            e
+        )),
     }
 }
 

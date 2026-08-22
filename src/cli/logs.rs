@@ -30,6 +30,87 @@ fn run_mtime_nanos(dir: &Path) -> u128 {
         .unwrap_or(0)
 }
 
+/// Whether a directory directly under the state dir names a machine.
+///
+/// Decides the one exclusion the walk has always made: forjar's own `images`
+/// cache and any dotfile directory are siblings of the machine dirs but hold
+/// no runs. Named so the walk in `discover_runs` reads as "for each machine"
+/// instead of "for each directory, minus these two special cases".
+fn is_machine_dir(name: &str) -> bool {
+    name != "images" && !name.starts_with('.')
+}
+
+/// The `meta.yaml` of a run directory, or `None` when it cannot be used.
+///
+/// Decides whether a directory under `runs/` is a run we can report on. All
+/// three failure modes — no `meta.yaml`, an unreadable one, and one that is
+/// not valid `RunMeta` — mean the same thing to every caller: skip it. Exists
+/// to keep that three-deep exists/read/parse ladder out of the discovery loop.
+fn read_run_meta(run_dir: &Path) -> Option<RunMeta> {
+    let meta_path = run_dir.join("meta.yaml");
+    if !meta_path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(&meta_path).ok()?;
+    serde_yaml_ng::from_str::<RunMeta>(&content).ok()
+}
+
+/// Every run recorded under one machine's `runs/` directory that survives the
+/// `--run` and `--failures-only` filters, in readdir order.
+///
+/// Exists so each function owns a single level of the two-level walk:
+/// `discover_runs` iterates machines, this iterates that machine's runs.
+fn runs_for_machine(
+    machine_dir: &Path,
+    machine_name: &str,
+    run_filter: Option<&str>,
+    failures_only: bool,
+) -> Vec<DiscoveredRun> {
+    let mut runs = Vec::new();
+
+    let runs_dir = machine_dir.join("runs");
+    if !runs_dir.is_dir() {
+        return runs;
+    }
+
+    let run_entries = match std::fs::read_dir(&runs_dir) {
+        Ok(e) => e,
+        Err(_) => return runs,
+    };
+
+    for run_entry in run_entries.flatten() {
+        let run_dir = run_entry.path();
+        if !run_dir.is_dir() {
+            continue;
+        }
+        let run_id = run_entry.file_name().to_string_lossy().to_string();
+
+        if let Some(filter) = run_filter {
+            if run_id != filter {
+                continue;
+            }
+        }
+
+        let meta = match read_run_meta(&run_dir) {
+            Some(m) => m,
+            None => continue,
+        };
+
+        if failures_only && meta.summary.failed == 0 {
+            continue;
+        }
+
+        runs.push(DiscoveredRun {
+            machine: machine_name.to_string(),
+            run_id,
+            meta,
+            run_dir,
+        });
+    }
+
+    runs
+}
+
 /// Discover all runs under a state directory, optionally filtered.
 pub(crate) fn discover_runs(
     state_dir: &Path,
@@ -51,7 +132,7 @@ pub(crate) fn discover_runs(
         let machine_name = entry.file_name().to_string_lossy().to_string();
 
         // Skip non-machine directories (images, etc.)
-        if machine_name == "images" || machine_name.starts_with('.') {
+        if !is_machine_dir(&machine_name) {
             continue;
         }
 
@@ -61,53 +142,12 @@ pub(crate) fn discover_runs(
             }
         }
 
-        let runs_dir = machine_dir.join("runs");
-        if !runs_dir.is_dir() {
-            continue;
-        }
-
-        let run_entries = match std::fs::read_dir(&runs_dir) {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-
-        for run_entry in run_entries.flatten() {
-            let run_dir = run_entry.path();
-            if !run_dir.is_dir() {
-                continue;
-            }
-            let run_id = run_entry.file_name().to_string_lossy().to_string();
-
-            if let Some(filter) = run_filter {
-                if run_id != filter {
-                    continue;
-                }
-            }
-
-            let meta_path = run_dir.join("meta.yaml");
-            let meta = if meta_path.exists() {
-                match std::fs::read_to_string(&meta_path) {
-                    Ok(content) => match serde_yaml_ng::from_str::<RunMeta>(&content) {
-                        Ok(m) => m,
-                        Err(_) => continue,
-                    },
-                    Err(_) => continue,
-                }
-            } else {
-                continue;
-            };
-
-            if failures_only && meta.summary.failed == 0 {
-                continue;
-            }
-
-            runs.push(DiscoveredRun {
-                machine: machine_name.clone(),
-                run_id,
-                meta,
-                run_dir,
-            });
-        }
+        runs.extend(runs_for_machine(
+            &machine_dir,
+            &machine_name,
+            run_filter,
+            failures_only,
+        ));
     }
 
     sort_runs_newest_first(&mut runs);

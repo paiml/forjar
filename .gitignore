@@ -30,3 +30,5 @@ state/*/events.jsonl
 # committed at the repo root in March went stale against the maintained
 # install.sh and carried 7 bashrs SEC findings the real one does not.
 /dist-output/
+.dogfood/
+.pv/

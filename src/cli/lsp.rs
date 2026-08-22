@@ -145,19 +145,10 @@ impl LspServer {
         let id = msg.get("id");
 
         match method {
-            "initialize" => {
-                self.initialized = true;
-                if let Some(root) = msg.pointer("/params/rootUri") {
-                    self.root_uri = root.as_str().map(String::from);
-                }
-                Some(make_response(id, initialize_result()))
-            }
+            "initialize" => Some(make_response(id, self.on_initialize(msg))),
             "initialized" => None, // notification, no response
-            "shutdown" => {
-                self.shutdown_requested = true;
-                Some(make_response(id, serde_json::Value::Null))
-            }
-            "exit" => std::process::exit(if self.shutdown_requested { 0 } else { 1 }),
+            "shutdown" => Some(make_response(id, self.on_shutdown())),
+            "exit" => std::process::exit(self.exit_code()),
             "textDocument/didOpen" => {
                 self.handle_did_open(msg);
                 None
@@ -166,41 +157,60 @@ impl LspServer {
                 self.handle_did_change(msg);
                 None
             }
-            "textDocument/completion" => {
-                let items = self.handle_completion(msg);
-                Some(make_response(
-                    id,
-                    serde_json::to_value(items).unwrap_or_default(),
-                ))
-            }
-            "textDocument/hover" => {
-                let hover = self.handle_hover(msg);
-                Some(make_response(id, hover))
-            }
-            // GH-210 (#208): `initialize` advertises `diagnosticProvider`,
-            // which per the LSP spec DECLARES that this method is handled.
-            // It was not: clients that honour the capability (recent VS Code
-            // and nvim prefer pull diagnostics when advertised) fell through
-            // to the default arm and got -32601 "Method not found" instead of
-            // diagnostics. Serve a full DocumentDiagnosticReport from exactly
-            // the same validation that feeds push diagnostics, so the two
-            // mechanisms cannot disagree.
-            "textDocument/diagnostic" => {
-                let uri = msg
-                    .pointer("/params/textDocument/uri")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let diags = self.validate_document(uri);
-                Some(make_response(id, super::lsp_publish::full_report(&diags)))
-            }
-            _ => {
-                if id.is_some() {
-                    Some(make_error_response(id, -32601, "Method not found"))
-                } else {
-                    None // unknown notification
-                }
-            }
+            "textDocument/completion" => Some(make_response(id, self.completion_result(msg))),
+            "textDocument/hover" => Some(make_response(id, self.handle_hover(msg))),
+            // GH-210 (#208): pull diagnostics — see `diagnostic_report`.
+            "textDocument/diagnostic" => Some(make_response(id, self.diagnostic_report(msg))),
+            _ => unknown_method_response(id),
         }
+    }
+
+    /// Accept the `initialize` handshake: record the client's workspace root
+    /// (when it sent one) and answer with this server's capabilities.
+    fn on_initialize(&mut self, msg: &serde_json::Value) -> serde_json::Value {
+        self.initialized = true;
+        if let Some(root) = msg.pointer("/params/rootUri") {
+            self.root_uri = root.as_str().map(String::from);
+        }
+        initialize_result()
+    }
+
+    /// Record that the client asked to shut down — the flag `exit_code` reads —
+    /// and answer with the null result the LSP `shutdown` request expects.
+    fn on_shutdown(&mut self) -> serde_json::Value {
+        self.shutdown_requested = true;
+        serde_json::Value::Null
+    }
+
+    /// Process exit status for the `exit` notification: 0 when a `shutdown`
+    /// request preceded it, 1 when the client exits without one.
+    fn exit_code(&self) -> i32 {
+        if self.shutdown_requested {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// The completion list as a JSON-RPC result. Encoding a `Vec` of plain
+    /// structs cannot realistically fail; if it did, the client sees `null`.
+    fn completion_result(&self, msg: &serde_json::Value) -> serde_json::Value {
+        let items = self.handle_completion(msg);
+        serde_json::to_value(items).unwrap_or_default()
+    }
+
+    /// Serve a pull-diagnostics report for the document a request names.
+    ///
+    /// GH-210 (#208): `initialize` advertises `diagnosticProvider`, which per
+    /// the LSP spec DECLARES that `textDocument/diagnostic` is handled. It was
+    /// not: clients that honour the capability (recent VS Code and nvim prefer
+    /// pull diagnostics when advertised) fell through to the default arm and
+    /// got -32601 "Method not found" instead of diagnostics. This builds a full
+    /// DocumentDiagnosticReport from exactly the same validation that feeds
+    /// push diagnostics, so the two mechanisms cannot disagree.
+    fn diagnostic_report(&self, msg: &serde_json::Value) -> serde_json::Value {
+        let diags = self.validate_document(document_uri(msg));
+        super::lsp_publish::full_report(&diags)
     }
 
     fn handle_did_open(&mut self, msg: &serde_json::Value) {
@@ -233,10 +243,7 @@ impl LspServer {
     }
 
     fn handle_completion(&self, msg: &serde_json::Value) -> Vec<CompletionItem> {
-        let uri = msg
-            .pointer("/params/textDocument/uri")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let uri = document_uri(msg);
         let line = msg
             .pointer("/params/position/line")
             .and_then(|v| v.as_u64())
@@ -252,10 +259,7 @@ impl LspServer {
     }
 
     fn handle_hover(&self, msg: &serde_json::Value) -> serde_json::Value {
-        let uri = msg
-            .pointer("/params/textDocument/uri")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let uri = document_uri(msg);
         let line = msg
             .pointer("/params/position/line")
             .and_then(|v| v.as_u64())
@@ -276,6 +280,30 @@ impl LspServer {
             None => return Vec::new(),
         };
         validate_yaml(doc)
+    }
+}
+
+/// The document URI a `textDocument/*` request names, or `""` when the request
+/// omits it.
+///
+/// Exists so the three request handlers that need it share one spelling of the
+/// pointer; `""` is never an open document, so a malformed request reads as
+/// "no such document" exactly as it did inline.
+fn document_uri(msg: &serde_json::Value) -> &str {
+    msg.pointer("/params/textDocument/uri")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+}
+
+/// Reply to a method this server does not implement.
+///
+/// A *request* (it carries an `id`) gets JSON-RPC error -32601; a notification
+/// carries no `id` and must go unanswered.
+fn unknown_method_response(id: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    if id.is_some() {
+        Some(make_error_response(id, -32601, "Method not found"))
+    } else {
+        None // unknown notification
     }
 }
 

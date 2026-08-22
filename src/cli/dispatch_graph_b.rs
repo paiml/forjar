@@ -17,6 +17,25 @@ use super::graph_transport::*;
 use super::graph_weight::*;
 use std::path::Path;
 
+/// One `graph --resource-*` analysis. Every flag-selected analysis has the same
+/// shape: it re-reads the config file and reports its own findings, honouring
+/// `--json`.
+type GraphAnalysis = fn(&Path, bool) -> Result<(), String>;
+
+/// Run the first analysis whose flag is set, in table order, and return its
+/// result; `None` when none of the flags in the table is set. Table order is
+/// the precedence order, and only the selected analysis is called.
+fn first_enabled_analysis(
+    file: &Path,
+    json: bool,
+    analyses: &[(bool, GraphAnalysis)],
+) -> Option<Result<(), String>> {
+    analyses
+        .iter()
+        .find(|(enabled, _)| *enabled)
+        .map(|(_, analysis)| analysis(file, json))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_graph_scoring_inline(
     file: &Path,
@@ -34,45 +53,57 @@ pub(super) fn try_graph_scoring_inline(
     resource_dependency_critical_path_length: bool,
     resource_dependency_redundancy_score: bool,
 ) -> Option<Result<(), String>> {
-    if resource_dependency_bottleneck {
-        return Some(cmd_graph_resource_dependency_bottleneck(file, json));
-    }
-    if resource_type_clustering {
-        return Some(cmd_graph_resource_type_clustering(file, json));
-    }
-    if resource_dependency_cycle_risk {
-        return Some(cmd_graph_resource_dependency_cycle_risk(file, json));
-    }
-    if resource_impact_radius {
-        return Some(cmd_graph_resource_impact_radius_analysis(file, json));
-    }
-    if resource_dependency_health_map {
-        return Some(cmd_graph_resource_dependency_health_map(file, json));
-    }
-    if resource_change_propagation {
-        return Some(cmd_graph_resource_change_propagation(file, json));
-    }
-    if resource_dependency_depth_analysis {
-        return Some(cmd_graph_resource_dependency_depth_analysis(file, json));
-    }
-    if resource_dependency_fan_analysis {
-        return Some(cmd_graph_resource_dependency_fan_analysis(file, json));
-    }
-    if resource_dependency_isolation_score {
-        return Some(cmd_graph_resource_dependency_isolation_score(file, json));
-    }
-    if resource_dependency_stability_score {
-        return Some(cmd_graph_resource_dependency_stability_score(file, json));
-    }
-    if resource_dependency_critical_path_length {
-        return Some(cmd_graph_resource_dependency_critical_path_length(
-            file, json,
-        ));
-    }
-    if resource_dependency_redundancy_score {
-        return Some(cmd_graph_resource_dependency_redundancy_score(file, json));
-    }
-    None
+    first_enabled_analysis(
+        file,
+        json,
+        &[
+            (
+                resource_dependency_bottleneck,
+                cmd_graph_resource_dependency_bottleneck,
+            ),
+            (resource_type_clustering, cmd_graph_resource_type_clustering),
+            (
+                resource_dependency_cycle_risk,
+                cmd_graph_resource_dependency_cycle_risk,
+            ),
+            (
+                resource_impact_radius,
+                cmd_graph_resource_impact_radius_analysis,
+            ),
+            (
+                resource_dependency_health_map,
+                cmd_graph_resource_dependency_health_map,
+            ),
+            (
+                resource_change_propagation,
+                cmd_graph_resource_change_propagation,
+            ),
+            (
+                resource_dependency_depth_analysis,
+                cmd_graph_resource_dependency_depth_analysis,
+            ),
+            (
+                resource_dependency_fan_analysis,
+                cmd_graph_resource_dependency_fan_analysis,
+            ),
+            (
+                resource_dependency_isolation_score,
+                cmd_graph_resource_dependency_isolation_score,
+            ),
+            (
+                resource_dependency_stability_score,
+                cmd_graph_resource_dependency_stability_score,
+            ),
+            (
+                resource_dependency_critical_path_length,
+                cmd_graph_resource_dependency_critical_path_length,
+            ),
+            (
+                resource_dependency_redundancy_score,
+                cmd_graph_resource_dependency_redundancy_score,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_graph_scoring_phase81(

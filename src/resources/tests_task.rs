@@ -485,3 +485,40 @@ fn test_fj3030_extract_absolute_binary() {
     assert_eq!(extract_absolute_binary("python server.py"), None);
     assert_eq!(extract_absolute_binary("echo hello"), None);
 }
+
+/// A `completion_check` written as a YAML FOLDED scalar (`>-`) arrives already
+/// collapsed onto ONE line. The apply wrapper used to inline it into
+/// `if ! { <check> ; }; then`, putting forjar's `if`/`then` on the same physical
+/// line as the check's `do`/`done`, which bashrs' line-based SC2135/SC2136 read
+/// as a malformed `if`. Both are SC2*, which `validate_script` does not filter,
+/// and both are Error severity — so `forjar apply` aborted the resource as an I8
+/// violation over a check containing no `if` at all.
+///
+/// Same defect as #281 in verdict.rs, at a generator that fix missed. Found by
+/// applying the gx10 `cpu-eco-enable` task, whose check loops over cpufreq
+/// policies: the script and unit deployed and the enable failed I8.
+#[test]
+fn a_folded_completion_check_with_a_loop_does_not_collide_with_if_then() {
+    let mut r = make_task_resource("enable cpu-eco");
+    r.completion_check = Some(
+        "sh -c 'systemctl is-enabled cpu-eco.service >/dev/null 2>&1 || exit 1; \
+for p in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do \
+[ \"$(cat \"$p\")\" = schedutil ] || exit 1; done; exit 0'"
+            .to_string(),
+    );
+    let script = apply_script(&r);
+
+    // No line may carry both forjar's `if` and the check's `do` — that is the
+    // collision SC2136 detects.
+    for line in script.lines() {
+        assert!(
+            !(line.contains("if ") && line.contains("; do")),
+            "forjar put its `if` on the same line as the check's `do`:\n{line}"
+        );
+    }
+
+    // And the emitted script must survive forjar's own I8 gate.
+    if let Err(e) = crate::core::purifier::validate_script(&script) {
+        panic!("task apply_script fails forjar's own I8 gate:\n{script}\n\n{e}");
+    }
+}

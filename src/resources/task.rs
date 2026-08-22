@@ -222,14 +222,33 @@ fn batch_script(resource: &Resource) -> String {
     // The check is already written and already cheap — it just ran. Running it
     // once more turns an exit code into a statement about the world.
     if let Some(ref check) = resource.completion_check {
-        // A YAML `|` block scalar always keeps its trailing newline. Pushing
-        // " ; }; then" right after it put the `;` on its own line — and a
-        // newline is already a command separator, so a bare `;` right after
-        // one is an empty statement: "syntax error near unexpected token `;'".
-        // trim_end() puts the `;` on the same line as the check's last command.
-        script.push_str("if ! { ");
+        // THE CHECK GETS A LINE OF ITS OWN.
+        //
+        // This used to emit `if ! { <check> ; }; then` — all on ONE physical
+        // line. A `completion_check` written as a YAML FOLDED scalar (`>-`)
+        // arrives already collapsed onto one line, so a loop inside it produced
+        //
+        //     if ! { sh -c '... for p in ...; do ...; done; exit 0' ; }; then
+        //
+        // and bashrs' line-based rules read that as a malformed `if`:
+        // SC2136 (`\bif\b[^\n]*;\s*do\b`) and SC2135
+        // (`\bfor\b[^\n]*\bthen\b`). Both are SC2*, which purifier does not
+        // filter, and both are Error severity — so `forjar apply` aborted the
+        // resource as an I8 violation on a check containing no `if` at all.
+        //
+        // This is the SAME defect fixed in verdict.rs for #281, at a generator
+        // that fix missed. Found by applying a real `nas_archive`-era resource
+        // to gx10: the script and unit deployed, and the enable task failed I8.
+        //
+        // A newline is a command separator, so `{` NEWLINE cmd NEWLINE `}` is a
+        // well-formed group and needs no `;` — verified running under both dash
+        // and bash, for a check that passes AND one that fails.
+        //
+        // trim_end() still matters: a YAML `|` block scalar keeps its trailing
+        // newline, and a blank line before `}` is harmless but noisy.
+        script.push_str("if ! {\n");
         script.push_str(check.trim_end());
-        script.push_str(" ; }; then\n");
+        script.push_str("\n}\nthen\n");
         script.push_str(
             "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",
         );

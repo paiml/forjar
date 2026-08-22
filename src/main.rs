@@ -32,29 +32,20 @@ struct Cli {
 ///  3 — Configuration error (invalid YAML, missing fields)
 ///  4 — Connection error (SSH, container transport)
 /// 10 — Drift detected (non-zero diff in `forjar drift`)
+///
+/// The code comes from the error's CLASS — a variant of
+/// `forjar::core::error::ErrorClass` — not from matching its text. `main` used
+/// to substring-match the message, which sent every error whose prose merely
+/// mentioned a transport out as 4 (retryable), including the deterministic I8
+/// bashrs rejections that a retry can never fix. See `forjar::core::error`.
 fn main() {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
     let cli = Cli::parse();
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
-    if let Err(e) = forjar::cli::dispatch(cli.command, cli.verbose, no_color) {
-        let code = classify_exit_code(&e);
+    if let Err(e) = forjar::cli::dispatch_classified(cli.command, cli.verbose, no_color) {
         eprintln!("error: {e}");
-        std::process::exit(code);
-    }
-}
-
-fn classify_exit_code(error: &str) -> i32 {
-    if error.contains("validation error") || error.contains("YAML parse error") {
-        3
-    } else if error.contains("SSH") || error.contains("connection") || error.contains("transport") {
-        4
-    } else if error.contains("partial") || error.contains("some resources failed") {
-        2
-    } else if error.contains("drift detected") {
-        10
-    } else {
-        1
+        std::process::exit(e.exit_code());
     }
 }

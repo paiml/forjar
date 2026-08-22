@@ -73,47 +73,67 @@ fn parse_field(field: &str, min: u8, max: u8) -> Result<BTreeSet<u8>, String> {
 
     for part in field.split(',') {
         if part == "*" {
-            for v in min..=max {
-                values.insert(v);
-            }
+            values.extend(min..=max);
         } else if let Some(step_str) = part.strip_prefix("*/") {
-            let step: u8 = step_str
-                .parse()
-                .map_err(|_| format!("invalid step: {part}"))?;
-            if step == 0 {
-                return Err(format!("step cannot be 0: {part}"));
-            }
-            let mut v = min;
-            while v <= max {
-                values.insert(v);
-                v = v.saturating_add(step);
-            }
+            insert_step(&mut values, part, step_str, min, max)?;
         } else if part.contains('-') {
-            let (start_str, end_str) = part
-                .split_once('-')
-                .ok_or_else(|| format!("invalid range: {part}"))?;
-            let start: u8 = start_str
-                .parse()
-                .map_err(|_| format!("invalid range start: {part}"))?;
-            let end: u8 = end_str
-                .parse()
-                .map_err(|_| format!("invalid range end: {part}"))?;
-            if start > end || start < min || end > max {
-                return Err(format!("range out of bounds: {part} (valid: {min}-{max})"));
-            }
-            for v in start..=end {
-                values.insert(v);
-            }
+            insert_range(&mut values, part, min, max)?;
         } else {
-            let v: u8 = part.parse().map_err(|_| format!("invalid value: {part}"))?;
-            if v < min || v > max {
-                return Err(format!("value {v} out of bounds ({min}-{max})"));
-            }
-            values.insert(v);
+            insert_single(&mut values, part, min, max)?;
         }
     }
 
     Ok(values)
+}
+
+/// Expand a `*/N` step part into `values` (`part` is the original text, for errors).
+fn insert_step(
+    values: &mut BTreeSet<u8>,
+    part: &str,
+    step_str: &str,
+    min: u8,
+    max: u8,
+) -> Result<(), String> {
+    let step: u8 = step_str
+        .parse()
+        .map_err(|_| format!("invalid step: {part}"))?;
+    if step == 0 {
+        return Err(format!("step cannot be 0: {part}"));
+    }
+    let mut v = min;
+    while v <= max {
+        values.insert(v);
+        v = v.saturating_add(step);
+    }
+    Ok(())
+}
+
+/// Expand an `A-B` range part into `values`.
+fn insert_range(values: &mut BTreeSet<u8>, part: &str, min: u8, max: u8) -> Result<(), String> {
+    let (start_str, end_str) = part
+        .split_once('-')
+        .ok_or_else(|| format!("invalid range: {part}"))?;
+    let start: u8 = start_str
+        .parse()
+        .map_err(|_| format!("invalid range start: {part}"))?;
+    let end: u8 = end_str
+        .parse()
+        .map_err(|_| format!("invalid range end: {part}"))?;
+    if start > end || start < min || end > max {
+        return Err(format!("range out of bounds: {part} (valid: {min}-{max})"));
+    }
+    values.extend(start..=end);
+    Ok(())
+}
+
+/// Insert a single literal value part into `values`.
+fn insert_single(values: &mut BTreeSet<u8>, part: &str, min: u8, max: u8) -> Result<(), String> {
+    let v: u8 = part.parse().map_err(|_| format!("invalid value: {part}"))?;
+    if v < min || v > max {
+        return Err(format!("value {v} out of bounds ({min}-{max})"));
+    }
+    values.insert(v);
+    Ok(())
 }
 
 /// Summary of a parsed cron schedule for display.

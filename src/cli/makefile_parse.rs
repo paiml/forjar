@@ -157,27 +157,8 @@ pub fn parse_database(db: &str) -> Vec<MakeTarget> {
             continue;
         };
 
-        if line.starts_with("#  Phony target") {
-            target.phony = true;
-        } else if let Some((file, lineno)) = parse_recipe_header(line) {
-            target.recipe_file = Some(file);
-            target.recipe_line = Some(lineno);
-            in_recipe = true;
-        } else if line.starts_with("#  recipe to execute (built-in)") {
-            // A built-in rule's recipe is make's, not the project's.
-            in_recipe = false;
+        if !apply_block_line(target, line, &mut in_recipe) {
             current = None;
-        } else if in_recipe {
-            if let Some(cmd) = line.strip_prefix('\t') {
-                target.recipe.push(cmd.to_string());
-                target.recipe_raw.push(cmd.to_string());
-            } else if line.trim().is_empty() {
-                in_recipe = false;
-            }
-        } else if let Some(rest) = line.strip_prefix("# | := ") {
-            // Order-only prerequisites, authoritative even when the header
-            // rendering differs.
-            target.order_only = split_words(rest);
         }
     }
 
@@ -185,6 +166,47 @@ pub fn parse_database(db: &str) -> Vec<MakeTarget> {
         out.push(t);
     }
     out
+}
+
+/// Apply one non-header line of a target block to the target being built.
+///
+/// Returns false when the line proves the block belongs to a built-in rule,
+/// whose recipe is make's own and must not be imported — the caller drops the
+/// half-built target. Exists to keep the four-way "what kind of line is this"
+/// decision out of `parse_database`'s scanning loop.
+fn apply_block_line(target: &mut MakeTarget, line: &str, in_recipe: &mut bool) -> bool {
+    if line.starts_with("#  Phony target") {
+        target.phony = true;
+    } else if let Some((file, lineno)) = parse_recipe_header(line) {
+        target.recipe_file = Some(file);
+        target.recipe_line = Some(lineno);
+        *in_recipe = true;
+    } else if line.starts_with("#  recipe to execute (built-in)") {
+        // A built-in rule's recipe is make's, not the project's.
+        *in_recipe = false;
+        return false;
+    } else if *in_recipe {
+        push_recipe_line(target, line, in_recipe);
+    } else if let Some(rest) = line.strip_prefix("# | := ") {
+        // Order-only prerequisites, authoritative even when the header
+        // rendering differs.
+        target.order_only = split_words(rest);
+    }
+    true
+}
+
+/// Absorb one line while the scanner is inside a recipe body.
+///
+/// Recipe lines are tab-prefixed; a blank line closes the body, and anything
+/// else is a comment the recipe does not own. Exists because that three-way
+/// decision is the innermost nesting level of `parse_database`.
+fn push_recipe_line(target: &mut MakeTarget, line: &str, in_recipe: &mut bool) {
+    if let Some(cmd) = line.strip_prefix('\t') {
+        target.recipe.push(cmd.to_string());
+        target.recipe_raw.push(cmd.to_string());
+    } else if line.trim().is_empty() {
+        *in_recipe = false;
+    }
 }
 
 /// `target: prereq prereq | order-only`

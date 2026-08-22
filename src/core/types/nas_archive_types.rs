@@ -240,6 +240,11 @@ pub(crate) fn classify_declaration(
     if max_small_bytes == 0 {
         return Some(ArchiveRejection::ZeroSmallByteBudget);
     }
+    classify_dir_names(dirs)
+}
+
+/// Every declared directory must be a plain, distinct name — never a path.
+fn classify_dir_names(dirs: &[String]) -> Option<ArchiveRejection> {
     for (i, d) in dirs.iter().enumerate() {
         if d.is_empty() {
             return Some(ArchiveRejection::EmptyName);

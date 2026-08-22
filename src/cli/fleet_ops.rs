@@ -355,44 +355,8 @@ pub(crate) fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
     let mut results: Vec<serde_json::Value> = Vec::new();
 
     for (name, machine) in &config.machines {
-        let is_local = machine.addr == "127.0.0.1" || machine.addr == "localhost";
-        let is_container =
-            machine.addr == "container" || machine.transport.as_deref() == Some("container");
-
-        let (status, transport_type) = if is_local {
-            ("reachable".to_string(), "local")
-        } else if is_container {
-            ("container".to_string(), "container")
-        } else {
-            // Try SSH connection test: ssh -o BatchMode=yes -o ConnectTimeout=5
-            let user_host = format!("{}@{}", machine.user, machine.addr);
-            let mut ssh_args = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"];
-            if let Some(ref key) = machine.ssh_key {
-                ssh_args.push("-i");
-                ssh_args.push(key);
-            }
-            ssh_args.push(&user_host);
-            ssh_args.push("echo");
-            ssh_args.push("ok");
-            let result = std::process::Command::new("ssh")
-                .args(&ssh_args)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status();
-            match result {
-                Ok(s) if s.success() => ("reachable".to_string(), "ssh"),
-                _ => ("unreachable".to_string(), "ssh"),
-            }
-        };
-
-        let resource_count = config
-            .resources
-            .values()
-            .filter(|r| match &r.machine {
-                types::MachineTarget::Single(m) => m == name,
-                types::MachineTarget::Multiple(ms) => ms.contains(&name.to_string()),
-            })
-            .count();
+        let (status, transport_type) = machine_status(machine);
+        let resource_count = machine_resource_count(&config, name);
 
         if json {
             results.push(serde_json::json!({
@@ -435,4 +399,53 @@ pub(crate) fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Classify a machine's reachability and transport for `cmd_inventory`.
+fn machine_status(machine: &types::Machine) -> (String, &'static str) {
+    let is_local = machine.addr == "127.0.0.1" || machine.addr == "localhost";
+    let is_container =
+        machine.addr == "container" || machine.transport.as_deref() == Some("container");
+
+    if is_local {
+        ("reachable".to_string(), "local")
+    } else if is_container {
+        ("container".to_string(), "container")
+    } else {
+        ssh_probe_status(machine)
+    }
+}
+
+/// Try SSH connection test: ssh -o BatchMode=yes -o ConnectTimeout=5
+fn ssh_probe_status(machine: &types::Machine) -> (String, &'static str) {
+    let user_host = format!("{}@{}", machine.user, machine.addr);
+    let mut ssh_args = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"];
+    if let Some(ref key) = machine.ssh_key {
+        ssh_args.push("-i");
+        ssh_args.push(key);
+    }
+    ssh_args.push(&user_host);
+    ssh_args.push("echo");
+    ssh_args.push("ok");
+    let result = std::process::Command::new("ssh")
+        .args(&ssh_args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+    match result {
+        Ok(s) if s.success() => ("reachable".to_string(), "ssh"),
+        _ => ("unreachable".to_string(), "ssh"),
+    }
+}
+
+/// Count resources targeting `name`, whether via a single or multi-machine target.
+fn machine_resource_count(config: &types::ForjarConfig, name: &str) -> usize {
+    config
+        .resources
+        .values()
+        .filter(|r| match &r.machine {
+            types::MachineTarget::Single(m) => m == name,
+            types::MachineTarget::Multiple(ms) => ms.contains(&name.to_string()),
+        })
+        .count()
 }

@@ -62,6 +62,70 @@ fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> 
     }
 }
 
+/// FJ-1270: Warn when the state lock was applied longer ago than `max_staleness`.
+///
+/// Decides only whether a warning is printed — never which value is returned —
+/// which is why it is split out of `resolve_forjar_state_source`. Returns an
+/// error only when `max_staleness` itself cannot be parsed, and (as before)
+/// never parses it at all when the lock carries no `last_apply`.
+fn warn_if_state_is_stale(
+    key: &str,
+    source: &DataSource,
+    doc: &serde_yaml_ng::Value,
+) -> Result<(), String> {
+    let Some(max_staleness) = source.max_staleness.as_ref() else {
+        return Ok(());
+    };
+    let Some(last_apply) = doc.get("last_apply").and_then(|v| v.as_str()) else {
+        return Ok(());
+    };
+    let max_secs = super::staleness::parse_duration_secs(max_staleness)
+        .map_err(|e| format!("data source '{key}': invalid max_staleness: {e}"))?;
+    if super::staleness::is_stale(last_apply, max_secs) {
+        eprintln!(
+            "warning: data source '{key}' is stale (last_apply: {last_apply}, max_staleness: {max_staleness})"
+        );
+    }
+    Ok(())
+}
+
+/// Pick the value for a data source that asked for specific outputs by name.
+///
+/// Decides which of the requested names wins: the first one the state lock
+/// actually carries. Falls back to the data source's `default` when none of
+/// them are present, and errors when there is no default.
+fn select_requested_output(
+    key: &str,
+    source: &DataSource,
+    outputs: &serde_yaml_ng::Mapping,
+) -> Result<String, String> {
+    for output_name in &source.outputs {
+        if let Some(val) = outputs.get(serde_yaml_ng::Value::String(output_name.clone())) {
+            return Ok(val.as_str().unwrap_or("").to_string());
+        }
+    }
+    source.default.clone().ok_or_else(|| {
+        format!(
+            "data source '{}': none of requested outputs ({}) found in state",
+            key,
+            source.outputs.join(", ")
+        )
+    })
+}
+
+/// Render every string-valued output in the state lock as a JSON object.
+///
+/// This is the answer when a data source names no specific outputs. Entries
+/// whose key or value is not a string are dropped, as they always were.
+fn outputs_as_json(key: &str, outputs: &serde_yaml_ng::Mapping) -> Result<String, String> {
+    let json_map: std::collections::HashMap<String, String> = outputs
+        .iter()
+        .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
+        .collect();
+    serde_json::to_string(&json_map)
+        .map_err(|e| format!("data source '{key}': serialize outputs: {e}"))
+}
+
 /// FJ-1260: Resolve forjar-state data source by reading outputs from another config's state.
 /// Reads the global lock (`forjar.lock.yaml`) in the given state directory and extracts
 /// stored output values. Falls back to `default` if the state is unavailable.
@@ -85,17 +149,7 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
         .map_err(|e| format!("data source '{key}': parse state lock: {e}"))?;
 
     // FJ-1270: Check staleness if max_staleness is configured
-    if let Some(ref max_staleness) = source.max_staleness {
-        if let Some(last_apply) = doc.get("last_apply").and_then(|v| v.as_str()) {
-            let max_secs = super::staleness::parse_duration_secs(max_staleness)
-                .map_err(|e| format!("data source '{key}': invalid max_staleness: {e}"))?;
-            if super::staleness::is_stale(last_apply, max_secs) {
-                eprintln!(
-                    "warning: data source '{key}' is stale (last_apply: {last_apply}, max_staleness: {max_staleness})"
-                );
-            }
-        }
-    }
+    warn_if_state_is_stale(key, source, &doc)?;
 
     // Extract output values from the lock's "outputs" section
     let outputs = match doc.get("outputs") {
@@ -110,27 +164,11 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
 
     // If specific outputs requested, return the first matching one
     if !source.outputs.is_empty() {
-        for output_name in &source.outputs {
-            if let Some(val) = outputs.get(serde_yaml_ng::Value::String(output_name.clone())) {
-                return Ok(val.as_str().unwrap_or("").to_string());
-            }
-        }
-        return source.default.clone().ok_or_else(|| {
-            format!(
-                "data source '{}': none of requested outputs ({}) found in state",
-                key,
-                source.outputs.join(", ")
-            )
-        });
+        return select_requested_output(key, source, outputs);
     }
 
     // No specific outputs requested — return all as JSON
-    let json_map: std::collections::HashMap<String, String> = outputs
-        .iter()
-        .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
-        .collect();
-    serde_json::to_string(&json_map)
-        .map_err(|e| format!("data source '{key}': serialize outputs: {e}"))
+    outputs_as_json(key, outputs)
 }
 
 /// FJ-223: Resolve all data sources and inject values into config params.

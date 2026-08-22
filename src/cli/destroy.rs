@@ -124,6 +124,29 @@ pub(crate) fn write_destroy_log_entry(
     }
 }
 
+/// Decides which machine a resource is destroyed on, and whether `-m` selects it
+/// at all. A `Multiple` target is destroyed on its first machine; `None` means
+/// skip this resource entirely — either it names no machine, or the machine
+/// filter excludes it. Lifted out of the destroy loop so the loop body reads as
+/// "pick a machine, then destroy on it".
+fn destroy_target_machine<'a>(
+    resource: &'a types::Resource,
+    machine_filter: Option<&str>,
+) -> Option<&'a str> {
+    let machine_name = match &resource.machine {
+        types::MachineTarget::Single(m) => m.as_str(),
+        types::MachineTarget::Multiple(ms) => ms.first()?.as_str(),
+    };
+
+    if let Some(filter) = machine_filter {
+        if machine_name != filter {
+            return None;
+        }
+    }
+
+    Some(machine_name)
+}
+
 pub(crate) fn cmd_destroy(
     file: &Path,
     state_dir: &Path,
@@ -182,21 +205,9 @@ pub(crate) fn cmd_destroy(
             None => continue,
         };
 
-        let machine_name = match &resource.machine {
-            types::MachineTarget::Single(m) => m.as_str(),
-            types::MachineTarget::Multiple(ms) => {
-                if ms.is_empty() {
-                    continue;
-                }
-                ms[0].as_str()
-            }
+        let Some(machine_name) = destroy_target_machine(resource, machine_filter) else {
+            continue;
         };
-
-        if let Some(filter) = machine_filter {
-            if machine_name != filter {
-                continue;
-            }
-        }
 
         let machine = match config.machines.get(machine_name) {
             Some(m) => m,

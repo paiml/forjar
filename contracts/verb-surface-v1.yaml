@@ -1,0 +1,307 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-08-22"
+  author: "PAIML Engineering"
+  kind: kernel
+  description: |
+    forjar Unified Verb Surface (FVS) — one capability set, asserted identical
+    across every transport that ships.
+
+    Spec: docs/specifications/unified-verb-surface.md
+
+    MEASURED on the shipped 1.16.0 binary, 2026-08-22: 193 CLI leaves (160
+    top-level, 10 carrying 43 nested subcommands) against 9 MCP tools. 184
+    capabilities exist on exactly one transport.
+
+    This contract does NOT promise to close that gap. A migration promise over
+    193 leaves is unfalsifiable, and the sibling that wrote this pattern first
+    has not kept it — rmedia registered 34 verbs, proved parity over its derived
+    tree, and still ships its hand-written Commands enum, routing only Mcp and
+    Serve through cli_registry(). Its CLI parity leg is an in-process claim.
+
+    What is promised is an ENFORCED TOTAL PARTITION: every leaf is Unified,
+    CliOnly (with a reason) or Pending (with an issue). A new leaf naming no
+    bucket fails the build. That is what keeps the negative half of the design
+    falsifiable, and the judge panel named it as the weakest point precisely
+    because an exclusion list is otherwise green by construction.
+
+  references:
+    - "docs/specifications/unified-verb-surface.md"
+    - "rmedia/contracts/verb-surface-v1.yaml — the prior art this adapts"
+    - "rmedia/crates/rmedia-cli/src/verbs/conformance.rs — four-way parity harness"
+    - "src/mcp/registry.rs — where the 9 tools are declared four times"
+    - "src/main.rs::classify_exit_code — exit codes chosen by substring-matching prose"
+
+  quorum_validation:
+    - system: "Kubernetes API machinery"
+      adopted: |
+        One schema published BY the server and consumed by clients, so a client
+        cannot hold a stale idea of the surface. forjar publishes its verb
+        manifest from the binary rather than maintaining it beside the code.
+      encoded_as: "equation `surface_parity`"
+    - system: "Nomad / Consul / podman"
+      adopted: |
+        Where the CLI is a CLIENT of the API, drift between them is structurally
+        impossible. forjar cannot adopt this wholesale — it must work with no
+        daemon, over SSH, on a box with no network — so it takes the property
+        (one definition, many adapters) without the deployment model.
+      encoded_as: "equations `surface_parity`, `transport_invariance`"
+    - system: "Terraform plan/apply"
+      adopted: |
+        A destructive operation is described before it is performed, in the same
+        vocabulary on every interface. Verb semantics do not change per transport.
+      encoded_as: "equation `transport_invariance`"
+
+equations:
+  surface_parity:
+    formula: |
+      names(CLI_derived) = names(MCP tools/list) = names(manifest)
+    domain: "v ∈ Unified"
+    codomain: "{equal, divergent}"
+    invariants:
+      - "Each name set is computed the way a CLIENT sees it: the CLI's by walking the derived clap tree of the SPAWNED binary, MCP's from a real tools/list response, the manifest's from the generated file"
+      - "Reading the registry three times proves nothing — it asserts that a function returns what it returns"
+      - "The manifest is GENERATED from the registry, never maintained beside it, or it drifts"
+
+  partition_is_total:
+    formula: |
+      ∀ leaf ∈ CLI: leaf ∈ Unified ⊎ CliOnly ⊎ Pending
+      CliOnly ⟹ reason ≠ ∅ ;  Pending ⟹ issue ≠ ∅
+    domain: "the 193 CLI leaves"
+    codomain: "Vec<(leaf, bucket)>"
+    invariants:
+      - "A new CLI leaf that names no bucket FAILS THE BUILD — this is the property that makes the exclusion falsifiable"
+      - "Pending may only shrink; it is the debt ledger"
+      - "CliOnly requires a written reason per line, so 'excluded' never silently means 'forgotten'"
+
+  error_taxonomy_is_total:
+    formula: |
+      ∀ e: classify(e) ∈ {Validation, Connection, Partial, Drift, Other}
+    domain: "every error reaching the process boundary"
+    codomain: "exit code ∈ {3,4,2,10,1}"
+    invariants:
+      - "Classification comes from a VARIANT, never from substring-matching prose"
+      - "MEASURED failure this replaces: an I8 bashrs-validation error beginning `transport error:` exits 4 — the CONNECTION code, which CI retries — for a deterministic failure that can never succeed on retry"
+      - "Exit code VALUES are a public contract and do not change: 3 Validation, 4 Connection, 2 Partial, 10 Drift, 1 Other"
+      - "Any remaining prose-matching fallback must be a NAMED, documented, deliberately-temporary path with a count of the sites still on it"
+
+  transport_invariance:
+    formula: |
+      ∀ v ∈ Unified, ∀ case: bytes(CLI(v,case)) = bytes(MCP(v,case))
+    domain: "the shared case table"
+    codomain: "{identical, divergent}"
+    invariants:
+      - "MCP params are DERIVED from the CLI argv through the adapter, so this compares ADAPTERS rather than two hand-written inputs that happen to agree"
+      - "The failure half runs over EVERY unified verb, not only the cases the table can afford to fail on purpose"
+      - "Each transport reports the same error CLASS in its own vocabulary: exit 3 / JSON-RPC -32602, no invented values"
+
+  renderer_fidelity:
+    formula: |
+      ∀ v ∈ Unified: bytes(stdout of legacy leaf) = bytes(stdout of derived leaf)
+    domain: "one migrated verb, one fixture"
+    codomain: "{identical, divergent}"
+    invariants:
+      - "Both sides SPAWNED from the shipped binary, never called in-process"
+      - "This is what permits one-verb-at-a-time cutover instead of a 193-leaf single commit"
+      - "It is EMPTY on the day it ships and grows one entry per migrated verb — stated because a gate that currently gates nothing must not be mistaken for one that does"
+      - "src/cli/ carries 3,351 println! calls; rmedia lacks this equation and its cli_surface.rs (1,028 lines) measures a distance nobody can close"
+
+  reachability_is_structural:
+    formula: |
+      derived_tree reachable from main ⟸ `forjar verb` is a shipped subcommand
+    domain: "the release binary"
+    codomain: "{reachable, orphaned}"
+    invariants:
+      - "The derived tree ships as `forjar verb list|call|<name>`, so an unreachable adapter is a USER-VISIBLE break rather than a green suite"
+      - "rmedia's four-way parity suite was GREEN for the entire period mcp::serve_stdio and http::serve had no caller from main.rs — the transports agreed with each other perfectly while being unreachable"
+      - "Agreement cannot falsify reachability. Every conformance test spawns CARGO_BIN_EXE_forjar"
+
+  declared_transports_are_exhaustive:
+    formula: |
+      advertised(binary) ∩ {mcp, serve, http} ⊆ keys([package.metadata.transports])
+    domain: "the release binary"
+    codomain: "{exhaustive, undeclared surface}"
+    invariants:
+      - "forjar declares exactly {cli, mcp, http}. HTTP was absent when this contract was written and its absence was asserted rather than assumed; it is now PRESENT, declared, and proved reachable by tests/e2e_verb_http_t.rs, which spawns the binary and talks to it over a socket"
+      - "`rules serve` is NOT an http transport and is bucketed CliOnly with that reason: a webhook receiver ACCEPTS events, it does not expose forjar's capability set. Declaring it one would assert parity between `forjar plan` and an HMAC event endpoint, which is not a meaningful equality"
+      - "core::webhook_server exists but is reachable from no subcommand, so it is not a shipped interface"
+      - "Adding HTTP is one declared key plus one feature flag, and the parity gate follows automatically"
+
+proof_obligations:
+  - type: safety
+    property: "An I8 validation failure is classified Validation, not Connection"
+    formal: "classify('transport error: I8 violation — script failed bashrs validation') = 3"
+    applies_to: error_taxonomy_is_total
+    enforced_by: "src/main.rs tests::i8_validation_is_not_a_connection_error"
+
+  - type: completeness
+    property: "Every CLI leaf is in exactly one bucket"
+    formal: "∀ leaf: |{b : leaf ∈ b}| = 1"
+    applies_to: partition_is_total
+    enforced_by: "tests/e2e_partition_is_total_t.rs"
+
+  - type: equivalence
+    property: "CLI, MCP and manifest name sets are equal over Unified"
+    formal: "names(CLI_derived) = names(tools/list) = names(manifest)"
+    applies_to: surface_parity
+    enforced_by: "tests/e2e_surface_parity_t.rs"
+
+  - type: equivalence
+    property: "The same case yields identical bytes on every transport"
+    formal: "∀ case: bytes(CLI) = bytes(MCP)"
+    applies_to: transport_invariance
+    enforced_by: "tests/e2e_transport_invariance_t.rs"
+
+  - type: equivalence
+    property: "A migrated verb's derived output byte-matches its legacy leaf"
+    formal: "bytes(legacy) = bytes(derived)"
+    applies_to: renderer_fidelity
+    enforced_by: "tests/e2e_render_fidelity_t.rs"
+
+  - type: liveness
+    property: "The derived tree is reachable from the shipped binary"
+    formal: "`forjar verb list` exits 0 from CARGO_BIN_EXE_forjar"
+    applies_to: reachability_is_structural
+    enforced_by: "tests/e2e_surface_parity_t.rs::the_derived_tree_is_a_shipped_subcommand"
+
+  - type: safety
+    property: "The binary advertises no undeclared transport"
+    formal: "advertised ∩ {mcp,serve,http} ⊆ declared"
+    applies_to: declared_transports_are_exhaustive
+    enforced_by: "tests/e2e_transport_absence_t.rs"
+
+  - type: soundness
+    property: "The 9 MCP tools have ONE declaration site"
+    formal: "|declaration_sites(tool)| = 1"
+    applies_to: surface_parity
+    enforced_by: "src/mcp/registry.rs tests::the_four_surfaces_agree"
+
+falsification_tests:
+  - id: FALSIFY-FVS-001
+    rule: "exit codes come from a variant, not from prose"
+    prediction: "an error containing the word 'transport' that is a validation failure exits 3, not 4"
+    test: "src/main.rs::tests::i8_validation_is_not_a_connection_error"
+    if_fails: "CI retries a deterministic failure forever, which is what it did before this contract"
+
+  - id: FALSIFY-FVS-002
+    rule: "the partition is total"
+    prediction: "adding a CLI leaf without declaring a bucket fails the build"
+    test: "tests/e2e_partition_is_total_t.rs"
+    if_fails: "the exclusion list becomes green-by-construction and proves nothing — the judge panel's named fatal flaw"
+
+  - id: FALSIFY-FVS-003
+    rule: "name sets are computed as a client sees them"
+    prediction: "a verb registered but never surfaced on the derived clap tree fails parity"
+    test: "tests/e2e_surface_parity_t.rs"
+    if_fails: "parity degenerates into asserting a function returns what it returns"
+
+  - id: FALSIFY-FVS-004
+    rule: "the derived tree is reachable from the shipped binary"
+    prediction: "`forjar verb list` on CARGO_BIN_EXE_forjar exits 0 and lists the unified verbs"
+    test: "tests/e2e_surface_parity_t.rs::the_derived_tree_is_a_shipped_subcommand"
+    if_fails: "rmedia's failure returns — perfect agreement between transports nothing can reach"
+
+  - id: FALSIFY-FVS-005
+    rule: "transports are declared exhaustively"
+    prediction: "advertising `serve` without declaring http fails"
+    test: "tests/e2e_transport_absence_t.rs"
+    if_fails: "an undeclared transport is an unverified one"
+
+  - id: FALSIFY-FVS-006
+    rule: "a migrated verb's output does not change"
+    prediction: "a deliberate one-byte change to a derived renderer fails fidelity"
+    test: "tests/e2e_render_fidelity_t.rs"
+    if_fails: "cutover silently changes what operators see, one verb at a time"
+
+  - id: FALSIFY-FVS-007
+    rule: "the MCP tool table has one declaration site"
+    prediction: "adding a tool to three of four surfaces fails"
+    test: "src/mcp/registry.rs::tests::the_four_surfaces_agree"
+    if_fails: "the current defect returns — forjar_validate declared 4x, with no compiler help"
+
+  - id: FALSIFY-FVS-008
+    rule: "read-only annotations are truthful"
+    prediction: "a tool annotated readOnlyHint that reaches a mutating handler fails"
+    test: "src/mcp/registry.rs::tests::readonly_annotations_match_handlers"
+    if_fails: "worse than no annotation — an agent trusts it"
+
+qa_gate:
+  id: F-FVS-001
+  name: "Unified Verb Surface"
+  description: |
+    One capability set across every shipped transport, with the exclusion made
+    falsifiable rather than assumed. Gate fails on any falsification test going
+    red.
+  check: "cargo test --test e2e_surface_parity_t --test e2e_transport_invariance_t --test e2e_partition_is_total_t"
+  severity: error
+  reference: "docs/specifications/unified-verb-surface.md"
+
+kani_harnesses:
+  - id: KANI-FVS-001
+    obligation: "the exit-code classification is TOTAL and its values are stable"
+    property: "forall e: classify(e) in {Validation,Connection,Partial,Drift,Other} and exit_code(classify(e)) in {3,4,2,10,1}"
+    bound: 8
+    strategy: bounded_int
+    harness: proof_fvs_classification_is_total
+
+  - id: KANI-FVS-002
+    obligation: "classification is a FUNCTION of the variant, never of message length or content"
+    property: "forall v, m1, m2: exit_code(classify_variant(v, m1)) = exit_code(classify_variant(v, m2))"
+    bound: 8
+    strategy: bounded_int
+    harness: proof_fvs_classification_ignores_prose
+
+  - id: KANI-FVS-003
+    obligation: "the CLI-leaf partition is total and disjoint"
+    property: "forall leaf: exactly one of {Unified, CliOnly, Pending} holds"
+    bound: 16
+    strategy: bounded_int
+    harness: proof_fvs_partition_is_total_and_disjoint
+
+pending_obligations:
+  error_taxonomy: |
+    DISCHARGED 2026-08-22. KANI-FVS-001 and KANI-FVS-002 were undischarged while
+    `ErrorClass` lived on an unmerged branch; the taxonomy landed with this change
+    and both harnesses are written.
+
+    Both target `ErrorClass`, never `ForjarError`. That is the allocation-free
+    boundary: `ForjarError` carries a `String`, so a harness CONSTRUCTING one
+    drags the allocator and core::fmt into the model — 117 minutes at 6.5 GB for
+    a 216-case space, measured, recorded in kani_proofs_backup_sync.
+
+    So KANI-FVS-002 is proved in two halves, the split nas_archive established:
+      * Kani proves `ErrorClass::exit_code` is variant-determined AND INJECTIVE.
+        Injectivity is the half worth a proof, because losing it IS the defect
+        this replaced — prose matching collapsed every message containing
+        "transport" onto exit 4, so a caller could not tell a dead SSH link from
+        a deterministic bashrs rejection.
+      * EXECUTION proves the delegation. `ForjarError::exit_code` is one line,
+        `self.class.exit_code()`; `error::tests::the_exit_code_ignores_the_message_entirely`
+        builds real errors across all five classes with eight messages —
+        including the verbatim gx10 string and every phrase the old heuristic
+        keyed on — and requires the code to come from the variant. Falsified by
+        injection: restoring the `contains("transport")` branch fails it with the
+        original bug's exact signature, exit 4.
+
+  note: |
+    The e2e obligations above name test targets that DO NOT EXIST YET. This
+    contract is committed alongside a PROPOSED spec, ahead of the implementation,
+    which means `pv lint` will report them as unfalsifiable (PV-VER-001) until the
+    targets land. That is stated here rather than discovered later.
+
+    The alternative — citing tests that do not exist and saying nothing — is a
+    defect this fleet has already paid for: copia-provisioning-v1 named
+    `test_fj242_patch_script_copy_and_literal` in three obligations for a test
+    that had been renamed away, and pv lint carried 3 errors until 2026-08-22.
+    A contract that cites an absent test is making a claim it cannot support.
+
+    Tracking: paiml/forjar#288. Each obligation moves from this list to enforced
+    as its target is written; the list may only shrink.
+  unimplemented:
+    - "tests/e2e_surface_parity_t.rs"
+    - "tests/e2e_transport_invariance_t.rs"
+    - "tests/e2e_partition_is_total_t.rs"
+    - "tests/e2e_render_fidelity_t.rs"
+    - "tests/e2e_transport_absence_t.rs"
+
