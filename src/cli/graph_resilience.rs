@@ -54,10 +54,22 @@ pub(crate) fn cmd_graph_resource_dependency_parallel_groups(
         return Ok(());
     }
 
+    let groups = parallel_group_levels(&config.resources);
+    print_parallel_groups(&groups, json);
+
+    Ok(())
+}
+
+/// Assign every resource to a topological level, so that the members of a level
+/// depend only on earlier levels and never on each other. Each level is sorted
+/// for deterministic output.
+fn parallel_group_levels(
+    resources: &indexmap::IndexMap<String, types::Resource>,
+) -> Vec<Vec<String>> {
     // Build in-degree map and forward adjacency (dep -> list of dependents).
     let mut in_degree: HashMap<String, usize> = HashMap::new();
     let mut forward: HashMap<String, Vec<String>> = HashMap::new();
-    for (name, resource) in &config.resources {
+    for (name, resource) in resources {
         in_degree.entry(name.clone()).or_insert(0);
         forward.entry(name.clone()).or_default();
         for dep in &resource.depends_on {
@@ -105,6 +117,11 @@ pub(crate) fn cmd_graph_resource_dependency_parallel_groups(
         group.sort();
     }
 
+    groups
+}
+
+/// Render the parallel execution groups.
+fn print_parallel_groups(groups: &[Vec<String>], json: bool) {
     if json {
         let items: Vec<String> = groups
             .iter()
@@ -120,8 +137,6 @@ pub(crate) fn cmd_graph_resource_dependency_parallel_groups(
             println!("Group {} (parallel): {}", i, rs.join(", "));
         }
     }
-
-    Ok(())
 }
 
 /// FJ-1026: Estimate total execution cost by weighting resources by type and

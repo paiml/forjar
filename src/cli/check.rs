@@ -271,6 +271,82 @@ fn report_unrecorded(in_state: Option<bool>, resource_id: &str, machine_name: &s
     }
 }
 
+/// The running totals and per-check results accumulated by `cmd_check`.
+#[derive(Default)]
+struct CheckTally {
+    pass: usize,
+    fail: usize,
+    skip: usize,
+    results: Vec<CheckResult>,
+}
+
+/// The parts of `cmd_check`'s environment that do not vary per resource.
+struct CheckCtx<'a> {
+    machines: &'a indexmap::IndexMap<String, types::Machine>,
+    localhost: types::Machine,
+    machine_filter: Option<&'a str>,
+    state: CheckState,
+    json: bool,
+}
+
+/// The check script for `resource`, or `None` when the resource has nothing to
+/// observe. Both no-script cases print their reason in text mode; the caller
+/// counts the skip.
+fn check_script_or_skip(
+    resource_id: &str,
+    resource: &types::Resource,
+    resolved: &types::Resource,
+    json: bool,
+) -> Option<String> {
+    // FJ-2725: a phony resource names an action with no artifact. Since
+    // FJ-2720 made "no evidence" a failure, checking one would report a
+    // permanent FAIL for something that has nothing to observe.
+    if resource.phony {
+        if !json {
+            println!("  ? {resource_id} (phony — nothing to observe)");
+        }
+        return None;
+    }
+    match codegen::check_script(resolved) {
+        Ok(s) => Some(s),
+        Err(_) => {
+            if !json {
+                println!("  ? {resource_id} (no check script)");
+            }
+            None
+        }
+    }
+}
+
+/// Run `check_script` on every machine the resource targets, folding each
+/// outcome into `tally`.
+fn check_resource_machines(
+    ctx: &CheckCtx<'_>,
+    resource: &types::Resource,
+    resource_id: &str,
+    check_script: &str,
+    tally: &mut CheckTally,
+) {
+    for machine_name in resource.machine.iter() {
+        let machine = ctx.machines.get(machine_name).unwrap_or(&ctx.localhost);
+        if skip_machine(machine_name, ctx.machine_filter, resource, machine) {
+            tally.skip += 1;
+            continue;
+        }
+
+        let (mut result, passed) =
+            run_single_check(machine, check_script, resource_id, machine_name, ctx.json);
+        result.in_state = resource_in_state(&ctx.state, machine_name, resource_id);
+        report_unrecorded(result.in_state, resource_id, machine_name, ctx.json);
+        if passed {
+            tally.pass += 1;
+        } else {
+            tally.fail += 1;
+        }
+        tally.results.push(result);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_check(
     file: &Path,
@@ -293,13 +369,15 @@ pub(crate) fn cmd_check(
     }
 
     let execution_order = resolver::build_execution_order(&config)?;
-    let localhost = localhost_machine();
-    let check_state = load_check_locks(state_dir, &config);
+    let ctx = CheckCtx {
+        machines: &config.machines,
+        localhost: localhost_machine(),
+        machine_filter,
+        state: load_check_locks(state_dir, &config),
+        json,
+    };
 
-    let mut total_pass = 0usize;
-    let mut total_fail = 0usize;
-    let mut total_skip = 0usize;
-    let mut check_results = Vec::new();
+    let mut tally = CheckTally::default();
 
     for resource_id in &execution_order {
         let resource = match config.resources.get(resource_id) {
@@ -311,7 +389,7 @@ pub(crate) fn cmd_check(
             check_resource_filters(resource_id, resource, resource_filter, tag_filter);
         if skip {
             if count {
-                total_skip += 1;
+                tally.skip += 1;
             }
             continue;
         }
@@ -319,47 +397,21 @@ pub(crate) fn cmd_check(
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 
-        // FJ-2725: a phony resource names an action with no artifact. Since
-        // FJ-2720 made "no evidence" a failure, checking one would report a
-        // permanent FAIL for something that has nothing to observe.
-        if resource.phony {
-            total_skip += 1;
-            if !json {
-                println!("  ? {resource_id} (phony — nothing to observe)");
-            }
+        let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
+        else {
+            tally.skip += 1;
             continue;
-        }
-
-        let check_script = match codegen::check_script(&resolved) {
-            Ok(s) => s,
-            Err(_) => {
-                total_skip += 1;
-                if !json {
-                    println!("  ? {resource_id} (no check script)");
-                }
-                continue;
-            }
         };
 
-        for machine_name in resource.machine.iter() {
-            let machine = config.machines.get(machine_name).unwrap_or(&localhost);
-            if skip_machine(machine_name, machine_filter, resource, machine) {
-                total_skip += 1;
-                continue;
-            }
-
-            let (mut result, passed) =
-                run_single_check(machine, &check_script, resource_id, machine_name, json);
-            result.in_state = resource_in_state(&check_state, machine_name, resource_id);
-            report_unrecorded(result.in_state, resource_id, machine_name, json);
-            if passed {
-                total_pass += 1;
-            } else {
-                total_fail += 1;
-            }
-            check_results.push(result);
-        }
+        check_resource_machines(&ctx, resource, resource_id, &check_script, &mut tally);
     }
+
+    let CheckTally {
+        pass: total_pass,
+        fail: total_fail,
+        skip: total_skip,
+        results: check_results,
+    } = tally;
 
     if json {
         format_check_json(

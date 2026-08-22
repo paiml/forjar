@@ -163,6 +163,40 @@ pub(crate) fn cmd_apply_canary_machine(
     Ok(())
 }
 
+/// Re-query ONE converged resource's live state and hash it the same way the
+/// executor did when it recorded the stored `live_hash`.
+///
+/// FJ-154 / #22: resolve with the SAME SecretsConfig the executor used to
+/// produce the stored live_hash (record_success →
+/// resolve_resource_templates_with_secrets(.., &cfg.config.secrets)), so the
+/// refresh-query script matches and we don't report spurious drift / rewrite
+/// state on every refresh.
+///
+/// `None` means "no answer" — the resource has no refresh-query script, or the
+/// query did not succeed — and the caller then leaves the stored hash untouched.
+fn refreshed_live_hash(
+    machine: &types::Machine,
+    resource: &types::Resource,
+    config: &types::ForjarConfig,
+    timeout: Option<u64>,
+) -> Option<String> {
+    let resolved = resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    )
+    .unwrap_or_else(|_| resource.clone());
+
+    // STRONG contract: refresh-query stdout may legitimately be empty when
+    // state is absent — use the sentinel wrapper to uphold `!input.is_empty()`.
+    let query = codegen::state_query_script(&resolved).ok()?;
+    match transport::exec_script_timeout(machine, &query, timeout) {
+        Ok(out) if out.success() => Some(hasher::hash_string_or_sentinel(&out.stdout)),
+        _ => None,
+    }
+}
+
 /// FJ-1230: Refresh state only — re-query live state for all converged resources
 /// and update lock hashes without applying any changes.
 #[allow(clippy::too_many_arguments)]
@@ -201,29 +235,7 @@ pub(crate) fn cmd_refresh_only(
                 Some(r) => r,
                 None => continue,
             };
-            // FJ-154 / #22: resolve with the SAME SecretsConfig the executor
-            // used to produce the stored live_hash (record_success →
-            // resolve_resource_templates_with_secrets(.., &cfg.config.secrets)),
-            // so the refresh-query script matches and we don't report spurious
-            // drift / rewrite state on every refresh.
-            let resolved = resolver::resolve_resource_templates_with_secrets(
-                resource,
-                &config.params,
-                &config.machines,
-                &config.secrets,
-            )
-            .unwrap_or_else(|_| resource.clone());
-
-            // STRONG contract: refresh-query stdout may legitimately be
-            // empty when state is absent — use the sentinel wrapper to
-            // uphold `!input.is_empty()`.
-            let new_hash = match codegen::state_query_script(&resolved) {
-                Ok(query) => match transport::exec_script_timeout(machine, &query, timeout) {
-                    Ok(out) if out.success() => Some(hasher::hash_string_or_sentinel(&out.stdout)),
-                    _ => None,
-                },
-                Err(_) => None,
-            };
+            let new_hash = refreshed_live_hash(machine, resource, &config, timeout);
 
             if let Some(ref hash) = new_hash {
                 let old_hash = rl

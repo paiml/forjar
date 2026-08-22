@@ -73,6 +73,28 @@ fn split_tag(reference: &str) -> Result<(&str, &str), String> {
     }
 }
 
+/// Reject a reference that names something no push can honestly target.
+fn reject_unpushable(reference: &str) -> Result<(), String> {
+    if reference.is_empty() {
+        return Err("image reference is empty".to_string());
+    }
+    if reference.contains(char::is_whitespace) {
+        return Err(format!("image reference '{reference}' contains whitespace"));
+    }
+    if reference.contains("://") {
+        return Err(format!(
+            "image reference '{reference}' is a URL; expected registry/repository:tag"
+        ));
+    }
+    if reference.contains('@') {
+        return Err(format!(
+            "image reference '{reference}' is digest-pinned; \
+             a digest reference names content that already exists and cannot be pushed to"
+        ));
+    }
+    Ok(())
+}
+
 /// Parse an image reference into the registry, repository and tag to push to.
 ///
 /// Rejects (rather than guesses at) references it cannot push honestly:
@@ -96,23 +118,7 @@ fn split_tag(reference: &str) -> Result<(&str, &str), String> {
 /// ```
 pub fn parse_image_ref(reference: &str) -> Result<ImageRef, String> {
     let reference = reference.trim();
-    if reference.is_empty() {
-        return Err("image reference is empty".to_string());
-    }
-    if reference.contains(char::is_whitespace) {
-        return Err(format!("image reference '{reference}' contains whitespace"));
-    }
-    if reference.contains("://") {
-        return Err(format!(
-            "image reference '{reference}' is a URL; expected registry/repository:tag"
-        ));
-    }
-    if reference.contains('@') {
-        return Err(format!(
-            "image reference '{reference}' is digest-pinned; \
-             a digest reference names content that already exists and cannot be pushed to"
-        ));
-    }
+    reject_unpushable(reference)?;
 
     let (name, tag) = split_tag(reference)?;
     let (registry, repository) = match name.split_once('/') {

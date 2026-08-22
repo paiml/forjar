@@ -46,6 +46,13 @@ fn safety_audit_resource(resource: &super::types::Resource) -> (i32, bool) {
             critical = true;
         }
     }
+    deduction += safety_missing_metadata_deduction(resource);
+    (deduction, critical)
+}
+
+/// Deductions for a resource that omits standard metadata (mode, owner, version).
+fn safety_missing_metadata_deduction(resource: &super::types::Resource) -> i32 {
+    let mut deduction: i32 = 0;
     if resource.resource_type == ResourceType::File && resource.mode.is_none() {
         deduction += 5;
     }
@@ -55,7 +62,7 @@ fn safety_audit_resource(resource: &super::types::Resource) -> (i32, bool) {
     if resource.resource_type == ResourceType::Package && resource.version.is_none() {
         deduction += 3;
     }
-    (deduction, critical)
+    deduction
 }
 
 /// v2: -10 per param whose name matches secret patterns with non-template value.
@@ -147,23 +154,30 @@ pub(super) fn score_observability(config: &ForjarConfig) -> DimensionScore {
 // DOC — Documentation (15%). v2: quality signals, not volume.
 // ============================================================================
 
+/// Header metadata signals taken from the first 5 lines of the raw YAML.
+fn documentation_header_points(raw_yaml: &str) -> u32 {
+    let first_lines: String = raw_yaml.lines().take(5).collect::<Vec<_>>().join("\n");
+    let mut points: u32 = 0;
+    if first_lines.contains("Recipe") {
+        points += 8;
+    }
+    if first_lines.contains("Tier") {
+        points += 8;
+    }
+    if first_lines.contains("Idempotency") || first_lines.contains("idempotency") {
+        points += 8;
+    }
+    if first_lines.contains("Budget") || first_lines.contains("budget") {
+        points += 8;
+    }
+    points
+}
+
 pub(super) fn score_documentation(config: &ForjarConfig, raw_yaml: &str) -> DimensionScore {
     let mut score: u32 = 0;
 
     // Header metadata checks from first 5 lines
-    let first_lines: String = raw_yaml.lines().take(5).collect::<Vec<_>>().join("\n");
-    if first_lines.contains("Recipe") {
-        score += 8;
-    }
-    if first_lines.contains("Tier") {
-        score += 8;
-    }
-    if first_lines.contains("Idempotency") || first_lines.contains("idempotency") {
-        score += 8;
-    }
-    if first_lines.contains("Budget") || first_lines.contains("budget") {
-        score += 8;
-    }
+    score += documentation_header_points(raw_yaml);
 
     // description field present: +15
     if config.description.is_some() {
@@ -226,6 +240,37 @@ pub(super) fn score_documentation(config: &ForjarConfig, raw_yaml: &str) -> Dime
 // RES — Resilience (20%). v2: context-aware, no DAG bias.
 // ============================================================================
 
+/// v2: EITHER a deep dependency graph OR tagged independence earns the points —
+/// both ratios are measured, the better one counts.
+fn resilience_independence_points(config: &ForjarConfig) -> u32 {
+    let total = config.resources.len();
+    if total == 0 {
+        return 0;
+    }
+
+    let with_deps = config
+        .resources
+        .values()
+        .filter(|r| !r.depends_on.is_empty())
+        .count();
+    let dep_ratio = (with_deps * 100) / total;
+
+    let tagged_independent = config
+        .resources
+        .values()
+        .filter(|r| !r.tags.is_empty() && r.resource_group.is_some())
+        .count();
+    let tag_ratio = (tagged_independent * 100) / total;
+
+    if dep_ratio >= 50 || tag_ratio >= 50 {
+        20
+    } else if dep_ratio >= 30 || tag_ratio >= 30 {
+        10
+    } else {
+        0
+    }
+}
+
 pub(super) fn score_resilience(config: &ForjarConfig) -> DimensionScore {
     let mut score: u32 = 0;
 
@@ -240,28 +285,7 @@ pub(super) fn score_resilience(config: &ForjarConfig) -> DimensionScore {
     }
 
     // v2: EITHER deep DAG OR tagged independence scores +20 (not both required)
-    let total = config.resources.len();
-    if total > 0 {
-        let with_deps = config
-            .resources
-            .values()
-            .filter(|r| !r.depends_on.is_empty())
-            .count();
-        let dep_ratio = (with_deps * 100) / total;
-
-        let tagged_independent = config
-            .resources
-            .values()
-            .filter(|r| !r.tags.is_empty() && r.resource_group.is_some())
-            .count();
-        let tag_ratio = (tagged_independent * 100) / total;
-
-        if dep_ratio >= 50 || tag_ratio >= 50 {
-            score += 20;
-        } else if dep_ratio >= 30 || tag_ratio >= 30 {
-            score += 10;
-        }
-    }
+    score += resilience_independence_points(config);
 
     // pre_apply hook: +8
     if config.policy.pre_apply.is_some() {

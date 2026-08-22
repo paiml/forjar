@@ -69,6 +69,11 @@ pub(super) fn validate_resource_refs(
         validate_ref(config, id, trigger, "triggers on", errors);
     }
 
+    validate_expansion_fields(id, resource, errors);
+}
+
+/// Validate the `count` / `for_each` expansion fields of a single resource.
+fn validate_expansion_fields(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.count.is_some() && resource.for_each.is_some() {
         errors.push(ValidationError {
             message: format!("resource '{id}' cannot have both 'count' and 'for_each'"),

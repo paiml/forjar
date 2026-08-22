@@ -9,6 +9,100 @@ use super::dist_output::{
     artifact_path, print_json, print_summary, resolve_dist_output, GeneratedArtifact,
 };
 
+/// Which of the seven artifact kinds this invocation asked for.
+#[derive(Clone, Copy)]
+struct DistSelection {
+    installer: bool,
+    homebrew: bool,
+    binstall: bool,
+    nix: bool,
+    github_action: bool,
+    deb: bool,
+    rpm: bool,
+}
+
+impl DistSelection {
+    /// `--all` implies every kind; otherwise each flag stands on its own.
+    fn from_args(args: &super::commands::DistArgs) -> Self {
+        let all = args.all;
+        Self {
+            installer: args.installer || all,
+            homebrew: args.homebrew || all,
+            binstall: args.binstall || all,
+            nix: args.nix || all,
+            github_action: args.github_action || all,
+            deb: args.deb || all,
+            rpm: args.rpm || all,
+        }
+    }
+
+    /// The flags in selection order — `resolve_dist_output` counts them.
+    fn flags(&self) -> [bool; 7] {
+        [
+            self.installer,
+            self.homebrew,
+            self.binstall,
+            self.nix,
+            self.github_action,
+            self.deb,
+            self.rpm,
+        ]
+    }
+
+    fn any_selected(&self) -> bool {
+        self.flags().iter().any(|s| *s)
+    }
+}
+
+/// Write every selected artifact into `target`, in emission order.
+fn emit_artifacts(
+    dist: &crate::core::types::DistConfig,
+    sel: DistSelection,
+    release: Option<&super::dist_checksums::ResolvedRelease>,
+    target: &super::dist_output::DistOutput,
+) -> Result<Vec<GeneratedArtifact>, String> {
+    let out_dir = target.dir();
+    let single = target.single_file();
+    let mut artifacts: Vec<GeneratedArtifact> = Vec::new();
+    let mut emit = |kind: &str, default_name: &str, content: &str| -> Result<(), String> {
+        let path = artifact_path(single, out_dir, default_name);
+        write_artifact(&path, content)?;
+        artifacts.push(GeneratedArtifact::new(kind, &path, content.len()));
+        Ok(())
+    };
+
+    if sel.installer {
+        emit("installer", "install.sh", &generate_installer(dist))?;
+    }
+    if sel.homebrew {
+        let rel = release.ok_or("internal: release not resolved")?;
+        emit("homebrew", "homebrew.rb", &generate_homebrew(dist, rel)?)?;
+    }
+    if sel.binstall {
+        emit("binstall", "binstall.toml", &generate_binstall(dist))?;
+    }
+    if sel.nix {
+        let rel = release.ok_or("internal: release not resolved")?;
+        emit("nix", "flake.nix", &generate_nix(dist, rel)?)?;
+    }
+    if sel.github_action {
+        emit("github-action", "action.yml", &generate_github_action(dist))?;
+    }
+    if sel.rpm {
+        let name = format!("{}.spec", dist.binary);
+        emit("rpm", &name, &generate_rpm(dist))?;
+    }
+    if sel.deb {
+        // --deb emits a debian/ TREE, not a file, so a single `-o` names that
+        // directory and the generator writes into it itself.
+        let dir = artifact_path(single, out_dir, "debian");
+        generate_deb(dist, &dir)?;
+        artifacts.push(GeneratedArtifact::new("deb", &dir, 0));
+    }
+
+    Ok(artifacts)
+}
+
 /// Entry point for `forjar dist`.
 pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     let file = &args.file;
@@ -39,26 +133,9 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
         return super::dist_verify::run_verify(dist, args);
     }
 
-    let gen_all = args.all;
-    let gen_installer = args.installer || gen_all;
-    let gen_homebrew = args.homebrew || gen_all;
-    let gen_binstall = args.binstall || gen_all;
-    let gen_nix = args.nix || gen_all;
-    let gen_github_action = args.github_action || gen_all;
-    let gen_deb = args.deb || gen_all;
-    let gen_rpm = args.rpm || gen_all;
-    let output = args.output.as_deref();
-    let output_dir = args.output_dir.as_deref();
-    let json = args.json;
+    let sel = DistSelection::from_args(args);
 
-    if !gen_installer
-        && !gen_homebrew
-        && !gen_binstall
-        && !gen_nix
-        && !gen_github_action
-        && !gen_deb
-        && !gen_rpm
-    {
+    if !sel.any_selected() {
         return Err(
             "specify at least one artifact: --installer, --homebrew, --binstall, --nix, --github-action, --deb, --rpm, or --all"
                 .to_string(),
@@ -67,7 +144,7 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
 
     // PMAT-080: Homebrew + Nix embed real checksums — resolve them up front
     // for the pinned --version tag (hard error instead of placeholders).
-    let release = if gen_homebrew || gen_nix {
+    let release = if sel.homebrew || sel.nix {
         Some(super::dist_checksums::resolve_release(
             dist,
             args.version.as_deref(),
@@ -83,58 +160,14 @@ pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     // `--all -o DIR` used DIR as the installer FILE (rc=1 when DIR existed)
     // while the other six landed in ./dist. See `resolve_dist_output`.
     let target = resolve_dist_output(
-        output,
-        output_dir,
-        &[
-            gen_installer,
-            gen_homebrew,
-            gen_binstall,
-            gen_nix,
-            gen_github_action,
-            gen_deb,
-            gen_rpm,
-        ],
+        args.output.as_deref(),
+        args.output_dir.as_deref(),
+        &sel.flags(),
     )?;
-    let out_dir = target.dir();
-    let single = target.single_file();
-    let mut artifacts: Vec<GeneratedArtifact> = Vec::new();
-    let mut emit = |kind: &str, default_name: &str, content: &str| -> Result<(), String> {
-        let path = artifact_path(single, out_dir, default_name);
-        write_artifact(&path, content)?;
-        artifacts.push(GeneratedArtifact::new(kind, &path, content.len()));
-        Ok(())
-    };
 
-    if gen_installer {
-        emit("installer", "install.sh", &generate_installer(dist))?;
-    }
-    if gen_homebrew {
-        let rel = release.as_ref().ok_or("internal: release not resolved")?;
-        emit("homebrew", "homebrew.rb", &generate_homebrew(dist, rel)?)?;
-    }
-    if gen_binstall {
-        emit("binstall", "binstall.toml", &generate_binstall(dist))?;
-    }
-    if gen_nix {
-        let rel = release.as_ref().ok_or("internal: release not resolved")?;
-        emit("nix", "flake.nix", &generate_nix(dist, rel)?)?;
-    }
-    if gen_github_action {
-        emit("github-action", "action.yml", &generate_github_action(dist))?;
-    }
-    if gen_rpm {
-        let name = format!("{}.spec", dist.binary);
-        emit("rpm", &name, &generate_rpm(dist))?;
-    }
-    if gen_deb {
-        // --deb emits a debian/ TREE, not a file, so a single `-o` names that
-        // directory and the generator writes into it itself.
-        let dir = artifact_path(single, out_dir, "debian");
-        generate_deb(dist, &dir)?;
-        artifacts.push(GeneratedArtifact::new("deb", &dir, 0));
-    }
+    let artifacts = emit_artifacts(dist, sel, release.as_ref(), &target)?;
 
-    if json {
+    if args.json {
         print_json(&artifacts);
     } else {
         print_summary(&artifacts);

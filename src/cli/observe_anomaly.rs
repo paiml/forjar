@@ -21,66 +21,7 @@ pub(crate) fn cmd_anomaly(
     min_events: usize,
     json: bool,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-
-    // Per-resource metrics: (converge_count, fail_count, drift_count)
-    let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
-        std::collections::HashMap::new();
-    // Dogfood #208: convergence durations per resource, for the outlier detector.
-    let mut durations: std::collections::HashMap<String, Vec<f64>> =
-        std::collections::HashMap::new();
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-
-        let log_path = entry.path().join("events.jsonl");
-        if !log_path.exists() {
-            continue;
-        }
-
-        let content = std::fs::read_to_string(&log_path)
-            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
-
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                match te.event {
-                    types::ProvenanceEvent::ResourceConverged {
-                        ref resource,
-                        duration_seconds,
-                        ..
-                    } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key.clone()).or_insert((0, 0, 0));
-                        entry.0 += 1;
-                        durations.entry(key).or_default().push(duration_seconds);
-                    }
-                    types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key).or_insert((0, 0, 0));
-                        entry.1 += 1;
-                    }
-                    types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                        let key = format!("{name}:{resource}");
-                        let entry = metrics.entry(key).or_insert((0, 0, 0));
-                        entry.2 += 1;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
+    let (metrics, durations) = collect_event_metrics(state_dir, machine_filter)?;
 
     // Convert metrics HashMap to Vec for detect_anomalies()
     let mut metrics_vec: Vec<(String, u32, u32, u32)> = metrics
@@ -125,6 +66,89 @@ pub(crate) fn cmd_anomaly(
 
     output_anomaly_findings(&findings, json)?;
     Ok(())
+}
+
+/// Per-resource metrics: (converge_count, fail_count, drift_count).
+type ResourceMetrics = std::collections::HashMap<String, (u32, u32, u32)>;
+/// Dogfood #208: convergence durations per resource, for the outlier detector.
+type ResourceDurations = std::collections::HashMap<String, Vec<f64>>;
+
+/// Read every machine's `events.jsonl` under the state dir into per-resource
+/// tallies, honouring `--machine`. A directory with no event log is skipped,
+/// as is any entry the OS refuses to list; an event log that exists but cannot
+/// be read is still a hard error.
+fn collect_event_metrics(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<(ResourceMetrics, ResourceDurations), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut metrics: ResourceMetrics = std::collections::HashMap::new();
+    let mut durations: ResourceDurations = std::collections::HashMap::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let log_path = entry.path().join("events.jsonl");
+        if !log_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
+        tally_machine_events(&name, &content, &mut metrics, &mut durations);
+    }
+
+    Ok((metrics, durations))
+}
+
+/// Fold one machine's event log into the tallies. Blank lines, and lines that
+/// do not parse as a `TimestampedEvent`, are ignored as they always were.
+fn tally_machine_events(
+    name: &str,
+    content: &str,
+    metrics: &mut ResourceMetrics,
+    durations: &mut ResourceDurations,
+) {
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
+            match te.event {
+                types::ProvenanceEvent::ResourceConverged {
+                    ref resource,
+                    duration_seconds,
+                    ..
+                } => {
+                    let key = format!("{name}:{resource}");
+                    let entry = metrics.entry(key.clone()).or_insert((0, 0, 0));
+                    entry.0 += 1;
+                    durations.entry(key).or_default().push(duration_seconds);
+                }
+                types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
+                    let key = format!("{name}:{resource}");
+                    let entry = metrics.entry(key).or_insert((0, 0, 0));
+                    entry.1 += 1;
+                }
+                types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
+                    let key = format!("{name}:{resource}");
+                    let entry = metrics.entry(key).or_insert((0, 0, 0));
+                    entry.2 += 1;
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// How many resources actually pass the `--min-events` threshold.

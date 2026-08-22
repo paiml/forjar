@@ -41,6 +41,32 @@ pub(super) fn collect_verify_mismatches(
     }
 }
 
+/// Group resources by the machine(s) they target, in execution order.
+///
+/// A `Multiple` target lands the same resource under every machine it names.
+fn group_resources_by_machine<'a>(
+    config: &'a types::ForjarConfig,
+    execution_order: &[String],
+) -> indexmap::IndexMap<String, Vec<(String, &'a types::Resource)>> {
+    let mut machine_resources: indexmap::IndexMap<String, Vec<(String, &types::Resource)>> =
+        indexmap::IndexMap::new();
+    for res_id in execution_order {
+        if let Some(resource) = config.resources.get(res_id) {
+            let machines = match &resource.machine {
+                types::MachineTarget::Single(m) => vec![m.clone()],
+                types::MachineTarget::Multiple(ms) => ms.clone(),
+            };
+            for m in machines {
+                machine_resources
+                    .entry(m)
+                    .or_default()
+                    .push((res_id.clone(), resource));
+            }
+        }
+    }
+    machine_resources
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_lock(
     file: &Path,
@@ -73,23 +99,7 @@ pub(crate) fn cmd_lock(
 
     let execution_order = resolver::build_execution_order(&config)?;
 
-    // Group resources by machine
-    let mut machine_resources: indexmap::IndexMap<String, Vec<(String, &types::Resource)>> =
-        indexmap::IndexMap::new();
-    for res_id in &execution_order {
-        if let Some(resource) = config.resources.get(res_id) {
-            let machines = match &resource.machine {
-                types::MachineTarget::Single(m) => vec![m.clone()],
-                types::MachineTarget::Multiple(ms) => ms.clone(),
-            };
-            for m in machines {
-                machine_resources
-                    .entry(m)
-                    .or_default()
-                    .push((res_id.clone(), resource));
-            }
-        }
-    }
+    let machine_resources = group_resources_by_machine(&config, &execution_order);
 
     let mut mismatches: Vec<String> = Vec::new();
     let mut total_resources = 0usize;

@@ -147,6 +147,15 @@ fn truncate_hash(hash: &str) -> String {
     }
 }
 
+/// The value the lock recorded under `key`, but only when it is a string that
+/// differs from `current`. A detail the lock never recorded is not a change.
+fn changed_detail<'a>(rl: &'a ResourceLock, key: &str, current: &str) -> Option<&'a str> {
+    match rl.details.get(key) {
+        Some(serde_yaml_ng::Value::String(stored)) if stored != current => Some(stored),
+        _ => None,
+    }
+}
+
 /// Compare resource fields against stored lock details to find what changed.
 fn diff_resource_fields(resource: &Resource, rl: &ResourceLock) -> Vec<String> {
     let mut diffs = Vec::new();
@@ -154,38 +163,30 @@ fn diff_resource_fields(resource: &Resource, rl: &ResourceLock) -> Vec<String> {
     // Check content change
     if let Some(ref content) = resource.content {
         let desired_content_hash = hasher::hash_string(content);
-        if let Some(serde_yaml_ng::Value::String(stored)) = rl.details.get("content_hash") {
-            if *stored != desired_content_hash {
-                diffs.push("content changed".into());
-            }
+        if changed_detail(rl, "content_hash", &desired_content_hash).is_some() {
+            diffs.push("content changed".into());
         }
     }
 
     // Check path change
     if let Some(ref path) = resource.path {
-        if let Some(serde_yaml_ng::Value::String(stored)) = rl.details.get("path") {
-            if stored != path {
-                diffs.push(format!("path changed: {stored} -> {path}"));
-            }
+        if let Some(stored) = changed_detail(rl, "path", path) {
+            diffs.push(format!("path changed: {stored} -> {path}"));
         }
     }
 
     // Check version change
     if let Some(ref version) = resource.version {
-        if let Some(serde_yaml_ng::Value::String(stored)) = rl.details.get("version") {
-            if stored != version {
-                diffs.push(format!("version changed: {stored} -> {version}"));
-            }
+        if let Some(stored) = changed_detail(rl, "version", version) {
+            diffs.push(format!("version changed: {stored} -> {version}"));
         }
     }
 
     // Check packages change
     if !resource.packages.is_empty() {
-        if let Some(serde_yaml_ng::Value::String(stored)) = rl.details.get("packages") {
-            let current = resource.packages.join(",");
-            if *stored != current {
-                diffs.push(format!("packages changed: {stored} -> {current}"));
-            }
+        let current = resource.packages.join(",");
+        if let Some(stored) = changed_detail(rl, "packages", &current) {
+            diffs.push(format!("packages changed: {stored} -> {current}"));
         }
     }
 

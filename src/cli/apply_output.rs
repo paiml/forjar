@@ -293,6 +293,30 @@ pub(super) fn apply_post_actions(
     }
 
     // FJ-225: Notification hooks
+    run_notify_hooks(config, results);
+
+    // FJ-317: Webhook notification
+    if let Some(url) = notify {
+        send_apply_webhook(
+            url,
+            config,
+            results,
+            total_converged,
+            total_failed,
+            total_unchanged,
+            t_total,
+            verbose,
+        );
+    }
+
+    Ok(())
+}
+
+/// FJ-225: Run the per-machine notification hook for each apply result.
+///
+/// A machine with failures takes `notify.on_failure`, everything else takes
+/// `notify.on_success`; an unconfigured hook is a no-op for that machine.
+fn run_notify_hooks(config: &types::ForjarConfig, results: &[types::ApplyResult]) {
     for result in results {
         let converged_str = result.resources_converged.to_string();
         let unchanged_str = result.resources_unchanged.to_string();
@@ -311,22 +335,6 @@ pub(super) fn apply_post_actions(
             run_notify(cmd, &vars);
         }
     }
-
-    // FJ-317: Webhook notification
-    if let Some(url) = notify {
-        send_apply_webhook(
-            url,
-            config,
-            results,
-            total_converged,
-            total_failed,
-            total_unchanged,
-            t_total,
-            verbose,
-        );
-    }
-
-    Ok(())
 }
 
 /// FJ-1200: Run post-apply check blocks.

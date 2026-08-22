@@ -91,38 +91,7 @@ fn build_runtime_data(state_dir: &Path) -> Option<scoring::RuntimeData> {
     }
 
     // Collect all apply_completed events across all machines
-    let mut apply_events: Vec<ApplyEvent> = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(state_dir) {
-        for entry in entries.flatten() {
-            if !entry.path().is_dir() {
-                continue;
-            }
-            let events_path = entry.path().join("events.jsonl");
-            if events_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&events_path) {
-                    for line in content.lines() {
-                        if let Ok(te) = serde_json::from_str::<TimestampedEvent>(line) {
-                            if let ProvenanceEvent::ApplyCompleted {
-                                resources_converged,
-                                resources_unchanged: _,
-                                resources_failed,
-                                total_seconds,
-                                ..
-                            } = &te.event
-                            {
-                                apply_events.push(ApplyEvent {
-                                    ts: te.ts.clone(),
-                                    resources_converged: *resources_converged,
-                                    resources_failed: *resources_failed,
-                                    total_seconds: *total_seconds,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let mut apply_events = collect_apply_events(state_dir);
 
     if apply_events.is_empty() {
         return None;
@@ -167,6 +136,56 @@ fn build_runtime_data(state_dir: &Path) -> Option<scoring::RuntimeData> {
             .map(|s| (s.total_seconds * 1000.0) as u64)
             .unwrap_or(0),
     })
+}
+
+/// Collect the `apply_completed` events of every machine directory under `state_dir`.
+///
+/// An unreadable state dir, a machine without an `events.jsonl`, and an unreadable
+/// event log all contribute nothing — runtime scoring is best-effort.
+fn collect_apply_events(state_dir: &Path) -> Vec<ApplyEvent> {
+    let mut apply_events: Vec<ApplyEvent> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        return apply_events;
+    };
+    for entry in entries.flatten() {
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let events_path = entry.path().join("events.jsonl");
+        if !events_path.exists() {
+            continue;
+        }
+        if let Ok(content) = std::fs::read_to_string(&events_path) {
+            apply_events.extend(parse_apply_events(&content));
+        }
+    }
+    apply_events
+}
+
+/// Parse one `events.jsonl` body, keeping only its `apply_completed` records.
+fn parse_apply_events(content: &str) -> Vec<ApplyEvent> {
+    let mut events: Vec<ApplyEvent> = Vec::new();
+    for line in content.lines() {
+        let Ok(te) = serde_json::from_str::<TimestampedEvent>(line) else {
+            continue;
+        };
+        if let ProvenanceEvent::ApplyCompleted {
+            resources_converged,
+            resources_unchanged: _,
+            resources_failed,
+            total_seconds,
+            ..
+        } = &te.event
+        {
+            events.push(ApplyEvent {
+                ts: te.ts.clone(),
+                resources_converged: *resources_converged,
+                resources_failed: *resources_failed,
+                total_seconds: *total_seconds,
+            });
+        }
+    }
+    events
 }
 
 /// Extracted apply event data for runtime scoring.

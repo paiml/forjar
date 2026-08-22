@@ -101,7 +101,8 @@ fn lint_empty_packages(config: &types::ForjarConfig) -> Vec<String> {
     warnings
 }
 
-fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
+/// Strict rules that inspect resources: root-owned files, then untagged resources.
+fn lint_strict_resource_rules(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     for (id, resource) in &config.resources {
         if resource.resource_type == types::ResourceType::File
@@ -118,6 +119,12 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
             warnings.push(format!("strict: resource '{id}' has no tags"));
         }
     }
+    warnings
+}
+
+/// Strict rules that inspect machines: privileged containers, then missing ssh keys.
+fn lint_strict_machine_rules(config: &types::ForjarConfig) -> Vec<String> {
+    let mut warnings = Vec::new();
     for (name, machine) in &config.machines {
         if let Some(ref container) = machine.container {
             if container.privileged {
@@ -138,6 +145,12 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
             ));
         }
     }
+    warnings
+}
+
+fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
+    let mut warnings = lint_strict_resource_rules(config);
+    warnings.extend(lint_strict_machine_rules(config));
     warnings
 }
 

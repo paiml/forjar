@@ -76,6 +76,38 @@ pub(crate) fn cmd_validate_check_resource_trigger_refs(
     Ok(())
 }
 
+/// Render a scalar param value as the string the type rules are checked against.
+/// Non-scalar values (sequences, mappings, null) are not type-checked.
+fn param_scalar_string(value: &serde_yaml_ng::Value) -> Option<String> {
+    match value {
+        serde_yaml_ng::Value::String(s) => Some(s.clone()),
+        serde_yaml_ng::Value::Number(n) => Some(n.to_string()),
+        serde_yaml_ng::Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
+
+/// FJ-969: Type-safety warnings for a single declared parameter.
+fn param_type_safety_warnings(name: &str, value: &serde_yaml_ng::Value) -> Vec<(String, String)> {
+    let Some(val_str) = param_scalar_string(value) else {
+        return Vec::new();
+    };
+    let mut warnings = Vec::new();
+    if (name.contains("port") || name.ends_with("_port")) && val_str.parse::<u16>().is_err() {
+        warnings.push((
+            name.to_owned(),
+            format!("expected port number, got '{val_str}'"),
+        ));
+    }
+    if (name.contains("path") || name.ends_with("_dir"))
+        && !val_str.starts_with('/')
+        && !val_str.starts_with('.')
+    {
+        warnings.push((name.to_owned(), format!("expected path, got '{val_str}'")));
+    }
+    warnings
+}
+
 /// FJ-969: Validate parameter types match expected usage patterns.
 pub(crate) fn cmd_validate_check_resource_param_type_safety(
     file: &Path,
@@ -86,24 +118,7 @@ pub(crate) fn cmd_validate_check_resource_param_type_safety(
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
     let mut warnings = Vec::new();
     for (name, value) in &config.params {
-        let val_str = match value {
-            serde_yaml_ng::Value::String(s) => s.clone(),
-            serde_yaml_ng::Value::Number(n) => n.to_string(),
-            serde_yaml_ng::Value::Bool(b) => b.to_string(),
-            _ => continue,
-        };
-        if (name.contains("port") || name.ends_with("_port")) && val_str.parse::<u16>().is_err() {
-            warnings.push((
-                name.clone(),
-                format!("expected port number, got '{val_str}'"),
-            ));
-        }
-        if (name.contains("path") || name.ends_with("_dir"))
-            && !val_str.starts_with('/')
-            && !val_str.starts_with('.')
-        {
-            warnings.push((name.clone(), format!("expected path, got '{val_str}'")));
-        }
+        warnings.extend(param_type_safety_warnings(name, value));
     }
     if json {
         let items: Vec<String> = warnings
