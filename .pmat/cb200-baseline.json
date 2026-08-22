@@ -2,14 +2,15 @@
   "check": "CB-200",
   "name": "TDG Grade Gate",
   "recorded": "2026-08-22",
-  "ceiling": 51,
+  "ceiling": 50,
   "unit": "functions below minimum grade A",
   "rule": "MAY ONLY SHRINK. A run reporting more than ceiling is a regression and fails. Lowering this number is the only permitted edit.",
   "why": [
     "61 -> 51 by refactoring 17 files to reduce cyclomatic complexity, behaviour-preserving.",
     "Each refactor was produced in an isolated worktree, verified by its own cargo test run, and independently reviewed for behaviour change (short-circuit order, moved early returns, altered error variants).",
     "Both 61 and 51 measured with --rebuild-index, so the delta is real and not an index artifact.",
-    "The remaining 51 are the harder cases plus functions whose grade is not driven by cyclomatic complexity."
+    "The remaining 51 are the harder cases plus functions whose grade is not driven by cyclomatic complexity.",
+    "61 -> 51 -> 50: the FVS work (paiml/forjar#288) replaced four hand-maintained MCP declaration lists with one derived table, removing the branchiest of them."
   ],
   "not_a_bypass": "The gate still reports CB-200 as failing against grade A. This records the number so it cannot silently grow, per the dogfood protocol: 'Record a dated baseline in the crate rather than weakening a gate.'",
   "sample": [
@@ -19,6 +20,6 @@
     "src/core/state/process_lock.rs:187 reap_stale_if_unchanged [B] complexity 15",
     "src/mcp/handlers_state.rs:140 handle [B] complexity 15"
   ],
-  "previous_ceiling": 61,
+  "previous_ceiling": 51,
   "measurement_note": "MUST be measured with a FRESH index: pmat query --rebuild-index. CB-200 own advice says plain `pmat query \"x\"` refreshes; it does NOT, and a stale index silently reports pre-change numbers."
 }

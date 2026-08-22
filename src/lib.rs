@@ -26,3 +26,4 @@ pub mod mcp;
 pub mod resources;
 pub mod transport;
 pub mod tripwire;
+pub mod verb;

@@ -68,6 +68,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
         // FJ-2730: the LSP server had 80 passing tests, a complete stdio
         // implementation and NO entry point — `forjar lsp` was an unrecognized
         // subcommand. Found by sweeping every interface.
+        Commands::Verb(a) => crate::verb::cli::dispatch_verb(a.cmd),
         Commands::Lsp => super::lsp::cmd_lsp(),
         Commands::Drift(DriftArgs {
             file,

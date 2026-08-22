@@ -50,6 +50,12 @@ pub enum Commands {
     /// FJ-2726: Import a Makefile's build graph into forjar.yaml
     #[command(name = "import-makefile")]
     ImportMakefile(ImportMakefileArgs),
+    /// The unified verb surface — every capability MCP also exposes
+    ///
+    /// Shipped deliberately: a derived transport tree that nothing routes to
+    /// stays green in every parity test while being reachable by no user
+    /// (paiml/forjar#288).
+    Verb(crate::verb::cli::VerbArgs),
     /// Run the forjar.yaml language server on stdio (editor integration)
     Lsp,
     /// Detect unauthorized changes (tripwire)
