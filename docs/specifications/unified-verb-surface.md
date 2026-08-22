@@ -14,6 +14,21 @@ Walked from the shipped 1.16.0 binary on 2026-08-22:
 | MCP tools | **9** |
 | HTTP | none — `core::webhook_server` exists but is reachable from no subcommand |
 
+**Updated 2026-08-22, after implementation:** HTTP is now a declared transport.
+`forjar verb serve` exposes every verb over `GET /v1/verbs`,
+`GET /v1/verbs/{name}/schema` and `POST /v1/verbs/{name}`, reusing
+`core::webhook_http::read_request` rather than a second parser — that code
+already answers an oversized head with 431, refuses `Transfer-Encoding` with 501
+instead of mis-framing it, and checks `Content-Length` against the body cap
+*before* buffering. Writing a second parser would mean getting all of that right
+twice, with only one of the two exercised by the webhook tests.
+
+`rules serve` (#205) is deliberately NOT that transport. It is an
+HMAC-authenticated inbound webhook receiver: it accepts events, it does not
+expose forjar's capability set, so it is bucketed `CliOnly` with that reason.
+Declaring it a transport would assert parity between `forjar plan` and an event
+endpoint, which is not a meaningful equality.
+
 So 184 capabilities exist on exactly one transport. That is the gap this spec is
 about, and the first thing it must do is **stop pretending the gap will close**.
 

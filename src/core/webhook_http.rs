@@ -276,6 +276,32 @@ pub fn response(status: u16, code: &str) -> Vec<u8> {
     out.into_bytes()
 }
 
+/// Build an HTTP response carrying an arbitrary JSON document.
+///
+/// [`response`] is deliberately limited to a fixed reason code so a webhook
+/// reply can never reflect attacker input. The verb surface needs to return a
+/// verb's actual result, so this takes a pre-serialised body — the caller owns
+/// making sure it is JSON, and every caller in-tree serialises with serde.
+///
+/// Same framing as [`response`], so the two cannot drift on headers.
+#[must_use]
+pub fn json_response(status: u16, body: &str) -> Vec<u8> {
+    let reason = status_reason(status);
+    let mut out = format!(
+        "HTTP/1.1 {status} {reason}\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {}\r\n\
+         Connection: close\r\n",
+        body.len()
+    );
+    if status == 405 {
+        out.push_str("Allow: POST\r\n");
+    }
+    out.push_str("\r\n");
+    out.push_str(body);
+    out.into_bytes()
+}
+
 fn status_reason(code: u16) -> &'static str {
     match code {
         200 => "OK",

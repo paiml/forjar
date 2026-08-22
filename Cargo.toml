@@ -59,6 +59,20 @@ workspace = true
 [package.metadata.transports]
 cli = { e2e = "dogfood_p4_cli" }
 mcp = { e2e = "e2e_mcp_stdio_t" }
+# Each key names the e2e that proves the transport is REACHABLE from the shipped
+# binary — not that it exists in the source. e2e_verb_http_t spawns
+# CARGO_BIN_EXE_forjar and talks to it over a real socket.
+http = { e2e = "e2e_verb_http_t" }
+
+# How the dogfood protocol asks THIS binary about its own surface, so the
+# transport-invariance gate is DERIVED rather than a hand-written probe list.
+# `list` must print one verb name per line; {verb} and {params} are substituted.
+[package.metadata.unified_surface]
+list = "verb list"
+cli = "verb call {verb} --json {params}"
+http = { serve = "verb serve --port {port}", path = "/v1/verbs/{verb}" }
+# A verb that is safe to invoke repeatedly and has no side effects.
+probe = { verb = "validate", params = "{\"path\":\"forjar.yaml\"}" }
 
 [dependencies]
 blake3 = "1.8"

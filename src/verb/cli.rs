@@ -31,6 +31,16 @@ pub enum VerbCmd {
         /// Verb name, e.g. `plan`
         name: String,
     },
+    /// Serve the verb surface over HTTP
+    Serve {
+        /// TCP port to listen on
+        #[arg(long, default_value = "8737")]
+        port: u16,
+        /// Interface to bind. The surface has NO authentication, so anything
+        /// other than loopback is an explicit choice.
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
+    },
     /// Invoke a verb with JSON parameters
     Call {
         /// Verb name, e.g. `validate`
@@ -47,6 +57,7 @@ pub fn dispatch_verb(cmd: VerbCmd) -> Result<(), String> {
         VerbCmd::List { json } => list(json),
         VerbCmd::Schema { name } => schema(&name),
         VerbCmd::Call { name, json } => call(&name, &json),
+        VerbCmd::Serve { port, bind } => super::http::serve(super::http::HttpConfig { bind, port }),
     }
 }
 
@@ -95,10 +106,10 @@ fn call(name: &str, params: &str) -> Result<(), String> {
     let value: serde_json::Value =
         serde_json::from_str(params).map_err(|e| format!("--json is not valid JSON: {e}"))?;
     let out = (v.invoke)(value)?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&out).map_err(|e| format!("JSON error: {e}"))?
-    );
+    // The SAME renderer the HTTP transport uses. If these were two
+    // `to_string_pretty` calls that happened to agree today, the fidelity gate
+    // would be guarding a coincidence.
+    println!("{}", super::render_result(&out));
     Ok(())
 }
 

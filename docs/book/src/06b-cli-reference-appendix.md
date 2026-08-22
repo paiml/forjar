@@ -69,6 +69,68 @@ Speaks LSP over stdin/stdout with `Content-Length` framing: diagnostics from the
 same validator `forjar validate` uses, plus completion for resource types and
 fields. Point your editor's LSP client at this command for `forjar.yaml` files.
 
+## The Unified Verb Surface
+
+### forjar verb
+
+Every capability forjar exposes on **more than one** transport, in one place.
+
+```bash
+forjar verb list                 # the surface, one name per line
+forjar verb list --json          # with descriptions, read_only, timeouts
+forjar verb schema plan          # a verb's input and output JSON Schema
+forjar verb call validate --json '{"path":"forjar.yaml"}'
+forjar verb serve --port 8737    # the same surface over HTTP
+```
+
+The nine verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`, `status`,
+`trace`, `anomaly` — are declared **once**, in `src/verb/registry.rs`, and the
+CLI, MCP and HTTP transports each render that one declaration. Adding a verb is
+one row. There is no second list to keep in step, which is the defect this
+replaced: the same nine tools were previously written out four times in
+`src/mcp/registry.rs`, and only one of those four copies was reachable in
+production.
+
+All nine are **read-only**. That is published, not assumed — `verb list --json`
+reports `read_only` per verb and MCP publishes the same value as `readOnlyHint`,
+both derived from one field so they cannot disagree. An agent may call any
+forjar verb unattended without risking a change to a machine.
+
+**This is not all 193 subcommands, and it does not claim to be.** Every CLI leaf
+is accounted for in `src/verb/partition.rs` as exactly one of `Unified`,
+`CliOnly` (with a written reason) or `Pending` (with an issue). The partition is
+total and enforced: a new subcommand that names no bucket fails the build.
+
+#### forjar verb serve
+
+Serves the same verbs over HTTP:
+
+| route | |
+|---|---|
+| `GET /healthz` | liveness |
+| `GET /v1/verbs` | the surface, identical to `verb list --json` |
+| `GET /v1/verbs/{name}/schema` | that verb's schemas |
+| `POST /v1/verbs/{name}` | invoke, JSON body as params |
+
+```bash
+forjar verb serve --port 8737 &
+curl -s localhost:8737/v1/verbs
+curl -s -X POST -d '{"path":"forjar.yaml"}' localhost:8737/v1/verbs/validate
+```
+
+A verb returns **byte-identical** output over HTTP and the CLI; both render
+through one function, and a test invokes the same verb over both surfaces and
+compares the bytes.
+
+It binds `127.0.0.1` and has **no authentication**, so `--bind` on a routable
+address is a deliberate choice and prints a warning. Because every verb is
+read-only, exposure leaks configuration rather than granting control — a real
+distinction, and not a reason to relax it.
+
+`forjar rules serve` is a different thing entirely: an HMAC-authenticated
+*inbound webhook receiver*. It accepts events; it does not expose forjar's
+capability set, so it is not part of this surface.
+
 ## Config Analysis & Composition
 
 ### forjar stack-diff

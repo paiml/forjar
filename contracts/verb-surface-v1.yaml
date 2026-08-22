@@ -123,7 +123,8 @@ equations:
     domain: "the release binary"
     codomain: "{exhaustive, undeclared surface}"
     invariants:
-      - "forjar declares exactly {cli, mcp}. HTTP is ABSENT and its absence is asserted, not assumed"
+      - "forjar declares exactly {cli, mcp, http}. HTTP was absent when this contract was written and its absence was asserted rather than assumed; it is now PRESENT, declared, and proved reachable by tests/e2e_verb_http_t.rs, which spawns the binary and talks to it over a socket"
+      - "`rules serve` is NOT an http transport and is bucketed CliOnly with that reason: a webhook receiver ACCEPTS events, it does not expose forjar's capability set. Declaring it one would assert parity between `forjar plan` and an HMAC event endpoint, which is not a meaningful equality"
       - "core::webhook_server exists but is reachable from no subcommand, so it is not a shipped interface"
       - "Adding HTTP is one declared key plus one feature flag, and the parity gate follows automatically"
 
@@ -242,14 +243,22 @@ kani_harnesses:
     property: "forall e: classify(e) in {Validation,Connection,Partial,Drift,Other} and exit_code(classify(e)) in {3,4,2,10,1}"
     bound: 8
     strategy: bounded_int
-    harness: proof_fvs_classification_is_total
+    # No `harness:` key: this obligation is UNDISCHARGED. Naming a harness that
+    # does not exist reads as coverage while proving nothing (forjar#250), and a
+    # placeholder in the field is the same lie with extra steps — the harness
+    # existence check treats any value here as a name it must find.
+    # See pending_obligations.error_taxonomy for why, and what discharges it.
 
   - id: KANI-FVS-002
     obligation: "classification is a FUNCTION of the variant, never of message length or content"
     property: "forall v, m1, m2: exit_code(classify_variant(v, m1)) = exit_code(classify_variant(v, m2))"
     bound: 8
     strategy: bounded_int
-    harness: proof_fvs_classification_ignores_prose
+    # No `harness:` key: this obligation is UNDISCHARGED. Naming a harness that
+    # does not exist reads as coverage while proving nothing (forjar#250), and a
+    # placeholder in the field is the same lie with extra steps — the harness
+    # existence check treats any value here as a name it must find.
+    # See pending_obligations.error_taxonomy for why, and what discharges it.
 
   - id: KANI-FVS-003
     obligation: "the CLI-leaf partition is total and disjoint"
@@ -259,6 +268,25 @@ kani_harnesses:
     harness: proof_fvs_partition_is_total_and_disjoint
 
 pending_obligations:
+  error_taxonomy: |
+    KANI-FVS-001 and KANI-FVS-002 name harnesses that are NOT written, and they
+    are marked DEFERRED rather than left cited, because a contract naming a
+    harness that does not exist reads as coverage while proving nothing — the
+    exact defect forjar#250 catalogued ten instances of.
+
+    The reason is concrete: both obligations quantify over `ErrorClass`, and that
+    type is not on this branch. The taxonomy work (replacing
+    `main::classify_exit_code`'s prose substring matching with a variant-driven
+    exit code) was done separately and is unmerged. Writing a harness over a type
+    that does not exist is not possible; writing one over the CURRENT prose
+    classifier would prove the defect correct rather than the property.
+
+    DISCHARGE: when the taxonomy lands, both harnesses become writable as
+    allocation-free predicates over a finite enum — `exit_code` is a `const fn`
+    of the variant, so the bound is the variant count and CBMC models no
+    allocation. Until then these two obligations are UNDISCHARGED and this file
+    says so rather than implying otherwise.
+
   note: |
     The e2e obligations above name test targets that DO NOT EXIST YET. This
     contract is committed alongside a PROPOSED spec, ahead of the implementation,
