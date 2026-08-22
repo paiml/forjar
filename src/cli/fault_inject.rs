@@ -36,95 +36,7 @@ pub fn cmd_fault_inject(file: &Path, resource: Option<&str>, json: bool) -> Resu
         if resource.is_some() && resource != Some(id.as_str()) {
             continue;
         }
-
-        // Scenario 1: Network timeout
-        let has_remote = res
-            .machine
-            .to_vec()
-            .iter()
-            .any(|m| m != "localhost" && m != "127.0.0.1");
-        if has_remote {
-            scenarios.push(make_scenario(
-                id,
-                "network-timeout",
-                "transport",
-                "SSH connection times out during apply",
-                "Resource marked failed; retry policy invoked if configured",
-                true,
-            ));
-        }
-
-        // Scenario 2: Permission denied
-        let needs_priv = res.sudo
-            || res
-                .path
-                .as_deref()
-                .is_some_and(|p| p.starts_with("/etc") || p.starts_with("/usr"));
-        if needs_priv {
-            scenarios.push(make_scenario(
-                id,
-                "permission-denied",
-                "filesystem",
-                "Write operation fails with EACCES",
-                "Resource fails; error message includes path and permission hint",
-                true,
-            ));
-        }
-
-        // Scenario 3: Disk full
-        if res.path.is_some() || !res.output_artifacts.is_empty() {
-            scenarios.push(make_scenario(
-                id,
-                "disk-full",
-                "filesystem",
-                "Write fails with ENOSPC",
-                "Resource fails gracefully; no partial writes; state remains consistent",
-                true,
-            ));
-        }
-
-        // Scenario 4: Dependency failure propagation
-        if !res.depends_on.is_empty() {
-            scenarios.push(make_scenario(
-                id,
-                "dep-failure-cascade",
-                "dependency",
-                "Upstream dependency fails; this resource should be skipped",
-                "Resource skipped; not attempted; reported as blocked",
-                true,
-            ));
-        }
-
-        // Scenario 5: Script timeout
-        if res.timeout.is_some() {
-            scenarios.push(make_scenario(
-                id,
-                "script-timeout",
-                "execution",
-                "Resource script exceeds configured timeout",
-                "Resource killed after timeout; marked as failed; no zombie processes",
-                true,
-            ));
-        }
-
-        // Scenario 6: Idempotency violation.
-        //
-        // FJ-2725: a phony resource has no idempotency obligation — it names an
-        // ACTION and re-runs every time it is requested. Bulk apply drops it
-        // entirely, so it never runs twice within one apply. Asserting the
-        // property here would report a permanent failure for behaving exactly
-        // as designed.
-        if !res.phony {
-            scenarios.push(make_scenario(
-                id,
-                "idempotency-check",
-                "convergence",
-                "Apply twice: second apply should be no-op",
-                "Resource has an observable convergence signal, so a second \
-                 apply reports unchanged",
-                check_idempotency_contract(res),
-            ));
-        }
+        scenarios.extend(scenarios_for_resource(id, res));
     }
 
     let total = scenarios.len();
@@ -138,19 +50,145 @@ pub fn cmd_fault_inject(file: &Path, resource: Option<&str>, json: bool) -> Resu
         failed,
     };
 
-    if json {
-        let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
-    } else {
-        print_fault_report(&report);
-    }
+    emit_fault_report(&report, json)?;
 
     if failed > 0 {
         Err(format!("{failed} fault scenario(s) failed"))
     } else {
         Ok(())
     }
+}
+
+/// Which fault scenarios does THIS resource's declaration make meaningful?
+///
+/// Exists so `cmd_fault_inject` is only the filter/aggregate/report loop:
+/// the six independent applicability tests live here, one per scenario, in
+/// the order they are reported.
+fn scenarios_for_resource(id: &str, res: &crate::core::types::Resource) -> Vec<FaultScenario> {
+    let mut scenarios = Vec::new();
+
+    // Scenario 1: Network timeout
+    if targets_remote_machine(res) {
+        scenarios.push(make_scenario(
+            id,
+            "network-timeout",
+            "transport",
+            "SSH connection times out during apply",
+            "Resource marked failed; retry policy invoked if configured",
+            true,
+        ));
+    }
+
+    // Scenario 2: Permission denied
+    if needs_privileged_write(res) {
+        scenarios.push(make_scenario(
+            id,
+            "permission-denied",
+            "filesystem",
+            "Write operation fails with EACCES",
+            "Resource fails; error message includes path and permission hint",
+            true,
+        ));
+    }
+
+    // Scenario 3: Disk full
+    if writes_to_disk(res) {
+        scenarios.push(make_scenario(
+            id,
+            "disk-full",
+            "filesystem",
+            "Write fails with ENOSPC",
+            "Resource fails gracefully; no partial writes; state remains consistent",
+            true,
+        ));
+    }
+
+    // Scenario 4: Dependency failure propagation
+    if !res.depends_on.is_empty() {
+        scenarios.push(make_scenario(
+            id,
+            "dep-failure-cascade",
+            "dependency",
+            "Upstream dependency fails; this resource should be skipped",
+            "Resource skipped; not attempted; reported as blocked",
+            true,
+        ));
+    }
+
+    // Scenario 5: Script timeout
+    if res.timeout.is_some() {
+        scenarios.push(make_scenario(
+            id,
+            "script-timeout",
+            "execution",
+            "Resource script exceeds configured timeout",
+            "Resource killed after timeout; marked as failed; no zombie processes",
+            true,
+        ));
+    }
+
+    // Scenario 6: Idempotency violation.
+    //
+    // FJ-2725: a phony resource has no idempotency obligation — it names an
+    // ACTION and re-runs every time it is requested. Bulk apply drops it
+    // entirely, so it never runs twice within one apply. Asserting the
+    // property here would report a permanent failure for behaving exactly
+    // as designed.
+    if !res.phony {
+        scenarios.push(make_scenario(
+            id,
+            "idempotency-check",
+            "convergence",
+            "Apply twice: second apply should be no-op",
+            "Resource has an observable convergence signal, so a second \
+             apply reports unchanged",
+            check_idempotency_contract(res),
+        ));
+    }
+
+    scenarios
+}
+
+/// Does applying this resource cross the network, so that an SSH timeout is
+/// a scenario worth asserting? Loopback-only targets never do.
+fn targets_remote_machine(res: &crate::core::types::Resource) -> bool {
+    res.machine
+        .to_vec()
+        .iter()
+        .any(|m| m != "localhost" && m != "127.0.0.1")
+}
+
+/// Would this resource write where only root may, so that EACCES is a
+/// scenario worth asserting? Either it asks for sudo outright, or its path
+/// lands in a system-owned tree.
+fn needs_privileged_write(res: &crate::core::types::Resource) -> bool {
+    res.sudo
+        || res
+            .path
+            .as_deref()
+            .is_some_and(|p| p.starts_with("/etc") || p.starts_with("/usr"))
+}
+
+/// Does this resource put bytes on disk, so that ENOSPC is a scenario worth
+/// asserting? A declared path or any declared output artifact counts.
+fn writes_to_disk(res: &crate::core::types::Resource) -> bool {
+    res.path.is_some() || !res.output_artifacts.is_empty()
+}
+
+/// Render the finished report in the caller's requested format.
+///
+/// Exists to keep the JSON-vs-text choice and its serialization failure path
+/// out of the command body. Emitting stays ahead of the pass/fail verdict, so
+/// a run with failing scenarios still prints its report before erroring.
+fn emit_fault_report(report: &FaultReport, json: bool) -> Result<(), String> {
+    if json {
+        let output =
+            serde_json::to_string_pretty(report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
+    } else {
+        print_fault_report(report);
+    }
+    Ok(())
 }
 
 fn make_scenario(

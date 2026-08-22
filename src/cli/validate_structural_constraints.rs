@@ -6,18 +6,27 @@ use std::path::Path;
 
 // ── FJ-481: validate --check-naming ──
 
+/// Decide whether a resource name is kebab-case as `--check-naming` defines it:
+/// non-empty, starts with a lowercase letter, made only of lowercase letters,
+/// digits and hyphens, with no doubled hyphen and no trailing hyphen.
+///
+/// Exists so `cmd_validate_check_naming` reads as "collect the names that fail"
+/// instead of carrying the five-clause definition of the convention inline.
+fn is_kebab_case(name: &str) -> bool {
+    !name.is_empty()
+        && name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        && !name.contains("--")
+        && !name.ends_with('-')
+}
+
 pub(crate) fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let mut violations: Vec<String> = Vec::new();
     for name in config.resources.keys() {
-        let is_kebab = !name.is_empty()
-            && name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
-            && name
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-            && !name.contains("--")
-            && !name.ends_with('-');
-        if !is_kebab {
+        if !is_kebab_case(name) {
             violations.push(format!(
                 "'{name}' is not kebab-case (expected: lowercase letters, digits, hyphens)"
             ));

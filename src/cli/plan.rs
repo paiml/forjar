@@ -33,27 +33,7 @@ pub(crate) fn cmd_plan(
     let mut config = parse_and_validate(file)?;
 
     // FJ-333: Apply hypothetical param overrides
-    for kv in what_if {
-        if let Some((key, value)) = kv.split_once('=') {
-            config.params.insert(
-                key.to_string(),
-                serde_yaml_ng::Value::String(value.to_string()),
-            );
-        } else {
-            return Err(format!(
-                "invalid --what-if format '{kv}': expected KEY=VALUE"
-            ));
-        }
-    }
-    if !what_if.is_empty() {
-        println!(
-            "{}",
-            dim(&format!(
-                "[what-if] Hypothetical params: {}",
-                what_if.join(", ")
-            ))
-        );
-    }
+    apply_what_if_overrides(&mut config, what_if)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
@@ -124,6 +104,38 @@ pub(crate) fn cmd_plan(
         print_plan_cost(&plan);
     }
 
+    Ok(())
+}
+
+/// FJ-333: Decides what the hypothetical params are for this run — parses each
+/// `--what-if KEY=VALUE` onto the config and announces the set that was applied.
+/// Rejects a pair without `=`. Lifted out of `cmd_plan` because it is the one
+/// place the command validates its own argument syntax, and it is self-contained.
+fn apply_what_if_overrides(
+    config: &mut types::ForjarConfig,
+    what_if: &[String],
+) -> Result<(), String> {
+    for kv in what_if {
+        if let Some((key, value)) = kv.split_once('=') {
+            config.params.insert(
+                key.to_string(),
+                serde_yaml_ng::Value::String(value.to_string()),
+            );
+        } else {
+            return Err(format!(
+                "invalid --what-if format '{kv}': expected KEY=VALUE"
+            ));
+        }
+    }
+    if !what_if.is_empty() {
+        println!(
+            "{}",
+            dim(&format!(
+                "[what-if] Hypothetical params: {}",
+                what_if.join(", ")
+            ))
+        );
+    }
     Ok(())
 }
 

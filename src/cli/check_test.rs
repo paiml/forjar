@@ -177,6 +177,153 @@ pub(crate) fn collect_test_artifacts(
     artifacts
 }
 
+/// FJ-2602/2604: Decides whether `--group` names a specialized test mode rather
+/// than a resource group, and runs it; `None` means "run the default sweep".
+/// Exists so `cmd_test` carries only the sweep those modes bypass entirely.
+fn dispatch_test_group(
+    file: &Path,
+    group_filter: Option<&str>,
+    runner_opts: &super::check_test_runners::RunnerOpts,
+) -> Option<Result<(), String>> {
+    match group_filter {
+        Some("behavior") => Some(cmd_test_behavior(file)),
+        Some("mutation") => Some(cmd_test_mutation(file, runner_opts)),
+        Some("convergence") => Some(cmd_test_convergence(file, runner_opts)),
+        Some("coverage") => Some(super::check_test_runners::cmd_test_coverage(file)),
+        _ => None,
+    }
+}
+
+/// Running pass/fail/skip counts for one `forjar test` sweep.
+#[derive(Default)]
+struct TestTally {
+    pass: usize,
+    fail: usize,
+    skip: usize,
+}
+
+/// Decides whether a resource is excluded before any check script is generated,
+/// and whether it counts toward the skip tally (`Some(true)`) or is silent
+/// (`Some(false)`). Exists to keep the three exclusion rules out of the sweep.
+fn resource_excluded(
+    resource_id: &str,
+    resource: &types::Resource,
+    resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    group_filter: Option<&str>,
+) -> Option<bool> {
+    let (skip, count) = check_resource_filters(resource_id, resource, resource_filter, tag_filter);
+    if skip {
+        return Some(count);
+    }
+
+    if let Some(group) = group_filter {
+        if resource.resource_group.as_deref() != Some(group) {
+            return Some(true);
+        }
+    }
+
+    // FJ-2725: skip phony resources, exactly as `cli::check` does. A phony
+    // target names an ACTION with no artifact to observe, so since FJ-2720
+    // made "no evidence of convergence" a failure, testing one reports a
+    // permanent FAIL for something that has nothing to observe. `check` and
+    // `test` disagreeing about the same resource is the class of defect
+    // this release exists to remove — found by dogfooding an imported
+    // Makefile, where `all`, `clean` and `test` all failed.
+    if resource.phony {
+        return Some(true);
+    }
+
+    None
+}
+
+/// Runs every resource in dependency order, returning one row per check actually
+/// executed plus the pass/fail/skip tally. Exists to separate the sweep —
+/// filtering, script generation, per-machine execution — from `cmd_test`.
+fn run_test_sweep(
+    config: &types::ForjarConfig,
+    execution_order: &[String],
+    machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    group_filter: Option<&str>,
+) -> Result<(Vec<TestRow>, TestTally), String> {
+    let localhost = localhost_machine();
+    let mut results: Vec<TestRow> = Vec::new();
+    let mut tally = TestTally::default();
+
+    for resource_id in execution_order {
+        let Some(resource) = config.resources.get(resource_id) else {
+            continue;
+        };
+
+        if let Some(counts_as_skip) = resource_excluded(
+            resource_id,
+            resource,
+            resource_filter,
+            tag_filter,
+            group_filter,
+        ) {
+            if counts_as_skip {
+                tally.skip += 1;
+            }
+            continue;
+        }
+
+        let resolved =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+
+        let rtype = format!("{:?}", resource.resource_type).to_lowercase();
+        let check_script = match codegen::check_script(&resolved) {
+            Ok(s) => s,
+            Err(_) => {
+                tally.skip += 1;
+                results.push(TestRow {
+                    resource_id: resource_id.clone(),
+                    machine: "-".to_string(),
+                    resource_type: rtype,
+                    status: "skip".to_string(),
+                    detail: "no check script".to_string(),
+                    duration_secs: 0.0,
+                });
+                continue;
+            }
+        };
+
+        for machine_name in resource.machine.to_vec() {
+            let machine = config.machines.get(&machine_name).unwrap_or(&localhost);
+            if skip_machine(&machine_name, machine_filter, resource, machine) {
+                tally.skip += 1;
+                continue;
+            }
+
+            let (row, passed) =
+                run_test_check(machine, &check_script, resource_id, &machine_name, &rtype);
+            if passed {
+                tally.pass += 1;
+            } else {
+                tally.fail += 1;
+            }
+            results.push(row);
+        }
+    }
+
+    Ok((results, tally))
+}
+
+/// FJ-2606: Writes the test artifacts next to the config file and announces the
+/// directory on stderr. Exists to keep that verbose-only side effect off `cmd_test`.
+fn write_test_artifacts(file: &Path, results: &[TestRow]) {
+    let artifact_dir = file
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join(".forjar-test-artifacts");
+    let artifacts = collect_test_artifacts(results, &artifact_dir);
+    if !artifacts.is_empty() {
+        eprintln!("Artifacts written to {}", artifact_dir.display());
+    }
+}
+
 /// FJ-273: Dedicated `forjar test` — runs check scripts with a formatted summary table.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_test(
@@ -190,12 +337,8 @@ pub(crate) fn cmd_test(
     runner_opts: &super::check_test_runners::RunnerOpts,
 ) -> Result<(), String> {
     // FJ-2602/2604: Dispatch to specialized test modes via --group
-    match group_filter {
-        Some("behavior") => return cmd_test_behavior(file),
-        Some("mutation") => return cmd_test_mutation(file, runner_opts),
-        Some("convergence") => return cmd_test_convergence(file, runner_opts),
-        Some("coverage") => return super::check_test_runners::cmd_test_coverage(file),
-        _ => {}
+    if let Some(specialized) = dispatch_test_group(file, group_filter, runner_opts) {
+        return specialized;
     }
 
     use std::time::Instant;
@@ -213,107 +356,29 @@ pub(crate) fn cmd_test(
     }
 
     let execution_order = resolver::build_execution_order(&config)?;
-    let localhost = localhost_machine();
-
-    let mut results: Vec<TestRow> = Vec::new();
-    let mut total_pass = 0usize;
-    let mut total_fail = 0usize;
-    let mut total_skip = 0usize;
-
-    for resource_id in &execution_order {
-        let resource = match config.resources.get(resource_id) {
-            Some(r) => r,
-            None => continue,
-        };
-
-        let (skip, count) =
-            check_resource_filters(resource_id, resource, resource_filter, tag_filter);
-        if skip {
-            if count {
-                total_skip += 1;
-            }
-            continue;
-        }
-
-        if let Some(group) = group_filter {
-            if resource.resource_group.as_deref() != Some(group) {
-                total_skip += 1;
-                continue;
-            }
-        }
-
-        // FJ-2725: skip phony resources, exactly as `cli::check` does. A phony
-        // target names an ACTION with no artifact to observe, so since FJ-2720
-        // made "no evidence of convergence" a failure, testing one reports a
-        // permanent FAIL for something that has nothing to observe. `check` and
-        // `test` disagreeing about the same resource is the class of defect
-        // this release exists to remove — found by dogfooding an imported
-        // Makefile, where `all`, `clean` and `test` all failed.
-        if resource.phony {
-            total_skip += 1;
-            continue;
-        }
-
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
-
-        let rtype = format!("{:?}", resource.resource_type).to_lowercase();
-        let check_script = match codegen::check_script(&resolved) {
-            Ok(s) => s,
-            Err(_) => {
-                total_skip += 1;
-                results.push(TestRow {
-                    resource_id: resource_id.clone(),
-                    machine: "-".to_string(),
-                    resource_type: rtype,
-                    status: "skip".to_string(),
-                    detail: "no check script".to_string(),
-                    duration_secs: 0.0,
-                });
-                continue;
-            }
-        };
-
-        for machine_name in resource.machine.to_vec() {
-            let machine = config.machines.get(&machine_name).unwrap_or(&localhost);
-            if skip_machine(&machine_name, machine_filter, resource, machine) {
-                total_skip += 1;
-                continue;
-            }
-
-            let (row, passed) =
-                run_test_check(machine, &check_script, resource_id, &machine_name, &rtype);
-            if passed {
-                total_pass += 1;
-            } else {
-                total_fail += 1;
-            }
-            results.push(row);
-        }
-    }
+    let (results, tally) = run_test_sweep(
+        &config,
+        &execution_order,
+        machine_filter,
+        resource_filter,
+        tag_filter,
+        group_filter,
+    )?;
 
     let elapsed = t0.elapsed();
 
-    // FJ-2606: Collect test artifacts when verbose
     if verbose {
-        let artifact_dir = file
-            .parent()
-            .unwrap_or(Path::new("."))
-            .join(".forjar-test-artifacts");
-        let artifacts = collect_test_artifacts(&results, &artifact_dir);
-        if !artifacts.is_empty() {
-            eprintln!("Artifacts written to {}", artifact_dir.display());
-        }
+        write_test_artifacts(file, &results);
     }
 
     if json {
-        print_test_json(&results, total_pass, total_fail, total_skip, &elapsed)?;
+        print_test_json(&results, tally.pass, tally.fail, tally.skip, &elapsed)?;
     } else {
-        print_test_table(&results, total_pass, total_fail, total_skip, &elapsed);
+        print_test_table(&results, tally.pass, tally.fail, tally.skip, &elapsed);
     }
 
-    if total_fail > 0 {
-        Err(format!("{total_fail} test(s) failed"))
+    if tally.fail > 0 {
+        Err(format!("{} test(s) failed", tally.fail))
     } else {
         Ok(())
     }

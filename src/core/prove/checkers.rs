@@ -52,50 +52,12 @@ pub fn acyclicity(cfg: &ForjarConfig) -> InvariantResult {
     // 0 = unvisited, 1 = on-stack, 2 = done. A back-edge to an on-stack node = cycle.
     let mut color: BTreeMap<&str, u8> = cfg.resources.keys().map(|k| (k.as_str(), 0u8)).collect();
     let mut cycle: Option<Vec<String>> = None;
-    let mut stack: Vec<(&str, usize)> = Vec::new();
 
     for root in cfg.resources.keys() {
         if color[root.as_str()] != 0 {
             continue;
         }
-        stack.push((root.as_str(), 0));
-        let mut path: Vec<&str> = Vec::new();
-        while let Some(&(node, idx)) = stack.last() {
-            if idx == 0 {
-                color.insert(node, 1);
-                path.push(node);
-            }
-            let deps = cfg.resources.get(node).map(|r| &r.depends_on);
-            let next = deps.and_then(|d| d.get(idx));
-            if let Some(dep) = next {
-                // `stack` is non-empty here — the enclosing `while let` borrows
-                // `stack.last()`. Matched rather than force-unwrapped: pmat's
-                // TDG scanner treats a force-unwrap as a critical defect and
-                // zeroes the whole file to 0.0/F, which capped the project
-                // grade at B and broke the pre-commit gate (see #219).
-                if let Some(top) = stack.last_mut() {
-                    top.1 += 1;
-                }
-                let dep = dep.as_str();
-                match color.get(dep).copied() {
-                    Some(1) => {
-                        // back-edge → cycle; reconstruct from `path`.
-                        let start = path.iter().position(|&n| n == dep).unwrap_or(0);
-                        let mut c: Vec<String> =
-                            path[start..].iter().map(|s| (*s).to_string()).collect();
-                        c.push(dep.to_string());
-                        cycle = Some(c);
-                        break;
-                    }
-                    Some(0) => stack.push((dep, 0)),
-                    _ => {} // done, or dangling (I2's concern) — ignore for acyclicity
-                }
-            } else {
-                color.insert(node, 2);
-                path.pop();
-                stack.pop();
-            }
-        }
+        cycle = walk_for_cycle(cfg, &mut color, root.as_str());
         if cycle.is_some() {
             break;
         }
@@ -117,6 +79,65 @@ pub fn acyclicity(cfg: &ForjarConfig) -> InvariantResult {
             detail: format!("acyclic; apply order length {}", cfg.resources.len()),
         },
     }
+}
+
+/// Walk one DFS tree of the `depends_on` graph, starting at `root`, painting
+/// `color` as it goes (0 = unvisited, 1 = on-stack, 2 = done).
+///
+/// Decides the only question `acyclicity` asks of the graph: does this tree
+/// contain a back-edge to an on-stack node? Returns the offending cycle if so,
+/// `None` if the whole tree closes cleanly. Exists so the iterative traversal —
+/// an explicit stack, a resume index per frame, and three-way colouring — is one
+/// self-contained state machine, and `acyclicity` is left holding only the
+/// root sweep and the verdict it reports.
+fn walk_for_cycle<'a>(
+    cfg: &'a ForjarConfig,
+    color: &mut BTreeMap<&'a str, u8>,
+    root: &'a str,
+) -> Option<Vec<String>> {
+    let mut stack: Vec<(&'a str, usize)> = vec![(root, 0)];
+    let mut path: Vec<&'a str> = Vec::new();
+    while let Some(&(node, idx)) = stack.last() {
+        if idx == 0 {
+            color.insert(node, 1);
+            path.push(node);
+        }
+        let deps = cfg.resources.get(node).map(|r| &r.depends_on);
+        let next = deps.and_then(|d| d.get(idx));
+        if let Some(dep) = next {
+            // `stack` is non-empty here — the enclosing `while let` borrows
+            // `stack.last()`. Matched rather than force-unwrapped: pmat's
+            // TDG scanner treats a force-unwrap as a critical defect and
+            // zeroes the whole file to 0.0/F, which capped the project
+            // grade at B and broke the pre-commit gate (see #219).
+            if let Some(top) = stack.last_mut() {
+                top.1 += 1;
+            }
+            let dep = dep.as_str();
+            match color.get(dep).copied() {
+                // back-edge → cycle; reconstruct from `path`.
+                Some(1) => return Some(cycle_from_path(&path, dep)),
+                Some(0) => stack.push((dep, 0)),
+                _ => {} // done, or dangling (I2's concern) — ignore for acyclicity
+            }
+        } else {
+            color.insert(node, 2);
+            path.pop();
+            stack.pop();
+        }
+    }
+    None
+}
+
+/// Cut the cycle out of a DFS path once a back-edge to `dep` has been found:
+/// the suffix of `path` from `dep` onwards, with `dep` repeated at the end so
+/// the rendered chain reads as a closed loop. Exists to keep the slicing and
+/// the `&&str`-to-`String` conversion out of the traversal's inner match arm.
+fn cycle_from_path(path: &[&str], dep: &str) -> Vec<String> {
+    let start = path.iter().position(|&n| n == dep).unwrap_or(0);
+    let mut c: Vec<String> = path[start..].iter().map(|s| (*s).to_string()).collect();
+    c.push(dep.to_string());
+    c
 }
 
 /// I2 — every `depends_on` edge targets a declared resource. HARD, ceiling L2.
