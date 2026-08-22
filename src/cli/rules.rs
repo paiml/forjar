@@ -14,6 +14,36 @@ pub fn dispatch_rules(cmd: RulesCmd) -> Result<(), String> {
     match cmd {
         RulesCmd::Validate { file, json } => cmd_rules_validate(&file, json),
         RulesCmd::Coverage { file, json } => cmd_rules_coverage(&file, json),
+        RulesCmd::Serve {
+            file,
+            bind,
+            port,
+            secret_file,
+            paths,
+            allow_unauthenticated,
+            tls_terminated_upstream,
+            tolerance_secs,
+            check,
+            json,
+        } => {
+            let config = super::rules_serve::build_config(
+                bind,
+                port,
+                secret_file.as_deref(),
+                paths,
+                allow_unauthenticated,
+                tls_terminated_upstream,
+                tolerance_secs,
+            )?;
+            // Rulebook first: a bad rulebook must not cost a bound port.
+            let rulebook = super::rules_serve::load_rulebook(&file)?;
+            if check {
+                config.validate_startup()?;
+                super::rules_serve::print_check(&config, rulebook.rulebooks.len(), json);
+                return Ok(());
+            }
+            super::rules_serve::serve(config, rulebook, json)
+        }
     }
 }
 

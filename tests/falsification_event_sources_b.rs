@@ -9,9 +9,10 @@
 #![allow(dead_code)]
 
 use forjar::core::types::EventType;
+use forjar::core::webhook_sig::{compute_hmac_hex, sign_request, unix_now};
 use forjar::core::webhook_source::{
-    ack_response, compute_hmac_hex, parse_json_payload, request_to_event, validate_request,
-    ValidationResult, WebhookConfig, WebhookRequest,
+    parse_json_payload, request_to_event, validate_request, ValidationResult, WebhookConfig,
+    WebhookRequest,
 };
 use std::collections::HashMap;
 
@@ -28,7 +29,7 @@ fn post_request(path: &str, body: &str) -> WebhookRequest {
         method: "POST".into(),
         path: path.into(),
         headers: HashMap::new(),
-        body: body.into(),
+        body: body.as_bytes().to_vec(),
         source_ip: Some("127.0.0.1".into()),
     }
 }
@@ -51,7 +52,7 @@ fn webhook_method_not_allowed() {
         method: "GET".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: String::new(),
+        body: Vec::new(),
         source_ip: None,
     };
     assert_eq!(
@@ -106,7 +107,13 @@ fn webhook_signature_missing() {
 fn webhook_signature_valid() {
     let secret = "test-secret";
     let body = r#"{"deploy":true}"#;
-    let sig = compute_hmac_hex(secret, body);
+    let sig = sign_request(
+        secret.as_bytes(),
+        "POST",
+        "/webhook",
+        body.as_bytes(),
+        unix_now(),
+    );
 
     let config = WebhookConfig {
         secret: Some(secret.into()),
@@ -138,23 +145,23 @@ fn webhook_signature_invalid() {
 
 #[test]
 fn hmac_deterministic() {
-    let h1 = compute_hmac_hex("key", "data");
-    let h2 = compute_hmac_hex("key", "data");
+    let h1 = compute_hmac_hex(b"key", b"data");
+    let h2 = compute_hmac_hex(b"key", b"data");
     assert_eq!(h1, h2);
     assert_eq!(h1.len(), 64);
 }
 
 #[test]
 fn hmac_different_keys() {
-    let h1 = compute_hmac_hex("key1", "data");
-    let h2 = compute_hmac_hex("key2", "data");
+    let h1 = compute_hmac_hex(b"key1", b"data");
+    let h2 = compute_hmac_hex(b"key2", b"data");
     assert_ne!(h1, h2);
 }
 
 #[test]
 fn hmac_different_data() {
-    let h1 = compute_hmac_hex("key", "data1");
-    let h2 = compute_hmac_hex("key", "data2");
+    let h1 = compute_hmac_hex(b"key", b"data1");
+    let h2 = compute_hmac_hex(b"key", b"data2");
     assert_ne!(h1, h2);
 }
 
@@ -164,31 +171,31 @@ fn hmac_different_data() {
 
 #[test]
 fn parse_json_object() {
-    let payload = parse_json_payload(r#"{"action":"deploy","env":"prod"}"#).unwrap();
+    let payload = parse_json_payload(r#"{"action":"deploy","env":"prod"}"#.as_bytes()).unwrap();
     assert_eq!(payload.get("action").unwrap(), "deploy");
     assert_eq!(payload.get("env").unwrap(), "prod");
 }
 
 #[test]
 fn parse_json_nested_stringified() {
-    let payload = parse_json_payload(r#"{"count":42,"nested":{"a":1}}"#).unwrap();
+    let payload = parse_json_payload(r#"{"count":42,"nested":{"a":1}}"#.as_bytes()).unwrap();
     assert_eq!(payload.get("count").unwrap(), "42");
     assert!(payload.get("nested").unwrap().contains("\"a\":1"));
 }
 
 #[test]
 fn parse_json_invalid() {
-    assert!(parse_json_payload("not json").is_err());
+    assert!(parse_json_payload("not json".as_bytes()).is_err());
 }
 
 #[test]
 fn parse_json_non_object() {
-    assert!(parse_json_payload("[1,2,3]").is_err());
+    assert!(parse_json_payload("[1,2,3]".as_bytes()).is_err());
 }
 
 #[test]
 fn parse_json_empty_object() {
-    let payload = parse_json_payload("{}").unwrap();
+    let payload = parse_json_payload("{}".as_bytes()).unwrap();
     assert!(payload.is_empty());
 }
 
@@ -199,7 +206,7 @@ fn parse_json_empty_object() {
 #[test]
 fn request_to_event_valid() {
     let req = post_request("/webhook", r#"{"action":"restart"}"#);
-    let event = request_to_event(&req).unwrap();
+    let event = request_to_event(&req, None, None).unwrap();
     assert_eq!(event.event_type, EventType::WebhookReceived);
     assert_eq!(event.payload.get("action").unwrap(), "restart");
     assert_eq!(event.payload.get("_path").unwrap(), "/webhook");
@@ -212,17 +219,17 @@ fn request_to_event_no_source_ip() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: r#"{"action":"deploy"}"#.into(),
+        body: r#"{"action":"deploy"}"#.as_bytes().to_vec(),
         source_ip: None,
     };
-    let event = request_to_event(&req).unwrap();
+    let event = request_to_event(&req, None, None).unwrap();
     assert!(!event.payload.contains_key("_source_ip"));
 }
 
 #[test]
 fn request_to_event_invalid_body() {
     let req = post_request("/webhook", "not json");
-    assert!(request_to_event(&req).is_err());
+    assert!(request_to_event(&req, None, None).is_err());
 }
 
 // ============================================================================
@@ -231,7 +238,7 @@ fn request_to_event_invalid_body() {
 
 #[test]
 fn ack_response_200() {
-    let resp = ack_response(200, "accepted");
+    let resp = String::from_utf8(forjar::core::webhook_http::response(200, "accepted")).unwrap();
     assert!(resp.starts_with("HTTP/1.1 200 OK"));
     assert!(resp.contains("application/json"));
     assert!(resp.contains("accepted"));
@@ -239,13 +246,14 @@ fn ack_response_200() {
 
 #[test]
 fn ack_response_400() {
-    let resp = ack_response(400, "bad request");
+    let resp = String::from_utf8(forjar::core::webhook_http::response(400, "bad request")).unwrap();
     assert!(resp.contains("400 Bad Request"));
 }
 
 #[test]
 fn ack_response_401() {
-    let resp = ack_response(401, "unauthorized");
+    let resp =
+        String::from_utf8(forjar::core::webhook_http::response(401, "unauthorized")).unwrap();
     assert!(resp.contains("401 Unauthorized"));
 }
 

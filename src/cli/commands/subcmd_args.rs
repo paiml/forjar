@@ -217,6 +217,48 @@ pub enum RulesCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Serve webhooks and evaluate them against a rulebook
+    ///
+    /// The webhook receiver had no entry point at all: `run_webhook_server` had
+    /// zero non-test callers, so it could not be started, dogfooded, or reached by
+    /// any sender. Unreachable code cannot be verified by using it, which is why
+    /// its defects survived ~35 passing tests.
+    Serve {
+        /// Path to rulebook YAML file
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        /// Address to bind. A non-loopback bind requires --tls-terminated-upstream.
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
+        /// Port to listen on
+        #[arg(long, default_value_t = 8484)]
+        port: u16,
+        /// Read the HMAC-SHA256 shared secret from this file
+        ///
+        /// A file rather than a flag: a secret on the command line is visible in
+        /// `ps` output and lands in shell history.
+        #[arg(long)]
+        secret_file: Option<PathBuf>,
+        /// Request paths to accept (repeatable). Empty denies everything.
+        #[arg(long = "path", default_values_t = [String::from("/webhook")])]
+        paths: Vec<String>,
+        /// Accept unsigned requests. Every accepted request can fire rulebook
+        /// actions, so this must be stated explicitly.
+        #[arg(long)]
+        allow_unauthenticated: bool,
+        /// Assert TLS is terminated upstream, permitting a non-loopback bind
+        #[arg(long)]
+        tls_terminated_upstream: bool,
+        /// Signature freshness window in seconds
+        #[arg(long, default_value_t = 300)]
+        tolerance_secs: u64,
+        /// Validate the configuration and exit without binding
+        #[arg(long)]
+        check: bool,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-3403: Plugin management subcommands.

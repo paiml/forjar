@@ -1,48 +1,148 @@
-//! FJ-3104: Webhook event source.
+//! FJ-3104: Webhook event source — config, request type, and validation policy.
 //!
-//! Parses incoming HTTP webhook requests and converts them to
-//! InfraEvent values for the rules engine. Provides request
-//! validation (HMAC signatures) and payload extraction.
+//! Signature primitives live in [`crate::core::webhook_sig`]; framing and response
+//! construction in [`crate::core::webhook_http`].
+//!
+//! # Fail closed
+//!
+//! This receiver turns an inbound HTTP request into an [`InfraEvent`] that drives
+//! the rules engine, which can run scripts on machines. Two independent fail-open
+//! defaults used to guard that: `secret` defaulted to `None` (skipping signature
+//! checking entirely), and an EMPTY `allowed_paths` meant allow-every-path —
+//! measured, `POST /anything-at-all` returned `Valid`. So the configuration an
+//! operator would write to lock the endpoint down was the least restrictive one
+//! available. Both now deny.
 
 use crate::core::types::{EventType, InfraEvent};
+use crate::core::webhook_sig::{
+    self, canonical_payload, timestamp_is_fresh, unix_now, DEFAULT_TOLERANCE_SECS,
+};
 use std::collections::HashMap;
 
+/// Header carrying forjar's own `t=…,v1=…` signature.
+pub const SIG_HEADER: &str = "x-forjar-signature";
+/// GitHub's signature header, accepted for interoperability.
+pub const GITHUB_SIG_HEADER: &str = "x-hub-signature-256";
+
 /// Configuration for a webhook endpoint.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WebhookConfig {
+    /// Address to bind. Defaults to loopback; a non-loopback bind must be paired
+    /// with `tls_terminated_upstream`.
+    pub bind: String,
     /// Port to listen on.
     pub port: u16,
-    /// Optional HMAC-SHA256 secret for request validation.
+    /// HMAC-SHA256 shared secret. `None` is only legal with
+    /// `allow_unauthenticated`.
     pub secret: Option<String>,
     /// Maximum request body size in bytes.
     pub max_body_bytes: usize,
-    /// Allowed source paths (e.g., "/hooks/deploy").
+    /// Allowed request paths. EMPTY MEANS DENY ALL.
     pub allowed_paths: Vec<String>,
+    /// Freshness window for `t=` in seconds.
+    pub signature_tolerance_secs: u64,
+    /// Operator must say so out loud to run without a secret.
+    pub allow_unauthenticated: bool,
+    /// Operator asserts TLS is terminated in front of a non-loopback bind.
+    pub tls_terminated_upstream: bool,
+    /// Machine name stamped onto produced events.
+    pub machine: Option<String>,
 }
 
 impl Default for WebhookConfig {
     fn default() -> Self {
         Self {
+            bind: "127.0.0.1".to_string(),
             port: 8484,
             secret: None,
             max_body_bytes: 1024 * 64, // 64 KiB
             allowed_paths: vec!["/webhook".to_string()],
+            signature_tolerance_secs: DEFAULT_TOLERANCE_SECS,
+            allow_unauthenticated: false,
+            tls_terminated_upstream: false,
+            machine: None,
         }
+    }
+}
+
+/// Hand-written so the shared secret never reaches a log or a panic message.
+/// `derive(Debug)` printed it verbatim, and `dispatch_request` used to interpolate
+/// `{validation:?}` straight into the HTTP response body.
+impl std::fmt::Debug for WebhookConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebhookConfig")
+            .field("bind", &self.bind)
+            .field("port", &self.port)
+            .field(
+                "secret",
+                &self.secret.as_ref().map(|_| "<redacted>").unwrap_or("None"),
+            )
+            .field("max_body_bytes", &self.max_body_bytes)
+            .field("allowed_paths", &self.allowed_paths)
+            .field("signature_tolerance_secs", &self.signature_tolerance_secs)
+            .field("allow_unauthenticated", &self.allow_unauthenticated)
+            .field("tls_terminated_upstream", &self.tls_terminated_upstream)
+            .field("machine", &self.machine)
+            .finish()
+    }
+}
+
+impl WebhookConfig {
+    /// Reject a configuration that would expose an unauthenticated or plaintext
+    /// endpoint, BEFORE the listener binds.
+    ///
+    /// Refusing at startup rather than warning: the failure mode is an
+    /// arbitrary-event-injection endpoint feeding a script-executing rules engine,
+    /// and a warning in a log nobody reads is not a control.
+    pub fn validate_startup(&self) -> Result<(), String> {
+        if self.secret.is_none() && !self.allow_unauthenticated {
+            return Err("webhook: no `secret` configured. Set one, or set \
+                 `allow_unauthenticated: true` to accept unsigned requests \
+                 (every accepted request can trigger rulebook actions)."
+                .to_string());
+        }
+        if let Some(s) = &self.secret {
+            if s.is_empty() {
+                return Err("webhook: `secret` is empty; omit it or set a real value".to_string());
+            }
+        }
+        let loopback = self.bind == "127.0.0.1" || self.bind == "::1" || self.bind == "localhost";
+        if !loopback && !self.tls_terminated_upstream {
+            return Err(format!(
+                "webhook: refusing to bind {} without `tls_terminated_upstream: true`. \
+                 Signatures authenticate the sender but do not encrypt the payload.",
+                self.bind
+            ));
+        }
+        if self.allowed_paths.is_empty() {
+            return Err(
+                "webhook: `allowed_paths` is empty, which denies every request. \
+                 List the paths you intend to serve."
+                    .to_string(),
+            );
+        }
+        Ok(())
     }
 }
 
 /// A parsed incoming webhook request.
 #[derive(Debug, Clone)]
 pub struct WebhookRequest {
-    /// HTTP method (POST, PUT, etc.).
+    /// HTTP method.
     pub method: String,
     /// Request path.
     pub path: String,
-    /// Request headers.
+    /// Lowercase-keyed headers.
     pub headers: HashMap<String, String>,
-    /// Request body as UTF-8 string.
-    pub body: String,
-    /// Source IP address (if available).
+    /// EXACT body octets as received.
+    ///
+    /// `Vec<u8>`, not `String`. The server used to hand over
+    /// `String::from_utf8_lossy(..)`, so any non-UTF-8 byte became U+FFFD (3
+    /// bytes) before the MAC was computed — a sender that correctly signed the
+    /// wire bytes could never match, and `body.len()` measured the inflated
+    /// replacement string rather than the octets received.
+    pub body: Vec<u8>,
+    /// Peer address, if known.
     pub source_ip: Option<String>,
 }
 
@@ -51,35 +151,99 @@ pub struct WebhookRequest {
 pub enum ValidationResult {
     /// Request is valid.
     Valid,
-    /// Request body exceeds max size.
-    BodyTooLarge { size: usize, max: usize },
-    /// Path is not in the allowed list.
-    PathNotAllowed { path: String },
-    /// HMAC signature is missing when secret is configured.
+    /// Body exceeds the configured maximum.
+    BodyTooLarge {
+        /// Observed size in bytes.
+        size: usize,
+        /// Configured maximum.
+        max: usize,
+    },
+    /// Path is not in the allow-list (or the list is empty).
+    PathNotAllowed {
+        /// The rejected path.
+        path: String,
+    },
+    /// A secret is configured but no signature header was sent.
     SignatureMissing,
-    /// HMAC signature does not match.
+    /// Signature present but does not verify.
     SignatureInvalid,
-    /// HTTP method not allowed (only POST accepted).
-    MethodNotAllowed { method: String },
+    /// `t=` is outside the tolerance window (replay or badly-skewed clock).
+    SignatureStale {
+        /// Absolute skew in seconds.
+        skew_secs: u64,
+    },
+    /// Only POST is accepted.
+    MethodNotAllowed {
+        /// The rejected method.
+        method: String,
+    },
 }
 
 impl ValidationResult {
     /// Whether the request passed validation.
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         matches!(self, Self::Valid)
+    }
+
+    /// HTTP status for this outcome.
+    ///
+    /// Every failure used to collapse to 403 while the 401/405/413 arms of the
+    /// status table sat unreachable.
+    #[must_use]
+    pub fn status(&self) -> u16 {
+        match self {
+            Self::Valid => 200,
+            Self::BodyTooLarge { .. } => 413,
+            Self::PathNotAllowed { .. } => 404,
+            Self::SignatureMissing | Self::SignatureInvalid | Self::SignatureStale { .. } => 401,
+            Self::MethodNotAllowed { .. } => 405,
+        }
+    }
+
+    /// Stable reason code for the response body.
+    ///
+    /// Fixed strings: the old code put `format!("{validation:?}")` in the body,
+    /// which both echoed the attacker's path back and produced invalid JSON
+    /// (`{"status":"PathNotAllowed { path: "/evil" }"}`). The Debug form is still
+    /// logged server-side, where operators can see it and attackers cannot.
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Valid => "accepted",
+            Self::BodyTooLarge { .. } => "body_too_large",
+            Self::PathNotAllowed { .. } => "not_found",
+            Self::SignatureMissing => "signature_missing",
+            Self::SignatureInvalid => "signature_invalid",
+            Self::SignatureStale { .. } => "signature_stale",
+            Self::MethodNotAllowed { .. } => "method_not_allowed",
+        }
     }
 }
 
 /// Validate an incoming webhook request against the configuration.
+///
+/// Order matters: cheap structural checks first, then the MAC, so an unauthorized
+/// sender cannot make the receiver do expensive work.
+#[must_use]
 pub fn validate_request(config: &WebhookConfig, request: &WebhookRequest) -> ValidationResult {
-    // Only POST allowed
-    if request.method.to_uppercase() != "POST" {
+    validate_request_at(config, request, unix_now())
+}
+
+/// [`validate_request`] with an injected clock, so freshness is testable without
+/// sleeping or mocking time.
+#[must_use]
+pub fn validate_request_at(
+    config: &WebhookConfig,
+    request: &WebhookRequest,
+    now: i64,
+) -> ValidationResult {
+    if !request.method.eq_ignore_ascii_case("POST") {
         return ValidationResult::MethodNotAllowed {
             method: request.method.clone(),
         };
     }
 
-    // Check body size
     if request.body.len() > config.max_body_bytes {
         return ValidationResult::BodyTooLarge {
             size: request.body.len(),
@@ -87,34 +251,80 @@ pub fn validate_request(config: &WebhookConfig, request: &WebhookRequest) -> Val
         };
     }
 
-    // Check allowed paths
-    if !config.allowed_paths.is_empty() && !config.allowed_paths.iter().any(|p| p == &request.path)
-    {
+    // Empty allow-list denies. Compare against the path WITHOUT its query string,
+    // so `/webhook?x=1` matches `/webhook` — exact matching on the raw target made
+    // any query string a rejection.
+    let path_only = request.path.split('?').next().unwrap_or(&request.path);
+    if !config.allowed_paths.iter().any(|p| p == path_only) {
         return ValidationResult::PathNotAllowed {
-            path: request.path.clone(),
+            path: path_only.to_string(),
         };
     }
 
-    // Check HMAC signature if secret is configured
-    if let Some(ref secret) = config.secret {
-        match request.headers.get("x-forjar-signature") {
-            None => return ValidationResult::SignatureMissing,
-            Some(sig) => {
-                let expected = compute_hmac_hex(secret, &request.body);
-                if sig != &expected {
-                    return ValidationResult::SignatureInvalid;
-                }
-            }
-        }
+    match &config.secret {
+        None => ValidationResult::Valid,
+        Some(secret) => verify_signature(config, request, secret, now),
     }
-
-    ValidationResult::Valid
 }
 
-/// Parse a JSON webhook body into key-value payload for InfraEvent.
-pub fn parse_json_payload(body: &str) -> Result<HashMap<String, String>, String> {
+/// Check forjar's own signature, falling back to GitHub's header.
+fn verify_signature(
+    config: &WebhookConfig,
+    request: &WebhookRequest,
+    secret: &str,
+    now: i64,
+) -> ValidationResult {
+    let key = secret.as_bytes();
+
+    if let Some(raw) = request.headers.get(SIG_HEADER) {
+        let header = webhook_sig::parse_forjar_signature(raw);
+        // A header with a `t` but no `v1` is malformed, not unsigned — treating it
+        // as unsigned would let a sender opt out of authentication by sending
+        // junk.
+        if !header.has_v1() {
+            return ValidationResult::SignatureInvalid;
+        }
+        let Some(t) = header.timestamp else {
+            return ValidationResult::SignatureInvalid;
+        };
+        if !timestamp_is_fresh(t, now, config.signature_tolerance_secs) {
+            return ValidationResult::SignatureStale {
+                skew_secs: now.saturating_sub(t).unsigned_abs(),
+            };
+        }
+        let signed = canonical_payload(t, &request.method, &request.path, &request.body);
+        // Accept if ANY v1 verifies, so a secret rotation can overlap.
+        if header
+            .v1
+            .iter()
+            .any(|sig| webhook_sig::verify_hex(key, &signed, sig))
+        {
+            return ValidationResult::Valid;
+        }
+        return ValidationResult::SignatureInvalid;
+    }
+
+    // GitHub cannot be told to sign a custom canonical form, so its header is
+    // verified over the bare body. That means no timestamp binding and no path
+    // binding for GitHub senders — acceptable because GitHub delivers to one
+    // configured URL, and the replay guard still makes a delivery single-use.
+    if let Some(raw) = request.headers.get(GITHUB_SIG_HEADER) {
+        return match webhook_sig::parse_github_signature(raw) {
+            Some(hex) if webhook_sig::verify_hex(key, &request.body, &hex) => {
+                ValidationResult::Valid
+            }
+            _ => ValidationResult::SignatureInvalid,
+        };
+    }
+
+    ValidationResult::SignatureMissing
+}
+
+/// Parse a JSON webhook body into a flat key-value payload.
+pub fn parse_json_payload(body: &[u8]) -> Result<HashMap<String, String>, String> {
+    let text = std::str::from_utf8(body).map_err(|e| format!("body is not valid UTF-8: {e}"))?;
     let value: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| format!("invalid JSON: {e}"))?;
+        serde_json::from_str(text).map_err(|e| format!("invalid JSON: {e}"))?;
 
     let mut payload = HashMap::new();
     match value {
@@ -133,267 +343,31 @@ pub fn parse_json_payload(body: &str) -> Result<HashMap<String, String>, String>
     Ok(payload)
 }
 
-/// Convert a validated webhook request into an InfraEvent.
-pub fn request_to_event(request: &WebhookRequest) -> Result<InfraEvent, String> {
+/// Convert a validated webhook request into an [`InfraEvent`].
+pub fn request_to_event(
+    request: &WebhookRequest,
+    machine: Option<&str>,
+    event_id: Option<&str>,
+) -> Result<InfraEvent, String> {
     let mut payload = parse_json_payload(&request.body)?;
 
-    // Add metadata from the request
+    // Written AFTER parsing, so these always win over same-named body keys.
     payload.insert("_path".to_string(), request.path.clone());
     if let Some(ref ip) = request.source_ip {
         payload.insert("_source_ip".to_string(), ip.clone());
     }
+    if let Some(id) = event_id {
+        payload.insert("_event_id".to_string(), id.to_string());
+    }
 
     Ok(InfraEvent {
         event_type: EventType::WebhookReceived,
-        timestamp: now_iso8601(),
-        machine: None,
+        // The one real clock. This module used to carry its own `now_iso8601`
+        // returning `format!("{}Z", secs)` — epoch seconds with a Z suffix, not
+        // ISO 8601 — so webhook events wrote `1785348550Z` into the same
+        // rulebook-log field where `cli::trigger` wrote `2026-07-29T…Z`.
+        timestamp: crate::tripwire::eventlog::now_iso8601(),
+        machine: machine.map(str::to_string),
         payload,
     })
-}
-
-/// Compute HMAC-SHA256 of `data` using `key`, returned as hex string.
-///
-/// Uses a simple HMAC construction: H((key XOR opad) || H((key XOR ipad) || data))
-/// For production, prefer ring or hmac crate. This is a minimal implementation
-/// to avoid adding heavyweight crypto dependencies.
-pub fn compute_hmac_hex(key: &str, data: &str) -> String {
-    // Use BLAKE3 keyed hash as HMAC substitute (faster, simpler, sovereign)
-    let key_bytes = blake3::hash(key.as_bytes());
-    let mut hasher = blake3::Hasher::new_keyed(key_bytes.as_bytes());
-    hasher.update(data.as_bytes());
-    hasher.finalize().to_hex().to_string()
-}
-
-/// Format an HTTP response for a webhook acknowledgment.
-pub fn ack_response(status: u16, message: &str) -> String {
-    let body = format!(r#"{{"status":"{message}"}}"#);
-    let reason = status_reason(status);
-    let len = body.len();
-    format!(
-        "HTTP/1.1 {status} {reason}\r\n\
-         Content-Type: application/json\r\n\
-         Content-Length: {len}\r\n\
-         \r\n\
-         {body}",
-    )
-}
-
-fn status_reason(code: u16) -> &'static str {
-    match code {
-        200 => "OK",
-        400 => "Bad Request",
-        401 => "Unauthorized",
-        403 => "Forbidden",
-        405 => "Method Not Allowed",
-        413 => "Payload Too Large",
-        500 => "Internal Server Error",
-        _ => "Unknown",
-    }
-}
-
-fn now_iso8601() -> String {
-    // Minimal ISO 8601 without external crate
-    let dur = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    format!("{}Z", dur.as_secs())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn default_config() -> WebhookConfig {
-        WebhookConfig::default()
-    }
-
-    fn post_request(path: &str, body: &str) -> WebhookRequest {
-        WebhookRequest {
-            method: "POST".into(),
-            path: path.into(),
-            headers: HashMap::new(),
-            body: body.into(),
-            source_ip: Some("127.0.0.1".into()),
-        }
-    }
-
-    #[test]
-    fn validate_valid_post() {
-        let config = default_config();
-        let req = post_request("/webhook", r#"{"action":"deploy"}"#);
-        assert!(validate_request(&config, &req).is_valid());
-    }
-
-    #[test]
-    fn validate_method_not_allowed() {
-        let config = default_config();
-        let req = WebhookRequest {
-            method: "GET".into(),
-            path: "/webhook".into(),
-            headers: HashMap::new(),
-            body: String::new(),
-            source_ip: None,
-        };
-        assert_eq!(
-            validate_request(&config, &req),
-            ValidationResult::MethodNotAllowed {
-                method: "GET".into()
-            }
-        );
-    }
-
-    #[test]
-    fn validate_body_too_large() {
-        let config = WebhookConfig {
-            max_body_bytes: 10,
-            ..default_config()
-        };
-        let req = post_request("/webhook", "a]long body that exceeds limit");
-        match validate_request(&config, &req) {
-            ValidationResult::BodyTooLarge { size, max } => {
-                assert!(size > max);
-            }
-            other => panic!("expected BodyTooLarge, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn validate_path_not_allowed() {
-        let config = default_config();
-        let req = post_request("/admin/hack", r#"{}"#);
-        assert_eq!(
-            validate_request(&config, &req),
-            ValidationResult::PathNotAllowed {
-                path: "/admin/hack".into()
-            }
-        );
-    }
-
-    #[test]
-    fn validate_signature_missing() {
-        let config = WebhookConfig {
-            secret: Some("mysecret".into()),
-            ..default_config()
-        };
-        let req = post_request("/webhook", r#"{}"#);
-        assert_eq!(
-            validate_request(&config, &req),
-            ValidationResult::SignatureMissing
-        );
-    }
-
-    #[test]
-    fn validate_signature_valid() {
-        let secret = "test-secret";
-        let body = r#"{"deploy":true}"#;
-        let sig = compute_hmac_hex(secret, body);
-
-        let config = WebhookConfig {
-            secret: Some(secret.into()),
-            ..default_config()
-        };
-        let mut req = post_request("/webhook", body);
-        req.headers.insert("x-forjar-signature".into(), sig);
-        assert!(validate_request(&config, &req).is_valid());
-    }
-
-    #[test]
-    fn validate_signature_invalid() {
-        let config = WebhookConfig {
-            secret: Some("real-secret".into()),
-            ..default_config()
-        };
-        let mut req = post_request("/webhook", r#"{}"#);
-        req.headers
-            .insert("x-forjar-signature".into(), "bad-sig".into());
-        assert_eq!(
-            validate_request(&config, &req),
-            ValidationResult::SignatureInvalid
-        );
-    }
-
-    #[test]
-    fn parse_json_object() {
-        let payload = parse_json_payload(r#"{"action":"deploy","env":"prod"}"#).unwrap();
-        assert_eq!(payload.get("action").unwrap(), "deploy");
-        assert_eq!(payload.get("env").unwrap(), "prod");
-    }
-
-    #[test]
-    fn parse_json_nested() {
-        let payload = parse_json_payload(r#"{"count":42,"nested":{"a":1}}"#).unwrap();
-        assert_eq!(payload.get("count").unwrap(), "42");
-        assert!(payload.get("nested").unwrap().contains("\"a\":1"));
-    }
-
-    #[test]
-    fn parse_json_invalid() {
-        assert!(parse_json_payload("not json").is_err());
-    }
-
-    #[test]
-    fn parse_json_non_object() {
-        assert!(parse_json_payload("[1,2,3]").is_err());
-    }
-
-    #[test]
-    fn request_to_event_valid() {
-        let req = post_request("/webhook", r#"{"action":"restart"}"#);
-        let event = request_to_event(&req).unwrap();
-        assert_eq!(event.event_type, EventType::WebhookReceived);
-        assert_eq!(event.payload.get("action").unwrap(), "restart");
-        assert_eq!(event.payload.get("_path").unwrap(), "/webhook");
-        assert_eq!(event.payload.get("_source_ip").unwrap(), "127.0.0.1");
-    }
-
-    #[test]
-    fn request_to_event_invalid_body() {
-        let req = post_request("/webhook", "not json");
-        assert!(request_to_event(&req).is_err());
-    }
-
-    #[test]
-    fn hmac_deterministic() {
-        let h1 = compute_hmac_hex("key", "data");
-        let h2 = compute_hmac_hex("key", "data");
-        assert_eq!(h1, h2);
-        assert_eq!(h1.len(), 64);
-    }
-
-    #[test]
-    fn hmac_different_keys() {
-        let h1 = compute_hmac_hex("key1", "data");
-        let h2 = compute_hmac_hex("key2", "data");
-        assert_ne!(h1, h2);
-    }
-
-    #[test]
-    fn ack_response_format() {
-        let resp = ack_response(200, "accepted");
-        assert!(resp.starts_with("HTTP/1.1 200 OK"));
-        assert!(resp.contains("application/json"));
-        assert!(resp.contains("accepted"));
-    }
-
-    #[test]
-    fn ack_response_error() {
-        let resp = ack_response(400, "bad request");
-        assert!(resp.contains("400 Bad Request"));
-    }
-
-    #[test]
-    fn validation_result_is_valid() {
-        assert!(ValidationResult::Valid.is_valid());
-        assert!(!ValidationResult::SignatureMissing.is_valid());
-        assert!(!ValidationResult::SignatureInvalid.is_valid());
-    }
-
-    #[test]
-    fn default_webhook_config() {
-        let config = WebhookConfig::default();
-        assert_eq!(config.port, 8484);
-        assert!(config.secret.is_none());
-        assert_eq!(config.max_body_bytes, 64 * 1024);
-        assert_eq!(config.allowed_paths, vec!["/webhook"]);
-    }
 }

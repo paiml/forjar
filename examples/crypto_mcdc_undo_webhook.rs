@@ -104,16 +104,26 @@ fn main() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers: HashMap::new(),
-        body: r#"{"action":"deploy","env":"prod"}"#.into(),
+        body: r#"{"action":"deploy","env":"prod"}"#.as_bytes().to_vec(),
         source_ip: Some("10.0.0.5".into()),
     };
     println!("  Valid POST: {:?}", validate_request(&config, &req));
 
-    let event = request_to_event(&req).unwrap();
+    let event = request_to_event(&req, None, None).unwrap();
     println!("  Event type: {}", event.event_type);
     println!("  Payload action: {}", event.payload["action"]);
-    println!("  HMAC: {}...", &compute_hmac_hex("secret", "data")[..16]);
-    println!("  ACK: {}", ack_response(200, "ok").lines().next().unwrap());
+    println!(
+        "  HMAC: {}...",
+        &forjar::core::webhook_sig::compute_hmac_hex("secret".as_bytes(), "data".as_bytes())[..16]
+    );
+    println!(
+        "  ACK: {}",
+        String::from_utf8(forjar::core::webhook_http::response(200, "ok"))
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+    );
 
     println!("\n{}", "=".repeat(50));
     println!("All crypto/mcdc/undo/webhook criteria survived.");

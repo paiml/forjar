@@ -12,8 +12,7 @@ use forjar::core::migrate::{docker_to_pepita, migrate_config};
 use forjar::core::parser::parse_config;
 use forjar::core::types::*;
 use forjar::core::webhook_source::{
-    compute_hmac_hex, parse_json_payload, request_to_event, validate_request, WebhookConfig,
-    WebhookRequest,
+    parse_json_payload, request_to_event, validate_request, WebhookConfig, WebhookRequest,
 };
 use std::collections::HashMap;
 
@@ -80,18 +79,31 @@ resources:
         secret: Some("deploy-secret".into()),
         max_body_bytes: 1024,
         allowed_paths: vec!["/hooks/deploy".into()],
+        ..WebhookConfig::default()
     };
 
     // Valid request with HMAC
     let body = r#"{"action":"deploy","env":"production"}"#;
-    let sig = compute_hmac_hex("deploy-secret", body);
+    // The signature binds timestamp, method and path — not the body alone — so a
+    // digest minted for /hooks/deploy cannot be replayed at another allowed path.
+    let t_now = forjar::core::webhook_sig::unix_now();
+    let signed = forjar::core::webhook_sig::canonical_payload(
+        t_now,
+        "POST",
+        "/hooks/deploy",
+        body.as_bytes(),
+    );
+    let digest = forjar::core::webhook_sig::compute_hmac_hex(b"deploy-secret", &signed);
     let mut headers = HashMap::new();
-    headers.insert("x-forjar-signature".into(), sig);
+    headers.insert(
+        "x-forjar-signature".into(),
+        format!("t={t_now},v1={digest}"),
+    );
     let req = WebhookRequest {
         method: "POST".into(),
         path: "/hooks/deploy".into(),
         headers,
-        body: body.into(),
+        body: body.as_bytes().to_vec(),
         source_ip: Some("10.0.0.1".into()),
     };
     let vr = validate_request(&config, &req);
@@ -103,7 +115,7 @@ resources:
         method: "GET".into(),
         path: "/hooks/deploy".into(),
         headers: HashMap::new(),
-        body: "".into(),
+        body: Vec::new(),
         source_ip: None,
     };
     let vr = validate_request(&config, &bad_req);
@@ -112,11 +124,11 @@ resources:
 
     // ── FJ-3104: Payload parsing ──
     println!("\n[FJ-3104] Webhook Payload Parsing:");
-    let payload = parse_json_payload(body).unwrap();
+    let payload = parse_json_payload(body.as_bytes()).unwrap();
     println!("  action={}, env={}", payload["action"], payload["env"]);
     assert_eq!(payload["action"], "deploy");
 
-    let event = request_to_event(&req).unwrap();
+    let event = request_to_event(&req, None, None).unwrap();
     println!("  Event type: {:?}", event.event_type);
     println!(
         "  Payload keys: {:?}",

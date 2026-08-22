@@ -12,9 +12,10 @@
 use forjar::core::migrate::{docker_to_pepita, migrate_config};
 use forjar::core::parser::parse_config;
 use forjar::core::types::*;
+use forjar::core::webhook_sig::{compute_hmac_hex, sign_request, unix_now};
 use forjar::core::webhook_source::{
-    ack_response, compute_hmac_hex, parse_json_payload, request_to_event, validate_request,
-    ValidationResult, WebhookConfig, WebhookRequest,
+    parse_json_payload, request_to_event, validate_request, ValidationResult, WebhookConfig,
+    WebhookRequest,
 };
 use std::collections::HashMap;
 
@@ -250,7 +251,7 @@ fn webhook_request(method: &str, path: &str, body: &str) -> WebhookRequest {
         method: method.into(),
         path: path.into(),
         headers: HashMap::new(),
-        body: body.into(),
+        body: body.as_bytes().to_vec(),
         source_ip: None,
     }
 }
@@ -339,7 +340,7 @@ fn webhook_hmac_invalid() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers,
-        body: "{}".into(),
+        body: "{}".as_bytes().to_vec(),
         source_ip: None,
     };
     assert!(matches!(
@@ -352,7 +353,13 @@ fn webhook_hmac_invalid() {
 fn webhook_hmac_valid() {
     let secret = "mysecret";
     let body = r#"{"action":"deploy"}"#;
-    let sig = compute_hmac_hex(secret, body);
+    let sig = sign_request(
+        secret.as_bytes(),
+        "POST",
+        "/webhook",
+        body.as_bytes(),
+        unix_now(),
+    );
 
     let config = WebhookConfig {
         secret: Some(secret.into()),
@@ -364,7 +371,7 @@ fn webhook_hmac_valid() {
         method: "POST".into(),
         path: "/webhook".into(),
         headers,
-        body: body.into(),
+        body: body.as_bytes().to_vec(),
         source_ip: None,
     };
     assert!(validate_request(&config, &req).is_valid());
@@ -376,15 +383,15 @@ fn webhook_hmac_valid() {
 
 #[test]
 fn hmac_deterministic() {
-    let h1 = compute_hmac_hex("key", "data");
-    let h2 = compute_hmac_hex("key", "data");
+    let h1 = compute_hmac_hex(b"key", b"data");
+    let h2 = compute_hmac_hex(b"key", b"data");
     assert_eq!(h1, h2);
 }
 
 #[test]
 fn hmac_different_keys_different_hashes() {
-    let h1 = compute_hmac_hex("key1", "data");
-    let h2 = compute_hmac_hex("key2", "data");
+    let h1 = compute_hmac_hex(b"key1", b"data");
+    let h2 = compute_hmac_hex(b"key2", b"data");
     assert_ne!(h1, h2);
 }
 
@@ -394,28 +401,28 @@ fn hmac_different_keys_different_hashes() {
 
 #[test]
 fn payload_parse_object() {
-    let payload = parse_json_payload(r#"{"action":"deploy","env":"prod"}"#).unwrap();
+    let payload = parse_json_payload(r#"{"action":"deploy","env":"prod"}"#.as_bytes()).unwrap();
     assert_eq!(payload["action"], "deploy");
     assert_eq!(payload["env"], "prod");
 }
 
 #[test]
 fn payload_parse_non_string_values() {
-    let payload = parse_json_payload(r#"{"count":42,"active":true}"#).unwrap();
+    let payload = parse_json_payload(r#"{"count":42,"active":true}"#.as_bytes()).unwrap();
     assert_eq!(payload["count"], "42");
     assert_eq!(payload["active"], "true");
 }
 
 #[test]
 fn payload_reject_non_object() {
-    let result = parse_json_payload("[1,2,3]");
+    let result = parse_json_payload("[1,2,3]".as_bytes());
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("JSON object"));
 }
 
 #[test]
 fn payload_reject_invalid_json() {
-    let result = parse_json_payload("not json");
+    let result = parse_json_payload("not json".as_bytes());
     assert!(result.is_err());
 }
 
@@ -429,10 +436,10 @@ fn request_to_event_adds_metadata() {
         method: "POST".into(),
         path: "/hooks/deploy".into(),
         headers: HashMap::new(),
-        body: r#"{"action":"deploy"}"#.into(),
+        body: r#"{"action":"deploy"}"#.as_bytes().to_vec(),
         source_ip: Some("10.0.0.1".into()),
     };
-    let event = request_to_event(&req).unwrap();
+    let event = request_to_event(&req, None, None).unwrap();
     assert_eq!(event.event_type, EventType::WebhookReceived);
     assert_eq!(event.payload["action"], "deploy");
     assert_eq!(event.payload["_path"], "/hooks/deploy");
@@ -445,7 +452,7 @@ fn request_to_event_adds_metadata() {
 
 #[test]
 fn ack_response_format() {
-    let resp = ack_response(200, "accepted");
+    let resp = String::from_utf8(forjar::core::webhook_http::response(200, "accepted")).unwrap();
     assert!(resp.contains("HTTP/1.1 200 OK"));
     assert!(resp.contains("application/json"));
     assert!(resp.contains("accepted"));
@@ -453,6 +460,7 @@ fn ack_response_format() {
 
 #[test]
 fn ack_response_error() {
-    let resp = ack_response(401, "unauthorized");
+    let resp =
+        String::from_utf8(forjar::core::webhook_http::response(401, "unauthorized")).unwrap();
     assert!(resp.contains("401 Unauthorized"));
 }
