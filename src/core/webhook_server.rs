@@ -1,449 +1,240 @@
-//! FJ-3105: Minimal webhook HTTP server using std::net.
+//! FJ-3105: webhook HTTP server.
 //!
-//! Accepts POST requests and converts them to [`InfraEvent`] values
-//! via the validation pipeline in [`webhook_source`].
+//! # Concurrency
+//!
+//! Connections used to be handled INLINE on the accept loop behind a 5s read
+//! timeout, so one client that connected and sent nothing stalled every other
+//! delivery. Measured: a single idle socket delayed a legitimate signed request by
+//! 5383ms, entirely upstream of `validate_request` — so the secret was no defence.
+//!
+//! Now a bounded pool of worker threads drains a bounded queue. Bounded rather
+//! than thread-per-connection so an attacker cannot spawn threads, and a fixed
+//! pool rather than tokio because this is a loopback endpoint taking a handful of
+//! deliveries an hour: a synchronous accept loop with N workers is easier to
+//! reason about, and easier to state as a contract, than dragging an async runtime
+//! into it.
 
 use crate::core::types::InfraEvent;
-use crate::core::webhook_source::{self, ack_response, WebhookConfig, WebhookRequest};
+use crate::core::webhook_http::{self, ReadOutcome};
+use crate::core::webhook_sig::{unix_now, ReplayGuard};
+use crate::core::webhook_source::{
+    self, validate_request_at, ValidationResult, WebhookConfig, WebhookRequest, SIG_HEADER,
+};
 use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::io::Write;
+use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Sender;
-use std::sync::Arc;
+use std::sync::mpsc::{Sender, SyncSender, TrySendError};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-/// Start the webhook server on the configured port.
+/// Worker threads handling connections.
+const WORKERS: usize = 4;
+/// Queued connections awaiting a worker before we shed load with 503.
+const QUEUE_DEPTH: usize = 32;
+/// Whole-connection deadline.
+const CONN_DEADLINE: Duration = Duration::from_secs(5);
+/// Retained replay entries.
+const REPLAY_CAPACITY: usize = 4096;
+
+/// Shared state each worker needs.
+struct Shared {
+    config: WebhookConfig,
+    sender: Sender<InfraEvent>,
+    replay: Mutex<ReplayGuard>,
+}
+
+/// Start the webhook server, blocking until `shutdown` is set.
 ///
-/// Blocks the calling thread, accepting connections until `shutdown`
-/// is set to `true`. Valid events are forwarded through `sender`.
+/// Returns `Err` without binding if the configuration would expose an
+/// unauthenticated or plaintext endpoint.
 pub fn run_webhook_server(
     config: &WebhookConfig,
     sender: Sender<InfraEvent>,
     shutdown: Arc<AtomicBool>,
 ) -> Result<(), String> {
-    let addr = format!("127.0.0.1:{}", config.port);
+    config.validate_startup()?;
+
+    let addr = format!("{}:{}", config.bind, config.port);
     let listener = TcpListener::bind(&addr).map_err(|e| format!("bind {addr}: {e}"))?;
     listener
         .set_nonblocking(true)
         .map_err(|e| format!("nonblocking: {e}"))?;
 
-    while !shutdown.load(Ordering::Relaxed) {
-        match listener.accept() {
-            Ok((stream, peer)) => {
-                handle_connection(stream, &peer.to_string(), config, &sender);
+    let shared = Arc::new(Shared {
+        config: config.clone(),
+        sender,
+        replay: Mutex::new(ReplayGuard::new(
+            config.signature_tolerance_secs,
+            REPLAY_CAPACITY,
+        )),
+    });
+
+    let (tx, rx) = std::sync::mpsc::sync_channel::<(TcpStream, String)>(QUEUE_DEPTH);
+    let rx = Arc::new(Mutex::new(rx));
+    let mut handles = Vec::with_capacity(WORKERS);
+    for _ in 0..WORKERS {
+        let rx = Arc::clone(&rx);
+        let shared = Arc::clone(&shared);
+        handles.push(std::thread::spawn(move || {
+            loop {
+                // Hold the lock only to dequeue, never while serving.
+                let next = {
+                    let guard = match rx.lock() {
+                        Ok(g) => g,
+                        Err(_) => break,
+                    };
+                    guard.recv()
+                };
+                match next {
+                    Ok((stream, peer)) => serve(stream, &peer, &shared),
+                    Err(_) => break, // sender dropped: shutting down
+                }
             }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            Err(e) => {
-                eprintln!("webhook accept error: {e}");
-            }
-        }
+        }));
+    }
+
+    accept_loop(&listener, &tx, &shutdown);
+
+    drop(tx);
+    for h in handles {
+        let _ = h.join();
     }
     Ok(())
 }
 
-/// Process a single accepted connection.
-fn handle_connection(
-    mut stream: std::net::TcpStream,
-    peer: &str,
-    config: &WebhookConfig,
-    sender: &Sender<InfraEvent>,
+/// Accept connections and hand them to the pool, shedding load when it is full.
+fn accept_loop(
+    listener: &TcpListener,
+    tx: &SyncSender<(TcpStream, String)>,
+    shutdown: &Arc<AtomicBool>,
 ) {
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .ok();
-    let buf_size = config.max_body_bytes.min(65536) + 4096;
-    let mut buf = vec![0u8; buf_size];
-    let n = match stream.read(&mut buf) {
-        Ok(n) if n > 0 => n,
-        _ => return,
-    };
-    let raw = String::from_utf8_lossy(&buf[..n]);
-
-    match parse_http_to_webhook(&raw, peer) {
-        Ok(req) => {
-            let resp = dispatch_request(&req, config, sender);
-            let _ = stream.write_all(resp.as_bytes());
-        }
-        Err(resp) => {
-            let _ = stream.write_all(resp.as_bytes());
-        }
-    }
-}
-
-/// Validate the request and dispatch to the event pipeline.
-/// Returns the HTTP response string.
-fn dispatch_request(
-    req: &WebhookRequest,
-    config: &WebhookConfig,
-    sender: &Sender<InfraEvent>,
-) -> String {
-    let validation = webhook_source::validate_request(config, req);
-    if !validation.is_valid() {
-        return ack_response(403, &format!("{validation:?}"));
-    }
-
-    match webhook_source::request_to_event(req) {
-        Ok(event) => {
-            let _ = sender.send(event);
-            ack_response(200, "accepted")
-        }
-        Err(e) => ack_response(400, &e),
-    }
-}
-
-/// Parse raw HTTP text into a [`WebhookRequest`].
-///
-/// Returns `Err(response)` with a pre-formatted HTTP error on parse failure.
-fn parse_http_to_webhook(raw: &str, peer: &str) -> Result<WebhookRequest, String> {
-    let (head, body) = split_head_body(raw);
-    let mut lines = head.lines();
-
-    // Request line: "POST /webhook HTTP/1.1"
-    let request_line = lines
-        .next()
-        .ok_or_else(|| ack_response(400, "empty request"))?;
-    let parts: Vec<&str> = request_line.split_whitespace().collect();
-    if parts.len() < 2 {
-        return Err(ack_response(400, "malformed request line"));
-    }
-    let method = parts[0].to_string();
-    let path = parts[1].to_string();
-
-    // Headers
-    let headers = parse_headers(lines);
-
-    Ok(WebhookRequest {
-        method,
-        path,
-        headers,
-        body: body.to_string(),
-        source_ip: Some(peer.to_string()),
-    })
-}
-
-/// Split raw HTTP at the `\r\n\r\n` boundary into head and body.
-fn split_head_body(raw: &str) -> (&str, &str) {
-    if let Some(pos) = raw.find("\r\n\r\n") {
-        (&raw[..pos], &raw[pos + 4..])
-    } else if let Some(pos) = raw.find("\n\n") {
-        (&raw[..pos], &raw[pos + 2..])
-    } else {
-        (raw, "")
-    }
-}
-
-/// Parse header lines into a lowercase-keyed map.
-fn parse_headers<'a>(lines: impl Iterator<Item = &'a str>) -> HashMap<String, String> {
-    let mut headers = HashMap::new();
-    for line in lines {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            break;
-        }
-        if let Some((k, v)) = trimmed.split_once(':') {
-            headers.insert(k.trim().to_lowercase(), v.trim().to_string());
-        }
-    }
-    headers
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::net::TcpStream;
-    use std::sync::atomic::AtomicBool;
-    use std::sync::mpsc;
-
-    /// Find an available port by binding to :0.
-    /// Serialises every test that binds a real port.
-    ///
-    /// `free_port` asks the OS for an ephemeral port and then DROPS the
-    /// listener, so the number it returns is only reserved until it returns.
-    /// Two tests running in parallel can be handed the same port, and the loser
-    /// fails with a bind error that has nothing to do with what it was testing.
-    /// Serialising them makes the window unreachable rather than merely narrow.
-    static PORT_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-    fn free_port() -> u16 {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.local_addr().unwrap().port()
-    }
-
-    /// Spin up the server in a background thread and return (port, rx, shutdown).
-    fn start_server(
-        config: WebhookConfig,
-    ) -> (
-        u16,
-        mpsc::Receiver<InfraEvent>,
-        Arc<AtomicBool>,
-        std::sync::MutexGuard<'static, ()>,
-    ) {
-        // Held until the caller drops it, i.e. for the whole test.
-        let guard = PORT_GUARD.lock().unwrap_or_else(|e| e.into_inner());
-        let port = config.port;
-        let (tx, rx) = mpsc::channel();
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let shutdown_clone = Arc::clone(&shutdown);
-        std::thread::spawn(move || {
-            let _ = run_webhook_server(&config, tx, shutdown_clone);
-        });
-
-        // WAIT FOR THE CONDITION, do not guess a duration.
-        //
-        // This was `sleep(100ms)`, which is a race: it asserts nothing and is
-        // only ever "long enough" for the machine it was written on. It passed
-        // on an idle dev box and FAILED the clean room, where the container is
-        // CPU-contended and the spawned thread had not bound yet:
-        //
-        //   panicked at src/core/webhook_server.rs:180
-        //   Err(Os { code: 111, kind: ConnectionRefused })
-        //
-        // Readiness is probed by CONNECTING, not by binding.
-        //
-        // The previous probe tried to BIND the port and treated failure as
-        // "the server owns it". That competes with the very thread it is
-        // waiting for (forjar#276): if the probe wins the race it HOLDS the
-        // port, the server's own bind fails, the probe drops its listener and
-        // tries again — starving the server until the 10s assert fires. Under
-        // `cargo test`'s default parallelism that happened often enough to make
-        // three webhook tests flaky, and a flaky test is worse than a missing
-        // one because it teaches people to re-run rather than read.
-        //
-        // A connect cannot steal the port. The earlier note worried that the
-        // server would have to accept and handle the probe connection; it does,
-        // and dropping it immediately is a read returning EOF, which every one
-        // of these handlers already tolerates — the tests below then make their
-        // own request on a fresh connection.
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        let mut bound = false;
-        while std::time::Instant::now() < deadline {
-            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
-                bound = true;
-                break;
+    let mut backoff = Duration::from_millis(50);
+    while !shutdown.load(Ordering::Relaxed) {
+        match listener.accept() {
+            Ok((stream, peer)) => {
+                backoff = Duration::from_millis(50);
+                if let Err(TrySendError::Full((mut stream, _))) =
+                    tx.try_send((stream, peer.to_string()))
+                {
+                    // Shed rather than queue without limit, and SAY so — silently
+                    // dropping would look identical to a lost packet.
+                    let _ = stream.write_all(&webhook_http::response(503, "queue_full"));
+                    let _ = stream.flush();
+                }
             }
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => {
+                // Back off. A persistent accept error (EMFILE) used to spin this
+                // loop at full tilt with no delay.
+                eprintln!("webhook accept error: {e}");
+                std::thread::sleep(backoff);
+                backoff = (backoff * 2).min(Duration::from_secs(5));
+            }
         }
-        assert!(
-            bound,
-            "webhook server never bound 127.0.0.1:{port} within 10s — a real \
-             bind failure, reported here rather than as ECONNREFUSED later"
-        );
+    }
+}
 
-        (port, rx, shutdown, guard)
+/// Read, validate and dispatch one connection.
+fn serve(mut stream: TcpStream, peer: &str, shared: &Shared) {
+    // Propagated, not `.ok()`-swallowed: without a read timeout the deadline below
+    // cannot be enforced and a worker could block forever.
+    if let Err(e) = stream.set_read_timeout(Some(CONN_DEADLINE)) {
+        eprintln!("webhook: set_read_timeout failed for {peer}: {e}");
+        let _ = stream.write_all(&webhook_http::response(500, "internal_error"));
+        return;
     }
 
-    fn send_raw(port: u16, raw: &str) -> String {
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{port}")).unwrap();
-        stream.write_all(raw.as_bytes()).unwrap();
-        stream
-            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
-            .ok();
-        let mut buf = vec![0u8; 4096];
-        let n = stream.read(&mut buf).unwrap_or(0);
-        String::from_utf8_lossy(&buf[..n]).to_string()
+    let outcome =
+        webhook_http::read_request(&mut stream, shared.config.max_body_bytes, CONN_DEADLINE);
+
+    let reply = match outcome {
+        ReadOutcome::Empty => return, // nothing sent; nothing owed
+        ReadOutcome::Rejected { status, code } => webhook_http::response(status, code),
+        ReadOutcome::Complete {
+            method,
+            path,
+            headers,
+            body,
+        } => {
+            let request = WebhookRequest {
+                method,
+                path,
+                headers: headers.into_iter().collect::<HashMap<_, _>>(),
+                body,
+                // Address only. The old code stored `ip:port`, so any documented
+                // IP match in a rulebook could never fire.
+                source_ip: Some(peer.rsplit_once(':').map_or(peer, |(ip, _)| ip).to_string()),
+            };
+            dispatch(&request, shared)
+        }
+    };
+
+    let _ = stream.write_all(&reply);
+    let _ = stream.flush();
+}
+
+/// Validate, de-duplicate, and forward one request.
+fn dispatch(request: &WebhookRequest, shared: &Shared) -> Vec<u8> {
+    let now = unix_now();
+    let validation = validate_request_at(&shared.config, request, now);
+    if !validation.is_valid() {
+        // Debug form server-side only; the response carries a fixed code.
+        eprintln!("webhook: rejected {:?}", validation);
+        return webhook_http::response(validation.status(), validation.code());
     }
 
-    fn post_json(port: u16, path: &str, body: &str) -> String {
-        let raw = format!(
-            "POST {path} HTTP/1.1\r\n\
-             Host: localhost\r\n\
-             Content-Type: application/json\r\n\
-             Content-Length: {}\r\n\
-             \r\n\
-             {body}",
-            body.len()
-        );
-        send_raw(port, &raw)
+    // Idempotency. Because `t` is inside the signed payload, the v1 digest is
+    // unique per send, so it doubles as the delivery id — the sender needs no
+    // extra header to specify or get wrong. A duplicate is answered 200, never
+    // 4xx: a retrying sender did nothing wrong, and a 4xx would make it retry
+    // harder.
+    let event_id = delivery_id(request);
+    if let Some(id) = &event_id {
+        match shared.replay.lock() {
+            Ok(mut guard) => {
+                if !guard.admit(id, now) {
+                    return webhook_http::response(200, "duplicate_ignored");
+                }
+            }
+            Err(_) => return webhook_http::response(500, "internal_error"),
+        }
     }
 
-    #[test]
-    fn server_accepts_valid_post() {
-        let port = free_port();
-        let config = WebhookConfig {
-            port,
-            ..WebhookConfig::default()
-        };
-        let (_port, rx, shutdown, _guard) = start_server(config);
-
-        let resp = post_json(port, "/webhook", r#"{"action":"deploy"}"#);
-        assert!(resp.contains("200 OK"), "response: {resp}");
-
-        let event = rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
-        assert_eq!(event.payload.get("action").unwrap(), "deploy");
-
-        shutdown.store(true, Ordering::Relaxed);
+    match webhook_source::request_to_event(
+        request,
+        shared.config.machine.as_deref(),
+        event_id.as_deref(),
+    ) {
+        Ok(event) => {
+            // A dropped receiver used to be acknowledged as success: the old code
+            // did `let _ = sender.send(event)` then returned 200, so a sender was
+            // told its delivery was accepted when nothing would ever process it.
+            if shared.sender.send(event).is_err() {
+                return webhook_http::response(503, "event_pipeline_closed");
+            }
+            webhook_http::response(200, "accepted")
+        }
+        Err(e) => {
+            eprintln!("webhook: body rejected: {e}");
+            webhook_http::response(400, "invalid_body")
+        }
     }
+}
 
-    #[test]
-    fn server_rejects_bad_path() {
-        let port = free_port();
-        let config = WebhookConfig {
-            port,
-            ..WebhookConfig::default()
-        };
-        let (_port, _rx, shutdown, _guard) = start_server(config);
+/// Delivery id: the first `v1` digest, which is unique per send.
+fn delivery_id(request: &WebhookRequest) -> Option<String> {
+    let raw = request.headers.get(SIG_HEADER)?;
+    crate::core::webhook_sig::parse_forjar_signature(raw)
+        .v1
+        .into_iter()
+        .next()
+}
 
-        let resp = post_json(port, "/evil", r#"{}"#);
-        assert!(resp.contains("403"), "response: {resp}");
-
-        shutdown.store(true, Ordering::Relaxed);
-    }
-
-    #[test]
-    fn server_rejects_get() {
-        let port = free_port();
-        let config = WebhookConfig {
-            port,
-            ..WebhookConfig::default()
-        };
-        let (_port, _rx, shutdown, _guard) = start_server(config);
-
-        let raw = "GET /webhook HTTP/1.1\r\nHost: localhost\r\n\r\n".to_string();
-        let resp = send_raw(port, &raw);
-        assert!(resp.contains("403"), "response: {resp}");
-
-        shutdown.store(true, Ordering::Relaxed);
-    }
-
-    #[test]
-    fn server_rejects_invalid_json_body() {
-        let port = free_port();
-        let config = WebhookConfig {
-            port,
-            ..WebhookConfig::default()
-        };
-        let (_port, _rx, shutdown, _guard) = start_server(config);
-
-        let resp = post_json(port, "/webhook", "not json");
-        assert!(resp.contains("400"), "response: {resp}");
-
-        shutdown.store(true, Ordering::Relaxed);
-    }
-
-    #[test]
-    fn server_shutdown_flag() {
-        let port = free_port();
-        let config = WebhookConfig {
-            port,
-            ..WebhookConfig::default()
-        };
-        let (tx, _rx) = mpsc::channel();
-        let shutdown = Arc::new(AtomicBool::new(true)); // pre-set
-        let result = run_webhook_server(&config, tx, shutdown);
-        assert!(result.is_ok());
-    }
-
-    // -- Unit tests for parse helpers --
-
-    #[test]
-    fn parse_http_valid() {
-        let raw = "POST /webhook HTTP/1.1\r\n\
-                    Host: localhost\r\n\
-                    X-Custom: hello\r\n\
-                    \r\n\
-                    {\"a\":1}";
-        let req = parse_http_to_webhook(raw, "1.2.3.4:5678").unwrap();
-        assert_eq!(req.method, "POST");
-        assert_eq!(req.path, "/webhook");
-        assert_eq!(req.headers.get("x-custom").unwrap(), "hello");
-        assert_eq!(req.body, r#"{"a":1}"#);
-        assert_eq!(req.source_ip.as_deref(), Some("1.2.3.4:5678"));
-    }
-
-    #[test]
-    fn parse_http_empty() {
-        let result = parse_http_to_webhook("", "peer");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn parse_http_malformed_request_line() {
-        let result = parse_http_to_webhook("BADLINE", "peer");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn split_head_body_crlf() {
-        let (head, body) = split_head_body("HEAD\r\n\r\nBODY");
-        assert_eq!(head, "HEAD");
-        assert_eq!(body, "BODY");
-    }
-
-    #[test]
-    fn split_head_body_lf_only() {
-        let (head, body) = split_head_body("HEAD\n\nBODY");
-        assert_eq!(head, "HEAD");
-        assert_eq!(body, "BODY");
-    }
-
-    #[test]
-    fn split_head_body_no_separator() {
-        let (head, body) = split_head_body("HEADONLY");
-        assert_eq!(head, "HEADONLY");
-        assert_eq!(body, "");
-    }
-
-    #[test]
-    fn parse_headers_lowercased() {
-        let lines = vec!["Content-Type: text/plain", "X-UPPER: VALUE"];
-        let headers = parse_headers(lines.into_iter());
-        assert_eq!(headers.get("content-type").unwrap(), "text/plain");
-        assert_eq!(headers.get("x-upper").unwrap(), "VALUE");
-    }
-
-    #[test]
-    fn parse_headers_stops_on_blank() {
-        let lines = vec!["Key: Val", "", "After: Blank"];
-        let headers = parse_headers(lines.into_iter());
-        assert_eq!(headers.len(), 1);
-    }
-
-    #[test]
-    fn dispatch_valid_request() {
-        let config = WebhookConfig::default();
-        let (tx, rx) = mpsc::channel();
-        let req = WebhookRequest {
-            method: "POST".into(),
-            path: "/webhook".into(),
-            headers: HashMap::new(),
-            body: r#"{"k":"v"}"#.into(),
-            source_ip: None,
-        };
-        let resp = dispatch_request(&req, &config, &tx);
-        assert!(resp.contains("200"));
-        let event = rx.try_recv().unwrap();
-        assert_eq!(event.payload.get("k").unwrap(), "v");
-    }
-
-    #[test]
-    fn dispatch_forbidden_path() {
-        let config = WebhookConfig::default();
-        let (tx, _rx) = mpsc::channel();
-        let req = WebhookRequest {
-            method: "POST".into(),
-            path: "/nope".into(),
-            headers: HashMap::new(),
-            body: r#"{}"#.into(),
-            source_ip: None,
-        };
-        let resp = dispatch_request(&req, &config, &tx);
-        assert!(resp.contains("403"));
-    }
-
-    #[test]
-    fn dispatch_bad_json() {
-        let config = WebhookConfig::default();
-        let (tx, _rx) = mpsc::channel();
-        let req = WebhookRequest {
-            method: "POST".into(),
-            path: "/webhook".into(),
-            headers: HashMap::new(),
-            body: "not json".into(),
-            source_ip: None,
-        };
-        let resp = dispatch_request(&req, &config, &tx);
-        assert!(resp.contains("400"));
-    }
+/// Validation outcome for a request, exposed for the CLI's dry-run path.
+#[must_use]
+pub fn validate_for_display(config: &WebhookConfig, request: &WebhookRequest) -> ValidationResult {
+    validate_request_at(config, request, unix_now())
 }

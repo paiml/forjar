@@ -184,6 +184,7 @@ mod remote_state;
 mod repro_proof;
 mod reseal;
 mod rules;
+mod rules_serve;
 mod run_task;
 mod runtime_invariants;
 mod saga_coordinator;

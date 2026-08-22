@@ -48,10 +48,18 @@ pub mod state_encryption;
 pub mod store;
 pub mod strutil;
 pub mod task;
+#[cfg(test)]
+mod tests_webhook_http;
+#[cfg(test)]
+mod tests_webhook_server;
+#[cfg(test)]
+mod tests_webhook_sig;
 pub mod types;
 pub mod verify;
 pub mod watch_daemon;
+pub mod webhook_http;
 pub mod webhook_server;
+pub mod webhook_sig;
 pub mod webhook_source;
 
 pub mod do330;
