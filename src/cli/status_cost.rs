@@ -82,25 +82,35 @@ pub(crate) fn cmd_status_staleness_report(
     Ok(())
 }
 
-/// FJ-532: Cost estimate — estimate resource cost based on type counts.
-pub(crate) fn cmd_status_cost_estimate(
-    state_dir: &Path,
-    machine: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
-    let machines = discover_machines(state_dir);
-    let machines: Vec<String> = if let Some(m) = machine {
-        machines.into_iter().filter(|n| n == m).collect()
-    } else {
-        machines
-    };
+/// Cost units per resource type (relative complexity).
+fn cost_per_type(t: &str) -> f64 {
+    match t {
+        "Package" => 2.0,
+        "File" => 1.0,
+        "Service" => 3.0,
+        "Mount" => 4.0,
+        "User" => 2.5,
+        "Docker" => 5.0,
+        "Cron" => 1.5,
+        "Network" => 3.0,
+        "Pepita" => 4.0,
+        "Model" => 8.0,
+        "Gpu" => 6.0,
+        _ => 1.0,
+    }
+}
 
-    // Cost units per resource type (relative complexity)
+/// Tally resource-type counts across the given machines' state locks.
+/// Returns `(counts, total_resources)`.
+fn tally_cost_types(
+    state_dir: &Path,
+    machines: &[String],
+) -> (std::collections::HashMap<String, usize>, usize) {
     let mut type_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     let mut total_resources = 0;
 
-    for m in &machines {
+    for m in machines {
         let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
@@ -118,22 +128,70 @@ pub(crate) fn cmd_status_cost_estimate(
         }
     }
 
-    let cost_per_type = |t: &str| -> f64 {
-        match t {
-            "Package" => 2.0,
-            "File" => 1.0,
-            "Service" => 3.0,
-            "Mount" => 4.0,
-            "User" => 2.5,
-            "Docker" => 5.0,
-            "Cron" => 1.5,
-            "Network" => 3.0,
-            "Pepita" => 4.0,
-            "Model" => 8.0,
-            "Gpu" => 6.0,
-            _ => 1.0,
-        }
+    (type_counts, total_resources)
+}
+
+fn print_cost_estimate_json(
+    type_counts: &std::collections::HashMap<String, usize>,
+    total_resources: usize,
+    total_cost: f64,
+) {
+    let entries: Vec<String> = type_counts
+        .iter()
+        .map(|(t, c)| {
+            format!(
+                r#"{{"type":"{}","count":{},"unit_cost":{:.1},"total":{:.1}}}"#,
+                t,
+                c,
+                cost_per_type(t),
+                cost_per_type(t) * (*c as f64)
+            )
+        })
+        .collect();
+    println!(
+        r#"{{"resources":{},"types":[{}],"total_cost":{:.1}}}"#,
+        total_resources,
+        entries.join(","),
+        total_cost
+    );
+}
+
+fn print_cost_estimate_text(
+    type_counts: &std::collections::HashMap<String, usize>,
+    total_resources: usize,
+    machine_count: usize,
+    total_cost: f64,
+) {
+    println!("Cost estimate ({total_resources} resources across {machine_count} machines):\n");
+    let mut sorted: Vec<_> = type_counts.iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(a.1));
+    for (t, c) in &sorted {
+        let cost = cost_per_type(t) * (**c as f64);
+        println!(
+            "  {:>3}x {:12} @ {:.1} = {:.1} units",
+            c,
+            t,
+            cost_per_type(t),
+            cost
+        );
+    }
+    println!("\n  Total: {total_cost:.1} complexity units");
+}
+
+/// FJ-532: Cost estimate — estimate resource cost based on type counts.
+pub(crate) fn cmd_status_cost_estimate(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let machines: Vec<String> = if let Some(m) = machine {
+        machines.into_iter().filter(|n| n == m).collect()
+    } else {
+        machines
     };
+
+    let (type_counts, total_resources) = tally_cost_types(state_dir, &machines);
 
     let total_cost: f64 = type_counts
         .iter()
@@ -141,43 +199,9 @@ pub(crate) fn cmd_status_cost_estimate(
         .sum();
 
     if json {
-        let entries: Vec<String> = type_counts
-            .iter()
-            .map(|(t, c)| {
-                format!(
-                    r#"{{"type":"{}","count":{},"unit_cost":{:.1},"total":{:.1}}}"#,
-                    t,
-                    c,
-                    cost_per_type(t),
-                    cost_per_type(t) * (*c as f64)
-                )
-            })
-            .collect();
-        println!(
-            r#"{{"resources":{},"types":[{}],"total_cost":{:.1}}}"#,
-            total_resources,
-            entries.join(","),
-            total_cost
-        );
+        print_cost_estimate_json(&type_counts, total_resources, total_cost);
     } else {
-        println!(
-            "Cost estimate ({} resources across {} machines):\n",
-            total_resources,
-            machines.len()
-        );
-        let mut sorted: Vec<_> = type_counts.iter().collect();
-        sorted.sort_by(|a, b| b.1.cmp(a.1));
-        for (t, c) in &sorted {
-            let cost = cost_per_type(t) * (**c as f64);
-            println!(
-                "  {:>3}x {:12} @ {:.1} = {:.1} units",
-                c,
-                t,
-                cost_per_type(t),
-                cost
-            );
-        }
-        println!("\n  Total: {total_cost:.1} complexity units");
+        print_cost_estimate_text(&type_counts, total_resources, machines.len(), total_cost);
     }
     Ok(())
 }

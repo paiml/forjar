@@ -5,30 +5,26 @@ use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 
 /// Return the execution cost weight for a resource type.
+///
+/// Grouped by weight rather than listed per variant — the mapping is unchanged
+/// and the match stays exhaustive, so a new `ResourceType` still fails to
+/// compile until it is given a cost.
 fn type_cost(rt: &types::ResourceType) -> u32 {
+    use types::ResourceType as R;
     match rt {
-        types::ResourceType::File => 1,
-        types::ResourceType::Package => 5,
-        types::ResourceType::Service => 3,
-        types::ResourceType::Mount => 2,
-        types::ResourceType::User => 2,
-        types::ResourceType::Docker => 4,
-        types::ResourceType::Cron => 1,
-        types::ResourceType::Network => 2,
-        types::ResourceType::Pepita => 3,
-        types::ResourceType::Model => 5,
-        types::ResourceType::Gpu => 5,
-        types::ResourceType::Task => 3,
-        types::ResourceType::Recipe => 1,
-        types::ResourceType::WasmBundle => 1,
-        types::ResourceType::Image => 1,
-        types::ResourceType::Build => 5,
-        types::ResourceType::GithubRelease => 3,
-        types::ResourceType::OverlayInterface => 3,
-        types::ResourceType::DiskBudget => 3,
-        types::ResourceType::BackupSync => 3,
+        R::File | R::Cron | R::Recipe | R::WasmBundle | R::Image => 1,
+        R::Mount | R::User | R::Network => 2,
         // Archival installs a script + two units; the move itself is the timer's.
-        types::ResourceType::NasArchive => 3,
+        R::Service
+        | R::Pepita
+        | R::Task
+        | R::GithubRelease
+        | R::OverlayInterface
+        | R::DiskBudget
+        | R::BackupSync
+        | R::NasArchive => 3,
+        R::Docker => 4,
+        R::Package | R::Model | R::Gpu | R::Build => 5,
     }
 }
 
@@ -139,6 +135,112 @@ fn print_parallel_groups(groups: &[Vec<String>], json: bool) {
     }
 }
 
+/// Memoise `name` as a root: its own cost, and a path containing only itself.
+fn memoize_root(
+    name: &str,
+    node_cost: u32,
+    best_cost: &mut HashMap<String, u32>,
+    best_path: &mut HashMap<String, Vec<String>>,
+) -> (u32, Vec<String>) {
+    best_cost.insert(name.to_string(), node_cost);
+    best_path.insert(name.to_string(), vec![name.to_string()]);
+    (node_cost, vec![name.to_string()])
+}
+
+/// The heaviest `(cost, path)` among `name`'s dependencies.
+fn heaviest_dependency(
+    depends_on: &[String],
+    resources: &indexmap::IndexMap<String, types::Resource>,
+    costs: &HashMap<String, u32>,
+    best_cost: &mut HashMap<String, u32>,
+    best_path: &mut HashMap<String, Vec<String>>,
+    visiting: &mut std::collections::HashSet<String>,
+) -> (u32, Vec<String>) {
+    let mut max_dep_cost = 0u32;
+    let mut max_dep_path: Vec<String> = Vec::new();
+    for dep in depends_on {
+        let (dc, dp) = longest_path_to(dep, resources, costs, best_cost, best_path, visiting);
+        if dc > max_dep_cost {
+            max_dep_cost = dc;
+            max_dep_path = dp;
+        }
+    }
+    (max_dep_cost, max_dep_path)
+}
+
+/// Longest weighted path ending at `name`, memoised in `best_cost`/`best_path`.
+fn longest_path_to(
+    name: &str,
+    resources: &indexmap::IndexMap<String, types::Resource>,
+    costs: &HashMap<String, u32>,
+    best_cost: &mut HashMap<String, u32>,
+    best_path: &mut HashMap<String, Vec<String>>,
+    visiting: &mut std::collections::HashSet<String>,
+) -> (u32, Vec<String>) {
+    if let Some(&c) = best_cost.get(name) {
+        return (c, best_path.get(name).cloned().unwrap_or_default());
+    }
+    if visiting.contains(name) {
+        // Cycle protection — return just this node's cost.
+        let c = costs.get(name).copied().unwrap_or(1);
+        return (c, vec![name.to_string()]);
+    }
+    visiting.insert(name.to_string());
+
+    let node_cost = costs.get(name).copied().unwrap_or(1);
+    let res = match resources.get(name) {
+        Some(r) => r,
+        None => return memoize_root(name, node_cost, best_cost, best_path),
+    };
+
+    if res.depends_on.is_empty() {
+        // Root node — path is just itself.
+        return memoize_root(name, node_cost, best_cost, best_path);
+    }
+
+    // Find the dependency with the longest path to it.
+    let (max_dep_cost, max_dep_path) = heaviest_dependency(
+        &res.depends_on,
+        resources,
+        costs,
+        best_cost,
+        best_path,
+        visiting,
+    );
+
+    let total = max_dep_cost + node_cost;
+    let mut path = max_dep_path;
+    path.push(name.to_string());
+    best_cost.insert(name.to_string(), total);
+    best_path.insert(name.to_string(), path.clone());
+    (total, path)
+}
+
+/// Print the execution-cost summary in the requested format.
+fn print_execution_cost(
+    total_resources: usize,
+    total_cost: u32,
+    critical_path_cost: u32,
+    critical_path: &[String],
+    json: bool,
+) {
+    if json {
+        let path_items: Vec<String> = critical_path.iter().map(|n| format!("\"{n}\"")).collect();
+        println!(
+            "{{\"execution_cost\":{{\"total_resources\":{},\"total_cost\":{},\"critical_path_cost\":{},\"critical_path\":[{}]}}}}",
+            total_resources, total_cost, critical_path_cost, path_items.join(",")
+        );
+    } else {
+        println!("Total resources: {total_resources}");
+        println!("Total estimated cost: {total_cost}");
+        println!(
+            "Critical path cost: {} (path: {})",
+            critical_path_cost,
+            critical_path.join(" -> ")
+        );
+    }
+}
+
 /// FJ-1026: Estimate total execution cost by weighting resources by type and
 /// computing the critical path (longest weighted path through the DAG).
 pub(crate) fn cmd_graph_resource_dependency_execution_cost(
@@ -178,60 +280,6 @@ pub(crate) fn cmd_graph_resource_dependency_execution_cost(
     let mut best_cost: HashMap<String, u32> = HashMap::new();
     let mut best_path: HashMap<String, Vec<String>> = HashMap::new();
 
-    fn longest_path_to(
-        name: &str,
-        resources: &indexmap::IndexMap<String, types::Resource>,
-        costs: &HashMap<String, u32>,
-        best_cost: &mut HashMap<String, u32>,
-        best_path: &mut HashMap<String, Vec<String>>,
-        visiting: &mut std::collections::HashSet<String>,
-    ) -> (u32, Vec<String>) {
-        if let Some(&c) = best_cost.get(name) {
-            return (c, best_path.get(name).cloned().unwrap_or_default());
-        }
-        if visiting.contains(name) {
-            // Cycle protection — return just this node's cost.
-            let c = costs.get(name).copied().unwrap_or(1);
-            return (c, vec![name.to_string()]);
-        }
-        visiting.insert(name.to_string());
-
-        let node_cost = costs.get(name).copied().unwrap_or(1);
-        let res = match resources.get(name) {
-            Some(r) => r,
-            None => {
-                best_cost.insert(name.to_string(), node_cost);
-                best_path.insert(name.to_string(), vec![name.to_string()]);
-                return (node_cost, vec![name.to_string()]);
-            }
-        };
-
-        if res.depends_on.is_empty() {
-            // Root node — path is just itself.
-            best_cost.insert(name.to_string(), node_cost);
-            best_path.insert(name.to_string(), vec![name.to_string()]);
-            return (node_cost, vec![name.to_string()]);
-        }
-
-        // Find the dependency with the longest path to it.
-        let mut max_dep_cost = 0u32;
-        let mut max_dep_path: Vec<String> = Vec::new();
-        for dep in &res.depends_on {
-            let (dc, dp) = longest_path_to(dep, resources, costs, best_cost, best_path, visiting);
-            if dc > max_dep_cost {
-                max_dep_cost = dc;
-                max_dep_path = dp;
-            }
-        }
-
-        let total = max_dep_cost + node_cost;
-        let mut path = max_dep_path;
-        path.push(name.to_string());
-        best_cost.insert(name.to_string(), total);
-        best_path.insert(name.to_string(), path.clone());
-        (total, path)
-    }
-
     let names: Vec<String> = config.resources.keys().cloned().collect();
     for name in &names {
         let mut visiting = std::collections::HashSet::new();
@@ -256,21 +304,13 @@ pub(crate) fn cmd_graph_resource_dependency_execution_cost(
         .max_by_key(|(c, _)| *c)
         .unwrap_or((0, Vec::new()));
 
-    if json {
-        let path_items: Vec<String> = critical_path.iter().map(|n| format!("\"{n}\"")).collect();
-        println!(
-            "{{\"execution_cost\":{{\"total_resources\":{},\"total_cost\":{},\"critical_path_cost\":{},\"critical_path\":[{}]}}}}",
-            total_resources, total_cost, critical_path_cost, path_items.join(",")
-        );
-    } else {
-        println!("Total resources: {total_resources}");
-        println!("Total estimated cost: {total_cost}");
-        println!(
-            "Critical path cost: {} (path: {})",
-            critical_path_cost,
-            critical_path.join(" -> ")
-        );
-    }
+    print_execution_cost(
+        total_resources,
+        total_cost,
+        critical_path_cost,
+        &critical_path,
+        json,
+    );
 
     Ok(())
 }

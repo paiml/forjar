@@ -344,3 +344,61 @@ fn a_resource_with_no_secrets_still_generates() {
     let script = apply_script(&r).expect("must still generate");
     assert!(script.contains("/tmp/plain"), "unexpected script: {script}");
 }
+
+/// FALSIFY-CD-001/002 over the WHOLE enum, not a hand-picked subset.
+///
+/// The two falsification tests above enumerate 4 and 9 types respectively, so
+/// twelve resource types had no completeness or symmetry coverage at all. The
+/// dispatch table routes each type once, which makes symmetry structural —
+/// this pins completeness to match: every type except `recipe` generates all
+/// three scripts, and `recipe` refuses all three.
+#[test]
+fn falsify_cd_001_002_every_resource_type_dispatches() {
+    let all = [
+        ResourceType::Package,
+        ResourceType::File,
+        ResourceType::Service,
+        ResourceType::Mount,
+        ResourceType::User,
+        ResourceType::Docker,
+        ResourceType::Pepita,
+        ResourceType::Network,
+        ResourceType::Cron,
+        ResourceType::Recipe,
+        ResourceType::Model,
+        ResourceType::Gpu,
+        ResourceType::Task,
+        ResourceType::WasmBundle,
+        ResourceType::Image,
+        ResourceType::Build,
+        ResourceType::GithubRelease,
+        ResourceType::OverlayInterface,
+        ResourceType::DiskBudget,
+        ResourceType::BackupSync,
+        ResourceType::NasArchive,
+    ];
+
+    for rt in all {
+        let r = Resource {
+            resource_type: rt.clone(),
+            ..Default::default()
+        };
+        let dispatchable = rt != ResourceType::Recipe;
+
+        assert_eq!(
+            check_script(&r).is_ok(),
+            dispatchable,
+            "check_script({rt:?}) dispatchability"
+        );
+        assert_eq!(
+            apply_script(&r).is_ok(),
+            dispatchable,
+            "apply_script({rt:?}) dispatchability"
+        );
+        assert_eq!(
+            state_query_script(&r).is_ok(),
+            dispatchable,
+            "state_query_script({rt:?}) dispatchability"
+        );
+    }
+}

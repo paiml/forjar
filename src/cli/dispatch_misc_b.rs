@@ -34,6 +34,13 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             state_dir,
             json,
         }) => super::sovereignty::cmd_sovereignty(&file, &state_dir, json),
+        other => dispatch_data_cmd_b(other),
+    }
+}
+
+/// Dispatch data pipeline and MLOps commands — second group.
+fn dispatch_data_cmd_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::CostEstimate(CostEstimateArgs { file, json }) => {
             super::cost_estimate::cmd_cost_estimate(&file, json)
         }
@@ -61,6 +68,58 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             file,
             json,
         }) => super::contracts::cmd_contracts(coverage, &file, json),
+        other => dispatch_data_cmd_c(other),
+    }
+}
+
+/// Route `forjar logs` to its gc, follow, or listing handler.
+fn dispatch_logs(args: LogsArgs) -> Result<(), String> {
+    let LogsArgs {
+        state_dir,
+        machine,
+        run,
+        resource,
+        failures,
+        script,
+        all_machines,
+        follow,
+        gc,
+        dry_run,
+        keep_failed,
+        json,
+    } = args;
+    if gc {
+        return super::logs_gc::cmd_logs_gc(&state_dir, dry_run, keep_failed, json, None);
+    }
+    if follow {
+        // Dogfood #208: --follow must honour --machine/--run, not
+        // silently watch the newest run.
+        return super::logs::cmd_logs_follow(
+            &state_dir,
+            if all_machines {
+                None
+            } else {
+                machine.as_deref()
+            },
+            run.as_deref(),
+            json,
+        );
+    }
+    super::logs::cmd_logs(
+        &state_dir,
+        machine.as_deref(),
+        run.as_deref(),
+        resource.as_deref(),
+        failures,
+        script,
+        all_machines,
+        json,
+    )
+}
+
+/// Dispatch build, log, and task commands — third group.
+fn dispatch_data_cmd_c(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::Build(BuildArgs {
             file,
             resource,
@@ -70,48 +129,7 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             sandbox,
             json,
         }) => super::build_image::cmd_build(&file, &resource, load, push, far, sandbox, json),
-        Commands::Logs(LogsArgs {
-            state_dir,
-            machine,
-            run,
-            resource,
-            failures,
-            script,
-            all_machines,
-            follow,
-            gc,
-            dry_run,
-            keep_failed,
-            json,
-        }) => {
-            if gc {
-                return super::logs_gc::cmd_logs_gc(&state_dir, dry_run, keep_failed, json, None);
-            }
-            if follow {
-                // Dogfood #208: --follow must honour --machine/--run, not
-                // silently watch the newest run.
-                return super::logs::cmd_logs_follow(
-                    &state_dir,
-                    if all_machines {
-                        None
-                    } else {
-                        machine.as_deref()
-                    },
-                    run.as_deref(),
-                    json,
-                );
-            }
-            super::logs::cmd_logs(
-                &state_dir,
-                machine.as_deref(),
-                run.as_deref(),
-                resource.as_deref(),
-                failures,
-                script,
-                all_machines,
-                json,
-            )
-        }
+        Commands::Logs(args) => dispatch_logs(args),
         Commands::OciPack(OciPackArgs {
             dir,
             tag,
@@ -230,57 +248,56 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
         Commands::CrossDeps(CrossDepsArgs { file, json }) => {
             super::cross_machine_deps::cmd_cross_deps(&file, json)
         }
-        Commands::Image(ImageArgs {
-            file,
-            machine,
-            user_data,
-            android,
-            base,
-            output,
-            disk,
-            locale,
-            timezone,
-            json,
-        }) => {
-            if android {
-                let out = output
-                    .as_deref()
-                    .unwrap_or(std::path::Path::new("forjar-magisk.zip"));
-                return super::image_android::cmd_image_android(
-                    &file,
-                    machine.as_deref(),
-                    out,
-                    json,
-                );
-            }
-            match base {
-                Some(ref base_iso) if !user_data => {
-                    let out = output
-                        .as_deref()
-                        .unwrap_or(std::path::Path::new("forjar-autoinstall.iso"));
-                    super::image_cmd::cmd_image_iso(
-                        &file,
-                        machine.as_deref(),
-                        base_iso,
-                        out,
-                        &disk,
-                        &locale,
-                        &timezone,
-                        json,
-                    )
-                }
-                _ => super::image_cmd::cmd_image_user_data(
-                    &file,
-                    machine.as_deref(),
-                    &disk,
-                    &locale,
-                    &timezone,
-                    output.as_deref(),
-                    json,
-                ),
-            }
-        }
+        Commands::Image(args) => dispatch_image(args),
         other => super::dispatch_platform::dispatch_platform_cmd(other),
+    }
+}
+
+/// Route `forjar image` to its android, ISO, or cloud-init handler.
+fn dispatch_image(args: ImageArgs) -> Result<(), String> {
+    let ImageArgs {
+        file,
+        machine,
+        user_data,
+        android,
+        base,
+        output,
+        disk,
+        locale,
+        timezone,
+        json,
+    } = args;
+    if android {
+        let out = output
+            .as_deref()
+            .unwrap_or(std::path::Path::new("forjar-magisk.zip"));
+        return super::image_android::cmd_image_android(&file, machine.as_deref(), out, json);
+    }
+    match base {
+        Some(ref base_iso) if !user_data => {
+            let out = output
+                .as_deref()
+                .unwrap_or(std::path::Path::new("forjar-autoinstall.iso"));
+            super::image_cmd::cmd_image_iso(
+                &file,
+                machine.as_deref(),
+                base_iso,
+                out,
+                &disk,
+                &locale,
+                &timezone,
+                json,
+            )
+        }
+        _ => super::image_cmd::cmd_image_user_data(
+            &file,
+            machine.as_deref(),
+            &disk,
+            &locale,
+            &timezone,
+            output.as_deref(),
+            json,
+        ),
     }
 }
 

@@ -37,6 +37,13 @@ pub(crate) fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
             machine,
             json,
         }) => super::provenance::cmd_provenance(&file, &state_dir, machine.as_deref(), json),
+        other => dispatch_analysis_cmd_b(other),
+    }
+}
+
+/// Dispatch analysis, security, and audit commands — second half of the same group.
+fn dispatch_analysis_cmd_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::Lineage(LineageArgs { file, json }) => super::lineage::cmd_lineage(&file, json),
         Commands::Bundle(BundleArgs {
             file,

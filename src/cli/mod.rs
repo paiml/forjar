@@ -55,6 +55,7 @@ mod dispatch_status_d;
 mod dispatch_status_ext;
 mod dispatch_status_ext_b;
 mod dispatch_store;
+mod dispatch_tools;
 mod dispatch_validate;
 mod dispatch_validate_b;
 mod dispatch_validate_c;

@@ -400,6 +400,66 @@ pub(crate) fn cmd_status_health_threshold(
     }
 }
 
+/// Resource status counts behind the composite health score.
+#[derive(Default)]
+struct HealthTally {
+    total_resources: u64,
+    converged: u64,
+    failed: u64,
+    drifted: u64,
+}
+
+/// Walk each machine's state lock and count converged/failed/drifted resources.
+/// A missing or unparsable lock is skipped, as it was inline.
+fn tally_health(state_dir: &Path, machines: &[String]) -> HealthTally {
+    let mut tally = HealthTally::default();
+
+    for m in machines {
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        for rl in lock.resources.values() {
+            tally.total_resources += 1;
+            match rl.status {
+                types::ResourceStatus::Converged => tally.converged += 1,
+                types::ResourceStatus::Failed => tally.failed += 1,
+                types::ResourceStatus::Drifted => tally.drifted += 1,
+                _ => {}
+            }
+        }
+    }
+
+    tally
+}
+
+fn health_score_value(t: &HealthTally) -> f64 {
+    if t.total_resources > 0 {
+        ((t.converged as f64 / t.total_resources as f64) * 100.0
+            - (t.failed as f64 / t.total_resources as f64) * 50.0
+            - (t.drifted as f64 / t.total_resources as f64) * 25.0)
+            .clamp(0.0, 100.0)
+    } else {
+        100.0
+    }
+}
+
+fn colored_health_score(score: f64) -> String {
+    if score >= 80.0 {
+        green(&format!("{score:.0}"))
+    } else if score >= 50.0 {
+        yellow(&format!("{score:.0}"))
+    } else {
+        red(&format!("{score:.0}"))
+    }
+}
+
 /// FJ-542: Health score — composite health score (0-100) across all machines.
 pub(crate) fn cmd_status_health_score(
     state_dir: &Path,
@@ -413,54 +473,21 @@ pub(crate) fn cmd_status_health_score(
         machines
     };
 
-    let mut total_resources = 0;
-    let mut converged = 0;
-    let mut failed = 0;
-    let mut drifted = 0;
-
-    for m in &machines {
-        let lock_path = state_dir.join(m).join("state.lock.yaml");
-        if !lock_path.exists() {
-            continue;
-        }
-        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
-        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
-            Ok(l) => l,
-            Err(_) => continue,
-        };
-
-        for rl in lock.resources.values() {
-            total_resources += 1;
-            match rl.status {
-                types::ResourceStatus::Converged => converged += 1,
-                types::ResourceStatus::Failed => failed += 1,
-                types::ResourceStatus::Drifted => drifted += 1,
-                _ => {}
-            }
-        }
-    }
-
-    let score = if total_resources > 0 {
-        ((converged as f64 / total_resources as f64) * 100.0
-            - (failed as f64 / total_resources as f64) * 50.0
-            - (drifted as f64 / total_resources as f64) * 25.0)
-            .clamp(0.0, 100.0)
-    } else {
-        100.0
-    };
+    let tally = tally_health(state_dir, &machines);
+    let score = health_score_value(&tally);
+    let HealthTally {
+        total_resources,
+        converged,
+        failed,
+        drifted,
+    } = tally;
 
     if json {
         println!(
             r#"{{"health_score":{score:.0},"total":{total_resources},"converged":{converged},"failed":{failed},"drifted":{drifted}}}"#
         );
     } else {
-        let color_score = if score >= 80.0 {
-            green(&format!("{score:.0}"))
-        } else if score >= 50.0 {
-            yellow(&format!("{score:.0}"))
-        } else {
-            red(&format!("{score:.0}"))
-        };
+        let color_score = colored_health_score(score);
         println!("Health Score: {color_score}/100\n");
         println!("  Converged: {converged}");
         println!("  Failed:    {failed}");

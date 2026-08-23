@@ -155,6 +155,17 @@ pub(super) fn init_undo_progress(
     }
 }
 
+/// Announce the generation transition and, when the target generation carries
+/// readable metadata, summarise it.
+fn print_undo_header(target_gen_dir: &Path, current: u32, target: u32) {
+    let meta_content =
+        std::fs::read_to_string(target_gen_dir.join(".generation.yaml")).unwrap_or_default();
+    println!("Undo: generation {current} → {target}");
+    if let Ok(meta) = types::GenerationMeta::from_yaml(&meta_content) {
+        print_undo_meta(&meta);
+    }
+}
+
 /// FJ-2003: Active undo — revert to a previous generation by re-applying its config.
 pub(crate) fn cmd_undo(
     file: &Path,
@@ -181,12 +192,7 @@ pub(crate) fn cmd_undo(
         return Err(format!("generation {target} does not exist"));
     }
 
-    let meta_content =
-        std::fs::read_to_string(target_gen_dir.join(".generation.yaml")).unwrap_or_default();
-    println!("Undo: generation {current} → {target}");
-    if let Ok(meta) = types::GenerationMeta::from_yaml(&meta_content) {
-        print_undo_meta(&meta);
-    }
+    print_undo_header(&target_gen_dir, current, target);
 
     let current_locks =
         super::helpers_state::load_machine_locks(&current_config, state_dir, machine_filter)
@@ -223,7 +229,22 @@ pub(crate) fn cmd_undo(
 
     super::generation::rollback_to_generation(state_dir, target, true)?;
     println!("\nRe-applying config to converge to generation {target}...");
-    let result = cmd_apply(
+    let result = reapply_after_rollback(file, state_dir, machine_filter);
+
+    // Mark progress completed or partial
+    mark_undo_progress_final(state_dir, target_locks.keys(), result.is_ok());
+    result
+}
+
+/// Re-apply the config after a rollback so the host converges to the target
+/// generation. `force` is on and confirmation is pre-granted; every other knob
+/// is the `cmd_apply` default.
+fn reapply_after_rollback(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<(), String> {
+    cmd_apply(
         file,
         state_dir,
         machine_filter,
@@ -260,21 +281,26 @@ pub(crate) fn cmd_undo(
         false, // refresh
         None,  // force_tag
         &[],
-    );
+    )
+}
 
-    // Mark progress completed or partial
-    let final_status = if result.is_ok() {
+/// Stamp every machine's `undo-progress.yaml` Completed or Partial.
+fn mark_undo_progress_final<'a>(
+    state_dir: &Path,
+    machines: impl Iterator<Item = &'a String>,
+    ok: bool,
+) {
+    let final_status = if ok {
         types::UndoStatus::Completed
     } else {
         types::UndoStatus::Partial
     };
-    for machine in target_locks.keys() {
+    for machine in machines {
         if let Some(mut p) = read_undo_progress(state_dir, machine) {
             p.status = final_status;
             write_undo_progress(state_dir, machine, &p);
         }
     }
-    result
 }
 
 /// FJ-2003: Resume a partial undo from undo-progress.yaml.

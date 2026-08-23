@@ -32,3 +32,16 @@ state/*/events.jsonl
 /dist-output/
 .dogfood/
 .pv/
+
+# pmat writes a `.pmat/` cache wherever it is INVOKED, not just at the repo
+# root. A run from src/verb/ or tests/ leaves a nested one holding tdg-*.db
+# scratch; on 2026-08-23 a `git add -A src/` staged eight of them.
+#
+# Unanchored so it catches every depth, which also covers the root — that is
+# deliberate. The root `.pmat/` files the ratchets read (baseline.json,
+# cb200-baseline.json, context.db) are already TRACKED, and gitignore never
+# affects a tracked file, so they keep working. What this stops is a NEW cache
+# artefact drifting into a commit from either place. Adding a genuinely new
+# tracked file under .pmat/ needs `git add -f`, which is the right amount of
+# friction for a directory that is otherwise all scratch.
+**/.pmat/

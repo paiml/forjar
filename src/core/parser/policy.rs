@@ -7,51 +7,78 @@
 use super::*;
 use crate::core::types::{PolicyCheckResult, PolicyRuleType, PolicyViolation};
 
+/// Decides whether a resource has a field set.
+type FieldPresence = fn(&Resource) -> bool;
+
+/// Renders a resource field as the string a condition compares against.
+type FieldValue = fn(&Resource) -> Option<String>;
+
+/// Which fields `require` can name, and how presence is decided for each.
+///
+/// A table, not a `match`: the field names are distinct literals, so the arms
+/// never overlapped and their order was never observable — the branch per field
+/// bought nothing but complexity. An unlisted field is absent, as before.
+const FIELD_PRESENCE: &[(&str, FieldPresence)] = &[
+    ("owner", |r| r.owner.is_some()),
+    ("group", |r| r.group.is_some()),
+    ("mode", |r| r.mode.is_some()),
+    ("tags", |r| !r.tags.is_empty()),
+    ("path", |r| r.path.is_some()),
+    ("content", |r| r.content.is_some()),
+    ("source", |r| r.source.is_some()),
+    ("name", |r| r.name.is_some()),
+    ("provider", |r| r.provider.is_some()),
+    ("packages", |r| !r.packages.is_empty()),
+    ("depends_on", |r| !r.depends_on.is_empty()),
+    ("shell", |r| r.shell.is_some()),
+    ("home", |r| r.home.is_some()),
+    ("schedule", |r| r.schedule.is_some()),
+    ("command", |r| r.command.is_some()),
+    ("image", |r| r.image.is_some()),
+    ("state", |r| r.state.is_some()),
+    ("when", |r| r.when.is_some()),
+];
+
 /// Check if a resource has a given field set (non-None, non-empty).
 pub(crate) fn resource_has_field(resource: &Resource, field: &str) -> bool {
-    match field {
-        "owner" => resource.owner.is_some(),
-        "group" => resource.group.is_some(),
-        "mode" => resource.mode.is_some(),
-        "tags" => !resource.tags.is_empty(),
-        "path" => resource.path.is_some(),
-        "content" => resource.content.is_some(),
-        "source" => resource.source.is_some(),
-        "name" => resource.name.is_some(),
-        "provider" => resource.provider.is_some(),
-        "packages" => !resource.packages.is_empty(),
-        "depends_on" => !resource.depends_on.is_empty(),
-        "shell" => resource.shell.is_some(),
-        "home" => resource.home.is_some(),
-        "schedule" => resource.schedule.is_some(),
-        "command" => resource.command.is_some(),
-        "image" => resource.image.is_some(),
-        "state" => resource.state.is_some(),
-        "when" => resource.when.is_some(),
-        _ => false,
-    }
+    FIELD_PRESENCE
+        .iter()
+        .find(|(name, _)| *name == field)
+        .is_some_and(|(_, present)| present(resource))
 }
+
+/// Which fields a condition can compare against, and how each is stringified.
+///
+/// Same shape as [`FIELD_PRESENCE`], and deliberately a different set: `tags`,
+/// `packages` and `depends_on` are lists with no single string value, while
+/// `type` and `when` exist on only one of the two tables. Keeping them separate
+/// preserves exactly which names each function answered to.
+const FIELD_VALUES: &[(&str, FieldValue)] = &[
+    ("owner", |r| r.owner.clone()),
+    ("group", |r| r.group.clone()),
+    ("mode", |r| r.mode.clone()),
+    ("path", |r| r.path.clone()),
+    ("content", |r| r.content.clone()),
+    ("source", |r| r.source.clone()),
+    ("name", |r| r.name.clone()),
+    ("provider", |r| r.provider.clone()),
+    ("state", |r| r.state.clone()),
+    ("type", |r| {
+        Some(format!("{:?}", r.resource_type).to_lowercase())
+    }),
+    ("shell", |r| r.shell.clone()),
+    ("home", |r| r.home.clone()),
+    ("schedule", |r| r.schedule.clone()),
+    ("command", |r| r.command.clone()),
+    ("image", |r| r.image.clone()),
+];
 
 /// Get a string representation of a resource field for condition checks.
 pub(crate) fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
-    match field {
-        "owner" => resource.owner.clone(),
-        "group" => resource.group.clone(),
-        "mode" => resource.mode.clone(),
-        "path" => resource.path.clone(),
-        "content" => resource.content.clone(),
-        "source" => resource.source.clone(),
-        "name" => resource.name.clone(),
-        "provider" => resource.provider.clone(),
-        "state" => resource.state.clone(),
-        "type" => Some(format!("{:?}", resource.resource_type).to_lowercase()),
-        "shell" => resource.shell.clone(),
-        "home" => resource.home.clone(),
-        "schedule" => resource.schedule.clone(),
-        "command" => resource.command.clone(),
-        "image" => resource.image.clone(),
-        _ => None,
-    }
+    FIELD_VALUES
+        .iter()
+        .find(|(name, _)| *name == field)
+        .and_then(|(_, value)| value(resource))
 }
 
 /// Get the count of items in a list-type field.
@@ -65,44 +92,55 @@ pub(crate) fn resource_field_count(resource: &Resource, field: &str) -> usize {
 }
 
 /// Evaluate a single rule against a single resource. Returns true if violated.
+///
+/// One rule type per arm, each arm's test in its own function: a rule that
+/// names no field (or no condition) is never a violation, and that guard used
+/// to be repeated four times inside this `match`.
 fn evaluate_rule(rule: &PolicyRule, resource: &Resource) -> bool {
     match rule.rule_type {
-        PolicyRuleType::Require => {
-            if let Some(ref field) = rule.field {
-                !resource_has_field(resource, field)
-            } else {
-                false
-            }
-        }
-        PolicyRuleType::Deny | PolicyRuleType::Warn => {
-            if let (Some(ref field), Some(ref value)) =
-                (&rule.condition_field, &rule.condition_value)
-            {
-                resource_field_value(resource, field).as_deref() == Some(value.as_str())
-            } else {
-                false
-            }
-        }
-        PolicyRuleType::Assert => {
-            // Assert: condition must be true. Violation if field != expected value.
-            if let (Some(ref field), Some(ref expected)) =
-                (&rule.condition_field, &rule.condition_value)
-            {
-                resource_field_value(resource, field).as_deref() != Some(expected.as_str())
-            } else {
-                false
-            }
-        }
-        PolicyRuleType::Limit => {
-            if let Some(ref field) = rule.field {
-                let count = resource_field_count(resource, field);
-                let over_max = rule.max_count.is_some_and(|max| count > max);
-                let under_min = rule.min_count.is_some_and(|min| count < min);
-                over_max || under_min
-            } else {
-                false
-            }
-        }
+        PolicyRuleType::Require => violates_require(rule, resource),
+        PolicyRuleType::Deny | PolicyRuleType::Warn => violates_deny_or_warn(rule, resource),
+        PolicyRuleType::Assert => violates_assert(rule, resource),
+        PolicyRuleType::Limit => violates_limit(rule, resource),
+    }
+}
+
+/// `require`: the named field must be set.
+fn violates_require(rule: &PolicyRule, resource: &Resource) -> bool {
+    if let Some(ref field) = rule.field {
+        !resource_has_field(resource, field)
+    } else {
+        false
+    }
+}
+
+/// `deny` / `warn`: matching the condition IS the violation.
+fn violates_deny_or_warn(rule: &PolicyRule, resource: &Resource) -> bool {
+    if let (Some(ref field), Some(ref value)) = (&rule.condition_field, &rule.condition_value) {
+        resource_field_value(resource, field).as_deref() == Some(value.as_str())
+    } else {
+        false
+    }
+}
+
+/// `assert`: the condition must be true. Violation if field != expected value.
+fn violates_assert(rule: &PolicyRule, resource: &Resource) -> bool {
+    if let (Some(ref field), Some(ref expected)) = (&rule.condition_field, &rule.condition_value) {
+        resource_field_value(resource, field).as_deref() != Some(expected.as_str())
+    } else {
+        false
+    }
+}
+
+/// `limit`: the named list field must stay within min/max.
+fn violates_limit(rule: &PolicyRule, resource: &Resource) -> bool {
+    if let Some(ref field) = rule.field {
+        let count = resource_field_count(resource, field);
+        let over_max = rule.max_count.is_some_and(|max| count > max);
+        let under_min = rule.min_count.is_some_and(|min| count < min);
+        over_max || under_min
+    } else {
+        false
     }
 }
 

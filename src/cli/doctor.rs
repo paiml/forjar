@@ -350,32 +350,29 @@ fn check_sandbox_backends() -> DoctorCheck {
 pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
     cmd_doctor_with_writer(file, json, fix, &mut super::output::StdoutWriter)
 }
-/// Inner doctor with injectable OutputWriter (FJ-2920).
-pub(crate) fn cmd_doctor_with_writer(
+/// Parse the config for `doctor`, pushing the `config` Fail check on a parse
+/// error exactly where the inline `match` used to.
+fn doctor_load_config(
     file: Option<&Path>,
-    json: bool,
-    fix: bool,
-    out: &mut dyn super::output::OutputWriter,
-) -> Result<(), String> {
-    let mut checks = vec![check_bash()];
-    let config: Option<types::ForjarConfig> = if let Some(f) = file {
-        match parser::parse_and_validate(f) {
-            Ok(c) => Some(c),
-            Err(e) => {
-                checks.push(DoctorCheck {
-                    name: "config".to_string(),
-                    status: DoctorStatus::Fail,
-                    detail: format!("parse error: {e}"),
-                });
-                None
-            }
+    checks: &mut Vec<DoctorCheck>,
+) -> Option<types::ForjarConfig> {
+    let f = file?;
+    match parser::parse_and_validate(f) {
+        Ok(c) => Some(c),
+        Err(e) => {
+            checks.push(DoctorCheck {
+                name: "config".to_string(),
+                status: DoctorStatus::Fail,
+                detail: format!("parse error: {e}"),
+            });
+            None
         }
-    } else {
-        None
-    };
+    }
+}
 
-    let has_ssh_machines = config
-        .as_ref()
+/// True when any machine is reached over SSH rather than a container or loopback.
+fn doctor_has_ssh_machines(config: Option<&types::ForjarConfig>) -> bool {
+    config
         .map(|c| {
             c.machines.values().any(|m| {
                 m.transport.as_deref() != Some("container")
@@ -384,34 +381,57 @@ pub(crate) fn cmd_doctor_with_writer(
                     && m.addr != "container"
             })
         })
-        .unwrap_or(false);
+        .unwrap_or(false)
+}
 
-    let has_container_machines = config
-        .as_ref()
+/// True when any machine is reached through a container runtime.
+fn doctor_has_container_machines(config: Option<&types::ForjarConfig>) -> bool {
+    config
         .map(|c| {
             c.machines
                 .values()
                 .any(|m| m.transport.as_deref() == Some("container") || m.addr == "container")
         })
-        .unwrap_or(false);
+        .unwrap_or(false)
+}
 
-    let has_enc_markers = file
-        .and_then(|f| std::fs::read_to_string(f).ok())
+/// The first declared container runtime, defaulting to docker.
+fn doctor_container_runtime(config: Option<&types::ForjarConfig>) -> String {
+    config
+        .and_then(|c| {
+            c.machines
+                .values()
+                .find_map(|m| m.container.as_ref().map(|ct| ct.runtime.clone()))
+        })
+        .unwrap_or_else(|| "docker".to_string())
+}
+
+/// True when the config file on disk carries age-encrypted markers.
+fn doctor_file_has_enc_markers(file: Option<&Path>) -> bool {
+    file.and_then(|f| std::fs::read_to_string(f).ok())
         .map(|content| secrets::has_encrypted_markers(&content))
-        .unwrap_or(false);
+        .unwrap_or(false)
+}
+
+/// Inner doctor with injectable OutputWriter (FJ-2920).
+pub(crate) fn cmd_doctor_with_writer(
+    file: Option<&Path>,
+    json: bool,
+    fix: bool,
+    out: &mut dyn super::output::OutputWriter,
+) -> Result<(), String> {
+    let mut checks = vec![check_bash()];
+    let config: Option<types::ForjarConfig> = doctor_load_config(file, &mut checks);
+
+    let has_ssh_machines = doctor_has_ssh_machines(config.as_ref());
+    let has_container_machines = doctor_has_container_machines(config.as_ref());
+    let has_enc_markers = doctor_file_has_enc_markers(file);
 
     if has_ssh_machines {
         checks.push(check_ssh());
     }
     if has_container_machines {
-        let runtime = config
-            .as_ref()
-            .and_then(|c| {
-                c.machines
-                    .values()
-                    .find_map(|m| m.container.as_ref().map(|ct| ct.runtime.clone()))
-            })
-            .unwrap_or_else(|| "docker".to_string());
+        let runtime = doctor_container_runtime(config.as_ref());
         checks.push(check_container_runtime(&runtime));
     }
 

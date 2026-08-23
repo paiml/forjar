@@ -331,6 +331,88 @@ pub(crate) fn save_plan_file(
     Ok(())
 }
 
+/// A plan-file string field, or `default` when absent or not a string.
+fn plan_str<'a>(entry: &'a serde_json::Value, key: &str, default: &'a str) -> &'a str {
+    entry.get(key).and_then(|v| v.as_str()).unwrap_or(default)
+}
+
+/// A plan-file unsigned field, or 0 when absent or not a number.
+fn plan_u32(doc: &serde_json::Value, key: &str) -> u32 {
+    doc.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
+}
+
+/// A plan-file array-of-strings field, or empty when absent.
+fn plan_str_array(doc: &serde_json::Value, key: &str) -> Vec<String> {
+    doc.get(key)
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn plan_action_from_str(action_str: &str) -> types::PlanAction {
+    match action_str {
+        "create" => types::PlanAction::Create,
+        "update" => types::PlanAction::Update,
+        "destroy" => types::PlanAction::Destroy,
+        _ => types::PlanAction::NoOp,
+    }
+}
+
+fn plan_resource_type_from_str(rt_str: &str) -> types::ResourceType {
+    match rt_str {
+        "package" => types::ResourceType::Package,
+        "service" => types::ResourceType::Service,
+        "mount" => types::ResourceType::Mount,
+        "user" => types::ResourceType::User,
+        "docker" => types::ResourceType::Docker,
+        "pepita" => types::ResourceType::Pepita,
+        "network" => types::ResourceType::Network,
+        "cron" => types::ResourceType::Cron,
+        "recipe" => types::ResourceType::Recipe,
+        "model" => types::ResourceType::Model,
+        "gpu" => types::ResourceType::Gpu,
+        _ => types::ResourceType::File,
+    }
+}
+
+fn planned_change_from_entry(entry: &serde_json::Value) -> types::PlannedChange {
+    let action = plan_action_from_str(plan_str(entry, "action", "no_op"));
+    let resource_type = plan_resource_type_from_str(plan_str(entry, "resource_type", "file"));
+    types::PlannedChange {
+        resource_id: plan_str(entry, "resource_id", "").to_string(),
+        machine: plan_str(entry, "machine", "").to_string(),
+        resource_type,
+        action,
+        description: plan_str(entry, "description", "").to_string(),
+    }
+}
+
+/// Reject a plan whose format tag is unknown or whose config hash no longer
+/// matches the config being applied.
+fn check_plan_provenance(
+    doc: &serde_json::Value,
+    config: &types::ForjarConfig,
+) -> Result<(), String> {
+    let format = plan_str(doc, "format", "");
+    if format != "forjar-plan-v1" {
+        return Err(format!("unsupported plan format: '{format}'"));
+    }
+
+    let stored_hash = plan_str(doc, "config_hash", "");
+    let current_hash = crate::core::config_hash::config_hash(config)?;
+    if stored_hash != current_hash {
+        return Err(
+            "config has changed since plan was created — re-run `forjar plan` to regenerate"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// FJ-1250: Load a saved plan file, validate config hash, and return the plan.
 pub(crate) fn load_plan_file(
     plan_path: &Path,
@@ -340,100 +422,23 @@ pub(crate) fn load_plan_file(
     let doc: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("parse plan file: {e}"))?;
 
-    let format = doc.get("format").and_then(|v| v.as_str()).unwrap_or("");
-    if format != "forjar-plan-v1" {
-        return Err(format!("unsupported plan format: '{format}'"));
-    }
-
-    let stored_hash = doc
-        .get("config_hash")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let current_hash = crate::core::config_hash::config_hash(config)?;
-    if stored_hash != current_hash {
-        return Err(
-            "config has changed since plan was created — re-run `forjar plan` to regenerate"
-                .to_string(),
-        );
-    }
+    check_plan_provenance(&doc, config)?;
 
     let changes_arr = doc
         .get("changes")
         .and_then(|v| v.as_array())
         .ok_or("plan file missing 'changes' array")?;
-    let mut changes = Vec::new();
-    for entry in changes_arr {
-        let action_str = entry
-            .get("action")
-            .and_then(|v| v.as_str())
-            .unwrap_or("no_op");
-        let action = match action_str {
-            "create" => types::PlanAction::Create,
-            "update" => types::PlanAction::Update,
-            "destroy" => types::PlanAction::Destroy,
-            _ => types::PlanAction::NoOp,
-        };
-        let rt_str = entry
-            .get("resource_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("file");
-        let resource_type = match rt_str {
-            "package" => types::ResourceType::Package,
-            "service" => types::ResourceType::Service,
-            "mount" => types::ResourceType::Mount,
-            "user" => types::ResourceType::User,
-            "docker" => types::ResourceType::Docker,
-            "pepita" => types::ResourceType::Pepita,
-            "network" => types::ResourceType::Network,
-            "cron" => types::ResourceType::Cron,
-            "recipe" => types::ResourceType::Recipe,
-            "model" => types::ResourceType::Model,
-            "gpu" => types::ResourceType::Gpu,
-            _ => types::ResourceType::File,
-        };
-        changes.push(types::PlannedChange {
-            resource_id: entry
-                .get("resource_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
-            machine: entry
-                .get("machine")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
-            resource_type,
-            action,
-            description: entry
-                .get("description")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
-        });
-    }
-
-    let execution_order: Vec<String> = doc
-        .get("execution_order")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
+    let changes: Vec<types::PlannedChange> =
+        changes_arr.iter().map(planned_change_from_entry).collect();
 
     Ok(types::ExecutionPlan {
-        name: doc
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+        name: plan_str(&doc, "name", "").to_string(),
         changes,
-        execution_order,
-        to_create: doc.get("to_create").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        to_update: doc.get("to_update").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        to_destroy: doc.get("to_destroy").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        unchanged: doc.get("unchanged").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        execution_order: plan_str_array(&doc, "execution_order"),
+        to_create: plan_u32(&doc, "to_create"),
+        to_update: plan_u32(&doc, "to_update"),
+        to_destroy: plan_u32(&doc, "to_destroy"),
+        unchanged: plan_u32(&doc, "unchanged"),
     })
 }
 

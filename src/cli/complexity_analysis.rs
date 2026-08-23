@@ -21,36 +21,98 @@ struct ComplexityReport {
     recommendations: Vec<String>,
 }
 
+/// Per-resource tallies walked in one pass: cross-machine deps, templated
+/// fields, and `when:` conditionals.
+struct ResourceTallies {
+    cross_machine_count: usize,
+    template_count: usize,
+    conditional_count: usize,
+}
+
+/// Cross-machine dependency edges for one resource: a dep whose machine set
+/// differs from the dependent's.
+fn cross_machine_edges(config: &types::ForjarConfig, res: &types::Resource) -> usize {
+    let res_machines: Vec<&str> = res.machine.iter().collect();
+    let mut count = 0_usize;
+    for dep_name in &res.depends_on {
+        if let Some(dep_res) = config.resources.get(dep_name) {
+            let dep_machines: Vec<&str> = dep_res.machine.iter().collect();
+            if res_machines != dep_machines {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+/// Templated fields on one resource: `content` and `path` each count once when
+/// they carry a `{{` marker.
+fn templated_fields(res: &types::Resource) -> usize {
+    let mut count = 0_usize;
+    if res.content.as_ref().is_some_and(|c| c.contains("{{")) {
+        count += 1;
+    }
+    if res.path.as_ref().is_some_and(|p| p.contains("{{")) {
+        count += 1;
+    }
+    count
+}
+
+fn tally_resources(config: &types::ForjarConfig) -> ResourceTallies {
+    let mut tallies = ResourceTallies {
+        cross_machine_count: 0,
+        template_count: 0,
+        conditional_count: 0,
+    };
+    for (_, res) in &config.resources {
+        tallies.cross_machine_count += cross_machine_edges(config, res);
+        if res.when.is_some() {
+            tallies.conditional_count += 1;
+        }
+        tallies.template_count += templated_fields(res);
+    }
+    tallies
+}
+
+fn grade_for_score(score: u32) -> &'static str {
+    match score {
+        0..=20 => "A",
+        21..=40 => "B",
+        41..=60 => "C",
+        61..=80 => "D",
+        _ => "F",
+    }
+}
+
+fn build_recommendations(
+    resource_count: usize,
+    dependency_depth: usize,
+    cross_machine_count: usize,
+) -> Vec<String> {
+    let mut recommendations = Vec::new();
+    if resource_count > 50 {
+        recommendations.push("Consider splitting into multiple configs (>50 resources)".into());
+    }
+    if dependency_depth > 8 {
+        recommendations.push("Deep dependency chain (>8); consider flattening".into());
+    }
+    if cross_machine_count > 10 {
+        recommendations.push("Many cross-machine deps (>10); consider grouping by machine".into());
+    }
+    recommendations
+}
+
 fn compute_complexity(config: &types::ForjarConfig) -> ComplexityReport {
     let resource_count = config.resources.len();
     let machine_count = config.machines.len();
     let include_depth = config.includes.len();
 
     // Count cross-machine deps, conditionals, templates
-    let mut cross_machine_count = 0_usize;
-    let mut template_count = 0_usize;
-    let mut conditional_count = 0_usize;
-
-    for (_, res) in &config.resources {
-        let res_machines: Vec<&str> = res.machine.iter().collect();
-        for dep_name in &res.depends_on {
-            if let Some(dep_res) = config.resources.get(dep_name) {
-                let dep_machines: Vec<&str> = dep_res.machine.iter().collect();
-                if res_machines != dep_machines {
-                    cross_machine_count += 1;
-                }
-            }
-        }
-        if res.when.is_some() {
-            conditional_count += 1;
-        }
-        if res.content.as_ref().is_some_and(|c| c.contains("{{")) {
-            template_count += 1;
-        }
-        if res.path.as_ref().is_some_and(|p| p.contains("{{")) {
-            template_count += 1;
-        }
-    }
+    let ResourceTallies {
+        cross_machine_count,
+        template_count,
+        conditional_count,
+    } = tally_resources(config);
 
     // Compute DAG depth
     let dependency_depth = resolver::build_execution_order(config)
@@ -68,24 +130,9 @@ fn compute_complexity(config: &types::ForjarConfig) -> ComplexityReport {
         machine_count,
     ]);
 
-    let grade = match score {
-        0..=20 => "A",
-        21..=40 => "B",
-        41..=60 => "C",
-        61..=80 => "D",
-        _ => "F",
-    };
-
-    let mut recommendations = Vec::new();
-    if resource_count > 50 {
-        recommendations.push("Consider splitting into multiple configs (>50 resources)".into());
-    }
-    if dependency_depth > 8 {
-        recommendations.push("Deep dependency chain (>8); consider flattening".into());
-    }
-    if cross_machine_count > 10 {
-        recommendations.push("Many cross-machine deps (>10); consider grouping by machine".into());
-    }
+    let grade = grade_for_score(score);
+    let recommendations =
+        build_recommendations(resource_count, dependency_depth, cross_machine_count);
 
     ComplexityReport {
         resource_count,

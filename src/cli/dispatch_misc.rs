@@ -4,13 +4,12 @@ use super::bootstrap_cmd;
 use super::check::*;
 use super::destroy::*;
 use super::diff_cmd::*;
-use super::doctor::*;
+use super::dispatch_tools::dispatch_misc_tools;
 use super::fleet_ops::*;
 use super::fleet_reporting::*;
 use super::history::*;
 use super::infra::*;
 use super::init::*;
-use super::lint::*;
 use super::observe::*;
 use super::plan::*;
 use super::show::*;
@@ -132,24 +131,37 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             machine,
             force,
         }) => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
+        other => dispatch_misc_state_b(other),
+    }
+}
+
+/// Print a reconstructed lock in the requested format.
+fn print_reconstructed(
+    state_dir: &std::path::Path,
+    machine: &str,
+    at: &str,
+    json: bool,
+) -> Result<(), String> {
+    let lock = crate::core::state::reconstruct::reconstruct_at(state_dir, machine, at)?;
+    if json {
+        let output = serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
+    } else {
+        let output = serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {}", e))?;
+        println!("{}", output);
+    }
+    Ok(())
+}
+
+/// State, history, and observe commands — second group.
+fn dispatch_misc_state_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::StateReconstruct(StateReconstructArgs {
             machine,
             at,
             state_dir,
             json,
-        }) => {
-            let lock = crate::core::state::reconstruct::reconstruct_at(&state_dir, &machine, &at)?;
-            if json {
-                let output =
-                    serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
-                println!("{output}");
-            } else {
-                let output =
-                    serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {}", e))?;
-                println!("{}", output);
-            }
-            Ok(())
-        }
+        }) => print_reconstructed(&state_dir, &machine, &at, json),
         Commands::Reseal(ResealArgs {
             state_dir,
             file,
@@ -168,6 +180,13 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
             machine,
             json,
         }) => cmd_trace(&state_dir, machine.as_deref(), json),
+        other => dispatch_misc_state_c(other),
+    }
+}
+
+/// State-encryption commands — third group.
+fn dispatch_misc_state_c(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::StateEncrypt(StateEncryptArgs {
             state_dir,
             passphrase,
@@ -229,6 +248,13 @@ fn dispatch_misc_config(cmd: Commands) -> Result<(), String> {
             state_dir,
             json,
         }) => cmd_env_diff(&env1, &env2, &state_dir, json),
+        other => dispatch_misc_config_b(other),
+    }
+}
+
+/// Config, diff, and environment commands — second half of the same group.
+fn dispatch_misc_config_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::Explain(ExplainArgs {
             file,
             resource,
@@ -304,6 +330,13 @@ fn dispatch_misc_fleet(cmd: Commands, verbose: bool) -> Result<(), String> {
             limit,
             json,
         }) => cmd_audit(&state_dir, machine.as_deref(), limit, json),
+        other => dispatch_misc_fleet_b(other),
+    }
+}
+
+/// Fleet, deployment, and rollback commands — second half of the same group.
+fn dispatch_misc_fleet_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::PlanCompact(PlanCompactArgs {
             file,
             state_dir,
@@ -344,83 +377,6 @@ fn dispatch_misc_fleet(cmd: Commands, verbose: bool) -> Result<(), String> {
             force,
             dry_run,
         }) => cmd_undo_destroy(&state_dir, machine.as_deref(), force, dry_run),
-        _ => unreachable!(),
-    }
-}
-
-/// Tool, lint, and check commands.
-fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
-    match cmd {
-        Commands::Check(CheckArgs {
-            file,
-            machine,
-            resource,
-            tag,
-            state_dir,
-            json,
-        }) => cmd_check(
-            &file,
-            machine.as_deref(),
-            resource.as_deref(),
-            tag.as_deref(),
-            &state_dir,
-            json,
-            verbose,
-        ),
-        Commands::Verify(args) => super::verify::cmd_verify(&args, verbose),
-        Commands::Fmt(FmtArgs { file, check }) => cmd_fmt(&file, check),
-        Commands::Lint(LintArgs {
-            file,
-            json,
-            strict,
-            fix,
-            rules: _rules,
-            bashrs_version,
-        }) => {
-            // GH-211: FJ-374 was destructured to `_rules` and dropped — rustc
-            // silenced, the operator not. A custom rule file that is never
-            // loaded means lint reports clean against rules it never ran. The
-            // underscore binding is KEPT so the guard test still classifies
-            // `rules` as unconsumed; the refusal below is its only reader.
-            super::inert_flags::reject_inert_flag("--rules", _rules.is_some())?;
-            if bashrs_version {
-                // Version extracted from Cargo.toml dependency
-                const BASHRS_VERSION: &str = "6.64.0";
-                println!("bashrs {BASHRS_VERSION}");
-                return Ok(());
-            }
-            cmd_lint(&file, json, strict, fix)
-        }
-        Commands::Doctor(DoctorArgs {
-            file,
-            json,
-            fix,
-            network,
-        }) => {
-            if network {
-                return cmd_doctor_network(file.as_deref(), json);
-            }
-            cmd_doctor(file.as_deref(), json, fix)
-        }
-        Commands::Mcp(McpArgs { schema }) => {
-            if schema {
-                cmd_mcp_schema()
-            } else {
-                cmd_mcp()
-            }
-        }
-        Commands::Bench(BenchArgs {
-            iterations,
-            json,
-            compare,
-        }) => cmd_bench(iterations as usize, json, compare),
-        Commands::Watch(WatchArgs {
-            file,
-            state_dir,
-            interval,
-            apply,
-            yes,
-        }) => cmd_watch(&file, &state_dir, interval, apply, yes),
         _ => unreachable!(),
     }
 }

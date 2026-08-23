@@ -82,16 +82,30 @@ pub(crate) fn cmd_status_resource_age(
     Ok(())
 }
 
-/// FJ-612: Estimate resource cost based on type and count.
-pub(crate) fn cmd_status_resource_cost(
+/// Simple cost model: weight by resource type complexity.
+fn resource_cost_weight(t: &str) -> f64 {
+    match t {
+        "Package" => 2.0,
+        "File" => 1.0,
+        "Service" => 3.0,
+        "Mount" => 2.5,
+        "User" => 2.0,
+        "Docker" => 5.0,
+        "Network" => 3.0,
+        _ => 1.0,
+    }
+}
+
+/// Tally resource-type counts across the state locks of `machines`, optionally
+/// restricted to a single machine name.
+fn tally_resource_types(
     state_dir: &Path,
+    machines: &[String],
     machine: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
-    let machines = discover_machines(state_dir);
+) -> std::collections::HashMap<String, u64> {
     let mut type_counts: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
 
-    for m in &machines {
+    for m in machines {
         if let Some(filter) = machine {
             if m != filter {
                 continue;
@@ -110,25 +124,15 @@ pub(crate) fn cmd_status_resource_cost(
         }
     }
 
-    // Simple cost model: weight by resource type complexity
-    let total_resources: u64 = type_counts.values().sum();
-    let weighted_cost: f64 = type_counts
-        .iter()
-        .map(|(t, &count)| {
-            let weight = match t.as_str() {
-                "Package" => 2.0,
-                "File" => 1.0,
-                "Service" => 3.0,
-                "Mount" => 2.5,
-                "User" => 2.0,
-                "Docker" => 5.0,
-                "Network" => 3.0,
-                _ => 1.0,
-            };
-            count as f64 * weight
-        })
-        .sum();
+    type_counts
+}
 
+fn print_resource_cost(
+    type_counts: &std::collections::HashMap<String, u64>,
+    total_resources: u64,
+    weighted_cost: f64,
+    json: bool,
+) {
     if json {
         let items: Vec<String> = type_counts
             .iter()
@@ -144,10 +148,28 @@ pub(crate) fn cmd_status_resource_cost(
         println!("No resources found for cost estimate");
     } else {
         println!("Resource cost estimate (complexity: {weighted_cost:.1}):");
-        for (t, c) in &type_counts {
+        for (t, c) in type_counts {
             println!("  {t} — {c} resources");
         }
     }
+}
+
+/// FJ-612: Estimate resource cost based on type and count.
+pub(crate) fn cmd_status_resource_cost(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let type_counts = tally_resource_types(state_dir, &machines, machine);
+
+    let total_resources: u64 = type_counts.values().sum();
+    let weighted_cost: f64 = type_counts
+        .iter()
+        .map(|(t, &count)| count as f64 * resource_cost_weight(t.as_str()))
+        .sum();
+
+    print_resource_cost(&type_counts, total_resources, weighted_cost, json);
     Ok(())
 }
 

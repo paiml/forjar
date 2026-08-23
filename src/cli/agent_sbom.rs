@@ -27,83 +27,140 @@ pub(crate) fn cmd_agent_sbom(file: &Path, state_dir: &Path, json: bool) -> Resul
     Ok(())
 }
 
+/// The machine label an SBOM component carries: the single target, or every
+/// target joined by commas.
+fn agent_machine_label(target: &types::MachineTarget) -> String {
+    match target {
+        types::MachineTarget::Single(m) => m.clone(),
+        types::MachineTarget::Multiple(ms) => ms.join(","),
+    }
+}
+
+fn agent_component(
+    name: String,
+    component_type: &str,
+    version: String,
+    machine: String,
+) -> AgentComponent {
+    AgentComponent {
+        name,
+        component_type: component_type.to_string(),
+        version,
+        machine,
+    }
+}
+
+fn model_component(id: &str, resource: &types::Resource, machine: &str) -> AgentComponent {
+    let version = resource
+        .version
+        .clone()
+        .unwrap_or_else(|| "latest".to_string());
+    agent_component(id.to_string(), "model", version, machine.to_string())
+}
+
+fn gpu_component(id: &str, resource: &types::Resource, machine: &str) -> AgentComponent {
+    let backend = resource
+        .gpu_backend
+        .clone()
+        .unwrap_or_else(|| "nvidia".to_string());
+    agent_component(id.to_string(), "gpu-runtime", backend, machine.to_string())
+}
+
+/// A service contributes only when it looks like an agent.
+fn service_component(
+    id: &str,
+    resource: &types::Resource,
+    machine: &str,
+) -> Option<AgentComponent> {
+    if !is_agent_service(id, resource) {
+        return None;
+    }
+    let version = resource
+        .version
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
+    Some(agent_component(
+        id.to_string(),
+        "agent-service",
+        version,
+        machine.to_string(),
+    ))
+}
+
+/// A container contributes only when it looks like an agent.
+fn container_component(
+    id: &str,
+    resource: &types::Resource,
+    machine: &str,
+) -> Option<AgentComponent> {
+    if !is_agent_container(id, resource) {
+        return None;
+    }
+    let img = resource
+        .image
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
+    Some(agent_component(
+        id.to_string(),
+        "agent-container",
+        img,
+        machine.to_string(),
+    ))
+}
+
+/// The SBOM component a resource contributes by virtue of its type, if any.
+fn typed_agent_component(
+    id: &str,
+    resource: &types::Resource,
+    machine: &str,
+) -> Option<AgentComponent> {
+    match resource.resource_type {
+        types::ResourceType::Model => Some(model_component(id, resource, machine)),
+        types::ResourceType::Gpu => Some(gpu_component(id, resource, machine)),
+        types::ResourceType::Service => service_component(id, resource, machine),
+        types::ResourceType::Docker => container_component(id, resource, machine),
+        _ => None,
+    }
+}
+
+/// The `mcp-tool` component a resource contributes when its tags mark it as
+/// part of the MCP surface.
+fn mcp_agent_component(
+    id: &str,
+    resource: &types::Resource,
+    machine: String,
+) -> Option<AgentComponent> {
+    if resource
+        .tags
+        .iter()
+        .any(|t| t.contains("mcp") || t.contains("pforge"))
+    {
+        Some(agent_component(
+            format!("{id}-mcp"),
+            "mcp-tool",
+            "registered".to_string(),
+            machine,
+        ))
+    } else {
+        None
+    }
+}
+
 fn collect_agent_components(config: &types::ForjarConfig, state_dir: &Path) -> Vec<AgentComponent> {
     // GH-91: state_dir not yet used for SBOM state inspection
     let _ = state_dir;
     let mut components = Vec::new();
 
     for (id, resource) in &config.resources {
-        let machine = match &resource.machine {
-            types::MachineTarget::Single(m) => m.clone(),
-            types::MachineTarget::Multiple(ms) => ms.join(","),
-        };
+        let machine = agent_machine_label(&resource.machine);
 
-        match resource.resource_type {
-            types::ResourceType::Model => {
-                components.push(AgentComponent {
-                    name: id.clone(),
-                    component_type: "model".to_string(),
-                    version: resource
-                        .version
-                        .clone()
-                        .unwrap_or_else(|| "latest".to_string()),
-                    machine: machine.clone(),
-                });
-            }
-            types::ResourceType::Gpu => {
-                let backend = resource
-                    .gpu_backend
-                    .clone()
-                    .unwrap_or_else(|| "nvidia".to_string());
-                components.push(AgentComponent {
-                    name: id.clone(),
-                    component_type: "gpu-runtime".to_string(),
-                    version: backend,
-                    machine: machine.clone(),
-                });
-            }
-            types::ResourceType::Service => {
-                if is_agent_service(id, resource) {
-                    components.push(AgentComponent {
-                        name: id.clone(),
-                        component_type: "agent-service".to_string(),
-                        version: resource
-                            .version
-                            .clone()
-                            .unwrap_or_else(|| "unknown".to_string()),
-                        machine: machine.clone(),
-                    });
-                }
-            }
-            types::ResourceType::Docker => {
-                if is_agent_container(id, resource) {
-                    let img = resource
-                        .image
-                        .clone()
-                        .unwrap_or_else(|| "unknown".to_string());
-                    components.push(AgentComponent {
-                        name: id.clone(),
-                        component_type: "agent-container".to_string(),
-                        version: img,
-                        machine: machine.clone(),
-                    });
-                }
-            }
-            _ => {}
+        if let Some(component) = typed_agent_component(id, resource, &machine) {
+            components.push(component);
         }
 
         // Check for MCP-related tags
-        if resource
-            .tags
-            .iter()
-            .any(|t| t.contains("mcp") || t.contains("pforge"))
-        {
-            components.push(AgentComponent {
-                name: format!("{id}-mcp"),
-                component_type: "mcp-tool".to_string(),
-                version: "registered".to_string(),
-                machine,
-            });
+        if let Some(component) = mcp_agent_component(id, resource, machine) {
+            components.push(component);
         }
     }
 

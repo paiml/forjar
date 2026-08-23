@@ -131,6 +131,51 @@ impl Handler for TraceHandler {
     }
 }
 
+/// Per-machine converged/failed/drifted counters, keyed `"<machine>:<resource>"`.
+type AnomalyMetrics = std::collections::HashMap<String, (u32, u32, u32)>;
+
+/// Fold one `events.jsonl` line into the metric table. A blank line, a line that
+/// is not a `TimestampedEvent`, and an event that is not one of the three
+/// counted variants are all no-ops, exactly as the inline form was.
+fn tally_event_line(line: &str, machine: &str, metrics: &mut AnomalyMetrics) {
+    if line.trim().is_empty() {
+        return;
+    }
+    let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) else {
+        return;
+    };
+    match te.event {
+        types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
+            let key = format!("{machine}:{resource}");
+            metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
+        }
+        types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
+            let key = format!("{machine}:{resource}");
+            metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
+        }
+        types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
+            let key = format!("{machine}:{resource}");
+            metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
+        }
+        _ => {}
+    }
+}
+
+/// Read one machine's event log and fold every line into the metric table.
+/// An unreadable log aborts the handler, as it did inline.
+fn tally_machine_events(
+    log_path: &std::path::Path,
+    machine: &str,
+    metrics: &mut AnomalyMetrics,
+) -> pforge_runtime::Result<()> {
+    let content = std::fs::read_to_string(log_path)
+        .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
+    for line in content.lines() {
+        tally_event_line(line, machine, metrics);
+    }
+    Ok(())
+}
+
 #[async_trait::async_trait]
 impl Handler for AnomalyHandler {
     type Input = AnomalyInput;
@@ -142,8 +187,7 @@ impl Handler for AnomalyHandler {
             super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
         let min_events = input.min_events.unwrap_or(3);
 
-        let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
-            std::collections::HashMap::new();
+        let mut metrics: AnomalyMetrics = std::collections::HashMap::new();
 
         if state_dir.exists() {
             let entries = std::fs::read_dir(&state_dir)
@@ -165,31 +209,7 @@ impl Handler for AnomalyHandler {
                     continue;
                 }
 
-                let content = std::fs::read_to_string(&log_path)
-                    .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-                for line in content.lines() {
-                    if line.trim().is_empty() {
-                        continue;
-                    }
-                    if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                        match te.event {
-                            types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
-                            }
-                            types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
-                            }
-                            types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                                let key = format!("{name}:{resource}");
-                                metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
+                tally_machine_events(&log_path, &name, &mut metrics)?;
             }
         }
 

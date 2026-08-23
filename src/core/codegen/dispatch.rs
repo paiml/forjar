@@ -7,41 +7,189 @@
 //! - state_query: query observable state for BLAKE3 hashing
 //!
 //! All scripts can be validated/purified via `core::purifier`.
+//!
+//! # Why one table instead of three matches
+//!
+//! `check_script`, `apply_script` and `state_query_script` used to hold three
+//! parallel 21-arm matches over `ResourceType`. codegen-dispatch-v1's symmetry
+//! obligation — "all three functions handle the same set of types" — was then a
+//! property three separate lists had to keep agreeing on, checked only by
+//! FALSIFY-CD-002 at test time. Routing each type ONCE, to a row carrying all
+//! three generators, makes that obligation structural: a type cannot be handled
+//! by one function and missed by another, because there is one row.
 
 use crate::core::types::{Resource, ResourceType};
 use crate::resources;
 use provable_contracts_macros::contract;
+
+/// The three generators a resource type routes to.
+#[derive(Clone, Copy)]
+struct ScriptHandlers {
+    /// Read current state.
+    check: fn(&Resource) -> String,
+    /// Converge to desired state.
+    apply: fn(&Resource) -> String,
+    /// Query observable state for hashing.
+    state_query: fn(&Resource) -> String,
+}
+
+/// Row for a resource type whose module exposes all three generators.
+macro_rules! from_module {
+    ($($seg:ident)::+) => {
+        ScriptHandlers {
+            check: $($seg)::+::check_script,
+            apply: $($seg)::+::apply_script,
+            state_query: $($seg)::+::state_query_script,
+        }
+    };
+}
+
+/// Returned for a type with no codegen — the same message all three entry
+/// points returned before.
+const NOT_DISPATCHABLE: &str = "codegen not implemented for recipe (expand first)";
+
+/// Route a resource type to its generators, or `None` when it has no codegen.
+///
+/// The groups exist only to keep each `match` readable; every variant is named
+/// in exactly one of them, so adding a `ResourceType` still fails to compile
+/// until it is routed.
+fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
+    match resource_type {
+        ResourceType::Package
+        | ResourceType::File
+        | ResourceType::Service
+        | ResourceType::Mount
+        | ResourceType::User
+        | ResourceType::Cron
+        | ResourceType::Network => handlers_host(resource_type),
+
+        ResourceType::Docker
+        | ResourceType::Pepita
+        | ResourceType::Model
+        | ResourceType::Gpu
+        | ResourceType::Task
+        | ResourceType::WasmBundle
+        | ResourceType::Image => handlers_workload(resource_type),
+
+        ResourceType::Build
+        | ResourceType::GithubRelease
+        | ResourceType::OverlayInterface
+        | ResourceType::DiskBudget
+        | ResourceType::BackupSync
+        | ResourceType::NasArchive => handlers_fleet(resource_type),
+
+        // A recipe is expanded into concrete resources before codegen runs.
+        ResourceType::Recipe => None,
+    }
+}
+
+/// Host configuration types: packages, files, units, mounts, accounts, jobs,
+/// firewall rules.
+fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
+    let row = match resource_type {
+        // `package` has no `check_script`; the read side lives in its own module.
+        ResourceType::Package => ScriptHandlers {
+            check: resources::package_check::check_script,
+            apply: resources::package::apply_script,
+            state_query: resources::package::state_query_script,
+        },
+        ResourceType::File => from_module!(resources::file),
+        ResourceType::Service => from_module!(resources::service),
+        ResourceType::Mount => from_module!(resources::mount),
+        ResourceType::User => from_module!(resources::user),
+        ResourceType::Cron => from_module!(resources::cron),
+        ResourceType::Network => from_module!(resources::network),
+
+        // Routed to a sibling group by `handlers`. Named rather than caught by
+        // `_` so a new ResourceType is a compile error here too.
+        ResourceType::Docker
+        | ResourceType::Pepita
+        | ResourceType::Model
+        | ResourceType::Gpu
+        | ResourceType::Task
+        | ResourceType::WasmBundle
+        | ResourceType::Image
+        | ResourceType::Build
+        | ResourceType::GithubRelease
+        | ResourceType::OverlayInterface
+        | ResourceType::DiskBudget
+        | ResourceType::BackupSync
+        | ResourceType::NasArchive
+        | ResourceType::Recipe => return None,
+    };
+    Some(row)
+}
+
+/// Workload types: containers, sandboxes, accelerators, and the artifacts a run
+/// produces.
+fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
+    let row = match resource_type {
+        ResourceType::Docker => from_module!(resources::docker),
+        ResourceType::Pepita => from_module!(resources::pepita),
+        ResourceType::Model => from_module!(resources::model),
+        ResourceType::Gpu => from_module!(resources::gpu),
+        ResourceType::Task => from_module!(resources::task),
+        ResourceType::WasmBundle => from_module!(resources::wasm_bundle),
+        // An image is materialised as a file on the target.
+        ResourceType::Image => from_module!(resources::file),
+
+        // Routed to a sibling group by `handlers`.
+        ResourceType::Package
+        | ResourceType::File
+        | ResourceType::Service
+        | ResourceType::Mount
+        | ResourceType::User
+        | ResourceType::Cron
+        | ResourceType::Network
+        | ResourceType::Build
+        | ResourceType::GithubRelease
+        | ResourceType::OverlayInterface
+        | ResourceType::DiskBudget
+        | ResourceType::BackupSync
+        | ResourceType::NasArchive
+        | ResourceType::Recipe => return None,
+    };
+    Some(row)
+}
+
+/// Fleet lifecycle types (FJ-33 … FJ-38): build/deploy pipelines, release
+/// installation, overlay networking, disk budget, backup and archival.
+fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
+    let row = match resource_type {
+        ResourceType::Build => from_module!(resources::build),
+        ResourceType::GithubRelease => from_module!(resources::github_release),
+        ResourceType::OverlayInterface => from_module!(resources::overlay_interface),
+        ResourceType::DiskBudget => from_module!(resources::disk_budget),
+        ResourceType::BackupSync => from_module!(resources::backup_sync),
+        ResourceType::NasArchive => from_module!(resources::nas_archive),
+
+        // Routed to a sibling group by `handlers`.
+        ResourceType::Package
+        | ResourceType::File
+        | ResourceType::Service
+        | ResourceType::Mount
+        | ResourceType::User
+        | ResourceType::Cron
+        | ResourceType::Network
+        | ResourceType::Docker
+        | ResourceType::Pepita
+        | ResourceType::Model
+        | ResourceType::Gpu
+        | ResourceType::Task
+        | ResourceType::WasmBundle
+        | ResourceType::Image
+        | ResourceType::Recipe => return None,
+    };
+    Some(row)
+}
 
 /// Generate a check script for a resource.
 #[contract("codegen-dispatch-v1", equation = "check_script")]
 pub fn check_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_check_script!(resource);
-    match &resource.resource_type {
-        ResourceType::Package => Ok(resources::package_check::check_script(resource)),
-        ResourceType::File => Ok(resources::file::check_script(resource)),
-        ResourceType::Service => Ok(resources::service::check_script(resource)),
-        ResourceType::Mount => Ok(resources::mount::check_script(resource)),
-        ResourceType::User => Ok(resources::user::check_script(resource)),
-        ResourceType::Docker => Ok(resources::docker::check_script(resource)),
-        ResourceType::Cron => Ok(resources::cron::check_script(resource)),
-        ResourceType::Network => Ok(resources::network::check_script(resource)),
-        ResourceType::Pepita => Ok(resources::pepita::check_script(resource)),
-        ResourceType::Model => Ok(resources::model::check_script(resource)),
-        ResourceType::Gpu => Ok(resources::gpu::check_script(resource)),
-        ResourceType::Task => Ok(resources::task::check_script(resource)),
-        ResourceType::WasmBundle => Ok(resources::wasm_bundle::check_script(resource)),
-        ResourceType::Image => Ok(resources::file::check_script(resource)),
-        ResourceType::Build => Ok(resources::build::check_script(resource)),
-        ResourceType::GithubRelease => Ok(resources::github_release::check_script(resource)),
-        ResourceType::OverlayInterface => Ok(resources::overlay_interface::check_script(resource)),
-        ResourceType::DiskBudget => Ok(resources::disk_budget::check_script(resource)),
-        ResourceType::BackupSync => Ok(resources::backup_sync::check_script(resource)),
-        ResourceType::NasArchive => Ok(resources::nas_archive::check_script(resource)),
-        ResourceType::Recipe => {
-            Err("codegen not implemented for recipe (expand first)".to_string())
-        }
-    }
+    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    Ok((row.check)(resource))
 }
 
 /// Generate an apply script for a resource.
@@ -94,31 +242,8 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ));
     }
 
-    let script = match &resource.resource_type {
-        ResourceType::Package => Ok(resources::package::apply_script(resource)),
-        ResourceType::File => Ok(resources::file::apply_script(resource)),
-        ResourceType::Service => Ok(resources::service::apply_script(resource)),
-        ResourceType::Mount => Ok(resources::mount::apply_script(resource)),
-        ResourceType::User => Ok(resources::user::apply_script(resource)),
-        ResourceType::Docker => Ok(resources::docker::apply_script(resource)),
-        ResourceType::Cron => Ok(resources::cron::apply_script(resource)),
-        ResourceType::Network => Ok(resources::network::apply_script(resource)),
-        ResourceType::Pepita => Ok(resources::pepita::apply_script(resource)),
-        ResourceType::Model => Ok(resources::model::apply_script(resource)),
-        ResourceType::Gpu => Ok(resources::gpu::apply_script(resource)),
-        ResourceType::Task => Ok(resources::task::apply_script(resource)),
-        ResourceType::WasmBundle => Ok(resources::wasm_bundle::apply_script(resource)),
-        ResourceType::Image => Ok(resources::file::apply_script(resource)),
-        ResourceType::Build => Ok(resources::build::apply_script(resource)),
-        ResourceType::GithubRelease => Ok(resources::github_release::apply_script(resource)),
-        ResourceType::OverlayInterface => Ok(resources::overlay_interface::apply_script(resource)),
-        ResourceType::DiskBudget => Ok(resources::disk_budget::apply_script(resource)),
-        ResourceType::BackupSync => Ok(resources::backup_sync::apply_script(resource)),
-        ResourceType::NasArchive => Ok(resources::nas_archive::apply_script(resource)),
-        ResourceType::Recipe => {
-            Err("codegen not implemented for recipe (expand first)".to_string())
-        }
-    }?;
+    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    let script = (row.apply)(resource);
     Ok(sudo_wrap(resource, script))
 }
 
@@ -141,31 +266,6 @@ fn sudo_wrap(resource: &Resource, script: String) -> String {
 pub fn state_query_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_state_query_script!(resource);
-    match &resource.resource_type {
-        ResourceType::Package => Ok(resources::package::state_query_script(resource)),
-        ResourceType::File => Ok(resources::file::state_query_script(resource)),
-        ResourceType::Service => Ok(resources::service::state_query_script(resource)),
-        ResourceType::Mount => Ok(resources::mount::state_query_script(resource)),
-        ResourceType::User => Ok(resources::user::state_query_script(resource)),
-        ResourceType::Docker => Ok(resources::docker::state_query_script(resource)),
-        ResourceType::Cron => Ok(resources::cron::state_query_script(resource)),
-        ResourceType::Network => Ok(resources::network::state_query_script(resource)),
-        ResourceType::Pepita => Ok(resources::pepita::state_query_script(resource)),
-        ResourceType::Model => Ok(resources::model::state_query_script(resource)),
-        ResourceType::Gpu => Ok(resources::gpu::state_query_script(resource)),
-        ResourceType::Task => Ok(resources::task::state_query_script(resource)),
-        ResourceType::WasmBundle => Ok(resources::wasm_bundle::state_query_script(resource)),
-        ResourceType::Image => Ok(resources::file::state_query_script(resource)),
-        ResourceType::Build => Ok(resources::build::state_query_script(resource)),
-        ResourceType::GithubRelease => Ok(resources::github_release::state_query_script(resource)),
-        ResourceType::OverlayInterface => {
-            Ok(resources::overlay_interface::state_query_script(resource))
-        }
-        ResourceType::DiskBudget => Ok(resources::disk_budget::state_query_script(resource)),
-        ResourceType::BackupSync => Ok(resources::backup_sync::state_query_script(resource)),
-        ResourceType::NasArchive => Ok(resources::nas_archive::state_query_script(resource)),
-        ResourceType::Recipe => {
-            Err("codegen not implemented for recipe (expand first)".to_string())
-        }
-    }
+    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    Ok((row.state_query)(resource))
 }
