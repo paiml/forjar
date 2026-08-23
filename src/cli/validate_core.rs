@@ -135,7 +135,10 @@ pub(crate) fn cmd_validate(
     let config = match parse_and_validate(file) {
         Ok(c) => c,
         Err(e) if json => {
-            println!("{}", validation_failure_json(file, &[e.clone()]));
+            println!(
+                "{}",
+                validation_failure_json(file, std::slice::from_ref(&e))
+            );
             return Err(e);
         }
         Err(e) => return Err(e),
@@ -145,7 +148,10 @@ pub(crate) fn cmd_validate(
     if let Err(e) = resolver::build_execution_order(&config) {
         let msg = format!("dependency cycle: {e}");
         if json {
-            println!("{}", validation_failure_json(file, &[msg.clone()]));
+            println!(
+                "{}",
+                validation_failure_json(file, std::slice::from_ref(&msg))
+            );
         }
         return Err(msg);
     }

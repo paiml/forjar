@@ -6,39 +6,9 @@ use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
 
-/// Index of the last line mentioning `ApplyCompleted`, or 0 when none does —
-/// the boundary marking the most recent apply run.
-fn last_apply_line(lines: &[&str]) -> usize {
-    // MATCH THE DESERIALISED EVENT, NOT THE RUST VARIANT NAME.
-    //
-    // This was `line.contains("ApplyCompleted")` — the Rust identifier. The
-    // event log is serde-serialised in snake_case and contains
-    // `"event":"apply_completed"`, so the substring NEVER matched, `last`
-    // stayed 0, and the caller scanned only `lines[..=0]` — the single
-    // `apply_started` line. Every ResourceFailed was therefore invisible and
-    // retry-failed reported "No failed resources found in event logs" while
-    // both the log AND the lock recorded the failure. Ledger id
-    // retry-failed-never-sees-failures, confirmed at 1.12.3 and still live at
-    // 1.16.0.
-    //
-    // Deserialising instead of substring-matching means a future rename of the
-    // variant or its serde tag cannot silently reintroduce this.
-    let mut last = 0usize;
-    for (i, line) in lines.iter().enumerate() {
-        if let Ok(ev) = serde_json::from_str::<types::TimestampedEvent>(line) {
-            if matches!(ev.event, types::ProvenanceEvent::ApplyCompleted { .. }) {
-                last = i;
-            }
-        }
-    }
-    last
-}
-
-/// Push `(machine, resource)` for every `ResourceFailed` event this machine
-/// logged up to and including the last `ApplyCompleted` boundary.
+/// Push `(machine, resource)` for every `ResourceFailed` event logged by the
+/// MOST RECENT run on this machine.
 fn collect_failed_resources(content: &str, name: &str, out: &mut Vec<(String, String)>) {
-    // Find the last ApplyCompleted to mark the boundary, then collect
-    // ResourceFailed events after the last ApplyCompleted
     let lines: Vec<&str> = content.lines().collect();
     if lines.is_empty() {
         return;

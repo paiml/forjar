@@ -232,7 +232,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         if json {
             println!(
                 "{}",
-                crate::cli::validate_core::validation_failure_json(&file, &[e.clone()])
+                crate::cli::validate_core::validation_failure_json(&file, std::slice::from_ref(&e))
             );
         }
         return Err(e);
