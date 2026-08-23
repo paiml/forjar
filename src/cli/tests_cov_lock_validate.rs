@@ -24,7 +24,12 @@ resources:
 
 fn setup_state(dir: &std::path::Path) {
     std::fs::create_dir_all(dir.join("web1")).unwrap();
-    std::fs::write(dir.join("web1/state.lock.yaml"), LOCK_WEB1).unwrap();
+    let lock = dir.join("web1/state.lock.yaml");
+    std::fs::write(&lock, LOCK_WEB1).unwrap();
+    // CB-2010: `save_lock` writes the lock and its BLAKE3 `.b3` sidecar together.
+    // A fixture without the sidecar is a state dir forjar could not have produced,
+    // and the integrity commands now (correctly) refuse to verify one.
+    crate::core::state::integrity::write_b3_sidecar(&lock).unwrap();
 }
 
 fn write_temp_config(yaml: &str) -> tempfile::NamedTempFile {

@@ -16,6 +16,13 @@ mod tests {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(&p, content).unwrap();
+        // CB-2010: `save_lock` writes a lock and its BLAKE3 `.b3` sidecar together,
+        // so a state dir without sidecars is not a state dir forjar could have
+        // produced. Seal lock fixtures the same way, or the integrity commands are
+        // being asked to verify a lock that was never sealed.
+        if name.ends_with("state.lock.yaml") {
+            crate::core::state::integrity::write_b3_sidecar(&p).unwrap();
+        }
     }
 
     fn setup_state() -> tempfile::TempDir {

@@ -151,8 +151,22 @@ pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String>
         }
     }
 
+    // CB-2010: "Verify lock file integrity and show tampering evidence" — while
+    // never once reading the BLAKE3 sidecar that IS the tampering evidence. The
+    // audit above only inspects fields the tamperer rewrote.
+    for (machine, reason) in sidecar_failures(state_dir) {
+        results.push((machine, false, reason));
+    }
+
     output_audit_results(&results, json);
-    Ok(())
+
+    // CB-2010: an audit that prints `[FAIL]` and then exits 0 cannot gate anything.
+    let failed = results.iter().filter(|(_, valid, _)| !valid).count();
+    if failed == 0 {
+        Ok(())
+    } else {
+        Err(format!("{failed} lock audit failure(s)"))
+    }
 }
 
 /// FJ-605: Verify lock file HMAC signatures.
