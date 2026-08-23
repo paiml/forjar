@@ -127,8 +127,34 @@ fn run_agent_loop(config: &PullAgentConfig) -> Result<AgentReport, String> {
 
 fn reconcile_once(config: &PullAgentConfig, iteration: u64) -> Result<ReconcileResult, String> {
     let drifted = detect_drift(&config.config_file, &config.state_dir)?;
-    let auto_applied = config.auto_apply && !drifted.is_empty();
     let ts = format!("{:?}", SystemTime::now());
+
+    // ACTUALLY REMEDIATE.
+    //
+    // This was `let auto_applied = config.auto_apply && !drifted.is_empty();`
+    // — a boolean derived from the FLAG and the drift count, reported as
+    // though it described an action. Nothing was ever applied. So
+    // `agent --auto-apply` against real drift printed a report saying it had
+    // auto-applied, exited 0, and left the drifted file exactly as it found
+    // it. The field named `auto_applied` recorded the INTENT, not the effect.
+    // Ledger id agent-blind-to-drift-autoapply-never-fires, confirmed at
+    // 1.12.3 and still live at 1.16.0.
+    //
+    // Reuses drift's own remediation path rather than a second implementation,
+    // so the two cannot diverge in what "remediate" means.
+    let auto_applied = if config.auto_apply && !drifted.is_empty() {
+        super::drift::run_drift_remediation(
+            &config.config_file,
+            &config.state_dir,
+            None, // every machine
+            drifted.len(),
+            false, // remediation output is text, matching drift's own choice
+            false, // not verbose
+        )?;
+        true
+    } else {
+        false
+    };
 
     Ok(ReconcileResult {
         iteration,
@@ -140,45 +166,50 @@ fn reconcile_once(config: &PullAgentConfig, iteration: u64) -> Result<ReconcileR
     })
 }
 
-/// Detect drift by comparing config resources against state lock files.
+/// Detect drift using forjar's REAL drift detector.
+///
+/// WHAT THIS REPLACED, AND WHY IT NEVER WORKED. The agent carried its own
+/// parallel implementation:
+///
+///   fn has_drift(state_dir, resource_name) -> bool {
+///       let lock_path = state_dir.join(format!("{resource_name}.lock.yaml"));
+///       ...
+///       content.contains("drift: true") || content.contains("status: failed")
+///   }
+///
+/// Locks do not live at `state_dir/<resource>.lock.yaml` — they live at
+/// `state_dir/<machine>/state.lock.yaml` — and no lock file has ever contained
+/// the string `drift: true`. It parsed the config with a raw YAML walk instead
+/// of the real parser, then string-matched a file that does not exist. So the
+/// agent reported "Drift events: 0" against a file that had visibly changed,
+/// and `--auto-apply` had nothing to act on. Ledger id
+/// agent-blind-to-drift-autoapply-never-fires, confirmed at 1.12.3 and still
+/// live at 1.16.0.
+///
+/// A second, private notion of "drift" is the defect, not the string matching:
+/// it can only ever disagree with `forjar drift`, and it did — completely. This
+/// now calls `tripwire::drift::detect_drift_full`, the same function `forjar
+/// drift` uses, so the agent and the drift command cannot diverge on what drift
+/// means.
 pub fn detect_drift(config_file: &Path, state_dir: &Path) -> Result<Vec<String>, String> {
-    let content = std::fs::read_to_string(config_file).map_err(|e| format!("read config: {e}"))?;
-    let config: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse config: {e}"))?;
-
+    let config = crate::core::parser::parse_and_validate(config_file)?;
     let mut drifted = Vec::new();
-    let resources = extract_resource_names(&config);
 
-    for name in &resources {
-        if has_drift(state_dir, name) {
-            drifted.push(name.clone());
+    for (machine_name, machine) in &config.machines {
+        let Some(lock) = crate::core::state::load_lock(state_dir, machine_name)? else {
+            // No lock for this machine: it has never been applied. That is not
+            // drift — there is no recorded state to have drifted FROM — and
+            // reporting it as drift would make `--auto-apply` re-apply the
+            // whole stack on every first run.
+            continue;
+        };
+        for finding in crate::tripwire::drift::detect_drift_full(&lock, machine, &config.resources)
+        {
+            drifted.push(format!("{machine_name}/{}", finding.resource_id));
         }
     }
+
     Ok(drifted)
-}
-
-fn extract_resource_names(config: &serde_yaml_ng::Value) -> Vec<String> {
-    let mut names = Vec::new();
-    if let Some(resources) = config.get("resources").and_then(|v| v.as_sequence()) {
-        for r in resources {
-            if let Some(name) = r.get("name").and_then(|v| v.as_str()) {
-                names.push(name.to_string());
-            }
-        }
-    }
-    names
-}
-
-fn has_drift(state_dir: &Path, resource_name: &str) -> bool {
-    let lock_path = state_dir.join(format!("{resource_name}.lock.yaml"));
-    if !lock_path.exists() {
-        return true; // no lock = new resource = drift
-    }
-    // Check if lock file has a drift marker or stale timestamp
-    if let Ok(content) = std::fs::read_to_string(&lock_path) {
-        return content.contains("drift: true") || content.contains("status: failed");
-    }
-    false
 }
 
 fn print_agent_report(report: &AgentReport) {
