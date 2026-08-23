@@ -286,6 +286,22 @@ invariants:
       success, it never reports at all — a spec-following client hangs and every
       scripted interaction returns 124 from `timeout`.
 
+  - id: INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT
+    statement: >-
+      A command whose whole purpose is to verify an artifact reads the
+      independent witness of that artifact, and an absent witness is a NO-GO
+      rather than a pass. `save_lock` seals every `state.lock.yaml` with a
+      BLAKE3 `.b3` sidecar, yet `lock-verify`, `lock-integrity`, `lock-validate`
+      and `lock-audit` never opened one: `lock-verify` tested only
+      `rl.hash.is_empty()` and the other three never called
+      `verify_state_integrity()` at all. Every hash they consulted lives INSIDE
+      the lock body, so a tamperer who rewrites the body rewrites the evidence
+      too — "✓ Lock integrity verified" for a rewritten body, for a deleted
+      sidecar, and for a deleted lock file whose orphaned sidecar proves it once
+      existed. This is INV-SUCCESS-IMPLIES-VERIFIED-EFFECT read backwards: not a
+      command claiming an effect it never caused, but a command claiming a
+      MEASUREMENT it never took.
+
 proof_obligations:
   - type: soundness
     property: "Reported success entails the claimed effect occurred"
@@ -1132,6 +1148,68 @@ falsification_tests:
       what forjar believes about a machine. A verifier that cannot exit
       non-zero makes every release gate that calls it inert — green precisely
       when the evidence is missing, malformed, or forged.
+
+  - id: FALSIFY-VE-022
+    rule: INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT
+    prediction: >-
+      Every one of `lock-verify`, `lock-integrity`, `lock-validate` and
+      `lock-audit` exits 0 on a sealed lock, and non-zero once the lock body no
+      longer hashes to its `.b3` sidecar — or once the sidecar is gone and there
+      is nothing left to hash against.
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir -p st/web1
+      cat > st/web1/state.lock.yaml <<'EOF'
+      schema: "1"
+      machine: web1
+      hostname: web1.local
+      generated_at: "2026-01-01T00:00:00Z"
+      generator: forjar 1.16.0
+      blake3_version: "1.5"
+      resources:
+        nginx:
+          type: package
+          status: converged
+          hash: blake3:1111111111111111111111111111111111111111111111111111111111111111
+      EOF
+      $FORJAR reseal --file st/web1/state.lock.yaml >/dev/null 2>&1
+      for c in lock-verify lock-integrity lock-validate lock-audit; do
+        $FORJAR "$c" --state-dir st >/dev/null 2>&1; echo "sealed   $c=$?"
+      done
+      sed -i 's/blake3:1111/blake3:2222/' st/web1/state.lock.yaml
+      for c in lock-verify lock-integrity lock-validate lock-audit; do
+        $FORJAR "$c" --state-dir st >/dev/null 2>&1; echo "tampered $c=$?"
+      done
+      rm -f st/web1/state.lock.yaml.b3
+      $FORJAR lock-verify --state-dir st >/dev/null 2>&1; echo "no-sidecar lock-verify=$?"
+    expected_red: |
+      sealed   lock-verify=0
+      sealed   lock-integrity=0
+      sealed   lock-validate=0
+      sealed   lock-audit=0
+      tampered lock-verify=0
+      tampered lock-integrity=0
+      tampered lock-validate=0
+      tampered lock-audit=0
+      no-sidecar lock-verify=0
+    red_is_reachable: >-
+      Executed 2026-08-23 against a debug build of 1.16.0 at 6961b29d, before
+      the fix: all eight lines read 0, and so did the no-sidecar line. The
+      tamper is the smallest one available — a single hex digit in a hash the
+      lock reports about ITSELF — and it is invisible to all four commands
+      because all four read that self-reported field instead of the sidecar.
+      `lock-verify`'s only per-resource test was `rl.hash.is_empty()`;
+      `lock-integrity` compared the schema STRING; `lock-validate` re-parsed the
+      YAML; `lock-audit` checked the hash was 64 hex characters (2222… is), and
+      then discarded even that verdict by returning Ok unconditionally. GREEN
+      requires the four `tampered` lines and the `no-sidecar` line to be
+      non-zero while the four `sealed` lines stay 0.
+    if_fails: >-
+      State corruption and state tampering are both silent. The four commands
+      the runbook reaches for after a crash, a bad merge or a suspected
+      compromise all answer "verified", so the operator's next `apply` proceeds
+      from state nothing ever checked — and the orphaned-sidecar case means a
+      lock DELETED out from under forjar reads as a clean state directory with
+      nothing to verify.
     owner: forjar
 
 enforcement:
@@ -1227,10 +1305,12 @@ qa_gate:
     - "INV-REMOTE-ACK-IS-PART-OF-THE-EFFECT"
     - "INV-RETENTION-IS-ORDERED-BEFORE-IT-IS-CUT"
     - "INV-SERVER-HONOURS-ITS-TRANSPORT-TERMINATION"
+    - "INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT"
   pass_criteria: >-
-    All 21 falsification tests GREEN against the release binary, covering all
-    24 confirmed members of family B (issue #210). Every test is RED today
-    against forjar 1.12.3 from crates.io — that asymmetry is the gate's teeth.
+    All 22 falsification tests GREEN against the release binary, covering all
+    24 confirmed members of family B (issue #210) plus the four lock-integrity
+    commands (FALSIFY-VE-022). Every test is RED today against forjar 1.12.3
+    from crates.io — that asymmetry is the gate's teeth.
   falsification: >-
     Restore any single early-returning render-and-return branch — e.g. make
     `doctor --network` print its results and return Ok(()) again — and

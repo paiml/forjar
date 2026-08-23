@@ -41,6 +41,13 @@ pub enum IntegrityResult {
     },
     /// Lock file is invalid YAML — likely corrupted.
     InvalidYaml(PathBuf, String),
+    /// Sidecar survives but the lock file it seals is gone.
+    ///
+    /// `save_lock` writes the lock and its `.b3` together, so a lone sidecar is
+    /// positive evidence that a lock existed and was removed. Walking only the
+    /// locks that still exist makes that deletion invisible — the scan finds
+    /// nothing to check and reports success.
+    MissingLock(PathBuf),
 }
 
 /// Verify integrity of all state lock files in the state directory.
@@ -49,20 +56,14 @@ pub fn verify_state_integrity(state_dir: &Path) -> Vec<IntegrityResult> {
     let mut results = Vec::new();
 
     // Check global lock
-    let global_lock = state_dir.join("forjar.lock.yaml");
-    if global_lock.exists() {
-        results.extend(check_file(&global_lock));
-    }
+    results.extend(check_lock_slot(&state_dir.join("forjar.lock.yaml")));
 
     // Check per-machine lock files
     if let Ok(entries) = std::fs::read_dir(state_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                let lock = path.join("state.lock.yaml");
-                if lock.exists() {
-                    results.extend(check_file(&lock));
-                }
+                results.extend(check_lock_slot(&path.join("state.lock.yaml")));
             }
         }
     }
@@ -70,8 +71,22 @@ pub fn verify_state_integrity(state_dir: &Path) -> Vec<IntegrityResult> {
     results
 }
 
-/// Check a single lock file for integrity.
-fn check_file(lock_path: &Path) -> Vec<IntegrityResult> {
+/// Check one lock *slot* — the lock file and the sidecar that seals it.
+///
+/// An absent lock is only interesting when its sidecar survives: that pairing is
+/// proof the lock was deleted rather than never written.
+fn check_lock_slot(lock_path: &Path) -> Vec<IntegrityResult> {
+    if lock_path.exists() {
+        check_lock_file(lock_path)
+    } else if sidecar_path(lock_path).exists() {
+        vec![IntegrityResult::MissingLock(lock_path.to_path_buf())]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Check a single lock file for integrity: valid YAML, sidecar present, BLAKE3 match.
+fn check_lock_file(lock_path: &Path) -> Vec<IntegrityResult> {
     let mut results = Vec::new();
 
     // Verify YAML is valid
@@ -147,17 +162,81 @@ pub fn print_issues(results: &[IntegrityResult], verbose: bool) {
             IntegrityResult::InvalidYaml(p, e) => {
                 eprintln!("ERROR: corrupt state file {}: {}", p.display(), e);
             }
+            IntegrityResult::MissingLock(p) => {
+                eprintln!(
+                    "ERROR: lock file {} is missing but its BLAKE3 sidecar survives — \
+                     the lock was deleted",
+                    p.display()
+                );
+            }
             _ => {}
         }
     }
 }
 
-/// Returns true if any result is a hard error (hash mismatch or invalid YAML).
+/// Returns true if any result is a hard error (hash mismatch, invalid YAML,
+/// or a lock deleted out from under a surviving sidecar).
 pub fn has_errors(results: &[IntegrityResult]) -> bool {
     results.iter().any(|r| {
         matches!(
             r,
-            IntegrityResult::HashMismatch { .. } | IntegrityResult::InvalidYaml(..)
+            IntegrityResult::HashMismatch { .. }
+                | IntegrityResult::InvalidYaml(..)
+                | IntegrityResult::MissingLock(..)
         )
     })
+}
+
+/// One-line reason a result is a verification failure; `None` for [`IntegrityResult::Ok`].
+///
+/// `has_errors` deliberately tolerates a missing sidecar so `apply` still runs on a
+/// state directory written before sidecars existed. A command whose *entire purpose*
+/// is integrity has no such excuse: with no sidecar it has no instrument, and an
+/// absent verifier is a NO-GO rather than a pass. Those commands use
+/// [`failure_reason`] / [`failure_reasons`], which count every non-`Ok` result —
+/// including `MissingSidecar`.
+pub fn failure_reason(result: &IntegrityResult) -> Option<String> {
+    match result {
+        IntegrityResult::Ok => None,
+        IntegrityResult::MissingSidecar(p) => Some(format!(
+            "no BLAKE3 sidecar for {} — integrity cannot be verified",
+            p.display()
+        )),
+        IntegrityResult::MissingLock(p) => Some(format!(
+            "lock file {} is missing but its BLAKE3 sidecar survives — the lock was deleted",
+            p.display()
+        )),
+        IntegrityResult::HashMismatch {
+            file,
+            expected,
+            actual,
+        } => Some(format!(
+            "BLAKE3 mismatch for {} — sidecar says {}, file hashes to {}",
+            file.display(),
+            expected,
+            actual
+        )),
+        IntegrityResult::InvalidYaml(p, e) => {
+            Some(format!("corrupt state file {}: {}", p.display(), e))
+        }
+    }
+}
+
+/// The lock file a result concerns; `None` for [`IntegrityResult::Ok`].
+pub fn result_path(result: &IntegrityResult) -> Option<&Path> {
+    match result {
+        IntegrityResult::Ok => None,
+        IntegrityResult::MissingSidecar(p)
+        | IntegrityResult::MissingLock(p)
+        | IntegrityResult::InvalidYaml(p, _) => Some(p),
+        IntegrityResult::HashMismatch { file, .. } => Some(file),
+    }
+}
+
+/// Every failure in `results`, as one-line reasons. Empty when everything verified.
+///
+/// This is the strict predicate the integrity commands use: non-empty means at least
+/// one lock could not be verified, for ANY reason including a missing sidecar.
+pub fn failure_reasons(results: &[IntegrityResult]) -> Vec<String> {
+    results.iter().filter_map(failure_reason).collect()
 }

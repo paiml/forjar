@@ -81,48 +81,30 @@ pub(crate) fn cmd_lock_compact(state_dir: &Path, yes: bool, json: bool) -> Resul
     Ok(())
 }
 
-/// Verify a single machine's lock, returning (verified_count, corrupt_count, check_entries).
-#[allow(clippy::type_complexity)]
-fn verify_machine_lock(
-    state_dir: &Path,
-    m_name: &str,
-) -> Result<(usize, usize, Vec<(String, String, String)>), String> {
-    let mut verified = 0usize;
-    let mut corrupt = 0usize;
-    let mut checks = Vec::new();
-
+/// Check one machine's per-resource hash *fields*, returning (verified_count, issues).
+///
+/// This is a self-report: the hashes live inside the lock body, so a tamperer who
+/// rewrites the body controls them. It is a cheap sanity check on top of — never a
+/// substitute for — the BLAKE3 sidecar comparison in [`sidecar_failures`].
+fn verify_machine_lock(state_dir: &Path, m_name: &str) -> (usize, Vec<String>) {
     match state::load_lock(state_dir, m_name) {
         Ok(Some(lock)) => {
-            let mut ok = true;
-            for (name, rl) in &lock.resources {
-                if rl.hash.is_empty() {
-                    ok = false;
-                    corrupt += 1;
-                    checks.push((m_name.to_string(), name.clone(), "empty hash".to_string()));
-                }
-            }
-            if ok {
-                verified += lock.resources.len();
-                checks.push((
-                    m_name.to_string(),
-                    String::new(),
-                    format!("{} resources verified", lock.resources.len()),
-                ));
-            }
+            let issues: Vec<String> = lock
+                .resources
+                .iter()
+                .filter(|(_, rl)| rl.hash.is_empty())
+                .map(|(name, _)| format!("{m_name}/{name} — empty hash"))
+                .collect();
+            let verified = if issues.is_empty() {
+                lock.resources.len()
+            } else {
+                0
+            };
+            (verified, issues)
         }
-        Ok(None) => {
-            checks.push((
-                m_name.to_string(),
-                String::new(),
-                "no lock data".to_string(),
-            ));
-        }
-        Err(e) => {
-            corrupt += 1;
-            checks.push((m_name.to_string(), String::new(), format!("corrupt: {e}")));
-        }
+        Ok(None) => (0, Vec::new()),
+        Err(e) => (0, vec![format!("{m_name} — corrupt: {e}")]),
     }
-    Ok((verified, corrupt, checks))
 }
 
 // ── FJ-405: lock verify ──
@@ -135,29 +117,24 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
         ));
     }
 
-    let mut verified = 0usize;
-    let mut corrupt = 0usize;
-    let mut machines_checked = Vec::new();
+    // CB-2010: recompute BLAKE3 over every lock body and compare it against the
+    // `.b3` sidecar. `lock-verify` used to inspect only `rl.hash.is_empty()`, so a
+    // tampered body, a zeroed sidecar, a deleted sidecar and a deleted lock file all
+    // printed "✓ Lock integrity verified". That is a claim about a measurement that
+    // was never taken.
+    let mut issues: Vec<String> = sidecar_failures(state_dir)
+        .into_iter()
+        .map(|(machine, reason)| format!("{machine} — {reason}"))
+        .collect();
 
-    let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            let m_name = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            let lock_path = path.join("state.lock.yaml");
-            if lock_path.exists() {
-                let (v, c, checks) = verify_machine_lock(state_dir, &m_name)?;
-                verified += v;
-                corrupt += c;
-                machines_checked.extend(checks);
-            }
-        }
+    let mut verified = 0usize;
+    for m_name in discover_machines(state_dir) {
+        let (v, machine_issues) = verify_machine_lock(state_dir, &m_name);
+        verified += v;
+        issues.extend(machine_issues);
     }
 
+    let corrupt = issues.len();
     if json {
         println!(
             "{{\"verified\":{},\"corrupt\":{},\"ok\":{}}}",
@@ -177,12 +154,8 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
             red("✗"),
             corrupt
         );
-        for (m, r, issue) in &machines_checked {
-            if !r.is_empty() {
-                println!("  {} {}/{} — {}", red("•"), m, r, issue);
-            } else if issue.contains("corrupt") {
-                println!("  {} {} — {}", red("•"), m, issue);
-            }
+        for issue in &issues {
+            println!("  {} {}", red("•"), issue);
         }
     }
     if corrupt == 0 {

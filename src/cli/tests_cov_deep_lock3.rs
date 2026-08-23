@@ -14,6 +14,11 @@ fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         std::fs::create_dir_all(parent).unwrap();
     }
     std::fs::write(&p, content).unwrap();
+    // CB-2010: seal lock fixtures the way `save_lock` does, so each audit test below
+    // fails for the ONE reason its name gives — not incidentally for a missing sidecar.
+    if name.ends_with("state.lock.yaml") {
+        crate::core::state::integrity::write_b3_sidecar(&p).unwrap();
+    }
 }
 
 // ── validate_deep: unresolved templates ──
@@ -154,6 +159,12 @@ fn explain_localhost_transport() {
 }
 
 // ── lock_audit: invalid hash format ──
+//
+// CB-2010: these five tests used to assert `is_ok()` — i.e. they PINNED an audit
+// that prints `[FAIL] m1 — invalid hash for resource bad` and then exits 0. An
+// audit whose verdict never reaches the exit code cannot gate anything, so the
+// assertion is now `is_err()`. Each fixture is sealed by `write_yaml`, so the sole
+// reason for the failure is the one in the test's name.
 
 #[test]
 fn lock_audit_invalid_hash_format() {
@@ -161,7 +172,7 @@ fn lock_audit_invalid_hash_format() {
     write_yaml(d.path(), "m1/state.lock.yaml",
         "schema: '1.0'\ngenerator: forjar-test\nmachine: m1\nresources:\n  bad:\n    type: package\n    status: converged\n    hash: not-a-valid-hash\n");
     let r = super::lock_audit::cmd_lock_audit(d.path(), false);
-    assert!(r.is_ok());
+    assert!(r.is_err(), "an invalid hash format must fail the audit");
 }
 
 #[test]
@@ -170,7 +181,7 @@ fn lock_audit_invalid_hash_json() {
     write_yaml(d.path(), "m1/state.lock.yaml",
         "schema: '1.0'\ngenerator: forjar-test\nmachine: m1\nresources:\n  bad:\n    type: package\n    status: converged\n    hash: not-valid\n");
     let r = super::lock_audit::cmd_lock_audit(d.path(), true);
-    assert!(r.is_ok());
+    assert!(r.is_err(), "an invalid hash format must fail the audit");
 }
 
 // ── lock_audit: bad generator ──
@@ -181,7 +192,7 @@ fn lock_audit_bad_generator() {
     write_yaml(d.path(), "m1/state.lock.yaml",
         "schema: '1.0'\ngenerator: terraform-v1\nmachine: m1\nresources:\n  pkg:\n    type: package\n    status: converged\n    hash: blake3:96e791ed3adb73bebc1064e9e1dbce0bb07a2926ad02e48c5608c9de73a3c89d\n");
     let r = super::lock_audit::cmd_lock_audit(d.path(), false);
-    assert!(r.is_ok());
+    assert!(r.is_err(), "a foreign generator must fail the audit");
 }
 
 // ── lock_audit: empty lock file ──
@@ -191,7 +202,7 @@ fn lock_audit_empty_file() {
     let d = tempfile::tempdir().unwrap();
     write_yaml(d.path(), "m1/state.lock.yaml", "");
     let r = super::lock_audit::cmd_lock_audit(d.path(), false);
-    assert!(r.is_ok());
+    assert!(r.is_err(), "an empty lock file must fail the audit");
 }
 
 // ── lock_audit: unparseable YAML ──
@@ -201,7 +212,7 @@ fn lock_audit_bad_yaml() {
     let d = tempfile::tempdir().unwrap();
     write_yaml(d.path(), "m1/state.lock.yaml", "{{{{not yaml at all");
     let r = super::lock_audit::cmd_lock_audit(d.path(), false);
-    assert!(r.is_ok());
+    assert!(r.is_err(), "an unparseable lock file must fail the audit");
 }
 
 // ── lock_audit: HMAC verify with signatures present ──

@@ -302,12 +302,27 @@ pub(super) fn validate_single_lock(
     issues
 }
 
+/// Tally (valid, invalid) machines from an issue list: a machine is valid only when
+/// nothing at all was reported against it. Counting issues instead of machines
+/// double-counts a lock that fails two independent checks.
+fn tally_machines(machines: &[String], issues: &[(String, String)]) -> (u64, u64) {
+    let flagged: std::collections::BTreeSet<&str> =
+        issues.iter().map(|(m, _)| m.as_str()).collect();
+    let valid = machines
+        .iter()
+        .filter(|m| !flagged.contains(m.as_str()))
+        .count() as u64;
+    (valid, flagged.len() as u64)
+}
+
 pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), String> {
     require_state_dir(state_dir)?;
     let machines = discover_machines(state_dir);
-    let mut valid = 0u64;
-    let mut invalid = 0u64;
-    let mut issues: Vec<(String, String)> = Vec::new();
+
+    // CB-2010: a lock is only "valid" if its body still hashes to the BLAKE3
+    // sidecar `save_lock` wrote beside it. Structural validation alone passes a
+    // tampered body, a deleted sidecar and a deleted lock file.
+    let mut issues: Vec<(String, String)> = sidecar_failures(state_dir);
 
     for m in &machines {
         let lock_path = state_dir.join(m).join("state.lock.yaml");
@@ -316,21 +331,12 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
-            Ok(lock) => {
-                let machine_issues = validate_single_lock(m, &lock);
-                if machine_issues.is_empty() {
-                    valid += 1;
-                } else {
-                    invalid += 1;
-                    issues.extend(machine_issues);
-                }
-            }
-            Err(e) => {
-                issues.push((m.clone(), format!("parse error: {e}")));
-                invalid += 1;
-            }
+            Ok(lock) => issues.extend(validate_single_lock(m, &lock)),
+            Err(e) => issues.push((m.clone(), format!("parse error: {e}"))),
         }
     }
+
+    let (valid, invalid) = tally_machines(&machines, &issues);
 
     if json {
         let items: Vec<String> = issues
@@ -367,9 +373,12 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
 /// FJ-675: Check lock file structural integrity
 pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
-    let mut valid = 0u64;
-    let mut invalid = 0u64;
-    let mut issues = Vec::new();
+
+    // CB-2010: the command is literally named `lock-integrity` and never measured
+    // any. It read the schema string and nothing else — never the `.b3` sidecar
+    // sitting next to the lock — so it printed "All N lock files pass integrity
+    // check" for a rewritten body and for a deleted sidecar alike.
+    let mut issues: Vec<(String, String)> = sidecar_failures(state_dir);
 
     for m in &machines {
         let lock_path = state_dir.join(m).join("state.lock.yaml");
@@ -380,21 +389,17 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
         match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             Ok(lock) => {
                 if lock.schema != "1" && lock.schema != "1.0" {
-                    issues.push(format!(
-                        "{}: unexpected schema version '{}'",
-                        m, lock.schema
+                    issues.push((
+                        m.clone(),
+                        format!("unexpected schema version '{}'", lock.schema),
                     ));
-                    invalid += 1;
-                } else {
-                    valid += 1;
                 }
             }
-            Err(e) => {
-                issues.push(format!("{m}: parse error — {e}"));
-                invalid += 1;
-            }
+            Err(e) => issues.push((m.clone(), format!("parse error — {e}"))),
         }
     }
+
+    let (valid, invalid) = tally_machines(&machines, &issues);
 
     if json {
         println!(
@@ -407,8 +412,8 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
         println!("All {valid} lock files pass integrity check");
     } else {
         println!("Integrity check: {valid} valid, {invalid} invalid");
-        for issue in &issues {
-            println!("  - {issue}");
+        for (m, issue) in &issues {
+            println!("  - {m}: {issue}");
         }
     }
     if issues.is_empty() {
