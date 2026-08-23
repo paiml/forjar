@@ -109,7 +109,7 @@ Forjar specifically defends against failure modes seen in other IaC tools:
 Unlike CloudFormation's `UPDATE_ROLLBACK_FAILED` state, forjar's lock files never enter an unrecoverable state. The `--force-unlock` flag exists as an escape hatch, but the event journal ensures no state is lost.
 
 ### Terraform State Corruption
-Forjar's BLAKE3 integrity verification detects state file corruption before apply. The `.b3` sidecar files provide tamper-evident checksums that would fail if state were modified outside of forjar.
+Forjar's BLAKE3 integrity verification detects state file corruption before apply. The `.b3` sidecar files provide tamper-evident checksums that fail if state was modified outside of forjar — on an unattended `--yes` apply exactly as on an interactive one. No apply flag lifts the check; recovery is `forjar reseal`, a deliberate act of its own. See [State Integrity Verification](08-state-management.md#state-integrity-verification).
 
 ### Ansible Partial Apply
 Forjar's saga pattern ensures multi-stack operations are either fully completed or cleanly rolled back. Pre-apply snapshots guarantee a known-good state to return to.

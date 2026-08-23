@@ -199,6 +199,24 @@ invariants:
       proceed to the fleet without an affirmative answer. Failing open is worse
       than having no gate, because the operator has stopped watching.
 
+  - id: INV-FLAG-EFFECT-CONFINED
+    statement: >-
+      The dual of INV-FLAG-EFFECT-OR-REJECT, and the more dangerous half: a
+      flag's effect is CONFINED to what its help text says. No flag may relax a
+      safety gate it does not name. `--yes` ("skip confirmation prompt (CI
+      mode)") also switched off BLAKE3 state-integrity verification —
+      `has_errors(&issues) && !yes` — and `--yes` is mandatory for every
+      non-interactive apply, so the gate was absent for exactly the runs nobody
+      watches: apply printed `ERROR: integrity check failed`, converged over the
+      tampered lock, and exited 0. A flag that means two things cannot be
+      reasoned about from `--help`, and the second meaning is always the one
+      discovered during an incident. The fix is to remove the second meaning,
+      not to rename it — the gate now takes no override argument at all, and the
+      refusal names the deliberate recovery instead (`forjar reseal`). Where a
+      refusal names an escape, this contract requires that escape to be TESTED:
+      a gate whose stated way out does not work is the shape that trains people
+      to bypass gates.
+
   - id: INV-SINK-FLAGS-PRODUCE-ARTIFACTS
     statement: >-
       A flag naming a sink — a file path, a log path, a URL, a command to run —
@@ -343,6 +361,14 @@ proof_obligations:
     tolerance: 0.0
     applies_to: "--approval-webhook, canary fleet phase, --auto-proceed"
     discharged_by: "FALSIFY-FLAG-A05, FALSIFY-FLAG-A06"
+
+  - type: safety
+    property: "A flag does not relax a gate its help text does not name"
+    formal: "gate G blocks c ∧ f ∉ overrides(G) ⟹ obs(c, A ⊕ f) still blocked by G"
+    tolerance: 0.0
+    applies_to: "--yes vs the BLAKE3 state-integrity gate; every future
+                 confirmation flag"
+    discharged_by: "FALSIFY-FLAG-A17"
 
   - type: liveness
     property: "Every named sink is written, reached, or executed before exit 0"
@@ -1001,6 +1027,46 @@ falsification_tests:
       Fifteen per-flag tests pass and the sixteenth inert flag ships anyway.
     owner: forjar
 
+  - id: FALSIFY-FLAG-A17
+    rule: INV-FLAG-EFFECT-CONFINED
+    defect: yes-silently-disabled-the-blake3-state-integrity-gate
+    severity: HIGH
+    prediction: >-
+      `apply --yes` over a lock file that does not match its `.b3` sidecar exits
+      non-zero and executes no resource, and so does every other apply flag an
+      operator might reach for (`--force`, `--no-tripwire`, `--force-unlock`,
+      `--refresh`, `--dry-run`). The refusal names `forjar reseal`, and
+      `forjar reseal --all` followed by a plain `apply --yes` converges — the
+      escape the message names is exercised, not merely quoted.
+    fixture: none    # tests/falsification_yes_is_not_an_integrity_override.rs
+                     # builds its own tempdir sandbox and touches no real host
+    command: |
+      cargo test --test falsification_yes_is_not_an_integrity_override
+      # equivalently, by hand:
+      #   forjar apply --yes                        # converge, then
+      #   printf '\n# tampered\n' >> state/<m>/state.lock.yaml
+      #   forjar apply --yes ; echo "rc=$?"
+    red_output: |
+      localhost: 1 converged, 1 unchanged, 0 failed (0.6s)
+      Apply complete: 1 converged, 1 unchanged.
+      ERROR: integrity check failed for state/localhost/state.lock.yaml: expected 6e4c0ec5…, got 91c61de3…
+      rc=0
+    can_go_red: >-
+      Confirmed RED on 1.16.0 on 2026-08-23: 2 of the 6 tests failed, the two
+      that observe the apply itself. The in-binary control is
+      `a_clean_state_dir_is_unaffected`: identical config, identical `--yes`,
+      state NOT tampered — it converges and exits 0. So the difference is the
+      tamper and not the flag, which distinguishes "the gate was bypassed" from
+      "apply refuses everything now". The gate's own unit tests
+      (`verify_state_integrity`, `has_errors`) were green throughout and always
+      would be: the verdict was computed correctly and then discarded by an
+      unrelated flag, which is why this had to be an end-to-end test.
+    if_fails: >-
+      Tamper detection is off for every unattended apply on the fleet — `--yes`
+      is the only way past the confirmation prompt, so the population that
+      cannot read a warning is exactly the population that has no gate.
+    owner: forjar
+
 enforcement:
   declared_surface_is_consumed:
     description: >-
@@ -1041,6 +1107,27 @@ enforcement:
       print a correct-looking success message. Same lesson build-semantics-v1
       records for `forjar check`, where `script.contains(...)` assertions stayed
       green for five months over an unfailable check script.
+
+  safety_gates_are_not_lifted_by_unrelated_flags:
+    description: >-
+      No flag relaxes a gate its own help text does not name. `--yes` must not
+      appear in any gate predicate other than the confirmation prompt itself.
+      Where a refusal names a recovery command, that recovery is tested.
+    check: "cargo test --test falsification_yes_is_not_an_integrity_override"
+    severity: "ERROR"
+    layer: process
+    failure_mode: test_failure
+    ci_gate: required
+    notes: |
+      The review question this makes routine: for each boolean in a gate's
+      condition, does its `--help` text mention this gate? `!yes` in
+      `has_errors(&issues) && !yes` failed that question for two releases while
+      reading as ordinary CI ergonomics.
+
+      Renaming the override is the tempting half-fix and is not sufficient on
+      its own. Prefer removing it where an existing command already expresses
+      the operator's intent more precisely — here `forjar reseal`, which says
+      "these contents are good" rather than "ignore the question".
 
   every_finding_carries_an_in_binary_control:
     description: >-
@@ -1129,6 +1216,7 @@ qa_gate:
     effect reaches every value derived from it.
   checks:
     - "INV-FLAG-EFFECT-OR-REJECT"
+    - "INV-FLAG-EFFECT-CONFINED"
     - "INV-SIBLING-PARITY"
     - "INV-GATE-FAILS-CLOSED"
     - "INV-SINK-FLAGS-PRODUCE-ARTIFACTS"
@@ -1139,14 +1227,16 @@ qa_gate:
     - "INV-REACHABLE-RENDERER-MUST-BE-REACHED"
     - "INV-DECLARED-OPERATION-HAPPENS"
   pass_criteria: >-
-    All 16 falsification tests pass against the fixed binary, AND all 16 still
-    reproduce their recorded red_output against forjar 1.12.3. A test that is
-    green against BOTH binaries is not evidence of a fix, it is evidence of a
-    test that cannot fail — reject it.
+    All 17 falsification tests pass against the fixed binary, AND each still
+    reproduces its recorded red_output against the binary it was measured on
+    (1.12.3 for A01–A16, 1.16.0 for A17). A test that is green against BOTH
+    binaries is not evidence of a fix, it is evidence of a test that cannot
+    fail — reject it.
   falsification: >-
     Delete the dispatch site for --subset and A01's control lines stop
     restricting; move the MCP resource filter back after the summariser and A14
     returns to `"to_create":2 changes=1`; delete the reflection guard and A16
-    returns to RED by absence.
+    returns to RED by absence; restore `&& !yes` to the state-integrity
+    predicate and A17 returns to a converged, rc=0 apply over a tampered lock.
 
 verification_level: L2

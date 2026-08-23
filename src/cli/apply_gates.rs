@@ -4,8 +4,51 @@
 //! them testable without full CLI orchestration. The CLI remains a thin
 //! routing shim that calls these functions.
 
+use crate::core::state;
 use crate::core::types;
 use indexmap::IndexMap;
+use std::path::Path;
+
+/// FJ-1270: verify every lock file against its BLAKE3 `.b3` sidecar.
+///
+/// # No flag turns this off
+///
+/// It used to be written `has_errors(&issues) && !yes`. `--yes` is documented
+/// as "skip confirmation prompt (CI mode)" and is *mandatory* for any
+/// non-interactive apply, so tamper detection was off for exactly the runs
+/// nobody watches: apply printed `ERROR: integrity check failed`, converged
+/// over the corrupt lock, and exited 0. Prompting and integrity are separate
+/// concerns and one flag must not decide both — so this takes no override
+/// argument at all, and there is no flag to add one back.
+///
+/// # Why no escape hatch, rather than a differently-named one
+///
+/// The recovery path already exists and is narrower: `forjar reseal` re-seals
+/// a lock whose contents the operator has decided are good, as one deliberate,
+/// auditable act. An `--ignore-*` flag would be the weaker control — it says
+/// nothing about the state it waves through, and it is the sort of flag a CI
+/// job acquires permanently after one bad night, which is how the gate was
+/// lost the first time. Measured: an override buys nothing for the corrupt-YAML
+/// case either, because the lock then fails to parse at load
+/// (`error: invalid lock file …`) whether or not the check ran.
+pub(crate) fn check_state_integrity(state_dir: &Path, verbose: bool) -> Result<(), String> {
+    if !state_dir.exists() {
+        return Ok(());
+    }
+    let issues = state::integrity::verify_state_integrity(state_dir);
+    state::integrity::print_issues(&issues, verbose);
+    if !state::integrity::has_errors(&issues) {
+        return Ok(());
+    }
+    Err(
+        "state integrity check failed — the state file(s) above do not match their .b3 \
+         sidecars, so forjar cannot vouch for what it would be converging against. \
+         Restore the state (`forjar snapshot restore` / `forjar generation`), or if the \
+         lock contents are known good, bless them with `forjar reseal --all` and apply \
+         again. No apply flag overrides this check."
+            .to_string(),
+    )
+}
 
 /// Determine whether a convergence budget has been exceeded.
 ///

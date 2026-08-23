@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`--yes` no longer disables the BLAKE3 state-integrity gate** (FJ-1270).
+  The pre-apply check was written `has_errors(&issues) && !yes`, and `--yes` is
+  documented as "skip confirmation prompt (CI mode)" and is *mandatory* for any
+  non-interactive apply. So every scheduled apply, every CI apply and every
+  `ExecStart=… forjar apply --yes` unit ran with tamper detection off: over a
+  lock file that did not match its `.b3` sidecar, apply printed
+  `ERROR: integrity check failed`, converged anyway, and exited 0.
+
+  Prompting and integrity are now separate concerns. `--yes` means "do not
+  prompt" and nothing else; an integrity failure exits non-zero with or without
+  it, and no host is touched. No apply flag lifts the gate — the check takes no
+  override argument at all, so there is nothing to reach for.
+
+  The refusal names the recovery instead: restore the state
+  (`forjar snapshot restore` / `forjar generation`), or bless a known-good lock
+  with `forjar reseal --all`, which was already the documented command for a
+  lock and sidecar that have legitimately diverged. That path is now covered by
+  a test, so the advice cannot rot into a gate with no way out. A replacement
+  `--ignore-state-integrity` flag was considered and rejected: it asserts
+  nothing about the state it waves through, and it is the kind of flag a CI job
+  acquires permanently after one bad night — which is how this gate was lost the
+  first time. It would also buy nothing for a corrupt-YAML lock, which fails to
+  parse at load whether or not the check ran.
+
 ## [1.16.0] - 2026-08-21
 
 ### Added
