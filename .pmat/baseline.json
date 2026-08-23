@@ -1,6 +1,6 @@
 {
   "version": "3.32.0",
-  "created_at": "2026-08-23T18:30:35.571069946Z",
+  "created_at": "2026-08-23T18:35:32.215212204Z",
   "git_context": null,
   "files": {
     "./build.rs": {
@@ -6397,49 +6397,49 @@
     },
     "./src/cli/dispatch_validate_b.rs": {
       "content_hash": [
-        108,
-        135,
-        27,
-        217,
-        158,
-        121,
-        195,
-        45,
         169,
+        15,
+        122,
         73,
-        92,
-        99,
-        131,
-        35,
-        175,
-        213,
-        218,
-        37,
-        7,
-        21,
-        14,
-        251,
-        25,
-        254,
-        53,
-        232,
-        72,
+        255,
+        39,
+        9,
+        234,
+        107,
+        210,
+        179,
+        40,
+        32,
+        89,
+        1,
+        26,
+        247,
+        42,
+        115,
+        32,
+        36,
+        50,
+        184,
         5,
-        94,
-        230,
-        241,
-        92
+        213,
+        101,
+        6,
+        141,
+        237,
+        178,
+        186,
+        180
       ],
       "score": {
-        "structural_complexity": 24.1,
+        "structural_complexity": 23.2,
         "semantic_complexity": 17.5,
-        "duplication_ratio": 13.525499,
+        "duplication_ratio": 13.638344,
         "coupling_score": 15.0,
         "doc_coverage": 10.0,
         "consistency_score": 10.0,
         "entropy_score": 5.0,
-        "total": 95.125496,
-        "grade": "A+",
+        "total": 94.33835,
+        "grade": "A",
         "confidence": 1.0,
         "language": "Rust",
         "file_path": "./src/cli/dispatch_validate_b.rs",
@@ -6454,19 +6454,19 @@
           },
           {
             "source_metric": "Duplication",
-            "amount": 6.4745007,
+            "amount": 6.3616557,
             "applied_to": [
               "Duplication"
             ],
-            "issue": "Code duplication: 32.4%"
+            "issue": "Code duplication: 31.8%"
           },
           {
             "source_metric": "StructuralComplexity",
-            "amount": 0.90000004,
+            "amount": 1.8000001,
             "applied_to": [
               "StructuralComplexity"
             ],
-            "issue": "High cognitive complexity: 18"
+            "issue": "High cognitive complexity: 21"
           },
           {
             "source_metric": "SemanticComplexity",
@@ -24741,48 +24741,48 @@
     },
     "./src/cli/validate_core.rs": {
       "content_hash": [
-        161,
-        156,
-        95,
+        212,
         190,
+        230,
+        126,
+        252,
+        195,
+        156,
+        254,
+        67,
+        150,
         110,
-        168,
-        134,
-        217,
-        91,
-        133,
-        93,
-        53,
-        121,
-        137,
-        165,
-        57,
-        113,
-        158,
-        22,
-        4,
-        186,
-        221,
+        2,
+        9,
+        129,
+        212,
+        109,
+        56,
+        241,
+        132,
+        215,
+        103,
+        88,
+        191,
+        240,
+        68,
+        184,
         208,
-        179,
-        128,
-        25,
-        207,
-        160,
-        161,
-        130,
-        54,
-        138
+        6,
+        76,
+        184,
+        154,
+        38
       ],
       "score": {
-        "structural_complexity": 7.5,
+        "structural_complexity": 5.5,
         "semantic_complexity": 20.0,
         "duplication_ratio": 20.0,
         "coupling_score": 15.0,
         "doc_coverage": 10.0,
         "consistency_score": 10.0,
         "entropy_score": 5.0,
-        "total": 87.5,
+        "total": 85.5,
         "grade": "A-",
         "confidence": 1.0,
         "language": "Rust",
@@ -24794,7 +24794,7 @@
             "applied_to": [
               "Duplication"
             ],
-            "issue": "Found 23 duplicate code patterns"
+            "issue": "Found 25 duplicate code patterns"
           },
           {
             "source_metric": "StructuralComplexity",
@@ -24802,15 +24802,15 @@
             "applied_to": [
               "StructuralComplexity"
             ],
-            "issue": "High cognitive complexity: 75"
+            "issue": "High cognitive complexity: 78"
           },
           {
             "source_metric": "StructuralComplexity",
-            "amount": 7.5,
+            "amount": 9.5,
             "applied_to": [
               "StructuralComplexity"
             ],
-            "issue": "High cyclomatic complexity: 45"
+            "issue": "High cyclomatic complexity: 49"
           }
         ],
         "critical_defects_count": 0,
@@ -49571,10 +49571,10 @@
   },
   "summary": {
     "total_files": 604,
-    "avg_score": 92.80078,
+    "avg_score": 92.796165,
     "grade_distribution": {
-      "A+": 293,
-      "A": 204,
+      "A+": 292,
+      "A": 205,
       "A-": 35,
       "B+": 23,
       "B": 38,
