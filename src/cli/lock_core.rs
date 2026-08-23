@@ -303,6 +303,7 @@ pub(super) fn validate_single_lock(
 }
 
 pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), String> {
+    require_state_dir(state_dir)?;
     let machines = discover_machines(state_dir);
     let mut valid = 0u64;
     let mut invalid = 0u64;

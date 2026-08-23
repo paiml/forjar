@@ -155,6 +155,8 @@ mod tests_cov_graph3_c;
 #[cfg(test)]
 mod tests_cov_lock;
 #[cfg(test)]
+mod tests_lock_chain;
+#[cfg(test)]
 mod tests_cov_misc2;
 #[cfg(test)]
 mod tests_cov_misc2_b;

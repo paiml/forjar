@@ -265,70 +265,9 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
     Ok(())
 }
 
-/// FJ-535: Lock verify chain — verify full chain of custody from signatures.
-pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), String> {
-    let machines = discover_machines(state_dir);
-    let mut chain_results: Vec<(String, bool, String)> = Vec::new(); // (machine, valid, detail)
-
-    for m in &machines {
-        let lock_path = state_dir.join(m).join("state.lock.yaml");
-        let sig_path = state_dir.join(m).join("lock.sig");
-
-        if !lock_path.exists() {
-            chain_results.push((m.clone(), false, "lock file missing".to_string()));
-            continue;
-        }
-
-        if !sig_path.exists() {
-            chain_results.push((m.clone(), false, "signature file missing".to_string()));
-            continue;
-        }
-
-        let sig_content = std::fs::read_to_string(&sig_path)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        // Chain verification: confirm sig file is a valid BLAKE3 hash (keyed verification
-        // requires the signing key — use lock-verify-sig for key-based checks)
-        let sig_hash = sig_content.strip_prefix("blake3:").unwrap_or(&sig_content);
-        if sig_hash.len() == 64 && sig_hash.chars().all(|c| c.is_ascii_hexdigit()) {
-            chain_results.push((
-                m.clone(),
-                true,
-                "signature present and well-formed".to_string(),
-            ));
-        } else {
-            chain_results.push((
-                m.clone(),
-                false,
-                format!(
-                    "malformed signature: {}",
-                    &sig_content[..sig_content.len().min(20)]
-                ),
-            ));
-        }
-    }
-
-    if json {
-        let entries: Vec<String> = chain_results
-            .iter()
-            .map(|(m, valid, detail)| {
-                format!(r#"{{"machine":"{m}","valid":{valid},"detail":"{detail}"}}"#)
-            })
-            .collect();
-        println!("[{}]", entries.join(","));
-    } else {
-        println!("Lock chain verification:\n");
-        for (m, valid, detail) in &chain_results {
-            let icon = if *valid { green("✓") } else { red("✗") };
-            println!("  {icon} {m} — {detail}");
-        }
-    }
-    Ok(())
-}
-
 /// FJ-545: Lock stats — show lock file statistics.
 pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String> {
+    require_state_dir(state_dir)?;
     let machines = discover_machines(state_dir);
     let mut stats: Vec<(String, u64, usize, String)> = Vec::new(); // (machine, size_bytes, resource_count, age)
 

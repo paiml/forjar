@@ -136,6 +136,7 @@ mod iso_export;
 mod lineage;
 pub mod lint;
 mod lock_audit;
+mod lock_chain;
 mod lock_core;
 mod lock_lifecycle;
 mod lock_merge;

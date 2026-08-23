@@ -82,6 +82,9 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    /// Routing check: the dispatcher must reach the command, and the command
+    /// must refuse to certify an empty state dir. (It used to answer Ok here,
+    /// which meant a routed call and an unrouted one were indistinguishable.)
     #[test]
     fn test_cov_dispatch_lock_verify_chain() {
         let dir = tempfile::tempdir().unwrap();
@@ -89,9 +92,11 @@ mod tests {
         std::fs::create_dir_all(&state).unwrap();
         let result = dispatch_lock_cmd(Commands::LockVerifyChain(LockVerifyChainArgs {
             state_dir: state,
+            key: None,
+            presence_only: true,
             json: false,
         }));
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]

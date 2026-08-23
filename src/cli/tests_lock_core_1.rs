@@ -234,6 +234,8 @@ resources: {}
     fn test_fj535_lock_verify_chain_command() {
         let cmd = Commands::LockVerifyChain(LockVerifyChainArgs {
             state_dir: PathBuf::from("state"),
+            key: None,
+            presence_only: true,
             json: false,
         });
         match cmd {
