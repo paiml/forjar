@@ -54,10 +54,7 @@ pub(crate) fn cmd_apply_scoped(
     // GH-211: --skip / --only-machine / --exclude-machine / --resource-filter.
     scope: &ApplyScope,
 ) -> Result<(), String> {
-    // GH-91: Warn that --sequential is not yet implemented
-    if sequential {
-        eprintln!("Warning: --sequential is not yet implemented for apply. Flag ignored.");
-    }
+    warn_sequential_ignored(sequential);
 
     use std::time::Instant;
     let t_total = Instant::now();
@@ -67,14 +64,7 @@ pub(crate) fn cmd_apply_scoped(
     let mut config = load_apply_config(file, env_file, workspace)?;
     let dur_parse = t_parse.elapsed();
 
-    if verbose {
-        eprintln!(
-            "Applying {} ({} machines, {} resources)",
-            config.name,
-            config.machines.len(),
-            config.resources.len()
-        );
-    }
+    print_apply_banner(&config, verbose);
     if no_tripwire {
         config.policy.tripwire = false;
     }
@@ -116,11 +106,7 @@ pub(crate) fn cmd_apply_scoped(
         rollback_on_failure,
         max_parallel,
         trace: verbose,
-        run_id: if dry_run {
-            None
-        } else {
-            Some(crate::core::types::generate_run_id())
-        },
+        run_id: apply_run_id(dry_run),
         refresh,
         force_tag,
     };
@@ -169,19 +155,17 @@ pub(crate) fn cmd_apply_scoped(
     }
     check_convergence_budget(&config, dur_apply)?;
     if total_failed > 0 {
-        // FJ-1388: Generation-based rollback on failure
-        maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
-        // GH-210: `--notify` must fire on the failure path too. See
-        // `apply_output::notify_on_failure`.
-        super::apply_output::notify_on_failure(
-            notify,
+        return Err(apply_failure_path(
             &config,
             &results,
+            state_dir,
+            pre_apply_gen,
+            rollback_on_failure,
+            notify,
             (total_converged, total_failed, total_unchanged),
             &t_total,
             verbose,
-        );
-        return Err(format!("{total_failed} resource(s) failed"));
+        ));
     }
 
     // FJ-563: OTLP trace export (post-apply, non-blocking)
@@ -199,6 +183,67 @@ pub(crate) fn cmd_apply_scoped(
     )?;
 
     Ok(())
+}
+
+/// GH-91: Warn that --sequential is not yet implemented.
+fn warn_sequential_ignored(sequential: bool) {
+    if sequential {
+        eprintln!("Warning: --sequential is not yet implemented for apply. Flag ignored.");
+    }
+}
+
+/// A run id is minted for every real apply and withheld for a dry run, which
+/// writes no run directory.
+fn apply_run_id(dry_run: bool) -> Option<String> {
+    if dry_run {
+        None
+    } else {
+        Some(crate::core::types::generate_run_id())
+    }
+}
+
+/// The one-line "Applying <name> (N machines, M resources)" banner `--verbose`
+/// prints before any work starts.
+fn print_apply_banner(config: &types::ForjarConfig, verbose: bool) {
+    if verbose {
+        eprintln!(
+            "Applying {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+    }
+}
+
+/// Everything `apply` does once it knows resources failed: roll the generation
+/// back if asked, fire `--notify`, and return the error the caller propagates.
+///
+/// GH-210: `--notify` must fire on the failure path too. See
+/// `apply_output::notify_on_failure`.
+#[allow(clippy::too_many_arguments)]
+fn apply_failure_path(
+    config: &types::ForjarConfig,
+    results: &[types::ApplyResult],
+    state_dir: &Path,
+    pre_apply_gen: Option<u32>,
+    rollback_on_failure: bool,
+    notify: Option<&str>,
+    counts: (u32, u32, u32),
+    t_total: &std::time::Instant,
+    verbose: bool,
+) -> String {
+    let (total_converged, total_failed, total_unchanged) = counts;
+    // FJ-1388: Generation-based rollback on failure
+    maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
+    super::apply_output::notify_on_failure(
+        notify,
+        config,
+        results,
+        (total_converged, total_failed, total_unchanged),
+        t_total,
+        verbose,
+    );
+    format!("{total_failed} resource(s) failed")
 }
 
 /// Parse the config and fold in every *input* that can still change it before

@@ -73,30 +73,60 @@ pub(crate) fn cmd_build(
     let duration = start.elapsed();
 
     if !json {
-        println!("\nBuilding {resource} ({})", plan.tag);
-        for (i, layer) in result.layers.iter().enumerate() {
-            println!(
-                "  Layer {}/{}: {} files, {} -> {} bytes",
-                i + 1,
-                result.layers.len(),
-                layer.file_count,
-                layer.uncompressed_size,
-                layer.compressed_size
-            );
-        }
-        println!(
-            "\n  Image: {} ({} layers, {} bytes)",
-            plan.tag,
-            result.layers.len(),
-            result.total_size
-        );
-        println!("  Layout: {}", output_dir.display());
-        println!("  Built in {:.1}s", duration.as_secs_f64());
+        print_build_report(resource, &plan.tag, &result, &output_dir, duration);
     }
 
     // FJ-2403/E17: Collect and persist image build metrics.
+    record_build_metrics(&plan.tag, &result, duration, &output_dir);
+    write_build_cache(&output_dir, &input_hash);
+
+    if json {
+        print_build_json(&plan.tag, &output_dir, Some(&result), false);
+        return Ok(());
+    }
+
+    run_distribution(resource, &plan.tag, &output_dir, load, push, far)
+}
+
+/// The human build log: one line per layer, then the image summary.
+fn print_build_report(
+    resource: &str,
+    tag: &str,
+    result: &crate::core::store::image_assembler::AssembledImage,
+    output_dir: &std::path::Path,
+    duration: std::time::Duration,
+) {
+    println!("\nBuilding {resource} ({tag})");
+    for (i, layer) in result.layers.iter().enumerate() {
+        println!(
+            "  Layer {}/{}: {} files, {} -> {} bytes",
+            i + 1,
+            result.layers.len(),
+            layer.file_count,
+            layer.uncompressed_size,
+            layer.compressed_size
+        );
+    }
+    println!(
+        "\n  Image: {} ({} layers, {} bytes)",
+        tag,
+        result.layers.len(),
+        result.total_size
+    );
+    println!("  Layout: {}", output_dir.display());
+    println!("  Built in {:.1}s", duration.as_secs_f64());
+}
+
+/// FJ-2403/E17: Collect and persist image build metrics. A write failure warns
+/// on stderr and is otherwise ignored, as it was inline.
+fn record_build_metrics(
+    tag: &str,
+    result: &crate::core::store::image_assembler::AssembledImage,
+    duration: std::time::Duration,
+    output_dir: &std::path::Path,
+) {
     let metrics = ImageBuildMetrics {
-        tag: plan.tag.clone(),
+        tag: tag.to_string(),
         layer_count: result.layers.len(),
         total_size: result.total_size,
         layers: result
@@ -113,17 +143,9 @@ pub(crate) fn cmd_build(
         forjar_version: env!("CARGO_PKG_VERSION").to_string(),
         target_arch: std::env::consts::ARCH.to_string(),
     };
-    if let Err(e) = metrics.write_to(&output_dir) {
+    if let Err(e) = metrics.write_to(output_dir) {
         eprintln!("  warning: {e}");
     }
-    write_build_cache(&output_dir, &input_hash);
-
-    if json {
-        print_build_json(&plan.tag, &output_dir, Some(&result), false);
-        return Ok(());
-    }
-
-    run_distribution(resource, &plan.tag, &output_dir, load, push, far)
 }
 
 /// Refs #212: the flags `--json` cannot share stdout with.

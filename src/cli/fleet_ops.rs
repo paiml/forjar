@@ -6,6 +6,46 @@ use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
 
+/// Index of the last line mentioning `ApplyCompleted`, or 0 when none does —
+/// the boundary marking the most recent apply run.
+fn last_apply_line(lines: &[&str]) -> usize {
+    let mut last = 0usize;
+    for (i, line) in lines.iter().enumerate() {
+        if line.contains("ApplyCompleted") {
+            last = i;
+        }
+    }
+    last
+}
+
+/// Push `(machine, resource)` for every `ResourceFailed` event this machine
+/// logged up to and including the last `ApplyCompleted` boundary.
+fn collect_failed_resources(content: &str, name: &str, out: &mut Vec<(String, String)>) {
+    // Find the last ApplyCompleted to mark the boundary, then collect
+    // ResourceFailed events after the last ApplyCompleted
+    let lines: Vec<&str> = content.lines().collect();
+    let boundary = last_apply_line(&lines);
+
+    // Collect ResourceFailed events from the last apply run
+    // We scan backwards from the last ApplyCompleted to find ResourceFailed in that run
+    for line in &lines[..=boundary] {
+        let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) else {
+            continue;
+        };
+        if let types::ProvenanceEvent::ResourceFailed {
+            ref machine,
+            ref resource,
+            ..
+        } = event.event
+        {
+            // Check if this is from the most recent run (same machine)
+            if machine.as_str() == name {
+                out.push((name.to_string(), resource.clone()));
+            }
+        }
+    }
+}
+
 /// FJ-327: Re-run only previously failed resources.
 pub(crate) fn cmd_retry_failed(
     file: &Path,
@@ -26,33 +66,7 @@ pub(crate) fn cmd_retry_failed(
         let content = std::fs::read_to_string(&log_path)
             .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
 
-        // Find the last ApplyCompleted to mark the boundary, then collect
-        // ResourceFailed events after the last ApplyCompleted
-        let mut last_apply_line = 0usize;
-        let lines: Vec<&str> = content.lines().collect();
-        for (i, line) in lines.iter().enumerate() {
-            if line.contains("ApplyCompleted") {
-                last_apply_line = i;
-            }
-        }
-
-        // Collect ResourceFailed events from the last apply run
-        // We scan backwards from the last ApplyCompleted to find ResourceFailed in that run
-        for line in &lines[..=last_apply_line] {
-            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                if let types::ProvenanceEvent::ResourceFailed {
-                    ref machine,
-                    ref resource,
-                    ..
-                } = event.event
-                {
-                    // Check if this is from the most recent run (same machine)
-                    if machine == name {
-                        failed_resources.push((name.clone(), resource.clone()));
-                    }
-                }
-            }
-        }
+        collect_failed_resources(&content, name, &mut failed_resources);
     }
 
     if failed_resources.is_empty() {

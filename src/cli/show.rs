@@ -169,21 +169,12 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
     }
 
     // Text output — strip null/false/empty defaults for clean YAML
-    let mut raw_val =
-        serde_json::to_value(resource).map_err(|e| format!("serialize error: {e}"))?;
-    strip_defaults(&mut raw_val);
-    let raw_yaml =
-        serde_yaml_ng::to_string(&raw_val).map_err(|e| format!("serialize error: {e}"))?;
+    let raw_yaml = explain_yaml(resource)?;
     println!("{}", bold("1. Raw Resource Definition"));
     println!("{}", dim("─────────────────────────────"));
     println!("{raw_yaml}");
 
-    let mut resolved_val =
-        serde_json::to_value(&resolved).map_err(|e| format!("serialize error: {e}"))?;
-    strip_defaults(&mut resolved_val);
-    let resolved_yaml =
-        serde_yaml_ng::to_string(&resolved_val).map_err(|e| format!("serialize error: {e}"))?;
-
+    let resolved_yaml = explain_yaml(&resolved)?;
     println!("{}", bold("2. After Template Resolution"));
     println!("{}", dim("─────────────────────────────"));
     if raw_yaml == resolved_yaml {
@@ -199,17 +190,33 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         None => println!("{}", red("codegen error")),
     }
 
+    print_explain_transport(&config, &machine_name, transport_type);
+    print_explain_dependencies(resource);
+
+    Ok(())
+}
+
+/// Serialize a resource to YAML with null/false/empty defaults stripped.
+fn explain_yaml<T: serde::Serialize>(value: &T) -> Result<String, String> {
+    let mut val = serde_json::to_value(value).map_err(|e| format!("serialize error: {e}"))?;
+    strip_defaults(&mut val);
+    serde_yaml_ng::to_string(&val).map_err(|e| format!("serialize error: {e}"))
+}
+
+fn print_explain_transport(config: &types::ForjarConfig, machine_name: &str, transport_type: &str) {
     println!("{}", bold("4. Transport"));
     println!("{}", dim("─────────────────────────────"));
     println!("machine: {machine_name}");
     println!("transport: {transport_type}");
-    if let Some(m) = config.machines.get(&machine_name) {
+    if let Some(m) = config.machines.get(machine_name) {
         println!("addr: {}", m.addr);
         if let Some(ref key) = m.ssh_key {
             println!("ssh_key: {key}");
         }
     }
+}
 
+fn print_explain_dependencies(resource: &types::Resource) {
     if !resource.depends_on.is_empty() {
         println!();
         println!("{}", bold("5. Dependencies"));
@@ -218,8 +225,6 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
             println!("  → {dep}");
         }
     }
-
-    Ok(())
 }
 
 // FJ-363: Compare two config files

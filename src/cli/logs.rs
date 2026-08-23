@@ -245,6 +245,43 @@ pub(crate) fn cmd_logs(
     }
 }
 
+/// The one-word status shown beside a resource in `forjar logs`.
+fn run_status_label(status: Option<&crate::core::types::ResourceRunStatus>) -> &'static str {
+    match status {
+        Some(crate::core::types::ResourceRunStatus::Noop) => "noop",
+        Some(crate::core::types::ResourceRunStatus::Converged { failed: true, .. }) => "FAILED",
+        Some(crate::core::types::ResourceRunStatus::Converged { .. }) => "converged",
+        Some(crate::core::types::ResourceRunStatus::Skipped { .. }) => "skipped",
+        None => "unknown",
+    }
+}
+
+/// Dogfood #208 (logs-script-flag-noop): --script must add the executed script
+/// to the output. It used to be byte-identical to plain `logs`.
+fn print_recorded_script(run_dir: &Path, res_id: &str) {
+    match read_script_file(run_dir, res_id) {
+        Some(script) if !script.is_empty() => {
+            println!("    --- {res_id}.script ---");
+            for line in script.lines() {
+                println!("    {line}");
+            }
+        }
+        _ => println!("    (no script recorded)"),
+    }
+}
+
+/// Print every resource log recorded for one run.
+fn print_run_log_files(run: &DiscoveredRun, show_script: bool) {
+    let log_files = list_log_files(&run.run_dir);
+    for (res_id, action) in &log_files {
+        let status_str = run_status_label(run.meta.resources.get(res_id));
+        println!("  {res_id} ({action}) — {status_str}");
+        if show_script {
+            print_recorded_script(&run.run_dir, res_id);
+        }
+    }
+}
+
 fn print_logs_text(
     runs: &[DiscoveredRun],
     resource_filter: Option<&str>,
@@ -272,34 +309,7 @@ fn print_logs_text(
         if let Some(res_id) = resource_filter {
             print_resource_log(&run.run_dir, res_id, show_script);
         } else {
-            let log_files = list_log_files(&run.run_dir);
-            for (res_id, action) in &log_files {
-                let status = meta.resources.get(res_id);
-                let status_str = match status {
-                    Some(crate::core::types::ResourceRunStatus::Noop) => "noop",
-                    Some(crate::core::types::ResourceRunStatus::Converged {
-                        failed: true, ..
-                    }) => "FAILED",
-                    Some(crate::core::types::ResourceRunStatus::Converged { .. }) => "converged",
-                    Some(crate::core::types::ResourceRunStatus::Skipped { .. }) => "skipped",
-                    None => "unknown",
-                };
-                println!("  {res_id} ({action}) — {status_str}");
-                // Dogfood #208 (logs-script-flag-noop): --script must add the
-                // executed script to the output. It used to be byte-identical
-                // to plain `logs`.
-                if show_script {
-                    match read_script_file(&run.run_dir, res_id) {
-                        Some(script) if !script.is_empty() => {
-                            println!("    --- {res_id}.script ---");
-                            for line in script.lines() {
-                                println!("    {line}");
-                            }
-                        }
-                        _ => println!("    (no script recorded)"),
-                    }
-                }
-            }
+            print_run_log_files(run, show_script);
         }
     }
     Ok(())
