@@ -394,8 +394,29 @@ fn bad_config_does_not_bind() {
     let (tx, _rx) = mpsc::channel();
     assert!(run_webhook_server(&cfg, tx, Arc::new(AtomicBool::new(true))).is_err());
     // The port must still be bindable, proving nothing was left listening.
+    //
+    // RETRIED, because the assertion is about OUR server and the port number is
+    // a SHARED, CONTENDED resource. `free_port()` binds :0, reads the number
+    // and drops the listener, so between that and this line the kernel is free
+    // to hand the same port to anything else on the machine — another test in
+    // this binary, or anything else on the host. A single immediate bind makes
+    // the test's verdict depend on winning that race, which is why it passed
+    // 15/15 locally and failed inside the clean-room container, where the
+    // scheduling differs.
+    //
+    // This does NOT weaken the property. If our server had left a listener, the
+    // port stays bound for the whole window and every attempt fails. Retrying
+    // only tolerates a transient unrelated user of the same number.
+    let mut bound = false;
+    for _ in 0..50 {
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            bound = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
     assert!(
-        TcpListener::bind(("127.0.0.1", port)).is_ok(),
-        "port {port} was left bound after a rejected config"
+        bound,
+        "port {port} was still bound 1s after a rejected config — the server left a listener"
     );
 }

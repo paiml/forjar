@@ -238,7 +238,7 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
             continue;
         }
         let machine_name = entry.file_name().to_string_lossy().to_string();
-        if let Some(lock) = state::load_lock(state_dir, &machine_name)? {
+        if let Some(mut lock) = state::load_lock(state_dir, &machine_name)? {
             let stale: Vec<String> = lock
                 .resources
                 .keys()
@@ -252,6 +252,17 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
 
             for s in &stale {
                 if yes {
+                    // ACTUALLY REMOVE IT.
+                    //
+                    // This branch used to be the println! alone. `stale` was
+                    // computed, printed and counted; the lock was never mutated
+                    // and never saved. So `lock-prune --yes` announced
+                    // "Pruned 'b' from local", exited 0, and left the lock file
+                    // BYTE-IDENTICAL — the message was the only thing that
+                    // happened. Ledger id
+                    // lock-prune-yes-claims-pruned-but-changes-nothing,
+                    // confirmed at 1.12.3 and still live at 1.16.0.
+                    lock.resources.shift_remove(s);
                     println!("  {} Pruned '{}' from {}", red("-"), s, machine_name);
                 } else {
                     println!(
@@ -263,6 +274,18 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
                 }
             }
             pruned += stale.len();
+
+            // Persist, and REFUSE TO CLAIM SUCCESS IF THE WRITE FAILED. Saving
+            // rewrites the .b3 sidecar alongside the lock, so a pruned lock
+            // stays consistent with its integrity record.
+            if yes {
+                state::save_lock(state_dir, &lock).map_err(|e| {
+                    format!(
+                        "pruned {} entr(ies) from {machine_name} but could not save the lock: {e}",
+                        stale.len()
+                    )
+                })?;
+            }
         }
     }
 

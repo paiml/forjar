@@ -28,6 +28,7 @@ pub(crate) fn cmd_stack_diff(file1: &Path, file2: &Path, json: bool) -> Result<(
 
     let mut diffs = Vec::new();
 
+    diff_top_level(&config1, &config2, &mut diffs);
     diff_resources(&config1, &config2, &mut diffs);
     diff_machines(&config1, &config2, &mut diffs);
     diff_params(&config1, &config2, &mut diffs);
@@ -40,6 +41,141 @@ pub(crate) fn cmd_stack_diff(file1: &Path, file2: &Path, json: bool) -> Result<(
     }
 
     Ok(())
+}
+
+/// Compare the scalar/top-level fields of two configs.
+///
+/// WHY THIS DESTRUCTURES INSTEAD OF LISTING FIELDS. stack-diff compared
+/// resources, machines, params and outputs — a hand-written list — and was
+/// therefore silent about `name`, `version`, `policy` and `policies`. Two
+/// configs differing in name AND failure policy reported "No differences
+/// found." (ledger id stack-diff-reports-no-differences-for-differing-configs,
+/// confirmed at 1.12.3, still live at 1.16.0).
+///
+/// A hand-written field list is the defect, not the missing entries: it goes
+/// stale silently every time the struct grows. Destructuring `ForjarConfig`
+/// exhaustively means a NEW FIELD IS A COMPILE ERROR here — the next person to
+/// extend the config has to decide whether it is comparable, rather than
+/// discovering years later that the diff never mentioned it.
+fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {
+    // Bind every field. `..` is deliberately NOT used.
+    let types::ForjarConfig {
+        version: v1,
+        name: n1,
+        description: d1,
+        policy: p1,
+        policies: pol1,
+        // Handled by their own dedicated diff fns above, which report per-key
+        // adds/removes/modifications rather than a whole-value comparison.
+        // Collections with their own per-key diff fns above.
+        params: _,
+        machines: _,
+        resources: _,
+        outputs: _,
+        // Compared as counts/shape below. The compiler surfaced these when the
+        // destructuring was made exhaustive — stack-diff had been silent about
+        // all eight, on top of name/version/policy.
+        data: data1,
+        checks: checks1,
+        moved: moved1,
+        secrets: secrets1,
+        environments: envs1,
+        dist: dist1,
+        // Provenance of the merge, not a property of the stack: two configs
+        // assembled from different include paths can describe the same stack,
+        // and reporting the paths as a difference would be noise.
+        includes: _,
+        include_provenance: _,
+    } = c1;
+    let types::ForjarConfig {
+        version: v2,
+        name: n2,
+        description: d2,
+        policy: p2,
+        policies: pol2,
+        // Collections with their own per-key diff fns above.
+        params: _,
+        machines: _,
+        resources: _,
+        outputs: _,
+        // Compared as counts/shape below. The compiler surfaced these when the
+        // destructuring was made exhaustive — stack-diff had been silent about
+        // all eight, on top of name/version/policy.
+        data: data2,
+        checks: checks2,
+        moved: moved2,
+        secrets: secrets2,
+        environments: envs2,
+        dist: dist2,
+        // Provenance of the merge, not a property of the stack: two configs
+        // assembled from different include paths can describe the same stack,
+        // and reporting the paths as a difference would be noise.
+        includes: _,
+        include_provenance: _,
+    } = c2;
+
+    let mut note = |field: &str, a: String, b: String| {
+        if a != b {
+            diffs.push(DiffEntry {
+                section: "config",
+                key: field.to_string(),
+                kind: DiffKind::Modified,
+                detail: Some(format!("{a} -> {b}")),
+            });
+        }
+    };
+
+    note("version", v1.clone(), v2.clone());
+    note("name", n1.clone(), n2.clone());
+    note(
+        "description",
+        d1.clone().unwrap_or_else(|| "(none)".into()),
+        d2.clone().unwrap_or_else(|| "(none)".into()),
+    );
+    note("policy", format!("{p1:?}"), format!("{p2:?}"));
+    note(
+        "policies",
+        format!("{} rule(s)", pol1.len()),
+        format!("{} rule(s)", pol2.len()),
+    );
+    note(
+        "data",
+        format!("{} entr(ies)", data1.len()),
+        format!("{} entr(ies)", data2.len()),
+    );
+    note(
+        "checks",
+        format!("{} check(s)", checks1.len()),
+        format!("{} check(s)", checks2.len()),
+    );
+    note(
+        "moved",
+        format!("{} block(s)", moved1.len()),
+        format!("{} block(s)", moved2.len()),
+    );
+    // Provider and path only — never a secret's value. Where secrets come from
+    // is a legitimate difference to report; what they contain is not something
+    // a diff should print.
+    note(
+        "secrets.provider",
+        secrets1.provider.clone().unwrap_or_else(|| "(none)".into()),
+        secrets2.provider.clone().unwrap_or_else(|| "(none)".into()),
+    );
+    note(
+        "secrets.path",
+        secrets1.path.clone().unwrap_or_else(|| "(none)".into()),
+        secrets2.path.clone().unwrap_or_else(|| "(none)".into()),
+    );
+    note(
+        "environments",
+        format!("{} env(s)", envs1.len()),
+        format!("{} env(s)", envs2.len()),
+    );
+    note(
+        "dist",
+        format!("{}", dist1.is_some()),
+        format!("{}", dist2.is_some()),
+    );
 }
 
 fn diff_resources(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {

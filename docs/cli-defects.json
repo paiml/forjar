@@ -11,7 +11,8 @@
    "expected": "apply --help: '--dry-run-shell FJ-676: Output shell scripts instead of executing'; '--dry-run-json FJ-440'; '--dry-run-summary FJ-480'; '--dry-run-diff FJ-463'. Plain --dry-run/--dry-run-cost/--dry-run-graph correctly execute nothing.",
    "exit_code": 0,
    "root_cause": "Only plain dry_run (plus cost/graph) is OR-ed into the is_dry_run predicate that guards the execute branch; the four newer variants set an output flag whose renderer is never reached.",
-   "fix_sketch": "Compute one dry_run = any dry-run-* flag before the execute/plan branch and dispatch the renderer off the variant; test that no dry-run-* flag mutates the filesystem or state."
+   "fix_sketch": "Compute one dry_run = any dry-run-* flag before the execute/plan branch and dispatch the renderer off the variant; test that no dry-run-* flag mutates the filesystem or state.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; cat > c.yaml <<YAML\nversion: \"1.0\"\nname: r\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\nresources:\n  f: { type: file, machine: local, path: \"$SANDBOX/a.txt\", content: \"x\" }\nYAML\n\"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes --dry-run-shell >/dev/null 2>&1; if [ -f \"$SANDBOX/a.txt\" ]; then echo \"DEFECT: --dry-run-shell performed a REAL apply\"; exit 1; fi; exit 0"
   },
   {
    "id": "workspace-name-unsanitized-path-traversal",
@@ -128,7 +129,8 @@
    "expected": "drift --help: '-m, --machine <MACHINE> Target specific machine', '--tripwire Exit non-zero on any drift (for CI/cron)'. An unknown machine must error, not report clean.",
    "exit_code": 0,
    "root_cause": "-m filters the machine list with no membership check; the empty machine set is read as zero findings rather than 'nothing checked'.",
-   "fix_sketch": "Validate -m against the config machines (rc=1 'unknown machine'), and fail the tripwire when the selected machine set is empty."
+   "fix_sketch": "Validate -m against the config machines (rc=1 'unknown machine'), and fail the tripwire when the selected machine set is empty.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"x\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" drift -f c.yaml --state-dir \"$ST\" --tripwire -m nosuchmachine >/dev/null 2>&1 && { echo \"DEFECT: unknown machine reported clean\"; exit 1; }; \"$FORJAR\" drift -f c.yaml --state-dir \"$ST\" --tripwire -m local >/dev/null 2>&1 || { echo \"DEFECT: known machine now fails\"; exit 1; }; exit 0"
   },
   {
    "id": "drift-and-plan-blind-to-failing-task-completion-check",
@@ -154,7 +156,8 @@
    "expected": "status --help: '--hash-verify FJ-677: Verify BLAKE3 hashes in lock match computed hashes'.",
    "exit_code": 0,
    "root_cause": "It counts entries whose hash field is present and prints n/n; it never recomputes or compares.",
-   "fix_sketch": "Recompute each hash with the drift routine, print MATCH/MISMATCH per resource, exit 1 on any mismatch or missing hash."
+   "fix_sketch": "Recompute each hash with the drift routine, print MATCH/MISMATCH per resource, exit 1 on any mismatch or missing hash.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"orig\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" status --state-dir \"$ST\" -f c.yaml --hash-verify >/dev/null 2>&1 || { echo \"DEFECT: clean stack failed hash-verify\"; exit 1; }; echo TAMPERED > \"$SANDBOX/o.txt\"; \"$FORJAR\" status --state-dir \"$ST\" -f c.yaml --hash-verify >/dev/null 2>&1 && { echo \"DEFECT: tampered file passed\"; exit 1; }; exit 0"
   },
   {
    "id": "undo-reports-rollback-but-machine-is-unchanged",
@@ -193,7 +196,8 @@
    "expected": "lock-prune --help: 'FJ-366: Remove lock entries for resources no longer in config', '--yes Actually remove entries (default: dry-run)'; a repeat run should say '\u2713 No stale lock entries found.'",
    "exit_code": 0,
    "root_cause": "The --yes branch computes and prints the prune set but never writes the mutated lock (and .b3 sidecar) back to disk.",
-   "fix_sketch": "Persist the pruned lock inside the --yes branch and re-seal the .b3; test state-list afterwards and idempotence on a second run."
+   "fix_sketch": "Persist the pruned lock inside the --yes branch and re-seal the .b3; test state-list afterwards and idempotence on a second run.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  a: { type: file, machine: local, path: \"%s/a.txt\", content: \"A\" }\\n  b: { type: file, machine: local, path: \"%s/b.txt\", content: \"B\" }\\n' \"$SANDBOX\" \"$SANDBOX\" > forjar.yaml; \"$FORJAR\" apply -f forjar.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; sed -i \"/^  b:/d\" forjar.yaml; \"$FORJAR\" lock-prune --state-dir \"$ST\" --yes >/dev/null 2>&1; n=$(grep -cE \"^  [ab]:\" \"$ST/local/state.lock.yaml\"); [ \"$n\" = \"1\" ] || { echo \"DEFECT: prune left $n entries\"; exit 1; }; exit 0"
   },
   {
    "id": "retry-failed-never-sees-failures",
@@ -336,7 +340,8 @@
    "expected": "stack-diff --help: 'FJ-1389: Unified stack diff \u2014 compare two configs'. policy.failure materially changes apply behaviour.",
    "exit_code": 0,
    "root_cause": "The differ walks only params/machines/resources; top-level scalars and the policy block are never compared.",
-   "fix_sketch": "Diff the full deserialized config generically (serde_yaml::Value trees) or add explicit comparisons for name/version/description/policy/outputs/environments/dist."
+   "fix_sketch": "Diff the full deserialized config generically (serde_yaml::Value trees) or add explicit comparisons for name/version/description/policy/outputs/environments/dist.",
+   "replay": "set -u; printf 'version: \"1.0\"\\nname: alpha\\npolicy: { failure: stop_on_first }\\nmachines: { local: { hostname: l, addr: 127.0.0.1 } }\\nresources: {}\\n' > a.yaml; sed \"s/alpha/BRAVO/; s/stop_on_first/continue_independent/\" a.yaml > b.yaml; OUT=$(\"$FORJAR\" stack-diff a.yaml b.yaml 2>&1); echo \"$OUT\" | grep -q \"No differences found\" && { echo \"DEFECT: name+policy differences missed\"; exit 1; }; OUT2=$(\"$FORJAR\" stack-diff a.yaml a.yaml 2>&1); echo \"$OUT2\" | grep -q \"No differences found\" || { echo \"DEFECT: identical configs reported different\"; exit 1; }; exit 0"
   },
   {
    "id": "rollback-dry-run-ignores-the-machine-filter",
@@ -521,19 +526,6 @@
    "fix_sketch": "Serialize BTreeMap{name: resource} with serde_yaml; test that the output yaml-parses to a mapping under the resource name."
   },
   {
-   "id": "force-and-rollback-report-zero-actual-changes",
-   "surface": "cli",
-   "command": "apply",
-   "severity": "MEDIUM",
-   "summary": "`apply --force` (and `rollback --yes`) restores a tampered file or creates a missing one but reports '0 actual change(s), N forced no-op(s)' in both the note and the JSON summary.",
-   "repro": "forjar apply --yes; echo TAMPERED-CONTENT > a.txt; md5sum a.txt; forjar apply --yes --force > out 2>&1; echo rc=$?; cat out; md5sum a.txt; cat a.txt; forjar apply --yes --force --json | python3 -c \"import json,sys;print(json.load(sys.stdin)['summary'])\"",
-   "observed": "a.txt 75ea83eb\u2026 -> 82c23ef4\u2026 ('TAMPERED-CONTENT' -> 'aaa'); rc=0 'note: --force re-ran 3 resource(s) the lock reported as unchanged (0 actual change(s), 3 forced no-op(s))'; JSON {'forced_noop_count': 3, 'actual_changes': 0}. Same note when `rollback --yes` CREATES a file that did not exist.",
-   "expected": "The artifact demonstrably changed, so it was not a no-op; the note's own wording is the spec, and `drift` reports the same resource DRIFTED.",
-   "exit_code": 0,
-   "root_cause": "'actual change' is classified from the pre-apply lock comparison rather than the observed before/after state, so live drift and creations count as forced no-ops.",
-   "fix_sketch": "Classify from the handler's own result (applied hash vs observed pre-state hash) and count creations as changes."
-  },
-  {
    "id": "validate-json-emits-non-json-on-failure",
    "surface": "cli",
    "command": "validate",
@@ -544,7 +536,8 @@
    "expected": "validate --help: '--json Output validation result as JSON'; the success payload already carries an `errors` array.",
    "exit_code": 3,
    "root_cause": "Validation errors return Err before the JSON renderer runs, and the top-level handler prints text regardless of --json.",
-   "fix_sketch": "Render {\"valid\":false,\"errors\":[\u2026]} when --json is set, keeping the non-zero exit."
+   "fix_sketch": "Render {\"valid\":false,\"errors\":[\u2026]} when --json is set, keeping the non-zero exit.",
+   "replay": "set -u; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: l, addr: 127.0.0.1 } }\\nresources:\\n  x: { type: file, machine: NOSUCH, path: /tmp/z, content: \"a\" }\\n' > bad.yaml; OUT=$(\"$FORJAR\" validate -f bad.yaml --json 2>/dev/null); [ -n \"$OUT\" ] || { echo \"DEFECT: zero json on failure\"; exit 1; }; printf \"%s\" \"$OUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); raise SystemExit(0 if d.get(\\\"valid\\\") is False else 1)\" || { echo \"DEFECT: not valid json or wrong flag\"; exit 1; }; exit 0"
   },
   {
    "id": "validate-schema-version-accepts-anything",
@@ -908,7 +901,8 @@
    "expected": "The configured values are hello-dev/hello-prod/1, and every other timestamp forjar emits is ISO-8601 (events.jsonl \"ts\":\"2026-\u2026Z\", history, state-query --json).",
    "exit_code": 0,
    "root_cause": "{:?} used where Display/serde serialization is required \u2014 serde_yaml::Value in the diff paths, SystemTime in the agent result, and the event enum in audit.",
-   "fix_sketch": "Serialize serde_yaml::Value directly, convert SystemTime to RFC3339 before serializing, give the audit event a Display/serde rendering."
+   "fix_sketch": "Serialize serde_yaml::Value directly, convert SystemTime to RFC3339 before serializing, give the audit event a Display/serde rendering.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"x\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" audit --state-dir \"$ST\" --json 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); e=d[0][\\\"event\\\"]; raise SystemExit(1 if isinstance(e,str) else 0)\" || { echo \"DEFECT: event is a Debug string\"; exit 1; }; exit 0"
   },
   {
    "id": "dist-output-flag-only-wired-to-the-installer",
@@ -934,7 +928,8 @@
    "expected": "state-decrypt --help: 'FJ-3304: Decrypt state files', '--passphrase <PASSPHRASE> Passphrase for decryption'; the sibling command shows the correct behaviour (the binary even ships the string 'ENC[age,...] markers found but forjar was compiled without encryption support').",
    "exit_code": 0,
    "root_cause": "ENC-marked files are counted as 'skipped' rather than an error when the encryption feature is compiled out.",
-   "fix_sketch": "Emit the same error as state-encrypt and exit 1 when ENC markers are present without the feature; treat a wrong passphrase as an error."
+   "fix_sketch": "Emit the same error as state-encrypt and exit 1 when ENC markers are present without the feature; treat a wrong passphrase as an error.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; mkdir -p \"$ST\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"s\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" state-decrypt --state-dir \"$ST\" --passphrase wrong-xyz >/dev/null 2>&1 && { echo \"DEFECT: wrong passphrase rc=0\"; exit 1; }; exit 0"
   },
   {
    "id": "plugin-run-reports-converged-with-a-stub-runtime",
@@ -1110,7 +1105,7 @@
   {
    "id": "undo-is-unreachable-nothing-creates-generations",
    "why": "Does not reproduce as stated. Generations ARE created when the config sets `policy.snapshot_generations`; with it, `generation list` shows gens and `undo` runs (rc=0). The candidate's config omitted that policy, so 'no generations found' was correct for its input. The real, stronger defect found while verifying is reported separately as undo-reports-rollback-but-machine-is-unchanged.",
-   "correction": "2026-08-23, forjar 1.16.0: half of this rejection was wrong and the entry stood as written for four releases. The REFUSAL was correct; the MESSAGE was not. It read 'no generations found — run `forjar apply` first', naming the one action that provably cannot help a config without the policy — three successful applies leave it byte-identical (verified). 'Correct for its input' judged the exit code, not the advice, so the ledger taught the next audit to close the same finding again. Fixed on branch fix/undo-is-inert: the refusal now names `policy.snapshot_generations` when it is unset and keeps the apply advice when it is set, and `maybe_auto_snapshot` no longer skips the FIRST apply (its `!state_dir.exists()` guard belonged to the named snapshot, not the generation), which had cost the operator a whole extra apply after doing what the message said. Guarded by tests/falsification_undo_advice_is_actionable.rs (FALSIFY-UNDO-004/005)."
+   "correction": "2026-08-23, forjar 1.16.0: half of this rejection was wrong and the entry stood as written for four releases. The REFUSAL was correct; the MESSAGE was not. It read 'no generations found \u2014 run `forjar apply` first', naming the one action that provably cannot help a config without the policy \u2014 three successful applies leave it byte-identical (verified). 'Correct for its input' judged the exit code, not the advice, so the ledger taught the next audit to close the same finding again. Fixed on branch fix/undo-is-inert: the refusal now names `policy.snapshot_generations` when it is unset and keeps the apply advice when it is set, and `maybe_auto_snapshot` no longer skips the FIRST apply (its `!state_dir.exists()` guard belonged to the named snapshot, not the generation), which had cost the operator a whole extra apply after doing what the message said. Guarded by tests/falsification_undo_advice_is_actionable.rs (FALSIFY-UNDO-004/005)."
   },
   {
    "id": "history-since-error-truncates-the-value",
@@ -1147,6 +1142,20 @@
   {
    "id": "lint-rules / bench-compare (severity)",
    "why": "Not rejected; bench --compare re-graded HIGH->MEDIUM (benchmarking is not a correctness gate on state). lint --rules kept HIGH because a policy-rules file that is silently never opened defeats a security lint gate."
+  },
+  {
+   "id": "force-and-rollback-report-zero-actual-changes",
+   "surface": "cli",
+   "command": "apply",
+   "severity": "MEDIUM",
+   "summary": "`apply --force` (and `rollback --yes`) restores a tampered file or creates a missing one but reports '0 actual change(s), N forced no-op(s)' in both the note and the JSON summary.",
+   "repro": "forjar apply --yes; echo TAMPERED-CONTENT > a.txt; md5sum a.txt; forjar apply --yes --force > out 2>&1; echo rc=$?; cat out; md5sum a.txt; cat a.txt; forjar apply --yes --force --json | python3 -c \"import json,sys;print(json.load(sys.stdin)['summary'])\"",
+   "observed": "a.txt 75ea83eb\u2026 -> 82c23ef4\u2026 ('TAMPERED-CONTENT' -> 'aaa'); rc=0 'note: --force re-ran 3 resource(s) the lock reported as unchanged (0 actual change(s), 3 forced no-op(s))'; JSON {'forced_noop_count': 3, 'actual_changes': 0}. Same note when `rollback --yes` CREATES a file that did not exist.",
+   "expected": "The artifact demonstrably changed, so it was not a no-op; the note's own wording is the spec, and `drift` reports the same resource DRIFTED.",
+   "exit_code": 0,
+   "root_cause": "'actual change' is classified from the pre-apply lock comparison rather than the observed before/after state, so live drift and creations count as forced no-ops.",
+   "fix_sketch": "Classify from the handler's own result (applied hash vs observed pre-state hash) and count creations as changes.",
+   "resolution": "NOT A DEFECT \u2014 intended, contract-specified behaviour. Moved from confirmed 2026-08-23. contracts/apply-summary-distinguishability-v1.yaml defines forced_noop_count(cfg) = if cfg.force then shadow_plan(config, real_locks).unchanged else 0 \u2014 LOCK-based, deliberately \u2014 with the invariant forced_noop_count + actual_changes = total_converged, which the reported numbers satisfy (0 + 3 = 3). Both counts answer 'how many did --force re-run that the LOCK called unchanged', which is cheap and deterministic; 'how many have live drift' is what `forjar drift` answers. Conflating the two was the ORIGINAL bug: a previous fix subtracted live drift here and was REVERTED as a regression (GH-208; FJ-129 shape 4 went 2 -> 1). What WAS wrong is the wording: '0 actual change(s)' read as 'nothing on the machine changed' when it meant 'nothing differed from the lock'. The message now says what it measured and points at `forjar drift` for the live question. Fixed as a phrasing defect; the count is unchanged by design."
   }
  ],
  "coverage_notes": "Verified against /home/noah/.cargo/bin/forjar 1.12.3 (confirmed by --version) in 99 fresh scratch directories under /tmp/forjar-dogfood/verify/. No real host was contacted: every config targets machine local=127.0.0.1, plus two RFC 5737 TEST-NET addresses (192.0.2.1, 198.51.100.7) and nonexistent-host.invalid for the deliberate unreachable-host cases. /home/noah/src/infra was never touched. Every exit code was captured as `cmd > out 2>&1; rc=$?` (no pipelines). Every BLOCKER/HIGH finding was reproduced at least twice in independent fresh directories; the nondeterministic ones (config_hash, logs --gc) were run 20x and in two trials respectively.\n\nGENUINELY EXERCISED (behaviour driven and observed): apply (incl. all dry-run-*, targeting, notify/log, hook, checkpoint, label/comment/runbook, preview/output-scripts, explain, force, plan-file), plan, plan-compact, validate (json, schema-version, check-naming/permissions/security/resource-names, strict), show, status (incl. --hash-verify), state-list, state-rm, state-mv, state-query (churn/timing/reversibility/events/since/history), drift (tripwire, -m, -f), check, test, explain, diff, graph (stats/density/prune/highlight/subgraph/blast-radius/edge-list/-m/reverse), lint (+ --fix, --rules), fmt, migrate, stack-diff, history, audit, logs (gc/run/resource/script/follow/machine), lock-verify, lock-prune, reseal, snapshot save/list/restore, generation list/diff, undo, undo-destroy, destroy, rollback, retry-failed, canary, rolling, parallel-apply, saga, agent, doctor, policy, policy-coverage, contracts, complexity, impact, workspace new/select/list/current/delete, schema, import, import-makefile, make, bench, template, run, trigger, rules validate, promote, environments diff/history/rollback, image (--user-data, --base), dist (single + --all + --output-dir), build (+ --push, --json, --sandbox), oci-pack, state-encrypt/state-decrypt/state-rekey, plugin init/list/run/verify, completion.\n\nNOT EXERCISED (out of scope or unreachable in this sandbox): every remote-transport path over real SSH (all machines were 127.0.0.1 local-exec, so the SSH transport, per-machine parallelism under real latency, and the reachability/retry logic were only touched via deliberately-unreachable hosts); the ~90 --notify-<service> webhook/broker flags (Slack/PagerDuty/Kafka/SNS/etc.) \u2014 the sibling sweep already covered four of these and this run only verified the five LOCAL sinks; image ISO generation past the xorriso precondition; dist --verify-containers (needs Docker); the wasm-runtime and encryption feature paths (compiled out of this build \u2014 only their absent-feature behaviour was checked); pepita/container/chroot sandbox backends beyond proving the selector is inert; GPU/model/overlay_interface/github_release resource types; multi-machine convergence with genuinely distinct hosts; and `forjar prove` / any provable-contracts surface, which was not present in this build's command list."

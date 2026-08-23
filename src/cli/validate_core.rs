@@ -94,17 +94,66 @@ fn run_strict_checks(config: &types::ForjarConfig) -> Vec<String> {
     errors
 }
 
+/// Structured failure document for `validate --json`.
+///
+/// Deliberately the SAME SHAPE as the success document — `valid`, `errors` —
+/// so a consumer parses one schema and reads `valid` rather than having to
+/// distinguish "an error object" from "a result object". Counts are omitted
+/// rather than guessed: a config that failed to parse has no trustworthy
+/// machine or resource count, and emitting `0` would be a measurement nobody
+/// made.
+pub(crate) fn validation_failure_json(file: &Path, errors: &[String]) -> String {
+    let doc = serde_json::json!({
+        "valid": false,
+        "file": file.display().to_string(),
+        "errors": errors,
+    });
+    serde_json::to_string_pretty(&doc)
+        // Serialising a bool, a path string and a Vec<String> cannot fail, but
+        // a panic here would turn a config error into a crash.
+        .unwrap_or_else(|_| r#"{"valid":false,"errors":["<unserialisable>"]}"#.to_string())
+}
+
 pub(crate) fn cmd_validate(
     file: &Path,
     strict: bool,
     json: bool,
     dry_expand: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    // EMIT JSON ON THE FAILURE PATH TOO.
+    //
+    // This was `parse_and_validate(file)?`, which returns before the `if json`
+    // block below is ever reached — so `validate --json` emitted ZERO bytes on
+    // stdout for an invalid config and printed a plain-text error instead. That
+    // is the one case a machine consumer needs the structured errors: a
+    // conforming config tells it nothing it did not already assume. Ledger id
+    // validate-json-emits-non-json-on-failure, confirmed at 1.12.3, still live
+    // at 1.16.0.
+    //
+    // `?` is kept for the non-json path so the human-facing behaviour and exit
+    // code are unchanged.
+    let config = match parse_and_validate(file) {
+        Ok(c) => c,
+        Err(e) if json => {
+            println!(
+                "{}",
+                validation_failure_json(file, std::slice::from_ref(&e))
+            );
+            return Err(e);
+        }
+        Err(e) => return Err(e),
+    };
 
     // Always detect circular dependencies — a cycle makes the config unusable
     if let Err(e) = resolver::build_execution_order(&config) {
-        return Err(format!("dependency cycle: {e}"));
+        let msg = format!("dependency cycle: {e}");
+        if json {
+            println!(
+                "{}",
+                validation_failure_json(file, std::slice::from_ref(&msg))
+            );
+        }
+        return Err(msg);
     }
 
     // FJ-330: Show fully expanded config after template resolution

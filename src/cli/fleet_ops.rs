@@ -6,29 +6,36 @@ use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
 
-/// Index of the last line mentioning `ApplyCompleted`, or 0 when none does —
-/// the boundary marking the most recent apply run.
-fn last_apply_line(lines: &[&str]) -> usize {
-    let mut last = 0usize;
-    for (i, line) in lines.iter().enumerate() {
-        if line.contains("ApplyCompleted") {
-            last = i;
-        }
-    }
-    last
-}
-
-/// Push `(machine, resource)` for every `ResourceFailed` event this machine
-/// logged up to and including the last `ApplyCompleted` boundary.
+/// Push `(machine, resource)` for every `ResourceFailed` event logged by the
+/// MOST RECENT run on this machine.
 fn collect_failed_resources(content: &str, name: &str, out: &mut Vec<(String, String)>) {
-    // Find the last ApplyCompleted to mark the boundary, then collect
-    // ResourceFailed events after the last ApplyCompleted
     let lines: Vec<&str> = content.lines().collect();
-    let boundary = last_apply_line(&lines);
+    if lines.is_empty() {
+        return;
+    }
 
-    // Collect ResourceFailed events from the last apply run
-    // We scan backwards from the last ApplyCompleted to find ResourceFailed in that run
-    for line in &lines[..=boundary] {
+    // SCAN THE MOST RECENT RUN ONLY — from the last ApplyStarted to the end.
+    //
+    // This was `&lines[..=last_apply_line(&lines)]`: from the START of the log
+    // up to the last ApplyCompleted, i.e. EVERY run ever recorded. So once the
+    // boundary bug above was fixed, retry-failed swung the other way and
+    // offered to re-run failures from historical applies — including on a
+    // stack that is now entirely green, because a months-old failure is still
+    // in the log. The comment directly above this loop already said "after the
+    // last ApplyCompleted"; the slice said the opposite.
+    //
+    // Anchoring on the last ApplyStarted (not the last ApplyCompleted) is
+    // deliberate: a run that CRASHED never wrote an ApplyCompleted, and its
+    // failures are exactly the ones worth retrying.
+    let start = lines
+        .iter()
+        .rposition(|line| {
+            serde_json::from_str::<types::TimestampedEvent>(line)
+                .is_ok_and(|ev| matches!(ev.event, types::ProvenanceEvent::ApplyStarted { .. }))
+        })
+        .unwrap_or(0);
+
+    for line in &lines[start..] {
         let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) else {
             continue;
         };

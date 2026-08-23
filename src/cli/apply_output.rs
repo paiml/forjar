@@ -187,9 +187,24 @@ pub(super) fn print_apply_summary(
         if forced_noop_count > 0 {
             println!(
                 "{}",
+                // SAY WHAT WAS MEASURED. Both counts are LOCK-relative, per
+                // contract apply-summary-distinguishability-v1
+                // (forced_noop_count = shadow_plan(config, real_locks).unchanged).
+                // The old wording — "{n} actual change(s)" — read as "nothing on
+                // the machine changed", so `--force` restoring a file that had
+                // been tampered with on disk announced "0 actual change(s)".
+                // That is the LOCK's answer, and it is correct; the phrasing
+                // claimed the MACHINE's answer, which this count never measured.
+                //
+                // The count itself is deliberately NOT changed: subtracting live
+                // drift here was tried and reverted as a regression (GH-208,
+                // FJ-129 shape 4 went 2 -> 1), and `forjar drift` is the command
+                // that answers the live question. See the ledger note on
+                // force-and-rollback-report-zero-actual-changes.
                 yellow(&format!(
                     "note: --force re-ran {forced_noop_count} resource(s) the lock reported as unchanged \
-                     ({actual_changes} actual change(s), {forced_noop_count} forced no-op(s))"
+                     ({actual_changes} differed from the lock, {forced_noop_count} matched it). \
+                     This is lock-relative: run `forjar drift` for what the machines actually hold."
                 ))
             );
         }

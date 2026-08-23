@@ -17,10 +17,17 @@
 //! `String::replace` and no shell quoting, so wiring an executor to a network
 //! listener would turn an inbound request into command execution.
 //!
-//! That injection is currently unreachable — `expand_action` has no callers and
-//! `cli::trigger` only prints `action.action_type()` — and it must stay that way
-//! until the quoting is fixed. Receiver authentication, freshness and idempotency
-//! landing FIRST is the sequencing gate, not a preference.
+//! That injection is currently unreachable — `expand_action` has no callers,
+//! and while `cli::trigger` DOES now execute a rulebook's actions (see
+//! `cli::trigger_exec`), it deliberately executes the action text verbatim and
+//! never calls `expand_action`, so no payload key reaches a shell. It must stay
+//! that way until the quoting is fixed. Receiver authentication, freshness and
+//! idempotency landing FIRST is the sequencing gate, not a preference.
+//!
+//! Note the trust asymmetry that makes `trigger` executing acceptable while
+//! this receiver still must not: `trigger`'s rulebook and `--payload` come from
+//! the local operator, the same trust level as the `command:` in their own
+//! `forjar.yaml`. This listener's events come off the network.
 
 use crate::core::rules_runtime;
 use crate::core::types::{CooldownTracker, InfraEvent, RulebookConfig};

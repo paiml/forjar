@@ -111,7 +111,7 @@ fn run_drift_alert(alert_cmd: &str, total_drift: usize) -> Result<(), String> {
 }
 
 /// Auto-remediate drifted resources by re-applying.
-fn run_drift_remediation(
+pub(crate) fn run_drift_remediation(
     config_path: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -263,6 +263,44 @@ fn collect_machine_locks(
             locks.push((name, lock));
         }
     }
+    // A FILTER THAT MATCHES NOTHING IS AN ERROR, NOT A CLEAN BILL OF HEALTH.
+    //
+    // `-m <machine>` narrowed the scan by name; if nothing matched, this
+    // returned an empty list and the caller reported "No drift detected." over
+    // ZERO machines — with `--tripwire` still exiting 0. So a typo in a cron'd
+    // `forjar drift --tripwire -m intel` silently stopped checking anything and
+    // reported healthy forever. Ledger id
+    // drift-tripwire-false-green-on-unknown-machine, confirmed at 1.12.3 and
+    // still live at 1.16.0.
+    if let Some(filter) = machine_filter {
+        // Distinguish "this machine does not exist" from "this machine exists
+        // but has no state yet". Only the FIRST is an error: a machine dir with
+        // no lock is a machine that has simply never been applied, and failing
+        // there would break `drift -m <new-machine>` before its first apply.
+        // Keying on lock-presence instead conflated the two and broke
+        // test_fj017_drift_machine_filter, which sets up exactly that case.
+        let dir_exists = state_dir.join(filter).is_dir();
+        if !dir_exists {
+            let known: Vec<String> = std::fs::read_dir(state_dir)
+                .map(|es| {
+                    es.flatten()
+                        .filter(|e| e.path().is_dir())
+                        .map(|e| e.file_name().to_string_lossy().to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            return Err(format!(
+                "unknown machine '{filter}' — it has no directory in {}, so NOTHING was checked. Known: {}",
+                state_dir.display(),
+                if known.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    known.join(", ")
+                }
+            ));
+        }
+    }
+
     Ok(locks)
 }
 

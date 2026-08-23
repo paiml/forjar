@@ -46,6 +46,23 @@ pub fn cmd_state_encrypt(state_dir: &Path, passphrase: &str, json: bool) -> Resu
 /// Decrypt state files encrypted with `forjar state encrypt`.
 pub fn cmd_state_decrypt(state_dir: &Path, passphrase: &str, json: bool) -> Result<(), String> {
     let lock_files = find_lock_files(state_dir)?;
+
+    // AN ABSENT CAPABILITY IS A NO-GO, NEVER A SILENT SUCCESS.
+    //
+    // Built without `--features encryption`, decrypt_state_file is a stub that
+    // always errors. Every encrypted file would land in the error tally and —
+    // before the fix below — exit 0 anyway. Worse, a file whose sidecar is
+    // missing is not even attempted, so the run reported "skipped" and success
+    // for state it could never have read. Say so plainly, once, up front.
+    #[cfg(not(feature = "encryption"))]
+    if !lock_files.is_empty() {
+        return Err(
+            "this build has no encryption support, so no state file can be \
+                    decrypted — rebuild with `--features encryption`. Reporting a \
+                    skip count here would claim a result that was never measured."
+                .to_string(),
+        );
+    }
     let mut decrypted = 0;
     let mut skipped = 0;
     let mut errors = 0;
@@ -71,6 +88,25 @@ pub fn cmd_state_decrypt(state_dir: &Path, passphrase: &str, json: bool) -> Resu
         println!("{{\"decrypted\": {decrypted}, \"skipped\": {skipped}, \"errors\": {errors}}}");
     } else {
         println!("Decrypted {decrypted} file(s), skipped {skipped}, errors {errors}");
+    }
+
+    // A FAILED DECRYPT IS A FAILURE.
+    //
+    // This counted `errors` and then returned Ok(()) regardless, so a WRONG
+    // PASSPHRASE exited 0 with "Decrypted 0 file(s), skipped 2, errors 0" and
+    // a caller could not distinguish a typo from success by exit code. Ledger
+    // id state-decrypt-false-green-without-encryption-feature; confirmed at
+    // 1.12.3 and still live at 1.16.0.
+    //
+    // Note the two answers this deliberately keeps apart: "there was nothing
+    // to decrypt" (every file skipped) is NOT an error and still exits 0, but
+    // "I could not decrypt what was there" is. Collapsing them by failing
+    // whenever `decrypted == 0` would break every unencrypted state dir.
+    if errors > 0 {
+        return Err(format!(
+            "{errors} file(s) failed to decrypt — wrong passphrase, or the state is not \
+             recoverable with this key. Nothing was modified."
+        ));
     }
 
     Ok(())
@@ -298,9 +334,36 @@ mod tests_encryption {
 
         cmd_state_encrypt(dir.path(), "correct-pass", false).unwrap();
 
-        // Decrypt with wrong passphrase — should fail integrity check
+        // A WRONG PASSPHRASE MUST FAIL. This test previously asserted
+        // `is_ok()` with the comment "doesn't error, reports errors count" —
+        // its own first line already said "should fail integrity check", so
+        // the test recorded the intent and then enshrined the opposite. That
+        // is how state-decrypt-false-green-without-encryption-feature survived
+        // four minor versions: the ledger called it a defect and the suite
+        // called it correct.
         let result = cmd_state_decrypt(dir.path(), "wrong-pass", false);
-        assert!(result.is_ok()); // doesn't error, reports errors count
+        assert!(
+            result.is_err(),
+            "a wrong passphrase reported success — a caller cannot tell a typo \
+             from a correct passphrase by exit code"
+        );
+        // And the file must be left ENCRYPTED, not half-written.
+        assert!(
+            is_encrypted(&lock),
+            "the file was modified by a failed decrypt"
+        );
+    }
+
+    #[test]
+    fn decrypt_with_nothing_encrypted_is_not_a_failure() {
+        // The control. "I could not decrypt what was there" and "there was
+        // nothing to decrypt" are different answers, and only the first is an
+        // error. Without this, the fix above could be satisfied by failing
+        // whenever `decrypted == 0`, which would break every state dir that is
+        // simply not encrypted.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("test.lock.yaml"), "plain").unwrap();
+        assert!(cmd_state_decrypt(dir.path(), "any-pass", false).is_ok());
     }
 
     #[test]

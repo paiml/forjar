@@ -54,16 +54,32 @@ pub(crate) fn cmd_audit(
         let json_events: Vec<serde_json::Value> = all_events
             .iter()
             .map(|(machine, ev)| {
+                // SERIALISE THE EVENT, DO NOT Debug-PRINT IT.
+                //
+                // This was `format!("{:?}", ev.event)`, which stuffed Rust
+                // Debug syntax into a JSON *string*:
+                //   "event": "ApplyStarted { machine: \"local\", run_id: ..."
+                // so run_id, operator, config_hash, resource, action and
+                // duration were unreadable without re-parsing Debug out of a
+                // string — in a document that exists to be machine-read.
+                // ApplyEvent already derives Serialize (history --json emits it
+                // structured), so nothing was blocking this. Ledger id
+                // debug-formatting-leaks-into-output-and-json, confirmed at
+                // 1.12.3 and still live at 1.16.0.
                 serde_json::json!({
                     "machine": machine,
                     "timestamp": ev.ts,
-                    "event": format!("{:?}", ev.event),
+                    "event": ev.event,
                 })
             })
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&json_events).unwrap_or_default()
+            // NOT unwrap_or_default(): that prints an EMPTY STRING on a
+            // serialisation failure, which a consumer reads as "no events"
+            // rather than "this did not work".
+            serde_json::to_string_pretty(&json_events)
+                .map_err(|e| format!("cannot serialise audit events: {e}"))?
         );
     } else {
         if all_events.is_empty() {
