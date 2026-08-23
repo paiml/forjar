@@ -550,7 +550,7 @@ Per Popper (1959), the following must hold or the feature is measuring the wrong
 1. Add `DistConfig` type to `src/core/types/` — DONE (`dist_config_types.rs`)
 2. Parse `dist:` section in config — DONE
 3. Implement `forjar dist --installer` — DONE (dogfooded, byte-pinned by `tests/install_sh_parity.rs`, #143)
-4. Add `forjar dist --verify` for installer only — DONE for Tier 1 static checks (PMAT-082); Alpine + Ubuntu container runs are Phase D Tier 2
+4. Add `forjar dist --verify` for installer only — DONE for Tier 1 (PMAT-082); static checks plus a sandboxed `sh install.sh --help` run, because `sh -n` cannot see a forward call; Alpine + Ubuntu container runs are Phase D Tier 2
 5. Dogfood: generate forjar's own `install.sh` — DONE
 
 ### Phase B: Package Manager Formats (FJ-3602–3604) — IMPLEMENTED

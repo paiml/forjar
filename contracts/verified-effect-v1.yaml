@@ -1210,6 +1210,65 @@ falsification_tests:
       from state nothing ever checked — and the orphaned-sidecar case means a
       lock DELETED out from under forjar reads as a clean state directory with
       nothing to verify.
+
+  - id: FALSIFY-VE-022
+    rule: INV-A-GATE-MUST-BE-ABLE-TO-BLOCK
+    prediction: >-
+      `dist --installer --verify` reports PASS only for an installer that runs.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > d.yaml <<'EOF'
+      version: "1.0"
+      name: dist-probe
+      machines:
+        local: {hostname: local, addr: localhost, user: root}
+      resources: {}
+      dist:
+        source: github_release
+        repo: acme/tool
+        binary: tool
+        targets:
+          - {os: linux, arch: x86_64, asset: "tool-{version}-x86_64-unknown-linux-gnu.tar.gz", libc: gnu}
+        install_dir: /usr/local/bin
+        install_dir_fallback: "~/.local/bin"
+        checksums: SHA256SUMS
+        checksum_algo: sha256
+        description: "probe"
+        homepage: "https://example.com"
+        license: MIT
+        maintainer: "probe"
+        version_cmd: "tool --version"
+        latest_tag: true
+      EOF
+      $FORJAR dist -f d.yaml --installer -o install.sh
+      $FORJAR dist -f d.yaml --installer --verify; echo "verify_exit=$?"
+      sh ./install.sh --help >help.out 2>help.err; echo "help_exit=$?"
+      grep -q 'USAGE:' help.out && echo USAGE_PRINTED || echo USAGE_ABSENT
+      sh ./install.sh --nope 2>&1 | grep -q 'not found' && echo DIE_UNDEFINED
+    expected_red: |
+      verify: PASS — Tier 1 static checks on generated installer
+      verify_exit=0
+      ./install.sh: 25: usage: not found
+      help_exit=127
+      USAGE_ABSENT
+      DIE_UNDEFINED
+    red_is_reachable: >-
+      Executed 2026-08-23 against 1.16.0 — output above is the transcript. The
+      generator emitted the argument parser above the block defining
+      `usage`/`die`, so the first thing any user ran exited 127 and every error
+      path printed `die: not found` instead of its message. Generator output,
+      the committed install.sh, and the file served from
+      raw.githubusercontent.com were byte-identical (sha256 10612b82…), so this
+      shipped. `sh -n` cannot catch it by construction — a forward call is
+      valid POSIX syntax that fails only at runtime — and all six pins in
+      tests/install_sh_parity.rs were text or byte comparisons, so nothing
+      anywhere executed the artifact. GREEN requires help_exit=0 and
+      USAGE_PRINTED, with no DIE_UNDEFINED line.
+    if_fails: >-
+      The gate that guards the only install path cannot block a broken
+      installer. Every user's first command is `--help` or a mistyped flag, and
+      both hit an undefined function; the release gate says PASS because it
+      grades text it wrote itself rather than behaviour it observed.
     owner: forjar
 
 enforcement:

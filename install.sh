@@ -14,24 +14,6 @@ FORCE=0
 YES=0
 PREFIX=""
 
-# ── Argument parsing ──
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --version) TAG="$2"; shift 2 ;;
-    --prefix)  PREFIX="$2"; shift 2 ;;
-    --force)   FORCE=1; shift ;;
-    --yes|-y)  YES=1; shift ;;
-    --help|-h) usage; exit 0 ;;
-    *) die "unknown option: $1" ;;
-  esac
-done
-
-# Refuse traversal sequences in user-supplied install paths
-case "$PREFIX" in
-  *..*) die "refusing --prefix containing '..'" ;;
-esac
-
 # ── Output helpers ──
 
 RED='' GREEN='' YELLOW='' BOLD='' RESET=''
@@ -61,6 +43,24 @@ OPTIONS:
     --help, -h        Show this help
 USAGE
 }
+
+# ── Argument parsing ──
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --version) TAG="$2"; shift 2 ;;
+    --prefix)  PREFIX="$2"; shift 2 ;;
+    --force)   FORCE=1; shift ;;
+    --yes|-y)  YES=1; shift ;;
+    --help|-h) usage; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+
+# Refuse traversal sequences in user-supplied install paths
+case "$PREFIX" in
+  *..*) die "refusing --prefix containing '..'" ;;
+esac
 
 # ── Platform detection ──
 
