@@ -1211,7 +1211,7 @@ falsification_tests:
       lock DELETED out from under forjar reads as a clean state directory with
       nothing to verify.
 
-  - id: FALSIFY-VE-022
+  - id: FALSIFY-VE-024
     rule: INV-A-GATE-MUST-BE-ABLE-TO-BLOCK
     prediction: >-
       `dist --installer --verify` reports PASS only for an installer that runs.
