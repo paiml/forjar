@@ -216,7 +216,27 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     // raw YAML by design (purity keys are not typed fields) and so consulted
     // no validation at all; it was the inline copy that had been masking that.
     let _ = deny_unknown_fields; // always true for validate
-    crate::core::parser::parse_and_validate(&file)?;
+                                 // EMIT JSON ON THE FAILURE PATH TOO.
+                                 //
+                                 // This was a bare `parse_and_validate(&file)?;` — the result discarded,
+                                 // the call kept only for its failure side effect — so it returned here,
+                                 // long before any sub-command could honour `--json`. `validate --json` on
+                                 // an invalid config therefore printed ZERO bytes to stdout and a
+                                 // plain-text error to stderr: the one case a machine consumer needs the
+                                 // structured errors, since a conforming config tells it nothing it did not
+                                 // already assume. Ledger id validate-json-emits-non-json-on-failure,
+                                 // confirmed at 1.12.3 and still live at 1.16.0.
+                                 //
+                                 // The exit code and the human-facing stderr are deliberately unchanged.
+    if let Err(e) = crate::core::parser::parse_and_validate(&file) {
+        if json {
+            println!(
+                "{}",
+                crate::cli::validate_core::validation_failure_json(&file, &[e.clone()])
+            );
+        }
+        return Err(e);
+    }
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass
     if deep {
