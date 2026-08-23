@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-08-23 — INTERNAL BUILD, NOT PUBLISHED
+
+**This version was deliberately never published to crates.io and never tagged.**
+It was built and deployed to our own infrastructure only.
+
+Six release blockers were found by the mandatory pre-release dogfood and fixed —
+including arbitrary command execution on target machines driven by managed file
+content. A follow-up audit then confirmed **14 regressions**: defects already in
+`docs/cli-defects.json` under `confirmed`, verified against 1.12.3, still
+reproducing. They had survived 1.13, 1.14, 1.15 and 1.16, because nothing ever
+re-ran the ledger's own repros.
+
+The judgement call was whether to publish anyway, since those 14 are equally
+present in the published 1.15.0 and so are not a regression against what users
+have. The decision was **no**: "not worse than last time" is not a release
+standard, and putting known-defective behaviour in front of users is not excused
+by the previous release having had it too. So 1.16.0 took the security fixes
+internally, and 1.17.0 carries them to crates.io with the 14 cleared.
+
+See the `1.17.0` entry for the full list of what shipped in both.
+
+
 ### Fixed
 
 - **`--yes` no longer disables the BLAKE3 state-integrity gate** (FJ-1270).

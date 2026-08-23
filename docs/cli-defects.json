@@ -11,7 +11,8 @@
    "expected": "apply --help: '--dry-run-shell FJ-676: Output shell scripts instead of executing'; '--dry-run-json FJ-440'; '--dry-run-summary FJ-480'; '--dry-run-diff FJ-463'. Plain --dry-run/--dry-run-cost/--dry-run-graph correctly execute nothing.",
    "exit_code": 0,
    "root_cause": "Only plain dry_run (plus cost/graph) is OR-ed into the is_dry_run predicate that guards the execute branch; the four newer variants set an output flag whose renderer is never reached.",
-   "fix_sketch": "Compute one dry_run = any dry-run-* flag before the execute/plan branch and dispatch the renderer off the variant; test that no dry-run-* flag mutates the filesystem or state."
+   "fix_sketch": "Compute one dry_run = any dry-run-* flag before the execute/plan branch and dispatch the renderer off the variant; test that no dry-run-* flag mutates the filesystem or state.",
+   "replay": "set -u; ST=\"$SANDBOX/st\"; cat > c.yaml <<YAML\nversion: \"1.0\"\nname: r\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\nresources:\n  f: { type: file, machine: local, path: \"$SANDBOX/a.txt\", content: \"x\" }\nYAML\n\"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes --dry-run-shell >/dev/null 2>&1; if [ -f \"$SANDBOX/a.txt\" ]; then echo \"DEFECT: --dry-run-shell performed a REAL apply\"; exit 1; fi; exit 0"
   },
   {
    "id": "workspace-name-unsanitized-path-traversal",
