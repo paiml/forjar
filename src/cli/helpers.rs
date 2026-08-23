@@ -13,6 +13,25 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
     parser::parse_and_validate(file)
 }
 
+/// Refuse to report on a state directory that is not there.
+///
+/// [`discover_machines`] swallows the read error and answers "no machines", so
+/// every command built on it used to treat a wrong `--state-dir`, a wiped
+/// state, or a run before the first apply as an empty-but-healthy state and
+/// exit 0 — `lock-validate` printing "All 0 lock files are valid" at a path
+/// that does not exist. `lock-verify` and `lock-info` always rejected it; this
+/// is that check, shared, so the rest can match them.
+pub(crate) fn require_state_dir(state_dir: &Path) -> Result<(), String> {
+    if state_dir.exists() {
+        Ok(())
+    } else {
+        Err(format!(
+            "state directory not found: {}",
+            state_dir.display()
+        ))
+    }
+}
+
 /// Discover machine names from a state directory by listing subdirectories that contain state.lock.yaml.
 pub(crate) fn discover_machines(state_dir: &Path) -> Vec<String> {
     let mut machines = Vec::new();

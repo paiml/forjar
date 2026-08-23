@@ -1084,6 +1084,56 @@ falsification_tests:
       until something else on the box fails first.
     owner: forjar
 
+  - id: FALSIFY-VE-023
+    rule: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    prediction: >-
+      `lock-verify-chain` exits non-zero on every broken link it prints, and
+      cannot certify a signature it never checked against the lock.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      mkdir -p state/local
+      printf 'schema: "1"\nmachine: local\nhostname: local\nresources: {}\n' > state/local/state.lock.yaml
+      $FORJAR lock-verify-chain --state-dir state --no-color; echo "unsigned_exit=$?"
+      printf 'bad"quote\n' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --json | python3 -m json.tool >/dev/null 2>&1
+      echo "json_parse=$?"
+      printf '0000000000000000000000000000000000000000000000000000000000000000' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --no-color; echo "zeros_exit=$?"
+      $FORJAR lock-verify-chain --state-dir /nonexistent-xyz --no-color; echo "absent_exit=$?"
+      printf '☃☃☃☃☃☃☃☃☃☃' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --no-color 2>&1 | grep -c panicked
+    expected_red: |
+      Lock chain verification:
+
+        ✗ local — signature file missing
+      unsigned_exit=0
+      json_parse=1
+      Lock chain verification:
+
+        ✓ local — signature present and well-formed
+      zeros_exit=0
+      Lock chain verification:
+      absent_exit=0
+      1
+    red_is_reachable: >-
+      Executed 2026-08-23 against the 1.16.0 debug binary — the transcript above
+      is verbatim. Every line is a distinct instance of one bug: the command
+      builds per-machine verdicts, prints the failures in red, and ends
+      `Ok(())` unconditionally, so no failure mode can reach the exit code. The
+      64-zero case is worse than a missed failure — it is a manufactured PASS,
+      because the check was well-formedness, which is not custody: without the
+      signing key nothing ties a signature to the lock it claims to sign. The
+      last line is a panic (`byte index 20 is not a char boundary`) from
+      truncating an untrusted signature file on a byte boundary. GREEN requires
+      unsigned_exit=1, json_parse=0, zeros_exit=1, absent_exit=1, panic count 0,
+      and a correctly signed lock still verifying with --key.
+    if_fails: >-
+      Chain of custody over the state locks is the evidence that nobody edited
+      what forjar believes about a machine. A verifier that cannot exit
+      non-zero makes every release gate that calls it inert — green precisely
+      when the evidence is missing, malformed, or forged.
+    owner: forjar
+
 enforcement:
   black_box_oracle:
     layer: cli

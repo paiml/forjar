@@ -1741,13 +1741,21 @@ Re-computes BLAKE3(content + key) and compares against stored signatures. Report
 
 ### `forjar lock-verify-chain`
 
-Verify lock signature chain integrity without needing the signing key.
+Verify the chain of custody of every machine's lock signature.
 
 ```bash
-forjar lock-verify-chain --state-dir <DIR> [--json]
+forjar lock-verify-chain --state-dir <DIR> --key <KEY> [--json]
+forjar lock-verify-chain --state-dir <DIR> --presence-only [--json]
 ```
 
-Checks that signature files exist and contain well-formed 64-character hex hashes. Does not verify content — use `lock-verify-sig` for full verification.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | State directory |
+| `--key` | none | Signing key `lock-sign` used; verifies each signature against its lock |
+| `--presence-only` | false | Only check that a well-formed signature exists; does NOT verify custody |
+| `--json` | false | JSON output |
+
+Exits non-zero when any link is broken: a signature that is missing, malformed, or does not cover its lock; a signature whose lock has been deleted; a state directory that is empty or does not exist. A bare invocation (neither `--key` nor `--presence-only`) is refused rather than answered — without the key there is nothing to verify against, and a check that cannot fail is not a check.
 
 ### `forjar lock-rotate-keys`
 

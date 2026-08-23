@@ -4,6 +4,7 @@
 use super::destroy::*;
 use super::lock_core::*;
 use super::lock_ops::*;
+use super::lock_chain::*;
 use super::lock_security::*;
 use super::observe::*;
 use super::validate_compliance::*;
@@ -190,19 +191,23 @@ mod tests {
     // 37. lock_security: cmd_lock_verify_chain
     // ========================================================================
 
+    /// Absent evidence is not a verified chain — see the doc comment on
+    /// `cmd_lock_verify_chain` for why this is an error and not a vacuous pass.
     #[test]
     fn test_cov_lock_verify_chain_empty() {
         let td = tempfile::tempdir().unwrap();
-        assert!(cmd_lock_verify_chain(td.path(), false).is_ok());
+        assert!(cmd_lock_verify_chain(td.path(), None, true, false).is_err());
     }
 
     #[test]
     fn test_cov_lock_verify_chain_json() {
         let td = tempfile::tempdir().unwrap();
-        assert!(cmd_lock_verify_chain(td.path(), true).is_ok());
+        assert!(cmd_lock_verify_chain(td.path(), None, true, true).is_err());
     }
 
-    /// Verify chain with mismatched signature.
+    /// Verify chain with mismatched signature. The `.sig` file this writes is
+    /// at a path verify-chain does not read, so the machine has no signature —
+    /// which is itself a broken chain, and must fail.
     #[test]
     fn test_cov_lock_verify_chain_mismatch() {
         let td = tempfile::tempdir().unwrap();
@@ -218,7 +223,10 @@ mod tests {
         let lock_content = "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n";
         std::fs::write(td.path().join("web").join("state.lock.yaml"), lock_content).unwrap();
         std::fs::write(td.path().join("web/state.lock.yaml.sig"), "wrong-hash").unwrap();
-        assert!(cmd_lock_verify_chain(td.path(), false).is_ok());
+        assert!(cmd_lock_verify_chain(td.path(), None, true, false).is_err());
+        // And with the signature at the path that IS read: still a mismatch.
+        std::fs::write(td.path().join("web/lock.sig"), "wrong-hash").unwrap();
+        assert!(cmd_lock_verify_chain(td.path(), None, true, false).is_err());
     }
 
     // ========================================================================

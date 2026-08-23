@@ -4,6 +4,7 @@
 use super::lock_ops::*;
 use super::lock_core::*;
 use super::lock_merge::cmd_lock_sign;
+use super::lock_chain::*;
 use super::lock_security::*;
 
 #[cfg(test)]
@@ -180,16 +181,7 @@ mod tests {
         let d = setup_state();
         assert!(cmd_lock_backup(d.path(), true).is_ok());
     }
-    #[test]
-    fn test_lock_verify_chain() {
-        let d = setup_state();
-        assert!(cmd_lock_verify_chain(d.path(), false).is_ok());
-    }
-    #[test]
-    fn test_lock_verify_chain_json() {
-        let d = setup_state();
-        assert!(cmd_lock_verify_chain(d.path(), true).is_ok());
-    }
+    // verify-chain tests moved to tests_lock_chain.rs with their module.
     #[test]
     fn test_lock_stats_empty() {
         let d = tempfile::tempdir().unwrap();
@@ -260,19 +252,7 @@ mod tests {
         assert!(cmd_lock_verify_sig(d.path(), "wrong", false).is_err());
     }
 
-    #[test]
-    fn test_sign_then_verify_chain() {
-        let d = setup_valid_state();
-        assert!(cmd_lock_sign(d.path(), "k", false).is_ok());
-        assert!(cmd_lock_verify_chain(d.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_sign_then_verify_chain_json() {
-        let d = setup_valid_state();
-        assert!(cmd_lock_sign(d.path(), "k", false).is_ok());
-        assert!(cmd_lock_verify_chain(d.path(), true).is_ok());
-    }
+    // sign → verify-chain moved to tests_lock_chain.rs with its module.
 
     #[test]
     fn test_rotate_keys_valid() {

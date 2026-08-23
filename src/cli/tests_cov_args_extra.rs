@@ -180,6 +180,8 @@ mod tests {
     fn test_cov_lock_verify_chain_args_construct() {
         let a = LockVerifyChainArgs {
             state_dir: PathBuf::from("s"),
+            key: Some("k".to_string()),
+            presence_only: false,
             json: false,
         };
         let _ = format!("{a:?}");

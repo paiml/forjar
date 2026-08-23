@@ -126,6 +126,7 @@ fn output_audit_results(results: &[(String, bool, String)], json: bool) {
 
 /// FJ-555: Verify lock file integrity and show tampering evidence.
 pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String> {
+    require_state_dir(state_dir)?;
     let machines = discover_machines(state_dir);
     let mut results: Vec<(String, bool, String)> = Vec::new();
 
