@@ -265,6 +265,7 @@ mod store_pin;
 pub mod structured_log;
 mod template_cmd;
 mod trigger;
+mod trigger_exec;
 pub mod tui;
 mod undo;
 mod undo_helpers;
