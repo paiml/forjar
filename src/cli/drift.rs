@@ -263,6 +263,37 @@ fn collect_machine_locks(
             locks.push((name, lock));
         }
     }
+    // A FILTER THAT MATCHES NOTHING IS AN ERROR, NOT A CLEAN BILL OF HEALTH.
+    //
+    // `-m <machine>` narrowed the scan by name; if nothing matched, this
+    // returned an empty list and the caller reported "No drift detected." over
+    // ZERO machines — with `--tripwire` still exiting 0. So a typo in a cron'd
+    // `forjar drift --tripwire -m intel` silently stopped checking anything and
+    // reported healthy forever. Ledger id
+    // drift-tripwire-false-green-on-unknown-machine, confirmed at 1.12.3 and
+    // still live at 1.16.0.
+    if let Some(filter) = machine_filter {
+        if locks.is_empty() {
+            let known: Vec<String> = std::fs::read_dir(state_dir)
+                .map(|es| {
+                    es.flatten()
+                        .filter(|e| e.path().is_dir())
+                        .map(|e| e.file_name().to_string_lossy().to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            return Err(format!(
+                "no state for machine '{filter}' in {} — nothing was checked. Known: {}",
+                state_dir.display(),
+                if known.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    known.join(", ")
+                }
+            ));
+        }
+    }
+
     Ok(locks)
 }
 

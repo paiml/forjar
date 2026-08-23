@@ -183,6 +183,29 @@ pub(crate) fn cmd_status_failed_resources(
 }
 
 /// FJ-677: Verify BLAKE3 hashes in lock match computed hashes
+/// Recompute a resource's on-disk hash and compare it to the lock.
+///
+/// Returns None when the lock records nothing to compare against — that is
+/// "unverifiable", which is deliberately NOT the same as "verified".
+fn recheck_resource(rlock: &crate::core::types::ResourceLock) -> Option<bool> {
+    let path = rlock.details.get("path")?.as_str()?;
+    // `content_hash` is the hash of the DECLARED content, so comparing it to
+    // the file on disk answers "does this file still hold what forjar put
+    // there". NOT `live_hash` — that is a hash of the state-QUERY's stdout
+    // (hash_string_or_sentinel(&qout.stdout) in executor/resource_ops.rs), so
+    // comparing it to file bytes fails for every resource, which is a worse
+    // defect than the one being fixed. Measured, not assumed: doing that made
+    // the untampered control report MISMATCHED.
+    let recorded = rlock.details.get("content_hash")?.as_str()?;
+    match crate::tripwire::hasher::hash_file(std::path::Path::new(path)) {
+        Ok(actual) => Some(actual == recorded),
+        // The file is gone or unreadable. That is a MISMATCH, not an absence
+        // of evidence to be waved through — the recorded state says a file
+        // with that hash should be there.
+        Err(_) => Some(false),
+    }
+}
+
 pub(crate) fn cmd_status_hash_verify(
     state_dir: &Path,
     machine: Option<&str>,
@@ -192,14 +215,34 @@ pub(crate) fn cmd_status_hash_verify(
     let targets = filter_machines(&machines, machine);
 
     let mut verified = 0u64;
+    let mut mismatched = 0u64;
+    let mut unverifiable = 0u64;
     let mut total = 0u64;
+    let mut bad: Vec<String> = Vec::new();
 
     for m in &targets {
         if let Some(lock) = load_lock_from_yaml(state_dir, m) {
-            for (_rname, rlock) in &lock.resources {
+            for (rname, rlock) in &lock.resources {
                 total += 1;
-                if !rlock.hash.is_empty() {
-                    verified += 1;
+                // ACTUALLY COMPARE THE HASHES.
+                //
+                // This used to count resources that HAVE a hash — "1/1
+                // resources have BLAKE3 hashes" — and call that verification.
+                // A tampered file passed, because the RECORDED hash was still
+                // non-empty; the file on disk was never read. Ledger id
+                // status-hash-verify-verifies-nothing, confirmed at 1.12.3 and
+                // still reproducing at 1.16.0.
+                match recheck_resource(rlock) {
+                    Some(true) => verified += 1,
+                    Some(false) => {
+                        mismatched += 1;
+                        bad.push(format!("{m}/{rname}"));
+                    }
+                    // Nothing recorded to compare against. Counted separately
+                    // and reported: rolling it into `verified` is the original
+                    // defect, and rolling it into `mismatched` would fail every
+                    // resource type that has no on-disk artifact.
+                    None => unverifiable += 1,
                 }
             }
         }
@@ -207,13 +250,24 @@ pub(crate) fn cmd_status_hash_verify(
 
     if json {
         println!(
-            r#"{{"total":{},"verified":{},"missing":{}}}"#,
-            total,
-            verified,
-            total - verified
+            r#"{{"total":{total},"verified":{verified},"mismatched":{mismatched},"unverifiable":{unverifiable}}}"#
         );
     } else {
-        println!("Hash verification: {verified}/{total} resources have BLAKE3 hashes");
+        println!(
+            "Hash verification: {verified}/{total} match, {mismatched} MISMATCHED, \
+             {unverifiable} unverifiable"
+        );
+        for b in &bad {
+            println!("  MISMATCH: {b}");
+        }
+    }
+
+    // A mismatch is the whole point of the command. Exiting 0 on one would
+    // make every CI use of it inert.
+    if mismatched > 0 {
+        return Err(format!(
+            "{mismatched} resource(s) no longer match their recorded hash"
+        ));
     }
     Ok(())
 }
