@@ -1,14 +1,12 @@
 //! FJ-007: File/directory resource handler.
 
-use crate::core::shell_escape::sh_squote;
+use crate::core::shell_escape::{sh_squote, sh_write_file};
 use crate::core::types::Resource;
 use crate::resources::verdict;
-use base64::Engine;
 
-/// Read a local file and return its base64-encoded content.
-fn source_file_base64(path: &str) -> Result<String, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
-    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+/// Read a local file, or describe why it could not be read.
+fn read_source_file(path: &str) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|e| format!("{path}: {e}"))
 }
 
 /// Generate shell to check file state.
@@ -65,13 +63,10 @@ fn push_ownership_lines(lines: &mut Vec<String>, path: &str, resource: &Resource
 
 /// Generate the file-content write commands (source or inline content).
 fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
-    let p = sh_squote(path);
     if let Some(ref source) = resource.source {
-        match source_file_base64(source) {
-            Ok(b64) => {
-                // b64 is forjar-generated (alphabet is shell-safe) but quote it
-                // through the helper for uniformity.
-                lines.push(format!("echo {} | base64 -d > {}", sh_squote(&b64), p));
+        match read_source_file(source) {
+            Ok(bytes) => {
+                lines.push(sh_write_file(path, &bytes));
             }
             Err(e) => {
                 // `e` embeds the config-derived source path; escape the whole
@@ -83,8 +78,14 @@ fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resou
             }
         }
     } else if let Some(ref content) = resource.content {
-        // Heredoc body is literal (quoted FORJAR_EOF), so content is not shell.
-        lines.push(format!("cat > {p} <<'FORJAR_EOF'\n{content}\nFORJAR_EOF"));
+        // C8 (GH #296): inline content is DATA and must never reach the target's shell
+        // parser. It used to be interpolated into a `<<'FORJAR_EOF'` heredoc
+        // under a comment claiming the body was literal; a body is literal only
+        // until a line equals the delimiter, so content containing `FORJAR_EOF`
+        // closed the heredoc and executed the remainder as shell. `sh_write_file`
+        // has no delimiter to hit, and is byte-exact (a heredoc always appends a
+        // trailing newline the declared content may not have).
+        lines.push(sh_write_file(path, content.as_bytes()));
     }
 }
 
@@ -213,8 +214,33 @@ mod tests {
         r.state = Some("file".to_string());
         r.content = Some("hello".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("cat > '/etc/conf' <<'FORJAR_EOF'"));
-        assert!(script.contains("hello"));
+        // The destination path is one quoted shell word...
+        assert!(script.contains("| base64 -d > '/etc/conf'"));
+        // ...and the declared content is what the script deploys there.
+        // C8 (GH #296): assert on the decoded payload, not on the script text — the
+        // old `script.contains("hello")` was equally true of a script whose
+        // heredoc had already closed and thrown the rest away.
+        assert_eq!(
+            crate::core::shell_escape::decode_written_file(&script, "/etc/conf"),
+            Some(b"hello".to_vec())
+        );
+    }
+
+    #[test]
+    fn cbc8_inline_content_cannot_close_a_heredoc() {
+        // The blocker, at the codegen boundary: content carrying the old fixed
+        // delimiter plus a command must appear NOWHERE as shell.
+        let mut r = file_resource("/etc/conf");
+        r.state = Some("file".to_string());
+        let payload = "ok\nFORJAR_EOF\nreboot\n";
+        r.content = Some(payload.to_string());
+        let script = apply_script(&r);
+        assert!(!script.contains("FORJAR_EOF"), "{script}");
+        assert!(!script.contains("reboot"), "{script}");
+        assert_eq!(
+            crate::core::shell_escape::decode_written_file(&script, "/etc/conf"),
+            Some(payload.as_bytes().to_vec())
+        );
     }
 
     #[test]

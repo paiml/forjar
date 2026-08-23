@@ -2,7 +2,7 @@
 //!
 //! Manages local system users and groups via useradd/usermod/userdel/groupadd.
 
-use crate::core::shell_escape::sh_squote;
+use crate::core::shell_escape::{sh_squote, sh_write_file};
 use crate::core::types::Resource;
 use crate::resources::verdict;
 
@@ -105,12 +105,21 @@ pub fn apply_script(resource: &Resource) -> String {
                     .collect::<Vec<_>>()
                     .join("\n");
 
+                // C8, second instance (GH #296): keys are DATA and must never reach
+                // the target's shell parser. This was a `<<'FORJAR_EOF'` heredoc, and
+                // a heredoc body is literal only until a line EQUALS the delimiter —
+                // so a key entry containing `FORJAR_EOF` closed it and the remainder
+                // executed as shell. Worse here than in file.rs: the lines that follow
+                // are `$SUDO`, so an injected command lands beside privileges the
+                // operator already granted, and the authorized_keys actually written
+                // is silently truncated to whatever preceded the delimiter.
+                //
+                // `sh_write_file` has no delimiter to hit and is byte-exact.
+                lines.push(sh_write_file("/tmp/forjar-authkeys", keys.as_bytes()));
                 lines.push(format!(
-                    "cat > /tmp/forjar-authkeys <<'FORJAR_EOF'\n{}\nFORJAR_EOF\n\
-                     $SUDO mv /tmp/forjar-authkeys '{}'/.ssh/authorized_keys\n\
+                    "$SUDO mv /tmp/forjar-authkeys '{}'/.ssh/authorized_keys\n\
                      $SUDO chmod 600 '{}'/.ssh/authorized_keys\n\
                      $SUDO chown -R '{}':'{}' '{}'/.ssh",
-                    keys,
                     home_dir,
                     home_dir,
                     username,

@@ -190,10 +190,95 @@ jobs:
           fi
 
   # Aggregator so branch protection can require one context for both.
+  contracts:
+    name: contracts
+    runs-on: [self-hosted, clean-room]
+    # UNCONDITIONAL, unlike kani/lean. Those are label-gated because they cost
+    # ~35 min of compilation; this is a YAML parse over 30 files and costs
+    # seconds. A validator that only runs on labelled PRs is absent on the PRs
+    # that need it most.
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # AN ABSENT VERIFIER IS A NO-GO, NEVER A PASS. This repo has that rule and
+      # was not applying it to its own contracts: `if command -v pv` would have
+      # made every run green on a machine without pv, which is exactly the
+      # defect class the contracts exist to catch.
+      - name: pv must be present
+        run: |
+          command -v pv >/dev/null || {
+            echo "::error::pv is not installed — the contract corpus is unvalidatable, which is a NO-GO not a skip"
+            exit 1
+          }
+          pv --version
+
+      # WHY THIS JOB EXISTS. contracts/verified-effect-v1.yaml shipped INVALID
+      # on the 1.16.0 release branch — a duplicate falsifier id, created when
+      # three blocker fixes each appended a clause and the merge kept both
+      # sides. Nothing caught it: no CI job ran `pv validate` at all, so the
+      # only signal was a human running it by hand during an audit. See #298.
+      - name: Every contract must validate
+        run: |
+          set -u
+          fail=0
+          for c in contracts/*.yaml; do
+            case "$c" in */binding.yaml) continue ;;   # a registry, not a contract
+            esac
+            OUT=$(pv validate "$c" 2>&1); EC=$?
+            if [ "$EC" -ne 0 ]; then
+              echo "::error file=$c::$(printf '%s' "$OUT" | grep -i error | head -1)"
+              fail=$((fail+1))
+            fi
+          done
+          n=$(ls contracts/*.yaml | grep -vc 'binding.yaml')
+          echo "validated $n contract(s), $fail invalid"
+          # A sweep that validated nothing must not report success — the empty
+          # loop is the vacuous pass this whole corpus is about.
+          [ "$n" -gt 0 ] || { echo "::error::no contracts found to validate"; exit 1; }
+          [ "$fail" -eq 0 ]
+
+      # Citations are the audit trail: a falsifier naming a function that does
+      # not exist reads as enforcement and is not. pv audit currently COUNTS
+      # declarations rather than resolving them (#298), so this resolves them
+      # here until it does.
+      - name: Every cited falsifier must resolve to real code
+        run: |
+          set -u
+          python3 - <<'PYEOF'
+          import glob, re, subprocess, sys, yaml, os
+          missing = []
+          for path in sorted(glob.glob("contracts/*.yaml")):
+              if os.path.basename(path) == "binding.yaml":
+                  continue
+              try:
+                  doc = yaml.safe_load(open(path)) or {}
+              except Exception as e:
+                  print(f"::error file={path}::unparseable: {e}"); sys.exit(1)
+              for entry in doc.get("falsification_tests") or []:
+                  cite = str(entry.get("test") or "")
+                  # Only single `path::function` citations are resolvable; shell
+                  # snippets and compound citations are out of scope here.
+                  m = re.fullmatch(r"([\w./-]+\.rs)::(\w+)", cite.strip())
+                  if not m:
+                      continue
+                  _, fn = m.groups()
+                  hit = subprocess.run(
+                      ["grep", "-rqE", rf"fn +{re.escape(fn)}\b", "src", "tests", "benches"],
+                      capture_output=True)
+                  if hit.returncode != 0:
+                      missing.append((path, entry.get("id"), cite))
+          for path, fid, cite in missing:
+              print(f"::error file={path}::{fid} cites `{cite}` — no such function anywhere in src/, tests/ or benches/")
+          if missing:
+              print(f"{len(missing)} phantom falsifier citation(s)")
+              sys.exit(1)
+          print("every resolvable falsifier citation resolves")
+          PYEOF
+
   proofs:
     name: proofs
     runs-on: ubuntu-latest
-    needs: [kani, lean]
+    needs: [kani, lean, contracts]
     if: always()
     steps:
       # `skipped` is a PASS here and nothing else is. On an unlabelled PR the
@@ -205,7 +290,7 @@ jobs:
         run: |
           set -eu
           rc=0
-          for job in kani:"${{ needs.kani.result }}" lean:"${{ needs.lean.result }}"; do
+          for job in kani:"${{ needs.kani.result }}" lean:"${{ needs.lean.result }}" contracts:"${{ needs.contracts.result }}"; do
             name=${job%%:*}
             result=${job#*:}
             case "$result" in

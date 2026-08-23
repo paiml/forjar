@@ -2,6 +2,7 @@
 
 use super::commands::*;
 use super::lock_audit::*;
+use super::lock_chain::*;
 use super::lock_core::*;
 use super::lock_lifecycle::*;
 use super::lock_merge::*;
@@ -114,9 +115,12 @@ fn dispatch_lock_cmd_c(cmd: Commands) -> Result<(), String> {
         Commands::LockBackup(LockBackupArgs { state_dir, json }) => {
             cmd_lock_backup(&state_dir, json)
         }
-        Commands::LockVerifyChain(LockVerifyChainArgs { state_dir, json }) => {
-            cmd_lock_verify_chain(&state_dir, json)
-        }
+        Commands::LockVerifyChain(LockVerifyChainArgs {
+            state_dir,
+            key,
+            presence_only,
+            json,
+        }) => cmd_lock_verify_chain(&state_dir, key.as_deref(), presence_only, json),
         Commands::LockStats(LockStatsArgs { state_dir, json }) => cmd_lock_stats(&state_dir, json),
         other => dispatch_lock_cmd_d(other),
     }

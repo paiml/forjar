@@ -286,6 +286,22 @@ invariants:
       success, it never reports at all — a spec-following client hangs and every
       scripted interaction returns 124 from `timeout`.
 
+  - id: INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT
+    statement: >-
+      A command whose whole purpose is to verify an artifact reads the
+      independent witness of that artifact, and an absent witness is a NO-GO
+      rather than a pass. `save_lock` seals every `state.lock.yaml` with a
+      BLAKE3 `.b3` sidecar, yet `lock-verify`, `lock-integrity`, `lock-validate`
+      and `lock-audit` never opened one: `lock-verify` tested only
+      `rl.hash.is_empty()` and the other three never called
+      `verify_state_integrity()` at all. Every hash they consulted lives INSIDE
+      the lock body, so a tamperer who rewrites the body rewrites the evidence
+      too — "✓ Lock integrity verified" for a rewritten body, for a deleted
+      sidecar, and for a deleted lock file whose orphaned sidecar proves it once
+      existed. This is INV-SUCCESS-IMPLIES-VERIFIED-EFFECT read backwards: not a
+      command claiming an effect it never caused, but a command claiming a
+      MEASUREMENT it never took.
+
 proof_obligations:
   - type: soundness
     property: "Reported success entails the claimed effect occurred"
@@ -1084,6 +1100,177 @@ falsification_tests:
       until something else on the box fails first.
     owner: forjar
 
+  - id: FALSIFY-VE-023
+    rule: INV-OBSERVED-FAILURE-REACHES-THE-EXIT-CODE
+    prediction: >-
+      `lock-verify-chain` exits non-zero on every broken link it prints, and
+      cannot certify a signature it never checked against the lock.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      mkdir -p state/local
+      printf 'schema: "1"\nmachine: local\nhostname: local\nresources: {}\n' > state/local/state.lock.yaml
+      $FORJAR lock-verify-chain --state-dir state --no-color; echo "unsigned_exit=$?"
+      printf 'bad"quote\n' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --json | python3 -m json.tool >/dev/null 2>&1
+      echo "json_parse=$?"
+      printf '0000000000000000000000000000000000000000000000000000000000000000' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --no-color; echo "zeros_exit=$?"
+      $FORJAR lock-verify-chain --state-dir /nonexistent-xyz --no-color; echo "absent_exit=$?"
+      printf '☃☃☃☃☃☃☃☃☃☃' > state/local/lock.sig
+      $FORJAR lock-verify-chain --state-dir state --no-color 2>&1 | grep -c panicked
+    expected_red: |
+      Lock chain verification:
+
+        ✗ local — signature file missing
+      unsigned_exit=0
+      json_parse=1
+      Lock chain verification:
+
+        ✓ local — signature present and well-formed
+      zeros_exit=0
+      Lock chain verification:
+      absent_exit=0
+      1
+    red_is_reachable: >-
+      Executed 2026-08-23 against the 1.16.0 debug binary — the transcript above
+      is verbatim. Every line is a distinct instance of one bug: the command
+      builds per-machine verdicts, prints the failures in red, and ends
+      `Ok(())` unconditionally, so no failure mode can reach the exit code. The
+      64-zero case is worse than a missed failure — it is a manufactured PASS,
+      because the check was well-formedness, which is not custody: without the
+      signing key nothing ties a signature to the lock it claims to sign. The
+      last line is a panic (`byte index 20 is not a char boundary`) from
+      truncating an untrusted signature file on a byte boundary. GREEN requires
+      unsigned_exit=1, json_parse=0, zeros_exit=1, absent_exit=1, panic count 0,
+      and a correctly signed lock still verifying with --key.
+    if_fails: >-
+      Chain of custody over the state locks is the evidence that nobody edited
+      what forjar believes about a machine. A verifier that cannot exit
+      non-zero makes every release gate that calls it inert — green precisely
+      when the evidence is missing, malformed, or forged.
+
+  - id: FALSIFY-VE-022
+    rule: INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT
+    prediction: >-
+      Every one of `lock-verify`, `lock-integrity`, `lock-validate` and
+      `lock-audit` exits 0 on a sealed lock, and non-zero once the lock body no
+      longer hashes to its `.b3` sidecar — or once the sidecar is gone and there
+      is nothing left to hash against.
+    test: |
+      D=$(mktemp -d); cd "$D"; mkdir -p st/web1
+      cat > st/web1/state.lock.yaml <<'EOF'
+      schema: "1"
+      machine: web1
+      hostname: web1.local
+      generated_at: "2026-01-01T00:00:00Z"
+      generator: forjar 1.16.0
+      blake3_version: "1.5"
+      resources:
+        nginx:
+          type: package
+          status: converged
+          hash: blake3:1111111111111111111111111111111111111111111111111111111111111111
+      EOF
+      $FORJAR reseal --file st/web1/state.lock.yaml >/dev/null 2>&1
+      for c in lock-verify lock-integrity lock-validate lock-audit; do
+        $FORJAR "$c" --state-dir st >/dev/null 2>&1; echo "sealed   $c=$?"
+      done
+      sed -i 's/blake3:1111/blake3:2222/' st/web1/state.lock.yaml
+      for c in lock-verify lock-integrity lock-validate lock-audit; do
+        $FORJAR "$c" --state-dir st >/dev/null 2>&1; echo "tampered $c=$?"
+      done
+      rm -f st/web1/state.lock.yaml.b3
+      $FORJAR lock-verify --state-dir st >/dev/null 2>&1; echo "no-sidecar lock-verify=$?"
+    expected_red: |
+      sealed   lock-verify=0
+      sealed   lock-integrity=0
+      sealed   lock-validate=0
+      sealed   lock-audit=0
+      tampered lock-verify=0
+      tampered lock-integrity=0
+      tampered lock-validate=0
+      tampered lock-audit=0
+      no-sidecar lock-verify=0
+    red_is_reachable: >-
+      Executed 2026-08-23 against a debug build of 1.16.0 at 6961b29d, before
+      the fix: all eight lines read 0, and so did the no-sidecar line. The
+      tamper is the smallest one available — a single hex digit in a hash the
+      lock reports about ITSELF — and it is invisible to all four commands
+      because all four read that self-reported field instead of the sidecar.
+      `lock-verify`'s only per-resource test was `rl.hash.is_empty()`;
+      `lock-integrity` compared the schema STRING; `lock-validate` re-parsed the
+      YAML; `lock-audit` checked the hash was 64 hex characters (2222… is), and
+      then discarded even that verdict by returning Ok unconditionally. GREEN
+      requires the four `tampered` lines and the `no-sidecar` line to be
+      non-zero while the four `sealed` lines stay 0.
+    if_fails: >-
+      State corruption and state tampering are both silent. The four commands
+      the runbook reaches for after a crash, a bad merge or a suspected
+      compromise all answer "verified", so the operator's next `apply` proceeds
+      from state nothing ever checked — and the orphaned-sidecar case means a
+      lock DELETED out from under forjar reads as a clean state directory with
+      nothing to verify.
+
+  - id: FALSIFY-VE-024
+    rule: INV-A-GATE-MUST-BE-ABLE-TO-BLOCK
+    prediction: >-
+      `dist --installer --verify` reports PASS only for an installer that runs.
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > d.yaml <<'EOF'
+      version: "1.0"
+      name: dist-probe
+      machines:
+        local: {hostname: local, addr: localhost, user: root}
+      resources: {}
+      dist:
+        source: github_release
+        repo: acme/tool
+        binary: tool
+        targets:
+          - {os: linux, arch: x86_64, asset: "tool-{version}-x86_64-unknown-linux-gnu.tar.gz", libc: gnu}
+        install_dir: /usr/local/bin
+        install_dir_fallback: "~/.local/bin"
+        checksums: SHA256SUMS
+        checksum_algo: sha256
+        description: "probe"
+        homepage: "https://example.com"
+        license: MIT
+        maintainer: "probe"
+        version_cmd: "tool --version"
+        latest_tag: true
+      EOF
+      $FORJAR dist -f d.yaml --installer -o install.sh
+      $FORJAR dist -f d.yaml --installer --verify; echo "verify_exit=$?"
+      sh ./install.sh --help >help.out 2>help.err; echo "help_exit=$?"
+      grep -q 'USAGE:' help.out && echo USAGE_PRINTED || echo USAGE_ABSENT
+      sh ./install.sh --nope 2>&1 | grep -q 'not found' && echo DIE_UNDEFINED
+    expected_red: |
+      verify: PASS — Tier 1 static checks on generated installer
+      verify_exit=0
+      ./install.sh: 25: usage: not found
+      help_exit=127
+      USAGE_ABSENT
+      DIE_UNDEFINED
+    red_is_reachable: >-
+      Executed 2026-08-23 against 1.16.0 — output above is the transcript. The
+      generator emitted the argument parser above the block defining
+      `usage`/`die`, so the first thing any user ran exited 127 and every error
+      path printed `die: not found` instead of its message. Generator output,
+      the committed install.sh, and the file served from
+      raw.githubusercontent.com were byte-identical (sha256 10612b82…), so this
+      shipped. `sh -n` cannot catch it by construction — a forward call is
+      valid POSIX syntax that fails only at runtime — and all six pins in
+      tests/install_sh_parity.rs were text or byte comparisons, so nothing
+      anywhere executed the artifact. GREEN requires help_exit=0 and
+      USAGE_PRINTED, with no DIE_UNDEFINED line.
+    if_fails: >-
+      The gate that guards the only install path cannot block a broken
+      installer. Every user's first command is `--help` or a mistyped flag, and
+      both hit an undefined function; the release gate says PASS because it
+      grades text it wrote itself rather than behaviour it observed.
+    owner: forjar
+
 enforcement:
   black_box_oracle:
     layer: cli
@@ -1177,10 +1364,12 @@ qa_gate:
     - "INV-REMOTE-ACK-IS-PART-OF-THE-EFFECT"
     - "INV-RETENTION-IS-ORDERED-BEFORE-IT-IS-CUT"
     - "INV-SERVER-HONOURS-ITS-TRANSPORT-TERMINATION"
+    - "INV-A-VERIFIER-MUST-CONSULT-ITS-INSTRUMENT"
   pass_criteria: >-
-    All 21 falsification tests GREEN against the release binary, covering all
-    24 confirmed members of family B (issue #210). Every test is RED today
-    against forjar 1.12.3 from crates.io — that asymmetry is the gate's teeth.
+    All 22 falsification tests GREEN against the release binary, covering all
+    24 confirmed members of family B (issue #210) plus the four lock-integrity
+    commands (FALSIFY-VE-022). Every test is RED today against forjar 1.12.3
+    from crates.io — that asymmetry is the gate's teeth.
   falsification: >-
     Restore any single early-returning render-and-return branch — e.g. make
     `doctor --network` print its results and return Ok(()) again — and

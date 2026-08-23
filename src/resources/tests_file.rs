@@ -1,4 +1,5 @@
 use super::file::*;
+use crate::core::shell_escape::decode_written_file;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 use base64::Engine;
 
@@ -119,9 +120,12 @@ fn test_fj007_check_file() {
 fn test_fj007_apply_file_with_content() {
     let r = make_file_resource("/etc/exports", Some("/data 192.168.1.0/24(ro)"));
     let script = apply_script(&r);
-    assert!(script.contains("cat > '/etc/exports'"));
-    assert!(script.contains("FORJAR_EOF"));
-    assert!(script.contains("/data 192.168.1.0/24(ro)"));
+    // C8 (GH #296): the content is deployed delimiter-free and byte-exact. Assert on
+    // the payload the script actually writes, not on the script text.
+    assert_eq!(
+        decode_written_file(&script, "/etc/exports"),
+        Some(b"/data 192.168.1.0/24(ro)".to_vec())
+    );
     assert!(script.contains("chown 'root:root'"));
     assert!(script.contains("chmod '0644'"));
 }
@@ -157,13 +161,21 @@ fn test_fj007_apply_symlink() {
 }
 
 #[test]
-fn test_fj007_heredoc_safe() {
-    // Content with quotes and special chars should be safe inside heredoc
-    let r = make_file_resource("/etc/test", Some("key=\"value\"\n$HOME/path"));
+fn test_fj007_content_transport_is_safe() {
+    // Content with quotes and special chars must reach the target as data.
+    // C8 (GH #296): this used to assert the heredoc delimiter was present, which said
+    // nothing about whether the content could close it. The delimiter is gone —
+    // content is base64 and cannot reach the shell parser at all.
+    let content = "key=\"value\"\n$HOME/path";
+    let r = make_file_resource("/etc/test", Some(content));
     let script = apply_script(&r);
-    assert!(script.contains("FORJAR_EOF"));
-    // Single-quoted heredoc delimiter prevents variable expansion
-    assert!(script.contains("<<'FORJAR_EOF'"));
+    assert!(!script.contains("FORJAR_EOF"));
+    // No expansion is possible: the raw metacharacters are not in the script.
+    assert!(!script.contains("$HOME"));
+    assert_eq!(
+        decode_written_file(&script, "/etc/test"),
+        Some(content.as_bytes().to_vec())
+    );
 }
 
 #[test]
@@ -255,7 +267,7 @@ fn test_fj007_apply_file_at_root_no_mkdir() {
     let mut r = make_file_resource("/init", Some("boot script"));
     r.owner = None;
     let script = apply_script(&r);
-    assert!(script.contains("cat > '/init'"));
+    assert!(script.contains("| base64 -d > '/init'"));
     assert!(!script.contains("mkdir -p '/'"));
 }
 
@@ -297,9 +309,13 @@ fn test_fj035_source_takes_precedence_over_content() {
     r.source = Some(source_path.to_str().unwrap().to_string());
     let script = apply_script(&r);
 
-    // Source path is checked first, so base64 should be used
-    assert!(script.contains("base64 -d"));
-    assert!(!script.contains("FORJAR_EOF"));
+    // C8 (GH #296): both branches now share one transport, so "no FORJAR_EOF" is no
+    // longer a discriminator. Decode what the script deploys and check WHICH of
+    // the two candidate payloads it is.
+    assert_eq!(
+        decode_written_file(&script, "/etc/test"),
+        Some(b"from source".to_vec())
+    );
 }
 
 #[test]
@@ -324,9 +340,9 @@ fn test_fj007_apply_file_creates_parent_dir() {
     let script = apply_script(&r);
     assert!(script.contains("mkdir -p '/etc/app/nested'"));
     let mkdir_idx = script.find("mkdir -p").unwrap();
-    let cat_idx = script.find("cat >").unwrap();
+    let write_idx = script.find("| base64 -d >").unwrap();
     assert!(
-        mkdir_idx < cat_idx,
-        "mkdir must precede cat in apply script"
+        mkdir_idx < write_idx,
+        "mkdir must precede the content write in apply script"
     );
 }

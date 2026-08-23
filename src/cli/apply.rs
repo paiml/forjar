@@ -111,7 +111,7 @@ pub(crate) fn cmd_apply_scoped(
         force_tag,
     };
 
-    maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
+    super::apply_snapshot::maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
 
     // FJ-1388: Record pre-apply generation for rollback-on-failure
     let pre_apply_gen = pre_apply_generation(state_dir);
@@ -326,82 +326,6 @@ fn export_otlp_traces(
     }
 }
 
-/// FJ-1270: Check state file integrity via BLAKE3 sidecars.
-fn check_state_integrity(state_dir: &Path, verbose: bool, yes: bool) -> Result<(), String> {
-    if !state_dir.exists() {
-        return Ok(());
-    }
-    let issues = state::integrity::verify_state_integrity(state_dir);
-    state::integrity::print_issues(&issues, verbose);
-    if state::integrity::has_errors(&issues) && !yes {
-        return Err(
-            "state integrity check failed — use --yes to override or fix corrupted files"
-                .to_string(),
-        );
-    }
-    Ok(())
-}
-
-/// FJ-1381: Auto-snapshot before apply if snapshot_generations is set.
-fn maybe_auto_snapshot(
-    config: &types::ForjarConfig,
-    state_dir: &Path,
-    config_path: Option<&Path>,
-    dry_run: bool,
-    verbose: bool,
-) {
-    let Some(gens) = config.policy.snapshot_generations else {
-        return;
-    };
-    if gens == 0 || dry_run || !state_dir.exists() {
-        return;
-    }
-    let snap_name = format!("pre-apply-{}", crate::tripwire::eventlog::now_iso8601());
-    if let Err(e) = super::snapshot::cmd_snapshot_save(&snap_name, state_dir) {
-        eprintln!("warning: pre-apply snapshot failed: {e}");
-    } else if verbose {
-        eprintln!("snapshot: saved {snap_name}");
-    }
-    gc_old_snapshots(state_dir, gens, verbose);
-
-    // FJ-1386: Also create a numbered generation for instant rollback
-    match super::generation::create_generation(state_dir, config_path) {
-        Ok(gen) => {
-            if verbose {
-                eprintln!("generation: created gen {gen}");
-            }
-            super::generation::gc_generations(state_dir, gens, verbose);
-        }
-        Err(e) => eprintln!("warning: generation creation failed: {e}"),
-    }
-}
-
-/// FJ-1381: Garbage-collect old snapshots, keeping only the newest `keep` snapshots.
-fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
-    let snap_dir = super::snapshot::snapshots_dir(state_dir);
-    if !snap_dir.exists() {
-        return;
-    }
-    let mut entries: Vec<_> = match std::fs::read_dir(&snap_dir) {
-        Ok(e) => e.flatten().filter(|e| e.path().is_dir()).collect(),
-        Err(_) => return,
-    };
-    let to_remove = super::apply_gates::snapshots_to_remove(entries.len(), keep);
-    if to_remove == 0 {
-        return;
-    }
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries.iter().take(to_remove) {
-        if verbose {
-            eprintln!(
-                "snapshot gc: removing {}",
-                entry.file_name().to_string_lossy()
-            );
-        }
-        let _ = std::fs::remove_dir_all(entry.path());
-    }
-}
-
 /// FJ-1380: Check convergence budget — warn/fail if apply exceeded time budget.
 fn check_convergence_budget(
     config: &types::ForjarConfig,
@@ -476,7 +400,7 @@ fn apply_pre_validate(
     yes: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    check_state_integrity(state_dir, verbose, yes)?;
+    super::apply_gates::check_state_integrity(state_dir, verbose)?;
     check_pre_apply_drift(config, state_dir, machine_filter, force, verbose)?;
 
     // FJ-335: Confirm destructive actions

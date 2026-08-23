@@ -145,6 +145,12 @@ fn build_version_verify_snippet(dist: &DistConfig) -> String {
 
 /// The `--version/--prefix/--force/--yes/--help` parser and the `..` guard on
 /// `--prefix`. Emitted verbatim; no config value reaches it.
+///
+/// Calls `usage` and `die`, so it MUST be emitted after
+/// [`installer_output_helpers`] — `sh` resolves a function only once its
+/// definition has been executed, and a forward call is valid syntax that
+/// `sh -n` cannot catch (it dies at runtime with 127 `usage: not found`).
+/// `dist --verify` executes `--help` to hold that ordering.
 fn installer_arg_parsing() -> &'static str {
     r#"# ── Argument parsing ──
 
@@ -386,6 +392,11 @@ main() {{
 }
 
 /// Generate a POSIX-compliant shell installer script.
+///
+/// Emission order is load-bearing: every snippet that a later snippet
+/// *calls* must come first. Concretely, `output_helpers` (which defines
+/// `info`/`warn`/`die`/`usage`) precedes `arg_parsing` (which calls
+/// `usage` and `die` at top level, before `main` ever runs).
 pub fn generate_installer(dist: &DistConfig) -> String {
     let binary = &dist.binary;
     let repo = &dist.repo;
@@ -433,9 +444,9 @@ FORCE=0
 YES=0
 PREFIX=""
 
-{arg_parsing}
-
 {output_helpers}
+
+{arg_parsing}
 
 {platform_detection}
 

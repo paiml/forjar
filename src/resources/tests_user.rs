@@ -1,4 +1,5 @@
 use super::user::*;
+use crate::core::shell_escape::decode_written_file;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 fn make_user_resource(name: &str) -> Resource {
@@ -181,7 +182,13 @@ fn test_fj031_apply_with_ssh_keys() {
     assert!(script.contains("mkdir -p '/home/deploy'/.ssh"));
     assert!(script.contains("chmod 700"));
     assert!(script.contains("authorized_keys"));
-    assert!(script.contains("ssh-ed25519 AAAA"));
+    // C8 (GH #296): assert on the CONTENT deployed, not on the script text.
+    // `script.contains(<key>)` was true even when the heredoc had already
+    // escaped and truncated authorized_keys — which is why the defect shipped.
+    assert_eq!(
+        decode_written_file(&script, "/tmp/forjar-authkeys").unwrap(),
+        b"ssh-ed25519 AAAA... deploy@host"
+    );
 }
 
 #[test]
@@ -285,8 +292,13 @@ fn test_fj031_multiple_ssh_keys() {
         "ssh-rsa KEY2 deploy@desktop".to_string(),
     ];
     let script = apply_script(&r);
-    assert!(script.contains("ssh-ed25519 KEY1"));
-    assert!(script.contains("ssh-rsa KEY2"));
+    // C8 (GH #296): assert on the CONTENT deployed, not on the script text.
+    // `script.contains(<key>)` was true even when the heredoc had already
+    // escaped and truncated authorized_keys — which is why the defect shipped.
+    assert_eq!(
+        decode_written_file(&script, "/tmp/forjar-authkeys").unwrap(),
+        b"ssh-ed25519 KEY1 deploy@laptop\nssh-rsa KEY2 deploy@desktop"
+    );
 }
 
 #[test]
@@ -374,13 +386,18 @@ fn test_fj036_user_apply_with_ssh_keys() {
         "must set .ssh dir to 700"
     );
     // Must deploy both keys
+    // C8 (GH #296): assert on the CONTENT deployed, not on the script text.
+    // `script.contains(<key>)` was true even when the heredoc had already
+    // escaped and truncated authorized_keys — which is why the defect shipped.
+    let deployed = decode_written_file(&script, "/tmp/forjar-authkeys").unwrap();
+    let deployed = String::from_utf8(deployed).unwrap();
     assert!(
-        script.contains("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA operator@workstation"),
-        "must include ed25519 key"
+        deployed.contains("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA operator@workstation"),
+        "must deploy ed25519 key; deployed: {deployed}"
     );
     assert!(
-        script.contains("ssh-rsa AAAAB3NzaC1yc2EAAAA operator@laptop"),
-        "must include rsa key"
+        deployed.contains("ssh-rsa AAAAB3NzaC1yc2EAAAA operator@laptop"),
+        "must deploy rsa key; deployed: {deployed}"
     );
     // Must set correct permissions on authorized_keys
     assert!(
@@ -435,63 +452,12 @@ fn test_fj153_user_all_fields_present() {
     assert!(script.contains("groupadd 'docker'"));
     assert!(script.contains("groupadd 'wheel'"));
     assert!(script.contains("mkdir -p '/srv/fulluser'/.ssh"));
-    assert!(script.contains("ssh-ed25519 KEY1"));
-    assert!(script.contains("ssh-rsa KEY2"));
+    // C8 (GH #296): assert on the CONTENT deployed, not on the script text.
+    // `script.contains(<key>)` was true even when the heredoc had already
+    // escaped and truncated authorized_keys — which is why the defect shipped.
+    assert_eq!(
+        decode_written_file(&script, "/tmp/forjar-authkeys").unwrap(),
+        b"ssh-ed25519 KEY1 user@host1\nssh-rsa KEY2 user@host2"
+    );
     assert!(script.contains("chown -R 'fulluser':'staff'"));
-}
-
-#[test]
-fn test_fj153_user_system_no_home_no_create() {
-    let mut r = make_user_resource("daemon-svc");
-    r.system_user = true;
-    r.home = None;
-    let script = apply_script(&r);
-    assert!(script.contains("--system"));
-    assert!(!script.contains("--create-home"));
-    assert!(!script.contains("--home-dir"));
-}
-
-#[test]
-fn test_fj153_user_absent_with_all_fields() {
-    let mut r = make_user_resource("old");
-    r.state = Some("absent".to_string());
-    r.uid = Some(5000);
-    r.shell = Some("/bin/bash".to_string());
-    r.groups = vec!["docker".to_string()];
-    r.ssh_authorized_keys = vec!["ssh-ed25519 KEY".to_string()];
-    let script = apply_script(&r);
-    assert!(script.contains("userdel"));
-    assert!(!script.contains("useradd"));
-    assert!(!script.contains("usermod"));
-    assert!(!script.contains("groupadd"));
-    assert!(!script.contains(".ssh"));
-}
-
-#[test]
-fn test_fj036_user_check_absent() {
-    // state=absent must generate userdel, not useradd/usermod
-    let mut r = make_user_resource("staleuser");
-    r.state = Some("absent".to_string());
-    let script = apply_script(&r);
-    assert!(
-        script.contains("userdel"),
-        "absent state must generate userdel"
-    );
-    assert!(
-        script.contains("'staleuser'"),
-        "userdel must reference the username"
-    );
-    assert!(
-        !script.contains("useradd"),
-        "absent state must not create user"
-    );
-    assert!(
-        !script.contains("usermod"),
-        "absent state must not modify user"
-    );
-    // Should check if user exists before deleting
-    assert!(
-        script.contains("if id 'staleuser'"),
-        "absent must check existence before deleting"
-    );
 }

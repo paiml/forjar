@@ -1,6 +1,7 @@
 #![allow(unused)]
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 4).
 use super::lock_core::*;
+use super::lock_chain::*;
 use super::lock_security::*;
 use std::io::Write;
 
@@ -22,6 +23,12 @@ mod tests {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(&p, content).unwrap();
+        // CB-2010: `save_lock` writes a lock and its BLAKE3 `.b3` sidecar together,
+        // so seal lock fixtures the same way — an unsealed lock is a state dir
+        // forjar could not have produced, and the integrity commands now refuse it.
+        if name.ends_with("state.lock.yaml") {
+            crate::core::state::integrity::write_b3_sidecar(&p).unwrap();
+        }
         p
     }
 
@@ -364,37 +371,44 @@ mod tests {
     // 41. lock_security: cmd_lock_verify_chain
     // ========================================================================
 
+    /// An empty state dir holds no chain to verify, so it cannot be verified.
     #[test]
     fn test_cov_lock_verify_chain_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let result = cmd_lock_verify_chain(dir.path(), false);
-        assert!(result.is_ok());
+        let result = cmd_lock_verify_chain(dir.path(), None, true, false);
+        assert!(result.is_err());
     }
 
+    /// `make_state_dir` never signs, so the chain is broken. This asserted
+    /// `is_ok` while the command printed a red ✗ — it exited 0 regardless.
     #[test]
     fn test_cov_lock_verify_chain_data_plain() {
         let dir = make_state_dir();
-        let result = cmd_lock_verify_chain(dir.path(), false);
-        assert!(result.is_ok());
+        let result = cmd_lock_verify_chain(dir.path(), None, true, false);
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_cov_lock_verify_chain_data_json() {
         let dir = make_state_dir();
-        let result = cmd_lock_verify_chain(dir.path(), true);
-        assert!(result.is_ok());
+        let result = cmd_lock_verify_chain(dir.path(), None, true, true);
+        assert!(result.is_err());
     }
 
     // ── with signature file ──
 
+    /// Was writing `state.lock.yaml.sig`, a path verify-chain has never read —
+    /// so this "with signature" test ran with no signature at all and passed.
+    /// The signature lives at `<machine>/lock.sig`, which is what `lock-sign`
+    /// writes.
     #[test]
     fn test_cov_lock_verify_chain_with_sig() {
         let dir = make_state_dir();
-        // Create a signature file for the lock
-        let lock_content = std::fs::read_to_string(dir.path().join("web").join("state.lock.yaml")).unwrap();
-        let hash = crate::tripwire::hasher::hash_string(&lock_content);
-        write_yaml(dir.path(), "web/state.lock.yaml.sig", &hash);
-        let result = cmd_lock_verify_chain(dir.path(), false);
+        let lock_content =
+            std::fs::read_to_string(dir.path().join("web").join("state.lock.yaml")).unwrap();
+        let hash = crate::tripwire::hasher::hash_string(&format!("{lock_content}k"));
+        write_yaml(dir.path(), "web/lock.sig", &hash);
+        let result = cmd_lock_verify_chain(dir.path(), Some("k"), false, false);
         assert!(result.is_ok());
     }
 

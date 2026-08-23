@@ -120,19 +120,7 @@ mod tests {
         let _ = cmd_lock_backup(dir.path(), true);
     }
 
-    // ── lock_security: cmd_lock_verify_chain ──
-
-    #[test]
-    fn test_lock_verify_chain_plain() {
-        let dir = make_dir();
-        let _ = cmd_lock_verify_chain(dir.path(), false);
-    }
-
-    #[test]
-    fn test_lock_verify_chain_json() {
-        let dir = make_dir();
-        let _ = cmd_lock_verify_chain(dir.path(), true);
-    }
+    // cmd_lock_verify_chain moved to tests_lock_chain.rs with its module.
 
     // ── lock_security: cmd_lock_stats ──
 

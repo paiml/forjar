@@ -252,6 +252,53 @@ fn a_destination_that_does_not_match_is_never_deleted_from() {
 }
 
 #[test]
+fn an_unwritable_destination_stops_before_touching_anything() {
+    // FALSIFY-ARCH-007. The contract cited this test for four minor versions
+    // and it did not exist — the citation read as enforcement while nothing
+    // enforced it (GH #298).
+    //
+    // The failure it guards is specific and real: a CIFS mount whose server has
+    // gone still presents a source directory, so a pass can enumerate work,
+    // find every destination operation failing, and proceed toward a delete.
+    // The rule is that an unwritable destination stops BEFORE anything is
+    // touched — so what this asserts is not just a non-zero exit but that the
+    // source is intact afterwards. An exit code alone would pass even if the
+    // source had already been moved.
+    if !rsync_or_skip("an_unwritable_destination_stops_before_touching_anything") {
+        return;
+    }
+    let s = Scratch::new("unwritable");
+    let (src, dest) = (s.join("src"), s.join("dest"));
+    write(&src.join("corpus/a.bin"), &"a".repeat(100_000));
+    // dest is never created: the destination does not exist at all, which is
+    // what a vanished mount looks like from the mover's side.
+
+    let a = archive_of(&resource(
+        src.to_str().unwrap(),
+        dest.to_str().unwrap(),
+        &["corpus"],
+    ))
+    .unwrap();
+    let (code, out) = run(&archive_script(&a), true);
+
+    assert_ne!(
+        code, 0,
+        "a missing destination did not fail — the pass would proceed toward a delete:\n{out}"
+    );
+    assert!(
+        src.join("corpus/a.bin").exists(),
+        "THE SOURCE WAS TOUCHED despite an unusable destination:\n{out}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(src.join("corpus/a.bin"))
+            .unwrap()
+            .len(),
+        100_000,
+        "the source was modified in place:\n{out}"
+    );
+}
+
+#[test]
 fn a_tree_whose_small_files_exceed_the_budget_is_refused() {
     if !rsync_or_skip("a_tree_whose_small_files_exceed_the_budget_is_refused") {
         return;

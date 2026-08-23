@@ -624,6 +624,19 @@ forjar undo -f <FILE> [--generations N] [-m MACHINE] [--dry-run] [--yes]
 
 Unlike `rollback` (which reads from git history), `undo` operates on generation snapshots stored in `state/generations/`. It shows the resource diff between the current and target generation, then restores lock files and re-applies with force.
 
+> **`undo` needs `policy.snapshot_generations`.** Generations are recorded by
+> `apply` only when the config sets that key — it is both the on-switch and the
+> retention count. Without it no apply ever writes one, so `undo` can only
+> refuse, however many times you apply:
+>
+> ```yaml
+> policy:
+>   snapshot_generations: 10   # keep the last 10; required for `forjar undo`
+> ```
+>
+> The first apply after enabling records generation 0 (a snapshot of the state
+> *before* that apply), so `undo` becomes usable from the second apply onward.
+
 ```bash
 # Preview what undo would change
 forjar undo --dry-run
@@ -1741,13 +1754,21 @@ Re-computes BLAKE3(content + key) and compares against stored signatures. Report
 
 ### `forjar lock-verify-chain`
 
-Verify lock signature chain integrity without needing the signing key.
+Verify the chain of custody of every machine's lock signature.
 
 ```bash
-forjar lock-verify-chain --state-dir <DIR> [--json]
+forjar lock-verify-chain --state-dir <DIR> --key <KEY> [--json]
+forjar lock-verify-chain --state-dir <DIR> --presence-only [--json]
 ```
 
-Checks that signature files exist and contain well-formed 64-character hex hashes. Does not verify content — use `lock-verify-sig` for full verification.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | State directory |
+| `--key` | none | Signing key `lock-sign` used; verifies each signature against its lock |
+| `--presence-only` | false | Only check that a well-formed signature exists; does NOT verify custody |
+| `--json` | false | JSON output |
+
+Exits non-zero when any link is broken: a signature that is missing, malformed, or does not cover its lock; a signature whose lock has been deleted; a state directory that is empty or does not exist. A bare invocation (neither `--key` nor `--presence-only`) is refused rather than answered — without the key there is nothing to verify against, and a check that cannot fail is not a check.
 
 ### `forjar lock-rotate-keys`
 

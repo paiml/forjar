@@ -166,6 +166,30 @@ fn print_undo_header(target_gen_dir: &Path, current: u32, target: u32) {
     }
 }
 
+/// Explain why there is nothing to undo, naming the remedy that works for
+/// THIS config.
+///
+/// `policy.snapshot_generations` is what makes `apply` record a generation
+/// (`apply.rs::maybe_auto_snapshot` returns early without it). Unset, no
+/// number of applies will ever produce one — so the old blanket advice to
+/// "run `forjar apply` first" was, on a default config, the one instruction
+/// that provably could not succeed.
+fn nothing_recorded_error(config: &types::ForjarConfig, file: &Path, gen_dir: &Path) -> String {
+    let dir = gen_dir.display();
+    if config.policy.snapshot_generations.is_some_and(|n| n > 0) {
+        // Generations are enabled, so applying really is the remedy.
+        return format!("no generations found in {dir} — run `forjar apply` first");
+    }
+    let cfg = file.display();
+    format!(
+        "no generations found in {dir} — undo needs generation snapshots and {cfg} \
+         does not enable them: without `policy.snapshot_generations`, `forjar apply` \
+         records no generation, so re-applying can never make undo work. \
+         Add `policy.snapshot_generations: 10` to {cfg}, then apply; \
+         undo becomes available once a second generation is recorded"
+    )
+}
+
 /// FJ-2003: Active undo — revert to a previous generation by re-applying its config.
 pub(crate) fn cmd_undo(
     file: &Path,
@@ -175,18 +199,22 @@ pub(crate) fn cmd_undo(
     dry_run: bool,
     yes: bool,
 ) -> Result<(), String> {
+    // Parsed first: the refusal below has to know whether THIS config enables
+    // generations at all before it can name a remedy that works.
+    let current_config = parse_and_validate(file)?;
+
     let gen_dir = state_dir.join("generations");
     let current = super::generation::current_generation(&gen_dir)
-        .ok_or("no generations found — run `forjar apply` first")?;
+        .ok_or_else(|| nothing_recorded_error(&current_config, file, &gen_dir))?;
 
     if current < generations {
         return Err(format!(
-            "cannot undo {generations} generation(s): only {current} exist"
+            "cannot undo {generations} generation(s): generation {current} is current, \
+             so only {current} earlier generation(s) exist"
         ));
     }
     let target = current - generations;
 
-    let current_config = parse_and_validate(file)?;
     let target_gen_dir = gen_dir.join(target.to_string());
     if !target_gen_dir.exists() {
         return Err(format!("generation {target} does not exist"));

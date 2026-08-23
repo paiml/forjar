@@ -1,8 +1,14 @@
-//! PMAT-082 / FJ-3607: `forjar dist --verify` — Tier 1 static verification.
+//! PMAT-082 / FJ-3607: `forjar dist --verify` — Tier 1 verification.
 //!
-//! Generates the requested artifacts into a temp dir, then statically
-//! verifies the installer without containers:
+//! Generates the requested artifacts into a temp dir, then verifies the
+//! installer without containers:
 //! - `sh -n` parses the generated script (spawned, POSIX syntax)
+//! - the script actually RUNS (`dist_verify_exec`): `sh install.sh
+//!   --help` exits 0 and prints usage, and an unknown flag reaches
+//!   `die()`. Static checks cannot see a forward call — using a function
+//!   above its definition is valid POSIX syntax that fails only at
+//!   runtime — so that check executes the script inside a PATH sandbox
+//!   where curl/wget/sudo/tar/install/cp refuse to run.
 //! - bashrs lint reports zero errors (in-process library API via
 //!   `crate::core::purifier` — no binary spawn needed)
 //! - checksum-verification and platform-detection snippets are present
@@ -40,7 +46,8 @@ pub fn validate_dist_source(dist: &DistConfig) -> Result<(), String> {
     }
 }
 
-/// FJ-3607 Tier 1: generate artifacts to a temp dir and statically verify.
+/// FJ-3607 Tier 1: generate artifacts to a temp dir, then verify them
+/// statically and by executing the installer's `--help` in a sandbox.
 pub(crate) fn run_verify(
     dist: &DistConfig,
     args: &super::commands::DistArgs,
@@ -71,8 +78,12 @@ fn verify_in_dir(
     write_extra_artifacts(dist, args, dir)?;
 
     let mut failures: Vec<String> = Vec::new();
-    let checks: [(&str, Result<(), String>); 4] = [
+    let checks: [(&str, Result<(), String>); 5] = [
         ("sh -n (POSIX syntax)", check_sh_syntax(&script_path)),
+        (
+            "--help executes",
+            super::dist_verify_exec::check_help_runs(&script_path, dir),
+        ),
         ("bashrs lint (0 errors)", check_bashrs_lint(&script)),
         ("required snippets", check_required_snippets(&script)),
         ("asset URL structure", check_asset_urls(dist)),
@@ -85,7 +96,9 @@ fn verify_in_dir(
     }
 
     if failures.is_empty() {
-        println!("verify: PASS — Tier 1 static checks on generated installer");
+        println!(
+            "verify: PASS — Tier 1 checks on generated installer (static + sandboxed --help run)"
+        );
         Ok(())
     } else {
         Err(format!("verify: FAIL\n{}", failures.join("\n")))
@@ -336,6 +349,24 @@ mod tests {
         let result = check_sh_syntax(&path);
         let _ = std::fs::remove_dir_all(&dir);
         assert!(result.unwrap_err().contains("sh -n rejected"));
+    }
+
+    // ── FJ-3607: --help must EXECUTE (not just parse) ──
+
+    /// The generated installer must actually run.
+    #[test]
+    fn help_run_passes_on_generated_installer() {
+        let dir = std::env::temp_dir().join(format!("fj-verify-help-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("install.sh");
+        std::fs::write(
+            &path,
+            crate::cli::dist_generators::generate_installer(&sample_dist()),
+        )
+        .unwrap();
+        let result = super::super::dist_verify_exec::check_help_runs(&path, &dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(result.is_ok(), "{result:?}");
     }
 
     // ── bashrs lint (in-process library API) ──

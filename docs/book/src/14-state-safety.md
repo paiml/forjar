@@ -109,7 +109,7 @@ Forjar specifically defends against failure modes seen in other IaC tools:
 Unlike CloudFormation's `UPDATE_ROLLBACK_FAILED` state, forjar's lock files never enter an unrecoverable state. The `--force-unlock` flag exists as an escape hatch, but the event journal ensures no state is lost.
 
 ### Terraform State Corruption
-Forjar's BLAKE3 integrity verification detects state file corruption before apply. The `.b3` sidecar files provide tamper-evident checksums that would fail if state were modified outside of forjar.
+Forjar's BLAKE3 integrity verification detects state file corruption before apply. The `.b3` sidecar files provide tamper-evident checksums that fail if state was modified outside of forjar — on an unattended `--yes` apply exactly as on an interactive one. No apply flag lifts the check; recovery is `forjar reseal`, a deliberate act of its own. See [State Integrity Verification](08-state-management.md#state-integrity-verification).
 
 ### Ansible Partial Apply
 Forjar's saga pattern ensures multi-stack operations are either fully completed or cleanly rolled back. Pre-apply snapshots guarantee a known-good state to return to.
@@ -148,14 +148,19 @@ forjar lock-sign --state-dir state --key my-secret-key
 # Verify signatures match
 forjar lock-verify-sig --state-dir state --key my-secret-key
 
-# Verify signature chain integrity (well-formed signatures exist)
-forjar lock-verify-chain --state-dir state
+# Verify the chain of custody: every signature actually covers its lock
+forjar lock-verify-chain --state-dir state --key my-secret-key
+
+# Weaker: check only that every lock CARRIES a well-formed signature
+forjar lock-verify-chain --state-dir state --presence-only
 
 # Rotate signing keys (verifies old key before applying new)
 forjar lock-rotate-keys --state-dir state --old-key old-secret --new-key new-secret
 ```
 
-Lock signing uses BLAKE3 HMAC (hash of file content + key). `lock-verify-sig` re-computes the hash and compares it against the stored signature. `lock-verify-chain` checks that signatures are well-formed 64-char hex strings without needing the key. `lock-rotate-keys` verifies the old key matches existing signatures before rotating, preventing accidental key loss.
+Lock signing uses BLAKE3 HMAC (hash of file content + key). `lock-verify-sig` re-computes the hash and compares it against the stored signature. `lock-rotate-keys` verifies the old key matches existing signatures before rotating, preventing accidental key loss.
+
+`lock-verify-chain` walks every machine and reports a per-machine verdict. It **exits non-zero** when any link is broken — a missing signature, a malformed one, a signature that does not cover its lock, a signature left behind by a deleted lock, a state directory that is empty or absent. It takes `--key` because a signature is `BLAKE3(content + key)`: without the key nothing ties a signature to the lock it claims to sign, and a file of 64 zeros is well-formed hex. `--presence-only` keeps the old key-free check — every lock carries a well-formed signature — but it does **not** verify custody, says so in its output, and is an explicit choice rather than the default.
 
 ## Lock File Compaction
 

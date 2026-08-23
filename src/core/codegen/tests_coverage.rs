@@ -75,9 +75,12 @@ fn test_codegen_file_with_owner_and_mode() {
         script.contains("chmod '0644'"),
         "file script should set mode to 0644: {script}"
     );
-    assert!(
-        script.contains("hello"),
-        "file script should contain content 'hello': {script}"
+    // C8 (GH #296): content rides a delimiter-free base64 transport, so assert on the
+    // payload the script deploys rather than on the script text.
+    assert_eq!(
+        crate::core::shell_escape::decode_written_file(&script, "/etc/test.conf"),
+        Some(b"hello".to_vec()),
+        "file script should deploy content 'hello': {script}"
     );
 }
 

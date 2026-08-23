@@ -285,9 +285,9 @@ falsification_tests:
     if_fails: "Running the script by hand to inspect it deletes data"
 
   - id: FALSIFY-ARCH-009
-    rule: "a directory over the file ceiling is skipped, not moved"
-    prediction: "12 files against archive_max_files=5 is skipped and the source survives"
-    test: "src/resources/nas_archive/tests.rs::a_directory_over_the_file_ceiling_is_refused"
+    rule: "a directory whose SMALL-FILE BYTES exceed the budget is skipped, not moved"
+    prediction: "1.25 MiB of small-file bytes against a lower archive_max_small_bytes is skipped and the source survives"
+    test: "src/resources/nas_archive/tests.rs::a_tree_whose_small_files_exceed_the_budget_is_refused"
     if_fails: "An unbounded small-file move holds a pending delete open for hours over CIFS"
 
   - id: FALSIFY-ARCH-010

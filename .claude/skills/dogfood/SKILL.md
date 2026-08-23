@@ -123,7 +123,11 @@ YAML
 - **C4 Cycle detection**: a config with `a→b→a` `depends_on` cycle → `validate`
   exits non-zero with a clear cycle error (`OUT=$(...); EC=$?`).
 - **C5 Content-addressed state**: after apply, the state dir has BLAKE3-addressed
-  entries / `.b3` sidecars; `forjar lock-verify`/`lock-verify-chain` PASS.
+  entries / `.b3` sidecars; `forjar lock-verify` PASSES. For the chain: `lock-sign
+  --key k` then `lock-verify-chain --key k` PASSES, and editing a byte of the lock
+  afterwards makes the same command FAIL. An unsigned state dir has no chain, so
+  `lock-verify-chain` there is expected to be non-zero — that is the check
+  working, not a bug.
 - **C6 Atomic state persistence**: state writes are temp+rename (no partial file
   after an interrupted run); `lock-verify` is clean.
 - **C7 Recipe input validation**: a recipe with a missing/typed-wrong `{{inputs.*}}`

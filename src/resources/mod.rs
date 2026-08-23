@@ -46,6 +46,8 @@ mod tests_file;
 #[cfg(test)]
 mod tests_file_b;
 #[cfg(test)]
+mod tests_file_content_escape;
+#[cfg(test)]
 mod tests_gpu;
 #[cfg(test)]
 mod tests_mount;
@@ -61,3 +63,7 @@ mod tests_package_c;
 mod tests_package_d;
 #[cfg(test)]
 mod tests_user;
+#[cfg(test)]
+mod tests_user_authkeys_escape;
+#[cfg(test)]
+mod tests_user_b;

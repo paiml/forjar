@@ -2787,11 +2787,13 @@ forjar graph -f forjar.yaml --timeline-graph
 
 ### Lock Chain Verification
 
-Verify full chain of custody from lock signatures:
+Verify full chain of custody from lock signatures (needs the `lock-sign` key —
+without it there is nothing to verify a signature against):
 
 ```bash
-forjar lock-verify-chain --state-dir state
-forjar lock-verify-chain --state-dir state --json
+forjar lock-verify-chain --state-dir state --key my-secret-key
+forjar lock-verify-chain --state-dir state --key my-secret-key --json
+forjar lock-verify-chain --state-dir state --presence-only   # signatures exist, custody unchecked
 ```
 
 ### Dry Run Cost

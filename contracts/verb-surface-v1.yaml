@@ -163,7 +163,7 @@ proof_obligations:
     property: "The derived tree is reachable from the shipped binary"
     formal: "`forjar verb list` exits 0 from CARGO_BIN_EXE_forjar"
     applies_to: reachability_is_structural
-    enforced_by: "tests/e2e_surface_parity_t.rs::the_derived_tree_is_a_shipped_subcommand"
+    enforced_by: "tests/e2e_verb_surface_t.rs::verb_list_is_not_empty"
 
   - type: safety
     property: "The binary advertises no undeclared transport"
@@ -199,7 +199,7 @@ falsification_tests:
   - id: FALSIFY-FVS-004
     rule: "the derived tree is reachable from the shipped binary"
     prediction: "`forjar verb list` on CARGO_BIN_EXE_forjar exits 0 and lists the unified verbs"
-    test: "tests/e2e_surface_parity_t.rs::the_derived_tree_is_a_shipped_subcommand"
+    test: "tests/e2e_verb_surface_t.rs::verb_list_is_not_empty"
     if_fails: "rmedia's failure returns — perfect agreement between transports nothing can reach"
 
   - id: FALSIFY-FVS-005

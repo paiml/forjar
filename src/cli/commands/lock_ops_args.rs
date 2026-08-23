@@ -9,6 +9,16 @@ pub struct LockVerifyChainArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
+    /// Signing key used by `lock-sign` — required to verify that a signature
+    /// actually covers the lock it sits next to
+    #[arg(long)]
+    pub key: Option<String>,
+
+    /// Only check that every lock carries a well-formed signature. Does NOT
+    /// verify the chain of custody — a signature unrelated to the lock passes
+    #[arg(long, conflicts_with = "key")]
+    pub presence_only: bool,
+
     /// Output as JSON
     #[arg(long)]
     pub json: bool,

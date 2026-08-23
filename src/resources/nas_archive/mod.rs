@@ -44,8 +44,7 @@
 //!   path: /mnt/nvme-raid0
 //!   archive_destination: /mnt/unas/media
 //!   archive_dirs: [corpus, albor-data, entrenar-checkpoints]
-//!   archive_max_files: 2000
-//!   archive_max_small_file_pct: 50
+//!   archive_max_small_bytes: 268435456   # 256 MiB
 //!   archive_min_age_days: 30
 //!   archive_leave_symlink: true
 //!   archive_schedule: daily
