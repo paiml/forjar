@@ -18,6 +18,13 @@ pub(crate) fn dispatch_platform_cmd(cmd: Commands) -> Result<(), String> {
         }
         Commands::InfraQuery(args) => dispatch_query(args),
         Commands::RecipeSign(args) => dispatch_sign(args),
+        other => dispatch_platform_cmd_b(other),
+    }
+}
+
+/// Dispatch platform-level commands — second half of the same group.
+fn dispatch_platform_cmd_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::Preservation(PreservationArgs { file, json }) => {
             super::preservation_check::cmd_preservation(&file, json)
         }

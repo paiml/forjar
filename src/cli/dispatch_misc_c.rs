@@ -49,6 +49,13 @@ pub(super) fn dispatch_misc_ops(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             allow_collisions,
         ),
+        other => dispatch_misc_ops_b(other),
+    }
+}
+
+/// Import, export, operations, and scoring commands — second half of the same group.
+fn dispatch_misc_ops_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::Extract(ExtractArgs {
             file,
             tags,

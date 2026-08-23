@@ -12,6 +12,35 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 use forjar::core::{codegen, parser, planner, resolver, state, types::*};
 use forjar::tripwire::{drift, hasher};
 
+/// Serialises profiler construction across the whole test binary.
+///
+/// `dhat::Profiler` is a PROCESS-GLOBAL singleton: `build()` panics with
+/// "creating a profiler while a profiler is already running" if one is already
+/// live. cargo runs the nine `mem_*` tests as parallel threads in ONE process,
+/// so without this lock the suite's result depends on thread scheduling — an
+/// unchanged tree was observed failing 8-of-9 and then 4-of-9 on consecutive
+/// runs. That is a flaky gate, which is worse than a red one: it trains people
+/// to re-run rather than to read.
+///
+/// The guard is taken as the FIRST statement of each test, not just around the
+/// profiler. dhat's `#[global_allocator]` counts allocations for the WHOLE
+/// PROCESS, not the profiling thread, so a sibling test merely building its
+/// fixture is charged to whichever profiler happens to be live. Guarding only
+/// the profiled region fixed the panic and left that behind: `mem_blake3_1mb`
+/// then failed intermittently with "allocated 8671 bytes — expected near-zero",
+/// which reads as a blake3 regression and is really someone else's `format!`.
+/// Holding the lock for the whole body makes these nine effectively
+/// single-threaded, which is what a global-allocator measurement requires.
+///
+/// Poisoning is recovered rather than propagated: the lock guards a `()`, so a
+/// panic in one test leaves no inconsistent state behind, and failing the other
+/// eight with `PoisonError` would hide the one real failure.
+static DHAT_SLOT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn dhat_serial() -> std::sync::MutexGuard<'static, ()> {
+    DHAT_SLOT.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Helper: build a synthetic N-resource config YAML and write it to a temp path.
 fn write_bench_config(dir: &std::path::Path, n_resources: usize) -> std::path::PathBuf {
     let mut yaml = String::from(
@@ -70,6 +99,7 @@ fn write_bench_lock(state_dir: &std::path::Path, n: usize) {
 
 #[test]
 fn mem_validate_20r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let config_path = write_bench_config(dir.path(), 20);
 
@@ -93,6 +123,7 @@ fn mem_validate_20r() {
 
 #[test]
 fn mem_validate_100r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let config_path = write_bench_config(dir.path(), 100);
 
@@ -114,6 +145,7 @@ fn mem_validate_100r() {
 
 #[test]
 fn mem_plan_20r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let config_path = write_bench_config(dir.path(), 20);
     let config = parser::parse_and_validate(&config_path).unwrap();
@@ -138,6 +170,7 @@ fn mem_plan_20r() {
 
 #[test]
 fn mem_codegen_20r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let config_path = write_bench_config(dir.path(), 20);
     let config = parser::parse_and_validate(&config_path).unwrap();
@@ -163,6 +196,7 @@ fn mem_codegen_20r() {
 
 #[test]
 fn mem_drift_100r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let state_dir = dir.path();
     write_bench_lock(state_dir, 100);
@@ -186,6 +220,7 @@ fn mem_drift_100r() {
 
 #[test]
 fn mem_blake3_1mb() {
+    let _dhat_slot = dhat_serial();
     let data = vec![0xABu8; 1_048_576];
 
     let profiler = dhat::Profiler::builder().testing().build();
@@ -207,6 +242,7 @@ fn mem_blake3_1mb() {
 
 #[test]
 fn mem_full_pipeline_100r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let config_path = write_bench_config(dir.path(), 100);
 
@@ -239,6 +275,7 @@ fn mem_full_pipeline_100r() {
 
 #[test]
 fn mem_store_lock_save_load_100r() {
+    let _dhat_slot = dhat_serial();
     let dir = tempfile::tempdir().unwrap();
     let state_dir = dir.path();
 
@@ -286,6 +323,7 @@ fn mem_store_lock_save_load_100r() {
 
 #[test]
 fn mem_copia_delta_4mb() {
+    let _dhat_slot = dhat_serial();
     use forjar::copia;
 
     let size = 4 * 1024 * 1024;

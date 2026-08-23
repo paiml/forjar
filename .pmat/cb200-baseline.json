@@ -2,7 +2,7 @@
   "check": "CB-200",
   "name": "TDG Grade Gate",
   "recorded": "2026-08-22",
-  "ceiling": 50,
+  "ceiling": 27,
   "unit": "functions below minimum grade A",
   "rule": "MAY ONLY SHRINK. A run reporting more than ceiling is a regression and fails. Lowering this number is the only permitted edit.",
   "why": [

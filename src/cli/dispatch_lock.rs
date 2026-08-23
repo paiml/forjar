@@ -55,6 +55,13 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
             format: fmt,
             machine,
         }) => cmd_lock_export(&state_dir, &fmt, machine.as_deref()),
+        other => dispatch_lock_cmd_b(other),
+    }
+}
+
+/// Lock-related commands — group 2 (verify, diff, merge, signing).
+fn dispatch_lock_cmd_b(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::LockVerify(LockVerifyArgs { state_dir, json }) => {
             cmd_lock_verify(&state_dir, json)
         }
@@ -81,6 +88,13 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
             key,
             json,
         }) => cmd_lock_verify_sig(&state_dir, &key, json),
+        other => dispatch_lock_cmd_c(other),
+    }
+}
+
+/// Lock-related commands — group 3 (compact-all, audit trail, key rotation).
+fn dispatch_lock_cmd_c(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::LockCompactAll(LockCompactAllArgs {
             state_dir,
             yes,
@@ -104,6 +118,13 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
             cmd_lock_verify_chain(&state_dir, json)
         }
         Commands::LockStats(LockStatsArgs { state_dir, json }) => cmd_lock_stats(&state_dir, json),
+        other => dispatch_lock_cmd_d(other),
+    }
+}
+
+/// Lock-related commands — group 4 (audit, compression, normalisation).
+fn dispatch_lock_cmd_d(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::LockAudit(LockAuditArgs { state_dir, json }) => cmd_lock_audit(&state_dir, json),
         Commands::LockCompress(LockCompressArgs { state_dir, json }) => {
             cmd_lock_compress(&state_dir, json)
@@ -120,6 +141,13 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
         Commands::LockVerifyHmac(LockVerifyHmacArgs { state_dir, json }) => {
             cmd_lock_verify_hmac(&state_dir, json)
         }
+        other => dispatch_lock_cmd_e(other),
+    }
+}
+
+/// Lock-related commands — group 5 (archive, snapshot, repair, history).
+fn dispatch_lock_cmd_e(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::LockArchive(LockArchiveArgs { state_dir, json }) => {
             cmd_lock_archive(&state_dir, json)
         }
@@ -140,6 +168,13 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
         Commands::LockRehash(LockRehashArgs { state_dir, json }) => {
             cmd_lock_rehash(&state_dir, json)
         }
+        other => dispatch_lock_cmd_f(other),
+    }
+}
+
+/// Lock-related commands — group 6 (restore, schema, tag, migrate).
+fn dispatch_lock_cmd_f(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::LockRestore(LockRestoreArgs {
             state_dir,
             name,

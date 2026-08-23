@@ -68,60 +68,11 @@ pub fn read_request<R: Read>(
 ) -> ReadOutcome {
     let started = Instant::now();
     let mut buf: Vec<u8> = Vec::with_capacity(1024);
-    let mut chunk = [0u8; 1024];
 
     // ── 1. head ──────────────────────────────────────────────────────────────
-    let head_end = loop {
-        if let Some(pos) = find_head_end(&buf) {
-            break pos;
-        }
-        if buf.len() > MAX_HEAD_BYTES {
-            return ReadOutcome::Rejected {
-                status: 431,
-                code: "head_too_large",
-            };
-        }
-        if started.elapsed() >= deadline {
-            return if buf.is_empty() {
-                ReadOutcome::Empty
-            } else {
-                ReadOutcome::Rejected {
-                    status: 408,
-                    code: "request_timeout",
-                }
-            };
-        }
-        match stream.read(&mut chunk) {
-            Ok(0) => {
-                return if buf.is_empty() {
-                    ReadOutcome::Empty
-                } else {
-                    ReadOutcome::Rejected {
-                        status: 400,
-                        code: "incomplete_head",
-                    }
-                };
-            }
-            Ok(n) => buf.extend_from_slice(&chunk[..n]),
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                if started.elapsed() >= deadline {
-                    return ReadOutcome::Rejected {
-                        status: 408,
-                        code: "request_timeout",
-                    };
-                }
-            }
-            Err(_) => {
-                return if buf.is_empty() {
-                    ReadOutcome::Empty
-                } else {
-                    ReadOutcome::Rejected {
-                        status: 400,
-                        code: "read_error",
-                    }
-                };
-            }
-        }
+    let head_end = match read_head(stream, &mut buf, started, deadline) {
+        Ok(pos) => pos,
+        Err(outcome) => return outcome,
     };
 
     let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
@@ -159,32 +110,8 @@ pub fn read_request<R: Read>(
     if body.len() > content_length {
         body.truncate(content_length);
     }
-    while body.len() < content_length {
-        if started.elapsed() >= deadline {
-            return ReadOutcome::Rejected {
-                status: 408,
-                code: "request_timeout",
-            };
-        }
-        match stream.read(&mut chunk) {
-            Ok(0) => {
-                return ReadOutcome::Rejected {
-                    status: 400,
-                    code: "incomplete_body",
-                };
-            }
-            Ok(n) => {
-                let want = content_length - body.len();
-                body.extend_from_slice(&chunk[..n.min(want)]);
-            }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-            Err(_) => {
-                return ReadOutcome::Rejected {
-                    status: 400,
-                    code: "read_error",
-                };
-            }
-        }
+    if let Some(outcome) = read_body(stream, &mut body, content_length, started, deadline) {
+        return outcome;
     }
 
     ReadOutcome::Complete {
@@ -193,6 +120,131 @@ pub fn read_request<R: Read>(
         headers,
         body,
     }
+}
+
+/// Phase 1 of [`read_request`]: fill `buf` until the head is complete.
+///
+/// `Ok(pos)` is the offset of the `\r\n\r\n` that ends the head; `Err(outcome)`
+/// is the outcome [`read_request`] returns verbatim. Split out of the loop body
+/// so the framing rules and the read-error taxonomy each read on one screen.
+fn read_head<R: Read>(
+    stream: &mut R,
+    buf: &mut Vec<u8>,
+    started: Instant,
+    deadline: Duration,
+) -> Result<usize, ReadOutcome> {
+    let mut chunk = [0u8; 1024];
+    loop {
+        if let Some(pos) = find_head_end(buf) {
+            return Ok(pos);
+        }
+        if buf.len() > MAX_HEAD_BYTES {
+            return Err(ReadOutcome::Rejected {
+                status: 431,
+                code: "head_too_large",
+            });
+        }
+        if started.elapsed() >= deadline {
+            return Err(if buf.is_empty() {
+                ReadOutcome::Empty
+            } else {
+                ReadOutcome::Rejected {
+                    status: 408,
+                    code: "request_timeout",
+                }
+            });
+        }
+        if let Some(outcome) = read_head_chunk(stream, buf, &mut chunk, started, deadline) {
+            return Err(outcome);
+        }
+    }
+}
+
+/// One `read` into the head buffer.
+///
+/// `None` means "keep reading" — either bytes were appended, or the read would
+/// have blocked and the deadline has not passed yet. `Some(outcome)` ends the
+/// connection with that outcome.
+fn read_head_chunk<R: Read>(
+    stream: &mut R,
+    buf: &mut Vec<u8>,
+    chunk: &mut [u8; 1024],
+    started: Instant,
+    deadline: Duration,
+) -> Option<ReadOutcome> {
+    match stream.read(chunk) {
+        Ok(0) => Some(if buf.is_empty() {
+            ReadOutcome::Empty
+        } else {
+            ReadOutcome::Rejected {
+                status: 400,
+                code: "incomplete_head",
+            }
+        }),
+        Ok(n) => {
+            buf.extend_from_slice(&chunk[..n]);
+            None
+        }
+        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+            if started.elapsed() >= deadline {
+                Some(ReadOutcome::Rejected {
+                    status: 408,
+                    code: "request_timeout",
+                })
+            } else {
+                None
+            }
+        }
+        Err(_) => Some(if buf.is_empty() {
+            ReadOutcome::Empty
+        } else {
+            ReadOutcome::Rejected {
+                status: 400,
+                code: "read_error",
+            }
+        }),
+    }
+}
+
+/// Phase 4 of [`read_request`]: extend `body` to exactly `content_length`.
+///
+/// `None` means the body is complete; `Some(outcome)` is returned verbatim.
+fn read_body<R: Read>(
+    stream: &mut R,
+    body: &mut Vec<u8>,
+    content_length: usize,
+    started: Instant,
+    deadline: Duration,
+) -> Option<ReadOutcome> {
+    let mut chunk = [0u8; 1024];
+    while body.len() < content_length {
+        if started.elapsed() >= deadline {
+            return Some(ReadOutcome::Rejected {
+                status: 408,
+                code: "request_timeout",
+            });
+        }
+        match stream.read(&mut chunk) {
+            Ok(0) => {
+                return Some(ReadOutcome::Rejected {
+                    status: 400,
+                    code: "incomplete_body",
+                });
+            }
+            Ok(n) => {
+                let want = content_length - body.len();
+                body.extend_from_slice(&chunk[..n.min(want)]);
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => {
+                return Some(ReadOutcome::Rejected {
+                    status: 400,
+                    code: "read_error",
+                });
+            }
+        }
+    }
+    None
 }
 
 /// Request line and headers, as parsed from the head block.
@@ -302,20 +354,29 @@ pub fn json_response(status: u16, body: &str) -> Vec<u8> {
     out.into_bytes()
 }
 
+/// Reason phrases for every status this module emits, in ascending order.
+///
+/// A table, not a `match`: the mapping carries no logic, so one control-flow
+/// branch per status bought nothing. Codes are distinct, so lookup order is not
+/// observable.
+const STATUS_REASONS: &[(u16, &str)] = &[
+    (200, "OK"),
+    (400, "Bad Request"),
+    (401, "Unauthorized"),
+    (403, "Forbidden"),
+    (404, "Not Found"),
+    (405, "Method Not Allowed"),
+    (408, "Request Timeout"),
+    (413, "Content Too Large"),
+    (431, "Request Header Fields Too Large"),
+    (500, "Internal Server Error"),
+    (501, "Not Implemented"),
+    (503, "Service Unavailable"),
+];
+
 fn status_reason(code: u16) -> &'static str {
-    match code {
-        200 => "OK",
-        400 => "Bad Request",
-        401 => "Unauthorized",
-        403 => "Forbidden",
-        404 => "Not Found",
-        405 => "Method Not Allowed",
-        408 => "Request Timeout",
-        413 => "Content Too Large",
-        431 => "Request Header Fields Too Large",
-        500 => "Internal Server Error",
-        501 => "Not Implemented",
-        503 => "Service Unavailable",
-        _ => "Unknown",
-    }
+    STATUS_REASONS
+        .iter()
+        .find(|(status, _)| *status == code)
+        .map_or("Unknown", |&(_, reason)| reason)
 }
