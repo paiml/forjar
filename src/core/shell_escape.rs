@@ -80,6 +80,66 @@ pub fn is_valid_ufw_action(action: &str) -> bool {
     matches!(action, "allow" | "deny" | "reject" | "limit")
 }
 
+/// Emit the shell that writes exactly `bytes` to `path`, with no delimiter for
+/// the payload to escape.
+///
+/// # Why not a heredoc (defect C8, GH #296)
+///
+/// A heredoc body is literal only up to the first line that equals its
+/// delimiter. Interpolating managed content into `<<'FORJAR_EOF'` therefore
+/// hands the target machine arbitrary *shell* the moment the content contains a
+/// `FORJAR_EOF` line: the heredoc closes early, the rest of the content is
+/// parsed as commands, and a payload that reopens a heredoc to swallow the
+/// generator's own trailing delimiter leaves the script exiting 0 — so apply
+/// reports the resource converged with the wrong bytes on disk.
+///
+/// Choosing a different delimiter does not fix it, and neither does deriving
+/// one from the content: the safety of *any* delimited encoding is a claim
+/// about the payload, and the payload is arbitrary. So this primitive has no
+/// delimiter at all. The bytes are base64 — an alphabet (`A-Za-z0-9+/=`) with
+/// no quote, no newline and no shell metacharacter — wrapped as one
+/// single-quoted shell word and decoded on the target. Nothing in `bytes` can
+/// reach the shell's parser, for any `bytes` whatsoever.
+///
+/// Byte-exactness comes with it. A heredoc body is a sequence of
+/// newline-terminated lines, so it can never reproduce content that does not
+/// end in a newline (it appends one) — `base64 -d` writes precisely the bytes
+/// that were encoded, including CRLF, trailing whitespace and no trailing
+/// newline at all.
+///
+/// # Examples
+/// ```
+/// use forjar::core::shell_escape::sh_write_file;
+/// assert_eq!(sh_write_file("/etc/x", b"hi"), "echo 'aGk=' | base64 -d > '/etc/x'");
+/// // Content that would have closed the old heredoc is inert here:
+/// let s = sh_write_file("/etc/x", b"FORJAR_EOF\nreboot\n");
+/// assert!(!s.contains("reboot"));
+/// ```
+pub fn sh_write_file(path: &str, bytes: &[u8]) -> String {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    format!("echo {} | base64 -d > {}", sh_squote(&b64), sh_squote(path))
+}
+
+/// Recover the bytes a [`sh_write_file`] line deploys to `path`.
+///
+/// Test-only. It exists so a test can assert on the CONTENT a generated script
+/// deploys instead of on the transport encoding. Asserting on the encoding is
+/// what let defect C8 live: every test looked for `FORJAR_EOF` and the literal
+/// content in the script text, and both were always present — including in the
+/// scripts where the content had escaped the heredoc and truncated the file.
+#[cfg(test)]
+pub(crate) fn decode_written_file(script: &str, path: &str) -> Option<Vec<u8>> {
+    use base64::Engine;
+    let suffix = format!(" | base64 -d > {}", sh_squote(path));
+    let line = script.lines().find(|l| l.ends_with(&suffix))?;
+    let b64 = line
+        .strip_suffix(&suffix)?
+        .strip_prefix("echo '")?
+        .strip_suffix('\'')?;
+    base64::engine::general_purpose::STANDARD.decode(b64).ok()
+}
+
 /// Validate a hostname or IP literal for use as an SSH/rsync target.
 ///
 /// Accepts DNS hostnames and IPv4/IPv6 literals: `[A-Za-z0-9.:_-]+` with no

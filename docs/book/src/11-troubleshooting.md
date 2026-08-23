@@ -878,7 +878,7 @@ If a file resource uses `content:` with embedded shell fragments that happen to 
 error: bashrs: config-file/apply [SC1009] parse error near unexpected token
 ```
 
-This typically means the heredoc content triggered a parser edge case. Check that heredoc delimiters use single quotes (`'FORJAR_EOF'`) to prevent variable expansion inside the content block.
+`file` content is not a source of this any more: it is base64-encoded and never enters the script as shell text. If you still see it, the fragment is coming from a handler that does embed a generated body in a heredoc (`task`, `nas_archive`, `overlay_interface`, `user`), not from a `content:` field.
 
 ### Using `forjar lint --json` for Machine-Readable Diagnostics
 

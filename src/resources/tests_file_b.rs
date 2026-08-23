@@ -170,15 +170,21 @@ fn test_fj007_state_query_has_fallback() {
 // --- FJ-132: File resource edge case tests ---
 
 #[test]
-fn test_fj132_apply_heredoc_hard_quoted() {
-    let r = make_file_resource("/etc/test", Some("$HOME ${PATH} $(whoami)"));
+fn test_fj132_apply_content_never_expands() {
+    // C8 (GH #296): hard-quoting a heredoc stops EXPANSION but not TERMINATION, so
+    // "the delimiter is there and single-quoted" never was the property that
+    // mattered. The property is that the content reaches the target as bytes.
+    let content = "$HOME ${PATH} $(whoami)";
+    let r = make_file_resource("/etc/test", Some(content));
     let script = apply_script(&r);
-    assert!(
-        script.contains("FORJAR_EOF"),
-        "should use FORJAR_EOF heredoc marker"
+    // Nothing expandable is in the script at all.
+    assert!(!script.contains("$HOME"), "{script}");
+    assert!(!script.contains("${PATH}"), "{script}");
+    assert!(!script.contains("$(whoami)"), "{script}");
+    assert_eq!(
+        crate::core::shell_escape::decode_written_file(&script, "/etc/test"),
+        Some(content.as_bytes().to_vec())
     );
-    assert!(script.contains("$HOME"));
-    assert!(script.contains("${PATH}"));
 }
 
 #[test]
@@ -336,7 +342,10 @@ fn test_fj153_file_no_owner_no_mode() {
     let script = apply_script(&r);
     assert!(!script.contains("chown"));
     assert!(!script.contains("chmod"));
-    assert!(script.contains("hello"));
+    assert_eq!(
+        crate::core::shell_escape::decode_written_file(&script, "/tmp/test"),
+        Some(b"hello".to_vec())
+    );
 }
 
 #[test]

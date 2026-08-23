@@ -47,8 +47,9 @@ fn test_fj005_apply_dispatches_package() {
 fn test_fj005_apply_dispatches_file() {
     let r = make_file();
     let script = apply_script(&r).unwrap();
-    assert!(script.contains("cat >"));
-    assert!(script.contains("FORJAR_EOF"));
+    // Dispatch-level: only that a file WRITE was produced. C8 (GH #296) replaced the
+    // heredoc transport with a delimiter-free base64 one.
+    assert!(script.contains("| base64 -d > "), "{script}");
 }
 
 #[test]

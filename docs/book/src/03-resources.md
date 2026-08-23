@@ -80,7 +80,7 @@ resources:
     mode: "0640"
 ```
 
-Content is written via heredoc (`<<'FORJAR_EOF'`) — shell variable expansion is prevented.
+Content is base64-encoded and decoded on the target (`echo '<base64>' | base64 -d > '<path>'`). There is no delimiter for the content to escape, so no content can ever reach the target's shell parser, and the bytes on disk are exactly the bytes declared — including CRLF, trailing whitespace, and content that does not end in a newline.
 
 ### Source File Transfer
 
@@ -1401,16 +1401,12 @@ test -f '/etc/app/config.yaml' && echo 'exists:file' || echo 'missing:file'
 ```bash
 set -euo pipefail
 mkdir -p '/etc/app'
-cat > '/etc/app/config.yaml' <<'FORJAR_EOF'
-database:
-  host: db.internal
-  port: 5432
-FORJAR_EOF
+echo 'ZGF0YWJhc2U6CiAgaG9zdDogZGIuaW50ZXJuYWwKICBwb3J0OiA1NDMyCg==' | base64 -d > '/etc/app/config.yaml'
 chown 'app:app' '/etc/app/config.yaml'
 chmod '0640' '/etc/app/config.yaml'
 ```
 
-Key details: `set -euo pipefail` ensures any failure aborts the script immediately. The heredoc uses hard-quoting (`<<'FORJAR_EOF'`) to prevent shell variable expansion in the content. Parent directories are created with `mkdir -p` before writing. Ownership and permissions are applied after the write.
+Key details: `set -euo pipefail` ensures any failure aborts the script immediately. The content travels as base64 inside a single-quoted shell word, so it is data on both sides and cannot be expanded, re-parsed, or terminated early. Parent directories are created with `mkdir -p` before writing. Ownership and permissions are applied after the write.
 
 **state_query script** -- captures the live file state for drift detection:
 
@@ -1457,7 +1453,7 @@ The following resource handlers produce scripts that pass bashrs lint with zero 
 
 | Handler | Why Clean |
 |---------|-----------|
-| **file** | Uses only POSIX builtins (`test`, `mkdir`, `cat`, `chown`, `chmod`, `stat`). No variable expansion in user content (hard-quoted heredoc `<<'FORJAR_EOF'`). No sudo pattern needed. |
+| **file** | Uses only POSIX builtins (`test`, `mkdir`, `echo`, `base64`, `chown`, `chmod`, `stat`). User content never appears as shell — it is base64 in a single-quoted word. No sudo pattern needed. |
 | **service** | Uses `systemctl` commands with single-quoted arguments. The systemd guard (`command -v systemctl`) is clean POSIX. Conditional logic uses `if ! systemctl is-active --quiet`. |
 | **mount** | Uses `mountpoint`, `mount`, `umount`, `findmnt`, `grep`, `sed`. All arguments are single-quoted. No dynamic variable patterns. |
 
@@ -1520,13 +1516,9 @@ Apply scripts converge the resource to its desired state. They are idempotent �
 # Package apply (apt, non-root)
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y 'curl' 'git' 'htop'
 
-# File apply (content via heredoc)
-mkdir -p "$(dirname '/etc/app/config.yaml')"
-cat <<'FORJAR_EOF' > '/etc/app/config.yaml'
-database:
-  host: localhost
-  port: 5432
-FORJAR_EOF
+# File apply (content via base64 — no delimiter to escape)
+mkdir -p '/etc/app'
+echo 'ZGF0YWJhc2U6CiAgaG9zdDogbG9jYWxob3N0CiAgcG9ydDogNTQzMgo=' | base64 -d > '/etc/app/config.yaml'
 chown 'app:app' '/etc/app/config.yaml'
 chmod '0640' '/etc/app/config.yaml'
 
@@ -1568,10 +1560,10 @@ All generated scripts follow these security principles:
 | Principle | Implementation |
 |-----------|---------------|
 | **No shell injection** | All user values are single-quoted in generated scripts |
-| **No variable expansion** | File content uses heredocs with `<<'FORJAR_EOF'` (hard-quoted) |
+| **No variable expansion** | File content is base64-encoded, so it is never parsed as shell at all |
 | **Sudo auto-detection** | `$SUDO` prefix is set to `sudo` when user != root, empty otherwise |
 | **Idempotent operations** | `install -y` (apt), `mkdir -p`, `mount` checks `mountpoint` first |
-| **Binary-safe transfers** | `source` files are base64-encoded locally and decoded remotely |
+| **Binary-safe transfers** | `source` files *and* inline `content` are base64-encoded locally and decoded remotely |
 
 ## Resource Ordering Guarantees
 

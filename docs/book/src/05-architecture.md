@@ -579,7 +579,7 @@ state_query_script(resource) → live state query for drift
 Tests verify:
   ✓ All scripts begin with set -euo pipefail
   ✓ SUDO detection: SUDO="" ; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
-  ✓ Heredoc quoting prevents variable expansion: <<'FORJAR_EOF'
+  ✓ File content is base64, never shell: echo '<b64>' | base64 -d > '<path>'
   ✓ All resource fields appear in generated scripts
   ✓ Absent state produces cleanup commands
 ```
@@ -606,10 +606,9 @@ This cycle runs in isolated temp directories and verifies the full BLAKE3 hashin
 All generated scripts use defensive patterns to prevent injection:
 
 ```bash
-# Heredoc with single quotes prevents variable expansion
-cat <<'FORJAR_EOF' > /etc/config
-user-provided content here — $VARS and $(commands) are literal
-FORJAR_EOF
+# File content carries no delimiter, so it cannot terminate anything and
+# cannot be re-parsed as shell. $VARS and $(commands) stay literal bytes.
+echo 'dXNlci1wcm92aWRlZCBjb250ZW50Cg==' | base64 -d > '/etc/config'
 
 # Values are single-quoted in commands
 chown 'user':'group' '/path/to/file'
