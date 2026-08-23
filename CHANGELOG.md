@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-08-23
+
+Everything in the unpublished 1.16.0 internal build — six release blockers,
+including arbitrary command execution on target machines via a `file` resource
+whose content contained the heredoc delimiter — plus all 14 ledger regressions.
+
+### The regressions
+
+Defects already recorded in `docs/cli-defects.json` under `confirmed`, verified
+against 1.12.3, still reproducing at 1.16.0. They survived 1.13, 1.14, 1.15 and
+1.16 — not because they were hard, but because nothing ever re-ran the ledger's
+own repros.
+
+**Fixed**
+
+- **`state-decrypt` accepted any passphrase.** It counted errors and returned
+  `Ok(())` regardless, so a wrong passphrase exited 0. In the shipped build —
+  which has no `encryption` feature — it reported skips and success for state it
+  could never have read. It now refuses up front and names the missing feature.
+- **`status --hash-verify` counted hashes instead of comparing them**
+  ("1/1 resources *have* BLAKE3 hashes"). It now recomputes, reports
+  match/MISMATCHED/unverifiable separately, and exits non-zero on a mismatch.
+- **`drift --tripwire -m <unknown-machine>`** reported no drift over ZERO
+  machines. A typo in a cron'd `drift --tripwire -m intel` silently stopped
+  checking anything and reported healthy forever.
+- **`lock-prune --yes`** announced a prune and left the lock byte-identical.
+- **`stack-diff` was blind to twelve config fields**, including `name` and
+  `policy`. The comparison enumerated a hand-written field list; it now
+  destructures `ForjarConfig` exhaustively, so a new field is a compile error in
+  the differ.
+- **`validate --json` emitted zero bytes on failure** — the one case a machine
+  consumer needs the structured errors.
+- **`audit --json` Debug-printed the event into a string**, making `run_id`,
+  `operator` and `config_hash` unreadable without re-parsing Rust syntax.
+- **`run` executed unexpanded `{{params.*}}`** and ignored `--param`;
+  **`run --json` never executed** and masked a failing task's exit code;
+  **`trigger` reported actions fired and ran nothing.**
+- **`agent --auto-apply` never remediated.** Two bugs: the effect was a boolean
+  computed from the flag, and the agent carried a parallel drift detector that
+  read a lock path forjar has never written.
+- **`retry-failed` never saw a recorded failure.** It string-matched
+  `"ApplyCompleted"` against a log serialised `"apply_completed"`.
+
+**Rejected, deliberately**
+
+- `force-and-rollback-report-zero-actual-changes` describes **intended,
+  contract-specified behaviour**. `apply-summary-distinguishability-v1` defines
+  `forced_noop_count` as lock-based, its invariant holds, and a previous fix at
+  that site was reverted as a regression. Moved to `rejected`. Its genuinely
+  misleading *wording* is fixed: the note now says "N differed from the lock"
+  and names `forjar drift` for the live question.
+
+### Added
+
+- **`ledger-replay`**, a required proofs job that re-runs the ledger's own repros
+  and fails when one still reproduces. It prints its denominator every run, fails
+  when it replays zero entries, and treats a timeout or broken sandbox as an
+  error rather than a skip.
+- A **`contracts`** CI job that validates every contract and resolves every
+  falsifier citation. `pv audit` counts declarations without resolving them, and
+  no CI job ran `pv validate` at all — which is how an invalid contract shipped
+  on the 1.16.0 branch.
+
+
 ## [1.16.0] — 2026-08-23 — INTERNAL BUILD, NOT PUBLISHED
 
 **This version was deliberately never published to crates.io and never tagged.**
