@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **The published `install.sh` exited 127 on `--help`, and `dist --verify` said
+  PASS.** The generator emitted the argument parser *above* the block defining
+  `info`/`warn`/`die`/`usage`, so the very first thing a user ran hit
+  `usage: not found`, and every error path before the definitions printed
+  `die: not found` instead of its message. Generator output, the committed
+  file, and the copy served from raw.githubusercontent.com were byte-identical,
+  so this was live.
+
+  `sh -n` cannot catch this by construction: a forward call is valid POSIX
+  syntax that fails only at runtime. Every existing guard was a text or byte
+  assertion, so nothing ever executed the script. `dist --verify` now **runs**
+  it — `sh install.sh --help` must exit 0 and print usage, and an unknown flag
+  must reach `die()` with exit 1 — inside a PATH sandbox whose first entry
+  shims curl/wget/sudo/tar/install/cp/chmod/mktemp to refuse, so verifying can
+  never install anything.
+
 ## [1.16.0] - 2026-08-21
 
 ### Added

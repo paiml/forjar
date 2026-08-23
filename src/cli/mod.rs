@@ -67,6 +67,7 @@ mod dist_homebrew;
 mod dist_output;
 mod dist_schema;
 pub mod dist_verify;
+mod dist_verify_exec;
 mod dist_verify_tier2;
 mod dist_verify_tier2_stage;
 mod doctor;
