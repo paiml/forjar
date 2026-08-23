@@ -71,7 +71,7 @@ own repros.
   on the 1.16.0 branch.
 
 
-## [1.16.0] — 2026-08-23 — INTERNAL BUILD, NOT PUBLISHED
+## [1.16.0] - 2026-08-21 — INTERNAL BUILD, NOT PUBLISHED
 
 **This version was deliberately never published to crates.io and never tagged.**
 It was built and deployed to our own infrastructure only.
@@ -135,7 +135,6 @@ See the `1.17.0` entry for the full list of what shipped in both.
   shims curl/wget/sudo/tar/install/cp/chmod/mktemp to refuse, so verifying can
   never install anything.
 
-## [1.16.0] - 2026-08-21
 
 ### Added
 
