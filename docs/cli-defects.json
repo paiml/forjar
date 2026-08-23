@@ -1109,7 +1109,8 @@
  "rejected": [
   {
    "id": "undo-is-unreachable-nothing-creates-generations",
-   "why": "Does not reproduce as stated. Generations ARE created when the config sets `policy.snapshot_generations`; with it, `generation list` shows gens and `undo` runs (rc=0). The candidate's config omitted that policy, so 'no generations found' was correct for its input. The real, stronger defect found while verifying is reported separately as undo-reports-rollback-but-machine-is-unchanged."
+   "why": "Does not reproduce as stated. Generations ARE created when the config sets `policy.snapshot_generations`; with it, `generation list` shows gens and `undo` runs (rc=0). The candidate's config omitted that policy, so 'no generations found' was correct for its input. The real, stronger defect found while verifying is reported separately as undo-reports-rollback-but-machine-is-unchanged.",
+   "correction": "2026-08-23, forjar 1.16.0: half of this rejection was wrong and the entry stood as written for four releases. The REFUSAL was correct; the MESSAGE was not. It read 'no generations found — run `forjar apply` first', naming the one action that provably cannot help a config without the policy — three successful applies leave it byte-identical (verified). 'Correct for its input' judged the exit code, not the advice, so the ledger taught the next audit to close the same finding again. Fixed on branch fix/undo-is-inert: the refusal now names `policy.snapshot_generations` when it is unset and keeps the apply advice when it is set, and `maybe_auto_snapshot` no longer skips the FIRST apply (its `!state_dir.exists()` guard belonged to the named snapshot, not the generation), which had cost the operator a whole extra apply after doing what the message said. Guarded by tests/falsification_undo_advice_is_actionable.rs (FALSIFY-UNDO-004/005)."
   },
   {
    "id": "history-since-error-truncates-the-value",

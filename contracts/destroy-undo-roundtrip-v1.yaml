@@ -6,11 +6,22 @@ metadata:
   author: "PAIML Engineering"
   description: |
     Destroy/undo roundtrip — a destroy (or any state mutation) followed by
-    `forjar undo` restores the prior generation's state snapshot. Each apply
-    snapshots the state directory as a numbered generation (Nix-style);
-    rollback restores the snapshot and atomically re-points the `current`
-    symlink. Resolves the destroy/undo-roundtrip leg of paiml/forjar#97
-    (KZ-11).
+    `forjar undo` restores the prior generation's state snapshot. An apply
+    snapshots the state directory as a numbered generation (Nix-style) when
+    the config sets `policy.snapshot_generations`, which is both the
+    on-switch and the retention count; rollback restores the snapshot and
+    atomically re-points the `current` symlink. Resolves the
+    destroy/undo-roundtrip leg of paiml/forjar#97 (KZ-11).
+
+    This block used to read "Each apply snapshots the state directory",
+    unconditionally. It did not, and the contract could not tell: every test
+    behind FALSIFY-UNDO-001..003 calls `create_generation` directly on a
+    hand-built state dir, and every `cmd_undo` test fabricates
+    `state/generations/N` with `create_dir_all` plus a hand-made `current`
+    symlink. Nothing drove `apply` into `undo`, so all three stayed green
+    across releases in which no real apply on a default config ever produced
+    a generation and `undo` therefore always exited 1. FALSIFY-UNDO-004
+    closes that gap by driving the binary.
   references:
     - "issue: https://github.com/paiml/forjar/issues/97"
     - "FJ-1386: generational state snapshots — src/cli/generation.rs"
@@ -50,6 +61,11 @@ equations:
       - "Destroy followed by undo restores the prior generation's lock state"
       - "undo(n) with fewer than n generations is an error"
       - "After undo, current_generation = generation_from − n"
+      - "An apply under `policy.snapshot_generations` records a generation on
+         the FIRST apply, not the second — the state dir not yet existing is
+         not a reason to skip it, since the pre-apply state is simply empty"
+      - "A refusal names a remedy that can succeed for the config given: with
+         `policy.snapshot_generations` unset, `forjar apply` is not one"
 
 proof_obligations:
   - type: invariant
@@ -75,6 +91,20 @@ proof_obligations:
     formal: "current < n ⟹ cmd_undo(n) = Err"
     applies_to: all
     enforced_by: "src/cli/undo.rs::cmd_undo guard (current < generations)"
+
+  - type: completeness
+    property: "The refusal names a remedy that can succeed for this config"
+    formal: |
+      no_generations(state_dir) ∧ policy.snapshot_generations = None
+        ⟹ err names `policy.snapshot_generations` ∧ ¬(apply alone is offered)
+    applies_to: all
+    enforced_by: "src/cli/undo.rs::nothing_recorded_error"
+
+  - type: roundtrip
+    property: "A real apply, not a hand-built directory, feeds undo"
+    formal: "apply(cfg) ∘ apply(cfg') ∘ apply(cfg'') ⟹ cmd_undo(1) = Ok(())"
+    applies_to: all
+    enforced_by: "tests/falsification_undo_advice_is_actionable.rs::apply_then_undo_reaches_the_rollback"
 
 enforcement:
   current_symlink_resolves_to_new_generation:
@@ -112,15 +142,36 @@ falsification_tests:
     test: "src/cli/tests_generation.rs::test_rollback_nonexistent_generation"
     if_fails: "Rollback silently no-ops or destroys state on bad target"
 
+  - id: FALSIFY-UNDO-004
+    rule: "Undo is reachable from a real apply"
+    prediction: |
+      Driving the BINARY — three applies of changing content under
+      `policy.snapshot_generations` — makes `undo --yes` exit 0 and roll back
+      to the previous generation. UNDO-001..003 cannot see this: they build
+      `state/generations/` themselves.
+    test: "tests/falsification_undo_advice_is_actionable.rs::apply_then_undo_reaches_the_rollback"
+    if_fails: "Undo is inert in production while the contract reads green"
+
+  - id: FALSIFY-UNDO-005
+    rule: "A refusal names a remedy that works"
+    prediction: |
+      On a config without `policy.snapshot_generations`, three successful
+      applies leave undo's error BYTE-IDENTICAL — so an error offering
+      `forjar apply` as the remedy is offering the one action that cannot
+      help. The message must name the setting instead, and following it must
+      make undo run.
+    test: "tests/falsification_undo_advice_is_actionable.rs::misdirection_repro"
+    if_fails: "Undo misdirects the operator into an unbounded re-apply loop"
+
 qa_gate:
   id: F-UNDO-001
   name: "Destroy/Undo Roundtrip Contract"
-  description: "Undo restores the prior generation's state snapshot"
+  description: "Undo restores the prior generation's state snapshot, and refuses honestly when it cannot"
   checks:
     - "snapshot_generation"
     - "restore_generation"
     - "undo_roundtrip"
-  pass_criteria: "All 3 falsification tests pass"
-  falsification: "Skip restore_generation_to_state in rollback, switching only the symlink"
+  pass_criteria: "All 5 falsification tests pass"
+  falsification: "Skip restore_generation_to_state in rollback, switching only the symlink; or restore the `!state_dir.exists()` early return in apply.rs::maybe_auto_snapshot, which makes the first apply record nothing"
 
 verification_level: L3
