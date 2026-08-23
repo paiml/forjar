@@ -1,9 +1,9 @@
 //! FJ-1386: Generational state snapshots — Nix-style numbered generations with instant rollback.
 //!
-//! Each `forjar apply` creates a new generation under `state/generations/`.
-//! Generations are numbered sequentially (0, 1, 2, ...) with a `current`
-//! symlink pointing to the active generation. Rollback switches the symlink
-//! atomically via temp-symlink + rename(2).
+//! An apply records a generation under `state/generations/` ONLY when the config sets
+//! `policy.snapshot_generations` — at once the on-switch and the retention count; claiming
+//! otherwise here is what made `undo`'s old refusal misdirect. Generations are numbered
+//! sequentially (0, 1, ...) with a `current` symlink, switched atomically by rename(2).
 
 use crate::core::types::GenerationMeta;
 use std::path::{Path, PathBuf};

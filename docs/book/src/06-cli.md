@@ -624,6 +624,19 @@ forjar undo -f <FILE> [--generations N] [-m MACHINE] [--dry-run] [--yes]
 
 Unlike `rollback` (which reads from git history), `undo` operates on generation snapshots stored in `state/generations/`. It shows the resource diff between the current and target generation, then restores lock files and re-applies with force.
 
+> **`undo` needs `policy.snapshot_generations`.** Generations are recorded by
+> `apply` only when the config sets that key — it is both the on-switch and the
+> retention count. Without it no apply ever writes one, so `undo` can only
+> refuse, however many times you apply:
+>
+> ```yaml
+> policy:
+>   snapshot_generations: 10   # keep the last 10; required for `forjar undo`
+> ```
+>
+> The first apply after enabling records generation 0 (a snapshot of the state
+> *before* that apply), so `undo` becomes usable from the second apply onward.
+
 ```bash
 # Preview what undo would change
 forjar undo --dry-run

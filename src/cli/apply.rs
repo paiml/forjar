@@ -111,7 +111,7 @@ pub(crate) fn cmd_apply_scoped(
         force_tag,
     };
 
-    maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
+    super::apply_snapshot::maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
 
     // FJ-1388: Record pre-apply generation for rollback-on-failure
     let pre_apply_gen = pre_apply_generation(state_dir);

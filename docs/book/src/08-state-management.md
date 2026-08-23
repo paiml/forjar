@@ -1397,6 +1397,13 @@ Without `--force`, the planner uses BLAKE3 hash comparison for O(1) idempotency 
 
 `forjar undo` reverts to a previous generation by restoring lock files and re-applying. Unlike `rollback` (which reads config from git history), `undo` operates on the generation snapshots in `state/generations/`.
 
+Those snapshots exist only if the config sets `policy.snapshot_generations`, which is both the on-switch and the retention count. Without it `apply` records no generation and `undo` has nothing to target — re-applying will not change that:
+
+```yaml
+policy:
+  snapshot_generations: 10   # required for `forjar undo`
+```
+
 ```bash
 # Preview changes
 forjar undo --dry-run
