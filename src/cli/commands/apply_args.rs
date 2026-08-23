@@ -101,7 +101,7 @@ pub struct ApplyArgs {
     #[arg(long, default_value = "0")]
     pub retry: u32,
 
-    /// FJ-286: Skip confirmation prompt (CI mode)
+    /// FJ-286: Skip the confirmation prompt (CI mode). Prompting only — it relaxes no safety gate
     #[arg(long)]
     pub yes: bool,
 

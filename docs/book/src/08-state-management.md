@@ -1146,15 +1146,33 @@ Before every apply, forjar checks:
 1. All lock files are valid YAML (catches corruption)
 2. Lock file content matches its `.b3` sidecar hash (catches tampering)
 
-Missing sidecars produce a warning (backward-compatible with older state). Hash mismatches produce an error and block apply unless `--yes` is used.
+Missing sidecars produce a warning (backward-compatible with older state). Hash
+mismatches — and lock files that no longer parse as YAML — are errors: apply
+prints them and exits non-zero without touching any host.
 
-### Manual Verification
+`--yes` does **not** override this. It skips the confirmation prompt and nothing
+else, so an unattended apply is checked exactly like an interactive one. (Until
+1.16 the gate was written `has_errors(&issues) && !yes`, which meant every CI
+apply — `--yes` being mandatory for non-interactive use — ran with tamper
+detection off, printed `ERROR: integrity check failed`, converged anyway, and
+exited 0.)
+
+### Recovering From a Failed Check
+
+There is **no apply flag that lifts this gate** — blessing state forjar cannot
+vouch for is a deliberate act with its own command, not a flag on the run that
+is about to use it.
+
+1. Find out **why** it failed. Apply's own message names each failing file;
+   `git diff` on the state directory usually shows what changed.
+2. If the lock itself is wrong, restore it — `forjar snapshot restore <name>` or
+   `forjar generation` — and apply normally.
+3. If the lock contents are known good and only the sidecar is stale (an older
+   forjar that dropped a sidecar-write error, or a `git checkout` that restored
+   one file but not the other), bless them and apply again:
 
 ```bash
-# Verify lock file integrity
-forjar lock-verify --state-dir state
-
-# Override integrity check
+forjar reseal --all --state-dir state
 forjar apply -f forjar.yaml --yes
 ```
 

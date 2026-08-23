@@ -326,22 +326,6 @@ fn export_otlp_traces(
     }
 }
 
-/// FJ-1270: Check state file integrity via BLAKE3 sidecars.
-fn check_state_integrity(state_dir: &Path, verbose: bool, yes: bool) -> Result<(), String> {
-    if !state_dir.exists() {
-        return Ok(());
-    }
-    let issues = state::integrity::verify_state_integrity(state_dir);
-    state::integrity::print_issues(&issues, verbose);
-    if state::integrity::has_errors(&issues) && !yes {
-        return Err(
-            "state integrity check failed — use --yes to override or fix corrupted files"
-                .to_string(),
-        );
-    }
-    Ok(())
-}
-
 /// FJ-1381: Auto-snapshot before apply if snapshot_generations is set.
 fn maybe_auto_snapshot(
     config: &types::ForjarConfig,
@@ -476,7 +460,7 @@ fn apply_pre_validate(
     yes: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    check_state_integrity(state_dir, verbose, yes)?;
+    super::apply_gates::check_state_integrity(state_dir, verbose)?;
     check_pre_apply_drift(config, state_dir, machine_filter, force, verbose)?;
 
     // FJ-335: Confirm destructive actions
