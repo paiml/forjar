@@ -197,6 +197,67 @@ forjar undo --state-dir "$ST" 2>&1 | tail -3                     # destroy-undo 
 PASS if converge→idempotent-reapply→no-drift→destroy→undo all behave per contract.
 **Never** point this at a non-tempdir state dir.
 
+## Gate 8b: CONVERGENCE — apply must fix what drifted on the target (forjar#305)
+
+The central IaC guarantee, and the one that was broken for five months: `apply`
+reported `unchanged` for a file changed on the host, and `drift` did not report
+it either — so a drifted file was neither detected nor corrected.
+
+**Assert the BYTES AT THE PATH. Never the summary line** — `0 converged, 1
+unchanged` is exactly what the defect printed.
+
+```bash
+SBX=$(mktemp -d); ST="$SBX/state"; TGT="$SBX/t.txt"
+printf 'DECLARED\n' > "$SBX/src.txt"
+cat > "$SBX/c.yaml" <<YAML
+version: "1.0"
+name: conv
+machines: { local: { hostname: localhost, addr: 127.0.0.1 } }
+resources:
+  managed: { type: file, machine: local, path: $TGT, source: $SBX/src.txt, mode: "0644" }
+YAML
+forjar apply -f "$SBX/c.yaml" --state-dir "$ST" --yes >/dev/null 2>&1
+
+# Both shapes of drift, and a deletion.
+for t in content mode delete; do
+  case $t in
+    content) printf 'TAMPERED\n' > "$TGT" ;;
+    mode)    chmod 0777 "$TGT" ;;
+    delete)  rm -f "$TGT" ;;
+  esac
+  OUT=$(forjar drift -f "$SBX/c.yaml" --state-dir "$ST" 2>&1); EC=$?
+  echo "$OUT" | grep -q DRIFTED && echo "G8b.$t detect: ok" || echo "G8b.$t detect: FAIL (drift blind)"
+  OUT=$(forjar apply -f "$SBX/c.yaml" --state-dir "$ST" --yes 2>&1); EC=$?
+  if [ "$(cat "$TGT" 2>/dev/null)" = "DECLARED" ]; then echo "G8b.$t converge: ok"
+  else echo "G8b.$t converge: FAIL — apply did not restore the declared bytes"; fi
+done
+
+# THE CONTROL. Without it, "always rewrite" passes everything above.
+OUT=$(forjar apply -f "$SBX/c.yaml" --state-dir "$ST" --yes 2>&1)
+echo "$OUT" | grep -qi unchanged && echo "G8b.control: ok" || echo "G8b.control: FAIL — re-runs everything"
+
+# THE ANTI-BRICK TEST. state_query_script must NOT fold stat size into a
+# directory's live_hash: a directory grows 4096 -> 12288 at ~400 entries, so
+# including it marks every managed directory permanently drifted and, once the
+# apply gate reads drift, permanently un-appliable.
+D="$SBX/dir"
+cat > "$SBX/d.yaml" <<YAML
+version: "1.0"
+name: conv
+machines: { local: { hostname: localhost, addr: 127.0.0.1 } }
+resources:
+  d: { type: file, machine: local, path: $D, state: directory, mode: "0755" }
+YAML
+forjar apply -f "$SBX/d.yaml" --state-dir "$ST" --yes >/dev/null 2>&1
+for i in $(seq 1 400); do : > "$D/f$i"; done
+OUT=$(forjar drift -f "$SBX/d.yaml" --state-dir "$ST" 2>&1)
+echo "$OUT" | grep -q DRIFTED && echo "G8b.dir: FAIL — managed dir drifts on content churn (BRICK)" || echo "G8b.dir: ok"
+rm -rf "$SBX"
+```
+
+PASS requires every line to read `ok`. A `FAIL` on `.dir` is a release blocker of
+its own kind: it would make every managed directory on the fleet un-appliable.
+
 ## Gate 9: Loud-failure injection (must fail non-zero, never silently degrade)
 
 ```bash
