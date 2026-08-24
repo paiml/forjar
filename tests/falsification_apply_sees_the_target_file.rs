@@ -59,6 +59,10 @@ impl Sandbox {
     fn write_config(&self, shape: Shape) -> PathBuf {
         let target = self.path("target.txt");
         let cfg = self.path("forjar.yaml");
+        let params = format!(
+            "params: {{ dir: \"{}\", token: \"DECLARED\" }}\n",
+            self.dir.path().display()
+        );
         let body = match shape {
             Shape::Source => {
                 let src = self.path("source.txt");
@@ -74,11 +78,23 @@ impl Sandbox {
                 target.display(),
                 DECLARED.replace('\n', "\\n")
             ),
+            Shape::TemplatedPath => {
+                let src = self.path("source.txt");
+                fs::write(&src, DECLARED).unwrap();
+                format!(
+                    "  managed: {{ type: file, machine: local, path: \"{{{{params.dir}}}}/target.txt\", source: {}, mode: \"0644\" }}\n",
+                    src.display()
+                )
+            }
+            Shape::TemplatedContent => format!(
+                "  managed: {{ type: file, machine: local, path: {}, content: \"{{{{params.token}}}}\\n\", mode: \"0644\" }}\n",
+                target.display()
+            ),
         };
         fs::write(
             &cfg,
             format!(
-                "version: \"1.0\"\nname: conv\nmachines: {{ local: {{ hostname: localhost, addr: 127.0.0.1 }} }}\nresources:\n{body}"
+                "version: \"1.0\"\nname: conv\n{params}machines: {{ local: {{ hostname: localhost, addr: 127.0.0.1 }} }}\nresources:\n{body}"
             ),
         )
         .unwrap();
@@ -121,6 +137,20 @@ impl Sandbox {
 enum Shape {
     Source,
     Content,
+    /// `path:` built from `{{params.*}}`.
+    ///
+    /// The suite had NO templated cell at all — the four `{{` in it were
+    /// `format!` escapes, and there was no `params:` block anywhere. That gap
+    /// is why the raw-vs-resolved defect (#310) shipped: `check_pre_apply_drift`
+    /// passed unresolved `config.resources` while `cli/drift.rs` passed resolved
+    /// ones, so apply and drift asked the same question with different
+    /// arguments, and nothing here could tell.
+    ///
+    /// 112 `path:` declarations on the paiml fleet are templated.
+    TemplatedPath,
+    /// `content:` containing a `{{params.*}}` substitution — the resolved TEXT
+    /// must be what is compared and restored, not the raw template.
+    TemplatedContent,
 }
 
 const DECLARED: &str = "DECLARED\n";
@@ -317,4 +347,135 @@ fn a_managed_directory_does_not_drift_when_its_contents_change() {
          added inside it — this would brick every managed directory:\n{out}"
     );
     assert_eq!(ec, 0, "drift failed on an unchanged directory:\n{out}");
+}
+
+// ── THE TEMPLATED CELLS (forjar#310) ────────────────────────────────────────
+//
+// The suite above had NONE. That is why the raw-vs-resolved defect shipped:
+// `check_pre_apply_drift` passed unresolved `config.resources` to
+// `detect_drift_full` while `cli/drift.rs` passed resolved ones — the same
+// detector, different arguments — and every cell here used a literal path, so
+// nothing could tell. `cli/drift.rs` has carried the fix and the reason since
+// PMAT-197, which makes this a REGRESSION of a defect already fixed once.
+//
+// 112 `path:` declarations and 23 templated task commands on the paiml fleet.
+
+#[test]
+fn drift_sees_a_tamper_on_a_templated_path() {
+    let sb = Sandbox::new();
+    let (cfg, target) = converged(&sb, Shape::TemplatedPath);
+    fs::write(&target, "TAMPERED\n").unwrap();
+    assert_drift_reports(&sb, &cfg, "a content change on a templated path");
+}
+
+#[test]
+fn apply_restores_a_tampered_templated_path() {
+    assert_apply_converges(
+        Shape::TemplatedPath,
+        &|p| fs::write(p, "TAMPERED\n").unwrap(),
+        "content tamper on a templated path",
+    );
+}
+
+#[test]
+fn apply_restores_the_resolved_text_of_a_templated_content() {
+    // The comparison must be against the RENDERED text. If anything compares
+    // the raw `{{params.token}}`, this either never converges or converges to
+    // the wrong bytes — and both look like success in the summary line.
+    assert_apply_converges(
+        Shape::TemplatedContent,
+        &|p| fs::write(p, "TAMPERED\n").unwrap(),
+        "content tamper on a templated content",
+    );
+}
+
+/// THE CELL THAT ACTUALLY DISCRIMINATES.
+///
+/// The file-shaped templated cells above are worth having, but they do NOT
+/// catch the raw-vs-resolved defect — verified by reintroducing it and watching
+/// them stay green. For file resources the drift path reads `path` from the
+/// LOCK, which is already resolved, so the raw config resource never gets
+/// consulted for anything path-shaped.
+///
+/// A TASK does get consulted. Its `completion_check` is generated from the
+/// config resource, so an unresolved `test -f {{params.dir}}/log` tests a
+/// literal directory named `{{params.dir}}` — never true — and the task
+/// re-executes on every single apply.
+///
+/// Measured across two applies:
+///     raw resources passed to the detector   -> command ran 2 times
+///     resolved resources                     -> command ran 1 time
+///
+/// 23 templated task commands on the paiml fleet. Without this cell the suite
+/// has templates but no discrimination, which is decoration.
+#[test]
+fn a_templated_task_does_not_re_execute_on_every_apply() {
+    let sb = Sandbox::new();
+    let cfg = sb.path("task.yaml");
+    let log = sb.path("ran.log");
+    let d = sb.dir.path().display().to_string();
+    let yaml = [
+        "version: \"1.0\"".to_string(),
+        "name: conv".to_string(),
+        format!("params: {{ dir: \"{d}\" }}"),
+        "machines: { local: { hostname: localhost, addr: 127.0.0.1 } }".to_string(),
+        "resources:".to_string(),
+        "  t:".to_string(),
+        "    type: task".to_string(),
+        "    machine: local".to_string(),
+        "    command: \"echo ran >> {{params.dir}}/ran.log\"".to_string(),
+        "    completion_check: \"test -f {{params.dir}}/ran.log\"".to_string(),
+        String::new(),
+    ]
+    .join("\n");
+    fs::write(&cfg, yaml).unwrap();
+
+    for _ in 0..3 {
+        let (ec, out) = sb.apply(&cfg);
+        assert_eq!(ec, 0, "apply failed:\n{}", plain(&out));
+    }
+
+    let runs = fs::read_to_string(&log)
+        .map(|c| c.lines().count())
+        .unwrap_or(0);
+    assert_eq!(
+        runs, 1,
+        "a templated task's command ran {runs} times across 3 applies. Its \
+         completion_check was compared UNRESOLVED, so it can never be true and \
+         the task re-executes forever — `--force` permanently on."
+    );
+}
+
+#[test]
+fn a_converged_templated_resource_reports_unchanged_and_is_not_rewritten() {
+    // THE CONTROL, ON THE SHAPE THAT ACTUALLY BROKE. The existing control uses
+    // a LITERAL path, so it stayed green while every templated resource on the
+    // fleet was falsely drifted and rewritten on every apply.
+    //
+    // mtime is the observable, not the summary line: a rewrite that produces
+    // identical bytes is invisible to a content check and is exactly what
+    // "`--force` permanently on" looks like from the outside.
+    for shape in [Shape::TemplatedPath, Shape::TemplatedContent] {
+        let sb = Sandbox::new();
+        let (cfg, target) = converged(&sb, shape);
+        let before = fs::metadata(&target).unwrap().modified().unwrap();
+
+        for _ in 0..3 {
+            let (ec, out) = sb.apply(&cfg);
+            assert_eq!(ec, 0, "{shape:?}: re-apply failed:\n{}", plain(&out));
+            assert!(
+                plain(&out).contains("unchanged"),
+                "{shape:?}: a converged templated resource did not report \
+                 unchanged — apply never reaches its fixed point:\n{}",
+                plain(&out)
+            );
+        }
+
+        assert_eq!(
+            fs::metadata(&target).unwrap().modified().unwrap(),
+            before,
+            "{shape:?}: the file was REWRITTEN by a no-op apply — every \
+             templated resource on the fleet re-applied on every run"
+        );
+    }
 }
