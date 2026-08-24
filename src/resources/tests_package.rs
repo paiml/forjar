@@ -203,12 +203,24 @@ fn test_fj006_quoted_packages() {
 fn test_fj006_state_query_cargo() {
     let mut r = make_apt_resource(&["batuta", "renacer"]);
     r.provider = Some("cargo".to_string());
-    // GH-257: drift is answered by cargo's record, not a PATH lookup.
+    // GH-257: registration is answered by cargo's record, not a PATH lookup...
     let script = state_query_script(&r);
     assert!(script.contains("'^batuta v'"));
     assert!(script.contains("'^renacer v'"));
     assert!(script.contains("installed"));
-    assert!(!script.contains("command -v"));
+    // ...AND the binaries are checked too.
+    //
+    // This asserted `!script.contains("command -v")`, which encoded the
+    // blindness as a REQUIREMENT: `cargo install --list` reads .crates.toml
+    // metadata and stats nothing, so a pruned $CARGO_HOME/bin leaves every
+    // binary dead and this observable still saying `installed`. Measured on
+    // intel 2026-08-24: cargo-kani and kani both gone, `forjar drift` clean
+    // across the whole machine. (paiml/infra#208.)
+    assert!(
+        script.contains("command -v"),
+        "the cargo observable must verify the BINARIES exist, not only that \
+         cargo has a record of them:\n{script}"
+    );
 }
 
 #[test]
