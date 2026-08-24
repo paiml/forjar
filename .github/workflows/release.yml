@@ -167,6 +167,25 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # ADD THE TARGET. The Linux branch below already does this; macOS did
+          # not, and it only mattered once `macos-latest` became ARM: with an
+          # aarch64 host, aarch64-apple-darwin is NATIVE and builds fine, while
+          # x86_64-apple-darwin has no std and dies with
+          #   error[E0463]: can't find crate for `core`
+          # That is what happened on v1.17.0 — 5 of 6 targets built, and the
+          # release shipped without an x86_64 macOS binary while `create-release`
+          # reported success and `checksums`/`dist-artifacts` silently skipped.
+          #
+          # NOT `|| true`. The Linux branch swallows failure that way, so a
+          # missing target there would surface later as this same inscrutable
+          # `core` error rather than at the point of cause. A target that cannot
+          # be installed must fail here, loudly.
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup target add "${{ matrix.target }}"
+          rustup target list --installed | grep -qx "${{ matrix.target }}" || {
+            echo "::error::rustup reported success but ${{ matrix.target }} is not installed"
+            exit 1
+          }
 
       - name: Install target prerequisites (Linux)
         if: contains(matrix.target, 'linux')
