@@ -14,6 +14,31 @@ metadata:
     - "C3: forjar's idempotency falsifiable claim — README.md § Falsifiable Claims"
     - "FJ-2200: runtime idempotency contracts — src/core/planner/mod.rs"
     - "apply-summary-distinguishability-v1.yaml — C3 observability through --force"
+    - "apply-converges-observed-drift-v1.yaml — the live-state obligation this one does NOT carry"
+
+  scope_boundary: |
+    WHAT THIS CONTRACT DOES NOT SAY, stated explicitly since its silence was
+    load-bearing for five months (forjar#305).
+
+    Every equation below ranges over (config, locks). None observes the target
+    machine. So "a second plan over converged locks yields zero pending changes"
+    is satisfied by a plan that is CORRECT and equally by one that is merely
+    UNINFORMED — a file deleted on the target still plans NoOp, because the lock
+    says Converged and the desired-state hash still matches.
+
+    That is not a flaw in this contract; a plan-level fixed point is exactly
+    what it set out to prove. It became a flaw in the CORPUS, because no other
+    contract carried the live-state obligation while
+    apply-summary-distinguishability-v1 explicitly delegated it to `forjar
+    drift` — which was blind for files. A defect that violates no contract is
+    the expensive kind.
+
+    The live-state obligation now lives in
+    apply-converges-observed-drift-v1.yaml. Note that the two constrain each
+    other in opposite directions, which is the point: that contract requires
+    drift to be converged, and THIS one forbids converging it by re-applying
+    everything (`an_untampered_file_still_reports_unchanged` is the shared
+    control).
 
 equations:
   noop_fixed_point:

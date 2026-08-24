@@ -305,3 +305,53 @@ bindings:
       round-trips to the log. paiml/infra#208 is a deletion — every real file under
       ~/.cargo/bin removed, every symlink left — so the one event class that would
       have named it did not exist. Falsifier RCP-001."
+
+  # ── Apply Converges Observed Drift (#305, #297) ────────
+  - contract: apply-converges-observed-drift-v1.yaml
+    equation: live_oracle_is_read
+    module_path: "forjar::tripwire::drift::detect_drift_full"
+    function: detect_drift_full
+    signature: "fn detect_drift_full(lock: &StateLock, machine: &Machine, resources: &IndexMap<String, Resource>) -> Vec<DriftFinding>"
+    status: implemented
+    notes: "detect_nonfile_drift no longer excludes ResourceType::File, so the
+      live_hash written on every apply is finally read. That hash comes from
+      state_query_script run ON THE TARGET and covers content+owner+group+mode+
+      existence — strictly stronger than the controller-side, bytes-only,
+      content-only content_hash it was passed over for. 320 of 329 locked file
+      resources on the paiml fleet had no content_hash at all. Falsifier
+      CONV-001, probed: restoring the exclusion takes the matrix 9/9 → 4/9."
+
+  - contract: apply-converges-observed-drift-v1.yaml
+    equation: apply_reads_what_drift_reads
+    module_path: "forjar::cli::apply::check_pre_apply_drift"
+    function: check_pre_apply_drift
+    signature: "fn check_pre_apply_drift(config: &ForjarConfig, state_dir: &Path, machine_filter: Option<&str>, force: bool, verbose: bool) -> Result<(), String>"
+    status: implemented
+    notes: "Private to cli::apply. Now calls detect_drift_full — the same entry
+      point cli/drift.rs uses — instead of the narrower detect_drift_with_machine.
+      Without this the fix lands only in the reporting command and apply keeps
+      printing `unchanged` while `drift` prints DRIFTED. Falsifier CONV-004."
+
+  - contract: apply-converges-observed-drift-v1.yaml
+    equation: observed_drift_plans_update
+    module_path: "forjar::core::planner::determine_present_action"
+    function: determine_present_action
+    signature: "fn determine_present_action(resource_id: &str, resource: &Resource, machine_name: &str, locks: &HashMap<String, StateLock>) -> PlanAction"
+    status: implemented
+    notes: "No planner change was needed: it already maps any non-Converged status
+      to Update (`Previously failed or drifted`). ResourceStatus::Drifted was
+      DEFINED AND NEVER WRITTEN — check_pre_apply_drift now writes it and persists
+      the lock. Shares determine_present_action with idempotent-apply-v1, and the
+      two constrain it in opposite directions on purpose. Falsifier CONV-002."
+
+  - contract: apply-converges-observed-drift-v1.yaml
+    equation: directory_identity_excludes_entry_count
+    module_path: "forjar::resources::file::state_query_script"
+    function: state_query_script
+    signature: "fn state_query_script(resource: &Resource) -> String"
+    status: implemented
+    notes: "Branches on `[ -d ]` and omits stat's size= for directories. THE
+      ANTI-BRICK BINDING: a directory's size tracks its entry count (measured
+      4096 → 12288 at 400 entries), so without this the live_hash comparison marks
+      every managed directory permanently drifted and, once the apply gate reads
+      drift, permanently un-appliable. Falsifier CONV-003."

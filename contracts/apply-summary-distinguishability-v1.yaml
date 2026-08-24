@@ -15,6 +15,7 @@ metadata:
     - "issue: https://github.com/paiml/forjar/issues/129"
     - "downstream incident: https://github.com/paiml/iac-from-zero/pull/1"
     - "C3: forjar's idempotency falsifiable claim — README.md § Falsifiable Claims"
+    - "apply-converges-observed-drift-v1.yaml — supersedes this contract's Q2 delegation"
 
 equations:
   forced_noop_count:
@@ -79,10 +80,27 @@ proof_obligations:
       Q1 semantics: forced_noop is computed against the LOCK, not the
       live filesystem. Shape 4 (rm outside forjar then --force) shows
       actual_changes=0 because the lock still says both resources are
-      converged. The complementary question — "how many resources had
-      live-state drift?" — is what `forjar drift` answers. Q1 is the
-      cheap, deterministic part of the contract; Q2 (live-state diff)
-      is a separate runtime concern documented in this YAML's notes.
+      converged.
+
+      CORRECTED 2026-08-24 (forjar#305). This block used to end: "The
+      complementary question — how many resources had live-state drift? — is
+      what `forjar drift` answers. Q2 (live-state diff) is a separate runtime
+      concern." That delegation was doing real damage. `forjar drift` EXCLUDED
+      ResourceType::File from the live comparison, so the named delegate was
+      blind for 97% of this fleet's file resources (320 of 329 locked file
+      resources had no content_hash) — and because the delegation was written
+      down here as intentional, apply's own silence read as by-design rather
+      than as a defect.
+
+      A contract may narrow its own scope. What it must not do is name a
+      delegate without an obligation that the delegate actually answers. The
+      live-state question now has one:
+      apply-converges-observed-drift-v1.yaml.
+
+      Q1 remains the cheap, deterministic, lock-only part, and shape 4 above is
+      still correct AS STATED — it describes `--force`, which bypasses the drift
+      gate entirely. Without --force, a resource that moved on the target is now
+      marked Drifted and re-applied.
 
 enforcement:
   forced_noop_not_counted_as_converged:
