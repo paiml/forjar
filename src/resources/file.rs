@@ -45,16 +45,27 @@ pub fn check_script(resource: &Resource) -> String {
 /// Append chown/chmod lines for the given resource ownership and mode.
 fn push_ownership_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
     let p = sh_squote(path);
-    if let Some(ref owner) = resource.owner {
-        if let Some(ref group) = resource.group {
-            lines.push(format!(
-                "chown {} {}",
-                sh_squote(&format!("{owner}:{group}")),
-                p
-            ));
-        } else {
-            lines.push(format!("chown {} {}", sh_squote(owner), p));
-        }
+    // `group:` WITHOUT `owner:` USED TO BE SILENTLY IGNORED.
+    //
+    // `group` was only ever read inside the `owner` branch, so a resource
+    // declaring group alone emitted no ownership command at all — and the lock
+    // then recorded `group: <declared>` under `status: converged` while the file
+    // on disk kept whatever group it had. A declared attribute that is never
+    // applied and is nonetheless reported as converged is the worst shape a
+    // config tool has: the operator has written down an intent the system has
+    // quietly agreed to ignore. (forjar#310, confirmed 3/3 by the release gate.)
+    match (&resource.owner, &resource.group) {
+        (Some(owner), Some(group)) => lines.push(format!(
+            "chown {} {}",
+            sh_squote(&format!("{owner}:{group}")),
+            p
+        )),
+        (Some(owner), None) => lines.push(format!("chown {} {}", sh_squote(owner), p)),
+        // chgrp, not `chown :group` — chgrp says what is meant, and `chown`
+        // with a leading colon is a portability trap (BSD and GNU disagree
+        // about `:group` vs `.group`, and this fleet has a macOS host).
+        (None, Some(group)) => lines.push(format!("chgrp {} {}", sh_squote(group), p)),
+        (None, None) => {}
     }
     if let Some(ref mode) = resource.mode {
         lines.push(format!("chmod {} {}", sh_squote(mode), p));
