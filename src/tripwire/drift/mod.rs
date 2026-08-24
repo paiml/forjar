@@ -210,7 +210,25 @@ fn detect_nonfile_drift(
 ) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
     for (id, rl) in &lock.resources {
-        if rl.status != ResourceStatus::Converged || rl.resource_type == ResourceType::File {
+        // FILE RESOURCES ARE NOT EXCLUDED ANY MORE.
+        //
+        // This read `|| rl.resource_type == ResourceType::File`, added with the
+        // comment "already handled by detect_drift_impl" — which was FALSE when
+        // written. `source:` support had landed 3h49m earlier the same evening
+        // without extending `build_resource_details`, so a `source:` file never
+        // gets a `content_hash` and `detect_drift_impl` returns None for it
+        // (absence of evidence rendered as cleanliness). A later refactor folded
+        // the two ifs together and deleted the comment, so the false premise
+        // stopped being visible at the line.
+        //
+        // Measured on the fleet before this change: 320 of 329 locked file
+        // resources carried NO content_hash — 97% invisible to drift — while
+        // 323 carried a `live_hash` that nothing read. That hash comes from
+        // `state_query_script` run ON THE TARGET through the transport and
+        // covers content, owner, group, mode and existence, so it is strictly
+        // stronger than the controller-side bytes-only `content_hash`.
+        // (forjar#305.)
+        if rl.status != ResourceStatus::Converged {
             continue;
         }
         if should_ignore_drift(id, resources) {

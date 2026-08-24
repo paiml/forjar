@@ -1,0 +1,221 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-24"
+  author: "PAIML Engineering"
+  description: |
+    Apply converges OBSERVED drift — `forjar apply` reconciles a resource whose
+    state on the TARGET no longer matches what was applied, not merely one whose
+    lock entry disagrees with the config.
+
+    This contract exists because its absence was load-bearing. Two contracts
+    already covered apply, and both ranged over `(config, locks)` alone:
+
+      idempotent-apply-v1          f(f(x)) = f(x) at the PLAN level
+      apply-summary-distinguish…   forced_noop computed against the LOCK,
+                                   with live-state diff explicitly delegated
+                                   to `forjar drift`
+
+    So forjar#305 — a file tampered with on the target, reported `unchanged` by
+    apply and missed by `drift` — was contract-CONFORMANT. Every stated equation
+    held. Nothing in the corpus said the machine had to be looked at.
+
+    A hole a contract corpus does not know it has is worse than one it names.
+    This contract closes the quantifier: apply's obligation is over
+    (config, locks, TARGET STATE).
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/305"
+    - "issue: https://github.com/paiml/forjar/issues/297"
+    - "idempotent-apply-v1.yaml — the plan-level fixed point this refines"
+    - "apply-summary-distinguishability-v1.yaml — whose Q2 delegation this supersedes"
+    - "prior art: Terraform refresh-then-plan; Ansible check-then-change; Kubernetes reconcile loop"
+
+equations:
+  live_oracle_is_read:
+    formula: |
+      detect_drift_full(lock, machine, resources) ⊇
+        { f : f.resource_id = id
+            , lock.resources[id].status = Converged
+            , lock.resources[id].details.live_hash ≠ observe(machine, id) }
+    domain: "lock ∈ StateLock, machine ∈ Machine, resources ∈ IndexMap<String, Resource>"
+    codomain: "Vec<DriftFinding>"
+    invariants:
+      - "No ResourceType is excluded from the live_hash comparison"
+      - "live_hash is produced by state_query_script run ON THE TARGET through the transport"
+      - "A missing live_hash yields no finding, and is therefore a gap in coverage, not a pass"
+    notes: |
+      `live_hash` covers content + owner + group + mode + existence. It is
+      strictly stronger than `content_hash`, which covers bytes only, is
+      computed on the CONTROLLER by hasher::hash_file, and is written only when
+      `resource.content.is_some()`. Measured on the paiml fleet at the time of
+      the fix: 320 of 329 locked file resources had NO content_hash, while 323
+      carried a live_hash that no decision path read.
+
+  apply_reads_what_drift_reads:
+    formula: |
+      pre_apply_findings(config, state_dir, m) = detect_drift_full(lock_m, m, config.resources)
+    domain: "config ∈ ForjarConfig, state_dir ∈ Path, m ∈ Machine"
+    codomain: "Vec<DriftFinding>"
+    invariants:
+      - "apply and `forjar drift` answer the same question with the same detector"
+      - "Two shipped surfaces never disagree about whether a resource has drifted"
+
+  observed_drift_plans_update:
+    formula: |
+      f ∈ detect_drift_full(lock, m, r)
+        ⟹ lock'.resources[f.resource_id].status = Drifted
+        ∧ determine_present_action(f.resource_id, r, m, lock') = Update
+    domain: "f ∈ DriftFinding"
+    codomain: "PlanAction"
+    invariants:
+      - "Observed drift is RECORDED in the lock, not used to refuse the apply"
+      - "The planner turns any non-Converged status into Update"
+      - "Convergence needs no --force: a plain apply repairs the resource that moved"
+
+  directory_identity_excludes_entry_count:
+    formula: |
+      is_dir(p) ⟹ observe(m, p) = H(owner ‖ group ‖ mode ‖ exists)
+      is_file(p) ⟹ observe(m, p) = H(owner ‖ group ‖ mode ‖ size ‖ content)
+    domain: "p ∈ Path on machine m"
+    codomain: "String (digest)"
+    invariants:
+      - "A managed directory does not drift because files were created inside it"
+    notes: |
+      THE ANTI-BRICK CLAUSE, and the reason this equation is in a contract
+      rather than left to the implementation. `stat`'s size for a directory
+      grows with its entry count — measured 4096 → 12288 at 400 entries. Fold
+      that into live_hash and, the moment apply starts reading drift, every
+      managed directory on the fleet is permanently drifted and permanently
+      UN-APPLIABLE. A directory's identity under forjar is
+      owner/group/mode/existence; what someone put inside it is not drift.
+
+proof_obligations:
+  - type: invariant
+    property: "Live drift is detected for files, across both declaration shapes"
+    formal: "∀ shape ∈ {source:, content:}, ∀ t ∈ {content, mode, delete}: drift(tamper(t)) ≠ ∅"
+    applies_to: all
+    enforced_by: "tests/falsification_apply_sees_the_target_file.rs::drift_sees_*"
+    notes: |
+      The obligation quantifies over the MATRIX deliberately. Testing one cell
+      is how #305 survived: in a sandbox where controller and target are the
+      same box, `content:` looks protected because hash_file finds the path
+      locally. On a real SSH host it does not, `.ok()` swallows the error, and
+      inline content degrades to the same silence as `source:`.
+
+  - type: invariant
+    property: "Apply leaves the declared bytes at the path"
+    formal: "∀ shape, ∀ t: read(path) after apply(tamper(t)) = declared_content"
+    applies_to: all
+    enforced_by: "tests/falsification_apply_sees_the_target_file.rs::apply_restores_*, apply_recreates_a_deleted_file"
+    notes: |
+      Asserted on the BYTES AT THE PATH, never on the summary line. `0 converged,
+      1 unchanged` is precisely what the defect printed while leaving the tamper
+      in place, so an assertion on counters passes against the bug.
+
+  - type: invariant
+    property: "A converged stack still reports unchanged"
+    formal: "apply(converged) ⟹ to_update = 0 ∧ summary contains `unchanged`"
+    applies_to: all
+    enforced_by: "tests/falsification_apply_sees_the_target_file.rs::an_untampered_file_still_reports_unchanged"
+    notes: |
+      The control, and it is not optional. Without it, "rewrite everything on
+      every run" discharges every other obligation here — which is `--force`
+      permanently on, and a direct violation of idempotent-apply-v1.
+
+  - type: invariant
+    property: "A managed directory does not drift when its contents change"
+    formal: "∀ n: drift(mkdir p; touch p/f_1..f_n) = ∅"
+    applies_to: all
+    enforced_by: "tests/falsification_apply_sees_the_target_file.rs::a_managed_directory_does_not_drift_when_its_contents_change"
+    notes: "If this obligation fails, the fleet's managed directories are bricked."
+
+  - type: completeness
+    property: "Convergence holds across the SSH transport, not only in-sandbox"
+    formal: "∀ host ∈ fleet: tamper(host, p) ⟹ drift names p ∧ apply(host) restores p"
+    applies_to: all
+    enforced_by: "paiml/infra machines/fleet-hosts/post-install-convergence-check.sh"
+    notes: |
+      A LOCAL SANDBOX CANNOT DISCHARGE THIS OBLIGATION, and saying so is the
+      point of listing it separately. `addr: 127.0.0.1` makes the controller and
+      the target the same box — the exact shape that hid #305 for five months.
+      The post-install check asks the same question against real managed
+      machines through the real transport. Verified RED on 1.17.0 and GREEN on
+      the fix, on intel and gx10.
+
+enforcement:
+  no_resource_type_is_excluded_from_live_comparison:
+    description: |
+      `detect_nonfile_drift` must not filter by ResourceType. It excluded
+      ResourceType::File for five months behind a comment that was false when
+      written, and a later cognitive-complexity refactor deleted the comment,
+      so the false premise stopped being visible at the line. Any future
+      exclusion must be justified by a passing test that fails without it.
+    check: "src/tripwire/drift/mod.rs::detect_nonfile_drift"
+    severity: "ERROR"
+  apply_gate_uses_the_full_detector:
+    description: |
+      The pre-apply gate must call detect_drift_full — the same entry point
+      cli/drift.rs uses. Calling the narrower detect_drift_with_machine makes
+      apply and `forjar drift` disagree, which is worse than either being wrong
+      alone because it teaches the operator to distrust both.
+    check: "src/cli/apply.rs::check_pre_apply_drift"
+    severity: "ERROR"
+  drift_is_reconciled_not_refused:
+    description: |
+      Observed drift must mark the lock entry Drifted and let the planner emit
+      Update. It must NOT abort the apply and point at --force: --force empties
+      the lock map and re-runs every resource, so it is not a repair for the one
+      resource that moved.
+    check: "src/cli/tests_apply_drift_gate.rs::test_fj1378_drift_is_reconciled_not_blocked"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-CONV-001
+    rule: "live_oracle_is_read"
+    prediction: "Restoring the ResourceType::File exclusion in detect_nonfile_drift turns the matrix red"
+    test: "tests/falsification_apply_sees_the_target_file.rs"
+    if_fails: "The new comparison is not on the decision path and the tests are vacuous"
+    measured: |
+      Instrument probed 2026-08-23: reverting ONLY the drift/mod.rs exclusion
+      took the suite from 9/9 to 4/9. A falsification test that does not move
+      when the fix is removed is measuring something else.
+
+  - id: FALSIFY-CONV-002
+    rule: "observed_drift_plans_update"
+    prediction: "A tampered managed file is byte-restored by a plain `apply --yes`, with no --force"
+    test: "tests/falsification_apply_sees_the_target_file.rs::apply_restores_a_tampered_source_file"
+    if_fails: "apply reports on drift instead of converging it — a linter, not an apply"
+
+  - id: FALSIFY-CONV-003
+    rule: "directory_identity_excludes_entry_count"
+    prediction: "400 files created inside a managed directory produce zero drift findings"
+    test: "tests/falsification_apply_sees_the_target_file.rs::a_managed_directory_does_not_drift_when_its_contents_change"
+    if_fails: "Every managed directory on the fleet is permanently drifted and un-appliable"
+
+  - id: FALSIFY-CONV-004
+    rule: "apply_reads_what_drift_reads"
+    prediction: "On a real SSH-managed host, `drift` naming a resource implies `apply` restores it"
+    test: "paiml/infra machines/fleet-hosts/post-install-convergence-check.sh"
+    if_fails: "Convergence is a property of the sandbox, not of forjar"
+
+# No kani_harnesses. `metadata.kind: pattern`: the obligations here quantify over
+# OBSERVED STATE ON A TARGET MACHINE, which is exactly what a bounded symbolic
+# model cannot supply. Discharging them means running the binary against a file
+# and, for the transport obligation, against a real host. Declaring a harness
+# that models the filesystem would prove the model, not the machine — the
+# reported-not-measured shape this contract was written about.
+
+qa_gate:
+  id: F-CONV-001
+  name: "Apply Converges Observed Drift"
+  description: "apply reconciles what moved ON THE TARGET, without --force"
+  checks:
+    - "live_oracle_is_read"
+    - "apply_reads_what_drift_reads"
+    - "observed_drift_plans_update"
+    - "directory_identity_excludes_entry_count"
+  pass_criteria: "All 4 falsification tests pass, CONV-004 against a real host"
+  falsification: "Restore `|| rl.resource_type == ResourceType::File` in detect_nonfile_drift"
+
+verification_level: L3

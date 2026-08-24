@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fj1378_drift_gate_blocks_when_file_drifted() {
+    fn test_fj1378_drift_is_reconciled_not_blocked() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("forjar.yaml");
         let state_dir = dir.path().join("state");
@@ -104,7 +104,19 @@ policy:
         // Simulate drift by modifying the file
         std::fs::write(&file_path, "DRIFTED content").unwrap();
 
-        // Apply should fail due to drift detection
+        // APPLY MUST RECONCILE THE DRIFT, NOT REFUSE.
+        //
+        // This test asserted `result.is_err()` and that the error mentioned
+        // "drift" — the FJ-1378 gate, which blocked the apply and told the
+        // operator to re-run with `--force`. forjar#305 changed that, for two
+        // reasons: converging observed drift is the one job an IaC apply
+        // exists to do, and `--force` is not a repair — it empties the lock
+        // map so EVERY resource re-applies, with no way to fix just the one
+        // that moved.
+        //
+        // The assertion is now on the FILE. An exit code alone would pass for
+        // a build that succeeded and wrote nothing, which is exactly the shape
+        // the original defect had.
         let result = cmd_apply(
             &config_path,
             &state_dir,
@@ -143,8 +155,15 @@ policy:
             None, // force_tag
         &[],
         );
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("drift"));
+        assert!(
+            result.is_ok(),
+            "apply refused a drifted resource instead of reconciling it: {result:?}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&file_path).unwrap(),
+            "original content",
+            "apply did not restore the declared content — the drift survived"
+        );
     }
 
     #[test]

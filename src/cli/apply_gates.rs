@@ -114,26 +114,6 @@ pub(crate) fn filter_exclude(
     before - resources.len()
 }
 
-/// Determine whether a pre-apply drift gate should block.
-///
-/// Pure decision logic: given policy flags and drift count, decide whether to block.
-pub(crate) fn should_block_on_drift(
-    tripwire_enabled: bool,
-    force: bool,
-    drift_count: usize,
-) -> Option<String> {
-    if !tripwire_enabled || force {
-        return None;
-    }
-    if drift_count > 0 {
-        Some(format!(
-            "{drift_count} drift finding(s) block apply — use --force to override"
-        ))
-    } else {
-        None
-    }
-}
-
 /// Determine whether destructive actions should be blocked.
 ///
 /// Returns `Some(message)` if destructive actions are blocked, `None` if they should proceed.
@@ -375,27 +355,6 @@ mod tests {
     }
 
     // ── drift gate ──
-
-    #[test]
-    fn drift_gate_disabled() {
-        assert!(should_block_on_drift(false, false, 5).is_none());
-    }
-
-    #[test]
-    fn drift_gate_force_override() {
-        assert!(should_block_on_drift(true, true, 5).is_none());
-    }
-
-    #[test]
-    fn drift_gate_blocks() {
-        let msg = should_block_on_drift(true, false, 3).unwrap();
-        assert!(msg.contains("3 drift"));
-    }
-
-    #[test]
-    fn drift_gate_no_drift() {
-        assert!(should_block_on_drift(true, false, 0).is_none());
-    }
 
     // ── destructive gate ──
 
