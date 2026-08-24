@@ -228,10 +228,15 @@ fn unlink_confirmed_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> 
 /// WRITE state.lock.yaml and re-seal its `.b3` — over the state belonging to the
 /// run that holds the lock — and only THEN be refused:
 ///
-///     error: state directory is locked by PID 1034915
-///     state.lock.yaml: MUTATED by the REFUSED apply
+/// ```text
+/// error: state directory is locked by PID 1034915
+/// state.lock.yaml: MUTATED by the REFUSED apply
+/// ```
 ///
-/// Measured, not inferred.
+/// Measured, not inferred. (An indented block here is a DOCTEST — rustdoc tried
+/// to compile that transcript as Rust, and the clean-room gate caught it where
+/// the repo's own CI did not: GATE B3 runs doctests, `ci / test` does not.
+/// paiml/forjar#318.)
 ///
 /// This is deliberately a READ-ONLY PROBE and not an early acquire.
 /// `acquire_process_lock` uses `create_new` and is not reentrant, so acquiring

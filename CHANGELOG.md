@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] — 2026-08-24
+
+**`apply` converges what drifted on the target.** 1.17.0 and every version before
+it reported `unchanged` for a file changed behind forjar's back, and `drift` did
+not report it either — so a drifted file was neither detected nor corrected by
+normal operation. On the paiml fleet, **320 of 329 locked file resources were
+invisible to drift detection.**
+
+This release is unusual in that most of it is fixing the first attempt. The
+convergence fix (#307) shipped five defects of its own, an adversarial release
+gate returned **3/3 NO-GO**, and 1.18.0 is what came out the other side. The
+NO-GO reasoning is worth keeping: 1.18.0-as-first-written was *strictly weaker*
+than 1.17.0, because one `--dry-run` silenced drift for every resource type on a
+machine — converting a file-only blindness into whole-machine, operator-triggerable
+silence.
+
+### The root cause (#305, #297)
+
+forjar recorded **two** observables per file resource on every apply:
+
+| | covers | computed |
+|---|---|---|
+| `live_hash` | content + owner + group + mode + existence | **on the target**, through the transport |
+| `content_hash` | bytes only, and only when `content.is_some()` | **on the controller** |
+
+`detect_nonfile_drift` excluded `ResourceType::File`, so the complete oracle was
+written every run and **read by nothing**. The exclusion arrived with the comment
+"already handled by detect_drift_impl", which was false when written — `source:`
+support had landed 3h49m earlier without extending `build_resource_details`. A
+later refactor deleted the comment, so the false premise stopped being visible.
+
+`ResourceStatus::Drifted` was a defined enum variant that **nothing ever wrote**.
+
+### Fixed
+
+- **`apply` converges observed drift** rather than refusing it. `--force` was
+  never a repair: it empties the lock map so every resource re-applies.
+- **A managed directory does not drift because files were added inside it.**
+  `stat` size tracks entry count (4096 → 12288 at 400 entries); folding that into
+  the live hash would have marked every managed directory permanently drifted and
+  permanently un-appliable.
+- **`Drifted` means "needs work", not "stop looking"** (#310). The detectors
+  re-check it. Without this the CI tripwire fired once and then reported clean
+  forever over a still-tampered file.
+- **`apply --dry-run` no longer writes the lock**, and a **refused** apply no
+  longer writes before being refused.
+- **Templates are resolved before comparison** — a regression of PMAT-197, which
+  `cli/drift.rs` had carried the fix and the reason for all along. 112 templated
+  paths and 23 templated task commands were re-applied on every run.
+- **Drift asks the machine, not the controller.** `check_file_resource_drift`
+  routed through the transport only for *container* transports; every other
+  machine — including plain SSH — hashed the controller's filesystem and reported
+  it as the remote host's state. Measured: a file present locally and absent on
+  the target produced "No drift detected".
+- **A docker resource's identity is declared intent**, not `docker inspect`'s
+  full output, which carries `StartedAt` and changes on its own every few
+  seconds. Every apply was tearing down and recreating every container.
+- **A symlink at a managed path is replaced, not written through.** `>` and
+  `chmod` follow links, so forjar wrote declared content and mode onto arbitrary
+  paths with its own privileges; the dangling-link variant was a create primitive.
+- **`group:` without `owner:`** emitted no ownership command at all, then reported
+  converged.
+- **The cargo package observable checks the binaries**, not just `.crates.toml`.
+  Metadata survives a pruned `$CARGO_HOME/bin`, which is why six fleet-wide
+  toolchain deletions produced zero drift findings.
+- **Every transport call on the apply path is bounded.** One host that connects
+  and then stalls used to hang the whole run with zero output.
+
+### Contracts
+
+`apply-converges-observed-drift-v1` is new. Its `apply_reads_what_drift_reads`
+equation initially **encoded the raw-resources defect as its specification** —
+directly above two invariants saying the opposite. A guard that specifies the bug
+cannot fail on it. Corrected, plus `observation_is_bounded`.
+
+`idempotent-apply-v1` gains a `scope_boundary` saying out loud what its equations
+do **not** range over: they observe no machine, so a deleted file still plans NoOp
+and correctly so. The defect violated no contract, which is the part worth fixing
+in the corpus.
+
+### Known limits of the verification
+
+The release gate ran 166 agents across 8 competitive-research lanes and 10
+adversarial falsification lanes — and **every lane used `addr: 127.0.0.1`**, where
+controller and target are the same box. It structurally could not test the
+distinction this release exists for. The transport defect above was found
+afterwards, by hand, with two real hosts.
+
 ## [1.17.0] — 2026-08-23
 
 Everything in the unpublished 1.16.0 internal build — six release blockers,
