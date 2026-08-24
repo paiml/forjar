@@ -9,8 +9,81 @@ fn test_fj006_state_query_cargo_output_format() {
     let mut r = make_apt_resource(&["pmat"]);
     r.provider = Some("cargo".to_string());
     let script = state_query_script(&r);
-    assert!(script.contains("echo 'pmat=installed'"));
+    // `pmat=installed` now carries the per-binary status suffix, so the token
+    // is a prefix rather than a whole line. The MISSING arm is unchanged.
+    assert!(script.contains("pmat=installed"));
     assert!(script.contains("echo 'pmat=MISSING'"));
+}
+
+/// paiml/infra#208 — the observable must EXECUTE differently when a binary is
+/// gone. Every other assertion in this file reads the script's text; this one
+/// runs it, because the defect being fixed is that the script's text looked
+/// perfectly correct while reporting `installed` over an empty bin directory.
+#[cfg(unix)]
+#[test]
+fn cargo_observable_reports_a_deleted_binary_as_gone() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let bin = tmp.path().join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+
+    // A fake `cargo` whose `install --list` reports a crate with two binaries,
+    // exactly as the real one formats it.
+    let fake_cargo = bin.join("cargo");
+    std::fs::write(
+        &fake_cargo,
+        "#!/bin/sh\nprintf 'demo-crate v1.0.0:\\n    demo-one\\n    demo-two\\n'\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake_cargo, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let mut r = make_apt_resource(&["demo-crate"]);
+    r.provider = Some("cargo".to_string());
+    let script = state_query_script(&r);
+
+    let run = |extra_bins: &[&str]| -> String {
+        for b in extra_bins {
+            let p = bin.join(b);
+            std::fs::write(&p, "#!/bin/sh\nexit 0\n").unwrap();
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        // The fake bin dir FIRST so our `cargo` shadows the real one and the
+        // demo binaries resolve — but the system dirs must stay, or `awk`,
+        // `grep` and `sh` itself disappear and the test measures nothing.
+        // (First cut set PATH to the fake dir alone and died on ENOENT for
+        // `sh` — a test that cannot run is not a passing test.)
+        let path = format!("{}:/usr/bin:/bin", bin.to_str().unwrap());
+        let out = std::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(&script)
+            .env("PATH", &path)
+            .output()
+            .expect("run observable");
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+
+    // Both binaries absent: registered, but nothing on disk.
+    let gone = run(&[]);
+    assert!(
+        gone.contains("demo-one:GONE") && gone.contains("demo-two:GONE"),
+        "a registered crate with NO binaries must not read as healthy, got: {gone}"
+    );
+
+    // Both present.
+    let ok = run(&["demo-one", "demo-two"]);
+    assert!(
+        ok.contains("demo-one:ok") && ok.contains("demo-two:ok"),
+        "a fully installed crate must read as ok, got: {ok}"
+    );
+
+    // THE POINT: the two states must be DISTINGUISHABLE. The old observable
+    // emitted the identical string for both, which is why a fleet-wide binary
+    // deletion produced zero drift findings.
+    assert_ne!(
+        gone, ok,
+        "the observable produces the SAME output whether the binaries exist or \
+         not — it cannot generate a drift signal"
+    );
 }
 
 /// BH-MUT-0003: Kill mutation of apt state_query_script format.

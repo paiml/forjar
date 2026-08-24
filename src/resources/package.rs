@@ -405,15 +405,48 @@ pub fn state_query_script(resource: &Resource) -> String {
             // installed. Neither state produces a useful drift signal, which is
             // why an intel host lost rustup, cargo and forjar without a single
             // drift finding.
+            // ...AND CHECK THE BINARIES, NOT ONLY THE REGISTRATION.
+            //
+            // `cargo install --list` reads $CARGO_HOME/.crates.toml — METADATA.
+            // It does not stat anything. So when $CARGO_HOME/bin is pruned (which
+            // on this fleet is routine: Swatinem/rust-cache's POST step does it,
+            // and 16 runners share one $HOME) every binary dies, .crates.toml
+            // survives, and this observable keeps reporting `installed`.
+            //
+            // Measured 2026-08-24 on intel: `cargo-kani` and `kani` both absent
+            // from PATH, `~/.kani` intact, and `forjar drift` across the whole
+            // machine reported "No drift detected" eight times. The comment this
+            // replaces already named the symptom — "why an intel host lost
+            // rustup, cargo and forjar without a single drift finding" — and
+            // then picked an observable that cannot see it either.
+            //
+            // Registration alone is not installation. `command -v <crate>` alone
+            // is worse (kani-verifier installs `cargo-kani`, not `kani-verifier`,
+            // and a dangling symlink reads as present). So do BOTH: take the
+            // binary names cargo itself lists under the crate, and require each
+            // to exist and be executable.
+            //
+            // `cargo install --list` prints:
+            //     kani-verifier v0.67.0:
+            //         cargo-kani
+            //         kani
+            // Top-level lines are unindented; binaries are indented beneath.
+            // Order is stable, so the digest is stable. (paiml/infra#208.)
             let queries: Vec<String> = packages
                 .iter()
                 .map(|p| {
                     let (crate_name, _) = parse_cargo_features(p);
+                    let awk = format!(
+                        "awk -v c={} '/^[^[:space:]]/{{inblk=($1==c)}} inblk&&/^[[:space:]]/{{print $1}}'",
+                        sh_squote(crate_name)
+                    );
                     format!(
-                        "cargo install --list 2>/dev/null | grep -q {} && echo {} || echo {}",
-                        sh_squote(&format!("^{crate_name} v")),
-                        sh_squote(&format!("{crate_name}=installed")),
-                        sh_squote(&format!("{crate_name}=MISSING"))
+                        "if cargo install --list 2>/dev/null | grep -q {reg}; then\n                           bins=$(cargo install --list 2>/dev/null | {awk})\n                           if [ -z \"$bins\" ]; then echo {noBins}\n                           else\n                             st=''\n                             for b in $bins; do\n                               if command -v \"$b\" >/dev/null 2>&1; then st=\"$st$b:ok,\"\n                               else st=\"$st$b:GONE,\"; fi\n                             done\n                             echo {crate}=installed:\"$st\"\n                           fi\n                         else echo {missing}; fi",
+                        reg = sh_squote(&format!("^{crate_name} v")),
+                        awk = awk,
+                        noBins = sh_squote(&format!("{crate_name}=installed:NO-BINARIES-LISTED")),
+                        crate = crate_name,
+                        missing = sh_squote(&format!("{crate_name}=MISSING")),
                     )
                 })
                 .collect();
