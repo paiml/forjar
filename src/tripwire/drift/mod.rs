@@ -428,8 +428,44 @@ fn check_file_resource_drift(
         Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
         _ => return None,
     };
+    // IF WE KNOW THE MACHINE, ASK THE MACHINE.
+    //
+    // This routed through the transport ONLY for container transports. Every
+    // other machine — INCLUDING PLAIN SSH — fell to `check_file_drift`, which
+    // takes no machine and hashes the CONTROLLER's filesystem, then reports the
+    // answer as the remote host's state.
+    //
+    // That is forjar#305's root cause, still live in the other arm. Measured
+    // 2026-08-24 against a real SSH host:
+    //
+    //     file at <path>            : present on the CONTROLLER, ABSENT on intel
+    //     content_hash              : matches the controller's copy
+    //     forjar drift (machine intel) -> "No drift detected."
+    //
+    // A false CLEAN over a file that does not exist on the target. The inverse
+    // is equally reachable: a controller that happens to hold different bytes
+    // at the same path produces a false DRIFT for a host that is perfectly
+    // converged.
+    //
+    // `exec_script` already dispatches pepita > container > local > SSH, so a
+    // local machine still executes locally and nothing needs a special case.
+    // The container branch was not wrong — it was just the only one anybody
+    // had needed yet.
+    //
+    // `None` means no machine is known (bare `detect_drift`, no config loaded).
+    // The controller is then the only filesystem there is, and reading it is the
+    // honest best effort rather than a wrong answer about somewhere else.
     match machine {
-        Some(m) if m.is_container_transport() => {
+        // LOCAL means the controller IS the target, so a direct read is not
+        // merely allowed — it is the same filesystem, and it is far cheaper.
+        //
+        // Routing local machines through the transport was correct and much too
+        // slow: it spawns a shell per file resource instead of reading the file,
+        // and CI's `behavior` and `benchmark` lanes both hit their 15-minute
+        // timeout at exactly 15m01s. The defect being fixed is answering about
+        // the WRONG HOST; for a local machine there is no other host to be
+        // wrong about.
+        Some(m) if !crate::transport::is_local_addr(&m.addr) => {
             check_file_drift_via_transport(id, path, expected, m)
         }
         _ => check_file_drift(id, path, expected),

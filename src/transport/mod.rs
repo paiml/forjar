@@ -444,7 +444,10 @@ pub fn machine_is_local(machine: &Machine) -> bool {
 }
 
 /// Check if an address is this machine.
-fn is_local_addr(addr: &str) -> bool {
+/// Is this address this very host? Exposed because drift needs the same
+/// answer: reading the controller's filesystem is CORRECT for a local machine
+/// and a wrong answer about somewhere else for any other. (forjar#310.)
+pub fn is_local_addr(addr: &str) -> bool {
     // Check if the address matches any local interface
     if addr == "127.0.0.1" || addr == "localhost" || addr == "::1" {
         return true;

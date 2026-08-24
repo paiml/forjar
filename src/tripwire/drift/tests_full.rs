@@ -481,3 +481,82 @@ fn test_fj016_detect_drift_full_file_plus_service() {
         "no drift expected when both file and service hashes match"
     );
 }
+
+// ── forjar: drift must ask the MACHINE, not the controller ───────────────────
+
+/// `check_file_resource_drift` routed through the transport only for CONTAINER
+/// transports. Every other machine — including plain SSH — fell to
+/// `check_file_drift`, which takes no machine and hashes the CONTROLLER's
+/// filesystem, then reports the answer as the remote host's state.
+///
+/// That is forjar#305's root cause, still live in the other arm. Measured
+/// against a real SSH host before the fix:
+///
+///     file          : present on the CONTROLLER, ABSENT on intel
+///     content_hash  : matches the controller's copy
+///     drift(intel)  -> "No drift detected."
+///
+/// A false CLEAN over a file that does not exist on the target. The inverse is
+/// equally reachable: a controller holding different bytes at the same path
+/// yields a false DRIFT for a host that is perfectly converged.
+///
+/// A real two-host test cannot run in CI, so this uses an UNREACHABLE machine
+/// instead. The logic is the same and the discrimination is exact: if the check
+/// consults the controller it finds the file, sees a matching hash and reports
+/// clean; if it consults the machine the transport fails and it must say so.
+/// Silence here means it read the wrong filesystem.
+#[test]
+fn file_drift_consults_the_machine_not_the_controller() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("probe.txt");
+    std::fs::write(&path, b"CONTROLLER-ONLY\n").unwrap();
+    let expected = crate::tripwire::hasher::hash_file(&path).expect("hash");
+
+    let mut rl = crate::core::types::ResourceLock {
+        resource_type: ResourceType::File,
+        status: ResourceStatus::Converged,
+        applied_at: None,
+        duration_seconds: None,
+        hash: "blake3:whatever".to_string(),
+        details: std::collections::HashMap::new(),
+    };
+    rl.details.insert(
+        "path".to_string(),
+        serde_yaml_ng::Value::String(path.display().to_string()),
+    );
+    rl.details.insert(
+        "content_hash".to_string(),
+        serde_yaml_ng::Value::String(expected.clone()),
+    );
+
+    // `.invalid` is reserved by RFC 2606 and never resolves, so the transport
+    // fails immediately rather than waiting out DRIFT_QUERY_TIMEOUT_SECS.
+    let machine = Machine {
+        hostname: "nowhere.invalid".to_string(),
+        addr: "nowhere.invalid".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+        allowed_operators: vec![],
+    };
+
+    let finding = super::check_file_resource_drift("f", &rl, Some(&machine));
+    assert!(
+        finding.is_some(),
+        "drift reported CLEAN for an unreachable machine — it hashed the \
+         controller's copy of the file and called that the machine's state"
+    );
+
+    // The control: with NO machine, the controller IS the only filesystem there
+    // is, and reading it is the honest best effort rather than a wrong answer
+    // about somewhere else. It must still report clean for a matching file.
+    assert!(
+        super::check_file_resource_drift("f", &rl, None).is_none(),
+        "with no machine known, a file matching its content_hash must be clean"
+    );
+}
