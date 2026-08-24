@@ -346,3 +346,54 @@ fn test_fj007_apply_file_creates_parent_dir() {
         "mkdir must precede the content write in apply script"
     );
 }
+
+/// forjar#310: `group:` declared WITHOUT `owner:` emitted no ownership command
+/// at all, and the lock recorded `group: <declared>` under `converged` anyway.
+///
+/// A declared attribute that is never applied and is still reported converged is
+/// the worst shape available: the operator wrote down an intent the system
+/// quietly agreed to ignore. 58 directory resources on the paiml fleet declare
+/// ownership.
+#[test]
+fn group_without_owner_is_actually_applied() {
+    let mut r = Resource {
+        resource_type: ResourceType::File,
+        machine: MachineTarget::Single("m1".to_string()),
+        path: Some("/etc/thing.conf".to_string()),
+        content: Some("x".to_string()),
+        ..Default::default()
+    };
+    r.group = Some("staff".to_string());
+    r.owner = None;
+    let script = apply_script(&r);
+    assert!(
+        script.contains("chgrp 'staff' '/etc/thing.conf'"),
+        "group declared without owner emitted NO ownership command:\n{script}"
+    );
+
+    // Controls — the three other combinations must be unchanged.
+    r.owner = Some("noah".to_string());
+    let both = apply_script(&r);
+    assert!(
+        both.contains("chown 'noah:staff' '/etc/thing.conf'"),
+        "owner+group regressed:\n{both}"
+    );
+    assert!(
+        !both.contains("chgrp"),
+        "owner+group must use one chown, not chown plus chgrp:\n{both}"
+    );
+
+    r.group = None;
+    let owner_only = apply_script(&r);
+    assert!(
+        owner_only.contains("chown 'noah' '/etc/thing.conf'"),
+        "owner-only regressed:\n{owner_only}"
+    );
+
+    r.owner = None;
+    let neither = apply_script(&r);
+    assert!(
+        !neither.contains("chown") && !neither.contains("chgrp"),
+        "neither declared, but an ownership command was emitted:\n{neither}"
+    );
+}
