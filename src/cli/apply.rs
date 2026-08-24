@@ -344,8 +344,27 @@ fn check_convergence_budget(
     Ok(())
 }
 
-/// FJ-1378: Pre-apply drift gate — block apply if live state has drifted.
-/// Uses local file hashing only (no SSH). Skip with --force or --no-tripwire.
+/// FJ-1378 / forjar#305: Pre-apply drift reconciliation.
+///
+/// WHAT THIS USED TO DO, AND WHY IT CHANGED. This BLOCKED the apply when live
+/// state had drifted, telling the operator to re-run with `--force`. Two
+/// problems with that:
+///
+///   1. It is not what an IaC apply is for. Terraform, Ansible and Kubernetes
+///      all CONVERGE observed drift; refusing to act on the difference between
+///      declared and actual is the one job the tool exists to do.
+///   2. `--force` is not a repair, it is nuke-and-pave: it empties the lock map
+///      so EVERY resource re-applies. There was no way to converge just the
+///      resource that drifted.
+///
+/// So drift is now RECORDED rather than used to refuse. Each drifted resource's
+/// lock entry is marked `ResourceStatus::Drifted`, and the planner already
+/// turns any non-Converged status into `PlanAction::Update`
+/// (planner/mod.rs: "Previously failed or drifted"). The machinery was all
+/// there — the `Drifted` variant existed and nothing ever wrote it.
+///
+/// `forjar drift --tripwire` is unaffected and is still the right thing for a
+/// CI gate: it answers "has anything drifted" without changing anything.
 fn check_pre_apply_drift(
     config: &types::ForjarConfig,
     state_dir: &Path,
@@ -361,27 +380,49 @@ fn check_pre_apply_drift(
     for (machine_name, lock) in &locks {
         // FJ-1378-fix: Pass the machine object so container transports use
         // docker exec instead of checking the host filesystem.
+        // USE THE SAME DETECTOR `forjar drift` USES.
+        //
+        // This called `detect_drift_with_machine`, which routes to
+        // `detect_drift_impl` — the bytes-only `content_hash` path. A `source:`
+        // file never gets a `content_hash`, so the gate could not see drift on
+        // it even after drift/mod.rs stopped excluding files, and apply kept
+        // reporting "unchanged" while `forjar drift` reported DRIFTED. Two
+        // shipped surfaces contradicting each other is worse than one that is
+        // merely blind.
+        //
+        // `detect_drift_full` is what `forjar drift` calls (cli/drift.rs), and
+        // it needs the resolved resources so template-bearing paths compare
+        // against what was actually deployed. (forjar#305.)
         let findings = match config.machines.get(machine_name.as_str()) {
-            Some(m) => crate::tripwire::drift::detect_drift_with_machine(lock, m),
+            Some(m) => crate::tripwire::drift::detect_drift_full(lock, m, &config.resources),
             None => crate::tripwire::drift::detect_drift(lock),
         };
         if !findings.is_empty() {
             total_drift += findings.len();
+            // RECORD IT, so the planner acts on it. `Drifted` is a status the
+            // planner already honours and nothing ever set. Persisting it also
+            // makes the lock honest between runs: forjar observed drift, and
+            // the lock now says so until an apply reconciles it.
+            let mut updated = lock.clone();
             for f in &findings {
                 eprintln!(
                     "  drift: [{}] {} — {}",
                     machine_name, f.resource_id, f.detail
                 );
+                if let Some(rl) = updated.resources.get_mut(&f.resource_id) {
+                    rl.status = types::ResourceStatus::Drifted;
+                }
             }
+            // A failure to persist must not be silent: the apply would then
+            // proceed against a lock that still says Converged and would
+            // report "unchanged" over the very drift just printed.
+            crate::core::state::save_lock(state_dir, &updated).map_err(|e| {
+                format!("observed {} drifted resource(s) on {machine_name} but could not record it in the lock: {e}", findings.len())
+            })?;
         }
     }
-    if let Some(msg) =
-        super::apply_gates::should_block_on_drift(config.policy.tripwire, force, total_drift)
-    {
-        if verbose {
-            eprintln!("{total_drift} resource(s) drifted — run 'forjar drift' for details");
-        }
-        return Err(msg);
+    if total_drift > 0 && verbose {
+        eprintln!("{total_drift} resource(s) drifted — they will be reconciled by this apply");
     }
     Ok(())
 }

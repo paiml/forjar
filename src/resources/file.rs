@@ -137,12 +137,34 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
     let p = sh_squote(path);
+    // SIZE IS REPORTED FOR FILES ONLY — NEVER FOR DIRECTORIES.
+    //
+    // This digest becomes `details.live_hash`, which drift compares against a
+    // fresh run of this same script. `stat`'s `size` for a DIRECTORY is the
+    // space its entry table occupies, and that grows as files are added
+    // inside: measured 4096 -> 12288 at 400 entries. Folding it in would make
+    // every managed directory permanently "drifted" the moment anything wrote
+    // into it — and once the apply gate consults drift, permanently
+    // un-appliable. A directory's identity under forjar is
+    // owner/group/mode/existence; how many files someone put inside it is not
+    // drift. (forjar#305; guarded by
+    // tests/falsification_apply_sees_the_target_file.rs::
+    // a_managed_directory_does_not_drift_when_its_contents_change.)
+    //
+    // For a regular file the size is redundant with the content hash below,
+    // but harmless and cheap, so it stays: it keeps the digest meaningful for
+    // a file whose hashing tool is unavailable on the target.
     format!(
         "if [ -e {p} ]; then\n\
-           stat -c 'owner=%U group=%G mode=%a size=%s' {p} 2>/dev/null || \
-           stat -f 'owner=%Su group=%Sg mode=%Lp size=%z' {p} 2>/dev/null\n\
-           if [ -f {p} ]; then\n\
-             cat {p} | blake3sum 2>/dev/null || sha256sum {p} | cut -d' ' -f1\n\
+           if [ -d {p} ]; then\n\
+             stat -c 'owner=%U group=%G mode=%a' {p} 2>/dev/null || \
+             stat -f 'owner=%Su group=%Sg mode=%Lp' {p} 2>/dev/null\n\
+           else\n\
+             stat -c 'owner=%U group=%G mode=%a size=%s' {p} 2>/dev/null || \
+             stat -f 'owner=%Su group=%Sg mode=%Lp size=%z' {p} 2>/dev/null\n\
+             if [ -f {p} ]; then\n\
+               cat {p} | blake3sum 2>/dev/null || sha256sum {p} | cut -d' ' -f1\n\
+             fi\n\
            fi\n\
          else\n\
            echo 'MISSING'\n\
