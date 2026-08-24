@@ -370,6 +370,7 @@ fn check_pre_apply_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     force: bool,
+    dry_run: bool,
     verbose: bool,
 ) -> Result<(), String> {
     if !config.policy.tripwire || force {
@@ -393,8 +394,31 @@ fn check_pre_apply_drift(
         // `detect_drift_full` is what `forjar drift` calls (cli/drift.rs), and
         // it needs the resolved resources so template-bearing paths compare
         // against what was actually deployed. (forjar#305.)
+        // PMAT-197, REGRESSED BY #307 AND FIXED AGAIN HERE (forjar#310).
+        //
+        // This passed `&config.resources` — RAW, unresolved. cli/drift.rs has
+        // carried the fix and the reason since PMAT-197: "resources MUST be
+        // template-resolved before they are compared against live machine
+        // state. Passing raw cfg.resources made every {{params.*}}-bearing
+        // resource report permanent false drift."
+        //
+        // The comment three lines above this one already said the code "needs
+        // the resolved resources so template-bearing paths compare against what
+        // was actually deployed". The comment was right and the code did not do
+        // it — so every templated resource was falsely drifted on every apply,
+        // rewritten every run, and templated `task` commands re-executed every
+        // time. 156 fleet resources are template-bearing.
+        //
+        // Resolving here also makes apply and `forjar drift` ask the SAME
+        // question, which was the entire point of switching to detect_drift_full.
+        let resolved = crate::core::resolver::resolve_all(
+            &config.resources,
+            &config.params,
+            &config.machines,
+            &config.secrets,
+        );
         let findings = match config.machines.get(machine_name.as_str()) {
-            Some(m) => crate::tripwire::drift::detect_drift_full(lock, m, &config.resources),
+            Some(m) => crate::tripwire::drift::detect_drift_full(lock, m, &resolved),
             None => crate::tripwire::drift::detect_drift(lock),
         };
         if !findings.is_empty() {
@@ -413,12 +437,26 @@ fn check_pre_apply_drift(
                     rl.status = types::ResourceStatus::Drifted;
                 }
             }
-            // A failure to persist must not be silent: the apply would then
-            // proceed against a lock that still says Converged and would
-            // report "unchanged" over the very drift just printed.
-            crate::core::state::save_lock(state_dir, &updated).map_err(|e| {
-                format!("observed {} drifted resource(s) on {machine_name} but could not record it in the lock: {e}", findings.len())
-            })?;
+            // A DRY RUN MUST NOT WRITE THE LOCK. #307 persisted here
+            // unconditionally, so `apply --dry-run` — documented as making no
+            // changes — mutated state, and that write was itself what silenced
+            // `forjar drift` afterwards (forjar#310). The findings are still
+            // PRINTED above, which is the whole job of a dry run.
+            if dry_run {
+                if verbose {
+                    eprintln!(
+                        "  (dry run: {} drifted resource(s) on {machine_name} NOT recorded in the lock)",
+                        findings.len()
+                    );
+                }
+            } else {
+                // A failure to persist must not be silent: the apply would then
+                // proceed against a lock that still says Converged and would
+                // report "unchanged" over the very drift just printed.
+                crate::core::state::save_lock(state_dir, &updated).map_err(|e| {
+                    format!("observed {} drifted resource(s) on {machine_name} but could not record it in the lock: {e}", findings.len())
+                })?;
+            }
         }
     }
     if total_drift > 0 && verbose {
@@ -442,7 +480,7 @@ fn apply_pre_validate(
     verbose: bool,
 ) -> Result<(), String> {
     super::apply_gates::check_state_integrity(state_dir, verbose)?;
-    check_pre_apply_drift(config, state_dir, machine_filter, force, verbose)?;
+    check_pre_apply_drift(config, state_dir, machine_filter, force, dry_run, verbose)?;
 
     // FJ-335: Confirm destructive actions
     if confirm_destructive && !dry_run && !yes {

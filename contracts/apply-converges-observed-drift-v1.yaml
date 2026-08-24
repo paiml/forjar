@@ -54,12 +54,45 @@ equations:
 
   apply_reads_what_drift_reads:
     formula: |
-      pre_apply_findings(config, state_dir, m) = detect_drift_full(lock_m, m, config.resources)
+      resolved      = resolve_all(config.resources, config.params, config.machines, config.secrets)
+      pre_apply_findings(config, state_dir, m) = detect_drift_full(lock_m, m, resolved)
     domain: "config ∈ ForjarConfig, state_dir ∈ Path, m ∈ Machine"
     codomain: "Vec<DriftFinding>"
     invariants:
       - "apply and `forjar drift` answer the same question with the same detector"
+      - "AND with the same arguments — both pass TEMPLATE-RESOLVED resources"
       - "Two shipped surfaces never disagree about whether a resource has drifted"
+    notes: |
+      CORRECTED (forjar#310). This equation was written as
+      `detect_drift_full(lock_m, m, config.resources)` — RAW, unresolved — which
+      is what the code did and what made every `{{params.*}}`-bearing resource
+      report permanent false drift and be rewritten on every apply.
+
+      So the contract ENCODED THE DEFECT while the two invariants printed
+      directly beneath it said the opposite. A guard that states the bug as its
+      specification cannot fail on the bug; fixing the code without fixing this
+      line would have re-armed the trap on the next refactor.
+
+      `cli/drift.rs` has resolved since PMAT-197 and carries the reason:
+      "resources MUST be template-resolved before they are compared against live
+      machine state." Same detector, same arguments — the second half is the
+      half that was missing.
+
+  observation_is_bounded:
+    formula: |
+      ∀ q ∈ state_queries(apply_path): duration(q) ≤ DRIFT_QUERY_TIMEOUT_SECS
+    domain: "q a state_query_script execution over any transport"
+    codomain: "Duration"
+    invariants:
+      - "No transport call on the apply path is unbounded"
+      - "One unresponsive machine cannot prevent healthy machines from converging"
+    notes: |
+      forjar#310. `check_nonfile_drift` used bare `transport::exec_script` (no
+      timeout) while the identical query at `executor/resource_ops.rs:46` has
+      always used `exec_script_timeout`. Unbounded reporting is survivable — a
+      human can Ctrl-C it. #307 moved it onto the APPLY path, where a host that
+      accepts a connection and then stalls hangs the whole run: measured at 0
+      bytes of output with every healthy machine left unconverged.
 
   observed_drift_plans_update:
     formula: |

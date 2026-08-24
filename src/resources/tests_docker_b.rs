@@ -291,7 +291,7 @@ fn test_docker_state_query_with_network() {
     r.restart = Some("on-failure:5".to_string());
     let query = state_query_script(&r);
     assert!(
-        query.contains("docker inspect 'api'"),
+        query.contains("docker inspect") && query.contains("'api'"),
         "state_query must inspect container: {query}"
     );
     assert!(

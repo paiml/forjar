@@ -85,8 +85,32 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let n = sh_squote(name);
+    // DECLARED INTENT ONLY — NOT `docker inspect`'s full output.
+    //
+    // This hashed the ENTIRE inspect document, which contains State.StartedAt,
+    // State.FinishedAt and State.Status. Measured on intel, the same container
+    // twice, 12 seconds apart:
+    //
+    //     inspect sha t0: 52eea127b4b425dd
+    //     inspect sha t1: c1e3029d2739ffa3
+    //
+    // So a docker resource's live_hash was PERMANENTLY volatile — always
+    // "drifted". That was harmless while only `forjar drift` read it. #307 made
+    // the apply gate read it too, and forjar's docker apply is
+    // `docker stop; docker rm; docker run` — so EVERY apply tore down and
+    // recreated every container. For machines/intel/forjar.yaml's `ci-registry`
+    // that is paiml/infra#285, the 2026-08-24 fleet-wide CI outage, converted
+    // into a guaranteed recurrence. (forjar#310.)
+    //
+    // A container's identity here is what the resource DECLARES: image, ports,
+    // mounts, restart policy, env — plus whether it is running at all. How long
+    // it has been up is not drift. Same principle as the directory-`size`
+    // exclusion in file.rs: an observable that moves on its own is not evidence
+    // of divergence from intent.
+    let fmt = "{{.Config.Image}}|{{.Image}}|{{.HostConfig.RestartPolicy.Name}}|{{range $p,$c := .HostConfig.PortBindings}}{{$p}}->{{range $c}}{{.HostPort}}{{end}},{{end}}|{{range .Mounts}}{{.Type}}:{{.Name}}:{{.Source}}:{{.Destination}},{{end}}|{{range .Config.Env}}{{.}},{{end}}|running={{.State.Running}}";
     format!(
-        "docker inspect {n} 2>/dev/null && echo {} || echo {}",
+        "docker inspect --format {} {n} 2>/dev/null && echo {} || echo {}",
+        sh_squote(fmt),
         sh_squote(&format!("container={name}")),
         sh_squote(&format!("container=MISSING:{name}"))
     )

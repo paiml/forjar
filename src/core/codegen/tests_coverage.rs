@@ -188,7 +188,7 @@ fn test_codegen_docker_with_ports_and_env() {
     );
     let query = state_query_script(&r).unwrap();
     assert!(
-        query.contains("docker inspect 'webapp'"),
+        query.contains("docker inspect") && query.contains("'webapp'"),
         "state_query must inspect container: {query}"
     );
 }
