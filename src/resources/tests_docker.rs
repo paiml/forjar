@@ -183,7 +183,12 @@ fn test_fj030_apply_stopped() {
 fn test_fj030_state_query() {
     let r = make_docker_resource("web", "nginx:latest");
     let script = state_query_script(&r);
-    assert!(script.contains("docker inspect 'web'"));
+    // Targets the right container. NOT `contains("docker inspect 'web'")` —
+    // the observable now carries a `--format` between the verb and the name
+    // (forjar#310), and an assertion on that exact substring was testing the
+    // command's spelling rather than what it observes.
+    assert!(script.contains("docker inspect"));
+    assert!(script.contains("'web'"));
     assert!(script.contains("container=MISSING:web"));
 }
 
@@ -270,7 +275,7 @@ fn test_fj030_no_name_defaults_to_unknown() {
     let apply = apply_script(&r);
     assert!(apply.contains("--name 'unknown'"));
     let query = state_query_script(&r);
-    assert!(query.contains("docker inspect 'unknown'"));
+    assert!(query.contains("docker inspect") && query.contains("'unknown'"));
 }
 
 #[test]
@@ -306,4 +311,61 @@ fn test_fj030_absent_no_run_no_pull() {
     let script = apply_script(&r);
     assert!(!script.contains("docker pull"));
     assert!(!script.contains("docker run"));
+}
+
+// ── forjar#310: the observable must not move on its own ──────────────────────
+
+/// A docker resource's drift observable must contain DECLARED INTENT ONLY.
+///
+/// It used to hash the whole `docker inspect` document, which carries
+/// `State.StartedAt`, `State.FinishedAt` and `State.Status`. Measured on a real
+/// host, the same container twice 12 seconds apart, produced two different
+/// digests — so a docker resource was PERMANENTLY "drifted".
+///
+/// That was survivable while only `forjar drift` read it. forjar#307 made the
+/// apply gate read it too, and the docker apply path is
+/// `docker stop; docker rm; docker run` — so every apply tore down and
+/// recreated every container. On the paiml fleet that is the `ci-registry`
+/// resource, i.e. paiml/infra#285, the fleet-wide CI outage, made recurring.
+///
+/// This asserts on the OBSERVABLE'S CONTENT rather than running docker,
+/// because the failure is that a *field* is present, and a field's presence is
+/// exactly what a text assertion can legitimately check.
+#[test]
+fn state_query_excludes_fields_that_change_on_their_own() {
+    let r = make_docker_resource("web", "nginx:latest");
+    let q = state_query_script(&r);
+    for volatile in [
+        "StartedAt",
+        "FinishedAt",
+        "State.Status",
+        "State.Health",
+        "RestartCount",
+        "Pid",
+    ] {
+        assert!(
+            !q.contains(volatile),
+            "docker observable contains `{volatile}`, which moves without any \
+             change of intent — every apply would recreate the container:\n{q}"
+        );
+    }
+    // The control. An observable that captures NOTHING would pass the loop
+    // above and is the more dangerous failure: it can never see a real change.
+    for declared in [
+        "Config.Image",
+        "RestartPolicy",
+        "PortBindings",
+        "Mounts",
+        "Config.Env",
+    ] {
+        assert!(
+            q.contains(declared),
+            "docker observable is missing declared intent `{declared}` — it \
+             could not detect a real divergence:\n{q}"
+        );
+    }
+    assert!(
+        q.contains("State.Running"),
+        "the observable must still notice a container that stopped:\n{q}"
+    );
 }

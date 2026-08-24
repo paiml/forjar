@@ -66,7 +66,11 @@ fn hash_remote_content(
     // use `hash_string_or_sentinel` to stay inside the contract.
     if out.stdout.trim() == "__DIR__" {
         let ls_script = format!("ls -la '{path}'");
-        match crate::transport::exec_script(machine, &ls_script) {
+        match crate::transport::exec_script_timeout(
+            machine,
+            &ls_script,
+            Some(DRIFT_QUERY_TIMEOUT_SECS),
+        ) {
             Ok(ls_out) if ls_out.success() => Some(hasher::hash_string_or_sentinel(&ls_out.stdout)),
             _ => None,
         }
@@ -102,7 +106,7 @@ pub fn check_file_drift_via_transport(
     let script = format!(
         "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
     );
-    match crate::transport::exec_script(machine, &script) {
+    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
         Ok(out) if out.success() => {
             let actual = hash_remote_content(&out, path, machine)?;
             if actual != expected_hash {
@@ -132,6 +136,21 @@ pub fn check_file_drift_via_transport(
 }
 
 /// Check all file-type resources in a lock for drift.
+/// Bound on every transport call the DRIFT DETECTOR makes.
+///
+/// forjar#310. `check_nonfile_drift` used bare `transport::exec_script`, which
+/// has no timeout, while the identical query at its original call site
+/// (`executor/resource_ops.rs:46`) has always used `exec_script_timeout`.
+/// Harmless while drift detection was a reporting command a human ran and could
+/// Ctrl-C. #307 put it on the APPLY path, so one host that accepts a TCP
+/// connection and then stalls hangs `apply` forever — measured: 0 bytes of
+/// output, and every healthy machine in the same run left unconverged.
+///
+/// This fleet has documented wedged-switch and hung-NAS-mount history, so that
+/// is a live shape, not a hypothetical. A state query is a `stat`, a `cat` and
+/// a hash; if it has not answered in this long, the answer is not coming.
+const DRIFT_QUERY_TIMEOUT_SECS: u64 = 60;
+
 /// Uses local filesystem hashing (for local machines without transport context).
 pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
     detect_drift_impl(lock, None)
@@ -155,7 +174,7 @@ fn check_nonfile_drift(
         Err(_) => return None,
     };
 
-    match crate::transport::exec_script(machine, &query) {
+    match crate::transport::exec_script_timeout(machine, &query, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
         Ok(out) if out.success() => {
             // STRONG contract: query stdout may be empty when state absent.
             let actual_hash = hasher::hash_string_or_sentinel(&out.stdout);
@@ -228,7 +247,27 @@ fn detect_nonfile_drift(
         // covers content, owner, group, mode and existence, so it is strictly
         // stronger than the controller-side bytes-only `content_hash`.
         // (forjar#305.)
-        if rl.status != ResourceStatus::Converged {
+        // `Drifted` IS RE-CHECKED. It means "needs work", not "stop looking".
+        //
+        // This read `!= Converged`, which was correct while nothing ever wrote
+        // `Drifted`. #307 started writing it — and turned the drift tripwire
+        // into a gate that fires ONCE and then reports clean forever over a
+        // still-tampered file:
+        //
+        //     tripwire before        -> 1 (drift detected, correct)
+        //     apply --dry-run        -> lock status becomes `drifted`
+        //     tripwire after         -> 0 (CLEAN) while bytes are still TAMPERED
+        //
+        // That is strictly worse than the #305 blindness it replaced: a gate
+        // that never fired gets distrusted, a gate that fires once and then
+        // lies gets TRUSTED. `--tripwire` is the CI gate. (forjar#310.)
+        //
+        // Failed/Unknown stay excluded: their lock hash records an apply that
+        // did not complete, so it is not a baseline anything can be compared
+        // against. `Drifted` is different — it was written by an apply that
+        // OBSERVED a converged resource move, so the recorded hash is exactly
+        // the baseline drift detection needs.
+        if rl.status != ResourceStatus::Converged && rl.status != ResourceStatus::Drifted {
             continue;
         }
         if should_ignore_drift(id, resources) {
@@ -296,7 +335,7 @@ pub fn check_image_drift(
     let script = format!(
         "docker inspect {container_name} --format '{{{{.Image}}}}' 2>/dev/null || echo 'NOT_RUNNING'"
     );
-    match crate::transport::exec_script(machine, &script) {
+    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
         Ok(out) if out.success() => {
             let actual = out.stdout.trim().to_string();
             if actual == "NOT_RUNNING" {
