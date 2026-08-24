@@ -118,6 +118,33 @@ pub fn apply_script(resource: &Resource) -> String {
                     ));
                 }
             }
+            // A SYMLINK AT A MANAGED PATH IS DRIFT, NOT A WRITE TARGET.
+            //
+            // Without this, `>` and `chmod`/`chown` FOLLOW the link, so forjar
+            // writes the declared content and mode onto whatever the link points
+            // at — an arbitrary path, with forjar's privileges, which on this
+            // fleet is root. Measured: a managed path swapped for a symlink to
+            // `victim/important.conf` left that file reading
+            // `SECRET=managed-payload` with its mode changed 664 -> 600, while
+            // apply printed `1 converged`. `policy.deny_paths` does not stop it,
+            // because the path forjar was asked to write really is allowed.
+            //
+            // The dangling-symlink variant is worse: `>` CREATES the target, so
+            // it is a write primitive at any path the link names.
+            //
+            // Pre-#307 this could not be reached in the converged case — the old
+            // drift gate refused the apply outright, which protected the victim
+            // BY ACCIDENT. #307 removed that refusal and the latent defect became
+            // reachable. It is pre-existing either way. (forjar#310.)
+            //
+            // `state: file` DECLARES a regular file at this path. So converging
+            // means REPLACING the link, not following it. `state: symlink` is a
+            // separate arm above and is unaffected.
+            //
+            // `if` rather than `[ -L p ] && rm -f p` on purpose: under
+            // `set -euo pipefail` the `&&` form exits 1 for every non-symlink,
+            // i.e. the normal case, aborting the whole apply.
+            lines.push(format!("if [ -L {p} ]; then rm -f {p}; fi"));
             push_file_content_lines(&mut lines, path, resource);
             push_ownership_lines(&mut lines, path, resource);
         }
