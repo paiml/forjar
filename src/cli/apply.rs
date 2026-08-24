@@ -479,6 +479,22 @@ fn apply_pre_validate(
     yes: bool,
     verbose: bool,
 ) -> Result<(), String> {
+    // REFUSE BEFORE WRITING, NOT AFTER.
+    //
+    // Everything below this line can mutate the state dir — `check_pre_apply_drift`
+    // persists `ResourceStatus::Drifted` — but the process lock is not acquired
+    // until the executor runs, much later. So a concurrent apply used to do its
+    // drift pass, rewrite state.lock.yaml and re-seal the `.b3` over the holder's
+    // state, and only then be told the directory was locked. Measured: "error:
+    // state directory is locked by PID N" with the lock file MUTATED by that very
+    // run. (forjar#310.)
+    //
+    // A read-only probe, not an early acquire — see locked_by_other_live_pid for
+    // why. It does not replace the acquire; it only ensures the loser of the race
+    // has not written anything first.
+    if let Some(msg) = crate::core::state::locked_by_other_live_pid(state_dir) {
+        return Err(msg);
+    }
     super::apply_gates::check_state_integrity(state_dir, verbose)?;
     check_pre_apply_drift(config, state_dir, machine_filter, force, dry_run, verbose)?;
 

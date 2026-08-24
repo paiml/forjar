@@ -316,3 +316,55 @@ fn test_165_reap_reports_live_pid_held() {
     // The live lock must remain untouched.
     assert!(lock_path.exists());
 }
+
+// ── forjar#310: refuse before writing ────────────────────────────────────────
+
+#[test]
+fn locked_by_other_live_pid_reports_a_live_foreign_holder() {
+    let d = tempfile::tempdir().unwrap();
+    // PID 1 exists on every unix and is never us.
+    std::fs::write(process_lock_path(d.path()), "pid: 1\nhost: somewhere\n").unwrap();
+    let v = locked_by_other_live_pid(d.path());
+    assert!(
+        v.is_some_and(|m| m.contains("locked by PID 1")),
+        "a live foreign holder must be reported"
+    );
+}
+
+#[test]
+fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
+    let d = tempfile::tempdir().unwrap();
+
+    assert!(
+        locked_by_other_live_pid(d.path()).is_none(),
+        "an unlocked state dir must not be reported as locked"
+    );
+
+    // OUR OWN pid must not block us — otherwise the probe refuses every apply
+    // the moment the lock's lifetime is ever moved earlier.
+    std::fs::write(
+        process_lock_path(d.path()),
+        format!("pid: {}\nhost: self\n", std::process::id()),
+    )
+    .unwrap();
+    assert!(
+        locked_by_other_live_pid(d.path()).is_none(),
+        "our own lock must not refuse us"
+    );
+
+    // Stale (dead PID). Reaping stays the ACQUIRER's job, so a read-only probe
+    // must not block — otherwise a crashed run wedges the state dir against a
+    // check that can never clear it.
+    std::fs::write(process_lock_path(d.path()), "pid: 4294967290\nhost: dead\n").unwrap();
+    assert!(
+        locked_by_other_live_pid(d.path()).is_none(),
+        "a stale lock must not be treated as held — the acquirer reaps it"
+    );
+
+    // Garbage must not invent a verdict in either direction.
+    std::fs::write(process_lock_path(d.path()), "not a lock file at all").unwrap();
+    assert!(
+        locked_by_other_live_pid(d.path()).is_none(),
+        "unparseable lock content must not be reported as a live holder"
+    );
+}

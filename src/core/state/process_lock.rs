@@ -219,6 +219,44 @@ fn unlink_confirmed_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> 
 }
 
 /// Release the process lock.
+/// READ-ONLY: is this state dir held by a live process OTHER than ours?
+///
+/// forjar#310. The apply pipeline validates BEFORE it acquires: `apply_pre_validate`
+/// (and therefore `check_pre_apply_drift`, which persists `ResourceStatus::Drifted`)
+/// runs at cli/apply.rs, while `acquire_process_lock` is not reached until
+/// executor/mod.rs. So a second concurrent apply would run the drift check,
+/// WRITE state.lock.yaml and re-seal its `.b3` — over the state belonging to the
+/// run that holds the lock — and only THEN be refused:
+///
+///     error: state directory is locked by PID 1034915
+///     state.lock.yaml: MUTATED by the REFUSED apply
+///
+/// Measured, not inferred.
+///
+/// This is deliberately a READ-ONLY PROBE and not an early acquire.
+/// `acquire_process_lock` uses `create_new` and is not reentrant, so acquiring
+/// here would make the executor's own later acquire fail against our own PID.
+/// Changing that lock's lifetime is a real concurrency change; refusing early on
+/// an observation is not. It also cannot reap a stale lock — that stays the
+/// acquirer's job, so a dead PID does not block the pre-check.
+///
+/// Returns `None` when free, stale, unreadable, or held by US. Not a substitute
+/// for acquiring: between this probe and the acquire another process may win.
+/// It only ensures the LOSER has not written anything first.
+pub fn locked_by_other_live_pid(state_dir: &Path) -> Option<String> {
+    let lock_path = process_lock_path(state_dir);
+    let content = std::fs::read_to_string(&lock_path).ok()?;
+    match classify_lock_owner(&content, is_pid_running) {
+        LockOwner::Live(pid) if pid != std::process::id() => Some(format!(
+            "state directory is locked by PID {} ({}). \
+             If this is stale, run: forjar apply --force-unlock",
+            pid,
+            lock_path.display()
+        )),
+        _ => None,
+    }
+}
+
 pub fn release_process_lock(state_dir: &Path) {
     let lock_path = process_lock_path(state_dir);
     let _ = std::fs::remove_file(&lock_path);
