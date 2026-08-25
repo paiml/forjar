@@ -495,6 +495,31 @@ fn apply_pre_validate(
     if let Some(msg) = crate::core::state::locked_by_other_live_pid(state_dir) {
         return Err(msg);
     }
+
+    // REFUSE BEFORE MUTATING IF WE CANNOT RECORD WHAT WE DID.
+    //
+    // `ensure_event_log_writable` was written for exactly this (FJ-266) and had
+    // ZERO CALLERS — its own doc comment says "Call this in the apply preflight",
+    // and nothing did. So a full disk, a read-only state dir or a bad permission
+    // produced an apply that MUTATED THE HOST and recorded nothing, behind a
+    // stderr warning nobody reads.
+    //
+    // An absent event is indistinguishable from an apply that never ran. That
+    // ambiguity is what left paiml/infra#208 unattributable across three
+    // toolchain deletions in one day.
+    //
+    // Checked here, in the preflight, because stopping is still free at this
+    // point: nothing has been changed yet. `--dry-run` is exempt — it mutates
+    // nothing, so an unwritable log costs nothing, and failing it would make the
+    // read-only inspection path depend on write access.
+    if !dry_run {
+        for machine_name in config.machines.keys() {
+            if machine_filter.is_some_and(|m| m != machine_name) {
+                continue;
+            }
+            crate::tripwire::eventlog::ensure_event_log_writable(state_dir, machine_name)?;
+        }
+    }
     super::apply_gates::check_state_integrity(state_dir, verbose)?;
     check_pre_apply_drift(config, state_dir, machine_filter, force, dry_run, verbose)?;
 
