@@ -45,3 +45,35 @@ state/*/events.jsonl
 # tracked file under .pmat/ needs `git add -f`, which is the right amount of
 # friction for a directory that is otherwise all scratch.
 **/.pmat/
+
+# ── Derived pmat/pv caches (forjar#287) ─────────────────────────────────────
+# These are regenerated from the source tree on demand. Tracking them meant the
+# working tree was NEVER clean: every commit rewrote them, every rebase
+# conflicted on them, and `.pmat/baseline.json` alone churns ~3700 lines per
+# commit.
+#
+# Measured cost during the 2026-08-25 defect sweep: five rebases blocked, two
+# `git checkout` calls silently refused (their error swallowed by a `2>/dev/null`
+# that made the failure look like success), and one branch left mid-rebase for
+# several operations because of it.
+#
+# `.pmat/context.db-shm` and `-wal` are SQLite journal sidecars — tracking a live
+# database's write-ahead log in git cannot be right under any policy.
+#
+# NOT ignored, deliberately: baseline.json, cb200-baseline.json,
+# file-health-baseline.json, metrics/dependencies.json and project.toml. The
+# pre-commit hook reads baseline.json as a quality RATCHET, so it needs a shared
+# starting point rather than one generated from whatever the local tree happens
+# to be. Churny, and load-bearing — a separate decision from this one.
+.pmat/context.db
+.pmat/context.db-shm
+.pmat/context.db-wal
+.pmat/context.idx/
+.pmat/workspace.db
+.pmat/workspace.idx/
+.pmat/dead-code-cache.json
+.pmat/deny-cache.txt
+.pmat/deps-cache.json
+.pmat/lint-cache.txt
+.pmat/hooks-cache/
+.pv/lint-previous.json
