@@ -14,12 +14,30 @@ pub fn apply_script(resource: &Resource) -> String {
         ("apt", "absent") => apply_apt_absent(resource),
         ("apt", "latest") => apply_apt_latest(resource),
         ("cargo", "present") => apply_cargo_present(resource),
+        ("cargo", "absent") => apply_cargo_absent(resource),
         ("uv", "present") => apply_uv_present(resource),
         ("uv", "absent") => apply_uv_absent(resource),
         ("brew", "present") => apply_brew_present(resource),
         ("brew", "absent") => apply_brew_absent(resource),
         (other_provider, other_state) => {
-            format!("echo 'unsupported: provider={other_provider}, state={other_state}'")
+            // AN UNSUPPORTED DECLARATION MUST NOT CONVERGE.
+            //
+            // This was `echo 'unsupported: ...'`, which exits 0, so forjar
+            // reported the resource CONVERGED. An operator who declares
+            // something forjar cannot do gets a success and no package action —
+            // the declaration is silently ignored and the lock records it as
+            // satisfied.
+            //
+            // `(cargo, absent)` was the live instance: apt, uv and brew all had
+            // an absent arm and cargo did not, so a declared removal of a cargo
+            // crate echoed and converged. (forjar#278.)
+            //
+            // Exit 1 with the pair named, so the failure says which combination
+            // is missing rather than leaving the operator to diff the match.
+            format!(
+                "echo 'forjar: unsupported package declaration: \
+                 provider={other_provider}, state={other_state}' >&2\nexit 1"
+            )
         }
     }
 }
@@ -244,6 +262,45 @@ fn apply_cargo_present(resource: &Resource) -> String {
            export CARGO_BUILD_JOBS=$_half\n\
          fi\n\
          _CARGO_BIN=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"\n\
+         _CRATES_TOML=\"${{CARGO_HOME:-$HOME/.cargo}}/.crates.toml\"\n\
+         # TELL CARGO WHAT WE INSTALLED (forjar#320).\n\
+         #\n\
+         # `cargo install --root $_STAGING` writes its registry entry to\n\
+         # $_STAGING/.crates.toml. We copy only bin/* out and then delete the\n\
+         # staging dir, so $CARGO_HOME/.crates.toml never learns about the\n\
+         # binaries we just put in $CARGO_HOME/bin. `cargo install --list` then\n\
+         # reports the crate MISSING forever, and package_check.rs reads exactly\n\
+         # that -- so forjar failed its own check for work it had done.\n\
+         #\n\
+         # Measured on gx10: rg/fd/bat/hyperfine installed and working, cargo\n\
+         # naming none of them; the same registry claiming forjar 1.16.0 on a\n\
+         # box running 1.18.0. Wrong in BOTH directions.\n\
+         #\n\
+         # APPEND-ONLY AND KEYED. `.crates.toml` is `[v1]` followed by one line\n\
+         # per install, keyed `\"name ver (source)\" = [\"bin\", ...]`. We drop any\n\
+         # existing line for this crate name and append the new one, so a\n\
+         # reinstall updates rather than duplicating.\n\
+         #\n\
+         # Deliberately NOT a TOML parser: this is generated POSIX shell running\n\
+         # on hosts that may lack python, and a half-written .crates.toml breaks\n\
+         # `cargo install` for every crate on the machine. Write to a temp file\n\
+         # and `mv` -- atomic within a filesystem -- so an interrupted run leaves\n\
+         # the original intact.\n\
+         _fj_register() {{\n\
+           _src=\"$1\"\n\
+           [ -f \"$_src\" ] || return 0\n\
+           _line=$(grep -v '^\\[v1\\]' \"$_src\" | grep -v '^[[:space:]]*$' | head -1)\n\
+           [ -n \"$_line\" ] || return 0\n\
+           _key=$(printf '%s' \"$_line\" | sed 's/^\"\\([^ ]*\\) .*/\\1/')\n\
+           [ -n \"$_key\" ] || return 0\n\
+           _tmp=$(mktemp \"${{_CRATES_TOML}}.forjar.XXXXXX\") || return 0\n\
+           echo '[v1]' > \"$_tmp\"\n\
+           if [ -f \"$_CRATES_TOML\" ]; then\n\
+             grep -v '^\\[v1\\]' \"$_CRATES_TOML\" | grep -v \"^\\\"$_key \" >> \"$_tmp\" || true\n\
+           fi\n\
+           printf '%s\\n' \"$_line\" >> \"$_tmp\"\n\
+           mv -f \"$_tmp\" \"$_CRATES_TOML\"\n\
+         }}\n\
          {}",
         installs.join("\n")
     )
@@ -296,6 +353,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
            install -m 755 \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
+           _fj_register \"$_CACHE_DIR/.crates.toml\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
            _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
@@ -309,8 +367,10 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
            if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ]; then\n\
              mkdir -p \"$_CACHE_DIR\"\n\
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
+             cp -f \"$_STAGING/.crates.toml\" \"$_CACHE_DIR/.crates.toml\" 2>/dev/null || true\n\
            fi\n\
            install -m 755 \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
+           _fj_register \"$_STAGING/.crates.toml\"\n\
            rm -rf \"$_STAGING\"\n\
            echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\
          fi"
@@ -331,6 +391,30 @@ fn apply_uv_present(resource: &Resource) -> String {
         })
         .collect();
     format!("set -euo pipefail\n{}", installs.join("\n"))
+}
+
+/// Remove cargo-installed crates.
+///
+/// forjar#278: this arm did not exist, so `(cargo, absent)` fell to the
+/// catch-all, echoed, and reported converged — a declared removal that never
+/// removed anything.
+///
+/// `|| true` matches the apt/uv/brew absent arms: uninstalling a crate that is
+/// not installed is the desired end state, not a failure. The check script is
+/// what decides convergence, and it asks whether the crate is gone.
+fn apply_cargo_absent(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let removals: Vec<String> = packages
+        .iter()
+        .map(|p| {
+            let (crate_name, _) = parse_cargo_features(p);
+            format!(
+                "cargo uninstall {} 2>/dev/null || true",
+                sh_squote(crate_name)
+            )
+        })
+        .collect();
+    format!("set -euo pipefail\n{}", removals.join("\n"))
 }
 
 fn apply_uv_absent(resource: &Resource) -> String {
