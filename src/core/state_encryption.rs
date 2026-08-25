@@ -20,9 +20,26 @@ pub struct EncryptionMeta {
 
 /// Compute BLAKE3 hash of data.
 pub fn hash_data(data: &[u8]) -> String {
-    // Contract: serialization-v1.yaml precondition (pv codegen)
-    contract_pre_serialize_roundtrip!(data);
-
+    // NO PRECONDITION. This used to invoke `contract_pre_serialize_roundtrip!`,
+    // which asserts `input.len() > 0`.
+    //
+    // BLAKE3 OF EMPTY INPUT IS WELL DEFINED, and `hash_data_empty` in
+    // tests/falsification_crypto_mcdc_verus.rs deliberately asserts it returns
+    // a 64-char digest. So the precondition was simply false for this function.
+    //
+    // It came from `apr-format-invariants-v1.yaml` — a contract about a
+    // SERIALIZATION ROUNDTRIP, from aprender's corpus, which this repo does not
+    // even contain. Its constraint was being asserted on forjar's hashing
+    // function, which it does not describe. The stale comment here said
+    // "serialization-v1.yaml precondition" on a function that serializes
+    // nothing.
+    //
+    // WORTH RECORDING HOW THIS SURFACED (forjar#308). The macro had a real
+    // `debug_assert!` at one definition and an EMPTY body at a later one, and
+    // Rust takes the last — so the assertion never ran and nobody could see it
+    // was wrong. Deduplicating restored it, and `hash_data_empty` panicked
+    // immediately. A dead assertion hid a false assertion; the fix for the first
+    // exposed the second.
     blake3::hash(data).to_hex().to_string()
 }
 

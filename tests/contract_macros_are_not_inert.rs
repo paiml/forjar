@@ -63,10 +63,20 @@ fn no_macro_name_is_defined_twice() {
     );
 }
 
-/// The specific assertion that was found shadowed. Named explicitly so a
-/// re-shadowing fails with the reason rather than as one of a count.
+/// The assertion that was found shadowed — and turned out to be WRONG.
+///
+/// Deduplicating restored `debug_assert!(input.len() > 0)` and
+/// `hash_data_empty` panicked instantly: `hash_data(b"")` is legitimate, since
+/// BLAKE3 of empty input is well defined. The precondition came from
+/// `apr-format-invariants-v1.yaml` — a contract about a SERIALIZATION ROUNDTRIP,
+/// from a corpus this repo does not contain — and was being asserted on a
+/// hashing function it does not describe.
+///
+/// **A dead assertion hid a false assertion.** The call site is removed; the
+/// macro keeps its restored body so the next caller gets the real check, and
+/// this test pins that the deduplication itself did not regress.
 #[test]
-fn the_serialize_roundtrip_precondition_still_asserts() {
+fn the_shadowed_precondition_is_restored_and_uncalled() {
     let defs = definitions();
     let bodies = defs
         .get("contract_pre_serialize_roundtrip")
@@ -74,9 +84,25 @@ fn the_serialize_roundtrip_precondition_still_asserts() {
     assert_eq!(bodies.len(), 1, "it is defined more than once again");
     assert!(
         bodies[0].contains("debug_assert"),
-        "the length precondition is gone again — state_encryption.rs's call \
-         site expands to nothing:\n{}",
+        "the restored length precondition is gone again:\n{}",
         bodies[0]
+    );
+
+    // And it must NOT be INVOKED on `hash_data`, whose empty input is valid.
+    //
+    // Checked per non-comment line, not with a plain `contains`. The first cut
+    // used `contains` and failed against the comment that explains the removal —
+    // a text assertion catching its own documentation. That is the same class of
+    // mistake this file exists to catch, one level up.
+    let enc = include_str!("../src/core/state_encryption.rs");
+    let invoked = enc.lines().any(|l| {
+        let t = l.trim_start();
+        !t.starts_with("//") && t.contains("contract_pre_serialize_roundtrip!")
+    });
+    assert!(
+        !invoked,
+        "a serialization-roundtrip precondition is asserted on a hashing \
+         function again — hash_data(b\"\") is legitimate"
     );
 }
 
