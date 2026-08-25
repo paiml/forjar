@@ -142,11 +142,37 @@ fn refresh_does_not_reapply_a_resource_that_is_genuinely_converged() {
 }
 
 #[test]
-fn a_plain_apply_still_trusts_the_lock() {
-    // The contrast that gives --refresh its reason to exist, pinned so the fix
-    // cannot quietly turn every apply into a host round-trip. A plain apply
-    // over the same out-of-band damage keeps its existing (fast, lock-based)
-    // behaviour; only --refresh pays for the check.
+fn a_plain_apply_converges_a_task_the_way_it_converges_a_file() {
+    // CHANGED DELIBERATELY, which is what the previous version of this test
+    // asked for by name. It was `a_plain_apply_still_trusts_the_lock`, and it
+    // asserted the marker STAYED deleted:
+    //
+    //     "a plain apply is documented as lock-based; if it now repairs
+    //      out-of-band damage, --refresh has no distinct meaning and every
+    //      apply just got slower. Change this test deliberately, not by
+    //      accident."
+    //
+    // That premise stopped being true in 1.18.0, for files. `apply` converges a
+    // file changed on the target — that release's headline, taken after a 3/3
+    // NO-GO gate. Verified on main: `apply_restores_a_tampered_source_file`
+    // passes.
+    //
+    // So the fleet was left asserting BOTH: a plain apply repairs a drifted
+    // file and does not repair a drifted task. That inconsistency is harder to
+    // reason about than either rule alone — an operator cannot answer "does
+    // apply fix this?" without first knowing the resource type — and it is
+    // exactly forjar#279: a task's drift observable was `echo` of its own
+    // declaration, so a task could never drift and the question never arose.
+    //
+    // The cost objection stands and is answered rather than dismissed: the
+    // observable is the resource's OWN `completion_check`, which apply already
+    // runs. No new round-trip is introduced for a task that declares one, and a
+    // task that declares none stays unobservable and costs nothing.
+    //
+    // --refresh keeps its distinct meaning: it re-checks resources the lock
+    // reports Converged regardless of what drift detection can see, which is
+    // what `refresh_reapplies_a_resource_whose_live_check_now_fails` above
+    // pins.
     let dir = tempfile::tempdir().unwrap();
     let state = dir.path().join("state");
     let marker = dir.path().join("marker");
@@ -161,9 +187,10 @@ fn a_plain_apply_still_trusts_the_lock() {
     let (_out, ok) = apply(&cfg, &state, &[]);
     assert!(ok);
     assert!(
-        !marker.exists(),
-        "a plain apply is documented as lock-based; if it now repairs \
-         out-of-band damage, --refresh has no distinct meaning and every apply \
-         just got slower. Change this test deliberately, not by accident."
+        marker.exists(),
+        "a plain apply repaired a drifted FILE but not a drifted TASK. Whether \
+         apply fixes out-of-band damage must not depend on the resource type — \
+         an operator cannot answer 'does apply fix this?' without first \
+         knowing what kind of thing it is."
     );
 }
