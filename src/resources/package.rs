@@ -351,7 +351,8 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
          _CACHE_DIR=\"${{FORJAR_CACHE_DIR:-$HOME/.forjar/cache/cargo}}/$_CACHE_KEY\"\n\
          if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
             [ -d \"$_CACHE_DIR/bin\" ] && \
-            ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1; then\n\
+            ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1 && \\\n\
+            [ -f \"$_CACHE_DIR/.crates.toml\" ]; then\n\
            install -m 755 \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
            _fj_register \"$_CACHE_DIR/.crates.toml\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
