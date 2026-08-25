@@ -108,9 +108,19 @@ fn test_state_query_with_artifacts() {
 
 #[test]
 fn test_state_query_no_artifacts() {
+    // This asserted `script.contains("command=echo hello")` — i.e. it required
+    // the observable to be an ECHO OF THE DECLARATION, which is precisely
+    // forjar#279. No correct fix could have passed it.
+    //
+    // A task with no artifacts and no completion_check genuinely has nothing to
+    // observe; the observable now says that instead of restating the config.
     let r = make_task_resource("echo hello");
     let script = state_query_script(&r);
-    assert!(script.contains("command=echo hello"));
+    assert!(script.contains("unobservable:no-completion-check"));
+    assert!(
+        !script.contains("command=echo hello"),
+        "the observable must not be a function of the declaration:\n{script}"
+    );
 }
 
 #[test]
@@ -521,4 +531,76 @@ for p in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do \
     if let Err(e) = crate::core::purifier::validate_script(&script) {
         panic!("task apply_script fails forjar's own I8 gate:\n{script}\n\n{e}");
     }
+}
+
+// ── forjar#279: a task could never drift ─────────────────────────────────────
+
+/// The drift observable for a task was `echo 'command=<the YAML text>'` — a
+/// PURE FUNCTION OF THE DECLARATION. It cannot ever differ from the config it
+/// was generated from, so hashing it answers "is the config the config", and a
+/// task could never drift by construction.
+///
+/// Measured on the paiml fleet when this was found: 151 task resources, ZERO
+/// with `output_artifacts` (so every one had this observable), and 186
+/// `completion_check`s that the apply path called and the drift path did not.
+/// Those resources carry the fleet's network configuration.
+#[test]
+fn a_task_observable_asks_the_host_not_the_declaration() {
+    let mut r = Resource {
+        resource_type: ResourceType::Task,
+        machine: MachineTarget::Single("m1".to_string()),
+        command: Some("systemctl start thing".to_string()),
+        ..Default::default()
+    };
+    r.completion_check = Some("systemctl is-active thing".to_string());
+
+    let q = state_query_script(&r);
+
+    // THE ASSERTION THAT MATTERS: the observable must run the check.
+    assert!(
+        q.contains("systemctl is-active thing"),
+        "the task observable does not consult its completion_check, so it \
+         cannot see the host:\n{q}"
+    );
+
+    // And must NOT be an echo of the declaration. Without this, appending the
+    // check to the old echo would satisfy the assertion above while leaving the
+    // digest still dominated by config text.
+    assert!(
+        !q.contains("command=systemctl start thing"),
+        "the observable still echoes the declaration, so it remains a pure \
+         function of the config:\n{q}"
+    );
+
+    // CHANGING THE COMMAND MUST NOT CHANGE THE OBSERVABLE. That is the whole
+    // defect stated as a property: an observable derived from the declaration
+    // moves when the declaration moves, which is what made every task look
+    // permanently converged.
+    let mut r2 = r.clone();
+    r2.command = Some("systemctl restart thing --with --different --args".to_string());
+    assert_eq!(
+        state_query_script(&r2),
+        q,
+        "editing the command changed the observable — it is still derived from \
+         the declaration rather than from the host"
+    );
+}
+
+/// A task with neither artifacts nor a completion_check has genuinely nothing
+/// to observe. It must SAY so rather than echo the declaration, so a caller can
+/// tell "unobservable" from "unchanged" — an echo cannot express that
+/// difference, which is how the original defect stayed invisible.
+#[test]
+fn a_task_with_nothing_to_observe_says_so() {
+    let r = Resource {
+        resource_type: ResourceType::Task,
+        machine: MachineTarget::Single("m1".to_string()),
+        command: Some("echo hello".to_string()),
+        ..Default::default()
+    };
+    let q = state_query_script(&r);
+    assert!(
+        q.contains("unobservable:no-completion-check"),
+        "an unobservable task must be labelled as such:\n{q}"
+    );
 }
