@@ -47,6 +47,48 @@ fn try_validate_advanced(
     }
     None
 }
+/// Gate every `validate` sub-check has to pass before dispatch.
+///
+/// GH-211: FJ-381 was destructured to `_schema_version` — accepted, never
+/// read. `validate --schema-version 99.0` reported the config valid against
+/// a schema version that was never consulted.
+///
+/// FJ-2500 / GH-272: unknown fields are errors. This was an inline copy of
+/// the check, which is how validate and every other verb came to disagree
+/// about whether the same file was valid. `parse_and_validate` now denies,
+/// so validate inherits the rule instead of reimplementing it — and loading
+/// here, BEFORE dispatch, covers every sub-check rather than only the ones
+/// that happen to load the config themselves. `--check-recipe-purity` reads
+/// raw YAML by design (purity keys are not typed fields) and so consulted
+/// no validation at all; it was the inline copy that had been masking that.
+///
+/// EMIT JSON ON THE FAILURE PATH TOO.
+///
+/// This was a bare `parse_and_validate(&file)?;` — the result discarded,
+/// the call kept only for its failure side effect — so it returned here,
+/// long before any sub-command could honour `--json`. `validate --json` on
+/// an invalid config therefore printed ZERO bytes to stdout and a
+/// plain-text error to stderr: the one case a machine consumer needs the
+/// structured errors, since a conforming config tells it nothing it did not
+/// already assume. Ledger id validate-json-emits-non-json-on-failure,
+/// confirmed at 1.12.3 and still live at 1.16.0.
+///
+/// The exit code and the human-facing stderr are deliberately unchanged.
+fn validate_preflight(file: &Path, json: bool, schema_version_given: bool) -> Result<(), String> {
+    super::inert_flags::reject_inert_flag("--schema-version", schema_version_given)?;
+
+    if let Err(e) = crate::core::parser::parse_and_validate(file) {
+        if json {
+            println!(
+                "{}",
+                crate::cli::validate_core::validation_failure_json(file, std::slice::from_ref(&e))
+            );
+        }
+        return Err(e);
+    }
+    Ok(())
+}
+
 pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     let ValidateArgs {
         file,
@@ -202,48 +244,19 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         deny_unknown_fields,
     } = args;
 
-    // GH-211: FJ-381 was destructured to `_schema_version` — accepted, never
-    // read. `validate --schema-version 99.0` reported the config valid against
-    // a schema version that was never consulted.
-    super::inert_flags::reject_inert_flag("--schema-version", _schema_version.is_some())?;
-
-    // FJ-2500 / GH-272: unknown fields are errors. This was an inline copy of
-    // the check, which is how validate and every other verb came to disagree
-    // about whether the same file was valid. `parse_and_validate` now denies,
-    // so validate inherits the rule instead of reimplementing it — and loading
-    // here, BEFORE dispatch, covers every sub-check rather than only the ones
-    // that happen to load the config themselves. `--check-recipe-purity` reads
-    // raw YAML by design (purity keys are not typed fields) and so consulted
-    // no validation at all; it was the inline copy that had been masking that.
     let _ = deny_unknown_fields; // always true for validate
-                                 // EMIT JSON ON THE FAILURE PATH TOO.
-                                 //
-                                 // This was a bare `parse_and_validate(&file)?;` — the result discarded,
-                                 // the call kept only for its failure side effect — so it returned here,
-                                 // long before any sub-command could honour `--json`. `validate --json` on
-                                 // an invalid config therefore printed ZERO bytes to stdout and a
-                                 // plain-text error to stderr: the one case a machine consumer needs the
-                                 // structured errors, since a conforming config tells it nothing it did not
-                                 // already assume. Ledger id validate-json-emits-non-json-on-failure,
-                                 // confirmed at 1.12.3 and still live at 1.16.0.
-                                 //
-                                 // The exit code and the human-facing stderr are deliberately unchanged.
-    if let Err(e) = crate::core::parser::parse_and_validate(&file) {
-        if json {
-            println!(
-                "{}",
-                crate::cli::validate_core::validation_failure_json(&file, std::slice::from_ref(&e))
-            );
-        }
-        return Err(e);
-    }
+    validate_preflight(&file, json, _schema_version.is_some())?;
 
     // FJ-2503: --deep runs all deep checks in a single aggregated pass
     if deep {
         return cmd_validate_deep(&file, json);
     }
 
-    if let Some(r) = try_validate_store(
+    // Sub-check groups in flag-priority order. `or_else` keeps the
+    // first-selected-wins behaviour of the `if let Some(r) = .. { return r }`
+    // chain this replaced, and no group past the selected one is evaluated.
+    // With nothing selected, plain `validate` runs.
+    try_validate_store(
         &file,
         json,
         check_recipe_purity,
@@ -276,214 +289,212 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
             check_duplicate_names,
             check_resource_groups,
         )
-    }) {
-        return r;
-    }
-    if let Some(r) = try_validate_governance(
-        &file,
-        json,
-        &check_resource_naming_pattern,
-        check_resource_provider_support,
-        check_resource_secret_refs,
-        check_resource_idempotency_hints,
-        check_resource_dependency_depth,
-        check_resource_machine_affinity,
-        check_resource_drift_risk,
-        check_resource_tag_coverage,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_validate_governance_c(
-        &file,
-        json,
-        check_resource_dependency_completeness,
-        check_resource_state_coverage,
-        check_resource_rollback_safety,
-        check_resource_config_maturity,
-        check_resource_dependency_ordering,
-        check_resource_tag_completeness,
-        check_resource_naming_standards,
-        check_resource_dependency_symmetry,
-        check_resource_circular_alias,
-        check_resource_dependency_depth_limit,
-        check_resource_unused_params,
-        check_resource_machine_balance,
-    )
+    })
     .or_else(|| {
-        try_validate_governance_d(
+        try_validate_governance(
             &file,
             json,
-            check_resource_content_hash_consistency,
-            check_resource_dependency_refs,
-            check_resource_trigger_refs,
-            check_resource_param_type_safety,
-            check_resource_env_consistency,
-            check_resource_secret_rotation,
-            check_resource_lifecycle_completeness,
-            check_resource_provider_compatibility,
-            check_resource_naming_convention_strict,
-            check_resource_idempotency_annotations,
-            check_resource_content_size_limit,
-            check_resource_dependency_fan_limit,
-        )
-    }) {
-        return r;
-    }
-    if let Some(r) = try_validate_phases_94_96(
-        &file,
-        json,
-        check_resource_gpu_backend_consistency,
-        check_resource_when_condition_syntax,
-        check_resource_lifecycle_hook_coverage,
-        check_resource_secret_rotation_age,
-        check_resource_dependency_chain_depth,
-        check_recipe_input_completeness,
-        check_resource_cross_machine_content_duplicates,
-        check_resource_machine_reference_validity,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_validate_phases_97_100(
-        &file,
-        json,
-        check_resource_health_correlation,
-        check_dependency_optimization,
-        check_resource_consolidation_opportunities,
-        check_resource_compliance_tags,
-        check_resource_rollback_coverage,
-        check_resource_dependency_balance,
-        check_resource_secret_scope,
-        check_resource_deprecation_usage,
-        check_resource_when_condition_coverage,
-        check_resource_dependency_symmetry_deep,
-        check_resource_tag_namespace,
-        check_resource_machine_capacity,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_validate_phases_101_103(
-        &file,
-        json,
-        check_resource_dependency_fan_out_limit,
-        check_resource_tag_required_keys,
-        check_resource_content_drift_risk,
-        check_resource_circular_dependency_depth,
-        check_resource_orphan_detection_deep,
-        check_resource_provider_diversity,
-        check_resource_dependency_isolation,
-        check_resource_tag_value_consistency,
-        check_resource_machine_distribution_balance,
-    )
-    .or_else(|| {
-        try_validate_phases_104_106(
-            &file,
-            json,
-            check_resource_dependency_version_drift,
-            check_resource_naming_length_limit,
-            check_resource_type_coverage_per_machine,
-            check_resource_dependency_depth_variance,
-            check_resource_tag_key_naming,
-            check_resource_content_length_limit,
-            check_resource_dependency_completeness_audit,
-            check_resource_machine_coverage_gap,
-            check_resource_path_depth_limit,
+            &check_resource_naming_pattern,
+            check_resource_provider_support,
+            check_resource_secret_refs,
+            check_resource_idempotency_hints,
+            check_resource_dependency_depth,
+            check_resource_machine_affinity,
+            check_resource_drift_risk,
+            check_resource_tag_coverage,
         )
     })
     .or_else(|| {
-        try_validate_phase107(
+        try_validate_governance_c(
             &file,
             json,
-            check_resource_dependency_ordering_consistency,
-            check_resource_tag_value_format,
-            check_resource_provider_version_pinning,
+            check_resource_dependency_completeness,
+            check_resource_state_coverage,
+            check_resource_rollback_safety,
+            check_resource_config_maturity,
+            check_resource_dependency_ordering,
+            check_resource_tag_completeness,
+            check_resource_naming_standards,
+            check_resource_dependency_symmetry,
+            check_resource_circular_alias,
+            check_resource_dependency_depth_limit,
+            check_resource_unused_params,
+            check_resource_machine_balance,
         )
-    }) {
-        return r;
-    }
-    if let Some(r) = try_validate_governance_b(
-        &file,
-        json,
-        check_resource_lifecycle_hooks,
-        check_resource_provider_version,
-        check_resource_naming_convention,
-        check_resource_idempotency,
-        check_resource_documentation,
-        check_resource_ownership,
-        check_resource_secret_exposure,
-        check_resource_tag_standards,
-        check_resource_privilege_escalation,
-        check_resource_update_safety,
-        check_resource_cross_machine_consistency,
-        check_resource_version_pinning,
-    )
+        .or_else(|| {
+            try_validate_governance_d(
+                &file,
+                json,
+                check_resource_content_hash_consistency,
+                check_resource_dependency_refs,
+                check_resource_trigger_refs,
+                check_resource_param_type_safety,
+                check_resource_env_consistency,
+                check_resource_secret_rotation,
+                check_resource_lifecycle_completeness,
+                check_resource_provider_compatibility,
+                check_resource_naming_convention_strict,
+                check_resource_idempotency_annotations,
+                check_resource_content_size_limit,
+                check_resource_dependency_fan_limit,
+            )
+        })
+    })
     .or_else(|| {
-        try_validate_advanced(
+        try_validate_phases_94_96(
             &file,
             json,
-            check_orphan_resources,
-            check_machine_arch,
-            check_resource_health_conflicts,
-            check_resource_overlap,
-            check_resource_tags,
-            check_resource_state_consistency,
-            check_resource_dependencies_complete,
-            check_machine_connectivity,
+            check_resource_gpu_backend_consistency,
+            check_resource_when_condition_syntax,
+            check_resource_lifecycle_hook_coverage,
+            check_resource_secret_rotation_age,
+            check_resource_dependency_chain_depth,
+            check_recipe_input_completeness,
+            check_resource_cross_machine_content_duplicates,
+            check_resource_machine_reference_validity,
         )
     })
     .or_else(|| {
-        try_validate_structural(
+        try_validate_phases_97_100(
             &file,
             json,
-            check_mount_points,
-            check_group_consistency,
-            check_mode_consistency,
-            check_template_vars,
-            check_service_deps,
-            check_path_conflicts,
-            check_owner_consistency,
-            check_naming_conventions,
-            check_circular_refs,
-            check_machine_reachability,
+            check_resource_health_correlation,
+            check_dependency_optimization,
+            check_resource_consolidation_opportunities,
+            check_resource_compliance_tags,
+            check_resource_rollback_coverage,
+            check_resource_dependency_balance,
+            check_resource_secret_scope,
+            check_resource_deprecation_usage,
+            check_resource_when_condition_coverage,
+            check_resource_dependency_symmetry_deep,
+            check_resource_tag_namespace,
+            check_resource_machine_capacity,
         )
-    }) {
-        return r;
-    }
-    if let Some(r) = try_validate_quality(
-        &file,
-        json,
-        check_idempotency_deep,
-        check_permissions,
-        check_dependencies,
-        check_unused,
-        check_resource_limits,
-        check_portability,
-        check_compliance.as_deref(),
-        check_drift_risk,
-        check_deprecation,
-        check_security,
-        check_complexity,
-        check_limits,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_validate_core(
-        &file,
-        json,
-        strict,
-        dry_expand,
-        check_overlaps,
-        check_naming,
-        check_cycles_deep,
-        check_drift_coverage,
-        check_idempotency,
-        check_secrets,
-        strict_deps,
-        check_templates,
-        check_connectivity,
-        policy_file.as_deref(),
-        exhaustive,
-    ) {
-        return r;
-    }
-    cmd_validate(&file, strict, json, dry_expand)
+    })
+    .or_else(|| {
+        try_validate_phases_101_103(
+            &file,
+            json,
+            check_resource_dependency_fan_out_limit,
+            check_resource_tag_required_keys,
+            check_resource_content_drift_risk,
+            check_resource_circular_dependency_depth,
+            check_resource_orphan_detection_deep,
+            check_resource_provider_diversity,
+            check_resource_dependency_isolation,
+            check_resource_tag_value_consistency,
+            check_resource_machine_distribution_balance,
+        )
+        .or_else(|| {
+            try_validate_phases_104_106(
+                &file,
+                json,
+                check_resource_dependency_version_drift,
+                check_resource_naming_length_limit,
+                check_resource_type_coverage_per_machine,
+                check_resource_dependency_depth_variance,
+                check_resource_tag_key_naming,
+                check_resource_content_length_limit,
+                check_resource_dependency_completeness_audit,
+                check_resource_machine_coverage_gap,
+                check_resource_path_depth_limit,
+            )
+        })
+        .or_else(|| {
+            try_validate_phase107(
+                &file,
+                json,
+                check_resource_dependency_ordering_consistency,
+                check_resource_tag_value_format,
+                check_resource_provider_version_pinning,
+            )
+        })
+    })
+    .or_else(|| {
+        try_validate_governance_b(
+            &file,
+            json,
+            check_resource_lifecycle_hooks,
+            check_resource_provider_version,
+            check_resource_naming_convention,
+            check_resource_idempotency,
+            check_resource_documentation,
+            check_resource_ownership,
+            check_resource_secret_exposure,
+            check_resource_tag_standards,
+            check_resource_privilege_escalation,
+            check_resource_update_safety,
+            check_resource_cross_machine_consistency,
+            check_resource_version_pinning,
+        )
+        .or_else(|| {
+            try_validate_advanced(
+                &file,
+                json,
+                check_orphan_resources,
+                check_machine_arch,
+                check_resource_health_conflicts,
+                check_resource_overlap,
+                check_resource_tags,
+                check_resource_state_consistency,
+                check_resource_dependencies_complete,
+                check_machine_connectivity,
+            )
+        })
+        .or_else(|| {
+            try_validate_structural(
+                &file,
+                json,
+                check_mount_points,
+                check_group_consistency,
+                check_mode_consistency,
+                check_template_vars,
+                check_service_deps,
+                check_path_conflicts,
+                check_owner_consistency,
+                check_naming_conventions,
+                check_circular_refs,
+                check_machine_reachability,
+            )
+        })
+    })
+    .or_else(|| {
+        try_validate_quality(
+            &file,
+            json,
+            check_idempotency_deep,
+            check_permissions,
+            check_dependencies,
+            check_unused,
+            check_resource_limits,
+            check_portability,
+            check_compliance.as_deref(),
+            check_drift_risk,
+            check_deprecation,
+            check_security,
+            check_complexity,
+            check_limits,
+        )
+    })
+    .or_else(|| {
+        try_validate_core(
+            &file,
+            json,
+            strict,
+            dry_expand,
+            check_overlaps,
+            check_naming,
+            check_cycles_deep,
+            check_drift_coverage,
+            check_idempotency,
+            check_secrets,
+            strict_deps,
+            check_templates,
+            check_connectivity,
+            policy_file.as_deref(),
+            exhaustive,
+        )
+    })
+    .unwrap_or_else(|| cmd_validate(&file, strict, json, dry_expand))
 }

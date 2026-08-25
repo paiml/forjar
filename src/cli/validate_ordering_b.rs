@@ -178,6 +178,48 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(
     Ok(())
 }
 
+/// The `{{...}}` placeholders in a resource's content, in the order they
+/// appear. An unterminated `{{` ends the scan — nothing after it can close.
+fn template_placeholders(content: &str) -> Vec<&str> {
+    let mut vars = Vec::new();
+    let mut rest = content;
+    while let Some(start) = rest.find("{{") {
+        rest = &rest[start + 2..];
+        let Some(end) = rest.find("}}") else {
+            break;
+        };
+        vars.push(&rest[..end]);
+        rest = &rest[end + 2..];
+    }
+    vars
+}
+
+/// A placeholder that names a param: bare alphanumerics and underscores only,
+/// so anything with an expression or a path in it is left alone.
+fn is_param_placeholder(var: &str) -> bool {
+    var.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+/// One warning per `{{param}}` a resource references that the config never
+/// declares.
+fn undeclared_param_warnings(
+    config: &types::ForjarConfig,
+    declared_params: &std::collections::HashSet<String>,
+) -> Vec<(String, String)> {
+    let mut warnings: Vec<(String, String)> = Vec::new();
+    for (name, res) in &config.resources {
+        let Some(ref content) = res.content else {
+            continue;
+        };
+        for var in template_placeholders(content) {
+            if is_param_placeholder(var) && !declared_params.contains(var) {
+                warnings.push((name.clone(), format!("references undeclared param '{var}'")));
+            }
+        }
+    }
+    warnings
+}
+
 /// FJ-973: Validate environment variable references match declared params.
 pub(crate) fn cmd_validate_check_resource_env_consistency(
     file: &Path,
@@ -188,27 +230,7 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
     let declared_params: std::collections::HashSet<String> =
         config.params.keys().cloned().collect();
-    let mut warnings: Vec<(String, String)> = Vec::new();
-    for (name, res) in &config.resources {
-        if let Some(ref c) = res.content {
-            let mut rest = c.as_str();
-            while let Some(start) = rest.find("{{") {
-                rest = &rest[start + 2..];
-                if let Some(end) = rest.find("}}") {
-                    let var = &rest[..end];
-                    if var.chars().all(|c| c.is_alphanumeric() || c == '_')
-                        && !declared_params.contains(var)
-                    {
-                        warnings
-                            .push((name.clone(), format!("references undeclared param '{var}'")));
-                    }
-                    rest = &rest[end + 2..];
-                } else {
-                    break;
-                }
-            }
-        }
-    }
+    let warnings = undeclared_param_warnings(&config, &declared_params);
     if json {
         let items: Vec<String> = warnings
             .iter()

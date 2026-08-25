@@ -201,45 +201,64 @@ pub(crate) fn cmd_status_compliance_report(
     Ok(())
 }
 
-/// FJ-602: Show security-relevant resource states (modes, ownership).
-pub(crate) fn cmd_status_security_posture(
-    state_dir: &Path,
-    machine: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
-    let machines = discover_machines(state_dir);
-    let mut items: Vec<(String, String, String, String)> = Vec::new(); // (machine, resource, type, status)
+/// Resource types whose recorded state carries security meaning — permissions,
+/// ownership, exposure.
+fn is_security_relevant(resource_type: &types::ResourceType) -> bool {
+    matches!(
+        resource_type,
+        types::ResourceType::File
+            | types::ResourceType::User
+            | types::ResourceType::Network
+            | types::ResourceType::Service
+    )
+}
 
-    for m in &machines {
-        if let Some(filter) = machine {
-            if m != filter {
-                continue;
-            }
+/// Appends `(machine, resource, type, status)` for every security-relevant
+/// entry in one machine's lock.
+fn push_security_resources(
+    m: &str,
+    lock: &types::StateLock,
+    items: &mut Vec<(String, String, String, String)>,
+) {
+    for (rname, rlock) in &lock.resources {
+        if is_security_relevant(&rlock.resource_type) {
+            items.push((
+                m.to_string(),
+                rname.clone(),
+                format!("{:?}", rlock.resource_type),
+                format!("{:?}", rlock.status),
+            ));
+        }
+    }
+}
+
+/// Security-relevant resources across the selected machines. A machine with no
+/// lock, or a lock that will not parse, contributes nothing.
+fn collect_security_resources(
+    state_dir: &Path,
+    machines: &[String],
+    machine: Option<&str>,
+) -> Vec<(String, String, String, String)> {
+    let mut items = Vec::new();
+    for m in machines {
+        if machine.is_some_and(|filter| m != filter) {
+            continue;
         }
         let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
-        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
-            for (rname, rlock) in &lock.resources {
-                let rtype = format!("{:?}", rlock.resource_type);
-                // Security-relevant types: file, user, network, service
-                let is_security = matches!(
-                    rlock.resource_type,
-                    crate::core::types::ResourceType::File
-                        | crate::core::types::ResourceType::User
-                        | crate::core::types::ResourceType::Network
-                        | crate::core::types::ResourceType::Service
-                );
-                if is_security {
-                    let status = format!("{:?}", rlock.status);
-                    items.push((m.clone(), rname.clone(), rtype, status));
-                }
-            }
+        if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+            push_security_resources(m, &lock, &mut items);
         }
     }
+    items
+}
 
+/// Renders the security posture as JSON, as a per-resource listing, or as the
+/// "nothing relevant" line.
+fn print_security_posture(items: &[(String, String, String, String)], json: bool) {
     if json {
         let json_items: Vec<String> = items
             .iter()
@@ -256,11 +275,44 @@ pub(crate) fn cmd_status_security_posture(
         println!("No security-relevant resources found");
     } else {
         println!("Security posture ({} resources):", items.len());
-        for (m, r, t, s) in &items {
+        for (m, r, t, s) in items {
             println!("  {m}:{r} ({t}) — {s}");
         }
     }
+}
+
+/// FJ-602: Show security-relevant resource states (modes, ownership).
+pub(crate) fn cmd_status_security_posture(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let items = collect_security_resources(state_dir, &machines, machine);
+    print_security_posture(&items, json);
     Ok(())
+}
+
+/// One audit row — `(machine, resource, status, timestamp)` — from a single
+/// event-log line. `None` for a blank line or one that is not JSON; a field the
+/// event omits reads as "unknown" rather than dropping the row.
+fn audit_entry_from_line(m: &str, line: &str) -> Option<(String, String, String, String)> {
+    if line.trim().is_empty() {
+        return None;
+    }
+    let val = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    let field = |key: &str| {
+        val.get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string()
+    };
+    Some((
+        m.to_string(),
+        field("resource"),
+        field("status"),
+        field("timestamp"),
+    ))
 }
 
 /// FJ-552: Full audit trail from event logs — who/what/when for each change.
@@ -271,39 +323,19 @@ fn collect_audit_entries(
 ) -> Vec<(String, String, String, String)> {
     let mut entries = Vec::new();
     for m in machines {
-        if let Some(filter) = machine {
-            if m != filter {
-                continue;
-            }
+        if machine.is_some_and(|filter| m != filter) {
+            continue;
         }
         let log_path = state_dir.join(format!("{m}.events.jsonl"));
         if !log_path.exists() {
             continue;
         }
         let content = std::fs::read_to_string(&log_path).unwrap_or_default();
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
-                let resource = val
-                    .get("resource")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-                let status = val
-                    .get("status")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-                let timestamp = val
-                    .get("timestamp")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-                entries.push((m.clone(), resource, status, timestamp));
-            }
-        }
+        entries.extend(
+            content
+                .lines()
+                .filter_map(|line| audit_entry_from_line(m, line)),
+        );
     }
     entries
 }

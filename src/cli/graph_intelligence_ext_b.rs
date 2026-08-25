@@ -200,24 +200,32 @@ fn find_bridge_edges(
     }
     bridges
 }
+/// Marks every node reachable from `start` as visited. Iterative rather than
+/// recursive so a long dependency chain cannot overflow the call stack.
+fn mark_reachable(adj: &[Vec<bool>], start: usize, visited: &mut [bool]) {
+    let mut stack = vec![start];
+    while let Some(node) = stack.pop() {
+        if visited[node] {
+            continue;
+        }
+        visited[node] = true;
+        for (j, &is_adj) in adj[node].iter().enumerate() {
+            if is_adj && !visited[j] {
+                stack.push(j);
+            }
+        }
+    }
+}
+
+/// Connected components of an undirected adjacency matrix: one per node that no
+/// earlier flood fill has already reached.
 fn count_components(adj: &[Vec<bool>], n: usize) -> usize {
     let mut visited = vec![false; n];
     let mut components = 0;
     for i in 0..n {
         if !visited[i] {
             components += 1;
-            let mut stack = vec![i];
-            while let Some(node) = stack.pop() {
-                if visited[node] {
-                    continue;
-                }
-                visited[node] = true;
-                for (j, &is_adj) in adj[node].iter().enumerate() {
-                    if is_adj && !visited[j] {
-                        stack.push(j);
-                    }
-                }
-            }
+            mark_reachable(adj, i, &mut visited);
         }
     }
     components

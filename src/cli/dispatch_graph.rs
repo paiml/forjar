@@ -94,6 +94,28 @@ pub(super) fn try_topology(
     None
 }
 
+/// The three "what happens if this one resource changes" questions. Each names
+/// a resource and answers for it alone; they keep their original relative order
+/// so the flag precedence `try_impact` applies is unchanged.
+fn try_impact_of_change(
+    file: &Path,
+    json: bool,
+    change_impact: &Option<String>,
+    blast_radius: &Option<String>,
+    what_if: &Option<String>,
+) -> Option<Result<(), String>> {
+    if let Some(ref r) = change_impact {
+        return Some(cmd_graph_change_impact(file, r, json));
+    }
+    if let Some(ref r) = blast_radius {
+        return Some(cmd_graph_blast_radius(file, r, json));
+    }
+    if let Some(ref r) = what_if {
+        return Some(cmd_graph_what_if(file, r));
+    }
+    None
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_impact(
     file: &Path,
@@ -109,14 +131,8 @@ pub(super) fn try_impact(
     subgraph: &Option<String>,
     weight: bool,
 ) -> Option<Result<(), String>> {
-    if let Some(ref r) = change_impact {
-        return Some(cmd_graph_change_impact(file, r, json));
-    }
-    if let Some(ref r) = blast_radius {
-        return Some(cmd_graph_blast_radius(file, r, json));
-    }
-    if let Some(ref r) = what_if {
-        return Some(cmd_graph_what_if(file, r));
+    if let Some(result) = try_impact_of_change(file, json, change_impact, blast_radius, what_if) {
+        return Some(result);
     }
     if timeline_graph {
         return Some(cmd_graph_timeline(file));
@@ -157,6 +173,51 @@ fn try_visualization_focus(
     None
 }
 
+/// The whole-graph summaries: the JSON dump, the node/edge counts, and the
+/// listing of resources nothing depends on. None takes a resource or honours
+/// `format`. Their original relative order is preserved so the flag precedence
+/// `try_visualization` applies is unchanged.
+fn try_visualization_summary(
+    file: &Path,
+    json: bool,
+    stats: bool,
+    orphans: bool,
+) -> Option<Result<(), String>> {
+    if json {
+        return Some(cmd_graph_json(file));
+    }
+    if stats {
+        return Some(cmd_graph_stats(file));
+    }
+    if orphans {
+        return Some(cmd_graph_orphans(file));
+    }
+    None
+}
+
+/// The views that re-shape the whole graph before rendering it: grouped into
+/// clusters, with its edges flipped, or reduced to its critical path. Their
+/// original relative order is preserved so the flag precedence
+/// `try_visualization` applies is unchanged.
+fn try_visualization_shape(
+    file: &Path,
+    format: &str,
+    cluster: bool,
+    reverse: bool,
+    critical_path: bool,
+) -> Option<Result<(), String>> {
+    if cluster {
+        return Some(cmd_graph_cluster(file, format));
+    }
+    if reverse {
+        return Some(cmd_graph_reverse(file));
+    }
+    if critical_path {
+        return Some(cmd_graph_critical_path(file));
+    }
+    None
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_visualization(
     file: &Path,
@@ -183,23 +244,11 @@ pub(super) fn try_visualization(
     if let Some(result) = try_visualization_focus(file, format, prune, highlight) {
         return Some(result);
     }
-    if json {
-        return Some(cmd_graph_json(file));
+    if let Some(result) = try_visualization_summary(file, json, stats, orphans) {
+        return Some(result);
     }
-    if stats {
-        return Some(cmd_graph_stats(file));
-    }
-    if orphans {
-        return Some(cmd_graph_orphans(file));
-    }
-    if cluster {
-        return Some(cmd_graph_cluster(file, format));
-    }
-    if reverse {
-        return Some(cmd_graph_reverse(file));
-    }
-    if critical_path {
-        return Some(cmd_graph_critical_path(file));
+    if let Some(result) = try_visualization_shape(file, format, cluster, reverse, critical_path) {
+        return Some(result);
     }
     if let Some(ref r) = affected {
         return Some(cmd_graph_affected(file, r));
@@ -225,37 +274,35 @@ pub(super) fn try_graph_paths(
     resource_dependency_fanout: bool,
     resource_dependency_weight: bool,
 ) -> Option<Result<(), String>> {
+    // The only analysis here that takes an argument of its own, so it cannot go
+    // in the table below; it keeps its original first-in-line precedence.
     if let Some(ref target) = resource_dependency_chain {
         return Some(cmd_graph_resource_dependency_chain(file, target, json));
     }
-    if bottleneck_resources {
-        return Some(cmd_graph_bottleneck_resources(file, json));
-    }
-    if critical_dependency_path {
-        return Some(cmd_graph_critical_dependency_path(file, json));
-    }
-    if resource_depth_histogram {
-        return Some(cmd_graph_resource_depth_histogram(file, json));
-    }
-    if resource_coupling_score {
-        return Some(cmd_graph_resource_coupling_score(file, json));
-    }
-    if resource_change_frequency {
-        return Some(cmd_graph_resource_change_frequency(file, json));
-    }
-    if resource_impact_score {
-        return Some(cmd_graph_resource_impact_score(file, json));
-    }
-    if resource_stability_score {
-        return Some(cmd_graph_resource_stability_score(file, json));
-    }
-    if resource_dependency_fanout {
-        return Some(cmd_graph_resource_dependency_fanout(file, json));
-    }
-    if resource_dependency_weight {
-        return Some(cmd_graph_resource_dependency_weight(file, json));
-    }
-    None
+    first_enabled_analysis(
+        file,
+        json,
+        &[
+            (bottleneck_resources, cmd_graph_bottleneck_resources),
+            (critical_dependency_path, cmd_graph_critical_dependency_path),
+            (resource_depth_histogram, cmd_graph_resource_depth_histogram),
+            (resource_coupling_score, cmd_graph_resource_coupling_score),
+            (
+                resource_change_frequency,
+                cmd_graph_resource_change_frequency,
+            ),
+            (resource_impact_score, cmd_graph_resource_impact_score),
+            (resource_stability_score, cmd_graph_resource_stability_score),
+            (
+                resource_dependency_fanout,
+                cmd_graph_resource_dependency_fanout,
+            ),
+            (
+                resource_dependency_weight,
+                cmd_graph_resource_dependency_weight,
+            ),
+        ],
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

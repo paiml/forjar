@@ -179,38 +179,55 @@ fn validate_cron_schedule(id: &str, resource: &Resource, errors: &mut Vec<Valida
     }
 }
 
-/// Validate a single cron field against min..=max range.
-pub(crate) fn validate_cron_field(field: &str, min: u32, max: u32) -> Result<(), String> {
-    for part in field.split(',') {
-        if part == "*" {
-            continue;
-        }
-        if let Some(step) = part.strip_prefix("*/") {
-            let n: u32 = step.parse().map_err(|_| format!("invalid step '{step}'"))?;
-            if n == 0 || n > max {
-                return Err(format!("step {n} out of range (1-{max})"));
-            }
-            continue;
-        }
-        if part.contains('-') {
-            let (lo, hi) = part
-                .split_once('-')
-                .ok_or_else(|| format!("invalid range '{part}'"))?;
-            let lo: u32 = lo.parse().map_err(|_| format!("invalid number '{lo}'"))?;
-            let hi: u32 = hi.parse().map_err(|_| format!("invalid number '{hi}'"))?;
-            if lo < min || hi > max || lo > hi {
-                return Err(format!("range {lo}-{hi} out of bounds ({min}-{max})"));
-            }
-            continue;
-        }
-        let n: u32 = part
-            .parse()
-            .map_err(|_| format!("invalid value '{part}'"))?;
-        if n < min || n > max {
-            return Err(format!("value {n} out of range ({min}-{max})"));
-        }
+/// `*/N` — the step must parse and land in `1..=max`.
+fn validate_cron_step(step: &str, max: u32) -> Result<(), String> {
+    let n: u32 = step.parse().map_err(|_| format!("invalid step '{step}'"))?;
+    if n == 0 || n > max {
+        return Err(format!("step {n} out of range (1-{max})"));
     }
     Ok(())
+}
+
+/// `lo-hi` — both ends must parse, sit inside `min..=max`, and be in order.
+fn validate_cron_range(part: &str, min: u32, max: u32) -> Result<(), String> {
+    let (lo, hi) = part
+        .split_once('-')
+        .ok_or_else(|| format!("invalid range '{part}'"))?;
+    let lo: u32 = lo.parse().map_err(|_| format!("invalid number '{lo}'"))?;
+    let hi: u32 = hi.parse().map_err(|_| format!("invalid number '{hi}'"))?;
+    if lo < min || hi > max || lo > hi {
+        return Err(format!("range {lo}-{hi} out of bounds ({min}-{max})"));
+    }
+    Ok(())
+}
+
+/// One comma-separated part of a cron field: `*`, a `*/N` step, an `lo-hi`
+/// range, or a plain value.
+fn validate_cron_part(part: &str, min: u32, max: u32) -> Result<(), String> {
+    if part == "*" {
+        return Ok(());
+    }
+    if let Some(step) = part.strip_prefix("*/") {
+        return validate_cron_step(step, max);
+    }
+    if part.contains('-') {
+        return validate_cron_range(part, min, max);
+    }
+    let n: u32 = part
+        .parse()
+        .map_err(|_| format!("invalid value '{part}'"))?;
+    if n < min || n > max {
+        return Err(format!("value {n} out of range ({min}-{max})"));
+    }
+    Ok(())
+}
+
+/// Validate a single cron field against min..=max range. Reports the first
+/// offending part, left to right.
+pub(crate) fn validate_cron_field(field: &str, min: u32, max: u32) -> Result<(), String> {
+    field
+        .split(',')
+        .try_for_each(|part| validate_cron_part(part, min, max))
 }
 
 /// FJ-2300: Check resource path against `policy.deny_paths` glob patterns.

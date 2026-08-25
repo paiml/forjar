@@ -99,6 +99,26 @@ fn is_lock_stale(lock_path: &Path, cutoff: std::time::SystemTime) -> bool {
         .unwrap_or(false)
 }
 
+/// One `(machine, resource, detail)` row per resource in a lock that has been
+/// judged stale. Staleness is a property of the lock file's mtime, so every
+/// resource it records is reported.
+fn stale_rows_from_lock(
+    name: &str,
+    lock: &types::StateLock,
+    days: u64,
+) -> Vec<(String, String, serde_json::Value)> {
+    lock.resources
+        .iter()
+        .map(|(resource_id, resource_state)| {
+            let val = serde_json::json!({
+                "machine": name, "resource": resource_id,
+                "last_applied": resource_state.applied_at, "days_stale": days,
+            });
+            (name.to_string(), resource_id.clone(), val)
+        })
+        .collect()
+}
+
 /// FJ-336: Show resources not updated in N days.
 fn collect_stale_by_days(
     state_dir: &Path,
@@ -110,13 +130,7 @@ fn collect_stale_by_days(
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
     let mut result = Vec::new();
     for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        if !entry.path().is_dir() {
+        if !is_matching_machine(&entry, machine_filter) {
             continue;
         }
         let lock_path = entry.path().join("state.lock.yaml");
@@ -126,13 +140,8 @@ fn collect_stale_by_days(
         let content = std::fs::read_to_string(&lock_path)
             .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
         if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
-            for (resource_id, resource_state) in &lock.resources {
-                let val = serde_json::json!({
-                    "machine": name, "resource": resource_id,
-                    "last_applied": resource_state.applied_at, "days_stale": days,
-                });
-                result.push((name.clone(), resource_id.clone(), val));
-            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            result.extend(stale_rows_from_lock(&name, &lock, days));
         }
     }
     Ok(result)

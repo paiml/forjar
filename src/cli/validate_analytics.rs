@@ -302,6 +302,13 @@ struct ConsolidationOpportunity {
     reason: String,
 }
 
+/// Only same-type resources placed on different machines are candidates for
+/// consolidation — merging two resources that already share a machine, or that
+/// are not the same kind of thing, is not an opportunity.
+fn pair_is_consolidatable(res_a: &types::Resource, res_b: &types::Resource) -> bool {
+    res_a.resource_type == res_b.resource_type && on_different_machines(res_a, res_b)
+}
+
 /// Find consolidation opportunities across resources of the same type on
 /// different machines.
 fn find_consolidation_opportunities(config: &types::ForjarConfig) -> Vec<ConsolidationOpportunity> {
@@ -314,10 +321,7 @@ fn find_consolidation_opportunities(config: &types::ForjarConfig) -> Vec<Consoli
             let (name_a, res_a) = entries[i];
             let (name_b, res_b) = entries[j];
 
-            if res_a.resource_type != res_b.resource_type {
-                continue;
-            }
-            if !on_different_machines(res_a, res_b) {
+            if !pair_is_consolidatable(res_a, res_b) {
                 continue;
             }
 

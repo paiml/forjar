@@ -274,10 +274,50 @@ fn heredoc_line_set(script: &str) -> std::collections::HashSet<usize> {
     inside
 }
 
+/// How many bashrs findings a lint sweep saw, by severity. Errors are also
+/// reported individually; the lower severities are only ever counted.
+#[derive(Default)]
+struct ScriptLintTally {
+    errors: usize,
+    warnings: usize,
+}
+
+/// Lints one generated script, pushing a message per error-severity finding and
+/// folding every finding into `tally`.
+fn lint_generated_script(
+    id: &str,
+    kind: &str,
+    script: &str,
+    warnings: &mut Vec<String>,
+    tally: &mut ScriptLintTally,
+) {
+    use bashrs::linter::Severity;
+
+    let heredoc_lines = heredoc_line_set(script);
+    for d in &crate::core::purifier::lint_script(script).diagnostics {
+        // SC1xxx rules have false positives on generated scripts (e.g. grep
+        // char classes parsed as test expressions); purifier::validate_script
+        // already filters these. Anything inside a heredoc is file data, not
+        // shell, so it is not the generator's to answer for either.
+        if d.code.starts_with("SC1") || heredoc_lines.contains(&d.span.start_line) {
+            continue;
+        }
+        match d.severity {
+            Severity::Error => {
+                tally.errors += 1;
+                warnings.push(format!(
+                    "bashrs: {}/{} [{}] {}",
+                    id, kind, d.code, d.message
+                ));
+            }
+            _ => tally.warnings += 1,
+        }
+    }
+}
+
 fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
-    let mut script_errors = 0usize;
-    let mut script_warnings_count = 0usize;
+    let mut tally = ScriptLintTally::default();
     for (id, resource) in &config.resources {
         for (kind, result) in [
             ("check", codegen::check_script(resource)),
@@ -285,41 +325,15 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
             ("state_query", codegen::state_query_script(resource)),
         ] {
             if let Ok(script) = result {
-                let heredoc_lines = heredoc_line_set(&script);
-                let lint_result = crate::core::purifier::lint_script(&script);
-                for d in &lint_result.diagnostics {
-                    use bashrs::linter::Severity;
-                    // SC1xxx rules have false positives on generated scripts
-                    // (e.g. grep char classes parsed as test expressions).
-                    // purifier::validate_script already filters these.
-                    if d.code.starts_with("SC1") {
-                        continue;
-                    }
-                    // Skip diagnostics inside heredoc content (file data, not shell)
-                    if heredoc_lines.contains(&d.span.start_line) {
-                        continue;
-                    }
-                    match d.severity {
-                        Severity::Error => {
-                            script_errors += 1;
-                            warnings.push(format!(
-                                "bashrs: {}/{} [{}] {}",
-                                id, kind, d.code, d.message
-                            ));
-                        }
-                        _ => {
-                            script_warnings_count += 1;
-                        }
-                    }
-                }
+                lint_generated_script(id, kind, &script, &mut warnings, &mut tally);
             }
         }
     }
-    if script_errors > 0 || script_warnings_count > 0 {
+    if tally.errors > 0 || tally.warnings > 0 {
         warnings.push(format!(
             "bashrs script lint: {} error(s), {} warning(s) across {} resources",
-            script_errors,
-            script_warnings_count,
+            tally.errors,
+            tally.warnings,
             config.resources.len()
         ));
     }

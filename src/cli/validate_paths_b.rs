@@ -17,33 +17,28 @@ pub(super) fn find_mount_conflicts(mount_paths: &[(String, String)]) -> Vec<(Str
     conflicts
 }
 
-/// Validate a cron field token against min/max range.
-fn validate_cron_field(field: &str, min: u32, max: u32) -> bool {
-    if field == "*" {
+/// One comma-separated token of a cron field, with any `/step` suffix already
+/// stripped: a wildcard, an `a-b` range inside `min..=max`, or a plain number
+/// inside `min..=max`.
+fn is_valid_cron_token(token: &str, min: u32, max: u32) -> bool {
+    if token == "*" {
         return true;
     }
-    for part in field.split(',') {
-        let part = part.split('/').next().unwrap_or(part);
-        if part == "*" {
-            continue;
-        }
-        if let Some((a, b)) = part.split_once('-') {
-            let (Ok(a), Ok(b)) = (a.parse::<u32>(), b.parse::<u32>()) else {
-                return false;
-            };
-            if a < min || b > max || a > b {
-                return false;
-            }
-        } else {
-            let Ok(v) = part.parse::<u32>() else {
-                return false;
-            };
-            if v < min || v > max {
-                return false;
-            }
-        }
+    if let Some((a, b)) = token.split_once('-') {
+        let (Ok(a), Ok(b)) = (a.parse::<u32>(), b.parse::<u32>()) else {
+            return false;
+        };
+        return a >= min && b <= max && a <= b;
     }
-    true
+    matches!(token.parse::<u32>(), Ok(v) if v >= min && v <= max)
+}
+
+/// Validate a cron field token against min/max range.
+fn validate_cron_field(field: &str, min: u32, max: u32) -> bool {
+    field.split(',').all(|part| {
+        // Only the base token is range-checked; the `/step` suffix is not.
+        is_valid_cron_token(part.split('/').next().unwrap_or(part), min, max)
+    })
 }
 
 /// FJ-731: Validate cron schedule expressions in resources.

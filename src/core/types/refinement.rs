@@ -157,6 +157,21 @@ impl std::fmt::Display for SemVer {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Hostname(String);
 
+/// Validate one dot-separated hostname label against RFC 1123: 1-63 characters,
+/// ASCII alphanumerics and dashes only, and never a leading or trailing dash.
+fn validate_hostname_label(label: &str) -> Result<(), String> {
+    if label.is_empty() || label.len() > 63 {
+        return Err(format!("label length must be 1-63: '{label}'"));
+    }
+    if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(format!("invalid chars in label: '{label}'"));
+    }
+    if label.starts_with('-') || label.ends_with('-') {
+        return Err(format!("label cannot start/end with dash: '{label}'"));
+    }
+    Ok(())
+}
+
 impl Hostname {
     /// Create a validated hostname from a string.
     pub fn new(s: &str) -> Result<Self, String> {
@@ -164,15 +179,7 @@ impl Hostname {
             return Err(format!("hostname length must be 1-253, got {}", s.len()));
         }
         for label in s.split('.') {
-            if label.is_empty() || label.len() > 63 {
-                return Err(format!("label length must be 1-63: '{label}'"));
-            }
-            if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-                return Err(format!("invalid chars in label: '{label}'"));
-            }
-            if label.starts_with('-') || label.ends_with('-') {
-                return Err(format!("label cannot start/end with dash: '{label}'"));
-            }
+            validate_hostname_label(label)?;
         }
         Ok(Hostname(s.to_string()))
     }

@@ -177,9 +177,26 @@ pub(crate) fn cmd_validate_check_resource_deprecation_usage(
 /// does NOT have a `when` condition, B will always be applied even when A
 /// is conditionally skipped. This is likely unintentional.
 fn find_when_condition_coverage_warnings(config: &types::ForjarConfig) -> Vec<(String, String)> {
-    let mut warnings = Vec::new();
+    let dependents_map = build_dependents_map(config);
 
-    // Build a map: resource -> list of its dependents (resources that depend on it).
+    let mut warnings = Vec::new();
+    for (name, resource) in &config.resources {
+        if resource.when.is_none() {
+            continue;
+        }
+        if let Some(dependents) = dependents_map.get(name) {
+            warn_unconditional_dependents(config, name, dependents, &mut warnings);
+        }
+    }
+    warnings.sort_by(|a, b| a.0.cmp(&b.0));
+    warnings
+}
+
+/// The reverse of `depends_on`: for each resource, the resources that name it
+/// as a dependency.
+fn build_dependents_map(
+    config: &types::ForjarConfig,
+) -> std::collections::HashMap<String, Vec<String>> {
     let mut dependents_map: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (name, resource) in &config.resources {
@@ -190,33 +207,30 @@ fn find_when_condition_coverage_warnings(config: &types::ForjarConfig) -> Vec<(S
                 .push(name.clone());
         }
     }
+    dependents_map
+}
 
-    // For each resource with a `when` condition, check its dependents.
-    for (name, resource) in &config.resources {
-        if resource.when.is_none() {
+/// Warns for every dependent of `name` that carries no `when` condition of its
+/// own, and so would still be applied on a run where `name` is skipped.
+fn warn_unconditional_dependents(
+    config: &types::ForjarConfig,
+    name: &str,
+    dependents: &[String],
+    warnings: &mut Vec<(String, String)>,
+) {
+    for dep_name in dependents {
+        let Some(dep_resource) = config.resources.get(dep_name) else {
             continue;
-        }
-        let dependents = match dependents_map.get(name) {
-            Some(deps) => deps,
-            None => continue,
         };
-        for dep_name in dependents {
-            let dep_resource = match config.resources.get(dep_name) {
-                Some(r) => r,
-                None => continue,
-            };
-            if dep_resource.when.is_none() {
-                warnings.push((
-                    dep_name.clone(),
-                    format!(
-                        "depends on '{name}' which has a when condition, but has no when condition itself"
-                    ),
-                ));
-            }
+        if dep_resource.when.is_none() {
+            warnings.push((
+                dep_name.clone(),
+                format!(
+                    "depends on '{name}' which has a when condition, but has no when condition itself"
+                ),
+            ));
         }
     }
-    warnings.sort_by(|a, b| a.0.cmp(&b.0));
-    warnings
 }
 
 /// FJ-1060: Check that dependents of conditional resources also have when conditions.

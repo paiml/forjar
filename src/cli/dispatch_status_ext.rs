@@ -98,7 +98,10 @@ pub(crate) fn dispatch_status_early(
     stale: Option<u64>,
     failed_since: &Option<String>,
 ) -> Result<(), String> {
-    if let Some(r) = try_status_phase71(
+    // Each `try_status_*` group returns `Some` only when one of the flags it
+    // owns was set, and `or_else` keeps the calls lazy — so the first group
+    // that recognises the request handles it and the rest are never reached.
+    let handled = try_status_phase71(
         sd,
         m,
         json,
@@ -108,141 +111,156 @@ pub(crate) fn dispatch_status_early(
         machine_uptime_estimate,
         fleet_resource_type_breakdown,
         resource_convergence_time,
-    ) {
-        return r;
+    )
+    .or_else(|| {
+        try_status_phase58(
+            sd,
+            m,
+            json,
+            resource_types_summary,
+            failed_resources,
+            drift_trend,
+            resource_inputs,
+            convergence_history,
+            config_hash,
+            last_apply_duration,
+            drift_details_all,
+            resource_size,
+            hash_verify,
+            lock_age,
+        )
+    })
+    .or_else(|| {
+        try_status_analytics(
+            sd,
+            m,
+            json,
+            change_frequency,
+            machine_summary,
+            recommendations,
+            uptime,
+            diagnostic,
+            resource_dependencies,
+            pipeline_status,
+            drift_forecast,
+            resource_cost,
+            security_posture,
+        )
+    })
+    .or_else(|| {
+        try_status_fleet(
+            sd,
+            m,
+            json,
+            error_summary,
+            resource_timeline,
+            convergence_time,
+            config_drift,
+            machine_health,
+            fleet_overview,
+            drift_velocity,
+            resource_graph,
+            audit_trail,
+            executive_summary,
+        )
+    })
+    .or_else(|| {
+        try_status_reports(
+            sd,
+            m,
+            json,
+            health_score,
+            staleness_report,
+            cost_estimate,
+            capacity,
+            prediction,
+            trend,
+            mttr,
+            compliance_report,
+            sla_report,
+            resource_age,
+            drift_summary,
+        )
+    })
+    .or_else(|| {
+        try_status_queries_a(
+            sd,
+            m,
+            json,
+            convergence_rate,
+            top_failures,
+            dependency_health,
+            histogram,
+            compliance,
+            diff_lock,
+            alerts,
+            compact,
+            export,
+            json_lines,
+        )
+    })
+    .or_else(|| {
+        try_status_queries_b(
+            sd,
+            m,
+            json,
+            since,
+            stale_resources,
+            health_threshold,
+            machines_only,
+            resources_by_type,
+            anomalies,
+            diff_from,
+            count,
+        )
+    })
+    .or_else(|| {
+        try_status_display(
+            sd,
+            m,
+            json,
+            status_format,
+            prometheus,
+            expired,
+            changes_since,
+            summary_by,
+            timeline,
+            drift_details,
+            health,
+            stale,
+            failed_since,
+        )
+    });
+    if let Some(result) = handled {
+        return result;
     }
-    if let Some(r) = try_status_phase58(
-        sd,
-        m,
-        json,
-        resource_types_summary,
-        failed_resources,
-        drift_trend,
-        resource_inputs,
-        convergence_history,
-        config_hash,
-        last_apply_duration,
-        drift_details_all,
-        resource_size,
-        hash_verify,
-        lock_age,
-    ) {
-        return r;
+
+    match watch {
+        Some(interval) => watch_status(sd, m, json, file, summary, interval),
+        None => cmd_status(sd, m, json, file, summary),
     }
-    if let Some(r) = try_status_analytics(
-        sd,
-        m,
-        json,
-        change_frequency,
-        machine_summary,
-        recommendations,
-        uptime,
-        diagnostic,
-        resource_dependencies,
-        pipeline_status,
-        drift_forecast,
-        resource_cost,
-        security_posture,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_fleet(
-        sd,
-        m,
-        json,
-        error_summary,
-        resource_timeline,
-        convergence_time,
-        config_drift,
-        machine_health,
-        fleet_overview,
-        drift_velocity,
-        resource_graph,
-        audit_trail,
-        executive_summary,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_reports(
-        sd,
-        m,
-        json,
-        health_score,
-        staleness_report,
-        cost_estimate,
-        capacity,
-        prediction,
-        trend,
-        mttr,
-        compliance_report,
-        sla_report,
-        resource_age,
-        drift_summary,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_queries_a(
-        sd,
-        m,
-        json,
-        convergence_rate,
-        top_failures,
-        dependency_health,
-        histogram,
-        compliance,
-        diff_lock,
-        alerts,
-        compact,
-        export,
-        json_lines,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_queries_b(
-        sd,
-        m,
-        json,
-        since,
-        stale_resources,
-        health_threshold,
-        machines_only,
-        resources_by_type,
-        anomalies,
-        diff_from,
-        count,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_display(
-        sd,
-        m,
-        json,
-        status_format,
-        prometheus,
-        expired,
-        changes_since,
-        summary_by,
-        timeline,
-        drift_details,
-        health,
-        stale,
-        failed_since,
-    ) {
-        return r;
-    }
-    if let Some(interval) = watch {
-        let interval = interval.max(1);
-        loop {
-            print!("\x1b[2J\x1b[H");
-            cmd_status(sd, m, json, file, summary)?;
-            println!(
-                "\n{}",
-                dim(&format!("Refreshing every {interval}s (Ctrl+C to stop)"))
-            );
-            std::thread::sleep(std::time::Duration::from_secs(interval));
-        }
-    } else {
-        cmd_status(sd, m, json, file, summary)
+}
+
+/// Redraw the plain status every `interval` seconds (never faster than once a
+/// second) until the user interrupts. Only ever returns on a `cmd_status`
+/// failure — the success path is an endless loop.
+fn watch_status(
+    sd: &Path,
+    m: Option<&str>,
+    json: bool,
+    file: Option<&Path>,
+    summary: bool,
+    interval: u64,
+) -> Result<(), String> {
+    let interval = interval.max(1);
+    loop {
+        print!("\x1b[2J\x1b[H");
+        cmd_status(sd, m, json, file, summary)?;
+        println!(
+            "\n{}",
+            dim(&format!("Refreshing every {interval}s (Ctrl+C to stop)"))
+        );
+        std::thread::sleep(std::time::Duration::from_secs(interval));
     }
 }
 

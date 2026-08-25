@@ -55,6 +55,26 @@ pub(crate) fn load_baseline_from(path: &Path) -> Result<Vec<BaselineEntry>, Stri
     Ok(entries)
 }
 
+/// True for a line inside the table that carries data: a markdown row that is
+/// neither the `| Operation | ... |` header nor the `---` separator beneath it.
+fn is_baseline_data_row(line: &str) -> bool {
+    line.starts_with('|') && !line.contains("---") && !line.contains("Operation")
+}
+
+/// Parse one `| Operation | Target | Last Run | p50 | p95 | Status |` row.
+/// `None` when the row has too few columns, or its "Last Run" cell is not a
+/// duration literal — a malformed row is skipped, never guessed at.
+fn parse_baseline_row(line: &str) -> Option<BaselineEntry> {
+    let cols: Vec<&str> = line.split('|').collect();
+    if cols.len() < 5 {
+        return None;
+    }
+    Some(BaselineEntry {
+        name: cols[1].trim().to_string(),
+        avg_us: parse_duration_to_us(cols[3].trim())?,
+    })
+}
+
 /// Parse the rows between the BENCH-TABLE markers.
 pub(crate) fn parse_baseline_table(content: &str) -> Vec<BaselineEntry> {
     let mut entries = Vec::new();
@@ -67,16 +87,8 @@ pub(crate) fn parse_baseline_table(content: &str) -> Vec<BaselineEntry> {
         if line.contains("BENCH-TABLE-END") {
             break;
         }
-        if !in_table || !line.starts_with('|') || line.contains("---") || line.contains("Operation")
-        {
-            continue;
-        }
-        let cols: Vec<&str> = line.split('|').collect();
-        if cols.len() >= 5 {
-            let name = cols[1].trim().to_string();
-            if let Some(us) = parse_duration_to_us(cols[3].trim()) {
-                entries.push(BaselineEntry { name, avg_us: us });
-            }
+        if in_table && is_baseline_data_row(line) {
+            entries.extend(parse_baseline_row(line));
         }
     }
     entries

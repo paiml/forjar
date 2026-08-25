@@ -5,24 +5,36 @@ use crate::core::{resolver, state, types};
 use crate::tripwire::eventlog;
 use std::path::Path;
 
-/// FJ-341: Audit trail — who applied what, when, from which config.
-pub(crate) fn cmd_audit(
+/// One audit event together with the machine whose log it came from.
+type MachineEvent = (String, types::TimestampedEvent);
+
+/// Parses one machine's JSONL event log, skipping blank lines and any line that
+/// does not deserialise — a truncated final write must not lose the whole log.
+fn append_logged_events(machine: &str, content: &str, out: &mut Vec<MachineEvent>) {
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
+            out.push((machine.to_string(), event));
+        }
+    }
+}
+
+/// Reads the event log of every machine under `state_dir` — or of just the one
+/// named by `machine_filter` — and returns every event tagged with its machine.
+fn collect_audit_events(
     state_dir: &Path,
     machine_filter: Option<&str>,
-    limit: usize,
-    json: bool,
-) -> Result<(), String> {
+) -> Result<Vec<MachineEvent>, String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
-    let mut all_events: Vec<(String, types::TimestampedEvent)> = Vec::new();
-
+    let mut all_events: Vec<MachineEvent> = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
+        if machine_filter.is_some_and(|filter| name != filter) {
+            continue;
         }
         if !entry.path().is_dir() {
             continue;
@@ -35,63 +47,75 @@ pub(crate) fn cmd_audit(
 
         let content = std::fs::read_to_string(&log_path)
             .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
-
-        for line in content.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
-                all_events.push((name.clone(), event));
-            }
-        }
+        append_logged_events(&name, &content, &mut all_events);
     }
+    Ok(all_events)
+}
 
-    // Sort by timestamp descending
+/// The `--json` rendering: one object per event, machine-readable.
+fn print_audit_json(all_events: &[MachineEvent]) -> Result<(), String> {
+    let json_events: Vec<serde_json::Value> = all_events
+        .iter()
+        .map(|(machine, ev)| {
+            // SERIALISE THE EVENT, DO NOT Debug-PRINT IT.
+            //
+            // This was `format!("{:?}", ev.event)`, which stuffed Rust
+            // Debug syntax into a JSON *string*:
+            //   "event": "ApplyStarted { machine: \"local\", run_id: ..."
+            // so run_id, operator, config_hash, resource, action and
+            // duration were unreadable without re-parsing Debug out of a
+            // string — in a document that exists to be machine-read.
+            // ApplyEvent already derives Serialize (history --json emits it
+            // structured), so nothing was blocking this. Ledger id
+            // debug-formatting-leaks-into-output-and-json, confirmed at
+            // 1.12.3 and still live at 1.16.0.
+            serde_json::json!({
+                "machine": machine,
+                "timestamp": ev.ts,
+                "event": ev.event,
+            })
+        })
+        .collect();
+    println!(
+        "{}",
+        // NOT unwrap_or_default(): that prints an EMPTY STRING on a
+        // serialisation failure, which a consumer reads as "no events"
+        // rather than "this did not work".
+        serde_json::to_string_pretty(&json_events)
+            .map_err(|e| format!("cannot serialise audit events: {e}"))?
+    );
+    Ok(())
+}
+
+/// The human rendering: newest first, one line per event.
+fn print_audit_text(all_events: &[MachineEvent], limit: usize) {
+    if all_events.is_empty() {
+        println!("No audit events found.");
+        return;
+    }
+    println!("Audit trail (last {limit} events):\n");
+    for (machine, ev) in all_events {
+        println!("  {} [{}] {:?}", ev.ts, machine, ev.event);
+    }
+}
+
+/// FJ-341: Audit trail — who applied what, when, from which config.
+pub(crate) fn cmd_audit(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    limit: usize,
+    json: bool,
+) -> Result<(), String> {
+    let mut all_events = collect_audit_events(state_dir, machine_filter)?;
+
+    // Newest first, then keep only the requested window.
     all_events.sort_by(|a, b| b.1.ts.cmp(&a.1.ts));
     all_events.truncate(limit);
 
     if json {
-        let json_events: Vec<serde_json::Value> = all_events
-            .iter()
-            .map(|(machine, ev)| {
-                // SERIALISE THE EVENT, DO NOT Debug-PRINT IT.
-                //
-                // This was `format!("{:?}", ev.event)`, which stuffed Rust
-                // Debug syntax into a JSON *string*:
-                //   "event": "ApplyStarted { machine: \"local\", run_id: ..."
-                // so run_id, operator, config_hash, resource, action and
-                // duration were unreadable without re-parsing Debug out of a
-                // string — in a document that exists to be machine-read.
-                // ApplyEvent already derives Serialize (history --json emits it
-                // structured), so nothing was blocking this. Ledger id
-                // debug-formatting-leaks-into-output-and-json, confirmed at
-                // 1.12.3 and still live at 1.16.0.
-                serde_json::json!({
-                    "machine": machine,
-                    "timestamp": ev.ts,
-                    "event": ev.event,
-                })
-            })
-            .collect();
-        println!(
-            "{}",
-            // NOT unwrap_or_default(): that prints an EMPTY STRING on a
-            // serialisation failure, which a consumer reads as "no events"
-            // rather than "this did not work".
-            serde_json::to_string_pretty(&json_events)
-                .map_err(|e| format!("cannot serialise audit events: {e}"))?
-        );
-    } else {
-        if all_events.is_empty() {
-            println!("No audit events found.");
-            return Ok(());
-        }
-        println!("Audit trail (last {limit} events):\n");
-        for (machine, ev) in &all_events {
-            println!("  {} [{}] {:?}", ev.ts, machine, ev.event);
-        }
+        return print_audit_json(&all_events);
     }
-
+    print_audit_text(&all_events, limit);
     Ok(())
 }
 

@@ -202,6 +202,66 @@ struct TestTally {
     skip: usize,
 }
 
+/// One resource's identity for the sweep: the script to run and how to label
+/// the rows it produces.
+struct ResourceCheck<'a> {
+    resource_id: &'a str,
+    resource_type: &'a str,
+    script: &'a str,
+}
+
+/// A sweep's running output: one row per executed check, plus the tally.
+#[derive(Default)]
+struct SweepOutcome {
+    rows: Vec<TestRow>,
+    tally: TestTally,
+}
+
+/// The row recorded for a resource whose type generates no check script.
+fn no_check_script_row(resource_id: &str, resource_type: &str) -> TestRow {
+    TestRow {
+        resource_id: resource_id.to_string(),
+        machine: "-".to_string(),
+        resource_type: resource_type.to_string(),
+        status: "skip".to_string(),
+        detail: "no check script".to_string(),
+        duration_secs: 0.0,
+    }
+}
+
+/// Runs one resource's check script on every machine it targets, appending a
+/// row per execution and folding each outcome into the tally.
+fn run_check_on_machines(
+    config: &types::ForjarConfig,
+    localhost: &types::Machine,
+    resource: &types::Resource,
+    check: &ResourceCheck<'_>,
+    machine_filter: Option<&str>,
+    out: &mut SweepOutcome,
+) {
+    for machine_name in resource.machine.to_vec() {
+        let machine = config.machines.get(&machine_name).unwrap_or(localhost);
+        if skip_machine(&machine_name, machine_filter, resource, machine) {
+            out.tally.skip += 1;
+            continue;
+        }
+
+        let (row, passed) = run_test_check(
+            machine,
+            check.script,
+            check.resource_id,
+            &machine_name,
+            check.resource_type,
+        );
+        if passed {
+            out.tally.pass += 1;
+        } else {
+            out.tally.fail += 1;
+        }
+        out.rows.push(row);
+    }
+}
+
 /// Decides whether a resource is excluded before any check script is generated,
 /// and whether it counts toward the skip tally (`Some(true)`) or is silent
 /// (`Some(false)`). Exists to keep the three exclusion rules out of the sweep.
@@ -249,8 +309,7 @@ fn run_test_sweep(
     group_filter: Option<&str>,
 ) -> Result<(Vec<TestRow>, TestTally), String> {
     let localhost = localhost_machine();
-    let mut results: Vec<TestRow> = Vec::new();
-    let mut tally = TestTally::default();
+    let mut out = SweepOutcome::default();
 
     for resource_id in execution_order {
         let Some(resource) = config.resources.get(resource_id) else {
@@ -264,9 +323,7 @@ fn run_test_sweep(
             tag_filter,
             group_filter,
         ) {
-            if counts_as_skip {
-                tally.skip += 1;
-            }
+            out.tally.skip += usize::from(counts_as_skip);
             continue;
         }
 
@@ -274,41 +331,28 @@ fn run_test_sweep(
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 
         let rtype = format!("{:?}", resource.resource_type).to_lowercase();
-        let check_script = match codegen::check_script(&resolved) {
-            Ok(s) => s,
-            Err(_) => {
-                tally.skip += 1;
-                results.push(TestRow {
-                    resource_id: resource_id.clone(),
-                    machine: "-".to_string(),
-                    resource_type: rtype,
-                    status: "skip".to_string(),
-                    detail: "no check script".to_string(),
-                    duration_secs: 0.0,
-                });
-                continue;
-            }
+        // A resource type with no check script is skipped, never failed.
+        let Ok(check_script) = codegen::check_script(&resolved) else {
+            out.tally.skip += 1;
+            out.rows.push(no_check_script_row(resource_id, &rtype));
+            continue;
         };
 
-        for machine_name in resource.machine.to_vec() {
-            let machine = config.machines.get(&machine_name).unwrap_or(&localhost);
-            if skip_machine(&machine_name, machine_filter, resource, machine) {
-                tally.skip += 1;
-                continue;
-            }
-
-            let (row, passed) =
-                run_test_check(machine, &check_script, resource_id, &machine_name, &rtype);
-            if passed {
-                tally.pass += 1;
-            } else {
-                tally.fail += 1;
-            }
-            results.push(row);
-        }
+        run_check_on_machines(
+            config,
+            &localhost,
+            resource,
+            &ResourceCheck {
+                resource_id,
+                resource_type: &rtype,
+                script: &check_script,
+            },
+            machine_filter,
+            &mut out,
+        );
     }
 
-    Ok((results, tally))
+    Ok((out.rows, out.tally))
 }
 
 /// FJ-2606: Writes the test artifacts next to the config file and announces the

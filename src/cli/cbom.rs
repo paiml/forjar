@@ -123,29 +123,40 @@ fn scan_tls_resources(config: &types::ForjarConfig, entries: &mut Vec<CryptoEntr
     }
 }
 
-fn scan_state_hashes(state_dir: &Path, entries: &mut Vec<CryptoEntry>) {
-    let mut has_hashes = false;
-    if let Ok(dir_entries) = std::fs::read_dir(state_dir) {
-        for entry in dir_entries.flatten() {
-            if !entry.path().is_dir() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().to_string();
-            if let Ok(Some(lock)) = state::load_lock(state_dir, &name) {
-                for (_id, res) in &lock.resources {
-                    if !res.hash.is_empty() && !has_hashes {
-                        has_hashes = true;
-                        entries.push(CryptoEntry {
-                            algorithm: "BLAKE3".to_string(),
-                            usage: "resource-integrity".to_string(),
-                            key_size: "256-bit".to_string(),
-                            location: format!("state/{name}/*.lock.yaml"),
-                        });
-                    }
-                }
-            }
-        }
+/// Names of the per-machine state subdirectories, in filesystem iteration order.
+fn state_machine_dirs(state_dir: &Path) -> Vec<String> {
+    let Ok(dir_entries) = std::fs::read_dir(state_dir) else {
+        return Vec::new();
+    };
+    dir_entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .collect()
+}
+
+/// True when a machine's lock records at least one non-empty resource hash.
+fn lock_has_resource_hashes(state_dir: &Path, machine: &str) -> bool {
+    match state::load_lock(state_dir, machine) {
+        Ok(Some(lock)) => lock.resources.values().any(|res| !res.hash.is_empty()),
+        _ => false,
     }
+}
+
+fn scan_state_hashes(state_dir: &Path, entries: &mut Vec<CryptoEntry>) {
+    // A single entry covers the whole state tree, so the first hashed lock wins.
+    let Some(machine) = state_machine_dirs(state_dir)
+        .into_iter()
+        .find(|name| lock_has_resource_hashes(state_dir, name))
+    else {
+        return;
+    };
+    entries.push(CryptoEntry {
+        algorithm: "BLAKE3".to_string(),
+        usage: "resource-integrity".to_string(),
+        key_size: "256-bit".to_string(),
+        location: format!("state/{machine}/*.lock.yaml"),
+    });
 }
 
 fn scan_docker_digests(config: &types::ForjarConfig, entries: &mut Vec<CryptoEntry>) {

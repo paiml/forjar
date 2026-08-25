@@ -3,6 +3,48 @@
 use super::helpers::*;
 use std::path::Path;
 
+/// Minified YAML: blank lines and whole-line comments dropped, every other line
+/// kept byte for byte.
+fn minify_yaml(content: &str) -> String {
+    let mut minified = String::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        minified.push_str(line);
+        minified.push('\n');
+    }
+    minified
+}
+
+/// Writes `<machine>.lock.yaml.min` next to the state tree when minifying the
+/// machine's lock actually saves bytes, and returns how many. `Ok(0)` when
+/// there is no lock, it is empty, or minifying gains nothing — none of which is
+/// an error.
+fn compress_machine_lock(state_dir: &Path, machine: &str) -> Result<u64, String> {
+    let lock_path = state_dir.join(machine).join("state.lock.yaml");
+    if !lock_path.exists() {
+        return Ok(0);
+    }
+    let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+    let original_size = content.len() as u64;
+    if original_size == 0 {
+        return Ok(0);
+    }
+
+    let minified = minify_yaml(&content);
+    let new_size = minified.len() as u64;
+    if new_size >= original_size {
+        return Ok(0);
+    }
+
+    let compressed_path = state_dir.join(format!("{machine}.lock.yaml.min"));
+    std::fs::write(&compressed_path, &minified)
+        .map_err(|e| format!("Failed to write compressed lock: {e}"))?;
+    Ok(original_size - new_size)
+}
+
 /// FJ-565: Compress old lock files with zstd-like compression (base64 encoding for portability).
 pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -10,33 +52,9 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut total_saved = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(m).join("state.lock.yaml");
-        if !lock_path.exists() {
-            continue;
-        }
-        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
-        let original_size = content.len() as u64;
-        if original_size == 0 {
-            continue;
-        }
-
-        // Write compressed version (minified YAML — remove comments and extra whitespace)
-        let mut minified = String::new();
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-            minified.push_str(line);
-            minified.push('\n');
-        }
-
-        let new_size = minified.len() as u64;
-        if new_size < original_size {
-            let compressed_path = state_dir.join(format!("{m}.lock.yaml.min"));
-            std::fs::write(&compressed_path, &minified)
-                .map_err(|e| format!("Failed to write compressed lock: {e}"))?;
-            total_saved += original_size - new_size;
+        let saved = compress_machine_lock(state_dir, m)?;
+        if saved > 0 {
+            total_saved += saved;
             compressed += 1;
         }
     }

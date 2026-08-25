@@ -244,12 +244,14 @@ fn summary_dimension_key(
     }
 }
 
-pub(crate) fn cmd_status_summary_by(
+/// Groups every locked resource under the state dir by the requested dimension,
+/// honouring the optional single-machine filter. The map is ordered, so the
+/// grouping is stable from run to run.
+fn group_resources_by_dimension(
     state_dir: &Path,
     machine_filter: Option<&str>,
     dimension: &str,
-    json: bool,
-) -> Result<(), String> {
+) -> Result<std::collections::BTreeMap<String, Vec<String>>, String> {
     let entries =
         std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
@@ -258,21 +260,42 @@ pub(crate) fn cmd_status_summary_by(
 
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
+        if machine_filter.is_some_and(|filter| name != filter) {
+            continue;
         }
         if !entry.path().is_dir() {
             continue;
         }
-        if let Some(lock) = state::load_lock(state_dir, &name)? {
-            for (id, rl) in &lock.resources {
-                let key = summary_dimension_key(dimension, &lock, rl)?;
-                groups.entry(key).or_default().push(id.clone());
-            }
+        let Some(lock) = state::load_lock(state_dir, &name)? else {
+            continue;
+        };
+        for (id, rl) in &lock.resources {
+            let key = summary_dimension_key(dimension, &lock, rl)?;
+            groups.entry(key).or_default().push(id.clone());
         }
     }
+
+    Ok(groups)
+}
+
+/// The human rendering: one headed block per group, its resources beneath it.
+fn print_summary_groups(dimension: &str, groups: &std::collections::BTreeMap<String, Vec<String>>) {
+    println!("Summary by {}:\n", bold(dimension));
+    for (group, resources) in groups {
+        println!("  {} ({}):", bold(group), resources.len());
+        for r in resources {
+            println!("    {r}");
+        }
+    }
+}
+
+pub(crate) fn cmd_status_summary_by(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    dimension: &str,
+    json: bool,
+) -> Result<(), String> {
+    let groups = group_resources_by_dimension(state_dir, machine_filter, dimension)?;
 
     if json {
         println!(
@@ -280,13 +303,7 @@ pub(crate) fn cmd_status_summary_by(
             serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string())
         );
     } else {
-        println!("Summary by {}:\n", bold(dimension));
-        for (group, resources) in &groups {
-            println!("  {} ({}):", bold(group), resources.len());
-            for r in resources {
-                println!("    {r}");
-            }
-        }
+        print_summary_groups(dimension, &groups);
     }
 
     Ok(())
