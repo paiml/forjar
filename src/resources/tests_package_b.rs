@@ -236,15 +236,45 @@ fn test_fj006_uv_absent_tolerant() {
 }
 
 #[test]
-fn test_fj006_cargo_absent_unsupported() {
-    // cargo provider doesn't support absent state
+fn test_fj006_cargo_absent_uninstalls() {
+    // WAS `test_fj006_cargo_absent_unsupported`, asserting
+    // `script.contains("unsupported")` — "cargo absent should be unsupported".
+    //
+    // It encoded the defect as a requirement, so no correct fix could pass it.
+    // apt, uv and brew all had an absent arm; cargo did not, so a declared
+    // removal fell to the catch-all, echoed, exited 0, and reported CONVERGED.
+    // (forjar#278.)
     let mut r = make_apt_resource(&["tool"]);
     r.provider = Some("cargo".to_string());
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("unsupported"),
-        "cargo absent should be unsupported"
+        script.contains("cargo uninstall 'tool'"),
+        "a declared cargo removal must actually uninstall:\n{script}"
+    );
+    assert!(
+        !script.contains("unsupported"),
+        "cargo absent is supported now:\n{script}"
+    );
+}
+
+/// An unsupported (provider, state) pair must REFUSE, not converge.
+///
+/// The catch-all was `echo 'unsupported: ...'`, which exits 0 — so forjar
+/// reported the resource converged and silently ignored the declaration.
+#[test]
+fn an_unsupported_declaration_refuses_instead_of_converging() {
+    let mut r = make_apt_resource(&["tool"]);
+    r.provider = Some("nonesuch".to_string());
+    r.state = Some("present".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("exit 1"),
+        "an unsupported declaration must exit non-zero:\n{script}"
+    );
+    assert!(
+        script.contains("provider=nonesuch"),
+        "the refusal must name the pair it could not handle:\n{script}"
     );
 }
 
