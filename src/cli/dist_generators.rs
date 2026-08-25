@@ -21,8 +21,28 @@ verify_checksum() {{
   [ -n "$CHECKSUMS" ] || die "failed to download checksums for $TAG"
   EXPECTED=$(echo "$CHECKSUMS" | grep "$ASSET" | awk '{{print $1}}')
   if [ -z "$EXPECTED" ]; then
-    warn "no checksum found for $ASSET -- skipping verification"
-    return
+    # A CHECKSUM FILE THAT DOES NOT MENTION THIS ASSET IS NOT A PASS.
+    #
+    # This used to `warn ... skipping verification` and INSTALL ANYWAY. The
+    # dangerous case is not a missing SHA256SUMS — that path already dies above.
+    # It is a STALE one: it downloads fine, so the per-asset fallback never
+    # fires, and the grep simply finds nothing.
+    #
+    # forjar v1.18.0 came within one asset of this. Its SHA256SUMS was written
+    # by a run that globbed a reused staging directory, so it carried four
+    # entries for 1.17.0 alongside 1.18.0's. Had the macOS archives been
+    # uploaded by the later run instead of the earlier one, every mac install
+    # would have printed a warning and proceeded unverified.
+    #
+    # Try the per-asset sidecar before giving up, then refuse.
+    CHECKSUMS=$(download "https://github.com/${{REPO}}/releases/download/${{TAG}}/${{ASSET}}.sha256" 2>/dev/null) || CHECKSUMS=""
+    EXPECTED=$(echo "$CHECKSUMS" | grep "$ASSET" | awk '{{print $1}}')
+  fi
+  if [ -z "$EXPECTED" ]; then
+    # Wording note: do NOT write "for $ASSET" here. bashrs's SC1086 parses that
+    # literal sequence inside a string as a for-loop over an expanded variable
+    # and fails the dist lint gate, which is a required check.
+    die "$TAG publishes no checksum matching asset $ASSET -- refusing to install unverified"
   fi
   ACTUAL=$(compute_checksum "$ARCHIVE")
   if [ "$ACTUAL" != "$EXPECTED" ]; then
