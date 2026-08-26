@@ -289,16 +289,14 @@ fn apply_cargo_present(resource: &Resource) -> String {
          _fj_register() {{\n\
            _src=\"$1\"\n\
            [ -f \"$_src\" ] || return 0\n\
-           _line=$(grep -v '^\\[v1\\]' \"$_src\" | grep -v '^[[:space:]]*$' | head -1)\n\
-           [ -n \"$_line\" ] || return 0\n\
-           _key=$(printf '%s' \"$_line\" | sed 's/^\"\\([^ ]*\\) .*/\\1/')\n\
+           _key=$(grep -v '^\\[v1\\]' \"$_src\" | grep -v '^[[:space:]]*$' | head -1 | sed 's/^\"\\([^ ]*\\) .*/\\1/')\n\
            [ -n \"$_key\" ] || return 0\n\
            _tmp=$(mktemp \"${{_CRATES_TOML}}.forjar.XXXXXX\") || return 0\n\
            echo '[v1]' > \"$_tmp\"\n\
            if [ -f \"$_CRATES_TOML\" ]; then\n\
-             grep -v '^\\[v1\\]' \"$_CRATES_TOML\" | grep -v \"^\\\"$_key \" >> \"$_tmp\" || true\n\
+             awk -v k=\"$_key\" 'index($0, \"\\\"\" k \" \") == 1 {{ if ($0 ~ /=[[:space:]]*\\[$/) skip=1; next }} skip {{ if ($0 ~ /^[[:space:]]*\\]/) skip=0; next }} /^\\[v1\\]$/ {{ next }} {{ print }}' \"$_CRATES_TOML\" >> \"$_tmp\" || true\n\
            fi\n\
-           printf '%s\\n' \"$_line\" >> \"$_tmp\"\n\
+           awk -v k=\"$_key\" 'index($0, \"\\\"\" k \" \") == 1 {{ print; if ($0 ~ /=[[:space:]]*\\[$/) inarr=1; next }} inarr {{ print; if ($0 ~ /^[[:space:]]*\\]/) inarr=0 }}' \"$_src\" >> \"$_tmp\"\n\
            mv -f \"$_tmp\" \"$_CRATES_TOML\"\n\
          }}\n\
          {}",
