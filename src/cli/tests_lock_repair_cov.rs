@@ -13,6 +13,7 @@ fn create_valid_lock(state_dir: &std::path::Path, machine: &str) {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

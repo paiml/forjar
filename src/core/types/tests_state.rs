@@ -21,6 +21,7 @@ fn test_fj001_state_lock_roundtrip() {
                 applied_at: Some("2026-02-16T14:00:01Z".to_string()),
                 duration_seconds: Some(1.5),
                 hash: "blake3:abc123".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         )]),

@@ -13,6 +13,7 @@ fn create_state_with_lock(state_dir: &std::path::Path, machine: &str) {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -24,6 +25,7 @@ fn create_state_with_lock(state_dir: &std::path::Path, machine: &str) {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:def".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

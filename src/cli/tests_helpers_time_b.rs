@@ -135,6 +135,7 @@ fn cmd_diff_json_with_changes() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:old".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -158,6 +159,7 @@ fn cmd_diff_json_with_changes() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:added".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -190,6 +192,7 @@ fn cmd_diff_with_resource_filter() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:aaa".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -230,6 +233,7 @@ fn cmd_diff_removed_resource_text() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:x".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -320,6 +324,7 @@ fn cmd_env_diff_with_drift() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:staging-hash".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );

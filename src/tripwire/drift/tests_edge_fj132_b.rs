@@ -18,6 +18,7 @@ fn test_fj132_detect_drift_full_non_file_non_string_live_hash() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -70,6 +71,7 @@ fn test_fj132_detect_drift_full_non_file_missing_config_resource() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -165,6 +167,7 @@ fn test_fj132_detect_drift_skips_non_converged() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -198,6 +201,7 @@ fn test_fj132_detect_drift_file_without_path_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -257,6 +261,7 @@ fn test_fj132_detect_drift_matching_hash_no_drift() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );

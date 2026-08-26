@@ -113,6 +113,7 @@ fn rebase_keeps_matching_resources() {
             applied_at: None,
             duration_seconds: None,
             hash: "abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -124,6 +125,7 @@ fn rebase_keeps_matching_resources() {
             applied_at: None,
             duration_seconds: None,
             hash: "def".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

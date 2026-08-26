@@ -157,6 +157,7 @@ resources:
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );
@@ -328,6 +329,7 @@ resources:
                 applied_at: None,
                 duration_seconds: None,
                 hash: "abc123".to_string(),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );
@@ -339,6 +341,7 @@ resources:
                 applied_at: None,
                 duration_seconds: None,
                 hash: "def456".to_string(),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

@@ -43,6 +43,7 @@ proptest! {
                     applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                     duration_seconds: Some(1.0),
                     hash: blake3::hash(format!("res-{i}").as_bytes()).to_hex().to_string(),
+                    observed: None,
                     details: std::collections::HashMap::new(),
                 },
             );
@@ -75,6 +76,7 @@ proptest! {
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(0.5),
             hash: hash.clone(),
+            observed: None,
             details: std::collections::HashMap::new(),
         };
 

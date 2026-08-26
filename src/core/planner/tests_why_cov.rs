@@ -73,6 +73,7 @@ fn present_drifted_update() {
             applied_at: Some("2026-03-08T12:00:00Z".to_string()),
             duration_seconds: Some(0.1),
             hash: "blake3:xxx".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -106,6 +107,7 @@ fn path_diff_detected() {
             applied_at: Some("2026-03-08T12:00:00Z".to_string()),
             duration_seconds: Some(0.01),
             hash: "blake3:old".to_string(),
+            observed: None,
             details,
         },
     );
@@ -140,6 +142,7 @@ fn version_diff_detected() {
             applied_at: Some("2026-03-08T12:00:00Z".to_string()),
             duration_seconds: Some(0.5),
             hash: "blake3:old".to_string(),
+            observed: None,
             details,
         },
     );
@@ -173,6 +176,7 @@ fn packages_diff_detected() {
             applied_at: Some("2026-03-08T12:00:00Z".to_string()),
             duration_seconds: Some(0.5),
             hash: "blake3:old".to_string(),
+            observed: None,
             details,
         },
     );
@@ -203,6 +207,7 @@ fn no_field_diffs_generic_message() {
             applied_at: Some("2026-03-08T12:00:00Z".to_string()),
             duration_seconds: Some(0.01),
             hash: "blake3:old".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );

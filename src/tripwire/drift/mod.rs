@@ -273,13 +273,13 @@ fn detect_nonfile_drift(
         if should_ignore_drift(id, resources) {
             continue;
         }
-        let stored_live_hash = match rl.details.get("live_hash") {
-            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
-            _ => continue,
+        // `None` = NOT OBSERVED, not "unchanged" (see ResourceLock::observed):
+        // this is the call site that read the wrong digest for five months.
+        let Some(stored_live_hash) = rl.observed_state() else {
+            continue;
         };
-        let resource = match resources.get(id) {
-            Some(r) => r,
-            None => continue,
+        let Some(resource) = resources.get(id) else {
+            continue;
         };
         if let Some(f) = check_nonfile_drift(id, rl, resource, machine, stored_live_hash) {
             findings.push(f);
@@ -306,13 +306,11 @@ fn detect_image_drift(
         if should_ignore_drift(id, resources) {
             continue;
         }
-        let expected_digest = match rl.details.get("manifest_digest") {
-            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
-            _ => continue,
+        let Some(expected_digest) = rl.detail_str("manifest_digest") else {
+            continue;
         };
-        let container_name = match rl.details.get("container_name") {
-            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
-            _ => continue,
+        let Some(container_name) = rl.detail_str("container_name") else {
+            continue;
         };
         if let Some(f) = check_image_drift(id, container_name, expected_digest, machine) {
             findings.push(f);
@@ -501,6 +499,8 @@ mod tests_edge_fj132_b;
 mod tests_fj036;
 #[cfg(test)]
 mod tests_full;
+#[cfg(test)]
+mod tests_full_b;
 #[cfg(test)]
 mod tests_image_drift;
 #[cfg(test)]

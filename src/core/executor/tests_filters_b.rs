@@ -12,6 +12,7 @@ fn make_test_lock(machine: &str, resource_ids: &[&str]) -> StateLock {
             ResourceLock {
                 resource_type: ResourceType::File,
                 hash: format!("hash-{rid}"),
+                observed: None,
                 status: ResourceStatus::Converged,
                 applied_at: None,
                 duration_seconds: None,

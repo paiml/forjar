@@ -60,6 +60,7 @@ fn test_fj004_arch_filter_with_existing_lock() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:old".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );

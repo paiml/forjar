@@ -21,6 +21,7 @@ mod generation_diff_types;
 mod generation_types;
 mod handler_contract_types;
 mod image_log_types;
+mod lock_observed;
 mod mutation_types;
 mod nas_archive_types;
 mod observability_types;

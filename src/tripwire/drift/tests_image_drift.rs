@@ -21,6 +21,7 @@ fn make_image_lock(resource_id: &str, manifest_digest: &str, container_name: &st
         applied_at: None,
         duration_seconds: None,
         hash: "hash123".into(),
+        observed: None,
         details,
     };
     let mut resources = IndexMap::new();

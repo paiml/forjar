@@ -78,6 +78,7 @@ fn test_fj016_detect_drift_converged_file_with_drift() {
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(0.1),
             hash: "blake3:xyz".to_string(),
+            observed: None,
             details,
         },
     );
@@ -123,6 +124,7 @@ fn test_fj016_detect_drift_no_drift_when_matching() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -164,6 +166,7 @@ fn test_fj016_detect_drift_skips_non_converged() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details,
         },
     );
@@ -196,6 +199,7 @@ fn test_fj016_detect_drift_skips_non_file_types() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -225,6 +229,7 @@ fn test_fj016_detect_drift_missing_path_detail() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(), // no "path" key
         },
     );
@@ -264,6 +269,7 @@ fn test_fj016_detect_drift_non_string_path_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details,
         },
     );
@@ -303,6 +309,7 @@ fn test_fj016_detect_drift_non_string_content_hash_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details,
         },
     );

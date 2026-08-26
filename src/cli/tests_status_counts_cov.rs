@@ -19,6 +19,7 @@ fn write_lock(state_dir: &std::path::Path, machine: &str, resources: Vec<(&str, 
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:aabbccdd".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );

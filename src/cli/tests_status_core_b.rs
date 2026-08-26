@@ -311,6 +311,7 @@ resources: {}
                 applied_at: Some("2026-02-26T00:00:00Z".to_string()),
                 duration_seconds: Some(1.5),
                 hash: "abc123def456".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );

@@ -90,6 +90,7 @@ fn test_fj013_roundtrip_preserves_order() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:xxx".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -250,6 +251,7 @@ fn test_fj013_save_lock_multiple_resources() {
             applied_at: Some("2026-02-25T10:00:00Z".to_string()),
             duration_seconds: Some(0.1),
             hash: "blake3:def456".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -261,6 +263,7 @@ fn test_fj013_save_lock_multiple_resources() {
             applied_at: Some("2026-02-25T10:00:01Z".to_string()),
             duration_seconds: Some(5.0),
             hash: "blake3:ghi789".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );

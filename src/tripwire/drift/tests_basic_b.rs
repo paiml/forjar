@@ -86,6 +86,7 @@ fn test_fj016_detect_drift_with_machine_local() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -141,6 +142,7 @@ fn test_fj016_detect_drift_with_machine_local_drift() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -204,6 +206,7 @@ fn test_fj016_detect_drift_multiple_files() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );
@@ -265,6 +268,7 @@ fn test_fj016_missing_content_hash_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -303,6 +307,7 @@ fn test_fj016_full_drift_non_string_live_hash_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details,
         },
     );

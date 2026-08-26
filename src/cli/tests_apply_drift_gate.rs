@@ -38,6 +38,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.01),
                 hash: content_hash.to_string(),
+                observed: None,
                 details,
             },
         );

@@ -23,6 +23,7 @@ fn test_rl(rt: ResourceType, hash: &str) -> ResourceLock {
     ResourceLock {
         resource_type: rt,
         hash: hash.to_string(),
+        observed: None,
         status: ResourceStatus::Converged,
         applied_at: None,
         duration_seconds: None,
