@@ -30,7 +30,7 @@ pub fn explain_why(
         .unwrap_or_else(|| default_state(&resource.resource_type));
 
     if state == "absent" {
-        return explain_absent(resource_id, machine_name, locks);
+        return explain_absent(resource_id, resource, machine_name, locks);
     }
 
     explain_present(resource_id, resource, machine_name, locks)
@@ -38,29 +38,52 @@ pub fn explain_why(
 
 fn explain_absent(
     resource_id: &str,
+    resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
 ) -> ChangeReason {
-    let base = ChangeReason {
-        resource_id: resource_id.to_string(),
-        machine: machine_name.to_string(),
-        action: PlanAction::NoOp,
-        reasons: vec![],
+    // DELEGATE, do not re-derive. This function used to decide for itself, and
+    // it decided differently from the planner in two ways:
+    //
+    //   - it returned Destroy for ANY resource present in the lock — the
+    //     pre-GH-229 rule, without the hash check that distinguishes "converged
+    //     as present, now redeclared absent" from "the destroy already ran". So
+    //     `forjar why` reported "will be removed" for a resource `forjar plan`
+    //     correctly no-ops. That divergence predates GH-339.
+    //   - it returned NoOp when the resource was absent from the lock, which
+    //     GH-339 fixes to Destroy.
+    //
+    // An explanation that derives its own answer is not an explanation of the
+    // decision; it is a second decision that happens to be printed. One
+    // function decides, this one describes it.
+    let action = super::determine_absent_action(resource_id, resource, machine_name, locks);
+
+    let reason = match action {
+        PlanAction::Destroy => {
+            if locks
+                .get(machine_name)
+                .and_then(|l| l.resources.get(resource_id))
+                .is_some()
+            {
+                "state: absent — the lock holds a present-state hash, so this \
+                 converged as PRESENT and is now declared absent; it will be removed"
+            } else {
+                "state: absent — not in the lock, so whether the path exists on \
+                 the machine is UNKNOWN; destroy is idempotent and records the \
+                 absent-form hash, so the next plan no-ops (GH-339)"
+            }
+        }
+        _ => {
+            "state: absent — already converged to absent (the lock holds the \
+             absent-form hash), nothing to remove"
+        }
     };
 
-    if let Some(lock) = locks.get(machine_name) {
-        if lock.resources.contains_key(resource_id) {
-            return ChangeReason {
-                action: PlanAction::Destroy,
-                reasons: vec!["state: absent — resource exists in lock, will be removed".into()],
-                ..base
-            };
-        }
-    }
-
     ChangeReason {
-        reasons: vec!["state: absent — resource not in lock, nothing to destroy".into()],
-        ..base
+        resource_id: resource_id.to_string(),
+        machine: machine_name.to_string(),
+        action,
+        reasons: vec![reason.into()],
     }
 }
 

@@ -159,15 +159,18 @@ fn test_fj004_plan_failed_resource_gets_retried() {
 }
 
 #[test]
-fn test_fj004_absent_not_in_lock_is_noop() {
+fn test_fj004_absent_not_in_lock_destroys() {
     let yaml = "\nversion: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  gone-file:\n    type: file\n    machine: m1\n    path: /tmp/gone\n    state: absent\n";
     let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let order = vec!["gone-file".to_string()];
-    let locks = HashMap::new(); // no lock — resource never existed
+    // GH-339: "no lock" means forjar never RECORDED it, not that the path is
+    // absent from the machine. The comment below used to read "resource never
+    // existed", which is the assumption that made this a defect.
+    let locks = HashMap::new(); // no lock — forjar has no record of it
     let plan = plan(&config, &order, &locks, None);
     assert_eq!(
-        plan.unchanged, 1,
-        "absent resource not in lock should be NoOp"
+        plan.to_destroy, 1,
+        "absent resource not in lock must plan a destroy"
     );
 }
 
