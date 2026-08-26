@@ -87,6 +87,7 @@ resources:
             applied_at: None,
             duration_seconds: None,
             hash: executor_hash,
+            observed: None,
             details: HashMap::new(),
         },
     );

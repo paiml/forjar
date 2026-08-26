@@ -238,11 +238,9 @@ pub(crate) fn cmd_refresh_only(
             let new_hash = refreshed_live_hash(machine, resource, &config, timeout);
 
             if let Some(ref hash) = new_hash {
-                let old_hash = rl
-                    .details
-                    .get("live_hash")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                // Compare against the OBSERVED state through the accessor, so
+                // this path and the drift path agree on where that value lives.
+                let old_hash = rl.observed_state().unwrap_or("");
                 if hash != old_hash {
                     drift_count += 1;
                     if verbose {
@@ -250,10 +248,14 @@ pub(crate) fn cmd_refresh_only(
                     }
                 }
                 if let Some(entry) = updated_lock.resources.get_mut(id) {
-                    entry.details.insert(
-                        "live_hash".to_string(),
-                        serde_yaml_ng::Value::String(hash.clone()),
-                    );
+                    // MUST go through the setter. Writing only `details` here
+                    // would leave the typed `observed` field holding the
+                    // PREVIOUS digest, and `observed_state()` prefers the typed
+                    // field — so `--refresh` would update one of two copies and
+                    // every later reader would see the stale one. That is
+                    // forjar#305's exact shape (two stores, readers split
+                    // between them), which this refactor exists to remove.
+                    entry.set_observed_state(hash.clone());
                 }
                 refreshed += 1;
             }

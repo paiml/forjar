@@ -21,6 +21,7 @@ fn lock_to_tuples_some_lock() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:aaa".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -32,6 +33,7 @@ fn lock_to_tuples_some_lock() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:bbb".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -135,6 +137,7 @@ fn count_lock_resources_with_locks() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:x".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -146,6 +149,7 @@ fn count_lock_resources_with_locks() {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:y".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -344,6 +348,7 @@ fn setup_with_generations(dir: &std::path::Path) -> std::path::PathBuf {
                     applied_at: None,
                     duration_seconds: None,
                     hash: "blake3:v1".to_string(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -369,6 +374,7 @@ fn setup_with_generations(dir: &std::path::Path) -> std::path::PathBuf {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:new".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );

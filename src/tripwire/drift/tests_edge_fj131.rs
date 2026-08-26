@@ -82,6 +82,7 @@ fn test_fj131_detect_drift_skips_failed_resources() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -121,6 +122,7 @@ fn test_fj131_detect_drift_skips_non_string_path() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -161,6 +163,7 @@ fn test_fj131_detect_drift_skips_non_string_content_hash() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -203,6 +206,7 @@ fn test_fj131_detect_drift_no_content_hash_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details,
         },
     );
@@ -235,6 +239,7 @@ fn test_fj131_detect_drift_skips_non_file_resources() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:x".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -292,6 +297,7 @@ fn test_fj131_detect_drift_multiple_resources() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: "blake3:desired".to_string(),
+                observed: None,
                 details,
             },
         );

@@ -97,6 +97,7 @@ fn converged_lock(id: &str, resource: &Resource, machine: &str) -> StateLock {
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(0.1),
             hash,
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

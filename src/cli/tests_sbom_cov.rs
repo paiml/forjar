@@ -172,6 +172,7 @@ fn sbom_with_state_hash_lookup() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:deadbeef".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

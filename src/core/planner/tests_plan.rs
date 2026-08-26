@@ -33,6 +33,7 @@ fn test_fj004_plan_all_unchanged() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: hash_desired_state(resource),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -68,6 +69,7 @@ fn test_fj004_plan_update_on_hash_mismatch() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:stale_hash".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -102,6 +104,7 @@ fn test_fj004_plan_destroy() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:xxx".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -135,6 +138,7 @@ fn test_fj004_plan_failed_resource_gets_retried() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:xxx".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -211,6 +215,7 @@ fn test_fj004_multi_machine_partial_lock() {
             applied_at: None,
             duration_seconds: None,
             hash: hash_desired_state(resource),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -339,6 +344,7 @@ fn test_fj132_plan_mixed_actions() {
             applied_at: None,
             duration_seconds: None,
             hash: hash_desired_state(&config.resources["pkg"]),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -393,6 +399,7 @@ fn test_gh97_second_plan_over_converged_locks_is_noop() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: hash_desired_state(resource),
+                observed: None,
                 details: HashMap::new(),
             },
         );

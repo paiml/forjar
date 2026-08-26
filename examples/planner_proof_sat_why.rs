@@ -187,6 +187,7 @@ fn main() {
             applied_at: None,
             duration_seconds: None,
             hash: hash.clone(),
+            observed: None,
             details: HashMap::new(),
         },
     );

@@ -70,6 +70,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.01),
                 hash: desired_hash,
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -95,6 +96,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.01),
                 hash: "blake3:old_hash_here".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -118,6 +120,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.5),
                 hash: "blake3:xxx".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -145,6 +148,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.01),
                 hash: "blake3:xxx".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -195,6 +199,7 @@ mod tests {
                 applied_at: Some("2026-03-03T12:00:00Z".to_string()),
                 duration_seconds: Some(0.01),
                 hash: "blake3:old_hash_here".to_string(),
+                observed: None,
                 details,
             },
         );

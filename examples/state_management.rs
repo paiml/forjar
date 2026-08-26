@@ -37,6 +37,7 @@ fn main() {
             duration_seconds: Some(3.2),
             hash: "blake3:a7f2c9d4e5f6789012345678901234567890123456789012345678901234abcd"
                 .to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -49,6 +50,7 @@ fn main() {
             duration_seconds: Some(0.1),
             hash: "blake3:b8e3da56f7a890123456789012345678901234567890123456789012345678ef"
                 .to_string(),
+            observed: None,
             details: {
                 let mut d = HashMap::new();
                 d.insert(

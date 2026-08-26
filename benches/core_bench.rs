@@ -349,6 +349,7 @@ fn populate_converged_locks(
                         applied_at: None,
                         duration_seconds: None,
                         hash: forjar::tripwire::hasher::hash_string(&format!("state-{rname}")),
+                        observed: None,
                         details: std::collections::HashMap::new(),
                     },
                 );
@@ -419,6 +420,7 @@ fn bench_spec9_drift(c: &mut Criterion) {
                 applied_at: None,
                 duration_seconds: None,
                 hash,
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

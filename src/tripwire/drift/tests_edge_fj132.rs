@@ -27,6 +27,7 @@ fn test_fj132_detect_drift_with_local_machine() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -88,6 +89,7 @@ fn test_fj132_detect_drift_with_machine_drift_detected() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -141,6 +143,7 @@ fn test_fj132_detect_drift_drifted_status_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -182,6 +185,7 @@ fn test_fj132_detect_drift_unknown_status_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -228,6 +232,7 @@ fn test_fj132_detect_drift_full_skips_file_resources() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -276,6 +281,7 @@ fn test_fj132_detect_drift_full_non_file_no_live_hash() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );

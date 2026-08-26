@@ -112,6 +112,7 @@ fn test_fj016_detect_drift_multiple_resources_mixed() {
             applied_at: None,
             duration_seconds: None,
             hash: "desired".to_string(),
+            observed: None,
             details: good_details,
         },
     );
@@ -133,6 +134,7 @@ fn test_fj016_detect_drift_multiple_resources_mixed() {
             applied_at: None,
             duration_seconds: None,
             hash: "desired".to_string(),
+            observed: None,
             details: bad_details,
         },
     );
@@ -146,6 +148,7 @@ fn test_fj016_detect_drift_multiple_resources_mixed() {
             applied_at: None,
             duration_seconds: None,
             hash: "desired".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -186,6 +189,7 @@ fn test_fj016_detect_drift_failed_resource_skipped() {
             applied_at: None,
             duration_seconds: None,
             hash: "".to_string(),
+            observed: None,
             details,
         },
     );

@@ -186,6 +186,7 @@ fn defrag_sorts_resources_alphabetically() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:z".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -197,6 +198,7 @@ fn defrag_sorts_resources_alphabetically() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:a".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

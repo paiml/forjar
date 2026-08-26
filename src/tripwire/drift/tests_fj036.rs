@@ -33,6 +33,7 @@ fn test_fj036_drift_with_changed_hash() {
             applied_at: Some("2026-02-25T00:00:00Z".to_string()),
             duration_seconds: Some(0.05),
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -83,6 +84,7 @@ fn test_fj036_drift_absent_resource_no_drift() {
             applied_at: Some("2026-02-25T00:00:00Z".to_string()),
             duration_seconds: Some(0.01),
             hash: "blake3:desired".to_string(),
+            observed: None,
             details,
         },
     );
@@ -126,6 +128,7 @@ fn test_detect_drift_service_resource() {
             applied_at: Some("2026-02-25T10:00:00Z".to_string()),
             duration_seconds: Some(1.5),
             hash: "blake3:svc-hash-123".to_string(),
+            observed: None,
             details,
         },
     );
@@ -174,6 +177,7 @@ fn test_detect_drift_directory_resource() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:dir".to_string(),
+            observed: None,
             details,
         },
     );

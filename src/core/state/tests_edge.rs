@@ -84,6 +84,7 @@ fn test_fj131_lock_roundtrip_preserves_all_status_types() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:xxx".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -95,6 +96,7 @@ fn test_fj131_lock_roundtrip_preserves_all_status_types() {
             applied_at: None,
             duration_seconds: None,
             hash: "".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -130,6 +132,7 @@ fn test_fj132_save_lock_with_duration() {
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(1.234),
             hash: "blake3:abc123".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -226,6 +229,7 @@ fn test_fj132_save_lock_with_many_details() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details,
         },
     );
@@ -272,6 +276,7 @@ fn test_fj036_save_and_load_lock_roundtrip() {
             applied_at: Some("2026-02-25T12:00:00Z".to_string()),
             duration_seconds: Some(2.75),
             hash: "blake3:roundtrip".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );

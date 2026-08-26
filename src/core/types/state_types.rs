@@ -93,8 +93,42 @@ pub struct ResourceLock {
     #[serde(default)]
     pub duration_seconds: Option<f64>,
 
-    /// BLAKE3 hash of the resource's observable state
+    /// SPEC — what the CONFIG asked for.
+    ///
+    /// Written from `hash_desired_state(resource)`, which hashes the
+    /// declaration and never touches a machine. Its doc comment used to read
+    /// "BLAKE3 hash of the resource's observable state", which described
+    /// `observed` below — the field it is most often confused with, described
+    /// as the field it is not. (forjar#337.)
+    ///
+    /// Keeps the name `hash` for on-disk compatibility with every existing lock
+    /// on the fleet. Renaming it is a migration, not a clarification.
     pub hash: String,
+
+    /// STATUS — what the TARGET reported, through the transport.
+    ///
+    /// Digest of `state_query_script` output: content, owner, group, mode and
+    /// existence, observed ON THE MACHINE. Written only by
+    /// `executor::resource_ops::record_success`, which is the only code that
+    /// has actually asked a host anything.
+    ///
+    /// SEPARATE FROM `hash` ON PURPOSE, and this is the point of the field.
+    /// Both values used to live in the untyped `details` map under string keys,
+    /// and every decision path read the wrong one: `live_hash` was recorded on
+    /// every apply and read by NOTHING for five months, while a partial,
+    /// controller-side `content_hash` drove drift detection. 320 of 329 locked
+    /// file resources on the paiml fleet had no usable observed state at all
+    /// (forjar#305, #310).
+    ///
+    /// A typed field cannot be reached for by the wrong string key. That is the
+    /// whole reason it is not a `details` entry.
+    ///
+    /// `None` means NOT OBSERVED — which is a third state, distinct from
+    /// "observed and unchanged". Read it through
+    /// [`ResourceLock::observed_state`], never directly, so the compatibility
+    /// fallback stays in one place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed: Option<String>,
 
     /// Resource-specific details
     #[serde(default)]

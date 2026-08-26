@@ -124,6 +124,7 @@ pub(crate) fn cmd_lock(
                     applied_at: None,
                     duration_seconds: None,
                     hash: hash.clone(),
+                    observed: None,
                     details: std::collections::HashMap::new(),
                 },
             );

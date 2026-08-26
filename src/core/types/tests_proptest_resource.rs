@@ -79,6 +79,7 @@ pub fn arb_resource_lock() -> impl Strategy<Value = ResourceLock> {
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(1.0),
             hash,
+            observed: None,
             details: std::collections::HashMap::new(),
         })
 }
