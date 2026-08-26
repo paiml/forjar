@@ -192,7 +192,12 @@ pub(crate) fn handle_watch_change(file: &Path, state_dir: &Path, auto_apply: boo
     };
     let locks = load_all_locks(state_dir, &config);
     let plan = planner::plan(&config, &execution_order, &locks, None);
-    print_plan(&plan, None, Some(&config));
+    print_plan(
+        &plan,
+        None,
+        Some(&config),
+        super::print_helpers::unconsulted_observations(&locks),
+    );
 
     if auto_apply && (plan.to_create > 0 || plan.to_update > 0 || plan.to_destroy > 0) {
         run_watch_apply(&config, state_dir);
