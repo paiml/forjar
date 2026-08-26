@@ -49,6 +49,7 @@ fn resource_lock(hash: &str) -> ResourceLock {
         resource_type: ResourceType::File,
         status: ResourceStatus::Converged,
         hash: hash.into(),
+        observed: None,
         applied_at: Some("now".into()),
         duration_seconds: None,
         details: HashMap::new(),

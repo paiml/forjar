@@ -202,6 +202,7 @@ mod tests {
             applied_at: None,
             duration_seconds: None,
             hash: hash.to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         }
     }

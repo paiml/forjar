@@ -17,6 +17,7 @@ fn create_lock_with_resource(
             applied_at: Some("2026-01-01T00:00:00Z".to_string()),
             duration_seconds: Some(1.0),
             hash: "blake3:abcdef123456".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -122,6 +123,7 @@ fn state_mv_target_exists() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:aaa".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -133,6 +135,7 @@ fn state_mv_target_exists() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:bbb".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

@@ -207,6 +207,7 @@ mod tests {
                     applied_at: Some(ts.into()),
                     duration_seconds: Some(1.0),
                     hash: "abc".into(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );

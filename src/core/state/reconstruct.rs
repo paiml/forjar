@@ -97,6 +97,7 @@ fn apply_event(
                     applied_at: Some(te.ts.clone()),
                     duration_seconds: Some(*duration_seconds),
                     hash: hash.clone(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -113,6 +114,7 @@ fn apply_event(
                     applied_at: Some(te.ts.clone()),
                     duration_seconds: None,
                     hash: String::new(),
+                    observed: None,
                     details: HashMap::from([(
                         "error".to_string(),
                         serde_yaml_ng::Value::String(error.clone()),

@@ -66,6 +66,7 @@ mod tests {
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );
@@ -122,6 +123,7 @@ mod tests {
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );
@@ -226,6 +228,7 @@ mod tests {
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );
@@ -282,6 +285,7 @@ mod tests {
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: "blake3:x".to_string(),
+                observed: None,
                 details,
             },
         );

@@ -32,6 +32,7 @@ fn main() {
             applied_at: Some("2026-02-25T12:00:00Z".to_string()),
             duration_seconds: Some(0.01),
             hash: content_hash.clone(),
+            observed: None,
             details: {
                 let mut d = HashMap::new();
                 d.insert(

@@ -212,6 +212,7 @@ fn setup_bench_state(dir: &std::path::Path) -> Result<std::path::PathBuf, String
                 applied_at: None,
                 duration_seconds: None,
                 hash: hasher::hash_string(&format!("content-{i}")),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

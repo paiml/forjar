@@ -43,6 +43,7 @@ fn rl(rtype: ResourceType, status: ResourceStatus, hash: &str) -> ResourceLock {
         applied_at: None,
         duration_seconds: None,
         hash: hash.into(),
+        observed: None,
         details: HashMap::new(),
     }
 }

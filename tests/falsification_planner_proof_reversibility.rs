@@ -310,6 +310,7 @@ fn make_lock(resource_id: &str, hash: &str, status: ResourceStatus) -> StateLock
             resource_type: ResourceType::Package,
             status,
             hash: hash.into(),
+            observed: None,
             applied_at: None,
             duration_seconds: None,
             details: HashMap::new(),

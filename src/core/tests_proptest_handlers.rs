@@ -126,6 +126,7 @@ proptest! {
                 applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                 duration_seconds: Some(1.0),
                 hash,
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

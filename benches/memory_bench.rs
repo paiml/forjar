@@ -79,6 +79,7 @@ fn write_bench_lock(state_dir: &std::path::Path, n: usize) {
                 applied_at: None,
                 duration_seconds: None,
                 hash: hasher::hash_string(&format!("content-{i}")),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );
@@ -290,6 +291,7 @@ fn mem_store_lock_save_load_100r() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: hasher::hash_string(&format!("content-{i}")),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

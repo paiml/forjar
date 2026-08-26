@@ -22,6 +22,7 @@ mod tests {
                     applied_at: Some("2026-01-15T10:00:00Z".into()),
                     duration_seconds: Some(1.0),
                     hash: "abc".into(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );

@@ -53,6 +53,7 @@ mod tests {
                         applied_at: Some("2026-02-25T00:00:00Z".to_string()),
                         duration_seconds: Some(0.1),
                         hash: "blake3:abc123".to_string(),
+                        observed: None,
                         details: HashMap::new(),
                     },
                 );
@@ -96,6 +97,7 @@ mod tests {
                 applied_at: Some("2026-02-25T01:00:00Z".to_string()),
                 duration_seconds: Some(0.2),
                 hash: "blake3:def456".to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );

@@ -293,6 +293,7 @@ mod tests {
                 applied_at: Some("2026-02-16T14:00:00Z".to_string()),
                 duration_seconds: Some(2.34),
                 hash: "blake3:abc".to_string(),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );
@@ -304,6 +305,7 @@ mod tests {
                 applied_at: Some("2026-02-16T14:00:01Z".to_string()),
                 duration_seconds: None, // no duration — exercises unwrap_or_default branch
                 hash: "blake3:def".to_string(),
+                observed: None,
                 details: std::collections::HashMap::new(),
             },
         );

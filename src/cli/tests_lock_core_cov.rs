@@ -23,6 +23,7 @@ fn make_rl(hash: &str) -> ResourceLock {
         applied_at: Some("2026-03-08T12:00:00Z".to_string()),
         duration_seconds: Some(0.01),
         hash: hash.to_string(),
+        observed: None,
         details: HashMap::new(),
     }
 }

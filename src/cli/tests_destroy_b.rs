@@ -26,6 +26,7 @@ mod tests {
             applied_at: None,
             duration_seconds: None,
             hash: hash.into(),
+            observed: None,
             details: std::collections::HashMap::new(),
         };
         let mut resources = indexmap::IndexMap::new();

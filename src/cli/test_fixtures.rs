@@ -20,6 +20,7 @@ pub(crate) fn make_state_dir_with_lock(
                 applied_at: Some("2026-02-25T00:00:00Z".to_string()),
                 duration_seconds: Some(0.1),
                 hash: hash.to_string(),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -60,6 +61,7 @@ pub(crate) fn make_test_resource_lock(rtype: types::ResourceType) -> types::Reso
         applied_at: Some("2026-01-15T10:30:00Z".to_string()),
         duration_seconds: Some(0.5),
         hash: "blake3:abcdef123456".to_string(),
+        observed: None,
         details: HashMap::new(),
     }
 }

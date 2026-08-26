@@ -51,6 +51,12 @@ pub(crate) fn record_success(
     };
 
     let mut details = build_resource_details(resolved, machine);
+    // NOTE: `live_hash` is inserted into `details` here rather than through
+    // `ResourceLock::set_observed_state`, because the lock struct is not built
+    // until further down this function. The typed field is populated from this
+    // same value at construction; see the `observed:` field below. Both are
+    // written from ONE source — the state query that actually reached the
+    // target — which is what distinguishes this from forjar#305.
     if let Some(ref lh) = live_hash {
         details.insert(
             "live_hash".to_string(),
@@ -71,7 +77,13 @@ pub(crate) fn record_success(
             status: ResourceStatus::Converged,
             applied_at: Some(eventlog::now_iso8601()),
             duration_seconds: Some(duration),
+            // SPEC and STATUS, side by side, so the difference is legible at
+            // the one site that writes both.
+            //   hash     = hash_desired_state(resource) — the CONFIG, never a host
+            //   observed = digest of the state query's stdout, from the TARGET
+            // Reading one where you meant the other is forjar#305.
             hash: desired_hash.clone(),
+            observed: live_hash.clone(),
             details,
         },
     );
@@ -109,6 +121,10 @@ pub(crate) fn record_failure(
             applied_at: Some(eventlog::now_iso8601()),
             duration_seconds: Some(duration),
             hash: String::new(),
+            // A resource that FAILED observed nothing. `None` is correct and
+            // load-bearing: drift skips not-observed rather than treating an
+            // absent digest as agreement.
+            observed: None,
             details: HashMap::new(),
         },
     );

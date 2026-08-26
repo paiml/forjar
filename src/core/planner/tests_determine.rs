@@ -33,6 +33,7 @@ fn test_fj132_determine_action_converged_same_hash_noop() {
             applied_at: None,
             duration_seconds: None,
             hash: desired,
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -73,6 +74,7 @@ fn test_fj132_determine_action_hash_changed_updates() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:old_hash_value".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -112,6 +114,7 @@ fn test_fj132_determine_action_absent_with_lock_destroys() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );
@@ -165,6 +168,7 @@ fn test_fj132_determine_action_failed_retries() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:abc".to_string(),
+            observed: None,
             details: std::collections::HashMap::new(),
         },
     );

@@ -21,6 +21,7 @@ mod tests {
                     applied_at: Some("2026-01-15T10:00:00Z".into()),
                     duration_seconds: Some(1.0),
                     hash: "abc".into(),
+                    observed: None,
                     details: HashMap::new(),
                 },
             );
@@ -48,6 +49,7 @@ mod tests {
                 applied_at: Some("2026-01-15T10:00:00Z".into()),
                 duration_seconds: Some(0.5),
                 hash: "d".into(),
+                observed: None,
                 details: det,
             },
         );

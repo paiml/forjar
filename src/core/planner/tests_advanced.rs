@@ -21,6 +21,7 @@ fn test_fj036_plan_all_noop_when_converged() {
                 applied_at: None,
                 duration_seconds: None,
                 hash: hash_desired_state(resource),
+                observed: None,
                 details: HashMap::new(),
             },
         );
@@ -89,6 +90,7 @@ fn test_fj036_plan_absent_resource_destroy() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:some_existing_hash".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -141,6 +143,7 @@ fn test_gh229_absent_converged_to_absent_is_noop() {
             applied_at: None,
             duration_seconds: None,
             hash: absent_hash,
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -195,6 +198,7 @@ fn test_gh229_absent_converged_as_present_still_destroys() {
             applied_at: None,
             duration_seconds: None,
             hash: present_hash,
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -238,6 +242,7 @@ fn test_gh229_absent_failed_destroy_is_retried() {
             applied_at: None,
             duration_seconds: None,
             hash: absent_hash,
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -293,6 +298,7 @@ fn test_plan_converged_hash_match() {
             applied_at: None,
             duration_seconds: None,
             hash: desired_hash,
+            observed: None,
             details: HashMap::new(),
         },
     );
@@ -333,6 +339,7 @@ fn test_plan_converged_hash_mismatch() {
             applied_at: None,
             duration_seconds: None,
             hash: "blake3:old_stale_hash_that_does_not_match".to_string(),
+            observed: None,
             details: HashMap::new(),
         },
     );
