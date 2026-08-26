@@ -344,7 +344,11 @@ fn why_absent_with_lock_entry_destroys() {
 }
 
 #[test]
-fn why_absent_no_lock_entry_noop() {
+fn why_absent_no_lock_entry_destroys() {
+    // GH-339: this asserted NoOp. A package declared absent that forjar never
+    // installed is still very likely INSTALLED on the box — that is the whole
+    // reason to declare it absent. "Not in the lock" is a fact about forjar's
+    // bookkeeping, not about the machine.
     let r = Resource {
         resource_type: ResourceType::Package,
         state: Some("absent".into()),
@@ -352,7 +356,7 @@ fn why_absent_no_lock_entry_noop() {
     };
     let locks = HashMap::new();
     let reason = explain_why("nginx-pkg", &r, "web-01", &locks);
-    assert_eq!(reason.action, PlanAction::NoOp);
+    assert_eq!(reason.action, PlanAction::Destroy);
 }
 
 #[test]

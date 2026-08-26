@@ -267,13 +267,18 @@ fn test_plan_absent_resource_no_lock() {
 
     let p = plan(&config, &order, &locks, None);
 
+    // GH-339: these three assertions were the defect, written as a spec.
+    // "No lock exists" is a fact about forjar's bookkeeping; /tmp/gone.txt may
+    // well be sitting on the machine, put there by something else. That is the
+    // usual reason to declare a path absent at all.
     assert_eq!(
-        p.unchanged, 1,
-        "absent resource with no lock should be NoOp (counted as unchanged)"
+        p.to_destroy, 1,
+        "an unlocked absent resource must plan a destroy — the lock says nothing \
+         about what is on the machine"
     );
-    assert_eq!(p.to_destroy, 0, "nothing to destroy when no lock exists");
+    assert_eq!(p.unchanged, 0);
     assert_eq!(p.changes.len(), 1);
-    assert_eq!(p.changes[0].action, PlanAction::NoOp);
+    assert_eq!(p.changes[0].action, PlanAction::Destroy);
 }
 
 #[test]

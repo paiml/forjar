@@ -151,12 +151,14 @@ fn sat_result_serializes() {
 // ============================================================================
 
 #[test]
-fn why_absent_no_lock_noop() {
+fn why_absent_no_lock_destroys() {
+    // GH-339: asserted NoOp. "Not in the lock" is a fact about forjar's
+    // bookkeeping and says nothing about whether the path is on the machine.
     let mut r = resource(ResourceType::File);
     r.state = Some("absent".into());
     let reason = explain_why("f1", &r, "m1", &HashMap::new());
-    assert_eq!(reason.action, PlanAction::NoOp);
-    assert!(reason.reasons[0].contains("not in lock"));
+    assert_eq!(reason.action, PlanAction::Destroy);
+    assert!(reason.reasons[0].contains("UNKNOWN"));
 }
 
 #[test]
@@ -175,7 +177,9 @@ fn why_absent_in_lock_destroy() {
 }
 
 #[test]
-fn why_absent_different_resource_noop() {
+fn why_absent_different_resource_destroys() {
+    // A lock that mentions some OTHER resource tells us nothing about f1, so
+    // this is the same case as no lock at all (GH-339).
     let mut r = resource(ResourceType::File);
     r.state = Some("absent".into());
     let sl = lock_with(&[(
@@ -184,7 +188,10 @@ fn why_absent_different_resource_noop() {
     )]);
     let mut locks = HashMap::new();
     locks.insert("m1".into(), sl);
-    assert_eq!(explain_why("f1", &r, "m1", &locks).action, PlanAction::NoOp);
+    assert_eq!(
+        explain_why("f1", &r, "m1", &locks).action,
+        PlanAction::Destroy
+    );
 }
 
 // ============================================================================

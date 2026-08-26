@@ -261,7 +261,7 @@ fn determine_action(
 /// The FJ-2200 idempotency postcondition (converged + matching hash → NoOp) is
 /// structural here — it is the literal final branch — so it needs no
 /// `debug_assert` to restate it.
-fn determine_absent_action(
+pub(super) fn determine_absent_action(
     resource_id: &str,
     resource: &Resource,
     machine_name: &str,
@@ -271,7 +271,26 @@ fn determine_absent_action(
         .get(machine_name)
         .and_then(|lock| lock.resources.get(resource_id))
     else {
-        return PlanAction::NoOp;
+        // GH-339: NO LOCK ENTRY MEANS UNKNOWN, NOT ABSENT.
+        //
+        // This returned NoOp, on the reasoning stated in why.rs — "resource not
+        // in lock, nothing to destroy". That is a claim about the LOCK, not
+        // about the machine, and it is backwards for the common case: the whole
+        // reason to declare a file absent is normally that it exists and forjar
+        // did NOT create it. A legacy file, a leftover, a stale drop-in. Those
+        // are exactly the resources with no lock entry, so `absent` worked only
+        // for files forjar had made itself — the case where you would simply
+        // delete the declaration instead.
+        //
+        // It shipped a green "Apply complete" over a dormant NOPASSWD:ALL
+        // sudoers grant on the fleet controller (paiml/infra#317).
+        //
+        // Destroy is safe here BECAUSE of the hash check below, which GH-229
+        // added: the destroy runs `rm -rf` (idempotent on a missing path),
+        // records the absent-form hash, and the next plan takes the (B) branch
+        // and no-ops. Fixed point after one apply. Before that check existed,
+        // returning Destroy for an unlocked resource is what re-emitted forever.
+        return PlanAction::Destroy;
     };
 
     // A destroy that failed or drifted must be retried.

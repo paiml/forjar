@@ -37,25 +37,27 @@ fn make_lock(
 // ── explain_absent: resource not in lock ─────────────────────────
 
 #[test]
-fn absent_not_in_lock_noop() {
+fn absent_not_in_lock_destroys() {
+    // GH-339. `why` must report the SAME action the planner takes; it now
+    // delegates rather than deriving its own.
     let mut resource = minimal_resource(ResourceType::File);
     resource.state = Some("absent".to_string());
 
     let locks = make_lock("local", IndexMap::new());
     let reason = explain_why("missing", &resource, "local", &locks);
-    assert_eq!(reason.action, PlanAction::NoOp);
-    assert!(reason.reasons.iter().any(|r| r.contains("not in lock")));
+    assert_eq!(reason.action, PlanAction::Destroy);
+    assert!(reason.reasons.iter().any(|r| r.contains("UNKNOWN")));
 }
 
 #[test]
-fn absent_no_lock_at_all() {
+fn absent_no_lock_at_all_destroys() {
     let mut resource = minimal_resource(ResourceType::Package);
     resource.state = Some("absent".to_string());
 
     let locks = HashMap::new();
     let reason = explain_why("pkg", &resource, "local", &locks);
-    assert_eq!(reason.action, PlanAction::NoOp);
-    assert!(reason.reasons.iter().any(|r| r.contains("not in lock")));
+    assert_eq!(reason.action, PlanAction::Destroy);
+    assert!(reason.reasons.iter().any(|r| r.contains("UNKNOWN")));
 }
 
 // ── explain_present: drifted status ─────────────────────────────

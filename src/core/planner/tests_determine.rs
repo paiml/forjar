@@ -138,7 +138,11 @@ fn test_fj132_determine_action_absent_with_lock_destroys() {
 }
 
 #[test]
-fn test_fj132_determine_action_absent_no_lock_noop() {
+fn test_fj132_determine_action_absent_no_lock_destroys() {
+    // GH-339: this asserted NoOp, and that assertion WAS the defect. "Not in
+    // the lock" says nothing about whether the path exists on the machine —
+    // and the common case for declaring a file absent is a file forjar never
+    // created, which is exactly the case with no lock entry.
     let mut resource = make_base_resource(ResourceType::File);
     resource.state = Some("absent".to_string());
     let locks = std::collections::HashMap::new();
@@ -149,7 +153,12 @@ fn test_fj132_determine_action_absent_no_lock_noop() {
         &locks,
         &std::collections::HashMap::new(),
     );
-    assert_eq!(action, PlanAction::NoOp);
+    assert_eq!(
+        action,
+        PlanAction::Destroy,
+        "an unlocked absent resource must plan a destroy; rm -rf is idempotent \
+         and records the absent-form hash, so the next plan no-ops"
+    );
 }
 
 #[test]
