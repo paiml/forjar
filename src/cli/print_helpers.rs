@@ -64,6 +64,53 @@ fn colored_count(count: u32, color_fn: fn(&str) -> String) -> String {
     }
 }
 
+/// How many locked resources carry observed state that `plan` did not consult.
+///
+/// forjar#342. `plan` compares the config to the LOCK; `drift` compares the
+/// lock to the HOST. Both are correct for the question they answer, and they
+/// disagree about the same machine — on intel, `plan` reported 52 changes while
+/// `drift` found 28 drifted resources, and neither number contains the other.
+///
+/// This counts what plan is BLIND TO, not what is wrong. A resource is counted
+/// when its lock entry holds an observation from the target, because that is
+/// exactly the state a lock-relative diff cannot range over. It says nothing
+/// about whether that resource has drifted — establishing that requires
+/// reaching the machine, which is `drift`'s job and deliberately not plan's.
+pub(crate) fn unconsulted_observations(
+    locks: &std::collections::HashMap<String, types::StateLock>,
+) -> usize {
+    locks
+        .values()
+        .flat_map(|l| l.resources.values())
+        .filter(|rl| rl.observed_state().is_some())
+        .count()
+}
+
+/// State the quantifier this report ranges over.
+///
+/// SILENCE IS THE BUG. `plan` printing `0 to change` reads as "nothing is
+/// wrong", when it means "nothing in the lock disagrees with the config" — and
+/// the mutated-file case proves those are different claims. Naming the blind
+/// spot converts an absence into a statement.
+///
+/// Printed for a CLEAN plan too, on purpose: the dangerous case is precisely
+/// the one where plan has nothing to report. A disclosure that only appeared
+/// alongside pending changes would be missing exactly when it is needed.
+fn print_scope_disclosure(unconsulted: usize) {
+    if unconsulted == 0 {
+        // Nothing was observed, so there is no blind spot to declare. An
+        // unconditional banner is noise, and noise is how a warning stops
+        // being read.
+        return;
+    }
+    println!(
+        "\nThis plan is lock-relative: it compares the config to the lock, and \
+         did not\ncontact any machine. {unconsulted} locked resource(s) carry \
+         state observed on a\ntarget that this plan did not consult — run \
+         `forjar drift` for what the machines\nactually hold."
+    );
+}
+
 /// Print the plan summary line.
 fn print_plan_summary(plan: &types::ExecutionPlan) {
     println!(
@@ -81,6 +128,7 @@ pub(crate) fn print_plan(
     plan: &types::ExecutionPlan,
     machine_filter: Option<&str>,
     config: Option<&types::ForjarConfig>,
+    unconsulted: usize,
 ) {
     println!("Planning: {} ({} resources)", plan.name, plan.changes.len());
     println!();
@@ -101,6 +149,7 @@ pub(crate) fn print_plan(
 
     println!();
     print_plan_summary(plan);
+    print_scope_disclosure(unconsulted);
 }
 
 /// FJ-255/274: Print a content diff block for a file resource.

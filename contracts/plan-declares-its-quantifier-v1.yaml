@@ -1,0 +1,105 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-08-26"
+  author: "PAIML Engineering"
+  description: |
+    `forjar plan` must state the quantifier its report ranges over.
+
+    plan compares the config to the LOCK. drift compares the lock to the HOST.
+    Both are correct for the question they answer, and they disagree about the
+    same machine — measured on paiml's intel the day this contract was written:
+
+      plan  (lock-relative):  0 to add, 52 to change, 0 to destroy, 83 unchanged
+      drift (host-relative):  Drift detected: 28 resource(s)
+
+    Neither number contains the other. In a sandbox the gap is starker: mutate
+    a managed file on the target and drift reports two findings while plan
+    prints `no changes / 1 unchanged`.
+
+    The defect is not that plan is lock-relative — that is its job, and making
+    it contact machines would make it slow and network-dependent. The defect is
+    that plan presents a lock diff AS THE STATE OF THE WORLD. `0 to change`
+    reads as "nothing is wrong" when it means "nothing in the lock disagrees
+    with the config", and the mutated-file case proves those are different
+    claims.
+
+    This is the same shape as forjar#305, #337 and #339: a surface reporting a
+    result it did not measure, invisible because the output looks complete. The
+    corpus already contains the matching precedent — apply-converges-observed-
+    drift-v1 was written after #305 showed that every stated equation held
+    while the machine was never looked at. That contract closed the quantifier
+    for `apply`. This one closes it for `plan`, and closes it by DISCLOSURE
+    rather than by widening the domain.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/342"
+    - "apply-converges-observed-drift-v1.yaml — same quantifier hole, closed for apply"
+    - "issue: https://github.com/paiml/forjar/issues/305"
+    - "prior art: Terraform plan -detailed-exitcode; ArgoCD Synced/OutOfSync conditions"
+
+equations:
+  plan_ranges_over_config_and_lock_only:
+    formula: |
+      plan(config, order, locks, tag) is a function of (config, locks) ALONE.
+      ∀ machine states s₁ s₂ : plan(config, order, locks, tag) is invariant in s
+    domain: "config ∈ ForjarConfig, locks ∈ HashMap<String, StateLock>"
+    codomain: "ExecutionPlan"
+    invariants:
+      - "plan opens no transport and contacts no machine"
+      - "plan's counts are therefore silent about anything changed behind forjar's back"
+      - "This is DESIRABLE and is not the defect; the defect is failing to say so"
+    notes: |
+      Stated explicitly so that a future change which makes plan reach the
+      network has to contradict a written equation rather than quietly widen
+      the domain. If plan ever becomes host-aware, this contract must be
+      revised, not silently outgrown.
+
+  disclosure_is_a_function_of_unconsulted_observations:
+    formula: |
+      unconsulted(locks) = |{ rl ∈ locks.values().resources.values()
+                            : rl.observed_state() ≠ None }|
+      discloses(plan_output) ⟺ unconsulted(locks) > 0
+    domain: "locks ∈ HashMap<String, StateLock>"
+    codomain: "bool"
+    invariants:
+      - "The disclosure fires on a CLEAN plan — that is the case where it matters most"
+      - "The disclosure does NOT fire when no observation exists to be blind to"
+      - "The count is of what plan is BLIND TO, never of what has drifted"
+    notes: |
+      The second invariant is what keeps this from becoming a banner. A warning
+      printed unconditionally is a warning nobody reads, and this fleet has
+      already paid for gates that cry wolf.
+
+      The third matters more than it looks. `unconsulted` says nothing about
+      whether those resources have drifted — establishing that requires
+      reaching the machine, which is drift's job. A count presented as "N
+      drifted" would be exactly the sin this contract exists to prevent, one
+      level up.
+
+  disclosure_names_the_command_that_can_answer:
+    formula: |
+      discloses(plan_output) ⟹ "forjar drift" ∈ plan_output
+    domain: "plan_output ∈ String"
+    codomain: "bool"
+    invariants:
+      - "A disclosed blind spot must name the instrument that can see into it"
+    notes: |
+      Telling an operator that an answer is incomplete, without telling them
+      how to complete it, converts a silent gap into a loud one and stops
+      there. The remedy is part of the disclosure.
+
+falsification:
+  - id: silence-on-a-clean-plan
+    description: |
+      Remove the disclosure and run `plan` on a converged sandbox whose managed
+      file has been mutated on the target. plan prints `0 to change, 1
+      unchanged` and nothing else; drift prints two findings. The two shipped
+      surfaces disagree and only one of them says so.
+    expected: "the_disclosure_survives_a_fully_converged_plan fails"
+  - id: unconditional-banner
+    description: |
+      Make the disclosure fire regardless of `unconsulted`. It then appears on
+      a first-ever plan with no lock, where there is no observation to be blind
+      to — noise that trains operators to skip the line.
+    expected: "no_lock_means_no_disclosure fails"

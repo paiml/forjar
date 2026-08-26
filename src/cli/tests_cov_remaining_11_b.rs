@@ -340,7 +340,7 @@ fn print_plan_with_filter() {
         ],
     };
     // With machine filter
-    print_plan(&plan, Some("m1"), None);
+    print_plan(&plan, Some("m1"), None, 0);
     // Without machine filter
-    print_plan(&plan, None, None);
+    print_plan(&plan, None, None, 0);
 }

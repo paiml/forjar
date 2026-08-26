@@ -43,7 +43,7 @@ mod tests {
             unchanged: 0,
         };
         // Just verify it doesn't panic — output goes to stdout
-        print_plan(&plan, None, None);
+        print_plan(&plan, None, None, 0);
     }
 
     #[test]

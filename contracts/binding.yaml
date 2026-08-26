@@ -307,6 +307,38 @@ bindings:
       have named it did not exist. Falsifier RCP-001."
 
   # ── Apply Converges Observed Drift (#305, #297) ────────
+  - contract: plan-declares-its-quantifier-v1.yaml
+    equation: plan_ranges_over_config_and_lock_only
+    module_path: "forjar::core::planner::plan"
+    function: plan
+    signature: "fn plan(config: &ForjarConfig, order: &[String], locks: &HashMap<String, StateLock>, tag: Option<&str>) -> ExecutionPlan"
+    status: implemented
+    notes: "Takes no Machine and opens no transport, so the invariance in target
+      state is structural rather than asserted. Stated so that making plan
+      host-aware has to contradict a written equation instead of quietly
+      widening the domain."
+
+  - contract: plan-declares-its-quantifier-v1.yaml
+    equation: disclosure_is_a_function_of_unconsulted_observations
+    module_path: "forjar::cli::print_helpers::unconsulted_observations"
+    function: unconsulted_observations
+    signature: "fn unconsulted_observations(locks: &HashMap<String, StateLock>) -> usize"
+    status: implemented
+    notes: "Counts lock entries whose observed_state() is Some — what plan is
+      BLIND TO, never what has drifted. Establishing drift requires reaching the
+      machine, which is drift's job; a count presented as 'N drifted' would be
+      the same defect this contract exists to prevent."
+
+  - contract: plan-declares-its-quantifier-v1.yaml
+    equation: disclosure_names_the_command_that_can_answer
+    module_path: "forjar::cli::print_helpers::print_scope_disclosure"
+    function: print_scope_disclosure
+    signature: "fn print_scope_disclosure(unconsulted: usize)"
+    status: implemented
+    notes: "Names `forjar drift` in the disclosure. Telling an operator an
+      answer is incomplete without telling them how to complete it converts a
+      silent gap into a loud one and stops there."
+
   - contract: apply-converges-observed-drift-v1.yaml
     equation: live_oracle_is_read
     module_path: "forjar::tripwire::drift::detect_drift_full"

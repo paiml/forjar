@@ -92,11 +92,11 @@ pub(crate) fn cmd_plan(
     if json {
         print_plan_json(&plan, &config)?;
     } else {
-        let show_diff = !no_diff;
         print_plan(
             &plan,
             machine_filter,
-            if show_diff { Some(&config) } else { None },
+            if no_diff { None } else { Some(&config) },
+            super::print_helpers::unconsulted_observations(&locks),
         );
     }
 
