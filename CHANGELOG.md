@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] — 2026-08-26
+
+**The `.crates.toml` merge corrupted multi-line entries, and cargo rejects the
+whole file for one bad entry.**
+
+`_fj_register` merged the staging `.crates.toml` into `$CARGO_HOME`'s line by
+line. cargo writes MULTI-LINE arrays for any crate installing more than one
+binary, and the merge did not know that. It broke in both directions:
+
+| | |
+|---|---|
+| `head -1` on the **source** | took only `"kani-verifier ..." = [` and dropped the array body and its `]` |
+| `grep -v "^\"$_key "` on the **destination** | removed only the KEY line of the entry being replaced, orphaning its body mid-file |
+
+The comment above it stated the false premise outright — *".crates.toml is
+`[v1]` followed by one line per install"* — so the bug was written down as the
+design.
+
+Both fired on the paiml fleet from a single apply, leaving:
+
+```toml
+"cross 0.2.5 (...)" = [
+    "cross",
+    "cross-util",
+]
+    "cargo-kani",      <- orphaned body, no key
+    "kani",
+]
+...
+"kani-verifier 0.67.0 (...)" = [      <- key 16 lines later, never closed
+```
+
+cargo refuses the entire file for one malformed entry, so `cargo install
+--list` returned **nothing** on a host whose `$HOME` is shared by sixteen CI
+runners. Every `package` resource then failed its check with `missing:<tool>`
+while every binary was present and runnable — silent in the worst way, because
+the binaries keep working until something asks cargo. It also re-corrupted on
+**every** apply, so the machine could not be converged at all.
+
+awk now tracks the array, so an entry is dropped and appended whole. Still no
+TOML parser — this is generated POSIX shell for hosts that may lack python —
+but awk is entry-aware, which is the property that was missing.
+
+The test **executes the generated shell** over a fixture rather than asserting
+on its text, and is falsified by restoring the old merge.
+
+### If you were affected
+
+A `.crates.toml` corrupted by an earlier version is not repaired automatically.
+`cargo install --list` failing with `invalid TOML found for metadata` is the
+symptom; the file needs its orphaned array fragments removed and any truncated
+entry closed. Binaries in `$CARGO_HOME/bin` are unaffected throughout.
+
+
 ## [1.20.0] — 2026-08-26
 
 **`plan` now states the quantifier its report ranges over.**
