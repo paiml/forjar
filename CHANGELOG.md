@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-08-26
+
+**`state: absent` did nothing for any file forjar did not create**, and the lock
+stopped being able to confuse a spec for an observation.
+
+### `state: absent` never removed anything forjar had not made (#339)
+
+`determine_absent_action` returned `NoOp` when a resource had no lock entry. The
+reasoning was written down in `why.rs`:
+
+> `state: absent — resource not in lock, nothing to destroy`
+
+That is a claim about the **lock**, not about the machine, and it is backwards
+for the ordinary case. The reason to declare a file absent is normally that it
+*exists* and forjar did **not** create it — a legacy file, a leftover, a stale
+drop-in. Those are exactly the resources with no lock entry. So `absent` worked
+only for files forjar had made itself, which is the case where you would simply
+delete the declaration instead.
+
+Every surface reported success. Reproduced in a clean sandbox with **no lock
+file at all**, so this was never lock staleness:
+
+| command | reported | file |
+|---|---|---|
+| `plan` | `no changes` — `0 to destroy, 1 unchanged` | present |
+| `apply --yes` | `0 converged, 1 unchanged` — *Apply complete* | **survives** |
+| `drift` | `Checking sandbox (0 resources)... No drift detected` | present |
+| `apply --yes --force` | `1 converged` | removed |
+
+`drift` did not merely miss them — it reported **zero resources**, so
+absent-state resources were outside its accounting entirely.
+
+It surfaced removing `/etc/sudoers.d/noahgift` from a fleet controller: a
+dormant `NOPASSWD: ALL` grant for a user that does not exist, mode 0644 so sudo
+skipped it, blocking every sudoers change on the host. A plain apply printed
+`Apply complete` and left it there. **Declaring a file absent for a security
+reason got you a green report and a live file.**
+
+**Why the fix does not resurrect GH-229.** That bug was the mirror image:
+`Destroy` was returned for anything in the lock, and since a successful destroy
+writes the resource back as `converged`, the plan re-emitted `Destroy` forever.
+Its fix added the hash check separating *converged as present, now redeclared
+absent* from *the destroy already ran* — and that check is what makes `Destroy`
+safe here. `rm -rf` is idempotent, the first apply records the absent-form hash,
+the second takes the already-converged branch. Fixed point after one apply,
+reached by observing the target rather than inferring from the declaration's
+history.
+
+**A divergence that predated the bug.** `explain_absent` decided for itself, and
+differently: it returned `Destroy` for *any* locked resource — the pre-GH-229
+rule, without the hash check — so `forjar why` said "will be removed" for a
+resource `forjar plan` correctly no-ops. An explanation that derives its own
+answer is not an explanation of the decision; it is a second decision that
+happens to be printed. It now delegates.
+
+Eight tests asserted the old behaviour as the requirement. One carried the
+comment `// no lock — resource never existed`, which is precisely the assumption
+that made this a defect.
+
+### The lock now separates SPEC from STATUS (#337, step 1)
+
+#305 — the defect 1.18.0 was released to fix — was a spec/status conflation bug.
+Two different digests lived in the same untyped `details` map under string keys,
+and every decision path read the wrong one:
+
+| key | computed | read by |
+|---|---|---|
+| `live_hash` | on the **target**, through the transport | nothing, for five months |
+| `content_hash` | on the **controller**, only when `content.is_some()` | drift detection |
+
+The doc comment was the bug, written down: `hash` holds
+`hash_desired_state(resource)` — the config, which never touches a machine — and
+was documented as *"BLAKE3 hash of the resource's observable state"*.
+
+`ResourceLock` now carries a typed `observed: Option<String>`, read through
+`observed_state()` and written through `set_observed_state()`. A typed field
+cannot be reached for by the wrong string key. `None` means **not observed** — a
+third state, distinct from "observed and unchanged" — so drift skips rather than
+inferring agreement.
+
+Adding the field made all 159 construction sites declare which one they meant,
+and two were wrong in a way review would not have caught: `record_success` was
+passing `None` where the live digest belongs, and `--refresh` wrote only the
+`details` copy, which would have left every reader on a stale digest. Two stores
+with readers split between them is #305 rebuilt inside its own fix.
+
+**Backward compatible.** `observed_state()` falls back to `details["live_hash"]`
+on the read path only, so every existing lock keeps working and the fallback
+cannot reintroduce two writers.
+
+### Also
+
+- `detail_str` replaces four hand-written `Some(Value::String(s))` matches.
+- `.pmat/baseline.json` refreshed; a stale baseline from #333 had been failing
+  the TDG gate on *every* commit in the repo, citing a file the committer had
+  not touched.
+
+
 ## [1.18.0] — 2026-08-24
 
 **`apply` converges what drifted on the target.** 1.17.0 and every version before
