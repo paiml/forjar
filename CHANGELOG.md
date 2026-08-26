@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] — 2026-08-26
+
+**`plan` now states the quantifier its report ranges over.**
+
+`plan` compares the config to the LOCK. `drift` compares the lock to the HOST.
+Both are correct for the question they answer, and they disagree about the same
+machine — measured on the paiml fleet:
+
+```
+intel  plan  (lock-relative):  0 to add, 52 to change, 0 to destroy, 83 unchanged
+intel  drift (host-relative):  Drift detected: 28 resource(s)
+```
+
+Neither number contains the other. In a sandbox the gap is starker: mutate a
+managed file on the target and `drift` reports two findings while `plan` prints
+`no changes / 1 unchanged`.
+
+The defect was never that plan is lock-relative — that is its job, and making it
+contact machines would make it slow and network-dependent. The defect was that
+plan presented a lock diff **as the state of the world**. `0 to change` reads as
+"nothing is wrong" when it means "nothing in the lock disagrees with the config".
+
+Plans now carry:
+
+```
+This plan is lock-relative: it compares the config to the lock, and did not
+contact any machine. 134 locked resource(s) carry state observed on a
+target that this plan did not consult — run `forjar drift` for what the machines
+actually hold.
+```
+
+Three properties, each deliberate:
+
+- **Printed on a clean plan too.** The dangerous case is the one where plan has
+  nothing to report; a disclosure that only appeared alongside pending changes
+  would be missing exactly when it is needed.
+- **Not printed when there is nothing to be blind to.** With no lock, no
+  observation exists — an unconditional banner is noise, and noise is how a
+  warning stops being read.
+- **The count is what plan is BLIND TO, never what drifted.** Establishing drift
+  requires reaching the machine. A count presented as "N drifted" would be this
+  same defect one level up.
+
+### Contract
+
+`plan-declares-its-quantifier-v1` — three equations, three bindings. **40/40 →
+43/43 bound.** Its precedent is `apply-converges-observed-drift-v1`, written
+after #305 showed every stated equation holding while the machine was never
+looked at. That closed the quantifier for `apply`; this closes it for `plan`, by
+disclosure rather than by widening the domain.
+
+`plan_ranges_over_config_and_lock_only` is stated explicitly so that making plan
+host-aware must contradict a written equation rather than quietly grow.
+
+Both stated failure modes were injected and both go red: removing the disclosure
+fails two of three tests; making it unconditional fails the no-lock test.
+
+### Note for operators
+
+If you have been reading `plan` as "is this machine converged", it was answering
+a narrower question. `forjar drift --tripwire` is the host-truthful gate and
+exits non-zero on real drift — it has existed for some time and is easy to miss.
+
+
 ## [1.19.0] — 2026-08-26
 
 **`state: absent` did nothing for any file forjar did not create**, and the lock
