@@ -72,3 +72,55 @@ resources:
         "dep must point at the recipe's terminal expanded resource"
     );
 }
+
+// #335 regression: `lifecycle.ignore_drift` is a field list in the schema and
+// a resource-wide off switch in the engine. Nothing validated the values, so
+// `ignore_drift: [mode]` parsed clean and then disabled EVERY drift dimension
+// for that resource. Narrowing the exemption widened it.
+
+fn config_with_ignore_drift(entries: &[&str]) -> ForjarConfig {
+    let list = entries
+        .iter()
+        .map(|e| format!("        - \"{e}\"\n"))
+        .collect::<String>();
+    parse_config(&format!(
+        "version: \"1.0\"\nname: ignore-drift\nresources:\n  cfg:\n    type: file\n\
+         \x20   machine: localhost\n    path: /etc/app.conf\n    content: hi\n\
+         \x20   lifecycle:\n      ignore_drift:\n{list}"
+    ))
+    .expect("valid YAML")
+}
+
+#[test]
+fn narrowed_ignore_drift_is_a_validation_error() {
+    let errors = validate_config(&config_with_ignore_drift(&["mode"]));
+    assert_eq!(
+        errors.len(),
+        1,
+        "expected exactly one error, got {errors:?}"
+    );
+    let msg = errors[0].message.clone();
+    assert!(msg.contains("ignore_drift"), "{msg}");
+    assert!(msg.contains("335"), "{msg}");
+    assert!(msg.contains("mode"), "{msg}");
+}
+
+#[test]
+fn a_typo_in_ignore_drift_is_refused_not_treated_as_skip_all() {
+    let errors = validate_config(&config_with_ignore_drift(&["modes"]));
+    assert_eq!(
+        errors.len(),
+        1,
+        "expected exactly one error, got {errors:?}"
+    );
+    assert!(errors[0].message.contains("modes"), "{}", errors[0].message);
+}
+
+#[test]
+fn wildcard_ignore_drift_is_accepted() {
+    let errors = validate_config(&config_with_ignore_drift(&["*"]));
+    assert!(
+        errors.is_empty(),
+        "wildcard must stay legal, got {errors:?}"
+    );
+}

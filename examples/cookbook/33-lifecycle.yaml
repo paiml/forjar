@@ -79,7 +79,11 @@ resources:
     tags: [lifecycle, app]
     resource_group: app
 
-  # Externally-managed config — ignore content drift
+  # Externally-managed config — drift detection off for this resource.
+  # ignore_drift: ["*"] is the ONLY accepted value: it suppresses EVERY
+  # dimension (content, owner, group, mode, existence), not just content.
+  # Per-field suppression is forjar#335; a narrowed list is rejected at
+  # validate time rather than silently widened to this.
   external-config:
     type: file
     machine: target
@@ -87,12 +91,11 @@ resources:
     owner: root
     mode: '0644'
     content: |
-      # Managed by forjar — lifecycle test (ignore drift on content)
+      # Managed by forjar — lifecycle test (all drift suppressed)
       # Content managed by external process
       replica_count=3
     lifecycle:
-      ignore_drift:
-        - content
+      ignore_drift: ["*"]
     tags: [lifecycle, app, external]
     resource_group: app
 
@@ -106,7 +109,7 @@ resources:
       {
         "protected_resources": ["db-data-dir", "db-config"],
         "create_before_destroy": ["app-config"],
-        "ignore_drift": {"external-config": ["content"]},
+        "ignore_drift": {"external-config": ["*"]},
         "lifecycle_version": "1.0"
       }
     depends_on: [db-config, app-config, external-config]

@@ -3274,7 +3274,7 @@ resources:
     machine: web
     dest: /etc/app/config.yaml
     lifecycle:
-      ignore_drift: [content]        # external process manages content; only track existence
+      ignore_drift: ["*"]            # externally managed; suppress ALL drift for this resource
 ```
 
 **Three lifecycle rules**:
@@ -3283,7 +3283,7 @@ resources:
 |------|----------|
 | `prevent_destroy: true` | `forjar destroy` skips this resource with a warning. Removing it from config triggers a plan error ("resource X is protected; remove lifecycle.prevent_destroy first"). |
 | `create_before_destroy: true` | When a resource must be replaced (content changed), write the new version before removing the old. Relevant for config files with restarts — avoids a window where the config doesn't exist. |
-| `ignore_drift: [fields]` | `forjar drift` reports drift on these fields as "suppressed" rather than "detected". `forjar apply` skips convergence for suppressed fields. Useful for fields managed by external systems (autoscaler-managed replica counts, externally-rotated passwords). |
+| `ignore_drift: ["*"]` | The wildcard is the ONLY accepted value: `forjar drift` and `forjar apply --tripwire` skip this resource entirely — content, owner, group, mode and existence alike. Useful for a resource wholly managed by an external system. A narrowed field list (`ignore_drift: [content]`) is **rejected at validate time**: forjar cannot yet honour it, and the engine would read it as this wildcard, so it is refused rather than silently widened (forjar#335). |
 
 **CLI interaction**:
 

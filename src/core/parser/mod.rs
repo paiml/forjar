@@ -139,6 +139,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
 
     for (id, resource) in &config.resources {
         validation::validate_resource_refs(config, id, resource, &mut errors);
+        validation::validate_lifecycle(id, resource, &mut errors);
         resource_types::validate_resource_type(id, resource, &mut errors);
         check_sudo_inference(id, resource, config, &mut errors);
     }
