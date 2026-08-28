@@ -4,6 +4,7 @@ use pforge_config::{ForgeConfig, ForgeMetadata, OptimizationLevel, ParamSchema, 
 use pforge_runtime::{HandlerRegistry, McpServer};
 
 use super::handlers::*;
+use super::handlers_ops::*;
 
 // ── Registry + Server ───────────────────────────────────────────────
 
@@ -59,6 +60,9 @@ fn register_all(reg: &mut HandlerRegistry) {
     reg.register("forjar_status", StatusHandler);
     reg.register("forjar_trace", TraceHandler);
     reg.register("forjar_anomaly", AnomalyHandler);
+    reg.register("forjar_audit", AuditHandler);
+    reg.register("forjar_policy_coverage", PolicyCoverageHandler);
+    reg.register("forjar_workspace", WorkspaceHandler);
 }
 
 /// Build the MCP handler registry with all forjar tool handlers.

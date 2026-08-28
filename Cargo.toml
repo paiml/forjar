@@ -45,7 +45,7 @@ workspace = true
 #
 # forjar ships exactly two interfaces:
 #   cli — 159 subcommands, all advertised in `--help`
-#   mcp — `forjar mcp`, stdio JSON-RPC, 9 registered tools
+#   mcp — `forjar mcp`, stdio JSON-RPC, one tool per `verb::verbs()` row
 #
 # There is NO http/serve surface. `core::webhook_server` exists but is not
 # reachable from any subcommand, so it is not an interface this release ships;

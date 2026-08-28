@@ -73,8 +73,17 @@ pub struct VerbSpec {
 impl VerbSpec {
     /// The MCP tool name. DERIVED from `name` so the two cannot disagree —
     /// the prefix was previously typed out at all four declaration sites.
+    ///
+    /// A verb's transport-neutral `name` is the CLI leaf it unifies, and forjar
+    /// spells multi-word leaves with a hyphen (`policy-coverage`). MCP tool
+    /// names are snake_case by convention and every tool already shipped is,
+    /// so the hyphen is folded here rather than by giving such a verb a second
+    /// name to be typed — which is the drift this whole module exists to make
+    /// impossible. The mapping is one-way and total: `name` never contains an
+    /// underscore, so no two verbs can collide on one MCP name (asserted by
+    /// `mcp_names_are_unique`).
     pub fn mcp_name(&self) -> String {
-        format!("forjar_{}", self.name)
+        format!("forjar_{}", self.name.replace('-', "_"))
     }
 }
 

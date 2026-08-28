@@ -71,7 +71,7 @@ fn every_published_tool_publishes_read_only_hint_true() {
 #[test]
 fn the_surface_is_not_empty() {
     assert!(
-        verbs().len() >= 9,
+        verbs().len() >= 12,
         "the verb registry has {} entries — the read-only assertions above \
          become vacuous when it empties",
         verbs().len()

@@ -83,18 +83,31 @@ forjar verb call validate --json '{"path":"forjar.yaml"}'
 forjar verb serve --port 8737    # the same surface over HTTP
 ```
 
-The nine verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`, `status`,
-`trace`, `anomaly` — are declared **once**, in `src/verb/registry.rs`, and the
-CLI, MCP and HTTP transports each render that one declaration. Adding a verb is
-one row. There is no second list to keep in step, which is the defect this
-replaced: the same nine tools were previously written out four times in
-`src/mcp/registry.rs`, and only one of those four copies was reachable in
-production.
+The twelve verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`,
+`status`, `trace`, `anomaly`, `audit`, `policy-coverage`, `workspace` — are
+declared **once**, in `src/verb/registry.rs`, and the CLI, MCP and HTTP
+transports each render that one declaration. Adding a verb is one row. There is
+no second list to keep in step, which is the defect this replaced: the same nine
+tools were previously written out four times in `src/mcp/registry.rs`, and only
+one of those four copies was reachable in production. Run `forjar verb list` for
+the set this binary actually ships; a list typed into a document is the drift
+the registry exists to prevent.
 
-All nine are **read-only**. That is published, not assumed — `verb list --json`
-reports `read_only` per verb and MCP publishes the same value as `readOnlyHint`,
-both derived from one field so they cannot disagree. An agent may call any
-forjar verb unattended without risking a change to a machine.
+A verb's MCP name is its own name with `forjar_` prefixed and any hyphen folded
+to an underscore, so `policy-coverage` is `forjar_policy_coverage`. Both
+spellings are derived from the one row.
+
+All twelve are **read-only**, and that is a property of the surface rather than
+a coincidence of which verbs it happens to hold:
+`tests/falsification_verb_readonly_surface.rs` fails if any row declares
+`Effects::Mutating`. It is published, not assumed — `verb list --json` reports
+`read_only` per verb and MCP publishes the same value as `readOnlyHint`, both
+derived from one field so they cannot disagree. An agent may call any forjar
+verb unattended without risking a change to a machine.
+
+`workspace` is the one verb that unifies part of a subcommand group: `workspace
+list` and `workspace current` read, so they are on the surface; `workspace new`,
+`select` and `delete` write, so they are not.
 
 Read-only means it does not run what the **config** declares, either. That was
 not true before 1.21.1 (forjar#372): planning executed the config's own

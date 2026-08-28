@@ -6,7 +6,7 @@ use super::types::*;
 #[test]
 fn test_fj063_build_registry_has_all_tools() {
     let registry = build_registry();
-    assert_eq!(registry.len(), 9);
+    assert_eq!(registry.len(), 12);
     assert!(registry.has_handler("forjar_validate"));
     assert!(registry.has_handler("forjar_plan"));
     assert!(registry.has_handler("forjar_drift"));
@@ -16,6 +16,9 @@ fn test_fj063_build_registry_has_all_tools() {
     assert!(registry.has_handler("forjar_status"));
     assert!(registry.has_handler("forjar_trace"));
     assert!(registry.has_handler("forjar_anomaly"));
+    assert!(registry.has_handler("forjar_audit"));
+    assert!(registry.has_handler("forjar_policy_coverage"));
+    assert!(registry.has_handler("forjar_workspace"));
 }
 
 #[test]
@@ -29,7 +32,7 @@ fn test_fj063_build_registry_no_unknown_tools() {
 fn test_fj063_forge_config_metadata() {
     let config = super::registry::build_forge_config_for_test();
     assert_eq!(config.forge.name, "forjar-mcp");
-    assert_eq!(config.tools.len(), 9);
+    assert_eq!(config.tools.len(), 12);
 }
 
 #[test]
@@ -45,6 +48,9 @@ fn test_fj063_forge_config_tool_names() {
     assert!(names.contains(&"forjar_status"));
     assert!(names.contains(&"forjar_trace"));
     assert!(names.contains(&"forjar_anomaly"));
+    assert!(names.contains(&"forjar_audit"));
+    assert!(names.contains(&"forjar_policy_coverage"));
+    assert!(names.contains(&"forjar_workspace"));
 }
 
 #[tokio::test]
@@ -81,9 +87,9 @@ async fn test_fj063_registry_dispatch_unknown_tool() {
 #[test]
 fn test_fj142_export_schema_has_all_tools() {
     let schema = export_schema();
-    assert_eq!(schema["tool_count"], 9);
+    assert_eq!(schema["tool_count"], 12);
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 12);
 }
 
 #[test]
@@ -100,6 +106,9 @@ fn test_fj142_export_schema_tool_names() {
     assert!(names.contains(&"forjar_status"));
     assert!(names.contains(&"forjar_trace"));
     assert!(names.contains(&"forjar_anomaly"));
+    assert!(names.contains(&"forjar_audit"));
+    assert!(names.contains(&"forjar_policy_coverage"));
+    assert!(names.contains(&"forjar_workspace"));
 }
 
 #[test]
@@ -132,7 +141,7 @@ fn test_fj142_export_schema_metadata() {
 
 /// Handler registration is generic over each handler's type, so `register_all`
 /// cannot be a loop over the verb table. This is the assertion that keeps the
-/// two from drifting — and it is the only remaining place where the nine names
+/// two from drifting — and it is the only remaining place where the verb names
 /// are written twice.
 #[test]
 fn register_all_matches_the_verb_table() {

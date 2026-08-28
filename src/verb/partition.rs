@@ -43,6 +43,13 @@ pub fn partition() -> &'static [Leaf] {
 }
 
 /// Leaves on the unified surface, by name.
+///
+/// A NESTED leaf contributes its PARENT (`workspace list` -> `workspace`),
+/// because a verb unifies the capability, not the argv spelling. A parent may
+/// therefore be partly unified: `workspace list` and `workspace current` read,
+/// so they are verbs; `workspace new`, `select` and `delete` write, so they stay
+/// in the debt ledger until someone decides — deliberately, and not by adding a
+/// row — that this surface may mutate a machine.
 pub fn unified_names() -> BTreeSet<&'static str> {
     PARTITION
         .iter()
@@ -62,7 +69,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["archive", "pack"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["archive", "unpack"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["archive", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["audit"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["audit"], bucket: Bucket::Unified },
     Leaf { path: &["bench"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["bootstrap"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["build"], bucket: Bucket::Pending("paiml/forjar#288") },
@@ -179,7 +186,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["plugin", "run"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["plugin", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["policy"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["policy-coverage"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["policy-coverage"], bucket: Bucket::Unified },
     Leaf { path: &["policy-install"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["preservation"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["privilege-analysis"], bucket: Bucket::Pending("paiml/forjar#288") },
@@ -247,9 +254,9 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["validate"], bucket: Bucket::Unified },
     Leaf { path: &["verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["watch"], bucket: Bucket::CliOnly("long-running terminal UI that redraws; it has no single response to return") },
-    Leaf { path: &["workspace", "current"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["workspace", "current"], bucket: Bucket::Unified },
     Leaf { path: &["workspace", "delete"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["workspace", "list"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["workspace", "list"], bucket: Bucket::Unified },
     Leaf { path: &["workspace", "new"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["workspace", "select"], bucket: Bucket::Pending("paiml/forjar#288") },
 ];

@@ -3,6 +3,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+// FVS (#356): the types for the verbs discharged from `Bucket::Pending` live in
+// `types_ops.rs` for the 500-line file cap. Re-exported here so there remains
+// exactly ONE path a consumer imports.
+pub use super::types_ops::*;
+
 // ── Input / Output types ────────────────────────────────────────────
 
 /// MCP validate handler input.

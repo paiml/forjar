@@ -172,7 +172,7 @@ proof_obligations:
     enforced_by: "tests/e2e_transport_absence_t.rs::the_binary_advertises_no_undeclared_transport"
 
   - type: soundness
-    property: "The 9 MCP tools have ONE declaration site"
+    property: "The MCP tools have ONE declaration site"
     formal: "|declaration_sites(tool)| = 1"
     applies_to: surface_parity
     enforced_by: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"

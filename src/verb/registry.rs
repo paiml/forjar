@@ -5,6 +5,7 @@
 
 use super::spec::{Effects, VerbSpec};
 use crate::mcp::handlers::*;
+use crate::mcp::handlers_ops::*;
 use crate::mcp::types::*;
 use pforge_runtime::Handler;
 
@@ -54,10 +55,10 @@ macro_rules! verb_table {
     };
 }
 
-// All nine are ReadOnly, and that is worth publishing rather than assuming:
-// it means an MCP agent may call any forjar verb unattended without risking a
-// change to a machine. `apply`, `destroy` and friends are deliberately NOT
-// here — see `partition.rs`, where every one of them is accounted for.
+// EVERY row is ReadOnly, and that is worth publishing rather than assuming: it
+// means an MCP agent may call any forjar verb unattended without risking a
+// change to a machine. `apply`, `destroy` and friends are deliberately NOT here
+// — see `partition.rs`, where every one of them is accounted for.
 //
 // forjar#372: that sentence was FALSE for `plan` until 1.21.1. Planning ran
 // the config's own `ambient_inputs`, `sops`/`op` and `output_equivalence`
@@ -68,6 +69,14 @@ macro_rules! verb_table {
 // says in its result what it declined to run. `tests/
 // falsification_readonly_surface_executes_nothing.rs` holds every verb here to
 // that, over real MCP stdio, against a config that tries.
+//
+// The guarantee is asserted, not merely written down:
+// `tests/falsification_verb_readonly_surface.rs` fails the moment a row says
+// `Effects::Mutating`. Ending the guarantee is a decision for a human, and
+// editing that test is how a human makes it — not a side effect of adding a
+// row here. A NEW row must also be answerable without executing what the
+// config declares: `falsification_readonly_surface_executes_nothing.rs` drives
+// every advertised verb, so a row whose handler probes is caught there.
 verb_table! {
     "validate", Effects::ReadOnly, 30_000, "Validate a forjar.yaml configuration file", ValidateInput, ValidateOutput, ValidateHandler;
     "plan",     Effects::ReadOnly, 60_000, "Show execution plan for infrastructure changes", PlanInput, PlanOutput, PlanHandler;
@@ -78,6 +87,9 @@ verb_table! {
     "status",   Effects::ReadOnly, 10_000, "Show current state from lock files", StatusInput, StatusOutput, StatusHandler;
     "trace",    Effects::ReadOnly, 30_000, "View trace provenance data from apply runs", TraceInput, TraceOutput, TraceHandler;
     "anomaly",  Effects::ReadOnly, 30_000, "Detect anomalous resource behavior using ML-inspired analysis", AnomalyInput, AnomalyOutput, AnomalyHandler;
+    "audit",    Effects::ReadOnly, 30_000, "Read the append-only provenance trail recorded by apply runs", AuditInput, AuditOutput, AuditHandler;
+    "policy-coverage", Effects::ReadOnly, 30_000, "Report which resources policy rules cover, and which are uncovered", PolicyCoverageInput, PolicyCoverageOutput, PolicyCoverageHandler;
+    "workspace", Effects::ReadOnly, 10_000, "Report the selected workspace and every workspace under the state dir", WorkspaceInput, WorkspaceOutput, WorkspaceHandler;
 }
 
 /// Look up a verb by its transport-neutral name.
@@ -97,7 +109,7 @@ mod tests {
     #[test]
     fn registry_is_not_empty() {
         assert!(
-            verbs().len() >= 9,
+            verbs().len() >= 12,
             "verb registry collapsed to {} entries — every parity test downstream \
              becomes vacuous when this is empty",
             verbs().len()
@@ -114,7 +126,7 @@ mod tests {
     #[test]
     fn mcp_names_are_derived_not_typed() {
         for v in verbs() {
-            assert_eq!(v.mcp_name(), format!("forjar_{}", v.name));
+            assert_eq!(v.mcp_name(), format!("forjar_{}", v.name.replace('-', "_")));
         }
     }
 
