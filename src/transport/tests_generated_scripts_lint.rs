@@ -24,7 +24,11 @@ use crate::core::codegen::{apply_script, check_script, state_query_script};
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
 /// A resource with only the fields a generator needs, everything else default.
-fn res(resource_type: ResourceType, state: Option<&str>, f: impl FnOnce(&mut Resource)) -> Resource {
+fn res(
+    resource_type: ResourceType,
+    state: Option<&str>,
+    f: impl FnOnce(&mut Resource),
+) -> Resource {
     let mut r = Resource {
         resource_type,
         machine: MachineTarget::Single("m1".to_string()),

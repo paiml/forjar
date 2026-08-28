@@ -128,7 +128,9 @@ fn items_after(rest: &str) -> Vec<String> {
             && !cand.contains('.')
             && !cand.contains(':')
             && cand.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_')
-            && cand.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_');
+            && cand
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_');
         if !bare {
             break;
         }
