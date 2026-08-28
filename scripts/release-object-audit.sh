@@ -102,11 +102,20 @@ gather_release() {
 
 # ---------------------------------------------------------------- accessors --
 
+# An asset belongs to THIS release under either naming convention.
+#
+# forjar published `forjar-v1.4.0-*` up to v1.4.2 and `forjar-1.4.0-*` after,
+# and several tags in that window carry BOTH. A `forjar-v1.4.0-*.tar.gz` on tag
+# v1.4.0 is not contamination — it is 1.4.0, under the name 1.4.0 shipped with.
+# The invariant this script exists to enforce is "the release object describes
+# ITSELF"; matching only the modern spelling would report the whole of the
+# project's early history as strays and make this lane permanently red, which
+# is the one outcome guaranteed to stop anybody reading it.
 own_tarballs() {
   local name
   while IFS= read -r name; do
     case "$name" in
-    forjar-"$2"-*.tar.gz) printf '%s\n' "$name" ;;
+    forjar-"$2"-*.tar.gz | forjar-v"$2"-*.tar.gz) printf '%s\n' "$name" ;;
     *) ;;
     esac
   done <"$1/assets.txt"
@@ -135,6 +144,7 @@ check_strays() {
   while IFS= read -r name; do
     case "$name" in
     forjar-"$2"-*.tar.gz | forjar-"$2"-*.tar.gz.sha256) ;;
+    forjar-v"$2"-*.tar.gz | forjar-v"$2"-*.tar.gz.sha256) ;;
     *.tar.gz | *.tar.gz.sha256)
       printf 'stray: %s\n' "$name"
       bad=1
