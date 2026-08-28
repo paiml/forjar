@@ -1,6 +1,7 @@
 //! Tests: Coverage for cmd_refresh_only and cmd_apply_from_plan in
 //! apply_variants.rs — main paths and error branches (PMAT-088).
 
+use super::apply_from_plan::cmd_apply_from_plan;
 use super::apply_variants::*;
 use super::helpers::parse_and_validate;
 use super::helpers_state::load_machine_locks;

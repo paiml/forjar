@@ -5,7 +5,7 @@ use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
-use crate::core::{codegen, executor, planner, resolver, state, types};
+use crate::core::{codegen, planner, resolver, state, types};
 use crate::transport;
 use crate::tripwire::hasher;
 use std::path::Path;
@@ -345,125 +345,5 @@ pub(crate) fn cmd_apply_dry_run_cost(
     println!("  No-op:   {noops}");
     println!("  ─────────────");
     println!("  Total changes: {}", creates + updates + deletes);
-    Ok(())
-}
-
-/// Refs #358: "this plan has no changes" is only an instruction worth obeying
-/// when something vouches for the body that says it.
-///
-/// A `forjar-plan-v1` document's counters are unauthenticated JSON sitting
-/// under a valid `config_hash`, so obeying a zero there is how a requested
-/// apply prints a benign sentence and exits 0 having converged nothing — an
-/// operator or CI job reading the exit code sees a successful apply over a
-/// machine nothing was done to. A sealed body may legitimately say zero.
-fn check_empty_plan_is_trustworthy(sealed: bool) -> Result<(), String> {
-    if sealed {
-        return Ok(());
-    }
-    Err(format!(
-        "this '{}' plan file reports no changes, but its body is unsealed — forjar will \
-         not report a successful apply on the word of an unauthenticated counter. \
-         Re-run `forjar plan --out` to write a sealed '{}' plan.",
-        super::plan_file::FORMAT_V1,
-        super::plan_file::FORMAT_V2,
-    ))
-}
-
-/// FJ-1250: Execute a previously saved plan file.
-/// Validates config hash matches, then runs the planned changes.
-///
-/// # forjar#370: this is an apply, so it is authorized like one
-///
-/// `dispatch_apply_b::apply_mode_exits` returns here for `--plan-file` BEFORE
-/// `apply_execute`, whose first line is `check_operator_auth`. So the gate was
-/// reachable only on the ordinary path, and the whole of it was skippable by
-/// routing through a plan file. Measured on 1.21.0 with
-/// `allowed_operators: [alice]`, as a non-alice operator:
-///
-/// ```text
-///   forjar apply --yes                              -> not authorized   EXIT=1
-///   forjar plan --out p.json                        -> EXIT=0
-///   forjar apply --plan-file p.json --yes           -> 2 converged      EXIT=0
-///   forjar apply --plan-file p2.json --operator mallory --yes -> applied EXIT=0
-/// ```
-///
-/// A plan file is unauthenticated — any user can write one in a text editor —
-/// so the bypass needed no privilege at all. The check lives at the TOP of this
-/// function, not at the call site, so it holds for every caller of the
-/// plan-file executor rather than for the one dispatcher that remembered.
-///
-/// `forjar plan --out` is deliberately NOT gated; see `cli::plan::cmd_plan`.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn cmd_apply_from_plan(
-    file: &Path,
-    state_dir: &Path,
-    plan_path: &Path,
-    verbose: bool,
-    env_file: Option<&Path>,
-    workspace: Option<&str>,
-    operator: Option<&str>,
-) -> Result<(), String> {
-    use super::plan_file::load_plan_file;
-
-    // forjar#370: FIRST, and before the plan file is even read — the same
-    // position and the same function `apply_execute` uses.
-    super::dispatch_apply::check_operator_auth(file, operator)?;
-
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
-
-    let loaded = load_plan_file(plan_path, &config, state_dir)?;
-    let plan = loaded.plan;
-    let n_changes = plan.to_create + plan.to_update + plan.to_destroy;
-
-    if verbose {
-        eprintln!(
-            "Executing saved plan: {} changes ({} create, {} update, {} destroy)",
-            n_changes, plan.to_create, plan.to_update, plan.to_destroy
-        );
-    }
-
-    if n_changes == 0 {
-        check_empty_plan_is_trustworthy(loaded.sealed)?;
-        println!("Plan has no changes to apply.");
-        return Ok(());
-    }
-
-    // Execute as a normal apply using the plan's resource list
-    let cfg = executor::ApplyConfig {
-        config: &config,
-        state_dir,
-        force: false,
-        dry_run: false,
-        machine_filter: None,
-        resource_filter: None,
-        tag_filter: None,
-        group_filter: None,
-        timeout_secs: None,
-        force_unlock: false,
-        progress: false,
-        retry: 0,
-        parallel: None,
-        resource_timeout: None,
-        rollback_on_failure: false,
-        max_parallel: None,
-        trace: false,
-        run_id: Some(crate::core::types::generate_run_id()),
-        refresh: false,
-        force_tag: None,
-    };
-
-    let results = executor::apply(&cfg)?;
-    let (converged, unchanged, failed) = super::apply_output::count_results(&results);
-
-    println!("Plan applied: {converged} converged, {unchanged} unchanged, {failed} failed");
-
-    if failed > 0 {
-        return Err(format!("{failed} resource(s) failed"));
-    }
     Ok(())
 }

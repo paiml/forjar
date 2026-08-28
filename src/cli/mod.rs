@@ -5,6 +5,7 @@ mod agent_sbom;
 mod apply;
 mod apply_drift;
 mod apply_dry_run;
+mod apply_from_plan;
 mod apply_gates;
 mod apply_gates_budget;
 mod apply_helpers;

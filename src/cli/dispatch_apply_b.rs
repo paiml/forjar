@@ -1,4 +1,5 @@
 use super::apply::*;
+use super::apply_from_plan::cmd_apply_from_plan;
 use super::apply_variants::*;
 use super::check::*;
 use super::commands::*;
