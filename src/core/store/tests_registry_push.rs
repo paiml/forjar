@@ -1,4 +1,12 @@
 //! Tests for OCI Distribution v1.1 registry push (FJ-2105).
+//!
+//! GH-228: the argv-shaped guards that used to live here — the four
+//! `*_command` format tests, the two `--fail-with-body` argv assertions and the
+//! `require_curl` preflight probe — asserted on a curl command line that no
+//! longer exists. They were not deleted, they were **restated as behaviour**
+//! against a live loopback registry in
+//! `tests/falsification_registry_push_needs_no_curl.rs`, so the #154 and #210
+//! properties they guarded are still pinned.
 
 use super::registry_push::*;
 use crate::core::types::{PushKind, PushResult};
@@ -61,138 +69,6 @@ fn validate_push_config_url_instead_of_host() {
     };
     let errors = validate_push_config(&config);
     assert!(errors.iter().any(|e| e.contains("hostname")));
-}
-
-#[test]
-fn head_check_command_format() {
-    let cmd = head_check_command("ghcr.io", "myorg/app", "sha256:abc123");
-    assert!(cmd.contains("--head"));
-    assert!(cmd.contains("ghcr.io"));
-    assert!(cmd.contains("myorg/app"));
-    assert!(cmd.contains("sha256:abc123"));
-    assert!(cmd.contains("/v2/"));
-    assert!(cmd.contains("/blobs/"));
-}
-
-#[test]
-fn upload_initiate_command_format() {
-    let cmd = upload_initiate_command("docker.io", "library/alpine");
-    assert!(cmd.contains("-X POST"));
-    assert!(cmd.contains("/v2/library/alpine/blobs/uploads/"));
-}
-
-#[test]
-fn upload_complete_command_format() {
-    let cmd = upload_complete_command(
-        "https://docker.io/v2/library/alpine/blobs/uploads/uuid-123",
-        "sha256:abc",
-        "/tmp/layer.tar.gz",
-    );
-    assert!(cmd.contains("-X PUT"));
-    assert!(cmd.contains("@/tmp/layer.tar.gz"));
-    assert!(cmd.contains("digest=sha256:abc"));
-}
-
-#[test]
-fn manifest_put_command_format() {
-    let cmd = manifest_put_command("ghcr.io", "myorg/app", "v1.0", "/tmp/manifest.json");
-    assert!(cmd.contains("-X PUT"));
-    assert!(cmd.contains("application/vnd.oci.image.manifest.v1+json"));
-    assert!(cmd.contains("/v2/myorg/app/manifests/v1.0"));
-    assert!(cmd.contains("@/tmp/manifest.json"));
-}
-
-// Bug-hunt #4 (Refs #154): each push curl must gate on HTTP status, not just
-// the process exit code. `--fail-with-body` makes curl exit non-zero on HTTP
-// >= 400 (401/404/413/5xx) so a failed push is no longer reported as success.
-// Hermetic: asserts the generated command string only — no registry is hit.
-#[test]
-fn blob_upload_command_fails_on_http_error() {
-    let cmd = upload_complete_command(
-        "https://docker.io/v2/library/alpine/blobs/uploads/uuid-123",
-        "sha256:abc",
-        "/tmp/layer.tar.gz",
-    );
-    assert!(
-        cmd.contains("--fail-with-body"),
-        "blob upload PUT must use --fail-with-body to surface HTTP errors: {cmd}"
-    );
-}
-
-#[test]
-fn manifest_put_command_fails_on_http_error() {
-    let cmd = manifest_put_command("ghcr.io", "myorg/app", "v1.0", "/tmp/manifest.json");
-    assert!(
-        cmd.contains("--fail-with-body"),
-        "manifest PUT must use --fail-with-body to surface HTTP errors: {cmd}"
-    );
-}
-
-// The HEAD existence check intentionally does NOT use --fail-with-body: it
-// reads the http_code itself (a 404 is a normal "blob absent" answer, not an
-// error). Guard against accidentally breaking it.
-#[test]
-fn head_check_command_does_not_fail_on_404() {
-    let cmd = head_check_command("ghcr.io", "myorg/app", "sha256:abc123");
-    assert!(!cmd.contains("--fail"));
-    assert!(cmd.contains("%{http_code}"));
-}
-
-// Bug-hunt #4 (Refs #154): assert the *actual* argv used by the push functions
-// (push_blob_monolithic / push_manifest) carries --fail-with-body, so a
-// regression in the real code path — not just the doc-string builder — is
-// caught. Hermetic: only the argv vector is inspected, no curl is run.
-#[test]
-fn monolithic_put_argv_uses_fail_with_body() {
-    let args = monolithic_put_args(
-        "https://docker.io/v2/library/alpine/blobs/uploads/uuid-123",
-        "sha256:abc",
-        "/tmp/layer.tar.gz",
-    );
-    assert!(args.iter().any(|a| a == "--fail-with-body"));
-    assert!(args.iter().any(|a| a == "PUT"));
-    assert!(args.iter().any(|a| a.contains("digest=sha256:abc")));
-    assert!(args.iter().any(|a| a == "@/tmp/layer.tar.gz"));
-}
-
-#[test]
-fn manifest_put_argv_uses_fail_with_body() {
-    let args = manifest_put_args(
-        r#"{"schemaVersion":2}"#,
-        "https://ghcr.io/v2/myorg/app/manifests/v1.0",
-    );
-    assert!(args.iter().any(|a| a == "--fail-with-body"));
-    assert!(args.iter().any(|a| a == "PUT"));
-    assert!(args
-        .iter()
-        .any(|a| a.contains("application/vnd.oci.image.manifest.v1+json")));
-    assert!(args.iter().any(|a| a.contains("/manifests/v1.0")));
-}
-
-#[test]
-fn parse_location_header_found() {
-    let headers = "HTTP/1.1 202 Accepted\r\n\
-                   Location: https://ghcr.io/v2/myorg/app/blobs/uploads/uuid-456\r\n\
-                   Content-Length: 0\r\n";
-    let loc = parse_location_header(headers);
-    assert_eq!(
-        loc.as_deref(),
-        Some("https://ghcr.io/v2/myorg/app/blobs/uploads/uuid-456")
-    );
-}
-
-#[test]
-fn parse_location_header_case_insensitive() {
-    let headers = "HTTP/1.1 202 Accepted\r\nlocation: https://example.com/upload\r\n";
-    let loc = parse_location_header(headers);
-    assert_eq!(loc.as_deref(), Some("https://example.com/upload"));
-}
-
-#[test]
-fn parse_location_header_missing() {
-    let headers = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n";
-    let loc = parse_location_header(headers);
-    assert!(loc.is_none());
 }
 
 #[test]
@@ -444,31 +320,4 @@ fn large_blob_uses_chunked() {
         kind: PushKind::Layer,
     };
     assert!(blob.size >= CHUNKED_UPLOAD_THRESHOLD);
-}
-
-/// GH-224: the preflight must actually PROBE for curl, not just return Ok.
-///
-/// On any host that has curl this must succeed. If it fails there, the probe
-/// itself is broken — wrong binary name, bad argument — which would make
-/// `forjar build --push` refuse to run everywhere, turning a helpful guard into
-/// an outage. That is the failure mode worth a test; the missing-curl branch
-/// cannot be exercised without mutating PATH process-wide, which would race
-/// every other test in this binary.
-#[test]
-fn require_curl_accepts_an_installed_curl() {
-    // Skip loudly rather than assert green where curl is genuinely absent — a
-    // test that passes because it tested nothing is the thing this repo keeps
-    // getting bitten by.
-    if std::process::Command::new("curl")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
-        eprintln!("SKIP require_curl_accepts_an_installed_curl: curl not installed on this host");
-        return;
-    }
-    assert!(
-        require_curl().is_ok(),
-        "curl is installed but the GH-224 preflight rejected it"
-    );
 }

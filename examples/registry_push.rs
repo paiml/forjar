@@ -1,10 +1,11 @@
 //! Example: OCI Distribution v1.1 registry push protocol.
 //!
-//! Demonstrates the push pipeline types and command generation.
+//! Demonstrates the push pipeline types and the URLs the protocol addresses.
 //! Run with: `cargo run --example registry_push`
 
 fn main() {
     use forjar::core::store::registry_push;
+    use forjar::core::store::registry_push_http::registry_url;
     use forjar::core::types::{PushKind, PushResult};
 
     println!("=== OCI Distribution v1.1 Push Protocol ===\n");
@@ -19,32 +20,20 @@ fn main() {
     let errors = registry_push::validate_push_config(&config);
     println!("Config validation: {} errors", errors.len());
 
-    // 2. Show protocol commands
-    println!("\nProtocol commands:");
+    // 2. Show the endpoints the protocol addresses. GH-228: these are ureq
+    //    requests made in-process; there is no curl command line to print.
+    println!("\nProtocol endpoints:");
     println!(
-        "  HEAD check: {}",
-        registry_push::head_check_command("ghcr.io", "myorg/myapp", "sha256:abc123")
+        "  HEAD blob:  {}",
+        registry_url("ghcr.io", "v2/myorg/myapp/blobs/sha256:abc123")
     );
     println!(
-        "  Initiate: {}",
-        registry_push::upload_initiate_command("ghcr.io", "myorg/myapp")
+        "  POST init:  {}",
+        registry_url("ghcr.io", "v2/myorg/myapp/blobs/uploads/")
     );
     println!(
-        "  Complete: {}",
-        registry_push::upload_complete_command(
-            "https://ghcr.io/v2/myorg/myapp/blobs/uploads/uuid-123",
-            "sha256:abc123",
-            "/tmp/layer.tar.gz",
-        )
-    );
-    println!(
-        "  Manifest: {}",
-        registry_push::manifest_put_command(
-            "ghcr.io",
-            "myorg/myapp",
-            "v1.0.0",
-            "/tmp/manifest.json",
-        )
+        "  PUT manifest: {}",
+        registry_url("ghcr.io", "v2/myorg/myapp/manifests/v1.0.0")
     );
 
     // 3. Format push summary

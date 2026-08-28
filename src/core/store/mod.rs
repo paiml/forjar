@@ -43,6 +43,7 @@ pub mod provider_exec;
 pub mod purity;
 pub mod query;
 pub mod reference;
+pub mod registry_http;
 pub mod registry_push;
 pub mod registry_push_chunked;
 pub mod registry_push_fmt;
@@ -155,6 +156,8 @@ mod tests_purity;
 mod tests_query_cov;
 #[cfg(test)]
 mod tests_reference;
+#[cfg(test)]
+mod tests_registry_http;
 #[cfg(test)]
 mod tests_registry_push;
 #[cfg(test)]

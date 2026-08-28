@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`forjar build --push` no longer shells out to `curl`** (Refs #228). Every
+  registry verb — HEAD, POST, PUT and the chunked PATCH — is now an in-process
+  `ureq` call through the new `core::store::registry_http` transport.
+
+  `curl` was an **undeclared runtime dependency**: nothing in `Cargo.toml` or
+  the docs said you needed it, and on a host without it the first HEAD died as
+  `No such file or directory (os error 2)`. 1.12.6 (#224) made that message
+  actionable; this removes the dependency it was reporting.
+
+  **ureq, not reqwest.** `src/core` contains zero `async fn` while the MCP path
+  runs a live tokio runtime, and `reqwest::blocking` panics when called from
+  inside an async context. The 1.12.6 note suggesting reqwest because the crate
+  "already compiles" it has been corrected in place.
+
+  **Operators with a private-CA registry, read this.** curl validated TLS
+  against the OS trust store. ureq's default is a bundled Mozilla root set, so
+  the agent is built with the `platform-verifier` feature and
+  `RootCerts::PlatformVerifier` to keep validating against the platform store.
+  A push to a registry fronted by a corporate or internal CA behaves as it did
+  on 1.20.1.
+
+  The two load-bearing gates were carried across as explicit checks on the
+  response rather than as curl flags, and are now pinned behaviourally against
+  a live loopback registry in
+  `tests/falsification_registry_push_needs_no_curl.rs`:
+
+  - **Refs #154** — a push is judged by the registry's status, not by whether
+    the request completed. The guard used to be `--fail-with-body`; it is now a
+    2xx gate plus the registry's own error body quoted into the message.
+  - **Refs #210** — only `202 Accepted` opens an upload session. ureq follows up
+    to 10 redirects by default, so the agent sets `max_redirects(0)`. Without
+    it, `docker.io`'s 301 to its marketing site is followed, the client sees a
+    2xx, and the blob is PUT at a web page — measured: with redirects left on,
+    that test reports a successful push against a decoy.
+
+  Two side effects worth knowing about:
+
+  - The four in-process-registry tests in `tests_registry_push_net.rs` were
+    permanently `#[ignore]`d because curl honors an ambient `HTTP(S)_PROXY` even
+    for `127.0.0.1`. The proxy is configured per agent now and disabled for
+    loopback, so all four run. One of them,
+    `chunked_push_succeeds_even_on_http_500_because_curl_silent`, asserted that
+    an HTTP 500 was a **successful** push — the exact inverse of #154. It had
+    been false since `--fail-with-body` landed; nothing ran it. It is now
+    `chunked_push_fails_on_http_500`.
+  - The chunked PATCH used `curl -r <range> --data-binary @file`. `-r` is a
+    download-side flag, so every chunk uploaded the **whole blob**. Each PATCH
+    now streams its own byte range and declares its own `Content-Length`.
+
+  The `head_check_command` / `upload_initiate_command` /
+  `upload_complete_command` / `manifest_put_command` doc-string builders are
+  gone: they returned curl command lines that describe nothing this code does
+  any more.
+
 ## [1.20.1] — 2026-08-26
 
 **The `.crates.toml` merge corrupted multi-line entries, and cargo rejects the
@@ -913,9 +969,11 @@ purification path production uses. If you add a resource type, add that test.
   happens to ship curl. A user running `cargo install forjar` on a minimal host
   would have hit the original error.
 
-  This makes the dependency legible; it does not remove it. The crate already
-  compiles `reqwest`, so doing the registry HEAD/PUT natively would drop the
-  shell-out entirely — tracked in #224.
+  This makes the dependency legible; it does not remove it. Removing it is
+  #228, done in Unreleased. (The suggestion recorded here — "the crate already
+  compiles `reqwest`" — was wrong: `reqwest` is async-first and
+  `reqwest::blocking` panics when called from inside an async context, which is
+  exactly what the MCP path is.)
 
 ## [1.12.5] - 2026-08-12
 

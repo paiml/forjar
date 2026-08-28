@@ -3,7 +3,7 @@
 //! Demonstrates:
 //! - HuggingFace config.json parsing and kernel contract derivation
 //! - Mutation operator applicability and script generation
-//! - OCI registry push config validation and command generation
+//! - OCI registry push config validation and endpoint construction
 //! - Contract YAML stub scaffolding for missing kernels
 //!
 //! Usage: cargo run --example hf_mutation_registry
@@ -11,9 +11,8 @@
 use forjar::core::store::contract_scaffold::scaffold_contracts;
 use forjar::core::store::hf_config::{parse_hf_config_str, required_kernels, KernelRequirement};
 use forjar::core::store::mutation_runner::{applicable_operators, mutation_script};
-use forjar::core::store::registry_push::{
-    head_check_command, validate_push_config, RegistryPushConfig,
-};
+use forjar::core::store::registry_push::{validate_push_config, RegistryPushConfig};
+use forjar::core::store::registry_push_http::registry_url;
 use forjar::core::types::MutationOperator;
 
 fn main() {
@@ -73,8 +72,8 @@ fn main() {
     println!("  Config valid: {}", errors.is_empty());
     assert!(errors.is_empty());
 
-    let cmd = head_check_command("ghcr.io", "myorg/myapp", "sha256:abc123");
-    println!("  HEAD check: {}", &cmd[..60]);
+    let url = registry_url("ghcr.io", "v2/myorg/myapp/blobs/sha256:abc123");
+    println!("  HEAD check: {url}");
 
     // ── FJ-1352: Contract Scaffold ──
     println!("\n[FJ-1352] Contract Scaffold:");

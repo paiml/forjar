@@ -114,6 +114,17 @@ toml = "1.1"
 # OpenSSL: system pkg-config by default, vendored for cross-compilation.
 # Clean-room CI has libssl-dev; nightly/release builds use vendored-openssl feature.
 openssl = "0.10"
+# GH-228: the OCI registry transport (HEAD/POST/PUT/PATCH against /v2/).
+# ureq, not reqwest: `src/core` contains zero `async fn`, while the MCP path runs
+# a live tokio runtime. `reqwest::blocking` panics when called from inside an
+# async context, so a blocking wrapper around an async client is a latent panic
+# on the one code path this crate actually has a runtime on. ureq is synchronous
+# and spins no runtime of its own.
+# `platform-verifier` is load-bearing, not decoration: curl validated TLS against
+# the OS trust store, and ureq's default `RootCerts::WebPki` is a bundled Mozilla
+# root set — without this feature a push to a registry fronted by a corporate or
+# private CA would start failing on a host where it worked before.
+ureq = { version = "3.4", features = ["platform-verifier"] }
 
 [build-dependencies]
 aprender-contracts = "0.31"

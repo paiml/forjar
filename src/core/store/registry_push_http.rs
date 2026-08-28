@@ -7,13 +7,8 @@
 //! registry is a failed push, not a skipped one. Everything here exists so a
 //! push is judged by the registry's own answer.
 
+use super::registry_http::{self, RequestBody};
 use super::registry_push::RegistryPushConfig;
-
-/// Connect timeout (seconds) for the short control-plane requests.
-///
-/// Only the CONNECT phase is bounded — never the transfer — so a slow upload
-/// is unaffected while an unroutable registry fails fast instead of hanging.
-pub(crate) const CONNECT_TIMEOUT_SECS: &str = "15";
 
 /// Scheme to address a registry with.
 ///
@@ -31,7 +26,7 @@ pub(crate) fn registry_scheme(registry: &str) -> &'static str {
 }
 
 /// Build a registry URL for `path` (no leading slash).
-pub(crate) fn registry_url(registry: &str, path: &str) -> String {
+pub fn registry_url(registry: &str, path: &str) -> String {
     format!("{}://{registry}/{path}", registry_scheme(registry))
 }
 
@@ -45,30 +40,6 @@ pub(crate) fn registry_url(registry: &str, path: &str) -> String {
 pub(crate) fn with_digest_query(upload_url: &str, digest: &str) -> String {
     let separator = if upload_url.contains('?') { '&' } else { '?' };
     format!("{upload_url}{separator}digest={digest}")
-}
-
-/// Parse the response status code out of a raw header dump (`curl -D -`).
-///
-/// Returns the last non-informational status line, so a `100 Continue`
-/// preamble does not mask the real answer.
-pub(crate) fn parse_status_code(headers: &str) -> Option<u16> {
-    let mut last = None;
-    for line in headers.lines() {
-        if !line.starts_with("HTTP/") {
-            continue;
-        }
-        let code = line
-            .split_whitespace()
-            .nth(1)
-            .and_then(|c| c.parse::<u16>().ok());
-        if let Some(code) = code {
-            if (100..200).contains(&code) && last.is_some() {
-                continue;
-            }
-            last = Some(code);
-        }
-    }
-    last
 }
 
 /// Resolve a `Location` header against the registry host.
@@ -122,39 +93,31 @@ pub fn verify_manifest_pushed(
         &config.registry,
         &format!("v2/{}/manifests/{}", config.name, config.tag),
     );
-    let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-D",
-            "-",
-            "-o",
-            "/dev/null",
-            "--connect-timeout",
-            CONNECT_TIMEOUT_SECS,
-            "--head",
-            "-H",
-            "Accept: application/vnd.oci.image.manifest.v1+json, \
-             application/vnd.docker.distribution.manifest.v2+json",
-            &url,
-        ])
-        .output()
-        .map_err(|e| format!("push verification (HEAD manifest): {e}"))?;
-
-    let headers = String::from_utf8_lossy(&output.stdout);
-    let code = parse_status_code(&headers).ok_or_else(|| {
+    let agent = registry_http::agent_for_url(&url);
+    let accept = "application/vnd.oci.image.manifest.v1+json, \
+                  application/vnd.docker.distribution.manifest.v2+json";
+    let response = registry_http::send(
+        &agent,
+        "HEAD",
+        &url,
+        &[("Accept", accept.to_string())],
+        RequestBody::Empty,
+    )
+    .map_err(|_| {
         format!(
             "push verification failed: no HTTP response from {url} \
              (the upload reported success but the tag cannot be read back)"
         )
     })?;
-    if code != 200 {
+
+    if response.status != 200 {
         return Err(format!(
             "push verification failed: {}",
-            describe_status(&format!("HEAD {url}"), code)
+            describe_status(&format!("HEAD {url}"), response.status)
         ));
     }
 
-    if let Some(served) = header_value(&headers, "docker-content-digest") {
+    if let Some(served) = response.docker_content_digest {
         if served != expected_digest {
             return Err(format!(
                 "push verification failed: {url} resolves to {served}, \
@@ -163,29 +126,4 @@ pub fn verify_manifest_pushed(
         }
     }
     Ok(())
-}
-
-/// Case-insensitive lookup of a single header value in a raw header dump.
-pub(crate) fn header_value(headers: &str, name: &str) -> Option<String> {
-    let want = format!("{}:", name.to_lowercase());
-    headers
-        .lines()
-        .find(|l| l.to_lowercase().starts_with(&want))
-        .map(|l| l[want.len()..].trim().to_string())
-}
-
-/// Compose curl failure detail. With `--fail-with-body` curl prints the HTTP
-/// response body to stdout on a >= 400 status; stderr carries transport-level
-/// diagnostics. Surface both so the registry error (401 token, 413, …) shows.
-pub(crate) fn curl_error_detail(output: &std::process::Output) -> String {
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let body = stdout.trim();
-    let err = stderr.trim();
-    match (body.is_empty(), err.is_empty()) {
-        (false, false) => format!("{err}: {body}"),
-        (false, true) => body.to_string(),
-        (true, false) => err.to_string(),
-        (true, true) => "no response body".to_string(),
-    }
 }

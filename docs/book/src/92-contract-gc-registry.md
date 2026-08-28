@@ -65,12 +65,28 @@ OCI Distribution Spec v1.1 compliant push operations:
 ```rust
 use forjar::core::store::registry_push::*;
 
-// Generate curl commands for OCI push protocol
-let head = head_check_command("ghcr.io", "org/app", "sha256:abc");
-let init = upload_initiate_command("ghcr.io", "org/app");
-let complete = upload_complete_command(url, "sha256:abc", "/tmp/blob");
-let manifest = manifest_put_command("ghcr.io", "org/app", "v1.0", "/tmp/manifest.json");
+// The push is made in-process (GH-228: no `curl` subprocess, so
+// `forjar build --push` has no undeclared runtime dependency).
+let config = RegistryPushConfig {
+    registry: "ghcr.io".into(),
+    name: "org/app".into(),
+    tag: "v1.0".into(),
+    check_existing: true,
+};
+let results = push_image(&oci_dir, &config)?;
 ```
+
+The endpoints it addresses are the OCI Distribution v1.1 ones:
+
+| Step | Request |
+|------|---------|
+| Blob exists? | `HEAD /v2/org/app/blobs/sha256:...` — only 200 and 404 are answers |
+| Open a session | `POST /v2/org/app/blobs/uploads/` — only **202** opens one (Refs #210) |
+| Upload | `PUT <session-url>?digest=sha256:...`, or chunked `PATCH` for blobs ≥ 64 MB |
+| Publish | `PUT /v2/org/app/manifests/v1.0` — to the TAG, not to `/blobs/` |
+| Verify | `HEAD /v2/org/app/manifests/v1.0` — the read-back that licenses "Push complete" |
+
+Every one of them is a failure unless the registry answers 2xx (Refs #154).
 
 ## Mutation Scripts
 
