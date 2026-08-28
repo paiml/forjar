@@ -252,7 +252,10 @@ fn declared_class(message: &str) -> Option<ErrorClass> {
 /// only to sites that declare nothing; every site migrated to [`ForjarError`]
 /// removes a caller of this function, and the last one deletes it.
 fn legacy_prose_class(message: &str) -> ErrorClass {
-    if message.contains("validation error") || message.contains("YAML parse error") {
+    if message.contains("validation error")
+        || message.contains("YAML parse error")
+        || message.contains("not a forjar config")
+    {
         ErrorClass::Validation
     } else if message.contains("SSH")
         || message.contains("connection")
