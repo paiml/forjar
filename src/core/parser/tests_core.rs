@@ -297,3 +297,51 @@ resources:
         errors.len()
     );
 }
+
+/// forjar#354: malformed YAML and a valid-YAML non-config must not report the
+/// same thing.
+///
+/// Both used to be `"YAML parse error: {e}"` with exit 3, so a caller could not
+/// use `forjar validate` as a YAML syntax checker without flagging every file
+/// in the repo that was never meant to be a forjar config.
+#[test]
+fn fj354_malformed_yaml_reports_a_parse_error() {
+    let err = super::parse_config("a: 1\n  b: [unclosed\n").expect_err("must not parse");
+    assert!(
+        err.starts_with("YAML parse error:"),
+        "a genuine syntax failure must say so: {err}"
+    );
+}
+
+#[test]
+fn fj354_valid_yaml_that_is_not_a_config_says_so() {
+    let err = super::parse_config("a: 1\nb: two\n").expect_err("must not parse as a config");
+    assert!(
+        err.starts_with("not a forjar config:"),
+        "this YAML parses fine; the failure is ours, not the document's: {err}"
+    );
+    assert!(
+        !err.contains("YAML parse error"),
+        "must not claim a parse error for YAML that parsed: {err}"
+    );
+}
+
+/// The discriminator cannot be `location()`: serde attaches one to a schema
+/// error too. This pins that, so a future "simplification" back to `location()`
+/// fails here rather than silently re-merging the two classes.
+#[test]
+fn fj354_a_schema_error_also_carries_a_location() {
+    let e = serde_yaml_ng::from_str::<super::ForjarConfig>("a: 1\nb: two\n")
+        .expect_err("missing required fields");
+    assert!(
+        e.location().is_some(),
+        "if this ever becomes None, location() would work as a discriminator \
+         and this test should be revisited"
+    );
+}
+
+#[test]
+fn fj354_a_partial_config_is_a_schema_failure_not_a_syntax_one() {
+    let err = super::parse_config("version: \"1.0\"\n").expect_err("no name, no resources");
+    assert!(err.starts_with("not a forjar config:"), "{err}");
+}

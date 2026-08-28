@@ -100,6 +100,35 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 
 /// Parse a forjar.yaml from a string.
 ///
+/// # Two failures, deliberately distinguishable (forjar#354)
+///
+/// `serde_yaml_ng` reports both of these through the same error type, and this
+/// function used to flatten both into `"YAML parse error: {e}"`:
+///
+///   * the document is not valid YAML — a SYNTAX failure;
+///   * the document is valid YAML but not a forjar config (`missing field
+///     `version``) — a SCHEMA failure.
+///
+/// So `forjar validate` said `error: YAML parse error: missing field
+/// `version`` for a file whose YAML parsed perfectly, and exited 3 for both.
+///
+/// That matters to any caller wanting to use forjar as a YAML syntax checker,
+/// which paiml/infra does: it is removing `uvx yamllint` from CI, and the
+/// sovereign answer to "a guard needs to parse YAML" is that forjar already
+/// does. With both failures collapsed, a fleet-wide lint would have flagged all
+/// 1095 of that repo's YAML files, 1090 of which are workflows and contracts
+/// that were never meant to be forjar configs.
+///
+/// The discriminator is a SECOND PARSE, not the error itself. `location()` was
+/// the obvious candidate and it is wrong: `serde_yaml_ng` attaches a location to
+/// a `missing field` error too, so it cannot separate the two.
+///
+/// What does separate them is asking the question directly — deserialise into
+/// `serde_yaml_ng::Value`, which imposes no schema. If THAT succeeds, the
+/// document is well-formed YAML and the failure was ours; if it fails, the
+/// document is genuinely malformed. Two parses of a config file is a cost worth
+/// paying on an error path that already ends the process.
+///
 /// # Examples
 ///
 /// ```
@@ -118,7 +147,13 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 /// assert!(config.resources.contains_key("pkg-curl"));
 /// ```
 pub fn parse_config(yaml: &str) -> Result<ForjarConfig, String> {
-    serde_yaml_ng::from_str(yaml).map_err(|e| format!("YAML parse error: {e}"))
+    serde_yaml_ng::from_str(yaml).map_err(|e| {
+        if serde_yaml_ng::from_str::<serde_yaml_ng::Value>(yaml).is_ok() {
+            format!("not a forjar config: {e}")
+        } else {
+            format!("YAML parse error: {e}")
+        }
+    })
 }
 
 /// Validate a parsed config. Returns a list of errors (empty = valid).
