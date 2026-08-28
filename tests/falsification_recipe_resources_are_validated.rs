@@ -168,3 +168,61 @@ fn a_clean_recipe_still_validates() {
         "a valid recipe must still load after the post-expansion pass; output:\n{msg}"
     );
 }
+
+/// A numeric uid/gid is a valid owner, and `forjar validate` must accept it.
+///
+/// Not a hypothetical: `examples/dogfood-renacer.yaml` and
+/// `dogfood-sovereign-stack.yaml` set `owner: 472` on Grafana's data directory,
+/// because Grafana runs as uid 472 and the account has no passwd entry on the
+/// host — the normal case for a directory bind-mounted into a container.
+/// `chown 472 /path` is exactly what `src/resources/file.rs` emits for it.
+///
+/// `is_valid_unix_name` required `^[a-z_][a-z0-9_-]*$`, so the only correct way
+/// to write that ownership was a validation error. Nobody noticed for the same
+/// reason #357 exists: those resources come from a recipe, and recipes were
+/// never validated. Fixing the bypass surfaced the over-strict rule underneath
+/// it, so the two are pinned together here.
+#[test]
+fn a_numeric_uid_is_a_valid_owner() {
+    let sb = Sandbox::new("numeric-owner");
+    sb.write(
+        "forjar.yaml",
+        "version: \"1.0\"\nname: numeric-owner\nmachines:\n  sandbox:\n    \
+         hostname: sandbox\n    addr: 127.0.0.1\nresources:\n  \
+         viarecipe:\n    type: recipe\n    recipe: probe\n    machine: sandbox\n",
+    );
+    sb.write(
+        "recipes/probe.yaml",
+        "recipe:\n  name: probe\n  version: \"1.0\"\nresources:\n  \
+         grafana-data:\n    type: file\n    machine: sandbox\n    \
+         path: /var/lib/grafana\n    content: \"\"\n    \
+         owner: \"472\"\n    group: \"472\"\n",
+    );
+    let (ok, msg) = sb.validate();
+    assert!(
+        ok,
+        "a numeric uid/gid is what `chown` takes and what forjar emits; \
+         rejecting it makes a correct config unwritable. output:\n{msg}"
+    );
+}
+
+/// The relaxation is bounded: a name that is neither a Unix name nor a bare
+/// number is still refused, so this did not become "accept anything".
+#[test]
+fn a_malformed_owner_is_still_refused() {
+    let sb = Sandbox::new("bad-owner");
+    sb.write(
+        "forjar.yaml",
+        "version: \"1.0\"\nname: bad-owner\nmachines:\n  sandbox:\n    \
+         hostname: sandbox\n    addr: 127.0.0.1\nresources:\n  \
+         a-file:\n    type: file\n    machine: sandbox\n    \
+         path: /tmp/forjar-357-badowner.txt\n    content: hello\n    \
+         owner: \"4x7;rm -rf /\"\n",
+    );
+    let (ok, msg) = sb.validate();
+    assert!(
+        !ok && msg.contains("invalid owner"),
+        "a non-name, non-numeric owner must still be a validation error; \
+         got ok={ok}, output:\n{msg}"
+    );
+}

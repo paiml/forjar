@@ -86,7 +86,20 @@ fn validate_path_absolute(id: &str, resource: &Resource, errors: &mut Vec<Valida
     }
 }
 
-/// Owner and group must be valid Unix names: ^[a-z_][a-z0-9_-]*$
+/// Owner and group must be a Unix name (`^[a-z_][a-z0-9_-]*$`) or a bare
+/// numeric id.
+///
+/// The numeric form is not a loophole, it is the correct thing to write when
+/// the account does not exist in the host's passwd database — which is the
+/// normal case for a directory bind-mounted into a container. Grafana runs as
+/// uid 472, so `owner: 472` on its data directory is what makes the mount
+/// usable, and `chown 472 /path` is exactly what forjar already emits for it
+/// (src/resources/file.rs:59). Rejecting it made a correct config unwritable.
+///
+/// This was invisible until #357: `examples/dogfood-renacer.yaml` and
+/// `dogfood-sovereign-stack.yaml` have carried `owner: 472` since they were
+/// written, and both passed `forjar validate` because the resources come from a
+/// recipe and recipes were never validated.
 fn validate_owner_group(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if let Some(ref owner) = resource.owner {
         if !owner.contains("{{") && !is_valid_unix_name(owner) {
@@ -112,6 +125,11 @@ fn validate_owner_group(id: &str, resource: &Resource, errors: &mut Vec<Validati
 pub(crate) fn is_valid_unix_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 32 {
         return false;
+    }
+    // A bare numeric id. `chown 472 /path` is valid and is the only way to
+    // express an owner with no passwd entry on the target host.
+    if name.bytes().all(|b| b.is_ascii_digit()) {
+        return true;
     }
     let first = name.as_bytes()[0];
     if !(first.is_ascii_lowercase() || first == b'_') {
