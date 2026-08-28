@@ -253,6 +253,24 @@ jobs:
     if: needs.verify.outputs.has_binaries == 'true'
     runs-on: [self-hosted, clean-room]
     steps:
+      # THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL.
+      #
+      # `download-artifact` writes into /tmp/release-assets and does NOT clear
+      # it first. On a GitHub-hosted runner /tmp is fresh every job so that is
+      # free; these runners are self-hosted and /tmp persists. The steps below
+      # then glob `*.tar.gz` — so whatever the PREVIOUS release left behind is
+      # swept into this one's checksums and uploaded to this one's tag.
+      #
+      # Measured on v1.18.0: four `forjar-1.17.0-*.tar.gz` assets attached to
+      # the v1.18.0 release, and SHA256SUMS carrying 10 lines instead of 6 —
+      # four of them for a version this release is not.
+      #
+      # Same family as the fleet's standing rule that a self-hosted workspace IS
+      # a cache: any fixed path on these runners holds the last job's output
+      # until something removes it.
+      - name: Clear the staging directory
+        run: rm -rf /tmp/release-assets && mkdir -p /tmp/release-assets
+
       - name: Download all binary artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
@@ -260,10 +278,37 @@ jobs:
           merge-multiple: true
           path: /tmp/release-assets
 
-      - name: Generate SHA256SUMS
+      - name: Refuse to publish anything that is not this release
         working-directory: /tmp/release-assets
         run: |
+          set -euo pipefail
+          ver="${RELEASE_TAG#v}"
+          stray=0
+          for f in *.tar.gz; do
+            case "$f" in
+              forjar-"$ver"-*) ;;
+              *) echo "::error::staging holds $f, which is not $RELEASE_TAG"; stray=1 ;;
+            esac
+          done
+          # A CLEAN DIRECTORY IS NOT PROOF THE CLEAR WORKED — an empty staging
+          # dir would also pass a "no strays" test while publishing nothing. So
+          # assert the denominator too.
+          n=$(ls -1 *.tar.gz 2>/dev/null | wc -l)
+          echo "staging holds $n archive(s) for $RELEASE_TAG"
+          [ "$n" -gt 0 ] || { echo "::error::no archives staged — nothing to publish"; exit 1; }
+          [ "$stray" -eq 0 ] || exit 1
+
+      - name: Generate SHA256SUMS and per-asset sidecars
+        working-directory: /tmp/release-assets
+        run: |
+          set -euo pipefail
           sha256sum *.tar.gz > SHA256SUMS
+          # Per-asset `.sha256` as well, because binary-release.yml produces
+          # them and install.sh falls back to them when SHA256SUMS is missing.
+          # Two producers writing to one release with different conventions is
+          # how v1.18.0 ended up with sidecars for its Linux assets and none for
+          # its macOS ones.
+          for f in *.tar.gz; do sha256sum "$f" > "$f.sha256"; done
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS
 
@@ -273,7 +318,7 @@ jobs:
         working-directory: /tmp/release-assets
         run: |
           gh release upload "$RELEASE_TAG" \
-            *.tar.gz SHA256SUMS \
+            *.tar.gz *.tar.gz.sha256 SHA256SUMS \
             --repo "${{ github.repository }}" \
             --clobber
 
