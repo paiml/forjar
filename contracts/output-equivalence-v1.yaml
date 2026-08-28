@@ -43,7 +43,7 @@ proof_obligations:
     property: "A missing artifact remains staleness under every predicate"
     formal: "∀ predicate p: hash(present, p) ≠ hash(absent, p)"
     applies_to: all
-    enforced_by: "src/core/task/io_tracking.rs::hash_outputs_with"
+    enforced_by: "src/core/task/output_hash.rs::hash_outputs_with"
     notes: |
       `none` and `external` say "do not key on my CONTENT" — not "stop tracking
       me". A predicate that swallowed a missing output would turn an escape
@@ -53,7 +53,7 @@ proof_obligations:
     property: "The declaration itself is part of the hash"
     formal: "declaration(a) ≠ declaration'(a) ⟹ hash(a) ≠ hash'(a)"
     applies_to: all
-    enforced_by: "src/core/task/io_tracking.rs::hash_outputs_with"
+    enforced_by: "src/core/task/output_hash.rs::hash_outputs_with"
     notes: |
       Flipping an artifact from `external` back to `bytes` must not look
       identical to never having declared it, or the artifact stays keyed by the
@@ -63,7 +63,7 @@ proof_obligations:
     property: "A failed normaliser is an error, never a silent fallback to bytes"
     formal: "exit(cmd) ≠ 0 ⟹ Err"
     applies_to: "equivalence = Command"
-    enforced_by: "src/core/task/io_tracking.rs::normalised_hash"
+    enforced_by: "src/core/task/output_hash.rs::normalised_hash"
     notes: |
       Falling back to byte-comparison would reintroduce exactly the spurious
       staleness the author declared the normaliser to avoid, and silently.

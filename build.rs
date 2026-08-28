@@ -60,6 +60,87 @@ fn emit_contract_assertions() {
     eprintln!("forjar build.rs: emitted {count} contract env vars");
 }
 
+/// One entry of `contracts/binding.yaml`: the claim that some Rust item
+/// implements a named equation of a named contract.
+#[derive(serde::Deserialize)]
+struct BindingYaml {
+    contract: String,
+    equation: String,
+}
+
+#[derive(serde::Deserialize)]
+struct BindingRegistryYaml {
+    #[serde(default)]
+    bindings: Vec<BindingYaml>,
+}
+
+/// GH-298: make "N/N bindings bound" mean RESOLVED, not DECLARED.
+///
+/// `provable_contracts::build_helper::verify_bindings` reads `status:` out of
+/// binding.yaml and nothing else. It never opens a contract file, so a binding
+/// could name a contract that does not exist or an equation that contract does
+/// not define and still be counted. One did: an `apply-receipt-v1.yaml` entry
+/// claimed to implement `receipt_deletion`, an equation that contract has never
+/// declared, and the build printed "43/43 bindings bound" for months.
+///
+/// This resolves the other half of every binding. It is duplicated as a
+/// `#[test]` in tests/falsification_contract_citations_resolve.rs, deliberately:
+/// a build result is cacheable and a test result is not.
+/// The reason this binding does not resolve, or `None` if it does.
+fn unresolved_binding(dir: &std::path::Path, b: &BindingYaml) -> Option<String> {
+    let Ok(body) = std::fs::read_to_string(dir.join(&b.contract)) else {
+        return Some(format!(
+            "binding for `{}` names {}, which does not exist",
+            b.equation, b.contract
+        ));
+    };
+    let contract: ContractYaml = serde_yaml_ng::from_str(&body).expect("parse contract yaml");
+    if contract.equations.contains_key(&b.equation) {
+        return None;
+    }
+    Some(format!(
+        "{} does not define equation `{}`, but a binding claims to implement it",
+        b.contract, b.equation
+    ))
+}
+
+/// GH-298: make "N/N bindings bound" mean RESOLVED, not DECLARED.
+///
+/// `provable_contracts::build_helper::verify_bindings` reads `status:` out of
+/// binding.yaml and nothing else. It never opens a contract file, so a binding
+/// could name a contract that does not exist or an equation that contract does
+/// not define and still be counted. One did: an `apply-receipt-v1.yaml` entry
+/// claimed to implement `receipt_deletion`, an equation that contract has never
+/// declared, and the build printed "43/43 bindings bound" for months.
+///
+/// This resolves the other half of every binding. It is duplicated as a
+/// `#[test]` in tests/falsification_contract_citations_resolve.rs, deliberately:
+/// a build result is cacheable and a test result is not.
+fn verify_binding_equations(binding_path: &std::path::Path) {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let text = std::fs::read_to_string(binding_path).expect("read binding.yaml");
+    let registry: BindingRegistryYaml = serde_yaml_ng::from_str(&text).expect("parse binding.yaml");
+    assert!(
+        !registry.bindings.is_empty(),
+        "contracts/binding.yaml declares no bindings — an empty registry is a \
+         finding, not a pass"
+    );
+    let unresolved: Vec<String> = registry
+        .bindings
+        .iter()
+        .filter_map(|b| unresolved_binding(&dir, b))
+        .collect();
+    assert!(
+        unresolved.is_empty(),
+        "bindings counted as bound without being resolved:\n  {}",
+        unresolved.join("\n  ")
+    );
+    eprintln!(
+        "forjar build.rs: {} binding(s) resolved to a declared equation",
+        registry.bindings.len()
+    );
+}
+
 fn main() {
     emit_contract_assertions();
 
@@ -69,5 +150,6 @@ fn main() {
             binding_path,
             provable_contracts::build_helper::BindingPolicy::AllImplemented,
         );
+        verify_binding_equations(std::path::Path::new(binding_path));
     }
 }

@@ -1381,13 +1381,6 @@
       "health": 95,
       "status": "acceptable"
     },
-    "src/transport/tests_container_c.rs": {
-      "lines": 328,
-      "test_lines": 110,
-      "tlr": 0.33536586,
-      "health": 74,
-      "status": "acceptable"
-    },
     "src/resources/docker.rs": {
       "lines": 88,
       "test_lines": 0,

@@ -82,7 +82,7 @@ proof_obligations:
     property: "Desired-state hash is deterministic"
     formal: "∀ r: hash_desired_state(r) = hash_desired_state(r)"
     applies_to: all
-    enforced_by: "src/core/planner/mod.rs::hash_desired_state debug_assert_eq! (FJ-2200)"
+    enforced_by: "src/core/planner/hashing.rs::hash_desired_state debug_assert_eq! (FJ-2200)"
 
   - type: invariant
     property: "Plan counters partition the change set"

@@ -465,6 +465,8 @@ mod tests_proof_cov;
 #[cfg(test)]
 mod tests_reversibility;
 #[cfg(test)]
+mod tests_sat_deps_b;
+#[cfg(test)]
 mod tests_when;
 #[cfg(test)]
 mod tests_why;

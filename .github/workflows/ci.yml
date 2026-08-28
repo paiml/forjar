@@ -50,6 +50,13 @@ jobs:
   # `forjar validate`. The sovereign-ci `test` job only runs `cargo test --lib`,
   # so this integration test (tests/examples_validate.rs) needs an explicit step.
   # Deterministic and offline — validate never opens a network/SSH connection.
+  #
+  # THAT `--lib` IS THE POINT OF THIS JOB, and it generalises: NOTHING in this
+  # repo's CI runs `tests/*.rs` except the targets named here by hand. A
+  # falsification test under tests/ that is not in this list is written, is
+  # green on a developer's machine, and is never executed by CI again — which
+  # is the same "guard nobody runs" shape as #242 and #298. Add new structural
+  # guards to this list, or accept that they are documentation.
   examples-validate:
     name: examples-validate
     runs-on: ubuntu-latest
@@ -58,6 +65,23 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Validate all standalone example configs
         run: cargo test --locked --test examples_validate
+      # #292: a .rs file under src/ that no `mod`, `#[path]` or `include!`
+      # names is compiled by nothing — not linted, not type-checked, and its
+      # tests do not run. Three were in that state, one of which did not parse
+      # as Rust at all. Cheap: a directory walk, no build of the crate needed.
+      - name: No source file may be orphaned or duplicated
+        run: cargo test --locked --test falsification_no_orphaned_source_files
+      # #298: every citation in contracts/ must resolve to the exact item it
+      # names, in the file it names, and every binding must name an equation
+      # its contract defines. This replaces the Python resolver that used to
+      # live in proofs.yml, whose regex read 77 of 211 citations and reported
+      # "every resolvable falsifier citation resolves" over seven dangling
+      # ones. One resolver, in one dialect, in a place that runs it.
+      - name: Every contract citation must resolve
+        run: cargo test --locked --test falsification_contract_citations_resolve
+      # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
+      - name: The binary advertises no undeclared transport
+        run: cargo test --locked --test e2e_transport_absence_t
 
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".
