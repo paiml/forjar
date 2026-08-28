@@ -33,11 +33,34 @@
 /// Proved over every short path built from an alphabet containing the separator,
 /// so the boundary between "next byte is `/`" and "next byte is anything else"
 /// is exercised exhaustively rather than sampled.
+///
+/// STATED OVER NORMALISED PATHS, and that is the whole content of this
+/// harness's history. It first said, of the RAW arguments,
+///
+///     assert!(inner.len() > outer.len());
+///     assert_eq!(inner.as_bytes()[outer.len()], b'/');
+///
+/// and `cargo kani` refused it: `1 of 557 failed — assertion failed:
+/// inner.len() > outer.len()`. The refusal was correct and the function was
+/// not at fault. `contains_path` decides on `norm_path(..)` of each argument,
+/// so arithmetic on the raw lengths describes a different pair of strings than
+/// the one the decision was made about. `outer = "///"` normalises to the root
+/// and is 3 bytes long while meaning 1; every one of the eight `inner` values
+/// that is not `outer` itself falsifies the raw form.
+///
+/// The root is also why the boundary index is not simply `o.len()`: `/` is the
+/// one path that already ENDS in its own separator, so what follows it starts
+/// at index 0, not at index 1. `boundary` below is that distinction and
+/// nothing else. Enumerated over a wider space than Kani's (alphabet `/abc`,
+/// paths to length 4, 85 paths, 7225 ordered pairs): 0 counterexamples to the
+/// form below, and 207 to the same form if `contains_path` is mutated into the
+/// raw string-prefix test this proof exists to exclude — so restating it did
+/// not cost the property its teeth.
 #[cfg(kani)]
 #[kani::proof]
 #[kani::unwind(8)]
 fn proof_archive_containment_is_component_wise() {
-    use super::types::contains_path;
+    use super::types::{contains_path, norm_path};
 
     // Deliberately includes the separator and two bytes that make a shared
     // prefix without a component boundary (`a` then `b` gives /a vs /ab).
@@ -57,11 +80,18 @@ fn proof_archive_containment_is_component_wise() {
     // `dest == path` a rejection rather than a no-op move.
     assert!(contains_path(outer, outer));
 
-    if contains_path(outer, inner) && outer != inner {
+    // Compare the paths `contains_path` actually decided about, not the bytes
+    // they were written with: `/a/` and `/a` are one path, and "strictly
+    // inside" has to mean strictly inside AFTER normalisation.
+    let (o, i) = (norm_path(outer), norm_path(inner));
+    if contains_path(outer, inner) && o != i {
         // Strict containment implies a component boundary: `inner` continues
-        // `outer` with a separator, never mid-component.
-        assert!(inner.len() > outer.len());
-        assert_eq!(inner.as_bytes()[outer.len()], b'/');
+        // `outer` with a separator, never mid-component. The root already ends
+        // in its separator, so its boundary is at index 0.
+        let boundary = if o == "/" { 0 } else { o.len() };
+        assert!(i.starts_with(o));
+        assert!(i.len() > boundary + 1);
+        assert_eq!(i.as_bytes()[boundary], b'/');
     }
 }
 
