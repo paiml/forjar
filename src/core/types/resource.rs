@@ -384,7 +384,8 @@ pub struct Resource {
     /// Lifecycle protection rules.
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
-    /// Run apply with sudo.
+    /// Run this resource's generated scripts — apply, check and state query
+    /// — with sudo.
     #[serde(default)]
     pub sudo: bool,
     /// Enable content-addressed store.

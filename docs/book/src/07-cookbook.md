@@ -1805,7 +1805,7 @@ Layers: base packages, model cache directory, agent config, MCP tools config, he
 
 ### Per-Resource Sudo Elevation
 
-Use the `sudo: true` field on any resource to run its apply script with elevated privileges:
+Use the `sudo: true` field on any resource to run its generated scripts — apply, check and state query — with elevated privileges:
 
 ```yaml
 resources:
@@ -1831,9 +1831,14 @@ resources:
     # No sudo needed — user-writable path
 ```
 
-When `sudo: true`, forjar wraps the generated script:
-- If already root (`id -u == 0`): runs script as-is
-- If non-root: wraps with `sudo bash -c '...'`
+When `sudo: true`, forjar wraps each of the three generated scripts:
+- If already root (`id -u == 0`): runs the script as-is
+- If non-root: pipes it to `sudo bash` through a heredoc
+
+The check and the state query are elevated too, not just the apply. A check
+that runs as the invoking user cannot traverse a root-only directory, so a
+file forjar wrote correctly under `/etc/audit/` reported `missing:file`
+forever (#349).
 
 ### SBOM Generation
 
