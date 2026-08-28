@@ -163,6 +163,114 @@ mod tests {
         assert!(collect_events(d.path(), None, 10).unwrap().is_empty());
     }
 
+    // ── the tie-break ───────────────────────────────────────────────
+    //
+    // `eventlog::now_iso8601` writes SECOND granularity. Two machines applying
+    // the same config in the same second is not a corner case, it is what a
+    // fleet apply looks like — so timestamp ties are the COMMON case, and
+    // without a tie-break the order of a tied group is `read_dir` order, which
+    // the OS defines as nothing at all.
+    //
+    // Both tests below construct the tie. Both fail with
+    // `.then_with(|| a.0.cmp(&b.0))` deleted from `collect_events`.
+
+    /// Twelve machines, one event each, ALL at the same second, created in
+    /// reverse name order. Without the tie-break the answer is whatever order
+    /// the directory hands back; with it, the answer is the machine names in
+    /// order, every time.
+    #[test]
+    fn a_timestamp_tie_is_broken_by_machine_name_not_by_read_dir() {
+        let d = tempfile::tempdir().unwrap();
+        let names: Vec<String> = (0..12).map(|i| format!("m{i:02}")).collect();
+        for n in names.iter().rev() {
+            write_log(
+                d.path(),
+                n,
+                &format!("{}\n", ev("2026-08-01T10:00:00Z", "r")),
+            );
+        }
+
+        let got: Vec<String> = collect_events(d.path(), None, 100)
+            .unwrap()
+            .into_iter()
+            .map(|(m, _)| m)
+            .collect();
+
+        assert_eq!(
+            got, names,
+            "twelve events share one timestamp and came back in `read_dir` \
+             order. That order is the filesystem's — on ext4 a hash of the \
+             name, on tmpfs creation order — so the same trail, read on two \
+             hosts of the same fleet or after the state dir is copied, is a \
+             different document. `forjar audit` is the record consulted when \
+             someone is asking what happened."
+        );
+    }
+
+    /// The sharper consequence: with a `limit` narrower than the tied group,
+    /// the tie-break decides not merely the ORDER of the answer but WHICH
+    /// events are in it. Without it, `forjar audit -n 4` over a fleet that
+    /// applied in one second returns an arbitrary four of the twelve, and a
+    /// second call can return four different ones.
+    #[test]
+    fn a_limited_window_over_a_tie_is_the_same_window_every_call() {
+        let d = tempfile::tempdir().unwrap();
+        let names: Vec<String> = (0..12).map(|i| format!("m{i:02}")).collect();
+        for n in names.iter().rev() {
+            write_log(
+                d.path(),
+                n,
+                &format!("{}\n", ev("2026-08-01T10:00:00Z", "r")),
+            );
+        }
+
+        let window: Vec<String> = collect_events(d.path(), None, 4)
+            .unwrap()
+            .into_iter()
+            .map(|(m, _)| m)
+            .collect();
+
+        assert_eq!(
+            window,
+            names[..4].to_vec(),
+            "the four events returned are not a defined four — which four you \
+             get depends on the order the filesystem lists the state dir"
+        );
+    }
+
+    /// Vacuity guard for the two tests above: they would both pass over an
+    /// empty read. The tie really is a tie — twelve events, one timestamp.
+    #[test]
+    fn the_tie_fixture_really_ties() {
+        let d = tempfile::tempdir().unwrap();
+        for i in 0..12 {
+            write_log(
+                d.path(),
+                &format!("m{i:02}"),
+                &format!("{}\n", ev("2026-08-01T10:00:00Z", "r")),
+            );
+        }
+        let got = collect_events(d.path(), None, 100).unwrap();
+        assert_eq!(got.len(), 12);
+        assert!(
+            got.iter().all(|(_, e)| e.ts == "2026-08-01T10:00:00Z"),
+            "the fixture does not tie, so the tie-break is never reached"
+        );
+    }
+
+    /// The reason the tie is the common case rather than a curiosity: the
+    /// writer stamps SECONDS. If this ever grows sub-second precision the tests
+    /// above stop being about the common case — they still hold, but the
+    /// motivation in this comment block would need rewriting.
+    #[test]
+    fn the_writer_stamps_whole_seconds() {
+        let ts = crate::tripwire::eventlog::now_iso8601();
+        assert!(
+            ts.ends_with('Z') && !ts.contains('.'),
+            "`now_iso8601` gained sub-second precision: {ts}"
+        );
+    }
+
     #[test]
     fn the_limit_keeps_the_newest() {
         let d = tempfile::tempdir().unwrap();
