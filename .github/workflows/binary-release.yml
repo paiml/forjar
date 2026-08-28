@@ -246,12 +246,40 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${{ needs.ensure-release.outputs.tag }}"
           mkdir assets && cd assets
           gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.tar.gz'
+          # #324/#325: this job regenerates SHA256SUMS from whatever is CURRENTLY
+          # attached to the release, so anything stray that reached the object
+          # gets laundered into the authoritative checksum file. That is how
+          # v1.18.0 ended up with a 10-line SHA256SUMS, four lines of it for
+          # 1.17.0. #324 added this guard to release.yml, the other producer,
+          # and left this one open. Do not delete it as redundant: the two
+          # workflows are not ordered against each other, and either can run
+          # alone via workflow_dispatch.
+          ver="${TAG#v}"
+          stray=0
+          for f in *.tar.gz; do
+            case "$f" in
+              forjar-"$ver"-*) ;;
+              *) echo "::error::$TAG carries $f, which is not this release"; stray=1 ;;
+            esac
+          done
+          # A CLEAN DIRECTORY IS NOT PROOF. An empty download would also pass a
+          # "no strays" test while publishing a SHA256SUMS that describes
+          # nothing, so assert the denominator too.
+          n=$(ls -1 *.tar.gz 2>/dev/null | wc -l)
+          echo "$TAG holds $n archive(s)"
+          [ "$n" -gt 0 ] || { echo "::error::no archives downloaded — nothing to checksum"; exit 1; }
+          [ "$stray" -eq 0 ] || exit 1
           sha256sum -- *.tar.gz > SHA256SUMS
+          # Sidecars too. This job used to refresh only SHA256SUMS, so a tarball
+          # that release.yml later --clobber'd kept an earlier, now-invalid
+          # `.sha256` naming bytes that no longer existed.
+          for f in *.tar.gz; do sha256sum -- "$f" > "$f.sha256"; done
           cat SHA256SUMS
-          gh release upload "$TAG" SHA256SUMS --clobber --repo "${{ github.repository }}"
+          gh release upload "$TAG" SHA256SUMS ./*.tar.gz.sha256 --clobber --repo "${{ github.repository }}"
 
   summary:
     name: Summary
