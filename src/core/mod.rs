@@ -18,6 +18,7 @@ pub mod metric_source;
 pub mod migrate;
 pub mod observe;
 pub mod parser;
+pub mod plan_seal;
 pub mod planner;
 pub mod plugin_dispatch;
 pub mod plugin_hot_reload;
