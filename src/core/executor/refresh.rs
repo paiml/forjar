@@ -40,7 +40,7 @@ use std::collections::{HashMap, HashSet};
 /// for a host round-trip on all 100 resources. A phony resource names an action
 /// with no artifact (FJ-2725), so it has nothing to observe and must never be
 /// forced every run.
-fn refresh_in_scope(cfg: &ApplyConfig, id: &str, resource: &Resource) -> bool {
+pub(super) fn refresh_in_scope(cfg: &ApplyConfig, id: &str, resource: &Resource) -> bool {
     if cfg.resource_filter.is_some_and(|f| id != f) {
         return false;
     }
@@ -96,11 +96,34 @@ pub(crate) fn refresh_locks(
         .map(|(id, _)| id.clone())
         .collect();
 
-    let mut result = HashMap::with_capacity(locks.len());
-    for (machine, lock) in locks {
-        let mut new_lock = lock.clone();
+    // Iterate the CONFIG's machines, not just the machines that already have a
+    // lock. A machine with NO lock file is the whole point of this fix: it is
+    // every CI checkout and every reimaged box, and `for (machine, lock) in
+    // locks` visited none of them, so seeding could never happen where it was
+    // most needed.
+    let mut result = HashMap::with_capacity(cfg.config.machines.len().max(locks.len()));
+    let names: HashSet<&String> = cfg.config.machines.keys().chain(locks.keys()).collect();
+    for machine in names {
+        let mut new_lock = match locks.get(machine) {
+            Some(lock) => lock.clone(),
+            None => empty_lock(machine),
+        };
         new_lock.resources.retain(|rid, _| !stale.contains(rid));
+        super::refresh_seed::seed_converged(cfg, machine, &mut new_lock);
         result.insert(machine.clone(), new_lock);
     }
     result
+}
+
+/// A lock with no entries, for a machine that has never been applied.
+fn empty_lock(machine: &str) -> StateLock {
+    StateLock {
+        schema: "1".to_string(),
+        machine: machine.to_string(),
+        hostname: machine.to_string(),
+        generated_at: crate::tripwire::eventlog::now_iso8601(),
+        generator: format!("forjar-refresh {}", env!("CARGO_PKG_VERSION")),
+        blake3_version: "1.5".to_string(),
+        resources: indexmap::IndexMap::new(),
+    }
 }

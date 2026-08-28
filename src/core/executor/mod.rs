@@ -8,6 +8,7 @@ mod machine;
 mod machine_wave;
 pub mod output_verify;
 mod refresh;
+mod refresh_seed;
 mod resource_ops;
 pub mod run_capture;
 mod strategies;
