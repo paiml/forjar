@@ -19,6 +19,8 @@ mod tests_dispatch;
 #[cfg(test)]
 mod tests_dispatch_b;
 #[cfg(test)]
+mod tests_generated_scripts_lint;
+#[cfg(test)]
 mod tests_i8_diagnosis;
 #[cfg(test)]
 mod tests_ssh;

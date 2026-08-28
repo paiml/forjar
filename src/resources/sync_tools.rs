@@ -1,9 +1,16 @@
 //! Which external binaries forjar's resources are allowed to move bytes with.
 //!
 //! The Sovereign AI Stack ships `copia` and documents it fleet-wide as *"the
-//! rsync replacement"*. Two forjar resources shell out to something else, and
-//! only one of those has a good reason. This module is the difference between
-//! knowing that and enforcing it.
+//! rsync replacement"*. Three forjar resources shell out to something else:
+//! `backup_sync` (rclone) and `model` (curl) are out of copia's domain
+//! entirely, and `nas_archive` (rsync) is the one remaining debt, held open
+//! only by copia#46. This module is the difference between knowing that and
+//! enforcing it.
+//!
+//! The fourth, `build`, was the debt this partition was created to make
+//! visible: it pulled a cross-compiled binary back with `scp` where
+//! `copia sync` works today. forjar#290 paid it, and the row is gone rather
+//! than kept as a standing exception.
 //!
 //! # Why this exists (five whys, 2026-08-22)
 //!
@@ -76,16 +83,6 @@ pub fn sync_tools() -> &'static [SyncTool] {
                      between filesystems and SSH hosts; it is not an HTTP client and is not \
                      trying to be one. Tracked separately as an undeclared dependency \
                      (forjar GH-224), which is a different problem from sovereignty.",
-        },
-        SyncTool {
-            binary: "scp",
-            resource: "build",
-            justification: Justification::Debt("paiml/forjar#290"),
-            reason: "build copies one cross-compiled binary back from a remote host. That IS \
-                     copia's domain: `copia sync host:path dest` works today and requires \
-                     NOTHING installed on the remote — it streams over `ssh host \"cat …\"`. \
-                     There is no bootstrap excuse here; this is simply the tool that was \
-                     reached for first.",
         },
         SyncTool {
             binary: "rsync",

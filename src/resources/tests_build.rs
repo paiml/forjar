@@ -68,12 +68,12 @@ fn test_fj33_build_apply_ssh_to_build_machine() {
 }
 
 #[test]
-fn test_fj33_build_apply_scp_transfer() {
+fn test_fj33_build_apply_copia_transfer() {
     let r = make_build_resource();
     let script = apply_script(&r);
     assert!(
-        script.contains("scp -o BatchMode=yes"),
-        "must SCP artifact: {script}"
+        script.contains("copia sync"),
+        "must pull the artifact with copia: {script}"
     );
     assert!(
         script.contains("intel:/tmp/cross/release/apr"),
@@ -82,6 +82,11 @@ fn test_fj33_build_apply_scp_transfer() {
     assert!(
         script.contains("/home/user/.cargo/bin/apr"),
         "must deploy to target path: {script}"
+    );
+    // forjar#290: the sovereign tool replaces scp, it does not sit beside it.
+    assert!(
+        !script.contains("scp"),
+        "the build resource must not shell out to scp: {script}"
     );
 }
 
@@ -116,8 +121,8 @@ fn test_fj33_build_apply_localhost_no_ssh() {
         "localhost build must not SSH: {script}"
     );
     assert!(
-        !script.contains("scp"),
-        "localhost build must not SCP: {script}"
+        !script.contains("copia"),
+        "localhost build must not reach for a sync tool: {script}"
     );
     assert!(
         script.contains("cp "),
