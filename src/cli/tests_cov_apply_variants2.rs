@@ -4,7 +4,7 @@
 use super::apply_variants::*;
 use super::helpers::parse_and_validate;
 use super::helpers_state::load_machine_locks;
-use super::plan::save_plan_file;
+use super::plan_file::save_plan_file;
 use super::workspace::inject_workspace_param;
 use crate::core::{executor, planner, resolver, types};
 use std::path::{Path, PathBuf};

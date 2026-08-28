@@ -171,6 +171,7 @@ mod oci_pack;
 pub(crate) mod output;
 mod parallel_multi_stack;
 mod plan;
+mod plan_file;
 mod plan_json;
 mod plan_selector;
 pub(crate) mod plugin;

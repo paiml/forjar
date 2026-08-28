@@ -1,6 +1,6 @@
 //! Tests for FJ-1250: Saved plan files (plan --out + apply --plan-file).
 
-use super::plan::*;
+use super::plan_file::*;
 use crate::core::types::*;
 use std::path::Path;
 
@@ -67,7 +67,7 @@ resources:
 
         // Save
         let save_result =
-            super::super::plan::save_plan_file(&plan, &config, config_path, &plan_path);
+            super::super::plan_file::save_plan_file(&plan, &config, config_path, &plan_path);
         assert!(
             save_result.is_ok(),
             "save should succeed: {save_result:?}"
@@ -105,7 +105,7 @@ resources:
         let plan = make_test_plan();
 
         // Save with original config
-        super::super::plan::save_plan_file(&plan, &config, config_path, &plan_path).unwrap();
+        super::super::plan_file::save_plan_file(&plan, &config, config_path, &plan_path).unwrap();
 
         // Modify config
         let mut modified_config = config;

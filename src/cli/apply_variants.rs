@@ -382,7 +382,7 @@ pub(crate) fn cmd_apply_from_plan(
     workspace: Option<&str>,
     operator: Option<&str>,
 ) -> Result<(), String> {
-    use super::plan::load_plan_file;
+    use super::plan_file::load_plan_file;
 
     // forjar#370: FIRST, and before the plan file is even read — the same
     // position and the same function `apply_execute` uses.
