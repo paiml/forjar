@@ -1,8 +1,8 @@
 //! FJ-33: Build resource handler — cross-compile on one machine, deploy to another.
 //!
 //! The build resource generates scripts that run on the **deploy machine**.
-//! The apply script SSHes to the build machine to compile, then SCPs
-//! the artifact back to the deploy target.
+//! The apply script SSHes to the build machine to compile, then pulls the
+//! artifact back to the deploy target with `copia sync`.
 //!
 //! YAML example:
 //! ```yaml
@@ -52,11 +52,56 @@ fn build_command_body(resource: &Resource) -> String {
     }
 }
 
+/// Phase 2: get the built artifact onto the deploy machine.
+///
+/// forjar#290: this shelled out to `scp`, which is not the sovereign tool.
+/// `copia sync host:path dest` does exactly this today and needs NOTHING on
+/// the remote — it streams over `ssh host "cat …"` — so there was no bootstrap
+/// argument for scp, only that it was reached for first.
+///
+/// The remote spec `host:path` is unchanged: copia's `FileLocation::parse`
+/// splits on the first colon just as scp does, so FJ-154's escaping story
+/// (validated host + `sh_squote`d artifact path) still holds.
+///
+/// `chmod +x` is now REQUIRED rather than defensive: copia writes with default
+/// permissions.
+///
+/// The preflight runs BEFORE `mkdir -p`, deliberately. Without it an operator
+/// on a machine without copia sees a half-made destination directory and then
+/// a message about a missing binary, in that order.
+///
+/// This is ONE freshly-built binary. copia's remote pull has no delta transfer
+/// and buffers the artifact in memory; do not generalise this call to trees.
+fn transfer_phase(build_machine: &str, artifact: &str, dp: &str) -> String {
+    if build_machine == "localhost" {
+        return format!(
+            "# Phase 2: copy artifact locally\n\
+             mkdir -p \"$(dirname {dp})\"\n\
+             cp {} {dp}\n\
+             chmod +x {dp}\n",
+            sh_squote(artifact)
+        );
+    }
+    let remote_spec = sh_squote(&format!("{build_machine}:{artifact}"));
+    format!(
+        "# Phase 2: transfer artifact with copia (the sovereign sync tool)\n\
+         if ! command -v copia >/dev/null 2>&1; then\n\
+         \x20 echo 'ERROR: copia is not installed on this machine - the build resource \
+         pulls the artifact with copia sync' >&2\n\
+         \x20 echo 'HINT: cargo install copia --features cli' >&2\n\
+         \x20 exit 1\n\
+         fi\n\
+         mkdir -p \"$(dirname {dp})\"\n\
+         copia sync {remote_spec} {dp}\n\
+         chmod +x {dp}\n"
+    )
+}
+
 /// Generate the build + transfer + deploy script.
 ///
 /// Runs on the deploy machine. Phases:
 /// 1. SSH to build_machine, run build command in working_dir
-/// 2. SCP artifact from build_machine to deploy_path
+/// 2. `copia sync` the artifact from build_machine to deploy_path
 /// 3. Run completion_check locally
 pub fn apply_script(resource: &Resource) -> String {
     let artifact = resource.source.as_deref().unwrap_or("/dev/null");
@@ -64,7 +109,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let build_machine = resource.build_machine.as_deref().unwrap_or("localhost");
 
     // FJ-154: a remote build_machine must be a valid hostname/IP. Reject
-    // anything that could inject shell into the ssh/scp argv.
+    // anything that could inject shell into the ssh/copia argv.
     if build_machine != "localhost" && !is_valid_host(build_machine) {
         return format!(
             "echo {} >&2; exit 1",
@@ -94,26 +139,7 @@ pub fn apply_script(resource: &Resource) -> String {
         ));
     }
 
-    // Phase 2: Transfer artifact
-    if build_machine != "localhost" {
-        // Remote spec `host:path` is built from the validated host plus an
-        // escaped artifact path.
-        let remote_spec = sh_squote(&format!("{build_machine}:{artifact}"));
-        script.push_str(&format!(
-            "# Phase 2: transfer artifact\n\
-             mkdir -p \"$(dirname {dp})\"\n\
-             scp -o BatchMode=yes {remote_spec} {dp}\n\
-             chmod +x {dp}\n"
-        ));
-    } else {
-        script.push_str(&format!(
-            "# Phase 2: copy artifact locally\n\
-             mkdir -p \"$(dirname {dp})\"\n\
-             cp {} {dp}\n\
-             chmod +x {dp}\n",
-            sh_squote(artifact)
-        ));
-    }
+    script.push_str(&transfer_phase(build_machine, artifact, &dp));
 
     // Phase 3: Completion check
     if let Some(ref check) = resource.completion_check {
@@ -193,13 +219,12 @@ mod fj154_tests {
     }
 
     #[test]
-    fn fj154_scp_remote_spec_quoted() {
+    fn fj154_copia_remote_spec_quoted() {
         let r = build_resource();
         let script = apply_script(&r);
         assert!(
-            script.contains(
-                "scp -o BatchMode=yes 'intel:/tmp/cross/release/apr' '/home/user/.cargo/bin/apr'"
-            ),
+            script
+                .contains("copia sync 'intel:/tmp/cross/release/apr' '/home/user/.cargo/bin/apr'"),
             "{script}"
         );
     }

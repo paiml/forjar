@@ -1773,10 +1773,14 @@ resources:
 ### Execution Phases
 
 1. **Build**: SSH to `build_machine`, run `command` in `working_dir`
-2. **Transfer**: SCP artifact from `build_machine:source` to `target`
+2. **Transfer**: `copia sync` the artifact from `build_machine:source` to `target`
 3. **Verify**: Run `completion_check` locally on deploy machine
 
-When `build_machine` is `localhost`, local `cp` replaces SSH/SCP.
+When `build_machine` is `localhost`, local `cp` replaces SSH/copia.
+
+`copia` must be installed on the **deploy** machine
+(`cargo install copia --features cli`); the generated script refuses before it
+creates anything if it is not (forjar#290).
 
 ### Build Fields
 
