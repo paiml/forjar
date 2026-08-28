@@ -355,7 +355,7 @@ bindings:
 
   - contract: apply-converges-observed-drift-v1.yaml
     equation: apply_reads_what_drift_reads
-    module_path: "forjar::cli::apply::check_pre_apply_drift"
+    module_path: "forjar::cli::apply_drift::check_pre_apply_drift"
     function: check_pre_apply_drift
     signature: "fn check_pre_apply_drift(config: &ForjarConfig, state_dir: &Path, machine_filter: Option<&str>, force: bool, verbose: bool) -> Result<(), String>"
     status: implemented

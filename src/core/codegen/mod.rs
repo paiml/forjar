@@ -43,8 +43,28 @@ pub fn emit_for_cli(file: &std::path::Path, resource: &str, phase: &str) -> Resu
         "apply" => apply_script(r)?,
         "check" => check_script(r)?,
         "state-query" => state_query_script(r)?,
+        // #334: the only phase that is safe to pipe to `sh`. `apply` emits the
+        // INSTALLER — it grants the reclaim opt-in and, for `sudo: true`,
+        // re-elevates — so the recipe once documented as a preview deleted.
+        "reaper" => reaper_phase(r)?,
         other => return Err(format!("unknown phase: {other}")),
     };
     print!("{script}");
     Ok(())
+}
+
+/// `--phase reaper`: the disk-budget reclaim pass on its own.
+///
+/// Scoped to `disk_budget` because it is the only resource whose apply script
+/// wraps a separately-invokable, destructive body. Any other type is an error
+/// rather than a silent fallback to `apply`, which is the shape that made the
+/// documented preview delete in the first place (#334).
+fn reaper_phase(r: &crate::core::types::Resource) -> Result<String, String> {
+    if r.resource_type != crate::core::types::ResourceType::DiskBudget {
+        return Err(format!(
+            "phase `reaper` is only defined for disk_budget resources, not {}",
+            r.resource_type
+        ));
+    }
+    crate::resources::disk_budget::reaper_script(r)
 }

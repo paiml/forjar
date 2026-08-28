@@ -2,7 +2,10 @@
 //! operator can dry-run a reclaim before authorising `forjar apply`.
 //!
 //! Usage: cargo run --example emit_budget_reaper -- <forjar.yaml> <resource-id>
-//! Then:  FORJAR_BUDGET_DRY_RUN=1 sh reaper.sh
+//! Then:  sh reaper.sh   # previews; the reaper deletes only under
+//!                       # FORJAR_BUDGET_EXECUTE=1 (forjar#334)
+//!
+//! `forjar codegen -r <id> --phase reaper` is the supported form of this.
 
 fn main() {
     let path = std::env::args()

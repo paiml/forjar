@@ -307,10 +307,34 @@ falsification_tests:
     if_fails: "Unpushed commits are destroyed — the one loss in this system that no rebuild can undo"
 
   - id: FALSIFY-DBG-008
-    rule: "dry-run is inert"
-    prediction: "FORJAR_BUDGET_DRY_RUN=1 under pressure deletes nothing"
-    test: "tests/falsification_disk_budget.rs::dry_run_reclaims_nothing"
-    if_fails: "Operators cannot preview a reclaim before authorising it"
+    rule: "deleting is the opt-in, not the default"
+    prediction: "a reaper invoked with no FORJAR_BUDGET_* environment — which is what `sudo` (env_reset) and `ssh` (no SendEnv) deliver — deletes nothing and exits 0"
+    test: "tests/falsification_budget_dry_run.rs::a_reaper_invoked_with_no_environment_deletes_nothing"
+    if_fails: "A preview deletes. FORJAR_BUDGET_DRY_RUN is read on the TARGET and cannot survive the hop, so a fail-dangerous default reclaims whatever the operator was inspecting (forjar#334: 1.5 TB)"
+
+  - id: FALSIFY-DBG-016
+    rule: "the reclaim opt-in has exactly two grants"
+    prediction: "`Environment=FORJAR_BUDGET_EXECUTE=1` appears in the generated service unit, and `FORJAR_BUDGET_EXECUTE=1 <script>` in the apply-time pass; both are constant text"
+    test: "tests/falsification_budget_dry_run.rs::the_unit_and_the_apply_script_are_the_only_grants"
+    if_fails: "Either every fleet reaper is silently inert and the machines slide to 100%, or the grant leaks somewhere a hand-run reaper can pick it up"
+
+  - id: FALSIFY-DBG-017
+    rule: "the apply-time pass declares its mode"
+    prediction: "the emitted apply script announces EXECUTE mode before invoking the reaper, and every pass carries mode=dry-run or mode=execute on its start and completion lines"
+    test: "tests/falsification_budget_dry_run.rs::the_scheduled_and_apply_time_passes_still_reclaim"
+    if_fails: "A preview and a reclaim produce byte-identical output, which is the hazard the incident actually turned on"
+
+  - id: FALSIFY-DBG-018
+    rule: "a preview never writes the heartbeat"
+    prediction: "a dry pass leaves an existing status.json byte-identical and reports reclaimed 0 bytes"
+    test: "tests/falsification_budget_dry_run.rs::a_preview_reports_no_reclaimed_bytes_and_leaves_the_heartbeat_alone"
+    if_fails: "An inspection stamps health/tier/reclaimed_bytes for deletions that never happened onto the machine's own drift-hashed health record"
+
+  - id: FALSIFY-DBG-019
+    rule: "the apply script is a pure function of the declaration"
+    prediction: "codegen::apply_script returns the same bytes with and without FORJAR_BUDGET_DRY_RUN set in the calling process"
+    test: "tests/falsification_budget_dry_run.rs::the_apply_script_does_not_vary_with_the_operators_environment"
+    if_fails: "hash_desired_state depends on whoever ran forjar, so a machine's desired state changes with the operator's shell"
 
   - id: FALSIFY-DBG-009
     rule: "watermark hysteresis"
@@ -383,6 +407,6 @@ qa_gate:
     Free space is declared machine state, and a reclaim pass that fails to
     restore it is a failed unit — not a quiet success. Gate fails on any
     falsification test going red.
-  check: "cargo test --test falsification_disk_budget && cargo test --lib disk_budget"
+  check: "cargo test --test falsification_disk_budget && cargo test --test falsification_budget_dry_run && cargo test --lib disk_budget"
   severity: error
   reference: "src/resources/disk_budget/"

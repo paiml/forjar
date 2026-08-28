@@ -3,10 +3,13 @@
 mod agent_registry;
 mod agent_sbom;
 mod apply;
+mod apply_drift;
 mod apply_dry_run;
 mod apply_gates;
+mod apply_gates_budget;
 mod apply_helpers;
 mod apply_output;
+mod apply_preflight;
 mod apply_preview;
 mod apply_scope;
 mod apply_selection;

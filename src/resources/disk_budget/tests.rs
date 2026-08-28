@@ -86,6 +86,14 @@ fn apply_installs_script_units_and_runs_a_pass() {
         "apply must run one pass: {}",
         s.lines().last().unwrap_or("")
     );
+    // #334: and it must SAY the pass deletes, and grant the opt-in explicitly.
+    // The reaper previews by default; a bare invocation here would install the
+    // budget and then converge nothing.
+    assert!(
+        s.contains("FORJAR_BUDGET_EXECUTE=1 '/usr/local/sbin/forjar-disk-budget-root.sh'"),
+        "apply's pass must grant the reclaim opt-in: {s}"
+    );
+    assert!(s.contains("EXECUTE mode (this deletes)"));
 }
 
 #[test]

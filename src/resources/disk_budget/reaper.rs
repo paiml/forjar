@@ -90,6 +90,7 @@ if [ "$FB_MET" != "1" ]; then
     sz=$(fb_bytes "$cand")
 {pre}    if [ "$FB_DRY" = "1" ]; then
       fb_log "  DRY-RUN would reclaim ${{sz:-0}} bytes: $cand"
+      echo "${{sz:-0}}" >>"$FB_WOULD"
     else
       # SEC011: re-assert immediately adjacent to the rm. `fb_sweepable` above
       # is the real check; this is the one a reader — and the linter — sees
@@ -100,8 +101,13 @@ if [ "$FB_MET" != "1" ]; then
       fi
       rm -rf -- "$cand" || {{ fb_log "  FAILED to remove: $cand"; continue; }}
 {post}      fb_log "  reclaimed ${{sz:-0}} bytes: $cand"
+      # The ledger is FREED bytes, so the append lives inside the delete
+      # branch. It used to sit after the `fi`, so a preview accumulated bytes
+      # it had not freed: FB_RECLAIMED > 0, health=effective, and a
+      # `reclaimed_bytes` figure in the status file for deletions that never
+      # happened. A dry run was indistinguishable from a reclaim.
+      echo "${{sz:-0}}" >>"$FB_LEDGER"
     fi
-    echo "${{sz:-0}}" >>"$FB_LEDGER"
   done < "$FB_CANDS"
 fi
 "#,
@@ -130,13 +136,29 @@ set -u
 FB_TARGET_USED={target_used}
 FB_HIGH={high}
 FB_CRIT_GB={crit}
-FB_DRY="${{FORJAR_BUDGET_DRY_RUN:-0}}"
+# DELETING IS THE OPT-IN, NOT THE DEFAULT.
+#
+# This used to default FB_DRY from FORJAR_BUDGET_DRY_RUN, i.e. delete unless
+# the operator's shell said otherwise. That variable is read HERE, at the far
+# end of a chain that strips it: `sudo bash <<'FORJAR_SUDO'` resets the
+# environment and `ssh host bash` never carries it, so the documented preview
+# reached this line with nothing set and reclaimed 1.5 TB while reporting
+# `1 converged` (#334). Nothing forjar can do makes an ambient variable survive
+# that, so the default is inverted instead: a reaper run by hand INSPECTS.
+# Deleting requires FORJAR_BUDGET_EXECUTE=1, which only the systemd unit and
+# `forjar apply` grant. FORJAR_BUDGET_DRY_RUN still works and still wins, so
+# the variable the fleet notes document stops being a lie.
+FB_DRY=1
+if [ "${{FORJAR_BUDGET_EXECUTE:-0}}" = "1" ]; then FB_DRY=0; fi
+if [ "${{FORJAR_BUDGET_DRY_RUN:-0}}" = "1" ]; then FB_DRY=1; fi
+if [ "$FB_DRY" = "1" ]; then FB_MODE=dry-run; else FB_MODE=execute; fi
 FB_STATUS="${{FORJAR_BUDGET_STATUS:-{status_json}}}"
 FB_LEDGER=$(mktemp) || exit 1
+FB_WOULD=$(mktemp) || exit 1
 FB_CANDS=$(mktemp) || exit 1
 FB_OPEN=$(mktemp) || exit 1
 FB_MET=0
-trap 'rm -f "$FB_LEDGER" "$FB_CANDS" "$FB_OPEN"' EXIT INT TERM
+trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
 # as a test expression (SC1140) and rejects the script.
@@ -145,7 +167,7 @@ fb_log() {{ echo "{tag}: $*"; }}
 fb_read_df
 FB_USED_BEFORE="$FB_USED_PCT"
 FB_FREE_GB_BEFORE="$FB_FREE_GB"
-fb_log "start: {path_q} at ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free (trigger ${{FB_HIGH}}%, target ${{FB_TARGET_USED}}%)"
+fb_log "start: {path_q} at ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free (trigger ${{FB_HIGH}}%, target ${{FB_TARGET_USED}}%) mode=$FB_MODE"
 
 if [ "$FB_USED_PCT" -lt "$FB_HIGH" ]; then
   fb_log "under watermark - no reclaim needed"
@@ -157,6 +179,7 @@ else
 
 fb_read_df
 FB_RECLAIMED=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_LEDGER" 2>/dev/null || echo 0)
+FB_WOULD_BYTES=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_WOULD" 2>/dev/null || echo 0)
 FB_MET_FINAL=0
 [ "$FB_USED_PCT" -le "$FB_TARGET_USED" ] && FB_MET_FINAL=1
 
@@ -174,17 +197,31 @@ else
   FB_HEALTH=idle
 fi
 
+# A PREVIEW MUST NOT REWRITE THE HEARTBEAT. This file is both the freshness
+# heartbeat (`disk_budget_heartbeat`) and the drift-hashed `disk_budget_health`
+# that state_query reads. A dry pass that overwrote it would stamp a
+# health/tier/reclaimed record for deletions that never happened onto the
+# machine's own health record, which is the thing drift trusts.
+if [ "$FB_DRY" != "1" ]; then
 cat >"$FB_STATUS" <<EOF
-{{"path":"{path_json}","used_pct_before":$FB_USED_BEFORE,"used_pct_after":$FB_USED_PCT,"free_gb_before":$FB_FREE_GB_BEFORE,"free_gb_after":$FB_FREE_GB,"reclaimed_bytes":$FB_RECLAIMED,"triggered":$FB_TRIGGERED,"target_met":$FB_MET_FINAL,"tier":"$FB_TIER","health":"$FB_HEALTH","dry_run":$FB_DRY}}
+{{"path":"{path_json}","used_pct_before":$FB_USED_BEFORE,"used_pct_after":$FB_USED_PCT,"free_gb_before":$FB_FREE_GB_BEFORE,"free_gb_after":$FB_FREE_GB,"reclaimed_bytes":$FB_RECLAIMED,"triggered":$FB_TRIGGERED,"target_met":$FB_MET_FINAL,"tier":"$FB_TIER","health":"$FB_HEALTH","dry_run":0}}
 EOF
+else
+  fb_log "preview: heartbeat not written; would reclaim ${{FB_WOULD_BYTES}} bytes"
+fi
 
 # "complete", not "done": bashrs reads a leading `done` inside the string
 # as the loop keyword (SC1035) and rejects the script.
-fb_log "complete: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, reclaimed ${{FB_RECLAIMED}} bytes, tier=$FB_TIER health=$FB_HEALTH"
+fb_log "complete: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, reclaimed ${{FB_RECLAIMED}} bytes, would_reclaim ${{FB_WOULD_BYTES}} bytes, tier=$FB_TIER health=$FB_HEALTH mode=$FB_MODE"
 
 # Exit non-zero when a triggered pass failed to reach target. systemd marks the
 # unit failed, `forjar drift` sees it, and an inert reaper stops being invisible.
-if [ "$FB_TRIGGERED" = "1" ] && [ "$FB_MET_FINAL" != "1" ]; then
+#
+# A PREVIEW IS EXEMPT. The clause exists to catch a reclaim that achieved
+# nothing; a preview achieving nothing is the correct outcome, and failing it
+# would make `sh /usr/local/sbin/forjar-disk-budget-*.sh` exit 1 on every
+# healthy-but-over-watermark machine an operator inspected.
+if [ "$FB_DRY" != "1" ] && [ "$FB_TRIGGERED" = "1" ] && [ "$FB_MET_FINAL" != "1" ]; then
   fb_log "FAILED: still ${{FB_USED_PCT}}% used after reclaim; budget target ${{FB_TARGET_USED}}% not met"
   exit 1
 fi
@@ -256,8 +293,10 @@ mod tests {
         assert!(s.contains("fb_is_idle \"$cand\" 45"));
     }
 
+    /// #334: a reaper reached by hand — or by a `sudo`/`ssh` hop that scrubbed
+    /// the environment — must inspect, not delete.
     #[test]
-    fn dry_run_never_deletes() {
+    fn deletes_only_on_explicit_opt_in() {
         let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
         let dry = s.find("DRY-RUN would reclaim").expect("dry-run branch");
         let rm = s.find("rm -rf -- \"$cand\"").expect("delete branch");
@@ -265,7 +304,66 @@ mod tests {
             dry < rm,
             "dry-run must be the guarded branch, not a fallthrough"
         );
-        assert!(s.contains(r#"FB_DRY="${FORJAR_BUDGET_DRY_RUN:-0}""#));
+        // The default is DRY. Deleting is an opt-in the environment must grant.
+        assert!(s.contains("\nFB_DRY=1\n"), "the default must be dry: {s}");
+        assert!(s.contains(r#"if [ "${FORJAR_BUDGET_EXECUTE:-0}" = "1" ]; then FB_DRY=0; fi"#));
+        // The documented variable still works, and still wins.
+        assert!(s.contains(r#"if [ "${FORJAR_BUDGET_DRY_RUN:-0}" = "1" ]; then FB_DRY=1; fi"#));
+        assert!(
+            !s.contains(r#"FB_DRY="${FORJAR_BUDGET_DRY_RUN:-0}""#),
+            "the fail-dangerous default must be gone"
+        );
+    }
+
+    /// The ledger is FREED bytes. A preview that appended to it reported
+    /// `reclaimed_bytes` > 0 and `health=effective` for deletions that never
+    /// happened, which is what made a preview and a reclaim byte-identical.
+    #[test]
+    fn the_ledger_append_is_inside_the_delete_branch() {
+        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+        let ledger = s
+            .find(r#"echo "${sz:-0}" >>"$FB_LEDGER""#)
+            .expect("ledger append");
+        let close = s
+            .find("\n    fi\n  done < \"$FB_CANDS\"")
+            .expect("branch end");
+        assert!(
+            ledger < close,
+            "the ledger append must be inside the else branch, not after the fi"
+        );
+        // The dry branch records what it WOULD free, separately.
+        assert!(s.contains(r#"echo "${sz:-0}" >>"$FB_WOULD""#));
+    }
+
+    /// A preview must not stamp a health record for deletions that did not
+    /// happen: the status file is the heartbeat AND the drift-hashed health.
+    #[test]
+    fn a_preview_does_not_write_the_heartbeat_or_fail_the_unit() {
+        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+        assert!(
+            s.contains("if [ \"$FB_DRY\" != \"1\" ]; then\ncat >\"$FB_STATUS\""),
+            "the status write must be guarded by the mode"
+        );
+        assert!(
+            s.contains(r#"if [ "$FB_DRY" != "1" ] && [ "$FB_TRIGGERED" = "1" ]"#),
+            "the anti-inertness exit must exempt a preview"
+        );
+    }
+
+    /// A dry run and a reclaim printed identical output. Naming the mode on the
+    /// start and completion lines is what makes them distinguishable in a log.
+    #[test]
+    fn both_log_lines_name_the_mode() {
+        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+        assert!(
+            s.contains(r#"if [ "$FB_DRY" = "1" ]; then FB_MODE=dry-run; else FB_MODE=execute; fi"#)
+        );
+        assert_eq!(
+            s.matches("mode=$FB_MODE").count(),
+            2,
+            "start and complete must both carry the mode"
+        );
+        assert!(s.contains("would_reclaim ${FB_WOULD_BYTES} bytes"));
     }
 
     #[test]
