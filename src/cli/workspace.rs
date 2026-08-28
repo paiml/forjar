@@ -111,30 +111,66 @@ pub(crate) fn workspace_new_in(root: &Path, state_base: &Path, name: &str) -> Re
     Ok(())
 }
 
+/// One workspace directory under the state base.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkspaceEntry {
+    /// Directory name.
+    pub(crate) name: String,
+    /// Whether `.forjar/workspace` names this one.
+    pub(crate) active: bool,
+}
+
+/// Enumerate the workspaces under `state_base`, sorted by name.
+///
+/// FVS (#356): this was inlined in `workspace_list_in`, which printed as it
+/// went — so the workspace an agent's state reads and writes through was
+/// knowable only by a human looking at a terminal. Sorting is part of the
+/// extraction rather than incidental to it: `read_dir` returns entries in no
+/// defined order, so the previous listing could reorder itself between two
+/// invocations over an unchanged directory.
+///
+/// A missing state base is an empty list, not an error: it means nothing has
+/// been applied yet, which is a fact rather than a failure.
+pub(crate) fn list_workspaces_in(
+    root: &Path,
+    state_base: &Path,
+) -> Result<Vec<WorkspaceEntry>, String> {
+    let active = current_workspace_in(root);
+    if !state_base.exists() {
+        return Ok(Vec::new());
+    }
+    let entries =
+        std::fs::read_dir(state_base).map_err(|e| format!("cannot read state dir: {e}"))?;
+    let mut out: Vec<WorkspaceEntry> = entries
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let is_active = active.as_deref() == Some(name.as_str());
+            WorkspaceEntry {
+                name,
+                active: is_active,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
+}
+
 /// Testable core: list workspaces.
 pub(crate) fn workspace_list_in(root: &Path, state_base: &Path) -> Result<(), String> {
-    let active = current_workspace_in(root);
     if !state_base.exists() {
         println!("No workspaces (state/ does not exist)");
         return Ok(());
     }
-    let mut found = false;
-    let entries =
-        std::fs::read_dir(state_base).map_err(|e| format!("cannot read state dir: {e}"))?;
-    for entry in entries.flatten() {
-        if entry.path().is_dir() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            let marker = if active.as_deref() == Some(&name) {
-                " *"
-            } else {
-                ""
-            };
-            println!("  {name}{marker}");
-            found = true;
-        }
-    }
-    if !found {
+    let found = list_workspaces_in(root, state_base)?;
+    if found.is_empty() {
         println!("No workspaces found");
+        return Ok(());
+    }
+    for ws in &found {
+        let marker = if ws.active { " *" } else { "" };
+        println!("  {}{}", ws.name, marker);
     }
     Ok(())
 }

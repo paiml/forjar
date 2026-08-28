@@ -308,7 +308,7 @@ mod validate_structural_constraints;
 mod validate_topology;
 mod validate_transport;
 mod webhook_post;
-mod workspace;
+pub(crate) mod workspace;
 pub use commands::Commands;
 pub use dispatch::{dispatch, dispatch_classified};
 

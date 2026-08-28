@@ -1,6 +1,7 @@
 //! Tripwire — provenance tracing, BLAKE3 hashing, drift detection, syscall tracing.
 
 pub mod anomaly;
+pub mod audit_trail;
 pub mod chain;
 pub mod drift;
 pub mod eventlog;

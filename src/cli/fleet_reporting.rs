@@ -2,55 +2,11 @@
 
 use super::helpers::*;
 use crate::core::{resolver, state, types};
-use crate::tripwire::eventlog;
+use crate::tripwire::audit_trail;
 use std::path::Path;
 
 /// One audit event together with the machine whose log it came from.
 type MachineEvent = (String, types::TimestampedEvent);
-
-/// Parses one machine's JSONL event log, skipping blank lines and any line that
-/// does not deserialise — a truncated final write must not lose the whole log.
-fn append_logged_events(machine: &str, content: &str, out: &mut Vec<MachineEvent>) {
-    for line in content.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
-            out.push((machine.to_string(), event));
-        }
-    }
-}
-
-/// Reads the event log of every machine under `state_dir` — or of just the one
-/// named by `machine_filter` — and returns every event tagged with its machine.
-fn collect_audit_events(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-) -> Result<Vec<MachineEvent>, String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-
-    let mut all_events: Vec<MachineEvent> = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if machine_filter.is_some_and(|filter| name != filter) {
-            continue;
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-
-        let log_path = eventlog::event_log_path(state_dir, &name);
-        if !log_path.exists() {
-            continue;
-        }
-
-        let content = std::fs::read_to_string(&log_path)
-            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
-        append_logged_events(&name, &content, &mut all_events);
-    }
-    Ok(all_events)
-}
 
 /// The `--json` rendering: one object per event, machine-readable.
 fn print_audit_json(all_events: &[MachineEvent]) -> Result<(), String> {
@@ -106,11 +62,11 @@ pub(crate) fn cmd_audit(
     limit: usize,
     json: bool,
 ) -> Result<(), String> {
-    let mut all_events = collect_audit_events(state_dir, machine_filter)?;
-
-    // Newest first, then keep only the requested window.
-    all_events.sort_by(|a, b| b.1.ts.cmp(&a.1.ts));
-    all_events.truncate(limit);
+    // FVS (#356): reading the trail is `tripwire::audit_trail::collect_events`, so
+    // this command and the `audit` verb answer from ONE reader. It used to be
+    // inlined here, which meant the only way to read forjar's provenance log
+    // was to be a human looking at a terminal.
+    let all_events = audit_trail::collect_events(state_dir, machine_filter, limit)?;
 
     if json {
         return print_audit_json(&all_events);
