@@ -74,7 +74,7 @@ jobs:
     # the harness — and the fix is to retarget it, not to raise this further.
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Kani is preinstalled in the sovereign-ci image. Asserting it rather than
       # installing it: a runtime toolchain install makes the gate depend on the
@@ -155,7 +155,7 @@ jobs:
     runs-on: [self-hosted, clean-room]
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # elan installs into ~/.elan, which is not on the runners' PATH (they get
       # ~/.cargo/bin). Same shape as the existing Rust-toolchain PATH steps.
@@ -194,7 +194,7 @@ jobs:
     name: ledger-replay
     runs-on: [self-hosted, clean-room]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Build the binary under test
         run: cargo build --release
@@ -234,7 +234,7 @@ jobs:
     # seconds. A validator that only runs on labelled PRs is absent on the PRs
     # that need it most.
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       # AN ABSENT VERIFIER IS A NO-GO, NEVER A PASS. This repo has that rule and
       # was not applying it to its own contracts: `if command -v pv` would have
