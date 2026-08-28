@@ -253,7 +253,7 @@ fn proof_rejects_unknown_total_and_monotone() {
 /// through that. `cli::state_visibility::tests::spec_agrees_with_implementation`
 /// binds the implementation to this spec over every subset pair up to 6
 /// machines, so the proof is not about a model nobody calls.
-#[cfg(kani)]
+#[cfg(all(kani, feature = "cli"))]
 #[kani::proof]
 fn proof_missing_state_is_exact() {
     use crate::cli::state_visibility::missing_mask;

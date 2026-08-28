@@ -65,8 +65,12 @@ pub fn apply_script(resource: &Resource) -> String {
     if let Some(ref source) = resource.source {
         script.push_str(&format!("cp -r '{source}' '{path}'\n"));
     } else if let Some(ref content) = resource.content {
-        // For inline content (config files alongside WASM)
-        let escaped = content.replace('\'', "'\\''");
+        // For inline content (config files alongside WASM). NOT `sh_squote`:
+        // that strips control characters, which is right for a shell word and
+        // would silently delete the newlines out of a config file. Same escape
+        // idiom though — `'\''` is rejected by forjar's own I8 gate (#350);
+        // see `core::shell_escape::sh_squote` for why.
+        let escaped = content.replace('\'', "'\"'\"'");
         script.push_str(&format!("printf '%s' '{escaped}' > '{path}'\n"));
     }
 

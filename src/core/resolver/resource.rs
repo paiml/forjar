@@ -108,6 +108,7 @@ fn resolve_build_and_overlay_fields(
 ) -> Result<(), String> {
     // Build I/O — consumed by the staleness probe and the executor.
     r.task_inputs = resolve_list(&r.task_inputs, params, machines, secrets)?;
+    r.ambient_inputs = resolve_list(&r.ambient_inputs, params, machines, secrets)?;
     r.scatter = resolve_list(&r.scatter, params, machines, secrets)?;
     r.gather = resolve_list(&r.gather, params, machines, secrets)?;
     r.cache_dir = resolve_opt(&r.cache_dir, params, machines, secrets)?;

@@ -117,59 +117,19 @@ pub(crate) fn cmd_cache_pull(
 }
 
 /// Verify all store entries by re-hashing.
+///
+/// GH-236: this used to compare `hash_directory(<entry>/content)` against
+/// `blake3:<directory name>` — against the entry's ADDRESS, with a hash
+/// function that had not produced it. An entry written by
+/// `forjar store-import` is addressed with `provider_exec::hash_staging_dir`,
+/// a different preimage under a different domain tag, so this reported 100%
+/// failure on any store built by an import while a conda entry (also
+/// `hash_directory`) passed. It now compares against `meta.output_hash`, the
+/// digest the entry itself recorded. The rendering lives beside
+/// `forjar store verify` in `store_verify`, because the two now answer the
+/// same question and differ only in output shape.
 pub(crate) fn cmd_cache_verify(store_dir: &Path, json: bool) -> Result<(), String> {
-    let read_dir =
-        std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
-
-    let mut verified = 0u64;
-    let mut failed = 0u64;
-    let mut results = Vec::new();
-
-    for entry in read_dir.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name == ".gc-roots" {
-            continue;
-        }
-
-        let content_dir = path.join("content");
-        if content_dir.is_dir() {
-            let actual = crate::tripwire::hasher::hash_directory(&content_dir).unwrap_or_default();
-            let expected = format!("blake3:{name}");
-            let ok = actual == expected;
-            if ok {
-                verified += 1;
-            } else {
-                failed += 1;
-            }
-            results.push(serde_json::json!({
-                "hash": name, "valid": ok,
-                "expected": expected, "actual": actual,
-            }));
-        }
-    }
-
-    if json {
-        let report = serde_json::json!({
-            "verified": verified, "failed": failed,
-            "results": results,
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
-        );
-    } else {
-        println!("Verified: {verified} | Failed: {failed}");
-    }
-
-    if failed > 0 {
-        Err(format!("{failed} store entries failed verification"))
-    } else {
-        Ok(())
-    }
+    super::store_verify::cmd_cache_verify_report(store_dir, json)
 }
 
 /// List store entries as CacheEntry structs.
@@ -177,34 +137,35 @@ fn list_entries(store_dir: &Path) -> Result<Vec<CacheEntry>, String> {
     let read_dir =
         std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
 
-    let mut entries = Vec::new();
-    for entry in read_dir.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name == ".gc-roots" {
-            continue;
-        }
-
-        let meta = read_meta(&path);
-        let (provider, arch, created) = match meta {
-            Ok(m) => (m.provider.clone(), m.arch.clone(), m.created_at.clone()),
-            Err(_) => ("unknown".to_string(), "unknown".to_string(), String::new()),
-        };
-
-        let size = dir_size(&path);
-        entries.push(CacheEntry {
-            store_hash: format!("blake3:{name}"),
-            size_bytes: size,
-            created_at: created,
-            provider,
-            arch,
-        });
-    }
+    let mut entries: Vec<CacheEntry> = read_dir
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .filter(|p| p.file_name().is_some_and(|n| n != ".gc-roots"))
+        .map(|p| cache_entry(&p))
+        .collect();
     entries.sort_by(|a, b| a.store_hash.cmp(&b.store_hash));
     Ok(entries)
+}
+
+/// Describe one store entry directory. An unreadable `meta.yaml` yields
+/// "unknown" rather than dropping the entry: it is on disk either way.
+fn cache_entry(path: &Path) -> CacheEntry {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let (provider, arch, created) = match read_meta(path) {
+        Ok(m) => (m.provider, m.arch, m.created_at),
+        Err(_) => ("unknown".to_string(), "unknown".to_string(), String::new()),
+    };
+    CacheEntry {
+        store_hash: format!("blake3:{name}"),
+        size_bytes: dir_size(path),
+        created_at: created,
+        provider,
+        arch,
+    }
 }
 
 /// Parse "user@host:path" into a CacheSource::Ssh.

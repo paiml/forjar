@@ -445,6 +445,9 @@ fn test_meta_with_depth(
             derived_from: derived_from.map(|s| s.to_string()),
             derivation_depth: depth,
         }),
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }
 
@@ -466,5 +469,8 @@ fn test_meta_with_ref(provider: &str, origin_ref: &str) -> StoreMeta {
             derived_from: None,
             derivation_depth: 0,
         }),
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }

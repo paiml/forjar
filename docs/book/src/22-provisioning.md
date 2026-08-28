@@ -22,10 +22,15 @@ resources:
 ### Execution phases
 
 1. **Build**: SSH to `build_machine`, execute `command` in `working_dir`
-2. **Transfer**: SCP artifact from `build_machine:source` to `target`
+2. **Transfer**: `copia sync` the artifact from `build_machine:source` to `target`
 3. **Verify**: Run `completion_check` locally on deploy machine
 
-When `build_machine: localhost`, local `cp` replaces SSH/SCP.
+When `build_machine: localhost`, local `cp` replaces SSH/copia.
+
+`copia` is the Sovereign AI Stack's sync tool and must be installed on the
+**deploy** machine (`cargo install copia --features cli`). The generated script
+refuses with an actionable message before it touches the filesystem if it is
+missing (forjar#290).
 
 ### Generated scripts
 
@@ -36,7 +41,8 @@ if apr --version >/dev/null 2>&1; then echo 'installed:build'; else echo 'missin
 # Apply script (three-phase pipeline)
 set -euo pipefail
 ssh -o BatchMode=yes intel 'cd ~/src/aprender && cargo build --release ...'
-scp -o BatchMode=yes 'intel:/tmp/cross/release/apr' '~/.cargo/bin/apr'
+command -v copia >/dev/null 2>&1 || exit 1   # refuses with an install hint
+copia sync 'intel:/tmp/cross/release/apr' '~/.cargo/bin/apr'
 apr --version
 
 # State query (sha256sum for drift detection)

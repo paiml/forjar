@@ -11,13 +11,13 @@ mod tests_container;
 #[cfg(test)]
 mod tests_container_b;
 #[cfg(test)]
-mod tests_container_c;
-#[cfg(test)]
 mod tests_container_d;
 #[cfg(test)]
 mod tests_dispatch;
 #[cfg(test)]
 mod tests_dispatch_b;
+#[cfg(test)]
+mod tests_generated_scripts_lint;
 #[cfg(test)]
 mod tests_i8_diagnosis;
 #[cfg(test)]

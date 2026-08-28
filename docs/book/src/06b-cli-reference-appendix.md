@@ -366,20 +366,35 @@ forjar codegen -f machines/lambda-labs/forjar.yaml -r media-backup --phase apply
 forjar codegen -f forjar.yaml -r root-disk-budget --phase state-query
 ```
 
-`--phase` is `apply` (default), `check`, or `state-query`.
+`--phase` is `apply` (default), `check`, `state-query`, or `reaper`.
 
 Most resource types describe state directly; a few — `disk_budget`, `backup_sync`
 — have a *synthesised shell script* as their real payload. That artifact cannot
 be reviewed, debugged, or dogfooded unless you can get at it, and reading the
 handler's source is not the same thing as reading what it emits for your config.
 
-Pair it with the resource's dry-run switch to preview destructive behaviour
-before authorising an apply:
+To preview a `disk_budget` reclaim, emit the **reaper** rather than the apply
+script:
 
 ```bash
-forjar codegen -f forjar.yaml -r root-disk-budget --phase apply > /tmp/reaper.sh
-FORJAR_BUDGET_DRY_RUN=1 sh /tmp/reaper.sh    # lists what it WOULD reclaim
+forjar codegen -f forjar.yaml -r root-disk-budget --phase reaper > /tmp/reaper.sh
+sh /tmp/reaper.sh    # lists what it WOULD reclaim; deletes nothing
 ```
+
+The reaper deletes only when `FORJAR_BUDGET_EXECUTE=1` is set, which is granted
+in exactly two places: the generated systemd unit, and the pass `forjar apply`
+runs. Run by hand it inspects, and says `mode=dry-run` on its start and
+completion lines.
+
+`--phase apply` emits the **installer**, not a preview: it writes the reaper and
+its units, grants the reclaim opt-in, and (for `sudo: true`) re-elevates through
+`sudo bash`. The recipe once documented here — `--phase apply` piped to `sh`
+with `FORJAR_BUDGET_DRY_RUN=1` — reclaimed 1.5 TB, because that variable is read
+by the reaper on the target and survives neither `sudo` (`env_reset`) nor `ssh`
+(no `SendEnv`). For the same reason, `forjar apply` now refuses to run at all
+when `FORJAR_BUDGET_DRY_RUN` is set and the scope holds a `disk_budget`: it
+cannot honour the request and will not pretend to. To preview an apply, use
+`forjar apply --dry-run` (forjar#334).
 
 ## `forjar verify`
 
@@ -392,7 +407,20 @@ forjar verify -r apr-build         # one resource
 forjar verify --tag stack-tools    # a tagged subset
 forjar verify --json               # machine-readable, for CI gating
 forjar verify --keep-scratch       # leave the scratch tree to inspect a mismatch
+forjar verify --check-declared-inputs   # fail on a read outside task_inputs
 ```
+
+`--check-declared-inputs` (GH-244) runs the resource twice: once from a full
+copy of `working_dir`, once from a tree containing only the glob-expanded
+`task_inputs`. If the full run reproduces and the declared-only run does not,
+the resource read something it never declared and the verdict is
+`UndeclaredInput`. The early return matters: a non-deterministic generator
+fails BOTH runs and stays `Diverged`, because blaming the declaration for a
+generator's own instability is the misdiagnosis this replaces.
+
+It sees reads of files inside the project tree. It cannot see a read of
+`/usr/share/fonts` or a tool version, because those exist in the scratch tree
+too — declare those with `ambient_inputs` instead.
 
 Exits non-zero if any resource diverged or failed to regenerate, so it gates
 cleanly in CI.

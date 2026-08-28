@@ -174,6 +174,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
 
     for (id, resource) in &config.resources {
         validation::validate_resource_refs(config, id, resource, &mut errors);
+        validation::validate_lifecycle(id, resource, &mut errors);
         resource_types::validate_resource_type(id, resource, &mut errors);
         check_sudo_inference(id, resource, config, &mut errors);
     }
@@ -194,6 +195,21 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     crate::core::planner::moved::validate_moved_blocks(config, &mut errors);
 
     errors
+}
+
+/// Render validation errors as one message.
+///
+/// Shared by the pre- and post-expansion passes in `load_config` so the two
+/// cannot drift in how they report the same `ValidationError`.
+fn render_validation_errors(errors: &[ValidationError], headline: &str) -> String {
+    format!(
+        "{headline}:\n{}",
+        errors
+            .iter()
+            .map(|e| format!("  - {e}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
 }
 
 /// Paths that require root/sudo for writes.
@@ -322,17 +338,32 @@ pub fn parse_and_validate_opts(path: &Path, deny_unknown: bool) -> Result<Forjar
 
     let errors = validate_config(&config);
     if !errors.is_empty() {
-        return Err(format!(
-            "validation errors:\n{}",
-            errors
-                .iter()
-                .map(|e| format!("  - {e}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
+        return Err(render_validation_errors(&errors, "validation errors"));
     }
     expand_recipes(&mut config, path.parent())?;
     expand_resources(&mut config);
+
+    // #357: validate AGAIN, over the EXPANDED config.
+    //
+    // The pass above cannot see a recipe. `expand_recipes` runs after it, so
+    // every resource a recipe supplied reached `plan` and `apply` having been
+    // checked by nothing. `includes` do not have this hole — FJ-254 moved
+    // `merge_includes` ABOVE the first pass for exactly this reason — and
+    // recipes were simply never given the same treatment. Recipes are the
+    // mechanism forjar promotes for fleet reuse, so the resources deployed most
+    // widely were the ones validated least.
+    //
+    // Both passes are kept, because they answer different questions. The first
+    // reports errors in the file the user is editing, in the ids the user typed.
+    // This one reports what the machine would actually converge, in the expanded
+    // ids (`recipe_id/foo`), so the id in the message is the id in the plan.
+    let errors = validate_config(&config);
+    if !errors.is_empty() {
+        return Err(render_validation_errors(
+            &errors,
+            "validation errors after expansion (ids below are post-expansion)",
+        ));
+    }
 
     // #165: re-check moved.to collisions against the POST-expansion resource
     // set. validate_config ran before expansion, so a `to` that lands on a

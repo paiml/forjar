@@ -1,9 +1,11 @@
 //! FJ-2105: OCI Distribution v1.1 registry push.
 //!
 //! Implements the push protocol: HEAD check for existing blobs,
-//! blob upload (POST + PUT), and manifest PUT. Uses `curl` via
-//! the transport layer (I8-validated).
+//! blob upload (POST + PUT), and manifest PUT. GH-228: the requests go out
+//! over `super::registry_http` (ureq); there is no longer a `curl` subprocess
+//! anywhere on this path.
 
+use super::registry_http;
 use crate::core::types::{OciIndex, OciManifest, PushKind, PushResult};
 use std::collections::HashSet;
 use std::path::Path;
@@ -40,74 +42,25 @@ pub struct BlobDescriptor {
 /// OCI Distribution Spec v1.1: `HEAD /v2/{name}/blobs/{digest}`
 /// Returns 200 if exists, 404 if not.
 /// Refs #210: only 200 (exists) and 404 (absent) are answers. Anything else —
-/// including the `000` curl prints when it never connected — is an error, not
-/// an implicit "does not exist"; the old code read every failure as 404 and
-/// marched on to an upload it could not perform.
+/// including a transport failure that produced no response at all — is an
+/// error, not an implicit "does not exist"; the old code read every failure as
+/// 404 and marched on to an upload it could not perform.
 pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<bool, String> {
     let url =
         super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/{digest}"));
-    let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-o",
-            "/dev/null",
-            "-w",
-            "%{http_code}",
-            "--connect-timeout",
-            super::registry_push_http::CONNECT_TIMEOUT_SECS,
-            "--head",
-            &url,
-        ])
-        .output()
-        .map_err(|e| format!("curl HEAD: {e}"))?;
+    let agent = registry_http::agent_for_url(&url);
+    let response =
+        registry_http::send(&agent, "HEAD", &url, &[], registry_http::RequestBody::Empty)
+            .map_err(|e| format!("registry unreachable: no HTTP response from {url} ({e})"))?;
 
-    let status = String::from_utf8_lossy(&output.stdout);
-    match status.trim() {
-        "200" => Ok(true),
-        "404" => Ok(false),
-        "000" | "" => Err(format!(
-            "registry unreachable: no HTTP response from {url} \
-             (curl exited {})",
-            output.status
+    match response.status {
+        200 => Ok(true),
+        404 => Ok(false),
+        code => Err(super::registry_push_http::describe_status(
+            &format!("HEAD {url}"),
+            code,
         )),
-        other => {
-            let code = other.parse::<u16>().unwrap_or(0);
-            Err(super::registry_push_http::describe_status(
-                &format!("HEAD {url}"),
-                code,
-            ))
-        }
     }
-}
-
-/// Generate the curl command for a HEAD blob check.
-pub fn head_check_command(registry: &str, name: &str, digest: &str) -> String {
-    format!(
-        "curl -s -o /dev/null -w '%{{http_code}}' --head 'https://{registry}/v2/{name}/blobs/{digest}'"
-    )
-}
-
-/// Generate the curl command for initiating a blob upload.
-pub fn upload_initiate_command(registry: &str, name: &str) -> String {
-    format!("curl -s -X POST -D - 'https://{registry}/v2/{name}/blobs/uploads/'")
-}
-
-/// Generate the curl command for completing a blob upload.
-/// `--fail-with-body`: see [`monolithic_put_args`] (Bug-hunt #4, Refs #154).
-pub fn upload_complete_command(upload_url: &str, digest: &str, blob_path: &str) -> String {
-    format!(
-        "curl -s --fail-with-body -X PUT -H 'Content-Type: application/octet-stream' \
-         --data-binary '@{blob_path}' '{upload_url}?digest={digest}'"
-    )
-}
-
-/// Generate the curl command for pushing a manifest.
-/// `--fail-with-body`: see [`manifest_put_args`] (Bug-hunt #4, Refs #154).
-pub fn manifest_put_command(registry: &str, name: &str, tag: &str, manifest_path: &str) -> String {
-    format!(
-        "curl -s --fail-with-body -X PUT -H 'Content-Type: application/vnd.oci.image.manifest.v1+json' \
-         --data-binary '@{manifest_path}' 'https://{registry}/v2/{name}/manifests/{tag}'"
-    )
 }
 
 /// Push a single blob to the registry.
@@ -162,36 +115,18 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
 fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
     let url =
         super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/uploads/"));
-    let output = std::process::Command::new("curl")
-        .args([
-            "-s",
-            "-X",
-            "POST",
-            "-D",
-            "-",
-            "-o",
-            "/dev/null",
-            "--connect-timeout",
-            super::registry_push_http::CONNECT_TIMEOUT_SECS,
-            &url,
-        ])
-        .output()
-        .map_err(|e| format!("blob upload initiate: {e}"))?;
+    let agent = registry_http::agent_for_url(&url);
+    let response =
+        registry_http::send(&agent, "POST", &url, &[], registry_http::RequestBody::Empty)
+            .map_err(|e| format!("registry unreachable: no HTTP response to POST {url} ({e})"))?;
 
-    let headers = String::from_utf8_lossy(&output.stdout);
-    let Some(code) = super::registry_push_http::parse_status_code(&headers) else {
-        return Err(format!(
-            "registry unreachable: no HTTP response to POST {url} (curl exited {})",
-            output.status
-        ));
-    };
-    if code != 202 {
+    if response.status != 202 {
         return Err(super::registry_push_http::describe_status(
             &format!("POST {url}"),
-            code,
+            response.status,
         ));
     }
-    let location = parse_location_header(&headers).ok_or_else(|| {
+    let location = response.location.ok_or_else(|| {
         format!("POST {url} returned 202 with no Location header; no upload session to write to")
     })?;
     Ok(super::registry_push_http::resolve_location(
@@ -199,62 +134,43 @@ fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
     ))
 }
 
-/// Build the curl argv for a monolithic blob PUT. Bug-hunt #4 (Refs #154):
-/// `--fail-with-body` makes curl exit non-zero on HTTP >= 400 (401/404/413/5xx)
-/// — without it a failed PUT was reported as a successful push while the
-/// registry stored nothing. Extracted so the flag is unit-testable (no network).
-pub(crate) fn monolithic_put_args(upload_url: &str, digest: &str, blob_path: &str) -> Vec<String> {
-    vec![
-        "-s".into(),
-        "--fail-with-body".into(),
-        "-X".into(),
-        "PUT".into(),
-        "-H".into(),
-        "Content-Type: application/octet-stream".into(),
-        "--data-binary".into(),
-        format!("@{blob_path}"),
-        super::registry_push_http::with_digest_query(upload_url, digest),
-    ]
-}
-
 /// Monolithic PUT upload for small blobs (< 64 MB).
+///
+/// Bug-hunt #4 (Refs #154): the upload is judged by the registry's status, not
+/// by whether the request completed. Before that fix a failed PUT was reported
+/// as a successful push while the registry stored nothing; the guard used to be
+/// curl's `--fail-with-body`, and is now this explicit 2xx gate plus the
+/// registry's own body in the error.
 fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
-    let blob_path = blob.path.display().to_string();
-    let args = monolithic_put_args(upload_url, &blob.digest, &blob_path);
-    let output = std::process::Command::new("curl")
-        .args(&args)
-        .output()
-        .map_err(|e| format!("blob upload complete: {e}"))?;
+    let url = super::registry_push_http::with_digest_query(upload_url, &blob.digest);
+    let agent = registry_http::agent_for_url(&url);
+    let response = registry_http::send(
+        &agent,
+        "PUT",
+        &url,
+        &[("Content-Type", "application/octet-stream".to_string())],
+        registry_http::RequestBody::File(&blob.path),
+    )
+    .map_err(|e| format!("blob upload failed: no HTTP response from {url} ({e})"))?;
 
-    if !output.status.success() {
+    if !registry_http::is_success(response.status) {
         return Err(format!(
-            "blob upload failed (HTTP error): {}",
-            curl_error_detail(&output)
+            "blob upload failed (HTTP {}): {}",
+            response.status,
+            registry_http::detail(&response)
         ));
     }
     Ok(())
 }
 
-/// Build the curl argv for a manifest PUT. `--fail-with-body`: see
-/// [`monolithic_put_args`] (Bug-hunt #4, Refs #154) — the manifest PUT is the
-/// final, release-critical step, so a silent 401/404/5xx here is the worst case.
-pub(crate) fn manifest_put_args(manifest_json: &str, url: &str) -> Vec<String> {
-    vec![
-        "-s".into(),
-        "--fail-with-body".into(),
-        "-X".into(),
-        "PUT".into(),
-        "-H".into(),
-        "Content-Type: application/vnd.oci.image.manifest.v1+json".into(),
-        "-d".into(),
-        manifest_json.into(),
-        url.into(),
-    ]
-}
-
 /// Push a manifest to the registry.
 ///
 /// PUT /v2/{name}/manifests/{tag} with OCI manifest content type.
+///
+/// Bug-hunt #4 (Refs #154): this is the final, release-critical step, so a
+/// silent 401/404/5xx here is the worst case — the tag keeps pointing wherever
+/// it pointed before while forjar reports a push. Gated on a 2xx, with the
+/// registry's own refusal quoted back.
 pub fn push_manifest(
     config: &RegistryPushConfig,
     manifest_json: &str,
@@ -266,16 +182,24 @@ pub fn push_manifest(
         &config.registry,
         &format!("v2/{}/manifests/{}", config.name, config.tag),
     );
-    let args = manifest_put_args(manifest_json, &url);
-    let output = std::process::Command::new("curl")
-        .args(&args)
-        .output()
-        .map_err(|e| format!("manifest push: {e}"))?;
+    let agent = registry_http::agent_for_url(&url);
+    let response = registry_http::send(
+        &agent,
+        "PUT",
+        &url,
+        &[(
+            "Content-Type",
+            "application/vnd.oci.image.manifest.v1+json".to_string(),
+        )],
+        registry_http::RequestBody::Bytes(manifest_json.as_bytes()),
+    )
+    .map_err(|e| format!("manifest push failed: no HTTP response from {url} ({e})"))?;
 
-    if !output.status.success() {
+    if !registry_http::is_success(response.status) {
         return Err(format!(
-            "manifest push failed (HTTP error): {}",
-            curl_error_detail(&output)
+            "manifest push failed (HTTP {}): {}",
+            response.status,
+            registry_http::detail(&response)
         ));
     }
 
@@ -288,27 +212,6 @@ pub fn push_manifest(
     })
 }
 
-/// Verify the `curl` binary this module depends on is actually available.
-///
-/// GH-224. `curl` is an **undeclared runtime dependency** of `forjar build
-/// --push`: nothing in Cargo.toml or the docs says you need it, and it is only
-/// discovered when a push fails. Probing with `--version` (rather than scanning
-/// PATH by hand) tests the thing that actually matters — that we can spawn it.
-///
-/// Returns Ok(()) when curl can be spawned, otherwise an actionable error.
-pub(crate) fn require_curl() -> Result<(), String> {
-    match std::process::Command::new("curl").arg("--version").output() {
-        Ok(_) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(
-            "`forjar build --push` requires the `curl` binary on PATH, and it was not found.\n\
-             OCI registry requests (HEAD/POST/PUT) are made by shelling out to curl.\n\
-             Install it and retry — e.g. `apt-get install -y curl` or `dnf install -y curl`."
-                .to_string(),
-        ),
-        Err(e) => Err(format!("could not execute `curl`: {e}")),
-    }
-}
-
 /// Push a complete OCI image to a registry.
 ///
 /// Follows OCI Distribution Spec v1.1:
@@ -316,22 +219,11 @@ pub(crate) fn require_curl() -> Result<(), String> {
 /// 2. Push config blob
 /// 3. Push manifest
 pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<PushResult>, String> {
-    // GH-224: fail with a message that names the actual problem. Every registry
-    // request in this module shells out to `curl`, so on a host without it the
-    // first HEAD died as:
-    //
-    //   curl HEAD: No such file or directory (os error 2)
-    //
-    // which names neither curl nor "a required external binary is missing", and
-    // reads like a network or registry fault. It was found by infra's clean-room
-    // gate (a container with only declared deps) while GitHub CI stayed green,
-    // because CI's image happens to ship curl.
-    //
-    // Checked once here rather than at each of the ~13 call sites: this is the
-    // single funnel every push goes through, so one probe covers the CLI and any
-    // library caller, and the message is emitted before a partial upload starts.
-    require_curl()?;
-
+    // GH-224 / GH-228: there is no longer a preflight probe here, because there
+    // is no longer an external binary to probe for. The missing-curl failure
+    // that #224 turned into an actionable message is now unreachable: every
+    // registry request in this module is an in-process ureq call, so
+    // `forjar build --push` has no undeclared runtime dependency to be missing.
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
         return Err(format!(
@@ -469,25 +361,13 @@ pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, Stri
     Ok(blobs)
 }
 
-/// Parse the Location header from HTTP response headers.
-pub(crate) fn parse_location_header(headers: &str) -> Option<String> {
-    for line in headers.lines() {
-        let lower = line.to_lowercase();
-        if lower.starts_with("location:") {
-            return Some(line[9..].trim().to_string());
-        }
-    }
-    None
-}
-
-// Chunked upload lives in `registry_push_chunked` and the curl error detail in
-// `registry_push_http` (Refs #210: this file has to stay under the 500-line
-// health limit). Re-exported so `super::registry_push::*` callers are unchanged.
+// Chunked upload lives in `registry_push_chunked` (Refs #210: this file has to
+// stay under the 500-line health limit). Re-exported so
+// `super::registry_push::*` callers are unchanged.
 #[allow(unused_imports)]
 pub(crate) use super::registry_push_chunked::{
     push_blob_chunked, CHUNKED_UPLOAD_THRESHOLD, CHUNK_SIZE,
 };
-pub(crate) use super::registry_push_http::curl_error_detail;
 
 // `validate_push_config` and `format_push_summary` live in `registry_push_fmt`
 // (split out to keep this file under the 500-line health limit). Re-exported so

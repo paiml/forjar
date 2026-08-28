@@ -133,7 +133,7 @@ proof_obligations:
     property: "A mutating apply cannot complete without a receipt"
     formal: "∀ run: run.mutated ⇒ receipt_written(run.run_id)"
     applies_to: all
-    enforced_by: "src/core/executor/helpers.rs::log_tripwire (warns on write failure; no longer `let _`)"
+    enforced_by: "src/tripwire/eventlog.rs::log_tripwire (warns on write failure; no longer `let _`)"
     notes: |
       The failure this closes is not a missing feature. The emitter exists
       and works; `forjar history` reads it and is current for lambda-labs
@@ -157,7 +157,7 @@ proof_obligations:
     property: "Coverage is total across machines under management"
     formal: "∀ m ∈ config.machines: apply(m) ⇒ events(m) receives a line"
     applies_to: all
-    enforced_by: "src/core/executor/helpers.rs::ensure_event_log_writable (preflight; NOT yet wired into the apply path — see notes)"
+    enforced_by: "src/tripwire/eventlog.rs::ensure_event_log_writable (preflight; NOT yet wired into the apply path — see notes)"
     notes: |
       Measured 2026-08-18 across paiml/infra state/: 29 machine dirs carry
       events.jsonl. `intel` — the host running all 16 clean-room runners —

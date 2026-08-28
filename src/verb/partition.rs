@@ -230,6 +230,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["store", "gc"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["store", "list"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["store", "sync"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["store", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["store-import"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["suggest"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["template"], bucket: Bucket::Pending("paiml/forjar#288") },

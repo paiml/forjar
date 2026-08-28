@@ -63,6 +63,19 @@ fn dispatch_cache_verify_routes() {
     assert!(result.is_ok());
 }
 
+/// GH-236: `forjar store verify` must actually route. An empty store is an
+/// empty store, so a fresh tempdir verifies clean rather than erroring.
+#[test]
+fn dispatch_store_verify_routes() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = dispatch_store_cmd(Commands::Store(StoreCmd::Verify {
+        store_dir: dir.path().to_path_buf(),
+        repair: false,
+        json: false,
+    }));
+    assert!(result.is_ok(), "{result:?}");
+}
+
 #[test]
 fn dispatch_store_gc_routes() {
     let dir = tempfile::tempdir().unwrap();

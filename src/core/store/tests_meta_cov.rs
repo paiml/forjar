@@ -14,7 +14,7 @@ fn new_meta_fields() {
         "x86_64",
         "apt",
     );
-    assert_eq!(m.schema, "1.0");
+    assert_eq!(m.schema, "1.1");
     assert_eq!(m.store_hash, "blake3:abc");
     assert_eq!(m.recipe_hash, "blake3:recipe1");
     assert_eq!(m.input_hashes, vec!["blake3:in1"]);

@@ -9,6 +9,12 @@ use crate::core::shell_escape::sh_squote;
 /// because that is what makes an inert reaper visible to `systemctl` and to
 /// `forjar drift`. Masking it would restore exactly the silent-green failure
 /// this resource exists to remove.
+///
+/// #334: `FORJAR_BUDGET_EXECUTE=1` is granted HERE and in `apply_script`, and
+/// nowhere else — the same shape `nas_archive` uses for `ARCHIVE_EXECUTE`.
+/// Running the reaper by hand is a preview; the scheduled pass is the one that
+/// deletes. Removing this line does not make anything safer, it makes every
+/// fleet reaper silently inert and the machines slide to 100%.
 pub(super) fn service_unit(script_path: &str, path: &str) -> String {
     format!(
         "[Unit]\n\
@@ -18,6 +24,9 @@ pub(super) fn service_unit(script_path: &str, path: &str) -> String {
          \n\
          [Service]\n\
          Type=oneshot\n\
+         # The scheduled pass is the one that reclaims. Without this the reaper\n\
+         # only previews — see forjar#334.\n\
+         Environment=FORJAR_BUDGET_EXECUTE=1\n\
          ExecStart={script_path}\n\
          # Reclaim is IO-heavy and never urgent; stay out of the way of real work.\n\
          Nice=10\n\
@@ -79,6 +88,19 @@ mod tests {
         assert!(!s.contains("SuccessExitStatus"));
         assert!(!s.contains("RemainAfterExit"));
         assert!(s.contains("Type=oneshot"));
+    }
+
+    /// #334: the unit is one of exactly two grants of the delete opt-in. If
+    /// this assertion ever goes red because someone removed the line, every
+    /// timer-driven reaper on the fleet has silently become a preview.
+    #[test]
+    fn service_grants_execute_exactly_once() {
+        let s = service_unit("/usr/local/sbin/r.sh", "/");
+        assert_eq!(
+            s.matches("Environment=FORJAR_BUDGET_EXECUTE=1").count(),
+            1,
+            "the scheduled pass must be granted the delete opt-in: {s}"
+        );
     }
 
     #[test]

@@ -17,6 +17,11 @@
 //! FALSIFY-CD-002 at test time. Routing each type ONCE, to a row carrying all
 //! three generators, makes that obligation structural: a type cannot be handled
 //! by one function and missed by another, because there is one row.
+//!
+//! The privilege context was left outside that row and cost the same way:
+//! `sudo: true` wrapped the apply and neither of the other two, so the check
+//! asked a different question than the apply answered (#349). It is resolved
+//! once now, in `in_declared_privilege_context`, for all three.
 
 use crate::core::types::{Resource, ResourceType};
 use crate::resources;
@@ -184,12 +189,18 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
 }
 
 /// Generate a check script for a resource.
+///
+/// Runs in the privilege context the resource declares — see
+/// [`in_declared_privilege_context`].
 #[contract("codegen-dispatch-v1", equation = "check_script")]
 pub fn check_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_check_script!(resource);
     let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
-    Ok((row.check)(resource))
+    Ok(in_declared_privilege_context(
+        resource,
+        (row.check)(resource),
+    ))
 }
 
 /// Generate an apply script for a resource.
@@ -244,14 +255,28 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
 
     let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
     let script = (row.apply)(resource);
-    Ok(sudo_wrap(resource, script))
+    Ok(in_declared_privilege_context(resource, script))
 }
 
-/// FJ-1394 / FJ-29: Wrap script with sudo if the resource has `sudo: true`.
+/// FJ-1394 / FJ-29: run a generated script in the privilege context the
+/// resource DECLARES.
 ///
-/// Uses heredoc to pass the script to sudo bash — avoids single-quote escaping
-/// that triggers bashrs SC2075 false positives.
-fn sudo_wrap(resource: &Resource, script: String) -> String {
+/// Called by all three entry points, not just `apply`. `sudo` is a property of
+/// the RESOURCE, not of the apply phase: a check that runs as a different user
+/// than the apply is not checking the apply, it is asking a different question.
+/// Measured (#349): a `file` at `/etc/audit/rules.d/50-cargo-bin.rules` with
+/// `sudo: true` was written correctly and then probed with a bare `test -f`,
+/// which cannot traverse `drwxr-x--- root root /etc/audit`. apply exited 0, the
+/// bytes on disk were right, and forjar reported `missing:file` forever — then
+/// jidoka skipped the dependents that arm kernel auditing.
+///
+/// The same argument the module header makes for one dispatch row: the
+/// privilege context is resolved ONCE, so a resource cannot be elevated on one
+/// path and unelevated on another.
+///
+/// Uses a heredoc to pass the script to `sudo bash` — avoids the single-quote
+/// escaping that triggers bashrs SC2075 false positives.
+fn in_declared_privilege_context(resource: &Resource, script: String) -> String {
     if !resource.sudo {
         return script;
     }
@@ -262,10 +287,17 @@ fn sudo_wrap(resource: &Resource, script: String) -> String {
 }
 
 /// Generate a state query script for a resource.
+///
+/// Runs in the privilege context the resource declares — see
+/// [`in_declared_privilege_context`]. Without it `live_hash`/`observed` record
+/// the digest of the literal string `MISSING` for a root-only path.
 #[contract("codegen-dispatch-v1", equation = "state_query_script")]
 pub fn state_query_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_state_query_script!(resource);
     let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
-    Ok((row.state_query)(resource))
+    Ok(in_declared_privilege_context(
+        resource,
+        (row.state_query)(resource),
+    ))
 }

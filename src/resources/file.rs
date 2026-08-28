@@ -231,7 +231,7 @@ mod tests {
         r.state = Some("absent".to_string());
         let script = apply_script(&r);
         // The raw `;reboot;` is never left as bare shell — quote was escaped.
-        assert!(script.contains("'/etc/x'\\'';reboot;'\\'''"));
+        assert!(script.contains("'/etc/x'\"'\"';reboot;'\"'\"''"));
         assert!(!script.contains("rm -rf '/etc/x';reboot"));
     }
 
@@ -242,7 +242,7 @@ mod tests {
         r.state = Some("directory".to_string());
         r.owner = Some("x';reboot;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'x'\\'';reboot;'\\'''"));
+        assert!(script.contains("'x'\"'\"';reboot;'\"'\"''"));
         // No bare `chown 'x';reboot` breakout.
         assert!(!script.contains("chown 'x';reboot"));
     }

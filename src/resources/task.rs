@@ -3,7 +3,7 @@
 //! Runs an arbitrary command, tracks exit code, hashes output artifacts
 //! for idempotency, supports completion_check and timeout.
 
-use crate::core::shell_escape::{sh_squote, slugify_identifier};
+use crate::core::shell_escape::{render_command_inline, sh_squote, slugify_identifier};
 use crate::core::types::{Resource, TaskMode};
 use crate::resources::verdict;
 
@@ -415,10 +415,17 @@ pub fn state_query_script(resource: &Resource) -> String {
     // No artifacts and no completion_check: there is genuinely nothing to
     // observe. Say so rather than echoing the declaration back — a caller can
     // tell "unobservable" from "unchanged", which an echo cannot.
+    // `printf '%s\n'`, not `echo`: dash's XSI echo expands the `\n` that
+    // `render_command_inline` puts in, so the sentinel's stdout — which drift
+    // HASHES — would differ between a bash target and a dash target and
+    // manufacture drift from nothing. (#350)
     let command = resource.command.as_deref().unwrap_or("true");
     format!(
-        "echo {}",
-        sh_squote(&format!("unobservable:no-completion-check:{command}"))
+        "printf '%s\\n' {}",
+        sh_squote(&format!(
+            "unobservable:no-completion-check:{}",
+            render_command_inline(command)
+        ))
     )
 }
 
@@ -456,65 +463,4 @@ pub fn gather_script(resource: &Resource) -> Option<String> {
         }
     }
     Some(script)
-}
-
-#[cfg(test)]
-mod fj154_tests {
-    use super::*;
-    use crate::core::types::{MachineTarget, ResourceType};
-
-    fn service_resource(name: &str) -> Resource {
-        Resource {
-            resource_type: ResourceType::Task,
-            machine: MachineTarget::Single("m1".to_string()),
-            name: Some(name.to_string()),
-            command: Some("/usr/bin/myd".to_string()),
-            task_mode: Some(TaskMode::Service),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn fj154_service_name_slugified_in_log_path() {
-        // Defect #13: a name with spaces/metachars must not split the log
-        // redirect target. It is slugified to [A-Za-z0-9._-].
-        let r = service_resource("x; rm -rf ~ #");
-        let script = apply_script(&r);
-        // Slug is "x--rm--rf"; the log redirect is a single quoted word.
-        assert!(
-            script.contains("> '/tmp/forjar-svc-x--rm--rf.log'"),
-            "{script}"
-        );
-        // No bare `rm -rf ~` appears in the redirect target.
-        assert!(!script.contains("/tmp/forjar-svc-x; rm -rf ~"), "{script}");
-    }
-
-    #[test]
-    fn fj154_service_log_and_pid_paths_consistent() {
-        let r = service_resource("my svc");
-        let apply = apply_script(&r);
-        let check = check_script(&r);
-        // Both apply and check agree on the slugified pidfile.
-        assert!(apply.contains("'/tmp/forjar-svc-my-svc.pid'"), "{apply}");
-        assert!(check.contains("'/tmp/forjar-svc-my-svc.pid'"), "{check}");
-        assert!(apply.contains("'/tmp/forjar-svc-my-svc.log'"), "{apply}");
-    }
-
-    #[test]
-    fn fj154_service_benign_name_unchanged() {
-        let r = service_resource("web");
-        let script = apply_script(&r);
-        assert!(script.contains("> '/tmp/forjar-svc-web.log'"), "{script}");
-        assert!(script.contains("'/tmp/forjar-svc-web.pid'"), "{script}");
-    }
-
-    #[test]
-    fn fj154_output_artifacts_quoted() {
-        let mut r = service_resource("t");
-        r.task_mode = None;
-        r.output_artifacts = vec!["/out/x';id;'".to_string()];
-        let q = state_query_script(&r);
-        assert!(q.contains("'\\''"), "{q}");
-        assert!(!q.contains("b3sum '/out/x';id"), "{q}");
-    }
 }

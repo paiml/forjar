@@ -135,7 +135,7 @@ mod tests {
     fn fj154_docker_name_quote_neutralized() {
         let r = docker_resource("c';reboot;'");
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("docker stop 'c';reboot"), "{script}");
     }
 
@@ -147,7 +147,7 @@ mod tests {
         r.environment = vec!["KEY=v';id;'".to_string()];
         r.volumes = vec!["/data:/data".to_string()];
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(script.contains("-p '8080:80'"), "{script}");
         assert!(script.contains("-v '/data:/data'"), "{script}");
     }

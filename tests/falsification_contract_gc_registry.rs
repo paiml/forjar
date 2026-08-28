@@ -11,9 +11,9 @@ use forjar::core::store::hf_config::KernelRequirement;
 use forjar::core::store::meta::{new_meta, write_meta};
 use forjar::core::store::mutation_runner::{applicable_operators, mutation_script};
 use forjar::core::store::registry_push::{
-    format_push_summary, head_check_command, manifest_put_command, upload_complete_command,
-    upload_initiate_command, validate_push_config, RegistryPushConfig,
+    format_push_summary, validate_push_config, RegistryPushConfig,
 };
+use forjar::core::store::registry_push_http::registry_url;
 use forjar::core::types::{MutationOperator, PushKind, PushResult};
 use std::collections::BTreeSet;
 
@@ -240,38 +240,30 @@ fn dir_size_nonexistent() {
     );
 }
 
-// ── E14: Registry push commands ──
+// ── E14: Registry request URLs ──
+//
+// GH-228: the four `*_command` assertions here inspected a curl command line
+// that no longer exists. The HTTP behaviour they stood in for is pinned in
+// tests/falsification_registry_push_needs_no_curl.rs against a live registry.
 
 #[test]
-fn head_check_command_format() {
-    let cmd = head_check_command("ghcr.io", "myorg/app", "sha256:abc");
-    assert!(cmd.contains("ghcr.io"));
-    assert!(cmd.contains("myorg/app"));
-    assert!(cmd.contains("sha256:abc"));
-    assert!(cmd.contains("--head"));
+fn blob_url_names_repository_and_digest() {
+    let url = registry_url("ghcr.io", "v2/myorg/app/blobs/sha256:abc");
+    assert!(url.contains("ghcr.io"), "{url}");
+    assert!(url.contains("myorg/app"), "{url}");
+    assert!(url.contains("sha256:abc"), "{url}");
 }
 
 #[test]
-fn upload_initiate_command_format() {
-    let cmd = upload_initiate_command("ghcr.io", "myorg/app");
-    assert!(cmd.contains("POST"));
-    assert!(cmd.contains("blobs/uploads/"));
+fn upload_session_url_is_the_uploads_endpoint() {
+    let url = registry_url("ghcr.io", "v2/myorg/app/blobs/uploads/");
+    assert!(url.contains("blobs/uploads/"), "{url}");
 }
 
 #[test]
-fn upload_complete_command_format() {
-    let cmd = upload_complete_command("https://ghcr.io/upload/123", "sha256:abc", "/tmp/blob");
-    assert!(cmd.contains("PUT"));
-    assert!(cmd.contains("sha256:abc"));
-    assert!(cmd.contains("/tmp/blob"));
-}
-
-#[test]
-fn manifest_put_command_format() {
-    let cmd = manifest_put_command("ghcr.io", "myorg/app", "v1.0", "/tmp/manifest.json");
-    assert!(cmd.contains("PUT"));
-    assert!(cmd.contains("manifests/v1.0"));
-    assert!(cmd.contains("oci.image.manifest"));
+fn manifest_url_addresses_the_tag() {
+    let url = registry_url("ghcr.io", "v2/myorg/app/manifests/v1.0");
+    assert!(url.ends_with("manifests/v1.0"), "{url}");
 }
 
 #[test]

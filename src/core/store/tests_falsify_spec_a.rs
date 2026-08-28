@@ -104,7 +104,10 @@ fn falsify_a06_store_entry_path_format() {
 #[test]
 fn falsify_a07_store_meta_fields() {
     let meta = new_meta("blake3:h", "blake3:r", &[], "x86_64", "apt");
-    assert_eq!(meta.schema, "1.0", "schema must be '1.0'");
+    // GH-236: 1.1 adds output_hash + addressing. The bump is the migration
+    // signal; a 1.0 meta.yaml already on disk still loads, which is pinned by
+    // `a_schema_1_0_entry_still_loads_and_reports_unsealed`.
+    assert_eq!(meta.schema, "1.1", "schema must be '1.1'");
     assert_eq!(meta.store_hash, "blake3:h");
     assert_eq!(meta.recipe_hash, "blake3:r");
     assert_eq!(meta.arch, "x86_64");
@@ -131,11 +134,14 @@ fn falsify_a08_provenance_struct() {
     assert_eq!(p.derivation_depth, 1);
 }
 
-/// A-09: StoreMeta schema defaults to "1.0".
+/// A-09: StoreMeta schema defaults to the current schema version.
 #[test]
 fn falsify_a09_meta_schema_version() {
     let meta = new_meta("h", "r", &[], "x86_64", "apt");
-    assert_eq!(meta.schema, "1.0", "spec requires schema '1.0'");
+    assert_eq!(
+        meta.schema, "1.1",
+        "GH-236 raised the store meta schema to 1.1"
+    );
 }
 
 /// A-10: StoreMeta references defaults to empty vec.

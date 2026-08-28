@@ -181,7 +181,7 @@ mod tests {
         let mut r = mount_resource();
         r.source = Some("x';reboot;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'x'\\'';reboot;'\\'''"));
+        assert!(script.contains("'x'\"'\"';reboot;'\"'\"''"));
         assert!(!script.contains(" 'x';reboot"));
     }
 
@@ -203,7 +203,7 @@ mod tests {
         let script = apply_script(&r);
         // The single quote in the path is escaped — no break-out into a
         // standalone `reboot` command.
-        assert!(script.contains("'\\''"));
+        assert!(script.contains("'\"'\"'"));
         assert!(!script.contains("sed -i '\\|\\/mnt\\/x';reboot"));
     }
 

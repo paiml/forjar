@@ -2,6 +2,7 @@
 
 use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
+use ignore::should_ignore_drift;
 use std::path::Path;
 
 /// A single drift finding.
@@ -373,21 +374,6 @@ pub fn check_image_drift(
     }
 }
 
-/// FJ-1220: Check if a resource's lifecycle rules say to ignore drift.
-fn should_ignore_drift(
-    resource_id: &str,
-    resources: &indexmap::IndexMap<String, Resource>,
-) -> bool {
-    if let Some(resource) = resources.get(resource_id) {
-        if let Some(ref lifecycle) = resource.lifecycle {
-            // ignore_drift: ["*"] means skip all drift
-            // ignore_drift: ["content", "mode"] means skip specific fields (treated as skip-all for now)
-            return !lifecycle.ignore_drift.is_empty();
-        }
-    }
-    false
-}
-
 /// Drift detection for file resources, respecting lifecycle.ignore_drift.
 fn detect_drift_with_lifecycle(
     lock: &StateLock,
@@ -484,6 +470,8 @@ fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFi
 
     findings
 }
+
+mod ignore;
 
 #[cfg(test)]
 mod tests_basic;

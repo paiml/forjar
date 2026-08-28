@@ -124,12 +124,20 @@ impl Handler for PlanHandler {
             })
             .collect();
 
+        // forjar#342: the MCP/HTTP/verb transports all serialise this one
+        // `PlanOutput` (verb/registry.rs), so the disclosure reaches three
+        // surfaces here. `locks` above is the same map the CLI counts over, and
+        // neither surface narrows it by `-r`, so the two agree by construction.
+        let unconsulted = crate::cli::unconsulted_observations_for_mcp(&locks);
         Ok(PlanOutput {
             to_create: exec_plan.to_create,
             to_update: exec_plan.to_update,
             to_destroy: exec_plan.to_destroy,
             unchanged: exec_plan.unchanged,
             changes,
+            lock_relative: true,
+            unconsulted_observations: unconsulted,
+            disclosure: crate::cli::scope_disclosure_for_mcp(unconsulted),
         })
     }
 }

@@ -22,7 +22,7 @@ r.content = Some("key=value".into());
 let script = apply_script(&r).unwrap();
 ```
 
-Supported for all 15 resource types except Recipe (must expand first). `sudo: true` wraps the apply script in a `sudo bash` heredoc.
+Supported for all 15 resource types except Recipe (must expand first). `sudo: true` wraps all three generated scripts — apply, check and state query — in a `sudo bash` heredoc. The check must run in the same privilege context as the apply, or it is answering a different question (#349).
 
 ## Docker → Pepita Migration (FJ-044)
 

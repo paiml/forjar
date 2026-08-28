@@ -28,6 +28,8 @@ pub mod task;
 mod tests_service;
 #[cfg(test)]
 mod tests_task;
+#[cfg(test)]
+mod tests_task_fj154;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;
@@ -37,6 +39,8 @@ mod network_b;
 mod tests_build;
 #[cfg(test)]
 mod tests_cron;
+#[cfg(test)]
+mod tests_cron_b;
 #[cfg(test)]
 mod tests_docker;
 #[cfg(test)]

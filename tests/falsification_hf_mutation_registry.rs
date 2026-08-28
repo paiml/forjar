@@ -8,7 +8,7 @@
 //! - FJ-2604: MutationOperator (description, applicable_types, Display)
 //! - FJ-2105: validate_push_config (required fields, URL rejection)
 //! - FJ-2105: format_push_summary (uploaded/skipped counts, bytes)
-//! - FJ-2105: head_check_command, upload/manifest command generation
+//! - FJ-2105: registry_url (scheme selection, /v2/ path construction)
 //! - FJ-1352: scaffold_contracts (YAML stub generation)
 //!
 //! Usage: cargo test --test falsification_hf_mutation_registry
@@ -19,9 +19,9 @@ use forjar::core::store::hf_config::{
 };
 use forjar::core::store::mutation_runner::{applicable_operators, mutation_script};
 use forjar::core::store::registry_push::{
-    format_push_summary, head_check_command, manifest_put_command, upload_complete_command,
-    upload_initiate_command, validate_push_config, RegistryPushConfig,
+    format_push_summary, validate_push_config, RegistryPushConfig,
 };
+use forjar::core::store::registry_push_http::registry_url;
 use forjar::core::types::{MutationOperator, PushKind, PushResult};
 
 // ============================================================================
@@ -354,38 +354,35 @@ fn push_config_url_rejected() {
 }
 
 // ============================================================================
-// FJ-2105: command generation
+// FJ-2105: request URL construction
+//
+// GH-228: these used to assert on curl command strings (`--head`, `-X PUT`,
+// `--fail-with-body`). There is no curl command any more, so what is left to
+// falsify is the URL the request is aimed at; the HTTP verbs and the
+// status gating they stood in for are pinned behaviourally in
+// tests/falsification_registry_push_needs_no_curl.rs.
 // ============================================================================
 
 #[test]
-fn head_check_command_format() {
-    let cmd = head_check_command("ghcr.io", "myorg/myapp", "sha256:abc123");
-    assert!(cmd.contains("--head"));
-    assert!(cmd.contains("ghcr.io"));
-    assert!(cmd.contains("sha256:abc123"));
+fn blob_url_names_the_digest_under_v2() {
+    let url = registry_url("ghcr.io", "v2/myorg/myapp/blobs/sha256:abc123");
+    assert_eq!(url, "https://ghcr.io/v2/myorg/myapp/blobs/sha256:abc123");
 }
 
 #[test]
-fn upload_initiate_command_format() {
-    let cmd = upload_initiate_command("ghcr.io", "myorg/myapp");
-    assert!(cmd.contains("POST"));
-    assert!(cmd.contains("/v2/myorg/myapp/blobs/uploads/"));
+fn upload_session_url_is_the_uploads_endpoint() {
+    let url = registry_url("ghcr.io", "v2/myorg/myapp/blobs/uploads/");
+    assert!(url.contains("/v2/myorg/myapp/blobs/uploads/"), "{url}");
 }
 
 #[test]
-fn upload_complete_command_format() {
-    let cmd = upload_complete_command("https://ghcr.io/upload/1234", "sha256:abc", "/tmp/blob.tar");
-    assert!(cmd.contains("PUT"));
-    assert!(cmd.contains("sha256:abc"));
-    assert!(cmd.contains("/tmp/blob.tar"));
-}
-
-#[test]
-fn manifest_put_command_format() {
-    let cmd = manifest_put_command("ghcr.io", "myapp", "v1.0", "/tmp/manifest.json");
-    assert!(cmd.contains("PUT"));
-    assert!(cmd.contains("manifests/v1.0"));
-    assert!(cmd.contains("application/vnd.oci.image.manifest"));
+fn manifest_url_addresses_the_tag_not_a_blob() {
+    let url = registry_url("ghcr.io", "v2/myapp/manifests/v1.0");
+    assert!(url.ends_with("/manifests/v1.0"), "{url}");
+    assert!(
+        !url.contains("/blobs/"),
+        "the manifest is PUT to the tag: {url}"
+    );
 }
 
 // ============================================================================

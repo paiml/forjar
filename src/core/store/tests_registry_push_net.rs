@@ -6,17 +6,18 @@
 //! dedicated thread, so the tests are hermetic and parallel-safe — no fixed
 //! ports, no shared global state, no real network.
 //!
-//! The production push functions shell out to `curl`, so these tests verify
-//! the real subprocess + HTTP round-trip, not a mock of it.
+//! These drive the production functions over a real TCP round-trip, not a mock.
 //!
-//! All four are `#[ignore]`d: they require an **unproxied loopback**. The
-//! clean-room CI containers export `HTTP(S)_PROXY`, which curl honors even
-//! for `127.0.0.1`, so it never reaches the in-process server and blocks
-//! with no connect timeout (the suite then hangs to the 1h job limit). The
-//! production `curl` calls intentionally omit `--noproxy` (real registries
-//! may sit behind a proxy), and forcing `no_proxy` via process-global env is
-//! unsafe under the parallel test runner — so these run locally / in
-//! proxy-free environments via `cargo test -- --ignored`. (PMAT-088 / PR #153.)
+//! GH-228: they used to be `#[ignore]`d, all four of them. The reason was
+//! `curl`: it honors an ambient `HTTP(S)_PROXY` even for `127.0.0.1`, so in the
+//! clean-room CI containers the request never reached the in-process server and
+//! blocked with no connect timeout until the 1h job limit. Passing `--noproxy`
+//! was not an option (real registries may sit behind a proxy) and forcing
+//! `no_proxy` through process-global env is unsafe under the parallel test
+//! runner. The ureq transport configures the proxy **per agent** and disables
+//! it for loopback (`registry_http::agent_for_url`), so the tests now run in
+//! every environment — which is how a test asserting that HTTP 500 was a
+//! *success* survived on main for as long as it did. (PMAT-088 / PR #153.)
 
 use super::registry_push::*;
 use crate::core::types::PushKind;
@@ -202,16 +203,24 @@ fn render_reply(reply: &Reply) -> String {
     }
 }
 
-/// Create a small temp blob file and a descriptor whose declared `size`
-/// spans `chunks` PATCH iterations (the loop is driven by `size`, while curl
-/// streams the real file). Returns the dir guard to keep the file alive.
+/// Create a temp blob file of exactly `chunks` chunks and a descriptor for it.
+///
+/// GH-228: the file has to really be that long now. It used to be 15 bytes with
+/// a declared size of 16 MB, which only "worked" because `curl -r <range>
+/// --data-binary @file` ignores the range on upload and sent the whole file for
+/// every chunk — i.e. the fixture was green against a transport that was
+/// uploading the wrong bytes. Each PATCH now streams its own declared range and
+/// says so in `Content-Length`, so a short file is a real error.
 fn make_blob(chunks: u64) -> (tempfile::TempDir, BlobDescriptor) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path: PathBuf = dir.path().join("layer.bin");
-    std::fs::write(&path, b"oci-layer-bytes").expect("write blob");
+    let size = CHUNK_SIZE * chunks;
+    let file = std::fs::File::create(&path).expect("create blob");
+    file.set_len(size).expect("size blob");
+    drop(file);
     let blob = BlobDescriptor {
         digest: "sha256:deadbeef".into(),
-        size: CHUNK_SIZE * chunks,
+        size,
         path,
         kind: PushKind::Layer,
     };
@@ -219,7 +228,6 @@ fn make_blob(chunks: u64) -> (tempfile::TempDir, BlobDescriptor) {
 }
 
 #[test]
-#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_single_chunk_happy_path() {
     // One PATCH (202, no Location => keep current URL) + finalize PUT (201).
     let server = OciTestServer::spawn(vec![Reply::AcceptedNoLocation, Reply::Created]);
@@ -241,7 +249,6 @@ fn chunked_push_single_chunk_happy_path() {
 }
 
 #[test]
-#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_follows_location_for_resumption() {
     // Two-chunk blob: each PATCH hands back an absolute upload URL (as real
     // registries do) that the next request must follow — server-driven
@@ -289,7 +296,6 @@ fn chunked_push_follows_location_for_resumption() {
 }
 
 #[test]
-#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
 fn chunked_push_errors_when_registry_unreachable() {
     // `.invalid` is RFC 6761 guaranteed non-resolvable, so curl fails DNS
     // resolution and exits non-zero, and the function must return Err. Unlike
@@ -310,20 +316,26 @@ fn chunked_push_errors_when_registry_unreachable() {
     );
 }
 
+/// The #154 property, on the chunked path.
+///
+/// This test used to be its own inverse. Named
+/// `chunked_push_succeeds_even_on_http_500_because_curl_silent`, it asserted
+/// `is_ok()` on an HTTP 500 and called that "the current contract". It was
+/// already false when it was written — `--fail-with-body` had landed on this
+/// very call — but it was `#[ignore]`d, so nothing ever ran it to find out.
+/// A registry that answers 500 has stored nothing; a push that reports success
+/// anyway is the #210 class of defect.
 #[test]
-#[ignore = "requires unproxied loopback — see module docs (PMAT-088)"]
-fn chunked_push_succeeds_even_on_http_500_because_curl_silent() {
-    // Documents the production behaviour: `curl -s` exits 0 on HTTP errors,
-    // so a 500 does NOT surface as Err from push_blob_chunked. This locks in
-    // the current contract (only transport failures error out).
+fn chunked_push_fails_on_http_500() {
     let server = OciTestServer::spawn(vec![Reply::ServerError, Reply::ServerError]);
     let url = server.upload_url();
     let (_dir, blob) = make_blob(1);
 
     let result = push_blob_chunked(&url, &blob);
+    let err = result.expect_err("HTTP 500 stored nothing; that is a failed upload");
     assert!(
-        result.is_ok(),
-        "curl -s masks HTTP 500; only transport errors fail: {result:?}"
+        err.contains("500"),
+        "the error must name the status the registry gave: {err}"
     );
     let reqs = server.recorded();
     assert!(reqs.iter().any(|r| r.method == "PATCH"));

@@ -82,22 +82,22 @@ copia = "=0.2.0"
 serde.workspace = true
 serde_yaml_ng = "0.10"
 serde_json.workspace = true
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive"], optional = true }
 indexmap = { version = "2.7", features = ["serde"] }
 aprender-contracts-macros = "0.31"
 base64 = "0.22.1"
 bashrs = "6.68.0"
-pforge-runtime = "0.1.4"
-pforge-config = "0.1.4"
-tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
-async-trait = "0.1"
-schemars = { version = "0.8", features = ["derive"] }
+pforge-runtime = { version = "0.1.4", optional = true }
+pforge-config = { version = "0.1.4", optional = true }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"], optional = true }
+async-trait = { version = "0.1", optional = true }
+schemars = { version = "0.8", features = ["derive"], optional = true }
 regex = "1"
 glob = "0.3"
 rustc-hash = "2"
 age = { version = "0.11", default-features = false, optional = true }
 wasmi = { version = "0.40", optional = true }
-clap_complete = "4"
+clap_complete = { version = "4", optional = true }
 zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd"] }
 bzip2 = "0.6"
 zstd = "0.13"
@@ -108,12 +108,23 @@ sha2 = "0.10"
 # Cargo.lock transitively, so this adds no new transitive dependencies.
 hmac = "0.12"
 flate2 = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 dhat = { version = "0.3.3", optional = true }
 toml = "1.1"
 # OpenSSL: system pkg-config by default, vendored for cross-compilation.
 # Clean-room CI has libssl-dev; nightly/release builds use vendored-openssl feature.
-openssl = "0.10"
+openssl = { version = "0.10", optional = true }
+# GH-228: the OCI registry transport (HEAD/POST/PUT/PATCH against /v2/).
+# ureq, not reqwest: `src/core` contains zero `async fn`, while the MCP path runs
+# a live tokio runtime. `reqwest::blocking` panics when called from inside an
+# async context, so a blocking wrapper around an async client is a latent panic
+# on the one code path this crate actually has a runtime on. ureq is synchronous
+# and spins no runtime of its own.
+# `platform-verifier` is load-bearing, not decoration: curl validated TLS against
+# the OS trust store, and ureq's default `RootCerts::WebPki` is a bundled Mozilla
+# root set — without this feature a push to a registry fronted by a corporate or
+# private CA would start failing on a host where it worked before.
+ureq = { version = "3.4", features = ["platform-verifier"] }
 
 [build-dependencies]
 aprender-contracts = "0.31"
@@ -147,13 +158,67 @@ harness = false
 name = "memory_bench"
 harness = true
 
+# Explicit so `--no-default-features` yields a LIBRARY. Without this section the
+# binary is auto-discovered from src/main.rs, which hard-uses `clap::Parser` and
+# `forjar::cli::Commands`, and cargo would try to build it with `cli` off.
+[[bin]]
+name = "forjar"
+path = "src/main.rs"
+required-features = ["cli"]
+
 [features]
+# The shipped product. `forjar` the binary IS `default`; a consumer who wants
+# only the library writes `default-features = false` and gets `api`, `core`,
+# `copia`, `resources`, `transport` and `tripwire` with none of clap, pforge,
+# tokio, rusqlite or openssl. Before GH-237 there was no `default` key at all,
+# so `default-features = false` subtracted the empty set and removed nothing.
+default = ["cli"]
+
+# The binary and both server surfaces. ONE feature, not three: src/mcp/handlers.rs
+# calls crate::cli at three sites (strip_unrequested_phony_for_mcp, and
+# graph_core::{GraphFormat, parse_graph_format} twice) and src/cli/infra.rs calls
+# crate::mcp::{serve, export_schema} back, and Cargo rejects cyclic feature
+# definitions. Splitting `mcp` out first requires moving graph_core and
+# strip_unrequested_phony_for_mcp into core. Tracked separately.
+cli = [
+  "dep:clap",
+  "dep:clap_complete",
+  "dep:pforge-runtime",
+  "dep:pforge-config",
+  "dep:tokio",
+  "dep:async-trait",
+  "dep:schemars",
+  "db",
+  "tls",
+]
+# SQLite-backed state store: src/core/store/{db,query,ingest}.rs.
+db = ["dep:rusqlite"]
+# Direct openssl. This crate has no `openssl::` call site — the dependency
+# exists so `vendored-openssl` can reach openssl-sys through the
+# reqwest -> native-tls chain and vendor it for cross-compiled targets.
+tls = ["dep:openssl"]
+
+# NOT severable in this change, recorded so the next reader does not retry it:
+#   bashrs  — backs invariant I8 ("no raw shell execution; all shell is
+#             bashrs-purified"). Gating it means shipping a build that executes
+#             unpurified shell, which is a correctness regression wearing a
+#             packaging win as a hat.
+#   zip/bzip2/zstd/tar/flate2 — cascade through store::{conda,far,layer_builder,
+#             chunker,sandbox_exec} into six more store modules and into
+#             benches/store_bench.rs. A separate cut with its own test surface.
+
 encryption = ["dep:age"]
 wasm-runtime = ["dep:wasmi"]
 container-test = []
 gpu-container-test = []
 dhat-heap = ["dep:dhat"]
-vendored-openssl = ["openssl/vendored"]
+# `openssl/vendored` alone would already force the now-optional dep on; naming
+# `tls` as well makes that intent readable. The release lanes
+# (binary-release.yml, release.yml, nightly.yml) build with
+# `--features vendored-openssl` and NO `--no-default-features`, so this must
+# keep resolving to the openssl dependency or every cross-compiled artifact
+# fails at tag time.
+vendored-openssl = ["tls", "openssl/vendored"]
 
 [package.metadata.docs.rs]
 all-features = true

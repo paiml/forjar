@@ -20,6 +20,7 @@
 ## Table of Contents
 
 - [Features](#features)
+- [Cargo features](#cargo-features)
 - [Why Forjar](#why-forjar)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
@@ -62,12 +63,12 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 forjar's own code is Rust, but the default dependency tree links C through five
 transitive `-sys` crates:
 
-| crate | pulled in by | compiles C |
-|---|---|---|
-| `openssl-sys` | TLS for registry/OCI operations | yes |
-| `aws-lc-sys` | rustls' default crypto provider | yes |
-| `libsqlite3-sys` | `rusqlite`, the state/event store | yes |
-| `bzip2-sys`, `zstd-sys` | archive handling in `dist`/store | yes |
+| crate | pulled in by | compiles C | feature |
+|---|---|---|---|
+| `openssl-sys` | TLS for registry/OCI operations | yes | `tls`, `cli` |
+| `aws-lc-sys` | rustls' default crypto provider | yes | `cli` |
+| `libsqlite3-sys` | `rusqlite`, the state/event store | yes | `db`, `cli` |
+| `bzip2-sys`, `zstd-sys` | archive handling in `dist`/store | yes | unconditional |
 
 `libc`, `linux-raw-sys` and `inotify-sys` also appear; those are FFI
 declarations rather than bundled C, so they need no C toolchain.
@@ -77,9 +78,31 @@ That was false for every build since the store gained SQLite, and it is the kind
 of claim a reader uses to decide whether forjar will build in a minimal
 container — so it is stated accurately rather than aspirationally.
 
-Trimming these is tracked as GH-237: `default-features = false` is currently a
-no-op because the crate declares no default feature set, so there is no
-supported way to opt out of `rusqlite`/`openssl` today.
+## Cargo features
+
+Until GH-237, `default-features = false` was a literal no-op: the crate declared
+no `default` feature set, so there was nothing to opt out of. It now cuts the
+tree roughly in half — 360 crates to 191, measured with
+`cargo tree -e normal --prefix none | sort -u | wc -l`.
+
+| feature | default | what it adds |
+|---|---|---|
+| `cli` | yes | the `forjar` binary, the MCP server and the verb registry — clap, clap_complete, pforge, tokio, async-trait, schemars, and (through them) rustls and `aws-lc-sys`. Implies `db` and `tls`. |
+| `db` | via `cli` | `core::store::{db,query,ingest}` — `rusqlite` with bundled SQLite. |
+| `tls` | via `cli` | a direct `openssl` dependency, so `vendored-openssl` can reach `openssl-sys` for cross-compiled targets. |
+
+```toml
+# the binary, everything on
+forjar = "1.20"
+# library only: api, core, copia, resources, transport, tripwire
+forjar = { version = "1.20", default-features = false }
+```
+
+`cli` is one feature rather than three because `cli`, `mcp` and `verb` are
+mutually recursive — `mcp::handlers` calls into `cli`, `cli::infra` calls
+`mcp::{serve, export_schema}` — and Cargo rejects cyclic feature definitions.
+`bashrs` stays unconditional: it backs the invariant that no raw shell is ever
+executed, and a build without it would execute unpurified shell.
 
 ## Build semantics
 

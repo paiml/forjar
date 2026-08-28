@@ -61,6 +61,9 @@ fn meta_with_provenance(
             derived_from: None,
             derivation_depth: depth,
         }),
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }
 
@@ -76,6 +79,9 @@ fn meta_no_provenance(hash: &str) -> StoreMeta {
         generator: "test".into(),
         references: vec![],
         provenance: None,
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }
 

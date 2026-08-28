@@ -67,6 +67,10 @@ fn setup_plugin(dir: &std::path::Path, name: &str, wasm: &[u8]) {
     ).unwrap();
 }
 
+#[path = "common/latency_budget.rs"]
+mod latency_budget;
+use latency_budget::latency_budget_ms;
+
 // ── F-3100: Event-Driven Automation ─────────────────────────────────────
 
 /// F-3100-1: Event detection < 100ms.
@@ -78,7 +82,7 @@ fn f_3100_1_event_detection_latency() {
     let mut state = DaemonState::new(&WatchDaemonConfig::default());
     let start = Instant::now();
     watch_daemon::process_event(&make_event(EventType::FileChanged), &config, &mut state);
-    assert!(start.elapsed().as_millis() < 100);
+    assert!(start.elapsed().as_millis() < latency_budget_ms(100));
 }
 
 /// F-3100-2: No event loss under load — 1000 events.
@@ -223,7 +227,7 @@ fn f_3200_3_policy_eval_under_50ms() {
     for bm in compliance::supported_benchmarks() {
         let _ = compliance::evaluate_benchmark(bm, &config);
     }
-    assert!(start.elapsed().as_millis() < 50);
+    assert!(start.elapsed().as_millis() < latency_budget_ms(50));
 }
 
 /// F-3200-4: bashrs validates script policies.
@@ -477,7 +481,7 @@ fn f_3400_5_cold_load_under_50ms() {
     setup_plugin(dir.path(), "fl", b"fast wasm");
     let start = Instant::now();
     plugin_loader::resolve_and_verify(dir.path(), "fl").unwrap();
-    assert!(start.elapsed().as_millis() < 50);
+    assert!(start.elapsed().as_millis() < latency_budget_ms(50));
 }
 
 /// F-3400-6: Shell bridge validates scripts.

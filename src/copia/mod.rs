@@ -26,9 +26,13 @@ pub const SIZE_THRESHOLD: u64 = 1_048_576;
 
 /// POSIX-safe single-quoting for interpolating an untrusted string into a shell
 /// script (closes the injection hole from bare `'{path}'` interpolation).
+///
+/// Delegates to the canonical escaper. A second implementation is a second
+/// place for the escape idiom to be wrong: this one still emitted `'\''`,
+/// which forjar's own I8 gate rejects (#350).
 #[must_use]
 pub fn shell_quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
+    crate::core::shell_escape::sh_squote(s)
 }
 
 /// copia's weak (rolling Adler) checksum of a block, `(b<<16)|a` with

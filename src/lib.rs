@@ -19,11 +19,18 @@
 mod generated_contracts;
 /// The supported, semver-covered library API. See the module docs.
 pub mod api;
+// `cli`, `mcp` and `verb` are one severable unit gated on the `cli` feature
+// (GH-237). They are mutually recursive — mcp::handlers calls into cli, cli::infra
+// calls mcp::{serve,export_schema}, verb::registry pulls both — so Cargo cannot
+// express them as separate features today.
+#[cfg(feature = "cli")]
 pub mod cli;
 pub mod copia;
 pub mod core;
+#[cfg(feature = "cli")]
 pub mod mcp;
 pub mod resources;
 pub mod transport;
 pub mod tripwire;
+#[cfg(feature = "cli")]
 pub mod verb;

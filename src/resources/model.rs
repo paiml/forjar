@@ -426,7 +426,7 @@ resources:
         r.path = Some("/models/x';reboot;'".to_string());
         r.state = Some("absent".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("rm -f '/models/x';reboot"), "{script}");
     }
 
@@ -437,7 +437,7 @@ resources:
         r.owner = Some("u';id;'".to_string());
         r.cache_dir = Some("/cache".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(script.contains("mkdir -p '/cache'"), "{script}");
     }
 
@@ -447,7 +447,7 @@ resources:
         r.source = Some("https://example.com/m.gguf".to_string());
         r.checksum = Some("deadbeef';id;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("!= 'deadbeef';id"), "{script}");
     }
 

@@ -1436,7 +1436,7 @@ Every resource handler follows the same structure. Here is how the three-script 
 | **mount** | `mountpoint -q` | `mount -t` + fstab entry | `findmnt -n` |
 | **user** | `id <user>` | `useradd` / `usermod` / `userdel` | `id` + `getent passwd` |
 | **docker** | `docker inspect` | `docker pull` + `docker run -d` | `docker inspect` |
-| **cron** | `crontab -l` + `grep forjar:<name>` | crontab filter + append | `crontab -l` + `grep -A1` |
+| **cron** | `$SUDO crontab -u <owner> -l` + `grep forjar:<name>` | crontab filter + append | `$SUDO crontab -u <owner> -l` + `grep -A1` |
 | **network** | `ufw status numbered` + grep | `ufw allow/deny/reject` | `ufw status verbose` |
 
 ## bashrs Lint Compliance
@@ -1475,7 +1475,7 @@ The `$SUDO` variable is intentionally unquoted when used as a command prefix. Wh
 |---------|-------------|--------|
 | **package** | `$SUDO` in apt install/remove | Non-root users need sudo for apt-get. The `SUDO` variable is set conditionally based on `id -u`. |
 | **user** | `$SUDO` in useradd/usermod/userdel/groupadd | User management commands require root privileges. SSH key deployment also uses `$SUDO mkdir`, `$SUDO mv`, `$SUDO chmod`, `$SUDO chown`. |
-| **cron** | `$SUDO` in crontab read/write | Editing another user's crontab (`crontab -u <user>`) requires root. Both present and absent states pipe through `$SUDO crontab -u <user> -`. |
+| **cron** | `$SUDO` in crontab read/write | Reading another user's crontab is exactly as privileged as writing it: `crontab -u <user>` refuses every non-root caller, even for the caller's own username. So the check and the state query carry `$SUDO` too, not just the apply (forjar#348). Both present and absent states pipe through `$SUDO crontab -u <user> -`. The check first exits 2 (SKIP) if it has no passwordless sudo, rather than reporting a job it was never allowed to look for as missing. |
 | **network** | `$SUDO` in ufw enable/allow/deny/delete | All ufw operations require root. The handler also runs `$SUDO ufw --force enable` to ensure the firewall is active before adding rules. |
 
 ### Validation vs. Purification
@@ -1550,7 +1550,10 @@ id 'deploy' >/dev/null 2>&1 && {
 } || echo 'user=MISSING'
 
 # Cron state query
-crontab -l -u root 2>/dev/null | grep 'forjar:nightly-backup' || echo 'MISSING'
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+$SUDO crontab -u 'root' -l 2>/dev/null | grep -A1 '# forjar:nightly-backup' \
+  || echo 'cron=MISSING:nightly-backup'
 ```
 
 ### Script Security
@@ -1773,10 +1776,14 @@ resources:
 ### Execution Phases
 
 1. **Build**: SSH to `build_machine`, run `command` in `working_dir`
-2. **Transfer**: SCP artifact from `build_machine:source` to `target`
+2. **Transfer**: `copia sync` the artifact from `build_machine:source` to `target`
 3. **Verify**: Run `completion_check` locally on deploy machine
 
-When `build_machine` is `localhost`, local `cp` replaces SSH/SCP.
+When `build_machine` is `localhost`, local `cp` replaces SSH/copia.
+
+`copia` must be installed on the **deploy** machine
+(`cargo install copia --features cli`); the generated script refuses before it
+creates anything if it is not (forjar#290).
 
 ### Build Fields
 

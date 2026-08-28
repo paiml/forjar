@@ -296,7 +296,7 @@ bindings:
       three confirmed RED under mutation."
 
   - contract: apply-receipt-v1.yaml
-    equation: receipt_deletion
+    equation: receipt_completeness
     module_path: "forjar::tripwire::eventlog::append_event"
     function: append_event
     signature: "fn append_event(state_dir: &Path, machine: &str, event: ProvenanceEvent) -> Result<(), String>"
@@ -304,7 +304,13 @@ bindings:
     notes: "Deletion is now representable via ProvenanceEvent::ResourceDeleted and
       round-trips to the log. paiml/infra#208 is a deletion — every real file under
       ~/.cargo/bin removed, every symlink left — so the one event class that would
-      have named it did not exist. Falsifier RCP-001."
+      have named it did not exist. Falsifier RCP-001.
+      This entry named `receipt_deletion` until #298. apply-receipt-v1.yaml has
+      never defined that equation, and nothing noticed, because verify_bindings
+      reads `status:` and never opens the contract. Deletion representability is
+      part of receipt_completeness, whose invariants are `action IN {created,
+      changed, deleted, unchanged, failed}` and `action = deleted => after_digest
+      = null AND before_digest != null`."
 
   # ── Apply Converges Observed Drift (#305, #297) ────────
   - contract: plan-declares-its-quantifier-v1.yaml
@@ -330,6 +336,30 @@ bindings:
       the same defect this contract exists to prevent."
 
   - contract: plan-declares-its-quantifier-v1.yaml
+    equation: disclosure_is_a_function_of_unconsulted_observations
+    module_path: "forjar::cli::plan_json::print_plan_json"
+    function: print_plan_json
+    signature: "fn print_plan_json(plan: &ExecutionPlan, config: &ForjarConfig, unconsulted: usize) -> Result<(), String>"
+    status: implemented
+    notes: "forjar#342 residual. The MACHINE-READABLE surface, and the one the
+      issue's motivating incident actually ran through — a nightly lane parsing
+      forjar output. Emits `lock_relative` and `unconsulted_observations`
+      unconditionally so a parser has a total function, and `disclosure` only
+      when the count is non-zero, which is the biconditional itself."
+
+  - contract: plan-declares-its-quantifier-v1.yaml
+    equation: disclosure_is_a_function_of_unconsulted_observations
+    module_path: "forjar::mcp::handlers::PlanHandler"
+    function: handle
+    signature: "async fn handle(&self, input: PlanInput) -> Result<PlanOutput>"
+    status: implemented
+    notes: "forjar#342 residual. One PlanOutput serves the CLI `verb call`, MCP
+      stdio and HTTP transports (src/verb/registry.rs), so this row covers three
+      surfaces. The count ranges over the locks the handler planned over — the
+      same convention `load_machine_locks` uses on the CLI, so the two agree by
+      construction rather than by coincidence."
+
+  - contract: plan-declares-its-quantifier-v1.yaml
     equation: disclosure_names_the_command_that_can_answer
     module_path: "forjar::cli::print_helpers::print_scope_disclosure"
     function: print_scope_disclosure
@@ -337,7 +367,9 @@ bindings:
     status: implemented
     notes: "Names `forjar drift` in the disclosure. Telling an operator an
       answer is incomplete without telling them how to complete it converts a
-      silent gap into a loud one and stops there."
+      silent gap into a loud one and stops there. The sentence itself now lives
+      in `scope_disclosure`, which RETURNS it, so the machine-readable surfaces
+      serialise the same text rather than reimplementing it."
 
   - contract: apply-converges-observed-drift-v1.yaml
     equation: live_oracle_is_read
@@ -355,7 +387,7 @@ bindings:
 
   - contract: apply-converges-observed-drift-v1.yaml
     equation: apply_reads_what_drift_reads
-    module_path: "forjar::cli::apply::check_pre_apply_drift"
+    module_path: "forjar::cli::apply_drift::check_pre_apply_drift"
     function: check_pre_apply_drift
     signature: "fn check_pre_apply_drift(config: &ForjarConfig, state_dir: &Path, machine_filter: Option<&str>, force: bool, verbose: bool) -> Result<(), String>"
     status: implemented

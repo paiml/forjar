@@ -3,11 +3,37 @@
 //! Each store entry has a `meta.yaml` recording its recipe hash, input hashes,
 //! architecture, provider, creation time, and provenance chain.
 
+use super::content;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// Schema version written by this build.
+///
+/// GH-236: 1.1 adds `output_hash` and `addressing`. Both are `#[serde(default)]`,
+/// so a 1.0 `meta.yaml` already on disk still loads — it reports
+/// `output_hash: None`, which [`super::verify`] renders as `Unsealed` rather
+/// than as a false corruption report.
+pub const SCHEMA_VERSION: &str = "1.1";
+
+/// Which scheme an entry's `store_hash` was derived from.
+///
+/// The store has always carried both kinds of address and never said which was
+/// which: the derivation path addresses by recipe + inputs
+/// (`path::store_path`), the import path addresses by the bytes it staged
+/// (`provider_exec::hash_staging_dir`). Downstream code was left to guess, and
+/// guessed wrong — see the note on [`super::verify`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Addressing {
+    /// `store_hash` is a hash of the recipe and its inputs.
+    #[default]
+    Derivation,
+    /// `store_hash` is a hash of the bytes the entry holds.
+    Content,
+}
+
 /// Metadata for a content-addressed store entry.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct StoreMeta {
     /// Schema version
     pub schema: String,
@@ -40,6 +66,18 @@ pub struct StoreMeta {
     /// Optional provenance chain
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Provenance>,
+
+    /// GH-236: BLAKE3 over the entry's `content/` tree, computed after the
+    /// artifact lands. This is the digest of what the entry HOLDS, as opposed
+    /// to the derivation that asked for it — the only thing corruption
+    /// detection and output dedup can be built on. `None` for entries written
+    /// before schema 1.1, which are reported as unsealed, never as corrupt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_hash: Option<String>,
+
+    /// GH-236: which scheme `store_hash` was derived from.
+    #[serde(default)]
+    pub addressing: Addressing,
 }
 
 /// Provenance chain — tracks where a store entry came from.
@@ -75,7 +113,7 @@ pub fn new_meta(
 ) -> StoreMeta {
     use crate::tripwire::eventlog::now_iso8601;
     StoreMeta {
-        schema: "1.0".to_string(),
+        schema: SCHEMA_VERSION.to_string(),
         store_hash: store_hash.to_string(),
         recipe_hash: recipe_hash.to_string(),
         input_hashes: input_hashes.to_vec(),
@@ -85,7 +123,24 @@ pub fn new_meta(
         generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
         references: Vec::new(),
         provenance: None,
+        output_hash: None,
+        addressing: Addressing::Derivation,
     }
+}
+
+/// GH-236: record the digest of the bytes this entry now holds.
+///
+/// Call AFTER the artifact has landed under `<entry>/content/`, then
+/// `write_meta`. Sealing before the content is in place would record the digest
+/// of a half-written tree, which is worse than recording nothing.
+pub fn seal_output(
+    entry_dir: &Path,
+    meta: &mut StoreMeta,
+    addressing: Addressing,
+) -> Result<(), String> {
+    meta.output_hash = Some(content::content_hash(&entry_dir.join("content"))?);
+    meta.addressing = addressing;
+    Ok(())
 }
 
 /// Write store metadata atomically (temp file + rename).

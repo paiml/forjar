@@ -10,6 +10,7 @@ pub mod chunker;
 pub mod closure;
 pub mod conda;
 pub mod container_build;
+pub mod content;
 pub mod contract_coverage;
 pub mod contract_scaffold;
 pub mod convergence_container;
@@ -17,6 +18,7 @@ pub mod convergence_runner;
 pub mod convert;
 pub mod convert_exec;
 pub mod coverage_persist;
+#[cfg(feature = "db")]
 pub mod db;
 pub mod derivation;
 pub mod derivation_exec;
@@ -26,6 +28,7 @@ pub mod gc_exec;
 pub mod hf_config;
 pub mod image_assembler;
 pub mod image_ref;
+#[cfg(feature = "db")]
 pub mod ingest;
 pub mod kernel_far;
 pub mod layer_builder;
@@ -41,8 +44,10 @@ pub mod profile;
 pub mod provider;
 pub mod provider_exec;
 pub mod purity;
+#[cfg(feature = "db")]
 pub mod query;
 pub mod reference;
+pub mod registry_http;
 pub mod registry_push;
 pub mod registry_push_chunked;
 pub mod registry_push_fmt;
@@ -56,6 +61,7 @@ pub mod store_diff;
 pub mod substitution;
 pub mod sync_exec;
 pub mod validate;
+pub mod verify;
 
 #[cfg(test)]
 mod tests_bash_provability;
@@ -83,9 +89,9 @@ mod tests_convert;
 mod tests_convert_exec;
 #[cfg(test)]
 mod tests_cov_exec;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_db;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_db_bench;
 #[cfg(test)]
 mod tests_derivation;
@@ -123,7 +129,7 @@ mod tests_hf_config;
 mod tests_image_assembler;
 #[cfg(test)]
 mod tests_image_ref;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_ingest;
 #[cfg(test)]
 mod tests_kernel_far;
@@ -151,10 +157,12 @@ mod tests_provider;
 mod tests_provider_exec;
 #[cfg(test)]
 mod tests_purity;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_query_cov;
 #[cfg(test)]
 mod tests_reference;
+#[cfg(test)]
+mod tests_registry_http;
 #[cfg(test)]
 mod tests_registry_push;
 #[cfg(test)]
@@ -181,3 +189,5 @@ mod tests_substitution;
 mod tests_sync_exec;
 #[cfg(test)]
 mod tests_validate;
+#[cfg(test)]
+mod tests_verify;

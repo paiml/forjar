@@ -23,6 +23,9 @@ fn make_store_entry(store_dir: &Path, hash_hex: &str, content: &[u8]) {
         generator: "test".to_string(),
         references: Vec::new(),
         provenance: None,
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     };
     write_meta(&entry_dir, &meta).unwrap();
 }

@@ -168,6 +168,26 @@ pub fn check_script(resource: &Resource) -> String {
     )
 }
 
+/// The reaper body alone — the supported way to obtain a real preview.
+///
+/// #334 asked for a preview that previews. `forjar codegen --phase apply` emits
+/// the INSTALLER, which grants `FORJAR_BUDGET_EXECUTE=1` and (for `sudo: true`)
+/// re-elevates through `sudo bash`, so the recipe documented as a dry run
+/// deleted. This emits only the pass, which defaults to dry: running it reports
+/// what it would free and removes nothing.
+///
+/// # Errors
+///
+/// Returns `Err` when the declaration is not a valid budget.
+pub fn reaper_script(resource: &Resource) -> Result<String, String> {
+    let budget = budget_of(resource)?;
+    Ok(reaper::script(
+        &budget,
+        &status_json(&budget.path),
+        &service_name(&budget.path),
+    ))
+}
+
 /// Apply script: install the reaper + timer, then run one reclaim pass.
 pub fn apply_script(resource: &Resource) -> String {
     let budget = match budget_of(resource) {
@@ -207,7 +227,14 @@ pub fn apply_script(resource: &Resource) -> String {
          systemctl restart {name}.timer\n\
          # Run one pass now so `apply` converges the budget instead of merely\n\
          # scheduling it. A missed budget surfaces here, at apply time.\n\
-         {scr_q}\n",
+         #\n\
+         # #334: SAY WHICH MODE RAN. The reaper previews unless granted the\n\
+         # opt-in, and this grant is constant script text — never read from the\n\
+         # operator's environment — because `canonical_generated_script` hashes\n\
+         # this string into `hash_desired_state`. An env-dependent apply script\n\
+         # would make a machine's desired state depend on whoever ran forjar.\n\
+         echo 'forjar: running one disk-budget reclaim pass in EXECUTE mode (this deletes)'\n\
+         FORJAR_BUDGET_EXECUTE=1 {scr_q}\n",
         svc_install = units::install_unit(&service_path(&budget.path), &svc, "SVC_CHANGED"),
         tmr_install = units::install_unit(&timer_path(&budget.path), &tmr, "TMR_CHANGED"),
     )

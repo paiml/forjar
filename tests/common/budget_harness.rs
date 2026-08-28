@@ -100,14 +100,11 @@ pub struct RunResult {
     pub stdout: String,
 }
 
-/// Pull the reaper body out of the apply script's heredoc.
+/// The reaper body. #334 gave this a supported source — `disk_budget::reaper_script`,
+/// the same text `forjar codegen --phase reaper` emits — replacing the heredoc
+/// slicing that used to reach into the apply script.
 pub fn reaper_body(res: &Resource) -> String {
-    const OPEN: &str = "<<'FORJAR_REAPER_EOF'\n";
-    const CLOSE: &str = "\nFORJAR_REAPER_EOF\n";
-    let apply = disk_budget::apply_script(res);
-    let start = apply.find(OPEN).expect("reaper heredoc open") + OPEN.len();
-    let end = apply[start..].find(CLOSE).expect("reaper heredoc close") + start;
-    apply[start..end].to_string()
+    disk_budget::reaper_script(res).expect("valid budget")
 }
 
 pub fn run_reaper(res: &Resource, bin: &Path, work: &Path) -> RunResult {
@@ -122,9 +119,12 @@ pub fn run_reaper(res: &Resource, bin: &Path, work: &Path) -> RunResult {
         bin.display(),
         std::env::var("PATH").unwrap_or_default()
     );
+    // #334: the reaper PREVIEWS unless the delete opt-in is granted. Even the
+    // harness has to ask for deletion now — which is the fix in miniature.
     let out = Command::new("/bin/sh")
         .arg(&script)
         .env("PATH", path_env)
+        .env("FORJAR_BUDGET_EXECUTE", "1")
         .env("FORJAR_BUDGET_STATUS", work.join("status.json"))
         .output()
         .expect("run reaper");

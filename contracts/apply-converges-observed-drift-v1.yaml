@@ -192,7 +192,7 @@ enforcement:
       cli/drift.rs uses. Calling the narrower detect_drift_with_machine makes
       apply and `forjar drift` disagree, which is worse than either being wrong
       alone because it teaches the operator to distrust both.
-    check: "src/cli/apply.rs::check_pre_apply_drift"
+    check: "src/cli/apply_drift.rs::check_pre_apply_drift"
     severity: "ERROR"
   drift_is_reconciled_not_refused:
     description: |
