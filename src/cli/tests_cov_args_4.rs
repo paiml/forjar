@@ -123,8 +123,8 @@ mod tests {
         let yaml = "version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  z-res:\n    type: file\n    machine: m\n    path: /tmp/z\n    content: z\n  a-res:\n    type: file\n    machine: m\n    path: /tmp/a\n    content: a\n";
         let f = write_temp_config(yaml);
         let fixes = lint_auto_fix(f.path()).unwrap();
-        assert!(!fixes.is_empty());
-        assert!(fixes[0].contains("sorted"));
+        assert!(!fixes.applied.is_empty());
+        assert!(fixes.applied[0].contains("sorted"));
     }
 
     #[test]
@@ -132,8 +132,10 @@ mod tests {
         let yaml = "version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a-res:\n    type: file\n    machine: m\n    path: /tmp/a\n    content: a\n";
         let f = write_temp_config(yaml);
         let fixes = lint_auto_fix(f.path()).unwrap();
-        // Even a single resource gets the sort applied
-        assert!(fixes.len() <= 1);
+        // paiml/forjar#359: a single resource is already sorted, so there is
+        // nothing to fix and nothing to report.
+        assert!(fixes.applied.is_empty());
+        assert!(fixes.refused.is_empty());
     }
 
     #[test]
