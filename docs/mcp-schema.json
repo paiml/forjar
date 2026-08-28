@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "server": "forjar-mcp",
-  "version": "0.1.0",
+  "version": "1.20.1",
   "tool_count": 9,
   "tools": [
     {
@@ -10,6 +10,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "ValidateInput",
+        "description": "MCP validate handler input.",
         "type": "object",
         "required": [
           "path"
@@ -24,6 +25,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "ValidateOutput",
+        "description": "MCP validate handler output.",
         "type": "object",
         "required": [
           "errors",
@@ -33,25 +35,32 @@
         ],
         "properties": {
           "errors": {
+            "description": "Validation error messages.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "machine_count": {
+            "description": "Number of machines in the config.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
           },
           "resource_count": {
+            "description": "Number of resources in the config.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
           },
           "valid": {
+            "description": "Whether the config is valid.",
             "type": "boolean"
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -60,6 +69,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "PlanInput",
+        "description": "MCP plan handler input.",
         "type": "object",
         "required": [
           "path"
@@ -70,7 +80,7 @@
             "type": "string"
           },
           "resource": {
-            "description": "Filter to specific resource",
+            "description": "Filter to a specific resource. The counts below describe the FILTERED set, and an id that is not in the config is an error (GH-214).",
             "type": [
               "string",
               "null"
@@ -95,44 +105,70 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "PlanOutput",
+        "description": "MCP plan handler output.",
         "type": "object",
         "required": [
           "changes",
+          "lock_relative",
           "to_create",
           "to_destroy",
           "to_update",
-          "unchanged"
+          "unchanged",
+          "unconsulted_observations"
         ],
         "properties": {
           "changes": {
+            "description": "Planned resource changes.",
             "type": "array",
             "items": {
               "$ref": "#/definitions/PlannedChangeOutput"
             }
           },
+          "disclosure": {
+            "description": "The prose form of the disclosure, present iff `unconsulted_observations` is non-zero. Names `forjar drift` as the command that can answer the question this report cannot.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_relative": {
+            "description": "forjar#342: this report compares the config to the LOCK and contacts no machine. Always true — it is a statement of the quantifier, not a mode.",
+            "type": "boolean"
+          },
           "to_create": {
+            "description": "Count of resources to create.",
             "type": "integer",
             "format": "uint32",
             "minimum": 0.0
           },
           "to_destroy": {
+            "description": "Count of resources to destroy.",
             "type": "integer",
             "format": "uint32",
             "minimum": 0.0
           },
           "to_update": {
+            "description": "Count of resources to update.",
             "type": "integer",
             "format": "uint32",
             "minimum": 0.0
           },
           "unchanged": {
+            "description": "Count of unchanged resources.",
             "type": "integer",
             "format": "uint32",
+            "minimum": 0.0
+          },
+          "unconsulted_observations": {
+            "description": "How many locked resources carry state observed on a target that this plan did not consult. Always present, including at zero, so a consumer can tell \"nothing observed\" from \"an older binary\".",
+            "type": "integer",
+            "format": "uint",
             "minimum": 0.0
           }
         },
         "definitions": {
           "PlannedChangeOutput": {
+            "description": "A single planned resource change.",
             "type": "object",
             "required": [
               "action",
@@ -142,20 +178,27 @@
             ],
             "properties": {
               "action": {
+                "description": "Planned action (create, update, destroy).",
                 "type": "string"
               },
               "description": {
+                "description": "Human-readable change description.",
                 "type": "string"
               },
               "machine": {
+                "description": "Target machine name.",
                 "type": "string"
               },
               "resource_id": {
+                "description": "Resource identifier.",
                 "type": "string"
               }
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -164,6 +207,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "DriftInput",
+        "description": "MCP drift handler input.",
         "type": "object",
         "required": [
           "path"
@@ -192,6 +236,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "DriftOutput",
+        "description": "MCP drift handler output.",
         "type": "object",
         "required": [
           "drifted",
@@ -199,17 +244,27 @@
         ],
         "properties": {
           "drifted": {
+            "description": "Whether any drift was detected.",
             "type": "boolean"
           },
           "findings": {
+            "description": "Individual drift findings.",
             "type": "array",
             "items": {
               "$ref": "#/definitions/DriftFindingOutput"
+            }
+          },
+          "unchecked": {
+            "description": "GH-208: machines that could NOT be compared (no state recorded yet), so a caller can distinguish \"clean\" from \"not looked at\". Previously an uncomparable machine simply contributed no findings and the tool answered `drifted: false`, which reads as a clean bill of health for a machine that was never inspected.",
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         },
         "definitions": {
           "DriftFindingOutput": {
+            "description": "A single drift finding for a resource.",
             "type": "object",
             "required": [
               "actual_hash",
@@ -219,20 +274,27 @@
             ],
             "properties": {
               "actual_hash": {
+                "description": "Actual content hash found.",
                 "type": "string"
               },
               "detail": {
+                "description": "Drift detail message.",
                 "type": "string"
               },
               "expected_hash": {
+                "description": "Expected content hash.",
                 "type": "string"
               },
               "resource": {
+                "description": "Resource that drifted.",
                 "type": "string"
               }
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -241,6 +303,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "LintInput",
+        "description": "MCP lint handler input.",
         "type": "object",
         "required": [
           "path"
@@ -255,6 +318,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "LintOutput",
+        "description": "MCP lint handler output.",
         "type": "object",
         "required": [
           "error_count",
@@ -263,37 +327,44 @@
         ],
         "properties": {
           "error_count": {
+            "description": "Total number of errors.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
           },
           "warning_count": {
+            "description": "Total number of warnings.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
           },
           "warnings": {
+            "description": "Lint warning messages.",
             "type": "array",
             "items": {
               "type": "string"
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
       "name": "forjar_graph",
-      "description": "Generate resource dependency graph (Mermaid/DOT)",
+      "description": "Generate resource dependency graph (format: mermaid or dot only)",
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "GraphInput",
+        "description": "MCP graph handler input.",
         "type": "object",
         "required": [
           "path"
         ],
         "properties": {
           "format": {
-            "description": "Output format: \"mermaid\" (default) or \"dot\"",
+            "description": "Output format: \"mermaid\" (default) or \"dot\". Any other value is an error — \"ascii\" and \"svg\" exist on the CLI only, and an unrecognised value is rejected exactly as `forjar graph --format` rejects it (GH-212).",
             "type": [
               "string",
               "null"
@@ -308,6 +379,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "GraphOutput",
+        "description": "MCP graph handler output.",
         "type": "object",
         "required": [
           "format",
@@ -315,12 +387,17 @@
         ],
         "properties": {
           "format": {
+            "description": "The format ACTUALLY rendered — always one of \"mermaid\" or \"dot\", never an echo of an unsupported request (GH-212).",
             "type": "string"
           },
           "graph": {
+            "description": "Rendered dependency graph.",
             "type": "string"
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -329,6 +406,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "ShowInput",
+        "description": "MCP show handler input.",
         "type": "object",
         "required": [
           "path"
@@ -350,13 +428,19 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "ShowOutput",
+        "description": "MCP show handler output.",
         "type": "object",
         "required": [
           "config"
         ],
         "properties": {
-          "config": true
+          "config": {
+            "description": "Parsed config as JSON value."
+          }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -365,10 +449,18 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "StatusInput",
+        "description": "MCP status handler input.",
         "type": "object",
         "properties": {
           "machine": {
             "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "GH-208: path to the project's forjar.yaml. Optional for backward compatibility, but without it the tool cannot know WHICH project it is being asked about and falls back to `./state` relative to the server's cwd — which for an MCP stdio server is chosen by the client and is arbitrary.",
             "type": [
               "string",
               "null"
@@ -386,12 +478,14 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "StatusOutput",
+        "description": "MCP status handler output.",
         "type": "object",
         "required": [
           "machines"
         ],
         "properties": {
           "machines": {
+            "description": "Per-machine status entries.",
             "type": "array",
             "items": {
               "$ref": "#/definitions/MachineStatusOutput"
@@ -400,6 +494,7 @@
         },
         "definitions": {
           "MachineStatusOutput": {
+            "description": "Status summary for a single machine.",
             "type": "object",
             "required": [
               "name",
@@ -407,9 +502,11 @@
             ],
             "properties": {
               "name": {
+                "description": "Machine name.",
                 "type": "string"
               },
               "resource_count": {
+                "description": "Number of managed resources.",
                 "type": "integer",
                 "format": "uint",
                 "minimum": 0.0
@@ -417,6 +514,9 @@
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -425,10 +525,18 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "TraceInput",
+        "description": "MCP trace handler input.",
         "type": "object",
         "properties": {
           "machine": {
             "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "GH-208: path to the project's forjar.yaml. Optional for backward compatibility, but without it the tool cannot know WHICH project it is being asked about and falls back to `./state` relative to the server's cwd — which for an MCP stdio server is chosen by the client and is arbitrary.",
             "type": [
               "string",
               "null"
@@ -446,6 +554,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "TraceOutput",
+        "description": "MCP trace handler output.",
         "type": "object",
         "required": [
           "spans",
@@ -453,12 +562,14 @@
         ],
         "properties": {
           "spans": {
+            "description": "Individual trace spans.",
             "type": "array",
             "items": {
               "$ref": "#/definitions/TraceSpanOutput"
             }
           },
           "trace_count": {
+            "description": "Number of trace entries.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
@@ -466,6 +577,7 @@
         },
         "definitions": {
           "TraceSpanOutput": {
+            "description": "A single trace span.",
             "type": "object",
             "required": [
               "action",
@@ -481,55 +593,70 @@
             ],
             "properties": {
               "action": {
+                "description": "Action performed (create, update, destroy).",
                 "type": "string"
               },
               "content_hash": {
+                "description": "Content hash after action.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "duration_us": {
+                "description": "Duration in microseconds.",
                 "type": "integer",
                 "format": "uint64",
                 "minimum": 0.0
               },
               "exit_code": {
+                "description": "Process exit code.",
                 "type": "integer",
                 "format": "int32"
               },
               "logical_clock": {
+                "description": "Lamport logical clock value.",
                 "type": "integer",
                 "format": "uint64",
                 "minimum": 0.0
               },
               "machine": {
+                "description": "Machine the span ran on.",
                 "type": "string"
               },
               "name": {
+                "description": "Span operation name.",
                 "type": "string"
               },
               "parent_span_id": {
+                "description": "Parent span for nesting.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "resource_type": {
+                "description": "Resource type (package, file, service, etc.).",
                 "type": "string"
               },
               "span_id": {
+                "description": "Unique span identifier.",
                 "type": "string"
               },
               "start_time": {
+                "description": "ISO 8601 start timestamp.",
                 "type": "string"
               },
               "trace_id": {
+                "description": "Unique trace identifier.",
                 "type": "string"
               }
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     },
     {
@@ -538,6 +665,7 @@
       "input_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "AnomalyInput",
+        "description": "MCP anomaly handler input.",
         "type": "object",
         "properties": {
           "machine": {
@@ -556,6 +684,13 @@
             "format": "uint",
             "minimum": 0.0
           },
+          "path": {
+            "description": "GH-208: path to the project's forjar.yaml. Optional for backward compatibility, but without it the tool cannot know WHICH project it is being asked about and falls back to `./state` relative to the server's cwd — which for an MCP stdio server is chosen by the client and is arbitrary.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "state_dir": {
             "description": "State directory (default: \"state\")",
             "type": [
@@ -568,6 +703,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "AnomalyOutput",
+        "description": "MCP anomaly handler output.",
         "type": "object",
         "required": [
           "anomaly_count",
@@ -575,11 +711,13 @@
         ],
         "properties": {
           "anomaly_count": {
+            "description": "Number of anomalies detected.",
             "type": "integer",
             "format": "uint",
             "minimum": 0.0
           },
           "findings": {
+            "description": "Individual anomaly findings.",
             "type": "array",
             "items": {
               "$ref": "#/definitions/AnomalyFindingOutput"
@@ -588,6 +726,7 @@
         },
         "definitions": {
           "AnomalyFindingOutput": {
+            "description": "A single anomaly finding.",
             "type": "object",
             "required": [
               "reasons",
@@ -597,24 +736,31 @@
             ],
             "properties": {
               "reasons": {
+                "description": "Reasons for anomaly detection.",
                 "type": "array",
                 "items": {
                   "type": "string"
                 }
               },
               "resource": {
+                "description": "Resource with anomalous behavior.",
                 "type": "string"
               },
               "score": {
+                "description": "Anomaly score (higher = more anomalous).",
                 "type": "number",
                 "format": "double"
               },
               "status": {
+                "description": "Anomaly status classification.",
                 "type": "string"
               }
             }
           }
         }
+      },
+      "annotations": {
+        "readOnlyHint": true
       }
     }
   ]

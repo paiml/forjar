@@ -89,14 +89,17 @@ pub(crate) fn cmd_plan(
         print_why_explanation(&config, &locks, &plan.execution_order, tag_filter);
     }
 
+    // forjar#342: ONE binding, so both arms range over the same count and the
+    // TTY rendering and `--json` cannot disagree about the blind spot.
+    let unconsulted = super::print_helpers::unconsulted_observations(&locks);
     if json {
-        print_plan_json(&plan, &config)?;
+        super::plan_json::print_plan_json(&plan, &config, unconsulted)?;
     } else {
         print_plan(
             &plan,
             machine_filter,
             if no_diff { None } else { Some(&config) },
-            super::print_helpers::unconsulted_observations(&locks),
+            unconsulted,
         );
     }
 
@@ -136,63 +139,6 @@ fn apply_what_if_overrides(
             ))
         );
     }
-    Ok(())
-}
-
-/// FJ-301: Serialize plan as enriched JSON with resource metadata.
-fn print_plan_json(
-    plan: &types::ExecutionPlan,
-    config: &types::ForjarConfig,
-) -> Result<(), String> {
-    let changes: Vec<serde_json::Value> = plan
-        .changes
-        .iter()
-        .map(|c| {
-            let mut entry = serde_json::json!({
-                "resource_id": c.resource_id,
-                "machine": c.machine,
-                "resource_type": c.resource_type,
-                "action": c.action,
-                "description": c.description,
-            });
-            if let Some(res) = config.resources.get(&c.resource_id) {
-                if let Some(ref rg) = res.resource_group {
-                    entry["resource_group"] = serde_json::json!(rg);
-                }
-                if !res.tags.is_empty() {
-                    entry["tags"] = serde_json::json!(res.tags);
-                }
-                if !res.depends_on.is_empty() {
-                    entry["depends_on"] = serde_json::json!(res.depends_on);
-                }
-            }
-            entry
-        })
-        .collect();
-    let change_ids: std::collections::HashSet<&str> = plan
-        .changes
-        .iter()
-        .map(|c| c.resource_id.as_str())
-        .collect();
-    let filtered_order: Vec<&str> = plan
-        .execution_order
-        .iter()
-        .filter(|id| change_ids.contains(id.as_str()))
-        .map(|s| s.as_str())
-        .collect();
-    let output = serde_json::json!({
-        "name": plan.name,
-        "to_create": plan.to_create,
-        "to_update": plan.to_update,
-        "to_destroy": plan.to_destroy,
-        "unchanged": plan.unchanged,
-        "execution_order": filtered_order,
-        "changes": changes,
-    });
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
-    );
     Ok(())
 }
 

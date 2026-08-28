@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`plan --json` and the MCP/HTTP/verb `plan` now disclose their blind spot
+  too (#342, residual).** The scope disclosure shipped in 1.20.0 for the TTY
+  rendering only, because it was written as a side-effecting printer:
+  `print_scope_disclosure` formatted the sentence and immediately `println!`d
+  it, returning `()`. With no value to serialise, `print_plan_json` could not
+  carry it and `PlanOutput` had nothing to attach — so on two of three shipped
+  surfaces the contract's biconditional was simply false.
+
+  That inverted the issue's own threat model. #342's motivating incident is
+  machine-driven — a nightly lane parsing forjar output, and the "52 changes"
+  figure quoted from the blind command. The consumers that cannot NOTICE a
+  missing disclosure were the ones still receiving the undisclosed lock diff.
+
+  `plan --json` and `PlanOutput` (shared by `forjar verb call plan`, MCP stdio
+  and HTTP) gain `lock_relative: true` and `unconsulted_observations: N`
+  unconditionally — a machine consumer needs a total function, and
+  `unconsulted_observations: 0` must be distinguishable from an older binary
+  that emits no such key — plus `disclosure`, present only when the count is
+  non-zero. The prose stays the partial one, because an unconditional banner is
+  noise. Additive: no existing key changes meaning.
+
+  `docs/mcp-schema.json` is regenerated; it was stale at `"version": "0.1.0"`,
+  so the diff is larger than these three fields.
+
+  RFC steps 2-5 (wiring `drift --tripwire` into the nightly lane, sync windows,
+  decomposing `apply` into opt-in behaviours, scheduled reconciliation) are not
+  in this change. Step 2 lives in another repository and the issue defers the
+  rest itself.
+
+
 - **The apply summary now distinguishes a drift repair from a config change
   (#336).** A convergence caused by observed drift and one caused by an edit to
   the config both printed as `converged`. Those are different events: the second

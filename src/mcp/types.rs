@@ -52,6 +52,18 @@ pub struct PlanOutput {
     pub to_destroy: u32,
     /// Count of unchanged resources.
     pub unchanged: u32,
+    /// forjar#342: this report compares the config to the LOCK and contacts no
+    /// machine. Always true — it is a statement of the quantifier, not a mode.
+    pub lock_relative: bool,
+    /// How many locked resources carry state observed on a target that this
+    /// plan did not consult. Always present, including at zero, so a consumer
+    /// can tell "nothing observed" from "an older binary".
+    pub unconsulted_observations: usize,
+    /// The prose form of the disclosure, present iff `unconsulted_observations`
+    /// is non-zero. Names `forjar drift` as the command that can answer the
+    /// question this report cannot.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disclosure: Option<String>,
 }
 
 /// A single planned resource change.
