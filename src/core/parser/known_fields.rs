@@ -94,6 +94,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "gpu_memory_limit_mb",
     "task_mode",
     "task_inputs",
+    "ambient_inputs",
     "output_artifacts",
     "output_equivalence",
     "phony",

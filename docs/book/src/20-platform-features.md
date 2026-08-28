@@ -146,6 +146,64 @@ the hash matches the stored value from the last successful run, the
 task is skipped. The input hash is persisted in the state lock's
 resource details.
 
+### The declared set is trusted absolutely
+
+Staleness is decided from the declaration and nothing else. A task that reads a
+file it never named in `task_inputs` produces `staleness_reason() == None` when
+that file changes, and `plan`, `check`, `drift` and `apply` all report a clean,
+converged stack over a stale artifact. Under-declaration converts "no build
+system" into "a build system that lies", which is harder to detect than having
+no cache at all (GH-244).
+
+There are two escapes, and neither proves the declaration complete:
+
+- `ambient_inputs:` — below — for an input you know about but cannot glob.
+- `forjar verify --check-declared-inputs` — runs the task from a tree
+  containing only the declared inputs and reports a difference. It sees reads
+  of files inside the project tree; it cannot see a read of `/usr/share/fonts`,
+  because that exists in the scratch tree too.
+
+### Ambient inputs (GH-244)
+
+Some inputs are real and have no honest glob: the system font database, a
+compiler version, a locale. `ambient_inputs` takes shell commands whose
+**stdout** is hashed into the same `input_hash` as the files, so a change to
+one makes the task stale exactly the way a source edit does.
+
+```yaml
+resources:
+  rasterize:
+    type: task
+    cache: true
+    working_dir: "{{params.proj}}"
+    task_inputs:
+      - "src/slide.svg"
+    ambient_inputs:
+      - "fc-list | sha256sum"        # the font DB this renderer loads
+      - "rustc --version"
+    output_artifacts:
+      - "out/slide.png"
+    command: "render src/slide.svg out/slide.png"
+```
+
+Notes worth knowing before you use it:
+
+- **Cost is real and not cached.** Every command runs on every `plan`, `check`,
+  `drift` and `apply`. A cached fingerprint is a fingerprint that lies, so
+  there is no cache. Keep the commands cheap.
+- **stdout only.** stderr is excluded, because a pid or timestamp there would
+  report "inputs changed" forever.
+- **A failing command is not ignored.** A non-zero exit contributes a failure
+  marker to the hash rather than being dropped — dropping it would collapse the
+  hash back to the file-only value and report clean over a stale artifact,
+  which is the defect this feature exists to close.
+- **`plan`, `check` and `drift` become able to run your command.** They are
+  read-only with respect to the fleet, not with respect to your machine. A
+  `data:` source of `type: command` already had this property; this widens it
+  to per-resource.
+- Commands run with `working_dir` as their cwd, and are template-resolved like
+  `task_inputs`.
+
 ## Machine Connectivity Probing (E19)
 
 Active transport probing verifies machine reachability before applying changes.

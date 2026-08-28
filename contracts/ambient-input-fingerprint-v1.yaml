@@ -1,0 +1,164 @@
+---
+metadata:
+  version: "1.0.0"
+  # kind: pattern — the obligations concern a hash computed by running a
+  # user-declared command on a real host. Not a decidable core; the properties
+  # are observed by probing a fixture, not proved over a domain.
+  kind: pattern
+  created: "2026-08-28"
+  author: "PAIML Engineering"
+  description: |
+    GH-244(c): make an ambient host input DECLARABLE, and fold it into the same
+    `input_hash` the probe and the lock already agree on.
+
+    `probe_resource` derived `input_hash` from `hash_inputs(task_inputs)` alone,
+    which glob-expands PATHS. There was no environment component, no
+    tool-version component, no ambient component — and `Resource` had no field
+    that could carry one, so the input was not merely undetected, it was
+    undeclarable. A change to it yields `staleness_reason() == None` and
+    plan/check/drift/apply all report a clean stack over a stale artifact.
+
+    Motivating case: a rasterizer calling `fontdb.load_system_fonts()`. An
+    ambient input to every render, no honest glob for it, and it changes when
+    somebody runs `apt install fonts-*`.
+
+    Mechanism: `ambient_inputs: [<shell command>]`. Each command's stdout is
+    hashed and composited into `input_hash`. No sandboxing, no ptrace, no
+    LD_PRELOAD — the issue ranks those last and calls them best-effort.
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/244"
+    - "contracts/undeclared-input-detection-v1.yaml — option (a); its completeness notes hand this case off explicitly"
+    - "contracts/verify-reproducibility-v1.yaml — option (b)"
+    - "contracts/idempotent-apply-v1.yaml — the pump this must not create"
+
+equations:
+  declared_input_hash:
+    formula: |
+      H(r) = files(r)                                   if ambient_inputs(r) = ∅
+           = composite([files(r)] ++ [fp(c) | c ∈ ambient_inputs(r)])  otherwise
+      fp(c) = c ‖ NUL ‖ hash(stdout(c))                 if exit(c) = 0
+            = c ‖ NUL ‖ "failed:" ‖ exit(c)             otherwise
+    domain: "r ∈ Resource"
+    codomain: "Option<String>"
+    invariants:
+      - "ambient_inputs = ∅ ⟹ H(r) is byte-identical to hash_inputs(task_inputs(r))"
+      - "A failing fingerprint command still contributes; it is never dropped"
+      - "stdout only — stderr is excluded, because a pid or timestamp there would pump"
+
+proof_obligations:
+  - type: idempotency
+    property: "An unchanged ambient input settles"
+    formal: "H_probe(r) = H_record(r) for all r, at the same instant"
+    applies_to: all
+    enforced_by: "src/core/task/ambient.rs::hash_declared_inputs — the ONE function both the probe and record_io_hashes call"
+    notes: |
+      The likeliest bad implementation composites the ambient value in the probe
+      and leaves `record_io_hashes` recording the file-only hash. That reports
+      "inputs changed" on every plan forever and breaks f(f(x)) = f(x), which is
+      worse than the bug being fixed. The cwd for the ambient commands is
+      therefore derived from the RESOURCE (`probe_base_dir`), not from the
+      caller's `base_dir` — the executor passes `state_dir.parent()` where the
+      probe passes `working_dir`.
+
+  - type: equivalence
+    property: "Existing locks keep validating"
+    formal: "ambient_inputs(r) = ∅ ⟹ H(r) = hash_inputs(task_inputs(r))"
+    applies_to: "every resource written by a forjar before this change"
+    enforced_by: "src/core/task/ambient.rs::hash_declared_inputs — early return before any compositing"
+    notes: |
+      Compositing unconditionally would change the shape of every recorded
+      `input_hash` and rebuild the world once on upgrade.
+
+  - type: soundness
+    property: "A broken fingerprint does not report clean"
+    formal: "exit(c) ≠ 0 ⟹ H(r) ≠ hash_inputs(task_inputs(r))"
+    applies_to: all
+    enforced_by: "src/core/task/ambient.rs::ambient_component — the failure arm"
+    notes: |
+      Dropping a failing command collapses the hash back to the file-only value,
+      which is exactly "report clean over a stale artifact" — this bug,
+      reintroduced the moment the fingerprint stops working. This diverges from
+      `output_hash`'s hard-error precedent on purpose: `probe_resource` swallows
+      `Err` with `.ok().flatten()`, so an error there becomes silence.
+
+  - type: completeness
+    property: "SCOPE — this is a declaration, not a proof"
+    formal: "none"
+    applies_to: all
+    enforced_by: "documentation"
+    notes: |
+      `ambient_inputs` covers what you NAME. `forjar verify
+      --check-declared-inputs` covers unnamed reads of files inside the project
+      tree. Nothing on offer proves the declaration complete, and nothing here
+      should be read as though it did. Cost is stated rather than cached: one
+      subprocess per ambient input per probe, on every plan/check/drift/apply —
+      a cached fingerprint is a fingerprint that lies.
+
+enforcement:
+  an_ambient_change_is_detected:
+    description: "A declared ambient input that changes makes the task stale"
+    check: "tests/falsification_ambient_inputs.rs::an_ambient_change_makes_the_task_stale"
+    severity: "ERROR"
+  an_unchanged_ambient_input_settles:
+    description: "The probe and the lock composite the same way, so nothing pumps"
+    check: "tests/falsification_ambient_inputs.rs::an_unchanged_ambient_input_settles"
+    severity: "ERROR"
+  a_broken_fingerprint_is_not_dropped:
+    description: "A failing fingerprint command does not collapse to the file-only hash"
+    check: "tests/falsification_ambient_inputs.rs::a_failing_ambient_command_is_not_silently_dropped"
+    severity: "ERROR"
+  existing_locks_keep_validating:
+    description: "No ambient_inputs means a byte-identical recorded hash"
+    check: "tests/falsification_ambient_inputs.rs::no_ambient_inputs_leaves_the_recorded_hash_byte_identical"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-AMB-001
+    rule: "A declared ambient change makes the task stale"
+    prediction: "Rewriting ambient/fonts.txt yields staleness_reason() == Some(\"inputs changed\")"
+    test: "tests/falsification_ambient_inputs.rs::an_ambient_change_makes_the_task_stale"
+    if_fails: "The ambient declaration is decorative and the cache keeps lying"
+
+  - id: FALSIFY-AMB-002
+    rule: "An unchanged ambient input settles"
+    prediction: "Three consecutive probes after apply all report None"
+    test: "tests/falsification_ambient_inputs.rs::an_unchanged_ambient_input_settles"
+    if_fails: "An idempotency pump: every plan rebuilds, which is worse than the bug"
+
+  - id: FALSIFY-AMB-003
+    rule: "A failing fingerprint is not dropped"
+    prediction: "ambient_inputs: [\"exit 7\"] still yields Some(hash), differing from the no-ambient hash"
+    test: "tests/falsification_ambient_inputs.rs::a_failing_ambient_command_is_not_silently_dropped"
+    if_fails: "A broken fingerprint silently restores the original defect"
+
+  - id: FALSIFY-AMB-004
+    rule: "Upgrading does not invalidate existing locks"
+    prediction: "With ambient_inputs empty, hash_declared_inputs == hash_inputs"
+    test: "tests/falsification_ambient_inputs.rs::no_ambient_inputs_leaves_the_recorded_hash_byte_identical"
+    if_fails: "The whole world rebuilds once on upgrade for no reason"
+
+  - id: FALSIFY-AMB-005
+    rule: "An ambient-only resource is still probed"
+    prediction: "task_inputs: [], ambient_inputs: [\"echo v1\"] yields input_hash.is_some()"
+    test: "tests/falsification_ambient_inputs.rs::an_ambient_only_resource_is_still_probed"
+    if_fails: "The fingerprint is computed and then never consulted"
+
+  - id: FALSIFY-AMB-006
+    rule: "The declaration survives template resolution"
+    prediction: "ambient_inputs: [\"{{params.fp}} | sha256sum\"] resolves to the param's value"
+    test: "tests/falsification_ambient_inputs.rs::ambient_inputs_are_template_resolved"
+    if_fails: "The literal template is executed as a shell command — the FJ-2721 defect, on a new field"
+
+qa_gate:
+  id: F-AMB-001
+  name: "Ambient Input Fingerprint Contract"
+  description: "An ambient host input is declarable and folds into the one input hash"
+  checks:
+    - "an_ambient_change_is_detected"
+    - "an_unchanged_ambient_input_settles"
+    - "a_broken_fingerprint_is_not_dropped"
+    - "existing_locks_keep_validating"
+  pass_criteria: "All 6 falsification tests pass"
+  falsification: "Make hash_declared_inputs composite unconditionally — FALSIFY-AMB-004 goes red; make it composite only in the probe — FALSIFY-AMB-002 goes red"
+
+verification_level: L3

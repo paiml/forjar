@@ -246,7 +246,7 @@ fn execute_resource(
     }
 
     // FJ-2701: Task input caching — skip execution if inputs unchanged
-    if resolved.cache && !resolved.task_inputs.is_empty() {
+    if resolved.cache && crate::core::task::declares_inputs(resolved) {
         if let Some(cached) = check_task_input_cache(&change.resource_id, resolved, ctx) {
             if cfg.trace {
                 eprintln!("[TRACE] {} cached: {}", change.resource_id, cached);
@@ -295,7 +295,7 @@ fn check_task_input_cache(
     ctx: &RecordCtx,
 ) -> Option<String> {
     let base_dir = ctx.state_dir.parent().unwrap_or(ctx.state_dir);
-    let current_hash = crate::core::task::hash_inputs(&resource.task_inputs, base_dir).ok()??;
+    let current_hash = crate::core::task::hash_declared_inputs(resource, base_dir)?;
     let stored_hash = ctx
         .lock
         .resources

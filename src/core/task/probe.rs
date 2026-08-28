@@ -32,7 +32,7 @@
 //! IoDigest>` and never touches the filesystem or a transport, so its unit
 //! tests just construct the map.
 
-use super::io_tracking::hash_inputs;
+use super::ambient::{declares_inputs, hash_declared_inputs};
 use super::output_hash::hash_outputs_with;
 use crate::core::types::Resource;
 use std::collections::HashMap;
@@ -41,8 +41,9 @@ use std::path::{Path, PathBuf};
 /// Observed on-disk state of one resource's declared inputs and outputs.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct IoDigest {
-    /// Composite hash of all files matching `task_inputs`, or `None` when the
-    /// resource declares no inputs.
+    /// Composite hash of all files matching `task_inputs`, folded together
+    /// with one fingerprint per `ambient_inputs` command (GH-244(c)), or
+    /// `None` when the resource declares no inputs.
     pub input_hash: Option<String>,
     /// Composite hash of all `output_artifacts`, or `None` when none declared.
     pub output_hash: Option<String>,
@@ -85,17 +86,17 @@ pub fn probe_base_dir(resource: &Resource) -> PathBuf {
 /// whose target machine is local. Callers MUST NOT probe remote resources —
 /// see [`probe_all`], which refuses them rather than hashing the wrong host.
 pub fn probe_resource(resource: &Resource) -> Option<IoDigest> {
-    if resource.task_inputs.is_empty() && resource.output_artifacts.is_empty() {
+    if !declares_inputs(resource) && resource.output_artifacts.is_empty() {
         return None;
     }
 
     let base = probe_base_dir(resource);
 
-    let input_hash = if resource.task_inputs.is_empty() {
-        None
-    } else {
-        hash_inputs(&resource.task_inputs, &base).ok().flatten()
-    };
+    // GH-244(c): FILES plus AMBIENT fingerprints. The emptiness tests live
+    // inside `hash_declared_inputs`, so the probe and `record_io_hashes` cannot
+    // composite differently — two compositions is how you get an eternal
+    // "inputs changed" pump.
+    let input_hash = hash_declared_inputs(resource, &base);
 
     let mut outputs_missing = false;
     for artifact in &resource.output_artifacts {
@@ -237,15 +238,13 @@ pub fn record_io_hashes(
     resource: &Resource,
     details: &mut std::collections::HashMap<String, serde_yaml_ng::Value>,
 ) {
-    if resource.task_inputs.is_empty() && resource.output_artifacts.is_empty() {
+    if !declares_inputs(resource) && resource.output_artifacts.is_empty() {
         return;
     }
     let base = probe_base_dir(resource);
 
-    if !resource.task_inputs.is_empty() {
-        if let Ok(Some(hash)) = hash_inputs(&resource.task_inputs, &base) {
-            details.insert("input_hash".to_string(), serde_yaml_ng::Value::String(hash));
-        }
+    if let Some(hash) = hash_declared_inputs(resource, &base) {
+        details.insert("input_hash".to_string(), serde_yaml_ng::Value::String(hash));
     }
     if !resource.output_artifacts.is_empty() {
         if let Ok(Some(hash)) = hash_outputs_with(

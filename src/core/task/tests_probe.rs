@@ -237,3 +237,44 @@ fn mixed_file_and_directory_artifacts_still_track_the_file() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn an_undeclared_non_ambient_change_is_still_not_stale() {
+    // GH-244 asked for this pin so the semantics are DELIBERATE rather than
+    // incidental: the declared set is trusted absolutely. A task that reads a
+    // file it never named produces `staleness_reason() == None` after that file
+    // changes, and plan/check/drift/apply all report a clean stack over a stale
+    // artifact.
+    //
+    // The two escapes, neither of which proves the declaration complete:
+    //   * `ambient_inputs:` — a fingerprint command for what you DO name
+    //     (GH-244(c); see `tests_ambient.rs`).
+    //   * `forjar verify --check-declared-inputs` — runs the task from the
+    //     declared set alone and reports a difference (GH-244(a)).
+    let dir = std::env::temp_dir().join(format!("forjar-undecl-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::create_dir_all(dir.join("out")).unwrap();
+    std::fs::write(dir.join("src/slide.svg"), "<svg>hello</svg>").unwrap();
+    std::fs::write(dir.join("undeclared.txt"), "FONT_SET=v1").unwrap();
+    std::fs::write(dir.join("out/slide.png"), "rendered").unwrap();
+
+    let r = task_with(&["src/slide.svg"], &["out/slide.png"], dir.to_str());
+    let mut details = std::collections::HashMap::new();
+    record_io_hashes(&r, &mut details);
+    let stored_in = details.get("input_hash").and_then(|v| v.as_str());
+    let stored_out = details.get("output_hash").and_then(|v| v.as_str());
+
+    // Change ONLY the file the task reads but never declared.
+    std::fs::write(dir.join("undeclared.txt"), "FONT_SET=v2-NEW-FONT").unwrap();
+
+    assert_eq!(
+        staleness_reason(&probe_resource(&r).unwrap(), stored_in, stored_out),
+        None,
+        "the declared set is trusted absolutely — if this now reports staleness, \
+         something started reading the whole tree and the cost of that is a \
+         rebuild on every unrelated edit"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

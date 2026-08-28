@@ -325,6 +325,10 @@ pub struct Resource {
     /// content-addressed with the wrong key.
     #[serde(default)]
     pub output_equivalence: IndexMap<String, OutputEquivalence>,
+    /// GH-244(c): fingerprint commands for inputs no glob can name — the system
+    /// font DB, a tool version. Each command's stdout joins the input hash.
+    #[serde(default)]
+    pub ambient_inputs: Vec<String>,
     /// Completion check command (exit 0 = done).
     #[serde(default)]
     pub completion_check: Option<String>,
