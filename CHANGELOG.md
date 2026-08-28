@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**`apply --plan-file` ignored `--dry-run` and `-m`.** `cmd_apply_from_plan` took
+neither argument, and the `ApplyConfig` it built hard-coded `dry_run: false,
+machine_filter: None`, so:
+
+```
+$ forjar apply -f forjar.yaml --plan-file p.json --dry-run
+Plan applied: 1 converged, 0 unchanged, 0 failed
+$ echo $?; test -f alpha.txt && echo CREATED
+0
+CREATED
+```
+
+A two-phase plan/review/apply feature whose `--dry-run` converges the machine
+instead of previewing it is the worst available default. `--dry-run` now prints
+the reviewed plan and applies nothing.
+
+`-m` **intersects** the reviewed scope — a selector on `--plan-file` may only
+narrow the reviewed delta, never widen it — and an EMPTY intersection is now an
+error naming the machines the plan does cover, rather than an apply of nothing
+that exits 0.
+
+**A re-sealed plan could still claim "no changes".** The seal is an unkeyed
+BLAKE3 hash, so anyone who can run `forjar` can compute one: copy `config_hash`
+and `state_hash` verbatim out of an honest plan (neither leg moves), empty the
+change list, zero the four counters, recompute the diff leg and the composition
+through the public `plan_seal::digest` API, and `apply --plan-file` printed
+`Plan has no changes to apply.` and exited 0 with a create still pending.
+
+The 1.20.1-era claim that `check_body_partition` "still refuses a
+zero-the-counters edit whose author ALSO recomputed the seal" was **false** and
+has been deleted from the module docs. `0/0/0/0` over an EMPTY change list
+partitions perfectly well; that check catches a plan claiming zero *while
+listing several*, and the attack empties the list.
+
+The hole is closed where it can be closed without a key: `apply --plan-file`
+now **re-plans and compares**. It already holds the config and the state, so
+the planner is nearly free to run, and for every `(machine, resource)` the plan
+file names the planner must agree about the action. A plan file whose body
+names nothing at all is honest only when the planner also finds nothing
+pending. No adversary can make the real planner return `NoOp` while a create is
+pending. The comparison is over the PLAN's pairs, not the planner's, so a
+legitimately filtered plan (`plan -r`, `-m`, `-g`, `-t`) is still honoured.
+
+The seal remains what `core::plan_seal` always said it was — integrity, not
+authentication. Two-phase *authorization* would need a keyed hash or
+`cli::pq_signing`, and is a different feature.
+
 ## [1.21.1] — 2026-08-29
 
 Two defects in 1.21.0 where a promise the call graph does not keep. Both were
@@ -69,7 +118,6 @@ rather than in the next minor because a user could be relying on either today.
   `--refresh-only` also return before `apply_execute`). They are read-shaped and
   are NOT fixed here; the systematic gate-parity treatment is tracked on #370 for
   the next minor, because patching five modes by hand will miss the sixth.
-
 
 ## [1.21.0] — 2026-08-28
 

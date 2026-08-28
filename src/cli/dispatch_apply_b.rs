@@ -247,6 +247,9 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             // forjar#370: this branch returns BEFORE `apply_execute`, so the
             // operator gate travels with it — enforced inside the callee.
             args.operator.as_deref(),
+            // Refs #358: both were in hand here and dropped on the floor.
+            args.dry_run,
+            args.machine.as_deref(),
         ));
     }
     None
