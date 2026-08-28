@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   therefore invisible until the clean-room release gate, a release cycle later —
   which is exactly what happened to #315. A `doctests` job now runs
   `cargo test --locked --doc` on every PR and is wired into the required `gate`.
+- **Nothing ever read a published release object back** (#325). v1.18.0 shipped
+  carrying four `forjar-1.17.0-*.tar.gz` assets and a 10-line `SHA256SUMS` for six
+  archives; it was repaired by hand and the same defect then reached v1.19.0,
+  v1.20.0 and v1.20.1, because `nightly.yml` asserts only that every `v*` tag HAS
+  a release, never that the release describes itself. New
+  `scripts/release-object-audit.sh` checks four invariants over a release object —
+  no assets from another version, a non-zero archive count, `SHA256SUMS` naming
+  exactly this release's archives, and a `.sha256` sidecar per archive that agrees
+  with `SHA256SUMS` — and a daily `release-audit` workflow runs it over every
+  published release. `binary-release.yml`'s `checksums` job gained the
+  version guard #324 added to the other producer, and now refreshes the sidecars
+  it writes instead of leaving them naming clobbered bytes.
 
 ## [1.20.1] — 2026-08-26
 
