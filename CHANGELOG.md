@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`default-features = false` was a no-op** (#237). `Cargo.toml` opened a
+  `[features]` table that never defined a `default` key, so Cargo had nothing to
+  subtract: `cargo tree --no-default-features` was byte-identical to the default
+  tree. A consumer wanting `forjar::api` paid for an MCP server, two TLS stacks,
+  a bundled SQLite and a multi-thread tokio runtime. There is now a real
+  `default = ["cli"]` with `cli`, `db` and `tls` cuts, `[[bin]] forjar` carries
+  `required-features = ["cli"]`, and the library tree drops from 360 crates to
+  191. The default build is unchanged — `Cargo.lock` does not move and
+  `cargo tree -e normal` on the default features is identical.
+
 ## [1.20.1] — 2026-08-26
 
 **The `.crates.toml` merge corrupted multi-line entries, and cargo rejects the

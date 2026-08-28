@@ -59,11 +59,27 @@ jobs:
       - name: Validate all standalone example configs
         run: cargo test --locked --test examples_validate
 
+  # Regression guard (#237): `default-features = false` must yield a LIBRARY that
+  # compiles. tests/falsification_default_features_trim.rs pins the manifest's
+  # shape, but only a real build proves the module gates are consistent — trait
+  # impls, macro expansions and glob re-exports are invisible to a manifest test.
+  # The gates are load-bearing in one direction only: dropping `cli` must not
+  # break the library, and nothing in the default lane would ever notice if it did.
+  no-default-features:
+    name: no-default-features
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Library must build with every default feature off
+        run: cargo check --locked --no-default-features --lib
+
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".
   gate:
     runs-on: ubuntu-latest
-    needs: [ci, lockfile, examples-validate]
+    needs: [ci, lockfile, examples-validate, no-default-features]
     if: always()
     steps:
       - name: Check required jobs
@@ -78,6 +94,10 @@ jobs:
           fi
           if [ "${{ needs.examples-validate.result }}" != "success" ]; then
             echo "examples-validate failed: ${{ needs.examples-validate.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.no-default-features.result }}" != "success" ]; then
+            echo "no-default-features failed: ${{ needs.no-default-features.result }}"
             exit 1
           fi
           echo "All required jobs passed"

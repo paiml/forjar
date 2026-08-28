@@ -17,6 +17,7 @@ pub mod convergence_runner;
 pub mod convert;
 pub mod convert_exec;
 pub mod coverage_persist;
+#[cfg(feature = "db")]
 pub mod db;
 pub mod derivation;
 pub mod derivation_exec;
@@ -26,6 +27,7 @@ pub mod gc_exec;
 pub mod hf_config;
 pub mod image_assembler;
 pub mod image_ref;
+#[cfg(feature = "db")]
 pub mod ingest;
 pub mod kernel_far;
 pub mod layer_builder;
@@ -41,6 +43,7 @@ pub mod profile;
 pub mod provider;
 pub mod provider_exec;
 pub mod purity;
+#[cfg(feature = "db")]
 pub mod query;
 pub mod reference;
 pub mod registry_push;
@@ -83,9 +86,9 @@ mod tests_convert;
 mod tests_convert_exec;
 #[cfg(test)]
 mod tests_cov_exec;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_db;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_db_bench;
 #[cfg(test)]
 mod tests_derivation;
@@ -123,7 +126,7 @@ mod tests_hf_config;
 mod tests_image_assembler;
 #[cfg(test)]
 mod tests_image_ref;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_ingest;
 #[cfg(test)]
 mod tests_kernel_far;
@@ -151,7 +154,7 @@ mod tests_provider;
 mod tests_provider_exec;
 #[cfg(test)]
 mod tests_purity;
-#[cfg(test)]
+#[cfg(all(test, feature = "db"))]
 mod tests_query_cov;
 #[cfg(test)]
 mod tests_reference;

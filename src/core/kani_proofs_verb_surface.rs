@@ -23,7 +23,7 @@
 
 // Gated with the harnesses: a bare `use` here is an unused import in every
 // normal build, and this crate is clippy -D warnings.
-#[cfg(kani)]
+#[cfg(all(kani, feature = "cli"))]
 use crate::verb::Bucket;
 
 /// Contract `KANI-FVS-003`: the CLI-leaf partition is total and disjoint —
@@ -33,7 +33,7 @@ use crate::verb::Bucket;
 /// *type* level is enforced by the enum, but a future refactor that stores the
 /// bucket as flags or a bitmask would lose it silently, and this harness fails
 /// the moment two classifications can hold at once.
-#[cfg(kani)]
+#[cfg(all(kani, feature = "cli"))]
 #[kani::proof]
 fn proof_fvs_partition_is_total_and_disjoint() {
     let table = crate::verb::partition();
@@ -61,7 +61,7 @@ fn proof_fvs_partition_is_total_and_disjoint() {
 /// the harness would pass vacuously while classifying nothing. A proof that
 /// holds because its premise cannot be met is the formal-methods form of a
 /// green test over an empty set.
-#[cfg(kani)]
+#[cfg(all(kani, feature = "cli"))]
 #[kani::proof]
 fn proof_fvs_partition_is_not_empty() {
     assert!(
