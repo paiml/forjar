@@ -47,9 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tree. A consumer wanting `forjar::api` paid for an MCP server, two TLS stacks,
   a bundled SQLite and a multi-thread tokio runtime. There is now a real
   `default = ["cli"]` with `cli`, `db` and `tls` cuts, `[[bin]] forjar` carries
-  `required-features = ["cli"]`, and the library tree drops from 360 crates to
-  191. The default build is unchanged — `Cargo.lock` does not move and
+  `required-features = ["cli"]`, and the library tree drops from 370 crates to
+  213. The default build is unchanged — `Cargo.lock` does not move and
   `cargo tree -e normal` on the default features is identical.
+
+  Measured on the release as a whole, not on #237 in isolation: #237 alone cut
+  360 to 191, and #228's `ureq` — which the registry transport needs and which
+  is not feature-gated, because `src/core/store/registry_*.rs` is not — adds 22
+  crates back to the trimmed tree. Both numbers are re-measured here rather than
+  carried over from the branch, because a dependency count quoted from before a
+  sibling change landed is the kind of figure this changelog exists to not
+  publish.
 - **CI ran none of the crate's 87 doctests** (#318). sovereign-ci's test job is
   hard-scoped to `cargo test --lib` and, with `use_nextest: true`, is executed by
   cargo-nextest, which cannot run doctests at all; `lockfile` compiles nothing and
