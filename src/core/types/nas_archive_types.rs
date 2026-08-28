@@ -181,7 +181,12 @@ pub struct NasArchive {
 }
 
 /// Normalise a path for containment tests: strip trailing slashes, keeping `/`.
-fn norm(p: &str) -> &str {
+///
+/// `pub(crate)` so the Kani harness can state its property over the SAME
+/// normalisation `contains_path` applies. Stating it over the raw arguments is
+/// what made `proof_archive_containment_is_component_wise` fail: see
+/// `core::kani_proofs_nas_archive`.
+pub(crate) fn norm_path(p: &str) -> &str {
     let t = p.trim_end_matches('/');
     if t.is_empty() {
         "/"
@@ -196,7 +201,7 @@ fn norm(p: &str) -> &str {
 /// a prefix test on raw strings would say otherwise and refuse a valid
 /// declaration.
 pub(crate) fn contains_path(outer: &str, inner: &str) -> bool {
-    let (o, i) = (norm(outer), norm(inner));
+    let (o, i) = (norm_path(outer), norm_path(inner));
     if o == i {
         return true;
     }
@@ -275,8 +280,8 @@ impl NasArchive {
             return Err(explain(reason, path, destination, &dirs));
         }
         Ok(Self {
-            path: norm(path).to_string(),
-            destination: norm(destination.unwrap_or_default()).to_string(),
+            path: norm_path(path).to_string(),
+            destination: norm_path(destination.unwrap_or_default()).to_string(),
             dirs,
             max_small_bytes,
             min_age_days,
