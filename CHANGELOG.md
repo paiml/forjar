@@ -9,6 +9,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A task could not declare an input that is not a path, so an ambient change
+  was reported as `unchanged` by every read verb** (#244). `staleness_reason`
+  decides entirely from the DECLARED set, and until now the only declarable
+  input was a PATH: `probe_resource` built `input_hash` from
+  `hash_inputs(task_inputs)` alone, and `Resource` had no field that could
+  carry anything else — an ambient input was not merely undetected, it was
+  undeclarable. Measured on 1.13.2, a task reading an undeclared
+  `ambient/fonts.txt` was applied, only that file was changed, and every read
+  verb reported clean:
+
+      plan   -> Plan: 0 to add, 0 to change, 0 to destroy, 1 unchanged.
+      check  -> Check: 1 pass, 0 fail, 0 skip
+      drift  -> No drift detected.
+      apply  -> Apply complete: 0 converged, 1 unchanged.
+
+  while `--force` changed the artifact's bytes. The motivating case is not
+  exotic: a rasterizer calling `fontdb.load_system_fonts()`. There is no honest
+  glob for the system font set, it changes when somebody runs
+  `apt install fonts-*` or the CI runner AMI rolls, and every frame then renders
+  with different glyph metrics while forjar reports `N pass, 0 fail`.
+  Under-declaration converts "no build system" into "a build system that lies",
+  which is harder to detect than having no cache at all.
+
+  `ambient_inputs: [<shell command>]` folds each command's stdout into the SAME
+  `input_hash` the probe and the lock already agree on, so `staleness_reason`
+  needs no change and plan/check/drift/apply all become correct at once — they
+  route through one probe. ONE function, `hash_declared_inputs`, is called by
+  the probe AND by `record_io_hashes` AND by the executor's cache-skip; two
+  compositions is how you get an eternal "inputs changed" pump, which is worse
+  than the bug. With no `ambient_inputs` the hash is byte-identical to
+  `hash_inputs`, so upgrading rebuilds nothing. A FAILING fingerprint command
+  contributes a failure marker rather than being dropped — dropping it collapses
+  the hash back to the file-only value and reports clean over a stale artifact,
+  which is this exact bug reintroduced the moment the fingerprint breaks. stdout
+  only: stderr routinely carries a pid or a timestamp, and hashing it would
+  report "inputs changed" on every plan.
+
+  Two costs, stated rather than hidden. One subprocess per ambient input per
+  probe, on every plan/check/drift/apply — a cached fingerprint is a fingerprint
+  that lies, so there is no cache. And `plan`, `check` and `drift` become able
+  to run a user-declared command: they are read-only with respect to the FLEET,
+  not with respect to the machine running them. This remains a DECLARATION and
+  detects nothing nobody thought of; the three ways to catch an UNNAMED ambient
+  read (fanotify, ptrace, LD_PRELOAD) are out of scope.
+
+- **`apply` printed the same word, `converged`, for a change the operator asked
+  for and for drift it silently repaired on the host** (#336). Those are
+  different events: the second means something outside forjar modified a managed
+  resource — the difference between a deploy and an intrusion, or between a
+  deploy and a unit that keeps resetting itself. The information was never
+  missing from the process; it was discarded at a function boundary one call
+  frame above the printer. `check_pre_apply_drift` computed a `Vec<DriftFinding>`
+  per machine, spent each finding on exactly two side effects (an `eprintln!`
+  and a `ResourceStatus::Drifted` write) and returned `Result<(), String>`, so
+  by the time `cmd_apply_scoped` reached `print_apply_summary` the only
+  surviving facts about the run were three integers. Now:
+
+      Apply complete: 3 converged (1 repaired drift), 12 unchanged.
+        drift-repaired: [intel] dnsmasq-fleet-hosts — file state changed
+
+  The `--json` half matters more. The `drift:` lines go to STDERR and the report
+  to stdout, so `forjar apply --json` gave a machine consumer ZERO drift signal,
+  and this fleet's nightly lanes are machine consumers. `summary` gains
+  `drift_repaired_count` (always present, so a parser can branch on `> 0`) and
+  `drift_repaired[]` with machine, resource and detail.
+
+  The count is intersected with what the run actually converged: the gate leaves
+  a resource excluded by `-r` / `--only-machine` / a tag filter, or one that
+  failed, as `drifted` in the post-apply lock, and a claimed repair that did not
+  happen is worse than silence because the operator then does not go and fix it.
+  It counts RESOURCES, not findings — `detect_drift_full` emits one finding per
+  observable, so a single tampered file yields both `content changed` and `file
+  state changed`. At zero the summary line is byte-identical to 1.20.1's, which
+  is load-bearing: two existing falsification tests assert on its exact text.
+
+  Two deliberate blind spots, now written into
+  `apply-summary-distinguishability-v1`. Under `--force` the drift gate returns
+  early, so `drift_repaired` is always empty — running the detector there would
+  add a transport round-trip per resource to the one path that exists to skip
+  observation. And `src/cli/observe.rs::run_watch_apply` prints its own
+  `Apply complete:` line from a path that never invokes the gate, so
+  `--watch --auto-apply` words its summary differently; that divergence
+  pre-dates this change.
+
+- **`forjar store verify` — nothing could answer whether a store entry still
+  held the bytes it recorded** (#236). Write `GOOD ARTIFACT BYTES` into
+  `<entry>/content/out.mp4`, write meta, then overwrite the file with
+  `CORRUPTED BYTES!!!!` leaving the recipe and inputs untouched. On 1.20.1
+  `read_meta` returns a byte-identical struct, `store_path` returns the same
+  address, and `store gc` and `store list` both report the entry present and
+  valid. Bit rot, a partial write, an interrupted `atomic_move_to_store` or a
+  manual edit were all invisible, because there was no recorded digest to
+  compare against. `path::store_path` answers a different question — "has this
+  recipe with these inputs already been built?" — and is deliberately untouched,
+  since re-addressing it would move every entry already on disk. `StoreMeta` now
+  carries `output_hash`, BLAKE3 over the entry's `content/` tree computed after
+  the artifact lands, which answers "are these the bytes we produced?"; the new
+  verb re-hashes and compares:
+
+      forjar store verify
+      forjar store verify --repair
+
+  It exits non-zero on any failure, so it can be a cron or CI gate. Four
+  verdicts: `ok`; `MISMATCH`, the bytes are not the recorded bytes; `unsealed`,
+  written before schema 1.1 and so carrying no digest to be wrong about —
+  reported, never counted as a failure; and `MALFORMED`, no readable `meta.yaml`
+  or no `content/`, which IS a failure, because `write_meta` is part of every
+  entry's creation and its absence means the entry was never finished.
+  `--repair` removes only `MISMATCH` entries so the next build or cache pull
+  re-creates them, and never touches an `unsealed` one — deleting data on the
+  evidence of an older schema is the failure mode a repair flag has to avoid.
+  `--json` carries `verified`, `unsealed`, `failed`, `repaired` and `results[]`.
+
+  **What is sealed is narrower than what can be verified.** `execute_import` is
+  the only production `write_meta` call site, so an import is the only path that
+  seals an entry today; everything already on disk reports `unsealed` until it
+  is rewritten. `cache_exec::verify_pulled_content` still checks a staging tree
+  BEFORE the entry exists, so it would need the SENDER's `output_hash` — a
+  cache-protocol change, not in this release, and neither is the
+  `output_hash -> store_hash` dedup index the field also makes possible.
+  `cmd_archive_unpack` writes a `FarManifest` where a `StoreMeta` belongs, so an
+  unpacked archive verifies as `MALFORMED`: honest, in that it cannot be
+  checked, and not yet right.
+
 ### Fixed
 
 - **`FORJAR_BUDGET_DRY_RUN=1` did not prevent deletion; a `disk_budget` apply
@@ -77,6 +201,501 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   published release. `binary-release.yml`'s `checksums` job gained the
   version guard #324 added to the other producer, and now refreshes the sidecars
   it writes instead of leaving them naming clobbered bytes.
+
+- **Three `.rs` files under `src/` were compiled by nothing, and one was
+  compiled twice** (#292). rustc compiles only what a `mod`, a `#[path]` or an
+  `include!` names, and nothing in this build or this test suite asserted that a
+  file checked into `src/` is reachable from the crate root. A file that loses —
+  or never gains — its declaration stops being type-checked, stops being linted,
+  and if it holds tests they stop running, while still reading as source to
+  every human and every external tool. The three, and what happened to each:
+
+  - `src/cli/commands/status_args_ext.rs` survived 303 lines of not parsing as
+    Rust at all — it begins mid-struct-body, and rustfmt rejects it with
+    "visibility `pub` is not followed by an item". Orphaned output from a
+    mechanical split; all 101 of its field names already exist verbatim in
+    `status_args.rs`. Deleted.
+  - `src/core/planner/tests_sat_deps_b.rs` is the one that cost something. Its
+    `mod` line was never written, so its 10 assertions on unsat conflict-clause
+    extraction, negative unit clauses, redundant clauses and serde — the
+    SAT-solver share of the "134 tests" its commit message claimed — had never
+    executed. Wired in, all 10 pass, so `sat_deps.rs` was right; that was luck,
+    not evidence.
+  - `src/core/planner/tests_proof_obligation.rs` was redundant rather than lost:
+    its `classify` assertions are a subset of the 28 exhaustive ones in
+    `tests_proof_cov.rs`, and its `label`/`is_safe` assertions are duplicated in
+    `tests/falsification_proof_security.rs`. Deleted rather than wired in.
+
+  `src/transport/tests_container_b.rs` and `tests_container_c.rs` were
+  byte-identical and both declared, so eleven container-transport tests built
+  and ran twice per `cargo test` while the count read as twenty-two. `_c` and
+  its declaration are gone; `_b` keeps every test name.
+
+  `tests/falsification_no_orphaned_source_files.rs` pins both properties by
+  walking the tree rather than by listing the three files found today: every
+  `.rs` under `src/` is named by a `mod`, a `#[path]` or an `include!` in its
+  own directory (or in `<dir>.rs`, the 2018-edition parent form), and no two
+  `.rs` files under `src/` or `tests/` are byte-identical. Over all 1354 tracked
+  `.rs` files under `src/` it finds exactly those three, with zero false
+  positives; a third test asserts the walk found over a thousand files, so a
+  broken walk fails loudly instead of passing by measuring nothing. It is named
+  in ci.yml's hand-listed integration targets, because nothing in this repo's CI
+  runs `tests/*.rs` otherwise — a falsification test left unnamed there is green
+  once on a developer's machine and never executed again, which is the same kind
+  of artifact it checks for.
+
+  **#292 is a sweep report and item 2 of it is deliberately left.** The 98.5%
+  near-clones under `src/cli/` are a different problem — a ~200-field
+  `StatusArgs { .. }` literal repeated across ~60 test files, which wants a
+  `Default` impl and a rewrite of all of them, so the issue stays open. Its item
+  4 needed no change: `.gitignore:26` has been `.claude/*` since before the
+  commit that was analysed.
+
+- **The contract-citation guard measured 77 of 211 citations and reported
+  success** (#298). The 1.16.0 fix repaired the four contracts an audit had
+  named by hand and added a CI resolver shaped around those same four cases, so
+  the defect survived one level up — in the guard. `pv audit
+  contracts/verb-surface-v1.yaml` printed `Falsification tests: 8` and `No audit
+  findings` and exited 0 while seven of those eight cited code that does not
+  exist: four named FILES that were never created, three named functions that
+  exist nowhere. The corpus writes citations in four shapes (`path.rs`,
+  `path.rs::fn`, `path.rs::mod::fn`, `path.rs mod::fn`) and
+  `re.fullmatch(r"([\w./-]+\.rs)::(\w+)", ...)` accepts the second; the other
+  three fell through a `continue` and were reported as "not resolvable" rather
+  than "not resolved". Two further narrowings compounded it: the grep ran over
+  `src tests benches` GLOBALLY, so a citation naming the WRONG FILE always
+  passed, and only `falsification_tests[].test` was read, so 104 `enforced_by`
+  and 12 `discharged_by` citations were never resolved at all.
+
+  `tests/falsification_contract_citations_resolve.rs` states the invariant in
+  Rust: every citation resolves to the exact item it names, IN THE FILE IT
+  NAMES. Thirty-nine offenders on arrival — 14 whose cited file does not exist,
+  25 whose function is not in the file cited — plus `verb-surface-v1.yaml`'s
+  `qa_gate.check` naming three `--test` targets that had never existed, so the
+  documented way to check that contract was `error: no test target named ...`.
+  The boundary is written down because it is what will be argued about: only
+  `falsification_tests[].test` and the `enforced_by` and `discharged_by` keys of
+  `proof_obligations[]` are resolved, because those are the keys whose VALUE is
+  a citation — a resolver that also walked the free prose in `description:`,
+  `notes:` and `if_fails:` would land red on arrival and get weakened back into
+  the vacuous pass it replaces. Citations were retargeted rather than deleted
+  where the property they assert is genuinely enforced. The Python heredoc in
+  `proofs.yml` is deleted rather than reimplemented — one resolver, in one
+  dialect, in a place that runs it — and the Rust guard is named in ci.yml.
+
+  A second pass then found one more shape the new resolver could not read: where
+  a contract names several items under one path, `item_after` returned the first
+  and stopped at the comma, so ten function names written as continuations were
+  resolved by nothing. `items_after` continues over comma-separated bare
+  identifiers under the same path. Verified by POISONING the corpus rather than
+  by asserting the parser should cope — replacing a cited function with a name
+  present nowhere in the tree gives `7 passed; 0 failed` before and `6 passed; 1
+  FAILED` after.
+
+  **Building from source: `cargo check` can now fail where it did not.**
+  `build.rs` called `verify_bindings`, which reads `status:` and opens no
+  contract file — which is how a binding for an equation no contract defines
+  counted toward "43/43 bound". `verify_binding_equations` resolves the other
+  half and fails the build naming the binding and the contract that does not
+  define it. One binding was in that state: it claimed `receipt_deletion`, an
+  equation `apply-receipt-v1.yaml` has never declared.
+
+  **Still open, and stated here because over-reporting is this issue's own
+  subject.** The issue's fix item 1 — make `pv audit` resolve its citations, so
+  a falsifier naming a nonexistent function is a finding — is NOT done here, and
+  is not a change to this repo: it is a change to aprender-contracts. `pv audit`
+  still counts declarations without resolving one, so it would report `No audit
+  findings` over the corpus this entry opens with exactly as it did then. The
+  corpus is repaired and the invariant is now held by a Rust test run from
+  `cargo test`; the instrument the issue named is not. Second, the measured
+  citation set went from 77 to 211, but
+  `the_parser_reads_every_citation_shape_the_corpus_uses` claims a totality it
+  does not have: its ten cases are hand-written literals, not derived from the
+  corpus, and none of them was a comma list — which is why it stayed green
+  throughout while the parser was blind to a shape the corpus uses on ten lines.
+  Deriving those cases from the corpus is the honest fix and is its own change.
+
+- **Narrowing `lifecycle.ignore_drift` widened it to everything** (#335).
+  `ignore_drift` is a FIELD LIST in the schema; the engine read it as
+  `!lifecycle.ignore_drift.is_empty()`. So `ignore_drift: ["mode"]` — written to
+  tolerate a mode change while still catching content tampering — silently
+  disabled content, owner, group, existence and image drift as well, across
+  `forjar drift`, `apply --tripwire` and the pull agent. The narrowest thing an
+  operator could write was the broadest exemption forjar can express, and a typo
+  (`["modes"]`) was that same skip-all by the same mechanism. Nothing rejected
+  either form: `known_fields.rs` knew the KEY and no validator ever looked at
+  the values, so `forjar validate` printed a clean verdict over a declaration
+  that meant the opposite of what it said. Reproduced end to end on the real
+  binary: apply converges a file carrying `ignore_drift: [content]`, the bytes
+  are changed on disk, and `forjar drift` prints "No drift detected." The
+  example we ship, `examples/cookbook/33-lifecycle.yaml`, taught exactly that
+  shape under a comment promising it only ignored content. #333 made tasks
+  convergeable, which widens the population of resources reaching for this
+  opt-out, so the cost of it meaning more than it says was growing.
+
+  `["*"]` is now the only honoured value and the only accepted one. A narrowed
+  list is REFUSED at config validation with a message naming the offending
+  tokens, and the engine asks `LifecycleRules::suppresses_all_drift` instead of
+  collapsing a list to a boolean, so a narrowed list that still reaches the
+  engine by any route means "keep looking", which is the safe direction for a
+  tripwire.
+
+  **This ships two of the three things the issue asked for.** The narrowed form
+  is refused, and a typo falls out of that refusal rather than becoming a silent
+  skip-all. The field list is NOT honoured, and that is not a deferral for
+  convenience: `ResourceLock.observed` is one opaque digest of the state query's
+  output, so there is no representation in which `mode` changed and `content`
+  did not, and nothing for a field list to select over. Honouring it needs a
+  per-field observation in the lock (a schema change, with the migration
+  treatment `StoreMeta` just got) and state queries that emit parseable fields
+  rather than a digest — which each resource type decides for itself, so it is a
+  change per resource type, not one central change. Split to **#360**, which is
+  where the remaining work is tracked — but the validation error quotes
+  `forjar#335`, not #360, and explains what forjar would otherwise have done
+  rather than claiming the declaration is merely illegal. #360 appears nowhere
+  in the binary; #335 is the number to search for if you hit the error.
+
+  **Breaking, deliberately.** A config carrying `ignore_drift: [content]`
+  validated yesterday and hard-fails today, on validate, plan and apply alike,
+  and the error names the one-token edit. That includes a list supplied by a
+  RECIPE, which this change on its own would have let through: recipes expanded
+  after `validate_config`, so the refusal could not see them. #357, in this same
+  release, validates the expanded config too, so a recipe-supplied narrowed list
+  is refused at load — naming the expanded id (`recipe_id/foo`) — rather than
+  reaching apply. `the_narrowed_form_is_refused_when_supplied_by_a_recipe` is
+  the test that pins it. So for a recipe the upgrade symptom is a config that
+  will not load, not a one-time drift report.
+
+- **Only the human was told the plan had a blind spot** (#342). The disclosure
+  1.20.0 added landed for the TTY rendering ONLY; `plan --json` and the
+  MCP/HTTP/verb `plan` kept presenting a lock diff as the state of the world. It
+  had been implemented as a side-effecting printer rather than as a value:
+  `print_scope_disclosure` formatted the sentence and immediately `println!`d
+  it, returning `()`, so the only way to consume it was to be INSIDE
+  `print_plan` — the JSON arm structurally could not wire it, and
+  `mcp::handlers::PlanHandler` had nothing to attach to `PlanOutput`.
+  `plan-declares-its-quantifier-v1`'s equation `discloses(plan_output) ⟺
+  unconsulted(locks) > 0` is not qualified to the TTY rendering, so on two of
+  three shipped surfaces the left side was false while `unconsulted > 0`. And it
+  inverted the issue's own threat model: #342's motivating incident is
+  machine-driven — a nightly lane parsing forjar output, quoting a "52 changes"
+  figure from the blind command — so the consumers that cannot NOTICE a missing
+  disclosure, a CI parser or an MCP agent reading `to_update: 0`, were exactly
+  the ones still being handed the undisclosed diff.
+
+  `print_helpers::scope_disclosure` now returns `Option<String>` and
+  `print_scope_disclosure` is three lines over it, so `print_plan`'s signature
+  and the TTY text are byte-identical. `plan --json` and `PlanOutput` — shared
+  by `forjar verb call plan`, MCP stdio and HTTP through `verb/registry.rs`, so
+  this is one missing value across three surfaces, not three bugs — now carry
+  `"lock_relative": true` and `"unconsulted_observations": N` unconditionally,
+  and `"disclosure"` only when `N > 0`. The split is deliberate: suppressing the
+  prose at zero is about OPERATOR ATTENTION, since an unconditional banner is
+  noise and noise is how a warning stops being read, while the COUNT is total so
+  that a parser can tell `unconsulted_observations: 0` ("nothing observed") from
+  an absent key ("older binary"). The MCP handler counts over the locks it
+  planned over, the same convention `load_machine_locks` uses on the CLI, and
+  reaches the counter through named shims rather than a second implementation
+  that could drift. `docs/mcp-schema.json` is regenerated — it was stale at
+  `"version": "0.1.0"`, so the diff is much larger than the three new fields;
+  leaving a published schema that far behind reproduces this issue one level up.
+  RFC steps 2-5 are out of scope and the issue stays open for them.
+
+- **A `.crates.toml` that cargo already rejects was merged into, and forjar
+  reported converged** (#345). 1.20.1 made `_fj_register` entry-aware so forjar
+  no longer SCRAMBLES `$CARGO_HOME/.crates.toml`. That closed the half forjar
+  caused; it did not close the half the issue said mattered most — the
+  read-back. A correct merge INTO wreckage is still wreckage, and every host
+  that ran a pre-1.20.1 forjar has a file cargo rejects in whole for one bad
+  entry. `mv -f` cannot fail on content, so `_fj_register` returned 0, the
+  package resource reported CONVERGED, `cargo install --list` went on naming
+  nothing, and `package_check` read that empty list and said `missing:<crate>` —
+  the exact symptom on intel, where sixteen CI runners share one `$HOME`.
+  `_fj_register` now gates the commit on `_fj_crates_ok`, which copies the
+  candidate into a throwaway `CARGO_HOME` and runs `cargo install --list`
+  against it. Ask CARGO, not a TOML library: cargo is the only consumer that
+  matters and it is the parser that rejected the file. On refusal the temp file
+  is removed, the destination is left byte-identical, the operator is told which
+  file and whether it was already broken before this run, and `return 1` FAILS
+  the resource instead of lying about it. The probe costs 0.015s per registered
+  crate, needs no network, and is fail-open on absent cargo, failed `mktemp` and
+  failed `cp`, so a broken `/tmp` cannot wedge every install on a host.
+
+  **Behaviour change, deliberately.** A machine whose `.crates.toml` is already
+  wreckage now fails its cargo package resources loudly instead of appending to
+  a file cargo cannot read. The fix is to repair or move that file aside, not to
+  revert this. On the cache-hit path the binaries are installed before
+  registration is refused, so such a host ends up with working binaries cargo
+  does not know about — and the check then honestly reports them missing.
+  Concurrency is untouched and out of scope: sixteen runners sharing one `$HOME`
+  can still lose an entry through read-merge-mv (#331, #320).
+
+  **The first version of that gate made every `provider: cargo` apply script
+  unrunnable, and every gate this repo runs was green over it.** Nothing
+  shipped: it was introduced and removed inside this release, both commits on
+  the 1.21.0 integration branch, so there is no published version that cannot
+  install a cargo package. What is worth stating is how it got that far.
+  `_fj_crates_ok` cleaned up its throwaway `CARGO_HOME` with `rm -rf "$_vh"`.
+  bashrs rates SEC011 — missing validation before `rm -rf` — at Error severity,
+  `transport::validate_before_exec` refuses any script carrying an Error
+  diagnostic, and `strip_data_payloads` whitelists only `$_STAGING`,
+  `$_CACHE_DIR` and `$_CARGO_BIN`, so nothing exempted the probe's temp
+  variable. Every `provider: cargo, state: present` apply script was REJECTED
+  before execution: `forjar apply` on a cargo package died with an I8 violation
+  and installed nothing, while the same config on origin/main ran normally — and
+  cargo is the provider forjar dogfoods for its whole stack-tool fleet. The
+  guard now satisfies the rule rather than suppressing it, chosen against the
+  real linter (bashrs 6.67.0) rather than by guesswork:
+
+  | form | bashrs |
+  |---|---|
+  | `rm -rf "$_vh"` | SEC011 error |
+  | `_fj_rmtmp() { ... rm -rf "$1"; }` | SEC011 error (positional) |
+  | `[ -n "$_vh" ] && rm -rf "$_vh"` | 0 errors |
+  | `if [ -n "$_vh" ]; then rm -rf "$_vh"; fi` | 0 errors — taken |
+
+  The `if` form over the `&&` form because `&&` yields a non-zero status when
+  the guard is false, which would trip `set -e` at a site whose whole purpose is
+  to fail open. Widening the strip whitelist was the other option and is worse:
+  it would hide the check instead of answering it.
+
+  **And the reason every gate was green: nothing in this repo pushed a GENERATED
+  script through the gate that runs before execution.** `cargo test`, `cargo
+  clippy` and #345's own falsification test all passed while the resource could
+  not run at all. `src/transport/tests_generated_scripts_lint.rs` closes that —
+  it walks a table of resources and asserts that every generated apply, check
+  and state_query script survives `validate_before_exec`. It calls
+  `validate_before_exec`, not `purifier::validate_script`, because the property
+  that must hold is the COMPOSITION: `strip_data_payloads` runs first, and this
+  regression was precisely that the strip did not cover the probe's variable. It
+  carries a denominator test so a corpus that shrinks to nothing cannot read as
+  a pass. With the guard reverted and the test kept,
+  `every_generated_apply_script_survives_the_i8_gate` fails naming the one
+  script that broke while check and state_query stay green. Found by adversarial
+  review of the first commit, not by the test suite. The same pre-execution gate
+  is the subject of #350 below, which is the other way forjar rejected its own
+  shell in this release; that one is not covered by this corpus, because no row
+  in it carries a config value with an apostrophe.
+
+- **A `cron` resource with no `owner:` installs into ROOT's crontab, and its
+  check read the invoking user's** (#348). The resource was correctly installed
+  and permanently unconvergeable, and every dependent was skipped. Measured on
+  paiml's intel:
+
+      $ crontab -l | grep -c ci-image-rebuild
+      0                                   <- what the check looked at
+      $ sudo crontab -l | grep rebuild.sh
+      30 3 * * * bash .../rebuild.sh      <- where the apply had put it
+
+      JIDOKA: intel/ci-image-rebuild failed - dependents will be skipped:
+        apply exited 0 but the host does not report the declared state
+        (check exit 1)
+
+  `check_script`, `apply_script` and `state_query_script` each re-derived their
+  crontab command independently, and only the apply carried the `SUDO=""` /
+  `[ "$(id -u)" -ne 0 ] && SUDO="sudo"` preamble. They agreed on the owner
+  (`root`); they disagreed on the PRIVILEGE. Reading another user's crontab is
+  exactly as privileged as writing it — `crontab -u <user>` refuses EVERY
+  non-root caller, even for the caller's own username — and `2>/dev/null`
+  swallowed that refusal, so `grep -qF` read an empty stream and exited 1. The
+  check could not distinguish "the job is not installed" from "I was not allowed
+  to look", and asserted the first. The same omission in `state_query_script` is
+  the more expensive half: the observable recorded `cron=MISSING:<name>` for a
+  job that exists, so the lock stored "absent" as the OBSERVED state and drift
+  was wrong in the same direction.
+
+  One function decides now — `crontab_user()` for the identity, `SUDO_PREAMBLE`
+  for the privilege — and all three call sites delegate. The apply's emitted
+  bytes are unchanged, so no apply behaviour and no apply-side script hash
+  moves. **One-time re-converge**, on the read side: the state query now carries
+  the preamble too, so on a host where the read was previously refused the
+  recorded observable moves from `cron=MISSING:<name>` to what `grep -A1`
+  actually captures — the `# forjar:<name>` marker and the `# forjar-cmd:<name>`
+  line after it. Not the schedule line itself: `apply_script` writes marker,
+  cmd_marker, then the entry, so one line of trailing context stops short of the
+  job — so the observable still does not contain the schedule or the command,
+  and cron drift is blind to a job being edited in place. That is **#362**, filed
+  from this paragraph: both captured lines are constant functions of the resource
+  name, so the digest is identical for every possible schedule under a given
+  name. #348 made the read reach the right crontab; it did not make it look at
+  the job. Every cron resource that was being observed as absent
+  while installed therefore reports drift once and then settles — the same shape
+  #349 records below. `CRONTAB_CHECK_GUARD` is the second half and is not
+  optional: `crontab -l` exits 1 for BOTH "no crontab for user" and EPERM, so on
+  a host with no passwordless sudo the false `missing:` would simply move one
+  step later. The guard takes the honest signal BEFORE the read and exits 2,
+  which `cli::check` maps to SKIP and `output_verify` treats as neither
+  converged nor diverged. **Reporting change:** a host without passwordless sudo
+  moves from a false `missing:`/FAIL to SKIP, so anyone counting cron resources
+  as failing will see that count move. It cannot hang — `stdin_isolation` gives
+  the whole script `< /dev/null`, ssh uses `BatchMode=yes` with no `-t`, and
+  `sudo -n` never prompts. The docs had already promised this and the code never
+  did: 03-resources.md's lint table said "`$SUDO` in crontab read/write" while
+  the read half did not exist.
+
+- **`sudo: true` governed the apply and neither of the two read paths, so a
+  file on any root-only path reported `missing:` forever** (#349). Measured on
+  paiml intel: `toolchain-audit-rule` wrote
+  `/etc/audit/rules.d/50-cargo-bin.rules` correctly, apply exited 0, and the
+  check then failed with `missing:file`. `/etc/audit` is `drwxr-x--- root root`
+  on stock Debian/Ubuntu, so the unprivileged `test -f` could not TRAVERSE to
+  it — DAC denied the directory, not the file. `sudo` is a property of the
+  RESOURCE and `dispatch.rs` treated it as a property of the APPLY PHASE: there
+  is one privilege resolver and exactly one of its three sibling entry points
+  called it. So the check did not answer a weaker version of the apply's
+  question, it answered a DIFFERENT one — the apply asked "is there a file at P,
+  as root?" and the check asked "is there a file at P, as noah?", and under a
+  mode-0750 root-owned parent those answers differ permanently. The failure is
+  then fed forward: `post_apply_failure` records the resource Failed and jidoka
+  skips every dependent, which in the reported case were the readback and the
+  `augenrules --load` that arm kernel auditing — a privilege bug in the READ
+  path disabled a security control by refusing to run the steps that enable it.
+  `state_query_script` was the same defect with a quieter symptom: `live_hash`
+  and `observed` recorded the digest of the literal string `MISSING` for a file
+  that was there.
+
+  The resolver is renamed `in_declared_privilege_context` and called by all
+  three entry points; its body is byte-identical, so no existing `sudo: true`
+  apply re-converges. **One-time re-converge** in two places: `live_hash` for a
+  `sudo: true` resource on a root-only path changes from the digest of `MISSING`
+  to the real one, and `disk_budget` folds all three scripts into its
+  desired-state hash.
+
+  **This changes a failure mode on real fleets, and not only where apply was
+  already broken.** The wrapper is `sudo bash <<'FORJAR_SUDO'` with no `-n`
+  (`src/core/codegen/dispatch.rs`), and `sudo` overloads exit 1 for its own auth
+  failures. So on a host where sudo needs a password, an operator who runs
+  `apply` interactively, where sudo can prompt on the terminal, but runs `drift`
+  or `check` from a systemd timer with no TTY, now gets a hard failure on every
+  `sudo: true` resource whose path an unprivileged check could previously read
+  perfectly well — and the check reports "diverged" rather than "could not
+  observe", because sudo's exit code does not distinguish them. That is wider
+  than the scope recorded when the fix landed, which put the regressing set at
+  exactly the hosts where apply was already broken for that resource; that holds
+  only where apply and the read verbs run in the same context, and the
+  interactive-apply / TTY-less-timer split is the case it misses. Papering over
+  it with `sudo -n` and a fallback to the unprivileged probe would reintroduce
+  the two-contexts ambiguity this removes. Not a complete fix for the class
+  either: resources that decide privilege internally and ignore the field are
+  untouched — `network.rs` elevates its apply unconditionally while its check
+  runs `ufw status` unelevated regardless — which is the same shape one level
+  down and belongs with #348's sweep of per-resource defaults.
+
+- **forjar's own I8 gate rejected the shell forjar generates: any generated
+  script carrying a config value with an apostrophe was refused before it
+  reached a host** (#350). The everyday way to hit it was the
+  `unobservable:no-completion-check:` sentinel a task with no `completion_check`
+  gets. Measured:
+
+      DRIFTED: ci-budget-activation (transport error: I8 violation —
+        script failed bashrs validation: bashrs lint errors:
+        [error] SC2075: Escaping a single quote in single quotes won't work.
+
+  So instead of a clean "this resource is unobservable" report, the resource
+  reported ERROR and the whole drift run degraded. The issue's diagnosis —
+  "`sh_squote` is not applied here" — is wrong; it IS applied, and the `'\''` in
+  the pasted script is the escaper's output. `sh_squote` rendered an embedded
+  quote as `'\''`, the familiar POSIX close/escape/reopen and correct shell, but
+  forjar lints every script it generates with bashrs before executing it, and
+  bashrs' SC2075 is a line-scoped regex (`'[^']*\'[^']*'`) with no quote-state
+  tracking: it matches the CORRECT idiom because it cannot tell it from the
+  genuine error `echo 'can\'t'`. This was never about the sentinel — output
+  artifact paths, package names, mount labels and cron commands all carry
+  apostrophes, and the FJ-154 injection-hardening tests construct exactly such
+  values and pinned the `'\''` output, so the hardening and the I8 gate were in
+  direct contradiction. Fixed at the one escaper: `sh_squote` now emits
+  `'"'"'`. `'a'\''b'` and `'a'"'"'b'` are the same POSIX word — the shell cannot
+  tell them apart, a line-scoped linter can, and `'"'"'` is the form SC2075's
+  own message recommends. That immunises all 262 call sites at once instead of
+  adding a per-call-site dodge. This is the second defect at that gate in this
+  release — #345 above is the other, from the opposite side — and the corpus
+  test that one added, `src/transport/tests_generated_scripts_lint.rs`, does not
+  cover this one: no row in it carries a config value with an apostrophe, so
+  nothing there generates the idiom SC2075 rejects.
+
+  **The second half: the sentinel named a command that was never run.**
+  `sh_squote` STRIPS control characters — right for a shell word, wrong for a
+  message whose whole job is to name a command back to a human. `set -eu` plus
+  `sudo systemctl daemon-reload` was welded into `set -eusudo systemctl
+  daemon-reload`. `render_command_inline` now renders the line breaks as `\n`
+  instead of dropping them, and the sentinel is emitted with `printf '%s\n'`
+  rather than `echo`. That second part is NOT cosmetic: dash, the default
+  `/bin/sh` on Debian, has the XSI `echo` that expands backslash escapes, and
+  the sentinel's stdout is what drift HASHES — with `echo`, the observable's
+  bytes would differ between a bash target and a dash target and manufacture
+  drift from nothing. Verified in the test: the same script under `sh` and
+  `bash` produces byte-identical output with `printf` and diverges with `echo`.
+
+  Blast radius. 25 inline assertions pinned the literal `'\''`; all were
+  assertion text, no logic. Derivation script text is hashed, so a derivation
+  embedding a value with an apostrophe rebuilds once. State and drift hashes are
+  of query STDOUT, not script text, and both idioms print identical bytes, so
+  the escaper change causes no drift churn. The sentinel change does alter
+  stdout for multi-line commands, so those tasks report drift once; today they
+  report ERROR and no drift verdict at all. Three hand-rolled copies of the old
+  idiom were folded in so the invariant cannot drift back: `copia::shell_quote`
+  delegates to `sh_squote` outright, while `wasm_bundle`'s inline content and
+  `sandbox_exec`'s plan text switch idiom in place and deliberately do NOT call
+  it, because they embed multi-line text whose newlines must survive.
+
+- **A recipe's resources were validated by nothing** (#357). `load_config`
+  validated, and only then expanded. `expand_recipes` runs after the
+  `validate_config` call, so every resource a recipe supplied reached `plan` and
+  `apply` having been checked by nothing at all. `includes` were given the
+  opposite order deliberately — FJ-254 moved `merge_includes` ABOVE the
+  validation call for exactly this reason — and recipes were simply never moved
+  with them:
+
+      includes:   merged at :284, validated at :289   OK
+      recipes:    validated at :289, expanded at :300  <- never seen
+
+  It is not a narrow hole. `validate_config` is where forjar's whole config-time
+  contract lives, so the contract held only for authors who did not use recipes,
+  and recipes are the mechanism forjar documents for fleet reuse — which makes
+  the most widely deployed resources the least checked. The recipes chapter of
+  the book tells the reader expansion begins with "Config YAML is parsed and
+  validated", which was true of the config and false of the recipe. Fixed by
+  validating AGAIN over the expanded config rather than by moving the call: the
+  first pass reports errors in the file the user is editing, in the ids the user
+  typed, and the second reports what the machine would actually converge, in the
+  expanded ids (`recipe_id/foo`), so the id in the message is the id in the
+  plan. A shared `render_validation_errors` keeps the two from drifting in how
+  they report. The clean-recipe control test guards the obvious over-correction:
+  a second pass that rejected legitimate expansion output — namespaced ids,
+  resolved `{{inputs.*}}` templates — would make every recipe unusable, which is
+  worse than the hole it closes.
+
+  **Closing that hole immediately failed two examples we ship, and the examples
+  were right.** `examples/dogfood-renacer.yaml` and
+  `dogfood-sovereign-stack.yaml` were refused with `resource
+  'observability/obs-grafana-data': invalid owner '472' (expected Unix username
+  like 'root' or 'www-data')`. Grafana runs as uid 472 and that account has no
+  passwd entry on the host, which is the normal case for a directory
+  bind-mounted into a container, so `owner: 472` is the only way to express the
+  ownership that makes the mount usable — and forjar already emits `chown 472
+  /path` for it (`src/resources/file.rs:59`), which works. `is_valid_unix_name`
+  required `^[a-z_][a-z0-9_-]*$`, so the correct config was unwritable. Both
+  examples have carried `owner: 472` since they were written and both passed
+  `forjar validate` every time, because their resources come from a recipe and
+  recipes were never validated: the over-strict rule and the thing hiding it
+  were the same defect, which is why they are fixed together.
+  `is_valid_unix_name` now also accepts a bare numeric id, and the relaxation is
+  bounded and pinned as such — `owner: "4x7;rm -rf /"` is still a validation
+  error, because "accept a number" and "accept anything" are indistinguishable
+  from a green suite otherwise. No example YAML was edited to make a test pass.
+
+  **Breaking, and the one to read before upgrading a fleet.** Every rule in
+  `validate_config` applies to a recipe's resources for the first time, and
+  `load_config` returns `Err`, so a recipe that violates any of them turns a
+  config that loaded yesterday into a hard failure on `validate`, `plan` AND
+  `apply`. Two of the examples this project ships were in that state and had
+  passed `forjar validate` every time. #335, in this same release, is the
+  amplifier: a narrowed `lifecycle.ignore_drift` became a validation error, and
+  a recipe-supplied one was previously seen by nothing, so a config can break on
+  the pair where neither alone would have touched it. `forjar validate` is the
+  cheap preview and reports the same errors the plan would; ids in the
+  post-expansion pass are the expanded ones (`recipe_id/foo`), which is what the
+  plan carries rather than what the recipe file says.
 
 ### Changed
 
@@ -165,6 +784,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `upload_complete_command` / `manifest_put_command` doc-string builders are
   gone: they returned curl command lines that describe nothing this code does
   any more.
+
+- **`forjar build` no longer pulls the artifact back with `scp`** (Refs #290).
+  The Sovereign AI Stack ships copia as the rsync replacement, and pulling one
+  cross-compiled binary back from a build host is squarely copia's domain —
+  `copia sync host:path dest` works today and requires NOTHING on the remote,
+  because it streams over `ssh host "cat ..."`. Unlike rclone (cloud backends)
+  and curl (HTTP), there was no out-of-domain argument here; scp was simply the
+  tool reached for first when FJ-33 was written, before the sovereignty policy
+  was anything but prose. #291 turned that prose into
+  `src/resources/sync_tools.rs` and recorded this call site as
+  `Justification::Debt("paiml/forjar#290")`, which made the debt visible without
+  paying it — and a standing exception nobody has to remove is how a debt
+  becomes permanent. The ledger row goes with the call site, and the partition
+  tests make the two edits indivisible: delete the row alone and
+  `every_external_sync_binary_is_justified` fails, rewrite the invocation alone
+  and `the_partition_has_no_stale_entries` fails.
+
+  **Behaviour change.** copia becomes a runtime dependency of the `build`
+  resource on the DEPLOY machine. scp ships with essentially every openssh
+  install; copia does not. Hosts already carrying `stack-tool-copia` are fine,
+  anything else must add it before this lands. The preflight refuses with
+  `cargo install copia --features cli` before touching the filesystem —
+  deliberately before `mkdir -p`, so an operator does not get a half-made
+  destination and then a message about a missing binary, in that order. Same
+  shape as `nas_archive`'s mover preflight.
+
+  Two properties are transitively rather than locally guaranteed now, and are
+  worth knowing. copia's remote pull invokes plain `ssh <host> "cat ..."` with
+  no `-o BatchMode=yes -o ConnectTimeout=10`, where scp had both — Phase 1
+  already ssh'es with them and would fail first, so a run that reaches Phase 2
+  has proven key auth, but the guarantee now lives in Phase 1. And copia has no
+  delta transfer for remote paths and buffers the artifact in memory, which is
+  correct for ONE freshly-built binary and must not become the pattern for
+  trees; the call site says so.
+
+  The remote spec is unchanged — copia's `FileLocation::parse` splits
+  `host:path` on the first colon exactly as scp does, so FJ-154's escaping story
+  (validated host from `is_valid_host`, `sh_squote`d artifact path) is preserved
+  as a property. Its emitted bytes are not: #350, in this same release, changed
+  what `sh_squote` renders an embedded quote as, from `'\''` to `'"'"'`. Same
+  POSIX word, different script text.
+  `chmod +x` is now REQUIRED rather than defensive, because copia writes with
+  default permissions. The falsification test EXECUTES the generated shell
+  against stub `ssh`, `copia` and `scp` on PATH, where the scp stub touches a
+  sentinel: a `script.contains("copia")` assertion cannot tell calling copia
+  apart from calling scp with the word copia in a comment.
 
 
 ## [1.20.1] — 2026-08-26
