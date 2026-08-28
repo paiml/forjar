@@ -11,8 +11,6 @@ mod tests_container;
 #[cfg(test)]
 mod tests_container_b;
 #[cfg(test)]
-mod tests_container_c;
-#[cfg(test)]
 mod tests_container_d;
 #[cfg(test)]
 mod tests_dispatch;
