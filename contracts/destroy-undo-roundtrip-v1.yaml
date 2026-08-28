@@ -172,6 +172,6 @@ qa_gate:
     - "restore_generation"
     - "undo_roundtrip"
   pass_criteria: "All 5 falsification tests pass"
-  falsification: "Skip restore_generation_to_state in rollback, switching only the symlink; or restore the `!state_dir.exists()` early return in apply.rs::maybe_auto_snapshot, which makes the first apply record nothing"
+  falsification: "Skip restore_generation_to_state in rollback, switching only the symlink; or restore the `!state_dir.exists()` early return in src/cli/apply_snapshot.rs::maybe_auto_snapshot, which makes the first apply record nothing"
 
 verification_level: L3

@@ -31,7 +31,7 @@ metadata:
     - "rmedia/contracts/verb-surface-v1.yaml — the prior art this adapts"
     - "rmedia/crates/rmedia-cli/src/verbs/conformance.rs — four-way parity harness"
     - "src/mcp/registry.rs — where the 9 tools are declared four times"
-    - "src/main.rs::classify_exit_code — exit codes chosen by substring-matching prose"
+    - "src/core/error.rs — the exit-code taxonomy, after it stopped substring-matching prose"
 
   quorum_validation:
     - system: "Kubernetes API machinery"
@@ -133,31 +133,31 @@ proof_obligations:
     property: "An I8 validation failure is classified Validation, not Connection"
     formal: "classify('transport error: I8 violation — script failed bashrs validation') = 3"
     applies_to: error_taxonomy_is_total
-    enforced_by: "src/main.rs tests::i8_validation_is_not_a_connection_error"
+    enforced_by: "src/core/error.rs::the_measured_gx10_failure_is_validation_not_connection"
 
   - type: completeness
     property: "Every CLI leaf is in exactly one bucket"
     formal: "∀ leaf: |{b : leaf ∈ b}| = 1"
     applies_to: partition_is_total
-    enforced_by: "tests/e2e_partition_is_total_t.rs"
+    enforced_by: "src/verb/partition.rs::the_partition_is_total"
 
   - type: equivalence
     property: "CLI, MCP and manifest name sets are equal over Unified"
     formal: "names(CLI_derived) = names(tools/list) = names(manifest)"
     applies_to: surface_parity
-    enforced_by: "tests/e2e_surface_parity_t.rs"
+    enforced_by: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"
 
   - type: equivalence
     property: "The same case yields identical bytes on every transport"
     formal: "∀ case: bytes(CLI) = bytes(MCP)"
     applies_to: transport_invariance
-    enforced_by: "tests/e2e_transport_invariance_t.rs"
+    enforced_by: "tests/e2e_verb_http_t.rs::http_and_cli_return_identical_bytes"
 
   - type: equivalence
     property: "A migrated verb's derived output byte-matches its legacy leaf"
     formal: "bytes(legacy) = bytes(derived)"
     applies_to: renderer_fidelity
-    enforced_by: "tests/e2e_render_fidelity_t.rs"
+    enforced_by: "tests/e2e_verb_http_t.rs::http_and_cli_return_identical_bytes"
 
   - type: liveness
     property: "The derived tree is reachable from the shipped binary"
@@ -169,31 +169,31 @@ proof_obligations:
     property: "The binary advertises no undeclared transport"
     formal: "advertised ∩ {mcp,serve,http} ⊆ declared"
     applies_to: declared_transports_are_exhaustive
-    enforced_by: "tests/e2e_transport_absence_t.rs"
+    enforced_by: "tests/e2e_transport_absence_t.rs::the_binary_advertises_no_undeclared_transport"
 
   - type: soundness
     property: "The 9 MCP tools have ONE declaration site"
     formal: "|declaration_sites(tool)| = 1"
     applies_to: surface_parity
-    enforced_by: "src/mcp/registry.rs tests::the_four_surfaces_agree"
+    enforced_by: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"
 
 falsification_tests:
   - id: FALSIFY-FVS-001
     rule: "exit codes come from a variant, not from prose"
     prediction: "an error containing the word 'transport' that is a validation failure exits 3, not 4"
-    test: "src/main.rs::tests::i8_validation_is_not_a_connection_error"
+    test: "src/core/error.rs::a_declared_class_beats_the_prose_of_its_own_message"
     if_fails: "CI retries a deterministic failure forever, which is what it did before this contract"
 
   - id: FALSIFY-FVS-002
     rule: "the partition is total"
     prediction: "adding a CLI leaf without declaring a bucket fails the build"
-    test: "tests/e2e_partition_is_total_t.rs"
+    test: "src/verb/partition.rs::the_partition_is_total"
     if_fails: "the exclusion list becomes green-by-construction and proves nothing — the judge panel's named fatal flaw"
 
   - id: FALSIFY-FVS-003
     rule: "name sets are computed as a client sees them"
     prediction: "a verb registered but never surfaced on the derived clap tree fails parity"
-    test: "tests/e2e_surface_parity_t.rs"
+    test: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"
     if_fails: "parity degenerates into asserting a function returns what it returns"
 
   - id: FALSIFY-FVS-004
@@ -205,25 +205,25 @@ falsification_tests:
   - id: FALSIFY-FVS-005
     rule: "transports are declared exhaustively"
     prediction: "advertising `serve` without declaring http fails"
-    test: "tests/e2e_transport_absence_t.rs"
+    test: "tests/e2e_transport_absence_t.rs::the_binary_advertises_no_undeclared_transport"
     if_fails: "an undeclared transport is an unverified one"
 
   - id: FALSIFY-FVS-006
     rule: "a migrated verb's output does not change"
     prediction: "a deliberate one-byte change to a derived renderer fails fidelity"
-    test: "tests/e2e_render_fidelity_t.rs"
+    test: "tests/e2e_verb_http_t.rs::http_and_cli_return_identical_bytes"
     if_fails: "cutover silently changes what operators see, one verb at a time"
 
   - id: FALSIFY-FVS-007
     rule: "the MCP tool table has one declaration site"
     prediction: "adding a tool to three of four surfaces fails"
-    test: "src/mcp/registry.rs::tests::the_four_surfaces_agree"
+    test: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"
     if_fails: "the current defect returns — forjar_validate declared 4x, with no compiler help"
 
   - id: FALSIFY-FVS-008
     rule: "read-only annotations are truthful"
-    prediction: "a tool annotated readOnlyHint that reaches a mutating handler fails"
-    test: "src/mcp/registry.rs::tests::readonly_annotations_match_handlers"
+    prediction: "a verb whose Effects say Mutating cannot publish readOnlyHint true, because the hint is DERIVED from that one field rather than written beside it; and a tool that publishes no hint at all fails"
+    test: "src/verb/registry.rs::read_only_hint_is_derived_from_effects; src/mcp/tests_registry.rs::every_tool_publishes_a_read_only_hint"
     if_fails: "worse than no annotation — an agent trusts it"
 
 qa_gate:
@@ -233,7 +233,7 @@ qa_gate:
     One capability set across every shipped transport, with the exclusion made
     falsifiable rather than assumed. Gate fails on any falsification test going
     red.
-  check: "cargo test --test e2e_surface_parity_t --test e2e_transport_invariance_t --test e2e_partition_is_total_t"
+  check: "cargo test --test e2e_verb_surface_t --test e2e_verb_http_t --test e2e_transport_absence_t && cargo test --lib verb::partition"
   severity: error
   reference: "docs/specifications/unified-verb-surface.md"
 

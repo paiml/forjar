@@ -71,6 +71,17 @@ jobs:
       # as Rust at all. Cheap: a directory walk, no build of the crate needed.
       - name: No source file may be orphaned or duplicated
         run: cargo test --locked --test falsification_no_orphaned_source_files
+      # #298: every citation in contracts/ must resolve to the exact item it
+      # names, in the file it names, and every binding must name an equation
+      # its contract defines. This replaces the Python resolver that used to
+      # live in proofs.yml, whose regex read 77 of 211 citations and reported
+      # "every resolvable falsifier citation resolves" over seven dangling
+      # ones. One resolver, in one dialect, in a place that runs it.
+      - name: Every contract citation must resolve
+        run: cargo test --locked --test falsification_contract_citations_resolve
+      # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
+      - name: The binary advertises no undeclared transport
+        run: cargo test --locked --test e2e_transport_absence_t
 
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".

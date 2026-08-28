@@ -168,7 +168,7 @@ falsification_tests:
     A body containing a raw 0xFF, signed over its exact octets, verifies; the U+FFFD-substituted
     form does not.
   test: >-
-    src/core/tests_webhook_sig.rs::verify_covers_non_utf8_bytes; tests_webhook_server.rs::non_utf8_body_signed_over_wire_bytes_is_accepted
+    src/core/tests_webhook_sig.rs::verify_covers_non_utf8_bytes; src/core/tests_webhook_server.rs::non_utf8_body_signed_over_wire_bytes_is_accepted
   if_fails: >-
     A lossy UTF-8 decode has re-entered the path between the socket and verification.
     Check that WebhookRequest.body is still Vec<u8> end to end.
@@ -192,7 +192,7 @@ falsification_tests:
   prediction: >-
     |now - t| beyond the tolerance is rejected on BOTH sides of the window.
   test: >-
-    src/core/tests_webhook_sig.rs::timestamp_in_the_future_is_rejected; tests_webhook_server.rs::stale_timestamp_is_rejected
+    src/core/tests_webhook_sig.rs::timestamp_in_the_future_is_rejected; src/core/tests_webhook_server.rs::stale_timestamp_is_rejected
   if_fails: >-
     Either the freshness check was dropped or it became one-sided; a future-dated t would
     then extend a captured request's validity indefinitely.
@@ -217,7 +217,7 @@ falsification_tests:
     reassembled and accepted.
   test: >-
     src/core/tests_webhook_http.rs::body_split_across_segments_is_reassembled, body_split_one_byte_at_a_time;
-    tests_webhook_server.rs::signed_delivery_split_across_segments_is_accepted
+    src/core/tests_webhook_server.rs::signed_delivery_split_across_segments_is_accepted
   if_fails: >-
     Framing regressed to a single read(). Content-Length is being ignored again and events
     are silently dropped off-loopback.
@@ -259,7 +259,7 @@ falsification_tests:
     echo the requested path.
   test: >-
     src/core/tests_webhook_http.rs::every_response_body_is_valid_json, response_escapes_hostile_codes;
-    tests_webhook_server.rs::unknown_path_is_404
+    src/core/tests_webhook_server.rs::unknown_path_is_404
   if_fails: >-
     Response construction went back to string interpolation; the body is malformed JSON
     and reflects attacker input.
@@ -271,7 +271,7 @@ falsification_tests:
   prediction: 'Each outcome renders its own status line, and 405 carries Allow: POST.'
   test: >-
     src/core/tests_webhook_http.rs::previously_unreachable_statuses_have_reasons, method_not_allowed_carries_allow_header;
-    tests_webhook_server.rs::get_is_405_with_allow_header, unknown_path_is_404
+    src/core/tests_webhook_server.rs::get_is_405_with_allow_header, unknown_path_is_404
   if_fails: >-
     Outcomes are collapsing to one status again, making a rejection reason indistinguishable
     to a sender.

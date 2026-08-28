@@ -296,7 +296,7 @@ bindings:
       three confirmed RED under mutation."
 
   - contract: apply-receipt-v1.yaml
-    equation: receipt_deletion
+    equation: receipt_completeness
     module_path: "forjar::tripwire::eventlog::append_event"
     function: append_event
     signature: "fn append_event(state_dir: &Path, machine: &str, event: ProvenanceEvent) -> Result<(), String>"
@@ -304,7 +304,13 @@ bindings:
     notes: "Deletion is now representable via ProvenanceEvent::ResourceDeleted and
       round-trips to the log. paiml/infra#208 is a deletion — every real file under
       ~/.cargo/bin removed, every symlink left — so the one event class that would
-      have named it did not exist. Falsifier RCP-001."
+      have named it did not exist. Falsifier RCP-001.
+      This entry named `receipt_deletion` until #298. apply-receipt-v1.yaml has
+      never defined that equation, and nothing noticed, because verify_bindings
+      reads `status:` and never opens the contract. Deletion representability is
+      part of receipt_completeness, whose invariants are `action IN {created,
+      changed, deleted, unchanged, failed}` and `action = deleted => after_digest
+      = null AND before_digest != null`."
 
   # ── Apply Converges Observed Drift (#305, #297) ────────
   - contract: plan-declares-its-quantifier-v1.yaml
