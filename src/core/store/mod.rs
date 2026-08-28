@@ -10,6 +10,7 @@ pub mod chunker;
 pub mod closure;
 pub mod conda;
 pub mod container_build;
+pub mod content;
 pub mod contract_coverage;
 pub mod contract_scaffold;
 pub mod convergence_container;
@@ -46,6 +47,7 @@ pub mod purity;
 #[cfg(feature = "db")]
 pub mod query;
 pub mod reference;
+pub mod registry_http;
 pub mod registry_push;
 pub mod registry_push_chunked;
 pub mod registry_push_fmt;
@@ -59,6 +61,7 @@ pub mod store_diff;
 pub mod substitution;
 pub mod sync_exec;
 pub mod validate;
+pub mod verify;
 
 #[cfg(test)]
 mod tests_bash_provability;
@@ -159,6 +162,8 @@ mod tests_query_cov;
 #[cfg(test)]
 mod tests_reference;
 #[cfg(test)]
+mod tests_registry_http;
+#[cfg(test)]
 mod tests_registry_push;
 #[cfg(test)]
 mod tests_registry_push_http;
@@ -184,3 +189,5 @@ mod tests_substitution;
 mod tests_sync_exec;
 #[cfg(test)]
 mod tests_validate;
+#[cfg(test)]
+mod tests_verify;

@@ -9,61 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`plan --json` and the MCP/HTTP/verb `plan` now disclose their blind spot
-  too (#342, residual).** The scope disclosure shipped in 1.20.0 for the TTY
-  rendering only, because it was written as a side-effecting printer:
-  `print_scope_disclosure` formatted the sentence and immediately `println!`d
-  it, returning `()`. With no value to serialise, `print_plan_json` could not
-  carry it and `PlanOutput` had nothing to attach — so on two of three shipped
-  surfaces the contract's biconditional was simply false.
-
-  That inverted the issue's own threat model. #342's motivating incident is
-  machine-driven — a nightly lane parsing forjar output, and the "52 changes"
-  figure quoted from the blind command. The consumers that cannot NOTICE a
-  missing disclosure were the ones still receiving the undisclosed lock diff.
-
-  `plan --json` and `PlanOutput` (shared by `forjar verb call plan`, MCP stdio
-  and HTTP) gain `lock_relative: true` and `unconsulted_observations: N`
-  unconditionally — a machine consumer needs a total function, and
-  `unconsulted_observations: 0` must be distinguishable from an older binary
-  that emits no such key — plus `disclosure`, present only when the count is
-  non-zero. The prose stays the partial one, because an unconditional banner is
-  noise. Additive: no existing key changes meaning.
-
-  `docs/mcp-schema.json` is regenerated; it was stale at `"version": "0.1.0"`,
-  so the diff is larger than these three fields.
-
-  RFC steps 2-5 (wiring `drift --tripwire` into the nightly lane, sync windows,
-  decomposing `apply` into opt-in behaviours, scheduled reconciliation) are not
-  in this change. Step 2 lives in another repository and the issue defers the
-  rest itself.
-
-
-- **The apply summary now distinguishes a drift repair from a config change
-  (#336).** A convergence caused by observed drift and one caused by an edit to
-  the config both printed as `converged`. Those are different events: the second
-  means something outside forjar modified a managed resource — the difference
-  between a deploy and an intrusion, or a deploy and a unit that keeps resetting
-  itself. The findings existed; `check_pre_apply_drift` spent each one on an
-  stderr line and a lock write and returned `Result<(), String>`, so by the time
-  the summary printed, the only surviving facts were three integers.
-
-  ```
-  Apply complete: 3 converged (1 repaired drift), 12 unchanged.
-    drift-repaired: [intel] dnsmasq-fleet-hosts — file state changed
-  ```
-
-  `--json` gains `summary.drift_repaired_count` and `summary.drift_repaired[]`.
-  That half matters most: the `drift:` lines go to stderr and the JSON to
-  stdout, so a machine consumer had ZERO drift signal.
-
-  The count is intersected with the post-apply lock, so a resource excluded by
-  `-r` / `--only-machine` / a tag filter, or one that failed, is not claimed as
-  repaired; and it counts RESOURCES, not findings, because `detect_drift_full`
-  emits one finding per observable. Under `--force` it is always zero — that
-  path bypasses the drift gate by construction. `--watch --auto-apply` keeps its
-  own wording; that path never invokes the drift gate at all.
-
 ### Fixed
 
 - **`FORJAR_BUDGET_DRY_RUN=1` did not prevent deletion; a `disk_budget` apply
@@ -124,6 +69,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   published release. `binary-release.yml`'s `checksums` job gained the
   version guard #324 added to the other producer, and now refreshes the sidecars
   it writes instead of leaving them naming clobbered bytes.
+
+### Changed
+
+- **`forjar cache verify` was comparing against the wrong thing, and has been
+  for as long as it has shipped** (Refs #236). It re-hashed `<entry>/content`
+  with `tripwire::hash_directory` and compared the result to the entry's
+  DIRECTORY NAME. But an entry written by `forjar store-import` is addressed
+  with `provider_exec::hash_staging_dir` — a different preimage under a
+  different domain tag. So `cache verify` reported **100% failure on any store
+  built by an import**, while a conda entry (also `hash_directory`) passed.
+  Three addressing schemes coexisted with no field saying which one an entry
+  carried.
+
+  It now compares against `meta.output_hash`, the digest the entry itself
+  recorded. **This is a visible change to an existing exit code**: a CI job that
+  has been red-always against an import-built store goes green, and entries
+  written before schema 1.1 report `unsealed` rather than a false mismatch. The
+  JSON keys (`verified`, `failed`, `results[].hash|valid|expected|actual`) are
+  unchanged.
+
+- **`meta.yaml` schema 1.0 → 1.1** (Refs #236), adding `output_hash` and
+  `addressing`. Both carry `#[serde(default)]`, so **every schema-1.0
+  `meta.yaml` already on disk still loads** — pinned by
+  `a_schema_1_0_entry_still_loads_and_reports_unsealed`, which is measurably red
+  without the default on `addressing`. Such entries report `unsealed`: there is
+  no recorded digest for them to be wrong about, and calling that corruption
+  would make `--repair` delete good data.
+
+  Note what was NOT done. The issue proposed promoting
+  `provider_exec::hash_staging_dir` to the canonical content hasher; that is
+  declined. Its walker does `std::fs::read(&path)` — it slurps each whole file
+  into RAM, which would OOM on the 149.9 GiB mp4 store this issue exists for.
+  `tripwire::hash_directory` streams, already skips symlinks, already sorts
+  children, and is already what every verification site calls.
+
+- **`forjar build --push` no longer shells out to `curl`** (Refs #228). Every
+  registry verb — HEAD, POST, PUT and the chunked PATCH — is now an in-process
+  `ureq` call through the new `core::store::registry_http` transport.
+
+  `curl` was an **undeclared runtime dependency**: nothing in `Cargo.toml` or
+  the docs said you needed it, and on a host without it the first HEAD died as
+  `No such file or directory (os error 2)`. 1.12.6 (#224) made that message
+  actionable; this removes the dependency it was reporting.
+
+  **ureq, not reqwest.** `src/core` contains zero `async fn` while the MCP path
+  runs a live tokio runtime, and `reqwest::blocking` panics when called from
+  inside an async context. The 1.12.6 note suggesting reqwest because the crate
+  "already compiles" it has been corrected in place.
+
+  **Operators with a private-CA registry, read this.** curl validated TLS
+  against the OS trust store. ureq's default is a bundled Mozilla root set, so
+  the agent is built with the `platform-verifier` feature and
+  `RootCerts::PlatformVerifier` to keep validating against the platform store.
+  A push to a registry fronted by a corporate or internal CA behaves as it did
+  on 1.20.1.
+
+  The two load-bearing gates were carried across as explicit checks on the
+  response rather than as curl flags, and are now pinned behaviourally against
+  a live loopback registry in
+  `tests/falsification_registry_push_needs_no_curl.rs`:
+
+  - **Refs #154** — a push is judged by the registry's status, not by whether
+    the request completed. The guard used to be `--fail-with-body`; it is now a
+    2xx gate plus the registry's own error body quoted into the message.
+  - **Refs #210** — only `202 Accepted` opens an upload session. ureq follows up
+    to 10 redirects by default, so the agent sets `max_redirects(0)`. Without
+    it, `docker.io`'s 301 to its marketing site is followed, the client sees a
+    2xx, and the blob is PUT at a web page — measured: with redirects left on,
+    that test reports a successful push against a decoy.
+
+  Two side effects worth knowing about:
+
+  - The four in-process-registry tests in `tests_registry_push_net.rs` were
+    permanently `#[ignore]`d because curl honors an ambient `HTTP(S)_PROXY` even
+    for `127.0.0.1`. The proxy is configured per agent now and disabled for
+    loopback, so all four run. One of them,
+    `chunked_push_succeeds_even_on_http_500_because_curl_silent`, asserted that
+    an HTTP 500 was a **successful** push — the exact inverse of #154. It had
+    been false since `--fail-with-body` landed; nothing ran it. It is now
+    `chunked_push_fails_on_http_500`.
+  - The chunked PATCH used `curl -r <range> --data-binary @file`. `-r` is a
+    download-side flag, so every chunk uploaded the **whole blob**. Each PATCH
+    now streams its own byte range and declares its own `Content-Length`.
+
+  The `head_check_command` / `upload_initiate_command` /
+  `upload_complete_command` / `manifest_put_command` doc-string builders are
+  gone: they returned curl command lines that describe nothing this code does
+  any more.
 
 
 ## [1.20.1] — 2026-08-26
@@ -1032,9 +1065,11 @@ purification path production uses. If you add a resource type, add that test.
   happens to ship curl. A user running `cargo install forjar` on a minimal host
   would have hit the original error.
 
-  This makes the dependency legible; it does not remove it. The crate already
-  compiles `reqwest`, so doing the registry HEAD/PUT natively would drop the
-  shell-out entirely — tracked in #224.
+  This makes the dependency legible; it does not remove it. Removing it is
+  #228, done in Unreleased. (The suggestion recorded here — "the crate already
+  compiles `reqwest`" — was wrong: `reqwest` is async-first and
+  `reqwest::blocking` panics when called from inside an async context, which is
+  exactly what the MCP path is.)
 
 ## [1.12.5] - 2026-08-12
 

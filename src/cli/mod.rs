@@ -267,6 +267,7 @@ mod store_convert;
 mod store_import;
 mod store_ops;
 mod store_pin;
+mod store_verify;
 pub mod structured_log;
 mod template_cmd;
 mod trigger;

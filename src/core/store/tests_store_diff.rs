@@ -27,6 +27,9 @@ fn sample_meta(hash: &str, provider: &str, origin_hash: &str, depth: u32) -> Sto
             },
             derivation_depth: depth,
         }),
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }
 

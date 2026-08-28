@@ -10,7 +10,7 @@ identical inputs always produce identical store paths.
 ```
 /var/lib/forjar/store/
 ├── <blake3-hash>/
-│   ├── meta.yaml       # Provenance, input hashes, timestamps
+│   ├── meta.yaml       # Provenance, input hashes, output digest, timestamps
 │   └── content/        # Build output (files, dirs)
 └── .gc-roots/          # Symlinks to live store paths
 ```
@@ -122,6 +122,46 @@ derivation:
 Execution: `src/core/store/derivation_exec.rs` resolves inputs, computes
 closure hashes, checks for store hits, and delegates to the sandbox for
 cache-miss builds.
+
+## Two Addresses, One Entry (GH-236)
+
+The store answers two different questions, and it needs a different digest for
+each. Both are recorded; neither replaces the other.
+
+| | Question it answers | Where it lives |
+|---|---|---|
+| **Input / derivation address** | *Has this recipe with these inputs already been built?* | the entry's directory name, from `path::store_path(recipe_hash, input_hashes, arch, provider)` |
+| **Output / content digest** | *Are these the bytes we produced? Have I already stored these exact bytes under another name?* | `meta.output_hash`, BLAKE3 over the entry's `content/` tree |
+
+Input addressing is what makes staleness detection and cache lookup possible;
+removing it would break the store. Output addressing is what makes corruption
+detection and dedup possible. Before schema 1.1 only the first existed, so
+rewriting `<entry>/content/out.mp4` in place changed nothing any API could
+observe: `read_meta` returned a byte-identical struct and `store_path` returned
+the same address, because neither read a produced byte.
+
+`meta.addressing` records which scheme an entry's `store_hash` came from —
+`derivation` for a build, `content` for a `forjar store-import`, which addresses
+by the bytes it staged. Recording it means a verifier no longer has to guess.
+
+```bash
+# Re-hash every entry's content and compare it to the digest it recorded.
+# Non-zero exit on any mismatch, so this works as a cron or CI gate.
+forjar store verify
+
+# Delete mismatching entries so the next build or cache pull re-creates them.
+# Never touches an unsealed (pre-1.1) entry: there is no recorded digest for it
+# to be wrong about, and deleting it would destroy data on no evidence.
+forjar store verify --repair
+```
+
+Four verdicts: `ok`, `MISMATCH` (the bytes are not the recorded bytes),
+`unsealed` (written before schema 1.1 — reported, never counted as a failure),
+`MALFORMED` (no readable `meta.yaml`, or no `content/`; counted as a failure,
+because `write_meta` is part of every entry's creation).
+
+Schema 1.1 adds `output_hash` and `addressing`. A 1.0 `meta.yaml` already on
+disk still loads and reports `unsealed`.
 
 ## Garbage Collection
 

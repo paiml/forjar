@@ -7,6 +7,7 @@ use super::store_convert::*;
 use super::store_import::*;
 use super::store_ops::*;
 use super::store_pin::*;
+use super::store_verify::*;
 
 /// Dispatch store-related commands.
 pub(crate) fn dispatch_store_cmd(cmd: Commands) -> Result<(), String> {
@@ -103,6 +104,11 @@ fn dispatch_store(sub: StoreCmd) -> Result<(), String> {
             apply,
             json,
         } => cmd_store_sync(&hash, &store_dir, apply, json),
+        StoreCmd::Verify {
+            store_dir,
+            repair,
+            json,
+        } => cmd_store_verify(&store_dir, repair, json),
     }
 }
 

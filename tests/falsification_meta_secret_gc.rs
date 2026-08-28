@@ -17,7 +17,13 @@ fn new_meta_fields() {
         "x86_64",
         "apt",
     );
-    assert_eq!(m.schema, "1.0");
+    // GH-236: 1.1 adds output_hash + addressing. A 1.0 meta.yaml on disk still
+    // loads — pinned by tests/falsification_store_output_addressing.rs.
+    assert_eq!(m.schema, "1.1");
+    assert_eq!(
+        m.output_hash, None,
+        "a fresh meta is unsealed until the artifact lands"
+    );
     assert_eq!(m.store_hash, "blake3:abc");
     assert_eq!(m.recipe_hash, "blake3:recipe");
     assert_eq!(m.input_hashes, vec!["blake3:in1"]);

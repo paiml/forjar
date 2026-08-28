@@ -11,9 +11,8 @@ use forjar::core::store::gc_exec::{dir_size, sweep, sweep_dry_run};
 use forjar::core::store::hf_config::KernelRequirement;
 use forjar::core::store::meta::{new_meta, write_meta};
 use forjar::core::store::mutation_runner::{applicable_operators, mutation_script};
-use forjar::core::store::registry_push::{
-    head_check_command, validate_push_config, RegistryPushConfig,
-};
+use forjar::core::store::registry_push::{validate_push_config, RegistryPushConfig};
+use forjar::core::store::registry_push_http::registry_url;
 use std::collections::BTreeSet;
 
 fn main() {
@@ -139,7 +138,7 @@ fn main() {
     println!("  Validation: {:?}", validate_push_config(&cfg));
     println!(
         "  HEAD: {}",
-        head_check_command("ghcr.io", "myorg/app", "sha256:abc")
+        registry_url("ghcr.io", "v2/myorg/app/blobs/sha256:abc")
     );
 
     // ── Mutation Scripts ──

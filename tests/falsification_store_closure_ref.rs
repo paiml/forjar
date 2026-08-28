@@ -301,7 +301,9 @@ fn scan_dir_refs_empty_dir() {
 #[test]
 fn new_meta_fields() {
     let meta = new_meta("sh", "rh", &["h1".into()], "x86_64", "apt");
-    assert_eq!(meta.schema, "1.0");
+    // GH-236: 1.1 adds output_hash + addressing. Entries written as 1.0 still
+    // load — pinned by tests/falsification_store_output_addressing.rs.
+    assert_eq!(meta.schema, "1.1");
     assert_eq!(meta.store_hash, "sh");
     assert_eq!(meta.recipe_hash, "rh");
     assert_eq!(meta.input_hashes, vec!["h1"]);

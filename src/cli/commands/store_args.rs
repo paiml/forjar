@@ -95,7 +95,7 @@ pub enum CacheCmd {
     },
 }
 
-/// Store subcommands: gc, list, diff, sync.
+/// Store subcommands: gc, list, diff, sync, verify.
 #[derive(Subcommand, Debug)]
 pub enum StoreCmd {
     /// Delete unreachable store entries (garbage collection)
@@ -166,6 +166,22 @@ pub enum StoreCmd {
         /// Actually apply the sync (default: dry-run)
         #[arg(long)]
         apply: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Re-hash each entry's content and compare it to the digest the entry
+    /// recorded (GH-236). Exits non-zero on any mismatch.
+    Verify {
+        /// Store directory
+        #[arg(long, default_value_os_t = default_store_dir())]
+        store_dir: PathBuf,
+
+        /// Delete mismatching entries so the next build or pull re-creates them
+        #[arg(long)]
+        repair: bool,
 
         /// Output as JSON
         #[arg(long)]
