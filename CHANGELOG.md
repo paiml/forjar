@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The apply summary now distinguishes a drift repair from a config change
+  (#336).** A convergence caused by observed drift and one caused by an edit to
+  the config both printed as `converged`. Those are different events: the second
+  means something outside forjar modified a managed resource — the difference
+  between a deploy and an intrusion, or a deploy and a unit that keeps resetting
+  itself. The findings existed; `check_pre_apply_drift` spent each one on an
+  stderr line and a lock write and returned `Result<(), String>`, so by the time
+  the summary printed, the only surviving facts were three integers.
+
+  ```
+  Apply complete: 3 converged (1 repaired drift), 12 unchanged.
+    drift-repaired: [intel] dnsmasq-fleet-hosts — file state changed
+  ```
+
+  `--json` gains `summary.drift_repaired_count` and `summary.drift_repaired[]`.
+  That half matters most: the `drift:` lines go to stderr and the JSON to
+  stdout, so a machine consumer had ZERO drift signal.
+
+  The count is intersected with the post-apply lock, so a resource excluded by
+  `-r` / `--only-machine` / a tag filter, or one that failed, is not claimed as
+  repaired; and it counts RESOURCES, not findings, because `detect_drift_full`
+  emits one finding per observable. Under `--force` it is always zero — that
+  path bypasses the drift gate by construction. `--watch --auto-apply` keeps its
+  own wording; that path never invokes the drift gate at all.
+
 ### Fixed
 
 - **`FORJAR_BUDGET_DRY_RUN=1` did not prevent deletion; a `disk_budget` apply

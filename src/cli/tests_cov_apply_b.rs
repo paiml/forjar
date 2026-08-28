@@ -2,6 +2,7 @@
 
 #![allow(unused_imports)]
 use super::apply_output::*;
+use super::apply_summary::print_apply_summary;
 use super::apply_variants::*;
 use super::helpers::*;
 use crate::core::types;
@@ -295,6 +296,7 @@ mod tests {
             0,
             0,
             0,
+            &[],
             Duration::from_millis(100),
             false
         )
@@ -306,7 +308,7 @@ mod tests {
         let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let results = vec![make_apply_result("m", 0, 0, 1)];
         assert!(
-            print_apply_summary(&config, &results, 0, 0, 1, 0, Duration::from_millis(50), false)
+            print_apply_summary(&config, &results, 0, 0, 1, 0, &[], Duration::from_millis(50), false)
                 .is_ok()
         );
     }
@@ -316,7 +318,7 @@ mod tests {
         let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let results = vec![make_apply_result("m", 2, 1, 0)];
         assert!(
-            print_apply_summary(&config, &results, 2, 1, 0, 0, Duration::from_millis(200), true)
+            print_apply_summary(&config, &results, 2, 1, 0, 0, &[], Duration::from_millis(200), true)
                 .is_ok()
         );
     }

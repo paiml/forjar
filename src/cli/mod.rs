@@ -14,6 +14,7 @@ mod apply_preview;
 mod apply_scope;
 mod apply_selection;
 mod apply_snapshot;
+mod apply_summary;
 mod apply_variants;
 mod bootstrap_cmd;
 mod build_distribution;

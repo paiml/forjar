@@ -22,7 +22,7 @@ pub(super) fn apply_pre_validate(
     force: bool,
     yes: bool,
     verbose: bool,
-) -> Result<(), String> {
+) -> Result<Vec<super::apply_drift::DriftRepair>, String> {
     // REFUSE BEFORE WRITING, NOT AFTER.
     //
     // Everything below this line can mutate the state dir — `check_pre_apply_drift`
@@ -83,7 +83,10 @@ pub(super) fn apply_pre_validate(
         }
     }
 
-    super::apply_drift::check_pre_apply_drift(
+    // forjar#336: the observation is CARRIED, not consumed. Before this it was
+    // spent on an stderr line and a lock write and the function returned unit,
+    // so the summary two frames later could not say why a resource converged.
+    let observed_drift = super::apply_drift::check_pre_apply_drift(
         config,
         state_dir,
         machine_filter,
@@ -146,7 +149,7 @@ pub(super) fn apply_pre_validate(
         }
     }
 
-    Ok(())
+    Ok(observed_drift)
 }
 
 /// FJ-220 + FJ-3200: Check policy rules and block apply if any error-severity violations exist.

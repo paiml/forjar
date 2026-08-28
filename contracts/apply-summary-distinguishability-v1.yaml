@@ -32,6 +32,21 @@ equations:
       - "forced_noop_count ≤ total_converged"
       - "forced_noop_count + actual_changes = total_converged"
 
+  drift_repaired_count:
+    formula: |
+      drift_repaired(cfg, results) =
+        distinct_by(resource_id,
+          { f ∈ pre_apply_findings(cfg)
+            : post_lock[f.machine][f.resource_id].status = Converged })
+    domain: "cfg ∈ ApplyConfig, results ∈ Vec<ApplyResult>"
+    codomain: "Vec<DriftRepair>"
+    invariants:
+      - "drift_repaired ≤ total_converged"
+      - "cfg.force ⇒ drift_repaired = ∅ — the gate is bypassed at apply_drift.rs, so a repair under --force is unobservable BY CONSTRUCTION, not unmeasured"
+      - "¬cfg.policy.tripwire ⇒ drift_repaired = ∅"
+      - "the count ranges over RESOURCES, not findings: detect_drift_full emits one finding per observable, so one tampered file yields both `content changed` and `file state changed`"
+      - "a resource excluded by -r / --only-machine / a tag filter, or one that failed, is left drifted/failed in the post-apply lock and is therefore NOT counted"
+
   apply_summary_distinguishability:
     formula: |
       summary(results) = {
@@ -45,13 +60,15 @@ equations:
       - "When f > 0, the printed summary surfaces it explicitly"
       - "actual_changes = 0 ∧ f > 0 ⇒ stack was fully converged before --force ran (claim C3 holds)"
       - "actual_changes > 0 ⇒ at least one resource genuinely needed work (drift OR new)"
+      - "the summary separates a convergence CAUSED BY A CONFIG CHANGE from one caused by OBSERVED DRIFT; both used to print as `converged` (forjar#336)"
+      - "drift_repaired = ∅ ⇒ the summary line is byte-identical to what it was before the dimension was added — the clause is empty at zero"
 
 proof_obligations:
   - type: invariant
     property: "forced_noop_count fits inside converged"
     formal: "∀ cfg, results: forced_noop_count(cfg) ≤ Σ results.resources_converged"
     applies_to: all
-    enforced_by: "src/cli/apply_output.rs::print_apply_summary debug_assert!"
+    enforced_by: "src/cli/apply_summary.rs::print_apply_summary debug_assert!"
 
   - type: invariant
     property: "Force-off path returns zero"
@@ -65,7 +82,7 @@ proof_obligations:
       forced_noop_count > 0 ⇒
         (text mode emits a `note:` line ∧ JSON mode emits forced_noop_count + actual_changes fields)
     applies_to: all
-    enforced_by: "src/cli/apply_output.rs::print_apply_summary"
+    enforced_by: "src/cli/apply_summary.rs::print_apply_summary"
 
   - type: classification
     property: "All four step shapes from issue #129 hold (Q1 semantics)"
@@ -101,6 +118,33 @@ proof_obligations:
       still correct AS STATED — it describes `--force`, which bypasses the drift
       gate entirely. Without --force, a resource that moved on the target is now
       marked Drifted and re-applied.
+
+  - type: invariant
+    property: "A repair is claimed only for a resource this run converged"
+    formal: |
+      ∀ d ∈ drift_repaired:
+        ∃ r ∈ results: r.machine = d.machine
+          ∧ ∃ rr ∈ r.resource_reports: rr.resource_id = d.resource_id ∧ rr.status = "converged"
+      ∧ |drift_repaired| ≤ Σ results.resources_converged
+    applies_to: all
+    enforced_by: "tests/falsification_apply_summary_names_drift_repair.rs"
+    notes: |
+      forjar#336. The findings were produced, printed to stderr, and then
+      discarded at a function boundary one frame above the printer:
+      `check_pre_apply_drift` returned `Result<(), String>`. So the summary
+      could report WHAT happened and never WHY — a deploy and an intrusion
+      produced byte-identical output, and `--json` consumers got no drift
+      signal at all because the `drift:` lines go to stderr.
+
+      The intersection with the post-apply lock is what makes the number
+      trustworthy; a raw findings count passes every other test in that file
+      and fails `an_unrepaired_drift_is_not_counted_as_repaired`.
+
+      OUT OF SCOPE, DELIBERATELY: `src/cli/observe.rs::run_watch_apply` prints
+      its own `Apply complete:` line from a path that never invokes the drift
+      gate, so `--watch --auto-apply` keeps its current wording. Giving watch
+      mode a drift gate is a separate change. Naming it here so the divergence
+      is not read as an oversight.
 
 enforcement:
   forced_noop_not_counted_as_converged:

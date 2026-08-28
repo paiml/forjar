@@ -4,6 +4,7 @@ use super::apply_helpers::*;
 use super::apply_output::*;
 use super::apply_scope::{apply_scope, ApplyScope};
 use super::apply_selection::*;
+use super::apply_summary::print_apply_summary;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
@@ -75,7 +76,7 @@ pub(crate) fn cmd_apply_scoped(
     apply_goal_closure(&mut config, goals, verbose)?;
     strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
-    super::apply_preflight::apply_pre_validate(
+    let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,
         state_dir,
         machine_filter,
@@ -129,6 +130,10 @@ pub(crate) fn cmd_apply_scoped(
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
+    // GH-336: intersect what drifted BEFORE the run with what the run actually
+    // converged. Raw findings would claim repairs for resources the filters
+    // excluded or that failed.
+    let drift_repaired = super::apply_drift::repaired(&observed_drift, &results);
 
     save_apply_reports(state_dir, &results);
 
@@ -143,6 +148,7 @@ pub(crate) fn cmd_apply_scoped(
         total_unchanged,
         total_failed,
         forced_noop_count,
+        &drift_repaired,
         dur_apply,
         json,
     )?;

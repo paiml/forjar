@@ -1,6 +1,7 @@
 //! Coverage tests for cli/apply_output.rs — count_results, print functions, timing.
 
 use super::apply_output::*;
+use super::apply_summary::print_apply_summary;
 use crate::core::types;
 
 fn make_result(machine: &str, converged: u32, unchanged: u32, failed: u32) -> types::ApplyResult {
@@ -143,7 +144,7 @@ fn minimal_config() -> types::ForjarConfig {
 fn summary_text_success() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 0)];
-    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, std::time::Duration::from_secs(1), false);
+    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, &[], std::time::Duration::from_secs(1), false);
     assert!(r.is_ok());
 }
 
@@ -151,7 +152,7 @@ fn summary_text_success() {
 fn summary_text_with_failures() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 1)];
-    let r = print_apply_summary(&config, &results, 3, 2, 1, 0, std::time::Duration::from_secs(1), false);
+    let r = print_apply_summary(&config, &results, 3, 2, 1, 0, &[], std::time::Duration::from_secs(1), false);
     assert!(r.is_ok());
 }
 
@@ -159,14 +160,14 @@ fn summary_text_with_failures() {
 fn summary_json_success() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 2, 0)];
-    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, std::time::Duration::from_secs(1), true);
+    let r = print_apply_summary(&config, &results, 3, 2, 0, 0, &[], std::time::Duration::from_secs(1), true);
     assert!(r.is_ok());
 }
 
 #[test]
 fn summary_json_empty() {
     let config = minimal_config();
-    let r = print_apply_summary(&config, &[], 0, 0, 0, 0, std::time::Duration::from_secs(0), true);
+    let r = print_apply_summary(&config, &[], 0, 0, 0, 0, &[], std::time::Duration::from_secs(0), true);
     assert!(r.is_ok());
 }
 
@@ -177,7 +178,7 @@ fn summary_multi_machine() {
         make_result("web1", 5, 1, 0),
         make_result("db1", 2, 0, 1),
     ];
-    let r = print_apply_summary(&config, &results, 7, 1, 1, 0, std::time::Duration::from_secs(2), false);
+    let r = print_apply_summary(&config, &results, 7, 1, 1, 0, &[], std::time::Duration::from_secs(2), false);
     assert!(r.is_ok());
 }
 
@@ -187,7 +188,7 @@ fn summary_with_forced_noop_text() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 0, 0)];
     // 3 converged, 3 forced-noop ⇒ actual_changes = 0 (claim C3 holds through --force).
-    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, std::time::Duration::from_secs(1), false);
+    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, &[], std::time::Duration::from_secs(1), false);
     assert!(r.is_ok());
 }
 
@@ -195,6 +196,101 @@ fn summary_with_forced_noop_text() {
 fn summary_with_forced_noop_json() {
     let config = minimal_config();
     let results = vec![make_result("web1", 3, 0, 0)];
-    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, std::time::Duration::from_secs(1), true);
+    let r = print_apply_summary(&config, &results, 3, 0, 0, 3, &[], std::time::Duration::from_secs(1), true);
     assert!(r.is_ok());
+}
+
+// GH-336: cover the new drift_repaired parameter — text + JSON modes, and the
+// `repaired()` intersection that keeps it from over-claiming.
+
+fn repair(machine: &str, id: &str) -> super::apply_drift::DriftRepair {
+    super::apply_drift::DriftRepair {
+        machine: machine.into(),
+        resource_id: id.into(),
+        detail: "file state changed".into(),
+    }
+}
+
+fn converged_report(id: &str) -> types::ResourceReport {
+    types::ResourceReport {
+        resource_id: id.into(),
+        resource_type: "file".into(),
+        status: "converged".into(),
+        duration_seconds: 0.1,
+        exit_code: Some(0),
+        hash: None,
+        error: None,
+    }
+}
+
+#[test]
+fn summary_with_drift_repair_text() {
+    let config = minimal_config();
+    let results = vec![make_result("web1", 1, 0, 0)];
+    let r = print_apply_summary(
+        &config,
+        &results,
+        1,
+        0,
+        0,
+        0,
+        &[repair("web1", "dnsmasq-fleet-hosts")],
+        std::time::Duration::from_secs(1),
+        false,
+    );
+    assert!(r.is_ok());
+}
+
+#[test]
+fn summary_with_drift_repair_json() {
+    let config = minimal_config();
+    let results = vec![make_result("web1", 1, 0, 0)];
+    let r = print_apply_summary(
+        &config,
+        &results,
+        1,
+        0,
+        0,
+        0,
+        &[repair("web1", "dnsmasq-fleet-hosts")],
+        std::time::Duration::from_secs(1),
+        true,
+    );
+    assert!(r.is_ok());
+}
+
+/// The whole value of the count is that it is trustworthy. An observation on a
+/// resource this run did not converge — filtered out, or failed — is not a
+/// repair, and must not be counted as one.
+#[test]
+fn repaired_keeps_only_observations_the_run_converged() {
+    let mut result = make_result("web1", 1, 0, 1);
+    result.resource_reports = vec![converged_report("fixed")];
+    let observed = vec![
+        repair("web1", "fixed"),
+        repair("web1", "filtered-out"),
+        repair("other-machine", "fixed"),
+    ];
+    let kept = super::apply_drift::repaired(&observed, std::slice::from_ref(&result));
+    assert_eq!(kept.len(), 1, "only the converged observation is a repair");
+    assert_eq!(kept[0].resource_id, "fixed");
+    assert_eq!(kept[0].machine, "web1");
+}
+
+#[test]
+fn repaired_is_empty_when_nothing_drifted() {
+    let result = make_result("web1", 1, 0, 0);
+    assert!(super::apply_drift::repaired(&[], std::slice::from_ref(&result)).is_empty());
+}
+
+/// A resource that drifted and then FAILED to converge is not repaired.
+#[test]
+fn repaired_excludes_a_resource_that_failed() {
+    let mut result = make_result("web1", 0, 0, 1);
+    result.resource_reports = vec![types::ResourceReport {
+        status: "failed".into(),
+        ..converged_report("broken")
+    }];
+    let observed = vec![repair("web1", "broken")];
+    assert!(super::apply_drift::repaired(&observed, std::slice::from_ref(&result)).is_empty());
 }
