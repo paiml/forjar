@@ -1,42 +1,26 @@
 //! FJ-3208: `forjar policy-coverage` — policy rule coverage report.
 //!
-//! Analyzes policy rules against resources to produce a coverage matrix:
-//! which rules match which resource types, compliance framework gaps,
-//! and overall rule distribution.
+//! A RENDERER. The calculation is `core::policy_coverage::compute_coverage`,
+//! and this file must not compute anything it does not — that separation is
+//! the point of paiml/forjar#356.
+//!
+//! What used to be here was a second calculation (`build_report`) that answered
+//! a different question from the module of the same name in `core`, and both
+//! printed "1 of 2" over the same fixture while pointing at opposite resources.
+//! See the header of `src/core/policy_coverage/mod.rs`.
+//!
+//! `--json` prints `serde_json::to_value(&coverage)` — the same bytes the
+//! `policy-coverage` MCP verb returns, because the verb's output type IS
+//! `core::policy_coverage::PolicyCoverage`. Not "the same shape": the same
+//! type.
 
-use crate::core::parser;
-use crate::core::types::*;
-use std::collections::{BTreeMap, BTreeSet};
+use crate::core::policy_coverage::{self, PolicyCoverage};
 use std::path::Path;
-
-/// Policy coverage report.
-#[derive(Debug)]
-struct CoverageReport {
-    /// Total policy rules defined.
-    total_rules: usize,
-    /// Total resources in config.
-    total_resources: usize,
-    /// Rules that matched at least one resource (triggered violation).
-    rules_triggered: usize,
-    /// Rules by type.
-    by_type: BTreeMap<String, usize>,
-    /// Rules by severity.
-    by_severity: BTreeMap<String, usize>,
-    /// Rules by resource_type scope.
-    by_resource_scope: BTreeMap<String, usize>,
-    /// Compliance frameworks referenced.
-    frameworks: BTreeMap<String, usize>,
-    /// Resources with zero violations.
-    clean_resources: usize,
-    /// Rule IDs that were never triggered.
-    untriggered_rules: Vec<String>,
-}
 
 /// Run `forjar policy-coverage` — analyze policy rule coverage.
 pub(crate) fn cmd_policy_coverage(file: &Path, json: bool) -> Result<(), String> {
     let config = super::helpers::parse_and_validate(file)?;
-    let result = parser::evaluate_policies_full(&config);
-    let report = build_report(&config, &result);
+    let report = policy_coverage::compute_coverage(&config);
 
     if json {
         print_json(&report);
@@ -46,65 +30,19 @@ pub(crate) fn cmd_policy_coverage(file: &Path, json: bool) -> Result<(), String>
     Ok(())
 }
 
-fn build_report(config: &ForjarConfig, result: &PolicyCheckResult) -> CoverageReport {
-    let mut by_type: BTreeMap<String, usize> = BTreeMap::new();
-    let mut by_severity: BTreeMap<String, usize> = BTreeMap::new();
-    let mut by_resource_scope: BTreeMap<String, usize> = BTreeMap::new();
-    let mut frameworks: BTreeMap<String, usize> = BTreeMap::new();
-
-    for rule in &config.policies {
-        let type_key = format!("{:?}", rule.rule_type).to_lowercase();
-        *by_type.entry(type_key).or_default() += 1;
-
-        let sev_key = format!("{:?}", rule.effective_severity()).to_lowercase();
-        *by_severity.entry(sev_key).or_default() += 1;
-
-        let scope = rule.resource_type.as_deref().unwrap_or("*").to_string();
-        *by_resource_scope.entry(scope).or_default() += 1;
-
-        for cm in &rule.compliance {
-            *frameworks.entry(cm.framework.clone()).or_default() += 1;
-        }
+/// One `name  count` block, printed only when it has rows.
+fn print_counts(heading: &str, rows: &std::collections::BTreeMap<String, usize>) {
+    if rows.is_empty() {
+        return;
     }
-
-    // Find triggered rule IDs
-    let triggered_ids: BTreeSet<String> = result
-        .violations
-        .iter()
-        .filter_map(|v| v.policy_id.clone())
-        .collect();
-
-    let all_ids: Vec<String> = config.policies.iter().map(|r| r.display_id()).collect();
-
-    let untriggered_rules: Vec<String> = all_ids
-        .into_iter()
-        .filter(|id| !triggered_ids.contains(id))
-        .collect();
-
-    // Resources with zero violations
-    let violated_resources: BTreeSet<&str> = result
-        .violations
-        .iter()
-        .map(|v| v.resource_id.as_str())
-        .collect();
-
-    let total_resources = result.resources_checked;
-    let clean_resources = total_resources.saturating_sub(violated_resources.len());
-
-    CoverageReport {
-        total_rules: config.policies.len(),
-        total_resources,
-        rules_triggered: triggered_ids.len(),
-        by_type,
-        by_severity,
-        by_resource_scope,
-        frameworks,
-        clean_resources,
-        untriggered_rules,
+    println!("{heading}");
+    for (k, n) in rows {
+        println!("  {k:<12} {n}");
     }
+    println!();
 }
 
-fn print_table(r: &CoverageReport) {
+fn print_table(r: &PolicyCoverage) {
     println!("Policy Coverage Report");
     println!("======================");
     println!();
@@ -118,36 +56,31 @@ fn print_table(r: &CoverageReport) {
         "Resources: {} total, {} clean (no violations)",
         r.total_resources, r.clean_resources
     );
+    // COVERED is not CLEAN, and printing only the second is what let the two
+    // calculations diverge unnoticed: a resource no rule scopes to is clean
+    // because nothing ever looked at it.
+    println!(
+        "Coverage:  {:.1}% ({}/{} resources in the scope of at least one rule)",
+        r.coverage_percent, r.covered_resources, r.total_resources
+    );
     println!();
 
-    if !r.by_type.is_empty() {
-        println!("By rule type:");
-        for (t, n) in &r.by_type {
-            println!("  {t:<12} {n}");
-        }
-        println!();
-    }
+    print_counts("By rule type:", &r.by_type);
+    print_counts("By severity:", &r.by_severity);
+    print_counts("By resource scope:", &r.by_resource_scope);
 
-    if !r.by_severity.is_empty() {
-        println!("By severity:");
-        for (s, n) in &r.by_severity {
-            println!("  {s:<12} {n}");
-        }
-        println!();
-    }
-
-    if !r.by_resource_scope.is_empty() {
-        println!("By resource scope:");
-        for (s, n) in &r.by_resource_scope {
-            println!("  {s:<12} {n}");
-        }
-        println!();
-    }
-
-    if !r.frameworks.is_empty() {
+    if !r.compliance_frameworks.is_empty() {
         println!("Compliance frameworks:");
-        for (f, n) in &r.frameworks {
+        for (f, n) in &r.compliance_frameworks {
             println!("  {f:<12} {n} rule(s)");
+        }
+        println!();
+    }
+
+    if !r.uncovered.is_empty() {
+        println!("Uncovered resources (no rule scopes to them):");
+        for id in &r.uncovered {
+            println!("  {id}");
         }
         println!();
     }
@@ -160,223 +93,93 @@ fn print_table(r: &CoverageReport) {
     }
 }
 
-fn print_json(r: &CoverageReport) {
-    let json = serde_json::json!({
-        "total_rules": r.total_rules,
-        "total_resources": r.total_resources,
-        "rules_triggered": r.rules_triggered,
-        "clean_resources": r.clean_resources,
-        "by_type": r.by_type,
-        "by_severity": r.by_severity,
-        "by_resource_scope": r.by_resource_scope,
-        "compliance_frameworks": r.frameworks,
-        "untriggered_rules": r.untriggered_rules,
-    });
+fn print_json(r: &PolicyCoverage) {
+    // NOT a hand-written `json!` projection. One was here, and it was how the
+    // CLI and the MCP verb came to publish different field sets over the same
+    // question.
     println!(
         "{}",
-        serde_json::to_string_pretty(&json).unwrap_or_default()
+        serde_json::to_string_pretty(&policy_coverage::coverage_to_json(r))
+            .unwrap_or_else(|_| "{}".to_string())
     );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::types::*;
 
-    #[test]
-    fn build_report_basics() {
-        let config = ForjarConfig {
-            policies: vec![PolicyRule {
-                rule_type: PolicyRuleType::Require,
-                message: "need owner".into(),
-                id: Some("P-001".into()),
-                resource_type: Some("file".into()),
-                tag: None,
-                field: Some("owner".into()),
-                condition_field: None,
-                condition_value: None,
-                max_count: None,
-                min_count: None,
-                severity: None,
-                remediation: None,
-                compliance: vec![ComplianceMapping {
-                    framework: "cis".into(),
-                    control: "5.1".into(),
-                }],
+    fn cfg(resources: &[(&str, ResourceType)], policies: Vec<PolicyRule>) -> ForjarConfig {
+        let mut c = ForjarConfig {
+            policies,
+            ..Default::default()
+        };
+        for (name, t) in resources {
+            c.resources.insert(
+                (*name).to_string(),
+                Resource {
+                    resource_type: t.clone(),
+                    ..Default::default()
+                },
+            );
+        }
+        c
+    }
+
+    fn require_owner(scope: Option<&str>, id: &str) -> PolicyRule {
+        PolicyRule {
+            rule_type: PolicyRuleType::Require,
+            message: "need owner".into(),
+            id: Some(id.into()),
+            resource_type: scope.map(str::to_string),
+            tag: None,
+            field: Some("owner".into()),
+            condition_field: None,
+            condition_value: None,
+            max_count: None,
+            min_count: None,
+            severity: None,
+            remediation: None,
+            compliance: vec![ComplianceMapping {
+                framework: "cis".into(),
+                control: "5.1".into(),
             }],
-            ..Default::default()
-        };
-
-        let result = PolicyCheckResult {
-            violations: vec![],
-            rules_evaluated: 1,
-            resources_checked: 3,
-        };
-
-        let report = build_report(&config, &result);
-        assert_eq!(report.total_rules, 1);
-        assert_eq!(report.total_resources, 3);
-        assert_eq!(report.clean_resources, 3);
-        assert_eq!(report.untriggered_rules.len(), 1);
-        assert_eq!(report.frameworks["cis"], 1);
-        assert_eq!(report.by_type["require"], 1);
-        assert_eq!(report.by_resource_scope["file"], 1);
+        }
     }
 
     #[test]
-    fn build_report_with_violations() {
-        let config = ForjarConfig {
-            policies: vec![
-                PolicyRule {
-                    rule_type: PolicyRuleType::Deny,
-                    message: "no root".into(),
-                    id: Some("SEC-001".into()),
-                    resource_type: None,
-                    tag: None,
-                    field: None,
-                    condition_field: Some("user".into()),
-                    condition_value: Some("root".into()),
-                    max_count: None,
-                    min_count: None,
-                    severity: None,
-                    remediation: None,
-                    compliance: vec![],
-                },
-                PolicyRule {
-                    rule_type: PolicyRuleType::Warn,
-                    message: "should have tags".into(),
-                    id: Some("QA-001".into()),
-                    resource_type: None,
-                    tag: None,
-                    field: None,
-                    condition_field: None,
-                    condition_value: None,
-                    max_count: None,
-                    min_count: None,
-                    severity: None,
-                    remediation: None,
-                    compliance: vec![],
-                },
-            ],
-            ..Default::default()
-        };
-
-        let result = PolicyCheckResult {
-            violations: vec![PolicyViolation {
-                rule_message: "no root".into(),
-                resource_id: "r1".into(),
-                rule_type: PolicyRuleType::Deny,
-                severity: PolicySeverity::Error,
-                policy_id: Some("SEC-001".into()),
-                remediation: None,
-                compliance: vec![],
-            }],
-            rules_evaluated: 2,
-            resources_checked: 5,
-        };
-
-        let report = build_report(&config, &result);
-        assert_eq!(report.rules_triggered, 1);
-        assert_eq!(report.untriggered_rules, vec!["QA-001"]);
-        assert_eq!(report.clean_resources, 4);
+    fn print_table_no_panic_on_an_empty_report() {
+        let r = policy_coverage::compute_coverage(&ForjarConfig::default());
+        print_table(&r);
+        print_json(&r);
     }
 
     #[test]
-    fn print_table_no_panic() {
-        let report = CoverageReport {
-            total_rules: 0,
-            total_resources: 0,
-            rules_triggered: 0,
-            by_type: BTreeMap::new(),
-            by_severity: BTreeMap::new(),
-            by_resource_scope: BTreeMap::new(),
-            frameworks: BTreeMap::new(),
-            clean_resources: 0,
-            untriggered_rules: vec![],
-        };
-        print_table(&report); // should not panic
+    fn print_table_renders_every_section() {
+        let r = policy_coverage::compute_coverage(&cfg(
+            &[("conf", ResourceType::File), ("pkg", ResourceType::Package)],
+            vec![require_owner(Some("file"), "P-001")],
+        ));
+        print_table(&r);
+        assert_eq!(r.uncovered, vec!["pkg"]);
+        assert_eq!(r.by_resource_scope.get("file"), Some(&1));
+        assert_eq!(r.compliance_frameworks.get("cis"), Some(&1));
     }
 
+    /// The renderer must not reshape the document. `--json` prints exactly
+    /// `coverage_to_json`, which is exactly `serde_json::to_value` of the
+    /// report — the same value the MCP verb returns.
     #[test]
-    fn print_json_no_panic() {
-        let report = CoverageReport {
-            total_rules: 2,
-            total_resources: 5,
-            rules_triggered: 1,
-            by_type: BTreeMap::from([("deny".into(), 1), ("warn".into(), 1)]),
-            by_severity: BTreeMap::from([("error".into(), 1), ("warning".into(), 1)]),
-            by_resource_scope: BTreeMap::from([("*".into(), 2)]),
-            frameworks: BTreeMap::from([("cis".into(), 1)]),
-            clean_resources: 4,
-            untriggered_rules: vec!["QA-001".into()],
-        };
-        print_json(&report); // should not panic
-    }
-
-    #[test]
-    fn build_report_multiple_frameworks() {
-        let config = ForjarConfig {
-            policies: vec![
-                PolicyRule {
-                    rule_type: PolicyRuleType::Deny,
-                    message: "r1".into(),
-                    id: Some("S1".into()),
-                    resource_type: None,
-                    tag: None,
-                    field: None,
-                    condition_field: None,
-                    condition_value: None,
-                    max_count: None,
-                    min_count: None,
-                    severity: None,
-                    remediation: None,
-                    compliance: vec![
-                        ComplianceMapping {
-                            framework: "cis".into(),
-                            control: "1.1".into(),
-                        },
-                        ComplianceMapping {
-                            framework: "stig".into(),
-                            control: "V-1".into(),
-                        },
-                    ],
-                },
-                PolicyRule {
-                    rule_type: PolicyRuleType::Assert,
-                    message: "r2".into(),
-                    id: Some("S2".into()),
-                    resource_type: Some("package".into()),
-                    tag: None,
-                    field: None,
-                    condition_field: Some("state".into()),
-                    condition_value: Some("installed".into()),
-                    max_count: None,
-                    min_count: None,
-                    severity: Some(PolicySeverity::Info),
-                    remediation: None,
-                    compliance: vec![ComplianceMapping {
-                        framework: "soc2".into(),
-                        control: "CC6.1".into(),
-                    }],
-                },
-            ],
-            ..Default::default()
-        };
-
-        let result = PolicyCheckResult {
-            violations: vec![],
-            rules_evaluated: 2,
-            resources_checked: 3,
-        };
-
-        let report = build_report(&config, &result);
-        assert_eq!(report.frameworks.len(), 3);
-        assert_eq!(report.frameworks["cis"], 1);
-        assert_eq!(report.frameworks["stig"], 1);
-        assert_eq!(report.frameworks["soc2"], 1);
-        assert_eq!(report.by_severity["error"], 1);
-        assert_eq!(report.by_severity["info"], 1);
-        assert_eq!(report.by_resource_scope["*"], 1);
-        assert_eq!(report.by_resource_scope["package"], 1);
+    fn the_json_renderer_prints_the_calculation_verbatim() {
+        let config = cfg(
+            &[("conf", ResourceType::File)],
+            vec![require_owner(None, "P-any")],
+        );
+        let report = policy_coverage::compute_coverage(&config);
+        assert_eq!(
+            policy_coverage::coverage_to_json(&report),
+            serde_json::to_value(&report).unwrap()
+        );
     }
 
     #[test]
@@ -386,5 +189,16 @@ mod tests {
         std::fs::write(dir.path().join("forjar.yaml"), config).unwrap();
         let result = cmd_policy_coverage(&dir.path().join("forjar.yaml"), true);
         assert!(result.is_ok(), "failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn cmd_coverage_table_form_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("forjar.yaml"),
+            "version: \"1.0\"\nname: test\nmachines:\n  m1:\n    addr: localhost\n    hostname: m1\nresources:\n  cfg:\n    type: file\n    path: /etc/app.conf\n    content: \"key=val\"\n",
+        )
+        .unwrap();
+        assert!(cmd_policy_coverage(&dir.path().join("forjar.yaml"), false).is_ok());
     }
 }

@@ -243,11 +243,23 @@ forjar state-backend [--state-dir state] [--prefix <PREFIX>] [--json]
 
 ### forjar policy-coverage
 
-Policy rule coverage analysis — which rules fire against the current config.
+Policy rule coverage analysis. Two questions, one report:
+
+- **which resources any rule is SCOPED to** — `coverage_percent`, `uncovered`
+- **what the rules then SAID** — `rules_triggered`, `untriggered_rules`,
+  `clean_resources`
+
+The distinction is the point. A resource no rule scopes to is *clean* because
+nothing ever looked at it, and a report that printed only "N clean" would call
+such a config compliant. `uncovered` is the list of resources that answer holds
+vacuously for.
 
 ```bash
 forjar policy-coverage -f forjar.yaml [--json]
 ```
+
+`--json` prints exactly the document the `policy-coverage` MCP verb returns —
+the same type, not the same shape, so the two cannot drift.
 
 ### forjar policy-install
 

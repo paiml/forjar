@@ -25,78 +25,9 @@
 
 use forjar::verb::{find, partition, Bucket};
 
-// ── fixtures ────────────────────────────────────────────────────────
-
-fn call(verb: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
-    let v = find(verb).unwrap_or_else(|| {
-        panic!(
-            "verb `{verb}` is not on the unified surface — every transport \
-             derives from this one table, so a missing row means the capability \
-             is reachable from the CLI and nowhere else"
-        )
-    });
-    (v.invoke)(params)
-}
-
-/// A project whose policies cover the file resource and not the package one.
-fn policy_project(dir: &std::path::Path) -> std::path::PathBuf {
-    let cfg = dir.join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        r#"
-version: "1.0"
-name: coverage-fixture
-machines:
-  local:
-    hostname: localhost
-    addr: localhost
-resources:
-  conf:
-    type: file
-    machine: local
-    path: /etc/app.conf
-    content: "k=v"
-  pkg:
-    type: package
-    machine: local
-    provider: apt
-    packages: [git]
-policies:
-  - type: require
-    message: files need an owner
-    field: owner
-    resource_type: file
-    compliance:
-      - framework: soc2
-        control: CC6.1
-"#,
-    )
-    .unwrap();
-    cfg
-}
-
-/// Two provenance events on one machine, with distinct timestamps so ordering
-/// is a property of the data rather than of `read_dir`.
-fn audited_project(dir: &std::path::Path) -> std::path::PathBuf {
-    let cfg = dir.join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: audited\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources: {}\n",
-    )
-    .unwrap();
-    let md = dir.join("state").join("local");
-    std::fs::create_dir_all(&md).unwrap();
-    std::fs::write(
-        md.join("events.jsonl"),
-        "{\"ts\":\"2026-08-01T10:00:00Z\",\"event\":\"apply_started\",\"machine\":\"local\",\
-         \"run_id\":\"r-000000000001\",\"forjar_version\":\"1.20.1\",\"operator\":\"ng@box\"}\n\
-         {\"ts\":\"2026-08-01T10:00:05Z\",\"event\":\"resource_converged\",\"machine\":\"local\",\
-         \"resource\":\"conf\",\"duration_seconds\":0.5,\"hash\":\"abc123\"}\n",
-    )
-    .unwrap();
-    cfg
-}
+#[path = "common/verb_pending_fixtures.rs"]
+mod fixtures;
+use fixtures::{audited_project, call, policy_project};
 
 // ── the ledger shrank, and the rows landed somewhere ────────────────
 
@@ -226,7 +157,73 @@ fn policy_coverage_names_the_resources_no_policy_covers() {
          uncovered is the entire point of the report: {out}"
     );
     assert_eq!(out["by_type"]["require"], 1);
-    assert_eq!(out["frameworks"], serde_json::json!(["soc2"]));
+    assert_eq!(out["compliance_frameworks"]["soc2"], 1);
+
+    // COVERED is not CLEAN. `conf` is the covered resource and it VIOLATES
+    // (it has no owner); `pkg` is the clean one and no rule scopes to it. Both
+    // halves report "1 of 2" and they mean opposite resources — which is the
+    // divergence that shipped when the verb and the CLI leaf were two
+    // calculations (#356). One document has to carry both or a reader cannot
+    // tell them apart.
+    assert_eq!(out["clean_resources"], 1, "{out}");
+    assert_eq!(out["rules_triggered"], 1, "{out}");
+    assert_eq!(out["untriggered_rules"], serde_json::json!([]), "{out}");
+}
+
+/// REJECTION CRITERION: the verb and the CLI leaf answering differently.
+///
+/// `src/mcp/types_ops.rs` claims the verb returns "the same projection `forjar
+/// policy-coverage --json` prints". Both clauses were false when this branch
+/// was reviewed: the verb was wired to `core::policy_coverage`, which had NO
+/// production caller, while the leaf routed to a different implementation in
+/// `src/cli/policy_coverage.rs`. Nothing compared them, so nothing noticed.
+///
+/// This compares them — against the REAL BINARY, not against a second
+/// in-process call, because a shared library function proves the library agrees
+/// with itself and says nothing about what the command prints.
+#[test]
+fn the_verb_and_the_cli_leaf_print_the_same_document() {
+    let d = tempfile::tempdir().unwrap();
+    let cfg = policy_project(d.path());
+
+    let from_verb = call(
+        "policy-coverage",
+        serde_json::json!({ "path": cfg.display().to_string() }),
+    )
+    .expect("policy-coverage runs");
+
+    let run = std::process::Command::new(env!("CARGO_BIN_EXE_forjar"))
+        .args(["policy-coverage", "--file"])
+        .arg(&cfg)
+        .arg("--json")
+        .output()
+        .expect("forjar policy-coverage runs");
+    assert!(
+        run.status.success(),
+        "forjar policy-coverage --json failed: {}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let from_cli: serde_json::Value = serde_json::from_slice(&run.stdout)
+        .unwrap_or_else(|e| panic!("--json did not print JSON ({e}): {:?}", run.stdout));
+
+    assert_eq!(
+        from_verb,
+        from_cli,
+        "the `policy-coverage` verb and `forjar policy-coverage --json` \
+         returned DIFFERENT documents. They are supposed to be two renderers \
+         over one calculation; a field that appears on one and not the other, \
+         or the same field with a different value, means there are two \
+         calculations again.\n\nverb: {}\n\ncli:  {}",
+        serde_json::to_string_pretty(&from_verb).unwrap_or_default(),
+        serde_json::to_string_pretty(&from_cli).unwrap_or_default(),
+    );
+
+    // Vacuity guard: an empty object equals an empty object.
+    assert!(
+        from_verb.as_object().is_some_and(|o| o.len() >= 10),
+        "the document has {} fields — the equality above is close to vacuous",
+        from_verb.as_object().map(serde_json::Map::len).unwrap_or(0)
+    );
 }
 
 /// The guard against "covered" being a constant.
@@ -251,6 +248,9 @@ fn policy_coverage_reports_a_config_with_no_policies_as_uncovered() {
     assert_eq!(out["covered_resources"], 0);
     assert_eq!(out["coverage_percent"], 0.0);
     assert_eq!(out["uncovered"], serde_json::json!(["conf"]));
+    // ...and it is clean, because nothing looked at it. A report that printed
+    // only `clean_resources` would call this config compliant.
+    assert_eq!(out["clean_resources"], 1, "{out}");
 }
 
 // ── audit ───────────────────────────────────────────────────────────

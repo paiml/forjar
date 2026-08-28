@@ -145,7 +145,12 @@ fn violates_limit(rule: &PolicyRule, resource: &Resource) -> bool {
 }
 
 /// Check if a resource matches the rule's scope filters.
-fn matches_scope(rule: &PolicyRule, resource: &Resource) -> bool {
+///
+/// THE scope matcher. `core::policy_coverage` reports which resources a rule
+/// covers and must answer with the same predicate this evaluator decides with;
+/// it used to carry its own substring variant, and so reported enforcement
+/// that never happened (paiml/forjar#356).
+pub(crate) fn matches_scope(rule: &PolicyRule, resource: &Resource) -> bool {
     if let Some(ref rt) = rule.resource_type {
         let actual = format!("{:?}", resource.resource_type).to_lowercase();
         if actual != *rt {

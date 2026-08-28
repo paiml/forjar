@@ -6,7 +6,6 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 // ── policy-coverage (FJ-3208) ───────────────────────────────────────
 
@@ -19,27 +18,15 @@ pub struct PolicyCoverageInput {
 
 /// MCP policy-coverage handler output.
 ///
-/// The same projection `forjar policy-coverage --json` prints, computed by the
-/// same `core::policy_coverage::compute_coverage`. Two renderers over one
-/// calculation, never two calculations.
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub struct PolicyCoverageOutput {
-    /// Resources declared in the config.
-    pub total_resources: usize,
-    /// Resources matched by at least one policy rule.
-    pub covered_resources: usize,
-    /// `covered_resources / total_resources` as a percentage; 100.0 when the
-    /// config declares no resources at all.
-    pub coverage_percent: f64,
-    /// Whether every resource is matched by at least one policy.
-    pub fully_covered: bool,
-    /// Resource ids no policy rule matches, sorted.
-    pub uncovered: Vec<String>,
-    /// Policy rule count by rule type (require, deny, warn, assert, limit).
-    pub by_type: BTreeMap<String, usize>,
-    /// Compliance frameworks referenced by the policies, sorted.
-    pub frameworks: Vec<String>,
-}
+/// NOT a struct of its own: this is `core::policy_coverage::PolicyCoverage`,
+/// the exact value `forjar policy-coverage --json` prints. A copy of its fields
+/// would be a second place for the answer to live, and that is precisely the
+/// defect #356 found here — the verb was wired to a calculation with no
+/// production caller while its documentation named the CLI's, and the two
+/// disagreed about which resources were covered.
+///
+/// Two renderers over one calculation. There is no second type to drift.
+pub type PolicyCoverageOutput = crate::core::policy_coverage::PolicyCoverage;
 
 // ── audit (FJ-341) ──────────────────────────────────────────────────
 

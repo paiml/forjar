@@ -299,8 +299,8 @@ fn coverage_full() {
     let cov = compute_coverage(&config);
     assert_eq!(cov.total_resources, 1);
     assert_eq!(cov.covered_resources, 1);
-    assert!(cov.fully_covered());
-    assert!((cov.coverage_percent() - 100.0).abs() < f64::EPSILON);
+    assert!(cov.fully_covered);
+    assert!((cov.coverage_percent - 100.0).abs() < f64::EPSILON);
 }
 
 // ============================================================================
@@ -316,8 +316,8 @@ fn coverage_partial() {
     config.policies = vec![require_policy("file")];
     let cov = compute_coverage(&config);
     assert_eq!(cov.covered_resources, 1);
-    assert!(!cov.fully_covered());
-    assert!((cov.coverage_percent() - 50.0).abs() < f64::EPSILON);
+    assert!(!cov.fully_covered);
+    assert!((cov.coverage_percent - 50.0).abs() < f64::EPSILON);
     assert!(cov.uncovered.contains(&"p1".to_string()));
 }
 
@@ -334,7 +334,7 @@ fn coverage_no_policies() {
     let cov = compute_coverage(&config);
     assert_eq!(cov.covered_resources, 0);
     assert_eq!(cov.uncovered.len(), 2);
-    assert!((cov.coverage_percent() - 0.0).abs() < f64::EPSILON);
+    assert!((cov.coverage_percent - 0.0).abs() < f64::EPSILON);
 }
 
 // ============================================================================
@@ -347,8 +347,8 @@ fn coverage_no_resources() {
     config.policies = vec![require_policy("file")];
     let cov = compute_coverage(&config);
     assert_eq!(cov.total_resources, 0);
-    assert!(cov.fully_covered());
-    assert!((cov.coverage_percent() - 100.0).abs() < f64::EPSILON);
+    assert!(cov.fully_covered);
+    assert!((cov.coverage_percent - 100.0).abs() < f64::EPSILON);
 }
 
 // ============================================================================
@@ -378,7 +378,7 @@ fn coverage_framework_tracking() {
     let mut config = make_config_with_resources(&[("f1", ResourceType::File, None)]);
     config.policies = vec![policy];
     let cov = compute_coverage(&config);
-    assert!(cov.frameworks.contains("CIS"));
+    assert!(cov.compliance_frameworks.contains_key("CIS"));
 }
 
 #[test]
@@ -396,8 +396,8 @@ fn coverage_multiple_frameworks() {
     let mut config = make_config_with_resources(&[("f1", ResourceType::File, None)]);
     config.policies = vec![p1, p2];
     let cov = compute_coverage(&config);
-    assert!(cov.frameworks.contains("CIS"));
-    assert!(cov.frameworks.contains("SOC2"));
+    assert!(cov.compliance_frameworks.contains_key("CIS"));
+    assert!(cov.compliance_frameworks.contains_key("SOC2"));
 }
 
 // ============================================================================

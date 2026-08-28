@@ -33,23 +33,11 @@ impl Handler for PolicyCoverageHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
+        // The SAME two calls `cli::policy_coverage::cmd_policy_coverage` makes,
+        // in the same order, and then nothing: the report IS the output type,
+        // so there is no projection step here that could reshape it.
         let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
-        let cov = policy_coverage::compute_coverage(&config);
-
-        // Sorted, because a set has no order and an MCP client diffing two
-        // responses would otherwise see a change that is not one.
-        let mut frameworks: Vec<String> = cov.frameworks.iter().cloned().collect();
-        frameworks.sort();
-
-        Ok(PolicyCoverageOutput {
-            total_resources: cov.total_resources,
-            covered_resources: cov.covered_resources,
-            coverage_percent: cov.coverage_percent(),
-            fully_covered: cov.fully_covered(),
-            uncovered: cov.uncovered.clone(),
-            by_type: cov.by_type.iter().map(|(k, v)| (k.clone(), *v)).collect(),
-            frameworks,
-        })
+        Ok(policy_coverage::compute_coverage(&config))
     }
 }
 
