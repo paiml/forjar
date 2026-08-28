@@ -66,6 +66,9 @@ equations:
       - "The disclosure fires on a CLEAN plan — that is the case where it matters most"
       - "The disclosure does NOT fire when no observation exists to be blind to"
       - "The count is of what plan is BLIND TO, never of what has drifted"
+      - "EVERY SHIPPED PLAN SURFACE DISCLOSES: the TTY rendering, `plan --json`, and the MCP/HTTP/verb `plan`, which share one PlanOutput (src/verb/registry.rs)"
+      - "The suppression at zero is about OPERATOR ATTENTION, so the machine-readable surfaces still carry `lock_relative: true` and `unconsulted_observations: 0`; only the prose `disclosure` is withheld"
+      - "A machine consumer must be able to distinguish `unconsulted_observations: 0` from an older binary that emits no such key, so the count is a TOTAL function and the prose is the partial one"
     notes: |
       The second invariant is what keeps this from becoming a banner. A warning
       printed unconditionally is a warning nobody reads, and this fleet has
@@ -103,3 +106,22 @@ falsification:
       a first-ever plan with no lock, where there is no observation to be blind
       to — noise that trains operators to skip the line.
     expected: "no_lock_means_no_disclosure fails"
+  - id: json-surface-is-silent
+    description: |
+      THE 1.20.1 STATE. The disclosure was implemented as a side-effecting
+      printer — `print_scope_disclosure` formatted the sentence and immediately
+      `println!`d it, returning `()` — so the only way to consume it was to be
+      inside `print_plan`. `plan --json` emitted a seven-key object and
+      `PlanOutput` five fields; both said `to_update: 0` beside nothing, while
+      the TTY rendering disclosed.
+
+      The equations above are not qualified to "the TTY rendering", so on two of
+      three shipped surfaces the left side of the biconditional was false while
+      `unconsulted(locks) > 0`. The consumers that cannot NOTICE a missing
+      disclosure — a nightly CI parser, an MCP agent — were the ones still being
+      handed the undisclosed lock diff, which is the exact population #342's
+      motivating incident is drawn from.
+
+      Reproduce by reverting the three keys in `plan_json::print_plan_json` or
+      the three fields on `PlanOutput`.
+    expected: "json_plan_discloses_that_it_did_not_look_at_the_host and the_verb_surface_discloses_the_same_blind_spot fail"

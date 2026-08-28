@@ -163,8 +163,10 @@ pub struct CodegenArgs {
     #[arg(short, long)]
     pub resource: String,
 
-    /// Which script to emit
-    #[arg(long, default_value = "apply", value_parser = ["apply", "check", "state-query"])]
+    /// Which script to emit. `reaper` is the disk_budget reclaim pass alone,
+    /// which previews unless FORJAR_BUDGET_EXECUTE=1 is set; `apply` emits the
+    /// installer, which grants that opt-in and deletes (forjar#334).
+    #[arg(long, default_value = "apply", value_parser = ["apply", "check", "state-query", "reaper"])]
     pub phase: String,
 }
 

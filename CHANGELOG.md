@@ -7,7 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`plan --json` and the MCP/HTTP/verb `plan` now disclose their blind spot
+  too (#342, residual).** The scope disclosure shipped in 1.20.0 for the TTY
+  rendering only, because it was written as a side-effecting printer:
+  `print_scope_disclosure` formatted the sentence and immediately `println!`d
+  it, returning `()`. With no value to serialise, `print_plan_json` could not
+  carry it and `PlanOutput` had nothing to attach — so on two of three shipped
+  surfaces the contract's biconditional was simply false.
+
+  That inverted the issue's own threat model. #342's motivating incident is
+  machine-driven — a nightly lane parsing forjar output, and the "52 changes"
+  figure quoted from the blind command. The consumers that cannot NOTICE a
+  missing disclosure were the ones still receiving the undisclosed lock diff.
+
+  `plan --json` and `PlanOutput` (shared by `forjar verb call plan`, MCP stdio
+  and HTTP) gain `lock_relative: true` and `unconsulted_observations: N`
+  unconditionally — a machine consumer needs a total function, and
+  `unconsulted_observations: 0` must be distinguishable from an older binary
+  that emits no such key — plus `disclosure`, present only when the count is
+  non-zero. The prose stays the partial one, because an unconditional banner is
+  noise. Additive: no existing key changes meaning.
+
+  `docs/mcp-schema.json` is regenerated; it was stale at `"version": "0.1.0"`,
+  so the diff is larger than these three fields.
+
+  RFC steps 2-5 (wiring `drift --tripwire` into the nightly lane, sync windows,
+  decomposing `apply` into opt-in behaviours, scheduled reconciliation) are not
+  in this change. Step 2 lives in another repository and the issue defers the
+  rest itself.
+
+
+- **The apply summary now distinguishes a drift repair from a config change
+  (#336).** A convergence caused by observed drift and one caused by an edit to
+  the config both printed as `converged`. Those are different events: the second
+  means something outside forjar modified a managed resource — the difference
+  between a deploy and an intrusion, or a deploy and a unit that keeps resetting
+  itself. The findings existed; `check_pre_apply_drift` spent each one on an
+  stderr line and a lock write and returned `Result<(), String>`, so by the time
+  the summary printed, the only surviving facts were three integers.
+
+  ```
+  Apply complete: 3 converged (1 repaired drift), 12 unchanged.
+    drift-repaired: [intel] dnsmasq-fleet-hosts — file state changed
+  ```
+
+  `--json` gains `summary.drift_repaired_count` and `summary.drift_repaired[]`.
+  That half matters most: the `drift:` lines go to stderr and the JSON to
+  stdout, so a machine consumer had ZERO drift signal.
+
+  The count is intersected with the post-apply lock, so a resource excluded by
+  `-r` / `--only-machine` / a tag filter, or one that failed, is not claimed as
+  repaired; and it counts RESOURCES, not findings, because `detect_drift_full`
+  emits one finding per observable. Under `--force` it is always zero — that
+  path bypasses the drift gate by construction. `--watch --auto-apply` keeps its
+  own wording; that path never invokes the drift gate at all.
+
 ### Fixed
+
+- **`FORJAR_BUDGET_DRY_RUN=1` did not prevent deletion; a `disk_budget` apply
+  reclaimed ~1.5 TB during what was believed to be a preview (#334).** That
+  variable is a variable of the GENERATED REAPER, evaluated on the target at the
+  far end of a chain that strips it — `sudo bash <<'FORJAR_SUDO'` resets the
+  environment and `ssh host bash` carries no `SendEnv`. forjar's own process
+  never read it, so it could neither honour it nor report that it was ignoring
+  it, and the reaper's `${FORJAR_BUDGET_DRY_RUN:-0}` fell through to its
+  fail-dangerous default of deleting. Four changes:
+
+  - The reaper now previews by default. Deleting requires
+    `FORJAR_BUDGET_EXECUTE=1`, granted in exactly two places — the generated
+    systemd unit and the pass `forjar apply` runs — mirroring the inversion
+    `nas_archive` was given in #284. `FORJAR_BUDGET_DRY_RUN` still works, and
+    still wins, so the documented variable stops being a lie.
+  - Every pass names its mode (`mode=dry-run` / `mode=execute`) on its start and
+    completion lines, the apply-time pass announces EXECUTE before invoking, and
+    a preview no longer counts un-freed bytes into `reclaimed_bytes`, rewrites
+    the drift-hashed heartbeat, or trips the anti-inertness `exit 1`.
+  - `forjar apply` REFUSES when `FORJAR_BUDGET_DRY_RUN` is set and the scope
+    holds a `disk_budget`, naming the two previews that do work. An ignored
+    request is worse than a rejected one.
+  - `forjar codegen --phase reaper` emits the reclaim pass alone — a preview
+    that previews. `--phase apply` emits the INSTALLER, which grants the opt-in
+    and re-elevates; the recipe documented in the CLI appendix has been
+    corrected.
+
+  ONE-TIME RE-CONVERGE: the reaper text changed, so `disk_budget_script_sha` and
+  `hash_desired_state` change and every machine with a `disk_budget` re-applies
+  exactly once. That is the property FALSIFY-DBG-013 pins, and is expected.
 
 - **`default-features = false` was a no-op** (#237). `Cargo.toml` opened a
   `[features]` table that never defined a `default` key, so Cargo had nothing to
@@ -37,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   published release. `binary-release.yml`'s `checksums` job gained the
   version guard #324 added to the other producer, and now refreshes the sidecars
   it writes instead of leaving them naming clobbered bytes.
+
 
 ## [1.20.1] — 2026-08-26
 

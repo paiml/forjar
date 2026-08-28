@@ -3,14 +3,18 @@
 mod agent_registry;
 mod agent_sbom;
 mod apply;
+mod apply_drift;
 mod apply_dry_run;
 mod apply_gates;
+mod apply_gates_budget;
 mod apply_helpers;
 mod apply_output;
+mod apply_preflight;
 mod apply_preview;
 mod apply_scope;
 mod apply_selection;
 mod apply_snapshot;
+mod apply_summary;
 mod apply_variants;
 mod bootstrap_cmd;
 mod build_distribution;
@@ -167,6 +171,7 @@ mod oci_pack;
 pub(crate) mod output;
 mod parallel_multi_stack;
 mod plan;
+mod plan_json;
 mod plan_selector;
 pub(crate) mod plugin;
 mod plugin_run;
@@ -327,4 +332,25 @@ pub(crate) fn strip_unrequested_phony_for_mcp(
     goals: &[String],
 ) {
     apply_selection::strip_unrequested_phony(config, goals);
+}
+
+/// forjar#342: the plan blind-spot count, for the MCP layer.
+///
+/// `mod print_helpers` is private to `cli`, and `unconsulted_observations` must
+/// NOT be relocated — `contracts/binding.yaml` pins its module path. So the
+/// MCP/HTTP/verb surfaces reach it through a named shim, following the
+/// `strip_unrequested_phony_for_mcp` precedent above: one definition, not a
+/// second implementation that could drift from the CLI's answer.
+pub(crate) fn unconsulted_observations_for_mcp(
+    locks: &std::collections::HashMap<String, crate::core::types::StateLock>,
+) -> usize {
+    print_helpers::unconsulted_observations(locks)
+}
+
+/// forjar#342: the prose disclosure, for the MCP layer.
+///
+/// `None` at zero, exactly as on the CLI — the contract's biconditional holds
+/// on every shipped plan surface or on none of them.
+pub(crate) fn scope_disclosure_for_mcp(unconsulted: usize) -> Option<String> {
+    print_helpers::scope_disclosure(unconsulted)
 }

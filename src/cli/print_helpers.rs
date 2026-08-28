@@ -93,22 +93,34 @@ pub(crate) fn unconsulted_observations(
 /// the mutated-file case proves those are different claims. Naming the blind
 /// spot converts an absence into a statement.
 ///
-/// Printed for a CLEAN plan too, on purpose: the dangerous case is precisely
+/// Produced for a CLEAN plan too, on purpose: the dangerous case is precisely
 /// the one where plan has nothing to report. A disclosure that only appeared
 /// alongside pending changes would be missing exactly when it is needed.
-fn print_scope_disclosure(unconsulted: usize) {
+///
+/// forjar#342: this is a VALUE, not a `println!`. It was written as a
+/// side-effecting printer, so the only way to consume it was to be inside
+/// `print_plan` — which is why the disclosure reached the TTY rendering and
+/// structurally could not reach `plan --json` or the MCP/HTTP `plan` verb.
+/// Returning `None` at zero is the contract's biconditional, not an
+/// optimisation: an unconditional banner is noise, and noise is how a warning
+/// stops being read.
+pub(crate) fn scope_disclosure(unconsulted: usize) -> Option<String> {
     if unconsulted == 0 {
-        // Nothing was observed, so there is no blind spot to declare. An
-        // unconditional banner is noise, and noise is how a warning stops
-        // being read.
-        return;
+        return None;
     }
-    println!(
-        "\nThis plan is lock-relative: it compares the config to the lock, and \
+    Some(format!(
+        "This plan is lock-relative: it compares the config to the lock, and \
          did not\ncontact any machine. {unconsulted} locked resource(s) carry \
          state observed on a\ntarget that this plan did not consult — run \
          `forjar drift` for what the machines\nactually hold."
-    );
+    ))
+}
+
+/// Print the disclosure, when there is one.
+fn print_scope_disclosure(unconsulted: usize) {
+    if let Some(msg) = scope_disclosure(unconsulted) {
+        println!("\n{msg}");
+    }
 }
 
 /// Print the plan summary line.

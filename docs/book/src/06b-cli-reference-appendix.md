@@ -366,20 +366,35 @@ forjar codegen -f machines/lambda-labs/forjar.yaml -r media-backup --phase apply
 forjar codegen -f forjar.yaml -r root-disk-budget --phase state-query
 ```
 
-`--phase` is `apply` (default), `check`, or `state-query`.
+`--phase` is `apply` (default), `check`, `state-query`, or `reaper`.
 
 Most resource types describe state directly; a few — `disk_budget`, `backup_sync`
 — have a *synthesised shell script* as their real payload. That artifact cannot
 be reviewed, debugged, or dogfooded unless you can get at it, and reading the
 handler's source is not the same thing as reading what it emits for your config.
 
-Pair it with the resource's dry-run switch to preview destructive behaviour
-before authorising an apply:
+To preview a `disk_budget` reclaim, emit the **reaper** rather than the apply
+script:
 
 ```bash
-forjar codegen -f forjar.yaml -r root-disk-budget --phase apply > /tmp/reaper.sh
-FORJAR_BUDGET_DRY_RUN=1 sh /tmp/reaper.sh    # lists what it WOULD reclaim
+forjar codegen -f forjar.yaml -r root-disk-budget --phase reaper > /tmp/reaper.sh
+sh /tmp/reaper.sh    # lists what it WOULD reclaim; deletes nothing
 ```
+
+The reaper deletes only when `FORJAR_BUDGET_EXECUTE=1` is set, which is granted
+in exactly two places: the generated systemd unit, and the pass `forjar apply`
+runs. Run by hand it inspects, and says `mode=dry-run` on its start and
+completion lines.
+
+`--phase apply` emits the **installer**, not a preview: it writes the reaper and
+its units, grants the reclaim opt-in, and (for `sudo: true`) re-elevates through
+`sudo bash`. The recipe once documented here — `--phase apply` piped to `sh`
+with `FORJAR_BUDGET_DRY_RUN=1` — reclaimed 1.5 TB, because that variable is read
+by the reaper on the target and survives neither `sudo` (`env_reset`) nor `ssh`
+(no `SendEnv`). For the same reason, `forjar apply` now refuses to run at all
+when `FORJAR_BUDGET_DRY_RUN` is set and the scope holds a `disk_budget`: it
+cannot honour the request and will not pretend to. To preview an apply, use
+`forjar apply --dry-run` (forjar#334).
 
 ## `forjar verify`
 
