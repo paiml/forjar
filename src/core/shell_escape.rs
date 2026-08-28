@@ -20,26 +20,76 @@
 
 /// Wrap an arbitrary string as a single, safely-quoted POSIX shell word.
 ///
-/// Uses the standard single-quote escaping idiom: a literal single quote is
-/// rendered as `'\''` (close quote, escaped quote, reopen quote). The result
-/// is always wrapped in single quotes, so `$`, backticks, `"`, `\`, spaces,
-/// globs and `;` are all inert — the shell treats the entire result as one
-/// literal word.
+/// A literal single quote is rendered as `'"'"'` — close the single-quoted
+/// region, emit one quote inside a double-quoted region, reopen. The result is
+/// always wrapped in single quotes, so `$`, backticks, `"`, `\`, spaces, globs
+/// and `;` are all inert: the shell treats the entire result as one literal
+/// word.
 ///
-/// Control characters are removed (see module docs) before quoting.
+/// # Why not the familiar `'\''`
+///
+/// `'a'\''b'` and `'a'"'"'b'` are the same POSIX word — both are `a'b`, and
+/// the shell cannot tell them apart. A LINE-SCOPED LINTER can. forjar lints
+/// every script it generates with bashrs before executing it
+/// (`transport::validate_before_exec` → `purifier::validate_script`, at Error
+/// severity), and bashrs' SC2075 is a regex with no quote-state tracking:
+/// `'[^']*\'[^']*'`. It matches the correct `'\''` idiom because it cannot
+/// distinguish it from the genuine error `echo 'can\'t'`, and it says so at
+/// Error severity — so forjar rejected its own output.
+///
+/// Measured (#350): a `task` with no `completion_check` whose command ended in
+/// `echo '…'` produced an `unobservable:` sentinel that failed forjar's own I8
+/// gate, and the drift run reported `transport error: I8 violation` instead of
+/// "this resource is unobservable". The same landmine sat under every config
+/// value with an apostrophe — output artifact paths, package names, mount
+/// labels, cron commands — which is why the fix is here, at the one escaper,
+/// rather than at the call site that happened to trip it. `'"'"'` is also the
+/// form SC2075's own diagnostic recommends.
+///
+/// Control characters are removed (see module docs) before quoting. When the
+/// value is prose for a human rather than a shell word, render the line breaks
+/// with [`render_command_inline`] first.
 ///
 /// # Examples
 /// ```
 /// use forjar::core::shell_escape::sh_squote;
 /// assert_eq!(sh_squote("simple"), "'simple'");
 /// // A single quote in the payload can no longer break out:
-/// assert_eq!(sh_squote("x';reboot;'"), "'x'\\'';reboot;'\\'''");
+/// assert_eq!(sh_squote("x';reboot;'"), "'x'\"'\"';reboot;'\"'\"''");
 /// // Command substitution is neutralized — it stays literal text:
 /// assert_eq!(sh_squote("$(reboot)"), "'$(reboot)'");
 /// ```
 pub fn sh_squote(s: &str) -> String {
     let cleaned: String = s.chars().filter(|c| !is_shell_unsafe_control(*c)).collect();
-    format!("'{}'", cleaned.replace('\'', "'\\''"))
+    format!("'{}'", cleaned.replace('\'', "'\"'\"'"))
+}
+
+/// Render a possibly multi-line command as one line, with its line breaks
+/// spelled `\n` instead of dropped.
+///
+/// [`sh_squote`] STRIPS control characters, which is right for a shell word and
+/// wrong for a message whose whole job is to name a command back to an
+/// operator. Interpolating a multi-line command directly welded each line onto
+/// the next: `set -eu` + `sudo systemctl daemon-reload` became
+/// `set -eusudo systemctl daemon-reload` (#350), naming a command that was
+/// never written and never run.
+///
+/// The output is display text, not shell. Pass it through `sh_squote` and emit
+/// it with `printf '%s\n'` — never `echo`, whose XSI form (dash, the default
+/// `/bin/sh` on Debian) expands the `\n` back out and would make the emitted
+/// bytes depend on which shell the target happens to have.
+///
+/// # Examples
+/// ```
+/// use forjar::core::shell_escape::render_command_inline;
+/// assert_eq!(render_command_inline("set -eu\nmake"), "set -eu\\nmake");
+/// assert_eq!(render_command_inline("a\r\nb"), "a\\nb");
+/// ```
+pub fn render_command_inline(command: &str) -> String {
+    command
+        .replace("\r\n", "\n")
+        .replace('\r', "")
+        .replace('\n', "\\n")
 }
 
 /// True for control characters that must never appear inside a shell word.
@@ -228,14 +278,14 @@ mod tests {
     use super::*;
 
     /// Statically verify a string is a single, well-formed single-quoted shell
-    /// word produced by the `'\''` escaping idiom — without spawning a shell.
+    /// word produced by the `'"'"'` escaping idiom — without spawning a shell.
     ///
-    /// After collapsing every `'\''` escape sequence to nothing, a correctly
+    /// After collapsing every `'"'"'` escape sequence to nothing, a correctly
     /// escaped value must be exactly `'<body>'` where `<body>` contains no raw
     /// single quotes. If a payload had broken out, a stray unbalanced quote
     /// would remain and this check would fail.
     fn shell_word_is_balanced(s: &str) -> bool {
-        let collapsed = s.replace("'\\''", "");
+        let collapsed = s.replace("'\"'\"'", "");
         collapsed.starts_with('\'')
             && collapsed.ends_with('\'')
             && collapsed.len() >= 2
@@ -253,11 +303,11 @@ mod tests {
     fn squote_neutralizes_embedded_single_quote() {
         // The classic break-out payload from defect #14.
         let escaped = sh_squote("x';reboot;'");
-        assert_eq!(escaped, "'x'\\'';reboot;'\\'''");
-        // Every embedded single quote was turned into the `'\''` escape: the
+        assert_eq!(escaped, "'x'\"'\"';reboot;'\"'\"''");
+        // Every embedded single quote was turned into the `'"'"'` escape: the
         // original never appears as a bare quote that could close our wrapper.
         // Count of escape sequences == count of quotes in the input (2).
-        assert_eq!(escaped.matches("'\\''").count(), 2);
+        assert_eq!(escaped.matches("'\"'\"'").count(), 2);
         // The payload is a single shell word: it begins and ends quoted, so
         // the `;reboot;` is always inside a quoted region, never bare shell.
         assert!(escaped.starts_with('\'') && escaped.ends_with('\''));
@@ -291,8 +341,8 @@ mod tests {
         let s = sh_squote("'; rm -rf / #");
         assert!(s.starts_with('\''));
         assert!(s.ends_with('\''));
-        // The single raw quote from the input was escaped to `'\''`.
-        assert_eq!(s.matches("'\\''").count(), 1);
+        // The single raw quote from the input was escaped to `'"'"'`.
+        assert_eq!(s.matches("'\"'\"'").count(), 1);
         assert!(shell_word_is_balanced(&s));
     }
 

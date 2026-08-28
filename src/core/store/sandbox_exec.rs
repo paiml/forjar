@@ -184,7 +184,10 @@ pub fn plan_sandbox_build(
         command: Some(format!(
             "timeout {}s nsenter --target $PID --pid --mount --net -- /bin/sh -c '{}'",
             config.timeout,
-            script.replace('\'', "'\\''"),
+            // `'\''` is what forjar's own I8 gate rejects (#350); this plan
+            // text is not executed, but the idiom must not be copied back out
+            // of here. Not `sh_squote`: it strips the script's newlines.
+            script.replace('\'', "'\"'\"'"),
         )),
     });
 

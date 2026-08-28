@@ -149,7 +149,7 @@ mod fj154_tests {
         let mut r = net_resource();
         r.from_addr = Some("10.0.0.1';reboot;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("from '10.0.0.1';reboot"), "{script}");
     }
 
@@ -158,7 +158,7 @@ mod fj154_tests {
         let mut r = net_resource();
         r.name = Some("c';reboot;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("comment 'c';reboot"), "{script}");
     }
 

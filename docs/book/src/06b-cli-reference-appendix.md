@@ -392,7 +392,20 @@ forjar verify -r apr-build         # one resource
 forjar verify --tag stack-tools    # a tagged subset
 forjar verify --json               # machine-readable, for CI gating
 forjar verify --keep-scratch       # leave the scratch tree to inspect a mismatch
+forjar verify --check-declared-inputs   # fail on a read outside task_inputs
 ```
+
+`--check-declared-inputs` (GH-244) runs the resource twice: once from a full
+copy of `working_dir`, once from a tree containing only the glob-expanded
+`task_inputs`. If the full run reproduces and the declared-only run does not,
+the resource read something it never declared and the verdict is
+`UndeclaredInput`. The early return matters: a non-deterministic generator
+fails BOTH runs and stays `Diverged`, because blaming the declaration for a
+generator's own instability is the misdiagnosis this replaces.
+
+It sees reads of files inside the project tree. It cannot see a read of
+`/usr/share/fonts` or a tool version, because those exist in the scratch tree
+too — declare those with `ambient_inputs` instead.
 
 Exits non-zero if any resource diverged or failed to regenerate, so it gates
 cleanly in CI.

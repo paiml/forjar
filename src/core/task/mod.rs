@@ -1,6 +1,7 @@
 //! FJ-2700: Task framework runtime — quality gates, GPU targeting, I/O tracking,
 //! pipelines, service mode, dispatch mode.
 
+mod ambient;
 pub mod dispatch;
 mod io_tracking;
 pub mod pipeline;
@@ -10,12 +11,15 @@ pub mod service;
 
 pub(crate) mod output_hash;
 pub mod probe;
+pub use ambient::{declares_inputs, hash_declared_inputs};
 pub(crate) use io_tracking::expand_glob;
 pub use io_tracking::{hash_inputs, hash_outputs, hash_outputs_in, should_skip_cached};
 pub use output_hash::hash_outputs_with;
 pub use probe::{probe_all, probe_config, probe_resource, staleness_reason, IoDigest};
 pub use quality_gate::{evaluate_gate, gpu_env_vars, GateAction, GateResult};
 
+#[cfg(test)]
+mod tests_ambient;
 #[cfg(test)]
 mod tests_io_tracking;
 #[cfg(test)]

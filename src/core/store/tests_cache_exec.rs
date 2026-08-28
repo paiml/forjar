@@ -340,6 +340,6 @@ fn fj154_local_path_quoted() {
     };
     let cmd = push_command(&src, "blake3:abc", Path::new("/store"));
     // Local path is escaped; the embedded quote can't break out.
-    assert!(cmd.contains("'\\''"), "{cmd}");
+    assert!(cmd.contains("'\"'\"'"), "{cmd}");
     assert!(!cmd.contains("cp -a '/store/abc' '/cache';reboot"), "{cmd}");
 }
