@@ -185,7 +185,7 @@ fn patch_script_hardening() {
 fn patch_script_shell_quotes_path() {
     let d = copia::Delta::new(BLOCK_SIZE as u32, 0, 0);
     let script = patch_script("/etc/a'b", &d, "h", None, None, None);
-    assert!(script.contains(r#"DEST='/etc/a'\''b'"#));
+    assert!(script.contains(r#"DEST='/etc/a'"'"'b'"#));
 }
 
 #[test]

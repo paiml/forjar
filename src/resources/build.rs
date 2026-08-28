@@ -210,7 +210,7 @@ mod fj154_tests {
         r.build_machine = Some("localhost".to_string());
         r.working_dir = Some("~/x';reboot;'".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("'\\''"), "{script}");
+        assert!(script.contains("'\"'\"'"), "{script}");
         assert!(!script.contains("cd '~/x';reboot"), "{script}");
     }
 }

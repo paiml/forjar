@@ -28,6 +28,8 @@ pub mod task;
 mod tests_service;
 #[cfg(test)]
 mod tests_task;
+#[cfg(test)]
+mod tests_task_fj154;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;

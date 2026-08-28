@@ -22,7 +22,7 @@ fn fj154_cron_user_quote_neutralized() {
     let mut r = cron_resource("job");
     r.owner = Some("x';reboot;'".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("'x'\\'';reboot;'\\'''"), "{script}");
+    assert!(script.contains("'x'\"'\"';reboot;'\"'\"''"), "{script}");
     assert!(!script.contains("crontab -u 'x';reboot"), "{script}");
 }
 
@@ -30,7 +30,7 @@ fn fj154_cron_user_quote_neutralized() {
 fn fj154_cron_name_quote_neutralized() {
     let r = cron_resource("n';reboot;'");
     let script = apply_script(&r);
-    assert!(script.contains("'\\''"), "{script}");
+    assert!(script.contains("'\"'\"'"), "{script}");
     // The grep marker stays a single quoted word.
     assert!(!script.contains("grep -v '# forjar:n';reboot"), "{script}");
 }
@@ -42,7 +42,7 @@ fn fj154_cron_command_quote_neutralized() {
     // break the `echo '...'` that writes the crontab line.
     r.command = Some("/bin/x';reboot;'".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("'\\''"), "{script}");
+    assert!(script.contains("'\"'\"'"), "{script}");
     assert!(
         !script.contains("echo '0 * * * * /bin/x';reboot"),
         "{script}"

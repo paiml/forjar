@@ -13,7 +13,7 @@ use super::tests_package::make_apt_resource;
 fn fj154_apt_package_quote_neutralized() {
     let r = make_apt_resource(&["x';reboot;'"]);
     let script = apply_script(&r);
-    assert!(script.contains("'x'\\'';reboot;'\\'''"), "{script}");
+    assert!(script.contains("'x'\"'\"';reboot;'\"'\"''"), "{script}");
     // No bare `reboot` left outside quotes in the install list.
     assert!(!script.contains(" 'x';reboot"), "{script}");
 }
@@ -34,7 +34,7 @@ fn fj154_uv_package_quote_neutralized() {
     let mut r = make_apt_resource(&["ruff';id;'"]);
     r.provider = Some("uv".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("'\\''"), "{script}");
+    assert!(script.contains("'\"'\"'"), "{script}");
     assert!(!script.contains("--force 'ruff';id"), "{script}");
 }
 
@@ -44,7 +44,7 @@ fn fj154_brew_package_quote_neutralized() {
     let mut r = make_apt_resource(&["jq';id;'"]);
     r.provider = Some("brew".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("'\\''"), "{script}");
+    assert!(script.contains("'\"'\"'"), "{script}");
     assert!(!script.contains("brew install 'jq';id"), "{script}");
 }
 
@@ -97,7 +97,7 @@ fn fj154_cargo_path_install_quoted() {
     r.source = Some("/build/x';reboot;'".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("--path '/build/x'\\'';reboot;'\\'''"),
+        script.contains("--path '/build/x'\"'\"';reboot;'\"'\"''"),
         "{script}"
     );
     assert!(!script.contains("--path '/build/x';reboot"), "{script}");
@@ -109,6 +109,6 @@ fn fj154_cargo_path_install_quoted() {
 fn fj154_apt_state_query_quoted() {
     let r = make_apt_resource(&["x';id;'"]);
     let script = state_query_script(&r);
-    assert!(script.contains("'\\''"), "{script}");
+    assert!(script.contains("'\"'\"'"), "{script}");
     assert!(!script.contains(" 'x';id"), "{script}");
 }
