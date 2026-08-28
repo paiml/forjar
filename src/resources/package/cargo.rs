@@ -161,15 +161,15 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
            command -v cargo >/dev/null 2>&1 || return 0\n\
            _vh=$(mktemp -d /tmp/forjar-crates.XXXXXX) || return 0\n\
            if ! cp \"$1\" \"$_vh/.crates.toml\" 2>/dev/null; then\n\
-             rm -rf \"$_vh\"\n\
+             if [ -n \"$_vh\" ]; then rm -rf \"$_vh\"; fi\n\
              return 0\n\
            fi\n\
            if CARGO_HOME=\"$_vh\" cargo install --list >/dev/null 2>\"$_vh/err\"; then\n\
-             rm -rf \"$_vh\"\n\
+             if [ -n \"$_vh\" ]; then rm -rf \"$_vh\"; fi\n\
              return 0\n\
            fi\n\
            sed 's/^/forjar: cargo: /' \"$_vh/err\" >&2\n\
-           rm -rf \"$_vh\"\n\
+           if [ -n \"$_vh\" ]; then rm -rf \"$_vh\"; fi\n\
            return 1\n\
          }}\n\
          _fj_register() {{\n\
