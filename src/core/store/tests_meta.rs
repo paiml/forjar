@@ -14,6 +14,9 @@ fn sample_meta() -> StoreMeta {
         generator: "forjar 1.0.0".to_string(),
         references: vec!["blake3:ref1".to_string()],
         provenance: None,
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     }
 }
 
@@ -112,7 +115,7 @@ fn test_fj1301_new_meta_constructor() {
         "aarch64",
         "cargo",
     );
-    assert_eq!(meta.schema, "1.0");
+    assert_eq!(meta.schema, "1.1");
     assert_eq!(meta.store_hash, "blake3:store");
     assert_eq!(meta.arch, "aarch64");
     assert_eq!(meta.provider, "cargo");

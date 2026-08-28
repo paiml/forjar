@@ -7,7 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`forjar store verify` — the store can now tell that the bytes it holds are
+  not the bytes it produced** (Refs #236). Store entries record an
+  `output_hash`: BLAKE3 over the entry's `content/` tree, computed after the
+  artifact lands.
+
+  Before this, rewriting `<entry>/content/out.mp4` in place changed **nothing
+  any API could observe**. `read_meta` returned a byte-identical struct and
+  `store_path` returned the same address, because neither ever read a produced
+  byte. Bit rot, a partial write, an interrupted `atomic_move_to_store`, or a
+  manual edit under `content/` were all invisible; `store gc` and `store list`
+  reported the entry as present and valid.
+
+  The store is **input-addressed and output-addressed, not one instead of the
+  other**. `path::store_path` is untouched: it answers "has this recipe with
+  these inputs already been built?", which is what staleness detection and cache
+  lookup are built on, and re-addressing it would move every entry on disk.
+  `output_hash` answers "are these the bytes we produced?" and "have I already
+  stored these exact bytes under another name?" — corruption detection and, as
+  a follow-up, dedup. `meta.addressing` records which scheme an entry's
+  `store_hash` came from, so nothing downstream has to guess again.
+
+  `--repair` removes mismatching entries so the next build or cache pull
+  re-creates them. It never touches an unsealed entry.
+
 ### Changed
+
+- **`forjar cache verify` was comparing against the wrong thing, and has been
+  for as long as it has shipped** (Refs #236). It re-hashed `<entry>/content`
+  with `tripwire::hash_directory` and compared the result to the entry's
+  DIRECTORY NAME. But an entry written by `forjar store-import` is addressed
+  with `provider_exec::hash_staging_dir` — a different preimage under a
+  different domain tag. So `cache verify` reported **100% failure on any store
+  built by an import**, while a conda entry (also `hash_directory`) passed.
+  Three addressing schemes coexisted with no field saying which one an entry
+  carried.
+
+  It now compares against `meta.output_hash`, the digest the entry itself
+  recorded. **This is a visible change to an existing exit code**: a CI job that
+  has been red-always against an import-built store goes green, and entries
+  written before schema 1.1 report `unsealed` rather than a false mismatch. The
+  JSON keys (`verified`, `failed`, `results[].hash|valid|expected|actual`) are
+  unchanged.
+
+- **`meta.yaml` schema 1.0 → 1.1** (Refs #236), adding `output_hash` and
+  `addressing`. Both carry `#[serde(default)]`, so **every schema-1.0
+  `meta.yaml` already on disk still loads** — pinned by
+  `a_schema_1_0_entry_still_loads_and_reports_unsealed`, which is measurably red
+  without the default on `addressing`. Such entries report `unsealed`: there is
+  no recorded digest for them to be wrong about, and calling that corruption
+  would make `--repair` delete good data.
+
+  Note what was NOT done. The issue proposed promoting
+  `provider_exec::hash_staging_dir` to the canonical content hasher; that is
+  declined. Its walker does `std::fs::read(&path)` — it slurps each whole file
+  into RAM, which would OOM on the 149.9 GiB mp4 store this issue exists for.
+  `tripwire::hash_directory` streams, already skips symlinks, already sorts
+  children, and is already what every verification site calls.
 
 - **`forjar build --push` no longer shells out to `curl`** (Refs #228). Every
   registry verb — HEAD, POST, PUT and the chunked PATCH — is now an in-process

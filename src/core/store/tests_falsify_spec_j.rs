@@ -340,6 +340,9 @@ fn falsify_l28_sync_plan_replay_ordering() {
             derived_from: Some("blake3:parent".to_string()),
             derivation_depth: depth,
         }),
+        // GH-236: output_hash + addressing. The spread keeps this fixture
+        // from needing an edit for the next field StoreMeta grows.
+        ..StoreMeta::default()
     };
     let plan = build_sync_plan(&[
         (make_meta("d3", 3), Some("sha256:new".to_string())),

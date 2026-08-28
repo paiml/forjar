@@ -10,6 +10,7 @@ pub mod chunker;
 pub mod closure;
 pub mod conda;
 pub mod container_build;
+pub mod content;
 pub mod contract_coverage;
 pub mod contract_scaffold;
 pub mod convergence_container;
@@ -57,6 +58,7 @@ pub mod store_diff;
 pub mod substitution;
 pub mod sync_exec;
 pub mod validate;
+pub mod verify;
 
 #[cfg(test)]
 mod tests_bash_provability;
@@ -184,3 +186,5 @@ mod tests_substitution;
 mod tests_sync_exec;
 #[cfg(test)]
 mod tests_validate;
+#[cfg(test)]
+mod tests_verify;

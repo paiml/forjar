@@ -10,7 +10,7 @@ Every store entry has a `meta.yaml` with provenance tracking:
 use forjar::core::store::meta::{new_meta, write_meta, read_meta, Provenance};
 
 let meta = new_meta("blake3:abc", "blake3:recipe", &["blake3:in1".into()], "x86_64", "apt");
-assert_eq!(meta.schema, "1.0");
+assert_eq!(meta.schema, "1.1");
 assert!(meta.generator.starts_with("forjar"));
 
 // Atomic write + read roundtrip
@@ -33,7 +33,7 @@ meta.references = vec!["blake3:ref1".into()];
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schema` | String | Always "1.0" |
+| `schema` | String | `"1.1"` (GH-236); `"1.0"` entries still load, with `output_hash: None` |
 | `store_hash` | String | BLAKE3 hash of store entry |
 | `recipe_hash` | String | Hash of build recipe |
 | `input_hashes` | Vec | Hashes of all inputs |
@@ -43,6 +43,8 @@ meta.references = vec!["blake3:ref1".into()];
 | `generator` | String | "forjar {version}" |
 | `references` | Vec | Other store entries this depends on |
 | `provenance` | Option | Origin tracking chain |
+| `output_hash` | Option | GH-236: BLAKE3 over `content/`, the digest of the bytes the entry HOLDS. `None` for pre-1.1 entries, which `forjar store verify` reports as `unsealed`, never as corrupt. |
+| `addressing` | Enum | GH-236: `derivation` (address is recipe + inputs) or `content` (address is the staged bytes). Recorded so a verifier no longer has to guess which of the store's addressing schemes an entry carries. |
 
 ## Secret Scanning (FJ-1356)
 

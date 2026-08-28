@@ -3,7 +3,8 @@
 //! Bridges `provider::import_command()` → `transport::exec_script()` with
 //! staging directory lifecycle, BLAKE3 hashing, and atomic store placement.
 
-use super::meta::{write_meta, Provenance, StoreMeta};
+use super::content;
+use super::meta::{write_meta, Addressing, Provenance, StoreMeta, SCHEMA_VERSION};
 use super::provider::{
     import_command, origin_ref_string, validate_import, ImportConfig, ImportResult,
 };
@@ -87,11 +88,16 @@ pub fn execute_import(
     let content_dir = store_entry.join("content");
     atomic_move_to_store(&ctx.staging_dir, &content_dir)?;
 
-    // Step 8: Write meta.yaml
+    // Step 8: Write meta.yaml. GH-236: the digest of the bytes that actually
+    // landed is recorded here, computed AFTER the atomic move. `store_hash`
+    // above is an ADDRESS derived from the staging tree with a different hash
+    // function; recording it as if it were the content digest is precisely the
+    // confusion this field exists to end.
     let (file_count, total_size) = dir_stats(&content_dir);
     let origin_ref = origin_ref_string(config);
+    let output_hash = content::content_hash(&content_dir)?;
 
-    write_import_meta(&store_entry, config, &store_hash, &origin_ref)?;
+    write_import_meta(&store_entry, config, &store_hash, &origin_ref, &output_hash)?;
 
     Ok(ImportResult {
         store_hash,
@@ -163,12 +169,13 @@ fn write_import_meta(
     config: &ImportConfig,
     store_hash: &str,
     origin_ref: &str,
+    output_hash: &str,
 ) -> Result<(), String> {
     use crate::tripwire::eventlog::now_iso8601;
 
     let provider_str = format!("{:?}", config.provider).to_lowercase();
     let meta = StoreMeta {
-        schema: "1.0".to_string(),
+        schema: SCHEMA_VERSION.to_string(),
         store_hash: store_hash.to_string(),
         recipe_hash: format!("import:{provider_str}"),
         input_hashes: vec![origin_ref.to_string()],
@@ -184,6 +191,12 @@ fn write_import_meta(
             derived_from: None,
             derivation_depth: 0,
         }),
+        output_hash: Some(output_hash.to_string()),
+        // The import path hashes what it staged, so this entry's address IS a
+        // content address — unlike a derivation entry, whose address is its
+        // recipe. GH-236: recording which one it is stops every downstream
+        // verifier from having to guess.
+        addressing: Addressing::Content,
     };
 
     write_meta(store_entry, &meta)
