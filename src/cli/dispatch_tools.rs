@@ -34,6 +34,7 @@ pub(super) fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), St
         ),
         Commands::Verify(args) => super::verify::cmd_verify(&args, verbose),
         Commands::Fmt(FmtArgs { file, check }) => cmd_fmt(&file, check),
+        Commands::Remediate(args) => super::remediate::cmd_remediate(&args),
         Commands::Lint(LintArgs {
             file,
             json,

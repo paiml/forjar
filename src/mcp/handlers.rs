@@ -28,6 +28,8 @@ pub struct StatusHandler;
 pub struct TraceHandler;
 /// MCP handler for anomaly detection.
 pub struct AnomalyHandler;
+/// MCP handler for policy-derived config corrections.
+pub struct RemediateHandler;
 
 // ── Handler trait implementations ───────────────────────────────────
 

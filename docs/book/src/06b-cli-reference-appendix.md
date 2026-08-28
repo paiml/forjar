@@ -253,6 +253,41 @@ signing).
 forjar sign <RECIPE> [--verify] [--signer <ID>] [--pq] [--json]
 ```
 
+### forjar remediate
+
+Compute the corrections your config's own `policies:` block determines, and
+print the corrected document.
+
+```bash
+forjar remediate -f forjar.yaml [--policy-id SEC-MODE]... [--json]
+```
+
+**It never writes.** The corrected document goes to stdout and the summary to
+stderr, so `forjar remediate > forjar.new.yaml` is the write and you perform it
+after reading the diff. That diff is short: the correction replaces the byte
+range of one scalar, and every other byte — comments, quote style, key order,
+blank lines — is copied through unchanged.
+
+**The value comes from your policy, never from forjar.** Only `assert` rules
+determine a fix, because only an `assert` names the value a field must have:
+
+| rule type | says | fix |
+|-----------|------|-----|
+| `assert`  | field must EQUAL X | write X |
+| `deny` / `warn` | field must NOT equal X | none — X is what to avoid |
+| `require` | field must be set | none — no value is named |
+| `limit`   | a list must stay in bounds | none — no scalar to set |
+
+Everything else is reported in `remaining_violations` with the reason, which is
+usually the more useful half of the output. Forjar also refuses, rather than
+guesses, when the value it would edit is written in flow style, is a block
+scalar, is an anchor or alias, appears twice, or does not match the value the
+parser resolved — the last of which means it came from an `includes:` file, a
+recipe or a `{{template}}`, so editing the literal would not change anything.
+
+Remediation reads inline `policies:` only. A project whose rules come from a
+compliance pack gets a `scope_note` saying so rather than a silent zero.
+
 ## Multi-Stack Orchestration
 
 ### forjar multi-apply

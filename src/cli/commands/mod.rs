@@ -397,6 +397,8 @@ pub enum Commands {
     /// FJ-059+060: Pull agent / hybrid push-pull enforcement
     #[command(name = "agent")]
     PullAgent(PullAgentArgs),
+    /// Compute policy-derived corrections and print the corrected config
+    Remediate(RemediateArgs),
     /// FJ-1450: Configuration complexity analysis
     Complexity(ComplexityArgs),
     /// FJ-1451: Dependency impact analysis

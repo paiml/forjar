@@ -59,6 +59,7 @@ fn register_all(reg: &mut HandlerRegistry) {
     reg.register("forjar_status", StatusHandler);
     reg.register("forjar_trace", TraceHandler);
     reg.register("forjar_anomaly", AnomalyHandler);
+    reg.register("forjar_remediate", RemediateHandler);
 }
 
 /// Build the MCP handler registry with all forjar tool handlers.

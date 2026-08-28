@@ -189,6 +189,7 @@ mod pull_agent;
 mod query_format;
 mod recipe_registry;
 mod recipe_signing;
+mod remediate;
 mod remote_state;
 mod repro_proof;
 mod reseal;

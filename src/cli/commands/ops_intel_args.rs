@@ -47,3 +47,24 @@ pub struct DriftPredictArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// paiml/forjar#356: policy-derived corrections to a forjar.yaml.
+///
+/// There is no `--write` and no `--in-place`. The command prints the corrected
+/// document; redirection is the write. That keeps the CLI leaf and the
+/// `forjar_remediate` verb the same operation rather than two with different
+/// effects.
+#[derive(clap::Args, Debug)]
+pub struct RemediateArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Restrict to these policy ids (repeatable). Omitted means every rule.
+    #[arg(long = "policy-id")]
+    pub policy_id: Vec<String>,
+
+    /// Output the full report as JSON instead of the corrected document
+    #[arg(long)]
+    pub json: bool,
+}

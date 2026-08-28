@@ -54,7 +54,7 @@ macro_rules! verb_table {
     };
 }
 
-// All nine are ReadOnly, and that is worth publishing rather than assuming:
+// All ten are ReadOnly, and that is worth publishing rather than assuming:
 // it means an MCP agent may call any forjar verb unattended without risking a
 // change to a machine. `apply`, `destroy` and friends are deliberately NOT
 // here — see `partition.rs`, where every one of them is accounted for.
@@ -68,6 +68,14 @@ macro_rules! verb_table {
 // says in its result what it declined to run. `tests/
 // falsification_readonly_surface_executes_nothing.rs` holds every verb here to
 // that, over real MCP stdio, against a config that tries.
+//
+// The tenth is the one that had to argue for it. `remediate` CORRECTS a config
+// — and still does not write: it returns the corrected document and the caller
+// performs the write. That is not squeamishness. `src/verb/http.rs:57` prints,
+// at runtime, on any non-loopback bind: "it has NO authentication. Every forjar
+// verb is read-only, so this exposes configuration, not control." A mutating
+// remediate would turn that printed sentence into a falsehood and an
+// unauthenticated TCP port into a config-rewrite endpoint.
 verb_table! {
     "validate", Effects::ReadOnly, 30_000, "Validate a forjar.yaml configuration file", ValidateInput, ValidateOutput, ValidateHandler;
     "plan",     Effects::ReadOnly, 60_000, "Show execution plan for infrastructure changes", PlanInput, PlanOutput, PlanHandler;
@@ -78,6 +86,7 @@ verb_table! {
     "status",   Effects::ReadOnly, 10_000, "Show current state from lock files", StatusInput, StatusOutput, StatusHandler;
     "trace",    Effects::ReadOnly, 30_000, "View trace provenance data from apply runs", TraceInput, TraceOutput, TraceHandler;
     "anomaly",  Effects::ReadOnly, 30_000, "Detect anomalous resource behavior using ML-inspired analysis", AnomalyInput, AnomalyOutput, AnomalyHandler;
+    "remediate", Effects::ReadOnly, 30_000, "Compute policy-derived corrections to a forjar.yaml and return the corrected document (never writes)", RemediateInput, RemediateOutput, RemediateHandler;
 }
 
 /// Look up a verb by its transport-neutral name.
@@ -97,7 +106,7 @@ mod tests {
     #[test]
     fn registry_is_not_empty() {
         assert!(
-            verbs().len() >= 9,
+            verbs().len() >= 10,
             "verb registry collapsed to {} entries — every parity test downstream \
              becomes vacuous when this is empty",
             verbs().len()

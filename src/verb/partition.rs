@@ -188,6 +188,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["provenance"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["query"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["registry-list"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["remediate"], bucket: Bucket::Unified },
     Leaf { path: &["repro-proof"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["reseal"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["retry-failed"], bucket: Bucket::Pending("paiml/forjar#288") },

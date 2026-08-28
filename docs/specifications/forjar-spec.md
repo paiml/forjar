@@ -1461,7 +1461,7 @@ Options:
   --schema               Export tool schemas as JSON instead of starting server
 ```
 
-Starts a Model Context Protocol server via pforge. Exposes 9 tools: `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`, `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`, `forjar_anomaly`. AI assistants (Claude, Copilot, Cursor) connect via MCP to inspect and manage infrastructure. `--schema` exports JSON schemas for all tools without starting the server.
+Starts a Model Context Protocol server via pforge. Exposes 10 tools: `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`, `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`, `forjar_anomaly`, `forjar_remediate`. AI assistants (Claude, Copilot, Cursor) connect via MCP to inspect and manage infrastructure. `--schema` exports JSON schemas for all tools without starting the server.
 
 ### 7.18 `forjar bench`
 

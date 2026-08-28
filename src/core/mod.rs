@@ -30,6 +30,7 @@ pub mod promotion_events;
 pub mod prove;
 pub mod purifier;
 pub mod recipe;
+pub mod remediate;
 pub mod resolver;
 pub mod rollout;
 pub mod rulebook_template;

@@ -13,9 +13,9 @@ fn schema_has_expected_tools() {
     let schema = export_schema();
     assert_eq!(schema["schema_version"], "1.0");
     assert_eq!(schema["server"], "forjar-mcp");
-    assert_eq!(schema["tool_count"], 9);
+    assert_eq!(schema["tool_count"], 10);
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 10);
 }
 
 #[test]
@@ -71,9 +71,9 @@ fn schema_version_matches_cargo() {
 // ── FJ-MCP: build_registry ──
 
 #[test]
-fn registry_has_9_handlers() {
+fn registry_has_10_handlers() {
     let registry = build_registry();
-    assert_eq!(registry.len(), 9);
+    assert_eq!(registry.len(), 10);
 }
 
 #[test]

@@ -71,6 +71,7 @@ use std::path::Path;
 pub use expansion::expand_resources;
 pub use policy::{
     evaluate_policies, evaluate_policies_full, policy_check_to_json, policy_check_to_sarif,
+    resource_field_value, violating_pairs,
 };
 pub use recipes::expand_recipes;
 

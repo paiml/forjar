@@ -22,8 +22,8 @@ use forjar::mcp::{build_registry, export_schema};
 fn schema_has_correct_tool_count() {
     let schema = export_schema();
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 9);
-    assert_eq!(schema["tool_count"], 9);
+    assert_eq!(tools.len(), 10);
+    assert_eq!(schema["tool_count"], 10);
 }
 
 #[test]

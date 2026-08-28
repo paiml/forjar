@@ -1,0 +1,180 @@
+---
+metadata:
+  version: "1.0.0"
+  created: "2026-08-28"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: |
+    A remediation's target value is READ FROM THE POLICY RULE, never chosen by
+    forjar; and a rule that determines no value produces a stated refusal, never
+    a guess.
+
+    WHY THIS IS THE PROPERTY. The feature request behind `forjar_remediate`
+    (paiml/forjar#356) named its own example as "auto-correcting file
+    permissions from 0777 to 0644". `0644` is a fact about someone's policy, not
+    a constant forjar is entitled to know. A tool that hardcodes it has not
+    removed the agent's hallucination — it has relocated the hallucination into
+    the tool and given it forjar's authority, which is strictly worse, because
+    an agent is told to trust the tool.
+
+    ITS CONSEQUENCE. Only `assert` rules are auto-fixable. An `assert` says the
+    field must EQUAL X, so X is the fix. `deny` and `warn` name a value that is
+    FORBIDDEN with no replacement; `require` names a field with no value;
+    `limit` bounds a list. `deny mode == "0777"` is the most natural way to
+    write the request's own example and it is NOT fixable. Reporting that, with
+    the reason, is the most valuable output this verb produces.
+
+    SCOPE, STATED. v1 reads `config.policies` only. `ComplianceCheck::Assert` in
+    a compliance pack is structurally fixable, but `RuleEvalResult` records no
+    resource id, so a pack failure cannot be anchored to a document location.
+    A CIS-gated project therefore receives zero remediations, and the output
+    carries a `scope_note` saying so rather than implying the config is clean.
+
+  references:
+    - "src/core/remediate/fixes.rs — the derivation, and the table of what is not derivable"
+    - "src/core/yaml_edit/ — the byte-range editor the correction is written with"
+    - "src/core/parser/policy.rs::violating_pairs — the (rule, resource) attribution"
+    - "paiml/forjar#359 — the comment-destroying `lint --fix` this had to replace first"
+
+equations:
+  target_is_derived_not_invented:
+    formula: |
+      ∀ fix: fix.value = rule.condition_value ∧ rule.type = assert
+    domain: "policy violations on resources declared in the document"
+    codomain: "{applied, refused-with-reason}"
+    invariants:
+      - "The value is copied from the rule. No constant in forjar names a permission, an owner or a mode"
+      - "A rule type other than `assert` yields a REFUSAL carrying why, never a fix"
+      - "The set of writable fields is a named table (mode, owner, group, state, provider); content/command/path/source/image are excluded as semantic or block-scalar, and `type` is excluded because changing it makes a different resource"
+
+  edits_are_anchored_and_verified:
+    formula: |
+      changed_paths(before, after) = intended_paths
+    domain: "the source text of the document"
+    codomain: "{written, discarded}"
+    invariants:
+      - "The correction replaces the byte range of ONE scalar; every other byte — comments, quote style, key order, blank lines — is copied through"
+      - "Flow style, block scalars, anchors/aliases/tags, duplicate keys, tab indentation and multi-line values are REFUSED, never guessed"
+      - "Both documents are re-parsed and the set of differing paths must equal the intended set; any extra or missing path discards the whole edit — fail closed"
+      - "A scalar whose document text differs from the resolved config value came from an include, a recipe or a template expansion, and is refused with that reason"
+
+  remaining_is_re_evaluated:
+    formula: |
+      remaining = violations(corrected_config)
+    domain: "the corrected config"
+    codomain: "Vec<Unfixable>"
+    invariants:
+      - "Nothing is removed from a list. If a correction did not work the violation simply reappears"
+      - "This is how 'satisfies the policy gate on a subsequent check' is MEASURED rather than asserted"
+
+  remediation_never_writes:
+    formula: |
+      bytes(file before invoke) = bytes(file after invoke)
+    domain: "every transport"
+    codomain: "{read-only, mutating}"
+    invariants:
+      - "The verb returns the corrected document; the caller performs the write"
+      - "`verb serve` prints, at runtime, that every forjar verb is read-only and an unauthenticated bind therefore exposes configuration rather than control — a mutating remediate would make that printed sentence false"
+      - "readOnlyHint is derived from Effects and cannot be made to depend on a parameter; there is deliberately no `dry_run`"
+
+proof_obligations:
+  - type: soundness
+    property: "The written value equals the rule's condition_value"
+    formal: "∀ fix: fix.to = rule.condition_value"
+    applies_to: target_is_derived_not_invented
+    enforced_by: "tests/falsification_mcp_remediate.rs::the_target_value_is_read_from_the_policy_not_from_a_builtin"
+
+  - type: completeness
+    property: "A rule type with no determined value is reported, not guessed"
+    formal: "rule.type ∈ {deny, warn, require, limit} ⟹ applied = ∅ ∧ reason ≠ ∅"
+    applies_to: target_is_derived_not_invented
+    enforced_by: "tests/falsification_mcp_remediate.rs::a_deny_rule_is_reported_unfixable_never_guessed"
+
+  - type: frame
+    property: "Exactly one line of the document changes"
+    formal: "|{i : before.line(i) ≠ after.line(i)}| = 1"
+    applies_to: edits_are_anchored_and_verified
+    enforced_by: "tests/falsification_mcp_remediate.rs::every_untouched_line_survives_byte_for_byte"
+
+  - type: idempotency
+    property: "Feeding the corrected document back changes nothing"
+    formal: "remediate(remediate(d)) = remediate(d)"
+    applies_to: edits_are_anchored_and_verified
+    enforced_by: "tests/falsification_mcp_remediate.rs::remediation_is_idempotent"
+
+  - type: safety
+    property: "An unanchorable value fails closed"
+    formal: "anchor = ⊥ ⟹ after = before ∧ reason names the cause"
+    applies_to: edits_are_anchored_and_verified
+    enforced_by: "tests/falsification_mcp_remediate.rs::an_unanchorable_value_fails_closed"
+
+  - type: soundness
+    property: "remaining_violations is a fresh evaluation"
+    formal: "remaining = violations(corrected)"
+    applies_to: remaining_is_re_evaluated
+    enforced_by: "tests/falsification_mcp_remediate.rs::remaining_violations_is_re_evaluated_not_asserted"
+
+  - type: invariant
+    property: "The verb writes nothing and publishes readOnlyHint"
+    formal: "hash(file) unchanged ∧ annotations.readOnlyHint = true"
+    applies_to: remediation_never_writes
+    enforced_by: "tests/falsification_mcp_remediate.rs::the_verb_writes_nothing_and_says_so"
+
+falsification_tests:
+  - id: FALSIFY-REM-001
+    rule: "the target value comes from the policy"
+    prediction: "two projects differing only in condition_value produce two different documents"
+    test: "tests/falsification_mcp_remediate.rs::the_target_value_is_read_from_the_policy_not_from_a_builtin"
+    if_fails: "the agent's guess has been relocated into the tool and given forjar's authority"
+
+  - id: FALSIFY-REM-002
+    rule: "only assert rules are fixable"
+    prediction: "a deny rule yields zero remediations and a byte-identical document"
+    test: "tests/falsification_mcp_remediate.rs::a_deny_rule_is_reported_unfixable_never_guessed"
+    if_fails: "forjar invents a replacement for a value the policy only forbade"
+
+  - id: FALSIFY-REM-003
+    rule: "the document is edited, not re-serialised"
+    prediction: "replacing the splice with serde_yaml_ng::to_string deletes comments, inlines includes and emits every null field"
+    test: "tests/falsification_mcp_remediate.rs::every_untouched_line_survives_byte_for_byte"
+    if_fails: "the paiml/forjar#359 defect returns under a new name"
+
+  - id: FALSIFY-REM-004
+    rule: "remaining_violations is measured, not bookkept"
+    prediction: "a one-character break in the splice leaves the violation present while the report still claims a fix"
+    test: "tests/falsification_mcp_remediate.rs::remaining_violations_is_re_evaluated_not_asserted"
+    if_fails: "the report describes an edit that did not land in the document"
+
+  - id: FALSIFY-REM-005
+    rule: "an unanchorable value fails closed"
+    prediction: "a flow-style mapping is refused rather than corrupted by a first-match substitution"
+    test: "tests/falsification_mcp_remediate.rs::an_unanchorable_value_fails_closed"
+    if_fails: "a hand-rolled YAML walk corrupts a config file, which is the risk this design exists to bound"
+
+  - id: FALSIFY-REM-006
+    rule: "the verb is read-only on every transport"
+    prediction: "adding a filesystem write, or flipping the row to Effects::Mutating, fails"
+    test: "tests/falsification_mcp_remediate.rs::the_verb_writes_nothing_and_says_so"
+    if_fails: "an unauthenticated HTTP bind becomes a config-rewrite endpoint while still printing that it is read-only"
+
+qa_gate:
+  id: F-REM-001
+  name: "Remediation derivation"
+  description: |
+    Corrections are derived from the config's own policies and written by an
+    anchored, verified edit. Gate fails on any falsification test going red.
+  check: "cargo test --test falsification_mcp_remediate --test falsification_lint_fix_preserves_comments"
+  severity: error
+  reference: "src/core/remediate/"
+
+pending_obligations:
+  compliance_packs: |
+    UNDISCHARGED, deliberately, and stated in the output rather than hidden.
+    `ComplianceCheck::Assert { resource_type, field, expected }`
+    (src/core/compliance_pack.rs) is structurally fixable, but `RuleEvalResult`
+    carries only rule_id/passed/message/controls — no resource id — so a pack
+    failure cannot be anchored to a location in the document. Discharging this
+    needs an additive `resource_ids: Vec<String>` on `RuleEvalResult`, which is
+    a second change in a second subsystem and independently useful for gate
+    messages. Until then a CIS-gated project gets zero remediations and a
+    `scope_note` that says why.

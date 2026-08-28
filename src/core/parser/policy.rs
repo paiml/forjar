@@ -74,7 +74,7 @@ const FIELD_VALUES: &[(&str, FieldValue)] = &[
 ];
 
 /// Get a string representation of a resource field for condition checks.
-pub(crate) fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
+pub fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
     FIELD_VALUES
         .iter()
         .find(|(name, _)| *name == field)
@@ -167,36 +167,52 @@ pub fn evaluate_policies(config: &ForjarConfig) -> Vec<PolicyViolation> {
     evaluate_policies_full(config).violations
 }
 
-/// FJ-3200: Full policy evaluation with aggregate result.
-pub fn evaluate_policies_full(config: &ForjarConfig) -> PolicyCheckResult {
-    let mut violations = Vec::new();
-    let rules_evaluated = config.policies.len();
-    let resources_checked = config.resources.len();
-
-    for rule in &config.policies {
+/// Every `(rule index, resource id)` pair that violates, in report order.
+///
+/// paiml/forjar#356: `PolicyViolation` carries the rule's *message*, its type
+/// and its OPTIONAL id — but not the rule. A caller that has to read
+/// `condition_field` / `condition_value` (a remediation deriving the value it
+/// must write from the policy that demanded it) cannot recover the rule from a
+/// violation, and matching on `policy_id` is ambiguous the moment two rules
+/// leave `id` unset.
+///
+/// So the pairing is published, and [`evaluate_policies_full`] is built ON it
+/// rather than beside it: there is one iteration order and one violation
+/// predicate, and the two cannot drift.
+pub fn violating_pairs(config: &ForjarConfig) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    for (index, rule) in config.policies.iter().enumerate() {
         for (id, resource) in &config.resources {
-            if !matches_scope(rule, resource) {
-                continue;
-            }
-
-            if evaluate_rule(rule, resource) {
-                violations.push(PolicyViolation {
-                    rule_message: rule.message.clone(),
-                    resource_id: id.clone(),
-                    rule_type: rule.rule_type.clone(),
-                    severity: rule.effective_severity(),
-                    policy_id: rule.id.clone(),
-                    remediation: rule.remediation.clone(),
-                    compliance: rule.compliance.clone(),
-                });
+            if matches_scope(rule, resource) && evaluate_rule(rule, resource) {
+                out.push((index, id.clone()));
             }
         }
     }
+    out
+}
+
+/// FJ-3200: Full policy evaluation with aggregate result.
+pub fn evaluate_policies_full(config: &ForjarConfig) -> PolicyCheckResult {
+    let violations = violating_pairs(config)
+        .into_iter()
+        .map(|(index, resource_id)| {
+            let rule = &config.policies[index];
+            PolicyViolation {
+                rule_message: rule.message.clone(),
+                resource_id,
+                rule_type: rule.rule_type.clone(),
+                severity: rule.effective_severity(),
+                policy_id: rule.id.clone(),
+                remediation: rule.remediation.clone(),
+                compliance: rule.compliance.clone(),
+            }
+        })
+        .collect();
 
     PolicyCheckResult {
         violations,
-        rules_evaluated,
-        resources_checked,
+        rules_evaluated: config.policies.len(),
+        resources_checked: config.resources.len(),
     }
 }
 

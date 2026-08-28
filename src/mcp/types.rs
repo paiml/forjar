@@ -304,3 +304,83 @@ pub struct AnomalyFindingOutput {
     /// Reasons for anomaly detection.
     pub reasons: Vec<String>,
 }
+
+/// MCP remediate handler input.
+///
+/// There is deliberately no `dry_run`. The verb returns the corrected document
+/// and writes nothing, so a caller that wants the file changed already has the
+/// bytes; a flag whose `false` branch cannot be honoured is worse than a
+/// missing one, and a `readOnlyHint` that depends on a parameter is a
+/// `readOnlyHint` an agent cannot trust.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RemediateInput {
+    /// Path to forjar.yaml
+    pub path: String,
+    /// Restrict to these policy ids (the rule's `id`, or its generated
+    /// `RULE-<slug>`). Omitted or empty means every rule.
+    pub policy_ids: Option<Vec<String>>,
+}
+
+/// MCP remediate handler output.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RemediateOutput {
+    /// Corrections applied, sorted by resource then field.
+    pub remediations_applied: Vec<RemediationOutput>,
+    /// The corrected document. Byte-identical to the input when nothing
+    /// applied. Nothing on disk was changed — this is the write, and the
+    /// caller performs it.
+    pub updated_yaml_content: String,
+    /// Violations still present, re-evaluated against the corrected config,
+    /// each carrying why forjar did not fix it.
+    pub remaining_violations: Vec<ViolationOutput>,
+    /// Whether the document changed.
+    pub changed: bool,
+    /// Content hash of the config before.
+    pub config_hash_before: String,
+    /// Content hash of the config after.
+    pub config_hash_after: String,
+    /// What this verb did not look at, when that would otherwise read as "the
+    /// config is clean".
+    pub scope_note: Option<String>,
+}
+
+/// One applied correction.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RemediationOutput {
+    /// The rule that determined the value.
+    pub policy_id: String,
+    /// The resource whose field was rewritten.
+    pub resource_id: String,
+    /// The field that was rewritten.
+    pub field: String,
+    /// The value before.
+    pub from: Option<String>,
+    /// The value written — read from the policy rule, never chosen by forjar.
+    pub to: String,
+    /// 1-based line of the edited value.
+    pub line: usize,
+}
+
+/// One violation that is still present.
+///
+/// A typed projection of `PolicyViolation` rather than a `serde_json::Value`:
+/// the untyped alternative publishes a schema that describes nothing, which is
+/// the weakness `ShowOutput.config` already carries. It does duplicate the
+/// shape `policy_check_to_json` renders, and that is a real drift surface.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ViolationOutput {
+    /// The rule that flagged it.
+    pub policy_id: String,
+    /// The resource it was flagged on.
+    pub resource_id: String,
+    /// The rule's own message.
+    pub message: String,
+    /// `error`, `warning` or `info`.
+    pub severity: String,
+    /// `assert`, `deny`, `warn`, `require` or `limit`.
+    pub rule_type: String,
+    /// The rule's prose `remediation:` hint, if it carries one.
+    pub remediation_hint: Option<String>,
+    /// Why forjar did not fix it.
+    pub reason: String,
+}
