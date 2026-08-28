@@ -194,3 +194,115 @@ fn a_plain_apply_converges_a_task_the_way_it_converges_a_file() {
          knowing what kind of thing it is."
     );
 }
+
+/// THE GAP THE TWO TESTS ABOVE LEAVE: both converge FIRST, so a lock always
+/// exists by the time `--refresh` runs.
+///
+/// `refresh_locks` could only ever REMOVE lock entries whose check failed. With
+/// an EMPTY lock there is nothing to remove, so `--refresh` contacted the host,
+/// learned the check passed, and planned `create` anyway.
+///
+/// An empty lock is not an edge case — it is every CI checkout, every reimaged
+/// box, every `--state-dir` that has not been written yet. It is also the only
+/// state in which forjar can be used to express an ASSERTION: a guard whose
+/// `completion_check` is the claim and whose `command` reports the violation.
+/// Without this, every such guard runs its failure path on a healthy host.
+#[test]
+fn refresh_does_not_reapply_when_the_host_is_converged_and_there_is_no_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    let marker = dir.path().join("marker");
+    let cfg = dir.path().join("forjar.yaml");
+    fs::write(&cfg, config_yaml(&marker)).unwrap();
+    fs::create_dir_all(&state).unwrap();
+
+    // The host is ALREADY in the declared state, and nothing has ever been
+    // applied here — no lock, by construction.
+    fs::write(&marker, "").unwrap();
+    let before = fs::metadata(&marker).unwrap().modified().unwrap();
+
+    let (out, ok) = apply(&cfg, &state, &["--refresh"]);
+    assert!(ok, "--refresh apply must succeed:\n{out}");
+    assert!(
+        out.contains("1 unchanged"),
+        "the host satisfies the check and there is no lock, so --refresh must \
+         report it UNCHANGED rather than re-applying. It said:\n{out}"
+    );
+    assert_eq!(
+        fs::metadata(&marker).unwrap().modified().unwrap(),
+        before,
+        "the command ran even though the check already passed — `touch` moved \
+         the marker's mtime. --refresh promises 'only re-apply what fails'."
+    );
+}
+
+/// The other half of the same contract, and the reason the fix cannot simply
+/// seed every resource: a FAILING check with no lock must still apply.
+///
+/// If seeding were unconditional, a fresh checkout would report everything
+/// converged and provision nothing — strictly worse than the bug it replaces.
+#[test]
+fn refresh_still_applies_when_the_host_is_diverged_and_there_is_no_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    let marker = dir.path().join("marker");
+    let cfg = dir.path().join("forjar.yaml");
+    fs::write(&cfg, config_yaml(&marker)).unwrap();
+    fs::create_dir_all(&state).unwrap();
+
+    assert!(!marker.exists(), "precondition: the host is NOT converged");
+
+    let (out, ok) = apply(&cfg, &state, &["--refresh"]);
+    assert!(ok, "--refresh apply must succeed:\n{out}");
+    assert!(
+        marker.exists(),
+        "the check fails and there is no lock, so the command must run:\n{out}"
+    );
+}
+
+/// A guard expressed as a forjar resource: `completion_check` is the assertion,
+/// `command` is the violation report.
+///
+/// This is the shape paiml/infra needs to move its CI guards off Python and onto
+/// forjar. It only works if a satisfied check on an unlocked host is UNCHANGED
+/// (green) and a violated one runs the command (red). Both directions asserted
+/// here so neither can regress alone.
+#[test]
+fn a_guard_resource_is_green_when_satisfied_and_red_when_violated() {
+    let dir = tempfile::tempdir().unwrap();
+    let offender = dir.path().join("offender");
+    let cfg = dir.path().join("forjar.yaml");
+    fs::write(
+        &cfg,
+        format!(
+            r#"version: "1.0"
+name: guard
+machines:
+  localhost:
+    hostname: localhost
+    addr: localhost
+resources:
+  no-offender:
+    type: task
+    machine: localhost
+    command: "echo 'GUARD FAILED' >&2; exit 1"
+    completion_check: "test ! -f {o}"
+"#,
+            o = offender.display()
+        ),
+    )
+    .unwrap();
+
+    let green_state = dir.path().join("green");
+    fs::create_dir_all(&green_state).unwrap();
+    let (out, ok) = apply(&cfg, &green_state, &["--refresh"]);
+    assert!(ok, "a satisfied guard must exit 0:\n{out}");
+    assert!(out.contains("1 unchanged"), "expected unchanged:\n{out}");
+
+    fs::write(&offender, "").unwrap();
+    let red_state = dir.path().join("red");
+    fs::create_dir_all(&red_state).unwrap();
+    let (out, ok) = apply(&cfg, &red_state, &["--refresh"]);
+    assert!(!ok, "a violated guard must exit non-zero:\n{out}");
+    assert!(out.contains("GUARD FAILED"), "expected the report:\n{out}");
+}
