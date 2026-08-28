@@ -1,32 +1,92 @@
 //! FJ-1250 / Refs #356 / Refs #358 — `forjar apply --plan-file`.
 //!
-//! Executes a previously reviewed, sealed plan. Three things make this
-//! different from an ordinary apply, and all three live here:
+//! Executes a previously reviewed, sealed plan. Four things make this different
+//! from an ordinary apply, and all four live here or in
+//! [`super::apply_from_plan_checks`]:
 //!
 //! * the plan's integrity is verified before anything runs
 //!   (`plan_file::load_plan_file` → `core::plan_seal`);
 //! * the plan's CLAIM is verified against a freshly computed plan
-//!   (`check_plan_still_holds`), because integrity is not truth; and
+//!   (`check_plan_still_holds`), because integrity is not truth;
 //! * the executed set is the REVIEWED set — the scope derived from the plan
-//!   body is what the executor is given, instead of the whole config.
+//!   body is what the executor is given, instead of the whole config; and
+//! * every apply flag the operator passes is either honoured or refused.
 //!
 //! Lifted out of `apply_variants.rs`, which is a grab-bag of unrelated apply
 //! modes and had no room left for any of it.
 
+use super::apply_from_plan_checks::*;
 use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::load_machine_locks;
-use super::plan_file::{self, load_plan_file};
+use super::plan_file::load_plan_file;
 use super::workspace::*;
-use crate::core::{executor, planner, resolver, types};
-use std::collections::HashMap;
+use crate::core::plan_selectors::PlanSelectors;
+use crate::core::{executor, resolver, types};
 use std::path::Path;
 
-/// Prefix on every refusal that comes from re-planning rather than from the
-/// seal. `plan_seal` owns `PLAN_HASH_MISMATCH` / `PLAN_MALFORMED`; a plan whose
-/// integrity is perfect and whose content is a lie is a different failure and
-/// says so.
-const PLAN_STALE: &str = "PLAN_STALE";
+/// The apply flags that say HOW the reviewed delta executes.
+///
+/// Refs #358: `execute_scoped_plan` built its `ApplyConfig` from a literal in
+/// which every one of these was hard-coded off, so
+/// `apply --plan-file --rollback-on-failure` armed nothing, `--progress` showed
+/// nothing, `--retry 3` retried nothing and `--timeout 5` timed out never. All
+/// of them parsed, none of them applied, and the run exited 0 — an operator who
+/// believed a rollback was armed was wrong, silently.
+///
+/// These are separated from the SELECTORS deliberately. A selector asks *what*
+/// converges and has to be intersected with the reviewed set; a knob asks *how*
+/// the reviewed set converges and needs no such reasoning, which is why passing
+/// it through is simply correct.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct ApplyKnobs {
+    /// FJ-266: remove a stale state lock before the run.
+    pub force_unlock: bool,
+    /// FJ-272: `[N/total]` counter.
+    pub progress: bool,
+    /// Per-transport-operation timeout.
+    pub timeout_secs: Option<u64>,
+    /// FJ-283: retry failed resources N times.
+    pub retry: u32,
+    /// FJ-290: parallel wave execution.
+    pub parallel: bool,
+    /// FJ-313: max concurrent resources per wave.
+    pub max_parallel: Option<usize>,
+    /// FJ-304: per-resource timeout.
+    pub resource_timeout: Option<u64>,
+    /// FJ-310: restore the pre-apply locks if any resource fails.
+    pub rollback_on_failure: bool,
+}
+
+/// Everything `apply --plan-file` was invoked with.
+///
+/// A struct rather than fourteen positional arguments: the defect being fixed
+/// here is a long `ApplyConfig` literal whose fields were silently wrong, and a
+/// long argument list is the same failure mode one call frame up.
+pub(crate) struct PlanApplyRequest<'a> {
+    /// The config file, parsed exactly as an ordinary apply would.
+    pub file: &'a Path,
+    /// State directory holding the machine locks.
+    pub state_dir: &'a Path,
+    /// The saved plan to execute.
+    pub plan_path: &'a Path,
+    /// Announce what was loaded, and trace the generated scripts.
+    pub verbose: bool,
+    /// `--env-file`.
+    pub env_file: Option<&'a Path>,
+    /// `--workspace`.
+    pub workspace: Option<&'a str>,
+    /// forjar#370: `--operator`, or the ambient identity when unset. This is an
+    /// apply, so it is authorized like one.
+    pub operator: Option<&'a str>,
+    /// Any flag in the `--dry-run` family (GH-208).
+    pub dry_run: bool,
+    /// `-m` / `-r` / `-t` / `-g` as passed to THIS invocation; they may only
+    /// narrow the reviewed delta.
+    pub selectors: PlanSelectors,
+    /// How the reviewed delta executes.
+    pub knobs: ApplyKnobs,
+}
 
 /// Rebuild the config exactly as an ordinary apply would see it.
 ///
@@ -48,172 +108,24 @@ fn prepare_config(
     Ok(config)
 }
 
-/// Refs #358: "this plan has no changes" is only an instruction worth obeying
-/// when something vouches for the body that says it.
-///
-/// A `forjar-plan-v1` document's counters are unauthenticated JSON sitting
-/// under a valid `config_hash`, so obeying a zero there is how a requested
-/// apply prints a benign sentence and exits 0 having converged nothing — an
-/// operator or CI job reading the exit code sees a successful apply over a
-/// machine nothing was done to. A sealed body may legitimately say zero — but
-/// only [`check_plan_still_holds`] decides whether it is TELLING THE TRUTH.
-fn check_empty_plan_is_trustworthy(sealed: bool) -> Result<(), String> {
-    if sealed {
-        return Ok(());
-    }
-    Err(format!(
-        "this '{}' plan file reports no changes, but its body is unsealed — forjar will \
-         not report a successful apply on the word of an unauthenticated counter. \
-         Re-run `forjar plan --out` to write a sealed '{}' plan.",
-        plan_file::FORMAT_V1,
-        plan_file::FORMAT_V2,
-    ))
-}
-
-/// Recompute the plan from live inputs, with no filters.
+/// Recompute the plan from live inputs, under `selectors`.
 ///
 /// Nearly free: `cmd_apply_from_plan` has already parsed and resolved the
-/// config, the planner is pure over `(config, locks, probes)`, and the locks
-/// are the same files `plan_seal`'s state leg has just read.
-fn replan(config: &types::ForjarConfig, state_dir: &Path) -> Result<types::ExecutionPlan, String> {
-    let locks = load_machine_locks(config, state_dir, None)?;
-    let execution_order = resolver::build_execution_order(config)?;
-    Ok(planner::plan(config, &execution_order, &locks, None))
-}
-
-/// Index a plan's changes by the `(machine, resource)` pair each one names.
-fn by_pair(plan: &types::ExecutionPlan) -> HashMap<(&str, &str), &types::PlanAction> {
-    plan.changes
-        .iter()
-        .map(|c| ((c.machine.as_str(), c.resource_id.as_str()), &c.action))
-        .collect()
-}
-
-/// Refs #358 — the seal says a plan is UNEDITED. Re-planning says whether it is
-/// TRUE, and only the second question is the one an operator is asking.
+/// config, the planner is pure over `(config, locks)`, and the locks are the
+/// same files `plan_seal`'s state leg has just read.
 ///
-/// The seal is an unkeyed BLAKE3 hash. Anyone who can run `forjar` can compute
-/// one, so no arrangement of hashing distinguishes a plan forjar issued from a
-/// plan an adversary issued: copy `config_hash` and `state_hash` out of an
-/// honest plan (neither leg has moved), empty the change list, zero the four
-/// counters, recompute the diff leg and the composition through the public
-/// `plan_seal::digest` API, and every check the seal can perform passes.
-/// `check_body_partition` cannot help here — `0/0/0/0` over an EMPTY list
-/// partitions trivially; it catches a plan that claims zero WHILE LISTING
-/// several, and the attack simply empties the list.
-///
-/// What is checkable with no secret at all is the plan's claim. A plan file
-/// asserts an action for each pair it names; the planner asserts one too, from
-/// the live config and the live locks, and this command already holds both.
-/// Where they disagree, the plan file is the one that is wrong — an adversary
-/// cannot make the real planner return `NoOp` while a create is pending.
-///
-/// # Why the plan's pairs, and not the planner's
-///
-/// A saved plan may legitimately be NARROWER than the config: `plan -r`, `-m`,
-/// `-g` and `-t` all filter the body while `config_hash` still covers the whole
-/// file. Demanding that the freshly computed plan equal the saved one would
-/// refuse every filtered plan. Demanding that the planner agree about the pairs
-/// the saved plan actually names refuses none of them, and is strictly stronger
-/// than a superset check on the change set, because it compares the ACTION too:
-/// a plan reviewed as `create` that the planner now calls `destroy` is caught.
-fn check_plan_still_holds(
-    plan: &types::ExecutionPlan,
-    fresh: &types::ExecutionPlan,
-) -> Result<(), String> {
-    let live = by_pair(fresh);
-    for change in &plan.changes {
-        let key = (change.machine.as_str(), change.resource_id.as_str());
-        match live.get(&key) {
-            Some(actual) if **actual == change.action => {}
-            Some(actual) => {
-                return Err(format!(
-                    "{PLAN_STALE}: the plan file says {} for '{}' on '{}', but planning the \
-                     live config against the live state says {actual}. A plan file is \
-                     unauthenticated JSON — its seal proves it was not edited in transit, \
-                     not that what it says is true — so forjar re-plans and believes the \
-                     planner. Re-run `forjar plan --out` to write a plan that matches the \
-                     world.",
-                    change.action, change.resource_id, change.machine
-                ));
-            }
-            None => {
-                return Err(format!(
-                    "{PLAN_STALE}: the plan file names '{}' on '{}', which planning the live \
-                     config does not produce at all. Re-run `forjar plan --out`.",
-                    change.resource_id, change.machine
-                ));
-            }
-        }
-    }
-    check_an_empty_body_is_honest(plan, fresh)
-}
-
-/// A plan body naming NOTHING has nothing for [`check_plan_still_holds`] to
-/// compare, so it needs its own clause — and it is exactly the shape the
-/// re-sealing adversary produces.
-///
-/// An honest plan over a converged stack still LISTS its resources, as `NoOp`
-/// entries under `unchanged`; a body with an empty `changes` array asserts that
-/// the planner considered nothing. That is only true when the planner really
-/// does find nothing, so the freshly computed plan is the arbiter. If anything
-/// is still pending, obeying the file would print a successful apply over a
-/// machine nothing examined.
-fn check_an_empty_body_is_honest(
-    plan: &types::ExecutionPlan,
-    fresh: &types::ExecutionPlan,
-) -> Result<(), String> {
-    if !plan.changes.is_empty() {
-        return Ok(());
-    }
-    let pending: Vec<String> = fresh
-        .changes
-        .iter()
-        .filter(|c| c.action != types::PlanAction::NoOp)
-        .map(|c| format!("{} on {} ({})", c.resource_id, c.machine, c.action))
-        .collect();
-    if pending.is_empty() {
-        return Ok(());
-    }
-    Err(format!(
-        "{PLAN_STALE}: this plan file names no resources at all, yet planning the live \
-         config against the live state finds {} change(s) still pending: {}. Obeying it \
-         would print a successful apply over a machine nothing was examined on. Re-run \
-         `forjar plan --out`.",
-        pending.len(),
-        pending.join(", ")
-    ))
-}
-
-/// Refs #358: `-m` INTERSECTS the reviewed scope — it can only narrow it.
-///
-/// `--plan-file` executes the delta that was REVIEWED, so widening it with a
-/// selector would be the defect this command was just fixed for: a resource
-/// converged from a plan that never named it. Narrowing to a machine the plan
-/// does touch is a legitimate staged rollout, and `executor` already intersects
-/// `machine_filter` with the scope, so honouring `-m` is just passing it.
-///
-/// The EMPTY intersection is the case that earns a message. Converging nothing
-/// and exiting 0 is how an operator asks for one machine, reads success, and
-/// believes it happened — the same class of silent green as the zero-change
-/// forgery above. Erroring costs them one re-run and names what the plan covers.
-fn check_machine_is_in_scope(
-    scope: &executor::PlanScope,
-    machine: Option<&str>,
-) -> Result<(), String> {
-    let Some(name) = machine else {
-        return Ok(());
-    };
-    if scope.covers_machine(name) {
-        return Ok(());
-    }
-    Err(format!(
-        "-m '{name}' names a machine this plan does not touch — the reviewed plan covers: \
-         {}. `--plan-file` executes the reviewed delta, so -m can only narrow it, never \
-         widen it; obeying this would converge nothing and still exit 0. Drop -m, name one \
-         of the plan's machines, or re-run `forjar plan -m {name} --out`.",
-        scope.machine_names().join(", ")
-    ))
+/// The pipeline is `plan_compute::plan_filtered` — the same function `cmd_plan`
+/// uses — preceded by the same phony strip. Two spellings of "the planner plus
+/// the four selectors" would make the comparison fire on plans nobody edited.
+fn replan(
+    config: &types::ForjarConfig,
+    state_dir: &Path,
+    selectors: &PlanSelectors,
+) -> Result<types::ExecutionPlan, String> {
+    let mut config = config.clone();
+    super::apply_selection::strip_unrequested_phony(&mut config, &[]);
+    let locks = load_machine_locks(&config, state_dir, selectors.machine.as_deref())?;
+    super::plan_compute::plan_filtered(&config, &locks, selectors)
 }
 
 /// The `plan`-style sigil for an action.
@@ -235,13 +147,15 @@ fn sigil(action: &types::PlanAction) -> &'static str {
 /// sealed plan would do without doing it.
 ///
 /// The preview is printed from the plan BODY, which is the artifact that was
-/// reviewed. `executor::apply_scoped` honours `dry_run` too (it returns before
-/// `dispatch_apply`), but it returns a result carrying no changes, so asking it
+/// reviewed, narrowed by the same predicate the real run will use. Asking
+/// `executor::apply_scoped` instead would honour `dry_run` (it returns before
+/// `dispatch_apply`) but return a result carrying no changes, so the preview
 /// would print "0 converged" and tell the operator nothing.
 fn preview_scoped_plan(
     plan: &types::ExecutionPlan,
     scope: &executor::PlanScope,
-    machine: Option<&str>,
+    config: &types::ForjarConfig,
+    selectors: &PlanSelectors,
 ) {
     println!("Dry run — the reviewed plan would execute:");
     let mut shown = 0usize;
@@ -249,7 +163,7 @@ fn preview_scoped_plan(
         if !scope.covers(&change.machine, &change.resource_id) {
             continue;
         }
-        if machine.is_some_and(|m| m != change.machine) {
+        if !survives(config, selectors, &change.machine, &change.resource_id) {
             continue;
         }
         shown += 1;
@@ -264,7 +178,8 @@ fn preview_scoped_plan(
     println!("\n{shown} reviewed change(s). No changes applied.");
 }
 
-/// Converge exactly the `(machine, resource)` pairs the reviewed plan named.
+/// Converge exactly the `(machine, resource)` pairs the reviewed plan named,
+/// under the flags this invocation passed.
 ///
 /// This function used to be inline under the comment "Execute as a normal apply
 /// using the plan's resource list", which said the opposite of what it did —
@@ -273,40 +188,43 @@ fn preview_scoped_plan(
 /// express a plan: `resource_filter` is a single id, and a plan names a set of
 /// pairs. That set is `scope`.
 ///
-/// The selectors that stay `None` do so because a saved plan carries no request
-/// for them — `resource_filter`, `tag_filter` and `group_filter` were already
-/// applied when the plan body was written, and re-applying them here could only
-/// narrow the reviewed set a second time. `machine_filter` is NOT one of them:
-/// it comes from `-m` on this invocation and is honoured, after
-/// `check_machine_is_in_scope` has established that it narrows the plan rather
-/// than missing it entirely.
+/// The comment that replaced it was wrong in the other direction: it claimed the
+/// selectors stay `None` because they "were already applied when the plan body
+/// was written". That is true of how the plan was PRODUCED and no reason at all
+/// to drop flags the operator is passing NOW, to this invocation — which is what
+/// the whole literal was doing, to every field except `machine_filter`. Every
+/// field is fed from the request; the three that cannot be honoured
+/// (`--force`, `--force-tag`, `--refresh`) are refused before this runs, so
+/// there is nothing left for a `false` here to hide.
 fn execute_scoped_plan(
     config: &types::ForjarConfig,
-    state_dir: &Path,
+    req: &PlanApplyRequest,
     scope: &executor::PlanScope,
-    machine: Option<&str>,
 ) -> Result<(), String> {
+    let knobs = req.knobs;
     let cfg = executor::ApplyConfig {
         config,
-        state_dir,
+        state_dir: req.state_dir,
+        // Refused by `reject_replanning_flags`: each of these three re-plans the
+        // delta rather than executing the reviewed one.
         force: false,
-        dry_run: false,
-        machine_filter: machine,
-        resource_filter: None,
-        tag_filter: None,
-        group_filter: None,
-        timeout_secs: None,
-        force_unlock: false,
-        progress: false,
-        retry: 0,
-        parallel: None,
-        resource_timeout: None,
-        rollback_on_failure: false,
-        max_parallel: None,
-        trace: false,
-        run_id: Some(types::generate_run_id()),
         refresh: false,
         force_tag: None,
+        dry_run: false,
+        machine_filter: req.selectors.machine.as_deref(),
+        resource_filter: req.selectors.resource.as_deref(),
+        tag_filter: req.selectors.tag.as_deref(),
+        group_filter: req.selectors.group.as_deref(),
+        timeout_secs: knobs.timeout_secs,
+        force_unlock: knobs.force_unlock,
+        progress: knobs.progress,
+        retry: knobs.retry,
+        parallel: super::apply_gates::parallel_flag(knobs.parallel),
+        resource_timeout: knobs.resource_timeout,
+        rollback_on_failure: knobs.rollback_on_failure,
+        max_parallel: knobs.max_parallel,
+        trace: req.verbose,
+        run_id: Some(types::generate_run_id()),
     };
 
     let results = executor::apply_scoped(&cfg, Some(scope))?;
@@ -320,17 +238,40 @@ fn execute_scoped_plan(
 }
 
 /// Say what was loaded and what it will touch, when asked.
-fn report_plan(plan: &types::ExecutionPlan, scope: &executor::PlanScope) {
+fn report_plan(
+    plan: &types::ExecutionPlan,
+    scope: &executor::PlanScope,
+    selectors: &PlanSelectors,
+) {
     let n_changes = plan.to_create + plan.to_update + plan.to_destroy;
     eprintln!(
         "Executing saved plan: {} changes ({} create, {} update, {} destroy)",
         n_changes, plan.to_create, plan.to_update, plan.to_destroy
     );
+    if let Some(flags) = selectors.describe() {
+        eprintln!("Plan was written with the selectors: {flags}");
+    }
     eprintln!(
         "Plan scope: {} resource(s) across machine(s): {}",
         scope.len(),
         scope.machine_names().join(", ")
     );
+}
+
+/// The reviewed plan asks for nothing. Say so, and say what it leaves undone.
+fn honour_an_empty_plan(
+    config: &types::ForjarConfig,
+    state_dir: &Path,
+    sealed: bool,
+    written_with: &PlanSelectors,
+) -> Result<(), String> {
+    check_empty_plan_is_trustworthy(sealed)?;
+    println!("Plan has no changes to apply.");
+    if !written_with.is_unfiltered() {
+        let whole = replan(config, state_dir, &PlanSelectors::default())?;
+        disclose_work_outside_the_filter(written_with, &whole);
+    }
+    Ok(())
 }
 
 /// FJ-1250: Execute a previously saved plan file.
@@ -356,46 +297,34 @@ fn report_plan(plan: &types::ExecutionPlan, scope: &executor::PlanScope) {
 /// plan-file executor rather than for the one dispatcher that remembered.
 ///
 /// `forjar plan --out` is deliberately NOT gated; see `cli::plan::cmd_plan`.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn cmd_apply_from_plan(
-    file: &Path,
-    state_dir: &Path,
-    plan_path: &Path,
-    verbose: bool,
-    env_file: Option<&Path>,
-    workspace: Option<&str>,
-    operator: Option<&str>,
-    dry_run: bool,
-    machine: Option<&str>,
-) -> Result<(), String> {
+pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> {
     // forjar#370: FIRST, and before the plan file is even read — the same
     // position and the same function `apply_execute` uses.
-    super::dispatch_apply::check_operator_auth(file, operator)?;
+    super::dispatch_apply::check_operator_auth(req.file, req.operator)?;
 
-    let config = prepare_config(file, env_file, workspace)?;
-    let loaded = load_plan_file(plan_path, &config, state_dir)?;
+    let config = prepare_config(req.file, req.env_file, req.workspace)?;
+    let loaded = load_plan_file(req.plan_path, &config, req.state_dir)?;
     let scope = executor::PlanScope::from_plan(&loaded.plan);
 
-    if verbose {
-        report_plan(&loaded.plan, &scope);
+    if req.verbose {
+        report_plan(&loaded.plan, &scope, &loaded.selectors);
     }
 
-    check_plan_still_holds(&loaded.plan, &replan(&config, state_dir)?)?;
+    let fresh = replan(&config, req.state_dir, &loaded.selectors)?;
+    check_plan_still_holds(&loaded.plan, &fresh, &loaded.selectors)?;
 
     if scope.is_empty() {
-        check_empty_plan_is_trustworthy(loaded.sealed)?;
-        println!("Plan has no changes to apply.");
+        return honour_an_empty_plan(&config, req.state_dir, loaded.sealed, &loaded.selectors);
+    }
+
+    check_selectors_narrow_the_plan(&scope, &config, &req.selectors)?;
+
+    if req.dry_run {
+        preview_scoped_plan(&loaded.plan, &scope, &config, &req.selectors);
         return Ok(());
     }
 
-    check_machine_is_in_scope(&scope, machine)?;
-
-    if dry_run {
-        preview_scoped_plan(&loaded.plan, &scope, machine);
-        return Ok(());
-    }
-
-    execute_scoped_plan(&config, state_dir, &scope, machine)
+    execute_scoped_plan(&config, req, &scope)
 }
 
 #[cfg(test)]

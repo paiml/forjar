@@ -27,10 +27,18 @@
 //! refuses a zero-the-counters edit whose author ALSO recomputed the seal".
 //! That was false and is deleted: `0/0/0/0` over an EMPTY change list
 //! partitions perfectly well. The claim is repaired where it can be — not here,
-//! but in `cli::apply_from_plan::check_plan_still_holds`, which RE-PLANS from
-//! the live config and the live locks and refuses a plan the planner
+//! but in `cli::apply_from_plan_checks::check_plan_still_holds`, which RE-PLANS
+//! from the live config and the live locks and refuses a plan the planner
 //! contradicts. No adversary can make the real planner return `NoOp` while a
 //! create is pending, and that check needs no key, no clock and no trust.
+//!
+//! What this module contributes to that check is
+//! [`crate::core::plan_selectors::PlanSelectors`], sealed into the diff leg. The
+//! re-plan needs to know which plan the document claims to be — a whole-stack
+//! plan or a `-r bravo` one — because those two produce byte-identical bodies
+//! over a partially converged stack. An adversary can still re-seal a forged
+//! selector record, but they can no longer forge one INVISIBLY: the document
+//! now has to declare itself narrow, and the apply prints that declaration.
 //!
 //! # Three legs
 //!
@@ -60,6 +68,7 @@ mod tests_digest;
 #[path = "tests_verify.rs"]
 mod tests_verify;
 
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::types::{ExecutionPlan, ForjarConfig, PlanAction};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -239,8 +248,14 @@ pub fn now_unix() -> u64 {
 }
 
 /// Seal a plan against the config and state it was planned from, at `now`.
+///
+/// Refs #358: `selectors` records what `forjar plan` was FILTERED by, and is
+/// sealed with the body. `apply --plan-file` re-plans under it, so a document
+/// that lies about its own filters is a `PLAN_HASH_MISMATCH` rather than a
+/// re-plan that quietly agrees with a forgery.
 pub fn seal_at(
     plan: &ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &ForjarConfig,
     state_dir: &Path,
     ttl_secs: Option<u64>,
@@ -248,7 +263,7 @@ pub fn seal_at(
 ) -> Result<PlanSeal, String> {
     let config_hash = digest::config_leg(config)?;
     let state_hash = digest::state_leg(config, state_dir)?;
-    let diff_hash = digest::diff_leg(plan)?;
+    let diff_hash = digest::diff_leg(plan, selectors)?;
     let ttl_secs = clamp_ttl(ttl_secs);
     let seal = digest::compose(&config_hash, &state_hash, &diff_hash, now, ttl_secs);
     Ok(PlanSeal {
@@ -266,11 +281,12 @@ pub fn seal_at(
 /// Seal a plan using the system clock.
 pub fn seal(
     plan: &ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &ForjarConfig,
     state_dir: &Path,
     ttl_secs: Option<u64>,
 ) -> Result<PlanSeal, String> {
-    seal_at(plan, config, state_dir, ttl_secs, now_unix())
+    seal_at(plan, selectors, config, state_dir, ttl_secs, now_unix())
 }
 
 /// Verify a seal against LIVE inputs at `now`.
@@ -292,6 +308,7 @@ pub fn seal(
 pub fn verify_at(
     sealed: &PlanSeal,
     plan: &ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &ForjarConfig,
     state_dir: &Path,
     now: u64,
@@ -299,7 +316,7 @@ pub fn verify_at(
     check_version(sealed)?;
     check_body_partition(plan)?;
     check_self_consistency(sealed)?;
-    check_legs(sealed, plan, config, state_dir)?;
+    check_legs(sealed, plan, selectors, config, state_dir)?;
     check_expiry(sealed, now)
 }
 
@@ -307,10 +324,11 @@ pub fn verify_at(
 pub fn verify(
     sealed: &PlanSeal,
     plan: &ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &ForjarConfig,
     state_dir: &Path,
 ) -> Result<(), SealError> {
-    verify_at(sealed, plan, config, state_dir, now_unix())
+    verify_at(sealed, plan, selectors, config, state_dir, now_unix())
 }
 
 fn check_version(sealed: &PlanSeal) -> Result<(), SealError> {
@@ -376,6 +394,7 @@ fn check_self_consistency(sealed: &PlanSeal) -> Result<(), SealError> {
 fn check_legs(
     sealed: &PlanSeal,
     plan: &ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &ForjarConfig,
     state_dir: &Path,
 ) -> Result<(), SealError> {
@@ -393,7 +412,7 @@ fn check_legs(
     compare(
         Leg::Diff,
         &sealed.diff_hash,
-        digest::diff_leg(plan).map_err(malformed)?,
+        digest::diff_leg(plan, selectors).map_err(malformed)?,
     )
 }
 

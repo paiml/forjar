@@ -1,5 +1,5 @@
 use super::apply::*;
-use super::apply_from_plan::cmd_apply_from_plan;
+use super::apply_from_plan::{cmd_apply_from_plan, ApplyKnobs, PlanApplyRequest};
 use super::apply_variants::*;
 use super::check::*;
 use super::commands::*;
@@ -236,23 +236,69 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
         ));
     }
     if let Some(ref pf) = args.plan_file {
-        let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_apply_from_plan(
-            &args.file,
-            &sd,
-            pf,
-            verbose,
-            args.env_file.as_deref(),
-            args.workspace.as_deref(),
-            // forjar#370: this branch returns BEFORE `apply_execute`, so the
-            // operator gate travels with it — enforced inside the callee.
-            args.operator.as_deref(),
-            // Refs #358: both were in hand here and dropped on the floor.
-            args.dry_run,
-            args.machine.as_deref(),
-        ));
+        return Some(apply_from_plan(args, pf, verbose));
     }
     None
+}
+
+/// Refs #358: hand `--plan-file` everything the operator actually typed.
+///
+/// This call site used to pass six of them and drop the rest on the floor —
+/// every selector but `-m`, and every execution knob without exception — so
+/// `apply --plan-file --rollback-on-failure -r alpha` armed no rollback and
+/// converged `bravo` too, at exit 0. The three flags that cannot be honoured on
+/// a reviewed plan are refused by name rather than dropped.
+fn apply_from_plan(
+    args: &ApplyArgs,
+    plan_path: &std::path::Path,
+    verbose: bool,
+) -> Result<(), String> {
+    super::apply_from_plan_checks::reject_replanning_flags(
+        args.force,
+        args.refresh,
+        args.force_tag.as_deref(),
+    )?;
+    let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+    cmd_apply_from_plan(&PlanApplyRequest {
+        file: &args.file,
+        state_dir: &sd,
+        plan_path,
+        verbose,
+        env_file: args.env_file.as_deref(),
+        workspace: args.workspace.as_deref(),
+        // forjar#370: this branch returns BEFORE `apply_execute`, so the
+        // operator gate travels with it — enforced inside the callee.
+        operator: args.operator.as_deref(),
+        // GH-208: the whole --dry-run FAMILY means "change nothing". Passing
+        // `args.dry_run` alone left `--plan-file --dry-run-json` converging.
+        dry_run: effective_dry_run(args),
+        selectors: crate::core::plan_selectors::PlanSelectors::new(
+            args.machine.as_deref(),
+            args.resource.as_deref(),
+            args.tag.as_deref(),
+            args.group.as_deref(),
+        ),
+        knobs: knobs_from(args),
+    })
+}
+
+/// Refs #358: every execution knob, read from the invocation.
+///
+/// A named function rather than an inline literal so
+/// `every_knob_is_read_from_its_own_flag` can assert the wiring directly. The
+/// defect this replaces was a literal whose fields were silently wrong, and a
+/// literal is not testable without running an apply.
+pub(super) fn knobs_from(args: &ApplyArgs) -> ApplyKnobs {
+    ApplyKnobs {
+        force_unlock: args.force_unlock,
+        progress: args.progress,
+        timeout_secs: args.timeout,
+        retry: args.retry,
+        parallel: args.parallel,
+        max_parallel: args.max_parallel,
+        resource_timeout: args.resource_timeout,
+        rollback_on_failure: args.rollback_on_failure,
+    }
 }
 
 /// Create pre-apply backup snapshots if requested.
@@ -441,61 +487,5 @@ fn check_compliance_packs(
 }
 
 #[cfg(test)]
-mod tests_gh208_dry_run_family {
-    use super::*;
-
-    // GH-208: --dry-run-shell/-json/-summary/-diff performed a REAL apply on the
-    // published 1.12.3 binary — files created, state written — because only
-    // `args.dry_run` reached the execute guard. Asking for a preview and getting
-    // a mutation is the most dangerous shape a flag can have.
-
-    fn args_with(f: impl FnOnce(&mut ApplyArgs)) -> ApplyArgs {
-        let mut a = ApplyArgs::default();
-        f(&mut a);
-        a
-    }
-
-    #[test]
-    fn every_dry_run_flag_suppresses_execution() {
-        // Asserted one flag at a time: a table of fn pointers trips the
-        // very-complex-type lint and reads no better.
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run = true)),
-            "--dry-run"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_shell = true)),
-            "--dry-run-shell must suppress execution: a flag named dry-run must never mutate"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_json = true)),
-            "--dry-run-json must suppress execution"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_summary = true)),
-            "--dry-run-summary must suppress execution"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_diff = true)),
-            "--dry-run-diff must suppress execution"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_cost = true)),
-            "--dry-run-cost"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_graph = true)),
-            "--dry-run-graph"
-        );
-        assert!(
-            effective_dry_run(&args_with(|a| a.dry_run_verbose = true)),
-            "--dry-run-verbose"
-        );
-    }
-
-    #[test]
-    fn a_plain_apply_is_not_dry_run() {
-        // The guard against "fixed" meaning "never applies anything".
-        assert!(!effective_dry_run(&ApplyArgs::default()));
-    }
-}
+#[path = "tests_dispatch_apply_b.rs"]
+mod tests_dispatch_apply_b;

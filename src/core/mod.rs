@@ -19,6 +19,7 @@ pub mod migrate;
 pub mod observe;
 pub mod parser;
 pub mod plan_seal;
+pub mod plan_selectors;
 pub mod planner;
 pub mod plugin_dispatch;
 pub mod plugin_hot_reload;

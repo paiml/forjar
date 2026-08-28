@@ -72,6 +72,15 @@ impl PlanScope {
         self.machines.contains(machine)
     }
 
+    /// The reviewed pairs, as `(machine, resource)`.
+    ///
+    /// Refs #358: `apply --plan-file` intersects the operator's own selectors
+    /// with the reviewed set, and needs to know whether that intersection is
+    /// empty before it converges nothing and exits 0.
+    pub fn pairs(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.pairs.iter().map(|(m, r)| (m.as_str(), r.as_str()))
+    }
+
     /// Sorted machine names, for messages.
     pub fn machine_names(&self) -> Vec<String> {
         let mut names: Vec<String> = self.machines.iter().cloned().collect();

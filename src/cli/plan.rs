@@ -5,6 +5,7 @@ use super::helpers::*;
 use super::helpers_state::*;
 use super::print_helpers::*;
 use super::workspace::*;
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::{planner, resolver, types};
 use std::path::Path;
 
@@ -62,15 +63,14 @@ pub(crate) fn cmd_plan(
     // FJ-2725: phony resources are goal-only; a bulk plan must not report them
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);
-    let execution_order = resolver::build_execution_order(&config)?;
-    let mut plan = planner::plan(&config, &execution_order, &locks, tag_filter);
-
-    super::plan_selector::apply_machine_filter(&mut plan, machine_filter);
+    // Refs #358: the selector set is a value now, because a saved plan has to
+    // RECORD it — `apply --plan-file` re-plans under a document's own filters
+    // to check what it claims, and a filtered plan is otherwise indistinguishable
+    // from one an editor deleted lines out of.
     // GH-214: -r and -g used to print "not yet implemented … Flag ignored"
     // followed by the whole plan, while `apply -r/-g` filtered correctly.
-    super::plan_selector::apply_resource_filter(&mut plan, &config, resource_filter)?;
-    super::plan_selector::apply_group_filter(&mut plan, &config, group_filter)?;
-    let plan = plan;
+    let selectors = PlanSelectors::new(machine_filter, resource_filter, tag_filter, group_filter);
+    let plan = super::plan_compute::plan_filtered(&config, &locks, &selectors)?;
 
     if let Some(dir) = output_dir {
         export_scripts(&config, dir)?;
@@ -92,7 +92,7 @@ pub(crate) fn cmd_plan(
     // that IS load-bearing is at execution, and it now runs there —
     // `cmd_apply_from_plan` checks before it reads the plan file at all.
     if let Some(out_path) = plan_out {
-        super::plan_file::save_plan_file(&plan, &config, file, state_dir, out_path)?;
+        super::plan_file::save_plan_file(&plan, &selectors, &config, file, state_dir, out_path)?;
         println!("Plan saved to {}", out_path.display());
         return Ok(());
     }

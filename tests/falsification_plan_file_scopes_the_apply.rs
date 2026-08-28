@@ -163,56 +163,134 @@ fn a_machine_scoped_plan_does_not_touch_the_other_machine() {
     );
 }
 
-/// Honouring the body is not the seal's job — an unsealed v1 plan is scoped
-/// too. This one is hand-written, exactly as an older forjar would have
-/// produced it, so the scope is proven independent of `forjar-plan-v2`.
-#[test]
-fn a_v1_plan_is_scoped_as_well() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let p = project(dir.path());
-
-    // Borrow the canonical config hash from a real plan file rather than
-    // re-deriving it here — GH-212 exists because a second expression for
-    // "the hash of this config" drifted from the first.
-    let donor = dir.path().join("donor.json");
-    assert!(plan_out(&p, &[], &donor).status.success());
+/// Write a hand-rolled `forjar-plan-v1` document, exactly as an older forjar
+/// would have produced it.
+///
+/// The config hash is borrowed from a real plan file rather than re-derived
+/// here — GH-212 exists because a second expression for "the hash of this
+/// config" drifted from the first.
+fn write_v1(p: &Project, dir: &Path, changes: serde_json::Value) -> PathBuf {
+    let donor = dir.join("donor.json");
+    assert!(plan_out(p, &[], &donor).status.success());
     let config_hash = serde_json::from_str::<serde_json::Value>(
         &std::fs::read_to_string(&donor).expect("read donor"),
     )
     .expect("parse donor")["config_hash"]
         .clone();
 
+    let arr = changes.as_array().expect("changes array");
+    let tally = |want: &str| arr.iter().filter(|c| c["action"] == want).count();
+    let order: Vec<serde_json::Value> = arr.iter().map(|c| c["resource_id"].clone()).collect();
     let v1 = serde_json::json!({
         "format": "forjar-plan-v1",
         "config_hash": config_hash,
         "name": "plan-scope",
-        "to_create": 1, "to_update": 0, "to_destroy": 0, "unchanged": 0,
-        "execution_order": ["alpha"],
-        "changes": [{
-            "resource_id": "alpha",
-            "machine": "web",
-            "resource_type": "file",
-            "action": "create",
-            "description": "alpha: create",
-        }],
+        "to_create": tally("create"),
+        "to_update": tally("update"),
+        "to_destroy": tally("destroy"),
+        "unchanged": tally("no_op"),
+        "execution_order": order,
+        "changes": changes,
     });
-    let plan_path = dir.path().join("v1.json");
+    let plan_path = dir.join("v1.json");
     std::fs::write(
         &plan_path,
         serde_json::to_string_pretty(&v1).expect("render"),
     )
     .expect("write v1 plan");
+    plan_path
+}
+
+/// Converge `bravo` on `db`, leaving `alpha` on `web` pending.
+fn converge_bravo(p: &Project) {
+    let out = forjar()
+        .args(["apply", "-f"])
+        .arg(&p.cfg)
+        .arg("--state-dir")
+        .arg(&p.state)
+        .args(["--yes", "-r", "bravo"])
+        .output()
+        .expect("seed apply");
+    assert!(out.status.success(), "seed: {}", combined(&out));
+}
+
+/// Honouring the body is not the seal's job — an unsealed v1 plan is scoped
+/// too. Hand-written, so the scope is proven independent of `forjar-plan-v2`.
+///
+/// The observable is the SUMMARY, not the files. `bravo` is already converged,
+/// so an unscoped apply would reach `db`, find it unchanged and say so; a
+/// scoped one never targets `db` at all, because the plan asked for nothing
+/// there and reaching a host to do nothing still opens a session and touches
+/// its lock.
+#[test]
+fn a_v1_plan_is_scoped_as_well() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = project(dir.path());
+    converge_bravo(&p);
+
+    let plan_path = write_v1(
+        &p,
+        dir.path(),
+        serde_json::json!([
+            {
+                "resource_id": "alpha", "machine": "web", "resource_type": "file",
+                "action": "create", "description": "alpha: create",
+            },
+            {
+                "resource_id": "bravo", "machine": "db", "resource_type": "file",
+                "action": "no_op", "description": "bravo: no changes",
+            },
+        ]),
+    );
 
     let out = apply_plan(&p, &plan_path);
     let text = combined(&out);
     assert!(out.status.success(), "apply: {text}");
+    assert!(p.alpha.exists(), "the named change must be applied: {text}");
     assert!(
-        p.alpha.exists(),
-        "the named resource must be applied: {text}"
+        text.contains("1 converged, 0 unchanged"),
+        "db must never have been targeted — an unscoped apply would report \
+         bravo as `1 unchanged`: {text}"
     );
+}
+
+/// Refs #358 — the v1 downgrade is NOT an escape hatch.
+///
+/// The completeness check (`the body must name every change the planner finds
+/// pending`) is what refuses a plan with a line deleted out of it. A v1
+/// document needs no forging skill at all — there is no seal to recompute — so
+/// exempting v1 from that check would leave the whole defect open behind a
+/// one-word `"format"` edit.
+///
+/// It costs v1 the ability to be NARROW: `forjar-plan-v1` has no `selectors`
+/// record, so "this plan was written with `-r alpha`" and "someone deleted the
+/// bravo line" are the same document. The format that cannot say which one it
+/// is gets the strict reading, and the remedy is one `forjar plan --out`.
+#[test]
+fn a_v1_plan_cannot_omit_pending_work_either() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = project(dir.path());
+
+    let plan_path = write_v1(
+        &p,
+        dir.path(),
+        serde_json::json!([{
+            "resource_id": "alpha", "machine": "web", "resource_type": "file",
+            "action": "create", "description": "alpha: create",
+        }]),
+    );
+
+    let out = apply_plan(&p, &plan_path);
+    let text = combined(&out);
     assert!(
-        !p.bravo.exists(),
-        "a v1 plan's body is still the executed set: {text}"
+        !out.status.success(),
+        "a v1 body that omits a pending create must not exit 0: {text}"
+    );
+    assert!(text.contains("PLAN_STALE"), "{text}");
+    assert!(text.contains("bravo on db"), "{text}");
+    assert!(
+        !p.alpha.exists() && !p.bravo.exists(),
+        "a refused plan converges nothing: {text}"
     );
 }
 

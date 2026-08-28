@@ -28,8 +28,11 @@
 //! Every test here drives `CARGO_BIN_EXE_forjar`, because the thing that was
 //! wrong is the exit code an operator or a CI job reads.
 
-use forjar::core::plan_seal::digest;
-use forjar::core::types::{ExecutionPlan, PlanAction, PlannedChange, ResourceType};
+#[path = "common/plan_forge.rs"]
+mod plan_forge;
+
+use forjar::core::types::PlanAction;
+use plan_forge::{body, change, combined, read_plan, reseal};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -109,87 +112,6 @@ fn apply_all(p: &Project) -> std::process::Output {
         .expect("run apply")
 }
 
-fn read_plan(path: &Path) -> serde_json::Value {
-    serde_json::from_str(&std::fs::read_to_string(path).expect("read plan")).expect("parse plan")
-}
-
-fn combined(out: &std::process::Output) -> String {
-    format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    )
-}
-
-fn str_at(doc: &serde_json::Value, path: [&str; 2]) -> String {
-    doc[path[0]][path[1]]
-        .as_str()
-        .unwrap_or_else(|| panic!("plan file has no {}.{}", path[0], path[1]))
-        .to_string()
-}
-
-/// THE ADVERSARY.
-///
-/// Rewrite an honest plan's body to a lie and re-seal it with the PUBLIC
-/// `plan_seal::digest` API. `config_hash` and `state_hash` are copied verbatim
-/// from the honest plan, so neither of those legs moves; only the diff leg and
-/// the composition are recomputed, exactly as forjar itself would compute them.
-///
-/// The result is a document that passes every check the seal can perform.
-fn reseal(plan_path: &Path, body: &ExecutionPlan) {
-    let honest = read_plan(plan_path);
-    let config_hash = str_at(&honest, ["seal", "config_hash"]);
-    let state_hash = str_at(&honest, ["seal", "state_hash"]);
-    let sealed_at = honest["seal"]["sealed_at_unix"]
-        .as_u64()
-        .expect("sealed_at");
-    let ttl = honest["seal"]["ttl_secs"].as_u64().expect("ttl");
-
-    let diff_hash = digest::diff_leg(body).expect("diff leg");
-    let seal = digest::compose(&config_hash, &state_hash, &diff_hash, sealed_at, ttl);
-
-    let changes: Vec<serde_json::Value> = body
-        .changes
-        .iter()
-        .map(|c| {
-            serde_json::json!({
-                "resource_id": c.resource_id,
-                "machine": c.machine,
-                "resource_type": c.resource_type,
-                "action": c.action,
-                "description": c.description,
-            })
-        })
-        .collect();
-    let forged = serde_json::json!({
-        "format": "forjar-plan-v2",
-        "config_file": honest["config_file"],
-        "config_hash": config_hash,
-        "name": body.name,
-        "to_create": body.to_create,
-        "to_update": body.to_update,
-        "to_destroy": body.to_destroy,
-        "unchanged": body.unchanged,
-        "execution_order": body.execution_order,
-        "changes": changes,
-        "seal": {
-            "version": honest["seal"]["version"],
-            "plan_id": digest::plan_id(&seal),
-            "config_hash": config_hash,
-            "state_hash": state_hash,
-            "diff_hash": diff_hash,
-            "sealed_at_unix": sealed_at,
-            "ttl_secs": ttl,
-            "seal": seal,
-        },
-    });
-    std::fs::write(
-        plan_path,
-        serde_json::to_string_pretty(&forged).expect("render"),
-    )
-    .expect("write forged plan");
-}
-
 /// RED-1: the reported defect verbatim. An empty change list with all four
 /// counters at zero, re-sealed.
 ///
@@ -206,18 +128,7 @@ fn a_resealed_empty_plan_cannot_certify_that_there_is_nothing_to_do() {
     let plan_path = dir.path().join("p.json");
     assert!(plan_out(&p, &plan_path).status.success());
 
-    reseal(
-        &plan_path,
-        &ExecutionPlan {
-            name: "resealed-zero".to_string(),
-            changes: vec![],
-            execution_order: vec![],
-            to_create: 0,
-            to_update: 0,
-            to_destroy: 0,
-            unchanged: 0,
-        },
-    );
+    reseal(&plan_path, &body("resealed-zero", vec![], &[]));
 
     let out = apply_plan(&p, &plan_path);
     let text = combined(&out);
@@ -253,21 +164,16 @@ fn a_resealed_plan_cannot_relabel_a_pending_create_as_a_no_op() {
 
     reseal(
         &plan_path,
-        &ExecutionPlan {
-            name: "resealed-zero".to_string(),
-            changes: vec![PlannedChange {
-                resource_id: "managed".to_string(),
-                machine: "localhost".to_string(),
-                resource_type: ResourceType::File,
-                action: PlanAction::NoOp,
-                description: "managed: already converged".to_string(),
-            }],
-            execution_order: vec!["managed".to_string()],
-            to_create: 0,
-            to_update: 0,
-            to_destroy: 0,
-            unchanged: 1,
-        },
+        &body(
+            "resealed-zero",
+            vec![change(
+                "managed",
+                "localhost",
+                PlanAction::NoOp,
+                "managed: already converged",
+            )],
+            &["managed"],
+        ),
     );
 
     let out = apply_plan(&p, &plan_path);

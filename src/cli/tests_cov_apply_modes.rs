@@ -167,7 +167,15 @@ mod tests {
         let locks = load_machine_locks(&config, &sd, None).unwrap();
         let plan = planner::plan(&config, &order, &locks, None);
         let plan_path = d.path().join("plan.json");
-        save_plan_file(&plan, &config, &cfg, &sd, &plan_path).unwrap();
+        save_plan_file(
+            &plan,
+            &crate::core::plan_selectors::PlanSelectors::default(),
+            &config,
+            &cfg,
+            &sd,
+            &plan_path,
+        )
+        .unwrap();
 
         let r = run_apply(&[
             "-f",

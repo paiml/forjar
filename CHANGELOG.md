@@ -27,15 +27,16 @@ the reviewed plan and applies nothing.
 
 `-m` **intersects** the reviewed scope — a selector on `--plan-file` may only
 narrow the reviewed delta, never widen it — and an EMPTY intersection is now an
-error naming the machines the plan does cover, rather than an apply of nothing
-that exits 0.
+error naming what the plan does cover, rather than an apply of nothing that
+exits 0. The other three selectors join it below.
 
-**A re-sealed plan could still claim "no changes".** The seal is an unkeyed
-BLAKE3 hash, so anyone who can run `forjar` can compute one: copy `config_hash`
-and `state_hash` verbatim out of an honest plan (neither leg moves), empty the
-change list, zero the four counters, recompute the diff leg and the composition
-through the public `plan_seal::digest` API, and `apply --plan-file` printed
-`Plan has no changes to apply.` and exited 0 with a create still pending.
+**A re-sealed plan could still claim "no changes", and the first fix closed
+only the empty case.** The seal is an unkeyed BLAKE3 hash, so anyone who can run
+`forjar` can compute one: copy `config_hash` and `state_hash` verbatim out of an
+honest plan (neither leg moves), rewrite the body, recompute the diff leg and
+the composition through the public `plan_seal::digest` API, and `apply
+--plan-file` printed `Plan has no changes to apply.` and exited 0 with a create
+still pending.
 
 The 1.20.1-era claim that `check_body_partition` "still refuses a
 zero-the-counters edit whose author ALSO recomputed the seal" was **false** and
@@ -43,18 +44,110 @@ has been deleted from the module docs. `0/0/0/0` over an EMPTY change list
 partitions perfectly well; that check catches a plan claiming zero *while
 listing several*, and the attack empties the list.
 
-The hole is closed where it can be closed without a key: `apply --plan-file`
-now **re-plans and compares**. It already holds the config and the state, so
-the planner is nearly free to run, and for every `(machine, resource)` the plan
-file names the planner must agree about the action. A plan file whose body
-names nothing at all is honest only when the planner also finds nothing
-pending. No adversary can make the real planner return `NoOp` while a create is
-pending. The comparison is over the PLAN's pairs, not the planner's, so a
-legitimately filtered plan (`plan -r`, `-m`, `-g`, `-t`) is still honoured.
+The repair for that — `apply --plan-file` re-plans and compares — was right, but
+the clause covering an empty body keyed off `plan.changes.is_empty()`, a
+syntactic accident. What decides whether anything executes is
+`PlanScope::from_plan`, which skips `NoOp`. So on a PARTIALLY converged stack
+— every real deployment — the same attack works without emptying anything:
+delete the one pending line and keep an honest `no_op` line beside it. Counters
+still partition (0/0/0/1), the list is not empty, the scope is:
+
+```
+$ forjar apply --plan-file forged_delete.json --yes
+Plan has no changes to apply.
+exit=0                                    # alpha STILL PENDING
+```
+
+The obvious repair — use `scope.is_empty()`, the predicate three lines below —
+is **wrong**, and the reason is the interesting part of this fix. `forjar plan
+-r bravo --out` over an already-converged `bravo` writes `changes: [bravo
+no_op]`, counters `0/0/0/1`, empty scope: the SAME DOCUMENT, byte for byte.
+That plan applies cleanly today and must keep doing so, or every idempotent CI
+loop over a filtered plan starts failing. No predicate over the document can
+separate a narrow plan from an edited one, because the format could not say
+which it was.
+
+So the format says it now. `forjar-plan-v2` carries a `selectors` record —
+the `-m`/`-r`/`-t`/`-g` the plan was written under — sealed into the diff leg,
+and `apply --plan-file` re-plans **through those selectors** and requires
+agreement in BOTH directions:
+
+- every pair the body NAMES must carry the action the planner gives it (catches
+  relabelling a create as `no_op`);
+- every non-`NoOp` change the planner PRODUCES must be named by the body
+  (catches deleting the line instead, and catches emptying the list).
+
+Two directions, one predicate, and no special case for emptiness — which is what
+the two evaded checks both were. `plan` and `apply --plan-file` now compute
+their plans through ONE function (`cli::plan_compute::plan_filtered`), because a
+second spelling of "the planner plus the four selectors" would make the
+comparison fire on plans nobody edited.
+
+A forger can still re-seal a document that DECLARES itself narrow, and the
+planner will honestly agree with it. What they can no longer do is that
+invisibly: the claim has to be in the file, and an empty-scope apply of a
+filtered plan now prints the work it is not doing —
+
+```
+Plan has no changes to apply.
+note: this plan is filtered (-r bravo) and asks for nothing. 1 change(s)
+      OUTSIDE its filter are still pending: alpha on web (CREATE).
+```
 
 The seal remains what `core::plan_seal` always said it was — integrity, not
 authentication. Two-phase *authorization* would need a keyed hash or
 `cli::pq_signing`, and is a different feature.
+
+**A `forjar-plan-v1` document can no longer be narrow.** v1 has no `selectors`
+record and never will, so "written with `-r alpha`" and "someone deleted the
+bravo line" are the same document — and a v1 forgery needs no skill at all,
+since there is no seal to recompute. Exempting v1 from the completeness check
+would have left the whole defect open behind a one-word `"format"` edit, so v1
+gets the strict reading: its body must name every change the planner finds
+pending. The remedy is one `forjar plan --out`, which writes v2.
+
+**`apply --plan-file` silently dropped every apply flag except `-m`.** The
+`ApplyConfig` it built took exactly one field from the invocation; the other
+fifteen were hard-coded:
+
+```
+$ forjar apply -f forjar.yaml --plan-file p.json --yes -r alpha
+Plan applied: 2 converged, 0 unchanged, 0 failed      # bravo converged too
+```
+
+and the same for `-t`, `-g`, `--progress`, `--force`, `--timeout`, `--retry`,
+`--parallel`, `--max-parallel`, `--resource-timeout`, `--rollback-on-failure`,
+`--trace`, `--refresh`, `--force-unlock` and `--force-tag`. An operator who
+believed `--rollback-on-failure` was armed on a plan apply was wrong, silently.
+Worse, the doc comment written to fix an earlier FALSE-comment defect supplied a
+rationale for it — that the selectors "were already applied when the plan body
+was written". True of how the plan was produced; no reason at all to ignore a
+flag the operator is passing NOW.
+
+Each flag is now decided rather than dropped:
+
+- **Selectors** — `-m`, `-r`, `-t`, `-g` INTERSECT the reviewed scope. A
+  selector may only narrow a reviewed delta, never widen it, and the executor
+  already intersects all four with the scope. An EMPTY intersection is an error
+  naming what the plan covers, because converging nothing at exit 0 is the
+  silent green this whole issue is about. `--dry-run` previews the same
+  narrowed set the real run would converge.
+- **Knobs** — `--progress`, `--timeout`, `--retry`, `--parallel`,
+  `--max-parallel`, `--resource-timeout`, `--rollback-on-failure`,
+  `--force-unlock` and `--trace` say HOW the reviewed delta executes and are
+  passed straight through. There was never a reason not to.
+- **Re-planners** — `--force`, `--force-tag` and `--refresh` are now REFUSED
+  with `--plan-file`. They clear the lock entries the planner reads, so they
+  change what the delta IS: `--force-tag`/`--refresh` can make a resource
+  reviewed as `update` execute as `create`, and `--force` defeats the scope
+  outright, because `PlanScope` demotes out-of-scope changes to `NoOp` so
+  `triggers` still fire and `should_skip_single` skips a `NoOp` only
+  `if !cfg.force`. Refusing costs one re-run; ignoring cost the belief that a
+  reviewed plan executed.
+
+GH-208 rides along: the plan path was handed `args.dry_run` alone, so
+`--plan-file --dry-run-json` converged for real. It takes the whole dry-run
+family now.
 
 ## [1.21.1] — 2026-08-29
 

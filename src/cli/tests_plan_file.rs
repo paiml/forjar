@@ -2,6 +2,7 @@
 //! added to them.
 
 use super::plan_file::*;
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::types::*;
 use std::path::Path;
 
@@ -65,6 +66,7 @@ resources:
         let config = make_test_config();
         save_plan_file(
             &make_test_plan(),
+            &PlanSelectors::default(),
             &config,
             Path::new("forjar.yaml"),
             dir.path(),

@@ -6,13 +6,14 @@
 //! |--------|------------------------------------------------------------|
 //! | config | the `forjar.yaml` it was planned from                       |
 //! | state  | the lock files it READ to decide create vs update vs no-op  |
-//! | diff   | its own body — the change list and the counters             |
+//! | diff   | its own body — the changes, the counters, and the selectors |
 //!
 //! Only the config leg shipped before (`core::config_hash`, GH-212). A plan
 //! whose config hash still matched could nonetheless be stale (the lock moved
 //! under it) or edited (the body is plain JSON), and both were accepted.
 
 use crate::core::config_hash;
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::state;
 use crate::core::types::{ExecutionPlan, ForjarConfig};
 use std::path::Path;
@@ -86,17 +87,33 @@ fn absorb_lock(hasher: &mut blake3::Hasher, path: &Path) -> Result<(), String> {
     }
 }
 
-/// Leg 3 — the plan body itself.
+/// Leg 3 — the plan body itself, and the selectors it was produced under.
 ///
-/// `ExecutionPlan`/`PlannedChange` hold only `String`, `Vec` and `u32` — no
-/// maps — so `serde_json` emits struct fields in declaration order and is
-/// already canonical. Nothing extra is needed to make this reproducible.
-pub fn diff_leg(plan: &ExecutionPlan) -> Result<String, String> {
+/// `ExecutionPlan`/`PlannedChange`/`PlanSelectors` hold only `String`, `Vec`,
+/// `Option<String>` and `u32` — no maps — so `serde_json` emits struct fields
+/// in declaration order and is already canonical. Nothing extra is needed to
+/// make this reproducible.
+///
+/// # Refs #358 — why the selectors are in HERE rather than in a fourth leg
+///
+/// They answer the question this leg already asks: *was this document's body
+/// edited?* `PlanSelectors` is not an input the planner read from the world —
+/// it is part of what the document ASSERTS about itself, exactly like the
+/// counters, and `apply --plan-file` re-plans under it. A fourth leg would need
+/// its own [`super::Leg`] variant, its own remedy sentence and its own slot in
+/// [`compose`] to say the same thing the `diff` leg's remedy already says.
+///
+/// The two are framed apart inside the hash, so a change list that happens to
+/// serialise to the same bytes as a selector record cannot be swapped for one.
+pub fn diff_leg(plan: &ExecutionPlan, selectors: &PlanSelectors) -> Result<String, String> {
     let body = serde_json::to_vec(plan).map_err(|e| format!("serialize plan: {e}"))?;
+    let sel = serde_json::to_vec(selectors).map_err(|e| format!("serialize selectors: {e}"))?;
     let mut hasher = blake3::Hasher::new();
     hasher.update(SEAL_DOMAIN.as_bytes());
     hasher.update(b"\0diff\0");
     hasher.update(&body);
+    hasher.update(b"\0selectors\0");
+    hasher.update(&sel);
     Ok(format!("blake3:{}", hasher.finalize().to_hex()))
 }
 

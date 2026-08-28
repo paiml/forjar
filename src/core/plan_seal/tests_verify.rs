@@ -6,6 +6,27 @@ use super::*;
 
 const T0: u64 = 1_000_000;
 
+/// The unfiltered selector record — what a plan written without
+/// `-m`/`-r`/`-t`/`-g` carries into the diff leg.
+fn unfiltered() -> PlanSelectors {
+    PlanSelectors::default()
+}
+
+/// Refs #358: the selector record is sealed, so re-labelling a whole-stack plan
+/// as a narrow one — the edit that would otherwise make the re-plan check agree
+/// with a forgery — moves the diff leg.
+#[test]
+fn editing_the_selectors_alone_breaks_the_diff_leg() {
+    let d = seeded_state();
+    let config = cfg("one");
+    let plan = plan_of(1);
+    let sealed = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
+    let narrow = PlanSelectors::new(None, Some("a"), None, None);
+    let err = verify_at(&sealed, &plan, &narrow, &config, d.path(), T0).unwrap_err();
+    assert_eq!(err.code(), "PLAN_HASH_MISMATCH");
+    assert!(err.to_string().contains("diff leg"), "{err}");
+}
+
 fn seeded_state() -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     let path = crate::core::state::lock_file_path(d.path(), "alpha");
@@ -19,10 +40,17 @@ fn an_untouched_seal_verifies() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(2);
-    let sealed = seal_at(&plan, &config, d.path(), None, T0).unwrap();
+    let sealed = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
     assert_eq!(sealed.version, SEAL_VERSION);
     assert_eq!(
-        verify_at(&sealed, &plan, &config, d.path(), T0 + 10_000_000),
+        verify_at(
+            &sealed,
+            &plan,
+            &unfiltered(),
+            &config,
+            d.path(),
+            T0 + 10_000_000
+        ),
         Ok(()),
         "with no TTL requested, age alone never invalidates a plan"
     );
@@ -33,12 +61,12 @@ fn two_seals_of_the_same_inputs_are_identical() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(2);
-    let a = seal_at(&plan, &config, d.path(), None, T0).unwrap();
+    let a = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
     for _ in 0..50 {
-        let b = seal_at(&plan, &config, d.path(), None, T0).unwrap();
+        let b = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
         assert_eq!(a, b, "sealing is deterministic — no RNG, no clock read");
     }
-    let later = seal_at(&plan, &config, d.path(), None, T0 + 1).unwrap();
+    let later = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0 + 1).unwrap();
     assert_eq!(a.config_hash, later.config_hash);
     assert_eq!(a.state_hash, later.state_hash);
     assert_eq!(a.diff_hash, later.diff_hash);
@@ -49,8 +77,8 @@ fn two_seals_of_the_same_inputs_are_identical() {
 fn a_changed_config_names_the_config_leg() {
     let d = seeded_state();
     let plan = plan_of(1);
-    let sealed = seal_at(&plan, &cfg("one"), d.path(), None, T0).unwrap();
-    let err = verify_at(&sealed, &plan, &cfg("two"), d.path(), T0).unwrap_err();
+    let sealed = seal_at(&plan, &unfiltered(), &cfg("one"), d.path(), None, T0).unwrap();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &cfg("two"), d.path(), T0).unwrap_err();
     assert_eq!(err.code(), "PLAN_HASH_MISMATCH");
     assert!(matches!(
         err,
@@ -67,7 +95,7 @@ fn a_lock_rewritten_after_sealing_names_the_state_leg() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let sealed = seal_at(&plan, &config, d.path(), None, T0).unwrap();
+    let sealed = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
 
     std::fs::write(
         crate::core::state::lock_file_path(d.path(), "alpha"),
@@ -75,7 +103,7 @@ fn a_lock_rewritten_after_sealing_names_the_state_leg() {
     )
     .unwrap();
 
-    let err = verify_at(&sealed, &plan, &config, d.path(), T0).unwrap_err();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0).unwrap_err();
     assert!(matches!(
         err,
         SealError::PlanHashMismatch {
@@ -90,8 +118,8 @@ fn a_lock_rewritten_after_sealing_names_the_state_leg() {
 fn an_edited_body_names_the_diff_leg() {
     let d = seeded_state();
     let config = cfg("one");
-    let sealed = seal_at(&plan_of(2), &config, d.path(), None, T0).unwrap();
-    let err = verify_at(&sealed, &plan_of(1), &config, d.path(), T0).unwrap_err();
+    let sealed = seal_at(&plan_of(2), &unfiltered(), &config, d.path(), None, T0).unwrap();
+    let err = verify_at(&sealed, &plan_of(1), &unfiltered(), &config, d.path(), T0).unwrap_err();
     assert!(matches!(
         err,
         SealError::PlanHashMismatch { leg: Leg::Diff, .. }
@@ -103,10 +131,10 @@ fn moving_the_expiry_is_a_hash_mismatch_not_a_longer_life() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let mut sealed = seal_at(&plan, &config, d.path(), Some(60), T0).unwrap();
+    let mut sealed = seal_at(&plan, &unfiltered(), &config, d.path(), Some(60), T0).unwrap();
     sealed.ttl_secs = MAX_TTL_SECS;
 
-    let err = verify_at(&sealed, &plan, &config, d.path(), T0).unwrap_err();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0).unwrap_err();
     assert_eq!(err.code(), "PLAN_HASH_MISMATCH");
     assert!(
         matches!(err, SealError::PlanHashMismatch { leg: Leg::Seal, .. }),
@@ -119,10 +147,10 @@ fn backdating_the_seal_is_a_hash_mismatch() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let mut sealed = seal_at(&plan, &config, d.path(), Some(60), T0).unwrap();
+    let mut sealed = seal_at(&plan, &unfiltered(), &config, d.path(), Some(60), T0).unwrap();
     sealed.sealed_at_unix = T0 + 10_000;
     assert!(matches!(
-        verify_at(&sealed, &plan, &config, d.path(), T0).unwrap_err(),
+        verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0).unwrap_err(),
         SealError::PlanHashMismatch { leg: Leg::Seal, .. }
     ));
 }
@@ -132,14 +160,14 @@ fn an_expired_plan_is_rejected_without_touching_the_clock() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let sealed = seal_at(&plan, &config, d.path(), Some(900), T0).unwrap();
+    let sealed = seal_at(&plan, &unfiltered(), &config, d.path(), Some(900), T0).unwrap();
 
-    assert!(verify_at(&sealed, &plan, &config, d.path(), T0 + 899).is_ok());
+    assert!(verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0 + 899).is_ok());
     assert!(
-        verify_at(&sealed, &plan, &config, d.path(), T0 + 900).is_ok(),
+        verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0 + 900).is_ok(),
         "expiry is inclusive of sealed_at + ttl"
     );
-    let err = verify_at(&sealed, &plan, &config, d.path(), T0 + 901).unwrap_err();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0 + 901).unwrap_err();
     assert_eq!(err.code(), "PLAN_EXPIRED");
     assert!(err.to_string().contains("expired at 1000900"), "{err}");
 }
@@ -149,9 +177,9 @@ fn an_unknown_seal_version_is_refused_outright() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let mut sealed = seal_at(&plan, &config, d.path(), None, T0).unwrap();
+    let mut sealed = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
     sealed.version = "forjar-plan-seal-v99".to_string();
-    let err = verify_at(&sealed, &plan, &config, d.path(), T0).unwrap_err();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0).unwrap_err();
     assert_eq!(err.code(), "PLAN_VERSION_UNKNOWN");
 }
 
@@ -164,8 +192,8 @@ fn counters_that_contradict_the_change_list_are_malformed() {
 
     // Sealed over the LIE, so every hash matches — the structural check is the
     // only thing standing between a re-sealed edit and a silent no-op apply.
-    let sealed = seal_at(&plan, &config, d.path(), None, T0).unwrap();
-    let err = verify_at(&sealed, &plan, &config, d.path(), T0).unwrap_err();
+    let sealed = seal_at(&plan, &unfiltered(), &config, d.path(), None, T0).unwrap();
+    let err = verify_at(&sealed, &plan, &unfiltered(), &config, d.path(), T0).unwrap_err();
     assert_eq!(err.code(), "PLAN_MALFORMED");
     assert!(err.to_string().contains("to_create"), "{err}");
 }
@@ -201,7 +229,15 @@ fn ttl_is_clamped_and_zero_means_no_expiry() {
 #[test]
 fn the_clamped_ttl_is_what_gets_sealed() {
     let d = seeded_state();
-    let sealed = seal_at(&plan_of(1), &cfg("one"), d.path(), Some(5), T0).unwrap();
+    let sealed = seal_at(
+        &plan_of(1),
+        &unfiltered(),
+        &cfg("one"),
+        d.path(),
+        Some(5),
+        T0,
+    )
+    .unwrap();
     assert_eq!(
         sealed.ttl_secs, MIN_TTL_SECS,
         "the ACTUAL lifetime is sealed, never the raw request"
@@ -213,9 +249,9 @@ fn seal_uses_the_system_clock_and_verify_agrees_with_it() {
     let d = seeded_state();
     let config = cfg("one");
     let plan = plan_of(1);
-    let sealed = seal(&plan, &config, d.path(), Some(MAX_TTL_SECS)).unwrap();
+    let sealed = seal(&plan, &unfiltered(), &config, d.path(), Some(MAX_TTL_SECS)).unwrap();
     assert!(sealed.sealed_at_unix > 1_700_000_000, "a real wall clock");
-    assert!(verify(&sealed, &plan, &config, d.path()).is_ok());
+    assert!(verify(&sealed, &plan, &unfiltered(), &config, d.path()).is_ok());
 }
 
 #[test]

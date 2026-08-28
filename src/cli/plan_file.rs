@@ -16,12 +16,19 @@
 //! the planner READ, and the body itself. See `core::plan_seal` for what that
 //! does and does not prove.
 //!
+//! It also carries a `selectors` object — the `-m`/`-r`/`-t`/`-g` the plan was
+//! produced under — sealed with the body. `apply --plan-file` re-plans under it
+//! to check what the document claims, and without it a legitimate `plan -r X
+//! --out` over a converged X is byte-identical to an honest whole-stack plan
+//! with the pending lines deleted out of it.
+//!
 //! v1 documents still load, with a warning: their config check is real, and
 //! refusing them outright would strand plans written by an installed binary.
 //! There is no silent downgrade in the other direction — a v2 document whose
 //! seal does not verify is an error, never a fallback to v1 checking.
 
 use crate::core::plan_seal::{self, PlanSeal};
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::types;
 use std::path::Path;
 
@@ -43,6 +50,12 @@ pub(crate) struct LoadedPlan {
     /// document, and acting on the second is how a requested apply exits 0
     /// having done nothing.
     pub sealed: bool,
+    /// Refs #358: the filters this plan was produced under.
+    ///
+    /// The caller re-plans under exactly these to decide whether the body is
+    /// still true. A v1 document has no record and reads back unfiltered, which
+    /// is the strictest reading available for it.
+    pub selectors: PlanSelectors,
 }
 
 /// FJ-1250: Save an execution plan to a JSON file, sealed against the config,
@@ -54,12 +67,13 @@ pub(crate) struct LoadedPlan {
 /// far better staleness signal than an age in seconds.
 pub(crate) fn save_plan_file(
     plan: &types::ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &types::ForjarConfig,
     config_path: &Path,
     state_dir: &Path,
     out_path: &Path,
 ) -> Result<(), String> {
-    let sealed = plan_seal::seal(plan, config, state_dir, None)?;
+    let sealed = plan_seal::seal(plan, selectors, config, state_dir, None)?;
 
     let changes: Vec<serde_json::Value> = plan
         .changes
@@ -90,6 +104,9 @@ pub(crate) fn save_plan_file(
         "unchanged": plan.unchanged,
         "execution_order": plan.execution_order,
         "changes": changes,
+        // Refs #358: what this plan was filtered by, so `apply --plan-file` can
+        // recompute the plan it claims to be rather than guessing.
+        "selectors": selectors,
         "seal": sealed,
     });
 
@@ -179,6 +196,25 @@ fn plan_body_from_doc(doc: &serde_json::Value) -> Result<types::ExecutionPlan, S
     })
 }
 
+/// Read the selector record back.
+///
+/// An ABSENT `selectors` key reads as the unfiltered record, which is both the
+/// v1 case and the strictest reading: a document that does not claim to be
+/// narrow is held to the whole config. It is not a silent default for v2 — the
+/// record is inside the diff leg, so a v2 document that omits it verifies only
+/// if it was sealed unfiltered.
+///
+/// A `selectors` value that is not a valid record is an error rather than a
+/// fallback to unfiltered: falling back would run the comparison under filters
+/// the document did not ask for.
+fn selectors_from_doc(doc: &serde_json::Value) -> Result<PlanSelectors, String> {
+    let Some(raw) = doc.get("selectors") else {
+        return Ok(PlanSelectors::default());
+    };
+    serde_json::from_value(raw.clone())
+        .map_err(|e| format!("PLAN_MALFORMED: unreadable plan selectors: {e}"))
+}
+
 /// Reject a plan whose config hash no longer matches the config being applied.
 fn check_config_hash(doc: &serde_json::Value, config: &types::ForjarConfig) -> Result<(), String> {
     let stored_hash = plan_str(doc, "config_hash", "");
@@ -212,6 +248,7 @@ fn check_v1(
 fn check_v2(
     doc: &serde_json::Value,
     plan: &types::ExecutionPlan,
+    selectors: &PlanSelectors,
     config: &types::ForjarConfig,
     state_dir: &Path,
 ) -> Result<(), String> {
@@ -225,7 +262,7 @@ fn check_v2(
             "PLAN_MALFORMED: the plan's config_hash disagrees with its own seal".to_string(),
         );
     }
-    plan_seal::verify(&sealed, plan, config, state_dir).map_err(|e| e.to_string())
+    plan_seal::verify(&sealed, plan, selectors, config, state_dir).map_err(|e| e.to_string())
 }
 
 /// FJ-1250: Load a saved plan file and verify it against the live world.
@@ -250,10 +287,15 @@ pub(crate) fn load_plan_file(
     };
 
     let plan = plan_body_from_doc(&doc)?;
+    let selectors = selectors_from_doc(&doc)?;
     if sealed {
-        check_v2(&doc, &plan, config, state_dir)?;
+        check_v2(&doc, &plan, &selectors, config, state_dir)?;
     } else {
         check_v1(&doc, &plan, config)?;
     }
-    Ok(LoadedPlan { plan, sealed })
+    Ok(LoadedPlan {
+        plan,
+        sealed,
+        selectors,
+    })
 }

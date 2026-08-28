@@ -1,6 +1,7 @@
 //! Unit tests for the three legs and the composition.
 
 use super::digest::*;
+use crate::core::plan_selectors::PlanSelectors;
 use crate::core::types::{ExecutionPlan, ForjarConfig, PlanAction, PlannedChange, ResourceType};
 use std::path::Path;
 
@@ -98,15 +99,47 @@ fn state_leg_ignores_a_machine_the_config_does_not_declare() {
     assert_eq!(before, state_leg(&config, d.path()).unwrap());
 }
 
+/// The unfiltered selector record, which is what every plan not written with
+/// `-m`/`-r`/`-t`/`-g` carries.
+fn unfiltered() -> PlanSelectors {
+    PlanSelectors::default()
+}
+
+/// Refs #358: the diff leg covers the SELECTORS as well as the body, so a
+/// document that relabels itself "this was a `-r bravo` plan" to make the
+/// re-plan agree with it is a hash mismatch rather than a quiet success.
+#[test]
+fn diff_leg_changes_with_the_selectors() {
+    let plan = plan_of(1);
+    let narrow = PlanSelectors::new(None, Some("bravo"), None, None);
+    assert_ne!(
+        diff_leg(&plan, &unfiltered()).unwrap(),
+        diff_leg(&plan, &narrow).unwrap(),
+        "the selectors are part of the sealed body"
+    );
+}
+
+/// Framing: a selector record must not be swappable for a change list that
+/// happens to serialise to the same bytes.
+#[test]
+fn the_body_and_the_selectors_are_framed_apart() {
+    let a = PlanSelectors::new(Some("web"), None, None, None);
+    let b = PlanSelectors::new(None, Some("web"), None, None);
+    assert_ne!(
+        diff_leg(&plan_of(1), &a).unwrap(),
+        diff_leg(&plan_of(1), &b).unwrap()
+    );
+}
+
 #[test]
 fn diff_leg_changes_with_the_body() {
     assert_eq!(
-        diff_leg(&plan_of(1)).unwrap(),
-        diff_leg(&plan_of(1)).unwrap()
+        diff_leg(&plan_of(1), &unfiltered()).unwrap(),
+        diff_leg(&plan_of(1), &unfiltered()).unwrap()
     );
     assert_ne!(
-        diff_leg(&plan_of(1)).unwrap(),
-        diff_leg(&plan_of(2)).unwrap()
+        diff_leg(&plan_of(1), &unfiltered()).unwrap(),
+        diff_leg(&plan_of(2), &unfiltered()).unwrap()
     );
 }
 
@@ -116,8 +149,8 @@ fn diff_leg_changes_when_only_a_counter_is_edited() {
     let mut lying = honest.clone();
     lying.to_create = 0;
     assert_ne!(
-        diff_leg(&honest).unwrap(),
-        diff_leg(&lying).unwrap(),
+        diff_leg(&honest, &unfiltered()).unwrap(),
+        diff_leg(&lying, &unfiltered()).unwrap(),
         "the counters are part of the sealed body"
     );
 }
@@ -165,11 +198,11 @@ fn legs_are_stable_across_repeated_computation() {
     let first = (
         config_leg(&config).unwrap(),
         state_leg(&config, d.path()).unwrap(),
-        diff_leg(&plan).unwrap(),
+        diff_leg(&plan, &unfiltered()).unwrap(),
     );
     for _ in 0..50 {
         assert_eq!(config_leg(&config).unwrap(), first.0);
         assert_eq!(state_leg(&config, d.path()).unwrap(), first.1);
-        assert_eq!(diff_leg(&plan).unwrap(), first.2);
+        assert_eq!(diff_leg(&plan, &unfiltered()).unwrap(), first.2);
     }
 }
