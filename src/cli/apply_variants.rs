@@ -348,6 +348,27 @@ pub(crate) fn cmd_apply_dry_run_cost(
     Ok(())
 }
 
+/// Refs #358: "this plan has no changes" is only an instruction worth obeying
+/// when something vouches for the body that says it.
+///
+/// A `forjar-plan-v1` document's counters are unauthenticated JSON sitting
+/// under a valid `config_hash`, so obeying a zero there is how a requested
+/// apply prints a benign sentence and exits 0 having converged nothing — an
+/// operator or CI job reading the exit code sees a successful apply over a
+/// machine nothing was done to. A sealed body may legitimately say zero.
+fn check_empty_plan_is_trustworthy(sealed: bool) -> Result<(), String> {
+    if sealed {
+        return Ok(());
+    }
+    Err(format!(
+        "this '{}' plan file reports no changes, but its body is unsealed — forjar will \
+         not report a successful apply on the word of an unauthenticated counter. \
+         Re-run `forjar plan --out` to write a sealed '{}' plan.",
+        super::plan_file::FORMAT_V1,
+        super::plan_file::FORMAT_V2,
+    ))
+}
+
 /// FJ-1250: Execute a previously saved plan file.
 /// Validates config hash matches, then runs the planned changes.
 ///
@@ -395,7 +416,8 @@ pub(crate) fn cmd_apply_from_plan(
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
 
-    let plan = load_plan_file(plan_path, &config)?;
+    let loaded = load_plan_file(plan_path, &config, state_dir)?;
+    let plan = loaded.plan;
     let n_changes = plan.to_create + plan.to_update + plan.to_destroy;
 
     if verbose {
@@ -406,6 +428,7 @@ pub(crate) fn cmd_apply_from_plan(
     }
 
     if n_changes == 0 {
+        check_empty_plan_is_trustworthy(loaded.sealed)?;
         println!("Plan has no changes to apply.");
         return Ok(());
     }

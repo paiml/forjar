@@ -68,7 +68,7 @@ fn save_plan_for(cfg: &Path, sd: &Path, ws: Option<&str>, out: &Path) {
     let order = resolver::build_execution_order(&config).unwrap();
     let locks = load_machine_locks(&config, sd, None).unwrap();
     let plan = planner::plan(&config, &order, &locks, None);
-    save_plan_file(&plan, &config, cfg, out).unwrap();
+    save_plan_file(&plan, &config, cfg, sd, out).unwrap();
 }
 
 #[cfg(test)]
@@ -223,8 +223,9 @@ mod tests {
         // Mutate the config after the plan was saved → hash mismatch.
         write_cfg(dir.path(), &target, "v2-changed");
         let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
-        assert!(r.is_err());
-        assert!(r.unwrap_err().contains("config has changed"));
+        let err = r.unwrap_err();
+        assert!(err.starts_with("PLAN_HASH_MISMATCH:"), "{err}");
+        assert!(err.contains("config leg"), "{err}");
     }
 
     #[test]

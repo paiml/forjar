@@ -92,7 +92,7 @@ pub(crate) fn cmd_plan(
     // that IS load-bearing is at execution, and it now runs there —
     // `cmd_apply_from_plan` checks before it reads the plan file at all.
     if let Some(out_path) = plan_out {
-        super::plan_file::save_plan_file(&plan, &config, file, out_path)?;
+        super::plan_file::save_plan_file(&plan, &config, file, state_dir, out_path)?;
         println!("Plan saved to {}", out_path.display());
         return Ok(());
     }
