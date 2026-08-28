@@ -125,8 +125,11 @@ fn test_should_ignore_drift_returns_true_with_wildcard() {
     assert!(should_ignore_drift("cfg", &resources));
 }
 
+/// forjar#335: this test used to assert `true` — a narrowed field list was the
+/// broadest exemption forjar could express. `["content", "mode"]` disabled
+/// owner, group, existence and image drift too. Only the wildcard suppresses.
 #[test]
-fn test_should_ignore_drift_returns_true_with_specific_fields() {
+fn test_should_ignore_drift_returns_false_with_narrowed_field_list() {
     let mut resources = indexmap::IndexMap::new();
     resources.insert(
         "cfg".to_string(),
@@ -134,6 +137,23 @@ fn test_should_ignore_drift_returns_true_with_specific_fields() {
             prevent_destroy: false,
             create_before_destroy: false,
             ignore_drift: vec!["content".to_string(), "mode".to_string()],
+        })),
+    );
+
+    assert!(!should_ignore_drift("cfg", &resources));
+}
+
+/// The wildcard wins in a list that also names fields — it says everything,
+/// and the named fields are a subset of everything.
+#[test]
+fn test_should_ignore_drift_returns_true_when_wildcard_is_mixed_with_fields() {
+    let mut resources = indexmap::IndexMap::new();
+    resources.insert(
+        "cfg".to_string(),
+        make_file_resource(Some(LifecycleRules {
+            prevent_destroy: false,
+            create_before_destroy: false,
+            ignore_drift: vec!["*".to_string(), "mode".to_string()],
         })),
     );
 
