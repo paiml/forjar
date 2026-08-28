@@ -8,6 +8,10 @@
 #   security: cargo audit (ubuntu-latest, continue-on-error)
 #   provenance: SLSA attest-build-provenance
 #   gate: aggregates test+lint results
+#
+#   NOTE: sovereign-ci compiles NO doctests. Its test job is hard-scoped to
+#   `cargo test --lib` and, with use_nextest: true, is run by cargo-nextest,
+#   which cannot execute doctests at all. See the `doctests` job below (#318).
 name: CI
 
 on:
@@ -75,11 +79,31 @@ jobs:
       - name: Library must build with every default feature off
         run: cargo check --locked --no-default-features --lib
 
+  # Regression guard (#318): no PR job compiled a single one of this crate's 87
+  # doctests. sovereign-ci's `test` is hard-scoped to `cargo test --lib` and, with
+  # use_nextest: true, is run by cargo-nextest, which cannot execute doctests at
+  # all; `lockfile` is --no-verify and `examples-validate` selects one integration
+  # target. Doctests were therefore first compiled at the clean-room release gate
+  # (GATE B3), where one wrong ``` fence costs a full release cycle — which is how
+  # paiml/forjar#315 passed every PR check and then failed the release.
+  # sovereign-ci has no doctest input and `--doc` cannot ride in on `test_args`,
+  # because it conflicts with that job's `--lib` target selection. So the PR lane
+  # needs its own job. Deterministic and offline; ~8s of doctests once built.
+  doctests:
+    name: doctests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Compile and run every doctest
+        run: cargo test --locked --doc
+
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".
   gate:
     runs-on: ubuntu-latest
-    needs: [ci, lockfile, examples-validate, no-default-features]
+    needs: [ci, lockfile, examples-validate, no-default-features, doctests]
     if: always()
     steps:
       - name: Check required jobs
@@ -98,6 +122,10 @@ jobs:
           fi
           if [ "${{ needs.no-default-features.result }}" != "success" ]; then
             echo "no-default-features failed: ${{ needs.no-default-features.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.doctests.result }}" != "success" ]; then
+            echo "doctests failed: ${{ needs.doctests.result }}"
             exit 1
           fi
           echo "All required jobs passed"
