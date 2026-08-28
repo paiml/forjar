@@ -44,117 +44,18 @@
 
 use std::path::{Path, PathBuf};
 
+#[path = "common/contract_citations.rs"]
+mod citations;
+use citations::{citations_in, contract_files, contracts_dir, repo_root, Citation};
+
 /// Files under `contracts/` that are deliberately NOT contracts.
 ///
-/// `binding.yaml` is a binding REGISTRY, not a contract; it gets its own
-/// resolution test at the bottom of this file.
-const NOT_CONTRACTS: &[&str] = &["binding.yaml"];
-
 /// The keys whose value IS a citation. See the boundary note in the header.
 const CITATION_KEYS: &[&str] = &[
     "falsification_tests[].test",
     "proof_obligations[].enforced_by",
     "proof_obligations[].discharged_by",
 ];
-
-/// A resolved reference into the source tree: a repo-relative `.rs` path and,
-/// optionally, the item inside it. A trailing `*` on the item is a prefix.
-#[derive(Debug)]
-struct Citation {
-    file: String,
-    item: Option<String>,
-}
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
-}
-
-fn contracts_dir() -> PathBuf {
-    repo_root().join("contracts")
-}
-
-fn contract_files() -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = std::fs::read_dir(contracts_dir())
-        .expect("contracts/ must exist")
-        .filter_map(Result::ok)
-        .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
-        .filter(|p| {
-            let name = p.file_name().unwrap_or_default().to_string_lossy();
-            !NOT_CONTRACTS.contains(&name.as_ref())
-        })
-        .collect();
-    files.sort();
-    files
-}
-
-fn is_path_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-')
-}
-
-/// The `.rs` path ending at `end` (exclusive), walking back over path chars.
-fn path_ending_at(s: &str, end: usize) -> Option<String> {
-    let head = &s[..end];
-    let start = head
-        .char_indices()
-        .rev()
-        .take_while(|(_, c)| is_path_char(*c))
-        .map(|(i, _)| i)
-        .last()?;
-    let file = &s[start..end];
-    // ".rs" alone, or a token whose stem is empty, is not a path.
-    (file.len() > 3).then(|| file.to_string())
-}
-
-/// The item named immediately after a `.rs`, in either the `::item` form or
-/// the space-separated `mod::item` form the corpus also uses.
-fn item_after(rest: &str) -> Option<String> {
-    let tok = if let Some(after) = rest.strip_prefix("::") {
-        after.split([' ', '\t', '\n', ',', ';', ')', '"']).next()?
-    } else if rest.starts_with([' ', '\t', '\n']) {
-        let next = rest
-            .trim_start()
-            .split([' ', '\t', '\n', ',', ';', ')', '"'])
-            .next()?;
-        if !next.contains("::") {
-            return None;
-        }
-        next
-    } else {
-        return None;
-    };
-    let seg = tok.rsplit("::").next()?.trim_end_matches('.');
-    let stem = seg.strip_suffix('*').unwrap_or(seg);
-    let ok = !stem.is_empty()
-        && stem.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
-        && stem.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
-    ok.then(|| seg.to_string())
-}
-
-/// Every citation in `s`. Anchored on `.rs`, so a string with no `.rs` token
-/// yields nothing — which is how shell snippets and equation names are
-/// skipped without an exemption list.
-fn citations_in(s: &str) -> Vec<Citation> {
-    let mut out = Vec::new();
-    let mut from = 0usize;
-    while let Some(rel) = s[from..].find(".rs") {
-        let at = from + rel;
-        let end = at + 3;
-        from = end;
-        // ".rs" must end the token: `x.rsomething` is not a path.
-        if s[end..].starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
-            continue;
-        }
-        let Some(file) = path_ending_at(s, end) else {
-            continue;
-        };
-        out.push(Citation {
-            item: item_after(&s[end..]),
-            file,
-        });
-    }
-    out
-}
 
 /// Pull the string at `key` out of a mapping, if it is a string.
 fn string_at(node: &serde_yaml_ng::Value, key: &str) -> Option<String> {
