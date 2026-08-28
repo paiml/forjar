@@ -81,35 +81,48 @@ fn execute_query(
     matches
 }
 
-fn matches_filter(id: &str, res: &crate::core::types::Resource, filter: &QueryFilter) -> bool {
-    if let Some(ref pat) = filter.pattern {
-        if !id.contains(pat)
-            && !format!("{:?}", res.resource_type)
-                .to_lowercase()
-                .contains(pat)
-        {
-            return false;
-        }
-    }
-    if let Some(ref rt) = filter.resource_type {
-        if !format!("{:?}", res.resource_type)
+/// The free-text pattern hits either the resource id (as written) or its type
+/// name (lowercased).
+fn matches_pattern(id: &str, res: &crate::core::types::Resource, pattern: &str) -> bool {
+    id.contains(pattern)
+        || format!("{:?}", res.resource_type)
             .to_lowercase()
-            .contains(&rt.to_lowercase())
-        {
-            return false;
-        }
-    }
-    if let Some(ref m) = filter.machine {
-        if !res.machine.iter().any(|mv| mv.contains(m)) {
-            return false;
-        }
-    }
-    if let Some(ref t) = filter.tag {
-        if !res.tags.iter().any(|tag| tag.contains(t)) {
-            return false;
-        }
-    }
-    true
+            .contains(pattern)
+}
+
+/// Type filter: case-insensitive substring of the type name.
+fn matches_resource_type(res: &crate::core::types::Resource, wanted: &str) -> bool {
+    format!("{:?}", res.resource_type)
+        .to_lowercase()
+        .contains(&wanted.to_lowercase())
+}
+
+/// Machine filter: substring of any machine the resource targets.
+fn matches_machine(res: &crate::core::types::Resource, wanted: &str) -> bool {
+    res.machine.iter().any(|mv| mv.contains(wanted))
+}
+
+/// Tag filter: substring of any tag on the resource.
+fn matches_tag(res: &crate::core::types::Resource, wanted: &str) -> bool {
+    res.tags.iter().any(|tag| tag.contains(wanted))
+}
+
+/// Every criterion the filter sets has to match; criteria left unset are
+/// ignored rather than treated as "matches nothing".
+fn matches_filter(id: &str, res: &crate::core::types::Resource, filter: &QueryFilter) -> bool {
+    filter
+        .pattern
+        .as_deref()
+        .is_none_or(|pat| matches_pattern(id, res, pat))
+        && filter
+            .resource_type
+            .as_deref()
+            .is_none_or(|rt| matches_resource_type(res, rt))
+        && filter
+            .machine
+            .as_deref()
+            .is_none_or(|m| matches_machine(res, m))
+        && filter.tag.as_deref().is_none_or(|t| matches_tag(res, t))
 }
 
 fn compute_status(id: &str, res: &crate::core::types::Resource, state_dir: &Path) -> String {

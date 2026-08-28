@@ -66,6 +66,60 @@ impl Handler for StatusHandler {
     }
 }
 
+/// Machine directories under `state_dir`, honouring an optional machine filter.
+/// A missing state directory yields nothing; an unreadable one is an error,
+/// exactly as it was when each handler walked the directory itself.
+fn machine_dir_names(
+    state_dir: &std::path::Path,
+    machine: Option<&str>,
+) -> pforge_runtime::Result<Vec<String>> {
+    if !state_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
+
+    let mut names = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if machine.is_some_and(|filter| name != filter) {
+            continue;
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+        names.push(name);
+    }
+    Ok(names)
+}
+
+/// Flatten one recorded span into its MCP output shape.
+fn to_span_output(machine: String, span: tracer::TraceSpan) -> TraceSpanOutput {
+    TraceSpanOutput {
+        machine,
+        trace_id: span.trace_id,
+        span_id: span.span_id,
+        parent_span_id: span.parent_span_id,
+        name: span.name,
+        start_time: span.start_time,
+        duration_us: span.duration_us,
+        exit_code: span.exit_code,
+        resource_type: span.resource_type,
+        action: span.action,
+        content_hash: span.content_hash,
+        logical_clock: span.logical_clock,
+    }
+}
+
+/// How many distinct traces the collected spans belong to.
+fn distinct_trace_count(spans: &[(String, tracer::TraceSpan)]) -> usize {
+    spans
+        .iter()
+        .map(|(_, s)| s.trace_id.as_str())
+        .collect::<std::collections::HashSet<&str>>()
+        .len()
+}
+
 #[async_trait::async_trait]
 impl Handler for TraceHandler {
     type Input = TraceInput;
@@ -77,54 +131,18 @@ impl Handler for TraceHandler {
             super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
 
         let mut all_spans = Vec::new();
-
-        if state_dir.exists() {
-            let entries = std::fs::read_dir(&state_dir)
-                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if let Some(ref filter) = input.machine {
-                    if &name != filter {
-                        continue;
-                    }
-                }
-                if !entry.path().is_dir() {
-                    continue;
-                }
-
-                if let Ok(spans) = tracer::read_trace(&state_dir, &name) {
-                    for span in spans {
-                        all_spans.push((name.clone(), span));
-                    }
-                }
+        for name in machine_dir_names(&state_dir, input.machine.as_deref())? {
+            if let Ok(spans) = tracer::read_trace(&state_dir, &name) {
+                all_spans.extend(spans.into_iter().map(|span| (name.clone(), span)));
             }
         }
 
         all_spans.sort_by_key(|(_, span)| span.logical_clock);
 
-        let trace_count = {
-            let ids: std::collections::HashSet<&str> =
-                all_spans.iter().map(|(_, s)| s.trace_id.as_str()).collect();
-            ids.len()
-        };
-
+        let trace_count = distinct_trace_count(&all_spans);
         let spans = all_spans
             .into_iter()
-            .map(|(machine, span)| TraceSpanOutput {
-                machine,
-                trace_id: span.trace_id,
-                span_id: span.span_id,
-                parent_span_id: span.parent_span_id,
-                name: span.name,
-                start_time: span.start_time,
-                duration_us: span.duration_us,
-                exit_code: span.exit_code,
-                resource_type: span.resource_type,
-                action: span.action,
-                content_hash: span.content_hash,
-                logical_clock: span.logical_clock,
-            })
+            .map(|(machine, span)| to_span_output(machine, span))
             .collect();
 
         Ok(TraceOutput { trace_count, spans })
@@ -188,29 +206,12 @@ impl Handler for AnomalyHandler {
         let min_events = input.min_events.unwrap_or(3);
 
         let mut metrics: AnomalyMetrics = std::collections::HashMap::new();
-
-        if state_dir.exists() {
-            let entries = std::fs::read_dir(&state_dir)
-                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
-
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if let Some(ref filter) = input.machine {
-                    if &name != filter {
-                        continue;
-                    }
-                }
-                if !entry.path().is_dir() {
-                    continue;
-                }
-
-                let log_path = entry.path().join("events.jsonl");
-                if !log_path.exists() {
-                    continue;
-                }
-
-                tally_machine_events(&log_path, &name, &mut metrics)?;
+        for name in machine_dir_names(&state_dir, input.machine.as_deref())? {
+            let log_path = state_dir.join(&name).join("events.jsonl");
+            if !log_path.exists() {
+                continue;
             }
+            tally_machine_events(&log_path, &name, &mut metrics)?;
         }
 
         let metrics_vec: Vec<(String, u32, u32, u32)> = metrics

@@ -49,41 +49,74 @@ struct EquationYaml {
     invariants: Vec<String>,
 }
 
-fn main() {
-    println!("=== Contract Pipeline Demo ===\n");
+/// Everything phase 1 harvests from the `contracts/` directory.
+#[derive(Default)]
+struct LoadedContracts {
+    total_equations: usize,
+    total_invariants: usize,
+    entries: Vec<ContractEntry>,
+    assertions: Vec<ContractAssertion>,
+}
 
-    // Phase 1: Load contract YAML files from contracts/
-    let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+/// The `.yaml` contract files under `contracts/`, sorted, with the
+/// `binding.yaml` mapping file (which is not a contract) left out.
+fn contract_yaml_paths(contracts_dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut paths: Vec<_> = std::fs::read_dir(contracts_dir)
+        .expect("read contracts/")
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
+        .filter(|p| p.file_stem().and_then(|s| s.to_str()) != Some("binding"))
+        .collect();
+    paths.sort();
+    paths
+}
+
+/// Fold one equation into the running totals, the coverage entries and the
+/// runtime assertions derived from its invariants.
+fn absorb_equation(stem: &str, eq_name: &str, eq: &EquationYaml, out: &mut LoadedContracts) {
+    let n_inv = eq.invariants.len();
+    out.total_equations += 1;
+    out.total_invariants += n_inv;
+    println!("      {eq_name}: {n_inv} invariants");
+
+    let module = format!("contracts::{}", stem.replace('-', "_"));
+    out.entries.push(ContractEntry {
+        function: eq_name.to_string(),
+        module: module.clone(),
+        contract_id: Some(format!("{stem}.yaml")),
+        tier: VerificationTier::Bounded,
+        verified_by: eq
+            .invariants
+            .iter()
+            .map(|inv| format!("invariant: {inv}"))
+            .collect(),
+    });
+
+    out.assertions
+        .extend(eq.invariants.iter().map(|inv| ContractAssertion {
+            function: eq_name.to_string(),
+            module: module.clone(),
+            kind: ContractKind::Invariant,
+            held: true,
+            expression: Some(inv.clone()),
+        }));
+}
+
+/// Phase 1 — parse every contract file, echoing each one as it is absorbed.
+fn load_contracts(contracts_dir: &std::path::Path) -> LoadedContracts {
     println!(
         "Phase 1: Loading contracts from {}\n",
         contracts_dir.display()
     );
 
-    let mut total_equations = 0usize;
-    let mut total_invariants = 0usize;
-    let mut contract_entries: Vec<ContractEntry> = Vec::new();
-    let mut runtime_assertions: Vec<ContractAssertion> = Vec::new();
-
-    let mut paths: Vec<_> = std::fs::read_dir(&contracts_dir)
-        .expect("read contracts/")
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
-        .collect();
-    paths.sort();
-
-    for path in &paths {
+    let mut loaded = LoadedContracts::default();
+    for path in contract_yaml_paths(contracts_dir) {
         let stem = path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
-
-        // Skip binding.yaml (it's a mapping file, not a contract)
-        if stem == "binding" {
-            continue;
-        }
-
-        let content = std::fs::read_to_string(path).expect("read yaml");
+        let content = std::fs::read_to_string(&path).expect("read yaml");
         let contract: ContractYaml = serde_yaml_ng::from_str(&content).expect("parse yaml");
 
         println!(
@@ -94,49 +127,21 @@ fn main() {
         println!("    Equations: {}", contract.equations.len());
 
         for (eq_name, eq) in &contract.equations {
-            total_equations += 1;
-            let n_inv = eq.invariants.len();
-            total_invariants += n_inv;
-
-            println!("      {eq_name}: {n_inv} invariants");
-
-            // Build a contract entry for the coverage report
-            let verified: Vec<String> = eq
-                .invariants
-                .iter()
-                .map(|inv| format!("invariant: {inv}"))
-                .collect();
-
-            contract_entries.push(ContractEntry {
-                function: eq_name.clone(),
-                module: format!("contracts::{}", stem.replace('-', "_")),
-                contract_id: Some(format!("{stem}.yaml")),
-                tier: VerificationTier::Bounded,
-                verified_by: verified,
-            });
-
-            // Build runtime assertions from invariants
-            for inv in &eq.invariants {
-                runtime_assertions.push(ContractAssertion {
-                    function: eq_name.clone(),
-                    module: format!("contracts::{}", stem.replace('-', "_")),
-                    kind: ContractKind::Invariant,
-                    held: true,
-                    expression: Some(inv.clone()),
-                });
-            }
+            absorb_equation(stem, eq_name, eq, &mut loaded);
         }
         println!();
     }
+    loaded
+}
 
-    // Phase 2: Show build-time env var mapping
+/// Phase 2 — the `CONTRACT_*` env vars build.rs derives from those contracts.
+fn print_build_env_mapping(loaded: &LoadedContracts) {
     println!("Phase 2: Build-time CONTRACT_* env vars\n");
     println!("  build.rs emits CONTRACT_INV_*, CONTRACT_PRE_*, CONTRACT_POST_* env vars");
-    println!("  Total equations: {total_equations}");
-    println!("  Total invariants: {total_invariants}");
+    println!("  Total equations: {}", loaded.total_equations);
+    println!("  Total invariants: {}", loaded.total_invariants);
     println!();
 
-    // Show a sample of what the env vars look like
     println!("  Sample env var keys:");
     let sample_keys = [
         "CONTRACT_INV_BLAKE3_STATE_V1_HASH_STRING_0",
@@ -144,24 +149,22 @@ fn main() {
         "CONTRACT_INV_EXECUTION_SAFETY_V1_ATOMIC_WRITE_0",
         "CONTRACT_INV_RECIPE_DETERMINISM_V1_EXPAND_RECIPE_0",
     ];
+    // Only the BLAKE3 key can be resolved here: `option_env!` needs a literal.
+    let blake3_val = option_env!("CONTRACT_INV_BLAKE3_STATE_V1_HASH_STRING_0");
     for key in &sample_keys {
-        // Try to read from env (set by build.rs at compile time)
-        let val = option_env!("CONTRACT_INV_BLAKE3_STATE_V1_HASH_STRING_0");
-        if key.contains("BLAKE3") {
-            if let Some(v) = val {
-                println!("    {key} = \"{v}\"");
-            } else {
-                println!("    {key} = (would be set by build.rs)");
-            }
-        } else {
-            println!("    {key} = (set by build.rs)");
+        match (key.contains("BLAKE3"), blake3_val) {
+            (true, Some(v)) => println!("    {key} = \"{v}\""),
+            (true, None) => println!("    {key} = (would be set by build.rs)"),
+            (false, _) => println!("    {key} = (set by build.rs)"),
         }
     }
     println!();
+}
 
-    // Phase 3: Runtime assertion display
+/// Phase 3 — the invariants as they would be checked at runtime.
+fn print_runtime_assertions(assertions: &[ContractAssertion]) {
     println!("Phase 3: Runtime Contract Assertions\n");
-    for a in &runtime_assertions {
+    for a in assertions {
         let status = if a.held { "HELD" } else { "VIOLATED" };
         println!(
             "  [{status}] {}::{} ({}: {})",
@@ -172,10 +175,11 @@ fn main() {
         );
     }
     println!();
+}
 
-    // Phase 4: Coverage report
-    println!("Phase 4: Contract Coverage Report\n");
-    let handler_invariants = vec![
+/// The per-resource-type verification tiers the demo report is built against.
+fn demo_handler_invariants() -> Vec<HandlerInvariantStatus> {
+    vec![
         HandlerInvariantStatus {
             resource_type: "file".into(),
             tier: VerificationTier::Bounded,
@@ -200,31 +204,38 @@ fn main() {
             exempt: true,
             exemption_reason: Some("imperative resource type".into()),
         },
-    ];
+    ]
+}
 
+/// Display name for a bucket of `ContractCoverageReport::histogram`.
+fn tier_label(index: usize) -> &'static str {
+    match index {
+        0 => "Unlabeled (L0)",
+        1 => "Labeled (L1)",
+        2 => "Runtime (L2)",
+        3 => "Bounded (L3)",
+        4 => "Proved (L4)",
+        5 => "Structural (L5)",
+        _ => "Unknown",
+    }
+}
+
+/// Phase 4 — summary, tier histogram and the at-or-above-Bounded count.
+fn print_coverage_report(entries: Vec<ContractEntry>) {
+    println!("Phase 4: Contract Coverage Report\n");
     let report = ContractCoverageReport {
-        total_functions: contract_entries.len(),
-        entries: contract_entries,
-        handler_invariants,
+        total_functions: entries.len(),
+        entries,
+        handler_invariants: demo_handler_invariants(),
     };
 
     print!("{}", report.format_summary());
     println!();
 
-    let hist = report.histogram();
     println!("  Tier Distribution:");
-    for (i, count) in hist.iter().enumerate() {
+    for (i, count) in report.histogram().iter().enumerate() {
         if *count > 0 {
-            let tier_name = match i {
-                0 => "Unlabeled (L0)",
-                1 => "Labeled (L1)",
-                2 => "Runtime (L2)",
-                3 => "Bounded (L3)",
-                4 => "Proved (L4)",
-                5 => "Structural (L5)",
-                _ => "Unknown",
-            };
-            println!("    {tier_name}: {count}");
+            println!("    {}: {count}", tier_label(i));
         }
     }
     println!(
@@ -232,6 +243,17 @@ fn main() {
         report.at_or_above(VerificationTier::Bounded),
         report.total_functions
     );
+}
+
+fn main() {
+    println!("=== Contract Pipeline Demo ===\n");
+
+    let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let loaded = load_contracts(&contracts_dir);
+
+    print_build_env_mapping(&loaded);
+    print_runtime_assertions(&loaded.assertions);
+    print_coverage_report(loaded.entries);
 
     println!("\n=== Pipeline Complete ===");
 }

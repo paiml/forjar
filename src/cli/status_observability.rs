@@ -58,6 +58,41 @@ pub(crate) fn cmd_status_prometheus(
 
 // ── FJ-442: status --export ──
 
+/// The machine a directory entry stands for, or `None` when it is not one to
+/// export: plain files, dot-directories, and machines the filter excludes all
+/// fall out here.
+fn exportable_machine_name(entry: &std::fs::DirEntry, machine: Option<&str>) -> Option<String> {
+    let path = entry.path();
+    if !path.is_dir() {
+        return None;
+    }
+    let m_name = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    if m_name.starts_with('.') {
+        return None;
+    }
+    if machine.is_some_and(|filter| m_name != filter) {
+        return None;
+    }
+    Some(m_name)
+}
+
+/// One JSON object per resource recorded in a machine's lock.
+fn export_rows_from_lock(m_name: &str, lock: &types::StateLock) -> Vec<String> {
+    lock.resources
+        .iter()
+        .map(|(rname, rl)| {
+            format!(
+                "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{:?}\",\"hash\":\"{}\"}}",
+                m_name, rname, rl.status, rl.hash
+            )
+        })
+        .collect()
+}
+
 fn collect_export_entries(state_dir: &Path, machine: Option<&str>) -> Result<Vec<String>, String> {
     let mut entries = Vec::new();
     if !state_dir.exists() {
@@ -65,30 +100,11 @@ fn collect_export_entries(state_dir: &Path, machine: Option<&str>) -> Result<Vec
     }
     let dir_entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
     for entry in dir_entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+        let Some(m_name) = exportable_machine_name(&entry, machine) else {
             continue;
-        }
-        let m_name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-        if m_name.starts_with('.') {
-            continue;
-        }
-        if let Some(filter) = machine {
-            if m_name != filter {
-                continue;
-            }
-        }
+        };
         if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
-            for (rname, rl) in &lock.resources {
-                entries.push(format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{:?}\",\"hash\":\"{}\"}}",
-                    m_name, rname, rl.status, rl.hash
-                ));
-            }
+            entries.extend(export_rows_from_lock(&m_name, &lock));
         }
     }
     Ok(entries)

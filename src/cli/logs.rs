@@ -66,49 +66,53 @@ fn runs_for_machine(
     run_filter: Option<&str>,
     failures_only: bool,
 ) -> Vec<DiscoveredRun> {
-    let mut runs = Vec::new();
-
     let runs_dir = machine_dir.join("runs");
     if !runs_dir.is_dir() {
-        return runs;
+        return Vec::new();
     }
 
-    let run_entries = match std::fs::read_dir(&runs_dir) {
-        Ok(e) => e,
-        Err(_) => return runs,
+    let Ok(run_entries) = std::fs::read_dir(&runs_dir) else {
+        return Vec::new();
     };
 
-    for run_entry in run_entries.flatten() {
-        let run_dir = run_entry.path();
-        if !run_dir.is_dir() {
-            continue;
-        }
-        let run_id = run_entry.file_name().to_string_lossy().to_string();
+    run_entries
+        .flatten()
+        .filter_map(|entry| discovered_run(&entry, machine_name, run_filter, failures_only))
+        .collect()
+}
 
-        if let Some(filter) = run_filter {
-            if run_id != filter {
-                continue;
-            }
-        }
-
-        let meta = match read_run_meta(&run_dir) {
-            Some(m) => m,
-            None => continue,
-        };
-
-        if failures_only && meta.summary.failed == 0 {
-            continue;
-        }
-
-        runs.push(DiscoveredRun {
-            machine: machine_name.to_string(),
-            run_id,
-            meta,
-            run_dir,
-        });
+/// One directory under `runs/` turned into a reportable run, or `None` when it
+/// is not one: not a directory at all, excluded by `--run`, carrying no usable
+/// `meta.yaml`, or filtered out by `--failures-only`. Exists so the walk above
+/// reads as "every run that survives the filters" rather than as five reasons
+/// to `continue`.
+fn discovered_run(
+    run_entry: &std::fs::DirEntry,
+    machine_name: &str,
+    run_filter: Option<&str>,
+    failures_only: bool,
+) -> Option<DiscoveredRun> {
+    let run_dir = run_entry.path();
+    if !run_dir.is_dir() {
+        return None;
     }
 
-    runs
+    let run_id = run_entry.file_name().to_string_lossy().to_string();
+    if run_filter.is_some_and(|filter| run_id != filter) {
+        return None;
+    }
+
+    let meta = read_run_meta(&run_dir)?;
+    if failures_only && meta.summary.failed == 0 {
+        return None;
+    }
+
+    Some(DiscoveredRun {
+        machine: machine_name.to_string(),
+        run_id,
+        meta,
+        run_dir,
+    })
 }
 
 /// Discover all runs under a state directory, optionally filtered.

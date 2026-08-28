@@ -20,12 +20,12 @@ use std::path::Path;
 /// One `graph --resource-*` analysis. Every flag-selected analysis has the same
 /// shape: it re-reads the config file and reports its own findings, honouring
 /// `--json`.
-type GraphAnalysis = fn(&Path, bool) -> Result<(), String>;
+pub(super) type GraphAnalysis = fn(&Path, bool) -> Result<(), String>;
 
 /// Run the first analysis whose flag is set, in table order, and return its
 /// result; `None` when none of the flags in the table is set. Table order is
 /// the precedence order, and only the selected analysis is called.
-fn first_enabled_analysis(
+pub(super) fn first_enabled_analysis(
     file: &Path,
     json: bool,
     analyses: &[(bool, GraphAnalysis)],
@@ -122,47 +122,60 @@ pub(super) fn try_graph_scoring_phase81(
     resource_dependency_path_count: bool,
     resource_dependency_articulation_points: bool,
 ) -> Option<Result<(), String>> {
-    if resource_dependency_centrality_score {
-        return Some(cmd_graph_resource_dependency_centrality_score(file, json));
-    }
-    if resource_dependency_bridge_detection {
-        return Some(cmd_graph_resource_dependency_bridge_detection(file, json));
-    }
-    if resource_dependency_cluster_coefficient {
-        return Some(cmd_graph_resource_dependency_cluster_coefficient(
-            file, json,
-        ));
-    }
-    if resource_dependency_modularity_score {
-        return Some(cmd_graph_resource_dependency_modularity_score(file, json));
-    }
-    if resource_dependency_diameter {
-        return Some(cmd_graph_resource_dependency_diameter(file, json));
-    }
-    if resource_dependency_eccentricity {
-        return Some(cmd_graph_resource_dependency_eccentricity(file, json));
-    }
-    if resource_dependency_density {
-        return Some(cmd_graph_resource_dependency_density(file, json));
-    }
-    if resource_dependency_transitivity {
-        return Some(cmd_graph_resource_dependency_transitivity(file, json));
-    }
-    if resource_dependency_fan_out {
-        return Some(cmd_graph_resource_dependency_fan_out(file, json));
-    }
-    if resource_dependency_fan_in {
-        return Some(cmd_graph_resource_dependency_fan_in(file, json));
-    }
-    if resource_dependency_path_count {
-        return Some(cmd_graph_resource_dependency_path_count(file, json));
-    }
-    if resource_dependency_articulation_points {
-        return Some(cmd_graph_resource_dependency_articulation_points(
-            file, json,
-        ));
-    }
-    None
+    first_enabled_analysis(
+        file,
+        json,
+        &[
+            (
+                resource_dependency_centrality_score,
+                cmd_graph_resource_dependency_centrality_score,
+            ),
+            (
+                resource_dependency_bridge_detection,
+                cmd_graph_resource_dependency_bridge_detection,
+            ),
+            (
+                resource_dependency_cluster_coefficient,
+                cmd_graph_resource_dependency_cluster_coefficient,
+            ),
+            (
+                resource_dependency_modularity_score,
+                cmd_graph_resource_dependency_modularity_score,
+            ),
+            (
+                resource_dependency_diameter,
+                cmd_graph_resource_dependency_diameter,
+            ),
+            (
+                resource_dependency_eccentricity,
+                cmd_graph_resource_dependency_eccentricity,
+            ),
+            (
+                resource_dependency_density,
+                cmd_graph_resource_dependency_density,
+            ),
+            (
+                resource_dependency_transitivity,
+                cmd_graph_resource_dependency_transitivity,
+            ),
+            (
+                resource_dependency_fan_out,
+                cmd_graph_resource_dependency_fan_out,
+            ),
+            (
+                resource_dependency_fan_in,
+                cmd_graph_resource_dependency_fan_in,
+            ),
+            (
+                resource_dependency_path_count,
+                cmd_graph_resource_dependency_path_count,
+            ),
+            (
+                resource_dependency_articulation_points,
+                cmd_graph_resource_dependency_articulation_points,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_graph_phase87(
@@ -181,45 +194,60 @@ pub(super) fn try_graph_phase87(
     resource_dependency_eccentricity_map: bool,
     resource_dependency_diameter_path: bool,
 ) -> Option<Result<(), String>> {
-    if resource_dependency_longest_path {
-        return Some(cmd_graph_resource_dependency_longest_path(file, json));
-    }
-    if resource_dependency_strongly_connected {
-        return Some(cmd_graph_resource_dependency_strongly_connected(file, json));
-    }
-    if resource_dependency_topological_depth {
-        return Some(cmd_graph_resource_dependency_topological_depth(file, json));
-    }
-    if resource_dependency_weak_links {
-        return Some(cmd_graph_resource_dependency_weak_links(file, json));
-    }
-    if resource_dependency_minimum_cut {
-        return Some(cmd_graph_resource_dependency_minimum_cut(file, json));
-    }
-    if resource_dependency_dominator_tree {
-        return Some(cmd_graph_resource_dependency_dominator_tree(file, json));
-    }
-    if resource_dependency_resilience_score {
-        return Some(cmd_graph_resource_dependency_resilience_score(file, json));
-    }
-    if resource_dependency_pagerank {
-        return Some(cmd_graph_resource_dependency_pagerank(file, json));
-    }
-    if resource_dependency_betweenness_centrality {
-        return Some(cmd_graph_resource_dependency_betweenness_centrality(
-            file, json,
-        ));
-    }
-    if resource_dependency_closure_size {
-        return Some(cmd_graph_resource_dependency_closure_size(file, json));
-    }
-    if resource_dependency_eccentricity_map {
-        return Some(cmd_graph_resource_dependency_eccentricity_map(file, json));
-    }
-    if resource_dependency_diameter_path {
-        return Some(cmd_graph_resource_dependency_diameter_path(file, json));
-    }
-    None
+    first_enabled_analysis(
+        file,
+        json,
+        &[
+            (
+                resource_dependency_longest_path,
+                cmd_graph_resource_dependency_longest_path,
+            ),
+            (
+                resource_dependency_strongly_connected,
+                cmd_graph_resource_dependency_strongly_connected,
+            ),
+            (
+                resource_dependency_topological_depth,
+                cmd_graph_resource_dependency_topological_depth,
+            ),
+            (
+                resource_dependency_weak_links,
+                cmd_graph_resource_dependency_weak_links,
+            ),
+            (
+                resource_dependency_minimum_cut,
+                cmd_graph_resource_dependency_minimum_cut,
+            ),
+            (
+                resource_dependency_dominator_tree,
+                cmd_graph_resource_dependency_dominator_tree,
+            ),
+            (
+                resource_dependency_resilience_score,
+                cmd_graph_resource_dependency_resilience_score,
+            ),
+            (
+                resource_dependency_pagerank,
+                cmd_graph_resource_dependency_pagerank,
+            ),
+            (
+                resource_dependency_betweenness_centrality,
+                cmd_graph_resource_dependency_betweenness_centrality,
+            ),
+            (
+                resource_dependency_closure_size,
+                cmd_graph_resource_dependency_closure_size,
+            ),
+            (
+                resource_dependency_eccentricity_map,
+                cmd_graph_resource_dependency_eccentricity_map,
+            ),
+            (
+                resource_dependency_diameter_path,
+                cmd_graph_resource_dependency_diameter_path,
+            ),
+        ],
+    )
 }
 pub(super) fn try_graph_phase94(
     file: &Path,

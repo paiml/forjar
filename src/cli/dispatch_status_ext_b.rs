@@ -1,3 +1,4 @@
+use super::dispatch_status_b::first_enabled_report;
 use super::lock_ops::*;
 use super::status_alerts::*;
 use super::status_compliance::*;
@@ -13,6 +14,22 @@ use super::status_resource_detail::*;
 use super::status_resources::*;
 use super::status_trends::*;
 use std::path::Path;
+
+/// Fleet-wide reports take no machine filter. These adapters give them the
+/// uniform `(state_dir, machine, json)` report shape so they can sit in the
+/// same dispatch table as the per-machine reports, with the ignored filter
+/// spelled out rather than hidden.
+fn drift_details_all_report(sd: &Path, _machine: Option<&str>, json: bool) -> Result<(), String> {
+    cmd_status_drift_details_all(sd, json)
+}
+
+fn fleet_overview_report(sd: &Path, _machine: Option<&str>, json: bool) -> Result<(), String> {
+    cmd_status_fleet_overview(sd, json)
+}
+
+fn executive_summary_report(sd: &Path, _machine: Option<&str>, json: bool) -> Result<(), String> {
+    cmd_status_executive_summary(sd, json)
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_status_phase58(
@@ -31,40 +48,24 @@ pub(super) fn try_status_phase58(
     hash_verify: bool,
     lock_age: bool,
 ) -> Option<Result<(), String>> {
-    if resource_types_summary {
-        return Some(cmd_status_resource_types_summary(sd, machine, json));
-    }
-    if failed_resources {
-        return Some(cmd_status_failed_resources(sd, machine, json));
-    }
-    if drift_trend {
-        return Some(cmd_status_drift_trend(sd, machine, json));
-    }
-    if resource_inputs {
-        return Some(cmd_status_resource_inputs(sd, machine, json));
-    }
-    if convergence_history {
-        return Some(cmd_status_convergence_history(sd, machine, json));
-    }
-    if config_hash {
-        return Some(cmd_status_config_hash(sd, machine, json));
-    }
-    if last_apply_duration {
-        return Some(cmd_status_last_apply_duration(sd, machine, json));
-    }
-    if drift_details_all {
-        return Some(cmd_status_drift_details_all(sd, json));
-    }
-    if resource_size {
-        return Some(cmd_status_resource_size(sd, machine, json));
-    }
-    if hash_verify {
-        return Some(cmd_status_hash_verify(sd, machine, json));
-    }
-    if lock_age {
-        return Some(cmd_status_lock_age(sd, machine, json));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (resource_types_summary, cmd_status_resource_types_summary),
+            (failed_resources, cmd_status_failed_resources),
+            (drift_trend, cmd_status_drift_trend),
+            (resource_inputs, cmd_status_resource_inputs),
+            (convergence_history, cmd_status_convergence_history),
+            (config_hash, cmd_status_config_hash),
+            (last_apply_duration, cmd_status_last_apply_duration),
+            (drift_details_all, drift_details_all_report),
+            (resource_size, cmd_status_resource_size),
+            (hash_verify, cmd_status_hash_verify),
+            (lock_age, cmd_status_lock_age),
+        ],
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -83,37 +84,23 @@ pub(super) fn try_status_analytics(
     resource_cost: bool,
     security_posture: bool,
 ) -> Option<Result<(), String>> {
-    if change_frequency {
-        return Some(cmd_status_change_frequency(sd, machine, json));
-    }
-    if machine_summary {
-        return Some(cmd_status_machine_summary(sd, machine, json));
-    }
-    if recommendations {
-        return Some(cmd_status_recommendations(sd, machine, json));
-    }
-    if uptime {
-        return Some(cmd_status_uptime(sd, machine, json));
-    }
-    if diagnostic {
-        return Some(cmd_status_diagnostic(sd, machine, json));
-    }
-    if resource_dependencies {
-        return Some(cmd_status_resource_dependencies(sd, machine, json));
-    }
-    if pipeline_status {
-        return Some(cmd_status_pipeline_status(sd, machine, json));
-    }
-    if drift_forecast {
-        return Some(cmd_status_drift_forecast(sd, machine, json));
-    }
-    if resource_cost {
-        return Some(cmd_status_resource_cost(sd, machine, json));
-    }
-    if security_posture {
-        return Some(cmd_status_security_posture(sd, machine, json));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (change_frequency, cmd_status_change_frequency),
+            (machine_summary, cmd_status_machine_summary),
+            (recommendations, cmd_status_recommendations),
+            (uptime, cmd_status_uptime),
+            (diagnostic, cmd_status_diagnostic),
+            (resource_dependencies, cmd_status_resource_dependencies),
+            (pipeline_status, cmd_status_pipeline_status),
+            (drift_forecast, cmd_status_drift_forecast),
+            (resource_cost, cmd_status_resource_cost),
+            (security_posture, cmd_status_security_posture),
+        ],
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -132,37 +119,23 @@ pub(super) fn try_status_fleet(
     audit_trail: bool,
     executive_summary: bool,
 ) -> Option<Result<(), String>> {
-    if error_summary {
-        return Some(cmd_status_error_summary(sd, machine, json));
-    }
-    if resource_timeline {
-        return Some(cmd_status_resource_timeline(sd, machine, json));
-    }
-    if convergence_time {
-        return Some(cmd_status_convergence_time(sd, machine, json));
-    }
-    if config_drift {
-        return Some(cmd_status_config_drift(sd, machine, json));
-    }
-    if machine_health {
-        return Some(cmd_status_machine_health(sd, machine, json));
-    }
-    if fleet_overview {
-        return Some(cmd_status_fleet_overview(sd, json));
-    }
-    if drift_velocity {
-        return Some(cmd_status_drift_velocity(sd, machine, json));
-    }
-    if resource_graph {
-        return Some(cmd_status_resource_graph(sd, machine, json));
-    }
-    if audit_trail {
-        return Some(cmd_status_audit_trail(sd, machine, json));
-    }
-    if executive_summary {
-        return Some(cmd_status_executive_summary(sd, json));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (error_summary, cmd_status_error_summary),
+            (resource_timeline, cmd_status_resource_timeline),
+            (convergence_time, cmd_status_convergence_time),
+            (config_drift, cmd_status_config_drift),
+            (machine_health, cmd_status_machine_health),
+            (fleet_overview, fleet_overview_report),
+            (drift_velocity, cmd_status_drift_velocity),
+            (resource_graph, cmd_status_resource_graph),
+            (audit_trail, cmd_status_audit_trail),
+            (executive_summary, executive_summary_report),
+        ],
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -182,40 +155,30 @@ pub(super) fn try_status_reports(
     resource_age: bool,
     drift_summary: bool,
 ) -> Option<Result<(), String>> {
-    if health_score {
-        return Some(cmd_status_health_score(sd, machine, json));
-    }
-    if let Some(ref w) = staleness_report {
-        return Some(cmd_status_staleness_report(sd, machine, w, json));
-    }
-    if cost_estimate {
-        return Some(cmd_status_cost_estimate(sd, machine, json));
-    }
-    if capacity {
-        return Some(cmd_status_capacity(sd, machine, json));
-    }
-    if prediction {
-        return Some(cmd_status_prediction(sd, machine, json));
-    }
-    if let Some(n) = trend {
-        return Some(cmd_status_trend(sd, machine, n, json));
-    }
-    if mttr {
-        return Some(cmd_status_mttr(sd, machine, json));
-    }
-    if let Some(ref p) = compliance_report {
-        return Some(cmd_status_compliance_report(sd, machine, p, json));
-    }
-    if sla_report {
-        return Some(cmd_status_sla_report(sd, machine, json));
-    }
-    if resource_age {
-        return Some(cmd_status_resource_age(sd, machine, json));
-    }
-    if drift_summary {
-        return Some(cmd_status_drift_summary(sd, machine, json));
-    }
-    None
+    // Candidates in declaration order; `or_else` keeps the first-match-wins
+    // priority the `if` chain had, and evaluates nothing past that match.
+    // Reports carrying a value cannot join the plain flag table, so this
+    // dispatcher chains them instead.
+    health_score
+        .then(|| cmd_status_health_score(sd, machine, json))
+        .or_else(|| {
+            staleness_report
+                .as_deref()
+                .map(|w| cmd_status_staleness_report(sd, machine, w, json))
+        })
+        .or_else(|| cost_estimate.then(|| cmd_status_cost_estimate(sd, machine, json)))
+        .or_else(|| capacity.then(|| cmd_status_capacity(sd, machine, json)))
+        .or_else(|| prediction.then(|| cmd_status_prediction(sd, machine, json)))
+        .or_else(|| trend.map(|n| cmd_status_trend(sd, machine, n, json)))
+        .or_else(|| mttr.then(|| cmd_status_mttr(sd, machine, json)))
+        .or_else(|| {
+            compliance_report
+                .as_deref()
+                .map(|p| cmd_status_compliance_report(sd, machine, p, json))
+        })
+        .or_else(|| sla_report.then(|| cmd_status_sla_report(sd, machine, json)))
+        .or_else(|| resource_age.then(|| cmd_status_resource_age(sd, machine, json)))
+        .or_else(|| drift_summary.then(|| cmd_status_drift_summary(sd, machine, json)))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -234,37 +197,28 @@ pub(super) fn try_status_queries_a(
     export: &Option<std::path::PathBuf>,
     json_lines: bool,
 ) -> Option<Result<(), String>> {
-    if convergence_rate {
-        return Some(cmd_status_convergence_rate(sd, machine, json));
-    }
-    if top_failures {
-        return Some(cmd_status_top_failures(sd, machine, json));
-    }
-    if dependency_health {
-        return Some(cmd_status_dependency_health(sd, machine, json));
-    }
-    if histogram {
-        return Some(cmd_status_histogram(sd, machine, json));
-    }
-    if let Some(ref p) = compliance {
-        return Some(cmd_status_compliance(sd, machine, p, json));
-    }
-    if let Some(ref p) = diff_lock {
-        return Some(cmd_lock_diff(sd, p, json));
-    }
-    if alerts {
-        return Some(cmd_status_alerts(sd, machine, json));
-    }
-    if compact {
-        return Some(cmd_status_compact(sd, machine, json));
-    }
-    if let Some(ref p) = export {
-        return Some(cmd_status_export(sd, machine, p, json));
-    }
-    if json_lines {
-        return Some(cmd_status_json_lines(sd, machine));
-    }
-    None
+    // Candidates in declaration order; `or_else` keeps first-match-wins and
+    // evaluates nothing past the match. See `try_status_reports` for why the
+    // value-carrying queries are chained rather than tabulated.
+    convergence_rate
+        .then(|| cmd_status_convergence_rate(sd, machine, json))
+        .or_else(|| top_failures.then(|| cmd_status_top_failures(sd, machine, json)))
+        .or_else(|| dependency_health.then(|| cmd_status_dependency_health(sd, machine, json)))
+        .or_else(|| histogram.then(|| cmd_status_histogram(sd, machine, json)))
+        .or_else(|| {
+            compliance
+                .as_deref()
+                .map(|p| cmd_status_compliance(sd, machine, p, json))
+        })
+        .or_else(|| diff_lock.as_deref().map(|p| cmd_lock_diff(sd, p, json)))
+        .or_else(|| alerts.then(|| cmd_status_alerts(sd, machine, json)))
+        .or_else(|| compact.then(|| cmd_status_compact(sd, machine, json)))
+        .or_else(|| {
+            export
+                .as_deref()
+                .map(|p| cmd_status_export(sd, machine, p, json))
+        })
+        .or_else(|| json_lines.then(|| cmd_status_json_lines(sd, machine)))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -324,35 +278,35 @@ pub(super) fn try_status_display(
     stale: Option<u64>,
     failed_since: &Option<String>,
 ) -> Option<Result<(), String>> {
-    if let Some(ref f) = status_format {
-        return Some(cmd_status_format(sd, machine, f));
-    }
-    if prometheus {
-        return Some(cmd_status_prometheus(sd, machine));
-    }
-    if let Some(ref d) = expired {
-        return Some(cmd_status_expired(sd, machine, d, json));
-    }
-    if let Some(ref c) = changes_since {
-        return Some(cmd_status_changes_since(sd, c, json));
-    }
-    if let Some(ref d) = summary_by {
-        return Some(cmd_status_summary_by(sd, machine, d, json));
-    }
-    if timeline {
-        return Some(cmd_status_timeline(sd, machine, json));
-    }
-    if drift_details {
-        return Some(cmd_status_drift_details(sd, machine, json));
-    }
-    if health {
-        return Some(cmd_status_health(sd, machine, json));
-    }
-    if let Some(days) = stale {
-        return Some(cmd_status_stale(sd, machine, days, json));
-    }
-    if let Some(ref s) = failed_since {
-        return Some(cmd_status_failed_since(sd, machine, s, json));
-    }
-    None
+    // Candidates in declaration order; `or_else` keeps first-match-wins and
+    // evaluates nothing past the match. See `try_status_reports` for why the
+    // value-carrying displays are chained rather than tabulated.
+    status_format
+        .as_deref()
+        .map(|f| cmd_status_format(sd, machine, f))
+        .or_else(|| prometheus.then(|| cmd_status_prometheus(sd, machine)))
+        .or_else(|| {
+            expired
+                .as_deref()
+                .map(|d| cmd_status_expired(sd, machine, d, json))
+        })
+        .or_else(|| {
+            changes_since
+                .as_deref()
+                .map(|c| cmd_status_changes_since(sd, c, json))
+        })
+        .or_else(|| {
+            summary_by
+                .as_deref()
+                .map(|d| cmd_status_summary_by(sd, machine, d, json))
+        })
+        .or_else(|| timeline.then(|| cmd_status_timeline(sd, machine, json)))
+        .or_else(|| drift_details.then(|| cmd_status_drift_details(sd, machine, json)))
+        .or_else(|| health.then(|| cmd_status_health(sd, machine, json)))
+        .or_else(|| stale.map(|days| cmd_status_stale(sd, machine, days, json)))
+        .or_else(|| {
+            failed_since
+                .as_deref()
+                .map(|s| cmd_status_failed_since(sd, machine, s, json))
+        })
 }

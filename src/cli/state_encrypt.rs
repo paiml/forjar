@@ -190,7 +190,23 @@ fn rekey_decrypt(file: &Path, passphrase: &str) -> Result<Vec<u8>, String> {
     Ok(plaintext)
 }
 
-/// Find lock files in a state directory.
+/// Appends every lock file sitting directly in `dir`. An unreadable directory
+/// contributes nothing: a state tree the caller cannot list is not an error
+/// here, it simply holds no locks to encrypt.
+fn push_lock_files_in(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if is_lock_file(&path) {
+            files.push(path);
+        }
+    }
+}
+
+/// Find lock files in a state directory: those at the top level, plus those one
+/// level down in each machine subdirectory.
 fn find_lock_files(state_dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
     let mut files = Vec::new();
 
@@ -202,15 +218,7 @@ fn find_lock_files(state_dir: &Path) -> Result<Vec<std::path::PathBuf>, String> 
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                // Recurse into machine subdirectories
-                if let Ok(sub_entries) = std::fs::read_dir(&path) {
-                    for sub_entry in sub_entries.flatten() {
-                        let sub_path = sub_entry.path();
-                        if is_lock_file(&sub_path) {
-                            files.push(sub_path);
-                        }
-                    }
-                }
+                push_lock_files_in(&path, &mut files);
             } else if is_lock_file(&path) {
                 files.push(path);
             }

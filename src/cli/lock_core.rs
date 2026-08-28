@@ -225,6 +225,94 @@ pub(crate) fn cmd_lock_info(state_dir: &Path, json: bool) -> Result<(), String> 
     Ok(())
 }
 
+/// Lock entries that no longer name a resource in the config.
+fn stale_lock_entries(
+    lock: &types::StateLock,
+    config_resources: &std::collections::HashSet<&String>,
+) -> Vec<String> {
+    lock.resources
+        .keys()
+        .filter(|k| !config_resources.contains(k))
+        .cloned()
+        .collect()
+}
+
+/// Drops the stale entries from the lock, naming each one as it goes.
+///
+/// ACTUALLY REMOVE IT.
+///
+/// This used to be the `println!` alone. `stale` was computed, printed and
+/// counted; the lock was never mutated and never saved. So `lock-prune --yes`
+/// announced "Pruned 'b' from local", exited 0, and left the lock file
+/// BYTE-IDENTICAL — the message was the only thing that happened. Ledger id
+/// lock-prune-yes-claims-pruned-but-changes-nothing, confirmed at 1.12.3 and
+/// still live at 1.16.0.
+fn remove_stale_entries(lock: &mut types::StateLock, stale: &[String], machine_name: &str) {
+    for s in stale {
+        lock.resources.shift_remove(s);
+        println!("  {} Pruned '{}' from {}", red("-"), s, machine_name);
+    }
+}
+
+/// Names the stale entries a `--yes` run would drop, touching nothing.
+fn preview_stale_entries(stale: &[String], machine_name: &str) {
+    for s in stale {
+        println!(
+            "  {} Would prune '{}' from {} (use --yes to apply)",
+            yellow("~"),
+            s,
+            machine_name
+        );
+    }
+}
+
+/// Prunes one machine's lock, returning how many stale entries it held.
+/// Without `--yes` this only previews. With it, the lock is saved, and a failed
+/// write is an error: saving also rewrites the `.b3` sidecar, so a pruned lock
+/// must never be reported as pruned unless it reached disk.
+fn prune_machine_lock(
+    state_dir: &Path,
+    machine_name: &str,
+    lock: &mut types::StateLock,
+    config_resources: &std::collections::HashSet<&String>,
+    yes: bool,
+) -> Result<usize, String> {
+    let stale = stale_lock_entries(lock, config_resources);
+    if stale.is_empty() {
+        return Ok(0);
+    }
+
+    if yes {
+        remove_stale_entries(lock, &stale, machine_name);
+        state::save_lock(state_dir, lock).map_err(|e| {
+            format!(
+                "pruned {} entr(ies) from {machine_name} but could not save the lock: {e}",
+                stale.len()
+            )
+        })?;
+    } else {
+        preview_stale_entries(&stale, machine_name);
+    }
+
+    Ok(stale.len())
+}
+
+/// Closing line for a prune run: nothing found, a preview total, or a count of
+/// what was removed.
+fn print_prune_summary(pruned: usize, yes: bool) {
+    if pruned == 0 {
+        println!("{} No stale lock entries found.", green("✓"));
+    } else if !yes {
+        println!(
+            "\n{} {} stale entries. Run with --yes to prune.",
+            yellow("Total:"),
+            pruned
+        );
+    } else {
+        println!("\n{} Pruned {} stale entries.", green("✓"), pruned);
+    }
+}
+
 // FJ-366: Lock prune — remove stale lock entries
 pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -240,68 +328,12 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
         }
         let machine_name = entry.file_name().to_string_lossy().to_string();
         if let Some(mut lock) = state::load_lock(state_dir, &machine_name)? {
-            let stale: Vec<String> = lock
-                .resources
-                .keys()
-                .filter(|k| !config_resources.contains(k))
-                .cloned()
-                .collect();
-
-            if stale.is_empty() {
-                continue;
-            }
-
-            for s in &stale {
-                if yes {
-                    // ACTUALLY REMOVE IT.
-                    //
-                    // This branch used to be the println! alone. `stale` was
-                    // computed, printed and counted; the lock was never mutated
-                    // and never saved. So `lock-prune --yes` announced
-                    // "Pruned 'b' from local", exited 0, and left the lock file
-                    // BYTE-IDENTICAL — the message was the only thing that
-                    // happened. Ledger id
-                    // lock-prune-yes-claims-pruned-but-changes-nothing,
-                    // confirmed at 1.12.3 and still live at 1.16.0.
-                    lock.resources.shift_remove(s);
-                    println!("  {} Pruned '{}' from {}", red("-"), s, machine_name);
-                } else {
-                    println!(
-                        "  {} Would prune '{}' from {} (use --yes to apply)",
-                        yellow("~"),
-                        s,
-                        machine_name
-                    );
-                }
-            }
-            pruned += stale.len();
-
-            // Persist, and REFUSE TO CLAIM SUCCESS IF THE WRITE FAILED. Saving
-            // rewrites the .b3 sidecar alongside the lock, so a pruned lock
-            // stays consistent with its integrity record.
-            if yes {
-                state::save_lock(state_dir, &lock).map_err(|e| {
-                    format!(
-                        "pruned {} entr(ies) from {machine_name} but could not save the lock: {e}",
-                        stale.len()
-                    )
-                })?;
-            }
+            pruned +=
+                prune_machine_lock(state_dir, &machine_name, &mut lock, &config_resources, yes)?;
         }
     }
 
-    if pruned == 0 {
-        println!("{} No stale lock entries found.", green("✓"));
-    } else if !yes {
-        println!(
-            "\n{} {} stale entries. Run with --yes to prune.",
-            yellow("Total:"),
-            pruned
-        );
-    } else {
-        println!("\n{} Pruned {} stale entries.", green("✓"), pruned);
-    }
-
+    print_prune_summary(pruned, yes);
     Ok(())
 }
 

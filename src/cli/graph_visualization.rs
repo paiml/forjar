@@ -45,34 +45,42 @@ fn print_prune_mermaid(
 
 // ── FJ-454: graph --prune ──
 
+/// The subtree cut away by `--prune`: the named resource plus everything that
+/// transitively depends on it. Iterated to a fixed point rather than walked
+/// once, because `order` can list a dependent before the dependency that pulls
+/// it into the set.
+fn transitive_dependents(
+    config: &types::ForjarConfig,
+    order: &[String],
+    resource: &str,
+) -> std::collections::HashSet<String> {
+    let mut pruned = std::collections::HashSet::new();
+    pruned.insert(resource.to_string());
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for name in order {
+            if pruned.contains(name) {
+                continue;
+            }
+            let Some(res) = config.resources.get(name) else {
+                continue;
+            };
+            if res.depends_on.iter().any(|dep| pruned.contains(dep)) {
+                pruned.insert(name.clone());
+                changed = true;
+            }
+        }
+    }
+    pruned
+}
+
 pub(crate) fn cmd_graph_prune(file: &Path, format: &str, resource: &str) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let order = resolver::build_execution_order(&config)?;
 
-    // Collect subtree of resource to prune (resource + all transitive dependents)
-    let mut pruned = std::collections::HashSet::new();
-    pruned.insert(resource.to_string());
-
-    // Find all resources that transitively depend on the pruned resource
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for name in &order {
-            if pruned.contains(name) {
-                continue;
-            }
-            if let Some(res) = config.resources.get(name) {
-                for dep in &res.depends_on {
-                    if pruned.contains(dep) {
-                        pruned.insert(name.clone());
-                        changed = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
+    let pruned = transitive_dependents(&config, &order, resource);
     let remaining: Vec<&String> = order.iter().filter(|n| !pruned.contains(*n)).collect();
 
     if format == "dot" {
@@ -92,15 +100,17 @@ pub(crate) fn cmd_graph_prune(file: &Path, format: &str, resource: &str) -> Resu
 
 // ── FJ-464: graph --layers ──
 
-pub(crate) fn cmd_graph_layers(file: &Path) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
-    let order = resolver::build_execution_order(&config)?;
-
-    // Compute layer (depth) for each resource
+/// Depth of every resource: 0 for a resource with no dependencies, otherwise
+/// one more than its deepest dependency. Iterated to a fixed point, so a
+/// resource is only placed once all of its dependencies have been. Resources
+/// whose dependencies never resolve stay unlayered and are simply not printed.
+fn assign_layers(
+    config: &types::ForjarConfig,
+    order: &[String],
+) -> std::collections::HashMap<String, usize> {
     let mut layers: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
-    // Resources with no deps are layer 0
-    for name in &order {
+    for name in order {
         if let Some(res) = config.resources.get(name) {
             if res.depends_on.is_empty() {
                 layers.insert(name.clone(), 0);
@@ -108,49 +118,57 @@ pub(crate) fn cmd_graph_layers(file: &Path) -> Result<(), String> {
         }
     }
 
-    // Iteratively assign layers
     let mut changed = true;
     while changed {
         changed = false;
-        for name in &order {
+        for name in order {
             if layers.contains_key(name) {
                 continue;
             }
-            if let Some(res) = config.resources.get(name) {
-                let max_dep = res
-                    .depends_on
-                    .iter()
-                    .filter_map(|d| layers.get(d))
-                    .max()
-                    .copied();
-                if let Some(max) = max_dep {
-                    layers.insert(name.clone(), max + 1);
-                    changed = true;
-                }
+            let Some(res) = config.resources.get(name) else {
+                continue;
+            };
+            let max_dep = res
+                .depends_on
+                .iter()
+                .filter_map(|d| layers.get(d))
+                .max()
+                .copied();
+            if let Some(max) = max_dep {
+                layers.insert(name.clone(), max + 1);
+                changed = true;
             }
         }
     }
+    layers
+}
 
-    // Group by layer
+/// One line per non-empty layer, resources listed in execution order.
+fn print_layers(order: &[String], layers: &std::collections::HashMap<String, usize>) {
     let max_layer = layers.values().copied().max().unwrap_or(0);
     for layer in 0..=max_layer {
-        let resources: Vec<&String> = order
+        let resources: Vec<&str> = order
             .iter()
             .filter(|n| layers.get(*n) == Some(&layer))
+            .map(String::as_str)
             .collect();
         if !resources.is_empty() {
             println!(
                 "Layer {} ({}): {}",
                 layer,
                 resources.len(),
-                resources
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                resources.join(", ")
             );
         }
     }
+}
+
+pub(crate) fn cmd_graph_layers(file: &Path) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let order = resolver::build_execution_order(&config)?;
+
+    let layers = assign_layers(&config, &order);
+    print_layers(&order, &layers);
     Ok(())
 }
 

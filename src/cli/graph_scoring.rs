@@ -299,25 +299,33 @@ pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
     Ok(())
 }
 
+/// The pair `(name, dep)` in lexicographic order when the two resources depend
+/// on each other, so that either direction of the edge yields the same key.
+/// `None` when `dep` is unknown or does not depend back on `name`.
+fn mutual_dependency_pair(
+    config: &types::ForjarConfig,
+    name: &str,
+    dep: &str,
+) -> Option<(String, String)> {
+    let dep_res = config.resources.get(dep)?;
+    if !dep_res.depends_on.iter().any(|d| d == name) {
+        return None;
+    }
+    Some(if name < dep {
+        (name.to_string(), dep.to_string())
+    } else {
+        (dep.to_string(), name.to_string())
+    })
+}
+
 pub(super) fn find_cycle_risks(config: &types::ForjarConfig) -> Vec<(String, String, usize)> {
-    let mut risks = Vec::new();
+    let mut risks: Vec<(String, String, usize)> = Vec::new();
     for (name, resource) in &config.resources {
         for dep in &resource.depends_on {
-            let dep_res = match config.resources.get(dep) {
-                Some(r) => r,
-                None => continue,
-            };
-            if !dep_res.depends_on.contains(name) {
+            let Some(pair) = mutual_dependency_pair(config, name, dep) else {
                 continue;
-            }
-            let pair = if name < dep {
-                (name.clone(), dep.clone())
-            } else {
-                (dep.clone(), name.clone())
             };
-            let already_found = risks
-                .iter()
-                .any(|(a, b, _): &(String, String, usize)| a == &pair.0 && b == &pair.1);
+            let already_found = risks.iter().any(|(a, b, _)| a == &pair.0 && b == &pair.1);
             if !already_found {
                 risks.push((pair.0, pair.1, 1));
             }

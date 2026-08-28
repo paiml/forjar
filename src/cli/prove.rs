@@ -191,6 +191,30 @@ fn topo_sort_count(config: &types::ForjarConfig) -> (usize, usize) {
     (visited, config.resources.len())
 }
 
+/// Whether a resource belongs in the coverage count at all. Recipes are
+/// templates rather than deployed state and never count; `--machine` narrows
+/// the count to the resources that target that machine.
+fn counts_toward_state_coverage(resource: &types::Resource, machine_filter: Option<&str>) -> bool {
+    if resource.resource_type == types::ResourceType::Recipe {
+        return false;
+    }
+    match machine_filter {
+        Some(filter) => machine_matches(resource, filter),
+        None => true,
+    }
+}
+
+/// A resource is covered when at least one of the machines it targets records
+/// it in that machine's lock.
+fn resource_has_state_entry(state_dir: &Path, resource: &types::Resource, id: &str) -> bool {
+    resource.machine.iter().any(|machine| {
+        matches!(
+            state::load_lock(state_dir, machine),
+            Ok(Some(lock)) if lock.resources.contains_key(id)
+        )
+    })
+}
+
 fn prove_state_coverage(
     config: &types::ForjarConfig,
     state_dir: &Path,
@@ -200,24 +224,12 @@ fn prove_state_coverage(
     let mut covered = 0;
 
     for (id, resource) in &config.resources {
-        if let Some(filter) = machine_filter {
-            if !machine_matches(resource, filter) {
-                continue;
-            }
-        }
-        if resource.resource_type == types::ResourceType::Recipe {
+        if !counts_toward_state_coverage(resource, machine_filter) {
             continue;
         }
-
         total += 1;
-
-        for machine in resource.machine.iter() {
-            if let Ok(Some(lock)) = state::load_lock(state_dir, machine) {
-                if lock.resources.contains_key(id) {
-                    covered += 1;
-                    break;
-                }
-            }
+        if resource_has_state_entry(state_dir, resource, id) {
+            covered += 1;
         }
     }
 

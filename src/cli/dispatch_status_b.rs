@@ -13,6 +13,26 @@ use super::status_transport::*;
 use super::{status_intelligence_ext::*, status_intelligence_ext2::*};
 use std::path::Path;
 
+/// Shape shared by every `status` sub-report reached from a phase dispatcher.
+/// Because it is uniform, a dispatcher can be written as a table of
+/// (flag, report) pairs rather than a chain of `if` statements.
+pub(super) type StatusReport = fn(&Path, Option<&str>, bool) -> Result<(), String>;
+
+/// Runs the first report whose flag is set, in table order, and returns `None`
+/// when no flag in the table is set. Reports past the first match are never
+/// called, so this keeps the short-circuiting the `if` chains had.
+pub(super) fn first_enabled_report(
+    sd: &Path,
+    machine: Option<&str>,
+    json: bool,
+    table: &[(bool, StatusReport)],
+) -> Option<Result<(), String>> {
+    table
+        .iter()
+        .find(|(enabled, _)| *enabled)
+        .map(|(_, report)| report(sd, machine, json))
+}
+
 fn try_status_phase87(
     sd: &Path,
     machine: Option<&str>,
@@ -212,36 +232,22 @@ pub(super) fn try_status_phases_97_99(
     f2: bool,
     f3: bool,
 ) -> Option<Result<(), String>> {
-    if d1 {
-        return Some(cmd_status_fleet_state_churn_analysis(sd, machine, json));
-    }
-    if d2 {
-        return Some(cmd_status_config_maturity_score(sd, machine, json));
-    }
-    if d3 {
-        return Some(cmd_status_fleet_capacity_utilization(sd, machine, json));
-    }
-    if e1 {
-        return Some(cmd_status_fleet_drift_velocity_trend(sd, machine, json));
-    }
-    if e2 {
-        return Some(cmd_status_machine_convergence_window(sd, machine, json));
-    }
-    if e3 {
-        return Some(cmd_status_fleet_resource_age_histogram(sd, machine, json));
-    }
-    if f1 {
-        return Some(cmd_status_fleet_security_posture_summary(sd, machine, json));
-    }
-    if f2 {
-        return Some(cmd_status_machine_resource_freshness_index(
-            sd, machine, json,
-        ));
-    }
-    if f3 {
-        return Some(cmd_status_fleet_resource_type_coverage(sd, machine, json));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (d1, cmd_status_fleet_state_churn_analysis),
+            (d2, cmd_status_config_maturity_score),
+            (d3, cmd_status_fleet_capacity_utilization),
+            (e1, cmd_status_fleet_drift_velocity_trend),
+            (e2, cmd_status_machine_convergence_window),
+            (e3, cmd_status_fleet_resource_age_histogram),
+            (f1, cmd_status_fleet_security_posture_summary),
+            (f2, cmd_status_machine_resource_freshness_index),
+            (f3, cmd_status_fleet_resource_type_coverage),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_status_phases_100_103(
@@ -261,61 +267,58 @@ pub(super) fn try_status_phases_100_103(
     machine_resource_drift_recovery_time: bool,
     fleet_resource_config_complexity_score: bool,
 ) -> Option<Result<(), String>> {
-    if fleet_apply_cadence {
-        return Some(cmd_status_fleet_apply_cadence(sd, machine, json));
-    }
-    if machine_resource_error_classification {
-        return Some(cmd_status_machine_resource_error_classification(
-            sd, machine, json,
-        ));
-    }
-    if fleet_resource_convergence_summary {
-        return Some(cmd_status_fleet_resource_convergence_summary(
-            sd, machine, json,
-        ));
-    }
-    if fleet_resource_staleness_report {
-        return Some(cmd_status_fleet_resource_staleness_report(
-            sd, machine, json,
-        ));
-    }
-    if machine_resource_type_distribution {
-        return Some(cmd_status_machine_resource_type_distribution(
-            sd, machine, json,
-        ));
-    }
-    if fleet_machine_health_score {
-        return Some(cmd_status_fleet_machine_health_score(sd, machine, json));
-    }
-    if fleet_resource_dependency_lag_report {
-        return Some(cmd_status_fleet_resource_dependency_lag_report(
-            sd, machine, json,
-        ));
-    }
-    if machine_resource_convergence_rate_trend {
-        return Some(cmd_status_machine_resource_convergence_rate_trend(
-            sd, machine, json,
-        ));
-    }
-    if fleet_resource_apply_lag {
-        return Some(cmd_status_fleet_resource_apply_lag(sd, machine, json));
-    }
-    if fleet_resource_error_rate_trend {
-        return Some(cmd_status_fleet_resource_error_rate_trend(
-            sd, machine, json,
-        ));
-    }
-    if machine_resource_drift_recovery_time {
-        return Some(cmd_status_machine_resource_drift_recovery_time(
-            sd, machine, json,
-        ));
-    }
-    if fleet_resource_config_complexity_score {
-        return Some(cmd_status_fleet_resource_config_complexity_score(
-            sd, machine, json,
-        ));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (fleet_apply_cadence, cmd_status_fleet_apply_cadence),
+            (
+                machine_resource_error_classification,
+                cmd_status_machine_resource_error_classification,
+            ),
+            (
+                fleet_resource_convergence_summary,
+                cmd_status_fleet_resource_convergence_summary,
+            ),
+            (
+                fleet_resource_staleness_report,
+                cmd_status_fleet_resource_staleness_report,
+            ),
+            (
+                machine_resource_type_distribution,
+                cmd_status_machine_resource_type_distribution,
+            ),
+            (
+                fleet_machine_health_score,
+                cmd_status_fleet_machine_health_score,
+            ),
+            (
+                fleet_resource_dependency_lag_report,
+                cmd_status_fleet_resource_dependency_lag_report,
+            ),
+            (
+                machine_resource_convergence_rate_trend,
+                cmd_status_machine_resource_convergence_rate_trend,
+            ),
+            (
+                fleet_resource_apply_lag,
+                cmd_status_fleet_resource_apply_lag,
+            ),
+            (
+                fleet_resource_error_rate_trend,
+                cmd_status_fleet_resource_error_rate_trend,
+            ),
+            (
+                machine_resource_drift_recovery_time,
+                cmd_status_machine_resource_drift_recovery_time,
+            ),
+            (
+                fleet_resource_config_complexity_score,
+                cmd_status_fleet_resource_config_complexity_score,
+            ),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_status_phases_104_107(
@@ -335,63 +338,25 @@ pub(super) fn try_status_phases_104_107(
     j2: bool,
     j3: bool,
 ) -> Option<Result<(), String>> {
-    if g1 {
-        return Some(cmd_status_fleet_resource_maturity_index(sd, machine, json));
-    }
-    if g2 {
-        return Some(cmd_status_machine_resource_convergence_stability_index(
-            sd, machine, json,
-        ));
-    }
-    if g3 {
-        return Some(cmd_status_fleet_resource_drift_pattern_analysis(
-            sd, machine, json,
-        ));
-    }
-    if h1 {
-        return Some(cmd_status_fleet_resource_apply_success_trend(
-            sd, machine, json,
-        ));
-    }
-    if h2 {
-        return Some(cmd_status_machine_resource_drift_age_distribution(
-            sd, machine, json,
-        ));
-    }
-    if h3 {
-        return Some(cmd_status_fleet_resource_convergence_gap_analysis(
-            sd, machine, json,
-        ));
-    }
-    if i1 {
-        return Some(cmd_status_fleet_resource_type_drift_correlation(
-            sd, machine, json,
-        ));
-    }
-    if i2 {
-        return Some(cmd_status_machine_resource_apply_cadence_report(
-            sd, machine, json,
-        ));
-    }
-    if i3 {
-        return Some(cmd_status_fleet_resource_drift_recovery_trend(
-            sd, machine, json,
-        ));
-    }
-    if j1 {
-        return Some(cmd_status_fleet_resource_quality_score(sd, machine, json));
-    }
-    if j2 {
-        return Some(cmd_status_machine_resource_drift_pattern_classification(
-            sd, machine, json,
-        ));
-    }
-    if j3 {
-        return Some(cmd_status_fleet_resource_convergence_window_analysis(
-            sd, machine, json,
-        ));
-    }
-    None
+    first_enabled_report(
+        sd,
+        machine,
+        json,
+        &[
+            (g1, cmd_status_fleet_resource_maturity_index),
+            (g2, cmd_status_machine_resource_convergence_stability_index),
+            (g3, cmd_status_fleet_resource_drift_pattern_analysis),
+            (h1, cmd_status_fleet_resource_apply_success_trend),
+            (h2, cmd_status_machine_resource_drift_age_distribution),
+            (h3, cmd_status_fleet_resource_convergence_gap_analysis),
+            (i1, cmd_status_fleet_resource_type_drift_correlation),
+            (i2, cmd_status_machine_resource_apply_cadence_report),
+            (i3, cmd_status_fleet_resource_drift_recovery_trend),
+            (j1, cmd_status_fleet_resource_quality_score),
+            (j2, cmd_status_machine_resource_drift_pattern_classification),
+            (j3, cmd_status_fleet_resource_convergence_window_analysis),
+        ],
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_status_phases_87_92(

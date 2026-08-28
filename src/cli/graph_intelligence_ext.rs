@@ -314,94 +314,101 @@ pub(crate) fn cmd_graph_resource_dependency_strongly_connected(
     Ok(())
 }
 
+/// Bookkeeping that Tarjan's SCC algorithm threads through its recursion:
+/// per-node discovery index and lowlink, the "currently on the stack" flags,
+/// and the components closed so far. Nodes are addressed by their position in
+/// `names`; `idx_map` maps a resource name back to that position.
+struct TarjanState<'a> {
+    names: &'a [String],
+    idx_map: std::collections::HashMap<&'a str, usize>,
+    index_counter: usize,
+    stack: Vec<usize>,
+    on_stack: Vec<bool>,
+    indices: Vec<usize>,
+    lowlinks: Vec<usize>,
+    result: Vec<Vec<String>>,
+}
+
+impl<'a> TarjanState<'a> {
+    fn new(names: &'a [String]) -> Self {
+        let n = names.len();
+        Self {
+            names,
+            idx_map: names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| (name.as_str(), i))
+                .collect(),
+            index_counter: 0,
+            stack: Vec::new(),
+            on_stack: vec![false; n],
+            indices: vec![usize::MAX; n],
+            lowlinks: vec![0usize; n],
+            result: Vec::new(),
+        }
+    }
+
+    /// Give `v` the next discovery index and put it on the SCC stack.
+    fn discover(&mut self, v: usize) {
+        self.indices[v] = self.index_counter;
+        self.lowlinks[v] = self.index_counter;
+        self.index_counter += 1;
+        self.stack.push(v);
+        self.on_stack[v] = true;
+    }
+
+    /// Walk `v`'s dependencies, recursing into ones not yet discovered, and
+    /// relax `v`'s lowlink against every neighbour still on the stack.
+    fn relax_dependencies(&mut self, v: usize, config: &types::ForjarConfig) {
+        let names = self.names;
+        let Some(res) = config.resources.get(&names[v]) else {
+            return;
+        };
+        for dep in &res.depends_on {
+            let Some(w) = self.idx_map.get(dep.as_str()).copied() else {
+                continue;
+            };
+            if self.indices[w] == usize::MAX {
+                self.strongconnect(w, config);
+                self.lowlinks[v] = self.lowlinks[v].min(self.lowlinks[w]);
+            } else if self.on_stack[w] {
+                self.lowlinks[v] = self.lowlinks[v].min(self.indices[w]);
+            }
+        }
+    }
+
+    /// `v` is an SCC root: pop everything above it off the stack as one
+    /// component, recorded in sorted order.
+    fn close_component_at(&mut self, v: usize) {
+        let mut component = Vec::new();
+        while let Some(w) = self.stack.pop() {
+            self.on_stack[w] = false;
+            component.push(self.names[w].clone());
+            if w == v {
+                break;
+            }
+        }
+        component.sort();
+        self.result.push(component);
+    }
+
+    fn strongconnect(&mut self, v: usize, config: &types::ForjarConfig) {
+        self.discover(v);
+        self.relax_dependencies(v, config);
+        if self.lowlinks[v] == self.indices[v] {
+            self.close_component_at(v);
+        }
+    }
+}
+
 pub(super) fn tarjan_scc(config: &types::ForjarConfig, names: &[String]) -> Vec<Vec<String>> {
-    let n = names.len();
-    let idx_map: std::collections::HashMap<&str, usize> = names
-        .iter()
-        .enumerate()
-        .map(|(i, n)| (n.as_str(), i))
-        .collect();
-    let mut index_counter = 0usize;
-    let mut stack = Vec::new();
-    let mut on_stack = vec![false; n];
-    let mut indices = vec![usize::MAX; n];
-    let mut lowlinks = vec![0usize; n];
-    let mut result = Vec::new();
-
-    #[allow(clippy::too_many_arguments)]
-    fn strongconnect(
-        v: usize,
-        config: &types::ForjarConfig,
-        names: &[String],
-        idx_map: &std::collections::HashMap<&str, usize>,
-        index_counter: &mut usize,
-        stack: &mut Vec<usize>,
-        on_stack: &mut [bool],
-        indices: &mut [usize],
-        lowlinks: &mut [usize],
-        result: &mut Vec<Vec<String>>,
-    ) {
-        indices[v] = *index_counter;
-        lowlinks[v] = *index_counter;
-        *index_counter += 1;
-        stack.push(v);
-        on_stack[v] = true;
-
-        if let Some(res) = config.resources.get(&names[v]) {
-            for dep in &res.depends_on {
-                if let Some(&w) = idx_map.get(dep.as_str()) {
-                    if indices[w] == usize::MAX {
-                        strongconnect(
-                            w,
-                            config,
-                            names,
-                            idx_map,
-                            index_counter,
-                            stack,
-                            on_stack,
-                            indices,
-                            lowlinks,
-                            result,
-                        );
-                        lowlinks[v] = lowlinks[v].min(lowlinks[w]);
-                    } else if on_stack[w] {
-                        lowlinks[v] = lowlinks[v].min(indices[w]);
-                    }
-                }
-            }
-        }
-
-        if lowlinks[v] == indices[v] {
-            let mut component = Vec::new();
-            while let Some(w) = stack.pop() {
-                on_stack[w] = false;
-                component.push(names[w].clone());
-                if w == v {
-                    break;
-                }
-            }
-            component.sort();
-            result.push(component);
+    let mut state = TarjanState::new(names);
+    for v in 0..names.len() {
+        if state.indices[v] == usize::MAX {
+            state.strongconnect(v, config);
         }
     }
-
-    for i in 0..n {
-        if indices[i] == usize::MAX {
-            strongconnect(
-                i,
-                config,
-                names,
-                &idx_map,
-                &mut index_counter,
-                &mut stack,
-                &mut on_stack,
-                &mut indices,
-                &mut lowlinks,
-                &mut result,
-            );
-        }
-    }
-    result
+    state.result
 }
 
 pub(super) use super::graph_intelligence_ext_b::*;

@@ -114,71 +114,72 @@ pub(crate) fn validation_failure_json(file: &Path, errors: &[String]) -> String 
         .unwrap_or_else(|_| r#"{"valid":false,"errors":["<unserialisable>"]}"#.to_string())
 }
 
-pub(crate) fn cmd_validate(
+/// Parses the config, first emitting the structured failure document when
+/// `--json` is set.
+///
+/// EMIT JSON ON THE FAILURE PATH TOO.
+///
+/// This was `parse_and_validate(file)?`, which returns before the reporting
+/// step is ever reached — so `validate --json` emitted ZERO bytes on stdout for
+/// an invalid config and printed a plain-text error instead. That is the one
+/// case a machine consumer needs the structured errors: a conforming config
+/// tells it nothing it did not already assume. Ledger id
+/// validate-json-emits-non-json-on-failure, confirmed at 1.12.3, still live at
+/// 1.16.0.
+///
+/// The error is still returned, so the human-facing behaviour and the exit code
+/// are unchanged.
+fn parse_for_validate(file: &Path, json: bool) -> Result<types::ForjarConfig, String> {
+    parse_and_validate(file).inspect_err(|e| {
+        if json {
+            println!("{}", validation_failure_json(file, std::slice::from_ref(e)));
+        }
+    })
+}
+
+/// Always detect circular dependencies — a cycle makes the config unusable.
+fn check_no_dependency_cycle(
     file: &Path,
+    config: &types::ForjarConfig,
+    json: bool,
+) -> Result<(), String> {
+    let Err(e) = resolver::build_execution_order(config) else {
+        return Ok(());
+    };
+    let msg = format!("dependency cycle: {e}");
+    if json {
+        println!(
+            "{}",
+            validation_failure_json(file, std::slice::from_ref(&msg))
+        );
+    }
+    Err(msg)
+}
+
+/// FJ-330: Show fully expanded config after template resolution.
+fn print_expanded_config(config: &types::ForjarConfig) -> Result<(), String> {
+    let mut expanded = config.clone();
+    for (_id, resource) in expanded.resources.iter_mut() {
+        *resource =
+            resolver::resolve_resource_templates(resource, &expanded.params, &expanded.machines)?;
+    }
+    let yaml =
+        serde_yaml_ng::to_string(&expanded).map_err(|e| format!("serialization error: {e}"))?;
+    println!("{yaml}");
+    Ok(())
+}
+
+/// Reports the outcome of a validation run: the machine-readable document under
+/// `--json`, the errors on stderr otherwise. Errors make the command fail in
+/// both modes, after the report has been emitted.
+fn report_validation(
+    config: &types::ForjarConfig,
     strict: bool,
     json: bool,
-    dry_expand: bool,
+    errors: &[String],
 ) -> Result<(), String> {
-    // EMIT JSON ON THE FAILURE PATH TOO.
-    //
-    // This was `parse_and_validate(file)?`, which returns before the `if json`
-    // block below is ever reached — so `validate --json` emitted ZERO bytes on
-    // stdout for an invalid config and printed a plain-text error instead. That
-    // is the one case a machine consumer needs the structured errors: a
-    // conforming config tells it nothing it did not already assume. Ledger id
-    // validate-json-emits-non-json-on-failure, confirmed at 1.12.3, still live
-    // at 1.16.0.
-    //
-    // `?` is kept for the non-json path so the human-facing behaviour and exit
-    // code are unchanged.
-    let config = match parse_and_validate(file) {
-        Ok(c) => c,
-        Err(e) if json => {
-            println!(
-                "{}",
-                validation_failure_json(file, std::slice::from_ref(&e))
-            );
-            return Err(e);
-        }
-        Err(e) => return Err(e),
-    };
-
-    // Always detect circular dependencies — a cycle makes the config unusable
-    if let Err(e) = resolver::build_execution_order(&config) {
-        let msg = format!("dependency cycle: {e}");
-        if json {
-            println!(
-                "{}",
-                validation_failure_json(file, std::slice::from_ref(&msg))
-            );
-        }
-        return Err(msg);
-    }
-
-    // FJ-330: Show fully expanded config after template resolution
-    if dry_expand {
-        let mut expanded = config.clone();
-        for (_id, resource) in expanded.resources.iter_mut() {
-            *resource = resolver::resolve_resource_templates(
-                resource,
-                &expanded.params,
-                &expanded.machines,
-            )?;
-        }
-        let yaml =
-            serde_yaml_ng::to_string(&expanded).map_err(|e| format!("serialization error: {e}"))?;
-        println!("{yaml}");
-        return Ok(());
-    }
-
-    let errors = if strict {
-        run_strict_checks(&config)
-    } else {
-        Vec::new()
-    };
-
     let valid = errors.is_empty();
+    let failure = || format!("strict validation failed: {} error(s)", errors.len());
 
     if json {
         let output = serde_json::json!({
@@ -193,22 +194,17 @@ pub(crate) fn cmd_validate(
             "{}",
             serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
         );
-        if !valid {
-            return Err(format!(
-                "strict validation failed: {} error(s)",
-                errors.len()
-            ));
+    } else if !valid {
+        for e in errors {
+            eprintln!("  {}", red(e));
         }
-    } else {
-        if !valid {
-            for e in &errors {
-                eprintln!("  {}", red(e));
-            }
-            return Err(format!(
-                "strict validation failed: {} error(s)",
-                errors.len()
-            ));
-        }
+    }
+
+    if !valid {
+        return Err(failure());
+    }
+
+    if !json {
         println!(
             "OK: {} ({} machines, {} resources)",
             config.name,
@@ -216,8 +212,28 @@ pub(crate) fn cmd_validate(
             config.resources.len()
         );
     }
-
     Ok(())
+}
+
+pub(crate) fn cmd_validate(
+    file: &Path,
+    strict: bool,
+    json: bool,
+    dry_expand: bool,
+) -> Result<(), String> {
+    let config = parse_for_validate(file, json)?;
+    check_no_dependency_cycle(file, &config, json)?;
+
+    if dry_expand {
+        return print_expanded_config(&config);
+    }
+
+    let errors = if strict {
+        run_strict_checks(&config)
+    } else {
+        Vec::new()
+    };
+    report_validation(&config, strict, json, &errors)
 }
 
 // ── FJ-391: validate --exhaustive ──

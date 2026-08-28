@@ -19,33 +19,45 @@ fn build_adjacency(config: &types::ForjarConfig) -> HashMap<String, Vec<String>>
     adj
 }
 
+/// Queues `node`'s not-yet-seen dependencies for the BFS, stopping early and
+/// reporting `true` as soon as one of them is `start` — the walk has come back
+/// round to where it began.
+fn enqueue_dependencies(
+    node: &str,
+    start: &str,
+    adj: &HashMap<String, Vec<String>>,
+    visited: &mut HashSet<String>,
+    queue: &mut VecDeque<String>,
+) -> bool {
+    let Some(deps) = adj.get(node) else {
+        return false;
+    };
+    for dep in deps {
+        if dep == start {
+            return true;
+        }
+        if visited.insert(dep.clone()) {
+            queue.push_back(dep.clone());
+        }
+    }
+    false
+}
+
 /// Check if `start` appears in its own transitive dependency closure via BFS.
 fn has_cycle_from(start: &str, adj: &HashMap<String, Vec<String>>) -> Option<String> {
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
-    // Seed with direct dependencies of start.
-    if let Some(deps) = adj.get(start) {
-        for dep in deps {
-            if dep == start {
-                return Some(format!("{start}->>{start}"));
-            }
-            if visited.insert(dep.clone()) {
-                queue.push_back(dep.clone());
-            }
-        }
+
+    // Seed with direct dependencies of start; a hit here is a self-loop.
+    if enqueue_dependencies(start, start, adj, &mut visited, &mut queue) {
+        return Some(format!("{start}->>{start}"));
     }
+
     while let Some(current) = queue.pop_front() {
-        if let Some(deps) = adj.get(&current) {
-            for dep in deps {
-                if dep == start {
-                    return Some(format!(
-                        "bidirectional path: {start}>>...>>{current}>>...>>{start}"
-                    ));
-                }
-                if visited.insert(dep.clone()) {
-                    queue.push_back(dep.clone());
-                }
-            }
+        if enqueue_dependencies(&current, start, adj, &mut visited, &mut queue) {
+            return Some(format!(
+                "bidirectional path: {start}>>...>>{current}>>...>>{start}"
+            ));
         }
     }
     None

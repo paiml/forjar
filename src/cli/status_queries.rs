@@ -165,6 +165,22 @@ fn build_compact_line(m_name: &str, lock: &types::StateLock, json: bool) -> Stri
     }
 }
 
+/// The machine directories a status walk should report on: real directories,
+/// no dotfiles, narrowed to `--machine` when one was given.
+fn selected_machine_dirs(state_dir: &Path, machine: Option<&str>) -> Result<Vec<String>, String> {
+    let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
+    Ok(entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .filter(|name| !name.starts_with('.'))
+        .filter(|name| match machine {
+            Some(filter) => name == filter,
+            None => true,
+        })
+        .collect())
+}
+
 pub(crate) fn cmd_status_compact(
     state_dir: &Path,
     machine: Option<&str>,
@@ -174,30 +190,15 @@ pub(crate) fn cmd_status_compact(
         println!("No state directory found.");
         return Ok(());
     }
-    let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
-    let mut lines = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let m_name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-        if m_name.starts_with('.') {
-            continue;
-        }
-        if let Some(filter) = machine {
-            if m_name != filter {
-                continue;
-            }
-        }
-        if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
-            lines.push(build_compact_line(&m_name, &lock, json));
-        }
-    }
+
+    let lines: Vec<String> = selected_machine_dirs(state_dir, machine)?
+        .into_iter()
+        .filter_map(|m_name| match state::load_lock(state_dir, &m_name) {
+            Ok(Some(lock)) => Some(build_compact_line(&m_name, &lock, json)),
+            _ => None,
+        })
+        .collect();
+
     for line in &lines {
         println!("{line}");
     }

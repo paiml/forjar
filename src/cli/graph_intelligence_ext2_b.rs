@@ -201,6 +201,27 @@ pub(crate) fn cmd_graph_resource_dependency_bridge_criticality(
     print_bridge_criticality(&bridges, json);
     Ok(())
 }
+/// Nodes reachable from `start` over the adjacency matrix, `start` included.
+/// Depth-first, so a dense matrix costs O(n^2) per call.
+fn count_reachable_from(adj: &[Vec<bool>], start: usize, n: usize) -> usize {
+    let mut visited = vec![false; n];
+    let mut stack = vec![start];
+    let mut reached = 0;
+    while let Some(node) = stack.pop() {
+        if visited[node] {
+            continue;
+        }
+        visited[node] = true;
+        reached += 1;
+        for (k, visited_k) in visited.iter().enumerate().take(n) {
+            if adj[node][k] && !visited_k {
+                stack.push(k);
+            }
+        }
+    }
+    reached
+}
+
 fn find_bridge_criticality(
     names: &[&str],
     adj: &[Vec<bool>],
@@ -212,22 +233,8 @@ fn find_bridge_criticality(
             if !adj[i][j] {
                 continue;
             }
-            // Count downstream nodes reachable from j
-            let mut visited = vec![false; n];
-            let mut stack = vec![j];
-            let mut downstream = 0;
-            while let Some(node) = stack.pop() {
-                if visited[node] {
-                    continue;
-                }
-                visited[node] = true;
-                downstream += 1;
-                for (k, visited_k) in visited.iter().enumerate().take(n) {
-                    if adj[node][k] && !visited_k {
-                        stack.push(k);
-                    }
-                }
-            }
+            // How much of the graph hangs off the far end of this edge.
+            let downstream = count_reachable_from(adj, j, n);
             result.push((names[i].to_string(), names[j].to_string(), downstream));
         }
     }

@@ -78,32 +78,38 @@ pub(super) fn print_trace_text(all_spans: &[(String, tracer::TraceSpan)]) {
     }
 }
 
-pub(crate) fn cmd_trace(
+/// Every recorded trace span under `state_dir`, tagged with the machine it came
+/// from and honouring an optional single-machine filter. A machine whose trace
+/// data cannot be read contributes nothing rather than failing the command.
+fn collect_trace_spans(
     state_dir: &Path,
     machine_filter: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+) -> Result<Vec<(String, tracer::TraceSpan)>, String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
     let mut all_spans = Vec::new();
-
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
+        if machine_filter.is_some_and(|filter| name != filter) {
+            continue;
         }
         if !entry.path().is_dir() {
             continue;
         }
         if let Ok(spans) = tracer::read_trace(state_dir, &name) {
-            for span in spans {
-                all_spans.push((name.clone(), span));
-            }
+            all_spans.extend(spans.into_iter().map(|span| (name.clone(), span)));
         }
     }
+    Ok(all_spans)
+}
+
+pub(crate) fn cmd_trace(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let mut all_spans = collect_trace_spans(state_dir, machine_filter)?;
 
     if all_spans.is_empty() {
         if json {

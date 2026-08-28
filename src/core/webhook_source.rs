@@ -267,6 +267,55 @@ pub fn validate_request_at(
     }
 }
 
+/// Check forjar's own signature header: it is timestamped and bound to the
+/// method, path and body.
+fn verify_forjar_signature(
+    config: &WebhookConfig,
+    request: &WebhookRequest,
+    key: &[u8],
+    raw: &str,
+    now: i64,
+) -> ValidationResult {
+    let header = webhook_sig::parse_forjar_signature(raw);
+    // A header with a `t` but no `v1` is malformed, not unsigned — treating it
+    // as unsigned would let a sender opt out of authentication by sending
+    // junk.
+    if !header.has_v1() {
+        return ValidationResult::SignatureInvalid;
+    }
+    let Some(t) = header.timestamp else {
+        return ValidationResult::SignatureInvalid;
+    };
+    if !timestamp_is_fresh(t, now, config.signature_tolerance_secs) {
+        return ValidationResult::SignatureStale {
+            skew_secs: now.saturating_sub(t).unsigned_abs(),
+        };
+    }
+    let signed = canonical_payload(t, &request.method, &request.path, &request.body);
+    // Accept if ANY v1 verifies, so a secret rotation can overlap.
+    if header
+        .v1
+        .iter()
+        .any(|sig| webhook_sig::verify_hex(key, &signed, sig))
+    {
+        return ValidationResult::Valid;
+    }
+    ValidationResult::SignatureInvalid
+}
+
+/// Check GitHub's signature header.
+///
+/// GitHub cannot be told to sign a custom canonical form, so its header is
+/// verified over the bare body. That means no timestamp binding and no path
+/// binding for GitHub senders — acceptable because GitHub delivers to one
+/// configured URL, and the replay guard still makes a delivery single-use.
+fn verify_github_signature(request: &WebhookRequest, key: &[u8], raw: &str) -> ValidationResult {
+    match webhook_sig::parse_github_signature(raw) {
+        Some(hex) if webhook_sig::verify_hex(key, &request.body, &hex) => ValidationResult::Valid,
+        _ => ValidationResult::SignatureInvalid,
+    }
+}
+
 /// Check forjar's own signature, falling back to GitHub's header.
 fn verify_signature(
     config: &WebhookConfig,
@@ -277,44 +326,11 @@ fn verify_signature(
     let key = secret.as_bytes();
 
     if let Some(raw) = request.headers.get(SIG_HEADER) {
-        let header = webhook_sig::parse_forjar_signature(raw);
-        // A header with a `t` but no `v1` is malformed, not unsigned — treating it
-        // as unsigned would let a sender opt out of authentication by sending
-        // junk.
-        if !header.has_v1() {
-            return ValidationResult::SignatureInvalid;
-        }
-        let Some(t) = header.timestamp else {
-            return ValidationResult::SignatureInvalid;
-        };
-        if !timestamp_is_fresh(t, now, config.signature_tolerance_secs) {
-            return ValidationResult::SignatureStale {
-                skew_secs: now.saturating_sub(t).unsigned_abs(),
-            };
-        }
-        let signed = canonical_payload(t, &request.method, &request.path, &request.body);
-        // Accept if ANY v1 verifies, so a secret rotation can overlap.
-        if header
-            .v1
-            .iter()
-            .any(|sig| webhook_sig::verify_hex(key, &signed, sig))
-        {
-            return ValidationResult::Valid;
-        }
-        return ValidationResult::SignatureInvalid;
+        return verify_forjar_signature(config, request, key, raw, now);
     }
 
-    // GitHub cannot be told to sign a custom canonical form, so its header is
-    // verified over the bare body. That means no timestamp binding and no path
-    // binding for GitHub senders — acceptable because GitHub delivers to one
-    // configured URL, and the replay guard still makes a delivery single-use.
     if let Some(raw) = request.headers.get(GITHUB_SIG_HEADER) {
-        return match webhook_sig::parse_github_signature(raw) {
-            Some(hex) if webhook_sig::verify_hex(key, &request.body, &hex) => {
-                ValidationResult::Valid
-            }
-            _ => ValidationResult::SignatureInvalid,
-        };
+        return verify_github_signature(request, key, raw);
     }
 
     ValidationResult::SignatureMissing

@@ -242,23 +242,35 @@ fn scan_machines_for_drift(
 }
 
 /// Collect (machine_name, lock) pairs from state directory.
-fn collect_machine_locks(
+/// Machine directory names under `state_dir`, in read order, honouring an
+/// optional single-machine filter. Unreadable entries and non-directories are
+/// skipped; whether an empty result is an error is left to the caller.
+fn machine_state_dirs(
     state_dir: &Path,
     machine_filter: Option<&str>,
-) -> Result<Vec<(String, types::StateLock)>, String> {
+) -> Result<Vec<String>, String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-    let mut locks = Vec::new();
+    let mut names = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
+        if machine_filter.is_some_and(|filter| name != filter) {
+            continue;
         }
         if !entry.path().is_dir() {
             continue;
         }
+        names.push(name);
+    }
+    Ok(names)
+}
+
+fn collect_machine_locks(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<Vec<(String, types::StateLock)>, String> {
+    let mut locks = Vec::new();
+    for name in machine_state_dirs(state_dir, machine_filter)? {
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             locks.push((name, lock));
         }
@@ -377,48 +389,39 @@ pub(crate) fn cmd_drift(
     Ok(())
 }
 
-/// Dry-run mode for drift: lists resources that would be checked without connecting.
-pub(crate) fn cmd_drift_dry_run(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
+/// Records what a drift check would inspect on one machine: in JSON mode each
+/// resource is appended to `checks`, otherwise the machine and its resources are
+/// printed. Returns the number of resources accounted for.
+fn record_dry_run_checks(
+    name: &str,
+    lock: &types::StateLock,
     json: bool,
-) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-
-    let mut checks: Vec<serde_json::Value> = Vec::new();
-    let mut total = 0usize;
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-        if let Some(lock) = state::load_lock(state_dir, &name)? {
-            if !json {
-                println!("Machine: {} ({} resources)", name, lock.resources.len());
-            }
-            for (res_id, res_state) in &lock.resources {
-                total += 1;
-                if json {
-                    checks.push(serde_json::json!({
-                        "machine": name,
-                        "resource": res_id,
-                        "status": res_state.status,
-                        "hash": res_state.hash,
-                    }));
-                } else {
-                    println!("  would check: {} (status: {})", res_id, res_state.status);
-                }
-            }
+    checks: &mut Vec<serde_json::Value>,
+) -> usize {
+    if !json {
+        println!("Machine: {} ({} resources)", name, lock.resources.len());
+    }
+    for (res_id, res_state) in &lock.resources {
+        if json {
+            checks.push(serde_json::json!({
+                "machine": name,
+                "resource": res_id,
+                "status": res_state.status,
+                "hash": res_state.hash,
+            }));
+        } else {
+            println!("  would check: {} (status: {})", res_id, res_state.status);
         }
     }
+    lock.resources.len()
+}
 
+/// Emits the dry-run result: a JSON report, or a human-readable total.
+fn print_dry_run_report(
+    json: bool,
+    total: usize,
+    checks: &[serde_json::Value],
+) -> Result<(), String> {
     if json {
         let report = serde_json::json!({
             "dry_run": true,
@@ -432,6 +435,23 @@ pub(crate) fn cmd_drift_dry_run(
         println!();
         println!("Dry run: {total} resource(s) would be checked");
     }
-
     Ok(())
+}
+
+/// Dry-run mode for drift: lists resources that would be checked without connecting.
+pub(crate) fn cmd_drift_dry_run(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let mut checks: Vec<serde_json::Value> = Vec::new();
+    let mut total = 0usize;
+
+    for name in machine_state_dirs(state_dir, machine_filter)? {
+        if let Some(lock) = state::load_lock(state_dir, &name)? {
+            total += record_dry_run_checks(&name, &lock, json, &mut checks);
+        }
+    }
+
+    print_dry_run_report(json, total, &checks)
 }

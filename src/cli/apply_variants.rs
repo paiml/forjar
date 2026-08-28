@@ -197,6 +197,77 @@ fn refreshed_live_hash(
     }
 }
 
+/// Live hash for a lock entry that is still eligible for refresh: it must be
+/// recorded as converged and still be present in the config. `None` means the
+/// entry is skipped — either it is not converged, the resource was removed from
+/// the config, or the live query did not answer.
+fn refreshable_live_hash(
+    config: &types::ForjarConfig,
+    machine: &types::Machine,
+    id: &str,
+    rl: &types::ResourceLock,
+    timeout: Option<u64>,
+) -> Option<String> {
+    if rl.status != types::ResourceStatus::Converged {
+        return None;
+    }
+    let resource = config.resources.get(id)?;
+    refreshed_live_hash(machine, resource, config, timeout)
+}
+
+/// True when a freshly queried hash differs from the OBSERVED state already
+/// recorded on the lock entry (an absent recording counts as a difference
+/// unless the new hash is empty, matching the pre-refactor comparison).
+///
+/// Reads through `observed_state()` rather than `details["live_hash"]`: #338
+/// split SPEC from STATUS and the accessor prefers the typed `observed` field,
+/// so a raw `details` read here would disagree with the drift path.
+fn observed_state_drifted(rl: &types::ResourceLock, hash: &str) -> bool {
+    // Compare against the OBSERVED state through the accessor, so this path and
+    // the drift path agree on where that value lives.
+    let old_hash = rl.observed_state().unwrap_or("");
+    hash != old_hash
+}
+
+/// Re-queries every refreshable resource of one machine, returning the lock with
+/// updated observed state plus (queried, drifted) counts.
+fn refresh_machine_lock(
+    config: &types::ForjarConfig,
+    machine: &types::Machine,
+    machine_name: &str,
+    lock: &types::StateLock,
+    timeout: Option<u64>,
+    verbose: bool,
+) -> (types::StateLock, usize, usize) {
+    let mut updated_lock = lock.clone();
+    let mut refreshed = 0usize;
+    let mut drift_count = 0usize;
+
+    for (id, rl) in &lock.resources {
+        let Some(hash) = refreshable_live_hash(config, machine, id, rl, timeout) else {
+            continue;
+        };
+        if observed_state_drifted(rl, &hash) {
+            drift_count += 1;
+            if verbose {
+                eprintln!("  drift: {id} on {machine_name} (hash changed)");
+            }
+        }
+        if let Some(entry) = updated_lock.resources.get_mut(id) {
+            // MUST go through the setter. Writing only `details` here would
+            // leave the typed `observed` field holding the PREVIOUS digest, and
+            // `observed_state()` prefers the typed field — so `--refresh` would
+            // update one of two copies and every later reader would see the
+            // stale one. That is forjar#305's exact shape (two stores, readers
+            // split between them), which this refactor exists to remove.
+            entry.set_observed_state(hash);
+        }
+        refreshed += 1;
+    }
+
+    (updated_lock, refreshed, drift_count)
+}
+
 /// FJ-1230: Refresh state only — re-query live state for all converged resources
 /// and update lock hashes without applying any changes.
 #[allow(clippy::too_many_arguments)]
@@ -221,46 +292,13 @@ pub(crate) fn cmd_refresh_only(
     let mut drift_count = 0usize;
 
     for (machine_name, lock) in &locks {
-        let machine = match config.machines.get(machine_name) {
-            Some(m) => m,
-            None => continue,
+        let Some(machine) = config.machines.get(machine_name) else {
+            continue;
         };
-
-        let mut updated_lock = lock.clone();
-        for (id, rl) in &lock.resources {
-            if rl.status != types::ResourceStatus::Converged {
-                continue;
-            }
-            let resource = match config.resources.get(id) {
-                Some(r) => r,
-                None => continue,
-            };
-            let new_hash = refreshed_live_hash(machine, resource, &config, timeout);
-
-            if let Some(ref hash) = new_hash {
-                // Compare against the OBSERVED state through the accessor, so
-                // this path and the drift path agree on where that value lives.
-                let old_hash = rl.observed_state().unwrap_or("");
-                if hash != old_hash {
-                    drift_count += 1;
-                    if verbose {
-                        eprintln!("  drift: {id} on {machine_name} (hash changed)");
-                    }
-                }
-                if let Some(entry) = updated_lock.resources.get_mut(id) {
-                    // MUST go through the setter. Writing only `details` here
-                    // would leave the typed `observed` field holding the
-                    // PREVIOUS digest, and `observed_state()` prefers the typed
-                    // field — so `--refresh` would update one of two copies and
-                    // every later reader would see the stale one. That is
-                    // forjar#305's exact shape (two stores, readers split
-                    // between them), which this refactor exists to remove.
-                    entry.set_observed_state(hash.clone());
-                }
-                refreshed += 1;
-            }
-        }
-
+        let (updated_lock, machine_refreshed, machine_drift) =
+            refresh_machine_lock(&config, machine, machine_name, lock, timeout, verbose);
+        refreshed += machine_refreshed;
+        drift_count += machine_drift;
         state::save_lock(state_dir, &updated_lock)?;
     }
 
