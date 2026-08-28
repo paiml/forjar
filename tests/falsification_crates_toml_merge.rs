@@ -26,14 +26,41 @@
 use std::fs;
 use std::process::Command;
 
-/// Extract the `_fj_register` shell function from a generated install script.
-fn register_fn(script: &str) -> String {
-    let start = script
-        .find("_fj_register() {")
-        .expect("generated script must define _fj_register");
-    let rest = &script[start..];
-    let end = rest.find("\n}").expect("unterminated _fj_register") + 2;
-    rest[..end].to_string()
+/// Extract every `_fj_*` shell function from a generated install script.
+///
+/// Deliberately name-agnostic: these tests must measure the merge's BEHAVIOUR,
+/// not the presence of any particular helper. A script that defines only
+/// `_fj_register` contributes only `_fj_register` and still runs.
+///
+/// The `\n\` continuations in the generator strip leading whitespace, so every
+/// emitted line is unindented and a bare `}` at column 0 unambiguously closes a
+/// function body.
+fn shell_prelude(script: &str) -> String {
+    let mut out = String::new();
+    let mut rest = script;
+    while let Some(open) = rest.find("() {") {
+        let line_start = rest[..open].rfind('\n').map_or(0, |i| i + 1);
+        let name = &rest[line_start..open];
+        let is_helper =
+            name.starts_with("_fj_") && name.bytes().all(|b| b.is_ascii_lowercase() || b == b'_');
+        if !is_helper {
+            rest = &rest[open + 4..];
+            continue;
+        }
+        let end = line_start
+            + rest[line_start..]
+                .find("\n}")
+                .expect("unterminated shell function")
+            + 2;
+        out.push_str(&rest[line_start..end]);
+        out.push('\n');
+        rest = &rest[end..];
+    }
+    assert!(
+        out.contains("_fj_register() {"),
+        "generated script must define _fj_register"
+    );
+    out
 }
 
 fn generated_script() -> String {
@@ -58,17 +85,17 @@ fn merging_a_multi_line_entry_leaves_valid_toml() {
     fs::write(
         &dest,
         "[v1]\n\
-         \"bat 0.26.1 (registry+x)\" = [\"bat\"]\n\
-         \"cross 0.2.5 (registry+x)\" = [\n    \"cross\",\n    \"cross-util\",\n]\n\
-         \"kani-verifier 0.66.0 (registry+x)\" = [\n    \"cargo-kani\",\n    \"kani\",\n]\n\
-         \"ripgrep 15.1.0 (registry+x)\" = [\"rg\"]\n",
+         \"bat 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)\" = [\"bat\"]\n\
+         \"cross 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)\" = [\n    \"cross\",\n    \"cross-util\",\n]\n\
+         \"kani-verifier 0.66.0 (registry+https://github.com/rust-lang/crates.io-index)\" = [\n    \"cargo-kani\",\n    \"kani\",\n]\n\
+         \"ripgrep 15.1.0 (registry+https://github.com/rust-lang/crates.io-index)\" = [\"rg\"]\n",
     )
     .expect("dest");
 
     let src = dir.join("staging.toml");
     fs::write(
         &src,
-        "[v1]\n\"kani-verifier 0.67.0 (registry+x)\" = [\n    \"cargo-kani\",\n    \"kani\",\n]\n",
+        "[v1]\n\"kani-verifier 0.67.0 (registry+https://github.com/rust-lang/crates.io-index)\" = [\n    \"cargo-kani\",\n    \"kani\",\n]\n",
     )
     .expect("src");
 
@@ -78,7 +105,7 @@ fn merging_a_multi_line_entry_leaves_valid_toml() {
         format!(
             "#!/bin/sh\n_CRATES_TOML=\"{}\"\n{}\n_fj_register \"{}\"\n",
             dest.display(),
-            register_fn(&generated_script()),
+            shell_prelude(&generated_script()),
             src.display()
         ),
     )
@@ -135,9 +162,9 @@ fn merging_a_single_line_entry_still_works() {
     fs::create_dir_all(&dir).expect("sandbox");
 
     let dest = dir.join("crates.toml");
-    fs::write(&dest, "[v1]\n\"bat 0.26.0 (registry+x)\" = [\"bat\"]\n").expect("dest");
+    fs::write(&dest, "[v1]\n\"bat 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)\" = [\"bat\"]\n").expect("dest");
     let src = dir.join("staging.toml");
-    fs::write(&src, "[v1]\n\"bat 0.26.1 (registry+x)\" = [\"bat\"]\n").expect("src");
+    fs::write(&src, "[v1]\n\"bat 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)\" = [\"bat\"]\n").expect("src");
 
     let runner = dir.join("run.sh");
     fs::write(
@@ -145,7 +172,7 @@ fn merging_a_single_line_entry_still_works() {
         format!(
             "#!/bin/sh\n_CRATES_TOML=\"{}\"\n{}\n_fj_register \"{}\"\n",
             dest.display(),
-            register_fn(&generated_script()),
+            shell_prelude(&generated_script()),
             src.display()
         ),
     )
@@ -162,6 +189,97 @@ fn merging_a_single_line_entry_still_works() {
         "a reinstall must update, not duplicate:\n{merged}"
     );
     assert!(merged.contains("bat 0.26.1"), "not upgraded:\n{merged}");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// THE READ-BACK THAT WAS MISSING (forjar#345, suggested fix 3).
+///
+/// The merge above is entry-aware now, but a correct merge INTO wreckage is
+/// still wreckage. An older forjar left `$CARGO_HOME/.crates.toml` with an
+/// orphaned array body and an unclosed key, and cargo rejects the WHOLE file
+/// for one bad entry.
+///
+/// `mv` cannot fail on content, so the commit reported CONVERGED while every
+/// `stack-tool-*` resource on the host read `missing:<tool>` and every binary
+/// kept running. The write was never read back.
+#[test]
+fn a_merge_into_an_unparseable_registry_is_refused_not_committed() {
+    let dir = std::env::temp_dir().join("forjar-345-unparseable");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).expect("sandbox");
+
+    // The exact wreckage measured on paiml's intel: `cross` intact, then an
+    // orphaned array body with no key, then a `kani-verifier` key whose array
+    // is never closed.
+    let dest = dir.join("crates.toml");
+    fs::write(
+        &dest,
+        r#"[v1]
+"bat 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)" = ["bat"]
+"cross 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = [
+    "cross",
+    "cross-util",
+]
+    "cargo-kani",
+    "kani",
+]
+"ripgrep 15.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = ["rg"]
+"kani-verifier 0.67.0 (registry+https://github.com/rust-lang/crates.io-index)" = [
+"#,
+    )
+    .expect("dest");
+    let before = fs::read(&dest).expect("snapshot");
+
+    // A perfectly valid single-entry source for an UNRELATED crate.
+    let src = dir.join("staging.toml");
+    fs::write(&src, "[v1]\n\"copia 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)\" = [\"copia\"]\n").expect("src");
+
+    let runner = dir.join("run.sh");
+    fs::write(
+        &runner,
+        format!(
+            "#!/bin/sh\n_CRATES_TOML=\"{}\"\n{}\n_fj_register \"{}\"\n",
+            dest.display(),
+            shell_prelude(&generated_script()),
+            src.display()
+        ),
+    )
+    .expect("runner");
+
+    let out = Command::new("sh").arg(&runner).output().expect("run merge");
+
+    assert!(
+        !out.status.success(),
+        "a merge leaving metadata cargo cannot parse must FAIL the apply, not \
+         report success — stdout: {} stderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert_eq!(
+        fs::read(&dest).expect("re-read"),
+        before,
+        "the destination was mutated; forjar must not append to a registry \
+         cargo cannot read"
+    );
+
+    let strays: Vec<String> = fs::read_dir(&dir)
+        .expect("list sandbox")
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("crates.toml.forjar."))
+        .collect();
+    assert!(
+        strays.is_empty(),
+        "rejected temp file left behind: {strays:?}"
+    );
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains(&dest.display().to_string()),
+        "the operator must be told WHICH file: {stderr}"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }
