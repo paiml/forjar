@@ -243,6 +243,9 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             verbose,
             args.env_file.as_deref(),
             args.workspace.as_deref(),
+            // forjar#370: this branch returns BEFORE `apply_execute`, so the
+            // operator gate travels with it — enforced inside the callee.
+            args.operator.as_deref(),
         ));
     }
     None

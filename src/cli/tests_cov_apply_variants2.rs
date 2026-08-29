@@ -170,7 +170,7 @@ mod tests {
         let plan_path = dir.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
 
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, true, None, Some("pfws"));
+        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, true, None, Some("pfws"), None);
         assert!(r.is_ok(), "saved plan should apply cleanly: {r:?}");
         assert!(target.exists(), "planned file resource should be created");
     }
@@ -181,7 +181,7 @@ mod tests {
         // Plan built AFTER converge has no pending changes.
         let plan_path = d.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"));
+        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
         assert!(r.is_ok(), "no-change plan exits early: {r:?}");
     }
 
@@ -195,6 +195,7 @@ mod tests {
             false,
             None,
             Some("pfws"),
+            None,
         );
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("read plan file"));
@@ -205,7 +206,7 @@ mod tests {
         let (d, cfg, sd, _t) = converged_setup();
         let plan_path = d.path().join("plan.json");
         std::fs::write(&plan_path, r#"{"format": "bogus-v9"}"#).unwrap();
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"));
+        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("unsupported plan format"));
     }
@@ -221,7 +222,7 @@ mod tests {
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
         // Mutate the config after the plan was saved → hash mismatch.
         write_cfg(dir.path(), &target, "v2-changed");
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"));
+        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("config has changed"));
     }
@@ -234,7 +235,7 @@ mod tests {
         std::fs::create_dir_all(&sd).unwrap();
         let plan_path = dir.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"));
+        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("failed"));
     }

@@ -350,6 +350,28 @@ pub(crate) fn cmd_apply_dry_run_cost(
 
 /// FJ-1250: Execute a previously saved plan file.
 /// Validates config hash matches, then runs the planned changes.
+///
+/// # forjar#370: this is an apply, so it is authorized like one
+///
+/// `dispatch_apply_b::apply_mode_exits` returns here for `--plan-file` BEFORE
+/// `apply_execute`, whose first line is `check_operator_auth`. So the gate was
+/// reachable only on the ordinary path, and the whole of it was skippable by
+/// routing through a plan file. Measured on 1.21.0 with
+/// `allowed_operators: [alice]`, as a non-alice operator:
+///
+/// ```text
+///   forjar apply --yes                              -> not authorized   EXIT=1
+///   forjar plan --out p.json                        -> EXIT=0
+///   forjar apply --plan-file p.json --yes           -> 2 converged      EXIT=0
+///   forjar apply --plan-file p2.json --operator mallory --yes -> applied EXIT=0
+/// ```
+///
+/// A plan file is unauthenticated — any user can write one in a text editor —
+/// so the bypass needed no privilege at all. The check lives at the TOP of this
+/// function, not at the call site, so it holds for every caller of the
+/// plan-file executor rather than for the one dispatcher that remembered.
+///
+/// `forjar plan --out` is deliberately NOT gated; see `cli::plan::cmd_plan`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_apply_from_plan(
     file: &Path,
@@ -358,8 +380,13 @@ pub(crate) fn cmd_apply_from_plan(
     verbose: bool,
     env_file: Option<&Path>,
     workspace: Option<&str>,
+    operator: Option<&str>,
 ) -> Result<(), String> {
     use super::plan::load_plan_file;
+
+    // forjar#370: FIRST, and before the plan file is even read — the same
+    // position and the same function `apply_execute` uses.
+    super::dispatch_apply::check_operator_auth(file, operator)?;
 
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
