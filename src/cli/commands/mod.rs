@@ -1,6 +1,8 @@
 mod apply_args;
 mod dist_args;
 mod graph_args;
+mod lint_args;
+mod lint_gate_args;
 mod lock_core_args;
 mod lock_ops_args;
 mod misc_analysis_args;
@@ -19,6 +21,8 @@ pub use apply_args::*;
 use clap::Subcommand;
 pub use dist_args::*;
 pub use graph_args::*;
+pub use lint_args::*;
+pub use lint_gate_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
 pub use misc_analysis_args::*;
@@ -397,6 +401,8 @@ pub enum Commands {
     /// FJ-059+060: Pull agent / hybrid push-pull enforcement
     #[command(name = "agent")]
     PullAgent(PullAgentArgs),
+    /// Compute policy-derived corrections and print the corrected config
+    Remediate(RemediateArgs),
     /// FJ-1450: Configuration complexity analysis
     Complexity(ComplexityArgs),
     /// FJ-1451: Dependency impact analysis

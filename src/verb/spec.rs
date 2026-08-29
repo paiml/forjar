@@ -23,19 +23,44 @@ use serde::Serialize;
 /// Stating it a second time next to the transport would let the two drift, and
 /// a wrong `readOnlyHint` is worse than a missing one: an agent trusts it
 /// before deciding whether it may call the tool unattended.
+///
+/// It is also the reason a verb's input schema is a security surface. A field
+/// that makes the verb run a caller-named script falsifies `readOnlyHint`
+/// however carefully its description is worded, because the hint is machine-read
+/// and the description is not. `lint` carried exactly such a field
+/// (`policy_dir`, compliance packs, `sh -c`) until #356; the fix was to delete
+/// it from `mcp::types::LintInput` and leave it a CLI flag. See
+/// `core::quality_gate::GateThresholds::policy_dir`, which states the same
+/// boundary from the other side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Effects {
-    /// Reads state and reports. Safe for an agent to call unattended.
+    /// Reads state and reports, and writes NOTHING — not to a fleet machine,
+    /// not to the machine running the verb. Safe for an agent to call
+    /// unattended, which is what `readOnlyHint: true` tells it.
     ///
-    /// forjar#372 pins what that has to mean, because it was once false:
-    /// a `ReadOnly` verb must not run anything the CONFIG declares. `plan`
-    /// reached `bash -c` through `ambient_inputs`, `sops`/`op` through
-    /// `secrets.provider`, and `bash -c` again through an
-    /// `output_equivalence` normaliser — so "call it on an untrusted repo"
-    /// meant "execute that repo". `core::unattended::sanitize_config` removes
-    /// all three before an unattended plan, and the plan discloses it.
+    /// That sentence was false twice, by two different routes, and both are
+    /// now closed:
+    ///
+    /// - **A parameter the CALLER names.** No field of a ReadOnly verb's input
+    ///   type may cause a subprocess to run. `lint` published a `policy_dir`
+    ///   field, and a compliance pack rule of `type: script` is handed to
+    ///   `sh -c`, so the hint went on being published while it was false
+    ///   (#356). The fix was to delete the field from `mcp::types::LintInput`
+    ///   and leave it a CLI flag.
+    /// - **A key the CONFIG declares.** `plan` reached `bash -c` through
+    ///   `ambient_inputs`, `sops`/`op` through `secrets.provider`, and `bash -c`
+    ///   again through an `output_equivalence` normaliser, so "call it on an
+    ///   untrusted repo" meant "execute that repo" (forjar#372).
+    ///   `core::unattended::sanitize_config` removes all three before an
+    ///   unattended plan, and the plan discloses what it declined to run.
+    ///
     /// Reading the filesystem and the lock is still `ReadOnly`; spawning a
-    /// process a config author chose is not.
+    /// process somebody else chose — a caller through a parameter, a config
+    /// author through a key — is not. Two falsification suites hold every verb
+    /// to it over real MCP stdio:
+    /// `falsification_read_only_verbs_do_not_write` fails if the filesystem
+    /// moves, and `falsification_readonly_surface_executes_nothing` points them
+    /// at a config that tries.
     ReadOnly,
     /// May change the host, the lock file, or the config.
     Mutating,
@@ -73,8 +98,17 @@ pub struct VerbSpec {
 impl VerbSpec {
     /// The MCP tool name. DERIVED from `name` so the two cannot disagree —
     /// the prefix was previously typed out at all four declaration sites.
+    ///
+    /// A verb's transport-neutral `name` is the CLI leaf it unifies, and forjar
+    /// spells multi-word leaves with a hyphen (`policy-coverage`). MCP tool
+    /// names are snake_case by convention and every tool already shipped is,
+    /// so the hyphen is folded here rather than by giving such a verb a second
+    /// name to be typed — which is the drift this whole module exists to make
+    /// impossible. The mapping is one-way and total: `name` never contains an
+    /// underscore, so no two verbs can collide on one MCP name (asserted by
+    /// `mcp_names_are_unique`).
     pub fn mcp_name(&self) -> String {
-        format!("forjar_{}", self.name)
+        format!("forjar_{}", self.name.replace('-', "_"))
     }
 }
 

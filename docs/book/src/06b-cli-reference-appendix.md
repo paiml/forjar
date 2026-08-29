@@ -83,18 +83,52 @@ forjar verb call validate --json '{"path":"forjar.yaml"}'
 forjar verb serve --port 8737    # the same surface over HTTP
 ```
 
-The nine verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`, `status`,
-`trace`, `anomaly` — are declared **once**, in `src/verb/registry.rs`, and the
-CLI, MCP and HTTP transports each render that one declaration. Adding a verb is
-one row. There is no second list to keep in step, which is the defect this
-replaced: the same nine tools were previously written out four times in
-`src/mcp/registry.rs`, and only one of those four copies was reachable in
-production.
+The twelve verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`,
+`status`, `trace`, `anomaly`, `remediate`, `audit`, `workspace` — are
+declared **once**, in `src/verb/registry.rs`, and the CLI, MCP and HTTP
+transports each render that one declaration. Adding a verb is one row. There is
+no second list to keep in step, which is the defect this replaced: the same nine
+tools were previously written out four times in `src/mcp/registry.rs`, and only
+one of those four copies was reachable in production. Run `forjar verb list` for
+the set this binary actually ships; a list typed into a document is the drift
+the registry exists to prevent.
 
-All nine are **read-only**. That is published, not assumed — `verb list --json`
-reports `read_only` per verb and MCP publishes the same value as `readOnlyHint`,
-both derived from one field so they cannot disagree. An agent may call any
-forjar verb unattended without risking a change to a machine.
+`policy-coverage` was on this list and was **withdrawn**. The unified
+calculation derives a rule's identity from its `message:` when the rule declares
+no `id:`, so two such rules sharing a message collapse into one and a rule that
+never ran is reported as having run — in the one report whose job is to say what
+is *not* covered. The leaf is back in `Pending` citing
+[paiml/forjar#369][fj369], and `forjar policy-coverage` is still the way to ask.
+Honest debt beats a tool that answers wrongly on every transport at once.
+
+[fj369]: https://github.com/paiml/forjar/issues/369
+
+A verb's MCP name is its own name with `forjar_` prefixed and any hyphen folded
+to an underscore — `policy-coverage` would publish as `forjar_policy_coverage`.
+Both spellings are derived from the one row; no verb on the surface today
+carries a hyphen.
+
+All twelve are **read-only**, and that is a property of the surface rather than
+a coincidence of which verbs it happens to hold:
+`tests/falsification_verb_readonly_surface.rs` fails if any row declares
+`Effects::Mutating`. It is published, not assumed — `verb list --json` reports
+`read_only` per verb and MCP publishes the same value as `readOnlyHint`, both
+derived from one field so they cannot disagree. An agent may call any forjar
+verb unattended without risking a change to a machine.
+
+`workspace` is the one verb that unifies part of a subcommand group: `workspace
+list` and `workspace current` read, so they are on the surface; `workspace new`,
+`select` and `delete` write, so they are not.
+
+It REPORTS a selection; it does not impose one. The active workspace is joined
+onto the state dir by the CLI commands that take `--workspace` (`apply`, `plan`,
+`drift`, `lock`) and by nothing on the verb surface — a verb called with the
+same `path` reads `<config dir>/state`, not `<config dir>/state/<active>`. The
+report therefore carries `workspace_state_dir`, the directory the selection
+designates, so a caller that wants the CLI's view can pass it as the next verb's
+`state_dir`. Closing the gap itself is [paiml/forjar#367][fj367].
+
+[fj367]: https://github.com/paiml/forjar/issues/367
 
 Read-only means it does not run what the **config** declares, either. That was
 not true before 1.21.1 (forjar#372): planning executed the config's own
@@ -230,11 +264,33 @@ forjar state-backend [--state-dir state] [--prefix <PREFIX>] [--json]
 
 ### forjar policy-coverage
 
-Policy rule coverage analysis — which rules fire against the current config.
+Policy rule coverage analysis. Two questions, one report:
+
+- **which resources any rule is SCOPED to** — `coverage_percent`, `uncovered`
+- **what the rules then SAID** — `rules_triggered`, `untriggered_rules`,
+  `clean_resources`
+
+The distinction is the point. A resource no rule scopes to is *clean* because
+nothing ever looked at it, and a report that printed only "N clean" would call
+such a config compliant. `uncovered` is the list of resources that answer holds
+vacuously for.
 
 ```bash
 forjar policy-coverage -f forjar.yaml [--json]
 ```
+
+`--json` prints `core::policy_coverage::compute_coverage` verbatim — the value,
+not a projection of it, so a renderer cannot reshape the answer. There is one
+calculation behind this command and no second one anywhere.
+
+This command is **CLI-only**. A `policy-coverage` verb shipped briefly on the
+unified surface and was withdrawn: rule identity is derived from `message:` for
+a rule that declares no `id:`, so two such rules sharing a message collapse and
+the satisfied one disappears from `untriggered_rules` instead of being listed.
+See [paiml/forjar#369][fj369-pc]. Until that is fixed the wrong answer is
+reachable from one place rather than from every transport.
+
+[fj369-pc]: https://github.com/paiml/forjar/issues/369
 
 ### forjar policy-install
 
@@ -252,6 +308,41 @@ signing).
 ```bash
 forjar sign <RECIPE> [--verify] [--signer <ID>] [--pq] [--json]
 ```
+
+### forjar remediate
+
+Compute the corrections your config's own `policies:` block determines, and
+print the corrected document.
+
+```bash
+forjar remediate -f forjar.yaml [--policy-id SEC-MODE]... [--json]
+```
+
+**It never writes.** The corrected document goes to stdout and the summary to
+stderr, so `forjar remediate > forjar.new.yaml` is the write and you perform it
+after reading the diff. That diff is short: the correction replaces the byte
+range of one scalar, and every other byte — comments, quote style, key order,
+blank lines — is copied through unchanged.
+
+**The value comes from your policy, never from forjar.** Only `assert` rules
+determine a fix, because only an `assert` names the value a field must have:
+
+| rule type | says | fix |
+|-----------|------|-----|
+| `assert`  | field must EQUAL X | write X |
+| `deny` / `warn` | field must NOT equal X | none — X is what to avoid |
+| `require` | field must be set | none — no value is named |
+| `limit`   | a list must stay in bounds | none — no scalar to set |
+
+Everything else is reported in `remaining_violations` with the reason, which is
+usually the more useful half of the output. Forjar also refuses, rather than
+guesses, when the value it would edit is written in flow style, is a block
+scalar, is an anchor or alias, appears twice, or does not match the value the
+parser resolved — the last of which means it came from an `includes:` file, a
+recipe or a `{{template}}`, so editing the literal would not change anything.
+
+Remediation reads inline `policies:` only. A project whose rules come from a
+compliance pack gets a `scope_note` saying so rather than a silent zero.
 
 ## Multi-Stack Orchestration
 

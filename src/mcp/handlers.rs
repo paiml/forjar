@@ -3,7 +3,7 @@
 use pforge_runtime::Handler;
 use std::path::PathBuf;
 
-use crate::core::{codegen, parser, planner, resolver, state};
+use crate::core::{parser, planner, quality_gate, resolver, state};
 use crate::tripwire::drift;
 
 use super::types::*;
@@ -28,6 +28,8 @@ pub struct StatusHandler;
 pub struct TraceHandler;
 /// MCP handler for anomaly detection.
 pub struct AnomalyHandler;
+/// MCP handler for policy-derived config corrections.
+pub struct RemediateHandler;
 
 // ── Handler trait implementations ───────────────────────────────────
 
@@ -239,7 +241,6 @@ impl Handler for LintHandler {
         let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let mut warnings = Vec::new();
-        let mut error_count = 0;
 
         // Check for unused machines
         let mut used_machines = std::collections::HashSet::new();
@@ -256,38 +257,48 @@ impl Handler for LintHandler {
             }
         }
 
-        // bashrs script lint
-        for (id, resource) in &config.resources {
-            for (kind, result) in [
-                ("check", codegen::check_script(resource)),
-                ("apply", codegen::apply_script(resource)),
-                ("state_query", codegen::state_query_script(resource)),
-            ] {
-                let Ok(script) = result else { continue };
-                let lint_result = crate::core::purifier::lint_script(&script);
-                for d in &lint_result.diagnostics {
-                    use bashrs::linter::Severity;
-                    let prefix = match d.severity {
-                        Severity::Error => {
-                            error_count += 1;
-                            "ERROR"
-                        }
-                        _ => "WARN",
-                    };
-                    warnings.push(format!(
-                        "[{prefix}] {id}.{kind}: [{}] {}",
-                        d.code, d.message
-                    ));
-                }
-            }
-        }
+        // FJQ: the gate lives in core, NOT here. This handler used to run its
+        // own bashrs loop with no heredoc filter and no SC1 exclusion, while
+        // `cli/lint.rs` ran a second loop that applied both — the same verb
+        // giving two answers depending on which transport asked. One call,
+        // one verdict, rendered identically by both.
+        //
+        // `policy_dir` is `None` here and is not a field of `LintInput`: a pack
+        // rule of `type: script` runs `sh -c`, and this verb publishes
+        // `readOnlyHint: true`. See `LintInput` for the measurement.
+        let thresholds = quality_gate::GateThresholds {
+            max_cyclomatic: input.max_cyclomatic,
+            policy_dir: None,
+            complexity_is_error: false,
+        };
+        let yaml_text = std::fs::read_to_string(&path).ok();
+        let report = quality_gate::evaluate(&config, yaml_text.as_deref(), &thresholds);
 
-        let warning_count = warnings.len();
+        warnings.extend(report.render());
+        let error_count = report.error_count();
+        let gate_passed = report.passed();
         Ok(LintOutput {
+            warning_count: warnings.len(),
             warnings,
-            warning_count,
             error_count,
+            gate_passed,
+            error_code: (!gate_passed).then(|| quality_gate::QUALITY_GATE_ERROR_CODE.to_string()),
+            sarif: report.to_sarif(&input.path),
+            findings: report.findings.iter().map(finding_output).collect(),
         })
+    }
+}
+
+/// Project a gate finding onto its wire shape.
+fn finding_output(f: &quality_gate::GateFinding) -> GateFindingOutput {
+    GateFindingOutput {
+        rule_id: f.rule_id.clone(),
+        level: f.level.sarif_level().to_string(),
+        resource: f.resource_id.clone(),
+        message: f.message.clone(),
+        yaml_line: f.yaml_line,
+        script_kind: f.script_kind.map(str::to_string),
+        script_line: f.script_line,
     }
 }
 

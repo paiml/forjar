@@ -113,13 +113,20 @@ fn compiled_patterns() -> &'static Vec<LeakPattern> {
 /// Returns findings per line. Each finding includes the pattern name,
 /// redacted matched text, and line number.
 pub fn scan_script(script: &str) -> ScriptLeakResult {
+    scan_text(script, true)
+}
+
+/// Scan arbitrary text with the same pattern table.
+///
+/// `skip_comments` is true for shell, where a `#` line is inert. It is FALSE
+/// for a config field: `content: "# db_password=hunter2"` still ships that
+/// secret to the target host as file data, comment marker and all.
+pub fn scan_text(text: &str, skip_comments: bool) -> ScriptLeakResult {
     let mut findings = Vec::new();
-    let lines: Vec<&str> = script.lines().collect();
+    let lines: Vec<&str> = text.lines().collect();
 
     for (idx, line) in lines.iter().enumerate() {
-        // Skip comments
-        let trimmed = line.trim();
-        if trimmed.starts_with('#') {
+        if skip_comments && line.trim().starts_with('#') {
             continue;
         }
 

@@ -192,6 +192,7 @@ mod tests {
             fix: false,
             rules: None,
             bashrs_version: false,
+            gate: Default::default(),
         };
         let _ = format!("{a:?}");
     }

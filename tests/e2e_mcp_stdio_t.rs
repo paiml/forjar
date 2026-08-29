@@ -15,86 +15,15 @@
 //! reachability.
 //!
 //! So every assertion below goes through the artifact a user installs.
+//!
+//! The stdio framing itself lives in `tests/common/mcp_stdio.rs`, shared with
+//! `falsification_read_only_verbs_do_not_write` so the two suites cannot end up
+//! interrogating differently-behaved servers.
 
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+#[path = "common/mcp_stdio.rs"]
+mod mcp_stdio;
 
-/// A live `forjar mcp` server speaking JSON-RPC over stdio.
-struct McpServer {
-    child: Child,
-    stdin: ChildStdin,
-    out: BufReader<ChildStdout>,
-}
-
-impl McpServer {
-    fn spawn() -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_forjar"))
-            .arg("mcp")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("failed to spawn the release binary — `forjar mcp` is advertised in --help");
-        let stdin = child.stdin.take().expect("stdin");
-        let out = BufReader::new(child.stdout.take().expect("stdout"));
-        Self { child, stdin, out }
-    }
-
-    /// Send a request and read replies until the matching id arrives.
-    ///
-    /// Reads until the id matches rather than assuming the next line is the
-    /// answer: notifications and log lines may be interleaved, and a test that
-    /// assumes ordering fails for a reason that has nothing to do with the
-    /// property under test.
-    fn request(&mut self, id: u64, method: &str, params: &str) -> serde_json::Value {
-        let msg = format!(
-            "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"{method}\",\"params\":{params}}}\n"
-        );
-        self.stdin.write_all(msg.as_bytes()).expect("write");
-        self.stdin.flush().expect("flush");
-
-        for _ in 0..64 {
-            let mut line = String::new();
-            let n = self.out.read_line(&mut line).expect("read");
-            assert!(
-                n > 0,
-                "server closed stdout while awaiting id={id} ({method})"
-            );
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(line.trim()) else {
-                continue;
-            };
-            if v.get("id").and_then(|i| i.as_u64()) == Some(id) {
-                return v;
-            }
-        }
-        panic!("no reply with id={id} for {method}");
-    }
-
-    fn notify(&mut self, method: &str) {
-        let msg = format!("{{\"jsonrpc\":\"2.0\",\"method\":\"{method}\"}}\n");
-        self.stdin.write_all(msg.as_bytes()).expect("write");
-        self.stdin.flush().expect("flush");
-    }
-
-    fn initialize(&mut self) -> serde_json::Value {
-        let r = self.request(
-            1,
-            "initialize",
-            r#"{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"e2e","version":"0"}}"#,
-        );
-        self.notify("notifications/initialized");
-        r
-    }
-}
-
-impl Drop for McpServer {
-    fn drop(&mut self) {
-        // Close stdin first: a well-behaved stdio server exits on EOF, which is
-        // the lifecycle property worth having. Kill only if it does not.
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
+use mcp_stdio::McpServer;
 
 /// The transport is REACHABLE from the process entry point.
 #[test]

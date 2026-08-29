@@ -1,6 +1,7 @@
 //! Coverage tests: lint, validate_policy, print_helpers gaps (FJ-1372).
 
 #![allow(unused_imports)]
+use crate::cli::commands::LintGateArgs;
 use super::lint::*;
 use super::print_helpers::*;
 use super::validate_policy::*;
@@ -38,7 +39,7 @@ resources:
 "#,
     );
     // Non-strict so it covers lint_unused_machines + lint_scripts
-    assert!(cmd_lint(&f, false, false, false).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, false, &LintGateArgs::default()).is_ok());
 }
 
 #[test]
@@ -63,7 +64,7 @@ resources:
     content: "hello"
 "#,
     );
-    assert!(cmd_lint(&f, true, false, false).is_ok());
+    assert!(cmd_lint_gated(&f, true, false, false, &LintGateArgs::default()).is_ok());
 }
 
 // ── lint: dependency issues ─────────────────────────────────
@@ -89,7 +90,7 @@ resources:
 "#,
     );
     // Validator may reject nonexistent deps before lint runs
-    let _ = cmd_lint(&f, false, false, false);
+    let _ = cmd_lint_gated(&f, false, false, false, &LintGateArgs::default());
 }
 
 #[test]
@@ -120,7 +121,7 @@ resources:
     depends_on: [base]
 "#,
     );
-    assert!(cmd_lint(&f, false, false, false).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, false, &LintGateArgs::default()).is_ok());
 }
 
 // ── lint: empty packages ────────────────────────────────────
@@ -145,7 +146,7 @@ resources:
 "#,
     );
     // Validator may reject empty packages before lint runs
-    let _ = cmd_lint(&f, false, false, false);
+    let _ = cmd_lint_gated(&f, false, false, false, &LintGateArgs::default());
 }
 
 // ── lint: strict rules ──────────────────────────────────────
@@ -170,7 +171,7 @@ resources:
     owner: root
 "#,
     );
-    assert!(cmd_lint(&f, false, true, false).is_ok());
+    assert!(cmd_lint_gated(&f, false, true, false, &LintGateArgs::default()).is_ok());
 }
 
 #[test]
@@ -192,7 +193,7 @@ resources:
     content: "data"
 "#,
     );
-    assert!(cmd_lint(&f, true, true, false).is_ok());
+    assert!(cmd_lint_gated(&f, true, true, false, &LintGateArgs::default()).is_ok());
 }
 
 // ── lint: auto-fix ──────────────────────────────────────────
@@ -221,7 +222,7 @@ resources:
     content: "a"
 "#,
     );
-    assert!(cmd_lint(&f, false, false, true).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, true, &LintGateArgs::default()).is_ok());
     // Verify the file was rewritten with sorted keys
     let content = std::fs::read_to_string(&f).unwrap();
     let a_pos = content.find("a_first").unwrap();
@@ -249,7 +250,7 @@ resources:
 "#,
     );
     // Only one resource → no fix needed, but lint still runs
-    assert!(cmd_lint(&f, false, false, true).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, true, &LintGateArgs::default()).is_ok());
 }
 
 // ── lint: untagged resources ────────────────────────────────
@@ -288,7 +289,7 @@ resources:
     content: "d"
 "#,
     );
-    assert!(cmd_lint(&f, false, false, false).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, false, &LintGateArgs::default()).is_ok());
 }
 
 // ── lint: no warnings (clean config) ────────────────────────
@@ -313,7 +314,7 @@ resources:
     tags: [app]
 "#,
     );
-    assert!(cmd_lint(&f, false, false, false).is_ok());
+    assert!(cmd_lint_gated(&f, false, false, false, &LintGateArgs::default()).is_ok());
 }
 
 // ── validate_policy: policy file ────────────────────────────

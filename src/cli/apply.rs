@@ -112,9 +112,11 @@ pub(crate) fn cmd_apply_scoped(
         force_tag,
     };
 
-    super::apply_snapshot::maybe_auto_snapshot(&config, state_dir, Some(file), dry_run, verbose);
+    super::apply_snapshot::maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
 
-    // FJ-1388: Record pre-apply generation for rollback-on-failure
+    // FJ-1388: Record pre-apply generation for rollback-on-failure. GH-376 made
+    // this literal: it is now the generation of the last SUCCESSFUL apply, not
+    // one this apply just created holding the same pre-apply state.
     let pre_apply_gen = pre_apply_generation(state_dir);
 
     // GH-210 (FJ-129): measured BEFORE the apply. Measuring afterwards read a
@@ -136,6 +138,26 @@ pub(crate) fn cmd_apply_scoped(
     let drift_repaired = super::apply_drift::repaired(&observed_drift, &results);
 
     save_apply_reports(state_dir, &results);
+
+    // GH-376: record the generation AFTER the host converged, so it pairs the
+    // state this apply produced with the config that produced it — the pair
+    // `undo` replays. Placed above the `--output events` return so every path
+    // records one.
+    //
+    // UNCONDITIONAL, and that is load-bearing. This was briefly gated on
+    // `total_failed == 0`, reasoning that a half-applied host should not become
+    // an undo target. Measured against the pre-change parent, that gate meant a
+    // stack with ONE persistently failing resource recorded ZERO generations
+    // for ever: `generation list` empty, `rollback --generation` dead, `undo`
+    // refusing with advice that could not succeed, and `--rollback-on-failure`
+    // silently never firing — including on every FIRST apply, with no message.
+    // Strictly worse than the defect it was part of fixing.
+    //
+    // A generation is a RECORD OF WHAT HAPPENED, not a certificate that it went
+    // well. The lock it carries describes the partial state faithfully, which
+    // is exactly what `--rollback-on-failure` needs to rewind to. Refusing to
+    // record is how you lose the ability to recover from the failure.
+    super::apply_snapshot::maybe_record_generation(&config, state_dir, dry_run, verbose);
 
     if events_mode {
         return print_events_output(&results);

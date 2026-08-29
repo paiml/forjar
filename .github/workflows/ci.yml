@@ -86,6 +86,20 @@ jobs:
       # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
       - name: The binary advertises no undeclared transport
         run: cargo test --locked --test e2e_transport_absence_t
+      # #376: `undo` re-converged to the CURRENT config instead of the target
+      # generation, so it exited 0 printing "1 converged" while the managed
+      # bytes never moved. These assert the BYTES AT THE PATH, never the
+      # summary line — the summary is what the defect printed. Includes the
+      # control that fails an "always rewrite" implementation, and the jidoka
+      # cases: an undo that cannot faithfully replay must exit non-zero and
+      # leave the host untouched.
+      - name: undo must actually undo, or refuse
+        run: cargo test --locked --test falsification_undo_actually_undoes
+      # #377: `undo` paired the cwd forjar.yaml with an unrelated --state-dir
+      # and applied it. Carries the over-correction guards too: one operator
+      # editing and undoing their own stack must NEVER be refused.
+      - name: undo must refuse a foreign state dir, and only a foreign one
+        run: cargo test --locked --test falsification_undo_state_dir_interlock
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's

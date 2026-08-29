@@ -24,7 +24,13 @@ pub enum Bucket {
     /// Deliberately CLI-shaped. Carries the reason it is not a verb.
     CliOnly(&'static str),
     /// Belongs on the unified surface, is not there yet. Carries an issue ref.
-    /// This is the debt ledger, and it may only shrink.
+    ///
+    /// This is the debt ledger. It normally only shrinks — but a row may come
+    /// BACK, and `policy-coverage` is the one that has. It shipped as a verb on
+    /// this branch and was withdrawn when the unified calculation was measured
+    /// answering wrongly (paiml/forjar#369). Honest debt is a smaller failure
+    /// than a published tool that is confidently wrong, so a return is allowed
+    /// on exactly one condition: the reason names the defect, not the intent.
     Pending(&'static str),
 }
 
@@ -43,6 +49,13 @@ pub fn partition() -> &'static [Leaf] {
 }
 
 /// Leaves on the unified surface, by name.
+///
+/// A NESTED leaf contributes its PARENT (`workspace list` -> `workspace`),
+/// because a verb unifies the capability, not the argv spelling. A parent may
+/// therefore be partly unified: `workspace list` and `workspace current` read,
+/// so they are verbs; `workspace new`, `select` and `delete` write, so they stay
+/// in the debt ledger until someone decides — deliberately, and not by adding a
+/// row — that this surface may mutate a machine.
 pub fn unified_names() -> BTreeSet<&'static str> {
     PARTITION
         .iter()
@@ -62,7 +75,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["archive", "pack"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["archive", "unpack"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["archive", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["audit"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["audit"], bucket: Bucket::Unified },
     Leaf { path: &["bench"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["bootstrap"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["build"], bucket: Bucket::Pending("paiml/forjar#288") },
@@ -179,7 +192,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["plugin", "run"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["plugin", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["policy"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["policy-coverage"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["policy-coverage"], bucket: Bucket::Pending("paiml/forjar#369 — WITHDRAWN after shipping on this branch, not never-started. Rule identity is derived from `message:` when a rule declares no `id:`, so two such rules sharing a message collapse into one: measured `total_rules: 2, rules_triggered: 1, untriggered_rules: []`, which reports a rule that never ran as having run. Both surfaces are wrong identically, so parity cannot catch it. Re-shipping the verb before #369 is fixed publishes that answer on every transport instead of one") },
     Leaf { path: &["policy-install"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["preservation"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["privilege-analysis"], bucket: Bucket::Pending("paiml/forjar#288") },
@@ -188,6 +201,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["provenance"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["query"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["registry-list"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["remediate"], bucket: Bucket::Unified },
     Leaf { path: &["repro-proof"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["reseal"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["retry-failed"], bucket: Bucket::Pending("paiml/forjar#288") },
@@ -247,9 +261,9 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["validate"], bucket: Bucket::Unified },
     Leaf { path: &["verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["watch"], bucket: Bucket::CliOnly("long-running terminal UI that redraws; it has no single response to return") },
-    Leaf { path: &["workspace", "current"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["workspace", "current"], bucket: Bucket::Unified },
     Leaf { path: &["workspace", "delete"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["workspace", "list"], bucket: Bucket::Pending("paiml/forjar#288") },
+    Leaf { path: &["workspace", "list"], bucket: Bucket::Unified },
     Leaf { path: &["workspace", "new"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["workspace", "select"], bucket: Bucket::Pending("paiml/forjar#288") },
 ];

@@ -3,7 +3,7 @@
 //! Loads compliance packs from a directory and evaluates them against
 //! config resources. Blocks apply if any error-severity rule fails.
 
-use crate::core::compliance_pack::{evaluate_pack, list_packs, load_pack, PackEvalResult};
+use crate::core::compliance_pack::{evaluate_pack, list_packs, parse_pack, PackEvalResult};
 use crate::core::types::ForjarConfig;
 use std::collections::HashMap;
 use std::path::Path;
@@ -65,13 +65,21 @@ pub fn config_to_resource_map(config: &ForjarConfig) -> HashMap<String, HashMap<
 
 /// Run the compliance gate: load all packs from a directory and evaluate.
 ///
-/// Returns `Err` if any error-severity rule fails.
+/// `Err` means the gate WAS BLIND — the directory would not list, or a pack
+/// file in it would not read. It does NOT mean a rule failed: a failing rule is
+/// `error_count` on an `Ok`, which is what `passed()` reads. (The doc here used
+/// to say "Returns `Err` if any error-severity rule fails", which was never
+/// true of the code and which no caller behaved as if it were.)
+///
+/// A caller that could not see its packs must not report compliant, so
+/// `quality_gate::checks::check_compliance` turns this `Err` into the blocking
+/// `FJQ-CMP-000` finding.
 pub fn check_compliance_gate(
     policy_dir: &Path,
     config: &ForjarConfig,
     verbose: bool,
 ) -> Result<ComplianceGateResult, String> {
-    let pack_names = list_packs(policy_dir);
+    let pack_names = list_packs(policy_dir)?;
     if pack_names.is_empty() {
         return Ok(ComplianceGateResult {
             packs_evaluated: 0,
@@ -91,19 +99,34 @@ pub fn check_compliance_gate(
         let alt_path = policy_dir.join(format!("{name}.yml"));
         let pack_path = if path.exists() { &path } else { &alt_path };
 
-        let pack = match load_pack(pack_path) {
+        // A pack file that will not READ is the directory failure one level
+        // down — `chmod 000 policies/cis.yaml` hides a pack exactly as
+        // `chmod 000 policies/` hid all of them — so it is refused, not skipped.
+        let text = std::fs::read_to_string(pack_path)
+            .map_err(|e| format!("read pack `{name}` in {}: {e}", policy_dir.display()))?;
+
+        // A file that reads fine and does not PARSE as a pack is a different
+        // fact, and it is deliberately still skipped. `list_packs` guesses that
+        // every `*.yaml` under the directory is a pack; that guess is forjar's,
+        // not the operator's declaration, and blocking an apply because forjar
+        // mis-guessed about a stray YAML punishes the wrong party. (It is not a
+        // hypothetical: this module's own tests point `--policy-dir` at the
+        // directory holding `forjar.yaml`.) The skip stays verbose-only, which
+        // is a known gap of a different shape from #356 — a pack that is THERE
+        // and unenforced — and is not fixed here.
+        let pack = match parse_pack(&text) {
             Ok(p) => p,
             Err(e) => {
                 if verbose {
-                    eprintln!("  [WARN] skip pack {name}: {e}");
+                    eprintln!("  [WARN] skip {name}: not a compliance pack: {e}");
                 }
                 continue;
             }
         };
 
         let eval = evaluate_pack(&pack, &resources);
-        let errors = count_severity_failures(&eval, &pack, "error");
-        let warnings = count_severity_failures(&eval, &pack, "warning");
+        let errors = count_severity_failures(&eval, "error");
+        let warnings = count_severity_failures(&eval, "warning");
 
         if verbose {
             eprintln!(
@@ -130,20 +153,15 @@ pub fn check_compliance_gate(
 }
 
 /// Count failures by severity in a pack evaluation.
-fn count_severity_failures(
-    eval: &PackEvalResult,
-    pack: &crate::core::compliance_pack::CompliancePack,
-    severity: &str,
-) -> usize {
+///
+/// Reads the severity off the RESULT. It used to be recovered by searching
+/// `pack.rules` for a rule with a matching id, which answered "warning" for
+/// any result whose rule id was not found — a pack whose ids drifted counted
+/// zero errors and passed the gate.
+fn count_severity_failures(eval: &PackEvalResult, severity: &str) -> usize {
     eval.results
         .iter()
-        .filter(|r| !r.passed)
-        .filter(|r| {
-            pack.rules
-                .iter()
-                .find(|rule| rule.id == r.rule_id)
-                .is_some_and(|rule| rule.severity == severity)
-        })
+        .filter(|r| !r.passed && r.severity == severity)
         .count()
 }
 
@@ -255,6 +273,94 @@ rules:
         let result = check_compliance_gate(dir.path(), &config, false).unwrap();
         assert_eq!(result.error_count, 1);
         assert!(!result.passed());
+    }
+
+    /// B2: the gate must not report compliant over packs it could not see.
+    ///
+    /// The pack in the locked directory is error-severity and WOULD block; the
+    /// same directory readable is asserted alongside so the fixture is proved
+    /// to have teeth rather than merely producing nothing.
+    #[test]
+    #[cfg(unix)]
+    fn an_unreadable_policy_dir_does_not_pass_the_gate() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let policies = dir.path().join("policies");
+        std::fs::create_dir(&policies).unwrap();
+        std::fs::write(
+            policies.join("strict.yaml"),
+            "name: strict\nversion: \"1.0\"\nframework: TEST\nrules:\n  - id: S1\n    \
+             title: Must have owner\n    severity: error\n    type: require\n    \
+             resource_type: file\n    field: owner\n",
+        )
+        .unwrap();
+        let config = make_config(&[("f1", "file", None)]);
+
+        // Readable: the pack blocks. If this ever stops holding, the assertion
+        // below is passing for the wrong reason.
+        let open = check_compliance_gate(&policies, &config, false).unwrap();
+        assert_eq!(open.error_count, 1, "the fixture pack must block when seen");
+
+        std::fs::set_permissions(&policies, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let blind = check_compliance_gate(&policies, &config, false);
+        let restore = std::fs::set_permissions(&policies, std::fs::Permissions::from_mode(0o755));
+
+        if blind.as_ref().is_ok_and(|r| r.error_count == 1) {
+            restore.unwrap(); // running as root: the mode did not blind anything
+            return;
+        }
+        assert!(
+            blind.is_err(),
+            "an unreadable policy directory answered {blind:?} — every pack inside it \
+             vanished and the gate reported compliant"
+        );
+        restore.unwrap();
+    }
+
+    /// A pack file that is present and unreadable hides one pack the same way.
+    #[test]
+    #[cfg(unix)]
+    fn an_unreadable_pack_file_does_not_pass_the_gate() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let pack = dir.path().join("strict.yaml");
+        std::fs::write(
+            &pack,
+            "name: strict\nversion: \"1.0\"\nframework: TEST\nrules:\n  - id: S1\n    \
+             title: Must have owner\n    severity: error\n    type: require\n    \
+             resource_type: file\n    field: owner\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&pack, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+        let blind = check_compliance_gate(dir.path(), &make_config(&[("f1", "file", None)]), false);
+        let restore = std::fs::set_permissions(&pack, std::fs::Permissions::from_mode(0o644));
+
+        if blind.as_ref().is_ok_and(|r| r.error_count == 1) {
+            restore.unwrap(); // running as root
+            return;
+        }
+        assert!(blind.is_err(), "an unreadable pack file read as compliant");
+        restore.unwrap();
+    }
+
+    /// The counterweight: a YAML that reads fine and is not a pack is forjar's
+    /// own `*.yaml` guess being wrong, so it is skipped and does NOT block.
+    /// Without this, the two assertions above would be satisfied by a gate that
+    /// simply refuses everything.
+    #[test]
+    fn a_readable_non_pack_yaml_is_skipped_not_blocking() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("forjar.yaml"),
+            "version: \"1.0\"\nname: not-a-pack\nresources: {}\n",
+        )
+        .unwrap();
+        let result =
+            check_compliance_gate(dir.path(), &make_config(&[("f1", "file", None)]), false)
+                .expect("a stray YAML is forjar's mis-guess, not blindness — it must not error");
+        assert!(result.passed());
+        assert_eq!(result.packs_evaluated, 0);
     }
 
     #[test]

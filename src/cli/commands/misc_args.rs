@@ -254,34 +254,6 @@ pub struct FmtArgs {
     pub check: bool,
 }
 
-/// CLI arguments for the `lint` command.
-#[derive(clap::Args, Debug)]
-pub struct LintArgs {
-    /// Path to forjar.yaml
-    #[arg(short, long, default_value = "forjar.yaml")]
-    pub file: PathBuf,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-
-    /// FJ-221: Enable built-in policy rules (no_root_owner, require_tags, etc.)
-    #[arg(long)]
-    pub strict: bool,
-
-    /// FJ-332: Auto-fix common lint issues (normalize quotes, sort keys)
-    #[arg(long)]
-    pub fix: bool,
-
-    /// FJ-374: Custom lint rules from YAML file [UNIMPLEMENTED — rejected, see GH-211]
-    #[arg(long)]
-    pub rules: Option<PathBuf>,
-
-    /// FJ-2400: Show bashrs version used for script purification
-    #[arg(long)]
-    pub bashrs_version: bool,
-}
-
 /// CLI arguments for the `rollback` command.
 #[derive(clap::Args, Debug)]
 pub struct RollbackArgs {

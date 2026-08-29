@@ -160,6 +160,24 @@ pub fn update_global_lock(
 ) -> Result<(), String> {
     use crate::tripwire::eventlog::now_iso8601;
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
+    // GH-377: this line is the silent stack rename. Applying stack B against
+    // stack A's state dir re-stamps the dir as B's, destroying the only record
+    // that they were ever different — which is exactly the evidence `undo`'s
+    // refusal depends on. `apply` still proceeds: it does what its two arguments
+    // say, it runs unattended in every CI job and cron, and state dirs already
+    // carrying the loser's name exist in the wild. The warning is the migration
+    // path; only `undo`, whose plan and its work would be about different
+    // stacks, refuses.
+    if !lock.name.is_empty() && lock.name != config_name {
+        eprintln!(
+            "warning: state dir {} was last applied by stack '{}'; this apply re-stamps it as \
+             '{}'. If that is not a rename, one of -f/--state-dir points at the wrong stack \
+             (`forjar undo` refuses this combination).",
+            state_dir.display(),
+            lock.name,
+            config_name,
+        );
+    }
     lock.name = config_name.to_string();
     lock.last_apply = now_iso8601();
     lock.generator = format!("forjar {}", env!("CARGO_PKG_VERSION"));

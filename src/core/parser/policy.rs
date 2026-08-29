@@ -74,7 +74,7 @@ const FIELD_VALUES: &[(&str, FieldValue)] = &[
 ];
 
 /// Get a string representation of a resource field for condition checks.
-pub(crate) fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
+pub fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
     FIELD_VALUES
         .iter()
         .find(|(name, _)| *name == field)
@@ -145,7 +145,12 @@ fn violates_limit(rule: &PolicyRule, resource: &Resource) -> bool {
 }
 
 /// Check if a resource matches the rule's scope filters.
-fn matches_scope(rule: &PolicyRule, resource: &Resource) -> bool {
+///
+/// THE scope matcher. `core::policy_coverage` reports which resources a rule
+/// covers and must answer with the same predicate this evaluator decides with;
+/// it used to carry its own substring variant, and so reported enforcement
+/// that never happened (paiml/forjar#356).
+pub(crate) fn matches_scope(rule: &PolicyRule, resource: &Resource) -> bool {
     if let Some(ref rt) = rule.resource_type {
         let actual = format!("{:?}", resource.resource_type).to_lowercase();
         if actual != *rt {
@@ -167,36 +172,52 @@ pub fn evaluate_policies(config: &ForjarConfig) -> Vec<PolicyViolation> {
     evaluate_policies_full(config).violations
 }
 
-/// FJ-3200: Full policy evaluation with aggregate result.
-pub fn evaluate_policies_full(config: &ForjarConfig) -> PolicyCheckResult {
-    let mut violations = Vec::new();
-    let rules_evaluated = config.policies.len();
-    let resources_checked = config.resources.len();
-
-    for rule in &config.policies {
+/// Every `(rule index, resource id)` pair that violates, in report order.
+///
+/// paiml/forjar#356: `PolicyViolation` carries the rule's *message*, its type
+/// and its OPTIONAL id — but not the rule. A caller that has to read
+/// `condition_field` / `condition_value` (a remediation deriving the value it
+/// must write from the policy that demanded it) cannot recover the rule from a
+/// violation, and matching on `policy_id` is ambiguous the moment two rules
+/// leave `id` unset.
+///
+/// So the pairing is published, and [`evaluate_policies_full`] is built ON it
+/// rather than beside it: there is one iteration order and one violation
+/// predicate, and the two cannot drift.
+pub fn violating_pairs(config: &ForjarConfig) -> Vec<(usize, String)> {
+    let mut out = Vec::new();
+    for (index, rule) in config.policies.iter().enumerate() {
         for (id, resource) in &config.resources {
-            if !matches_scope(rule, resource) {
-                continue;
-            }
-
-            if evaluate_rule(rule, resource) {
-                violations.push(PolicyViolation {
-                    rule_message: rule.message.clone(),
-                    resource_id: id.clone(),
-                    rule_type: rule.rule_type.clone(),
-                    severity: rule.effective_severity(),
-                    policy_id: rule.id.clone(),
-                    remediation: rule.remediation.clone(),
-                    compliance: rule.compliance.clone(),
-                });
+            if matches_scope(rule, resource) && evaluate_rule(rule, resource) {
+                out.push((index, id.clone()));
             }
         }
     }
+    out
+}
+
+/// FJ-3200: Full policy evaluation with aggregate result.
+pub fn evaluate_policies_full(config: &ForjarConfig) -> PolicyCheckResult {
+    let violations = violating_pairs(config)
+        .into_iter()
+        .map(|(index, resource_id)| {
+            let rule = &config.policies[index];
+            PolicyViolation {
+                rule_message: rule.message.clone(),
+                resource_id,
+                rule_type: rule.rule_type.clone(),
+                severity: rule.effective_severity(),
+                policy_id: rule.id.clone(),
+                remediation: rule.remediation.clone(),
+                compliance: rule.compliance.clone(),
+            }
+        })
+        .collect();
 
     PolicyCheckResult {
         violations,
-        rules_evaluated,
-        resources_checked,
+        rules_evaluated: config.policies.len(),
+        resources_checked: config.resources.len(),
     }
 }
 
@@ -245,71 +266,18 @@ pub fn policy_check_to_json(result: &PolicyCheckResult) -> String {
 ///
 /// Produces a valid SARIF log object compatible with GitHub Code Scanning,
 /// Azure DevOps, and other SARIF-consuming tools.
+///
+/// The emitter itself lives in `core::quality_gate::sarif`, and this function
+/// is a projection onto it. There used to be exactly one SARIF emitter in the
+/// repo and it was here, reachable only from policy evaluation; the quality
+/// gate needs the same output for findings that are not policy violations, and
+/// a second copy of a schema emitter is a copy that drifts.
 pub fn policy_check_to_sarif(result: &PolicyCheckResult) -> String {
-    use crate::core::types::PolicySeverity;
-
-    // Build unique rules from violations
-    let mut rule_ids: Vec<String> = Vec::new();
-    let mut rules: Vec<serde_json::Value> = Vec::new();
-    for v in &result.violations {
-        let id = v
-            .policy_id
-            .clone()
-            .unwrap_or_else(|| format!("forjar/{:?}", v.rule_type).to_lowercase());
-        if !rule_ids.contains(&id) {
-            let mut rule = serde_json::json!({
-                "id": id,
-                "shortDescription": { "text": v.rule_message },
-            });
-            if let Some(ref rem) = v.remediation {
-                rule["help"] = serde_json::json!({ "text": rem });
-            }
-            rules.push(rule);
-            rule_ids.push(id);
-        }
-    }
-
-    let results: Vec<serde_json::Value> = result
-        .violations
-        .iter()
-        .map(|v| {
-            let level = match v.severity {
-                PolicySeverity::Error => "error",
-                PolicySeverity::Warning => "warning",
-                PolicySeverity::Info => "note",
-            };
-            let rule_id = v
-                .policy_id
-                .clone()
-                .unwrap_or_else(|| format!("forjar/{:?}", v.rule_type).to_lowercase());
-            serde_json::json!({
-                "ruleId": rule_id,
-                "level": level,
-                "message": { "text": format!("{}: {}", v.resource_id, v.rule_message) },
-                "locations": [{
-                    "physicalLocation": {
-                        "artifactLocation": { "uri": "forjar.yaml" },
-                    }
-                }],
-            })
-        })
-        .collect();
-
-    let sarif = serde_json::json!({
-        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
-        "version": "2.1.0",
-        "runs": [{
-            "tool": {
-                "driver": {
-                    "name": "forjar",
-                    "version": env!("CARGO_PKG_VERSION"),
-                    "informationUri": "https://github.com/paiml/forjar",
-                    "rules": rules,
-                }
-            },
-            "results": results,
-        }]
-    });
-
+    use crate::core::quality_gate::{checks::violation_to_finding, sarif::findings_to_sarif};
+    let findings: Vec<_> = result.violations.iter().map(violation_to_finding).collect();
+    // `forjar.yaml` is the historic literal. Policy evaluation is handed a
+    // parsed config with no path attached, so there is nothing better to say
+    // here; the quality gate, which does know the path, passes the real one.
+    let sarif = findings_to_sarif(&findings, "forjar.yaml");
     serde_json::to_string_pretty(&sarif).unwrap_or_else(|_| "{}".to_string())
 }

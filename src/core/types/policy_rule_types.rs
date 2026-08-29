@@ -125,19 +125,30 @@ impl PolicyRule {
 
     /// Stable display ID: the explicit id or a generated one from the message.
     pub fn display_id(&self) -> String {
-        if let Some(ref id) = self.id {
-            id.clone()
-        } else {
-            // Generate from first 40 chars of message, slugified
-            let slug: String = self
-                .message
-                .chars()
-                .take(40)
-                .map(|c| if c.is_alphanumeric() { c } else { '-' })
-                .collect();
-            format!("RULE-{slug}")
-        }
+        display_id_of(self.id.as_deref(), &self.message)
     }
+}
+
+/// THE display-id derivation, shared by [`PolicyRule::display_id`] and
+/// [`PolicyViolation::display_id`].
+///
+/// It has to be shared. `policy-coverage` decides which rules fired by
+/// intersecting rule ids with violation ids, and until paiml/forjar#356 the
+/// rule side used `display_id()` while the violation side used the raw
+/// `Option<String>`. For a rule with no explicit `id:` those never intersect,
+/// so EVERY un-id'd rule was reported as untriggered — including in a report
+/// that, two lines above, counted the resource it had just failed.
+fn display_id_of(id: Option<&str>, message: &str) -> String {
+    if let Some(id) = id {
+        return id.to_string();
+    }
+    // Generate from first 40 chars of message, slugified
+    let slug: String = message
+        .chars()
+        .take(40)
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect();
+    format!("RULE-{slug}")
 }
 
 // ============================================================================
@@ -180,6 +191,15 @@ impl PolicyViolation {
     /// True if this violation should block apply.
     pub fn is_blocking(&self) -> bool {
         self.severity == PolicySeverity::Error
+    }
+
+    /// The id of the rule this violation came from, derived exactly as
+    /// [`PolicyRule::display_id`] derives it — so the two sets can be compared.
+    ///
+    /// NOT the same as reading `policy_id`: that is `None` for a rule declared
+    /// without an explicit `id:`, and `None` matches no rule.
+    pub fn display_id(&self) -> String {
+        display_id_of(self.policy_id.as_deref(), &self.rule_message)
     }
 }
 

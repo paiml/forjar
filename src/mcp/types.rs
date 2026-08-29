@@ -3,6 +3,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+// FVS (#356): the types for the verbs discharged from `Bucket::Pending` live in
+// `types_ops.rs` for the 500-line file cap. Re-exported here so there remains
+// exactly ONE path a consumer imports.
+pub use super::types_ops::*;
+
 // ── Input / Output types ────────────────────────────────────────────
 
 /// MCP validate handler input.
@@ -128,10 +133,62 @@ pub struct DriftFindingOutput {
 }
 
 /// MCP lint handler input.
+///
+/// # There is deliberately no `policy_dir` here
+///
+/// `lint` is `Effects::ReadOnly`, so `forjar_lint` publishes
+/// `readOnlyHint: true`, and an agent reads that hint to decide it may call the
+/// tool unattended. A compliance pack rule of `type: script` is handed to
+/// `sh -c` (`core::compliance_pack::check_script`), so a `policy_dir` field
+/// here let a caller name a directory and have forjar execute whatever was in
+/// it. Measured before the field was removed: a pack whose script was
+/// `touch <path>` created that file through CLI, `verb call`, HTTP and a real
+/// `tools/call` over stdio, and the reply was
+/// `{"gate_passed":true,"error_count":0,"warnings":[]}` — nothing in the result
+/// said a script had run.
+///
+/// A schema description would not have fixed it. `readOnlyHint` is machine-read
+/// and the description is not, so the hint would still have been false.
+///
+/// `--policy-dir` survives on `forjar lint` and `forjar apply --policy-check`,
+/// where an operator typed a flag whose help text says it runs shell. Opting in
+/// and reading a schema are not the same act.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct LintInput {
     /// Path to forjar.yaml
     pub path: String,
+    /// Cyclomatic ceiling for generated shell. Omitted: the check is skipped
+    /// entirely — no parse, no CFG. See `core::quality_gate` for why it is
+    /// opt-in rather than defaulted.
+    ///
+    /// This one stays: it parses forjar's OWN generated shell and walks a CFG.
+    /// It runs nothing and writes nothing, so it cannot falsify `readOnlyHint`
+    /// the way `policy_dir` did.
+    pub max_cyclomatic: Option<usize>,
+}
+
+/// One quality-gate finding, in the shape a SARIF consumer would recognise.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct GateFindingOutput {
+    /// `FJQ-CPX-001` | `FJQ-SEC-001` | `FJQ-SEC-002` | `FJQ-SH-<code>` | a policy id.
+    pub rule_id: String,
+    /// "error", "warning" or "note". Only "error" blocks an apply.
+    pub level: String,
+    /// Resource this is about. Empty for a config-wide compliance rule.
+    pub resource: String,
+    /// What is wrong.
+    pub message: String,
+    /// 1-based line of the resource key, when it is in the addressed file.
+    /// Absent for a resource that arrived through `includes:`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub yaml_line: Option<usize>,
+    /// "check" | "apply" | "state_query" when the finding is about generated shell.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_kind: Option<String>,
+    /// 1-based line within that generated script.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_line: Option<usize>,
 }
 
 /// MCP lint handler output.
@@ -143,6 +200,21 @@ pub struct LintOutput {
     pub warning_count: usize,
     /// Total number of errors.
     pub error_count: usize,
+    /// Whether the quality gate passed — false when any finding is an error.
+    ///
+    /// A failing gate is a SUCCESSFUL result with this set to false, never an
+    /// MCP error. `pforge_runtime::Error::Handler` carries a bare string, so a
+    /// structured verdict cannot be expressed as an error, and an `Err`
+    /// bypasses `output_schema` entirely — it would ship a payload no
+    /// published schema describes.
+    pub gate_passed: bool,
+    /// `FORJAR_QUALITY_GATE_VIOLATION` when the gate did not pass.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    /// Every finding, including advisory ones the `warnings` lines only tally.
+    pub findings: Vec<GateFindingOutput>,
+    /// SARIF 2.1.0 log for CI ingestion (GitHub Code Scanning et al).
+    pub sarif: serde_json::Value,
 }
 
 /// MCP graph handler input.
@@ -303,4 +375,84 @@ pub struct AnomalyFindingOutput {
     pub status: String,
     /// Reasons for anomaly detection.
     pub reasons: Vec<String>,
+}
+
+/// MCP remediate handler input.
+///
+/// There is deliberately no `dry_run`. The verb returns the corrected document
+/// and writes nothing, so a caller that wants the file changed already has the
+/// bytes; a flag whose `false` branch cannot be honoured is worse than a
+/// missing one, and a `readOnlyHint` that depends on a parameter is a
+/// `readOnlyHint` an agent cannot trust.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RemediateInput {
+    /// Path to forjar.yaml
+    pub path: String,
+    /// Restrict to these policy ids (the rule's `id`, or its generated
+    /// `RULE-<slug>`). Omitted or empty means every rule.
+    pub policy_ids: Option<Vec<String>>,
+}
+
+/// MCP remediate handler output.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RemediateOutput {
+    /// Corrections applied, sorted by resource then field.
+    pub remediations_applied: Vec<RemediationOutput>,
+    /// The corrected document. Byte-identical to the input when nothing
+    /// applied. Nothing on disk was changed — this is the write, and the
+    /// caller performs it.
+    pub updated_yaml_content: String,
+    /// Violations still present, re-evaluated against the corrected config,
+    /// each carrying why forjar did not fix it.
+    pub remaining_violations: Vec<ViolationOutput>,
+    /// Whether the document changed.
+    pub changed: bool,
+    /// Content hash of the config before.
+    pub config_hash_before: String,
+    /// Content hash of the config after.
+    pub config_hash_after: String,
+    /// What this verb did not look at, when that would otherwise read as "the
+    /// config is clean".
+    pub scope_note: Option<String>,
+}
+
+/// One applied correction.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RemediationOutput {
+    /// The rule that determined the value.
+    pub policy_id: String,
+    /// The resource whose field was rewritten.
+    pub resource_id: String,
+    /// The field that was rewritten.
+    pub field: String,
+    /// The value before.
+    pub from: Option<String>,
+    /// The value written — read from the policy rule, never chosen by forjar.
+    pub to: String,
+    /// 1-based line of the edited value.
+    pub line: usize,
+}
+
+/// One violation that is still present.
+///
+/// A typed projection of `PolicyViolation` rather than a `serde_json::Value`:
+/// the untyped alternative publishes a schema that describes nothing, which is
+/// the weakness `ShowOutput.config` already carries. It does duplicate the
+/// shape `policy_check_to_json` renders, and that is a real drift surface.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ViolationOutput {
+    /// The rule that flagged it.
+    pub policy_id: String,
+    /// The resource it was flagged on.
+    pub resource_id: String,
+    /// The rule's own message.
+    pub message: String,
+    /// `error`, `warning` or `info`.
+    pub severity: String,
+    /// `assert`, `deny`, `warn`, `require` or `limit`.
+    pub rule_type: String,
+    /// The rule's prose `remediation:` hint, if it carries one.
+    pub remediation_hint: Option<String>,
+    /// Why forjar did not fix it.
+    pub reason: String,
 }
