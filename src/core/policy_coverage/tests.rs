@@ -210,6 +210,60 @@ fn an_unnamed_rule_that_fires_is_not_reported_as_untriggered() {
     );
 }
 
+/// THE PIN FOR paiml/forjar#369 — it asserts the WRONG answer on purpose.
+///
+/// `display_id_of(None, message)` yields `RULE-<slugified message>`, and
+/// [`trigger_split`] uses that string AS an identity. Two rules declared
+/// without an `id:` that share a `message:` are therefore ONE rule to this
+/// calculation: below, the file rule fires and the package rule is satisfied,
+/// and the satisfied one is neither counted nor listed.
+///
+/// This is why the `policy-coverage` VERB was withdrawn from the unified
+/// surface rather than shipped — a report that cannot say what did not run is
+/// the one report that must. `tests/falsification_policy_coverage_withdrawn.rs`
+/// measures the same thing through the shipped binary and holds the row in
+/// `Bucket::Pending`.
+///
+/// Fixing #369 makes this test fail. That is the point: the fix has to be a
+/// deliberate edit here. Delete it only together with the defect.
+#[test]
+fn two_unnamed_rules_sharing_a_message_collapse_to_one_id() {
+    let mut violated = require_policy("file");
+    violated.id = None;
+    violated.message = "resources need a field".into();
+
+    // Satisfied: `pkg` is a package and the rule requires a field it has.
+    let mut satisfied = require_policy("package");
+    satisfied.id = None;
+    satisfied.message = "resources need a field".into();
+    satisfied.field = Some("resource_type".into());
+
+    let cov = compute_coverage(&make_config(
+        &[("f1", "file"), ("pkg", "package")],
+        vec![violated, satisfied],
+    ));
+
+    assert_eq!(cov.total_rules, 2, "two rules are declared: {cov:?}");
+    assert_eq!(
+        cov.rules_triggered, 1,
+        "CURRENT, WRONG: both rules slugify to `RULE-resources-need-a-field`, \
+         so the satisfied one is invisible rather than untriggered: {cov:?}"
+    );
+    assert!(
+        cov.untriggered_rules.is_empty(),
+        "CURRENT, WRONG: the satisfied rule never fired and belongs here. \
+         #369's fix must put it back: {:?}",
+        cov.untriggered_rules
+    );
+    assert_ne!(
+        cov.total_rules,
+        cov.rules_triggered + cov.untriggered_rules.len(),
+        "paiml/forjar#369 is FIXED — every rule is accounted for as fired or \
+         idle. Remove this pin, and put `policy-coverage` back on the unified \
+         surface: {cov:?}"
+    );
+}
+
 #[test]
 fn a_satisfied_rule_is_untriggered() {
     // `f1` has no owner, so the require-owner rule fires against it.

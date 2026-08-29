@@ -7,26 +7,17 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-// ── policy-coverage (FJ-3208) ───────────────────────────────────────
-
-/// MCP policy-coverage handler input.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct PolicyCoverageInput {
-    /// Path to forjar.yaml
-    pub path: String,
-}
-
-/// MCP policy-coverage handler output.
-///
-/// NOT a struct of its own: this is `core::policy_coverage::PolicyCoverage`,
-/// the exact value `forjar policy-coverage --json` prints. A copy of its fields
-/// would be a second place for the answer to live, and that is precisely the
-/// defect #356 found here — the verb was wired to a calculation with no
-/// production caller while its documentation named the CLI's, and the two
-/// disagreed about which resources were covered.
-///
-/// Two renderers over one calculation. There is no second type to drift.
-pub type PolicyCoverageOutput = crate::core::policy_coverage::PolicyCoverage;
+// ── policy-coverage: NOT HERE ───────────────────────────────────────
+//
+// `PolicyCoverageInput` and `PolicyCoverageOutput` lived here. The verb was
+// withdrawn (paiml/forjar#369) and the types went with it: the output was a
+// `pub type` alias for `core::policy_coverage::PolicyCoverage`, so nothing was
+// lost that the CLI does not still print, and an input type with no handler is
+// a schema for a tool that is not published.
+//
+// `core::policy_coverage` is unchanged and still has exactly one calculation.
+// Re-shipping the verb once #369 is fixed is these two declarations, one
+// handler, one `register_all` line and one `verb_table!` row.
 
 // ── audit (FJ-341) ──────────────────────────────────────────────────
 

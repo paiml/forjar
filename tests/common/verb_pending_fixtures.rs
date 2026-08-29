@@ -19,43 +19,6 @@ pub fn call(verb: &str, params: serde_json::Value) -> Result<serde_json::Value, 
     (v.invoke)(params)
 }
 
-/// A project whose policies cover the file resource and not the package one.
-pub fn policy_project(dir: &std::path::Path) -> std::path::PathBuf {
-    let cfg = dir.join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        r#"
-version: "1.0"
-name: coverage-fixture
-machines:
-  local:
-    hostname: localhost
-    addr: localhost
-resources:
-  conf:
-    type: file
-    machine: local
-    path: /etc/app.conf
-    content: "k=v"
-  pkg:
-    type: package
-    machine: local
-    provider: apt
-    packages: [git]
-policies:
-  - type: require
-    message: files need an owner
-    field: owner
-    resource_type: file
-    compliance:
-      - framework: soc2
-        control: CC6.1
-"#,
-    )
-    .unwrap();
-    cfg
-}
-
 /// Two provenance events on one machine, with distinct timestamps so ordering
 /// is a property of the data rather than of `read_dir`.
 pub fn audited_project(dir: &std::path::Path) -> std::path::PathBuf {

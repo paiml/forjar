@@ -24,7 +24,13 @@ pub enum Bucket {
     /// Deliberately CLI-shaped. Carries the reason it is not a verb.
     CliOnly(&'static str),
     /// Belongs on the unified surface, is not there yet. Carries an issue ref.
-    /// This is the debt ledger, and it may only shrink.
+    ///
+    /// This is the debt ledger. It normally only shrinks — but a row may come
+    /// BACK, and `policy-coverage` is the one that has. It shipped as a verb on
+    /// this branch and was withdrawn when the unified calculation was measured
+    /// answering wrongly (paiml/forjar#369). Honest debt is a smaller failure
+    /// than a published tool that is confidently wrong, so a return is allowed
+    /// on exactly one condition: the reason names the defect, not the intent.
     Pending(&'static str),
 }
 
@@ -186,7 +192,7 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["plugin", "run"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["plugin", "verify"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["policy"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["policy-coverage"], bucket: Bucket::Unified },
+    Leaf { path: &["policy-coverage"], bucket: Bucket::Pending("paiml/forjar#369 — WITHDRAWN after shipping on this branch, not never-started. Rule identity is derived from `message:` when a rule declares no `id:`, so two such rules sharing a message collapse into one: measured `total_rules: 2, rules_triggered: 1, untriggered_rules: []`, which reports a rule that never ran as having run. Both surfaces are wrong identically, so parity cannot catch it. Re-shipping the verb before #369 is fixed publishes that answer on every transport instead of one") },
     Leaf { path: &["policy-install"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["preservation"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["privilege-analysis"], bucket: Bucket::Pending("paiml/forjar#288") },

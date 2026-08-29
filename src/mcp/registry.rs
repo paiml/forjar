@@ -61,7 +61,6 @@ fn register_all(reg: &mut HandlerRegistry) {
     reg.register("forjar_trace", TraceHandler);
     reg.register("forjar_anomaly", AnomalyHandler);
     reg.register("forjar_audit", AuditHandler);
-    reg.register("forjar_policy_coverage", PolicyCoverageHandler);
     reg.register("forjar_workspace", WorkspaceHandler);
 }
 

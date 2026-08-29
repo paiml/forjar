@@ -13,9 +13,9 @@ fn schema_has_expected_tools() {
     let schema = export_schema();
     assert_eq!(schema["schema_version"], "1.0");
     assert_eq!(schema["server"], "forjar-mcp");
-    assert_eq!(schema["tool_count"], 12);
+    assert_eq!(schema["tool_count"], 11);
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 12);
+    assert_eq!(tools.len(), 11);
 }
 
 #[test]
@@ -34,7 +34,6 @@ fn schema_tool_names() {
         "forjar_trace",
         "forjar_anomaly",
         "forjar_audit",
-        "forjar_policy_coverage",
         "forjar_workspace",
     ] {
         assert!(names.contains(&expected), "missing tool: {expected}");
@@ -74,9 +73,9 @@ fn schema_version_matches_cargo() {
 // ── FJ-MCP: build_registry ──
 
 #[test]
-fn registry_has_12_handlers() {
+fn registry_has_11_handlers() {
     let registry = build_registry();
-    assert_eq!(registry.len(), 12);
+    assert_eq!(registry.len(), 11);
 }
 
 #[test]
@@ -93,7 +92,6 @@ fn registry_handler_names() {
         "forjar_trace",
         "forjar_anomaly",
         "forjar_audit",
-        "forjar_policy_coverage",
         "forjar_workspace",
     ] {
         assert!(registry.has_handler(name), "missing handler: {name}");

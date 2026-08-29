@@ -83,8 +83,8 @@ forjar verb call validate --json '{"path":"forjar.yaml"}'
 forjar verb serve --port 8737    # the same surface over HTTP
 ```
 
-The twelve verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`,
-`status`, `trace`, `anomaly`, `audit`, `policy-coverage`, `workspace` — are
+The eleven verbs — `validate`, `plan`, `drift`, `lint`, `graph`, `show`,
+`status`, `trace`, `anomaly`, `audit`, `workspace` — are
 declared **once**, in `src/verb/registry.rs`, and the CLI, MCP and HTTP
 transports each render that one declaration. Adding a verb is one row. There is
 no second list to keep in step, which is the defect this replaced: the same nine
@@ -93,11 +93,22 @@ one of those four copies was reachable in production. Run `forjar verb list` for
 the set this binary actually ships; a list typed into a document is the drift
 the registry exists to prevent.
 
-A verb's MCP name is its own name with `forjar_` prefixed and any hyphen folded
-to an underscore, so `policy-coverage` is `forjar_policy_coverage`. Both
-spellings are derived from the one row.
+`policy-coverage` was on this list and was **withdrawn**. The unified
+calculation derives a rule's identity from its `message:` when the rule declares
+no `id:`, so two such rules sharing a message collapse into one and a rule that
+never ran is reported as having run — in the one report whose job is to say what
+is *not* covered. The leaf is back in `Pending` citing
+[paiml/forjar#369][fj369], and `forjar policy-coverage` is still the way to ask.
+Honest debt beats a tool that answers wrongly on every transport at once.
 
-All twelve are **read-only**, and that is a property of the surface rather than
+[fj369]: https://github.com/paiml/forjar/issues/369
+
+A verb's MCP name is its own name with `forjar_` prefixed and any hyphen folded
+to an underscore — `policy-coverage` would publish as `forjar_policy_coverage`.
+Both spellings are derived from the one row; no verb on the surface today
+carries a hyphen.
+
+All eleven are **read-only**, and that is a property of the surface rather than
 a coincidence of which verbs it happens to hold:
 `tests/falsification_verb_readonly_surface.rs` fails if any row declares
 `Effects::Mutating`. It is published, not assumed — `verb list --json` reports
@@ -268,8 +279,18 @@ vacuously for.
 forjar policy-coverage -f forjar.yaml [--json]
 ```
 
-`--json` prints exactly the document the `policy-coverage` MCP verb returns —
-the same type, not the same shape, so the two cannot drift.
+`--json` prints `core::policy_coverage::compute_coverage` verbatim — the value,
+not a projection of it, so a renderer cannot reshape the answer. There is one
+calculation behind this command and no second one anywhere.
+
+This command is **CLI-only**. A `policy-coverage` verb shipped briefly on the
+unified surface and was withdrawn: rule identity is derived from `message:` for
+a rule that declares no `id:`, so two such rules sharing a message collapse and
+the satisfied one disappears from `untriggered_rules` instead of being listed.
+See [paiml/forjar#369][fj369-pc]. Until that is fixed the wrong answer is
+reachable from one place rather than from every transport.
+
+[fj369-pc]: https://github.com/paiml/forjar/issues/369
 
 ### forjar policy-install
 

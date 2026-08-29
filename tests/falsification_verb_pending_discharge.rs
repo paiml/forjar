@@ -1,25 +1,32 @@
-//! Three capabilities left the debt ledger (paiml/forjar#356).
+//! Two capabilities left the debt ledger (paiml/forjar#356) — and a third came
+//! back (paiml/forjar#369).
 //!
 //! `src/verb/partition.rs` accounts for all 193 CLI leaves. `Bucket::Pending`
 //! is its debt ledger — "belongs on the unified surface, is not there yet" —
-//! and the module says the ledger MAY ONLY SHRINK. Nothing enforced that
+//! and the module said the ledger MAY ONLY SHRINK. Nothing enforced that
 //! direction, and nothing asserted that a row leaving it arrived anywhere: a
 //! leaf could be flipped to `Unified` while the verb registry stayed as it was,
 //! and only `unified_bucket_matches_the_verb_registry` (a lib test comparing
 //! two in-process tables) would notice.
 //!
-//! These three shipped as CLI leaves and nowhere else:
+//! These shipped as CLI leaves and nowhere else, and are now verbs:
 //!
 //! | leaf | what it computes | who could read it |
 //! |---|---|---|
 //! | `audit` | the append-only provenance trail | a human at a terminal |
-//! | `policy-coverage` | which resources policy rules cover | a human at a terminal |
 //! | `workspace list`/`current` | which isolated state dir is selected | a human at a terminal |
 //!
 //! Each is a projection of a calculation that already existed, so none of this
 //! is new behaviour — it is the same answer, reachable by the callers forjar
 //! claims to serve. The tests below assert the reachability, not the arithmetic
 //! (that is covered where the calculations live).
+//!
+//! `policy-coverage` was the third and IS NOT ON THE SURFACE. It shipped here,
+//! was measured answering wrongly about which rules ran, and was withdrawn to
+//! `Bucket::Pending` citing paiml/forjar#369. The row that asserts it stayed
+//! withdrawn — and the measurement that justifies it — is in
+//! `falsification_policy_coverage_withdrawn.rs`. A ledger row is cheaper than a
+//! tool that is confidently wrong on every transport at once.
 //!
 //! The `workspace` verb's own tests live in
 //! `falsification_verb_workspace_report.rs` — split off for the 500-line file
@@ -31,7 +38,7 @@ use forjar::verb::{find, partition, Bucket};
 
 #[path = "common/verb_pending_fixtures.rs"]
 mod fixtures;
-use fixtures::{audited_project, call, policy_project};
+use fixtures::{audited_project, call};
 
 // ── the ledger shrank, and the rows landed somewhere ────────────────
 
@@ -40,7 +47,6 @@ use fixtures::{audited_project, call, policy_project};
 fn the_discharged_leaves_left_the_debt_ledger() {
     for leaf in [
         vec!["audit"],
-        vec!["policy-coverage"],
         vec!["workspace", "current"],
         vec!["workspace", "list"],
     ] {
@@ -82,12 +88,34 @@ fn the_mutating_workspace_leaves_did_not_move() {
 }
 
 /// A hyphenated CLI leaf must still render a snake_case MCP tool name. Every
-/// tool shipped before this is snake_case, and `forjar_policy-coverage` beside
+/// tool shipped is snake_case, and `forjar_policy-coverage` beside
 /// `forjar_policy_install` would be a spelling a client has to special-case.
+///
+/// The surface currently holds no hyphenated verb — `policy-coverage` was the
+/// one and it was withdrawn (#369) — so this asserts the FOLD rather than a
+/// row. Asserting it through a row would have made the property vanish with the
+/// row, and it has to survive the withdrawal: it is what the next hyphenated
+/// verb, `policy-coverage` included, will depend on.
 #[test]
 fn a_hyphenated_verb_gets_a_snake_case_mcp_name() {
-    let v = find("policy-coverage").expect("policy-coverage is a verb");
-    assert_eq!(v.mcp_name(), "forjar_policy_coverage");
+    let hyphenated = forjar::verb::VerbSpec {
+        name: "policy-coverage",
+        description: "not on the surface; see paiml/forjar#369",
+        effects: forjar::verb::Effects::ReadOnly,
+        timeout_ms: 30_000,
+        input_schema: || serde_json::Value::Null,
+        output_schema: || serde_json::Value::Null,
+        invoke: |_| Ok(serde_json::Value::Null),
+    };
+    assert_eq!(hyphenated.mcp_name(), "forjar_policy_coverage");
+
+    // Vacuity guard: the fold is a no-op on every name currently shipping, so
+    // the assertion above is the only thing exercising it.
+    assert!(
+        forjar::verb::verbs().iter().all(|v| !v.name.contains('-')),
+        "a hyphenated verb is back on the surface — assert the fold through \
+         that row instead of through this fixture"
+    );
 }
 
 /// The fold is only safe while it cannot collide. `policy-coverage` and a
@@ -128,7 +156,7 @@ fn the_hyphen_fold_cannot_collide() {
 #[test]
 fn every_discharged_verb_is_dispatchable() {
     let reg = forjar::mcp::build_registry();
-    for name in ["audit", "policy-coverage", "workspace"] {
+    for name in ["audit", "workspace"] {
         let v = find(name).unwrap_or_else(|| panic!("`{name}` is not a verb"));
         assert!(
             reg.has_handler(&v.mcp_name()),
@@ -136,125 +164,6 @@ fn every_discharged_verb_is_dispatchable() {
             v.mcp_name()
         );
     }
-}
-
-// ── policy-coverage ─────────────────────────────────────────────────
-
-#[test]
-fn policy_coverage_names_the_resources_no_policy_covers() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = policy_project(d.path());
-
-    let out = call(
-        "policy-coverage",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("policy-coverage runs");
-
-    assert_eq!(out["total_resources"], 2);
-    assert_eq!(out["covered_resources"], 1);
-    assert_eq!(out["fully_covered"], false);
-    assert_eq!(
-        out["uncovered"],
-        serde_json::json!(["pkg"]),
-        "the package resource is matched by no policy, and saying which one is \
-         uncovered is the entire point of the report: {out}"
-    );
-    assert_eq!(out["by_type"]["require"], 1);
-    assert_eq!(out["compliance_frameworks"]["soc2"], 1);
-
-    // COVERED is not CLEAN. `conf` is the covered resource and it VIOLATES
-    // (it has no owner); `pkg` is the clean one and no rule scopes to it. Both
-    // halves report "1 of 2" and they mean opposite resources — which is the
-    // divergence that shipped when the verb and the CLI leaf were two
-    // calculations (#356). One document has to carry both or a reader cannot
-    // tell them apart.
-    assert_eq!(out["clean_resources"], 1, "{out}");
-    assert_eq!(out["rules_triggered"], 1, "{out}");
-    assert_eq!(out["untriggered_rules"], serde_json::json!([]), "{out}");
-}
-
-/// REJECTION CRITERION: the verb and the CLI leaf answering differently.
-///
-/// `src/mcp/types_ops.rs` claims the verb returns "the same projection `forjar
-/// policy-coverage --json` prints". Both clauses were false when this branch
-/// was reviewed: the verb was wired to `core::policy_coverage`, which had NO
-/// production caller, while the leaf routed to a different implementation in
-/// `src/cli/policy_coverage.rs`. Nothing compared them, so nothing noticed.
-///
-/// This compares them — against the REAL BINARY, not against a second
-/// in-process call, because a shared library function proves the library agrees
-/// with itself and says nothing about what the command prints.
-#[test]
-fn the_verb_and_the_cli_leaf_print_the_same_document() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = policy_project(d.path());
-
-    let from_verb = call(
-        "policy-coverage",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("policy-coverage runs");
-
-    let run = std::process::Command::new(env!("CARGO_BIN_EXE_forjar"))
-        .args(["policy-coverage", "--file"])
-        .arg(&cfg)
-        .arg("--json")
-        .output()
-        .expect("forjar policy-coverage runs");
-    assert!(
-        run.status.success(),
-        "forjar policy-coverage --json failed: {}",
-        String::from_utf8_lossy(&run.stderr)
-    );
-    let from_cli: serde_json::Value = serde_json::from_slice(&run.stdout)
-        .unwrap_or_else(|e| panic!("--json did not print JSON ({e}): {:?}", run.stdout));
-
-    assert_eq!(
-        from_verb,
-        from_cli,
-        "the `policy-coverage` verb and `forjar policy-coverage --json` \
-         returned DIFFERENT documents. They are supposed to be two renderers \
-         over one calculation; a field that appears on one and not the other, \
-         or the same field with a different value, means there are two \
-         calculations again.\n\nverb: {}\n\ncli:  {}",
-        serde_json::to_string_pretty(&from_verb).unwrap_or_default(),
-        serde_json::to_string_pretty(&from_cli).unwrap_or_default(),
-    );
-
-    // Vacuity guard: an empty object equals an empty object.
-    assert!(
-        from_verb.as_object().is_some_and(|o| o.len() >= 10),
-        "the document has {} fields — the equality above is close to vacuous",
-        from_verb.as_object().map(serde_json::Map::len).unwrap_or(0)
-    );
-}
-
-/// The guard against "covered" being a constant.
-#[test]
-fn policy_coverage_reports_a_config_with_no_policies_as_uncovered() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = d.path().join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: bare\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources:\n  conf:\n    type: file\n    machine: local\n    \
-         path: /etc/a.conf\n    content: x\n",
-    )
-    .unwrap();
-
-    let out = call(
-        "policy-coverage",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("policy-coverage runs");
-
-    assert_eq!(out["covered_resources"], 0);
-    assert_eq!(out["coverage_percent"], 0.0);
-    assert_eq!(out["uncovered"], serde_json::json!(["conf"]));
-    // ...and it is clean, because nothing looked at it. A report that printed
-    // only `clean_resources` would call this config compliant.
-    assert_eq!(out["clean_resources"], 1, "{out}");
 }
 
 // ── audit ───────────────────────────────────────────────────────────

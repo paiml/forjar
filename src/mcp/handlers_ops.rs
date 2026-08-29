@@ -3,19 +3,22 @@
 //! Every one of these is a PROJECTION of a calculation that already shipped as
 //! a CLI leaf. None of them computes anything the CLI does not, and none of
 //! them writes: `Effects::ReadOnly` in the verb table is a promise about these
-//! three functions, and `tests/falsification_verb_readonly_surface.rs` is what
+//! two functions, and `tests/falsification_verb_readonly_surface.rs` is what
 //! keeps it from becoming a comment.
+//!
+//! There was a third — `PolicyCoverageHandler` — and it is gone rather than
+//! parked here unregistered. The calculation it projected is wrong about rule
+//! identity (paiml/forjar#369), so the verb was withdrawn and the leaf put back
+//! in `Bucket::Pending`; a handler that no `verb_table!` row names is the dead
+//! module #356 was opened to remove, not a head start on re-adding it.
 
 use pforge_runtime::Handler;
 use std::path::{Path, PathBuf};
 
-use crate::core::{parser, policy_coverage};
 use crate::tripwire::audit_trail;
 
 use super::types::*;
 
-/// MCP handler for policy rule coverage (FJ-3208).
-pub struct PolicyCoverageHandler;
 /// MCP handler for the provenance audit trail (FJ-341).
 pub struct AuditHandler;
 /// MCP handler for workspace introspection (FJ-210).
@@ -24,22 +27,6 @@ pub struct WorkspaceHandler;
 /// Entries returned when the caller names no limit — the same default as
 /// `forjar audit -n`.
 const DEFAULT_AUDIT_LIMIT: usize = 20;
-
-#[async_trait::async_trait]
-impl Handler for PolicyCoverageHandler {
-    type Input = PolicyCoverageInput;
-    type Output = PolicyCoverageOutput;
-    type Error = pforge_runtime::Error;
-
-    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
-        let path = PathBuf::from(&input.path);
-        // The SAME two calls `cli::policy_coverage::cmd_policy_coverage` makes,
-        // in the same order, and then nothing: the report IS the output type,
-        // so there is no projection step here that could reshape it.
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
-        Ok(policy_coverage::compute_coverage(&config))
-    }
-}
 
 #[async_trait::async_trait]
 impl Handler for AuditHandler {

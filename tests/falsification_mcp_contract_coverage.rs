@@ -22,8 +22,8 @@ use forjar::mcp::{build_registry, export_schema};
 fn schema_has_correct_tool_count() {
     let schema = export_schema();
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 12);
-    assert_eq!(schema["tool_count"], 12);
+    assert_eq!(tools.len(), 11);
+    assert_eq!(schema["tool_count"], 11);
 }
 
 #[test]
@@ -41,7 +41,6 @@ fn schema_includes_all_tool_names() {
     assert!(names.contains(&"forjar_trace"));
     assert!(names.contains(&"forjar_anomaly"));
     assert!(names.contains(&"forjar_audit"));
-    assert!(names.contains(&"forjar_policy_coverage"));
     assert!(names.contains(&"forjar_workspace"));
 }
 
@@ -86,7 +85,6 @@ fn registry_has_handlers() {
     assert!(registry.has_handler("forjar_graph"));
     assert!(registry.has_handler("forjar_anomaly"));
     assert!(registry.has_handler("forjar_audit"));
-    assert!(registry.has_handler("forjar_policy_coverage"));
     assert!(registry.has_handler("forjar_workspace"));
 }
 

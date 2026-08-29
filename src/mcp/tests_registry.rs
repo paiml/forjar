@@ -6,7 +6,7 @@ use super::types::*;
 #[test]
 fn test_fj063_build_registry_has_all_tools() {
     let registry = build_registry();
-    assert_eq!(registry.len(), 12);
+    assert_eq!(registry.len(), 11);
     assert!(registry.has_handler("forjar_validate"));
     assert!(registry.has_handler("forjar_plan"));
     assert!(registry.has_handler("forjar_drift"));
@@ -17,7 +17,6 @@ fn test_fj063_build_registry_has_all_tools() {
     assert!(registry.has_handler("forjar_trace"));
     assert!(registry.has_handler("forjar_anomaly"));
     assert!(registry.has_handler("forjar_audit"));
-    assert!(registry.has_handler("forjar_policy_coverage"));
     assert!(registry.has_handler("forjar_workspace"));
 }
 
@@ -32,7 +31,7 @@ fn test_fj063_build_registry_no_unknown_tools() {
 fn test_fj063_forge_config_metadata() {
     let config = super::registry::build_forge_config_for_test();
     assert_eq!(config.forge.name, "forjar-mcp");
-    assert_eq!(config.tools.len(), 12);
+    assert_eq!(config.tools.len(), 11);
 }
 
 #[test]
@@ -49,7 +48,6 @@ fn test_fj063_forge_config_tool_names() {
     assert!(names.contains(&"forjar_trace"));
     assert!(names.contains(&"forjar_anomaly"));
     assert!(names.contains(&"forjar_audit"));
-    assert!(names.contains(&"forjar_policy_coverage"));
     assert!(names.contains(&"forjar_workspace"));
 }
 
@@ -87,9 +85,9 @@ async fn test_fj063_registry_dispatch_unknown_tool() {
 #[test]
 fn test_fj142_export_schema_has_all_tools() {
     let schema = export_schema();
-    assert_eq!(schema["tool_count"], 12);
+    assert_eq!(schema["tool_count"], 11);
     let tools = schema["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 12);
+    assert_eq!(tools.len(), 11);
 }
 
 #[test]
@@ -107,7 +105,6 @@ fn test_fj142_export_schema_tool_names() {
     assert!(names.contains(&"forjar_trace"));
     assert!(names.contains(&"forjar_anomaly"));
     assert!(names.contains(&"forjar_audit"));
-    assert!(names.contains(&"forjar_policy_coverage"));
     assert!(names.contains(&"forjar_workspace"));
 }
 

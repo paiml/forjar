@@ -75,8 +75,21 @@ macro_rules! verb_table {
 // `Effects::Mutating`. Ending the guarantee is a decision for a human, and
 // editing that test is how a human makes it — not a side effect of adding a
 // row here. A NEW row must also be answerable without executing what the
-// config declares: `falsification_readonly_surface_executes_nothing.rs` drives
-// every advertised verb, so a row whose handler probes is caught there.
+// config declares: `falsification_readonly_surface_executes_nothing.rs`
+// drives every advertised verb, so a row whose handler probes is caught
+// there.
+//
+// `policy-coverage` IS NOT HERE, and its absence is deliberate rather than
+// forgotten. It shipped as a row on this branch, was found to answer wrongly,
+// and was withdrawn: `display_id_of(None, message)` derives a rule's identity
+// from its `message:`, so two rules declared without an `id:` that share a
+// message collapse to one. Measured on the built binary — two such rules, one
+// violated and one satisfied — the report is `"total_rules": 2,
+// "rules_triggered": 1, "untriggered_rules": []`. Two is not one plus zero: a
+// rule that never ran is reported as having run, in the one report whose job is
+// to say what is NOT covered. That is paiml/forjar#369, the leaf is back in
+// `Bucket::Pending` citing it, and re-adding this row before #369 is fixed
+// publishes the wrong answer on every transport at once instead of one.
 verb_table! {
     "validate", Effects::ReadOnly, 30_000, "Validate a forjar.yaml configuration file", ValidateInput, ValidateOutput, ValidateHandler;
     "plan",     Effects::ReadOnly, 60_000, "Show execution plan for infrastructure changes", PlanInput, PlanOutput, PlanHandler;
@@ -88,7 +101,6 @@ verb_table! {
     "trace",    Effects::ReadOnly, 30_000, "View trace provenance data from apply runs", TraceInput, TraceOutput, TraceHandler;
     "anomaly",  Effects::ReadOnly, 30_000, "Detect anomalous resource behavior using ML-inspired analysis", AnomalyInput, AnomalyOutput, AnomalyHandler;
     "audit",    Effects::ReadOnly, 30_000, "Read the append-only provenance trail recorded by apply runs", AuditInput, AuditOutput, AuditHandler;
-    "policy-coverage", Effects::ReadOnly, 30_000, "Report which resources policy rules cover, and which are uncovered", PolicyCoverageInput, PolicyCoverageOutput, PolicyCoverageHandler;
     "workspace", Effects::ReadOnly, 10_000, "Report which workspace the forjar CLI has selected and every workspace under the state dir; the selection does not change where the other verbs read state", WorkspaceInput, WorkspaceOutput, WorkspaceHandler;
 }
 
@@ -109,7 +121,7 @@ mod tests {
     #[test]
     fn registry_is_not_empty() {
         assert!(
-            verbs().len() >= 12,
+            verbs().len() >= 11,
             "verb registry collapsed to {} entries — every parity test downstream \
              becomes vacuous when this is empty",
             verbs().len()

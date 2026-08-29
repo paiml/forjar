@@ -1461,7 +1461,7 @@ Options:
   --schema               Export tool schemas as JSON instead of starting server
 ```
 
-Starts a Model Context Protocol server via pforge. Exposes 12 tools: `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`, `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`, `forjar_anomaly`, `forjar_audit`, `forjar_policy_coverage`, `forjar_workspace` — every one of them read-only, which MCP publishes per tool as `readOnlyHint`. The authoritative set is `forjar verb list`; this sentence is a copy and copies drift. AI assistants (Claude, Copilot, Cursor) connect via MCP to inspect and manage infrastructure. `--schema` exports JSON schemas for all tools without starting the server.
+Starts a Model Context Protocol server via pforge. Exposes 11 tools: `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`, `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`, `forjar_anomaly`, `forjar_audit`, `forjar_workspace` — every one of them read-only, which MCP publishes per tool as `readOnlyHint`. The authoritative set is `forjar verb list`; this sentence is a copy and copies drift. (`forjar_policy_coverage` was published briefly and withdrawn — see paiml/forjar#369; `forjar policy-coverage` remains a CLI command.) AI assistants (Claude, Copilot, Cursor) connect via MCP to inspect and manage infrastructure. `--schema` exports JSON schemas for all tools without starting the server.
 
 ### 7.18 `forjar bench`
 
