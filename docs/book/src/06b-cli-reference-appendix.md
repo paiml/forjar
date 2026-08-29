@@ -109,6 +109,16 @@ verb unattended without risking a change to a machine.
 list` and `workspace current` read, so they are on the surface; `workspace new`,
 `select` and `delete` write, so they are not.
 
+It REPORTS a selection; it does not impose one. The active workspace is joined
+onto the state dir by the CLI commands that take `--workspace` (`apply`, `plan`,
+`drift`, `lock`) and by nothing on the verb surface — a verb called with the
+same `path` reads `<config dir>/state`, not `<config dir>/state/<active>`. The
+report therefore carries `workspace_state_dir`, the directory the selection
+designates, so a caller that wants the CLI's view can pass it as the next verb's
+`state_dir`. Closing the gap itself is [paiml/forjar#367][fj367].
+
+[fj367]: https://github.com/paiml/forjar/issues/367
+
 Read-only means it does not run what the **config** declares, either. That was
 not true before 1.21.1 (forjar#372): planning executed the config's own
 `ambient_inputs` commands, shelled out to `sops`/`op` for

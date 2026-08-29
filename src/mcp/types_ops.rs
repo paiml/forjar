@@ -77,9 +77,12 @@ pub struct AuditEventOutput {
 ///
 /// There is no `op` field, and that is the point: `new`, `select` and `delete`
 /// mutate, and this surface is read-only by construction (see
-/// `src/verb/registry.rs`). What an agent needs before it reasons about state
-/// is WHICH workspace is active and what else exists, and both answers are one
-/// call.
+/// `src/verb/registry.rs`). What this verb reports is the selection recorded in
+/// `.forjar/workspace` and the directories under the state base — two facts
+/// about the project, in one call.
+///
+/// It does NOT report where the other verbs read state. See
+/// [`WorkspaceOutput::workspace_state_dir`] for what was measured.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct WorkspaceInput {
     /// Path to the project's forjar.yaml. The active workspace is recorded in
@@ -94,16 +97,61 @@ pub struct WorkspaceInput {
 /// MCP workspace handler output.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceOutput {
-    /// The selected workspace, or `null` when none is selected and state lives
-    /// directly under the state base. `null` is not "unknown" — it is the
-    /// default workspace, and it is the case `forjar workspace current` prints
-    /// as `(default — no workspace selected)`.
+    /// The workspace selected in `.forjar/workspace`, or `null` when none is
+    /// selected and state lives directly under the state base. `null` is not
+    /// "unknown" — it is the default workspace, and it is the case `forjar
+    /// workspace current` prints as `(default — no workspace selected)`.
+    ///
+    /// This is a REPORT of a selection, not a setting that binds anything on
+    /// this surface — see [`Self::workspace_state_dir`].
     pub active: Option<String>,
     /// Every workspace directory under the state base, sorted by name.
     pub workspaces: Vec<WorkspaceEntryOutput>,
-    /// The state base actually inspected, so a caller can tell an empty list
-    /// apart from having pointed the tool at the wrong directory.
+    /// The state base actually inspected — `<config dir>/state` unless
+    /// `state_dir` said otherwise.
+    ///
+    /// This is derived from the arguments alone and is the same string whether
+    /// the directory exists or not, which is why it cannot on its own tell an
+    /// empty list from a wrong path. [`Self::state_base_exists`] is the half
+    /// that can.
     pub state_base: String,
+    /// Whether `state_base` exists on disk.
+    ///
+    /// This is what separates "no workspaces yet" (`true`, and `workspaces` is
+    /// empty because nothing has been applied) from "that is not the project"
+    /// (`false`). `list_workspaces_in` returns an empty list for both, so
+    /// without this field the two are indistinguishable in the report.
+    pub state_base_exists: bool,
+    /// The directory the workspace selection designates: `state_base` joined
+    /// with `active`, or `state_base` itself when nothing is selected.
+    ///
+    /// It is reported because NOTHING ON THIS SURFACE RESOLVES IT. The CLI
+    /// commands that take `--workspace` (`apply`, `plan`, `drift`, `lock`)
+    /// join the active workspace onto their state dir in
+    /// `cli::workspace::resolve_state_dir`; the verbs go through
+    /// `mcp::paths::resolve_state_dir*`, which never does. A caller that wants
+    /// the view those CLI commands have under this selection must pass this
+    /// path back as the next verb's `state_dir`.
+    ///
+    /// MEASURED against this binary, one project, `.forjar/workspace = prod`
+    /// and the lock under `state/prod/`:
+    ///
+    /// ```text
+    ///   $ forjar plan -f forjar.yaml
+    ///   state: <root>/state/prod
+    ///   Plan: 0 to add, 0 to change, 0 to destroy, 1 unchanged.
+    ///
+    ///   $ forjar verb call plan --json '{"path":"<root>/forjar.yaml"}'
+    ///   { "to_create": 1, "unchanged": 0, ... }
+    /// ```
+    ///
+    /// and `verb call audit` on the same config reports `event_count: 0` over
+    /// a four-event trail in `state/prod/local/events.jsonl`. That divergence
+    /// is pre-existing and is filed as paiml/forjar#367; this field is not the
+    /// fix, it is the fact stated where a caller reading the report will see
+    /// it. (`forjar audit` takes no `--workspace` and does not join it either,
+    /// so it prints "No audit events found." on the same project.)
+    pub workspace_state_dir: String,
 }
 
 /// One workspace directory.

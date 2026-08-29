@@ -102,6 +102,16 @@ impl Handler for WorkspaceHandler {
             .map_err(pforge_runtime::Error::Handler)?;
         let active = crate::cli::workspace::current_workspace_in(&root);
 
+        // The directory the selection DESIGNATES — which is not the directory
+        // any verb on this surface reads. `mcp::paths::resolve_state_dir_opt`
+        // above never joins `active`, so a caller that wants what `forjar plan`
+        // sees under this selection has to pass this path back as `state_dir`.
+        // paiml/forjar#367.
+        let workspace_state_dir = match active.as_deref() {
+            Some(ws) => state_base.join(ws),
+            None => state_base.clone(),
+        };
+
         Ok(WorkspaceOutput {
             active,
             workspaces: found
@@ -111,7 +121,11 @@ impl Handler for WorkspaceHandler {
                     active: w.active,
                 })
                 .collect(),
+            // `exists()` before `display()`: the two fields answer different
+            // questions and only one of them touches the disk.
+            state_base_exists: state_base.exists(),
             state_base: state_base.display().to_string(),
+            workspace_state_dir: workspace_state_dir.display().to_string(),
         })
     }
 }

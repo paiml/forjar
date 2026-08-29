@@ -21,6 +21,10 @@
 //! claims to serve. The tests below assert the reachability, not the arithmetic
 //! (that is covered where the calculations live).
 //!
+//! The `workspace` verb's own tests live in
+//! `falsification_verb_workspace_report.rs` — split off for the 500-line file
+//! cap, and because what that verb reports needed claims of its own retracted.
+//!
 //! Usage: cargo test --test falsification_verb_pending_discharge
 
 use forjar::verb::{find, partition, Bucket};
@@ -327,143 +331,4 @@ fn audit_honours_the_limit() {
 
     assert_eq!(out["event_count"], 1, "{out}");
     assert_eq!(out["events"][0]["timestamp"], "2026-08-01T10:00:05Z");
-}
-
-// ── workspace ───────────────────────────────────────────────────────
-
-#[test]
-fn workspace_reports_the_selected_workspace_and_its_siblings() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = d.path().join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: ws\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources: {}\n",
-    )
-    .unwrap();
-    for ws in ["staging", "prod"] {
-        std::fs::create_dir_all(d.path().join("state").join(ws)).unwrap();
-    }
-    std::fs::create_dir_all(d.path().join(".forjar")).unwrap();
-    std::fs::write(d.path().join(".forjar").join("workspace"), "prod").unwrap();
-
-    let out = call(
-        "workspace",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("workspace runs");
-
-    assert_eq!(
-        out["active"], "prod",
-        "the active workspace decides which state dir every other verb reads; \
-         an agent that cannot ask is guessing: {out}"
-    );
-    assert_eq!(
-        out["workspaces"],
-        serde_json::json!([
-            { "name": "prod", "active": true },
-            { "name": "staging", "active": false },
-        ]),
-        "{out}"
-    );
-}
-
-/// `read_dir` returns entries in no defined order — on the filesystems forjar
-/// runs on it is a hash order, not creation order — so an unsorted listing can
-/// differ between two calls over an unchanged directory. That is a poor
-/// property for a tool whose output an agent diffs.
-///
-/// Twelve names, created in reverse, is the falsifier: an unsorted read would
-/// have to land on the sorted permutation by chance (1 in 12!).
-#[test]
-fn workspace_listing_is_sorted_not_left_in_read_dir_order() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = d.path().join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: ws\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources: {}\n",
-    )
-    .unwrap();
-    let names: Vec<String> = (0..12).map(|i| format!("ws{i:02}")).collect();
-    for n in names.iter().rev() {
-        std::fs::create_dir_all(d.path().join("state").join(n)).unwrap();
-    }
-
-    let out = call(
-        "workspace",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("workspace runs");
-
-    let got: Vec<String> = out["workspaces"]
-        .as_array()
-        .expect("workspaces array")
-        .iter()
-        .map(|w| w["name"].as_str().unwrap_or_default().to_string())
-        .collect();
-    assert_eq!(got, names, "listing came back in directory order");
-}
-
-/// No workspace selected is `null`, and `null` MEANS the default workspace —
-/// it is not "unknown". A caller that cannot tell those apart cannot tell
-/// `state/` from `state/<name>/`.
-#[test]
-fn workspace_reports_the_default_as_null_not_as_an_error() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = d.path().join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: ws\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources: {}\n",
-    )
-    .unwrap();
-
-    let out = call(
-        "workspace",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("workspace runs");
-
-    assert_eq!(out["active"], serde_json::Value::Null);
-    assert_eq!(out["workspaces"], serde_json::json!([]));
-    assert_eq!(
-        out["state_base"],
-        d.path().join("state").display().to_string(),
-        "the state base is echoed so an empty list can be told apart from \
-         having pointed the tool at the wrong directory: {out}"
-    );
-}
-
-/// GH-208: the workspace marker lives beside the CONFIG, not in the server's
-/// cwd. The CLI hard-codes `.` and is right to — its cwd is the project. An MCP
-/// server's cwd is chosen by the client, so a project addressed by absolute
-/// path must still find its own `.forjar/workspace`.
-#[test]
-fn workspace_follows_the_config_not_the_process_cwd() {
-    let d = tempfile::tempdir().unwrap();
-    let cfg = d.path().join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        "version: \"1.0\"\nname: ws\nmachines:\n  local:\n    hostname: localhost\n    \
-         addr: localhost\nresources: {}\n",
-    )
-    .unwrap();
-    std::fs::create_dir_all(d.path().join("state").join("yoga")).unwrap();
-    std::fs::create_dir_all(d.path().join(".forjar")).unwrap();
-    std::fs::write(d.path().join(".forjar").join("workspace"), "yoga").unwrap();
-
-    // The test process runs from the crate root, so cwd is ALREADY not the
-    // fixture's directory — exactly the situation of an MCP stdio server.
-    let out = call(
-        "workspace",
-        serde_json::json!({ "path": cfg.display().to_string() }),
-    )
-    .expect("workspace runs");
-
-    assert_eq!(
-        out["active"], "yoga",
-        "the marker beside the config was not read — the tool looked in the \
-         process cwd (GH-208): {out}"
-    );
 }

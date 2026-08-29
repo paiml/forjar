@@ -89,7 +89,7 @@ verb_table! {
     "anomaly",  Effects::ReadOnly, 30_000, "Detect anomalous resource behavior using ML-inspired analysis", AnomalyInput, AnomalyOutput, AnomalyHandler;
     "audit",    Effects::ReadOnly, 30_000, "Read the append-only provenance trail recorded by apply runs", AuditInput, AuditOutput, AuditHandler;
     "policy-coverage", Effects::ReadOnly, 30_000, "Report which resources policy rules cover, and which are uncovered", PolicyCoverageInput, PolicyCoverageOutput, PolicyCoverageHandler;
-    "workspace", Effects::ReadOnly, 10_000, "Report the selected workspace and every workspace under the state dir", WorkspaceInput, WorkspaceOutput, WorkspaceHandler;
+    "workspace", Effects::ReadOnly, 10_000, "Report which workspace the forjar CLI has selected and every workspace under the state dir; the selection does not change where the other verbs read state", WorkspaceInput, WorkspaceOutput, WorkspaceHandler;
 }
 
 /// Look up a verb by its transport-neutral name.
