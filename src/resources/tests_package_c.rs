@@ -145,23 +145,36 @@ fn test_fj51_cargo_cache_copies_to_cargo_bin() {
         "must respect CARGO_HOME: {script}"
     );
     // Asserts the staged binaries are PLACED into _CARGO_BIN, not that a
-    // particular tool does it. This used to pin the literal
-    // `cp "$_STAGING/bin/"* "$_CARGO_BIN/"`, and that spelling was wrong: `cp`
-    // refuses to overwrite a dangling symlink, which is exactly the state a CI
-    // cache-prune leaves in a shared ~/.cargo/bin and exactly what this
-    // resource must repair. Placement is now `install`. A test that pins the
-    // command text fails when the command is corrected — the defect it should
-    // have caught was in the text it was protecting.
-    // Behavioural coverage: tests/falsification_cargo_check.rs
+    // particular tool does it — and this test has now been broken TWICE by
+    // pinning a spelling, both times because the spelling it protected was the
+    // defect:
+    //
+    //   `cp "$_STAGING/bin/"* "$_CARGO_BIN/"`   refuses a dangling symlink and
+    //                                           a RUNNING binary (ETXTBSY)
+    //   `install -m 755 ... "$_CARGO_BIN/"`     clears both, but unlinks before
+    //                                           creating, so the path is
+    //                                           briefly ABSENT
+    //
+    // Placement is now `_fj_install_bins` (stage a sibling, rename(2)). Name
+    // the SOURCE and the DESTINATION and let the mechanism be whatever is
+    // correct; the mechanism itself is tested by executing it.
+    //
+    // Behavioural coverage: tests/falsification_replace_running_binary.rs and
+    // tests/falsification_cargo_check.rs
     // `the_install_script_can_overwrite_a_dangling_symlink`.
     assert!(
-        script.contains("\"$_STAGING/bin/\"* \"$_CARGO_BIN/\""),
+        script.contains("\"$_STAGING/bin\"") && script.contains("\"$_CARGO_BIN\""),
         "must place staging binaries into cargo bin: {script}"
     );
     assert!(
-        !script.contains("cp \"$_STAGING/bin/\""),
+        !script.contains("cp \"$_STAGING/bin/\"*"),
         "placement must not use plain `cp` — it cannot overwrite a dangling \
-         symlink: {script}"
+         symlink or a running binary: {script}"
+    );
+    assert!(
+        !script.contains("install -m 755 \"$_STAGING/bin/\"*"),
+        "placement must not use `install(1)` — it unlinks before creating, so \
+         a concurrent exec can land on an absent path: {script}"
     );
 }
 

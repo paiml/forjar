@@ -89,6 +89,7 @@ pub fn apply_script(resource: &Resource) -> String {
     ));
     // `$TMPDIR/<binary>` for tar/find: keep `$TMPDIR` live, append a quoted binary.
     let tmp_bin = format!("\"$TMPDIR/\"{binary_q}");
+    let install_fn = crate::core::shell_install::atomic_install_fn();
 
     match state {
         "absent" => format!(
@@ -141,11 +142,20 @@ pub fn apply_script(resource: &Resource) -> String {
              \x20 exit 1\n\
              fi\n\
              \n\
-             # Install (realpath validates path before cp)\n\
+             # Install (realpath validates path before the copy).\n\
+             #\n\
+             # ATOMIC, because the destination may be BUSY or BROKEN.\n\
+             # This was `cp` + `chmod +x`, and `cp` opens the destination in\n\
+             # place -- so it took ETXTBSY (\"Text file busy\") for a binary that\n\
+             # was running and \"not writing through dangling symlink\" for one a\n\
+             # CI cache-prune had gutted. Both are states this resource exists\n\
+             # to repair: it installs rclone, age and sops into /usr/local/bin,\n\
+             # and apr, batuta and renacer into a ~/.cargo/bin that sixteen\n\
+             # runners share. See core::shell_install.\n\
              SAFE_BIN=$(realpath \"$EXTRACTED\")\n\
              mkdir -p {install_dir_q}\n\
-             cp \"$SAFE_BIN\" {bin_path}\n\
-             chmod +x {bin_path}\n\
+             {install_fn}\n\
+             _fj_install_bin \"$SAFE_BIN\" {bin_path}\n\
              \n\
              # Verify\n\
              VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'installed' )\n\

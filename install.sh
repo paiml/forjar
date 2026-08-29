@@ -127,6 +127,42 @@ compute_checksum() {
   fi
 }
 
+# _fj_install_bin <src> <dest> [runner]
+#
+# Replace <dest> with <src> ATOMICALLY: stage a sibling, then rename(2).
+# rename() neither opens the destination (so a RUNNING binary is fine) nor
+# follows it (so a DANGLING SYMLINK is replaced, not chased), and leaves no
+# window in which the path does not exist.
+#
+# [runner] is the command runner: `command` (the default) or `sudo`.
+# The destination directory must already exist -- every caller creates it.
+_fj_install_bin() {
+  _fji_src="$1"
+  _fji_dst="$2"
+  _fji_run="${3:-command}"
+  case "$_fji_dst" in
+    */*) _fji_dir="${_fji_dst%/*}" ;;
+    *)   _fji_dir="." ;;
+  esac
+  # Staged as a SIBLING so the rename cannot cross a filesystem and degrade
+  # into copy-then-unlink. The name is predictable, so unlink before writing:
+  # cp must not follow a symlink someone left at that path.
+  _fji_tmp="$_fji_dir/.forjar-install.$$"
+  "$_fji_run" rm -f "$_fji_tmp" || return 1
+  if ! "$_fji_run" cp -f "$_fji_src" "$_fji_tmp"; then
+    "$_fji_run" rm -f "$_fji_tmp"
+    return 1
+  fi
+  if ! "$_fji_run" chmod 755 "$_fji_tmp"; then
+    "$_fji_run" rm -f "$_fji_tmp"
+    return 1
+  fi
+  if ! "$_fji_run" mv -f "$_fji_tmp" "$_fji_dst"; then
+    "$_fji_run" rm -f "$_fji_tmp"
+    return 1
+  fi
+}
+
 verify_checksum() {
   SUMS_URL="https://github.com/${REPO}/releases/download/${TAG}/SHA256SUMS"
   info "downloading checksums..."
@@ -269,8 +305,7 @@ main() {
       # Try with sudo
       info "$INSTALL_DIR not writable, using sudo..."
       sudo install -d "$DEST" 2>/dev/null || die "cannot create $DEST"
-      sudo cp "$SRC" "$DEST/$BINARY" || die "install failed"
-      sudo chmod +x "$DEST/$BINARY"
+      _fj_install_bin "$SRC" "$DEST/$BINARY" sudo || die "install failed"
       info "installed $BINARY to $DEST/$BINARY"
       post_install
   info "verifying install..."
@@ -290,8 +325,10 @@ main() {
   fi
 
   install -d "$DEST" 2>/dev/null || true
-  cp "$SRC" "$DEST/$BINARY" || die "install failed"
-  chmod +x "$DEST/$BINARY"
+  # ATOMIC: `curl | sh` is how a tool is UPGRADED, so the destination is
+  # routinely the binary the user just ran. `cp` opens it in place and takes
+  # ETXTBSY ("Text file busy"); rename(2) does not. See core::shell_install.
+  _fj_install_bin "$SRC" "$DEST/$BINARY" || die "install failed"
   info "installed $BINARY to $DEST/$BINARY"
 
   post_install

@@ -117,6 +117,7 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
          fi\n\
          _CARGO_BIN=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"\n\
          _CRATES_TOML=\"${{CARGO_HOME:-$HOME/.cargo}}/.crates.toml\"\n\
+         {install_fns}\n\
          # TELL CARGO WHAT WE INSTALLED (forjar#320).\n\
          #\n\
          # `cargo install --root $_STAGING` writes its registry entry to\n\
@@ -201,7 +202,8 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
            mv -f \"$_tmp\" \"$_CRATES_TOML\"\n\
          }}\n\
          {}",
-        installs.join("\n")
+        installs.join("\n"),
+        install_fns = crate::core::shell_install::atomic_install_dir_fn()
     )
 }
 
@@ -216,18 +218,28 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
 /// Detects empty staging bin dir (no binaries produced) and emits a clear error
 /// with a hint about `--features`, instead of failing on `cp` with a cryptic message.
 ///
-/// Uses `install`, not `cp`, to place the binaries. `cp` REFUSES to overwrite a
-/// dangling symlink — "cp: not writing through dangling symlink" — and that is
-/// precisely the wreckage this resource has to repair: a CI cache-prune step
-/// deletes the real files in a shared `~/.cargo/bin` and leaves the symlinks
-/// behind, pointing at nothing.
+/// Places the binaries with `_fj_install_bins` — stage a sibling, `rename(2)`.
+/// Not `cp`, and no longer `install(1)`.
 ///
-/// Measured on paiml/infra's intel 2026-08-19: with `pzsh` reduced to a dangling
-/// symlink, `forjar apply --refresh` correctly DETECTED the divergence and then
-/// died on `cp`, so it could see the damage and not fix it. `cp -f` does not
-/// help — coreutils refuses that too (verified on the host). `install` replaces
-/// the destination outright, and unlike `cp --remove-destination` it is not
-/// GNU-only, so it also works on the fleet's macOS box.
+/// `cp` REFUSES to overwrite a dangling symlink — "cp: not writing through
+/// dangling symlink" — and that is precisely the wreckage this resource has to
+/// repair: a CI cache-prune step deletes the real files in a shared
+/// `~/.cargo/bin` and leaves the symlinks behind, pointing at nothing.
+/// Measured on paiml/infra's intel 2026-08-19: with `pzsh` reduced to a
+/// dangling symlink, `forjar apply --refresh` correctly DETECTED the divergence
+/// and then died on `cp`, so it could see the damage and not fix it. `cp -f`
+/// does not help — coreutils refuses that too (verified on the host).
+///
+/// `install(1)` cleared that, and ETXTBSY with it, which is why this line read
+/// `install -m 755` until now. What it did NOT clear is the gap: GNU `install`
+/// unlinks the destination and then creates it, so the path is briefly ABSENT.
+/// On the host this matters for — sixteen CI runners sharing one
+/// `$CARGO_HOME/bin` — an `exec` landing in that window fails ENOENT. Measured
+/// on lambda-labs, statting the destination while it was replaced 4000 times:
+/// `install(1)` 10611 absent of 396132; temp + `mv` 0 of 741725.
+///
+/// `rename(2)` has no such window and is not GNU-only, so it also works on the
+/// fleet's macOS box. See `core::shell_install` for the full reasoning.
 fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
     let (crate_name, features) = parse_cargo_features(pkg);
     let ver_tag = version.unwrap_or("latest");
@@ -252,7 +264,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1 && \\\n\
             [ -f \"$_CACHE_DIR/.crates.toml\" ]; then\n\
-           install -m 755 \"$_CACHE_DIR/bin/\"* \"$_CARGO_BIN/\"\n\
+           _fj_install_bins \"$_CACHE_DIR/bin\" \"$_CARGO_BIN\"\n\
            _fj_register \"$_CACHE_DIR/.crates.toml\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
@@ -269,7 +281,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
              cp -f \"$_STAGING/.crates.toml\" \"$_CACHE_DIR/.crates.toml\" 2>/dev/null || true\n\
            fi\n\
-           install -m 755 \"$_STAGING/bin/\"* \"$_CARGO_BIN/\"\n\
+           _fj_install_bins \"$_STAGING/bin\" \"$_CARGO_BIN\"\n\
            _fj_register \"$_STAGING/.crates.toml\"\n\
            rm -rf \"$_STAGING\"\n\
            echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\

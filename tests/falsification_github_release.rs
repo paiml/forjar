@@ -78,7 +78,22 @@ fn apply_present_downloads_from_correct_repo() {
 fn apply_present_installs_binary() {
     let r = github_resource("org/tool", "mytool");
     let script = apply_script(&r);
-    assert!(script.contains("chmod +x '/usr/local/bin/mytool'"));
+    // Names the DESTINATION, not the tool that writes it. This used to pin
+    // `chmod +x '/usr/local/bin/mytool'`, and that spelling was the defect it
+    // was protecting: the `chmod` followed a `cp` that could write neither a
+    // RUNNING binary (ETXTBSY) nor a DANGLING SYMLINK — the two states this
+    // resource exists to repair. Placement and mode are now one atomic step.
+    //
+    // Behavioural coverage, which executes the script and asserts the
+    // installed file is executable: tests/falsification_replace_running_binary.rs.
+    assert!(
+        script.contains("'/usr/local/bin/mytool'"),
+        "the binary must be installed at the declared path: {script}"
+    );
+    assert!(
+        !script.contains("cp \"$SAFE_BIN\""),
+        "placement must not open the destination in place: {script}"
+    );
 }
 
 #[test]
