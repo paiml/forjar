@@ -59,6 +59,57 @@ id 'deploy' >/dev/null 2>&1 && {
 } || echo 'user=MISSING'
 ```
 
+### Task Resources — the assertion IS the observable
+
+A `type: task` that declares a `completion_check` is an assertion about the
+host: the check is the claim, and `command` is what runs when the claim is
+false. Drift executes that check on the target — over the same transport
+`apply` uses — and a non-zero exit is drift:
+
+```yaml
+runner-registered:
+  type: task
+  machine: gx10
+  command: |
+    echo "gx10 runner is not registered." >&2
+    exit 1
+  completion_check: |
+    grep -q '"gitHubUrl": *"https://github.com/paiml"' /home/noah/runner/.runner
+```
+
+```
+  DRIFTED: runner-registered (completion_check fails on gx10: task=pending)
+    Expected: completion_check: pass
+    Actual:   completion_check: FAIL
+```
+
+Unlike every other resource type this needs no hash in the lock: an assertion
+that fails right now is drift whether or not anything was ever recorded about
+it.
+
+**A `completion_check` must be a pure predicate.** Nothing enforces that, and
+drift now runs it on whatever schedule you run drift on. `--no-task-checks`
+opts out for a run — and the census line below reports how many resources that
+silenced, so opting out is never invisible.
+
+### The denominator
+
+Every drift run prints what it inspected and what it did not, drift or no
+drift:
+
+```
+Checking gx10 (30 resources)...
+  inspected 28 of 62 resource(s) in scope: file 19, package 6, task 3
+  skipped 34: declared here, absent from the lock 32, no observed state in the lock 2
+  No drift detected.
+```
+
+`No drift detected.` over a population nobody counted is not a clean bill of
+health — a resource the lock has never heard of (never applied through this
+`--state-dir`) is not drift, but it is not *checked* either. The same numbers
+appear in `--json` as `resources_inspected`, `resources_skipped` and a
+per-machine `census` array.
+
 ## Using Drift Detection
 
 ### Basic Drift Check
@@ -100,7 +151,20 @@ forjar drift -f forjar.yaml --json
 
 ```json
 {
+  "machines_checked": 1,
   "drift_count": 2,
+  "resources_inspected": 28,
+  "resources_skipped": 34,
+  "census": [
+    {
+      "machine": "web-server",
+      "in_scope": 62,
+      "inspected": 28,
+      "skipped": 34,
+      "inspected_by_type": { "file": 19, "package": 6, "task": 3 },
+      "skipped_by_reason": { "declared here, absent from the lock": 34 }
+    }
+  ],
   "findings": [
     {
       "machine": "web-server",

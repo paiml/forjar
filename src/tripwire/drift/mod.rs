@@ -2,8 +2,8 @@
 
 use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
+use file::{detect_drift_impl, detect_drift_with_lifecycle};
 use ignore::should_ignore_drift;
-use std::path::Path;
 
 /// A single drift finding.
 #[derive(Debug, Clone)]
@@ -18,122 +18,6 @@ pub struct DriftFinding {
     pub actual_hash: String,
     /// Human-readable drift description.
     pub detail: String,
-}
-
-/// Check a single file resource for drift.
-pub fn check_file_drift(
-    resource_id: &str,
-    path: &str,
-    expected_hash: &str,
-) -> Option<DriftFinding> {
-    let file_path = Path::new(path);
-    if !file_path.exists() {
-        return Some(DriftFinding {
-            resource_id: resource_id.to_string(),
-            resource_type: ResourceType::File,
-            expected_hash: expected_hash.to_string(),
-            actual_hash: "MISSING".to_string(),
-            detail: format!("{path} does not exist"),
-        });
-    }
-
-    let actual = if file_path.is_dir() {
-        hasher::hash_directory(file_path).unwrap_or_else(|e| format!("ERROR:{e}"))
-    } else {
-        hasher::hash_file(file_path).unwrap_or_else(|e| format!("ERROR:{e}"))
-    };
-
-    if actual != expected_hash {
-        Some(DriftFinding {
-            resource_id: resource_id.to_string(),
-            resource_type: ResourceType::File,
-            expected_hash: expected_hash.to_string(),
-            actual_hash: actual,
-            detail: format!("{path} content changed"),
-        })
-    } else {
-        None
-    }
-}
-
-/// Compute the hash of a remote file or directory via transport.
-fn hash_remote_content(
-    out: &crate::transport::ExecOutput,
-    path: &str,
-    machine: &Machine,
-) -> Option<String> {
-    // STRONG contract: `hash_string` rejects empty input. Drift queries may
-    // legitimately return empty stdout when the file is missing or empty —
-    // use `hash_string_or_sentinel` to stay inside the contract.
-    if out.stdout.trim() == "__DIR__" {
-        let ls_script = format!("ls -la '{path}'");
-        match crate::transport::exec_script_timeout(
-            machine,
-            &ls_script,
-            Some(DRIFT_QUERY_TIMEOUT_SECS),
-        ) {
-            Ok(ls_out) if ls_out.success() => Some(hasher::hash_string_or_sentinel(&ls_out.stdout)),
-            _ => None,
-        }
-    } else {
-        Some(hasher::hash_string_or_sentinel(&out.stdout))
-    }
-}
-
-/// Build a DriftFinding for a changed file.
-fn file_drift_finding(
-    resource_id: &str,
-    expected_hash: &str,
-    actual_hash: String,
-    detail: String,
-) -> DriftFinding {
-    DriftFinding {
-        resource_id: resource_id.to_string(),
-        resource_type: ResourceType::File,
-        expected_hash: expected_hash.to_string(),
-        actual_hash,
-        detail,
-    }
-}
-
-/// Check a file resource for drift via transport (for container/remote machines).
-/// Runs `cat <path>` on the target and hashes the output.
-pub fn check_file_drift_via_transport(
-    resource_id: &str,
-    path: &str,
-    expected_hash: &str,
-    machine: &Machine,
-) -> Option<DriftFinding> {
-    let script = format!(
-        "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
-    );
-    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => {
-            let actual = hash_remote_content(&out, path, machine)?;
-            if actual != expected_hash {
-                Some(file_drift_finding(
-                    resource_id,
-                    expected_hash,
-                    actual,
-                    format!("{path} content changed"),
-                ))
-            } else {
-                None
-            }
-        }
-        Ok(out) => Some(file_drift_finding(
-            resource_id,
-            expected_hash,
-            "MISSING".to_string(),
-            format!("{} not accessible: {}", path, out.stderr.trim()),
-        )),
-        Err(e) => Some(file_drift_finding(
-            resource_id,
-            expected_hash,
-            "ERROR".to_string(),
-            format!("transport error: {e}"),
-        )),
-    }
 }
 
 /// Check all file-type resources in a lock for drift.
@@ -152,14 +36,47 @@ pub fn check_file_drift_via_transport(
 /// a hash; if it has not answered in this long, the answer is not coming.
 const DRIFT_QUERY_TIMEOUT_SECS: u64 = 60;
 
+/// Findings plus the DENOMINATOR they were drawn from.
+///
+/// forjar#380: every entry point that returns a bare `Vec<DriftFinding>` hands
+/// its caller a numerator with no population attached, and an empty vector then
+/// renders as "No drift detected." whether it looked at everything or nothing.
+/// The detectors now fill a census as they go; the bare-`Vec` wrappers below are
+/// kept for callers that genuinely only want findings.
+pub struct DriftReport {
+    /// What drifted.
+    pub findings: Vec<DriftFinding>,
+    /// What was inspected, what was skipped, and why.
+    pub census: DriftCensus,
+}
+
 /// Uses local filesystem hashing (for local machines without transport context).
 pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
-    detect_drift_impl(lock, None)
+    detect_drift_reported(lock, None).findings
 }
 
 /// Check all file-type resources in a lock for drift, using transport for remote/container machines.
 pub fn detect_drift_with_machine(lock: &StateLock, machine: &Machine) -> Vec<DriftFinding> {
-    detect_drift_impl(lock, Some(machine))
+    detect_drift_reported(lock, Some(machine)).findings
+}
+
+/// File-only drift, with the census that says so.
+///
+/// Reached when no config was loaded (`forjar drift` outside a config
+/// directory, or over a machine the config does not name). Without the config
+/// forjar cannot regenerate a state query, so files are all it can compare —
+/// and the census now says that in the output instead of leaving the operator
+/// to infer it from a clean bill of health over a package, a service and a
+/// task nobody looked at.
+pub fn detect_drift_reported(lock: &StateLock, machine: Option<&Machine>) -> DriftReport {
+    let mut census = DriftCensus::new();
+    let findings = detect_drift_impl(lock, machine, &mut census);
+    for (id, rl) in &lock.resources {
+        if rl.resource_type != ResourceType::File {
+            census.skipped(id, &rl.resource_type, SkipReason::NoConfigLoaded);
+        }
+    }
+    DriftReport { findings, census }
 }
 
 /// Check a non-file resource for drift by running its state_query_script.
@@ -216,10 +133,68 @@ pub fn detect_drift_full(
     machine: &Machine,
     resources: &indexmap::IndexMap<String, Resource>,
 ) -> Vec<DriftFinding> {
-    let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources);
-    findings.extend(detect_nonfile_drift(lock, machine, resources));
-    findings.extend(detect_image_drift(lock, machine, resources));
-    findings
+    detect_drift_full_reported(lock, machine, resources, DriftOptions::default()).findings
+}
+
+/// Full drift detection, with the census and the per-invocation bounds.
+///
+/// Detector order is fixed and the census depends on it (first skip reason
+/// wins, inspected always wins): files, then tasks, then everything else by
+/// state query, then images.
+pub fn detect_drift_full_reported(
+    lock: &StateLock,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+    opts: DriftOptions,
+) -> DriftReport {
+    let mut census = DriftCensus::new();
+    let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources, &mut census);
+    findings.extend(task_check::detect_task_drift(
+        lock,
+        machine,
+        resources,
+        opts,
+        &mut census,
+    ));
+    findings.extend(detect_nonfile_drift(lock, machine, resources, &mut census));
+    findings.extend(image::detect_image_drift(
+        lock,
+        machine,
+        resources,
+        &mut census,
+    ));
+    census_declared_but_unlocked(lock, resources, &mut census);
+    DriftReport { findings, census }
+}
+
+/// Count what this config declares for this machine that the lock has never
+/// heard of.
+///
+/// This is the half of the denominator no detector can see: drift walks the
+/// LOCK, so a resource that was never applied through this `--state-dir` is not
+/// skipped by any rule — it is absent from the question. Measured on
+/// paiml/infra's gx10, whose lock was written by forjar 1.10.0: 30 lock
+/// entries against 62 declared resources, and the runner guard that prompted
+/// forjar#380 is in the 32 nobody counted. Reporting it as DRIFT would be
+/// wrong (drift is live-versus-lock, and "never applied" is a plan verdict);
+/// reporting it as UNINSPECTED is exactly true.
+///
+/// `Recipe` is excluded because a recipe is expanded into concrete resources
+/// before apply, so its own id is never a lock key — counting it would
+/// manufacture a permanent phantom.
+fn census_declared_but_unlocked(
+    lock: &StateLock,
+    resources: &indexmap::IndexMap<String, Resource>,
+    census: &mut DriftCensus,
+) {
+    for (id, resource) in resources {
+        if resource.resource_type == ResourceType::Recipe || lock.resources.contains_key(id) {
+            continue;
+        }
+        if resource.machine.iter().any(|m| m == lock.machine) {
+            census.skipped(id, &resource.resource_type, SkipReason::NotInLock);
+        }
+    }
 }
 
 /// Check all non-file converged resources for drift via state_query_script.
@@ -227,9 +202,18 @@ fn detect_nonfile_drift(
     lock: &StateLock,
     machine: &Machine,
     resources: &indexmap::IndexMap<String, Resource>,
+    census: &mut DriftCensus,
 ) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
     for (id, rl) in &lock.resources {
+        // A task carrying a completion_check belongs to `task_check`, which has
+        // already recorded its verdict and its census entry. Running the state
+        // query here as well would execute the very same command a second time
+        // — `task::state_query_script` IS `verdict::single(<the check>)` — and
+        // report one violated guard as two findings.
+        if resources.get(id).is_some_and(task_check::owns) {
+            continue;
+        }
         // FILE RESOURCES ARE NOT EXCLUDED ANY MORE.
         //
         // This read `|| rl.resource_type == ResourceType::File`, added with the
@@ -269,19 +253,31 @@ fn detect_nonfile_drift(
         // OBSERVED a converged resource move, so the recorded hash is exactly
         // the baseline drift detection needs.
         if rl.status != ResourceStatus::Converged && rl.status != ResourceStatus::Drifted {
+            census.skipped(id, &rl.resource_type, SkipReason::NotConverged);
             continue;
         }
         if should_ignore_drift(id, resources) {
+            census.skipped(id, &rl.resource_type, SkipReason::IgnoreDrift);
             continue;
         }
         // `None` = NOT OBSERVED, not "unchanged" (see ResourceLock::observed):
         // this is the call site that read the wrong digest for five months.
+        //
+        // It is also the line that made every `--refresh`-seeded resource
+        // invisible (forjar#380): seeding writes `observed: None`, so this
+        // `continue` fires for a resource an apply DID find converged. For a
+        // task the assertion is now run regardless, above; for the rest there
+        // is genuinely no baseline to compare against, so the honest move is to
+        // count it as uninspected rather than pass over it in silence.
         let Some(stored_live_hash) = rl.observed_state() else {
+            census.skipped(id, &rl.resource_type, SkipReason::NoObservedState);
             continue;
         };
         let Some(resource) = resources.get(id) else {
+            census.skipped(id, &rl.resource_type, SkipReason::NotInConfig);
             continue;
         };
+        census.inspected(id, &rl.resource_type);
         if let Some(f) = check_nonfile_drift(id, rl, resource, machine, stored_live_hash) {
             findings.push(f);
         }
@@ -289,189 +285,16 @@ fn detect_nonfile_drift(
     findings
 }
 
-/// FJ-2106/E15: Check all image-type resources for drift.
-///
-/// For each converged image resource, compares the manifest digest stored
-/// in the lock file against the running container's image digest
-/// (via `docker inspect`).
-fn detect_image_drift(
-    lock: &StateLock,
-    machine: &Machine,
-    resources: &indexmap::IndexMap<String, Resource>,
-) -> Vec<DriftFinding> {
-    let mut findings = Vec::new();
-    for (id, rl) in &lock.resources {
-        if rl.status != ResourceStatus::Converged || rl.resource_type != ResourceType::Image {
-            continue;
-        }
-        if should_ignore_drift(id, resources) {
-            continue;
-        }
-        let Some(expected_digest) = rl.detail_str("manifest_digest") else {
-            continue;
-        };
-        let Some(container_name) = rl.detail_str("container_name") else {
-            continue;
-        };
-        if let Some(f) = check_image_drift(id, container_name, expected_digest, machine) {
-            findings.push(f);
-        }
-    }
-    findings
-}
-
-/// FJ-2106/E15: Check a single image resource for drift.
-///
-/// Runs `docker inspect <container> --format '{{.Image}}'` on the target
-/// machine and compares the actual image digest to the expected manifest
-/// digest from the build.
-pub fn check_image_drift(
-    resource_id: &str,
-    container_name: &str,
-    expected_digest: &str,
-    machine: &Machine,
-) -> Option<DriftFinding> {
-    let script = format!(
-        "docker inspect {container_name} --format '{{{{.Image}}}}' 2>/dev/null || echo 'NOT_RUNNING'"
-    );
-    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => {
-            let actual = out.stdout.trim().to_string();
-            if actual == "NOT_RUNNING" {
-                Some(DriftFinding {
-                    resource_id: resource_id.to_string(),
-                    resource_type: ResourceType::Image,
-                    expected_hash: expected_digest.to_string(),
-                    actual_hash: "NOT_RUNNING".to_string(),
-                    detail: format!("container {container_name} is not running"),
-                })
-            } else if actual != expected_digest {
-                Some(DriftFinding {
-                    resource_id: resource_id.to_string(),
-                    resource_type: ResourceType::Image,
-                    expected_hash: expected_digest.to_string(),
-                    actual_hash: actual,
-                    detail: "deployed image differs from built image".to_string(),
-                })
-            } else {
-                None
-            }
-        }
-        Ok(out) => Some(DriftFinding {
-            resource_id: resource_id.to_string(),
-            resource_type: ResourceType::Image,
-            expected_hash: expected_digest.to_string(),
-            actual_hash: "ERROR".to_string(),
-            detail: format!("docker inspect failed: {}", out.stderr.trim()),
-        }),
-        Err(e) => Some(DriftFinding {
-            resource_id: resource_id.to_string(),
-            resource_type: ResourceType::Image,
-            expected_hash: expected_digest.to_string(),
-            actual_hash: "ERROR".to_string(),
-            detail: format!("transport error: {e}"),
-        }),
-    }
-}
-
-/// Drift detection for file resources, respecting lifecycle.ignore_drift.
-fn detect_drift_with_lifecycle(
-    lock: &StateLock,
-    machine: Option<&Machine>,
-    resources: &indexmap::IndexMap<String, Resource>,
-) -> Vec<DriftFinding> {
-    let mut findings = Vec::new();
-
-    for (id, rl) in &lock.resources {
-        if rl.status != ResourceStatus::Converged || rl.resource_type != ResourceType::File {
-            continue;
-        }
-        // FJ-1220: skip resources with ignore_drift
-        if should_ignore_drift(id, resources) {
-            continue;
-        }
-        if let Some(f) = check_file_resource_drift(id, rl, machine) {
-            findings.push(f);
-        }
-    }
-
-    findings
-}
-
-/// Extract path and content_hash from a file resource lock entry and check for drift.
-fn check_file_resource_drift(
-    id: &str,
-    rl: &crate::core::types::ResourceLock,
-    machine: Option<&Machine>,
-) -> Option<DriftFinding> {
-    let path = match rl.details.get("path") {
-        Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
-        _ => return None,
-    };
-    let expected = match rl.details.get("content_hash") {
-        Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
-        _ => return None,
-    };
-    // IF WE KNOW THE MACHINE, ASK THE MACHINE.
-    //
-    // This routed through the transport ONLY for container transports. Every
-    // other machine — INCLUDING PLAIN SSH — fell to `check_file_drift`, which
-    // takes no machine and hashes the CONTROLLER's filesystem, then reports the
-    // answer as the remote host's state.
-    //
-    // That is forjar#305's root cause, still live in the other arm. Measured
-    // 2026-08-24 against a real SSH host:
-    //
-    //     file at <path>            : present on the CONTROLLER, ABSENT on intel
-    //     content_hash              : matches the controller's copy
-    //     forjar drift (machine intel) -> "No drift detected."
-    //
-    // A false CLEAN over a file that does not exist on the target. The inverse
-    // is equally reachable: a controller that happens to hold different bytes
-    // at the same path produces a false DRIFT for a host that is perfectly
-    // converged.
-    //
-    // `exec_script` already dispatches pepita > container > local > SSH, so a
-    // local machine still executes locally and nothing needs a special case.
-    // The container branch was not wrong — it was just the only one anybody
-    // had needed yet.
-    //
-    // `None` means no machine is known (bare `detect_drift`, no config loaded).
-    // The controller is then the only filesystem there is, and reading it is the
-    // honest best effort rather than a wrong answer about somewhere else.
-    match machine {
-        // LOCAL means the controller IS the target, so a direct read is not
-        // merely allowed — it is the same filesystem, and it is far cheaper.
-        //
-        // Routing local machines through the transport was correct and much too
-        // slow: it spawns a shell per file resource instead of reading the file,
-        // and CI's `behavior` and `benchmark` lanes both hit their 15-minute
-        // timeout at exactly 15m01s. The defect being fixed is answering about
-        // the WRONG HOST; for a local machine there is no other host to be
-        // wrong about.
-        Some(m) if !crate::transport::is_local_addr(&m.addr) => {
-            check_file_drift_via_transport(id, path, expected, m)
-        }
-        _ => check_file_drift(id, path, expected),
-    }
-}
-
-fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFinding> {
-    let mut findings = Vec::new();
-
-    for (id, rl) in &lock.resources {
-        if rl.status != ResourceStatus::Converged || rl.resource_type != ResourceType::File {
-            continue;
-        }
-        if let Some(f) = check_file_resource_drift(id, rl, machine) {
-            findings.push(f);
-        }
-    }
-
-    findings
-}
-
+mod census;
+mod file;
 mod ignore;
+mod image;
+mod task_check;
+
+pub use census::{DriftCensus, SkipReason};
+pub use file::{check_file_drift, check_file_drift_via_transport};
+pub use image::check_image_drift;
+pub use task_check::DriftOptions;
 
 #[cfg(test)]
 mod tests_basic;
@@ -493,5 +316,7 @@ mod tests_full_b;
 mod tests_image_drift;
 #[cfg(test)]
 mod tests_lifecycle;
+#[cfg(test)]
+mod tests_task_checks;
 #[cfg(test)]
 mod tests_transport;

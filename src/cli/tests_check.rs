@@ -185,6 +185,7 @@ resources:
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
 
@@ -213,6 +214,7 @@ resources:
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
 
@@ -303,6 +305,7 @@ resources:
         cmd_drift(
             &config, &state, None, false, None, true, // auto_remediate
             false, false, false, None, // no env_file
+            false,
         )
         .unwrap();
 
@@ -368,6 +371,7 @@ resources:
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }

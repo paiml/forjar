@@ -43,7 +43,7 @@ fn detect_image_drift_skips_non_image() {
     lock.resources.get_mut("app").unwrap().resource_type = ResourceType::File;
     let machine: Machine = serde_yaml_ng::from_str("hostname: m\naddr: 127.0.0.1").unwrap();
     let resources = IndexMap::new();
-    let findings = detect_image_drift(&lock, &machine, &resources);
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut DriftCensus::new());
     assert!(findings.is_empty(), "non-image resources should be skipped");
 }
 
@@ -53,7 +53,7 @@ fn detect_image_drift_skips_non_converged() {
     lock.resources.get_mut("app").unwrap().status = ResourceStatus::Unknown;
     let machine: Machine = serde_yaml_ng::from_str("hostname: m\naddr: 127.0.0.1").unwrap();
     let resources = IndexMap::new();
-    let findings = detect_image_drift(&lock, &machine, &resources);
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut DriftCensus::new());
     assert!(
         findings.is_empty(),
         "non-converged resources should be skipped"
@@ -70,7 +70,7 @@ fn detect_image_drift_skips_missing_digest() {
         .remove("manifest_digest");
     let machine: Machine = serde_yaml_ng::from_str("hostname: m\naddr: 127.0.0.1").unwrap();
     let resources = IndexMap::new();
-    let findings = detect_image_drift(&lock, &machine, &resources);
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut DriftCensus::new());
     assert!(findings.is_empty(), "missing digest should be skipped");
 }
 
@@ -84,7 +84,7 @@ fn detect_image_drift_skips_missing_container_name() {
         .remove("container_name");
     let machine: Machine = serde_yaml_ng::from_str("hostname: m\naddr: 127.0.0.1").unwrap();
     let resources = IndexMap::new();
-    let findings = detect_image_drift(&lock, &machine, &resources);
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut DriftCensus::new());
     assert!(
         findings.is_empty(),
         "missing container_name should be skipped"
@@ -137,7 +137,7 @@ lifecycle:
     let mut resources = IndexMap::new();
     resources.insert("app".to_string(), resource);
 
-    let findings = detect_image_drift(&lock, &machine, &resources);
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut DriftCensus::new());
     assert!(
         findings.is_empty(),
         "resources with ignore_drift should be skipped"

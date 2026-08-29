@@ -199,24 +199,24 @@ mod tests {
     fn test_drift_full() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, false, None);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, false, None, false);
     }
     #[test]
     fn test_drift_json() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, true, false, None);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, true, false, None, false);
     }
     #[test]
     fn test_drift_verbose() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, true, None);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, true, None, false);
     }
     #[test]
     fn test_drift_tripwire() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, true, None, false, true, false, false, None);
+        let _ = cmd_drift(f.path(), d.path(), None, true, None, false, true, false, false, None, false);
     }
 }

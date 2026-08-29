@@ -269,6 +269,7 @@ fn test_drift_empty_state() {
     let f = write_temp_config(BASIC_CONFIG);
     let result = super::drift::cmd_drift(
         f.path(), dir.path(), None, false, None, false, false, false, false, None,
+        false,
     );
     let _ = result;
 }
@@ -279,6 +280,7 @@ fn test_drift_empty_state_json() {
     let f = write_temp_config(BASIC_CONFIG);
     let result = super::drift::cmd_drift(
         f.path(), dir.path(), None, false, None, false, false, true, false, None,
+        false,
     );
     let _ = result;
 }
@@ -289,6 +291,7 @@ fn test_drift_dry_run() {
     let f = write_temp_config(BASIC_CONFIG);
     let result = super::drift::cmd_drift(
         f.path(), dir.path(), None, false, None, false, true, false, false, None,
+        false,
     );
     let _ = result;
 }
