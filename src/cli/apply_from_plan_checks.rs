@@ -56,10 +56,10 @@ pub(super) fn check_empty_plan_is_trustworthy(sealed: bool) -> Result<(), String
 }
 
 /// Index a plan's changes by the `(machine, resource)` pair each one names.
-fn by_pair(plan: &types::ExecutionPlan) -> Vec<((&str, &str), &types::PlanAction)> {
+fn by_pair(plan: &types::ExecutionPlan) -> Vec<((&str, &str), &types::PlannedChange)> {
     plan.changes
         .iter()
-        .map(|c| ((c.machine.as_str(), c.resource_id.as_str()), &c.action))
+        .map(|c| ((c.machine.as_str(), c.resource_id.as_str()), c))
         .collect()
 }
 
@@ -94,8 +94,9 @@ fn name_change(change: &types::PlannedChange) -> String {
 /// exactly, because the seal has already pinned the config and the locks and
 /// the planner is a pure function of the two.
 ///
-/// * every pair the body NAMES must carry the action the planner gives it —
-///   catches relabelling a pending create as `no_op`;
+/// * every pair the body NAMES must carry the change the planner gives it,
+///   field for field — catches relabelling a pending create as `no_op`, and
+///   catches a rewritten description (see [`divergence`]);
 /// * every non-`NoOp` change the planner PRODUCES must be named by the body —
 ///   catches deleting that line instead of relabelling it, and catches emptying
 ///   the list entirely. Both were reported as separate defects; they are one
@@ -109,6 +110,67 @@ pub(super) fn check_plan_still_holds(
     check_nothing_pending_is_unnamed(plan, fresh, selectors)
 }
 
+/// The first field on which the body's change disagrees with the planner's, as
+/// `(what, claimed, actual)`.
+///
+/// # Refs #358 — `action` was the only field anything checked
+///
+/// A `PlannedChange` carries five fields. `resource_id` and `machine` are the
+/// pair being looked up; `action` was compared here; `resource_type` and
+/// `description` were read out of the document and checked by nothing on the v1
+/// path, and only by a re-sealable hash on the v2 one.
+///
+/// `description` is not decorative — it is the whole of what
+/// `apply --plan-file --dry-run` prints, which is the review surface this
+/// feature exists for. Measured on the branch binary, from a hand-rolled v1
+/// document whose descriptions were rewritten by hand and whose actions and
+/// pairs were left honest, so every other check passed:
+///
+/// ```text
+///   $ forjar apply -f forjar.yaml --plan-file v1_lying_desc.json --dry-run --yes
+///   Dry run — the reviewed plan would execute:
+///     + alpha on box: alpha: create /etc/nothing-at-all (harmless)
+///     + bravo on box: bravo: create /etc/nothing-at-all (harmless)
+///
+///   2 reviewed change(s). No changes applied.
+/// ```
+///
+/// The run being previewed would have written the two paths in `forjar.yaml`.
+///
+/// Both fields are pure functions of the config and the action —
+/// `planner::describe_action` reads no lock — and the config hash is already
+/// pinned, so a plan this binary wrote reproduces them exactly. A plan carried
+/// across a forjar upgrade that REWORDED a description is refused, with the
+/// same one-line remedy as a moved lock; that is the cost, and it is the right
+/// side to err on for a document whose only job is to say what will happen.
+fn divergence(
+    claimed: &types::PlannedChange,
+    actual: &types::PlannedChange,
+) -> Option<(&'static str, String, String)> {
+    if claimed.action != actual.action {
+        return Some((
+            "action",
+            claimed.action.to_string(),
+            actual.action.to_string(),
+        ));
+    }
+    if claimed.resource_type != actual.resource_type {
+        return Some((
+            "resource type",
+            claimed.resource_type.to_string(),
+            actual.resource_type.to_string(),
+        ));
+    }
+    if claimed.description != actual.description {
+        return Some((
+            "description",
+            claimed.description.clone(),
+            actual.description.clone(),
+        ));
+    }
+    None
+}
+
 /// Direction 1 — the body's claims, checked against the planner.
 fn check_nothing_the_plan_names_has_moved(
     plan: &types::ExecutionPlan,
@@ -117,26 +179,22 @@ fn check_nothing_the_plan_names_has_moved(
     let live = by_pair(fresh);
     for change in &plan.changes {
         let key = (change.machine.as_str(), change.resource_id.as_str());
-        match live.iter().find(|(pair, _)| *pair == key).map(|(_, a)| *a) {
-            Some(actual) if *actual == change.action => {}
-            Some(actual) => {
-                return Err(format!(
-                    "{PLAN_STALE}: the plan file says {} for '{}' on '{}', but planning the \
-                     live config against the live state says {actual}. A plan file is \
-                     unauthenticated JSON — its seal proves it was not edited in transit, \
-                     not that what it says is true — so forjar re-plans and believes the \
-                     planner. Re-run `forjar plan --out` to write a plan that matches the \
-                     world.",
-                    change.action, change.resource_id, change.machine
-                ));
-            }
-            None => {
-                return Err(format!(
-                    "{PLAN_STALE}: the plan file names '{}' on '{}', which planning the live \
-                     config does not produce at all. Re-run `forjar plan --out`.",
-                    change.resource_id, change.machine
-                ));
-            }
+        let Some(actual) = live.iter().find(|(pair, _)| *pair == key).map(|(_, c)| *c) else {
+            return Err(format!(
+                "{PLAN_STALE}: the plan file names '{}' on '{}', which planning the live \
+                 config does not produce at all. Re-run `forjar plan --out`.",
+                change.resource_id, change.machine
+            ));
+        };
+        if let Some((field, claimed, live)) = divergence(change, actual) {
+            return Err(format!(
+                "{PLAN_STALE}: the plan file's {field} for '{}' on '{}' is {claimed}, but \
+                 planning the live config against the live state says {live}. A plan file is \
+                 unauthenticated JSON — its seal proves it was not edited in transit, not \
+                 that what it says is true — so forjar re-plans and believes the planner. \
+                 Re-run `forjar plan --out` to write a plan that matches the world.",
+                change.resource_id, change.machine
+            ));
         }
     }
     Ok(())

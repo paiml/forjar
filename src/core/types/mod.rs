@@ -35,6 +35,7 @@ mod query_types;
 pub mod refinement;
 mod resource;
 pub(crate) mod resource_enums;
+pub(crate) mod resource_type_all;
 mod run_log_types;
 mod security_types;
 mod service_mode_types;

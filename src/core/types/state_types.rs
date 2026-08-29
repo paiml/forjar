@@ -175,7 +175,12 @@ impl fmt::Display for ResourceStatus {
 // ============================================================================
 
 /// Action to take on a resource.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+///
+/// Refs #358: `Deserialize` so `cli::plan_file` can read a saved plan back
+/// through the same impl that wrote it. The hand-written string table it
+/// replaced mapped every unrecognised action to `NoOp`, which is a silent
+/// answer to a question forjar cannot answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlanAction {
     /// Resource will be created.

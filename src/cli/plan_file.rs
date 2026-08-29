@@ -24,8 +24,55 @@
 //!
 //! v1 documents still load, with a warning: their config check is real, and
 //! refusing them outright would strand plans written by an installed binary.
-//! There is no silent downgrade in the other direction — a v2 document whose
-//! seal does not verify is an error, never a fallback to v1 checking.
+//! What a v1 document may NOT do is carry a v2 key. It has no seal, so nothing
+//! in it is authenticated beyond its config hash — and `load_plan_file` was
+//! reading `selectors` out of one, BEFORE the `sealed` branch, and re-planning
+//! under it. That handed the forger the filters their forgery was checked
+//! against; see [`reject_v2_keys_on_v1`] for the measurement. Both `seal` and
+//! `selectors` are now refused on a v1 document, so a v1 plan is always checked
+//! against the whole config.
+//!
+//! forjar never downgrades a document on its own: a v2 document whose seal does
+//! not verify is an error, never a fallback to v1 checking. An EDITOR still
+//! can, by relabelling `format` and deleting the `seal` — the format tag is the
+//! one field no check can cover, because it selects the checks. Measured
+//! against the branch binary, downgrading both kinds of plan:
+//!
+//! ```text
+//!   plan -r alpha --out, relabelled v1, seal+selectors deleted
+//!     → error: PLAN_STALE … finds 1 change(s) this plan file does not name:
+//!               bravo on box (CREATE)                                EXIT=1
+//!   plan --out (whole stack), relabelled the same way
+//!     → Plan applied: 2 converged, 0 unchanged, 0 failed             EXIT=0
+//! ```
+//!
+//! So the downgrade drops the state and expiry legs and buys the editor
+//! nothing: the second document is complete and true, and the first is refused
+//! by the unfiltered re-plan. What the dropped state leg costs is narrow and
+//! worth stating — a v2 plan is refused the moment a lock moves, a downgraded
+//! one only when the move changes the planner's answer for a pair the body
+//! names or omits.
+//!
+//! # Every other field a v1 document offers (Refs #358)
+//!
+//! Same question of each: is it doing work, and does anything authenticate it?
+//!
+//! | field | what reads it | held true by |
+//! |---|---|---|
+//! | `format` | picks the branch above | nothing — it selects the checks |
+//! | `config_hash` | [`check_config_hash`] | compared to the LIVE config's hash |
+//! | `changes[].resource_id`/`.machine` | the executed scope | the re-plan, both directions |
+//! | `changes[].action` | the scope, the preview | the re-plan |
+//! | `changes[].resource_type`/`.description` | the `--dry-run` preview | the re-plan, as of this round |
+//! | the four counters | `check_body_partition`, `-v` output | must partition `changes` |
+//! | `execution_order` | nothing — `executor::apply_scoped` rebuilds it from the config | n/a |
+//! | `name`, `config_file` | nothing on this path | n/a |
+//!
+//! The two `changes` fields in that third row are the other half of this
+//! round's fix: `check_plan_still_holds` compared `action` alone, so a v1
+//! document could describe an honest change as anything it liked and
+//! `--plan-file --dry-run` would print it. See
+//! `cli::apply_from_plan_checks::divergence`.
 
 use crate::core::plan_seal::{self, PlanSeal};
 use crate::core::plan_selectors::PlanSelectors;
@@ -53,8 +100,11 @@ pub(crate) struct LoadedPlan {
     /// Refs #358: the filters this plan was produced under.
     ///
     /// The caller re-plans under exactly these to decide whether the body is
-    /// still true. A v1 document has no record and reads back unfiltered, which
-    /// is the strictest reading available for it.
+    /// still true. Only a v2 document can carry them, because only a v2
+    /// document seals them: a v1 plan always reads back as
+    /// [`PlanSelectors::default`] — the whole config, the strictest reading
+    /// available — and one that CLAIMS to be narrow is refused rather than
+    /// believed.
     pub selectors: PlanSelectors,
 }
 
@@ -137,57 +187,72 @@ fn plan_str_array(doc: &serde_json::Value, key: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn plan_action_from_str(action_str: &str) -> types::PlanAction {
-    match action_str {
-        "create" => types::PlanAction::Create,
-        "update" => types::PlanAction::Update,
-        "destroy" => types::PlanAction::Destroy,
-        _ => types::PlanAction::NoOp,
-    }
+/// Read an enum field back through the SAME serde impl that wrote it.
+///
+/// # Refs #358 — a hand-written table is a second spelling of the schema
+///
+/// This replaces two `match`es over string literals. The `ResourceType` one
+/// named 12 of that enum's 21 variants and mapped the other 9 to `File`, and
+/// that was not a theoretical gap: [`plan_body_from_doc`] feeds the
+/// RECONSTRUCTED body to the diff leg, so an honest, untouched, freshly written
+/// v2 plan of a config holding a `task` resource could not be applied at all.
+/// Measured on the branch binary, with nobody having touched the file:
+///
+/// ```text
+///   $ forjar plan -f forjar.yaml --state-dir state --out p.json
+///   Plan saved to p.json
+///   $ forjar apply -f forjar.yaml --state-dir state --plan-file p.json --yes
+///   error: PLAN_HASH_MISMATCH: the plan body was modified after it was sealed
+///          (diff leg: expected blake3:9b7c5d06…, got blake3:dbad3d20…)
+/// ```
+///
+/// `task`, `wasm_bundle`, `image`, `build`, `github_release`,
+/// `overlay_interface`, `disk_budget`, `backup_sync` and `nas_archive` were all
+/// unreachable this way. Going through `serde` means the reader cannot drift
+/// from the writer again when a variant is added.
+///
+/// A value this build cannot read is an error rather than a default: a change
+/// whose action or type forjar does not understand is not one to guess at.
+fn plan_enum<T: serde::de::DeserializeOwned>(
+    entry: &serde_json::Value,
+    key: &str,
+) -> Result<T, String> {
+    let raw = entry
+        .get(key)
+        .ok_or_else(|| format!("PLAN_MALFORMED: a change in this plan file has no '{key}'"))?;
+    serde_json::from_value(raw.clone())
+        .map_err(|e| format!("PLAN_MALFORMED: unreadable '{key}' in a plan change: {e}"))
 }
 
-fn plan_resource_type_from_str(rt_str: &str) -> types::ResourceType {
-    match rt_str {
-        "package" => types::ResourceType::Package,
-        "service" => types::ResourceType::Service,
-        "mount" => types::ResourceType::Mount,
-        "user" => types::ResourceType::User,
-        "docker" => types::ResourceType::Docker,
-        "pepita" => types::ResourceType::Pepita,
-        "network" => types::ResourceType::Network,
-        "cron" => types::ResourceType::Cron,
-        "recipe" => types::ResourceType::Recipe,
-        "model" => types::ResourceType::Model,
-        "gpu" => types::ResourceType::Gpu,
-        _ => types::ResourceType::File,
-    }
-}
-
-fn planned_change_from_entry(entry: &serde_json::Value) -> types::PlannedChange {
-    let action = plan_action_from_str(plan_str(entry, "action", "no_op"));
-    let resource_type = plan_resource_type_from_str(plan_str(entry, "resource_type", "file"));
-    types::PlannedChange {
+fn planned_change_from_entry(entry: &serde_json::Value) -> Result<types::PlannedChange, String> {
+    Ok(types::PlannedChange {
         resource_id: plan_str(entry, "resource_id", "").to_string(),
         machine: plan_str(entry, "machine", "").to_string(),
-        resource_type,
-        action,
+        resource_type: plan_enum(entry, "resource_type")?,
+        action: plan_enum(entry, "action")?,
         description: plan_str(entry, "description", "").to_string(),
-    }
+    })
 }
 
 /// Reconstruct the plan body from the document.
 ///
-/// The RECONSTRUCTED body is what gets sealed and what gets executed, so the
-/// diff leg is computed over exactly the value the executor will act on — a
-/// field the reader normalises cannot smuggle a difference past the hash.
+/// The RECONSTRUCTED body is what the diff leg is computed over and what gets
+/// executed, so the hash covers exactly the value the executor will act on. The
+/// reader therefore normalises nothing any more: every field either round-trips
+/// to what the writer held or is refused (see [`plan_enum`]), because a field
+/// the reader quietly rewrites makes an honest document fail its own seal.
 fn plan_body_from_doc(doc: &serde_json::Value) -> Result<types::ExecutionPlan, String> {
     let changes_arr = doc
         .get("changes")
         .and_then(|v| v.as_array())
         .ok_or("plan file missing 'changes' array")?;
+    let changes = changes_arr
+        .iter()
+        .map(planned_change_from_entry)
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(types::ExecutionPlan {
         name: plan_str(doc, "name", "").to_string(),
-        changes: changes_arr.iter().map(planned_change_from_entry).collect(),
+        changes,
         execution_order: plan_str_array(doc, "execution_order"),
         to_create: plan_u32(doc, "to_create"),
         to_update: plan_u32(doc, "to_update"),
@@ -196,13 +261,13 @@ fn plan_body_from_doc(doc: &serde_json::Value) -> Result<types::ExecutionPlan, S
     })
 }
 
-/// Read the selector record back.
+/// Read the selector record back. Sealed documents only — a v1 document that
+/// carries the key never reaches here (see [`reject_v2_keys_on_v1`]).
 ///
-/// An ABSENT `selectors` key reads as the unfiltered record, which is both the
-/// v1 case and the strictest reading: a document that does not claim to be
-/// narrow is held to the whole config. It is not a silent default for v2 — the
-/// record is inside the diff leg, so a v2 document that omits it verifies only
-/// if it was sealed unfiltered.
+/// An ABSENT `selectors` key reads as the unfiltered record: a document that
+/// does not claim to be narrow is held to the whole config. That is not a
+/// silent default — the record is inside the diff leg, so a v2 document that
+/// omits it verifies only if it was sealed unfiltered.
 ///
 /// A `selectors` value that is not a valid record is an error rather than a
 /// fallback to unfiltered: falling back would run the comparison under filters
@@ -213,6 +278,62 @@ fn selectors_from_doc(doc: &serde_json::Value) -> Result<PlanSelectors, String> 
     };
     serde_json::from_value(raw.clone())
         .map_err(|e| format!("PLAN_MALFORMED: unreadable plan selectors: {e}"))
+}
+
+/// The keys that arrived WITH the seal, and that a `forjar-plan-v1` document
+/// therefore cannot honestly carry.
+const V2_ONLY_KEYS: [&str; 2] = ["seal", "selectors"];
+
+/// Refs #358: a v1 document carrying a v2-only key is a downgrade, not a plan.
+///
+/// `selectors` is the one that mattered. [`load_plan_file`] called
+/// [`selectors_from_doc`] unconditionally, BEFORE the `sealed` branch, so a
+/// `forjar-plan-v1` document — which has no seal, and whose every field is
+/// therefore authenticated by nothing — could name the filters that
+/// `check_plan_still_holds` re-planned under, and the re-plan then agreed with
+/// the forgery. Measured against the branch binary, on a stack where `alpha`
+/// and `bravo` were both pending create: a hand-rolled v1 document naming only
+/// `alpha`, with a `config_hash` copied from an honest plan and four lines of
+/// JSON added —
+///
+/// ```text
+///   "selectors": {"machine": null, "resource": "alpha", "tag": null, "group": null}
+///
+///   $ forjar apply -f forjar.yaml --plan-file v1_narrow.json --yes
+///   warning: 'forjar-plan-v1' plan file — only the config is verified. …
+///   Plan applied: 1 converged, 1 unchanged, 0 failed          EXIT=0
+/// ```
+///
+/// — converged `alpha`, left `bravo`'s create pending, and said nothing about
+/// it; `forjar plan` still showed it afterwards. The SAME document with those
+/// four lines deleted was refused `PLAN_STALE`, so the key was the entire
+/// bypass.
+///
+/// Refused rather than ignored, because the key cannot have arrived honestly.
+/// The v1 writer shipped in 1.21.0 emitted exactly ten keys — `format`,
+/// `config_file`, `config_hash`, `name`, the four counters, `execution_order`
+/// and `changes` (`git show aba58fb0:src/cli/plan.rs`) — and both `seal` and
+/// `selectors` were added by this branch, alongside v2. No forjar has ever
+/// written either into a v1 document, so a document carrying one was
+/// hand-written, and saying that out loud is more use to an operator than
+/// quietly reading the file on different terms than it asks for.
+fn reject_v2_keys_on_v1(doc: &serde_json::Value) -> Result<(), String> {
+    let carried: Vec<&str> = V2_ONLY_KEYS
+        .into_iter()
+        .filter(|key| doc.get(key).is_some())
+        .collect();
+    if carried.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "PLAN_MALFORMED: this '{FORMAT_V1}' plan file carries '{}', which only a \
+         '{FORMAT_V2}' document has. A v1 document is unsealed, so nothing authenticates \
+         that key, and honouring it would let the file choose the terms it is checked \
+         against — a v1 plan claiming to be narrow would be re-planned under its own \
+         filters and agreed with. Re-run `forjar plan --out` to write a sealed \
+         '{FORMAT_V2}' plan.",
+        carried.join("', '")
+    ))
 }
 
 /// Reject a plan whose config hash no longer matches the config being applied.
@@ -240,6 +361,7 @@ fn check_v1(
          planned against and the plan body itself are unsealed. Re-run `forjar plan --out` \
          to write a sealed '{FORMAT_V2}' plan."
     );
+    reject_v2_keys_on_v1(doc)?;
     check_config_hash(doc, config)?;
     plan_seal::check_body_partition(plan).map_err(|e| e.to_string())
 }
@@ -287,12 +409,18 @@ pub(crate) fn load_plan_file(
     };
 
     let plan = plan_body_from_doc(&doc)?;
-    let selectors = selectors_from_doc(&doc)?;
-    if sealed {
+    // Refs #358: the selector record is read INSIDE the sealed branch. Reading
+    // it before this point gave an unsealed v1 document a say in the filters it
+    // was re-planned under, which is the bypass `reject_v2_keys_on_v1`
+    // documents. A v1 plan is checked against the whole config, unfiltered.
+    let selectors = if sealed {
+        let selectors = selectors_from_doc(&doc)?;
         check_v2(&doc, &plan, &selectors, config, state_dir)?;
+        selectors
     } else {
         check_v1(&doc, &plan, config)?;
-    }
+        PlanSelectors::default()
+    };
     Ok(LoadedPlan {
         plan,
         sealed,

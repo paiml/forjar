@@ -327,45 +327,6 @@ resources:
         assert!(err.contains("to_create"), "{err}");
     }
 
-    #[test]
-    fn test_load_plan_file_handles_all_resource_types() {
-        let dir = tempfile::tempdir().unwrap();
-        let plan_path = dir.path().join("plan.json");
-        let config = make_test_config();
-
-        let types_to_test = [
-            ("package", ResourceType::Package),
-            ("file", ResourceType::File),
-            ("service", ResourceType::Service),
-            ("mount", ResourceType::Mount),
-            ("user", ResourceType::User),
-            ("docker", ResourceType::Docker),
-            ("network", ResourceType::Network),
-            ("cron", ResourceType::Cron),
-            ("model", ResourceType::Model),
-            ("gpu", ResourceType::Gpu),
-        ];
-
-        for (type_str, expected_type) in &types_to_test {
-            let plan_json = serde_json::json!({
-                "format": FORMAT_V1,
-                "config_hash": compute_config_hash(&config),
-                "name": "test",
-                "to_create": 1, "to_update": 0, "to_destroy": 0, "unchanged": 0,
-                "execution_order": ["r"],
-                "changes": [
-                    {"resource_id": "r", "machine": "m1", "resource_type": type_str, "action": "create", "description": "r: create"},
-                ],
-            });
-            write_doc(&plan_path, &plan_json);
-            let loaded = load_plan_file(&plan_path, &config, dir.path()).unwrap();
-            assert_eq!(
-                loaded.plan.changes[0].resource_type, *expected_type,
-                "type mismatch for {type_str}"
-            );
-        }
-    }
-
     /// Helper to compute config hash for test plan files.
     /// GH-212: the ONE canonical hash. This helper used to re-implement the
     /// production expression (`serde_yaml_ng::to_string` + blake3), which is a

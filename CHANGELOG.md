@@ -149,6 +149,7 @@ GH-208 rides along: the plan path was handed `args.dry_run` alone, so
 `--plan-file --dry-run-json` converged for real. It takes the whole dry-run
 family now.
 
+
 ## [1.21.1] — 2026-08-29
 
 Two defects in 1.21.0 where a promise the call graph does not keep. Both were
@@ -211,6 +212,7 @@ rather than in the next minor because a user could be relying on either today.
   `--refresh-only` also return before `apply_execute`). They are read-shaped and
   are NOT fixed here; the systematic gate-parity treatment is tracked on #370 for
   the next minor, because patching five modes by hand will miss the sixth.
+
 
 ## [1.21.0] — 2026-08-28
 

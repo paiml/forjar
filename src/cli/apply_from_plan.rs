@@ -151,6 +151,11 @@ fn sigil(action: &types::PlanAction) -> &'static str {
 /// `executor::apply_scoped` instead would honour `dry_run` (it returns before
 /// `dispatch_apply`) but return a result carrying no changes, so the preview
 /// would print "0 converged" and tell the operator nothing.
+///
+/// Printing the body is only honest because `check_plan_still_holds` has
+/// already run: until this round it compared `action` alone, so the description
+/// printed on each line here was a string out of the document that nothing had
+/// checked — see `apply_from_plan_checks::divergence` for what that printed.
 fn preview_scoped_plan(
     plan: &types::ExecutionPlan,
     scope: &executor::PlanScope,

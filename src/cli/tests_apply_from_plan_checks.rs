@@ -144,6 +144,38 @@ fn a_create_relabelled_as_a_no_op_is_refused() {
     assert!(err.contains("NO-OP") && err.contains("CREATE"), "{err}");
 }
 
+/// Refs #358 round four: `action` was the only field this direction compared,
+/// so a body could name the right pair with the right action and describe it as
+/// anything at all — and `--dry-run` prints that description as "the reviewed
+/// plan would execute". Measured on the branch binary from a v1 document whose
+/// descriptions were rewritten and whose pairs and actions were left honest:
+/// both lines previewed as `create /etc/nothing-at-all (harmless)`, exit 0,
+/// while the run being previewed would have written the paths in the config.
+#[test]
+fn a_rewritten_description_is_refused_even_with_the_action_honest() {
+    let fresh = plan_of(vec![change("alpha", "web", PlanAction::Create)]);
+    let mut lie = fresh.clone();
+    lie.changes[0].description = "alpha: create /etc/nothing-at-all (harmless)".to_string();
+    let err = check_plan_still_holds(&lie, &fresh, &unfiltered()).unwrap_err();
+    assert!(err.starts_with(PLAN_STALE), "{err}");
+    assert!(err.contains("description"), "{err}");
+    assert!(err.contains("nothing-at-all"), "{err}");
+}
+
+/// The same for the fifth field. Nothing in the apply path reads a change's
+/// `resource_type`, which is exactly why it went unchecked — but a document
+/// that misdescribes what a resource IS misdescribes the plan.
+#[test]
+fn a_rewritten_resource_type_is_refused() {
+    let fresh = plan_of(vec![change("alpha", "web", PlanAction::Create)]);
+    let mut lie = fresh.clone();
+    lie.changes[0].resource_type = ResourceType::Package;
+    let err = check_plan_still_holds(&lie, &fresh, &unfiltered()).unwrap_err();
+    assert!(err.starts_with(PLAN_STALE), "{err}");
+    assert!(err.contains("resource type"), "{err}");
+    assert!(err.contains("package") && err.contains("file"), "{err}");
+}
+
 /// A plan naming a pair the planner does not produce at all.
 #[test]
 fn a_pair_the_planner_does_not_produce_is_refused() {
