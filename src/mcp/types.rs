@@ -59,9 +59,17 @@ pub struct PlanOutput {
     /// plan did not consult. Always present, including at zero, so a consumer
     /// can tell "nothing observed" from "an older binary".
     pub unconsulted_observations: usize,
-    /// The prose form of the disclosure, present iff `unconsulted_observations`
-    /// is non-zero. Names `forjar drift` as the command that can answer the
-    /// question this report cannot.
+    /// forjar#372: the config-declared work this plan refused to EXECUTE,
+    /// one line each — `ambient_inputs` commands, subprocess secret providers,
+    /// `output_equivalence` normalisers. This surface publishes
+    /// `readOnlyHint: true`, so it runs none of them; the plan is
+    /// lock-relative for whatever is listed here. Always present, including
+    /// empty, so a consumer can tell "nothing skipped" from "an older binary".
+    pub unattended_skipped: Vec<String>,
+    /// The prose form of the disclosure. Present iff there is something to
+    /// disclose — `unconsulted_observations` is non-zero, or
+    /// `unattended_skipped` is non-empty, or both. Names `forjar drift` as the
+    /// command that can answer the question this report cannot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<String>,
 }

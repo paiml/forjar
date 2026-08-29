@@ -96,6 +96,31 @@ reports `read_only` per verb and MCP publishes the same value as `readOnlyHint`,
 both derived from one field so they cannot disagree. An agent may call any
 forjar verb unattended without risking a change to a machine.
 
+Read-only means it does not run what the **config** declares, either. That was
+not true before 1.21.1 (forjar#372): planning executed the config's own
+`ambient_inputs` commands, shelled out to `sops`/`op` for
+`secrets.provider`, and ran `output_equivalence` normalisers — so pointing an
+agent at an untrusted repository executed whatever that repository declared, on
+a tool advertising `readOnlyHint: true`. The verb surface now plans over a
+config with those three keys stripped and reports what it skipped:
+
+```json
+{
+  "to_create": 1, "lock_relative": true,
+  "unattended_skipped": [
+    "build: 1 ambient_inputs command(s) not executed; staleness from ambient state not checked",
+    "secrets: provider 'sops' not invoked; `{{secrets.*}}` left unresolved"
+  ],
+  "disclosure": "this surface never executes what a config declares, so 2 …"
+}
+```
+
+`unattended_skipped` is always present, empty when there was nothing to skip —
+that is the case where the unattended plan and `forjar plan` compute the same
+thing. **The CLI is unchanged**: `forjar plan` still probes ambient inputs and
+still resolves `sops` secrets, because the operator who typed it chose that
+config. The distinction is the caller, not the feature.
+
 **This is not all 193 subcommands, and it does not claim to be.** Every CLI leaf
 is accounted for in `src/verb/partition.rs` as exactly one of `Unified`,
 `CliOnly` (with a written reason) or `Pending` (with an issue). The partition is

@@ -1584,6 +1584,14 @@ The server runs on stdio transport and exposes 9 tools:
 `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`,
 `forjar_anomaly`.
 
+All nine publish `readOnlyHint: true`, and since 1.21.1 (forjar#372) that also
+means **they do not run what the config declares**. `forjar_plan` used to
+execute the config's `ambient_inputs` commands, `sops`/`op` for
+`secrets.provider`, and `output_equivalence` normalisers, so pointing an agent
+at an untrusted repository executed that repository. It now plans with those
+three stripped and lists them in `unattended_skipped`, which makes the result
+lock-relative for them. `forjar plan` on the CLI is unaffected and still probes.
+
 Configure in your MCP client:
 
 ```json

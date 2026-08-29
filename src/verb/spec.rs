@@ -26,6 +26,16 @@ use serde::Serialize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Effects {
     /// Reads state and reports. Safe for an agent to call unattended.
+    ///
+    /// forjar#372 pins what that has to mean, because it was once false:
+    /// a `ReadOnly` verb must not run anything the CONFIG declares. `plan`
+    /// reached `bash -c` through `ambient_inputs`, `sops`/`op` through
+    /// `secrets.provider`, and `bash -c` again through an
+    /// `output_equivalence` normaliser — so "call it on an untrusted repo"
+    /// meant "execute that repo". `core::unattended::sanitize_config` removes
+    /// all three before an unattended plan, and the plan discloses it.
+    /// Reading the filesystem and the lock is still `ReadOnly`; spawning a
+    /// process a config author chose is not.
     ReadOnly,
     /// May change the host, the lock file, or the config.
     Mutating,

@@ -56,6 +56,8 @@ mod tests_webhook_server;
 #[cfg(test)]
 mod tests_webhook_sig;
 pub mod types;
+/// forjar#372: what a config may make a ReadOnly verb execute, removed.
+pub mod unattended;
 pub mod verify;
 pub mod watch_daemon;
 pub mod webhook_http;
