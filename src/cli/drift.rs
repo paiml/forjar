@@ -2,20 +2,39 @@
 
 use super::apply::*;
 use super::apply_helpers::*;
+use super::drift_report::{
+    census_json, print_drift_summary, run_drift_alert, send_drift_notification,
+};
 use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::drift;
 use std::path::Path;
 
+/// How one drift scan reports itself, and how much work it may do on the host.
+#[derive(Clone, Copy)]
+struct ScanOptions {
+    json: bool,
+    verbose: bool,
+    detect: drift::DriftOptions,
+}
+
 /// Check one machine for drift, appending findings to all_findings (JSON) or printing text.
+///
+/// Returns the drift count AND the census — forjar#380. Returning the count
+/// alone is what let `No drift detected.` stand in for both "checked 62
+/// resources, all clean" and "checked none of them".
 fn check_machine_drift(
     name: &str,
     lock: &types::StateLock,
     config: Option<&types::ForjarConfig>,
-    json: bool,
-    verbose: bool,
     all_findings: &mut Vec<serde_json::Value>,
-) -> usize {
+    scan: ScanOptions,
+) -> (usize, drift::DriftCensus) {
+    let ScanOptions {
+        json,
+        verbose,
+        detect: opts,
+    } = scan;
     if verbose {
         eprintln!("Checking {} ({} resources)...", name, lock.resources.len());
     }
@@ -24,7 +43,7 @@ fn check_machine_drift(
     }
 
     let machine = config.and_then(|c| c.machines.get(name));
-    let findings = match (machine, config) {
+    let report = match (machine, config) {
         (Some(m), Some(cfg)) => {
             // PMAT-197: resources MUST be template-resolved before they are
             // compared against live machine state. Passing raw `cfg.resources`
@@ -37,17 +56,27 @@ fn check_machine_drift(
                 &cfg.machines,
                 &cfg.secrets,
             );
-            drift::detect_drift_full(lock, m, &resolved)
+            drift::detect_drift_full_reported(lock, m, &resolved, opts)
         }
-        (Some(m), None) => drift::detect_drift_with_machine(lock, m),
-        _ => drift::detect_drift(lock),
+        (Some(m), None) => drift::detect_drift_reported(lock, Some(m)),
+        _ => drift::detect_drift_reported(lock, None),
     };
+    let drift::DriftReport { findings, census } = report;
+
+    // THE DENOMINATOR PRINTS EVERY TIME, drift or no drift. It is worth least
+    // when there IS drift (the findings speak for themselves) and most when
+    // there is none, which is exactly why it cannot be conditional on findings.
+    if !json {
+        for line in census.summary_lines() {
+            println!("  {line}");
+        }
+    }
 
     if findings.is_empty() {
         if !json {
             println!("  No drift detected.");
         }
-        return 0;
+        return (0, census);
     }
 
     for f in &findings {
@@ -65,49 +94,7 @@ fn check_machine_drift(
             println!("    Actual:   {}", f.actual_hash);
         }
     }
-    findings.len()
-}
-
-/// Print drift summary (JSON or text).
-fn print_drift_summary(
-    machines_checked: u32,
-    total_drift: usize,
-    all_findings: &[serde_json::Value],
-    json: bool,
-) -> Result<(), String> {
-    if json {
-        let report = serde_json::json!({
-            "machines_checked": machines_checked,
-            "drift_count": total_drift,
-            "findings": all_findings,
-        });
-        let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
-    } else if total_drift > 0 {
-        println!();
-        println!(
-            "{}",
-            red(&format!("Drift detected: {total_drift} resource(s)"))
-        );
-    } else {
-        println!("{}", green("No drift detected."));
-    }
-    Ok(())
-}
-
-/// Run the alert command when drift is detected.
-fn run_drift_alert(alert_cmd: &str, total_drift: usize) -> Result<(), String> {
-    let status = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(alert_cmd)
-        .env("FORJAR_DRIFT_COUNT", total_drift.to_string())
-        .status()
-        .map_err(|e| format!("alert-cmd failed to execute: {e}"))?;
-    if !status.success() {
-        eprintln!("alert-cmd exited with code {}", status.code().unwrap_or(-1));
-    }
-    Ok(())
+    (findings.len(), census)
 }
 
 /// Auto-remediate drifted resources by re-applying.
@@ -167,22 +154,6 @@ pub(crate) fn run_drift_remediation(
     Ok(())
 }
 
-/// Send drift notification if configured.
-fn send_drift_notification(
-    config: &types::ForjarConfig,
-    total_drift: usize,
-    machine_filter: Option<&str>,
-) {
-    if let Some(ref cmd) = config.policy.notify.on_drift {
-        let drift_str = total_drift.to_string();
-        let machine_str = machine_filter.unwrap_or("all");
-        run_notify(
-            cmd,
-            &[("machine", machine_str), ("drift_count", &drift_str)],
-        );
-    }
-}
-
 /// Load config if the config file exists.
 fn load_drift_config(
     config_path: &Path,
@@ -206,13 +177,12 @@ fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     config: Option<&types::ForjarConfig>,
-    json: bool,
-    verbose: bool,
-) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
+    scan_opts: ScanOptions,
+) -> Result<DriftScan, String> {
     let machine_locks = collect_machine_locks(state_dir, machine_filter)?;
 
     if machine_locks.len() <= 1 {
-        return scan_sequential(&machine_locks, config, json, verbose);
+        return scan_sequential(&machine_locks, config, scan_opts);
     }
 
     // Parallel: check each machine in its own thread
@@ -222,23 +192,34 @@ fn scan_machines_for_drift(
             .map(|(name, lock)| {
                 s.spawn(move || {
                     let mut findings = Vec::new();
-                    let count =
-                        check_machine_drift(name, lock, config, json, verbose, &mut findings);
-                    (count, findings)
+                    let (count, census) =
+                        check_machine_drift(name, lock, config, &mut findings, scan_opts);
+                    (count, findings, census_json(name, &census))
                 })
             })
             .collect();
         handles.into_iter().filter_map(|h| h.join().ok()).collect()
     });
 
-    let machines_checked = results.len() as u32;
-    let mut total_drift = 0;
-    let mut all_findings = Vec::new();
-    for (count, mut findings) in results {
-        total_drift += count;
-        all_findings.append(&mut findings);
+    let mut scan = DriftScan {
+        machines_checked: results.len() as u32,
+        ..Default::default()
+    };
+    for (count, mut findings, census) in results {
+        scan.total_drift += count;
+        scan.findings.append(&mut findings);
+        scan.censuses.push(census);
     }
-    Ok((machines_checked, total_drift, all_findings))
+    Ok(scan)
+}
+
+/// One `forjar drift` run: the verdict AND the population it was drawn from.
+#[derive(Default)]
+struct DriftScan {
+    machines_checked: u32,
+    total_drift: usize,
+    findings: Vec<serde_json::Value>,
+    censuses: Vec<serde_json::Value>,
 }
 
 /// Collect (machine_name, lock) pairs from state directory.
@@ -320,15 +301,19 @@ fn collect_machine_locks(
 fn scan_sequential(
     machine_locks: &[(String, types::StateLock)],
     config: Option<&types::ForjarConfig>,
-    json: bool,
-    verbose: bool,
-) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
-    let mut total_drift = 0;
-    let mut all_findings = Vec::new();
+    scan_opts: ScanOptions,
+) -> Result<DriftScan, String> {
+    let mut scan = DriftScan {
+        machines_checked: machine_locks.len() as u32,
+        ..Default::default()
+    };
     for (name, lock) in machine_locks {
-        total_drift += check_machine_drift(name, lock, config, json, verbose, &mut all_findings);
+        let (count, census) =
+            check_machine_drift(name, lock, config, &mut scan.findings, scan_opts);
+        scan.total_drift += count;
+        scan.censuses.push(census_json(name, &census));
     }
-    Ok((machine_locks.len() as u32, total_drift, all_findings))
+    Ok(scan)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -343,6 +328,7 @@ pub(crate) fn cmd_drift(
     json: bool,
     verbose: bool,
     env_file: Option<&Path>,
+    no_task_checks: bool,
 ) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
 
@@ -358,10 +344,28 @@ pub(crate) fn cmd_drift(
         }
     }
 
-    let (machines_checked, total_drift, all_findings) =
-        scan_machines_for_drift(state_dir, machine_filter, config.as_ref(), json, verbose)?;
+    let scan_opts = ScanOptions {
+        json,
+        verbose,
+        detect: drift::DriftOptions {
+            run_task_checks: !no_task_checks,
+        },
+    };
+    let scan = scan_machines_for_drift(state_dir, machine_filter, config.as_ref(), scan_opts)?;
+    let DriftScan {
+        machines_checked,
+        total_drift,
+        findings: all_findings,
+        censuses,
+    } = scan;
 
-    print_drift_summary(machines_checked, total_drift, &all_findings, json)?;
+    print_drift_summary(
+        machines_checked,
+        total_drift,
+        &all_findings,
+        &censuses,
+        json,
+    )?;
 
     if total_drift > 0 {
         if let Some(cmd) = alert_cmd {

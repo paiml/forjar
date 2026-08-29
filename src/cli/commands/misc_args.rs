@@ -52,6 +52,16 @@ pub struct DriftArgs {
     /// FJ-210: Use workspace (overrides state dir to state/<workspace>/)
     #[arg(short = 'w', long)]
     pub workspace: Option<String>,
+
+    /// Do not execute task completion_checks (cheaper, and blind to guards)
+    ///
+    /// forjar#380: drift executes the `completion_check` of every converged
+    /// task, because for a guard resource that assertion IS the observable.
+    /// This opts out for a run where the extra executions are unaffordable, or
+    /// where a check is not the pure predicate it is supposed to be. What it
+    /// silences is counted in the census line, never dropped in silence.
+    #[arg(long)]
+    pub no_task_checks: bool,
 }
 
 /// CLI arguments for the `history` command.
@@ -378,47 +388,6 @@ pub struct OutputArgs {
     pub json: bool,
 }
 
-/// CLI arguments for the `policy` command.
-#[derive(clap::Args, Debug)]
-pub struct PolicyArgs {
-    /// Path to forjar.yaml
-    #[arg(short, long, default_value = "forjar.yaml")]
-    pub file: PathBuf,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-
-    /// FJ-3207: Output as SARIF 2.1.0 (for GitHub Code Scanning / CI)
-    #[arg(long)]
-    pub sarif: bool,
-}
-
-/// FJ-3208: CLI arguments for the `policy-coverage` command.
-#[derive(clap::Args, Debug)]
-pub struct PolicyCoverageArgs {
-    /// Path to forjar.yaml
-    #[arg(short, long, default_value = "forjar.yaml")]
-    pub file: PathBuf,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
-/// FJ-3206: CLI arguments for the `policy-install` command.
-#[derive(clap::Args, Debug)]
-pub struct PolicyInstallArgs {
-    /// Pack name (e.g., cis-ubuntu-22, nist-800-53, soc2, hipaa)
-    pub pack: String,
-    /// Output directory for installed pack
-    #[arg(long, default_value = "policies")]
-    pub output_dir: PathBuf,
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
 /// CLI arguments for the `score` command.
 #[derive(clap::Args, Debug)]
 pub struct ScoreArgs {
@@ -467,3 +436,4 @@ pub struct ConfigMergeArgs {
 
 // SecurityScan, Sbom, Cbom, Prove, Extract, PrivilegeAnalysis, Provenance, Lineage
 // args moved to misc_analysis_args.rs
+// Policy, PolicyCoverage, PolicyInstall args moved to misc_policy_args.rs

@@ -34,6 +34,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }
@@ -93,6 +94,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }
@@ -150,6 +152,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
@@ -173,6 +176,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }
@@ -194,6 +198,7 @@ mod tests {
                 json: false,
                 env_file: None,
                 workspace: None,
+                no_task_checks: false,
             }),
             0,
             true,
@@ -255,6 +260,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }
@@ -312,6 +318,7 @@ mod tests {
             true,
             false,
             None, // no env_file
+            false,
         )
         .unwrap();
     }

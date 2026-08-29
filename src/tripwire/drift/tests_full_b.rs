@@ -150,7 +150,11 @@ fn file_drift_consults_the_machine_not_the_controller() {
         allowed_operators: vec![],
     };
 
-    let finding = super::check_file_resource_drift("f", &rl, Some(&machine));
+    // The lock entry names the file; the checker takes that pair, not the entry.
+    let (path_str, expected_hash) =
+        super::file::locked_file_target(&rl).expect("the lock entry carries path + content_hash");
+    let finding =
+        super::file::check_file_resource_drift("f", path_str, expected_hash, Some(&machine));
     assert!(
         finding.is_some(),
         "drift reported CLEAN for an unreachable machine — it hashed the \
@@ -161,7 +165,7 @@ fn file_drift_consults_the_machine_not_the_controller() {
     // is, and reading it is the honest best effort rather than a wrong answer
     // about somewhere else. It must still report clean for a matching file.
     assert!(
-        super::check_file_resource_drift("f", &rl, None).is_none(),
+        super::file::check_file_resource_drift("f", path_str, expected_hash, None).is_none(),
         "with no machine known, a file matching its content_hash must be clean"
     );
 }

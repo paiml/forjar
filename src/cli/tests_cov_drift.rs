@@ -112,6 +112,7 @@ fn drift_dry_run_mode() {
     let r = super::drift::cmd_drift(
         config.path(), d.path(), None,
         false, None, false, true, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -123,6 +124,7 @@ fn drift_dry_run_json() {
     let r = super::drift::cmd_drift(
         config.path(), d.path(), None,
         false, None, false, true, true, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -133,6 +135,7 @@ fn drift_no_config_dry_run() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), None,
         false, None, false, true, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -143,6 +146,7 @@ fn drift_no_config_no_state() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), None,
         false, None, false, false, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -153,6 +157,7 @@ fn drift_tripwire_mode_no_drift() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), None,
         true, None, false, false, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -163,6 +168,7 @@ fn drift_with_state_no_transport() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), None,
         false, None, false, false, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -173,6 +179,7 @@ fn drift_with_state_json() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), None,
         false, None, false, false, true, false, None,
+        false,
     );
     assert!(r.is_ok());
 }
@@ -183,6 +190,7 @@ fn drift_with_machine_filter() {
     let r = super::drift::cmd_drift(
         std::path::Path::new("/nonexistent/forjar.yaml"), d.path(), Some("web1"),
         false, None, false, false, false, false, None,
+        false,
     );
     assert!(r.is_ok());
 }

@@ -98,6 +98,7 @@ mod tests {
             json: false,
             env_file: None,
             workspace: None,
+            no_task_checks: false,
         };
         let _ = format!("{a:?}");
     }

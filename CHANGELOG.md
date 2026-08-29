@@ -329,6 +329,28 @@ binary and every fix ships with a test that was verified to fail before it.
   (#370, #374). 1.21.1 closed `--plan-file`; `--canary-machine` still reaches a
   converging apply without passing `check_operator_auth`, and `--refresh-only`
   and `--check` exit above the gate. Tracked with a full ledger in #370.
+- **`forjar drift` was blind to task guards, and never said what it had
+  inspected** (#380, paiml/infra#380). A `type: task` with a `completion_check`
+  is an assertion about the host — the check is the claim, `command` reports the
+  violation — and drift only consulted it when the lock happened to carry an
+  observed digest, as a hash comparison whose failure printed
+  `state query failed:` with an empty message. Where the lock recorded
+  convergence but no observation (`state reconstruct`, an apply whose post-apply
+  state query failed or timed out), the assertion was never executed at all.
+  forjar's own dogfood ledger has carried this since 1.12.3 as
+  `drift-and-plan-blind-to-failing-task-completion-check`.
+
+  Drift now executes each converged task's `completion_check` over the same
+  transport `apply` uses, under the same 60s bound, and a non-zero exit is
+  drift regardless of what the lock recorded. `--no-task-checks` opts out per
+  run.
+
+- **`No drift detected.` read identically over sixty-two resources and over
+  none.** Every drift run now prints its denominator — inspected versus skipped,
+  by type and by reason — in text and in `--json` (`resources_inspected`,
+  `resources_skipped`, and a per-machine `census`). Measured on paiml/infra's
+  gx10: 62 resources declared, 30 in the lock, and the runner guard that
+  prompted the issue in neither number the operator saw.
 
 ## [1.21.1] — 2026-08-29
 
