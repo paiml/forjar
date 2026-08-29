@@ -1,5 +1,9 @@
 //! FJ-3601..FJ-3603: Shell installer, Homebrew formula, cargo-binstall generators.
 
+use super::dist_installer_shell::{
+    installer_arg_parsing, installer_download_helpers, installer_output_helpers,
+    installer_platform_detection, installer_resolve_version,
+};
 use crate::core::types::DistConfig;
 
 // ── FJ-3601: Shell Installer ──
@@ -163,160 +167,6 @@ fn build_version_verify_snippet(dist: &DistConfig) -> String {
     }
 }
 
-/// The `--version/--prefix/--force/--yes/--help` parser and the `..` guard on
-/// `--prefix`. Emitted verbatim; no config value reaches it.
-///
-/// Calls `usage` and `die`, so it MUST be emitted after
-/// [`installer_output_helpers`] — `sh` resolves a function only once its
-/// definition has been executed, and a forward call is valid syntax that
-/// `sh -n` cannot catch (it dies at runtime with 127 `usage: not found`).
-/// `dist --verify` executes `--help` to hold that ordering.
-fn installer_arg_parsing() -> &'static str {
-    r#"# ── Argument parsing ──
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --version) TAG="$2"; shift 2 ;;
-    --prefix)  PREFIX="$2"; shift 2 ;;
-    --force)   FORCE=1; shift ;;
-    --yes|-y)  YES=1; shift ;;
-    --help|-h) usage; exit 0 ;;
-    *) die "unknown option: $1" ;;
-  esac
-done
-
-# Refuse traversal sequences in user-supplied install paths
-case "$PREFIX" in
-  *..*) die "refusing --prefix containing '..'" ;;
-esac"#
-}
-
-/// Colour setup, `info`/`warn`/`die`, and `usage()` — the only snippet that
-/// names the binary and the raw install.sh URL.
-fn installer_output_helpers(binary: &str, raw_url: &str) -> String {
-    format!(
-        r#"# ── Output helpers ──
-
-RED='' GREEN='' YELLOW='' BOLD='' RESET=''
-if [ -t 1 ]; then
-  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'
-  BOLD='\033[1m'; RESET='\033[0m'
-fi
-
-info()  {{ printf '%s%s%s %s\n' "$GREEN" "info:" "$RESET" "$1"; }}
-warn()  {{ printf '%s%s%s %s\n' "$YELLOW" "warn:" "$RESET" "$1" >&2; }}
-die()   {{ printf '%s%s%s %s\n' "$RED" "error:" "$RESET" "$1" >&2; exit 1; }}
-
-usage() {{
-  cat <<USAGE
-Install {binary}
-
-USAGE:
-    sh install.sh
-    sh install.sh --version v1.2.3
-    (download first: curl -sSfO {raw_url})
-
-OPTIONS:
-    --version <TAG>   Install a specific version (e.g., v1.0.0)
-    --prefix <DIR>    Install to a custom directory
-    --force           Overwrite existing binary
-    --yes, -y         Non-interactive mode
-    --help, -h        Show this help
-USAGE
-}}"#
-    )
-}
-
-/// `detect_os`, `detect_arch`, `detect_libc`.
-fn installer_platform_detection() -> &'static str {
-    r#"# ── Platform detection ──
-
-detect_os() {
-  case "$(uname -s)" in
-    Linux*)  echo "linux" ;;
-    Darwin*) echo "darwin" ;;
-    *)       die "unsupported OS: $(uname -s)" ;;
-  esac
-}
-
-detect_arch() {
-  case "$(uname -m)" in
-    x86_64|amd64)       echo "x86_64" ;;
-    aarch64|arm64)      echo "aarch64" ;;
-    *)                  die "unsupported architecture: $(uname -m)" ;;
-  esac
-}
-
-detect_libc() {
-  if [ "$(detect_os)" != "linux" ]; then
-    echo "none"
-    return
-  fi
-  if ldd --version 2>&1 | grep -qi musl; then
-    echo "musl"
-  elif command -v ldd >/dev/null 2>&1; then
-    echo "gnu"
-  else
-    echo "musl"
-  fi
-}"#
-}
-
-/// `download`, `download_file`, `compute_checksum`.
-fn installer_download_helpers() -> &'static str {
-    r#"# ── Download helpers ──
-
-download() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$1"
-  else
-    die "curl or wget required"
-  fi
-}
-
-download_file() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o "$2" "$1"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$2" "$1"
-  else
-    die "curl or wget required"
-  fi
-}
-
-compute_checksum() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{print $1}'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
-  else
-    warn "no sha256sum or shasum found -- skipping checksum"
-    echo ""
-  fi
-}"#
-}
-
-/// `resolve_version()` — honour a pinned `--version`, else ask the releases API.
-fn installer_resolve_version() -> &'static str {
-    r#"# ── Version resolution ──
-
-resolve_version() {
-  if [ -n "$TAG" ]; then
-    return
-  fi
-  info "resolving latest version..."
-  TAG=$(download "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep '"tag_name"' | head -1 | cut -d'"' -f4) \
-    || die "failed to resolve latest version"
-  if [ -z "$TAG" ]; then
-    die "could not determine latest version"
-  fi
-  info "latest version: $TAG"
-}"#
-}
-
 /// `resolve_asset()`, wrapping the generated per-OS/arch `case` arms.
 fn installer_resolve_asset(asset_cases: &str) -> String {
     format!(
@@ -381,8 +231,7 @@ main() {{
       # Try with sudo
       info "$INSTALL_DIR not writable, using sudo..."
       sudo install -d "$DEST" 2>/dev/null || die "cannot create $DEST"
-      sudo cp "$SRC" "$DEST/$BINARY" || die "install failed"
-      sudo chmod +x "$DEST/$BINARY"
+      _fj_install_bin "$SRC" "$DEST/$BINARY" sudo || die "install failed"
       info "installed $BINARY to $DEST/$BINARY"
       post_install{version_verify}
       return
@@ -396,8 +245,10 @@ main() {{
   fi
 
   install -d "$DEST" 2>/dev/null || true
-  cp "$SRC" "$DEST/$BINARY" || die "install failed"
-  chmod +x "$DEST/$BINARY"
+  # ATOMIC: `curl | sh` is how a tool is UPGRADED, so the destination is
+  # routinely the binary the user just ran. `cp` opens it in place and takes
+  # ETXTBSY ("Text file busy"); rename(2) does not. See core::shell_install.
+  _fj_install_bin "$SRC" "$DEST/$BINARY" || die "install failed"
   info "installed $BINARY to $DEST/$BINARY"
 
   post_install{version_verify}
@@ -443,6 +294,7 @@ pub fn generate_installer(dist: &DistConfig) -> String {
     let output_helpers = installer_output_helpers(binary, &raw_url);
     let platform_detection = installer_platform_detection();
     let download_helpers = installer_download_helpers();
+    let install_helper = crate::core::shell_install::atomic_install_fn();
     let resolve_version = installer_resolve_version();
     let resolve_asset = installer_resolve_asset(&asset_cases);
     let main_body = installer_main(&version_verify);
@@ -471,6 +323,8 @@ PREFIX=""
 {platform_detection}
 
 {download_helpers}
+
+{install_helper}
 {checksum_verify}
 
 {resolve_version}

@@ -1809,3 +1809,46 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-136
+  github_issue: null
+  item_type: task
+  title: forjar could not replace a binary that was running, and its repair path
+    was not atomic
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-08-29T18:00:00Z
+  updated: 2026-08-29T18:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Three code paths placed an executable with a plain ''cp'', which opens the destination
+    in place and is therefore refused by the kernel for a RUNNING binary (ETXTBSY,
+    "Text file busy") and by coreutils for a DANGLING SYMLINK — the two states forjar
+    most needs to repair. Verified by executing the generated shell, not by reading
+    it: github_release.rs:147 (live on the fleet for rclone, age, sops into /usr/local/bin
+    and apr, batuta, renacer into a shared ~/.cargo/bin) and dist_generators.rs:384/399,
+    the generated install.sh — the ''curl | sh'' path by which every sovereign tool
+    is UPGRADED, so the destination is routinely the binary the user just ran. The
+    cost was a machine: paiml/infra''s lambda-labs self-applies, so its forjar.yaml
+    left forjar undeclared (":155", ":207") and the box drifted to 1.20.1 while the
+    fleet ran 1.21.x, which made its sovereign YAML guard NO-GO. NOTE the ":207" claim
+    — that a cargo resource cannot re-install the running forjar — was already FALSE:
+    the cargo provider moved to install(1) in v1.15.0 (PMAT-135) and cargo install
+    itself stages and renames. (2) install(1), PMAT-135''s fix, clears both refusals
+    but is NOT atomic: GNU unlinks the destination then creates it, so the path is
+    briefly absent and a concurrent exec fails ENOENT — which matters on a host where
+    sixteen CI runners share one $CARGO_HOME/bin. Measured on lambda-labs over 4000
+    replacements: install(1) 10611 absent of 396132 stats; temp+mv 0 of 741725. Fix:
+    one emitted shell helper, core::shell_install::_fj_install_bin — stage a SIBLING
+    of the destination (so the rename stays on one filesystem) then mv -f, i.e. rename(2),
+    which neither opens the destination nor follows it and leaves no window. Used by
+    all three sites, replacing both cp and install(1) so there is one mechanism rather
+    than three. Poka-yoke: tests/falsification_replace_running_binary.rs executes each
+    generator against a genuinely running binary and a genuinely dangling symlink, and
+    proven to discriminate by reverting the helper to cp (4 red) and to install(1) (the
+    atomicity probe red, 10252 of 356398 absent).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

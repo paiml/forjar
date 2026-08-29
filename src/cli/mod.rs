@@ -72,6 +72,7 @@ pub mod dist_checksums;
 pub mod dist_generators;
 pub mod dist_generators_b;
 mod dist_homebrew;
+pub mod dist_installer_shell;
 mod dist_output;
 mod dist_schema;
 pub mod dist_verify;
