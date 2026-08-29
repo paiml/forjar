@@ -7,6 +7,7 @@ mod helpers;
 mod machine;
 mod machine_wave;
 pub mod output_verify;
+mod plan_scope;
 mod refresh;
 mod refresh_seed;
 mod resource_ops;
@@ -80,6 +81,7 @@ use std::time::Instant;
 
 // Re-export the public API
 pub use helpers::collect_machines;
+pub use plan_scope::PlanScope;
 
 // Re-export internal items for sibling submodule access via `use super::*;`
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
@@ -157,10 +159,19 @@ fn load_machine_locks(
 }
 
 /// Build sorted target machine list (cheapest first).
-fn build_target_machines<'a>(cfg: &ApplyConfig, all_machines: &'a [String]) -> Vec<&'a String> {
+///
+/// Refs #358: a `scope` also excludes machines the reviewed plan does not name.
+/// Reaching a host to do nothing is still reaching a host — it opens an SSH
+/// session and touches that machine's lock.
+fn build_target_machines<'a>(
+    cfg: &ApplyConfig,
+    all_machines: &'a [String],
+    scope: Option<&PlanScope>,
+) -> Vec<&'a String> {
     let mut targets: Vec<&String> = all_machines
         .iter()
         .filter(|m| cfg.machine_filter.is_none_or(|f| *m == f))
+        .filter(|m| scope.is_none_or(|s| s.covers_machine(m)))
         .collect();
     targets.sort_by_key(|m| {
         cfg.config
@@ -304,6 +315,19 @@ pub fn count_forced_noops(
 
 /// Execute the apply loop.
 pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
+    apply_scoped(cfg, None)
+}
+
+/// Refs #358: apply, restricted to the delta a reviewed plan asked for.
+///
+/// `scope` is `None` for an ordinary `forjar apply`, which converges the whole
+/// config. `apply --plan-file` passes the scope derived from the sealed plan,
+/// so the executed set is the reviewed set — a resource that drifted between
+/// `plan` and `apply` is NOT silently pulled in.
+pub fn apply_scoped(
+    cfg: &ApplyConfig,
+    scope: Option<&PlanScope>,
+) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();
 
     // FJ-266: State locking
@@ -371,6 +395,8 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         cfg.tag_filter,
         &probes,
     );
+    // Refs #358: everything the reviewed plan did not ask for becomes a NoOp.
+    let plan = plan_scope::restrict(plan, scope);
 
     if cfg.dry_run {
         return Ok(vec![ApplyResult {
@@ -383,7 +409,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         }]);
     }
 
-    let target_machines = build_target_machines(cfg, &all_machines);
+    let target_machines = build_target_machines(cfg, &all_machines, scope);
     let localhost_machine = Machine {
         hostname: "localhost".to_string(),
         addr: "127.0.0.1".to_string(),

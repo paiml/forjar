@@ -57,6 +57,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         cmd @ (Commands::Check(..)
         | Commands::Verify(..)
         | Commands::Fmt(..)
+        | Commands::Remediate(..)
         | Commands::Lint(..)
         | Commands::Doctor(..)
         | Commands::Mcp(..)

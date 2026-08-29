@@ -1,6 +1,7 @@
 //! Tests: Pre-condition checks.
 
 #![allow(unused_imports)]
+use crate::cli::commands::LintGateArgs;
 use super::check::*;
 use super::commands::*;
 use super::destroy::*;
@@ -287,7 +288,7 @@ resources:
         .unwrap();
 
         // Lint should succeed but print warnings (it returns Ok)
-        cmd_lint(&file, false, false, false).unwrap();
+        cmd_lint_gated(&file, false, false, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -315,7 +316,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, true, false, false).unwrap();
+        cmd_lint_gated(&file, true, false, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -340,7 +341,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, false, false, false).unwrap();
+        cmd_lint_gated(&file, false, false, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -375,7 +376,7 @@ resources:
         .unwrap();
 
         // Capture output via JSON mode to inspect warnings
-        let result = cmd_lint(&file, true, false, false);
+        let result = cmd_lint_gated(&file, true, false, false, &LintGateArgs::default());
         assert!(result.is_ok());
         // The warning should mention cross-machine dependency
         // We re-run logic here to check the warning was generated

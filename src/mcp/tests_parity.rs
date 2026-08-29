@@ -248,3 +248,69 @@ async fn drift_without_state_dir_sees_real_drift() {
         out.findings, out.unchecked
     );
 }
+
+/// FJQ: `forjar lint` and `forjar_lint` used to disagree about the same file.
+///
+/// `cli/lint.rs` dropped every `SC1*` diagnostic and every line inside a
+/// heredoc body; `mcp/handlers.rs` dropped neither, and listed advisory
+/// diagnostics the CLI only tallied. Same verb, two answers, and no test
+/// compared them — `tests_parity.rs` covered plan and drift and never lint.
+///
+/// The assertion is on the RENDERED lines, not on a count: two surfaces can
+/// agree on "7 findings" while describing different sevens.
+#[tokio::test]
+async fn lint_reports_the_same_findings_on_both_surfaces() {
+    let d = tempfile::tempdir().unwrap();
+    let cfg = d.path().join("forjar.yaml");
+    // The Stripe-shaped fixture is assembled at runtime: the detector matches
+    // `[sr]k_(live|test)_[A-Za-z0-9]{20,}`, and so does GitHub push protection,
+    // which blocked a push of this repo over the literal form.
+    let fake_key = format!("sk_{}_{}", "live", "A".repeat(24));
+    std::fs::write(
+        &cfg,
+        format!(
+            r#"version: "1.0"
+name: parity
+machines:
+  local:
+    hostname: localhost
+    addr: localhost
+resources:
+  leaky:
+    type: file
+    machine: local
+    path: /etc/leaky.conf
+    content: "api_key={fake_key}"
+"#
+        ),
+    )
+    .unwrap();
+
+    let config = crate::core::parser::parse_and_validate(&cfg).unwrap();
+    let text = std::fs::read_to_string(&cfg).unwrap();
+    let cli_lines = crate::core::quality_gate::evaluate(
+        &config,
+        Some(&text),
+        &crate::core::quality_gate::GateThresholds::default(),
+    )
+    .render();
+
+    let out = LintHandler
+        .handle(LintInput {
+            path: cfg.display().to_string(),
+            max_cyclomatic: None,
+        })
+        .await
+        .expect("lint runs");
+
+    assert!(!cli_lines.is_empty(), "the fixture must produce a finding");
+    for line in &cli_lines {
+        assert!(
+            out.warnings.contains(line),
+            "the MCP verb did not report a line the CLI reports: {line:?}\nmcp={:?}",
+            out.warnings
+        );
+    }
+    assert!(!out.gate_passed, "a plaintext API key must fail the gate");
+    assert_eq!(out.error_count, 1, "findings={:?}", out.findings);
+}

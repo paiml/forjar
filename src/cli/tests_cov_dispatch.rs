@@ -429,6 +429,7 @@ resources:
                 fix: false,
                 rules: None,
             bashrs_version: false,
+            gate: Default::default(),
             }),
             false,
         );
@@ -446,6 +447,7 @@ resources:
                 fix: false,
                 rules: None,
             bashrs_version: false,
+            gate: Default::default(),
             }),
             false,
         );

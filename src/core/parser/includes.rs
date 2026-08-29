@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 
 /// FJ-254: Merge included config files into the base config.
 /// Later includes override earlier ones. params/machines/resources merge by key.
-/// policy is replaced wholesale. includes are not recursive (single level).
+/// policy is replaced wholesale BY AN INCLUDE THAT DECLARES ONE — an include
+/// silent about policy leaves the base's intact. includes are not recursive
+/// (single level).
 ///
 /// FJ-2502 enhancements:
 /// - Circular include detection via visited path set
@@ -83,6 +85,19 @@ fn merge_section<V, M, I>(
     }
 }
 
+/// Did this include file actually declare a `policy:` block?
+///
+/// The merge replaces policy wholesale, and `Policy: Default` means an include
+/// that is silent about policy is indistinguishable, after parsing, from one
+/// that set every field to its default. Only the raw document can tell them
+/// apart, so ask it.
+fn include_declares_policy(path: &Path) -> bool {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&s).ok())
+        .is_some_and(|v| v.get("policy").is_some())
+}
+
 fn merge_includes_inner(
     base: ForjarConfig,
     base_dir: &Path,
@@ -90,6 +105,9 @@ fn merge_includes_inner(
 ) -> Result<ForjarConfig, String> {
     let mut merged = base.clone();
     merged.includes = vec![];
+    // Which include last supplied a policy block, so a second one that also
+    // does is reported the way an overwritten resource key is.
+    let mut policy_from: Option<String> = None;
 
     for include_path in &base.includes {
         let full_path = base_dir.join(include_path);
@@ -145,8 +163,27 @@ fn merge_includes_inner(
             include_path,
         );
 
-        // Policy: replace wholesale from include
-        merged.policy = included.policy;
+        // Policy: replace wholesale from an include THAT DECLARES ONE.
+        //
+        // This was unconditional, and `Policy` has a `Default`. An include that
+        // said nothing about policy therefore handed over a default-constructed
+        // block that silently replaced the base's — so ANY config using
+        // `includes:` lost its whole policy: `snapshot_generations` (no
+        // generation is recorded, so `undo` and `rollback` are dead), and
+        // `tripwire` (drift detection quietly off). Silently, and unlike every
+        // merge_section above, without the overwrite warning.
+        //
+        // Found via #376: an `includes:` stack recorded no generations at all,
+        // so undo refused with "no generations found" and blamed a
+        // `snapshot_generations` the operator had in fact set.
+        if include_declares_policy(&full_path) {
+            if let Some(prev) = policy_from.replace(include_path.clone()) {
+                eprintln!(
+                    "warning: include '{include_path}' overwrites the policy block set by '{prev}'"
+                );
+            }
+            merged.policy = included.policy;
+        }
 
         // Merge outputs
         merge_section(

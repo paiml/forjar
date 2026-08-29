@@ -374,13 +374,15 @@ fn pack_filesystem_ops() {
     std::fs::write(dir.path().join("cis.yaml"), "").unwrap();
     std::fs::write(dir.path().join("stig.yml"), "").unwrap();
     std::fs::write(dir.path().join("readme.txt"), "").unwrap();
-    let packs = list_packs(dir.path());
+    let packs = list_packs(dir.path()).expect("a readable directory lists");
     assert!(packs.contains(&"cis".to_string()));
     assert!(packs.contains(&"stig".to_string()));
     assert!(!packs.contains(&"readme".to_string()));
     // Empty dir
     let empty = tempfile::tempdir().unwrap();
-    assert!(list_packs(empty.path()).is_empty());
+    assert!(list_packs(empty.path())
+        .expect("an empty directory lists")
+        .is_empty());
 }
 
 // ============================================================================
@@ -427,14 +429,14 @@ fn coverage_full_and_partial() {
         vec![req_pol("file")],
     ));
     assert_eq!(full.total_resources, 2);
-    assert!(full.fully_covered());
-    assert!((full.coverage_percent() - 100.0).abs() < f64::EPSILON);
+    assert!(full.fully_covered);
+    assert!((full.coverage_percent - 100.0).abs() < f64::EPSILON);
     let partial = compute_coverage(&cov_cfg(
         &[("f1", ResourceType::File), ("p1", ResourceType::Package)],
         vec![req_pol("file")],
     ));
     assert_eq!(partial.uncovered, vec!["p1"]);
-    assert!(!partial.fully_covered());
+    assert!(!partial.fully_covered);
 }
 
 #[test]
@@ -445,7 +447,7 @@ fn coverage_none_and_empty() {
     ));
     assert_eq!(none.covered_resources, 0);
     let empty = compute_coverage(&cov_cfg(&[], vec![req_pol("file")]));
-    assert!(empty.fully_covered());
+    assert!(empty.fully_covered);
 }
 
 #[test]
@@ -469,6 +471,6 @@ fn coverage_framework_and_type_tracking() {
     }];
     let cfg = cov_cfg(&[("f1", ResourceType::File)], vec![pol, req_pol("package")]);
     let cov = compute_coverage(&cfg);
-    assert!(cov.frameworks.contains("CIS"));
+    assert!(cov.compliance_frameworks.contains_key("CIS"));
     assert_eq!(cov.by_type.get("require"), Some(&2));
 }

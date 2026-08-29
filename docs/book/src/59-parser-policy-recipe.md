@@ -71,6 +71,25 @@ let sarif = policy_check_to_sarif(&result);
 // Valid SARIF 2.1.0 for GitHub Code Scanning
 ```
 
+This is a projection onto the quality gate's emitter — there is exactly one
+SARIF emitter in the tree, `core::quality_gate::sarif::findings_to_sarif`, and
+policy violations reach it as `GateFinding`s. To emit SARIF covering shell
+safety and plaintext secrets as well as policies, go through the gate:
+
+```rust
+use forjar::core::quality_gate::{evaluate, GateThresholds};
+
+let yaml = std::fs::read_to_string("forjar.yaml")?;
+let report = evaluate(&config, Some(&yaml), &GateThresholds::default());
+let sarif = report.to_sarif("forjar.yaml");
+assert!(report.passed()); // false when any finding is Error-level
+```
+
+A finding carries `region.startLine` when its resource key is found in the file
+that was linted, and no `region` at all otherwise — a resource that arrived
+through `includes:` is not in that file, and the parsed model keeps no spans to
+recover a line from.
+
 ## Recipe Expansion (FJ-004)
 
 ### Parsing

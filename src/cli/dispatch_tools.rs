@@ -34,6 +34,7 @@ pub(super) fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), St
         ),
         Commands::Verify(args) => super::verify::cmd_verify(&args, verbose),
         Commands::Fmt(FmtArgs { file, check }) => cmd_fmt(&file, check),
+        Commands::Remediate(args) => super::remediate::cmd_remediate(&args),
         Commands::Lint(LintArgs {
             file,
             json,
@@ -41,6 +42,7 @@ pub(super) fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), St
             fix,
             rules: _rules,
             bashrs_version,
+            gate,
         }) => {
             // GH-211: FJ-374 was destructured to `_rules` and dropped — rustc
             // silenced, the operator not. A custom rule file that is never
@@ -54,7 +56,7 @@ pub(super) fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), St
                 println!("bashrs {BASHRS_VERSION}");
                 return Ok(());
             }
-            cmd_lint(&file, json, strict, fix)
+            cmd_lint_gated(&file, json, strict, fix, &gate)
         }
         other => dispatch_misc_tools_b(other),
     }

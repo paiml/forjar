@@ -93,7 +93,10 @@ rules:
     )
     .unwrap();
 
-    let packs = list_packs(dir.path());
+    // `list_packs` reports a directory it could not enumerate rather than
+    // answering "no packs" about it (#356) — an example that unwrapped a
+    // silent empty listing would demonstrate the bug.
+    let packs = list_packs(dir.path()).expect("the pack directory just written is readable");
     for name in &packs {
         println!("  Found pack: {name}");
     }

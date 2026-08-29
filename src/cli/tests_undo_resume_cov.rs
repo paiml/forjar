@@ -139,18 +139,78 @@ fn undo_resume_machine_filter() {
     assert!(result.is_ok());
 }
 
+/// GH-376: `--resume` replays the generation the interrupted undo was heading
+/// for, read from the ledger. It used to re-apply the CURRENT config, which is
+/// the same defect `cmd_undo` had — so an operator whose first undo failed
+/// halfway had one flag that put the machine back where it started.
+#[test]
+fn undo_resume_replays_the_ledgers_generation_not_the_current_config() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("forjar.yaml");
+    std::fs::write(&cfg_path, WEB_CONFIG).unwrap();
+
+    // Generation 1 exists but recorded no config, so a resume that consults the
+    // ledger must refuse. A resume that re-applies `-f` would sail past it.
+    std::fs::create_dir_all(state_dir.path().join("generations/1")).unwrap();
+
+    let mut resources = HashMap::new();
+    resources.insert(
+        "nginx".to_string(),
+        types::ResourceProgress {
+            status: types::ResourceProgressStatus::Pending,
+            at: None,
+        },
+    );
+    let progress = types::UndoProgress {
+        generation_from: 2,
+        generation_to: 1,
+        started_at: "2026-01-01T00:00:00Z".to_string(),
+        status: types::UndoStatus::Partial,
+        resources,
+    };
+    super::undo::write_undo_progress(state_dir.path(), "web", &progress);
+
+    let err =
+        super::undo::cmd_undo_resume(&cfg_path, state_dir.path(), None, false, true).unwrap_err();
+    assert!(
+        err.contains("records no config"),
+        "resume must consult the ledger's generation, not the current config; got: {err}"
+    );
+}
+
 // ── cmd_undo: error paths ────────────────────────────────────────────
+
+const WEB_CONFIG: &str =
+    "version: '1.0'\nname: t\nmachines:\n  web:\n    hostname: w\n    addr: 127.0.0.1\nresources: {}\n";
+
+const WEB_LOCK: &str = "schema: '1'\nmachine: web\nhostname: w\ngenerated_at: t\ngenerator: g\nblake3_version: b\nresources:\n  nginx:\n    type: package\n    status: converged\n    hash: abc123\n";
+
+/// GH-376: a generation is only a usable undo target if it recorded the config
+/// that produced it. These fixtures predate that, so they record one.
+fn record_replay_config(gen: &std::path::Path) {
+    std::fs::write(gen.join(".applied-config.yaml"), WEB_CONFIG).unwrap();
+}
 
 fn setup_generations(state_dir: &std::path::Path, count: u32) {
     let gen_dir = state_dir.join("generations");
     for i in 0..count {
-        std::fs::create_dir_all(gen_dir.join(i.to_string())).unwrap();
+        let g = gen_dir.join(i.to_string());
+        std::fs::create_dir_all(&g).unwrap();
+        record_replay_config(&g);
     }
     // Create symlink for current → last generation
     if count > 0 {
         let current = gen_dir.join("current");
         std::os::unix::fs::symlink((count - 1).to_string(), &current).unwrap();
     }
+}
+
+/// Give a generation a machine lock so it can be an undo target at all.
+fn record_lock(dir: &std::path::Path, machine: &str) {
+    let d = dir.join(machine);
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("state.lock.yaml"), WEB_LOCK).unwrap();
 }
 
 #[test]
@@ -210,12 +270,56 @@ fn undo_dry_run_no_changes() {
     )
     .unwrap();
 
-    // Create gen 0 and gen 1 with no machine locks
+    // GH-376: the target generation and the LIVE state hold the same lock, so
+    // there genuinely is nothing to undo. This is the control that fails if the
+    // fix degenerates into "always re-apply the target".
+    setup_generations(state_dir.path(), 2);
+    record_lock(&state_dir.path().join("generations/0"), "web");
+    record_lock(&state_dir.path().join("generations/1"), "web");
+    record_lock(state_dir.path(), "web");
+
+    let result = super::undo::cmd_undo(&cfg_path, state_dir.path(), 1, None, true, true);
+    assert!(result.is_ok(), "already-at-target must succeed: {result:?}");
+}
+
+/// GH-376: a target generation with no recorded config cannot be replayed, and
+/// undo must say so instead of quietly re-applying the CURRENT config.
+#[test]
+fn undo_refuses_generation_without_recorded_config() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("forjar.yaml");
+    std::fs::write(&cfg_path, WEB_CONFIG).unwrap();
+
+    let gen_dir = state_dir.path().join("generations");
+    for i in 0..2 {
+        std::fs::create_dir_all(gen_dir.join(i.to_string())).unwrap();
+    }
+    std::os::unix::fs::symlink("1", gen_dir.join("current")).unwrap();
+
+    let err = super::undo::cmd_undo(&cfg_path, state_dir.path(), 1, None, true, true).unwrap_err();
+    assert!(
+        err.contains("records no config"),
+        "expected a refusal naming the missing snapshot, got: {err}"
+    );
+}
+
+/// GH-376: an empty diff against a target that recorded no machine state is not
+/// a success — undo cannot know what the host should hold.
+#[test]
+fn undo_refuses_target_generation_with_no_locks() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("forjar.yaml");
+    std::fs::write(&cfg_path, WEB_CONFIG).unwrap();
+
     setup_generations(state_dir.path(), 2);
 
-    // Undo 1 → target=0, both empty, no changes
-    let result = super::undo::cmd_undo(&cfg_path, state_dir.path(), 1, None, true, true);
-    assert!(result.is_ok());
+    let err = super::undo::cmd_undo(&cfg_path, state_dir.path(), 1, None, true, true).unwrap_err();
+    assert!(
+        err.contains("records no machine state"),
+        "expected a refusal, not a silent Ok, got: {err}"
+    );
 }
 
 #[test]
@@ -231,14 +335,12 @@ fn undo_dry_run_with_changes() {
 
     let gen_dir = state_dir.path().join("generations");
     // Gen 0 has a lock with resources
-    std::fs::create_dir_all(gen_dir.join("0/web")).unwrap();
-    std::fs::write(
-        gen_dir.join("0/web/state.lock.yaml"),
-        "schema: '1'\nmachine: web\nhostname: w\ngenerated_at: t\ngenerator: g\nblake3_version: b\nresources:\n  nginx:\n    type: package\n    status: converged\n    hash: abc123\n",
-    )
-    .unwrap();
+    std::fs::create_dir_all(gen_dir.join("0")).unwrap();
+    record_lock(&gen_dir.join("0"), "web");
+    record_replay_config(&gen_dir.join("0"));
     // Gen 1 is empty
     std::fs::create_dir_all(gen_dir.join("1")).unwrap();
+    record_replay_config(&gen_dir.join("1"));
     std::os::unix::fs::symlink("1", gen_dir.join("current")).unwrap();
 
     // Undo 1 gen → dry_run shows changes
@@ -258,13 +360,11 @@ fn undo_no_yes_flag() {
     .unwrap();
 
     let gen_dir = state_dir.path().join("generations");
-    std::fs::create_dir_all(gen_dir.join("0/web")).unwrap();
-    std::fs::write(
-        gen_dir.join("0/web/state.lock.yaml"),
-        "schema: '1'\nmachine: web\nhostname: w\ngenerated_at: t\ngenerator: g\nblake3_version: b\nresources:\n  nginx:\n    type: package\n    status: converged\n    hash: abc123\n",
-    )
-    .unwrap();
+    std::fs::create_dir_all(gen_dir.join("0")).unwrap();
+    record_lock(&gen_dir.join("0"), "web");
+    record_replay_config(&gen_dir.join("0"));
     std::fs::create_dir_all(gen_dir.join("1")).unwrap();
+    record_replay_config(&gen_dir.join("1"));
     std::os::unix::fs::symlink("1", gen_dir.join("current")).unwrap();
 
     // Without --yes, not dry_run → should err

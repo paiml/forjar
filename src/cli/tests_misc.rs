@@ -1,6 +1,7 @@
 //! Tests: Misc.
 
 #![allow(unused_imports)]
+use crate::cli::commands::LintGateArgs;
 use super::commands::*;
 use super::helpers::*;
 use super::helpers_state::*;
@@ -71,10 +72,10 @@ resources:
         )
         .unwrap();
         // Non-strict: no warning about root owner
-        cmd_lint(&file, false, false, false).unwrap();
+        cmd_lint_gated(&file, false, false, false, &LintGateArgs::default()).unwrap();
         // TODO: can't easily capture stdout in tests, but verify it compiles and runs
         // Strict mode adds warnings
-        cmd_lint(&file, false, true, false).unwrap();
+        cmd_lint_gated(&file, false, true, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -102,7 +103,7 @@ resources:
         )
         .unwrap();
         // Root owner with "system" tag should NOT produce a no_root_owner warning
-        cmd_lint(&file, false, true, false).unwrap();
+        cmd_lint_gated(&file, false, true, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -134,7 +135,7 @@ resources:
         )
         .unwrap();
         // Strict mode should warn about resource 'a' having no tags
-        cmd_lint(&file, false, true, false).unwrap();
+        cmd_lint_gated(&file, false, true, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -164,7 +165,7 @@ resources:
         )
         .unwrap();
         // Strict: remote machine without ssh_key should warn
-        cmd_lint(&file, false, true, false).unwrap();
+        cmd_lint_gated(&file, false, true, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -196,7 +197,7 @@ resources:
         )
         .unwrap();
         // Strict: privileged container should warn
-        cmd_lint(&file, false, true, false).unwrap();
+        cmd_lint_gated(&file, false, true, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]

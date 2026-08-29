@@ -199,7 +199,13 @@ fn numbered_for_diagnosis(sanitised: &str) -> String {
 ///    which use absolute paths that trigger bashrs SEC010 false positives
 /// 4. Cargo cache staging operations (`cp`, `mkdir -p`, `rm -rf` with `_STAGING`/`_CACHE_DIR`)
 ///    which are safe by construction but trigger SEC010/SEC011 false positives
-fn strip_data_payloads(script: &str) -> String {
+///
+/// `pub(crate)` so `core::quality_gate` can lint the SAME text this transport
+/// will execute. A gate that judges the raw script while the executor judges
+/// the stripped one is a gate that disagrees with the thing it guards: it
+/// would refuse an apply over a base64 blob the executor accepts without
+/// comment.
+pub(crate) fn strip_data_payloads(script: &str) -> String {
     // Phase 1: strip base64 blobs
     let re_b64 = regex::Regex::new(r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'")
         .expect("base64 regex is valid");

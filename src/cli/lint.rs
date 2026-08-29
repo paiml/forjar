@@ -1,8 +1,15 @@
 //! Linting.
 
+use super::commands::LintGateArgs;
 use super::helpers::*;
+use crate::core::quality_gate::{self, GateThresholds};
 use crate::core::{codegen, types};
 use std::path::Path;
+
+// `lint --fix`'s machinery lives in `lint_fix.rs` (the 500-line ceiling split it
+// out). Re-exported because every caller reaches it through
+// `use super::lint::*`, and moving the module should not move the import.
+pub(crate) use super::lint_fix::lint_auto_fix;
 
 fn lint_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
@@ -340,32 +347,23 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     warnings
 }
 
-pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
-    let mut fixes_applied = Vec::new();
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
-    let mut doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("YAML parse error: {e}"))?;
-    if let Some(serde_yaml_ng::Value::Mapping(map)) = doc.get_mut("resources") {
-        let mut pairs: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        pairs.sort_by(|(a, _), (b, _)| a.as_str().unwrap_or("").cmp(b.as_str().unwrap_or("")));
-        *map = serde_yaml_ng::Mapping::new();
-        for (k, v) in pairs {
-            map.insert(k, v);
-        }
-        fixes_applied.push("sorted resource keys alphabetically".to_string());
-    }
-    if !fixes_applied.is_empty() {
-        let normalized =
-            serde_yaml_ng::to_string(&doc).map_err(|e| format!("serialization error: {e}"))?;
-        std::fs::write(file, normalized)
-            .map_err(|e| format!("cannot write {}: {}", file.display(), e))?;
-    }
-    Ok(fixes_applied)
-}
-
-pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Result<(), String> {
-    cmd_lint_with_writer(file, json, strict, fix, &mut super::output::StdoutWriter)
+/// `forjar lint`. `gate` carries the knobs the CLI leaf parses; the rest of
+/// the lint rules are unconditional.
+pub(crate) fn cmd_lint_gated(
+    file: &Path,
+    json: bool,
+    strict: bool,
+    fix: bool,
+    gate: &LintGateArgs,
+) -> Result<(), String> {
+    cmd_lint_with_writer(
+        file,
+        json,
+        strict,
+        fix,
+        gate,
+        &mut super::output::StdoutWriter,
+    )
 }
 
 /// Inner lint with injectable OutputWriter (FJ-2920).
@@ -374,9 +372,28 @@ pub(crate) fn cmd_lint_with_writer(
     json: bool,
     strict: bool,
     fix: bool,
+    gate: &LintGateArgs,
     out: &mut dyn super::output::OutputWriter,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
+
+    // The gate is computed in core and rendered here. `forjar_lint` calls the
+    // same function and renders the same strings, so the two surfaces cannot
+    // disagree about a config the way they did before FJQ.
+    let thresholds = GateThresholds {
+        max_cyclomatic: gate.max_cyclomatic,
+        policy_dir: gate.policy_dir.clone(),
+        complexity_is_error: false,
+    };
+    let yaml_text = std::fs::read_to_string(file).ok();
+    let report = quality_gate::evaluate(&config, yaml_text.as_deref(), &thresholds);
+
+    if gate.sarif {
+        let sarif = report.to_sarif(&file.display().to_string());
+        out.result(&serde_json::to_string_pretty(&sarif).map_err(|e| format!("JSON error: {e}"))?);
+        out.flush();
+        return Ok(());
+    }
 
     let mut warnings: Vec<String> = Vec::new();
     warnings.extend(lint_unused_machines(&config));
@@ -390,7 +407,12 @@ pub(crate) fn cmd_lint_with_writer(
     warnings.extend(lint_semicolon_chains(&config));
     warnings.extend(lint_nohup_ld_path(&config));
     warnings.extend(lint_nohup_sleep_health(&config));
+    // #359 kept alongside FJQ: `lint_scripts` walks the GENERATED shell with
+    // bashrs, which is a different question from the quality gate's report —
+    // the merge of the two branches dropped this call once, and the only
+    // symptom was a dead-code warning.
     warnings.extend(lint_scripts(&config));
+    warnings.extend(report.render());
 
     if json {
         let report = serde_json::json!({
@@ -408,11 +430,18 @@ pub(crate) fn cmd_lint_with_writer(
         }
         if fix {
             let fixes = lint_auto_fix(file)?;
-            for f in &fixes {
+            for f in &fixes.applied {
                 out.success(&format!("fixed: {f}"));
             }
-            if !fixes.is_empty() {
-                out.status(&format!("Wrote normalized config to {}", file.display()));
+            for r in &fixes.refused {
+                out.warning(r);
+            }
+            if !fixes.applied.is_empty() {
+                out.status(&format!(
+                    "Rewrote {} in place — comments, quote style and every \
+                     untouched line are unchanged",
+                    file.display()
+                ));
             }
         }
         out.result(&format!("\nLint: {} warning(s)", warnings.len()));

@@ -16,11 +16,13 @@ pub(super) fn generations_dir(state_dir: &Path) -> PathBuf {
 /// Create a new generation from the current state directory contents.
 /// Returns the new generation number.
 ///
-/// If `config_path` is provided, computes a BLAKE3 hash of the config file
-/// and stores it in the generation metadata for config tracking.
+/// GH-376: called AFTER the apply, so the snapshot pairs the state it produced
+/// with the config that produced it — the pair `undo` replays. The EXPANDED
+/// config, not the file path: includes and `-p` overrides are resolved in the
+/// value and absent from the file.
 pub(crate) fn create_generation(
     state_dir: &Path,
-    config_path: Option<&Path>,
+    config: Option<&crate::core::types::ForjarConfig>,
 ) -> Result<u32, String> {
     let gen_dir = generations_dir(state_dir);
     std::fs::create_dir_all(&gen_dir).map_err(|e| format!("cannot create generations dir: {e}"))?;
@@ -38,11 +40,10 @@ pub(crate) fn create_generation(
     if let Some(git_ref) = crate::core::types::get_git_ref() {
         meta = meta.with_git_ref(git_ref);
     }
-    if let Some(cfg_path) = config_path {
-        if let Ok(bytes) = std::fs::read(cfg_path) {
-            let hash = blake3::hash(&bytes).to_hex().to_string();
-            meta = meta.with_config_hash(format!("blake3:{hash}"));
-        }
+    // GH-376: the hash AND the body. A hash alone told `undo` nothing about the
+    // state to return to, which is why it re-applied the current config instead.
+    if let Some(cfg) = config {
+        super::undo_replay::record_config(&mut meta, &target, cfg);
     }
     meta.forjar_version = Some(env!("CARGO_PKG_VERSION").to_string());
     let meta_yaml = meta.to_yaml()?;
@@ -302,7 +303,10 @@ fn restore_generation_to_state(gen_path: &Path, state_dir: &Path) -> Result<(), 
         std::fs::read_dir(gen_path).map_err(|e| format!("cannot read generation: {e}"))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if name == ".generation.yaml" {
+        // Both are ABOUT the generation, not part of the state it holds. The
+        // recorded config in particular must not leak into the state dir: the
+        // next generation writes its own from the config actually applied.
+        if name == ".generation.yaml" || name == super::undo_replay::APPLIED_CONFIG {
             continue;
         }
         let src = entry.path();

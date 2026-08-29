@@ -205,11 +205,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = setup_state(dir.path());
 
-        // Write a config file to hash
-        let config_path = dir.path().join("forjar.yaml");
-        std::fs::write(&config_path, "version: '1.0'\nname: test\n").unwrap();
+        // GH-376: a generation records the EXPANDED config value, not the path
+        // to the file the operator named — includes and `-p` overrides are
+        // resolved in the value and absent from the file.
+        let mut config = crate::core::types::ForjarConfig {
+            name: "test".to_string(),
+            ..Default::default()
+        };
+        config.policy.snapshot_generations = Some(10);
 
-        let gen = create_generation(&state_dir, Some(&config_path)).unwrap();
+        let gen = create_generation(&state_dir, Some(&config)).unwrap();
         assert_eq!(gen, 0);
 
         // Verify config_hash is in generation metadata
@@ -217,6 +222,20 @@ mod tests {
         let meta_content = std::fs::read_to_string(meta_path).unwrap();
         assert!(meta_content.contains("config_hash:"), "metadata should contain config_hash field, got:\n{meta_content}");
         assert!(meta_content.contains("blake3:"), "config_hash should use blake3 prefix");
+
+        // The BODY, not just the hash. A hash alone is what left `undo` with
+        // nothing to replay, so it re-applied the current config and undid
+        // nothing (#376).
+        let body_path = state_dir
+            .join("generations")
+            .join("0")
+            .join(".applied-config.yaml");
+        let body = std::fs::read_to_string(&body_path)
+            .expect("the generation must record the config body, not only its hash");
+        assert!(
+            body.contains("name: test"),
+            "recorded body should be the config that produced the generation, got:\n{body}"
+        );
     }
 
     #[test]

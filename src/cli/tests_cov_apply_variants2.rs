@@ -1,10 +1,11 @@
 //! Tests: Coverage for cmd_refresh_only and cmd_apply_from_plan in
 //! apply_variants.rs — main paths and error branches (PMAT-088).
 
+use super::apply_from_plan::cmd_apply_from_plan;
 use super::apply_variants::*;
 use super::helpers::parse_and_validate;
 use super::helpers_state::load_machine_locks;
-use super::plan::save_plan_file;
+use super::plan_file::save_plan_file;
 use super::workspace::inject_workspace_param;
 use crate::core::{executor, planner, resolver, types};
 use std::path::{Path, PathBuf};
@@ -68,7 +69,37 @@ fn save_plan_for(cfg: &Path, sd: &Path, ws: Option<&str>, out: &Path) {
     let order = resolver::build_execution_order(&config).unwrap();
     let locks = load_machine_locks(&config, sd, None).unwrap();
     let plan = planner::plan(&config, &order, &locks, None);
-    save_plan_file(&plan, &config, cfg, out).unwrap();
+    save_plan_file(
+        &plan,
+        &crate::core::plan_selectors::PlanSelectors::default(),
+        &config,
+        cfg,
+        sd,
+        out,
+    )
+    .unwrap();
+}
+
+/// Refs #358: `cmd_apply_from_plan` takes one request value now, because the
+/// defect was a long list of fields silently set to the wrong thing.
+fn plan_request<'a>(
+    cfg: &'a Path,
+    sd: &'a Path,
+    plan_path: &'a Path,
+    verbose: bool,
+) -> super::apply_from_plan::PlanApplyRequest<'a> {
+    super::apply_from_plan::PlanApplyRequest {
+        file: cfg,
+        state_dir: sd,
+        plan_path,
+        verbose,
+        env_file: None,
+        workspace: Some("pfws"),
+        operator: None,
+        dry_run: false,
+        selectors: crate::core::plan_selectors::PlanSelectors::default(),
+        knobs: super::apply_from_plan::ApplyKnobs::default(),
+    }
 }
 
 #[cfg(test)]
@@ -170,7 +201,7 @@ mod tests {
         let plan_path = dir.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
 
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, true, None, Some("pfws"), None);
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &plan_path, true));
         assert!(r.is_ok(), "saved plan should apply cleanly: {r:?}");
         assert!(target.exists(), "planned file resource should be created");
     }
@@ -181,22 +212,15 @@ mod tests {
         // Plan built AFTER converge has no pending changes.
         let plan_path = d.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &plan_path, false));
         assert!(r.is_ok(), "no-change plan exits early: {r:?}");
     }
 
     #[test]
     fn from_plan_missing_file_err() {
         let (d, cfg, sd, _t) = converged_setup();
-        let r = cmd_apply_from_plan(
-            &cfg,
-            &sd,
-            &d.path().join("nope.json"),
-            false,
-            None,
-            Some("pfws"),
-            None,
-        );
+        let missing = d.path().join("nope.json");
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &missing, false));
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("read plan file"));
     }
@@ -206,7 +230,7 @@ mod tests {
         let (d, cfg, sd, _t) = converged_setup();
         let plan_path = d.path().join("plan.json");
         std::fs::write(&plan_path, r#"{"format": "bogus-v9"}"#).unwrap();
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &plan_path, false));
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("unsupported plan format"));
     }
@@ -222,9 +246,10 @@ mod tests {
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
         // Mutate the config after the plan was saved → hash mismatch.
         write_cfg(dir.path(), &target, "v2-changed");
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
-        assert!(r.is_err());
-        assert!(r.unwrap_err().contains("config has changed"));
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &plan_path, false));
+        let err = r.unwrap_err();
+        assert!(err.starts_with("PLAN_HASH_MISMATCH:"), "{err}");
+        assert!(err.contains("config leg"), "{err}");
     }
 
     #[test]
@@ -235,7 +260,7 @@ mod tests {
         std::fs::create_dir_all(&sd).unwrap();
         let plan_path = dir.path().join("plan.json");
         save_plan_for(&cfg, &sd, Some("pfws"), &plan_path);
-        let r = cmd_apply_from_plan(&cfg, &sd, &plan_path, false, None, Some("pfws"), None);
+        let r = cmd_apply_from_plan(&plan_request(&cfg, &sd, &plan_path, false));
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("failed"));
     }

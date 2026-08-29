@@ -7,6 +7,329 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**`apply --plan-file` ignored `--dry-run` and `-m`.** `cmd_apply_from_plan` took
+neither argument, and the `ApplyConfig` it built hard-coded `dry_run: false,
+machine_filter: None`, so:
+
+```
+$ forjar apply -f forjar.yaml --plan-file p.json --dry-run
+Plan applied: 1 converged, 0 unchanged, 0 failed
+$ echo $?; test -f alpha.txt && echo CREATED
+0
+CREATED
+```
+
+A two-phase plan/review/apply feature whose `--dry-run` converges the machine
+instead of previewing it is the worst available default. `--dry-run` now prints
+the reviewed plan and applies nothing.
+
+`-m` **intersects** the reviewed scope — a selector on `--plan-file` may only
+narrow the reviewed delta, never widen it — and an EMPTY intersection is now an
+error naming what the plan does cover, rather than an apply of nothing that
+exits 0. The other three selectors join it below.
+
+**A re-sealed plan could still claim "no changes", and the first fix closed
+only the empty case.** The seal is an unkeyed BLAKE3 hash, so anyone who can run
+`forjar` can compute one: copy `config_hash` and `state_hash` verbatim out of an
+honest plan (neither leg moves), rewrite the body, recompute the diff leg and
+the composition through the public `plan_seal::digest` API, and `apply
+--plan-file` printed `Plan has no changes to apply.` and exited 0 with a create
+still pending.
+
+The 1.20.1-era claim that `check_body_partition` "still refuses a
+zero-the-counters edit whose author ALSO recomputed the seal" was **false** and
+has been deleted from the module docs. `0/0/0/0` over an EMPTY change list
+partitions perfectly well; that check catches a plan claiming zero *while
+listing several*, and the attack empties the list.
+
+The repair for that — `apply --plan-file` re-plans and compares — was right, but
+the clause covering an empty body keyed off `plan.changes.is_empty()`, a
+syntactic accident. What decides whether anything executes is
+`PlanScope::from_plan`, which skips `NoOp`. So on a PARTIALLY converged stack
+— every real deployment — the same attack works without emptying anything:
+delete the one pending line and keep an honest `no_op` line beside it. Counters
+still partition (0/0/0/1), the list is not empty, the scope is:
+
+```
+$ forjar apply --plan-file forged_delete.json --yes
+Plan has no changes to apply.
+exit=0                                    # alpha STILL PENDING
+```
+
+The obvious repair — use `scope.is_empty()`, the predicate three lines below —
+is **wrong**, and the reason is the interesting part of this fix. `forjar plan
+-r bravo --out` over an already-converged `bravo` writes `changes: [bravo
+no_op]`, counters `0/0/0/1`, empty scope: the SAME DOCUMENT, byte for byte.
+That plan applies cleanly today and must keep doing so, or every idempotent CI
+loop over a filtered plan starts failing. No predicate over the document can
+separate a narrow plan from an edited one, because the format could not say
+which it was.
+
+So the format says it now. `forjar-plan-v2` carries a `selectors` record —
+the `-m`/`-r`/`-t`/`-g` the plan was written under — sealed into the diff leg,
+and `apply --plan-file` re-plans **through those selectors** and requires
+agreement in BOTH directions:
+
+- every pair the body NAMES must carry the action the planner gives it (catches
+  relabelling a create as `no_op`);
+- every non-`NoOp` change the planner PRODUCES must be named by the body
+  (catches deleting the line instead, and catches emptying the list).
+
+Two directions, one predicate, and no special case for emptiness — which is what
+the two evaded checks both were. `plan` and `apply --plan-file` now compute
+their plans through ONE function (`cli::plan_compute::plan_filtered`), because a
+second spelling of "the planner plus the four selectors" would make the
+comparison fire on plans nobody edited.
+
+A forger can still re-seal a document that DECLARES itself narrow, and the
+planner will honestly agree with it. What they can no longer do is that
+invisibly: the claim has to be in the file, and an empty-scope apply of a
+filtered plan now prints the work it is not doing —
+
+```
+Plan has no changes to apply.
+note: this plan is filtered (-r bravo) and asks for nothing. 1 change(s)
+      OUTSIDE its filter are still pending: alpha on web (CREATE).
+```
+
+The seal remains what `core::plan_seal` always said it was — integrity, not
+authentication. Two-phase *authorization* would need a keyed hash or
+`cli::pq_signing`, and is a different feature.
+
+**A `forjar-plan-v1` document can no longer be narrow.** v1 has no `selectors`
+record and never will, so "written with `-r alpha`" and "someone deleted the
+bravo line" are the same document — and a v1 forgery needs no skill at all,
+since there is no seal to recompute. Exempting v1 from the completeness check
+would have left the whole defect open behind a one-word `"format"` edit, so v1
+gets the strict reading: its body must name every change the planner finds
+pending. The remedy is one `forjar plan --out`, which writes v2.
+
+**`apply --plan-file` silently dropped every apply flag except `-m`.** The
+`ApplyConfig` it built took exactly one field from the invocation; the other
+fifteen were hard-coded:
+
+```
+$ forjar apply -f forjar.yaml --plan-file p.json --yes -r alpha
+Plan applied: 2 converged, 0 unchanged, 0 failed      # bravo converged too
+```
+
+and the same for `-t`, `-g`, `--progress`, `--force`, `--timeout`, `--retry`,
+`--parallel`, `--max-parallel`, `--resource-timeout`, `--rollback-on-failure`,
+`--trace`, `--refresh`, `--force-unlock` and `--force-tag`. An operator who
+believed `--rollback-on-failure` was armed on a plan apply was wrong, silently.
+Worse, the doc comment written to fix an earlier FALSE-comment defect supplied a
+rationale for it — that the selectors "were already applied when the plan body
+was written". True of how the plan was produced; no reason at all to ignore a
+flag the operator is passing NOW.
+
+Each flag is now decided rather than dropped:
+
+- **Selectors** — `-m`, `-r`, `-t`, `-g` INTERSECT the reviewed scope. A
+  selector may only narrow a reviewed delta, never widen it, and the executor
+  already intersects all four with the scope. An EMPTY intersection is an error
+  naming what the plan covers, because converging nothing at exit 0 is the
+  silent green this whole issue is about. `--dry-run` previews the same
+  narrowed set the real run would converge.
+- **Knobs** — `--progress`, `--timeout`, `--retry`, `--parallel`,
+  `--max-parallel`, `--resource-timeout`, `--rollback-on-failure`,
+  `--force-unlock` and `--trace` say HOW the reviewed delta executes and are
+  passed straight through. There was never a reason not to.
+- **Re-planners** — `--force`, `--force-tag` and `--refresh` are now REFUSED
+  with `--plan-file`. They clear the lock entries the planner reads, so they
+  change what the delta IS: `--force-tag`/`--refresh` can make a resource
+  reviewed as `update` execute as `create`, and `--force` defeats the scope
+  outright, because `PlanScope` demotes out-of-scope changes to `NoOp` so
+  `triggers` still fire and `should_skip_single` skips a `NoOp` only
+  `if !cfg.force`. Refusing costs one re-run; ignoring cost the belief that a
+  reviewed plan executed.
+
+GH-208 rides along: the plan path was handed `args.dry_run` alone, so
+`--plan-file --dry-run-json` converged for real. It takes the whole dry-run
+family now.
+### Added
+
+**One quality gate, in core, shared by `forjar lint`, `forjar_lint` and the
+pre-apply check.** (Refs #356)
+
+`core::quality_gate::evaluate` runs four checks — bashrs over the generated
+shell, plaintext secrets in the config and in the scripts, an opt-in cyclomatic
+ceiling, and compliance packs plus in-config `policies:` — and returns one
+verdict that every surface renders. `forjar lint` gains `--sarif`,
+`--policy-dir` and `--max-cyclomatic`; `forjar_lint` gains `gate_passed`,
+`error_code`, `findings[]` and a SARIF 2.1.0 `sarif` object, all additive.
+
+A value sealed as `ENC[age,<ciphertext>]` is ciphertext, not a plaintext
+secret, and is not reported — the discrimination that separates this from a
+grep for the word `password`.
+
+SARIF results now carry `region.startLine` for the resource's declaration when
+that key is in the file that was linted, and the artifact uri is the real path
+rather than the literal `forjar.yaml`. `parser::policy_check_to_sarif` is a
+projection onto the same emitter, so there is one SARIF emitter in the tree
+instead of two.
+
+### Changed
+
+**`forjar lint` and `forjar_lint` gave different answers for the same file.**
+(Refs #356)
+
+`cli/lint.rs` dropped every `SC1*` diagnostic and every line inside a heredoc
+body; `mcp/handlers.rs` dropped neither, and listed advisory diagnostics the
+CLI only tallied. Same verb, two answers, and `tests_parity.rs` never compared
+lint. Both now route through `core::quality_gate` and render identically:
+
+- the `SC1*` exclusion is gone. Its comment cited false positives that
+  `core::purifier` removed in forjar#285 after linting 1,311 generated scripts
+  and measuring ZERO SC1 hits. SC1 is the syntax-error family.
+- diagnostics below `Severity::Warning` are dropped on BOTH surfaces. They are
+  style advice about shell forjar emits, not shell the operator wrote.
+- the gate lints `transport::strip_data_payloads(script)` — the exact text the
+  executor validates — so it can no longer refuse an apply over a base64 blob
+  or a `content:` heredoc the transport runs without comment.
+- lint findings are now rendered as `FJQ-<rule> <resource>[/<phase>]: <message>`.
+
+**`forjar apply --policy-check` widened from compliance packs to the whole
+gate.** (Refs #356) It evaluated packs and nothing else, so a config could ship
+a plaintext password, or emit shell bashrs rejects outright, and still apply.
+The refusal now names `FORJAR_QUALITY_GATE_VIOLATION` and lists every blocking
+finding. `validate` and `plan` are deliberately NOT gated: both are read-only
+and answer questions, and a gate in front of a question takes away the
+operator's route to a fix.
+
+**`lint --policy-dir` runs shell, so it is a CLI flag and NOT a verb
+parameter.** (Refs #356) A compliance pack rule of `type: script` is evaluated
+by `sh -c`, so pointing the gate at a pack directory executes what the pack
+author wrote — measured, not inferred: a pack whose script is `touch <path>`
+creates that file under `forjar verb call lint`.
+
+An earlier revision of this entry kept the field on every surface and justified
+it by saying `Effects::ReadOnly` meant read-only *with respect to the fleet*,
+citing 1.21.0's `ambient_inputs`. That reading is withdrawn. `ReadOnly` means
+the invocation writes nothing anywhere — the machine running it included — and
+runs nothing somebody else chose, which is the conclusion 1.21.1 reached
+independently from the config's side (forjar#372). `policy_dir` is gone from
+`mcp::types::LintInput`; `--policy-dir` survives on `forjar lint` and
+`forjar apply --policy-check`, where an operator typed a flag whose help text
+says it runs shell. Opting in and reading a schema are not the same act.
+
+It is off by default on every surface; in-config `policies:` are declarative
+and never execute anything.
+
+`compliance_pack::RuleEvalResult` gained a `severity` field. The gate needs it
+to level a per-rule finding, and `compliance_gate::count_severity_failures` was
+recovering it by searching `pack.rules` for a matching id — answering "warning"
+for any result whose id was not found, so a pack whose ids drifted counted zero
+errors and passed the gate.
+
+## [1.22.0] — 2026-08-29
+
+Epic #356: the unified verb surface grows from nine verbs to twelve, the quality
+gate becomes one calculation instead of three, and a plan file becomes a sealed
+artifact rather than a suggestion. Everything here was built against the real
+binary and every fix ships with a test that was verified to fail before it.
+
+### Added
+
+- **`forjar_remediate`** (#356) — a verb that proposes corrections to a config
+  and writes nothing. It earns `Effects::ReadOnly` the hard way: the fix set is
+  returned as data, and applying it is the caller's separate, explicit act.
+- **`forjar_audit` and `forjar_workspace`** (#356). Both existed as CLI leaves
+  whose results could only be printed; the provenance trail and the workspace
+  identity list are now structured output an agent can consume.
+- **Plan sealing — `forjar-plan-v2`** (#356, #358). A plan is now bound to the
+  state it was computed against AND to its own body, so a hand-edited plan file
+  is rejected rather than silently honoured. The seal covers the `selectors`
+  that produced it, which closes the case below.
+- **A TOTAL partition of the CLI surface** (`src/verb/partition.rs`). All 193
+  CLI leaves are classified `Unified`, `CliOnly(reason)`, or `Pending(issue)`,
+  and a leaf that names no bucket **fails the build**. The test walks the live
+  clap tree, so a new command cannot quietly skip the question of whether it
+  belongs on the verb surface.
+
+### Fixed
+
+- **A `ReadOnly` verb ran shell, and the gate that should have caught it was
+  blind** (#356). `forjar_lint --policy-dir` reached `sh -c`. Found by driving
+  real MCP stdio rather than by reading the code — a `policy_dir` pointing at a
+  directory of policies created a sentinel file on disk through a verb
+  published as read-only.
+- **`--plan-file` executed the whole config, not the plan** (#356, #358). The
+  flag read the plan for its metadata and then re-planned from scratch, so the
+  resources actually applied were whatever the config said at apply time, not
+  what the operator reviewed and approved.
+- **An unsealed v1 plan chose the filters it was checked under** (#358). A plan
+  produced with `-r bravo` could be applied without the selector, widening the
+  blast radius past what was reviewed. The v2 seal now covers selectors. The
+  first proposed fix here — rejecting an empty scope — was measured and
+  *withdrawn*: `forjar plan -r bravo --out` over an already-converged resource
+  legitimately yields an empty scope, so that rule would have broken every
+  idempotent CI loop over a filtered plan.
+- **`--plan-file` ignored `--dry-run`** and dropped every flag but `-m` (#358).
+- **`forjar lint --fix` deleted every comment in the config it was fixing**
+  (#359). The fixer round-tripped through a parse that does not preserve
+  comments, so running it cost the user their annotations.
+- **The same verb gave two answers depending on the transport** (#356). The
+  quality gate was three separate calculations (CLI, verb, pre-apply); it is now
+  one implementation in core, so the surfaces cannot disagree.
+- **`policy-coverage` was withdrawn from the verb surface** (#369). The unified
+  answer was wrong, and shipping a wrong number under a stable name is worse
+  than shipping no verb. `forjar policy-coverage` remains a CLI command.
+
+- **`forjar undo` did not undo** (#376). It rolled the lock back to the target
+  generation and then re-applied the CURRENT config, which immediately
+  re-converged the host to the state it had just walked away from. Three applies
+  of `v1 → v2 → v3` followed by `undo --yes` exited 0, printed `1 converged`,
+  and left the file holding `v3`. It could not have worked: a generation stored
+  only a BLAKE3 hash of the config, never its body, so undo had nothing to
+  replay. Present since at least 1.20.1.
+
+  A generation is now recorded AFTER the apply it describes, carrying the
+  EXPANDED config beside the lock — expanded because `includes:` bodies and
+  `-p` overrides are resolved in the config *value* and absent from the file, so
+  recording the raw file left both to be re-read live at replay and converged
+  the host forwards again. `-p ver=v3` then undone used to land the host on the
+  param's DEFAULT: bytes no generation ever held.
+
+  Where faithful replay is impossible it **refuses** rather than guessing. A
+  `file` resource with `source:` takes its bytes from a path the generation
+  never captured, so replaying an old config against a newer payload would
+  converge forward while stamping the lock with the old hash — after which
+  `drift` reports clean over the wrong bytes. Undo now exits non-zero, names the
+  resource, and leaves host and lock untouched.
+
+- **`undo` applied the cwd `forjar.yaml` against an unrelated `--state-dir`**
+  (#377). `-f` defaults to `forjar.yaml` in the current directory while
+  `--state-dir` is separate, so the two could name different stacks and nothing
+  noticed: it diffed one stack's generations, applied another's resources, and
+  re-stamped the state dir — erasing the evidence they had ever differed. Undo
+  now refuses on a `GlobalLock.name` mismatch. It accepts a name the state dir
+  has applied under before, read from its own generations, so undoing across a
+  legitimate stack rename is never refused.
+
+- **`includes:` silently erased the base config's entire policy block** (#379).
+  The merge replaced `policy` wholesale and unconditionally; `Policy` derives
+  `Default`, so an include that said nothing about policy handed over a default
+  block. Any config using `includes:` therefore lost `tripwire` (drift detection
+  quietly off) and `snapshot_generations` (no generation recorded, so `undo` and
+  `rollback` were dead) — silently, and without the overwrite warning every
+  sibling section already had. Policy is now replaced only by an include that
+  declares one.
+
+### Known limitations
+
+- **The running MCP server does not send `readOnlyHint`** (#375). All twelve
+  verbs are read-only and `forjar mcp --schema` reports the annotation per tool,
+  but `serve()` builds its tool list through a different function, and
+  `pforge_config::ToolDef::Native` has no annotations field — so the property
+  cannot reach a live client without an upstream change. Prose that claimed
+  otherwise has been corrected rather than left to mislead.
+- **`forjar apply` authorization is checked below several early-return exits**
+  (#370, #374). 1.21.1 closed `--plan-file`; `--canary-machine` still reaches a
+  converging apply without passing `check_operator_auth`, and `--refresh-only`
+  and `--check` exit above the gate. Tracked with a full ledger in #370.
+
 ## [1.21.1] — 2026-08-29
 
 Two defects in 1.21.0 where a promise the call graph does not keep. Both were

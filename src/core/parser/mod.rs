@@ -71,7 +71,12 @@ use std::path::Path;
 pub use expansion::expand_resources;
 pub use policy::{
     evaluate_policies, evaluate_policies_full, policy_check_to_json, policy_check_to_sarif,
+    resource_field_value, violating_pairs,
 };
+// Crate-internal: `core::policy_coverage` reports coverage with the SAME
+// predicate the evaluator enforces with. Not `pub` — a second public scope
+// matcher is how the two drifted apart in the first place.
+pub(crate) use policy::matches_scope;
 pub use recipes::expand_recipes;
 
 /// Recognized CPU architectures for the `arch` field.

@@ -11,7 +11,7 @@ metadata:
     Spec: docs/specifications/unified-verb-surface.md
 
     MEASURED on the shipped 1.16.0 binary, 2026-08-22: 193 CLI leaves (160
-    top-level, 10 carrying 43 nested subcommands) against 9 MCP tools. 184
+    top-level, 10 carrying 43 nested subcommands) against 10 MCP tools. 184
     capabilities exist on exactly one transport.
 
     This contract does NOT promise to close that gap. A migration promise over
@@ -172,7 +172,7 @@ proof_obligations:
     enforced_by: "tests/e2e_transport_absence_t.rs::the_binary_advertises_no_undeclared_transport"
 
   - type: soundness
-    property: "The 9 MCP tools have ONE declaration site"
+    property: "The MCP tools have ONE declaration site"
     formal: "|declaration_sites(tool)| = 1"
     applies_to: surface_parity
     enforced_by: "tests/e2e_verb_surface_t.rs::cli_and_mcp_surfaces_agree"

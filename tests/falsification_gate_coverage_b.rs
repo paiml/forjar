@@ -5,13 +5,10 @@
 //!
 //! Usage: cargo test --test falsification_gate_coverage_b
 
-use forjar::core::policy_coverage::{
-    compute_coverage, coverage_to_json, format_coverage, PolicyCoverage,
-};
+use forjar::core::policy_coverage::{compute_coverage, coverage_to_json, format_coverage};
 use forjar::core::types::{
     ComplianceMapping, ForjarConfig, PolicyRule, PolicyRuleType, Resource, ResourceType,
 };
-use std::collections::HashMap;
 
 // ============================================================================
 // Helpers
@@ -128,33 +125,36 @@ fn coverage_json_uncovered() {
 }
 
 // ============================================================================
-// FJ-3208: PolicyCoverage Methods
+// FJ-3208: the derived fields
 // ============================================================================
+//
+// These used to build a `PolicyCoverage` by struct literal and then call
+// `coverage_percent()` on it. `coverage_percent` is now a FIELD computed once
+// by `compute_coverage` — one place for the answer, so the MCP verb and the
+// CLI cannot materialise it differently (paiml/forjar#356) — which makes a
+// struct literal a test that the literal it just wrote is the literal it just
+// wrote. Drive the real calculation instead.
 
 #[test]
 fn coverage_percent_empty() {
-    let cov = PolicyCoverage {
-        total_resources: 0,
-        covered_resources: 0,
-        uncovered: vec![],
-        per_resource: HashMap::new(),
-        by_type: HashMap::new(),
-        frameworks: std::collections::HashSet::new(),
-    };
-    assert!((cov.coverage_percent() - 100.0).abs() < f64::EPSILON);
-    assert!(cov.fully_covered());
+    let cov = compute_coverage(&make_config_with_resources(&[]));
+    assert!((cov.coverage_percent - 100.0).abs() < f64::EPSILON);
+    assert!(cov.fully_covered);
 }
 
 #[test]
 fn coverage_percent_half() {
-    let cov = PolicyCoverage {
-        total_resources: 4,
-        covered_resources: 2,
-        uncovered: vec!["a".into(), "b".into()],
-        per_resource: HashMap::new(),
-        by_type: HashMap::new(),
-        frameworks: std::collections::HashSet::new(),
-    };
-    assert!((cov.coverage_percent() - 50.0).abs() < f64::EPSILON);
-    assert!(!cov.fully_covered());
+    let mut config = make_config_with_resources(&[
+        ("f1", ResourceType::File, None),
+        ("f2", ResourceType::File, None),
+        ("p1", ResourceType::Package, None),
+        ("p2", ResourceType::Package, None),
+    ]);
+    config.policies = vec![require_policy("file")];
+    let cov = compute_coverage(&config);
+    assert_eq!(cov.total_resources, 4);
+    assert_eq!(cov.covered_resources, 2);
+    assert!((cov.coverage_percent - 50.0).abs() < f64::EPSILON);
+    assert!(!cov.fully_covered);
+    assert_eq!(cov.uncovered, vec!["p1", "p2"]);
 }

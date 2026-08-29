@@ -2,9 +2,11 @@
 //!
 //! # The promise that was not kept
 //!
-//! `src/verb/registry.rs` publishes all nine verbs with `Effects::ReadOnly`,
+//! `src/verb/registry.rs` publishes EVERY verb with `Effects::ReadOnly`,
 //! and `src/verb/spec.rs` says what that means: *safe for an agent to call
-//! unattended*. MCP publishes the same bit as `readOnlyHint: true`, which is
+//! unattended*. `forjar mcp --schema` publishes the same bit as
+//! `readOnlyHint: true` — though the running server does not yet send the
+//! annotation (paiml/forjar#375) — which is
 //! the only signal an agent has before deciding to call a tool without a human
 //! watching.
 //!

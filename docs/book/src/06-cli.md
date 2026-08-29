@@ -540,7 +540,7 @@ Parses the YAML, validates it, and re-serializes in canonical format. Idempotent
 Check config for best practice warnings beyond basic validation.
 
 ```bash
-forjar lint -f <FILE> [--json] [--strict]
+forjar lint -f <FILE> [--json] [--strict] [--sarif] [--policy-dir <DIR>] [--max-cyclomatic <N>]
 ```
 
 | Flag | Default | Description |
@@ -548,6 +548,9 @@ forjar lint -f <FILE> [--json] [--strict]
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `--json` | false | Output as JSON |
 | `--strict` | false | Enable built-in policy rules (FJ-221) |
+| `--sarif` | false | Emit the quality gate as SARIF 2.1.0 instead of the report |
+| `--policy-dir` | — | Directory of compliance packs to evaluate (**runs shell** — see below) |
+| `--max-cyclomatic` | — | Flag generated shell over this cyclomatic ceiling |
 
 Detects:
 - Unused machines (defined but not referenced by any resource)
@@ -555,6 +558,56 @@ Detects:
 - Duplicate content across file resources
 - Dependencies on non-existent resources
 - Package resources with empty package lists
+
+It also runs the **quality gate** (`core::quality_gate`), the same evaluation
+`forjar_lint` reports over MCP and `forjar apply --policy-check` blocks on:
+
+| Rule | What it catches |
+|------|-----------------|
+| `FJQ-SH-<code>` | bashrs findings over the generated shell, at Warning and Error |
+| `FJQ-SEC-001` | a secret that reaches a generated script |
+| `FJQ-SEC-002` | an unencrypted secret in `content`, `command`, `source` or `environment` |
+| `FJQ-CPX-001` | generated shell over `--max-cyclomatic` (advisory) |
+| `FJQ-CMP-000` | a `--policy-dir` that exists and cannot be read — the gate could not see its packs |
+| a policy/pack id | an in-config `policies:` rule or a `--policy-dir` compliance pack |
+
+A value sealed as `ENC[age,<ciphertext>]` is ciphertext, not a plaintext
+secret, and is not reported. Only Error-level findings block an apply;
+`FJQ-CPX-001` is advisory, because the shell it scores is emitted by forjar's
+codegen rather than written by the operator.
+
+```bash
+# SARIF for GitHub Code Scanning
+forjar lint -f forjar.yaml --sarif > forjar.sarif
+
+# Compliance packs plus a complexity ceiling
+forjar lint -f forjar.yaml --policy-dir policies/ --max-cyclomatic 25
+```
+
+> **`--policy-dir` runs shell, and it is a CLI flag only.** A compliance pack
+> rule of `type: script` is evaluated by handing its `script:` to `sh -c`, so
+> pointing `lint` at a pack directory executes what the pack author wrote on
+> the machine running `lint`. Point it only at a pack directory you trust.
+>
+> There is deliberately no matching parameter on the MCP, `forjar verb call`
+> or HTTP surfaces. `forjar_lint` is `Effects::ReadOnly` and publishes
+> `readOnlyHint: true`, and an agent reads that hint to decide it may call the
+> tool unattended — so a parameter that makes the verb run a caller-named
+> script would make the hint false, however the schema described it. An earlier
+> revision of this page said the hint meant read-only *with respect to the
+> fleet*; that reading is withdrawn (#356). `Effects::ReadOnly` means the
+> invocation writes nothing anywhere, including the machine running it, and
+> runs no subprocess somebody else chose — not one a caller names through a
+> parameter, and since 1.21.1 not one the *config* declares either. See
+> [MCP Server](#mcp-server) for the config half (forjar#372).
+>
+> Omitted — the default everywhere — no pack is read and no shell is run;
+> in-config `policies:` are declarative and never execute anything.
+>
+> A policy directory that exists and **cannot be read** fails the gate with
+> `FJQ-CMP-000` rather than passing it: zero visible packs is not evidence of
+> compliance. A directory that is simply absent declares no packs and is fine,
+> which is what `forjar apply --policy-check` sees by default.
 
 With `--strict`, additionally enforces:
 - **no_root_owner** — file resources owned by `root` must be tagged `system`
@@ -1579,18 +1632,28 @@ AI agents to manage infrastructure through the same validated pipeline.
 forjar mcp
 ```
 
-The server runs on stdio transport and exposes 9 tools:
+The server runs on stdio transport and exposes 12 tools:
 `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`,
 `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`,
-`forjar_anomaly`.
+`forjar_anomaly`, `forjar_remediate`, `forjar_audit`, `forjar_workspace`.
+`forjar verb list` is the authoritative set; a list typed into a document
+drifts, and this one already has.
 
-All nine publish `readOnlyHint: true`, and since 1.21.1 (forjar#372) that also
+All twelve are read-only, and `forjar mcp --schema` reports `readOnlyHint: true` for each. The RUNNING server does not send the annotation (paiml/forjar#375), so today a client learns this from the docs. Since 1.21.1 (forjar#372) the property also
 means **they do not run what the config declares**. `forjar_plan` used to
 execute the config's `ambient_inputs` commands, `sops`/`op` for
 `secrets.provider`, and `output_equivalence` normalisers, so pointing an agent
 at an untrusted repository executed that repository. It now plans with those
 three stripped and lists them in `unattended_skipped`, which makes the result
 lock-relative for them. `forjar plan` on the CLI is unaffected and still probes.
+
+The same contract binds the tool *schemas*, from the other side: no parameter
+of a ReadOnly tool may make forjar run a caller-named script either. That is
+why `--policy-dir`, which hands a compliance pack's `script:` to `sh -c`, is a
+CLI flag on [`forjar lint`](#forjar-lint) with no MCP, `verb call` or HTTP
+counterpart (#356). Put together, `readOnlyHint: true` here means the
+invocation writes nothing anywhere — the machine running it included — and
+executes nothing that a caller or a config author chose.
 
 Configure in your MCP client:
 

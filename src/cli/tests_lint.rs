@@ -49,7 +49,7 @@ resources:
         )
         .unwrap();
         // Lint should detect duplicate content
-        cmd_lint(&config, false, false, false).unwrap();
+        cmd_lint_gated(&config, false, false, false, &LintGateArgs::default()).unwrap();
     }
 
     // ── Init edge case ────────────────────────────────────────
@@ -73,7 +73,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, false, false, false).unwrap();
+        cmd_lint_gated(&file, false, false, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -95,7 +95,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, true, false, false).unwrap();
+        cmd_lint_gated(&file, true, false, false, &LintGateArgs::default()).unwrap();
     }
 
     #[test]
@@ -125,7 +125,7 @@ resources:
 "#;
         std::fs::write(&file, yaml).unwrap();
         // cmd_lint should succeed and produce bashrs diagnostics summary
-        let result = cmd_lint(&file, true, false, false);
+        let result = cmd_lint_gated(&file, true, false, false, &LintGateArgs::default());
         assert!(
             result.is_ok(),
             "cmd_lint should succeed: {:?}",
@@ -155,23 +155,29 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_lint(&config, false, false, false);
+        let result = cmd_lint_gated(&config, false, false, false, &LintGateArgs::default());
         assert!(
             result.is_ok(),
             "cmd_lint should succeed on a valid config with file resource"
         );
     }
 
-    #[test]
-    fn test_fj332_lint_fix_flag() {
-        let cmd = Commands::Lint(LintArgs {
+    /// A `LintArgs` for the two dispatch tests that only read one field.
+    fn lint_args(fix: bool, rules: Option<PathBuf>) -> LintArgs {
+        LintArgs {
             file: PathBuf::from("f.yaml"),
             json: false,
             strict: false,
-            fix: true,
-            rules: None,
+            fix,
+            rules,
             bashrs_version: false,
-        });
+            gate: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_fj332_lint_fix_flag() {
+        let cmd = Commands::Lint(lint_args(true, None));
         match cmd {
             Commands::Lint(LintArgs { fix, .. }) => assert!(fix),
             _ => panic!("expected Lint"),
@@ -201,7 +207,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_lint(&config, true, false, false);
+        let result = cmd_lint_gated(&config, true, false, false, &LintGateArgs::default());
         assert!(result.is_ok());
     }
 
@@ -406,7 +412,7 @@ resources:
         .unwrap();
         let mut w = TestWriter::new();
         // Use JSON mode to capture structured output via OutputWriter
-        cmd_lint_with_writer(&file, true, false, false, &mut w).unwrap();
+        cmd_lint_with_writer(&file, true, false, false, &LintGateArgs::default(), &mut w).unwrap();
         let json_out = w.stdout_text();
         assert!(
             json_out.contains("\"findings\""),
@@ -437,7 +443,7 @@ resources:
         )
         .unwrap();
         let mut w = TestWriter::new();
-        cmd_lint_with_writer(&file, false, false, false, &mut w).unwrap();
+        cmd_lint_with_writer(&file, false, false, false, &LintGateArgs::default(), &mut w).unwrap();
         assert!(
             w.stderr_text().contains("command uses ';'"),
             "semicolon chain should be warned: {:?}",
@@ -474,7 +480,7 @@ resources:
         )
         .unwrap();
         let mut w = TestWriter::new();
-        cmd_lint_with_writer(&file, true, false, false, &mut w).unwrap();
+        cmd_lint_with_writer(&file, true, false, false, &LintGateArgs::default(), &mut w).unwrap();
         let json_out = w.stdout_text();
         assert!(json_out.contains("\"warnings\""), "JSON output: {json_out:?}");
         assert!(json_out.contains("\"findings\""), "JSON output: {json_out:?}");
@@ -482,14 +488,7 @@ resources:
 
     #[test]
     fn test_fj374_lint_rules_flag() {
-        let cmd = Commands::Lint(LintArgs {
-            file: PathBuf::from("f.yaml"),
-            json: false,
-            strict: false,
-            fix: false,
-            rules: Some(PathBuf::from("rules.yaml")),
-            bashrs_version: false,
-        });
+        let cmd = Commands::Lint(lint_args(false, Some(PathBuf::from("rules.yaml"))));
         match cmd {
             Commands::Lint(LintArgs { rules, .. }) => {
                 assert_eq!(rules, Some(PathBuf::from("rules.yaml")));

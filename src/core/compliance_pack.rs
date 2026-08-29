@@ -121,6 +121,9 @@ pub struct RuleEvalResult {
     pub message: String,
     /// Controls this rule maps to.
     pub controls: Vec<String>,
+    /// The severity the rule declared, carried here so a caller need not
+    /// search `pack.rules` to level a failure.
+    pub severity: String,
 }
 
 /// Load a compliance pack from a YAML file.
@@ -136,20 +139,61 @@ pub fn parse_pack(yaml: &str) -> Result<CompliancePack, String> {
 }
 
 /// List available compliance packs in a directory.
-pub fn list_packs(dir: &Path) -> Vec<String> {
-    let mut packs = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().is_some_and(|e| e == "yaml" || e == "yml") {
-                if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
-                    packs.push(name.to_string());
-                }
-            }
-        }
+///
+/// # Why this returns a `Result`
+///
+/// It used to answer `Vec::new()` for a directory it could not read, which no
+/// caller could tell from "there are no packs here". `chmod 000 policies/` made
+/// every pack inside it vanish: zero packs, zero findings, gate PASSED, while
+/// the same directory readable produced a blocking error-severity failure. The
+/// `FJQ-CMP-000` arm in `quality_gate::checks::check_compliance` — written
+/// under the comment "a gate that cannot evaluate its packs must not silently
+/// pass" — was unreachable for exactly as long as this swallowed the failure.
+///
+/// # Why "does not exist" is `Ok(vec![])` and not an error
+///
+/// That is the one case that genuinely means "no packs are declared here"
+/// rather than "there are packs here I cannot see". `forjar apply
+/// --policy-check` defaults `--policy-dir` to `policies`, which most projects
+/// do not have, so there is nothing to be blind to. Every other failure —
+/// permission denied, a path that is a file, an I/O error partway through the
+/// listing — leaves packs that may exist unexamined, and is reported.
+pub fn list_packs(dir: &Path) -> Result<Vec<String>, String> {
+    let Some(entries) = open_pack_dir(dir)? else {
+        return Ok(Vec::new());
+    };
+    let mut packs: Vec<String> = Vec::new();
+    for entry in entries {
+        // A per-entry error is the same blindness one level down: the iterator
+        // yields it INSTEAD of a name that may be a pack, so `.flatten()` here
+        // dropped the very files it could not see.
+        let entry = entry.map_err(|e| format!("list {}: {e}", dir.display()))?;
+        packs.extend(pack_name(&entry.path()));
     }
     packs.sort();
-    packs
+    Ok(packs)
+}
+
+/// The directory's entries; `None` when it does not exist.
+///
+/// The three-way split is the whole point, and collapsing any two of them is
+/// the bug: `Some` means "these are the packs", `None` means "no packs are
+/// declared here", and `Err` means "there may be packs here and I cannot see
+/// them". The last two used to be the same answer.
+fn open_pack_dir(dir: &Path) -> Result<Option<std::fs::ReadDir>, String> {
+    match std::fs::read_dir(dir) {
+        Ok(entries) => Ok(Some(entries)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("list {}: {e}", dir.display())),
+    }
+}
+
+/// The pack name a path contributes, or `None` if it is not a `*.yaml`/`*.yml`.
+fn pack_name(path: &Path) -> Option<String> {
+    path.extension().filter(|e| *e == "yaml" || *e == "yml")?;
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(String::from)
 }
 
 // Re-export built-in pack functions from compliance_pack_builtin.
@@ -157,10 +201,8 @@ pub use super::compliance_pack_builtin::{
     builtin_pack_names, generate_builtin_pack, generate_builtin_pack_yaml,
 };
 
-/// Evaluate a compliance pack against config resources.
-///
-/// This is a simplified evaluator that checks resource metadata.
-/// Full evaluation integrates with the policy engine.
+/// Evaluate a compliance pack against config resources. A simplified
+/// evaluator over resource metadata; full evaluation is the policy engine.
 pub fn evaluate_pack(
     pack: &CompliancePack,
     resources: &HashMap<String, HashMap<String, String>>,
@@ -205,6 +247,7 @@ fn evaluate_rule(
         passed,
         message,
         controls: rule.controls.clone(),
+        severity: rule.severity.clone(),
     }
 }
 
@@ -312,188 +355,5 @@ fn check_script(script: &str) -> (bool, String) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_compliance_pack() {
-        let yaml = r#"
-name: test-pack
-version: "1.0.0"
-framework: CIS
-description: "Test compliance pack"
-rules:
-  - id: "CIS-1.1"
-    title: "Ensure root login disabled"
-    severity: error
-    controls: ["CIS 1.1.1"]
-    type: assert
-    resource_type: file
-    field: owner
-    expected: root
-"#;
-        let pack = parse_pack(yaml).unwrap();
-        assert_eq!(pack.name, "test-pack");
-        assert_eq!(pack.framework, "CIS");
-        assert_eq!(pack.rules.len(), 1);
-        assert_eq!(pack.rules[0].id, "CIS-1.1");
-    }
-
-    #[test]
-    fn parse_pack_deny_rule() {
-        let yaml = r#"
-name: deny-test
-version: "1.0.0"
-framework: SOC2
-rules:
-  - id: "SOC2-1"
-    title: "No world-writable files"
-    type: deny
-    resource_type: file
-    field: mode
-    pattern: "777"
-"#;
-        let pack = parse_pack(yaml).unwrap();
-        assert_eq!(pack.rules[0].id, "SOC2-1");
-    }
-
-    #[test]
-    fn evaluate_assert_passing() {
-        let mut resources = HashMap::new();
-        let mut fields = HashMap::new();
-        fields.insert("type".into(), "file".into());
-        fields.insert("owner".into(), "root".into());
-        resources.insert("nginx-conf".into(), fields);
-
-        let pack = CompliancePack {
-            name: "test".into(),
-            version: "1.0".into(),
-            framework: "CIS".into(),
-            description: None,
-            rules: vec![ComplianceRule {
-                id: "R1".into(),
-                title: "Root owner".into(),
-                description: None,
-                severity: "error".into(),
-                controls: vec!["CIS 1.1".into()],
-                check: ComplianceCheck::Assert {
-                    resource_type: "file".into(),
-                    field: "owner".into(),
-                    expected: "root".into(),
-                },
-            }],
-        };
-
-        let result = evaluate_pack(&pack, &resources);
-        assert_eq!(result.passed_count(), 1);
-        assert_eq!(result.failed_count(), 0);
-        assert!((result.pass_rate() - 100.0).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn evaluate_assert_failing() {
-        let mut resources = HashMap::new();
-        let mut fields = HashMap::new();
-        fields.insert("type".into(), "file".into());
-        fields.insert("owner".into(), "nobody".into());
-        resources.insert("bad-file".into(), fields);
-
-        let (passed, _msg) = check_assert(&resources, "file", "owner", "root");
-        assert!(!passed);
-    }
-
-    #[test]
-    fn evaluate_deny() {
-        let mut resources = HashMap::new();
-        let mut fields = HashMap::new();
-        fields.insert("type".into(), "file".into());
-        fields.insert("mode".into(), "777".into());
-        resources.insert("bad-file".into(), fields);
-
-        let (passed, _msg) = check_deny(&resources, "file", "mode", "777");
-        assert!(!passed);
-    }
-
-    #[test]
-    fn evaluate_require() {
-        let mut resources = HashMap::new();
-        let mut fields = HashMap::new();
-        fields.insert("type".into(), "file".into());
-        resources.insert("no-owner".into(), fields);
-
-        let (passed, _msg) = check_require(&resources, "file", "owner");
-        assert!(!passed);
-    }
-
-    #[test]
-    fn evaluate_require_tag() {
-        let mut resources = HashMap::new();
-        let mut fields = HashMap::new();
-        fields.insert("tags".into(), "config,web".into());
-        resources.insert("r1".into(), fields);
-
-        let (passed, _) = check_require_tag(&resources, "config");
-        assert!(passed);
-
-        let (passed, _) = check_require_tag(&resources, "security");
-        assert!(!passed);
-    }
-
-    #[test]
-    fn list_packs_empty_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let packs = list_packs(dir.path());
-        assert!(packs.is_empty());
-    }
-
-    #[test]
-    fn list_packs_with_files() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("cis.yaml"), "name: cis").unwrap();
-        std::fs::write(dir.path().join("stig.yml"), "name: stig").unwrap();
-        std::fs::write(dir.path().join("readme.txt"), "not a pack").unwrap();
-        let packs = list_packs(dir.path());
-        assert_eq!(packs, vec!["cis", "stig"]);
-    }
-
-    #[test]
-    fn load_pack_from_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("pack.yaml");
-        std::fs::write(
-            &path,
-            r#"
-name: file-pack
-version: "1.0"
-framework: STIG
-rules: []
-"#,
-        )
-        .unwrap();
-        let pack = load_pack(&path).unwrap();
-        assert_eq!(pack.name, "file-pack");
-    }
-
-    #[test]
-    fn pack_eval_empty() {
-        let result = PackEvalResult {
-            pack_name: "empty".into(),
-            results: vec![],
-        };
-        assert_eq!(result.passed_count(), 0);
-        assert_eq!(result.failed_count(), 0);
-        assert!((result.pass_rate() - 100.0).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn script_check_passes() {
-        let (passed, _) = check_script("true");
-        assert!(passed);
-    }
-
-    #[test]
-    fn script_check_fails() {
-        let (passed, _) = check_script("false");
-        assert!(!passed);
-    }
-}
+#[path = "tests_compliance_pack.rs"]
+mod tests_compliance_pack;

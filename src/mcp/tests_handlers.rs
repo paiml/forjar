@@ -193,6 +193,7 @@ async fn test_fj063_lint_handler_unused_machine() {
     let handler = LintHandler;
     let input = LintInput {
         path: config_path.to_str().unwrap().to_string(),
+        max_cyclomatic: None,
     };
     let output = handler.handle(input).await.unwrap();
     assert!(output.warnings.iter().any(|w| w.contains("unused-box")));
@@ -211,6 +212,7 @@ async fn test_fj063_lint_handler_clean_config() {
     let handler = LintHandler;
     let input = LintInput {
         path: config_path.to_str().unwrap().to_string(),
+        max_cyclomatic: None,
     };
     let output = handler.handle(input).await.unwrap();
     // No unused-machine warnings (structural lint is clean)

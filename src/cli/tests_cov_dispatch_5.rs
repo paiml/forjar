@@ -110,6 +110,7 @@ fn dispatch_lint_routes() {
             fix: false,
             rules: None,
             bashrs_version: false,
+            gate: Default::default(),
         }),
         false,
     );

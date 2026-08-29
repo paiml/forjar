@@ -1,6 +1,7 @@
 //! Tests: Show, explain, compare, template.
 
 #![allow(unused_imports)]
+use crate::cli::commands::LintGateArgs;
 use super::commands::*;
 use super::dispatch::*;
 use super::helpers::*;
@@ -43,7 +44,7 @@ resources:
         )
         .unwrap();
         // JSON + strict should not crash
-        cmd_lint(&file, true, true, false).unwrap();
+        cmd_lint_gated(&file, true, true, false, &LintGateArgs::default()).unwrap();
     }
 
     // FJ-251: Doctor tests

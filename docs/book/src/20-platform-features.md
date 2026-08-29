@@ -197,10 +197,17 @@ Notes worth knowing before you use it:
   marker to the hash rather than being dropped — dropping it would collapse the
   hash back to the file-only value and report clean over a stale artifact,
   which is the defect this feature exists to close.
-- **`plan`, `check` and `drift` become able to run your command.** They are
-  read-only with respect to the fleet, not with respect to your machine. A
-  `data:` source of `type: command` already had this property; this widens it
-  to per-resource.
+- **`plan`, `check` and `drift` become able to run your command — on the CLI.**
+  That is your config, on your machine, invoked by you. A `data:` source of
+  `type: command` already had this property; this widens it to per-resource.
+  An earlier revision of this bullet justified it by calling those verbs
+  "read-only with respect to the fleet, not with respect to your machine";
+  that reading is withdrawn (#356). `Effects::ReadOnly` means the invocation
+  writes nothing anywhere and runs nothing somebody else chose, so the
+  unattended verb surface does NOT get this: since 1.21.1 (forjar#372)
+  `forjar_plan` plans over a config with `ambient_inputs` stripped and lists
+  what it skipped in `unattended_skipped`. The distinction is the caller, not
+  the feature.
 - Commands run with `working_dir` as their cwd, and are template-resolved like
   `task_inputs`.
 

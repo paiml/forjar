@@ -40,10 +40,13 @@
 //! release in which no real apply produced it.
 //!
 //! Scope: "undo is reachable and runs", not "undo reverts the machine". The
-//! latter is a separate confirmed defect
+//! latter was a separate confirmed defect
 //! (`undo-reports-rollback-but-machine-is-unchanged` in docs/cli-defects.json:
-//! re-convergence re-applies the CURRENT config), and it is the reason this
-//! fix does NOT make generations default-on.
+//! re-convergence re-applied the CURRENT config), fixed for GH-376 and now
+//! owned by tests/falsification_undo_actually_undoes.rs, which asserts the
+//! BYTES at the declared path. Keep the scopes apart: this file must keep
+//! passing on the strength of the ADVICE alone, so it deliberately does not
+//! assert what the host holds.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -193,9 +196,8 @@ fn the_named_remedy_actually_works() {
 ///
 /// This is the leg `destroy-undo-roundtrip-v1` never had — every test behind
 /// it built `state/generations/N` by hand. It asserts undo is REACHABLE from a
-/// real apply and restores the target generation's state, not that the machine
-/// reverted; see the module note on
-/// `undo-reports-rollback-but-machine-is-unchanged`.
+/// real apply and restores the target generation's state; that the machine
+/// itself reverts is asserted in falsification_undo_actually_undoes.rs.
 #[test]
 fn apply_then_undo_reaches_the_rollback() {
     let dir = tempfile::tempdir().unwrap();
