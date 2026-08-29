@@ -13,9 +13,11 @@
 //! every reimaged box. Measured on 1.21.1, one task guard, marker deleted after
 //! the apply:
 //!
-//!     forjar apply --refresh   -> 0 converged, 1 unchanged
-//!     rm <the file the check asserts>
-//!     forjar drift -m box      -> "No drift detected."   (exit 0)
+//! ```text
+//! forjar apply --refresh   -> 0 converged, 1 unchanged
+//! rm <the file the check asserts>
+//! forjar drift -m box      -> "No drift detected."   (exit 0)
+//! ```
 //!
 //! # Why this is not the hash path with a wider filter
 //!
