@@ -58,6 +58,16 @@ macro_rules! verb_table {
 // it means an MCP agent may call any forjar verb unattended without risking a
 // change to a machine. `apply`, `destroy` and friends are deliberately NOT
 // here — see `partition.rs`, where every one of them is accounted for.
+//
+// forjar#372: that sentence was FALSE for `plan` until 1.21.1. Planning ran
+// the config's own `ambient_inputs`, `sops`/`op` and `output_equivalence`
+// commands, so calling this surface on an untrusted repository executed that
+// repository. `plan` is still ReadOnly — it changes no machine, and
+// reclassifying it would have thrown away the only accurate signal an agent
+// has — but it now plans over `core::unattended::sanitize_config`'s output and
+// says in its result what it declined to run. `tests/
+// falsification_readonly_surface_executes_nothing.rs` holds every verb here to
+// that, over real MCP stdio, against a config that tries.
 verb_table! {
     "validate", Effects::ReadOnly, 30_000, "Validate a forjar.yaml configuration file", ValidateInput, ValidateOutput, ValidateHandler;
     "plan",     Effects::ReadOnly, 60_000, "Show execution plan for infrastructure changes", PlanInput, PlanOutput, PlanHandler;

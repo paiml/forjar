@@ -77,6 +77,20 @@ pub(crate) fn cmd_plan(
     }
 
     // FJ-1250: Write plan to file for later execution
+    //
+    // forjar#370 asked whether producing the artifact should require operator
+    // authorization too. Decided explicitly: NO, and this comment is the
+    // decision, not an omission.
+    //
+    // A plan file is unauthenticated data. Any user can write one in a text
+    // editor, so an attacker never needs `forjar plan --out` to obtain one —
+    // gating production buys nothing an attacker cannot route around, while
+    // costing something real: `plan` is one of the nine ReadOnly verbs
+    // (`src/verb/registry.rs`), and `allowed_operators` is an apply-time gate
+    // (FJ-2300). Making a read refuse for an unauthorized reader would break
+    // that contract for the sake of a check with no defensive value. The gate
+    // that IS load-bearing is at execution, and it now runs there —
+    // `cmd_apply_from_plan` checks before it reads the plan file at all.
     if let Some(out_path) = plan_out {
         save_plan_file(&plan, &config, file, out_path)?;
         println!("Plan saved to {}", out_path.display());

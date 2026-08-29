@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.1] — 2026-08-29
+
+Two defects in 1.21.0 where a promise the call graph does not keep. Both were
+found while building epic #356 against the real binary, and both are fixed here
+rather than in the next minor because a user could be relying on either today.
+
+### Fixed
+
+- **`forjar_plan` published `readOnlyHint: true` and executed config-declared
+  subprocesses** (#372). `src/verb/spec.rs` says `ReadOnly` means "Safe for an
+  agent to call unattended" and `src/verb/registry.rs` says an agent "may call
+  any forjar verb unattended without risking a change to a machine". Three paths
+  made both false, all reachable over `forjar mcp` stdio with nothing but a
+  config path:
+
+  | key | reaches |
+  |---|---|
+  | `ambient_inputs` | `Command::new("bash").arg("-c")` (`core/task/ambient.rs:90`) |
+  | `secrets.provider: sops` | `Command::new("sops")` / `op` (`core/resolver/template.rs:56,71`) |
+  | `output_equivalence: !command` | `bash -c` (`core/task/output_hash.rs`) |
+
+  Measured against the 1.21.0 binary, one verb per fresh fixture: only
+  `forjar_plan` fired them, and it fired all three. **An agent asked to inspect
+  an untrusted repository executed whatever that repository declared** — no flag,
+  nothing to opt into.
+
+  `core::unattended::sanitize_config` now strips those three keys before the MCP
+  path plans, and `plan` stays `Effects::ReadOnly` because it genuinely does not
+  change the fleet. The skip is disclosed, not silent: `PlanOutput` gains a TOTAL
+  `unattended_skipped` (always present, possibly empty — an absent field and an
+  empty list read the same to a careless consumer), and the existing `disclosure`
+  prose composes both blind spots.
+
+  The secrets path is fail-closed rather than merely non-executing: without an
+  explicit refusal arm, the fallthrough would have read `FORJAR_SECRET_<KEY>` and
+  resolved a DIFFERENT value under the same name — a plan computed against a
+  secret nobody configured, reported as successful.
+
+  **The CLI is unchanged.** `forjar plan` still probes, still runs
+  `ambient_inputs`, still shells out to sops. That capability (#244) is why
+  `plan` can tell stale from fresh; the defect was the unattended surface
+  offering it to a caller who had not asked.
+
+- **`apply --plan-file` never reached `check_operator_auth`** (#370).
+  `apply_mode_exits` returns for `--plan-file` before `apply_execute`, whose
+  first line is the authorization check. With `allowed_operators: [alice]` and a
+  non-alice operator, measured on the 1.21.0 binary:
+
+  ```
+  $ forjar apply --yes                                        exit 1  not authorized
+  $ forjar plan --out p.json                                  exit 0
+  $ forjar apply --plan-file p.json --operator mallory --yes  exit 0  2 converged
+  ```
+
+  A plan file is unauthenticated — any user can write one — so the bypass needed
+  no privilege and no forgery. The plan path now performs the same authorization
+  the ordinary path does.
+
+  Four other modes share the shape (`--check`, `--diff-only`, `--output-scripts`,
+  `--refresh-only` also return before `apply_execute`). They are read-shaped and
+  are NOT fixed here; the systematic gate-parity treatment is tracked on #370 for
+  the next minor, because patching five modes by hand will miss the sixth.
+
+
 ## [1.21.0] — 2026-08-28
 
 ### Added

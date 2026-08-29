@@ -29,6 +29,14 @@ pub fn resolve_secret_with_provider(
         "file" => resolve_secret_file(key, path_prefix),
         "sops" => resolve_secret_sops(key, sops_file),
         "op" => resolve_secret_op(key, path_prefix),
+        // forjar#372: the unattended verb surface substitutes this for any
+        // provider implemented as a subprocess. It must have its own arm: the
+        // `_` fallthrough reads `FORJAR_SECRET_<KEY>`, which would resolve a
+        // DIFFERENT value under the same name rather than declining to resolve.
+        crate::core::unattended::NO_EXEC_SECRET_PROVIDER => Err(format!(
+            "secret '{key}' not resolved: this surface does not run subprocess \
+             secret providers"
+        )),
         _ => resolve_secret_env(key),
     }
 }

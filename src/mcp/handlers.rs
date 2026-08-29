@@ -66,8 +66,18 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let mut config =
-            parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let parsed = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+
+        // forjar#372: this verb is published with `readOnlyHint: true`, which
+        // `src/verb/spec.rs` defines as "safe for an agent to call unattended".
+        // Three ordinary config keys reach a subprocess from inside
+        // `planner::plan` — `ambient_inputs`, a `sops`/`op` secrets provider,
+        // and an `output_equivalence` normaliser — so an agent asked to inspect
+        // an untrusted repository executed whatever that repository declared,
+        // with no flag involved. Strip them BEFORE anything reads the config,
+        // and disclose the result below. The CLI is unchanged: `forjar plan`
+        // still probes, because the operator chose that config themselves.
+        let (mut config, unattended_skipped) = crate::core::unattended::sanitize_config(&parsed);
 
         // FJ-2729: mirror `cli::plan`. Phony resources are goal-only, so a bulk
         // plan must not report them — otherwise an agent reading this tool sees
@@ -129,6 +139,13 @@ impl Handler for PlanHandler {
         // surfaces here. `locks` above is the same map the CLI counts over, and
         // neither surface narrows it by `-r`, so the two agree by construction.
         let unconsulted = crate::cli::unconsulted_observations_for_mcp(&locks);
+        // forjar#372: the two blind spots compose into the one string a
+        // consumer reads — what this plan did not CONSULT, and what it did not
+        // EXECUTE.
+        let disclosure = crate::core::unattended::merge_disclosures(
+            crate::cli::scope_disclosure_for_mcp(unconsulted),
+            crate::core::unattended::disclosure(&unattended_skipped),
+        );
         Ok(PlanOutput {
             to_create: exec_plan.to_create,
             to_update: exec_plan.to_update,
@@ -137,7 +154,8 @@ impl Handler for PlanHandler {
             changes,
             lock_relative: true,
             unconsulted_observations: unconsulted,
-            disclosure: crate::cli::scope_disclosure_for_mcp(unconsulted),
+            unattended_skipped,
+            disclosure,
         })
     }
 }

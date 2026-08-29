@@ -59,7 +59,16 @@ equations:
     formula: |
       unconsulted(locks) = |{ rl ∈ locks.values().resources.values()
                             : rl.observed_state() ≠ None }|
-      discloses(plan_output) ⟺ unconsulted(locks) > 0
+      discloses_unconsulted(plan_output) ⟺ unconsulted(locks) > 0
+
+      forjar#372 added a SECOND blind spot, on the unattended surface only, so
+      the prose field is now the union and the biconditional above is scoped to
+      its own conjunct:
+
+      skipped(config, surface) = the config-declared subprocesses `plan` refused
+                                 to run (∅ on the CLI, which runs them)
+      plan_output.disclosure ≠ None ⟺ unconsulted(locks) > 0
+                                    ∨ skipped(config, surface) ≠ ∅
     domain: "locks ∈ HashMap<String, StateLock>"
     codomain: "bool"
     invariants:
@@ -69,10 +78,20 @@ equations:
       - "EVERY SHIPPED PLAN SURFACE DISCLOSES: the TTY rendering, `plan --json`, and the MCP/HTTP/verb `plan`, which share one PlanOutput (src/verb/registry.rs)"
       - "The suppression at zero is about OPERATOR ATTENTION, so the machine-readable surfaces still carry `lock_relative: true` and `unconsulted_observations: 0`; only the prose `disclosure` is withheld"
       - "A machine consumer must be able to distinguish `unconsulted_observations: 0` from an older binary that emits no such key, so the count is a TOTAL function and the prose is the partial one"
+      - "forjar#372: `unattended_skipped` is the second blind spot and follows the same shape — a TOTAL list (present, possibly empty) beside a PARTIAL prose sentence, both folded into the one `disclosure` field so a consumer reading only the prose learns of both"
+      - "forjar#372: `skipped` is empty by construction on the CLI, which still executes `ambient_inputs`, `sops`/`op` and `output_equivalence` normalisers. So the CLI and unattended `disclosure` strings agree on every config that declares none of those, and diverge — correctly — on one that does"
     notes: |
       The second invariant is what keeps this from becoming a banner. A warning
       printed unconditionally is a warning nobody reads, and this fleet has
       already paid for gates that cry wolf.
+
+      forjar#372 is the same disclosure shape applied to a different cause. The
+      unattended surface publishes `readOnlyHint: true`, so it must not run what
+      a config declares; not running it makes the plan lock-relative for those
+      resources, which is precisely the condition this contract exists to force
+      into the output rather than leave implicit. Widening the prose field, and
+      not inventing a second one, is what keeps "read `disclosure`" a complete
+      instruction for an agent.
 
       The third matters more than it looks. `unconsulted` says nothing about
       whether those resources have drifted — establishing that requires
