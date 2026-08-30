@@ -100,6 +100,16 @@ jobs:
       # editing and undoing their own stack must NEVER be refused.
       - name: undo must refuse a foreign state dir, and only a foreign one
         run: cargo test --locked --test falsification_undo_state_dir_interlock
+      # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
+      # crate's 242 integration test binaries is a 70.70 GiB tree — already the
+      # size of a hosted runner's disk. The cache asked tar+zstd for a second
+      # copy of it on the same filesystem: the SAVE ENOSPC'd on every run (a
+      # `##[warning]`, so the job stayed green and the cache was never written),
+      # and when the margin was tighter the ENOSPC landed mid-build and killed
+      # the runner's Worker process, taking the job's logs with it. Parses the
+      # workflows and prints its denominator; self-hosted jobs are exempt.
+      - name: No hosted job may cache a Rust build directory
+        run: cargo test --locked --test falsification_hosted_jobs_do_not_cache_target
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's
