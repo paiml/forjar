@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.23.0] — 2026-08-30
+
+Three defects, each of which cost a machine or an artifact: drift could not see
+the guards a fleet declares, forjar could not replace its own running binary,
+and the release lane shipped archives from previous tags.
 
 ### Fixed
 
@@ -223,6 +227,62 @@ recovering it by searching `pack.rules` for a matching id — answering "warning
 for any result whose id was not found, so a pack whose ids drifted counted zero
 errors and passed the gate.
 
+- **`forjar drift` was blind to task guards, and never said what it had
+  inspected** (#380, paiml/infra#380). A `type: task` with a `completion_check`
+  is an assertion about the host — the check is the claim, `command` reports the
+  violation — and drift only consulted it when the lock happened to carry an
+  observed digest, as a hash comparison whose failure printed
+  `state query failed:` with an empty message. Where the lock recorded
+  convergence but no observation (`state reconstruct`, an apply whose post-apply
+  state query failed or timed out), the assertion was never executed at all.
+  forjar's own dogfood ledger has carried this since 1.12.3 as
+  `drift-and-plan-blind-to-failing-task-completion-check`.
+
+  Drift now executes each converged task's `completion_check` over the same
+  transport `apply` uses, under the same 60s bound, and a non-zero exit is
+  drift regardless of what the lock recorded. `--no-task-checks` opts out per
+  run.
+
+- **`No drift detected.` read identically over sixty-two resources and over
+  none.** Every drift run now prints its denominator — inspected versus skipped,
+  by type and by reason — in text and in `--json` (`resources_inspected`,
+  `resources_skipped`, and a per-machine `census`). Measured on paiml/infra's
+  gx10: 62 resources declared, 30 in the lock, and the runner guard that
+  prompted the issue in neither number the operator saw.
+
+
+- **`cp` could not replace a binary that was RUNNING, and `install(1)` left a
+  window where it did not exist** (PMAT-136, paiml/infra#386). `cp` opens the
+  destination in place, so the kernel refuses it for a file being executed
+  (ETXTBSY) and coreutils refuses it for a dangling symlink — the two states
+  forjar most needs to repair. Three code paths placed executables with `cp`.
+  The cost was a machine: paiml/infra's lambda-labs left forjar undeclared on
+  the strength of that failure and drifted to 1.20.1 while the fleet ran 1.21.x,
+  which made its own YAML guard NO-GO over 200 files.
+
+  `install(1)` clears both refusals but unlinks then creates: measured at 10611
+  absent observations in 396132 stats (2.7%), against 0 in 741725 for
+  temp+rename. On a host where 16 runners share one `$CARGO_HOME/bin` that is a
+  live ENOENT hazard. All three sites now stage a sibling and `mv -f` —
+  `rename(2)` neither opens the destination nor follows it. The
+  `cp: not writing through dangling symlink` failure shares the cause and is
+  retired by the same change.
+
+- **The release staging directory was a fixed path on runners that are not
+  ephemeral** (#324). `/tmp/release-staging` persists between jobs on
+  `[self-hosted, clean-room]`, so each release's tarballs were re-uploaded by
+  the NEXT one: v1.21.0 staged 6 archives, v1.21.1 10, v1.22.0 14 — exactly +4
+  per release, the four self-hosted Linux legs. #324 diagnosed this class and
+  fixed only the download side.
+
+  It is also cross-LEG: all four Linux legs share one `/tmp` on one box, and
+  each leg's upload step reported 9 and 11 files while packaging exactly one.
+  `merge-multiple: true` deduplicates by NAME, which is why v1.21.0 passed while
+  already contaminated — only version-stale files changed the union. Every Linux
+  artifact has been shipping sibling architectures' archives. Now `RUNNER_TEMP`,
+  which is per-job and runner-cleaned; adding `rm -rf` to the shared path would
+  have turned a duplicative race into a destructive one.
+
 ## [1.22.0] — 2026-08-29
 
 Epic #356: the unified verb surface grows from nine verbs to twelve, the quality
@@ -329,29 +389,6 @@ binary and every fix ships with a test that was verified to fail before it.
   (#370, #374). 1.21.1 closed `--plan-file`; `--canary-machine` still reaches a
   converging apply without passing `check_operator_auth`, and `--refresh-only`
   and `--check` exit above the gate. Tracked with a full ledger in #370.
-- **`forjar drift` was blind to task guards, and never said what it had
-  inspected** (#380, paiml/infra#380). A `type: task` with a `completion_check`
-  is an assertion about the host — the check is the claim, `command` reports the
-  violation — and drift only consulted it when the lock happened to carry an
-  observed digest, as a hash comparison whose failure printed
-  `state query failed:` with an empty message. Where the lock recorded
-  convergence but no observation (`state reconstruct`, an apply whose post-apply
-  state query failed or timed out), the assertion was never executed at all.
-  forjar's own dogfood ledger has carried this since 1.12.3 as
-  `drift-and-plan-blind-to-failing-task-completion-check`.
-
-  Drift now executes each converged task's `completion_check` over the same
-  transport `apply` uses, under the same 60s bound, and a non-zero exit is
-  drift regardless of what the lock recorded. `--no-task-checks` opts out per
-  run.
-
-- **`No drift detected.` read identically over sixty-two resources and over
-  none.** Every drift run now prints its denominator — inspected versus skipped,
-  by type and by reason — in text and in `--json` (`resources_inspected`,
-  `resources_skipped`, and a per-machine `census`). Measured on paiml/infra's
-  gx10: 62 resources declared, 30 in the lock, and the runner guard that
-  prompted the issue in neither number the operator saw.
-
 ## [1.21.1] — 2026-08-29
 
 Two defects in 1.21.0 where a promise the call graph does not keep. Both were
