@@ -1,5 +1,54 @@
 # Code coverage tracking
 # Runs on pushes to main and PRs
+#
+# #386 — this lane died on main with NO LOGS AT ALL. Steps 1-4 `success`, then
+# `Cache cargo`, `Generate coverage` and both post-steps `null`. The only
+# surviving evidence was the check-run annotation:
+#
+#   System.IO.IOException: No space left on device :
+#     '/home/runner/actions-runner/cached/2.336.0/_diag/Worker_20260830-091631-utc.log'
+#      at GitHub.Runner.Worker.Worker.RunAsync(String pipeIn, String pipeOut)
+#
+# The runner's own Worker process died because it could not write its own diag
+# log — which is why the job has no logs: the process that uploads them is the
+# one that was killed.
+#
+# `cargo llvm-cov` here builds 242 integration test binaries plus the lib and
+# bin unit-test binaries, all instrumented. MEASURED with this repo's default
+# profile: 70.70 GiB in 19,070 files, 66 GiB of it DWARF in debug/deps. That is
+# already the size of a hosted runner's disk, so the build alone sat on the line.
+#
+# This file then asked to CACHE `target` — a second, compressed copy of that same
+# tree, on the same filesystem. It never once fit:
+#
+#   [command]/usr/bin/tar --posix -cf cache.tzst ... --use-compress-program zstdmt
+#   zstd: error 70 : Write error : cannot write block : No space left on device
+#   ##[warning]Failed to save: "/usr/bin/tar" failed with error: ... exit code 2
+#
+# and `actions/cache` downgrades a failed SAVE to a warning, so every green run
+# of this lane had already filled the runner's disk and said so in a warning
+# nobody reads. Because the save never completed the cache never existed: every
+# run whose logs survive reports `Cache not found for input keys`, on
+# consecutive runs sharing an identical Cargo.lock hash. Zero restores, ever —
+# the step's entire measured contribution was to fill the disk. When the margin
+# was tighter the ENOSPC landed mid-build instead and took the Worker with it.
+#
+# Three changes, none of which weaken the gate:
+#   1. Cache the cargo REGISTRY, never the build directory — and do it BEFORE
+#      the `cargo install` it exists to accelerate (it used to run after, so
+#      even a working cache could not have helped).
+#   2. Build with `debug = line-tables-only`. LLVM emits its coverage mapping
+#      into __llvm_covmap via -C instrument-coverage; it does not read DWARF, so
+#      this changes the tree size and NOTHING about the numbers. Proven: the
+#      TOTAL line is identical either way (see the PR).
+#   3. Print the disk denominator before and after, and REFUSE to start without
+#      headroom — so the next time this runs out it is a legible red with a
+#      message, not a vaporised runner with no logs.
+#
+# Guarded by tests/falsification_hosted_jobs_do_not_cache_target.rs, which fails
+# if any GitHub-hosted job in this repo names a Rust build directory in
+# actions/cache. Self-hosted jobs are exempt: the clean-room runners have real
+# disks, and sovereign-ci deliberately mounts a persistent per-PR target dir.
 
 name: Coverage
 
@@ -16,23 +65,68 @@ concurrency:
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # See note 2 above. Scoped to this lane — the repo's profiles are untouched.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+      # The instrumented tree is write-once here; incremental state is pure
+      # overhead on a cold runner and was 4.3 GiB of the measured 70.70.
+      CARGO_INCREMENTAL: "0"
+      # The floor asserted before the build starts, in GiB. The measured
+      # line-tables-only tree is well under this; the margin is deliberate,
+      # because the failure mode when it is wrong destroys its own evidence.
+      MIN_FREE_GIB: "40"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install Rust toolchain
         run: rustup show
 
-      - name: Install cargo-llvm-cov
-        run: cargo install --locked cargo-llvm-cov
-
-      - name: Cache cargo
+      # BEFORE the install it accelerates. Registry only — never `target`.
+      - name: Cache cargo registry
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: coverage-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: coverage-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            coverage-cargo-${{ runner.os }}-
+
+      - name: Install cargo-llvm-cov
+        run: cargo install --locked cargo-llvm-cov
+
+      # PRINT THE DENOMINATOR, and refuse rather than die silently. An ENOSPC
+      # here kills the runner's Worker process and takes the logs with it, so a
+      # run that is going to fail for want of disk must say so while it still
+      # can. This is a hard failure on purpose: a coverage gate that cannot run
+      # is not a coverage gate that passed.
+      - name: Refuse to start without disk headroom
+        run: |
+          set -eu
+          df -h /
+          avail_kib=$(df -Pk / | awk 'NR==2 {print $4}')
+          avail_gib=$((avail_kib / 1024 / 1024))
+          echo "free on /: ${avail_gib} GiB; required: ${MIN_FREE_GIB} GiB"
+          if [ "${avail_gib}" -lt "${MIN_FREE_GIB}" ]; then
+            echo "::error::Only ${avail_gib} GiB free on / — this runner cannot" \
+                 "hold the instrumented coverage build (#386). Refusing to start" \
+                 "rather than exhausting the disk mid-build, which kills the" \
+                 "runner Worker and destroys the logs that would explain it."
+            exit 1
+          fi
 
       - name: Generate coverage
         run: cargo llvm-cov --summary-only --fail-under-lines 95
+
+      # The measurement that makes the budget above auditable instead of a
+      # guess. Runs even when coverage fails, because a failure caused by disk
+      # and a failure caused by uncovered lines must not look alike.
+      - name: Disk and build-tree size after coverage
+        if: always()
+        run: |
+          set -u
+          df -h /
+          du -sh target/llvm-cov-target 2>/dev/null || echo "no llvm-cov-target"
