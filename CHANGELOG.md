@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.23.1] — 2026-08-30
+
+Two fixes shipped as a patch because the first one is the difference between
+a CI lane that measures a fleet and one that measures nothing.
 
 ### Fixed
 
@@ -51,6 +54,26 @@ new place:
   directory, a dead mount — still exits 1 with `cannot read state dir`;
 - **no state dir and no config** leaves nothing to assert and nothing to
   compare, and is refused rather than answered.
+
+**The `Coverage` lane cached a 70 GiB tree onto a runner that size, and
+`actions/cache` called the resulting ENOSPC a warning (#386).** `cargo
+llvm-cov` here builds 242 integration test binaries plus the lib and bin
+unit-test binaries, all instrumented, all carrying full DWARF — measured at
+70.70 GiB in 19,070 files. The lane then asked `actions/cache` to write a
+second, compressed copy of that tree onto the same filesystem:
+
+```
+zstd: error 70 : Write error : cannot write block : No space left on device
+##[warning]Failed to save: "/usr/bin/tar" failed with error: ... exit code 2
+```
+
+A failed SAVE is downgraded to a warning, so every *green* run of this lane had
+already filled the runner's disk and said so where nobody reads — and since the
+save never completed, the cache never existed: consecutive runs on an identical
+key both reported `Cache not found for input keys`. Eventually the runner's own
+Worker process died writing its own diag log, which is why the failing run had
+no logs at all. The `target` cache is gone from hosted jobs, and
+`tests/falsification_hosted_jobs_do_not_cache_target.rs` fails if it comes back.
 
 ## [1.23.0] — 2026-08-30
 
