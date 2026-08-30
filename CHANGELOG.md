@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+**`forjar drift` refused to run without a state dir, so a CI lane could never
+measure anything (#385).** `state/` is gitignored in paiml/infra — the lock
+lives on whichever box ran `apply` — so every checkout of the fleet's nightly
+drift lane hit this, and had since the lane was written:
+
+```
+FAIL gx10         forjar drift exited 1: error: cannot read state dir .../infra/state
+drift-tripwire: 0 of 2 requested machine(s) measured
+FAIL: no machine was measured — this run measured NOTHING
+```
+
+#380's own reasoning says why the refusal was wrong. For a `type: task` the
+observable is an ASSERTION, not a baseline: a `completion_check` that fails
+right now is drift whether or not anything was ever written down about it. A
+run with no lock can still execute every task check and give a TRUE answer
+about the host — it simply cannot hash-compare `File`/`Image` resources, which
+is a *smaller* answer, not an invalid one.
+
+An **absent** state dir now walks the config instead of the lock, runs the
+assertions, and reports the census with the remainder attributed to
+`no lock (never applied from here)`:
+
+```
+Checking gx10 (no lock — assertions only)...
+  inspected 1 of 2 resource(s) in scope: task 1
+  skipped 1: no lock (never applied from here) 1
+  DRIFTED: runner-scope-and-labels (completion_check fails on gx10: task=pending)
+```
+
+`--tripwire` exits on the findings rather than on the missing directory, and
+`--json` carries the same census (`skipped_by_reason`), which is the surface
+the infra lane parses. `--dry-run` previews the same population through the
+same predicate, so the preview cannot promise work the run will not do.
+
+Two neighbouring faults deliberately stay fatal, because collapsing them into
+"never applied from here" would be the same reported-not-measured defect in a
+new place:
+
+- a state path that is **present** and unreadable — wrong mode, not a
+  directory, a dead mount — still exits 1 with `cannot read state dir`;
+- **no state dir and no config** leaves nothing to assert and nothing to
+  compare, and is refused rather than answered.
+
 ## [1.23.0] — 2026-08-30
 
 Three defects, each of which cost a machine or an artifact: drift could not see
