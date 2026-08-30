@@ -48,6 +48,12 @@ pub enum SkipReason {
     NoConfigLoaded,
     /// `--no-task-checks`: the operator declined to execute completion checks.
     TaskChecksDisabled,
+    /// forjar#385: there is no lock AT ALL — the state dir is absent, so
+    /// nothing was ever applied through it. Distinct from `NotInLock`, which
+    /// is one resource missing from a lock that exists: this is the whole
+    /// baseline missing, which is the routine state of every CI checkout of a
+    /// repo that gitignores `state/`. Only assertions can be measured here.
+    NoLock,
 }
 
 impl SkipReason {
@@ -63,6 +69,7 @@ impl SkipReason {
             Self::NoLockedHash => "no hash recorded in the lock",
             Self::NoConfigLoaded => "no config loaded (file hashes only)",
             Self::TaskChecksDisabled => "--no-task-checks",
+            Self::NoLock => "no lock (never applied from here)",
         }
     }
 }

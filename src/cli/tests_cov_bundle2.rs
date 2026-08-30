@@ -183,17 +183,17 @@ mod tests {
     #[test]
     fn test_drift_dry_run() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(d.path(), None, false);
+        let _ = cmd_drift_dry_run(None, d.path(), None, false, false);
     }
     #[test]
     fn test_drift_dry_run_json() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(d.path(), None, true);
+        let _ = cmd_drift_dry_run(None, d.path(), None, true, false);
     }
     #[test]
     fn test_drift_dry_run_machine() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(d.path(), Some("m1"), false);
+        let _ = cmd_drift_dry_run(None, d.path(), Some("m1"), false, false);
     }
     #[test]
     fn test_drift_full() {

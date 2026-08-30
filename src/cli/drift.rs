@@ -2,9 +2,11 @@
 
 use super::apply::*;
 use super::apply_helpers::*;
+use super::drift_lockless::{dry_run_lockless, scan_lockless};
 use super::drift_report::{
     census_json, print_drift_summary, run_drift_alert, send_drift_notification,
 };
+use super::drift_state::{collect_machine_locks, machine_state_dirs};
 use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::drift;
@@ -12,10 +14,10 @@ use std::path::Path;
 
 /// How one drift scan reports itself, and how much work it may do on the host.
 #[derive(Clone, Copy)]
-struct ScanOptions {
-    json: bool,
-    verbose: bool,
-    detect: drift::DriftOptions,
+pub(super) struct ScanOptions {
+    pub(super) json: bool,
+    pub(super) verbose: bool,
+    pub(super) detect: drift::DriftOptions,
 }
 
 /// Check one machine for drift, appending findings to all_findings (JSON) or printing text.
@@ -30,17 +32,8 @@ fn check_machine_drift(
     all_findings: &mut Vec<serde_json::Value>,
     scan: ScanOptions,
 ) -> (usize, drift::DriftCensus) {
-    let ScanOptions {
-        json,
-        verbose,
-        detect: opts,
-    } = scan;
-    if verbose {
-        eprintln!("Checking {} ({} resources)...", name, lock.resources.len());
-    }
-    if !json {
-        println!("Checking {} ({} resources)...", name, lock.resources.len());
-    }
+    let ScanOptions { detect: opts, .. } = scan;
+    print_machine_header(name, &format!("{} resources", lock.resources.len()), scan);
 
     let machine = config.and_then(|c| c.machines.get(name));
     let report = match (machine, config) {
@@ -61,6 +54,36 @@ fn check_machine_drift(
         (Some(m), None) => drift::detect_drift_reported(lock, Some(m)),
         _ => drift::detect_drift_reported(lock, None),
     };
+    report_machine_findings(name, report, all_findings, scan)
+}
+
+/// `Checking <machine> (<scope>)...`, before the scan that may take a minute.
+///
+/// The scope note is what the run is about to look at — `62 resources` from a
+/// lock, or `no lock — assertions only` when there is none (forjar#385). It is
+/// never a bare count with no provenance, because two very different runs used
+/// to print the same header.
+pub(super) fn print_machine_header(name: &str, scope: &str, scan: ScanOptions) {
+    if scan.verbose {
+        eprintln!("Checking {name} ({scope})...");
+    }
+    if !scan.json {
+        println!("Checking {name} ({scope})...");
+    }
+}
+
+/// Print (or accumulate, under `--json`) one machine's findings and census.
+///
+/// Shared by the locked and lockless scans so the two cannot disagree about how
+/// a verdict is rendered — the census is the thing that keeps a smaller answer
+/// honest, and a second copy of this would be free to drop it.
+pub(super) fn report_machine_findings(
+    name: &str,
+    report: drift::DriftReport,
+    all_findings: &mut Vec<serde_json::Value>,
+    scan: ScanOptions,
+) -> (usize, drift::DriftCensus) {
+    let ScanOptions { json, .. } = scan;
     let drift::DriftReport { findings, census } = report;
 
     // THE DENOMINATOR PRINTS EVERY TIME, drift or no drift. It is worth least
@@ -173,13 +196,21 @@ fn load_drift_config(
 ///
 /// Uses `std::thread::scope` for parallel drift detection across machines.
 /// Each machine is checked in its own thread; results are aggregated.
+///
+/// forjar#385: an ABSENT state dir hands the run to `scan_lockless` instead of
+/// killing it. There is no lock to walk, but a `type: task` observable is an
+/// ASSERTION rather than a baseline, so the checks can still be executed and
+/// the census can still say what went unmeasured. An UNREADABLE state dir is a
+/// different fault and `machine_state_dirs` keeps it fatal.
 fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     config: Option<&types::ForjarConfig>,
     scan_opts: ScanOptions,
 ) -> Result<DriftScan, String> {
-    let machine_locks = collect_machine_locks(state_dir, machine_filter)?;
+    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter)? else {
+        return scan_lockless(state_dir, machine_filter, config, scan_opts);
+    };
 
     if machine_locks.len() <= 1 {
         return scan_sequential(&machine_locks, config, scan_opts);
@@ -215,86 +246,11 @@ fn scan_machines_for_drift(
 
 /// One `forjar drift` run: the verdict AND the population it was drawn from.
 #[derive(Default)]
-struct DriftScan {
-    machines_checked: u32,
-    total_drift: usize,
-    findings: Vec<serde_json::Value>,
-    censuses: Vec<serde_json::Value>,
-}
-
-/// Collect (machine_name, lock) pairs from state directory.
-/// Machine directory names under `state_dir`, in read order, honouring an
-/// optional single-machine filter. Unreadable entries and non-directories are
-/// skipped; whether an empty result is an error is left to the caller.
-fn machine_state_dirs(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-) -> Result<Vec<String>, String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-    let mut names = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if machine_filter.is_some_and(|filter| name != filter) {
-            continue;
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-        names.push(name);
-    }
-    Ok(names)
-}
-
-fn collect_machine_locks(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-) -> Result<Vec<(String, types::StateLock)>, String> {
-    let mut locks = Vec::new();
-    for name in machine_state_dirs(state_dir, machine_filter)? {
-        if let Some(lock) = state::load_lock(state_dir, &name)? {
-            locks.push((name, lock));
-        }
-    }
-    // A FILTER THAT MATCHES NOTHING IS AN ERROR, NOT A CLEAN BILL OF HEALTH.
-    //
-    // `-m <machine>` narrowed the scan by name; if nothing matched, this
-    // returned an empty list and the caller reported "No drift detected." over
-    // ZERO machines — with `--tripwire` still exiting 0. So a typo in a cron'd
-    // `forjar drift --tripwire -m intel` silently stopped checking anything and
-    // reported healthy forever. Ledger id
-    // drift-tripwire-false-green-on-unknown-machine, confirmed at 1.12.3 and
-    // still live at 1.16.0.
-    if let Some(filter) = machine_filter {
-        // Distinguish "this machine does not exist" from "this machine exists
-        // but has no state yet". Only the FIRST is an error: a machine dir with
-        // no lock is a machine that has simply never been applied, and failing
-        // there would break `drift -m <new-machine>` before its first apply.
-        // Keying on lock-presence instead conflated the two and broke
-        // test_fj017_drift_machine_filter, which sets up exactly that case.
-        let dir_exists = state_dir.join(filter).is_dir();
-        if !dir_exists {
-            let known: Vec<String> = std::fs::read_dir(state_dir)
-                .map(|es| {
-                    es.flatten()
-                        .filter(|e| e.path().is_dir())
-                        .map(|e| e.file_name().to_string_lossy().to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
-            return Err(format!(
-                "unknown machine '{filter}' — it has no directory in {}, so NOTHING was checked. Known: {}",
-                state_dir.display(),
-                if known.is_empty() {
-                    "(none)".to_string()
-                } else {
-                    known.join(", ")
-                }
-            ));
-        }
-    }
-
-    Ok(locks)
+pub(super) struct DriftScan {
+    pub(super) machines_checked: u32,
+    pub(super) total_drift: usize,
+    pub(super) findings: Vec<serde_json::Value>,
+    pub(super) censuses: Vec<serde_json::Value>,
 }
 
 /// Sequential scan fallback for 0-1 machines.
@@ -333,7 +289,13 @@ pub(crate) fn cmd_drift(
     let config = load_drift_config(config_path, env_file)?;
 
     if dry_run {
-        return cmd_drift_dry_run(state_dir, machine_filter, json);
+        return cmd_drift_dry_run(
+            config.as_ref(),
+            state_dir,
+            machine_filter,
+            json,
+            no_task_checks,
+        );
     }
 
     if let Some(ref cfg) = config {
@@ -421,7 +383,7 @@ fn record_dry_run_checks(
 }
 
 /// Emits the dry-run result: a JSON report, or a human-readable total.
-fn print_dry_run_report(
+pub(super) fn print_dry_run_report(
     json: bool,
     total: usize,
     checks: &[serde_json::Value],
@@ -443,15 +405,27 @@ fn print_dry_run_report(
 }
 
 /// Dry-run mode for drift: lists resources that would be checked without connecting.
+///
+/// forjar#385: takes the config, because with an ABSENT state dir the preview
+/// has to come from the same place the run does. A preview that dies where the
+/// run succeeds is a worse answer than no preview at all.
 pub(crate) fn cmd_drift_dry_run(
+    config: Option<&types::ForjarConfig>,
     state_dir: &Path,
     machine_filter: Option<&str>,
     json: bool,
+    no_task_checks: bool,
 ) -> Result<(), String> {
+    let Some(names) = machine_state_dirs(state_dir, machine_filter)? else {
+        let opts = drift::DriftOptions {
+            run_task_checks: !no_task_checks,
+        };
+        return dry_run_lockless(state_dir, machine_filter, config, json, opts);
+    };
     let mut checks: Vec<serde_json::Value> = Vec::new();
     let mut total = 0usize;
 
-    for name in machine_state_dirs(state_dir, machine_filter)? {
+    for name in names {
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             total += record_dry_run_checks(&name, &lock, json, &mut checks);
         }

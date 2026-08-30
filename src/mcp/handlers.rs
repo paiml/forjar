@@ -189,9 +189,16 @@ impl Handler for DriftHandler {
             // GH-208: `if let Ok(Some(..))` discarded BOTH `Err` (state could
             // not be read) and `Ok(None)` (machine never applied), so "I did not
             // compare anything" was reported as `{"drifted": false}` — a clean
-            // bill of health for a machine that was never inspected. The CLI
-            // exits 1 with "cannot read state dir" on the same input. drift is
+            // bill of health for a machine that was never inspected. drift is
             // the tripwire tool; a false clean is the worst outcome it has.
+            //
+            // forjar#385 changed what the CLI does with the SAME input, and this
+            // tool has deliberately not followed it there. The CLI now runs the
+            // `completion_check` of every `type: task` when no lock exists, an
+            // assertion that needs no baseline; this handler only hash-compares
+            // (`detect_drift`), so it has nothing to run and keeps naming the
+            // machine in `unchecked` instead. Two different answers, both
+            // stating their own coverage — which is the property that matters.
             let lock_data = match state::load_lock(&state_dir, machine_name) {
                 Ok(Some(l)) => l,
                 Ok(None) => {

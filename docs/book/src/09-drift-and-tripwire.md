@@ -110,6 +110,34 @@ health — a resource the lock has never heard of (never applied through this
 appear in `--json` as `resources_inspected`, `resources_skipped` and a
 per-machine `census` array.
 
+### No state dir at all
+
+A state directory that does **not exist** is not an error. It means nothing was
+ever applied from here — the routine state of a CI checkout of a repo that
+gitignores `state/`, which is where the lock would otherwise live. Drift falls
+back to the answer it can still give truthfully: it walks the *config* instead
+of the lock, executes the `completion_check` of every `type: task` the selected
+machines declare, and counts everything that needs a baseline as skipped.
+
+```
+Checking gx10 (no lock — assertions only)...
+  inspected 1 of 2 resource(s) in scope: task 1
+  skipped 1: no lock (never applied from here) 1
+  DRIFTED: runner-scope-and-labels (completion_check fails on gx10: task=pending)
+```
+
+That is a *smaller* answer, not an invalid one, and every line it prints says
+so. `--tripwire` still exits non-zero on the findings.
+
+Two neighbouring cases stay fatal, because neither can produce a true answer:
+
+- A state path that **exists** and cannot be read — wrong mode, not a
+  directory, a dead mount — is a broken host, not a fresh checkout, and still
+  exits 1 with `cannot read state dir`.
+- No state dir **and** no config leaves nothing to compare and nothing to
+  assert. `forjar drift` refuses rather than printing a verdict over zero
+  information.
+
 ## Using Drift Detection
 
 ### Basic Drift Check

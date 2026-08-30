@@ -289,11 +289,13 @@ mod census;
 mod file;
 mod ignore;
 mod image;
+mod lockless;
 mod task_check;
 
 pub use census::{DriftCensus, SkipReason};
 pub use file::{check_file_drift, check_file_drift_via_transport};
 pub use image::check_image_drift;
+pub use lockless::{detect_drift_lockless, lockless_dry_run_ids};
 pub use task_check::DriftOptions;
 
 #[cfg(test)]
