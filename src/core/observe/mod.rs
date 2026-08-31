@@ -123,6 +123,14 @@ pub fn classify(field: &str) -> Option<Observability> {
         "from" => Observability::Observed {
             alt: "10.42.0.0/24",
         },
+        // #390: a task's assertion. The host can be asked directly — it's the
+        // one field whose "observation" IS running it (task.rs's check_script
+        // wraps it in the verdict harness apply already runs). `alt` is a
+        // check that can never pass, so the behavioural gate can seed a
+        // present-but-violated baseline distinct from the declared one.
+        "completion_check" => Observability::Observed {
+            alt: "false # forjar-alt-completion-check",
+        },
 
         // `action` and `restart_on` describe WHEN/HOW to act, not a state the
         // host holds. A host cannot report which trigger caused a restart.
