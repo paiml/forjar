@@ -227,3 +227,20 @@ fn test_fj132_hash_format() {
     assert!(h.starts_with("blake3:"), "hash should have blake3: prefix");
     assert_eq!(h.len(), 71, "blake3 hash should be 71 chars");
 }
+
+#[test]
+fn test_hash_sensitive_to_completion_check() {
+    // #390: a `task`'s `completion_check` is its declared assertion — for a
+    // guard resource it IS the desired state, and `command` only reports the
+    // violation. Before this, editing the check alone (tightening an
+    // assertion, fixing one that tested the wrong thing) left the hash
+    // unchanged, so a lock entry converged or `--refresh`-seeded against the
+    // OLD check compared equal to the NEW one and `plan` reported NoOp over a
+    // resource whose declared condition had genuinely changed.
+    let mut r = make_base_resource(ResourceType::Task);
+    r.completion_check = Some("test -f /tmp/old-marker".to_string());
+    let h1 = hash_desired_state(&r);
+    r.completion_check = Some("test -f /tmp/new-marker".to_string());
+    let h2 = hash_desired_state(&r);
+    assert_ne!(h1, h2, "completion_check change must change hash");
+}
