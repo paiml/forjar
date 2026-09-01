@@ -115,6 +115,18 @@ fn collect_phase2_fields<'a>(
     if !overlay_hosts_canon.is_empty() {
         components.push(overlay_hosts_canon);
     }
+    // #390: `completion_check` is a `task`'s ASSERTION — the whole declared
+    // state for a guard resource whose `command` only ever reports the
+    // violation (#380's "a guard IS a forjar resource" reading). It was never
+    // folded into the hash, so editing ONLY the check (tightening an
+    // assertion, fixing a check that tested the wrong thing) left the hash
+    // unchanged: a lock entry seeded or converged against the OLD check
+    // compared equal to the NEW one and `plan` reported NoOp over a
+    // resource whose declared condition had genuinely changed. Same defect
+    // class as FJ-035's overlay_hosts, one field over: a field that changes
+    // the converged meaning of the resource but not its own byte-for-byte
+    // comparison against a prior hash.
+    push_opt(components, &resource.completion_check);
 }
 
 /// Compute a hash of the desired state for comparison.
