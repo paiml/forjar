@@ -1,6 +1,6 @@
 {
   "issue": "#390 \u2014 a failed task's STDOUT never reached the operator",
-  "diff_sha256": "ac70b70f0a5efcbd41bc3274f65cb25046d46dcf",
+  "diff_sha256": "5400c11946e9b36fa4091892fb5cfda5944a815e",
   "base": "origin/main",
   "recorded_at": "2026-09-01",
   "quorum": {
