@@ -80,13 +80,13 @@ fn exec_validated_hook(
     if let Err(e) = crate::core::purifier::validate_script(hook) {
         return Err(format!("{label} hook failed I8 validation: {e}"));
     }
+    // Refs #390: the third byte-identical copy of the hook-failure string, all
+    // three stderr-only. A hook that says `echo "nginx config invalid: line 42"`
+    // without `>&2` — which is what people actually write — lost its diagnostic
+    // exactly the way the reporter's task did.
     match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(out) if !out.success() => Err(format!(
-            "{label} hook failed (exit {}): {}",
-            out.exit_code,
-            out.stderr.trim()
-        )),
-        Err(e) => Err(format!("{label} hook error: {e}")),
+        Ok(out) if !out.success() => Err(super::failure_text::hook_failure(label, &out)),
+        Err(e) => Err(super::failure_text::hook_error(label, &e)),
         _ => Ok(()),
     }
 }
@@ -146,6 +146,25 @@ pub(super) fn record_wave_outcomes(
             continue;
         };
 
+        // Refs #390: ONE failure text for both schedulers, so the sequential
+        // and the parallel message cannot drift apart the way the two copies of
+        // `format!("exit code {}: {}", ...)` did.
+        //
+        // `log: None` is the honest answer here and not an oversight. This path
+        // never calls `run_capture`, so under `--parallel` no transcript exists
+        // at all and naming one would send an operator to a file that was never
+        // created — the second wrong turn after the one #390 already took.
+        // Tracked as #390-A; until it lands this message IS the only copy of a
+        // failed wave resource's output, which is why the excerpt below is not
+        // merely a convenience.
+        let site = super::failure_text::Site {
+            resource_id: &change.resource_id,
+            state_dir: ctx.state_dir,
+            run_id: cfg.run_id.as_deref(),
+            log: None,
+            resolved: &prep.resolved,
+        };
+
         match output {
             Ok(out) if out.success() => {
                 record_success(
@@ -177,7 +196,7 @@ pub(super) fn record_wave_outcomes(
                 );
             }
             Ok(out) => {
-                let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
+                let error = super::failure_text::exec_failure(&site, &out);
                 let _ = record_failure(
                     ctx,
                     &change.resource_id,
@@ -199,7 +218,7 @@ pub(super) fn record_wave_outcomes(
                 );
             }
             Err(e) => {
-                let error = format!("transport error: {e}");
+                let error = super::failure_text::transport_failure(&e);
                 let _ = record_failure(
                     ctx,
                     &change.resource_id,

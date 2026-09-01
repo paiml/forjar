@@ -7,6 +7,23 @@ use crate::core::shell_escape::{render_command_inline, sh_squote, slugify_identi
 use crate::core::types::{Resource, TaskMode};
 use crate::resources::verdict;
 
+/// GH-254's verdict, emitted on STDERR from inside the generated script when
+/// the command exited 0 and the re-asserted `completion_check` still said no.
+///
+/// A `const` because `core::executor::failure_text` classifies on it (Refs
+/// #390). "The command failed" and "the command SUCCEEDED and its own check
+/// still fails" are different diagnoses with different next actions, and forjar
+/// printed both as `exit code 1:` — #390's reporter spent six llama.cpp builds
+/// debugging a compiler error that had never happened. Producer and classifier
+/// share this string so they cannot drift apart, and the text is byte-identical
+/// to what shipped, so every existing `not-converged` substring assertion keeps
+/// holding.
+///
+/// It contains no single quote, which is what keeps the `echo '...'` below safe
+/// and what any future edit must preserve.
+pub const NOT_CONVERGED_MARKER: &str =
+    "task=not-converged: command exited 0 but completion_check still fails";
+
 /// Slugified service id used in `/tmp/forjar-svc-<rid>.{pid,log}` paths.
 ///
 /// FJ-154: the resource name flows into shared filesystem paths; slugify it to
@@ -249,9 +266,7 @@ fn batch_script(resource: &Resource) -> String {
         script.push_str("if ! {\n");
         script.push_str(check.trim_end());
         script.push_str("\n}\nthen\n");
-        script.push_str(
-            "  echo 'task=not-converged: command exited 0 but completion_check still fails' >&2\n",
-        );
+        script.push_str(&format!("  echo '{NOT_CONVERGED_MARKER}' >&2\n"));
         script.push_str("  echo 'task=not-converged: the declared state was not reached' >&2\n");
         script.push_str("  exit 1\n");
         script.push_str("fi\n");

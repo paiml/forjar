@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.0] — 2026-09-01
+
+### Fixed
+
+**A failed task's STDOUT never reached the operator, and the failure was named
+wrong (#390).** An operator building llama.cpp with CUDA on `gx10` ran
+`forjar apply` six times, editing `command:` between runs to add `echo`,
+`nvcc --version` and `grep GGML_CUDA` diagnostics. Not one of them ever
+appeared. The two `CMake Warning` lines appeared every time, byte-identical.
+They concluded — reasonably, and wrongly — that forjar was replaying a cached
+transcript, and filed a caching defect.
+
+Nothing was cached. Seven independent reproduction lanes, one over a real SSH
+transport, proved with append-only counter files that the command re-ran on
+every single apply. The whole symptom was stream routing. The operator's only
+failure line was built as
+
+```rust
+format!("exit code {}: {}", out.exit_code, out.stderr.trim())
+```
+
+in `resource_ops.rs` and, duplicated, in `machine_wave.rs`. `out.stdout` is not
+truncated there — it is absent from the expression. `echo`, `nvcc --version`
+and `grep` write to STDOUT; cmake's warnings and llama.cpp's own bare
+`message("CMAKE_BUILD_TYPE=...")` (CMake NOTICE mode) write to STDERR. So which
+lines survived was decided purely by stream, and the message could not change
+no matter what was edited — it is a pure function of the exit code and stderr.
+"Byte-identical across six runs" was forced by construction, not by a cache.
+
+The headline also named the wrong failure: the command exited 0 every time.
+What exited 1 was the `completion_check` GH-254 re-asserts at the end of the
+generated script. Six builds were spent hunting a compiler error that never
+happened, under a line reading `exit code 1`.
+
+Every failure message on the apply path is now built in one place,
+`core::executor::failure_text`, which:
+
+- prints BOTH streams, labelled, with the true byte count, excerpted head AND
+  tail (~2 KB per stream). Head as well as tail is load-bearing: #390's
+  diagnostics ran *before* the build, so a conventional tail-only window would
+  have hidden them a seventh time. This is also the first ceiling this string
+  has ever had — it previously went unbounded into an append-only event log.
+- distinguishes `NOT CONVERGED` from `FAILED` and quotes the resolved
+  `completion_check` verbatim, so the thing that is actually false is named.
+- names the absolute path of the run log and the `forjar logs` command that
+  renders it — but only when the writer reports it actually wrote one — and
+  warns when `--state-dir` is relative (the default), which is how a stateless
+  CI runner deletes the evidence with the checkout.
+- refuses to claim "the command itself exited 0" for a task declaring
+  `timeout:` or `sudo:`, whose nested `bash` does not inherit
+  `set -euo pipefail` (tracked as #390-E).
+
+This also closes the mirror-image defect: `output_verify::verify_against_host`
+reported stdout and DESTROYED stderr — the branch every `type: task` with no
+`completion_check` reaches. Five constructors across the executor disagreed
+about which half of a failure to discard; a ratchet test now holds each file to
+a budget so a sixth cannot be added quietly. Run logs also stop recording
+`type: unknown` for every resource.
+
+Follow-ups filed rather than folded in: #390-A (the parallel wave path writes no
+run log at all), #390-B (that path also skips post-apply verification),
+#390-C (`--json` still reports `error: null` for a failed resource),
+#390-E (the nested-shell `set -euo pipefail` hole).
+
 ## [1.23.1] — 2026-08-30
 
 Two fixes shipped as a patch because the first one is the difference between
