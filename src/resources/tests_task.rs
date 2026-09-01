@@ -72,7 +72,7 @@ fn test_apply_with_timeout() {
     let mut r = make_task_resource("long-running-train");
     r.timeout = Some(3600);
     let script = apply_script(&r);
-    assert!(script.contains("timeout 3600 bash <<'FORJAR_TIMEOUT'"));
+    assert!(script.contains("timeout 3600 bash /dev/fd/3 3<<'FORJAR_TIMEOUT'"));
     assert!(script.contains("long-running-train"));
     assert!(script.contains("FORJAR_TIMEOUT"));
 }
@@ -83,7 +83,7 @@ fn test_apply_with_timeout_multiline() {
     r.timeout = Some(300);
     r.working_dir = Some("/opt/project".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("timeout 300 bash <<'FORJAR_TIMEOUT'"));
+    assert!(script.contains("timeout 300 bash /dev/fd/3 3<<'FORJAR_TIMEOUT'"));
     assert!(script.contains("git pull\ncargo build"));
     assert!(script.contains("cd '/opt/project'"));
 }
@@ -94,7 +94,7 @@ fn test_apply_with_timeout_quoting() {
     r.timeout = Some(60);
     let script = apply_script(&r);
     assert!(script.contains("echo 'hello world'"));
-    assert!(script.contains("timeout 60 bash <<'FORJAR_TIMEOUT'"));
+    assert!(script.contains("timeout 60 bash /dev/fd/3 3<<'FORJAR_TIMEOUT'"));
 }
 
 #[test]

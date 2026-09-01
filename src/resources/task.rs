@@ -54,6 +54,55 @@ pub(crate) fn extract_absolute_binary(cmd: &str) -> Option<&str> {
     None
 }
 
+/// A heredoc delimiter that provably does not appear in `body`.
+///
+/// Refs #390-E. The generator used a fixed `FORJAR_TIMEOUT`, so a command
+/// containing that word on a line of its own closed the heredoc EARLY and the
+/// remaining lines ran in the OUTER shell. Reproduced against 1.24.0: the script
+/// printed `FORJAR_TIMEOUT: command not found` and then executed the lines that
+/// were supposed to be inside. That is the C8 delimiter-collision class
+/// `shell_escape.rs` documents as fixed for `file` content and which was still
+/// live for `task`.
+///
+/// Deterministic by construction — the same command always yields the same
+/// delimiter — because `recipe-determinism-v1` requires the generated script to
+/// be a pure function of the declaration. Extending rather than hashing keeps
+/// the common case readable: a command that never mentions the word gets the
+/// plain `FORJAR_TIMEOUT` it always had.
+pub(crate) fn heredoc_delimiter(base: &str, body: &str) -> String {
+    let mut delim = base.to_string();
+    // A bare delimiter line is what terminates a heredoc, so only a line equal
+    // to it can collide -- but checking substring containment is cheaper and
+    // strictly safer, and costs only a longer delimiter in a rare case.
+    while body.contains(&delim) {
+        delim.push_str("_X");
+    }
+    delim
+}
+
+/// Run `command` under `timeout` without losing strictness or eating stdin.
+///
+/// Refs #390-E, and this one silently corrupted results. `timeout N bash <<'D'`
+/// gave the nested shell NEITHER the outer `set -euo pipefail` NOR a free stdin:
+///
+///   * The inner shell exits with the status of its LAST line, so a failing
+///     line was swallowed. Measured on the published 1.24.0: a task with
+///     `timeout:` and a passing `completion_check` whose command began with
+///     `false` reported `1 converged`, while the identical config WITHOUT
+///     `timeout:` correctly failed. A wrong result reported as success is worse
+///     than a failure.
+///   * The nested bash's stdin IS the heredoc, so a command reading stdin
+///     consumed the rest of its own script -- the FJ-2732 hole that
+///     `transport::stdin_isolation` was written to close, re-opened one layer in.
+///
+/// Passing the script on fd 3 (`bash /dev/fd/3 3<<'D'`) leaves stdin as the
+/// outer shell left it (`/dev/null`, per the transport wrapper) and re-asserting
+/// `set -euo pipefail` inside restores the strictness the outer script declared.
+fn timeout_wrapped(command: &str, timeout_secs: u64) -> String {
+    let d = heredoc_delimiter("FORJAR_TIMEOUT", command);
+    format!("timeout {timeout_secs} bash /dev/fd/3 3<<'{d}'\nset -euo pipefail\n{command}\n{d}\n")
+}
+
 /// Generate shell script to check if a task has already completed.
 ///
 /// If `completion_check` is set, runs it: exit 0 = already done.
@@ -212,7 +261,7 @@ fn batch_script(resource: &Resource) -> String {
     }
     if let Some(timeout_secs) = resource.timeout {
         script.push_str(&format!(
-            "timeout {timeout_secs} bash <<'FORJAR_TIMEOUT'\n{command}\nFORJAR_TIMEOUT\n"
+            "{}", timeout_wrapped(command, timeout_secs)
         ));
     } else {
         script.push_str(command);
@@ -372,7 +421,7 @@ fn dispatch_script(resource: &Resource) -> String {
     }
     if let Some(timeout_secs) = resource.timeout {
         script.push_str(&format!(
-            "timeout {timeout_secs} bash <<'FORJAR_TIMEOUT'\n{command}\nFORJAR_TIMEOUT\n"
+            "{}", timeout_wrapped(command, timeout_secs)
         ));
     } else {
         script.push_str(command);
