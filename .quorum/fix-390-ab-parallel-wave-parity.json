@@ -1,6 +1,6 @@
 {
   "issue": "#390-A / #390-B \u2014 the parallel wave path wrote no run log and skipped post-apply verification",
-  "base_commit": "96aaed94e7316ae89bf30e977734cce26714671d",
+  "base_commit": "6cfb3e9437ec3de12c0704ea981613b8ed0430a5",
   "base": "origin/main",
   "recorded_at": "2026-09-01",
   "quorum": {
@@ -116,5 +116,6 @@
     "lib_tests": "13404 passed, 0 failed",
     "clippy": "-D warnings, 0 errors"
   },
-  "diff_sha256": "b6a13a6cc2f51ba8a634d8b1135c05f450480234"
+  "diff_sha256": "b6a13a6cc2f51ba8a634d8b1135c05f450480234",
+  "base_commit_rebased": "Re-anchored from 96aaed94e731 to 6cfb3e9437ec after merging origin/main into this branch to clear a conflict in the generated .pmat/baseline.json. The evidence was NOT re-run and is not claimed to have been: it did not need to be. Everything between the two merge-bases is PR #397 (#390-E), which touches only src/resources/task.rs and src/resources/tests_task.rs -- verified with `git diff --stat`. This receipt's subject is the parallel wave path (machine_wave.rs, machine_b.rs, run_capture.rs), and not one of those files differs between the two anchors, so every quote in it still reads the same bytes."
 }
