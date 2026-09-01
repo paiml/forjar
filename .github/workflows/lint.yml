@@ -48,3 +48,56 @@ jobs:
 
       - name: Rustfmt
         run: cargo fmt --all -- --check
+
+  # CB-040 max-lines, enforced where it can actually block a merge.
+  #
+  # This rule lived ONLY in .git/hooks/pre-commit, which is local, opt-in and
+  # `--no-verify`-able. PR #397 landed src/resources/task.rs at 530 lines on
+  # main and every CI lane stayed green, because no lane looked. A quality gate
+  # one `--no-verify` away from off is not a gate.
+  #
+  # Same ratchet as the hook, deliberately: a file only fails if it GREW in this
+  # PR *and* is now over 500. A pre-existing over-limit file (the declarative
+  # clap structs CLAUDE.md exempts) is untouched until someone grows it.
+  file-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Max-lines ratchet on changed .rs files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1 || BASE=$(git rev-list --max-parents=0 HEAD | tail -1)
+          # base.sha is the base as of the LAST PR sync, which drifts behind main.
+          # Diffing straight against it re-attributes every file another PR grew
+          # in the meantime to this one. The merge-base is the honest fork point.
+          BASE=$(git merge-base "$BASE" HEAD)
+          failed=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            now=$(wc -l < "$f")
+            # NOT `before=$(git cat-file ... | wc -l)`. Under `set -euo pipefail`
+            # a path absent at BASE makes git exit 128, pipefail propagates it,
+            # and the ASSIGNMENT itself trips `set -e`: the job dies 128 on the
+            # first newly-added .rs file instead of checking it. Ask first.
+            if git cat-file -e "$BASE:$f" 2>/dev/null; then
+              before=$(git cat-file -p "$BASE:$f" | wc -l)
+            else
+              before=0   # new file: the hook's "hard block over 500" rule
+            fi
+            if [ "$now" -gt 500 ] && [ "$now" -gt "$before" ]; then
+              echo "::error file=$f::exceeds the 500-line limit ($before -> $now). Split it: pmat split $f"
+              failed=1
+            elif [ "$now" -gt 400 ] && [ "$now" -gt "$before" ]; then
+              echo "::warning file=$f::approaching the 500-line limit ($now lines)"
+            fi
+          done < <(git diff --name-only --diff-filter=ACM "$BASE" HEAD -- '*.rs')
+          if [ "$failed" -ne 0 ]; then
+            echo "File health check failed."
+            exit 1
+          fi
+          echo "File health OK."

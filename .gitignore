@@ -77,3 +77,6 @@ state/*/events.jsonl
 .pmat/lint-cache.txt
 .pmat/hooks-cache/
 .pv/lint-previous.json
+
+# pmat/hook scratch artifact, never part of the tree
+test_repo/
