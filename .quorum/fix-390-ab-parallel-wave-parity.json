@@ -1,0 +1,120 @@
+{
+  "issue": "#390-A / #390-B \u2014 the parallel wave path wrote no run log and skipped post-apply verification",
+  "base_commit": "96aaed94e7316ae89bf30e977734cce26714671d",
+  "base": "origin/main",
+  "recorded_at": "2026-09-01",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "The first version of this test suite proved the fix worked \u2014 REFUTED: all four passed against fully-reverted code, because one-resource fixtures never reach the wave path (machine.rs:183 requires >1 change). Rewritten with two-resource fixtures and a guard-the-guard test.",
+      "This branch broke cli::tests_build_image::cmd_build_far_produces_valid_archive \u2014 REFUTED: it passes in isolation on this branch AND main, has no wave/parallel reference, and a second full run was clean at 13404/0. A parallelism flake."
+    ],
+    "divergence": "the probe lane initially reported the fix verified; the falsification step contradicted it outright and forced the fixture rewrite. That disagreement is the most valuable output of this quorum."
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes \u2014 admission control runs per object regardless of how many are applied concurrently",
+      "Terraform \u2014 the -parallelism graph still performs the same post-apply read on every node",
+      "Ansible \u2014 the `free` strategy varies task ORDER across hosts, never which checks run",
+      "systemd \u2014 unit verification is per unit, independent of startup concurrency"
+    ],
+    "verdict": "no surveyed system varies its verification by scheduler. forjar did, silently, and that is the defect rather than a performance trade-off."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "the 1.24.0 review flagged #390-B as HIGHER SEVERITY THAN #390 ITSELF and warned the two halves must land together",
+    "unique_findings": [
+      "capture without update_run_meta leaves `forjar logs --failures` blind, because summary.failed is only incremented by RunMeta::record_resource \u2014 recorded as a known limit rather than silently omitted"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17797,
+    "accepted": [],
+    "quality_gate": "new suite absent from the vacuous list; clippy -D warnings 0 errors"
+  },
+  "falsification": {
+    "test": "reverted BOTH wave-path fixes (capture call and post_apply_failure call) and re-ran the suite",
+    "test_file": "tests/falsification_390ab_parallel_wave_parity.rs",
+    "cargo_test_target": "falsification_390ab_parallel_wave_parity",
+    "reverted": "machine_wave.rs: capture_exec_output call -> log=None; post_apply_failure -> None::<String>",
+    "observed_failure": "3 of 5 went RED \u2014 the missing run log, the seq/par run-log parity, and the seq/par success parity. A FIRST attempt showed 0 of 4 red, which exposed that the fixtures never reached the wave path at all.",
+    "still_green_when_reverted": "the_wave_path_is_actually_taken and a_converging_task_still_converges_under_parallel \u2014 both deliberate guards that must hold either way"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/390ab-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1068,
+        "sha256": "2e18ef7704ef9375ce2599af14d66fd87df65975d0d571ec48c22a744f9f1b47",
+        "blob": "265eb10ab3b6e6963f3e70fadabae03a1156a064"
+      },
+      {
+        "path": ".quorum/evidence/390ab-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3405,
+        "sha256": "f002f4a6c53e4335266045422ab28a139c6f812a0ad6d9b344a3fe3588ccc2f5",
+        "blob": "cd0c0b173808dbe1b25661d88d5ecc82b316a910"
+      },
+      {
+        "path": ".quorum/evidence/390ab-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 660,
+        "sha256": "1d7a52b75bc7d08a96f4cbfc1b70ad3840d152efbe1abcf1be3909a8e3042a71",
+        "blob": "128f9d02e5a9a5a3d7343165b0b8380151a64e57"
+      },
+      {
+        "path": ".quorum/evidence/390ab-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1587,
+        "sha256": "e80d8d6012308b8f326f3bace1a62c708190497e14f730067ede14bfd9e2b65d",
+        "blob": "37a01a8053b1e1ef968ee3ba0afaa7d4c916b920"
+      },
+      {
+        "path": ".quorum/evidence/390ab-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 753,
+        "sha256": "22e5638fc14421d3ff9b45cc62f1160bb8397d1a627f1cef4911124de83b8a8b",
+        "blob": "304fa0472c6f57bd693f34725a15ead1b73aeaae"
+      }
+    ],
+    "total_bytes": 7473,
+    "claims_digest": ".quorum/evidence/390ab-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "Does NOT call update_run_meta, so `forjar logs --failures` still will not list a parallel run whose only failures came from this path. Named, not hidden.",
+      "Proves the two schedulers agree on the cases tested, not that they agree on every case."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13404 passed, 0 failed",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "b6a13a6cc2f51ba8a634d8b1135c05f450480234"
+}
