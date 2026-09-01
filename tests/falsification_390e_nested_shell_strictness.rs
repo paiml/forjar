@@ -31,24 +31,8 @@
 //! cases EXECUTE the generated script through a real shell and assert on what
 //! happened to the filesystem.
 
-use forjar::core::types::{Machine, MachineTarget, Resource, ResourceType};
+use forjar::core::types::{MachineTarget, Resource, ResourceType};
 use std::process::Command;
-
-fn machine() -> Machine {
-    Machine {
-        hostname: "localhost".into(),
-        addr: "127.0.0.1".into(),
-        user: std::env::var("USER").unwrap_or_else(|_| "root".into()),
-        arch: "x86_64".into(),
-        ssh_key: None,
-        roles: vec![],
-        transport: Some("local".into()),
-        container: None,
-        pepita: None,
-        cost: 0,
-        allowed_operators: vec![],
-    }
-}
 
 fn task(command: &str, timeout: Option<u64>) -> Resource {
     Resource {
@@ -130,9 +114,11 @@ fn a_stdin_reader_under_timeout_does_not_eat_its_own_script() {
 fn a_command_containing_the_delimiter_does_not_escape_the_heredoc() {
     // C8 delimiter collision. A bare `FORJAR_TIMEOUT` line closed the heredoc
     // and the rest executed in the OUTER shell.
-    let script =
-        forjar::core::codegen::apply_script(&task("echo one\nFORJAR_TIMEOUT\necho two\n", Some(30)))
-            .unwrap();
+    let script = forjar::core::codegen::apply_script(&task(
+        "echo one\nFORJAR_TIMEOUT\necho two\n",
+        Some(30),
+    ))
+    .unwrap();
 
     // The chosen delimiter must not appear in the body it is supposed to bound.
     let delim_line = script

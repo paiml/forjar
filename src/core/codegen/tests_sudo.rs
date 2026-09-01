@@ -72,7 +72,10 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_check_script() {
         let r = file_resource(true);
         let script = codegen::check_script(&r).unwrap();
-        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"), "{script}");
+        assert!(
+            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
+            "{script}"
+        );
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
     }
 
@@ -81,7 +84,10 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_state_query_script() {
         let r = file_resource(true);
         let script = codegen::state_query_script(&r).unwrap();
-        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"), "{script}");
+        assert!(
+            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
+            "{script}"
+        );
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
     }
 

@@ -260,9 +260,7 @@ fn batch_script(resource: &Resource) -> String {
         script.push_str(&format!("cd {}\n", sh_squote(dir)));
     }
     if let Some(timeout_secs) = resource.timeout {
-        script.push_str(&format!(
-            "{}", timeout_wrapped(command, timeout_secs)
-        ));
+        script.push_str(&timeout_wrapped(command, timeout_secs));
     } else {
         script.push_str(command);
         script.push('\n');
@@ -420,9 +418,7 @@ fn dispatch_script(resource: &Resource) -> String {
         script.push_str(&scatter);
     }
     if let Some(timeout_secs) = resource.timeout {
-        script.push_str(&format!(
-            "{}", timeout_wrapped(command, timeout_secs)
-        ));
+        script.push_str(&timeout_wrapped(command, timeout_secs));
     } else {
         script.push_str(command);
         script.push('\n');
