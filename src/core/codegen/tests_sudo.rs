@@ -1,5 +1,9 @@
 //! Tests: FJ-1394 sudo elevation in codegen dispatch.
 
+// Refs #390-E: the wrapper now passes the script on fd 3 rather than on stdin.
+// The heredoc is unchanged in kind -- these still assert "sudo elevates via a
+// heredoc" -- but the nested bash no longer has its own script as stdin, which
+// is what let a stdin-reading command eat the remainder of it.
 #[cfg(test)]
 mod tests {
     use crate::core::codegen;
@@ -26,7 +30,7 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_script() {
         let r = file_resource(true);
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
+        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"));
     }
 
@@ -40,7 +44,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
+        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
     }
 
     #[test]
@@ -53,7 +57,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
+        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
     }
 
     #[test]
@@ -68,7 +72,10 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_check_script() {
         let r = file_resource(true);
         let script = codegen::check_script(&r).unwrap();
-        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"), "{script}");
+        assert!(
+            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
+            "{script}"
+        );
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
     }
 
@@ -77,7 +84,10 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_state_query_script() {
         let r = file_resource(true);
         let script = codegen::state_query_script(&r).unwrap();
-        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"), "{script}");
+        assert!(
+            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
+            "{script}"
+        );
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
     }
 
