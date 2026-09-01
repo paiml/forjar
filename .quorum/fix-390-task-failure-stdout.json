@@ -92,14 +92,32 @@
   "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash.",
   "evidence": {
     "digest_dir": ".quorum/evidence/",
-    "files": [
-      "390-round1-rootcause.md",
-      "390-round2-design.md",
-      "390-agy-rootcause-review.md",
-      "390-agy-spec-review.md"
-    ],
-    "bytes": 108000,
-    "raw_journals": "36 MB, machine-local and ephemeral \u2014 NOT committed; the digest is the durable record",
-    "redacted": "absolute paths and session UUIDs scrubbed"
+    "files": {
+      "390-agy-rootcause-review.md": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "390-agy-spec-review.md": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "390-round1-rootcause.md": {
+        "bytes": 77515,
+        "sha256": "fb895eadbf53a515ad949e58a48a8815b7dca6e114d8e9cca5e7829b63fae21c"
+      },
+      "390-round2-design.md": {
+        "bytes": 21149,
+        "sha256": "a6ab87067b1ed4a5a2e9adf4b77234ea4287d2c83e0565cd29c48d9131b7a06b"
+      }
+    },
+    "total_bytes": 98664,
+    "raw_journals": "~36 MB of agent transcripts in agent-local state; NOT committed and NOT durable. This digest is the record.",
+    "redaction": "absolute paths, session UUIDs, AND usernames. CORRECTED 2026-09-01: the first committed version attested a scrub it had not performed \u2014 it leaked `<user>@notty` and `<user>@127.0.0.3` into a public repo because the pass covered paths and UUIDs but not machine-local identity. Found by the quorum run on this very requirement.",
+    "truncation": "word-boundary with balanced backticks and explicit elision counts. The first version cut mid-token at a fixed 600 chars, leaving 11 quotes ending inside an unclosed backtick.",
+    "known_limits": [
+      "This proves diff-cited, scrubbed, committed prose EXISTS \u2014 not that a quorum happened.",
+      "The redaction scanner is a denylist and cannot prove absence of an unknown secret shape.",
+      "Anyone with write access can force-push over main and take this with it."
+    ]
   }
 }

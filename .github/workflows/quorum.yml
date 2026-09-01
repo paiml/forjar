@@ -11,6 +11,17 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+# Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
+#
+# Without this, every push to a PR leaves the previous quorum job running against
+# a diff that no longer exists -- and because the gate's whole job is to reject a
+# receipt whose diff moved, those stale runs fail LOUDLY and correctly. A red X
+# from a run that was already obsolete is exactly how a gate gets reclassified as
+# noise and then ignored.
+concurrency:
+  group: quorum-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
