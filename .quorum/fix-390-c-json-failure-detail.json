@@ -1,0 +1,120 @@
+{
+  "issue": "#390-C \u2014 --json/--report emitted error:null for every failed resource, and reprinted stale lock rows",
+  "base_commit": "96aaed94e7316ae89bf30e977734cce26714671d",
+  "base": "origin/main",
+  "recorded_at": "2026-09-01",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "The first version of this test suite verified the fix \u2014 REFUTED: only 1 of 3 went red. Two were vacuous (a permissive || disjunction and an assertion hidden inside if let), and both searched a top-level resource_reports that does not exist; the reports live under machines[].resource_reports. Rewritten; all 3 now falsify.",
+      "exit_code should be filled in the same change \u2014 REFUTED: record_failure receives no exit code and several call sites have none to give. A value parsed out of the error prose would be worse than an absent one. Left None and named as a known limit."
+    ],
+    "divergence": "the probe lane reported the fix verified; falsification contradicted it and exposed that two of three tests never read the field they claimed to assert on."
+  },
+  "crux": {
+    "systems": [
+      "Ansible \u2014 the JSON callback carries msg, stdout, stderr and rc per task",
+      "Terraform \u2014 `-json` emits diagnostic records with summary AND detail",
+      "Kubernetes \u2014 `kubectl get -o json` carries the full status conditions, not a summary",
+      "GitHub Actions \u2014 the API exposes per-step conclusion and annotations a human never sees on the console"
+    ],
+    "verdict": "every surveyed system carries MORE in the machine surface than on the console, on the theory that a human can scroll and a pipeline cannot. forjar carried strictly less \u2014 the inversion is the defect."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "the 1.24.0 review named this the single biggest thing left on the table for a reporter on a stateless CI runner, and set the precondition that makes it safe",
+    "unique_findings": [
+      "insisted the stale-row half land in the SAME change, because filling the error on a data source that reprints untouched resources turns a contentless row into a convincing wrong one"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17797,
+    "accepted": [],
+    "quality_gate": "new suite absent from the vacuous list; clippy -D warnings 0 errors"
+  },
+  "falsification": {
+    "test": "reverted both halves (details HashMap::new(), unfiltered lock map) and re-ran the suite",
+    "test_file": "tests/falsification_390c_json_failure_detail.rs",
+    "cargo_test_target": "falsification_390c_json_failure_detail",
+    "reverted": "resource_ops.rs:141 details -> HashMap::new(); machine_b.rs:100 filter removed",
+    "observed_failure": "3 of 3 went RED: the null error in --json, the missing error key in the lock, and the stale `alpha` row. A FIRST attempt showed only 1 of 3, which exposed two vacuous tests rather than a working fix.",
+    "still_green_when_reverted": "none \u2014 all three assert behaviour this change introduces"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/390c-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 854,
+        "sha256": "5f713252e851000a35664544ceef060097a1d4b5738548f33eaabe1268466d95",
+        "blob": "fa952cf6507830b2ad6deae33a5d225bb8202f3f"
+      },
+      {
+        "path": ".quorum/evidence/390c-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3155,
+        "sha256": "2c0b07a0e1de6860277cccccd74d45aa26d16ae36181a1b69c78b400eb50df68",
+        "blob": "b69f7167d11c9dfd2165ed733755c55a86165912"
+      },
+      {
+        "path": ".quorum/evidence/390c-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 571,
+        "sha256": "844eea122072558d07c86e7afdcc6014a5baa069beda2ece0b229369d6368b6d",
+        "blob": "86d9c141c3d769ccab084142c9a1d5e604d912e0"
+      },
+      {
+        "path": ".quorum/evidence/390c-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1326,
+        "sha256": "c1dbb47e93156ee15d62cf35f26d351b05e28e21a28763240f5744ebc8c00e2e",
+        "blob": "8f2b42c05f2935891a7e6f37acdea529bec58887"
+      },
+      {
+        "path": ".quorum/evidence/390c-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 625,
+        "sha256": "ef4ce246a7b099a3edcb2ffde7e538483c728de20738cb98a002a41671b87fab",
+        "blob": "4e30dc6a01f3b80684886287b592975993f93bc0"
+      }
+    ],
+    "total_bytes": 6531,
+    "claims_digest": ".quorum/evidence/390c-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "exit_code remains null for failed resources; record_failure has no exit code to give at several call sites.",
+      "Proves the error reaches --json and stale rows are excluded, not that every machine-readable surface is complete."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13404 passed, 0 failed",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "d8f47461ef1500607b0f7840c6e109d634ca1e55"
+}

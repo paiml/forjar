@@ -58,7 +58,20 @@ pub(super) fn finalize_machine(
         },
     );
 
-    let resource_reports = build_resource_reports(lock);
+    // Refs #390-C: only the resources THIS RUN touched.
+    //
+    // `build_resource_reports(lock)` mapped the whole persisted lock, so
+    // `--report`/`--json` reprinted stale statuses and durations for resources
+    // the run never executed -- and filling `details["error"]` without this
+    // would have turned an obviously-contentless stale row into a convincing
+    // wrong one. The two halves have to land together.
+    let touched: std::collections::HashSet<&str> = counters
+        .converged_resources
+        .iter()
+        .chain(counters.failed_resources.iter())
+        .map(|s| s.as_str())
+        .collect();
+    let resource_reports = build_resource_reports(lock, &touched);
 
     let result = ApplyResult {
         machine: machine_name.to_string(),
@@ -78,9 +91,13 @@ pub(super) fn finalize_machine(
 }
 
 /// Build per-resource reports from lock state.
-fn build_resource_reports(lock: &StateLock) -> Vec<ResourceReport> {
+fn build_resource_reports(
+    lock: &StateLock,
+    touched: &std::collections::HashSet<&str>,
+) -> Vec<ResourceReport> {
     lock.resources
         .iter()
+        .filter(|(id, _)| touched.contains(id.as_str()))
         .map(|(id, rl)| ResourceReport {
             resource_id: id.clone(),
             resource_type: format!("{:?}", rl.resource_type).to_lowercase(),
