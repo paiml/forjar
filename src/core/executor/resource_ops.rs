@@ -310,34 +310,6 @@ fn check_task_input_cache(
     }
 }
 
-/// FJ-2301: Persist ExecOutput to .log files for post-mortem debugging.
-#[allow(clippy::too_many_arguments)]
-fn capture_exec_output(
-    ctx: &RecordCtx,
-    run_id: Option<&str>,
-    resource_id: &str,
-    action: &str,
-    output: &transport::ExecOutput,
-    duration: f64,
-    script: &str,
-) {
-    let rid = run_id.unwrap_or("run-adhoc");
-    let run_dir = run_capture::run_dir(ctx.state_dir, ctx.machine_name, rid);
-    run_capture::ensure_run_dir(&run_dir, rid, ctx.machine_name, "apply");
-    let rt = "unknown"; // resource type not available here; log content is primary
-    run_capture::capture_output(
-        &run_dir,
-        resource_id,
-        rt,
-        action,
-        ctx.machine_name,
-        "transport",
-        script,
-        output,
-        duration,
-    );
-}
-
 /// Handle the output of a resource execution, including post_apply hook.
 #[allow(clippy::too_many_arguments)]
 fn handle_resource_output(
@@ -351,19 +323,31 @@ fn handle_resource_output(
     duration: f64,
     executed_script: &str,
 ) -> Result<ResourceOutcome, String> {
-    // FJ-2301: Capture output to run log directory
-    if let Ok(ref out) = output {
-        let action_str = format!("{:?}", change.action).to_lowercase();
-        capture_exec_output(
-            ctx,
-            cfg.run_id.as_deref(),
-            &change.resource_id,
-            &action_str,
-            out,
-            duration,
-            executed_script,
-        );
-    }
+    // FJ-2301 / Refs #390: persist the transcript FIRST and keep the path, so
+    // a failure message can only ever name a run log that exists.
+    let action = format!("{:?}", change.action).to_lowercase();
+    let slot = run_capture::RunSlot {
+        state_dir: ctx.state_dir,
+        machine_name: ctx.machine_name,
+        run_id: cfg.run_id.as_deref(),
+    };
+    let executed = run_capture::Executed {
+        resource_id: &change.resource_id,
+        resource_type: &resource.resource_type,
+        action: &action,
+        script: executed_script,
+    };
+    let log = output
+        .as_ref()
+        .ok()
+        .and_then(|out| run_capture::capture_exec_output(&slot, &executed, out, duration));
+    let site = super::failure_text::Site {
+        resource_id: &change.resource_id,
+        state_dir: ctx.state_dir,
+        run_id: cfg.run_id.as_deref(),
+        log: log.as_deref(),
+        resolved,
+    };
     match output {
         Ok(out) if out.success() => {
             // Three post-apply questions, asked in one place: did the hook
@@ -371,9 +355,10 @@ fn handle_resource_output(
             // report the declared state? Each used to be its own near-identical
             // record_failure block here; consolidated into output_verify so
             // adding a fourth does not grow this file again.
-            if let Some(error) =
+            if let Some(verdict) =
                 super::output_verify::post_apply_failure(resolved, machine, ctx.timeout_secs)
             {
+                let error = super::failure_text::verify_failure(&site, &out, &verdict);
                 let should_stop = record_failure(
                     ctx,
                     &change.resource_id,
@@ -408,7 +393,7 @@ fn handle_resource_output(
             Ok(ResourceOutcome::Converged)
         }
         Ok(out) => {
-            let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
+            let error = super::failure_text::exec_failure(&site, &out);
             let should_stop = record_failure(
                 ctx,
                 &change.resource_id,
@@ -432,7 +417,7 @@ fn handle_resource_output(
             })
         }
         Err(e) => {
-            let error = format!("transport error: {e}");
+            let error = super::failure_text::transport_failure(&e);
             let should_stop = record_failure(
                 ctx,
                 &change.resource_id,

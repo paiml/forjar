@@ -1,0 +1,154 @@
+{
+  "issue": "#390 \u2014 a failed task's STDOUT never reached the operator",
+  "diff_sha256": "fc216edaa6ec40151be7ed9c86e8ea73473ebefb",
+  "base": "origin/main",
+  "recorded_at": "2026-09-01",
+  "quorum": {
+    "lanes": [
+      "output-path",
+      "replay-cache",
+      "script-gen",
+      "transport",
+      "plan-freshness",
+      "timing-summary",
+      "live-repro"
+    ],
+    "lens_diversity": "each claim refuted through 3 distinct lenses (code-reading, rival-explanation, reporter-facts), not 3 identical skeptics",
+    "refuters_per_claim": 3,
+    "kill_rule": "a claim dies if >=2 of 3 refute it; refuters default to refuted=true when unconvinced",
+    "judges": 3,
+    "judge_verdict": "unanimous for the minimal proposal; grafts from losers named and folded in",
+    "claims_confirmed": 43,
+    "claims_refuted": 17,
+    "prior_art_checked": [
+      "Terraform \u2014 stderr-only error surfacing in provisioner output",
+      "Ansible \u2014 module result carries stdout/stderr/rc separately",
+      "Kubernetes \u2014 kubectl describe surfaces both streams on CrashLoopBackOff"
+    ],
+    "notable_kill": "the reporter's own cached-transcript theory, and the over-broad claim 'stdout is invisible in EVERY operator-visible surface' (refuted 3/3: forjar logs --resource does print it; the true claim is narrower \u2014 every APPLY-TIME surface)",
+    "refuted_claims": [
+      "A task's STDOUT is invisible in every operator-visible surface \u2014 REFUTED 3/3: `forjar logs --resource` does print it; true claim is narrower (every APPLY-TIME surface).",
+      "The reporter's cached-transcript theory \u2014 REFUTED by append-only counter files proving the command re-ran on every apply.",
+      "29.2s is too fast to be a real build \u2014 REFUTED: a warm cmake reconfigure measured 0.67s on this machine; 4 of the 5 'failed' were dependents that executed nothing.",
+      "-v/-vv/-vvv would have surfaced the stdout \u2014 REFUTED: all three are byte-identical; they echo the SCRIPT SOURCE, never runtime stdout.",
+      "The on-disk run log made the output discoverable \u2014 REFUTED: only `forjar logs --resource` prints it, the failure names no path, and --state-dir defaults to a relative dir a CI runner deletes.",
+      "#391 (completion_check hashing) fixed the reported symptom \u2014 REFUTED: the reporter ran the patched binary and saw the identical failure.",
+      "The exit-1 came from the command failing \u2014 REFUTED: the command exited 0; the GH-254 completion_check re-assertion exited 1.",
+      "The final process error carries a diagnostic \u2014 REFUTED: it carries only a count.",
+      "Renaming the resource would clear stuck state \u2014 REFUTED: a brand-new resource id failed identically.",
+      "A skipped dependent is distinguishable from a real failure in machine-readable output \u2014 REFUTED: it folds into resources_failed with error: null.",
+      "The `.script` sidecar records what actually executed \u2014 REFUTED: it records the PRE-wrap script, before the stdin-isolation wrapper.",
+      "`--timeout` bounds an SSH task \u2014 REFUTED: measured 48s wall for --timeout 3; the ControlMaster holds the killed child's pipe.",
+      "Per-resource durations reconcile against the machine total \u2014 REFUTED: sampled before post-apply verification.",
+      "forjar's failure string is bounded \u2014 REFUTED: out.stderr.trim() was unbounded into an append-only event log.",
+      "The parallel path behaves like the sequential one \u2014 REFUTED: it writes no run log and skips post-apply verification entirely.",
+      "`--log-file` offers a file-based escape hatch \u2014 REFUTED: it is listed as inert in src/cli/inert_flags.rs.",
+      "`continue_independent` still surfaces the failure on the console \u2014 REFUTED: the only print site is gated on StopOnFirst."
+    ],
+    "divergence": "lanes disagreed before synthesis: replay-cache and timing-summary initially attributed the symptom to different mechanisms (state poisoning vs. build timing); both converged on stream routing only after the live-repro lane's counter-file evidence. 17 of 60 claims were killed."
+  },
+  "falsification": {
+    "test": "reverted exec_failure to the pre-fix stderr-only string and re-ran the new integration suite",
+    "test_file": "tests/falsification_390_a_failed_task_shows_its_stdout.rs",
+    "cargo_test_target": "falsification_390_a_failed_task_shows_its_stdout",
+    "reverted": "src/core/executor/failure_text.rs :: exec_failure -> format!(\"exit code {}: {}\", out.exit_code, out.stderr.trim())",
+    "observed_failure": "5 of 6 tests went RED, and the pre-fix console output was byte-identical to the text in issue #390 \u2014 the reproduction and the report agree exactly",
+    "still_green_when_reverted": "the_console_still_shows_the_stderr_that_already_worked \u2014 expected, it guards against 'fixing' this by swapping which stream is destroyed"
+  },
+  "gates": {
+    "lib_tests": "13403 passed, 0 failed",
+    "integration_suites": "248 passed, CARGO_EXIT=0",
+    "clippy": "--all-targets -D warnings clean",
+    "deny": "advisories ok"
+  },
+  "crux": {
+    "systems": [
+      "Ansible \u2014 every module result carries stdout/stderr/rc as SEPARATE fields; the operator never has to guess which stream a diagnostic went to",
+      "Kubernetes \u2014 `kubectl describe pod` surfaces both streams plus the last-terminated state on CrashLoopBackOff; `kubectl logs` is a first-class verb, not a buried path",
+      "Terraform \u2014 remote-exec provisioner streams BOTH stdout and stderr to the operator live, prefixed per-resource, rather than collecting stderr at exit",
+      "GNU make \u2014 prints the failing recipe line verbatim with its output, so the operator sees what ran, not only that it failed"
+    ],
+    "verdict": "forjar was BELOW the field default, not making a design trade-off. Every surveyed system surfaces both streams or makes the transcript a first-class verb; forjar printed stderr only and named no path to the rest. The fix moves it to parity, and the head+tail excerpt (keeping the pre-build lines) is slightly ahead of Terraform's tail-biased streaming for this failure shape."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "independently reached the same root cause (stream routing, not caching) and refuted the reporter's theory without being told the answer",
+    "unique_findings": [
+      "flagged that `check_script` does not `cd` into `working_dir` when evaluating a completion_check, so a relative-path check can evaluate against the wrong directory \u2014 a second candidate defect no other lane raised (NOT fixed here; needs its own issue)"
+    ],
+    "second_run": "a further /teamwork review of this spec + gate was commissioned before implementation; see .quorum/ notes"
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests",
+      "quality_gate"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "quality_gate": "src/core/executor/failure_text.rs \u2014 strict mode PASSED, grade A (94.04), 0 blocking violations",
+    "tests_examined": 17796,
+    "accepted": [],
+    "repo_wide_finding": "~300 vacuous tests exist tree-wide, including TAUTOLOGIES inside files named falsification_* (e.g. tests/falsification_overlay_interface_contract.rs:270 asserts hash_desired_state(&r)==hash_desired_state(&r)). None are in this branch's touched paths. Filed as a follow-up rather than fixed here."
+  },
+  "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash.",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/390-agy-rootcause-review.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": ".quorum/evidence/390-agy-spec-review.md",
+        "roles": [
+          "agy",
+          "crux"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": ".quorum/evidence/390-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 64096,
+        "sha256": "e1ab565de4223ac8ba4515371dafe6d05be02baab07d7271acf7df09c2f41bf2",
+        "blob": "a801e87b5b1d75520a76d90d2d0585a49e4217e5"
+      },
+      {
+        "path": ".quorum/evidence/390-round1-rootcause.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": ".quorum/evidence/390-round2-design.md",
+        "roles": [
+          "judges",
+          "proposals"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      }
+    ],
+    "total_bytes": 64096,
+    "claims_digest": ".quorum/evidence/390-claims.md",
+    "raw_journals": "~36 MB of agent transcripts in agent-local state; NOT committed, NOT durable. This digest is the record.",
+    "redaction": "paths, session UUIDs, usernames. CORRECTED: the first version attested a scrub it had not performed and leaked <user>@notty into a public repo.",
+    "known_limits": [
+      "Proves scrubbed diff-cited prose exists and matches the tallies -- NOT that a quorum happened.",
+      "The redaction scanner is a denylist and cannot prove absence.",
+      "Anyone with write access can force-push over main and take this with it."
+    ]
+  },
+  "base_commit": "ebd44028530139052aa932346b10061c936df394"
+}

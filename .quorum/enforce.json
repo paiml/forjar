@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "WHO the quorum gate BLOCKS, and who it merely advises.",
+    "",
+    "The methodology is the maintainers' practice, not a tax on anyone who sends a",
+    "patch. A drive-by contributor does not have a 7-lane agent stack and must not be",
+    "blocked for that. They still SEE every finding -- the checks all run -- the gate",
+    "just does not refuse their push.",
+    "",
+    "WHY IDENTITY AND NOT AN ENV VAR. An env-var bypass (QUORUM_SKIP=1) is available",
+    "to everyone including the people it is meant to bind, leaves no record, and is",
+    "invisible in review. Within a month it becomes the way everyone pushes and the",
+    "gate is decoration. Scoping by identity means someone in `enforced_for` can only",
+    "opt out by editing THIS FILE -- which lands in the PR diff, where a reviewer sees",
+    "it -- or by `git push --no-verify`, which is local-only and sits in the reflog.",
+    "",
+    "The CI escape for an enforced author is `waived` in the receipt: a reason string,",
+    "committed, permanent, and reviewable. Bypass exists; silent bypass does not.",
+    "",
+    "Match is case-insensitive against the git author email, its local-part, and the",
+    "GitHub actor (QUORUM_ACTOR, which .github/workflows/quorum.yml sets)."
+  ],
+  "enforced_for": [
+    "noah@paiml.com",
+    "noah.gift@gmail.com",
+    "noahgift"
+  ],
+  "default": "advisory"
+}

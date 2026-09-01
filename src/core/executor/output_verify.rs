@@ -42,6 +42,7 @@
 //! artifacts against this host would compare the wrong filesystem, which is a
 //! worse failure than not checking.
 
+use super::failure_text;
 use crate::core::types::{Machine, Resource};
 use crate::transport;
 
@@ -91,12 +92,8 @@ pub(crate) fn run_pre_apply_hook(
     timeout: Option<u64>,
 ) -> Option<String> {
     match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(out) if !out.success() => Some(format!(
-            "pre_apply hook failed (exit {}): {}",
-            out.exit_code,
-            out.stderr.trim()
-        )),
-        Err(e) => Some(format!("pre_apply hook error: {e}")),
+        Ok(out) if !out.success() => Some(failure_text::hook_failure("pre_apply", &out)),
+        Err(e) => Some(failure_text::hook_error("pre_apply", &e)),
         _ => None,
     }
 }
@@ -108,12 +105,8 @@ pub(crate) fn check_post_hook(
     timeout: Option<u64>,
 ) -> Option<String> {
     match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(pout) if !pout.success() => Some(format!(
-            "post_apply hook failed (exit {}): {}",
-            pout.exit_code,
-            pout.stderr.trim()
-        )),
-        Err(e) => Some(format!("post_apply hook error: {e}")),
+        Ok(pout) if !pout.success() => Some(failure_text::hook_failure("post_apply", &pout)),
+        Err(e) => Some(failure_text::hook_error("post_apply", &e)),
         _ => None,
     }
 }
@@ -176,12 +169,15 @@ pub fn verify_against_host(resource: &Resource, machine: &Machine) -> Option<Str
         Ok(out) if out.success() => None,
         // FJ-2720: not applicable here. Neither converged nor diverged.
         Ok(out) if out.exit_code == 2 => None,
-        Ok(out) => Some(format!(
-            "apply exited 0 but the host does not report the declared state \
-             (check exit {}). {}",
-            out.exit_code,
-            out.stdout.trim()
-        )),
+        // Refs #390: this arm reported `out.stdout.trim()` and DESTROYED
+        // `out.stderr` — the exact mirror of the defect #390 was filed for, on
+        // the branch every `type: task` without a `completion_check` reaches
+        // (`resources::task::check_script` falls through to
+        // `verdict::always_diverged("task=pending")`). A check that explains
+        // itself on stderr — `test: /opt/x: No such file or directory` —
+        // reported only `task=pending`. Both streams now, bounded, from the one
+        // constructor.
+        Ok(out) => Some(failure_text::host_verdict(&out)),
         // Could not observe. Do not invent a verdict in either direction.
         Err(_) => None,
     }

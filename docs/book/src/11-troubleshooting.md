@@ -266,7 +266,10 @@ Another user management command is running, or `/etc/passwd` is locked. Retry af
 As of v1.6.0 a `pre_apply` hook that exits non-zero **fails the resource** — it is no longer silently skipped. The resource is recorded as `Failed`, a `ResourceFailed` event is appended to the event log, and `forjar apply` exits non-zero. Under the default `failure: stop_on_first` policy the run stops, the resource's dependents are cascade-skipped, and generation rollback is triggered.
 
 ```
-JIDOKA: web1/site-config failed — dependents will be skipped: pre_apply hook failed (exit 1): permission denied
+JIDOKA: web1/site-config failed — dependents will be skipped: pre_apply hook failed (exit 1)
+--- stderr (17 bytes) ---
+permission denied
+--- stdout: (empty) ---
 ```
 
 If a previously "passing" config started failing after upgrading, a `pre_apply` precondition that used to be silently ignored is now enforced. Diagnose by running the hook command manually on the target machine:

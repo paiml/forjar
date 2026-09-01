@@ -1123,7 +1123,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "forjar"
-version = "1.23.1"
+version = "1.24.0"
 dependencies = [
  "age",
  "aprender-contracts",

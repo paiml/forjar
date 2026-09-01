@@ -1,0 +1,69 @@
+# Quorum gate — mirrors the pre-push check on every PR.
+#
+# The local hook is FAST FEEDBACK, not enforcement: `.git/hooks/` is untracked,
+# `git push --no-verify` always works, and a contributor who never ran
+# `make install-hooks` is never gated. This job is the half that can actually
+# enforce, and it only does so once `main` has branch protection requiring it —
+# see docs/specifications/quorum-spec.md, "A local hook enforces nothing on its own".
+name: Quorum
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+# Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
+#
+# Without this, every push to a PR leaves the previous quorum job running against
+# a diff that no longer exists -- and because the gate's whole job is to reject a
+# receipt whose diff moved, those stale runs fail LOUDLY and correctly. A red X
+# from a run that was already obsolete is exactly how a gate gets reclassified as
+# noise and then ignored.
+concurrency:
+  group: quorum-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  receipt:
+    name: quorum receipt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # THE PUSHED HEAD, NOT THE PR MERGE COMMIT.
+          #
+          # `actions/checkout` defaults on `pull_request` to a synthetic merge of
+          # (PR head + base tip). Its merge-base with main is therefore the MAIN
+          # TIP, not the commit the branch actually forked from -- so the gate
+          # read base_commit=<main tip> and rejected an honest receipt that said
+          # <fork point>. Observed: local merge-base 20398b99, CI ebd44028, on a
+          # receipt that was correct. Checking out the real head makes CI verify
+          # exactly the bytes the developer pushed, which is the whole point.
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The gate diffs against the merge-base with origin/main, so it needs
+          # real history. A shallow clone makes `git merge-base` fail, which the
+          # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify quorum receipt
+        env:
+          # The gate resolves the branch from the ref being pushed; in CI the PR
+          # head ref is the equivalent.
+          PR_HEAD: ${{ github.head_ref }}
+          # WHO is being gated. Locally this falls back to `git config user.email`;
+          # in CI there is no such identity, so the PR AUTHOR is passed explicitly.
+          # Without it every CI run would resolve to "" and fall to advisory --
+          # the gate would be enforced locally and toothless exactly where it is
+          # the only thing standing between a PR and main.
+          QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"

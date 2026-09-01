@@ -3,6 +3,7 @@
 //! Applies resources in topological order per machine:
 //! parse → validate → DAG → plan → for each resource: codegen → transport → hash → state → events
 
+mod failure_text;
 mod helpers;
 mod machine;
 mod machine_wave;
@@ -43,6 +44,8 @@ mod tests_edge_apply_b;
 mod tests_edge_details;
 #[cfg(test)]
 mod tests_edge_record;
+#[cfg(test)]
+mod tests_failure_text;
 #[cfg(test)]
 mod tests_filters;
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! Called after `exec_script_retry` in `execute_resource()` to write
 //! `.log` and `.script` files into `state/<machine>/runs/<run_id>/`.
 
-use crate::core::types::{ResourceRunStatus, RunLogEntry, RunMeta};
+use crate::core::types::{ResourceRunStatus, ResourceType, RunLogEntry, RunMeta};
 use crate::transport::ExecOutput;
 use std::path::{Path, PathBuf};
 
@@ -105,4 +105,83 @@ pub fn update_meta_resource(run_dir: &Path, resource_id: &str, status: ResourceR
     // FJ-2301/E20: Also write meta.json for structured access
     let _ = serde_json::to_string_pretty(&meta)
         .map(|json| std::fs::write(run_dir.join("meta.json"), json));
+}
+
+/// WHERE a run log goes: the run directory's three coordinates.
+///
+/// Refs #390: grouped rather than passed loose because the writer needs nine
+/// values and a nine-argument function is how the old call site ended up
+/// hard-coding `let rt = "unknown"` — the caller had the type and the signature
+/// made passing it feel like one argument too many.
+pub struct RunSlot<'a> {
+    /// `--state-dir`. Relative by default.
+    pub state_dir: &'a Path,
+    /// Machine whose run directory this is.
+    pub machine_name: &'a str,
+    /// This apply's run id; `None` still writes a log, under `run-adhoc`.
+    pub run_id: Option<&'a str>,
+}
+
+/// WHAT was executed: the resource identity and the script that ran.
+pub struct Executed<'a> {
+    /// Resource id, which names the log file.
+    pub resource_id: &'a str,
+    /// Recorded in the log header — see the `type: unknown` note below.
+    pub resource_type: &'a ResourceType,
+    /// `create` / `update`, which also names the log file.
+    pub action: &'a str,
+    /// The exact text handed to the transport.
+    pub script: &'a str,
+}
+
+/// FJ-2301 / Refs #390: persist one execution's script, both streams and its
+/// exit code — and RETURN the path that now holds them.
+///
+/// This lived as a private helper inside `resource_ops.rs`, and that is a large
+/// part of why `machine_wave.rs` never grew one: a sibling module could not
+/// call it without reaching through another module's wall, so under
+/// `--parallel` a failing task's stdout was destroyed rather than merely hidden
+/// (#390-A). In the module whose whole job is run logs, calling it from the
+/// wave path becomes a one-liner rather than a refactor.
+///
+/// The RETURN VALUE is what keeps `failure_text` honest. A failure message
+/// names a transcript only when the code that writes transcripts says it wrote
+/// one — never because the message reconstructed a path it expected to exist.
+/// #390's reporter had already been sent looking for evidence once.
+pub fn capture_exec_output(
+    slot: &RunSlot,
+    executed: &Executed,
+    output: &ExecOutput,
+    duration_secs: f64,
+) -> Option<PathBuf> {
+    let (state_dir, machine_name, run_id) = (slot.state_dir, slot.machine_name, slot.run_id);
+    let (resource_id, resource_type, action) = (
+        executed.resource_id,
+        executed.resource_type,
+        executed.action,
+    );
+    let script = executed.script;
+    // `run-adhoc` is preserved verbatim from the original helper: a run with no
+    // id still writes a log, and dozens of in-tree callers build `ApplyConfig`
+    // with `run_id: None` and do execute resources.
+    let rid = run_id.unwrap_or("run-adhoc");
+    let dir = run_dir(state_dir, machine_name, rid);
+    ensure_run_dir(&dir, rid, machine_name, "apply");
+    // Refs #390: the old call site hard-coded `let rt = "unknown"` with the
+    // comment "resource type not available here", so every run log ever written
+    // recorded `type: unknown`. It is available at the caller; pass it.
+    let rt = format!("{resource_type:?}").to_lowercase();
+    capture_output(
+        &dir,
+        resource_id,
+        &rt,
+        action,
+        machine_name,
+        "transport",
+        script,
+        output,
+        duration_secs,
+    );
+    let log = dir.join(format!("{resource_id}.{action}.log"));
+    log.exists().then_some(log)
 }

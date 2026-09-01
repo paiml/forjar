@@ -253,9 +253,14 @@ pub(crate) fn copia_apply_file(
     let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
 
     if !sig_output.success() {
+        // Refs #390: the fifth stderr-only constructor in this module tree. A
+        // signature script that explains itself on stdout lost it here exactly
+        // as the reporter's task did — and this string is wrapped in
+        // "transport error:" downstream, so it lands on the same console and in
+        // the same append-only events.jsonl.
         return Err(format!(
-            "copia signature failed: {}",
-            sig_output.stderr.trim()
+            "copia signature failed{}",
+            super::failure_text::streams(&sig_output)
         ));
     }
 
