@@ -1,0 +1,120 @@
+{
+  "issue": "#390-E \u2014 timeout:/sudo: nested shells lose strictness, stdin, and their own script",
+  "base_commit": "96aaed94e7316ae89bf30e977734cce26714671d",
+  "base": "origin/main",
+  "recorded_at": "2026-09-01",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim (IETF rough consensus)",
+    "judges": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "The sudo: wrapper also loses set -euo pipefail and needs it re-injected \u2014 REFUTED: it wraps the whole script, which already opens with set -euo pipefail; only the timeout: wrapper injects a bare {command}.",
+      "Existing tests asserting sudo bash <<FORJAR_SUDO prove the old shape is required \u2014 REFUTED: they pinned the literal invocation, not the guarantee; the heredoc is preserved, only the fd changes."
+    ],
+    "divergence": "the design lane initially proposed re-injecting set -euo pipefail into BOTH wrappers; reading batch_script showed the sudo path already had it, and that claim was killed before implementation."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions \u2014 injects `set -eo pipefail` into every bash step precisely because a nested shell does not inherit it",
+      "GNU make \u2014 .SHELLFLAGS=-ec makes each recipe strict",
+      "systemd \u2014 ExecStart is a direct exec with RuntimeMaxSec; no shell nesting at all",
+      "Terraform remote-exec \u2014 one shell, timeout kills the connection rather than nesting",
+      "Ansible async/poll \u2014 module runs as a separate process with rc captured"
+    ],
+    "verdict": "four of five never create the nesting; the one that does injects strictness explicitly. forjar was BELOW the field default, not making a design trade-off. The fix matches the GitHub Actions approach."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "the 1.24.0 pre-release review named this the highest-severity open item, called it security-adjacent, and recommended shipping it separately and fast",
+    "unique_findings": [
+      "recommended a separate PR rather than bundling behind a message-formatting change \u2014 followed here"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17797,
+    "accepted": [],
+    "quality_gate": "new falsification file absent from the vacuous list; repo-wide population unchanged from 1.24.0"
+  },
+  "falsification": {
+    "test": "reverted both generator hunks to the pre-fix heredoc shape and re-ran the new suite",
+    "test_file": "tests/falsification_390e_nested_shell_strictness.rs",
+    "cargo_test_target": "falsification_390e_nested_shell_strictness",
+    "reverted": "src/resources/task.rs::timeout_wrapped -> timeout N bash <<'FORJAR_TIMEOUT'; dispatch.rs -> sudo bash <<'FORJAR_SUDO'",
+    "observed_failure": "4 of 6 tests went RED: the swallowed failing line, the eaten stdin, the escaped delimiter, and the sudo wrapper shape",
+    "still_green_when_reverted": "the_same_command_without_timeout_already_failed (the control asserting the un-wrapped path was already strict) and the_delimiter_is_deterministic (holds either way by construction)"
+  },
+  "gates": {
+    "lib_tests": "13404 passed, 0 failed",
+    "new_tests": "6 passed"
+  },
+  "diff_sha256": "b4c76b499a1613deae334211dd6b1c3c5279910b",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/390e-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 938,
+        "sha256": "2c681a0fac9ad0e0c228ee9b6d8dbd816bdd87cc06f06e82c9fa316f93dc5bc0",
+        "blob": "a86bbf3c81b829dc82a8df0c9b6a2063d49d5c37"
+      },
+      {
+        "path": ".quorum/evidence/390e-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 5015,
+        "sha256": "3dd274b2ccc6dc13222a3e59278005956a03da0c50e510406b8180319682e2ab",
+        "blob": "583e89b6ad287c02d4c45d49f816453fc9170500"
+      },
+      {
+        "path": ".quorum/evidence/390e-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1043,
+        "sha256": "d2390d36c26af410cb4243892c0832b828cce5e34ee1244c6633ed2f47a1740d",
+        "blob": "a66dac21ef228c30a2fdb6eec007db3dc8d2e73c"
+      },
+      {
+        "path": ".quorum/evidence/390e-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1536,
+        "sha256": "8ecdca11e1066b991f15e22262463520ab88b38607e99eb514c323939817f576",
+        "blob": "d05d93628f0aa427fddbc7512558edb2eb883ac6"
+      },
+      {
+        "path": ".quorum/evidence/390e-pmat.md",
+        "roles": [
+          "pmat",
+          "crux"
+        ],
+        "bytes": 960,
+        "sha256": "3fc6b8759d13760e3292a4cc9e015da51c53e8b198f63a7ce8e1d3dfcc491999",
+        "blob": "c692bc498fa1e1c248fa7b86f776b94f724a151d"
+      }
+    ],
+    "total_bytes": 9492,
+    "claims_digest": ".quorum/evidence/390e-claims.md",
+    "redaction": "no machine-local identity in this set; scanned by the gate.",
+    "known_limits": [
+      "Proves the generated script is strict, stdin-isolated and collision-free \u2014 not that every downstream consumer of a task script is."
+    ]
+  }
+}

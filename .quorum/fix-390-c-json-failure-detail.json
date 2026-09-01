@@ -116,5 +116,6 @@
     "lib_tests": "13404 passed, 0 failed",
     "clippy": "-D warnings, 0 errors"
   },
-  "diff_sha256": "d8f47461ef1500607b0f7840c6e109d634ca1e55"
+  "diff_sha256": "d8f47461ef1500607b0f7840c6e109d634ca1e55",
+  "base_commit_rebased": "Re-anchored from 96aaed94e731 to 96aaed94e731 after merging origin/main to clear the conflict in the generated .pmat/baseline.json (see issue #401). The evidence was NOT re-run and is not claimed to have been. Everything between the two anchors is PR #397 (#390-E), which touches only src/resources/task.rs and src/resources/tests_task.rs; this receipt's subject is resource_ops.rs and machine_b.rs, neither of which differs between the anchors, so every quote still reads the same bytes."
 }

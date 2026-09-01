@@ -280,9 +280,21 @@ fn in_declared_privilege_context(resource: &Resource, script: String) -> String 
     if !resource.sudo {
         return script;
     }
-    // Wrap: if already root, run as-is; otherwise elevate via sudo bash with heredoc
+    // Refs #390-E. Two defects shared with the `timeout:` wrapper:
+    //
+    //   * A fixed delimiter collides: a script containing `FORJAR_SUDO` closes
+    //     the heredoc early and the rest runs in the OUTER (unelevated) shell --
+    //     which for a `sudo:` resource means running unprivileged the commands
+    //     the author asked to run as root, silently.
+    //   * The nested bash's stdin IS the heredoc, so a stdin-reading command
+    //     eats the remainder of its own script (FJ-2732, one layer in).
+    //
+    // `bash /dev/fd/3 3<<'D'` leaves stdin as the transport left it. Strictness
+    // needs no repair here, unlike the timeout wrapper: the wrapped `{script}`
+    // is the WHOLE generated script and already opens with `set -euo pipefail`.
+    let delim = crate::resources::task::heredoc_delimiter("FORJAR_SUDO", &script);
     format!(
-        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash <<'FORJAR_SUDO'\n{script}\nFORJAR_SUDO\nfi"
+        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash /dev/fd/3 3<<'{delim}'\n{script}\n{delim}\nfi"
     )
 }
 
