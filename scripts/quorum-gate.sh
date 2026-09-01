@@ -126,7 +126,19 @@ if [ "$merge_base" = "$(git rev-parse HEAD)" ]; then
      If you expected changes, you are on the wrong branch or have not committed."
 fi
 
-diff_text="$(git diff "$merge_base" HEAD -- . ':(exclude).quorum')"
+# EXCLUDE GENERATED FILES FROM WHAT THE RECEIPT BINDS.
+#
+# `.quorum` is excluded so writing the receipt cannot invalidate the receipt.
+# `.pmat` is excluded because the post-commit hook REGENERATES
+# `.pmat/baseline.json` on every single commit -- watched live: the receipt was
+# bound, the baseline was auto-staged behind it, the next commit carried it, and
+# the hash moved for a reason no human touched. A binding that a background hook
+# can break at any moment is a binding nobody can satisfy, and the pressure is
+# then to delete the check rather than fix it.
+#
+# The rule: the hash covers what a REVIEWER reviews. Generated artefacts are not
+# claims, so they are not part of the diff a quorum adjudicated.
+diff_text="$(git diff "$merge_base" HEAD -- . ':(exclude).quorum' ':(exclude).pmat')"
 diff_hash="$(printf '%s' "$diff_text" | git hash-object --stdin)"
 [ -n "$diff_hash" ] || die "could not compute a diff hash"
 

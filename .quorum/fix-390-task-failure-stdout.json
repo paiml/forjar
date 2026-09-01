@@ -1,6 +1,6 @@
 {
   "issue": "#390 \u2014 a failed task's STDOUT never reached the operator",
-  "diff_sha256": "8d686ec7b8d550682f7e9fb214c692b52ff1a0a4",
+  "diff_sha256": "0662762fa2c488cff967f403bce9220830b7ea24",
   "base": "origin/main",
   "recorded_at": "2026-09-01",
   "quorum": {
@@ -88,5 +88,6 @@
     "tests_examined": 17796,
     "accepted": [],
     "repo_wide_finding": "~300 vacuous tests exist tree-wide, including TAUTOLOGIES inside files named falsification_* (e.g. tests/falsification_overlay_interface_contract.rs:270 asserts hash_desired_state(&r)==hash_desired_state(&r)). None are in this branch's touched paths. Filed as a follow-up rather than fixed here."
-  }
+  },
+  "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash."
 }
