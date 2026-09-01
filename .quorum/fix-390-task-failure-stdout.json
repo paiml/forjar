@@ -89,5 +89,17 @@
     "accepted": [],
     "repo_wide_finding": "~300 vacuous tests exist tree-wide, including TAUTOLOGIES inside files named falsification_* (e.g. tests/falsification_overlay_interface_contract.rs:270 asserts hash_desired_state(&r)==hash_desired_state(&r)). None are in this branch's touched paths. Filed as a follow-up rather than fixed here."
   },
-  "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash."
+  "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash.",
+  "evidence": {
+    "digest_dir": ".quorum/evidence/",
+    "files": [
+      "390-round1-rootcause.md",
+      "390-round2-design.md",
+      "390-agy-rootcause-review.md",
+      "390-agy-spec-review.md"
+    ],
+    "bytes": 108000,
+    "raw_journals": "36 MB, machine-local and ephemeral \u2014 NOT committed; the digest is the durable record",
+    "redacted": "absolute paths and session UUIDs scrubbed"
+  }
 }
