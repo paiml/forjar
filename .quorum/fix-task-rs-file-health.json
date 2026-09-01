@@ -1,0 +1,114 @@
+{
+  "issue": "#390 follow-up \u2014 task.rs sat 26 lines over the 500-line limit on main, and no CI lane could see it",
+  "base": "origin/main",
+  "recorded_at": "2026-09-01",
+  "scope_note": "A smaller change than the #390 receipts, and the receipt is scoped to match rather than padded to look like them. Two claims, not forty-three. What did NOT run is named under lanes_not_run \u2014 the point of a receipt is that a reader can tell the difference between a lane that passed and a lane that was skipped.",
+  "claims": [
+    {
+      "id": "C1",
+      "claim": "Splitting src/resources/task.rs into task/{mod,helpers,check,apply,query}.rs changes no behaviour.",
+      "how_tested": "Sorted the non-import, non-module-doc lines of origin/main:src/resources/task.rs and of the four new files and diffed them. Result: exactly three differing lines, all `fn X` -> `pub(super) fn X` (service_rid, timeout_wrapped, pipeline_script), which sibling submodules must now call across a module boundary. Every other byte identical, so no generated shell script can differ.",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "C2",
+      "claim": "No CI lane enforced the 500-line limit, so PR #397 landed task.rs at 530 lines fully green.",
+      "how_tested": "Searched every file in .github/workflows for a max-lines/comply/file-health check: none exists; the only hits for `wc -l` count tarballs and commits. Confirmed a6a37c52 took the file 481 -> 530 and 8741b685 trimmed it to 526, both over the limit, with PR #397 merged on a green run.",
+      "status": "CONFIRMED"
+    }
+  ],
+  "falsification": {
+    "method": "The new CI step was extracted from lint.yml with a YAML parser and run as a standalone script against real git history in throwaway worktrees, so each case is the actual shipped shell, not a paraphrase.",
+    "cases": [
+      {
+        "id": "T1",
+        "setup": "this branch vs origin/main",
+        "expect": "pass",
+        "observed": "File health OK, exit 0 \u2014 the split shrinks every file"
+      },
+      {
+        "id": "T2",
+        "setup": "a6a37c52 vs its own parent (the commit that slipped through)",
+        "expect": "fail",
+        "observed": "::error src/resources/task.rs exceeds the 500-line limit (481 -> 530), exit 1"
+      },
+      {
+        "id": "T3",
+        "setup": "a brand-new 600-line .rs file",
+        "expect": "fail",
+        "observed": "(0 -> 600), exit 1 \u2014 and NOT the exit 128 the first draft produced"
+      },
+      {
+        "id": "T4",
+        "setup": "rename a 530-line file and add one line",
+        "expect": "fail",
+        "observed": "(530 -> 531), exit 1 \u2014 `before` read from the OLD path"
+      },
+      {
+        "id": "T5",
+        "setup": "pure rename, no growth",
+        "expect": "pass",
+        "observed": "File health OK, exit 0 \u2014 no false positive on a move"
+      },
+      {
+        "id": "T6",
+        "setup": "`src/spaced name.rs` at 600 lines",
+        "expect": "fail",
+        "observed": "(0 -> 600), exit 1 \u2014 previously skipped in silence"
+      }
+    ],
+    "defects_these_cases_caught": [
+      "T3 caught a hard failure in my own first draft: `before=$(git cat-file -p \"$BASE:$f\" 2>/dev/null | wc -l)` reads as total but under `set -euo pipefail` an absent path makes git exit 128, pipefail propagates it, and the ASSIGNMENT itself trips `set -e`. The job would have died 128 on the first newly-added .rs file in any PR. Verified in isolation: the line after the assignment never printed, exit 128.",
+      "T4/T6 caught the rename and spaced-path holes agy reported."
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict_on_first_draft": "DO-NOT-SHIP",
+    "split_verdict": "SHIP \u2014 independently re-derived the sorted-body diff and agreed the move is pure",
+    "ci_verdict": "DO-NOT-SHIP \u2014 five findings",
+    "findings_accepted": [
+      "pipefail abort on new files (I had found this independently minutes earlier; agy confirmed it)",
+      "PR base drift: pull_request.base.sha is the tip when the webhook fired, so main's growth is billed to this PR. agy's fix (the merge commit's first parent) is strictly better than mine (git merge-base), because base.sha is already an ancestor of the merge commit and merge-base therefore returns base.sha unchanged \u2014 my fix was a no-op. Adopted agy's.",
+      "renames bypass --diff-filter=ACM entirely",
+      "a multi-commit push to main only compares HEAD~1, the parent of the LAST commit",
+      "a path containing a space is quoted by git and silently skipped by [ -f \"$f\" ]"
+    ],
+    "findings_rejected": [],
+    "note": "All five were real. This lane is the reason the job ships correct; the test suite was green throughout and proved nothing about any of them."
+  },
+  "gates": {
+    "lib_tests": "13404 passed, 0 failed, 4 ignored",
+    "falsification_suites_390": "6 + 2 + 6 passed, 0 failed",
+    "clippy": "--all-targets -D warnings, 0 errors",
+    "fmt": "cargo fmt --all --check clean",
+    "bashrs": "0 errors on the extracted CI step (7 warnings, 17 info, all style)",
+    "bash_n": "clean",
+    "yaml": "lint.yml parses under yaml.safe_load"
+  },
+  "lanes_not_run": {
+    "crux_competitive_survey": "NOT RUN. A max-lines ratchet is not a design space worth surveying \u2014 the rule already exists in this repo's CLAUDE.md and its pre-commit hook, and this change only moves enforcement to where it can block a merge. Recorded as skipped rather than quietly omitted.",
+    "three_refuter_panel": "NOT RUN as a formal 3-lens panel. One adversarial lane ran (agy /teamwork) and it returned DO-NOT-SHIP with five findings, all accepted. Claiming a panel that did not sit would be the exact failure this receipt exists to prevent.",
+    "pmat_mcp": "NOT RUN on this change; the split adds no new logic to grade and clippy/fmt/TDG-baseline all ran."
+  },
+  "known_limits": [
+    "The gate reads `before` with `wc -l`, which counts newlines: a file with no trailing newline is undercounted by one. The pre-commit hook has the same behaviour, so the two agree.",
+    "A copy (C) is treated as a new file, so copying a 600-line file fails the gate. That is arguably correct and is not tested.",
+    "T5 was initially run in a worktree already polluted by T4's rename and reported a false `(0 -> 530)`. Re-run clean in a fresh worktree, it passes. The first run is recorded here because a receipt that hides its own bad tests is worthless."
+  ],
+  "gate_bug_found_in_passing": "scripts/quorum-gate.sh resolves .quorum/<branch>.json from the WORKING TREE, not from the ref being pushed. Pushing branch B while checked out on branch A reports B's receipt as missing even though it exists on B. Not fixed here; filed as a follow-up.",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/file-health-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 4193,
+        "sha256": "e881bf5ed13cfe81f6f64e48a0c3dbffda8e82f72f73cb0ce7826699384428b9",
+        "blob": "4fc8478017e3202015634d72ba279e515a72d8fb"
+      }
+    ]
+  },
+  "base_commit": "6cfb3e9437ec3de12c0704ea981613b8ed0430a5"
+}
