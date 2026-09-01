@@ -1,6 +1,6 @@
 {
   "issue": "#390 \u2014 a failed task's STDOUT never reached the operator",
-  "diff_sha256": "ae888601fd0cd94bb7df9dc61c312537f3512894",
+  "diff_sha256": "5e8452b767d1deeaa12b4a6f944c0c04a9190fe5",
   "base": "origin/main",
   "recorded_at": "2026-09-01",
   "quorum": {
@@ -91,33 +91,64 @@
   },
   "note_on_binding": "The receipt is written AFTER the code is committed and amended in: .quorum is excluded from its own hash, so adding it cannot invalidate it. Watch for forjar post-commit hook auto-staging .pmat/baseline.json \u2014 it rode into a receipt commit once and changed the diff underneath the hash.",
   "evidence": {
-    "digest_dir": ".quorum/evidence/",
-    "files": {
-      "390-agy-rootcause-review.md": {
+    "files": [
+      {
+        "path": ".quorum/evidence/390-agy-rootcause-review.md",
+        "roles": [
+          "agy"
+        ],
         "bytes": 0,
-        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
       },
-      "390-agy-spec-review.md": {
+      {
+        "path": ".quorum/evidence/390-agy-spec-review.md",
+        "roles": [
+          "agy",
+          "crux"
+        ],
         "bytes": 0,
-        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
       },
-      "390-round1-rootcause.md": {
-        "bytes": 77515,
-        "sha256": "fb895eadbf53a515ad949e58a48a8815b7dca6e114d8e9cca5e7829b63fae21c"
+      {
+        "path": ".quorum/evidence/390-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 64096,
+        "sha256": "e1ab565de4223ac8ba4515371dafe6d05be02baab07d7271acf7df09c2f41bf2",
+        "blob": "a801e87b5b1d75520a76d90d2d0585a49e4217e5"
       },
-      "390-round2-design.md": {
-        "bytes": 21149,
-        "sha256": "a6ab87067b1ed4a5a2e9adf4b77234ea4287d2c83e0565cd29c48d9131b7a06b"
+      {
+        "path": ".quorum/evidence/390-round1-rootcause.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": ".quorum/evidence/390-round2-design.md",
+        "roles": [
+          "judges",
+          "proposals"
+        ],
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
       }
-    },
-    "total_bytes": 98664,
-    "raw_journals": "~36 MB of agent transcripts in agent-local state; NOT committed and NOT durable. This digest is the record.",
-    "redaction": "absolute paths, session UUIDs, AND usernames. CORRECTED 2026-09-01: the first committed version attested a scrub it had not performed \u2014 it leaked `<user>@notty` and `<user>@127.0.0.3` into a public repo because the pass covered paths and UUIDs but not machine-local identity. Found by the quorum run on this very requirement.",
-    "truncation": "word-boundary with balanced backticks and explicit elision counts. The first version cut mid-token at a fixed 600 chars, leaving 11 quotes ending inside an unclosed backtick.",
+    ],
+    "total_bytes": 64096,
+    "claims_digest": ".quorum/evidence/390-claims.md",
+    "raw_journals": "~36 MB of agent transcripts in agent-local state; NOT committed, NOT durable. This digest is the record.",
+    "redaction": "paths, session UUIDs, usernames. CORRECTED: the first version attested a scrub it had not performed and leaked <user>@notty into a public repo.",
     "known_limits": [
-      "This proves diff-cited, scrubbed, committed prose EXISTS \u2014 not that a quorum happened.",
-      "The redaction scanner is a denylist and cannot prove absence of an unknown secret shape.",
+      "Proves scrubbed diff-cited prose exists and matches the tallies -- NOT that a quorum happened.",
+      "The redaction scanner is a denylist and cannot prove absence.",
       "Anyone with write access can force-push over main and take this with it."
     ]
-  }
+  },
+  "base_commit": "20398b99e13ef5bee5a12dcbadf2dc224e661e29"
 }

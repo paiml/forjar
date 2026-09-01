@@ -1,6 +1,6 @@
 {
   "version": "3.34.0",
-  "created_at": "2026-09-01T17:12:27.889888268Z",
+  "created_at": "2026-09-01T17:31:20.884326946Z",
   "git_context": null,
   "files": {
     "./build.rs": {
@@ -805,6 +805,117 @@
         "language": "Python",
         "file_path": "./scripts/bench_update.py",
         "penalties_applied": [],
+        "critical_defects_count": 0,
+        "has_critical_defects": false,
+        "has_contract_coverage": false
+      },
+      "components": {
+        "complexity_breakdown": {},
+        "duplication_sources": [],
+        "coupling_dependencies": [],
+        "doc_missing_items": [],
+        "consistency_violations": []
+      },
+      "git_context": null
+    },
+    "./scripts/quorum_evidence.py": {
+      "content_hash": [
+        101,
+        162,
+        189,
+        68,
+        221,
+        11,
+        135,
+        94,
+        123,
+        25,
+        44,
+        1,
+        57,
+        206,
+        64,
+        116,
+        113,
+        107,
+        200,
+        234,
+        245,
+        24,
+        40,
+        172,
+        133,
+        250,
+        158,
+        153,
+        160,
+        171,
+        64,
+        234
+      ],
+      "score": {
+        "structural_complexity": 0.0,
+        "semantic_complexity": 16.0,
+        "duplication_ratio": 20.0,
+        "coupling_score": 10.0,
+        "doc_coverage": 1.2600923,
+        "consistency_score": 10.0,
+        "entropy_score": 9.0,
+        "total": 66.26009,
+        "grade": "C+",
+        "confidence": 0.95,
+        "language": "Python",
+        "file_path": "./scripts/quorum_evidence.py",
+        "penalties_applied": [
+          {
+            "source_metric": "StructuralComplexity",
+            "amount": 1.0,
+            "applied_to": [
+              "StructuralComplexity"
+            ],
+            "issue": "Deep nesting: 5 levels"
+          },
+          {
+            "source_metric": "Duplication",
+            "amount": 1.0,
+            "applied_to": [
+              "Duplication"
+            ],
+            "issue": "Found 2 duplicate code patterns"
+          },
+          {
+            "source_metric": "StructuralComplexity",
+            "amount": 10.0,
+            "applied_to": [
+              "StructuralComplexity"
+            ],
+            "issue": "High cognitive complexity: 124"
+          },
+          {
+            "source_metric": "StructuralComplexity",
+            "amount": 15.0,
+            "applied_to": [
+              "StructuralComplexity"
+            ],
+            "issue": "High cyclomatic complexity: 73"
+          },
+          {
+            "source_metric": "Coupling",
+            "amount": 5.0,
+            "applied_to": [
+              "Coupling"
+            ],
+            "issue": "Too many external calls: 147"
+          },
+          {
+            "source_metric": "SemanticComplexity",
+            "amount": 4.0,
+            "applied_to": [
+              "SemanticComplexity"
+            ],
+            "issue": "Too many parameters: 13"
+          }
+        ],
         "critical_defects_count": 0,
         "has_critical_defects": false,
         "has_contract_coverage": false
@@ -54322,8 +54433,8 @@
     }
   },
   "summary": {
-    "total_files": 671,
-    "avg_score": 93.545105,
+    "total_files": 672,
+    "avg_score": 93.5045,
     "grade_distribution": {
       "A+": 357,
       "A": 216,
@@ -54331,11 +54442,11 @@
       "B+": 20,
       "B": 33,
       "B-": 6,
-      "C+": 2
+      "C+": 3
     },
     "languages": {
       "JavaScript": 8,
-      "Python": 3,
+      "Python": 4,
       "Rust": 660
     }
   }

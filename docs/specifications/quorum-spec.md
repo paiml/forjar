@@ -117,6 +117,43 @@ the tree, under the right filename, passing.
 receipt must either fix it or name it in `pmat.accepted` with a reason. Silence is
 not a pass.
 
+## Evidence — enforced, not requested
+
+`scripts/quorum_evidence.py` runs on every push and refuses a receipt whose evidence is
+absent, unreviewable, recycled or leaky. It checks, entirely offline:
+
+- every listed file is **committed** and its `sha256`/`bytes`/`blob` match the committed
+  blob — a working-tree-only digest passes locally and fails in CI, the worst failure mode
+  a pre-push gate can have;
+- the roles `claims`, `lanes`, `judges`, `agy` are all present — the rule names lane
+  summaries, judge scores and the independent review, not only the claims;
+- **both** tallies match the prose, counted symmetrically. The gate used to demand text for
+  what the panel *killed* and accept a bare integer for what it *blessed* — strict about the
+  claims nobody fabricates to look good, lax about the ones that ship into the changelog;
+- no evidence blob is byte-identical to one already on `origin/main` (copying a merged PR's
+  evidence forward is the cheapest forgery there is), and at least one listed file is in
+  this branch's diff;
+- ≥33% of adjudicated claims cite a `path.rs:N` that **resolves at `base_commit`** and names
+  a file this branch touched. This is the check with teeth, because the merge-base tree is
+  something the pusher did not author;
+- sixteen shape-based leak patterns, as an ERROR. This repo is public and this exact class
+  already leaked: the first committed digest carried `<user>@notty` while its own receipt
+  attested it was scrubbed.
+
+**Two rules were tuned against real data rather than asserted.** Hunk-level citation
+anchoring measured 25% on the honest #390 corpus and would have failed good work, so the
+anchor is file-level at 33%. An "ends mid-token" truncation heuristic fired on a complete
+639-byte sentence ending `bash-exit=127` and was dropped; the exact-budget and
+unclosed-backtick rules caught every real defect (18 bodies at exactly 600 B, 11 unclosed
+spans) without the false refusals. A gate that cries wolf on good evidence trains people to
+bypass it.
+
+**What this does not prove.** That a quorum happened. Nothing here observes seven blind
+lanes or three judges. On-target fabrication was priced during design, not waved away: a
+~40-line template loop that reads the diff and emits plausible paragraphs still passes. It
+raises the floor from "type an integer" to "write reviewable prose anchored to the real
+diff."
+
 ## The method
 
 Three stages, run across the four lanes above. The shape matters more than the size —
@@ -335,6 +372,45 @@ wall clock, and would only re-derive what the receipt records.
 - A missing base ref is **UNMEASURED → exit 1**, not a pass.
 - `.quorum/` is excluded from its own diff hash, or writing the receipt would
   invalidate the receipt.
+
+## Who is bound, and how to get past it
+
+`.quorum/enforce.json` lists who the gate **blocks**. Everyone else gets **advisory**
+mode: every check still runs and every finding is printed, but the push is not refused.
+
+The methodology is the maintainers' practice, not a tax on anyone who sends a patch. A
+contributor without a seven-lane agent stack — or who is simply out of model credits —
+must not be blocked for that.
+
+| | enforced author | everyone else |
+|---|---|---|
+| checks run | yes | yes |
+| findings printed | yes | yes |
+| push refused on failure | **yes** | no |
+| `QUORUM_SKIP="reason"` | **refused** | skips, prints the reason |
+| committed `waived.reason` | honoured, visible in the diff | n/a |
+| `git push --no-verify` | works, local only, in the reflog | works |
+
+**Why identity and not an env var.** `QUORUM_SKIP=1` available to everyone would be
+available to exactly the people it is meant to bind, leave no record, and be invisible in
+review. Within a month it is how everyone pushes and the gate is decoration. Scoping by
+identity means an enforced author opts out only by editing a **tracked** file — which
+lands in the PR diff — or by a committed waiver, or by `--no-verify`, which is local and
+sits in the reflog.
+
+**`QUORUM_SKIP` is allowed only in advisory mode**, and that asymmetry is the point. For
+someone already advisory it costs nothing but the wall-clock of the checks, so refusing it
+would be pure ceremony — it is there for time pressure and for running out of credits. For
+an enforced author it would be the silent hole this design exists to close.
+
+**The waiver is the CI escape.** An enforced author cannot `--no-verify` in CI, so without
+one the gate becomes a hostage the first time it is wrong. It is a reason string in the
+committed receipt: it lands in the PR diff where a reviewer sees it, and it cannot be set
+from the environment. Bypass exists; silent bypass does not.
+
+```json
+{ "waived": { "reason": "release hotfix; quorum owed on the follow-up" } }
+```
 
 ## Bypass
 

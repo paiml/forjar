@@ -32,6 +32,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # THE PUSHED HEAD, NOT THE PR MERGE COMMIT.
+          #
+          # `actions/checkout` defaults on `pull_request` to a synthetic merge of
+          # (PR head + base tip). Its merge-base with main is therefore the MAIN
+          # TIP, not the commit the branch actually forked from -- so the gate
+          # read base_commit=<main tip> and rejected an honest receipt that said
+          # <fork point>. Observed: local merge-base 20398b99, CI ebd44028, on a
+          # receipt that was correct. Checking out the real head makes CI verify
+          # exactly the bytes the developer pushed, which is the whole point.
+          ref: ${{ github.event.pull_request.head.sha }}
           # The gate diffs against the merge-base with origin/main, so it needs
           # real history. A shallow clone makes `git merge-base` fail, which the
           # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
@@ -49,5 +59,11 @@ jobs:
           # The gate resolves the branch from the ref being pushed; in CI the PR
           # head ref is the equivalent.
           PR_HEAD: ${{ github.head_ref }}
+          # WHO is being gated. Locally this falls back to `git config user.email`;
+          # in CI there is no such identity, so the PR AUTHOR is passed explicitly.
+          # Without it every CI run would resolve to "" and fall to advisory --
+          # the gate would be enforced locally and toothless exactly where it is
+          # the only thing standing between a PR and main.
+          QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
         run: |
           ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"

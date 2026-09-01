@@ -66,7 +66,68 @@ MIN_LANES=3
 MIN_REFUTERS=3
 MIN_JUDGES=3
 
-die() { echo "✗ QUORUM GATE: $*" >&2; exit 1; }
+# ENFORCED OR ADVISORY -- resolved before any check runs.
+#
+# The methodology is the maintainers' practice, not a tax on anyone who sends a
+# patch. A contributor without a 7-lane agent stack -- or who is simply out of
+# model credits -- must not be blocked for that. They still see every finding;
+# the gate just does not refuse their push.
+#
+# NOT a bare env var for the enforced set. `QUORUM_SKIP=1` available to exactly
+# the people it is meant to bind would leave no record and be invisible in
+# review; within a month it is how everyone pushes. Identity scoping means an
+# enforced author opts out only by editing a TRACKED file (visible in the PR
+# diff), by a committed waiver, or by --no-verify (local, and in the reflog).
+ENFORCE_CFG="$RECEIPT_DIR/enforce.json"
+actor="${QUORUM_ACTOR:-$(git config user.email 2>/dev/null || true)}"
+MODE="advisory"
+if [ -f "$ENFORCE_CFG" ] && python3 - "$ENFORCE_CFG" "$actor" <<'ENFORCE_PY'
+import json, sys
+cfg = json.load(open(sys.argv[1]))
+a = sys.argv[2].strip().lower()
+names = {a, a.split("@")[0]} if a else set()
+hits = {str(x).strip().lower() for x in cfg.get("enforced_for", [])}
+sys.exit(0 if (names & hits) else 1)
+ENFORCE_PY
+then
+    MODE="blocking"
+fi
+
+# In advisory mode a failure is REPORTED IN FULL and then forgiven. Silence would
+# be worse than no gate: the contributor learns nothing and the maintainer gets a
+# PR that merely looks checked.
+die() {
+    echo "✗ QUORUM GATE: $*" >&2
+    if [ "$MODE" = "advisory" ]; then
+        echo "" >&2
+        echo "  ADVISORY for '${actor:-unknown}' -- NOT blocking your push." >&2
+        echo "  The quorum is the maintainers' practice (docs/specifications/quorum-spec.md)." >&2
+        echo "  To skip these checks entirely next time (saves the test run):" >&2
+        echo "      QUORUM_SKIP='no credits' git push" >&2
+        exit 0
+    fi
+    exit 1
+}
+
+# THE EXPLICIT SKIP -- for time pressure, or for having no model credits left.
+#
+# Deliberately allowed ONLY in advisory mode. For someone already advisory it
+# costs nothing but the wall-clock of the checks, so refusing it would be pure
+# ceremony. For an enforced author it would be the silent hole this whole design
+# rejects -- they get the committed waiver instead, which a reviewer can see.
+if [ -n "${QUORUM_SKIP:-}" ]; then
+    if [ "$MODE" = "advisory" ]; then
+        echo "⚠ quorum gate SKIPPED for '${actor:-unknown}': $QUORUM_SKIP"
+        echo "    (advisory anyway -- nothing was bypassed that would have blocked you)"
+        exit 0
+    fi
+    echo "✗ QUORUM GATE: QUORUM_SKIP is not available to an enforced author." >&2
+    echo "     '${actor:-unknown}' is listed in $ENFORCE_CFG." >&2
+    echo "     Use a committed waiver so the bypass is reviewable:" >&2
+    echo "       .quorum/<branch>.json -> {\"waived\": {\"reason\": \"...\"}}" >&2
+    echo "     Or, locally and for an emergency only: git push --no-verify" >&2
+    exit 1
+fi
 
 command -v python3 >/dev/null 2>&1 || die "python3 is required to read the receipt"
 
@@ -138,7 +199,7 @@ fi
 #
 # The rule: the hash covers what a REVIEWER reviews. Generated artefacts are not
 # claims, so they are not part of the diff a quorum adjudicated.
-diff_text="$(git diff "$merge_base" HEAD -- . ':(exclude).quorum' ':(exclude).pmat')"
+diff_text="$(git diff "$merge_base" HEAD -- . ':(exclude,glob).quorum/*.json' ':(exclude).pmat')"
 diff_hash="$(printf '%s' "$diff_text" | git hash-object --stdin)"
 [ -n "$diff_hash" ] || die "could not compute a diff hash"
 
@@ -190,6 +251,27 @@ fi
   This branch proposes changes that have not survived refutation.
   Run the quorum, then write the receipt. See docs/quorum.md.
   Emergency bypass (recorded in the reflog): git push --no-verify"
+
+# THE WAIVER -- a bypass that leaves a permanent, reviewable record.
+#
+# An enforced author cannot use --no-verify in CI, so without an escape the gate
+# becomes a hostage the first time it is wrong. It is a reason STRING in the
+# COMMITTED receipt: it lands in the PR diff where a reviewer sees it, and it
+# cannot be set from the environment. Bypass exists; silent bypass does not.
+waiver="$(python3 - "$receipt" <<'WAIVE_PY' 2>/dev/null || true
+import json, sys
+try:
+    print((json.load(open(sys.argv[1])).get("waived") or {}).get("reason", "").strip())
+except Exception:
+    print("")
+WAIVE_PY
+)"
+if [ -n "$waiver" ]; then
+    echo "⚠ quorum gate WAIVED for '$branch'"
+    echo "    reason: $waiver"
+    echo "    (committed in $receipt -- visible in the PR diff)"
+    exit 0
+fi
 
 # Everything below is one python pass so a malformed receipt fails once, loudly,
 # instead of eight times through eight greps.
@@ -377,4 +459,16 @@ print(f"      reverted: {f['reverted']}")
 print(f"      observed: {f['observed_failure']}")
 PY
 
-echo "✓ quorum gate passed"
+# EVIDENCE -- the owner's rule: intermediate results AND conclusion attached.
+head_commit="$(git rev-parse HEAD)"
+tallies="$(python3 - "$receipt" <<'TALLY_PY'
+import json, sys
+q = json.load(open(sys.argv[1])).get("quorum", {})
+print(int(q.get("claims_confirmed", 0)), int(q.get("claims_refuted", 0)))
+TALLY_PY
+)"
+python3 "$(dirname "$0")/quorum_evidence.py" \
+    "$receipt" ${tallies} "$touched" "$merge_base" "$head_commit" \
+    || die "evidence checks failed (see above)"
+
+echo "✓ quorum gate passed ($MODE)"
