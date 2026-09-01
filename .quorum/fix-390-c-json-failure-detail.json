@@ -1,6 +1,6 @@
 {
   "issue": "#390-C \u2014 --json/--report emitted error:null for every failed resource, and reprinted stale lock rows",
-  "base_commit": "96aaed94e7316ae89bf30e977734cce26714671d",
+  "base_commit": "6cfb3e9437ec3de12c0704ea981613b8ed0430a5",
   "base": "origin/main",
   "recorded_at": "2026-09-01",
   "quorum": {
@@ -117,5 +117,5 @@
     "clippy": "-D warnings, 0 errors"
   },
   "diff_sha256": "d8f47461ef1500607b0f7840c6e109d634ca1e55",
-  "base_commit_rebased": "Re-anchored from 96aaed94e731 to 96aaed94e731 after merging origin/main to clear the conflict in the generated .pmat/baseline.json (see issue #401). The evidence was NOT re-run and is not claimed to have been. Everything between the two anchors is PR #397 (#390-E), which touches only src/resources/task.rs and src/resources/tests_task.rs; this receipt's subject is resource_ops.rs and machine_b.rs, neither of which differs between the anchors, so every quote still reads the same bytes."
+  "base_commit_rebased": "Re-anchored from 96aaed94e731 to 6cfb3e9437ec after merging origin/main to clear the conflict in the generated .pmat/baseline.json (issue #401). The evidence was NOT re-run and is not claimed to have been. Everything between the two anchors is PR #397 (#390-E), which touches only src/resources/task.rs and src/resources/tests_task.rs; this receipt's subject is resource_ops.rs and machine_b.rs, neither of which differs between the anchors, so every quote still reads the same bytes. Recorded here because the first attempt at this re-anchor ran BEFORE the merge was committed, so merge-base still returned the old value and the write was a silent no-op that left a note claiming a rebase that had not happened. Caught by asserting new != old rather than trusting the write."
 }
