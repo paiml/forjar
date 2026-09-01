@@ -164,6 +164,27 @@ if [ "${PRINT_HASH:-0}" = "1" ]; then
 fi
 
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
+
+# THE RECEIPT MUST BE COMMITTED, NOT MERELY WRITTEN.
+#
+# The gate reads the receipt from the WORKING TREE but hashes the COMMITTED diff.
+# An uncommitted receipt therefore passes locally and fails in CI, which reviews
+# what was actually pushed -- and that is not hypothetical: it happened on this
+# gate's own first PR. A `git add` in the write-the-receipt step errored on an
+# ignored path, `&&` short-circuited, the amend never ran, the local gate went
+# green against the edited-but-uncommitted file, and CI rejected the stale
+# committed one 22 seconds later.
+#
+# Local-green/CI-red is the worst failure mode a pre-push gate can have: it
+# teaches people the gate is noise. Check it here, where the fix is one commit
+# away, rather than after the PR is open.
+if ! git diff --quiet -- "$receipt" 2>/dev/null \
+   || ! git diff --cached --quiet -- "$receipt" 2>/dev/null; then
+    die "the receipt $receipt has uncommitted changes.
+     What gets pushed is the COMMITTED receipt, so this would pass here and fail
+     in CI. Commit it:  git add $receipt && git commit"
+fi
+
 [ -f "$receipt" ] || die "no quorum receipt at $receipt
 
   This branch proposes changes that have not survived refutation.
