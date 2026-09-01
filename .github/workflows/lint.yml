@@ -68,24 +68,45 @@ jobs:
 
       - name: Max-lines ratchet on changed .rs files
         shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
-          git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1 || BASE=$(git rev-list --max-parents=0 HEAD | tail -1)
-          # base.sha is the base as of the LAST PR sync, which drifts behind main.
-          # Diffing straight against it re-attributes every file another PR grew
-          # in the meantime to this one. The merge-base is the honest fork point.
-          BASE=$(git merge-base "$BASE" HEAD)
+
+          # WHICH BASE. Both obvious answers are wrong, so neither is used.
+          #
+          # `pull_request.base.sha` is main's tip when the WEBHOOK fired. If main
+          # advances before checkout, HEAD (the synthetic refs/pull/N/merge) also
+          # contains main's newer commits, and diffing against base.sha bills this
+          # PR for another PR's growth. That merge commit's FIRST PARENT is the
+          # base tip it was actually built on -- the honest fork point.
+          #
+          # For a push, `HEAD~1` only covers the LAST commit: push five at once and
+          # a 1000-line file smuggled in by the first is invisible. `event.before`
+          # is the tip the push actually moved from.
+          if [ -n "${PR_BASE:-}" ]; then
+            BASE=$(git rev-parse 'HEAD^1' 2>/dev/null || echo "$PR_BASE")
+          else
+            BASE="${PUSH_BEFORE:-}"
+          fi
+          if ! git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1; then
+            # First push of a branch hands us all-zeros; fall back rather than die.
+            BASE=$(git rev-parse 'HEAD~1' 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -1)
+          fi
+          echo "Comparing against $BASE"
+
           failed=0
-          while IFS= read -r f; do
-            [ -f "$f" ] || continue
+          check() {   # check <path-now> <path-at-base>
+            local f="$1" old="$2" now before
+            [ -f "$f" ] || return 0
             now=$(wc -l < "$f")
-            # NOT `before=$(git cat-file ... | wc -l)`. Under `set -euo pipefail`
-            # a path absent at BASE makes git exit 128, pipefail propagates it,
-            # and the ASSIGNMENT itself trips `set -e`: the job dies 128 on the
-            # first newly-added .rs file instead of checking it. Ask first.
-            if git cat-file -e "$BASE:$f" 2>/dev/null; then
-              before=$(git cat-file -p "$BASE:$f" | wc -l)
+            # NOT `before=$(git cat-file -p ... | wc -l)`. Under `set -euo pipefail`
+            # an absent path makes git exit 128, pipefail propagates, and the
+            # ASSIGNMENT trips `set -e`: the job dies 128 on the first new .rs file
+            # instead of checking it. Ask whether the blob exists first.
+            if [ -n "$old" ] && git cat-file -e "$BASE:$old" 2>/dev/null; then
+              before=$(git cat-file -p "$BASE:$old" | wc -l)
             else
               before=0   # new file: the hook's "hard block over 500" rule
             fi
@@ -95,7 +116,25 @@ jobs:
             elif [ "$now" -gt 400 ] && [ "$now" -gt "$before" ]; then
               echo "::warning file=$f::approaching the 500-line limit ($now lines)"
             fi
-          done < <(git diff --name-only --diff-filter=ACM "$BASE" HEAD -- '*.rs')
+          }
+
+          # -z, and --name-status with -M, for two reasons:
+          #   * git QUOTES a path containing a space in its default output, so
+          #     `[ -f "$f" ]` looks for a name with literal quotes, finds nothing,
+          #     and skips the file silently. NUL-delimited output is never quoted.
+          #   * a plain ACM filter drops R entirely, so renaming a 500-line file
+          #     and adding 100 more to it in the same PR sails through. R is
+          #     included, and the OLD path is what its `before` count must read --
+          #     measuring the new path would report 0 and block every rename.
+          while IFS= read -r -d '' status; do
+            case "$status" in
+              R*) IFS= read -r -d '' old; IFS= read -r -d '' new; check "$new" "$old" ;;
+              C*) IFS= read -r -d '' _src; IFS= read -r -d '' new; check "$new" "" ;;
+              A)  IFS= read -r -d '' new; check "$new" "" ;;
+              *)  IFS= read -r -d '' new; check "$new" "$new" ;;
+            esac
+          done < <(git diff -z -M --name-status --diff-filter=ACMR "$BASE" HEAD -- '*.rs')
+
           if [ "$failed" -ne 0 ]; then
             echo "File health check failed."
             exit 1
