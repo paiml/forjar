@@ -156,6 +156,17 @@ else
     [ "$branch" != "HEAD" ] || die "detached HEAD -- cannot identify the branch under review"
 fi
 
+# A TAG IS NOT A BRANCH AND HAS NO DIFF TO REFUTE.
+#
+# Caught pushing v1.24.0: git hands the hook `refs/tags/v1.24.0`, which matched
+# no exemption, so the gate looked for `.quorum/v1.24.0.json` and refused the
+# release tag. A tag names a commit whose claims were already adjudicated when
+# the branch that produced it was pushed -- re-gating it asks for a receipt about
+# a diff that does not exist.
+case "$remote_ref" in
+    refs/tags/*) echo "✓ quorum gate: '$remote_ref' is a tag, not a PR branch"; exit 0 ;;
+esac
+
 # main is exempt ONLY as a push target: there is no PR to gate, and a release
 # commit legitimately has no new claims of its own to refute.
 case "$branch" in
