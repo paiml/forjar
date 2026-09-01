@@ -7,7 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.24.0] — 2026-09-01
 
+### Added
+
+**A pre-PR quorum gate — evidence for a claim, enforced (#390).**
+`docs/specifications/quorum-spec.md` + `scripts/quorum-gate.sh` +
+`scripts/quorum_evidence.py`. A branch cannot be pushed until a diff-bound receipt
+shows its claims survived four mandatory lanes: CRUX (competitive survey, ≥3 named
+systems), adversarial refutation, an independent `agy /teamwork` review, and a pmat
+MCP pass that must include `analyze_vacuous_tests` by name.
+
+The motivation is #390 itself: a reporter, a maintainer, and a merged fix all
+operated for days on a false story while every test stayed green. CI checks the
+code; nothing checked the story.
+
+The receipt is bound to the diff via `git hash-object`, so it cannot be recycled or
+outrun by an edit, and the evidence must be **committed** — a working-tree-only
+digest passes locally and fails in CI, the worst failure mode a pre-push gate can
+have. The check with teeth is citation anchoring: ≥33% of adjudicated claims must
+cite a `path.rs:N` that resolves **at the merge-base**, the one tree the pusher did
+not author.
+
+`.quorum/enforce.json` scopes who is *blocked*; everyone else gets advisory mode —
+all checks run and all findings print, but the push is never refused. A contributor
+without an agent stack, or out of model credits, uses `QUORUM_SKIP="reason"`. That
+skip is refused for an enforced author, who gets a committed `waived.reason`
+instead: visible in the PR diff, unsettable from the environment. Bypass exists;
+silent bypass does not.
+
+Hardened by its own methodology. An independent review of the first draft returned
+REDESIGN and found four bypasses, all verified before being fixed: `QUORUM_BASE=HEAD`
+emptied the diff, a local branch named `main` took the exemption while pushing a
+feature ref, `sha256sum` would exit 127 on macOS under `set -e`, and the
+falsification could name any pre-existing green test. It also argued the kill rule
+down from majority-vote to *any un-countered substantive objection* — IETF rough
+consensus, and because LLM refuters do not fail independently.
+
+Honest limit, stated in the spec: it proves scrubbed, diff-cited, unrecycled prose
+exists and matches the tallies. It does **not** prove a quorum happened.
+
 ### Fixed
+
+**`completion_check` was never folded into `hash_desired_state` (#391).** Editing
+only the check left the lock hash unchanged, so a lock entry sealed against the OLD
+check compared equal to the NEW one and `plan` reported `NoOp` over a resource whose
+declared condition had genuinely changed. Same defect class as FJ-035's
+`overlay_hosts` fix. This is a real gap and a different half of #390 — it could not
+fix the reported symptom, because that defect was never in the hash.
+
 
 **A failed task's STDOUT never reached the operator, and the failure was named
 wrong (#390).** An operator building llama.cpp with CUDA on `gx10` ran
