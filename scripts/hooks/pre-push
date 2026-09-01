@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# forjar pre-push: quality gate + quorum gate.
+#
+# TRACKED, unlike `.git/hooks/pre-push`, which git does not version. Install with
+# `make install-hooks` (or scripts/install-hooks.sh). An uninstalled hook gates
+# nobody, which is why the quorum spec names "the gate is local" as a live
+# failure mode and why CI must mirror it -- see docs/specifications/quorum-spec.md.
+#
+# Bypass with: git push --no-verify   (recorded in the reflog)
+set -euo pipefail
+
+[ -f Cargo.toml ] || exit 0
+
+# READ GIT'S PRE-PUSH PROTOCOL BEFORE ANYTHING ELSE CONSUMES STDIN.
+#
+# git feeds one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+#
+# The REMOTE ref is the one that matters. Reading the local branch name instead
+# was a real bypass found in review: `git checkout -b main && git push origin
+# main:real-feature` takes the main exemption while pushing a feature branch.
+# Anything below that reads stdin would eat these lines, so they are captured up
+# front and every later consumer gets </dev/null.
+remote_refs=""
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+    [ -n "${remote_ref:-}" ] && remote_refs="$remote_refs $remote_ref"
+done
+
+echo "🔍 forjar pre-push"
+echo "=================="
+
+FAILED=0
+run_check() {
+    local label="$1"; shift
+    local log; log="$(mktemp)"
+    trap 'rm -f "$log"' RETURN
+    printf '  %s... ' "$label"
+    if "$@" > "$log" 2>&1 < /dev/null; then
+        echo "✅"; rm -f "$log"; return 0
+    fi
+    echo "❌"
+    echo "   \$ $*"
+    sed 's/^/   | /' "$log" | tail -30
+    rm -f "$log"
+    FAILED=1
+    return 0
+}
+
+run_check "Format check"  cargo fmt --all -- --check
+run_check "Cargo check"   cargo check --all-targets
+run_check "Clippy"        cargo clippy --all-targets -- -D warnings
+run_check "Unit tests"    cargo test --lib --quiet
+
+# THE QUORUM GATE.
+#
+# Runs per pushed ref, because one `git push` can carry several and each is a
+# separate claim about a separate branch. A deletion (all-zero local sha) has no
+# diff to refute and is skipped by the gate's own empty/branch logic.
+if [ -n "${remote_refs}" ]; then
+    # shellcheck disable=SC2086 -- deliberate word-split: one ref per iteration
+    for ref in ${remote_refs}; do
+        printf '  Quorum gate (%s)... ' "${ref#refs/heads/}"
+        if out="$(./scripts/quorum-gate.sh --remote-ref "$ref" 2>&1 < /dev/null)"; then
+            echo "✅"
+        else
+            echo "❌"
+            printf '%s\n' "$out" | sed 's/^/   | /'
+            FAILED=1
+        fi
+    done
+else
+    # No refs on stdin means this was not invoked as a hook. UNMEASURED is not a
+    # pass anywhere else in this repo and is not one here either.
+    printf '  Quorum gate... '
+    if out="$(./scripts/quorum-gate.sh 2>&1 < /dev/null)"; then
+        echo "✅"
+    else
+        echo "❌"; printf '%s\n' "$out" | sed 's/^/   | /'; FAILED=1
+    fi
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    echo ""
+    echo "❌ Pre-push gate FAILED"
+    echo "   Bypass (emergency, recorded): git push --no-verify"
+    exit 1
+fi
+
+echo ""
+echo "✅ Pre-push gate passed"

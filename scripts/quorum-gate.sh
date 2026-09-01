@@ -108,7 +108,7 @@ esac
 # (three dots) is the same set GitHub shows in the PR.
 if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
     # A missing base is UNMEASURED, not clean. Say which state we are in.
-    die "base ref '$BASE_REF' does not exist -- cannot compute the diff under review.
+    die "base ref '"$BASE_REF"' does not exist -- cannot compute the diff under review.
      Fetch it (git fetch origin main) or set QUORUM_BASE to the right base."
 fi
 
@@ -136,6 +136,19 @@ if [ -z "$diff_text" ]; then
     die "the diff against $BASE_REF is empty, but HEAD is ahead of the merge-base.
      Nothing can be refuted because nothing is visible to the gate. Investigate
      before pushing rather than treating this as clean."
+fi
+
+# ONE IMPLEMENTATION OF THE HASH, EXPOSED.
+#
+# Writing a receipt means putting this hash in it, and the obvious way to get it
+# -- `git diff ... | git hash-object --stdin` at a shell -- silently disagrees
+# with the line above: command substitution strips the trailing newline, a bare
+# pipeline does not, so the two hashes differ and the receipt looks stale for a
+# reason nobody can see. Hit while writing the FIRST receipt this gate ever
+# checked. Callers ask the gate rather than reimplementing it.
+if [ "${PRINT_HASH:-0}" = "1" ]; then
+    printf '%s\n' "$diff_hash"
+    exit 0
 fi
 
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
@@ -210,6 +223,23 @@ if confirmed + refuted == 0:
 # a panel that confirmed 100% of what it was handed was not adversarial, it was
 # an echo. Set `refutation_waived` with a reason if a run genuinely found nothing
 # wrong -- it is then visible in the receipt and in review, which is the point.
+# THE CLAIMS MUST BE PRESENT AS TEXT, NOT ONLY AS TALLIES.
+#
+# `claims_confirmed: 43` is a black box: no human can review it, and it is exactly
+# as easy to type as `4300`. An outside review made the Goodhart case against a
+# bare kill-count -- an agent needing refuted>0 can manufacture a throwaway claim
+# to shoot down -- and the answer is not to drop the count but to make what was
+# killed legible. A fabricated "the sky is green" is invisible as a number and
+# obvious as a sentence.
+refuted_texts = q.get("refuted_claims", [])
+if refuted and not refuted_texts:
+    die("""the receipt reports refuted claims as a NUMBER but not as text.
+  Add quorum.refuted_claims: [ ... the actual sentences that were killed ... ].
+  A tally cannot be reviewed; a manufactured kill is only visible as prose.""")
+if refuted_texts and len(refuted_texts) != refuted:
+    die(f"claims_refuted={refuted} but {len(refuted_texts)} refuted_claims listed -- "
+        "the tally and the text disagree")
+
 if refuted == 0 and not q.get("refutation_waived"):
     die("""the quorum refuted NOTHING.
   Every claim survived, which usually means the refuters were not adversarial.

@@ -148,8 +148,30 @@ The #390 lenses, as an example worth copying:
 - **reporter-facts** — hold the claim against every specific fact in the report. If it
   cannot account for one, it fails.
 
-**Kill rule:** a claim dies if **≥2 of 3** refute it. Refuters default to
-`refuted=true` when unconvinced, so the burden sits on the claim, not on the doubt.
+**Kill rule: any un-countered substantive objection kills the claim.** Not a vote.
+
+This started as "≥2 of 3 refute it" and an outside review was right to reject that,
+on two grounds worth recording because both are easy to get wrong again:
+
+1. **Technical truth is not a democracy.** If one refuter produces a proof — a
+   citation that does not say what was claimed, a counter-example that runs — a 2–1
+   vote does not make the claim true. Majority rule actively discards the single
+   most valuable output the panel can produce.
+2. **LLM refuters do not fail independently.** Three instances of one model share a
+   prior and collapse together, so "2 of 3 agreed" measures correlation, not
+   corroboration. Byzantine-fault intuitions do not transfer.
+
+IETF rough consensus is the prior art and it is explicit: consensus is reached by
+**addressing substantive objections**, not by counting hands. A claim survives only
+when every objection against it has been *answered*, and an objection is answered by
+evidence, not by outvoting it.
+
+"Substantive" means: cites a file/line, a command and its output, or a
+counter-example. "I am not convinced" is not substantive and does not kill a claim —
+otherwise the burden inverts and nothing survives.
+
+Refuters still default to skepticism when unconvinced, so the burden of proof sits on
+the claim.
 
 This stage is load-bearing, not ceremonial. #390: **43 claims confirmed, 17 refuted.**
 Among the dead was a claim *I* had written and believed — "a task's STDOUT is
@@ -259,12 +281,27 @@ about code that no longer exists.
 | `pmat.tools` | must include `analyze_vacuous_tests` | a claim backed by a test that cannot fail is backed by nothing |
 | `pmat.vacuous_tests_in_touched_paths` | 0, or listed in `accepted` | silence is not a pass |
 
-**The anti-rubber-stamp rule.** A quorum that refutes *nothing* is rejected. A panel
-confirming 100% of what it was handed was probably not adversarial. If a run
-genuinely found nothing wrong, set `refutation_waived` to a reason string — the claim
-is then on the record and visible in review, rather than implied by silence. This is
-the rule most likely to be argued with, which is exactly why it is explicit and
-overridable in the open rather than silently absent.
+**The anti-rubber-stamp rule, and its Goodhart problem.** A quorum that refutes
+*nothing* is rejected, because a panel confirming 100% of what it was handed was
+probably not adversarial.
+
+An outside review attacked this hard and correctly: a numeric floor on kills invokes
+Goodhart's Law. An agent that needs `claims_refuted > 0` to pass can manufacture a
+throwaway claim ("the sky is green") purely to shoot it down. The counter measures
+the theatre of refutation rather than the rigour of what survived.
+
+The rule stays, but the count alone is not the signal. Two changes make gaming it
+visible rather than free:
+
+- **The receipt carries the claims as TEXT**, not just tallies. `claims_confirmed: 43`
+  is a black box no human can review; `refuted_claims: [...]` with the actual
+  sentences makes a manufactured kill obvious at a glance, and embarrassing.
+- **Divergence is recorded** — whether the blind lanes disagreed *before* synthesis.
+  Independent lanes reaching different conclusions is the real evidence of
+  adversarial process; unanimity from the first pass is the thing to be suspicious of.
+
+`refutation_waived` remains for the honest case where nothing was wrong. It is a
+string on the record, reviewable, rather than a silence.
 
 ## What the gate verifies vs. attests
 
@@ -317,9 +354,16 @@ Named rather than hidden, per house discipline:
    the right reason*; that is reviewable but not machine-checkable.
 3. **Lens collapse.** Three "distinct" lenses that ask the same question. Currently
    attested in `lens_diversity`, not enforced.
-4. **The gate is local.** Hooks live in `.git/hooks/`, which is not tracked; it must
-   be installed. A contributor who never installs it is never gated. A CI mirror of
-   this check would close that — see Open questions.
+4. **A local hook enforces nothing on its own.** This is the honest framing, and an
+   outside review was right to call the earlier wording an illusion: hooks live in
+   untracked `.git/hooks/`, `git push --no-verify` always works, and with `main`
+   unprotected a contributor can bypass the PR entirely. The tracked hook plus
+   `make install-hooks` buys *fast local feedback*, not enforcement.
+
+   **Enforcement requires both halves**, and shipping only the first is the mistake:
+   (a) CI runs `scripts/quorum-gate.sh` on every PR, and (b) `main` gets branch
+   protection with that check required. Until (b) exists, this gate is a good habit
+   with a receipt, and this document should not claim otherwise.
 
 ## Open questions
 
