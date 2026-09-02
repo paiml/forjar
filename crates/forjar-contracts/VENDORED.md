@@ -7,3 +7,12 @@ This directory contains a vendored copy of the `aprender-contracts` and `aprende
 - **Source Commit**: d6c6c6f8fdaa09cfa88e66f85cfbe03108d7d6dd (paiml/aprender)
 
 This crate was copied from the registry cache to guarantee exact byte-for-byte fidelity with what `forjar` previously consumed from crates.io.
+
+## Lint debt carried from upstream
+
+The workspace's `cargo clippy --all-targets --workspace -- -D warnings` finds
+three things in this crate that upstream did not lint against: `#[cfg(kani)]`
+without a `check-cfg` declaration, one `manual_strip`, one
+`manual_is_multiple_of`. They are allowed in this crate's `[lints]` table
+rather than fixed, so the source stays byte-identical to the registry copy;
+fix them upstream and re-vendor.

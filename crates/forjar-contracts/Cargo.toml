@@ -36,4 +36,10 @@ proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [lints.rust]
+# Upstream lint debt, kept for byte fidelity with aprender-contracts 0.31.2 (see VENDORED.md).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 unsafe_code = "allow"
+
+[lints.clippy]
+manual_strip = "allow"
+manual_is_multiple_of = "allow"
