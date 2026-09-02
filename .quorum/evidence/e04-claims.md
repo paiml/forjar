@@ -1,0 +1,32 @@
+# Quorum evidence — #406 (CRUX audit E04) — adjudicated claims
+
+## CONFIRMED — 6 claims survived refutation
+
+1. [probe] (explains-symptom) A resolved secret was written into three state files per apply, and `--auto-commit` put them in git.
+   - evidence: `capture_output` at src/core/executor/run_capture.rs:66 wrote the executed script into `<res>.<action>.log`, `<res>.<action>.json` (field `script`) and `<res>.script`; `resource_ops` resolved `{{secrets.*}}` at src/core/executor/resource_ops.rs:493 BEFORE codegen, so the plaintext was in the script; `git_commit_state` at src/cli/apply_helpers.rs:111 ran `git add state`. `redact_secrets` had shipped since FJ-2300 with no production caller. Pinned by `no_state_file_contains_the_resolved_secret` in tests/falsification_e04_run_log_secrets.rs, RED on main.
+
+2. [probe] (explains-symptom) The ticket's own success criterion — grep the state tree for the plaintext — PASSED on unfixed main, because `file` content is base64-encoded in the script.
+   - evidence: `codegen::file` emits `echo '<base64>' | base64 -d > path`, so a secret in `content:` never appears as literal bytes; and because `api_token=` is ten bytes, the secret does not start on a 3-byte boundary and `base64(secret)` is not a substring of `base64(content)` either. Value substitution alone finds nothing. The test's `leak_forms` therefore checks BOTH the plaintext and the base64 of the whole content line, and `redact_encoded` in src/core/resolver/redaction.rs decodes every base64 run ≥ 4 chars and strikes any that reveals a secret.
+
+3. [design] The three layers are each necessary: value redaction for spliced secrets, decoded-blob redaction for `file` content, and `sensitive: true` / ciphertext suppression for what redaction cannot see.
+   - evidence: at base `capture_exec_output` (src/core/executor/run_capture.rs:151) wrote the script it was handed without a redaction pass; `collect_secret_values` now re-resolves every `{{secrets.*}}` key named by the UNRESOLVED resource; `redact_transcript` runs the literal pass then the decoded pass; `Transcript::suppress` in src/core/executor/run_capture.rs is set from `resource.sensitive || carries_ciphertext(resource)`. An `ENC[age,…]` value — the shape the ticket names — is decrypted AFTER template substitution, so no `{{secrets.*}}` span ever carried it and the value list is empty; suppression is the only honest answer there, the one Ansible `no_log` and Chef `sensitive` give. Pinned by `sensitive_resource_writes_no_transcript` and `the_transcript_survives_redaction` (a non-secret transcript is untouched).
+
+4. [probe] (explains-symptom) The `--auto-commit` exclusion `:(exclude)state/*/runs/` was a no-op in exactly the repositories it was written for.
+   - evidence: git honours a DIRECTORY exclusion only while the directory is entirely untracked; once one transcript is tracked, matching is per path and `state/*/runs/` does not wildmatch `state/local/runs/<run>/<res>.script`. Measured: nine transcripts went into the commit of a repo that had been running `--auto-commit` since before the fix. src/cli/apply_helpers.rs:111 now excludes `state/*/runs/*`. Pinned by `auto_commit_never_stages_a_run_transcript`, which seeds a TRACKED transcript, runs a real `--auto-commit`, and asserts on the commit's own file list — RED against the directory form.
+
+5. [design] Both schedulers are covered, not one.
+   - evidence: the parallel wave path (src/core/executor/machine_wave.rs:11 at base) captures through the same `Transcript` as the sequential path (src/core/executor/resource_ops.rs:359 at base); `no_state_file_contains_the_resolved_secret_under_parallel` runs the identical leak scan under `--parallel`. This is the E09 (#412) drift class caught one path early: a redaction that only the sequential executor performed would have been a leak on every `--parallel` fleet.
+
+6. [design] `forjar init` now ignores run transcripts, and the migration for repositories that already committed them is documented rather than implied.
+   - evidence: the `.gitignore` `forjar init` generates (src/cli/init.rs: at base) now carries `state/*/runs/` (pinned by `init_gitignores_run_transcripts`); `.gitignore` and `:(exclude)` cannot untrack what is already committed, so `git rm -r --cached 'state/*/runs'` plus rotation is spelled out in docs/specifications/platform/10-security-model.md, which had claimed "Secrets are never stored in state files".
+
+## REFUTED — 3 claims killed
+
+1. [probe] refuted 1/1 — The ticket's success criterion ("apply a secret-bearing file resource, grep the state tree for the plaintext — zero matches") falsifies the defect.
+   - corrected: It does not — run verbatim against unfixed main (src/core/executor/run_capture.rs:66 writing the script as handed) it PASSED, because the plaintext never appears in a `file` transcript; it appears base64-encoded and misaligned. A criterion that is green on the broken tree proves nothing about the fix. The test checks the decoded form as well, and the redactor decodes rather than substitutes.
+
+2. [design] refuted 1/1 — Literal value redaction is sufficient for every resource type once the base64 pass exists.
+   - corrected: Not for a value that never passed through a `{{secrets.*}}` span — the resolution at src/core/executor/resource_ops.rs:493 happens before codegen either way. `ENC[age,…]` ciphertext is decrypted by `resolve_template_with_secrets` after substitution, so `collect_secret_values` cannot name the plaintext and both passes short-circuit on an empty list. Naming it would mean decrypting a second time on the reporting path with the identity file; suppressing the transcript is the honest answer and is what such a resource now gets, whether or not it says `sensitive: true`.
+
+3. [agy] refuted 1/1 — `redact_encoded` is bypassed when the base64 blob is line-wrapped, because `is_b64_char` stops a run at a newline.
+   - corrected: For the transcripts forjar writes, no blob is ever wrapped: `codegen::file` encodes with `base64::engine::general_purpose::STANDARD` and emits one `echo '<blob>' | base64 -d` line, so the run the redactor decodes is the whole blob. Output a task produces with its own `base64 -w76` is a third encoding the redactor does not chase — the same class as a shell-quoted secret with an embedded quote — and is what `sensitive: true` and the ciphertext suppression are for. Recorded under known_limits rather than fixed by guessing wrap widths.
