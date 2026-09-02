@@ -79,7 +79,7 @@ fn collect_proofs(
 
 /// Run the `core::prove` invariant engine (contract `provable-iac-v1`) and map its
 /// three-state results into convergence `ProofResult`s. A HARD invariant that is
-/// FALSIFIED fails the proof; PROVED/CHECKED/UNKNOWN pass with the state in the detail.
+/// FALSIFIED fails the proof; PROVED/CHECKED pass with the state in the detail; UNKNOWN fails the proof.
 fn structural_invariants(config: &types::ForjarConfig) -> Vec<ProofResult> {
     use crate::core::prove::{prove as prove_invariants, Assurance, Class};
     prove_invariants(config, "")
@@ -88,7 +88,8 @@ fn structural_invariants(config: &types::ForjarConfig) -> Vec<ProofResult> {
         .filter(|i| !matches!(i.id, "I1" | "I5"))
         .map(|i| ProofResult {
             name: format!("{} {}", i.id, i.name),
-            passed: !(i.class == Class::Hard && i.state == Assurance::Falsified),
+            passed: !(i.class == Class::Hard && i.state == Assurance::Falsified)
+                && i.state != Assurance::Unknown,
             detail: format!("[{}] {}", i.state.badge(), i.detail),
         })
         .collect()
