@@ -3210,12 +3210,19 @@ forjar graph --security-boundaries -f forjar.yaml
 forjar graph --security-boundaries -f forjar.yaml --json
 ```
 
-**HMAC verification** checks lock file signatures:
+**Signature verification** checks lock file signatures against the key that
+signed them:
 
 ```bash
-forjar lock-verify-hmac --state-dir state
-forjar lock-verify-hmac --state-dir state --json
+forjar lock-sign --state-dir state --key "$FORJAR_LOCK_KEY"
+forjar lock-verify-sig --state-dir state --key "$FORJAR_LOCK_KEY"
 ```
+
+`forjar lock-verify-hmac` used to sit here. It counted any lock with a sidecar
+beside it as verified without reading the sidecar — and looked for it at a path
+`lock-sign` never writes. It was removed in v1.24 rather than fixed, because
+`lock-verify-sig` above already does the real comparison
+([paiml/forjar#405](https://github.com/paiml/forjar/issues/405)).
 
 **Pre-flight checks** gate apply with a validation script:
 

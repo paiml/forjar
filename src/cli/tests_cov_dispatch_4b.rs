@@ -35,18 +35,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cov_dispatch_lock_verify_hmac() {
-        let dir = tempfile::tempdir().unwrap();
-        let state = dir.path().join("state");
-        std::fs::create_dir_all(&state).unwrap();
-        let result = dispatch_lock_cmd(Commands::LockVerifyHmac(LockVerifyHmacArgs {
-            state_dir: state,
-            json: false,
-        }));
-        assert!(result.is_ok());
-    }
-
-    #[test]
     fn test_cov_dispatch_lock_archive() {
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");

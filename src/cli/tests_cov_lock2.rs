@@ -377,18 +377,6 @@ mod tests {
     }
 
     #[test]
-    fn test_lock_verify_hmac() {
-        let d = setup_valid_state();
-        assert!(super::super::lock_audit::cmd_lock_verify_hmac(d.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_lock_verify_hmac_json() {
-        let d = setup_valid_state();
-        assert!(super::super::lock_audit::cmd_lock_verify_hmac(d.path(), true).is_ok());
-    }
-
-    #[test]
     fn test_lock_verify_schema() {
         let d = setup_valid_state();
         assert!(super::super::lock_audit::cmd_lock_verify_schema(d.path(), false).is_ok());
