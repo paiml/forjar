@@ -29,6 +29,19 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     // notification unauthenticated, and the 401 that follows was swallowed too.
     validate_notify_headers(&args)?;
 
+    // forjar#374: the operator gate is cross-cutting, exactly like GH-211's two
+    // checks above it. It lived as the FIRST LINE OF THE LAST STAGE
+    // (`apply_execute`), and every early exit returns above there — so
+    // `--canary-machine` converged the ENTIRE FLEET for an operator the config
+    // does not list, `--refresh-only` shelled out to every managed host and
+    // rewrote every lock file, and `--pre-script` ran to completion before the
+    // refusal that followed it. #370 patched one exit (`--plan-file`) at its own
+    // call site; a gate that each exit has to remember is not a gate, so this
+    // fixes the POSITION instead of adding a fourth copy.
+    if !is_read_only_apply_mode(&args) {
+        check_operator_auth(&args.file, args.operator.as_deref())?;
+    }
+
     if let Some(r) = apply_early_exits(&args) {
         return r;
     }
@@ -90,6 +103,34 @@ pub(super) fn effective_dry_run(args: &ApplyArgs) -> bool {
         || args.dry_run_verbose
 }
 
+/// forjar#374: which apply modes are pure READS, and so stay ungated.
+///
+/// `allowed_operators` is an apply-time gate, and #370 already pinned that line
+/// when it left `plan --out` ungated. `--check`, `--diff-only`,
+/// `--output-scripts` and the `--dry-run-{graph,cost,verbose}` family change
+/// nothing and print what the `forjar check` / `plan` / `graph` verbs already
+/// print to anybody — none of which accepts `--operator` at all. Gating the
+/// `apply` spellings of those reads therefore buys no confidentiality, and it
+/// costs a measured refusal: `check_operator_auth` iterates EVERY machine in the
+/// config regardless of `--machine`, so an operator listed on one machine would
+/// lose `apply -m theirs --check` with "not authorized for machine 'other'".
+///
+/// The order below MIRRORS the dispatch order in `apply_early_exits` and
+/// `apply_mode_exits`, because only the FIRST matching flag decides what runs:
+/// `--canary-machine --check` converges the fleet, so it must not read as a
+/// read. Anything not named here — `--refresh-only`, `--plan-file`, `--dry-run`,
+/// a plain apply, and any mode added later — is gated. Fail-safe by default:
+/// forgetting to add a new read here can only over-refuse, never over-apply.
+fn is_read_only_apply_mode(args: &ApplyArgs) -> bool {
+    if args.dry_run_verbose || args.dry_run_graph || args.dry_run_cost {
+        return true;
+    }
+    if args.canary_machine.is_some() {
+        return false;
+    }
+    args.output_scripts.is_some() || args.diff_only || args.check
+}
+
 /// Early exits for dry-run and canary modes.
 fn apply_early_exits(args: &ApplyArgs) -> Option<Result<(), String>> {
     if args.dry_run_verbose {
@@ -114,6 +155,9 @@ fn apply_early_exits(args: &ApplyArgs) -> Option<Result<(), String>> {
             cm,
             &args.params,
             args.timeout,
+            // forjar#374: what the operator actually typed. This used to be
+            // hard-coded `true` two frames down.
+            args.yes,
         ));
     }
     None

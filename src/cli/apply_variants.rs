@@ -35,12 +35,22 @@ pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
 }
 
 /// FJ-510: Canary machine — apply to single machine first, then remaining.
+///
+/// # `yes` is the operator's, not ours (forjar#374)
+///
+/// Both legs used to pass a hard-coded `true` for `--yes`. A flag whose whole
+/// promise is "one machine first, so you can look" therefore converged the
+/// canary AND every remaining machine in the config without the confirmation
+/// prompt every other apply asks for — for authorized operators too, needing no
+/// misconfiguration to reach. The confirmation is the operator's decision, so
+/// it is threaded from the command line and each leg asks in turn.
 pub(crate) fn cmd_apply_canary_machine(
     file: &Path,
     state_dir: &Path,
     canary: &str,
     params: &[String],
     timeout: Option<u64>,
+    yes: bool,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     if !config.machines.contains_key(canary) {
@@ -80,7 +90,7 @@ pub(crate) fn cmd_apply_canary_machine(
         false,
         false,
         0,
-        true,
+        yes,
         false,
         None,
         false,
@@ -138,7 +148,7 @@ pub(crate) fn cmd_apply_canary_machine(
             false,
             false,
             0,
-            true,
+            yes,
             false,
             None,
             false,

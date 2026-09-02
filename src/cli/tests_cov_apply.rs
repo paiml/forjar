@@ -110,7 +110,7 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
 
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "nonexistent", &[], None);
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "nonexistent", &[], None, true);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -130,7 +130,7 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
 
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "missing", &[], None);
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "missing", &[], None, true);
         assert!(result.is_err());
         let err = result.unwrap_err();
         // Should list available machines
@@ -147,7 +147,7 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
 
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "m", &[], None);
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "m", &[], None, true);
         assert!(result.is_err());
     }
 
@@ -158,7 +158,7 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
 
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "any", &[], None);
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "any", &[], None, true);
         assert!(result.is_err());
     }
 
@@ -174,6 +174,7 @@ mod tests {
             "m",
             &[],
             None,
+            true,
         );
         assert!(result.is_err());
     }
@@ -185,7 +186,7 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
 
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "bogus", &[], Some(5));
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "bogus", &[], Some(5), true);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("bogus"));
     }
@@ -198,7 +199,7 @@ mod tests {
         std::fs::create_dir_all(&state_dir).unwrap();
 
         let params = vec!["key=value".to_string()];
-        let result = cmd_apply_canary_machine(f.path(), &state_dir, "nope", &params, None);
+        let result = cmd_apply_canary_machine(f.path(), &state_dir, "nope", &params, None, true);
         assert!(result.is_err());
     }
 
