@@ -1,5 +1,5 @@
 {
-  "issue": "#363 / #368 / #378 \u2014 a saved plan could not be applied (plan --out hashed a stripped config, apply --plan-file hashed the unstripped one); apply --plan-file reached the executor with every gate unrun and never prompted before a destructive change; apply --force aborted on debug_assert when a forced resource failed; --refresh-only dropped --operator",
+  "issue": "#363 / #368 / #378 — a saved plan could not be applied (plan --out hashed a stripped config, apply --plan-file hashed the unstripped one); apply --plan-file reached the executor with every gate unrun and never prompted before a destructive change; apply --force aborted on debug_assert when a forced resource failed; --refresh-only dropped --operator",
   "base": "origin/main",
   "recorded_at": "2026-09-03",
   "quorum": {
@@ -16,24 +16,24 @@
     "claims_confirmed": 6,
     "claims_refuted": 2,
     "refuted_claims": [
-      "Every gate the interactive apply runs also runs on --plan-file, or is refused by name \u2014 REFUTED by the agy lane: the live drift probe (check_pre_apply_drift) neither runs nor is refused by name on the plan-file path; the omission is deliberate and documented in apply_from_plan_gates.rs (the probe writes Drifted into the lock), the plan is bound to config_hash + state_hash instead (Terraform's apply-tfplan shape), and a host that drifted under an unchanged state file is converged over silently. Filed as #432; not claimed by this branch.",
-      "The debug_assert abort is fixed by widening the invariant \u2014 REFUTED: forced_noop <= converged is the contract (apply-summary-distinguishability-v1) and stays; the count is now taken from what RAN (forced_noops_that_ran), not from what was planned."
+      "Every gate the interactive apply runs also runs on --plan-file, or is refused by name — REFUTED by the agy lane: the live drift probe (check_pre_apply_drift) neither runs nor is refused by name on the plan-file path; the omission is deliberate and documented in apply_from_plan_gates.rs (the probe writes Drifted into the lock), the plan is bound to config_hash + state_hash instead (Terraform's apply-tfplan shape), and a host that drifted under an unchanged state file is converged over silently. Filed as #432; not claimed by this branch.",
+      "The debug_assert abort is fixed by widening the invariant — REFUTED: forced_noop <= converged is the contract (apply-summary-distinguishability-v1) and stays; the count is now taken from what RAN (forced_noops_that_ran), not from what was planned."
     ],
-    "divergence": "the probe lane found the three symptoms reproduce on 1.24.0 and the falsifiers pin them; the agy lane found the drift-gate claim overstated and a pre-existing GH-208 decision it read as a regression \u2014 the first was accepted and filed (#432), the second was checked against the merge-base (src/core/executor/mod.rs:270 at 9e0815c0) and found to predate the branch"
+    "divergence": "the probe lane found the three symptoms reproduce on 1.24.0 and the falsifiers pin them; the agy lane found the drift-gate claim overstated and a pre-existing GH-208 decision it read as a regression — the first was accepted and filed (#432), the second was checked against the merge-base (src/core/executor/mod.rs:270 at 9e0815c0) and found to predate the branch"
   },
   "crux": {
     "systems": [
-      "Terraform \u2014 plan -out binds the plan to the state's lineage/serial; apply tfplan refuses a stale plan without prompting and does not refresh; the plan is the review",
-      "Pulumi \u2014 up --plan constrains the engine to the plan and evaluates live state at execution time; prompts by default",
-      "Ansible \u2014 no saved-plan artefact; --check and --diff are dry runs over live hosts, so a stale delta is never applied from a file"
+      "Terraform — plan -out binds the plan to the state's lineage/serial; apply tfplan refuses a stale plan without prompting and does not refresh; the plan is the review",
+      "Pulumi — up --plan constrains the engine to the plan and evaluates live state at execution time; prompts by default",
+      "Ansible — no saved-plan artefact; --check and --diff are dry runs over live hosts, so a stale delta is never applied from a file"
     ],
     "verdict": "at the Terraform default after this branch: the plan is hash-bound, every gate the interactive apply runs (except the mutating live probe) runs, and the destructive prompt runs; the live evaluation Pulumi performs is the recorded gap (#432)"
   },
   "agy_teamwork": {
     "ran": true,
-    "verdict": "five charges: four confirmed (seal_config hashes the same shape both sides; forced_noops_that_ran reconciles against the run; cmd_refresh_only passes --operator; the falsifiers assert text and filesystem consequence), one refuted (the drift gate) \u2014 accepted and filed as #432",
+    "verdict": "five charges: four confirmed (seal_config hashes the same shape both sides; forced_noops_that_ran reconciles against the run; cmd_refresh_only passes --operator; the falsifiers assert text and filesystem consequence), one refuted (the drift gate) — accepted and filed as #432",
     "unique_findings": [
-      "forced_noop_candidates passes an empty drifted set to noop_pairs \u2014 checked against the merge-base: pre-existing GH-208 design (lock-based count per contract), only renamed by this branch; not a regression"
+      "forced_noop_candidates passes an empty drifted set to noop_pairs — checked against the merge-base: pre-existing GH-208 design (lock-based count per contract), only renamed by this branch; not a regression"
     ]
   },
   "pmat": {
@@ -50,7 +50,7 @@
     "test_file": "tests/falsification_plan_file_survives_a_phony_resource.rs",
     "cargo_test_target": "falsification_plan_file_survives_a_phony_resource",
     "reverted": "src/cli and src/core/executor/mod.rs -> the merge-base's (9e0815c0), tests kept",
-    "observed_failure": "src/cli/{apply,apply_from_plan,apply_preflight,apply_summary,apply_variants,dispatch_apply_b,mod,plan}.rs, src/cli/commands/apply_args.rs and src/core/executor/mod.rs at the merge-base, tests kept: 14 of 18 RED \u2014 forced: a_forced_resource_that_fails_is_not_a_forced_noop, forced_noop_never_exceeds_converged_under_a_resource_selector, forced_noop_never_exceeds_converged_under_a_group_selector; every-gate: plan_file_apply_runs_the_pre_apply_hook, plan_file_apply_runs_the_policy_engine, plan_file_apply_runs_the_security_gate, plan_file_apply_asks_before_destroying, plan_file_apply_honours_confirm_destructive, plan_file_apply_refuses_a_tampered_state_sidecar, refresh_only_cannot_launder_a_tampered_lock, refresh_only_honours_the_operator_flag; phony: two_configs_that_differ_only_in_a_phony_resource_do_not_seal_alike, a_saved_plan_of_a_config_with_a_phony_resource_applies, the_phony_resource_still_does_not_run; restored: 4 + 10 + 4 passed",
+    "observed_failure": "src/cli/{apply,apply_from_plan,apply_preflight,apply_summary,apply_variants,dispatch_apply_b,mod,plan}.rs, src/cli/commands/apply_args.rs and src/core/executor/mod.rs at the merge-base, tests kept: 14 of 18 RED — forced: a_forced_resource_that_fails_is_not_a_forced_noop, forced_noop_never_exceeds_converged_under_a_resource_selector, forced_noop_never_exceeds_converged_under_a_group_selector; every-gate: plan_file_apply_runs_the_pre_apply_hook, plan_file_apply_runs_the_policy_engine, plan_file_apply_runs_the_security_gate, plan_file_apply_asks_before_destroying, plan_file_apply_honours_confirm_destructive, plan_file_apply_refuses_a_tampered_state_sidecar, refresh_only_cannot_launder_a_tampered_lock, refresh_only_honours_the_operator_flag; phony: two_configs_that_differ_only_in_a_phony_resource_do_not_seal_alike, a_saved_plan_of_a_config_with_a_phony_resource_applies, the_phony_resource_still_does_not_run; restored: 4 + 10 + 4 passed",
     "still_green_when_reverted": "the controls, by design: a_config_with_no_phony_resource_is_the_control, a_gate_free_plan_file_apply_still_applies, refresh_only_still_works_on_honest_state, an_unfiltered_force_over_a_converged_stack_still_counts_every_resource"
   },
   "evidence": {
@@ -115,5 +115,5 @@
     "clippy": "--all-targets -D warnings, 0 errors (re-run on the merged tree)"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "8e3c8b875894e8b6c06432577a173dffd5887b5e"
+  "diff_sha256": "bb2f7ee345384b2f94256a62c5b426fc7e0e28be"
 }
