@@ -122,6 +122,65 @@ pub struct RunSlot<'a> {
     pub run_id: Option<&'a str>,
 }
 
+impl<'a> RunSlot<'a> {
+    /// The three coordinates, in the order the run directory nests them.
+    pub fn new(state_dir: &'a Path, machine_name: &'a str, run_id: Option<&'a str>) -> Self {
+        Self {
+            state_dir,
+            machine_name,
+            run_id,
+        }
+    }
+}
+
+/// Refs #406 (E04): HOW MUCH of an execution may be written down.
+///
+/// The executor resolves `{{secrets.*}}` into the resource before codegen, so
+/// the script handed to the transport already carries plaintext, and
+/// `--auto-commit` stages the whole state tree into git. This policy is what
+/// stands between those two facts.
+pub struct Transcript {
+    /// Resolved secret plaintexts. Every recoverable form of each — literal,
+    /// and any base64 blob that decodes to text containing it — becomes `***`.
+    pub secrets: Vec<String>,
+    /// `sensitive: true`: write no transcript for this resource at all.
+    ///
+    /// Redaction can only strike values forjar can NAME. A value derived on the
+    /// host, compressed, or re-encoded is unmatchable, and for those the only
+    /// honest answer is the one Ansible (`no_log`) and Chef (`sensitive`) give.
+    pub suppress: bool,
+}
+
+impl Transcript {
+    /// The policy for one resource, read off the UNRESOLVED declaration.
+    ///
+    /// It MUST be the unresolved one: `resolved` has already had the secrets
+    /// substituted into it and can no longer say which of its bytes came from
+    /// `{{secrets.*}}`. The unresolved declaration still names the keys, so the
+    /// values can be re-derived and struck out.
+    pub fn for_resource(
+        resource: &crate::core::types::Resource,
+        secrets: &crate::core::types::SecretsConfig,
+    ) -> Self {
+        Self {
+            secrets: crate::core::resolver::collect_secret_values(resource, secrets),
+            suppress: resource.sensitive,
+        }
+    }
+
+    /// Nothing to hide: for call sites with no config in hand.
+    pub fn unrestricted() -> Self {
+        Self {
+            secrets: Vec::new(),
+            suppress: false,
+        }
+    }
+
+    fn redact(&self, text: &str) -> String {
+        crate::core::resolver::redact_transcript(text, &self.secrets)
+    }
+}
+
 /// WHAT was executed: the resource identity and the script that ran.
 pub struct Executed<'a> {
     /// Resource id, which names the log file.
@@ -132,6 +191,8 @@ pub struct Executed<'a> {
     pub action: &'a str,
     /// The exact text handed to the transport.
     pub script: &'a str,
+    /// Refs #406: how much of `script` and of both streams may be written down.
+    pub transcript: Transcript,
 }
 
 /// FJ-2301 / Refs #390: persist one execution's script, both streams and its
@@ -167,6 +228,26 @@ pub fn capture_exec_output(
     let rid = run_id.unwrap_or("run-adhoc");
     let dir = run_dir(state_dir, machine_name, rid);
     ensure_run_dir(&dir, rid, machine_name, "apply");
+    // Refs #406: `sensitive: true` stops here — AFTER the run directory and its
+    // meta.yaml exist, so `forjar logs` still lists the run and its per-resource
+    // status. What is suppressed is the transcript's CONTENT, not the record
+    // that the resource ran.
+    let transcript = &executed.transcript;
+    if transcript.suppress {
+        return None;
+    }
+    let script = transcript.redact(script);
+    let redacted;
+    let output = if transcript.secrets.is_empty() {
+        output
+    } else {
+        redacted = ExecOutput {
+            exit_code: output.exit_code,
+            stdout: transcript.redact(&output.stdout),
+            stderr: transcript.redact(&output.stderr),
+        };
+        &redacted
+    };
     // Refs #390: the old call site hard-coded `let rt = "unknown"` with the
     // comment "resource type not available here", so every run log ever written
     // recorded `type: unknown`. It is available at the caller; pass it.
@@ -178,7 +259,7 @@ pub fn capture_exec_output(
         action,
         machine_name,
         "transport",
-        script,
+        &script,
         output,
         duration_secs,
     );

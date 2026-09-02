@@ -107,8 +107,15 @@ pub(crate) fn git_commit_state(
     let msg = format!("forjar: {config_name} — {converged} resource(s) converged");
     // Find the git repo root from state_dir's parent
     let repo_root = state_dir.parent().unwrap_or(Path::new("."));
+    // Refs #406 (E04): NEVER stage `state/<machine>/runs/`. Those files hold the
+    // script forjar executed, and the executor resolves `{{secrets.*}}` into the
+    // resource before codegen. `forjar init` now gitignores them, but this runs
+    // in repositories created before that and in ones whose `.gitignore` was
+    // written by hand — and a secret committed here cannot be un-committed by a
+    // later redaction. Verified: the exclude pathspec still stages the rest of
+    // `state/`, and still exits 0 when the runs tree is all there is.
     let status = crate::core::gitenv::git_in(repo_root)
-        .args(["add", "state"])
+        .args(["add", "state", ":(exclude)state/*/runs/"])
         .status()
         .map_err(|e| format!("git add failed: {e}"))?;
     if !status.success() {

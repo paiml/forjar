@@ -6,7 +6,28 @@
 //! cannot drift apart on it (forjar#335 was precisely that — the schema said
 //! "field list", the engine read "any entry means everything").
 
-use super::resource::LifecycleRules;
+use serde::{Deserialize, Serialize};
+
+/// FJ-1220: Lifecycle protection rules for a resource.
+///
+/// Controls how a resource is handled during destroy, replacement, and drift
+/// detection. The STRUCT lives here beside its only impl (and not in
+/// `resource.rs`) for the reason this module was created: `resource.rs` is at
+/// the 500-line budget, and Refs #406 needed one more field on `Resource`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleRules {
+    /// Prevent this resource from being destroyed (forjar destroy skips with warning)
+    #[serde(default)]
+    pub prevent_destroy: bool,
+
+    /// Write new version before removing old (avoids config-absent window)
+    #[serde(default)]
+    pub create_before_destroy: bool,
+
+    /// Fields whose drift is suppressed (reported as "suppressed" not "detected")
+    #[serde(default)]
+    pub ignore_drift: Vec<String>,
+}
 
 impl LifecycleRules {
     /// The ONLY `ignore_drift` entry forjar implements: suppress every

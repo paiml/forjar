@@ -215,3 +215,99 @@ fn update_meta_missing_dir_noop() {
         ResourceRunStatus::Noop,
     );
 }
+
+// ── Refs #406 (E04): what may be written down ───────────────────────────────
+
+fn slot(state: &std::path::Path) -> run_capture::RunSlot<'_> {
+    run_capture::RunSlot::new(state, "intel", Some("r-406"))
+}
+
+/// The unsuppressed baseline: `capture_exec_output` writes a transcript and
+/// hands back its path. Without this control the suppression test below could
+/// pass because nothing writes transcripts at all.
+#[test]
+fn an_unrestricted_transcript_is_written_and_its_path_returned() {
+    let tmp = tempfile::tempdir().unwrap();
+    let executed = run_capture::Executed {
+        resource_id: "res",
+        resource_type: &crate::core::types::ResourceType::File,
+        action: "create",
+        script: "echo ok",
+        transcript: run_capture::Transcript::unrestricted(),
+    };
+    let log = run_capture::capture_exec_output(
+        &slot(tmp.path()),
+        &executed,
+        &make_output(0, "ok", ""),
+        0.1,
+    );
+    let log = log.expect("a transcript path");
+    assert!(log.exists());
+    assert!(tmp.path().join("intel/runs/r-406/res.script").exists());
+}
+
+/// `sensitive: true`: no transcript, no returned path — but the run directory
+/// and its meta.yaml still exist, so `forjar logs` can still say the run
+/// happened.
+#[test]
+fn a_suppressed_transcript_writes_no_files_but_keeps_the_run_record() {
+    let tmp = tempfile::tempdir().unwrap();
+    let executed = run_capture::Executed {
+        resource_id: "res",
+        resource_type: &crate::core::types::ResourceType::File,
+        action: "create",
+        script: "echo secret",
+        transcript: run_capture::Transcript {
+            secrets: Vec::new(),
+            suppress: true,
+        },
+    };
+    let log = run_capture::capture_exec_output(
+        &slot(tmp.path()),
+        &executed,
+        &make_output(0, "secret", ""),
+        0.1,
+    );
+    assert!(
+        log.is_none(),
+        "a suppressed capture must name no transcript"
+    );
+    let dir = tmp.path().join("intel/runs/r-406");
+    assert!(
+        dir.join("meta.yaml").exists(),
+        "the run must still be recorded"
+    );
+    assert!(!dir.join("res.script").exists());
+    assert!(!dir.join("res.create.log").exists());
+    assert!(!dir.join("res.create.json").exists());
+}
+
+/// Redaction reaches BOTH streams, not just the script.
+#[test]
+fn stdout_and_stderr_are_redacted_too() {
+    let tmp = tempfile::tempdir().unwrap();
+    let executed = run_capture::Executed {
+        resource_id: "res",
+        resource_type: &crate::core::types::ResourceType::File,
+        action: "create",
+        script: "echo s3cret-value-406",
+        transcript: run_capture::Transcript {
+            secrets: vec!["s3cret-value-406".to_string()],
+            suppress: false,
+        },
+    };
+    run_capture::capture_exec_output(
+        &slot(tmp.path()),
+        &executed,
+        &make_output(1, "wrote s3cret-value-406", "failed on s3cret-value-406"),
+        0.1,
+    );
+    let dir = tmp.path().join("intel/runs/r-406");
+    for name in ["res.script", "res.create.log", "res.create.json"] {
+        let body = std::fs::read_to_string(dir.join(name)).unwrap();
+        assert!(
+            !body.contains("s3cret-value-406"),
+            "{name} still holds the secret:\n{body}"
+        );
+    }
+}
