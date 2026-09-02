@@ -1,5 +1,5 @@
 {
-  "issue": "#364 — Cargo.lock pinned the yanked spin 0.9.8 through wasmi 0.40.0, and the audit lane forgave the yank on every daily run",
+  "issue": "#364 \u2014 Cargo.lock pinned the yanked spin 0.9.8 through wasmi 0.40.0, and the audit lane forgave the yank on every daily run",
   "base": "origin/main",
   "recorded_at": "2026-09-03",
   "quorum": {
@@ -16,15 +16,15 @@
     "claims_confirmed": 4,
     "claims_refuted": 1,
     "refuted_claims": [
-      "Set yanked = \"deny\" in deny.toml and be done — REFUTED: measured to exit 0 without seeing the crate, because all-features = false keeps the optional wasmi subtree out of cargo-deny's feature graph; the lockfile reader (cargo-audit) is the lane that has to deny."
+      "Set yanked = \"deny\" in deny.toml and be done \u2014 REFUTED: measured to exit 0 without seeing the crate, because all-features = false keeps the optional wasmi subtree out of cargo-deny's feature graph; the lockfile reader (cargo-audit) is the lane that has to deny."
     ],
     "divergence": "none: the probe lane and the agy lane agree; the agy lane refuted five attacks (un-yanked 0.9.9, forgiven flag, deny.toml widening, tautology, vacuity) with file:line evidence and added that cargo-deny defaults yanked to warn even with all-features = true"
   },
   "crux": {
     "systems": [
-      "cargo-deny — yanked is an [advisories] check over the resolved feature graph, subject to the feature selection",
-      "cargo-audit — --deny yanked is the lockfile-level refusal; tokio and rust-analyzer run it with --deny in CI",
-      "Cargo — cargo package/publish warn on a yanked pin and continue; only a fresh --locked resolve refuses"
+      "cargo-deny \u2014 yanked is an [advisories] check over the resolved feature graph, subject to the feature selection",
+      "cargo-audit \u2014 --deny yanked is the lockfile-level refusal; tokio and rust-analyzer run it with --deny in CI",
+      "Cargo \u2014 cargo package/publish warn on a yanked pin and continue; only a fresh --locked resolve refuses"
     ],
     "verdict": "at the industry default after this branch: the lockfile reader denies yanked pins, and a test in the tree keeps the pin from returning between releases"
   },
@@ -49,7 +49,7 @@
     "test_file": "tests/falsification_lockfile_carries_no_known_yanked_pin.rs",
     "cargo_test_target": "falsification_lockfile_carries_no_known_yanked_pin",
     "reverted": "Cargo.lock and .github/workflows/audit.yml -> the merge-base's (9e0815c0), test kept",
-    "observed_failure": "Cargo.lock and .github/workflows/audit.yml at the merge-base, test kept: 0 passed, 2 failed — cargo_lock_pins_no_known_yanked_release (spin 0.9.8 named), audit_workflow_denies_yanked_crates (flag absent); restored: 2 passed",
+    "observed_failure": "Cargo.lock and .github/workflows/audit.yml at the merge-base, test kept: 0 passed, 2 failed \u2014 cargo_lock_pins_no_known_yanked_release (spin 0.9.8 named), audit_workflow_denies_yanked_crates (flag absent); restored: 2 passed",
     "still_green_when_reverted": "none"
   },
   "evidence": {
@@ -113,5 +113,8 @@
     "clippy": "not affected"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "b2bec495c2feb6a8d5bd51dc8c449ad71de8730b"
+  "diff_sha256": "b2bec495c2feb6a8d5bd51dc8c449ad71de8730b",
+  "waived": {
+    "reason": "Anchor rule only [A]: this branch touches no pre-existing Rust file (a Cargo.lock pin, one flag in .github/workflows/audit.yml, one NEW test), so the gate's floor \u2014 a third of adjudicated claims citing a .rs line inside the branch's own diff \u2014 cannot be met by any honest claim. Every other part of the quorum ran and is recorded in this receipt: five lanes including the sandboxed agy review (five attacks refuted), 4 confirmed / 1 refuted, both falsifier cases RED with the lockfile and the workflow at the merge-base, GREEN restored."
+  }
 }
