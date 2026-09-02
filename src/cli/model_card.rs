@@ -135,7 +135,7 @@ fn print_model_cards_text(models: &[ModelInfo], name: &str, state_dir: &Path) {
             println!("    Deps:    {}", model.deps.join(", "));
         }
         if model.has_store {
-            println!("    Store:   {}", green("yes"));
+            println!("    Store:   {} (declared, not enforced)", green("yes"));
         }
         if model.has_output {
             println!("    Outputs: {}", green("yes"));
