@@ -24,6 +24,8 @@
 
 use crate::core::types::Resource;
 
+mod classify_e01;
+
 /// What forjar can find out about a declared field on a real host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Observability {
@@ -142,7 +144,10 @@ pub fn classify(field: &str) -> Option<Observability> {
              would have restarted it",
         ),
 
-        _ => return None,
+        // #403 — the fields the hash gained when it stopped being an
+        // allowlist. Their own module so this one stays inside the 500-line
+        // health limit.
+        _ => return classify_e01::classify(field),
     })
 }
 
