@@ -148,3 +148,57 @@ fn collect_ignores_non_secret_templates() {
     };
     assert!(collect_secret_values(&r, &SecretsConfig::default()).is_empty());
 }
+
+// ── Refs #406: the shape the ticket's own criterion names ───────────────────
+
+/// A marker `has_encrypted_markers` accepts: `ENC[age,<base64 >= 20 chars>]`.
+fn enc_marker() -> String {
+    format!("ENC[age,{}]", b64("age-ciphertext-stand-in-long-enough"))
+}
+
+/// THE HOLE `sensitive` HAS TO COVER. `resolve_template_with_secrets` decrypts
+/// `ENC[age,…]` AFTER template substitution, so the plaintext never passes
+/// through a `{{secrets.*}}` span. The collector therefore has NOTHING to
+/// return, `redact_transcript` short-circuits on an empty list, and the
+/// decrypted bytes would reach the transcript verbatim.
+#[test]
+fn an_encrypted_value_cannot_be_named_by_the_collector() {
+    let r = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/app.conf".into()),
+        content: Some(format!("api_token={}\n", enc_marker())),
+        ..Default::default()
+    };
+    assert!(
+        collect_secret_values(&r, &SecretsConfig::default()).is_empty(),
+        "if this ever returns a value, `carries_ciphertext` can stop suppressing"
+    );
+}
+
+#[test]
+fn a_resource_carrying_ciphertext_is_recognised() {
+    let r = Resource {
+        resource_type: ResourceType::File,
+        content: Some(format!("api_token={}\n", enc_marker())),
+        ..Default::default()
+    };
+    assert!(super::redaction::carries_ciphertext(&r));
+}
+
+/// Not a substring match on `ENC[`: prose about the feature must not silently
+/// disable every transcript in the stack.
+#[test]
+fn prose_about_enc_markers_is_not_ciphertext() {
+    let r = Resource {
+        resource_type: ResourceType::Task,
+        command: Some("echo 'values use ENC[age,...] markers'".into()),
+        ..Default::default()
+    };
+    assert!(!super::redaction::carries_ciphertext(&r));
+    let plain = Resource {
+        resource_type: ResourceType::File,
+        content: Some("api_token=plain\n".into()),
+        ..Default::default()
+    };
+    assert!(!super::redaction::carries_ciphertext(&plain));
+}

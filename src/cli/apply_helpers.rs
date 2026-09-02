@@ -112,10 +112,20 @@ pub(crate) fn git_commit_state(
     // resource before codegen. `forjar init` now gitignores them, but this runs
     // in repositories created before that and in ones whose `.gitignore` was
     // written by hand — and a secret committed here cannot be un-committed by a
-    // later redaction. Verified: the exclude pathspec still stages the rest of
-    // `state/`, and still exits 0 when the runs tree is all there is.
+    // later redaction.
+    //
+    // THE TRAILING `*` IS LOAD-BEARING. `:(exclude)state/*/runs/` — a directory
+    // pathspec — is honoured only while the runs tree is entirely UNTRACKED, in
+    // which case git excludes the directory without descending. The moment one
+    // file under it is tracked git matches per PATH, `state/*/runs/` does not
+    // wildmatch `state/local/runs/r1/x.script`, and every file there is staged
+    // again. That is exactly the repository this line exists for: one that has
+    // been running `--auto-commit` since before the fix. Measured: with the
+    // directory form, a tracked-and-modified `runs/` file was staged; with
+    // `state/*/runs/*` it is not, on both the tracked and the untracked tree,
+    // and `state/` outside `runs/` still stages either way.
     let status = crate::core::gitenv::git_in(repo_root)
-        .args(["add", "state", ":(exclude)state/*/runs/"])
+        .args(["add", "state", ":(exclude)state/*/runs/*"])
         .status()
         .map_err(|e| format!("git add failed: {e}"))?;
     if !status.success() {

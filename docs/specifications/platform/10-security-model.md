@@ -196,11 +196,34 @@ resources:
                          # no .log, .json or .script is written for it
 ```
 
+`ENC[age,…]` values get this treatment automatically. They are decrypted
+*after* template substitution, so the plaintext never passes through a
+`{{secrets.*}}` span and the redactor cannot name it — a resource carrying one
+suppresses its own transcript whether or not it says `sensitive: true`.
+
 #### git
 
 `forjar init` writes a `.gitignore` containing `state/*/runs/`, and
-`--auto-commit` stages with `:(exclude)state/*/runs/` so repositories created
-before that are covered too.
+`--auto-commit` stages with `:(exclude)state/*/runs/*` so repositories whose
+`.gitignore` predates the fix are covered too.
+
+The trailing `*` is load-bearing. git honours a *directory* exclusion
+(`state/*/runs/`) only while that directory is entirely untracked; once one file
+under it is tracked, matching is per path, `state/*/runs/` no longer matches
+`state/local/runs/<run>/<res>.script`, and the exclusion stops excluding.
+
+**Migration.** `.gitignore` and `:(exclude)` both govern what git *starts*
+tracking. A repository that already **committed** run transcripts keeps them in
+its history, and a secret that reached history cannot be redacted after the
+fact:
+
+```sh
+git rm -r --cached 'state/*/runs'   # stop tracking; keeps the files on disk
+```
+
+Then rotate every secret that appeared in a committed transcript, and rewrite
+history only if the repository was ever pushed somewhere it should not have
+been.
 
 ### Secret Rotation
 

@@ -164,7 +164,13 @@ impl Transcript {
     ) -> Self {
         Self {
             secrets: crate::core::resolver::collect_secret_values(resource, secrets),
-            suppress: resource.sensitive,
+            // Refs #406: an `ENC[age,…]` value is decrypted AFTER template
+            // substitution, so it never passes through a `{{secrets.*}}` span
+            // and `collect_secret_values` cannot name it. A redactor with no
+            // value to strike would write the decrypted bytes out verbatim —
+            // the exact leak #406's criterion names — so such a resource is
+            // treated as `sensitive` whether or not it says so.
+            suppress: resource.sensitive || crate::core::resolver::carries_ciphertext(resource),
         }
     }
 

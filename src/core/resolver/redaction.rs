@@ -61,6 +61,26 @@ pub fn collect_secret_values(resource: &Resource, secrets_cfg: &SecretsConfig) -
     values
 }
 
+/// Refs #406: does this resource carry an `ENC[age,…]` ciphertext?
+///
+/// THE SHAPE #406's SUCCESS CRITERION NAMES, and the one redaction cannot see.
+/// `resolve_template_with_secrets` decrypts `ENC[age,…]` markers AFTER template
+/// substitution, so the plaintext never passes through a `{{secrets.*}}` span:
+/// `collect_secret_values` returns an empty list, `redact_transcript` short
+/// circuits on it, and the decrypted bytes are written to the transcript
+/// verbatim. Naming those values would mean decrypting a second time on the
+/// reporting path, with the identity file, after the resource has already
+/// converged.
+///
+/// Until then the honest answer is the one `sensitive: true` gives: write no
+/// transcript. Under default features this changes nothing observable —
+/// `resolve_template_with_secrets` refuses an `ENC[` marker outright when the
+/// `encryption` feature is off, so the resource never executes.
+pub fn carries_ciphertext(resource: &Resource) -> bool {
+    serde_yaml_ng::to_string(resource)
+        .is_ok_and(|yaml| crate::core::secrets::has_encrypted_markers(&yaml))
+}
+
 /// Every `secrets.*` key named by a `{{ … }}` span in `yaml`.
 ///
 /// Scans the serialized resource rather than a hand-maintained field list:

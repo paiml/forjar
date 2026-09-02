@@ -355,3 +355,93 @@ fn init_gitignores_run_transcripts() {
         ".gitignore must exclude run transcripts, got:\n{ignore}"
     );
 }
+
+// ── `--auto-commit` (Refs #406, fix item 2) ─────────────────────────────────
+
+fn git(repo: &Path, args: &[&str]) -> String {
+    let out = Command::new("git")
+        .current_dir(repo)
+        .args(args)
+        .output()
+        .expect("git failed to start");
+    assert!(
+        out.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// `--auto-commit` stages `state` and must never carry a run transcript in with
+/// it — INCLUDING in the repositories this exclusion exists for: the ones that
+/// have been committing transcripts since before the fix. `.gitignore` cannot
+/// help there; git ignores it for tracked paths.
+///
+/// WHY THE SEEDED, ALREADY-TRACKED TRANSCRIPT. git honours `:(exclude)` on a
+/// DIRECTORY (`state/*/runs/`) only while that directory is entirely untracked,
+/// where it can skip it without descending. Once one file under it is tracked,
+/// matching is per PATH — `state/*/runs/` does not wildmatch
+/// `state/local/runs/r-legacy/legacy.script` — and the exclusion silently stops
+/// excluding, for the tracked files AND for the new ones beside them. Measured
+/// on this branch before the pathspec grew its trailing `*`: this test failed
+/// with the seeded transcript and both fresh run directories in the commit.
+#[test]
+fn auto_commit_never_stages_a_run_transcript() {
+    let sb = Sandbox::new();
+    let repo = sb.dir.path();
+    git(repo, &["init", "-q", "."]);
+    git(repo, &["config", "user.email", "e04@example.invalid"]);
+    git(repo, &["config", "user.name", "e04"]);
+    git(repo, &["config", "commit.gpgsign", "false"]);
+
+    // A repository mid-migration: a transcript from before the fix is tracked,
+    // and forjar is about to write over that same tree.
+    let legacy = sb.state().join("local/runs/r-legacy");
+    fs::create_dir_all(&legacy).unwrap();
+    fs::write(legacy.join("legacy.script"), "echo seeded\n").unwrap();
+    git(repo, &["add", "-A"]);
+    git(repo, &["commit", "-q", "--no-verify", "-m", "legacy"]);
+    fs::write(legacy.join("legacy.script"), format!("echo {PLAINTEXT}\n")).unwrap();
+
+    let cfg = sb.write_config(false);
+    let out = Command::new(forjar())
+        .env(SECRET_ENV, PLAINTEXT)
+        .args([
+            "apply",
+            "-f",
+            cfg.to_str().unwrap(),
+            "--state-dir",
+            sb.state().to_str().unwrap(),
+            "--yes",
+            "--auto-commit",
+        ])
+        .output()
+        .expect("forjar failed to start");
+    let log = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(out.status.code(), Some(0), "apply must succeed:\n{log}");
+
+    // CONTROL: forjar really did commit, and really did stage state. Without
+    // this, "no transcript in the commit" would also pass if nothing committed.
+    let head = git(repo, &["log", "-1", "--format=%s"]);
+    assert!(
+        head.contains("forjar:"),
+        "no auto-commit happened: {head:?}"
+    );
+    let committed = git(repo, &["show", "--name-only", "--format=", "HEAD"]);
+    assert!(
+        committed.lines().any(|l| l.starts_with("state/")),
+        "the auto-commit staged nothing under state/:\n{committed}"
+    );
+
+    // Transcripts — the pre-existing tracked one and every one written by this
+    // apply — stay out of it.
+    let leaked: Vec<&str> = committed.lines().filter(|l| l.contains("/runs/")).collect();
+    assert!(
+        leaked.is_empty(),
+        "--auto-commit put run transcripts in git: {leaked:#?}"
+    );
+}

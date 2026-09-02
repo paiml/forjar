@@ -311,3 +311,35 @@ fn stdout_and_stderr_are_redacted_too() {
         );
     }
 }
+
+/// Refs #406: a resource whose value arrives as `ENC[age,…]` gets the
+/// `sensitive: true` treatment without saying so. The decrypted plaintext never
+/// passes through a `{{secrets.*}}` span, so the redactor cannot name it; a
+/// written transcript would hold it in the clear.
+#[test]
+fn a_ciphertext_bearing_resource_suppresses_its_own_transcript() {
+    use crate::core::types::{Resource, ResourceType, SecretsConfig};
+    let marker = {
+        use crate::core::secrets::B64;
+        use base64::Engine;
+        format!(
+            "ENC[age,{}]",
+            B64.encode("age-ciphertext-stand-in-long-enough")
+        )
+    };
+    let encrypted = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/app.conf".into()),
+        content: Some(format!("api_token={marker}\n")),
+        ..Default::default()
+    };
+    assert!(run_capture::Transcript::for_resource(&encrypted, &SecretsConfig::default()).suppress);
+    // The control: an ordinary resource still gets a transcript.
+    let plain = Resource {
+        resource_type: ResourceType::File,
+        path: Some("/etc/app.conf".into()),
+        content: Some("api_token=plain\n".into()),
+        ..Default::default()
+    };
+    assert!(!run_capture::Transcript::for_resource(&plain, &SecretsConfig::default()).suppress);
+}
