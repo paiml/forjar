@@ -186,16 +186,18 @@ pub(super) fn record_wave_outcomes(
         // DESTROYED rather than merely hidden, which is why #390's reporter could
         // not find their diagnostics "anywhere in the full raw apply log".
         let action = format!("{:?}", change.action).to_lowercase();
-        let slot = run_capture::RunSlot {
-            state_dir: ctx.state_dir,
-            machine_name: ctx.machine_name,
-            run_id: cfg.run_id.as_deref(),
-        };
+        let slot =
+            run_capture::RunSlot::new(ctx.state_dir, ctx.machine_name, cfg.run_id.as_deref());
         let executed = run_capture::Executed {
             resource_id: &change.resource_id,
             resource_type: &resource.resource_type,
             action: &action,
             script: &executed_script,
+            // Refs #406: the SAME redaction policy as the sequential path, from
+            // the same UNRESOLVED declaration. Under `--parallel` this transcript
+            // is the ONLY copy of a failing task's output, so it has to be both
+            // written and cleaned here.
+            transcript: run_capture::Transcript::for_resource(resource, &cfg.config.secrets),
         };
         let log = output
             .as_ref()
