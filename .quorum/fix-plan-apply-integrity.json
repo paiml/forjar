@@ -59,7 +59,8 @@
     "known_limits": [
       "The live drift probe does not run on the plan-file path (deliberate, documented, filed as #432); this branch does not claim it.",
       "A sealed zero-change plan returns from honour_an_empty_plan before the gates run (documented KNOWN AND DELIBERATE GAP in apply_from_plan_gates.rs); nothing converges, but no gate runs either.",
-      "--refresh-only's --operator fix is covered by the cov suite and the tampered-lock falsifier, not by a dedicated operator-identity falsifier."
+      "--refresh-only's --operator fix is covered by the cov suite and the tampered-lock falsifier, not by a dedicated operator-identity falsifier.",
+      "Carries an unrelated test fix: 25 colour tests take COLOR_TEST_LOCK before flipping the process-global NO_COLOR flag (a pre-existing parallel-test race that failed this branch's pre-push gate); no production code changes."
     ],
     "files": [
       {
@@ -115,5 +116,5 @@
     "clippy": "--all-targets -D warnings, 0 errors (re-run on the merged tree)"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "bb2f7ee345384b2f94256a62c5b426fc7e0e28be"
+  "diff_sha256": "a50a26fc41f22c3a051ab10510cc9c85578b13c2"
 }
