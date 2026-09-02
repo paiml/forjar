@@ -304,7 +304,7 @@ Required for defense/aerospace procurement contracts.
 | # | Feature | Impact |
 |---|---------|--------|
 | 29 | SBOM generation | Executive Order 14028 compliance |
-| 30 | SLSA Level 3 provenance | Full artifact traceability |
+| 30 | Provenance attestation (unsigned; not SLSA-conformant, forjar#416) | Config→plan→state digest chain |
 | 31 | Cryptographic recipe signing | Tamper-evident recipe distribution |
 | 32 | Tamper-evident transparency log | Immutable audit trail |
 | 70 | Recipe SBOM | Per-recipe component inventory |

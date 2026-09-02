@@ -94,6 +94,12 @@ fn provenance_does_not_claim_slsa_level_3() {
         !out_str.contains("SLSA Level 3"),
         "provenance output still claims SLSA Level 3!\nstdout: {out_str}"
     );
+    // Absence of the false label is half the contract; the honest label must
+    // be PRESENT, or a future edit that drops the line entirely passes.
+    assert!(
+        out_str.contains("unsigned, not SLSA-conformant"),
+        "the attestation must say what it is (unsigned, not SLSA-conformant):\nstdout: {out_str}"
+    );
 }
 
 #[test]
@@ -106,8 +112,10 @@ fn lock_audit_trail_is_withdrawn() {
         "lock-audit-trail command succeeded, but it should be withdrawn."
     );
 
+    // clap must NAME the withdrawn verb. "Usage:" alone is what a still-present
+    // verb prints on a missing argument, which would pass this vacuously.
     assert!(
-        err_str.contains("unrecognized subcommand") || err_str.contains("Usage:"),
-        "Expected unrecognized subcommand error for lock-audit-trail, got: {err_str}"
+        err_str.contains("unrecognized subcommand") && err_str.contains("'lock-audit-trail'"),
+        "Expected clap to reject 'lock-audit-trail' by name, got: {err_str}"
     );
 }
