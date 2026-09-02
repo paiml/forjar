@@ -24,6 +24,6 @@ deny.toml's feature selection (which is right for what it checks).
 One decision scored: where the denial lives. See the judges file.
 
 ## agy /teamwork
-Not run: a two-file change (a lockfile pin and one workflow flag) with a
-test that reads both — below the width that triggers the lane; recorded as
-NotRun in the receipt.
+Ran (the gate requires it): an independent plan-mode review in a scrubbed
+HOME refuted five of its own attacks and confirmed the cargo-deny blind
+spot — see the agy file.
