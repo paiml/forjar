@@ -65,10 +65,14 @@ const FIELD_VALUES: &[(&str, FieldValue)] = &[
     ("state", |r| r.state.clone()),
     // `to_string()`, NOT the lowercased `Debug` spelling. `Debug` renders
     // `GithubRelease`; the ONLY spelling `type:` accepts is serde's
-    // `github_release`. A `deny` rule comparing `type == github_release` could
-    // therefore never match, and `remediate` refused a `type`-keyed candidate
-    // with "the value is produced by a recipe or a {{template}} expansion"
-    // (paiml/forjar#366).
+    // `github_release`, so a `deny` or `assert` rule comparing
+    // `type == github_release` could never match (paiml/forjar#366).
+    //
+    // `remediate` reads this table too, but never for `type`: `type` is not in
+    // `remediate::fixes::SETTABLE`, so `derive` rejects a `type`-keyed rule
+    // before `apply_one` ever compares the value. The issue's claim that
+    // remediation refused such a candidate with "the value is produced by a
+    // recipe or a {{template}} expansion" describes an unreachable path.
     ("type", |r| Some(r.resource_type.to_string())),
     ("shell", |r| r.shell.clone()),
     ("home", |r| r.home.clone()),

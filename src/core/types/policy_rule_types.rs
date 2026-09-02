@@ -145,9 +145,20 @@ impl PolicyRule {
     /// reported one rule's "why not" under the other's name (paiml/forjar#369).
     ///
     /// The index is a total, injective function of the declaration, so no two
-    /// rules of one config can collide — and every call site already holds it:
-    /// `parser::violating_pairs` yields it, `remediate::Candidate` stores it,
-    /// and `policies.iter().enumerate()` produces it.
+    /// rules that declare NO `id:` can collide — and every call site already
+    /// holds it: `parser::violating_pairs` yields it, `remediate::Candidate`
+    /// stores it, and `policies.iter().enumerate()` produces it.
+    ///
+    /// This is not injective over a config that declares the same `id:` twice,
+    /// because an explicit id is returned verbatim. Nothing in `validate` or
+    /// `lint` diagnoses that, and the #369 shape survives it on the `remediate`
+    /// surface: measured on this branch, two `assert` rules both declaring
+    /// `id: SEC-1` make `--policy-id SEC-1` rewrite BOTH `mode` and `owner`,
+    /// and an unfixable rule still reports its twin's reason. `policy-coverage`
+    /// is unaffected — its arithmetic is derived from the index, not from this
+    /// string. Closing the rest means keying `remediate`'s `ReasonMap` on the
+    /// index and diagnosing duplicate ids at parse time; both are outside
+    /// paiml/forjar#369, which is about rules that declare no id at all.
     pub fn display_id_at(&self, index: usize) -> String {
         match self.id.as_deref() {
             Some(id) => id.to_string(),

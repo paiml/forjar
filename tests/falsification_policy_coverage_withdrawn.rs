@@ -156,9 +156,11 @@ fn policy_coverage_is_not_on_the_unified_surface() {
 
 /// The row is DEBT, not a gap. `Bucket::Pending` is the ledger and its reason
 /// has to name the defect — "not done yet" would read as work never started,
-/// when this is work that shipped and was taken back. The reason now also has
-/// to say the defect is FIXED, because a ledger that still describes a repaired
-/// answer as wrong is a ledger nobody can act on.
+/// when this is work that shipped and was taken back. The reason now also says
+/// the defect is FIXED — a ledger that still describes a repaired answer as
+/// wrong is a ledger nobody can act on — but only the issue reference is
+/// asserted here: the wording of a debt note is prose, and pinning prose is how
+/// a ledger becomes unmaintainable.
 #[test]
 fn the_withdrawal_is_recorded_as_debt_naming_the_defect() {
     let row = partition()
