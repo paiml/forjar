@@ -86,15 +86,33 @@ fn collect_proofs(
         prove_idempotency_structure(config, machine_filter),
     ];
     // Provable-IaC structural invariants (three-state; I1/I5 already covered above).
-    proofs.extend(structural_invariants(config));
+    proofs.extend(structural_invariants(config, machine_filter));
     proofs
 }
 
 /// Run the `core::prove` invariant engine (contract `provable-iac-v1`) and map its
 /// three-state results into convergence `ProofResult`s. A HARD invariant that is
 /// FALSIFIED fails the proof; PROVED/CHECKED pass with the state in the detail; UNKNOWN fails the proof.
-fn structural_invariants(config: &types::ForjarConfig) -> Vec<ProofResult> {
+fn structural_invariants(
+    config: &types::ForjarConfig,
+    machine_filter: Option<&str>,
+) -> Vec<ProofResult> {
     use crate::core::prove::{prove as prove_invariants, Assurance, Class};
+    // `-m` scopes the run to one machine. The structural invariants were
+    // computed over the WHOLE config, so once UNKNOWN fails the proof
+    // (forjar#416) another machine's unproven obligation failed `prove -m`
+    // for a machine that was clean (E14 quorum, agy lane). Prove the
+    // scoped config instead.
+    let scoped;
+    let config = match machine_filter {
+        Some(m) => {
+            let mut c = config.clone();
+            c.resources.retain(|_, r| machine_matches(r, m));
+            scoped = c;
+            &scoped
+        }
+        None => config,
+    };
     prove_invariants(config, "")
         .invariants
         .into_iter()

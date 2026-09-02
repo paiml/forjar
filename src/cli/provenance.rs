@@ -146,7 +146,7 @@ fn print_provenance_json(
         .collect();
 
     println!(
-        r#"{{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://slsa.dev/provenance/v1","subject":{{"name":"{}","config_digest":"blake3:{}","plan_digest":"blake3:{}","timestamp":"{}"}},"predicate":{{"buildType":"forjar/apply","state":[{}],"materials":[{}]}}}}"#,
+        r#"{{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://forjar.paiml.com/provenance/unsigned/v0","signed":false,"slsa_level":null,"subject":{{"name":"{}","config_digest":"blake3:{}","plan_digest":"blake3:{}","timestamp":"{}"}},"predicate":{{"buildType":"forjar/apply","state":[{}],"materials":[{}]}}}}"#,
         name,
         config_hash,
         plan_hash,

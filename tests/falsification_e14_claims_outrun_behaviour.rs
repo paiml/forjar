@@ -100,6 +100,56 @@ fn provenance_does_not_claim_slsa_level_3() {
         out_str.contains("unsigned, not SLSA-conformant"),
         "the attestation must say what it is (unsigned, not SLSA-conformant):\nstdout: {out_str}"
     );
+    // The JSON payload is what a consumer parses; the label alone is not
+    // enough (E14 quorum, agy lane). No SLSA predicate type, and the
+    // signature status stated outright.
+    let json_out = run(&[
+        "provenance",
+        "--file",
+        &config.to_string_lossy(),
+        "--state-dir",
+        &state.to_string_lossy(),
+        "-m",
+        "m1",
+        "--json",
+    ]);
+    let payload = stdout(&json_out);
+    assert!(
+        !payload.contains("slsa.dev"),
+        "the JSON payload still claims an SLSA predicate type:\n{payload}"
+    );
+    assert!(
+        payload.contains("\"signed\":false"),
+        "the JSON payload must state that it is unsigned:\n{payload}"
+    );
+}
+
+/// `prove -m m1` must not fail on another machine's UNKNOWN obligation.
+/// RED with the structural invariants computed over the unscoped config.
+#[test]
+fn prove_machine_filter_isolates_other_machines_unknowns() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = dir.path().join("config.yaml");
+    // m1 carries nothing that yields an obligation; m2 carries a package,
+    // whose obligations are UNKNOWN here.
+    std::fs::write(
+        &config,
+        "version: \"1.0\"\nname: test\nmachines:\n  m1:\n    hostname: a\n    addr: 127.0.0.1\n  m2:\n    hostname: b\n    addr: 127.0.0.2\nresources:\n  pkg:\n    type: package\n    machine: [m2]\n    provider: apt\n    packages: [ripgrep]\n",
+    )
+    .expect("write config");
+    let all = run(&["prove", "--file", &config.to_string_lossy()]);
+    assert!(
+        !all.status.success(),
+        "the unscoped proof must fail on m2's UNKNOWN: {}",
+        stdout(&all)
+    );
+    let scoped = run(&["prove", "--file", &config.to_string_lossy(), "-m", "m1"]);
+    assert!(
+        scoped.status.success(),
+        "`prove -m m1` failed on m2's UNKNOWN obligation:\nstdout: {}\nstderr: {}",
+        stdout(&scoped),
+        stderr(&scoped)
+    );
 }
 
 #[test]
