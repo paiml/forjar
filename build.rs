@@ -145,7 +145,6 @@ fn main() {
     emit_contract_assertions();
 
     let binding_path = "contracts/binding.yaml";
-    #[cfg(feature = "contracts")]
     if std::path::Path::new(binding_path).exists() {
         provable_contracts::build_helper::verify_bindings(
             binding_path,

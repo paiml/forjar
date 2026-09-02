@@ -86,7 +86,7 @@ serde_yaml_ng = "0.10"
 serde_json.workspace = true
 clap = { version = "4", features = ["derive"], optional = true }
 indexmap = { version = "2.7", features = ["serde"] }
-forjar-contracts-macros = { path = "crates/forjar-contracts-macros", version = "0.31.2", optional = true }
+forjar-contracts-macros = { path = "crates/forjar-contracts-macros", version = "=0.31.2" }
 base64 = "0.22.1"
 bashrs = "6.68.0"
 pforge-runtime = { version = "0.1.4", optional = true }
@@ -129,12 +129,12 @@ openssl = { version = "0.10", optional = true }
 ureq = { version = "3.4", features = ["platform-verifier"] }
 
 [build-dependencies]
-forjar-contracts = { path = "crates/forjar-contracts", version = "0.31.2", optional = true }
+forjar-contracts = { path = "crates/forjar-contracts", version = "=0.31.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_ng = "0.10"
 
 [dev-dependencies]
-forjar-contracts = { path = "crates/forjar-contracts", version = "0.31.2" }
+forjar-contracts = { path = "crates/forjar-contracts", version = "=0.31.2" }
 tempfile.workspace = true
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1"
@@ -174,8 +174,7 @@ required-features = ["cli"]
 # `copia`, `resources`, `transport` and `tripwire` with none of clap, pforge,
 # tokio, rusqlite or openssl. Before GH-237 there was no `default` key at all,
 # so `default-features = false` subtracted the empty set and removed nothing.
-default = ["cli", "contracts"]
-contracts = ["dep:forjar-contracts", "dep:forjar-contracts-macros"]
+default = ["cli"]
 
 # The binary and both server surfaces. ONE feature, not three: src/mcp/handlers.rs
 # calls crate::cli at three sites (strip_unrequested_phony_for_mcp, and

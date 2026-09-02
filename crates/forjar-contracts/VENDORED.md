@@ -23,3 +23,12 @@ fix them upstream and re-vendor.
 by path from the upstream repository (`../../../contracts/*.yaml`), which
 does not exist here, so `cargo clippy --all-targets --workspace` could not
 build them. forjar uses the library, the build helper and the macro only.
+
+## Repo rules that do not apply to the payload
+
+Several vendored files exceed the repo's 500-line budget (for example
+`src/explain_tests.rs`); they are upstream payload, not forjar code, and are
+exempt. `build.rs` looks for `../../contracts/*.yaml` from the upstream
+repository and finds none here, so it reports "0 preconditions, 0
+postconditions" — the crate's own binding self-check is inert in this tree;
+forjar's `build.rs` verifies forjar's bindings.
