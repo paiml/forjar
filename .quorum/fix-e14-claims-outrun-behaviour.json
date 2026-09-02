@@ -1,0 +1,235 @@
+{
+  "issue": "#416 (CRUX audit E14) — prove rendered UNKNOWN as [PASS], provenance labelled an unsigned attestation 'SLSA Level 3', and the event chain had no production caller",
+  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "Wiring tripwire::chain into the event-log write path is the fix #416 asks for — REFUTED: the ticket offers either/or and asks for the smaller honest change; a chain without a trust root, verifier and gap policy would be a second claim outrunning behaviour. Withdrawn [A].",
+      "[UNKNOWN] should keep passing under --json so machine consumers see the state without a non-zero exit — REFUTED: Terraform -detailed-exitcode and Kani fail the run and put the detail in the payload; forjar now does both on every path."
+    ],
+    "divergence": "the implementation lane fixed the three named defects; the review lane found the JSON payload still claimed SLSA, a stray clap attribute from the deletion, and a machine-isolation break the UNKNOWN fix introduced — all three taken and pinned."
+  },
+  "crux": {
+    "systems": [
+      "Terraform — plan -detailed-exitcode: 0 clean, 1 error, 2 changes; an undecided state never exits 0",
+      "Kani / cargo-verify — UNKNOWN (solver timeout, unsupported construct) is a hard failure, never UNREACHABLE",
+      "SLSA — a conformance level presupposes a signed, non-falsifiable attestation; an unsigned JSON is Level nothing",
+      "in-toto — a statement without a DSSE envelope is explicitly untrusted"
+    ],
+    "verdict": "every surveyed system fails the run on an undecided obligation and refuses to call an unsigned statement conformant; prove is now at that bar and provenance says what it is."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "implementation lane produced the three fixes and the falsifier; the review lane charged the JSON predicateType (taken), the stray lock-audit-trail clap attribute on LockRotateKeys (taken), and found prove -m failing on other machines' UNKNOWNs (taken); confirmed UNKNOWN fails on every path, the fj1401 tests were bent to the defect, and no capability was lost by the withdrawal",
+    "unique_findings": [
+      "the JSON payload still said predicateType slsa.dev under the relabelled banner — taken: forjar's own unsigned predicate URI plus signed:false",
+      "prove -m m1 failed on m2's UNKNOWN once UNKNOWN failed the proof — taken: the structural invariants are proved over the scoped config"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 112,
+    "tests_examined": 17756,
+    "accepted": [
+      "src/cli/tests_cov_apply_dispatch.rs::run_post_flight_success — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_apply_dispatch.rs::run_post_flight_failure — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_prune_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_info_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_compact_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_gc_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_export_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_verify_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_diff_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_merge_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_rebase_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_sign_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_verify_sig_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_compact_all_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_rotate_keys_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_backup_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_verify_chain_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_stats_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_audit_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_compress_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_defrag_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_normalize_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_validate_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_verify_hmac_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_archive_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_snapshot_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_repair_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_doctor_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_watch_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_explain_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_env_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_test_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_inventory_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_retry_failed_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_rolling_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_canary_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_audit_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_compliance_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_export_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_suggest_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_compare_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_env_diff_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_template_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_plan_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_plan_compact_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_state_list_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_state_mv_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_state_rm_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_init_variant — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_validate_variant — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_workspace_variant — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_workspace_current — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_completion_bash — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_completion_zsh — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_completion_fish — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_snapshot_save — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_snapshot_list — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_snapshot_restore — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_snapshot_delete — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_keygen — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_encrypt — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_decrypt — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_view — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_rekey — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_secrets_rotate — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_workspace_new — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_workspace_select — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_b.rs::test_cov_commands_workspace_delete — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_history_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_integrity_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_rehash_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_restore_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_verify_schema_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_tag_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lock_migrate_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_init_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_drift_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_history_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_destroy_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_import_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_show_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_check_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_diff_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_fmt_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_lint_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_rollback_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_anomaly_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_trace_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_migrate_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_mcp_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_bench_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_output_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_args_extra_c.rs::test_cov_policy_args_construct — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_dispatch_5.rs::dispatch_history_resource_routes — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_dispatch_5.rs::dispatch_import_routes — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_dispatch_5.rs::dispatch_env_routes — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_lock.rs::test_lock_compact_plain — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_lock.rs::test_lock_compact_json — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_lock.rs::test_lock_archive_plain — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_lock.rs::test_lock_archive_json — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_content_diff_create_mode — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_content_diff_update_no_old — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_content_diff_noop — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_unified_diff_added_lines — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_unified_diff_removed_lines — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_unified_diff_identical — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_11_b.rs::print_plan_with_filter — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_5.rs::test_cov_print_resource_limits_text_empty — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_5.rs::test_cov_print_resource_limits_text_with_data — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/cli/tests_cov_remaining_5.rs::test_cov_print_resource_limits_text_with_violations — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases",
+      "src/transport/tests_dispatch.rs::test_154_kill_group_nonexistent_is_noop — pre-existing no-failure-mode test in a file this branch only edited to delete withdrawn-verb cases"
+    ],
+    "quality_gate": "zero findings in the falsification file or any production file touched; clippy -D warnings 0 errors; fmt clean"
+  },
+  "falsification": {
+    "test": "reverted each production hunk with the tests kept: prove's UNKNOWN clause; the provenance banner; the JSON predicateType alone; the -m scoping; and ran the whole file against main",
+    "test_file": "tests/falsification_e14_claims_outrun_behaviour.rs",
+    "cargo_test_target": "falsification_e14_claims_outrun_behaviour",
+    "reverted": "src/cli/prove.rs `&& i.state != Assurance::Unknown` removed; src/cli/provenance.rs banner -> 'SLSA Level 3 attestation chain'; src/cli/provenance.rs predicateType -> https://slsa.dev/provenance/v1; src/cli/prove.rs scoped config -> unscoped; all of src/ -> main",
+    "observed_failure": "UNKNOWN clause removed: prove_exits_nonzero_on_unknown RED (exit 0 with [UNKNOWN] rendered). Banner reverted: provenance_does_not_claim_slsa_level_3 RED. predicateType reverted alone: the same test RED on the payload (slsa.dev present). Scoping reverted: prove_machine_filter_isolates_other_machines_unknowns RED (`prove -m m1` exit 1 on m2's UNKNOWN). Against main: 0 passed, 3 failed (lock-audit-trail still present).",
+    "still_green_when_reverted": "none — all four assert behaviour this branch introduces"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e14-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 5330,
+        "sha256": "92feae008758a33c6c8e598597f437a48d8b75e686ebf4be18eb0933a4555379",
+        "blob": "93abd0219e2135f8d5aefb37b4d7bc48b35f816d"
+      },
+      {
+        "path": ".quorum/evidence/e14-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1749,
+        "sha256": "656d1659e8b7b4d4b303cb33a6be6b0c286da02450618977625b3f32d99a7ef5",
+        "blob": "ecb25cc47234d907a68a85b0e3e528456d0a0362"
+      },
+      {
+        "path": ".quorum/evidence/e14-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 804,
+        "sha256": "a95f9f7754ecefe9a13c4908028dc51dbd53cd72873d8a4baf7f7cd96a7d625a",
+        "blob": "ef7d967c38fa19782bdab79d0d09fd835c178fc3"
+      },
+      {
+        "path": ".quorum/evidence/e14-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2251,
+        "sha256": "5d528aa866ef527c38a115d90ebad816a07b1d9fdf36fda0e6e47b2118cf1480",
+        "blob": "9a6161701599d221ac52e70e9af8635a7a219d02"
+      },
+      {
+        "path": ".quorum/evidence/e14-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1114,
+        "sha256": "13ec746f84c953f85e877fbb85e35b7b37c4a993e1d53f3d1dec2d3da65e9b0d",
+        "blob": "5db2dee4dd41630e97d9e4d4caf51e71287e0c80"
+      }
+    ],
+    "total_bytes": 11248,
+    "claims_digest": ".quorum/evidence/e14-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The tamper-evident event chain is withdrawn, not built; a signed, verifiable chain is a feature ticket with a trust-root design, not a hunk.",
+      "`provenance` still emits an in-toto-SHAPED statement; nothing signs it and the payload says so. Signing is #405's and #408's known limit — a MAC exists for locks, no asymmetric scheme yet.",
+      "The E14 items 4 (moved blocks not persisted) and 5 (FAR archive round-trip) from the ticket are NOT in this branch; they are separate defects the ticket lists and are recorded here so the closure is honest — filed as follow-ups if not already tracked."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13373 passed, 0 failed, 4 ignored",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "a982f7a3990a82fb531f05aa3db06b834ab3672d"
+}
