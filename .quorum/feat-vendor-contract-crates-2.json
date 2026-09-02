@@ -1,6 +1,6 @@
 {
   "issue": "#423 — forjar built its contract code from crates.io aprender-contracts/-macros while CI cloned an archived sibling it never read; move the contract crates in-tree",
-  "base_commit": "b7f6d501c10a65099cfced4311ee8469b0cab4cd",
+  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
   "base": "origin/main",
   "recorded_at": "2026-09-02",
   "quorum": {
@@ -122,5 +122,6 @@
     "lib_tests": "13361 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets --workspace -D warnings, 0 errors"
   },
-  "diff_sha256": "36a0a1588c2d49abd78f3a6e51cd61b454959648"
+  "diff_sha256": "c76cfdbdf7c49998ffe44b3d0f09d681dfd61f5c",
+  "base_commit_rebased": "Re-anchored from b7f6d501c10a after squashing the branch onto current main with the correct author (the E04 GIT_DIR escape had left every commit authored e04@example.invalid, and GitHub scheduled no runs for the branch). Tree unchanged; the evidence was NOT re-run and is not claimed to have been."
 }
