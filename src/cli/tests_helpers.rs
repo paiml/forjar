@@ -90,6 +90,7 @@ mod tests {
 
     #[test]
     fn test_fj263_green_with_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = green("ok");
         assert!(s.contains("\x1b[32m"));
@@ -99,6 +100,7 @@ mod tests {
 
     #[test]
     fn test_fj263_green_no_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(true, Ordering::Relaxed);
         let s = green("ok");
         assert_eq!(s, "ok");
@@ -107,6 +109,7 @@ mod tests {
 
     #[test]
     fn test_fj263_red_with_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = red("fail");
         assert!(s.contains("\x1b[31m"));
@@ -115,6 +118,7 @@ mod tests {
 
     #[test]
     fn test_fj263_yellow_with_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = yellow("warn");
         assert!(s.contains("\x1b[33m"));
@@ -123,6 +127,7 @@ mod tests {
 
     #[test]
     fn test_fj263_dim_with_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = dim("muted");
         assert!(s.contains("\x1b[2m"));
@@ -131,6 +136,7 @@ mod tests {
 
     #[test]
     fn test_fj263_bold_with_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = bold("header");
         assert!(s.contains("\x1b[1m"));
@@ -139,6 +145,7 @@ mod tests {
 
     #[test]
     fn test_fj263_color_enabled_tracks_flag() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(color_enabled());
         NO_COLOR.store(true, Ordering::Relaxed);

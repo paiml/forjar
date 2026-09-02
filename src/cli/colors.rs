@@ -11,6 +11,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// Global color disable flag.
 pub(crate) static NO_COLOR: AtomicBool = AtomicBool::new(false);
 
+/// Tests that flip `NO_COLOR` take this lock: the flag is process-global and
+/// `cargo test` runs tests in parallel, so two tests storing opposite values
+/// raced and `test_fj263_bold_with_color` failed one push in three (measured
+/// on the #368 pre-push gate). A poisoned lock is still a lock.
+#[cfg(test)]
+pub(crate) static COLOR_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Check if color output is enabled.
 #[inline]
 pub(crate) fn color_enabled() -> bool {
@@ -250,6 +257,9 @@ mod tests {
 
     #[test]
     fn test_color_enabled_default() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(color_enabled());
@@ -257,6 +267,9 @@ mod tests {
 
     #[test]
     fn test_no_color_disables() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         assert!(green("hi").contains("hi"));
@@ -271,6 +284,9 @@ mod tests {
 
     #[test]
     fn test_color_wraps_ansi() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(green("ok").contains("\x1b[32m"));
@@ -282,6 +298,9 @@ mod tests {
 
     #[test]
     fn test_header_bold_underline() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let h = header("Title");
@@ -292,6 +311,9 @@ mod tests {
 
     #[test]
     fn test_pass_fail_warn_skip_icons() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(pass("ok").contains("✓"));
@@ -302,6 +324,9 @@ mod tests {
 
     #[test]
     fn test_pass_fail_no_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         assert!(pass("ok").contains("ok"));
@@ -313,6 +338,9 @@ mod tests {
 
     #[test]
     fn test_grade_coloring() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(grade("A").contains("A"));
@@ -324,6 +352,9 @@ mod tests {
 
     #[test]
     fn test_grade_no_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         let a = grade("A");
@@ -335,6 +366,9 @@ mod tests {
 
     #[test]
     fn test_pct_thresholds() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(pct(95.0, 90.0, 75.0).contains("95.0%"));
@@ -344,6 +378,9 @@ mod tests {
 
     #[test]
     fn test_delta_coloring() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(delta(5.0).contains("+5.0"));
@@ -353,6 +390,9 @@ mod tests {
 
     #[test]
     fn test_delta_lower_is_better() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let neg = delta_lower_is_better(-15.3);
@@ -365,6 +405,9 @@ mod tests {
 
     #[test]
     fn test_score_frac() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = score_frac(18.0, 20.0, 80.0, 60.0);
@@ -374,6 +417,9 @@ mod tests {
 
     #[test]
     fn test_score_frac_no_color() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         let s = score_frac(18.0, 20.0, 80.0, 60.0);
@@ -384,6 +430,9 @@ mod tests {
 
     #[test]
     fn test_score_frac_zero_max() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let s = score_frac(0.0, 0.0, 80.0, 60.0);
@@ -398,6 +447,9 @@ mod tests {
 
     #[test]
     fn test_path_cyan() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         assert!(path("/etc/app.conf").contains("/etc/app.conf"));
@@ -405,6 +457,9 @@ mod tests {
 
     #[test]
     fn test_duration_colored() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(false, Ordering::Relaxed);
         let under = duration_colored(0.005, 0.01);
@@ -417,6 +472,9 @@ mod tests {
 
     #[test]
     fn test_duration_formatting() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let _g = lock();
         NO_COLOR.store(true, Ordering::Relaxed);
         assert!(duration_colored(2.5, 1.0).contains("2.50s"));
