@@ -113,11 +113,23 @@ fn test_fj004_hash_deterministic() {
     assert!(h1.starts_with("blake3:"));
 }
 
-/// E10: Golden hash test — pinned expected value detects field ordering changes.
+/// E10: Golden hash test — pinned expected value detects canonical-form changes.
 #[test]
 fn test_golden_hash_pinned_value() {
     // Minimal Package resource with only `packages: [curl]` on machine m1.
-    // If hash_desired_state serialization order changes, this test MUST fail.
+    // If the canonical form changes, this test MUST fail.
+    //
+    // Changing this value is a FLEET MIGRATION, not a test fix: every recorded
+    // lock hash on every machine stops matching and every resource replans as
+    // `Update` once. Last moved by #403 / audit E01, which replaced the 35-field
+    // allowlist with the whole declaration minus `NON_IDENTITY_FIELDS` and
+    // stamped `HASH_GENERATION = "forjar-desired-state-v2"` into the input.
+    //
+    // If you are here because you ADDED a `Resource` field: repinning is the
+    // correct action, and it is still a fleet migration. `Resource` has no
+    // `skip_serializing_if`, so a new field serialises as `~` on every resource
+    // and moves EVERY recorded hash — not only the hashes of configs that set
+    // it. Repin, and write the upgrade note.
     let r = Resource {
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
@@ -128,9 +140,13 @@ fn test_golden_hash_pinned_value() {
         ..Resource::default()
     };
     let hash = hash_desired_state(&r);
+    // Repinned for #406: `Resource` gained `sensitive`, and since #403 the
+    // canonical form serialises EVERY field, so a new field moves every
+    // recorded hash — a one-time fleet re-converge, named in the changelog.
     assert_eq!(
-        hash, "blake3:8106dfb610d17486462652c99c0ac5c8e582a34064b75acb22a84fab2efa7f0b",
-        "Golden hash changed — hash_desired_state serialization order may have changed"
+        hash, "blake3:8702d3d90f36257293c018e8fae98270d0ce4bb852cbe096500aeac6f4436e15",
+        "Golden hash changed — the canonical desired-state form moved. Read the \
+         comment above before repinning: this is a fleet-wide re-converge."
     );
 }
 

@@ -7,6 +7,7 @@
 //! handling.
 
 pub mod handlers;
+pub mod handlers_drift;
 pub mod handlers_ops;
 pub mod handlers_remediate;
 pub mod handlers_state;
@@ -18,6 +19,10 @@ pub mod types_ops;
 #[cfg(test)]
 mod tests_dogfood;
 #[cfg(test)]
+mod tests_drift_adversarial;
+#[cfg(test)]
+mod tests_drift_e05;
+#[cfg(test)]
 mod tests_handlers;
 #[cfg(test)]
 mod tests_handlers_more;
@@ -28,6 +33,7 @@ mod tests_registry;
 
 // Re-export public API
 pub use handlers::*;
+pub use handlers_drift::DriftHandler;
 pub use handlers_ops::*;
 pub use registry::{build_registry, export_schema, serve};
 pub use types::*;

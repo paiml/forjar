@@ -135,14 +135,14 @@ fn chain_verdict(state_dir: &Path, m: &str, key: Option<&str>) -> ChainVerdict {
 /// ties a signature to the lock it claims to sign: 64 zeros is well-formed hex
 /// and is a chain of custody for nobody. Refusing the bare invocation is the
 /// point — an absent verifier is a NO-GO, never a pass.
-fn chain_mode(key: Option<&str>, presence_only: bool) -> Result<Option<&str>, String> {
+fn chain_mode(key: Option<&str>, presence_only: bool) -> Result<Option<String>, String> {
     match (key, presence_only) {
         (Some(_), true) => Err(
             "--presence-only cannot be combined with --key: presence-only does not verify \
              the signature against the lock, which is the whole point of passing a key"
                 .to_string(),
         ),
-        (Some(k), false) => Ok(Some(k)),
+        (Some(k), false) => crate::core::key_source::resolve(k, "--key").map(Some),
         (None, true) => Ok(None),
         (None, false) => Err(
             "chain of custody cannot be verified without the signing key: pass --key <KEY> \
@@ -200,7 +200,8 @@ pub(crate) fn cmd_lock_verify_chain(
     presence_only: bool,
     json: bool,
 ) -> Result<(), String> {
-    let key = chain_mode(key, presence_only)?;
+    let resolved_key = chain_mode(key, presence_only)?;
+    let key = resolved_key.as_deref();
     let mode = if key.is_some() {
         "verified"
     } else {

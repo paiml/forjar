@@ -113,23 +113,15 @@ pub struct InfraQueryArgs {
     pub json: bool,
 }
 
-/// Recipe signing.
+/// Recipe content digest — tamper evidence, not a signature (paiml/forjar#405).
 #[derive(Parser, Debug)]
-pub struct RecipeSignArgs {
-    /// Recipe file to sign/verify
+pub struct RecipeDigestArgs {
+    /// Recipe file to record or re-check
     pub recipe: PathBuf,
 
-    /// Verify only (don't sign)
+    /// Re-check against the recorded digest instead of recording one
     #[clap(long)]
     pub verify: bool,
-
-    /// Signer identity
-    #[clap(long)]
-    pub signer: Option<String>,
-
-    /// Post-quantum dual signing
-    #[clap(long)]
-    pub pq: bool,
 
     /// JSON output
     #[clap(long)]

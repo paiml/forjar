@@ -9,8 +9,10 @@
 //! nothing here proves *forjar issued this plan*. Calling it a "cryptographic
 //! plan token" and building an authorization decision on top of it would be a
 //! category error — if two-phase authorization is ever wanted it needs a keyed
-//! hash or the signing machinery in `cli::pq_signing`, and that is a different
-//! feature.
+//! hash or a real asymmetric signature, and that is a different feature.
+//! `cli::pq_signing`, which this note used to point at, never had one: it
+//! hashed the same content twice with BLAKE3 and labelled a copy `slh-dsa`,
+//! and it was withdrawn in paiml/forjar#405.
 //!
 //! What it honestly delivers is the guarantee the saved-plan feature exists
 //! for: the delta that executes is the delta that was reviewed.

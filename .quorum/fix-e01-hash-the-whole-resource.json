@@ -1,0 +1,127 @@
+{
+  "issue": "#403 (CRUX audit E01) — hash_desired_state covered 35 of 122 Resource fields, so changed config was reported `unchanged` and never applied",
+  "base_commit": "b7f6d501c10a65099cfced4311ee8469b0cab4cd",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 8,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "The canonical encoding is injective as written — REFUTED: tags were rendered bare, so tag `a` over tagged(`b`, ~) and tag `a!!b` over ~ both produced `!!a!!b~`. Fixed by length-prefixing the tag; pinned by tagged_input_values_do_not_collide.",
+      "The first injectivity counterexample (`a` / `a!b`) collides — REFUTED: `Tag`'s Display carries its own leading `!`, so the first version of the collision test stayed green against the reverted encoding. Corrected to `a!!b` and re-run both ways; the agy lane offered the identical wrong pair.",
+      "`forjar reseal` is the migration path after the hash-identity bump — REFUTED: reseal recomputes the .b3 sidecar over the lock's bytes and never touches the per-resource hash. The path is plan then one apply; reseal.rs now says so.",
+      "backup_sync and nas_archive generated scripts are unhashed, so their machines run stale scripts forever — REFUTED: every declared backup_*/archive_* key is hashed through the flatten and pinned. The codegen-upgrade concern is a different, pre-existing limit for every type, recorded under known_limits.",
+      "`source_unreadable:{src}:{e}` collides when src contains a colon — REFUTED: `source` is itself in the canonical declaration component, so the two resources already differ before the marker is appended."
+    ],
+    "divergence": "the probe and design lanes confirmed the hasher; refutation found a real collision in it (tags), a wrong counterexample for that collision, and a wrong migration instruction in the ticket. The agy lane's five refutations split 2 taken (test vacuity, flatten pin) / 3 refuted (triggers, task destroy, generated scripts) after each was checked against the code."
+  },
+  "crux": {
+    "systems": [
+      "Terraform — diffs the ENTIRE provider schema attribute-by-attribute; exclusions are an explicit denylist (Computed, ignore_changes), never an allowlist",
+      "Ansible — no desired-state hash at all; every module re-checks every argument against the host on every run",
+      "Nix — the store path hashes every input of the derivation; an input that does not move the hash is a bug named impurity",
+      "Puppet — compares every declared property against the provider's instances each run, per property"
+    ],
+    "verdict": "no surveyed system asks a hand-maintained list which fields count. forjar's allowlist was below the industry default; a whole-declaration canonical form minus an explicit denylist is the default's shape."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "five refutations and two unique findings; two were correct about the TEST (vacuous guards, unpinned flatten) and were taken, one independently found the tag collision, and the remaining four did not survive the code (triggers and lifecycle are read from config not lock; task/build/wasm_bundle have no absent form; source is in the declaration component; generated-script hashing is an upgrade concern for every type)",
+    "unique_findings": [
+      "unknown YAML keys are a warning, not an error, so an equality guard can pass with both sides parsed to identical defaults — taken: every guard now asserts the parsed forms differ first",
+      "BackupSpec and ArchiveSpec are #[serde(flatten)], so the reflection guard's coverage of their keys was assumed rather than pinned — taken: two YAML-level cases added"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17825,
+    "accepted": [],
+    "quality_gate": "no touched path in the vacuous list; clippy -D warnings 0 errors; fmt clean"
+  },
+  "falsification": {
+    "test": "restored main's src/core/planner/hashing.rs (the allowlist) and re-ran the suite; separately reverted only the tag length-prefix",
+    "test_file": "tests/falsification_e01_hash_the_whole_resource.rs",
+    "cargo_test_target": "falsification_e01_hash_the_whole_resource",
+    "reverted": "src/core/planner/hashing.rs whole file -> main's allowlist version; then only the `!{len}:{tag}` prefix -> bare `!{tag}`",
+    "observed_failure": "allowlist restored: 8 of 10 RED (uid, ssh_authorized_keys, timeout, working_dir, sudo, tag, driver_version, checksum — each hashed identically to its changed twin); the two guards stayed green by design. Tag prefix reverted: tagged_input_values_do_not_collide RED; a FIRST version of that test stayed green because its counterexample was wrong, which is recorded as a refuted claim.",
+    "still_green_when_reverted": "selection_filters_do_not_move_the_hash and overlay_hosts_insertion_order_does_not_move_the_hash — both assert behaviour the old code ALSO had (tags unhashed; overlay_hosts sorted) and are the other half of the contract, not the fix"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e01-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 8531,
+        "sha256": "6c2f4fb02a4d6956a1b67fe174ac3ca4db10f51cec2526f74850ffeb14baf225",
+        "blob": "12b86a4a93020e90cc179621830dd342cfed3ec9"
+      },
+      {
+        "path": ".quorum/evidence/e01-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 2172,
+        "sha256": "10bf769bd66eeac8d02916f3906457817132f157cd462e3251b8d295353a5090",
+        "blob": "238398115eb8521c5a35979ce4caaf04c164d1db"
+      },
+      {
+        "path": ".quorum/evidence/e01-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1374,
+        "sha256": "081e0afc4016939929830b27c261de809aed846215e6b49426bf8729ed7c0786",
+        "blob": "ff35f47bb675bc1e9a9689f77d9e19ca9352d78b"
+      },
+      {
+        "path": ".quorum/evidence/e01-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 3896,
+        "sha256": "ad3f9ccd68f824fdd38ebfe94d76e38e46fdb71c4af7b057c1b91760317204ed",
+        "blob": "bb907aebd39dce8cab840a9da40cc0d8e1d166ce"
+      },
+      {
+        "path": ".quorum/evidence/e01-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1013,
+        "sha256": "9edb05c926079343fdfe5c841adace26a7ba494c31842899fcd2e0614bc25434",
+        "blob": "de70a39fac4ba95dc5240eaf991c88c0ed69214a"
+      }
+    ],
+    "total_bytes": 16986,
+    "claims_digest": ".quorum/evidence/e01-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "Adding a field to Resource moves every recorded hash on every machine, whether or not any config sets it, because Resource has no skip_serializing_if. Deliberate: skipping default-valued keys would reintroduce this defect one level up (a changed DEFAULT would not re-converge).",
+      "A forjar upgrade that changes codegen for an UNCHANGED declaration does not re-converge any type except disk_budget. Pre-existing, applies to every type, and is not a hash-identity concern.",
+      "Proves the hasher sees every field through the YAML parser and the reflection guard; does not prove every resource handler's apply script honours every field it now re-converges on."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13408 passed, 0 failed, 4 ignored",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "dab4ee10307618c91528fa46a54fb24a35771c94",
+  "base_commit_rebased": "Re-anchored from f0cbf6352c87 after merging origin/main (#418 audit doc, #420 E03, #421 E02) to clear the .pmat/baseline.json conflict (#401). The evidence was NOT re-run and is not claimed to have been: none of the three merged PRs touches src/core/planner/, src/core/observe/ or tests/falsification_e01_hash_the_whole_resource.rs, so every quote still reads the same bytes.",
+  "diff_sha256_note": "Recomputed after the merge; the diff the gate hashes is unchanged in content but is taken against the new merge-base."
+}
