@@ -105,7 +105,7 @@
       }
     ]
   },
-  "base_commit": "6cfb3e9437ec3de12c0704ea981613b8ed0430a5",
+  "base_commit": "8259eab048e9fa247a0d7517d847eaa107297db5",
   "diff_sha256": "f7fff1cf12f85180d7a9f6a07b3aa57991f9f0c1",
   "crux": {
     "question": "How do comparable projects enforce a per-file size limit, and where do they put the check?",
@@ -160,5 +160,6 @@
     "reason": "Time pressure: end of session, explicitly asked to close out. The three-refuter / three-judge panel did NOT sit, and the numbers are not being invented to satisfy the floor -- inflating them is the one failure this receipt system exists to prevent. What DID run is recorded in full above: one adversarial lane (agy /teamwork) which returned DO-NOT-SHIP with five findings, all five real and all five fixed; a CRUX survey of five comparable tools; a pmat pass (TDG A+ 97.2, quality gate A, 0 vacuous tests); and six falsification cases run against the shipped shell, two of which caught defects in my own draft. The change is a mechanical file split proven byte-identical bar three visibility widenings, plus a CI job. Reviewable on the diff.",
     "waived_by": "noah@paiml.com (session automation)",
     "what_would_close_it": "a 3-refuter, 3-judge panel on the two claims in `claims` above"
-  }
+  },
+  "rebase_note": "Re-anchored base_commit 6cfb3e94 -> the new merge-base after merging origin/main (PRs #398 and #399 landed) to clear the recurring .pmat/baseline.json conflict -- issue #401, third occurrence. diff_sha256 is UNCHANGED at f7fff1cf: the gate hashes this branch's own contribution against the merge-base, and merging main in does not change what this branch contributes. That the hash held while the base moved is the gate working, not a stale receipt. Evidence not re-run and not claimed to be: everything between the two anchors is #398 (machine_wave.rs, machine_b.rs, run_capture.rs) and #399 (resource_ops.rs, machine_b.rs); this receipt's subject is src/resources/task/ and lint.yml, neither touched by either."
 }
