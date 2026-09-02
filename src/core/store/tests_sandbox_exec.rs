@@ -30,7 +30,7 @@ mod tests {
     // ── plan_sandbox_build ─────────────────────────────────────
 
     #[test]
-    fn plan_has_base_steps() {
+    fn plan_has_ten_steps_minimum() {
         let plan = plan_sandbox_build(
             &full_config(),
             "blake3:abcdef1234567890",
@@ -38,8 +38,8 @@ mod tests {
             "echo hello > $out/greeting",
             Path::new("/var/lib/forjar/store"),
         );
-        // Base steps (overlay, bind mounts, cgroups, etc.)
-        assert!(plan.steps.len() >= 3);
+        // 10 base steps (step 3 has one per input, step 5 for seccomp)
+        assert!(plan.steps.len() >= 10);
     }
 
     #[test]

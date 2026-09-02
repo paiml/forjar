@@ -53,13 +53,15 @@ pub struct ReproInput {
 
 /// Compute reproducibility score from resource inputs.
 ///
-/// Scoring weights: purity 50%, store coverage 30%, lock coverage 20%.
+/// Scoring weights: purity 80%, lock coverage 20%. Store coverage is DECLARED,
+/// not enforced (Refs #409, CRUX E06), so it is reported as 0 and not scored —
+/// for an empty recipe too, so no path credits it.
 pub fn compute_score(inputs: &[ReproInput]) -> ReproScore {
     if inputs.is_empty() {
         return ReproScore {
             composite: 100.0,
             purity_score: 100.0,
-            store_score: 100.0,
+            store_score: 0.0,
             lock_score: 100.0,
             resources: vec![],
         };

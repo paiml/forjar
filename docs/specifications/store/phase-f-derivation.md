@@ -14,7 +14,7 @@
 | 1 | Add `version:` pins to all packages | Constrained → Pinned | Yes |
 | 2 | Add `store: true` to cacheable resources | Enables store | Yes |
 | 3 | Generate `forjar.inputs.lock.yaml` | Pins all inputs | Yes |
-| 4 | Add `sandbox:` blocks | Pinned → Pure | Manual |
+| 4 | Add `sandbox:` blocks | Pinned (declared, not enforced — Pure is unreachable until sandbox execution exists, #409/#410) | Manual |
 | 5 | Replace imperative hooks with declarative resources | Full purity | Manual |
 
 ### Automated Conversion (FJ-1328)

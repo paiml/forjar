@@ -71,3 +71,51 @@ fn test_e07_execute_sandbox_plan_returns_honest_error() {
         err_msg
     );
 }
+
+/// The plan keeps its lifecycle, but a step whose mechanism does not exist on
+/// any host carries no command and says so — no script that would fail at
+/// runtime, no silent skip.
+#[test]
+fn the_plan_names_the_steps_it_cannot_run() {
+    let config = forjar::core::store::sandbox::preset_profile("full").expect("full profile");
+    let mut inputs = BTreeMap::new();
+    inputs.insert("src".to_string(), PathBuf::from("/store/abc/content"));
+    let plan = plan_sandbox_build(
+        &config,
+        "blake3:aabbcc",
+        &inputs,
+        "echo build",
+        std::path::Path::new("/var/forjar/store"),
+    );
+    let unavailable: Vec<_> = plan
+        .steps
+        .iter()
+        .filter(|s| s.description.contains("NOT EXECUTABLE"))
+        .collect();
+    assert_eq!(
+        unavailable.len(),
+        2,
+        "seccomp-bpf and forjar-hash-dir are the two mechanisms that do not exist; got {:?}",
+        plan.steps
+            .iter()
+            .map(|s| &s.description)
+            .collect::<Vec<_>>()
+    );
+    for s in &unavailable {
+        assert!(
+            s.command.is_none(),
+            "step {} still emits a command: {:?}",
+            s.step,
+            s.command
+        );
+    }
+    for s in &plan.steps {
+        if let Some(c) = &s.command {
+            assert!(
+                !c.contains("seccomp-bpf") && !c.contains("forjar-hash-dir"),
+                "step {} invokes a binary that does not exist: {c}",
+                s.step
+            );
+        }
+    }
+}

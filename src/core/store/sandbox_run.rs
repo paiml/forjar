@@ -33,7 +33,7 @@ pub fn execute_sandbox_plan(
     _store_dir: &Path,
     _timeout_secs: Option<u64>,
 ) -> Result<SandboxExecResult, String> {
-    Err("not implemented: sandbox execution (delegation to pepita namespace + hash_directory + atomic_move_to_store) is pending".to_string())
+    Err("not implemented: sandbox execution needs seccomp-bpf and forjar-hash-dir, and neither exists as a binary on any host (Refs #410); refusing by name rather than simulating a build".to_string())
 }
 
 /// Execute a sandbox plan in dry-run mode (validate all commands without running).

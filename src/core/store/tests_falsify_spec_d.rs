@@ -108,13 +108,15 @@ fn falsify_d09_repro_score_weights() {
     );
 }
 
-/// D-10: Purity score mapping — Pure=100, Pinned=75, Constrained=25, Impure=0.
+/// D-10: Purity score mapping — Pure=100, Pinned=75, Constrained=25, Impure=0,
+/// weighted 0.8 (#409: the store term is declared, not enforced, and is not
+/// scored; the remaining 0.2 is the lock pin).
 #[test]
 fn falsify_d10_purity_score_mapping() {
     for (purity, expected_composite) in [
-        (PurityLevel::Pure, 100.0 * 0.5),
-        (PurityLevel::Pinned, 75.0 * 0.5),
-        (PurityLevel::Constrained, 25.0 * 0.5),
+        (PurityLevel::Pure, 100.0 * 0.8),
+        (PurityLevel::Pinned, 75.0 * 0.8),
+        (PurityLevel::Constrained, 25.0 * 0.8),
         (PurityLevel::Impure, 0.0),
     ] {
         let inputs = vec![ReproInput {

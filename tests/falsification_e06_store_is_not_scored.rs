@@ -61,3 +61,63 @@ fn test_e06_store_flag_does_not_affect_score() {
         "Scores must be equal for configs differing only by store: true"
     );
 }
+
+// ── The ticket's own success criterion, end to end ─────────────────────────
+//
+// Two configs identical but for `store: true` on one resource: the apply
+// scripts codegen emits must be byte-identical (nothing on the apply path
+// honours the flag), and the shipped `validate --check-reproducibility-score`
+// must give them the SAME composite. On 1.24.0 the second half was 68 vs 38.
+
+const FORJAR: &str = env!("CARGO_BIN_EXE_forjar");
+
+fn config_yaml(store: bool) -> String {
+    let store_line = if store { "    store: true\n" } else { "" };
+    format!(
+        "version: \"1.0\"\nname: e06\nmachines:\n  local:\n    hostname: local\n    addr: 127.0.0.1\n\
+resources:\n  ripgrep:\n    type: package\n    provider: apt\n    packages: [ripgrep]\n    version: \"14.1.0\"\n{store_line}"
+    )
+}
+
+fn composite_for(dir: &std::path::Path, name: &str, store: bool) -> f64 {
+    let cfg = dir.join(name);
+    std::fs::write(&cfg, config_yaml(store)).expect("write config");
+    let out = std::process::Command::new(FORJAR)
+        .args(["validate", "-f"])
+        .arg(&cfg)
+        .args(["--check-reproducibility-score", "--json"])
+        .output()
+        .expect("run forjar");
+    let text = String::from_utf8_lossy(&out.stdout);
+    let start = text
+        .find('{')
+        .unwrap_or_else(|| panic!("no JSON in: {text}"));
+    let v: serde_json::Value = serde_json::from_str(&text[start..]).expect("score json");
+    v["composite"].as_f64().expect("composite")
+}
+
+#[test]
+fn two_byte_identical_apply_scripts_score_equal() {
+    use forjar::core::codegen::apply_script;
+    use forjar::core::parser::parse_config;
+
+    let plain = parse_config(&config_yaml(false)).expect("parse plain");
+    let stored = parse_config(&config_yaml(true)).expect("parse stored");
+    let script_plain = apply_script(&plain.resources["ripgrep"]).expect("codegen plain");
+    let script_stored = apply_script(&stored.resources["ripgrep"]).expect("codegen stored");
+    assert_eq!(
+        script_plain, script_stored,
+        "`store: true` changed the apply script — then it IS on the apply path and must be scored"
+    );
+
+    let dir = std::env::temp_dir().join(format!("forjar-e06-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("tmp");
+    let a = composite_for(&dir, "plain.yaml", false);
+    let b = composite_for(&dir, "stored.yaml", true);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        (a - b).abs() < 0.001,
+        "byte-identical apply scripts scored {a} vs {b}: the score credits a flag nothing enforces"
+    );
+}

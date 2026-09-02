@@ -86,8 +86,8 @@ pub fn plan_sandbox_build(
     config: &SandboxConfig,
     build_hash: &str,
     input_paths: &BTreeMap<String, PathBuf>,
-    _script: &str,
-    _store_dir: &Path,
+    script: &str,
+    store_dir: &Path,
 ) -> SandboxPlan {
     let hash_short = &build_hash[..16.min(build_hash.len())];
     let namespace_id = format!("forjar-build-{hash_short}");
@@ -104,6 +104,15 @@ pub fn plan_sandbox_build(
     let seccomp_rules = seccomp_rules_for_level(config.level);
 
     let mut steps = Vec::new();
+
+    // Step 1: Create namespace
+    steps.push(SandboxStep {
+        step: 1,
+        description: "Create PID/mount/net namespace".to_string(),
+        command: Some(format!(
+            "unshare --pid --mount --net --fork --map-root-user -- /bin/true # ns={namespace_id}"
+        )),
+    });
 
     // Step 2: Overlay mount
     let lower = overlay
@@ -151,12 +160,80 @@ pub fn plan_sandbox_build(
         )),
     });
 
+    // Step 5: Seccomp BPF (Full level only)
+    if !seccomp_rules.is_empty() {
+        let denied: Vec<&str> = seccomp_rules.iter().map(|r| r.syscall.as_str()).collect();
+        steps.push(SandboxStep {
+            step: 5,
+            // Refs #410 (CRUX E07): `seccomp-bpf` is not a binary on any host.
+            // The step stays in the plan so the lifecycle is documented, but
+            // it carries no command — execution refuses by name instead of
+            // emitting a script that would fail or, worse, be skipped silently.
+            description: format!(
+                "Apply seccomp BPF (deny: {}) — NOT EXECUTABLE: seccomp-bpf does not exist (#410)",
+                denied.join(", ")
+            ),
+            command: None,
+        });
+    }
+
+    // Step 6: Execute build script
+    let script_hash = blake3::hash(script.as_bytes());
+    steps.push(SandboxStep {
+        step: 6,
+        description: format!(
+            "Execute bashrs-purified build (script hash: {})",
+            &script_hash.to_hex()[..16]
+        ),
+        command: Some(format!(
+            "timeout {}s nsenter --target $PID --pid --mount --net -- /bin/sh -c '{}'",
+            config.timeout,
+            // `'\''` is what forjar's own I8 gate rejects (#350); this plan
+            // text is not executed, but the idiom must not be copied back out
+            // of here. Not `sh_squote`: it strips the script's newlines.
+            script.replace('\'', "'\"'\"'"),
+        )),
+    });
+
     // Step 7: Extract outputs
     let out_dir = overlay.merged_dir.join("out");
     steps.push(SandboxStep {
         step: 7,
         description: "Extract outputs from $out".to_string(),
         command: Some(format!("test -d {}", out_dir.display())),
+    });
+
+    // Step 8: hash_directory
+    steps.push(SandboxStep {
+        step: 8,
+        // Refs #410: `forjar-hash-dir` does not exist either; same rule as step 5.
+        description: format!(
+            "Compute BLAKE3 hash of output directory {} — NOT EXECUTABLE: forjar-hash-dir does not exist (#410)",
+            out_dir.display()
+        ),
+        command: None,
+    });
+
+    // Step 9: Atomic move to store
+    steps.push(SandboxStep {
+        step: 9,
+        description: "Atomic move to content-addressed store".to_string(),
+        command: Some(format!(
+            "mv {} {}/HASH/content",
+            out_dir.display(),
+            store_dir.display(),
+        )),
+    });
+
+    // Step 10: Destroy namespace
+    steps.push(SandboxStep {
+        step: 10,
+        description: "Destroy namespace and clean up".to_string(),
+        command: Some(format!(
+            "umount {merged} && rm -rf {root}",
+            merged = overlay.merged_dir.display(),
+            root = build_root.display(),
+        )),
     });
 
     SandboxPlan {
