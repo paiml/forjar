@@ -1,0 +1,32 @@
+# Quorum evidence — #400 / #401 / #386 (fix/repo-and-gate-hygiene) — adjudicated claims
+
+## CONFIRMED — 7 claims survived refutation
+
+1. [probe] (explains-symptom) The quorum gate took the branch NAME from the pushed ref and everything else from the local checkout, and broke in both directions.
+   - evidence: at the merge-base `scripts/quorum-gate.sh:141-153` learned `--remote-ref` and derived `branch` from it, then resolved merge-base, diff, receipt and `test_file` from `HEAD`; `scripts/hooks/pre-push:25` read `_local_sha` and discarded it. Measured in a synthetic repo against the pre-fix script: from a branch-A checkout, `--remote-ref refs/heads/branch-B` exited 1 with "no quorum receipt at .quorum/branch-B.json" while `git cat-file -e branch-B:.quorum/branch-B.json` had it; `PRINT_HASH` differed between the two checkouts (5f4f7572… vs 2f301b11…), so the binding was computed against code nobody was pushing. Pinned by `tests/falsification_quorum_gate_reads_the_pushed_ref.rs`.
+
+2. [probe] (explains-symptom) A never-`git add`ed `.quorum/<branch>.json` carrying a `waived.reason` passed the gate silently: `git diff --quiet -- <path>` and `git diff --cached --quiet -- <path>` BOTH exit 0 on an untracked path.
+   - evidence: the "receipt must be committed" guard at the merge-base rested on those two commands; an untracked receipt exited the gate 0 printing "(committed in … — visible in the PR diff)" about a file `git status` reports as `??`. The receipt is now read out of the object database at the pushed sha with `git cat-file`, which subsumes the guard. Pinned by the same falsifier's untracked-receipt case.
+
+3. [design] The `cargo test` step cannot follow a sha (cargo compiles the tree, not the commit), so on a cross-branch push it skips LOUDLY with the trade written into the code; the skip is local-only because `.github/workflows/quorum.yml` re-runs the whole gate on the PR head.
+   - evidence: the reviewer confirmed `quorum.yml:43` checks out `pull_request.head.sha`; `make quorum` and quorum.yml pass no sha and are unchanged via `pushed="${local_sha:-HEAD}"`, covered by an over-correction control; a branch deletion (all-zero sha) short-circuits before `git merge-base` can fail (exit 128 at the merge-base).
+
+4. [probe] (explains-symptom) 14 tracked files (3,759,246 bytes) were also matched by `.gitignore`, and it cost something measurable.
+   - evidence: `.gitignore:47` was `**/.pmat/` and `:34` `.pv/` at the merge-base while the index carried `.pmat/baseline.json` (1.2 MB), `docs/book/.pmat/context.db` (2.4 MB) and twelve more (14 at `git ls-tree` of the merge-base). `.git/hooks/post-commit` regenerated `baseline.json` after every commit and `git add` on a tracked-and-ignored path prints the hint, returns 1 and STAGES IT ANYWAY, so the churn never stopped; two `pmat tdg baseline create` runs differ in exactly one line (`created_at`), so every two-branch merge conflicted there — two receipts in this tree name that conflict as the reason for a re-anchor. Nothing under `.pmat/` is tracked now; the CB-200 ceiling moved to `scripts/ratchets/cb200-baseline.json` beside the one script that reads it. Pinned by `tests/falsification_no_tracked_file_is_gitignored.rs`.
+
+5. [design] The invariant is asserted with `git check-ignore --no-index` (without it git consults the index and reports every tracked path as not-ignored, hiding the defect entirely) and WITHOUT `-v` (which prints negation records and exits 0 for them), and it fails on an empty index rather than passing.
+   - evidence: the first version of the fix re-included two load-bearing files with `!` negations and survived exactly one commit: pmat writes its OWN `.pmat/.gitignore` containing `*`, and a deeper `.gitignore` outranks every shallower pattern (`git check-ignore --no-index -v .pmat/cb200-baseline.json` → `.pmat/.gitignore:10:*`). A rule that differs between a fresh CI checkout and every machine where pmat has run is not a rule.
+
+6. [probe] (explains-symptom) The Coverage-lane fix (#386) was live and green, but its guard had a hole: `is_cache_action` matched only `actions/cache`, and `Swatinem/rust-cache` — the house idiom on four hosted jobs — was invisible to it, so a one-line switch reproduced #386 with the guard green; and nothing tested the `CARGO_PROFILE_*_DEBUG: line-tables-only` reduction that shrank the tree from 70.70 GiB to 23 GiB.
+   - evidence: `.github/workflows/coverage.yml:71-72` at the merge-base carries the reduction; the guard now recognises both cache actions (`rust-cache` declares no `with.path`, so `cached_paths` names `target` on its behalf) and binds the debug-info check to the real coverage job. Pinned by `tests/falsification_hosted_jobs_do_not_cache_target/{main,controls,scan}.rs` — the controls drive synthetic workflows through the scanner so a broken workflow is rejected and a fixed one accepted.
+
+7. [design] The falsifiers cannot pass vacuously.
+   - evidence: the gate test builds a synthetic repository and runs the REAL `scripts/quorum-gate.sh` against it in both directions; the gitignore test feeds `git ls-files` into `git check-ignore --no-index` and fails on an empty index; the coverage scan asserts it reached the real coverage job (`the_scan_reaches_the_real_coverage_job`) and its controls reject the defect and accept the fix.
+
+## REFUTED — 2 claims killed
+
+1. [design] refuted 1/1 — "Keep `.pmat/baseline.json` tracked and re-include it with a `!` negation under a widened `**/.pmat/**`."
+   - corrected: survived one commit; pmat's own `.pmat/.gitignore` (`*`) outranks the root negation, and that file is untracked, so the rule would have differed between CI and every developer machine.
+
+2. [design] refuted 1/1 — "Build at the pushed sha in a `git worktree` so `cargo test` can follow it too."
+   - corrected: not impossible, expensive — a second full target dir on a fleet that already races on a shared `CARGO_TARGET_DIR`; the loud local skip plus quorum.yml on the PR head is the trade taken, and the code says so where the skip lives.
