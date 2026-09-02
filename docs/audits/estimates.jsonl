@@ -12,3 +12,5 @@
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7/#400 #401 #386 hygiene (merge + quorum)","mode":"quorum:agy","est":3,"actual":5,"basis":"plan.md:P9"}
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7/#364 yanked pin (carve-out + quorum, agy NotRun)","mode":"direct","est":1,"actual":2,"basis":"plan.md:P9"}
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7/#423 vendor (rebuild from own diff, PR #436)","mode":"direct","est":2,"actual":6,"basis":"plan.md:P8; stale-tree rebuild"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#409 #410 E06+E07 (agy lane + round 2)","mode":"quorum:agy","est":6,"actual":14,"basis":"plan.md:P10; lane claimed green, 15 tests re-based"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7 pushes/PRs for 8 branches (gate anchor floor, sublines, ratchets)","mode":"direct","est":4,"actual":12,"basis":"plan.md:P12; five gate refusals fixed"}
