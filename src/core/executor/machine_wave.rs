@@ -4,11 +4,22 @@ use super::machine::{MachineCounters, PreparedResource};
 use super::*;
 
 /// Phase 2: Execute transport I/O in parallel threads.
+/// Refs #390-A: the fourth element is the SCRIPT THAT RAN.
+///
+/// It used to be built and dropped inside the closure
+/// (`apply_script(..).and_then(|script| ..)`), which is the mechanical reason
+/// this path never wrote a run log: `run_capture` needs the script, and nothing
+/// outside the thread had it. Measured A/B with only `policy.parallel_resources`
+/// flipped: sequential wrote 8 files including a full `=== STDOUT ===` section,
+/// parallel produced no `runs/` directory at all. A failing task's transcript was
+/// DESTROYED, not merely hidden from the console.
+pub(super) type WaveResult = (usize, f64, Result<transport::ExecOutput, String>, String);
+
 pub(super) fn execute_wave_io(
     cfg: &ApplyConfig,
     prepared: &[PreparedResource],
     machine: &Machine,
-) -> Vec<(usize, f64, Result<transport::ExecOutput, String>)> {
+) -> Vec<WaveResult> {
     let ssh_retries = cfg.config.policy.ssh_retries;
     std::thread::scope(|s| {
         let handles: Vec<_> = prepared
@@ -18,24 +29,46 @@ pub(super) fn execute_wave_io(
                     let start = Instant::now();
                     if let Some(ref pre_hook) = prep.resolved.pre_apply {
                         if let Some(err) = run_pre_hook(machine, pre_hook, cfg.timeout_secs) {
-                            return (prep.change_idx, start.elapsed().as_secs_f64(), Err(err));
+                            // A pre_apply gate failure never reached the transport, so there
+                            // is no script and no transcript -- the empty string is the
+                            // honest value, and `capture_exec_output` is not called for
+                            // an Err output anyway.
+                            return (
+                                prep.change_idx,
+                                start.elapsed().as_secs_f64(),
+                                Err(err),
+                                String::new(),
+                            );
                         }
                     }
+                    // The script is bound rather than consumed, so the caller
+                    // can persist it (#390-A).
+                    let mut executed_script = String::new();
                     let output = if prep.use_copia {
                         copia_apply_file(machine, &prep.resolved, cfg.timeout_secs)
                     } else {
-                        codegen::apply_script(&prep.resolved).and_then(|script| {
-                            transport::exec_script_retry(
-                                machine,
-                                &script,
-                                cfg.timeout_secs,
-                                ssh_retries,
-                            )
-                        })
+                        match codegen::apply_script(&prep.resolved) {
+                            Ok(script) => {
+                                let r = transport::exec_script_retry(
+                                    machine,
+                                    &script,
+                                    cfg.timeout_secs,
+                                    ssh_retries,
+                                );
+                                executed_script = script;
+                                r
+                            }
+                            Err(e) => Err(e),
+                        }
                     };
                     let output =
                         run_post_hook_if_success(output, &prep.resolved, machine, cfg.timeout_secs);
-                    (prep.change_idx, start.elapsed().as_secs_f64(), output)
+                    (
+                        prep.change_idx,
+                        start.elapsed().as_secs_f64(),
+                        output,
+                        executed_script,
+                    )
                 })
             })
             .collect();
@@ -46,7 +79,7 @@ pub(super) fn execute_wave_io(
                 Err(panic_payload) => {
                     let msg = extract_panic_message(panic_payload);
                     eprintln!("error: wave execution thread panicked: {msg}");
-                    (0, 0.0, Err(format!("thread panic: {msg}")))
+                    (0, 0.0, Err(format!("thread panic: {msg}")), String::new())
                 }
             })
             .collect()
@@ -118,7 +151,7 @@ pub(super) fn record_wave_outcomes(
     cfg: &ApplyConfig,
     wave_changes: &[&PlannedChange],
     skipped_or_unchanged: &[(usize, ResourceOutcome)],
-    exec_results: Vec<(usize, f64, Result<transport::ExecOutput, String>)>,
+    exec_results: Vec<WaveResult>,
     prepared: &[PreparedResource],
     machine: &Machine,
     ctx: &mut RecordCtx,
@@ -137,7 +170,7 @@ pub(super) fn record_wave_outcomes(
     }
 
     // Record executed resources
-    for (idx, duration, output) in exec_results {
+    for (idx, duration, output, executed_script) in exec_results {
         let change = wave_changes[idx];
         let Some(resource) = cfg.config.resources.get(&change.resource_id) else {
             continue;
@@ -146,27 +179,80 @@ pub(super) fn record_wave_outcomes(
             continue;
         };
 
-        // Refs #390: ONE failure text for both schedulers, so the sequential
-        // and the parallel message cannot drift apart the way the two copies of
-        // `format!("exit code {}: {}", ...)` did.
-        //
-        // `log: None` is the honest answer here and not an oversight. This path
-        // never calls `run_capture`, so under `--parallel` no transcript exists
-        // at all and naming one would send an operator to a file that was never
-        // created — the second wrong turn after the one #390 already took.
-        // Tracked as #390-A; until it lands this message IS the only copy of a
-        // failed wave resource's output, which is why the excerpt below is not
-        // merely a convenience.
+        // Refs #390-A: PERSIST THE TRANSCRIPT, exactly as the sequential path
+        // does. This call is the whole fix, and it could not exist before because
+        // the script was built and dropped inside the spawn closure so nothing
+        // out here had it. Under `--parallel` a failing task's stdout was
+        // DESTROYED rather than merely hidden, which is why #390's reporter could
+        // not find their diagnostics "anywhere in the full raw apply log".
+        let action = format!("{:?}", change.action).to_lowercase();
+        let slot = run_capture::RunSlot {
+            state_dir: ctx.state_dir,
+            machine_name: ctx.machine_name,
+            run_id: cfg.run_id.as_deref(),
+        };
+        let executed = run_capture::Executed {
+            resource_id: &change.resource_id,
+            resource_type: &resource.resource_type,
+            action: &action,
+            script: &executed_script,
+        };
+        let log = output
+            .as_ref()
+            .ok()
+            .and_then(|out| run_capture::capture_exec_output(&slot, &executed, out, duration));
+
+        // ONE failure text for both schedulers, so the sequential and the
+        // parallel message cannot drift apart. `log` is a real path on this path
+        // now, so the message names the transcript instead of reporting that none
+        // was written.
         let site = super::failure_text::Site {
             resource_id: &change.resource_id,
             state_dir: ctx.state_dir,
             run_id: cfg.run_id.as_deref(),
-            log: None,
+            log: log.as_deref(),
             resolved: &prep.resolved,
         };
 
         match output {
+            // Refs #390-B: ASK THE HOST, exactly as the sequential path does.
+            //
+            // This arm went straight to `record_success`, so FJ-2731 (declared
+            // output_artifacts) and FJ-2732 (the host reports the declared state)
+            // silently did not run under `--parallel`. Two configs identical but
+            // for `policy.parallel_resources` could report converged and failed.
+            // The blast radius is every plain `type: task`, because
+            // `resources::task::check_script` falls through to
+            // `verdict::always_diverged("task=pending")` when there is no
+            // completion_check and no output_artifacts.
             Ok(out) if out.success() => {
+                if let Some(verdict) = super::output_verify::post_apply_failure(
+                    &prep.resolved,
+                    machine,
+                    ctx.timeout_secs,
+                ) {
+                    let error = super::failure_text::verify_failure(&site, &out, &verdict);
+                    let _ = record_failure(
+                        ctx,
+                        &change.resource_id,
+                        &resource.resource_type,
+                        duration,
+                        &error,
+                    );
+                    counters.failed += 1;
+                    counters.failed_resources.insert(change.resource_id.clone());
+                    let rt = resource_type_label(cfg, &change.resource_id);
+                    trace_session.record_span(
+                        &change.resource_id,
+                        &rt,
+                        machine_name,
+                        "update",
+                        std::time::Duration::from_secs_f64(duration),
+                        1,
+                        None,
+                    );
+                    continue;
+                }
                 record_success(
                     ctx,
                     &change.resource_id,

@@ -125,7 +125,23 @@ pub(crate) fn record_failure(
             // load-bearing: drift skips not-observed rather than treating an
             // absent digest as agreement.
             observed: None,
-            details: HashMap::new(),
+            // Refs #390-C: THE FAILURE TEXT, so machine-readable output carries
+            // it. `build_resource_reports` reads `details["error"]`, a key this
+            // function never wrote -- so `--json`, `--output events` and
+            // `--report` emitted `"error": null` for every failed resource and
+            // were strictly WORSE than the console, which at least printed
+            // stderr. For a CI pipeline that is the surface that matters.
+            //
+            // Deferred from 1.24.0 for a real reason: this string lands in
+            // `state.lock.yaml`, which is re-serialised and blake3-sidecarred
+            // every run and commonly committed. It is safe NOW because #390
+            // bounded every one of the six `record_failure` call sites -- before
+            // that, an unbounded stderr could have gone into a hashed, committed
+            // file.
+            details: HashMap::from([(
+                "error".to_string(),
+                serde_yaml_ng::Value::String(error.to_string()),
+            )]),
         },
     );
 
