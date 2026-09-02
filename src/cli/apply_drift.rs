@@ -6,7 +6,74 @@
 
 use super::helpers_state::*;
 use crate::core::types;
+use std::borrow::Cow;
 use std::path::Path;
+
+/// Which resources this apply is actually going to act on.
+///
+/// forjar#404 (CRUX audit E02): the gate took only `machine_filter`, so
+/// `apply -r one-resource` still probed EVERY locked resource on the machine
+/// — one full SSH handshake each — and then wrote `status: drifted` over
+/// resources the very same run was about to skip. The lock came back claiming
+/// drift nothing had repaired, and the next `forjar drift` read it as fact.
+#[derive(Clone, Copy, Default)]
+pub(super) struct GateScope<'a> {
+    /// `-m` / `--machine`.
+    pub machine: Option<&'a str>,
+    /// `-r` / `--resource`: an exact resource id.
+    pub resource: Option<&'a str>,
+    /// `-t` / `--tag`.
+    pub tag: Option<&'a str>,
+}
+
+impl GateScope<'_> {
+    /// Does the run act on this resource id?
+    ///
+    /// Mirrors the executor's own predicates: `resource_filter` is an exact id
+    /// match (`resource_ops::should_skip_single`) and `tag_filter` requires the
+    /// declaration to carry the tag (`resource_ops::resource_filtered_out`). A
+    /// locked id with no declaration left cannot carry a tag, so a tag filter
+    /// excludes it — exactly as the executor would.
+    fn covers(&self, id: &str, resources: &indexmap::IndexMap<String, types::Resource>) -> bool {
+        if self.resource.is_some_and(|r| r != id) {
+            return false;
+        }
+        match self.tag {
+            None => true,
+            Some(tag) => resources
+                .get(id)
+                .is_some_and(|r| r.tags.iter().any(|t| t == tag)),
+        }
+    }
+
+    /// The lock as the gate should read it: only the entries in scope.
+    ///
+    /// Borrows when nothing is filtered, so the common unfiltered apply pays
+    /// no clone.
+    fn narrow<'l>(
+        &self,
+        lock: &'l types::StateLock,
+        resources: &indexmap::IndexMap<String, types::Resource>,
+    ) -> Cow<'l, types::StateLock> {
+        if self.resource.is_none() && self.tag.is_none() {
+            return Cow::Borrowed(lock);
+        }
+        let mut scoped = lock.clone();
+        scoped.resources.retain(|id, _| self.covers(id, resources));
+        Cow::Owned(scoped)
+    }
+}
+
+/// Everything the per-machine half of the gate needs, so the fan-out closure
+/// captures one `Copy` value instead of six.
+#[derive(Clone, Copy)]
+struct GateRun<'a> {
+    config: &'a types::ForjarConfig,
+    state_dir: &'a Path,
+    scope: GateScope<'a>,
+    dry_run: bool,
+    verbose: bool,
+}
 
 /// One drift finding observed BEFORE the apply ran.
 ///
@@ -49,7 +116,7 @@ pub(super) struct DriftRepair {
 pub(super) fn check_pre_apply_drift(
     config: &types::ForjarConfig,
     state_dir: &Path,
-    machine_filter: Option<&str>,
+    scope: GateScope<'_>,
     force: bool,
     dry_run: bool,
     verbose: bool,
@@ -62,17 +129,34 @@ pub(super) fn check_pre_apply_drift(
     if !config.policy.tripwire || force {
         return Ok(Vec::new());
     }
-    let locks = load_machine_locks(config, state_dir, machine_filter)?;
-    let mut observed: Vec<DriftRepair> = Vec::new();
-    for (machine_name, lock) in &locks {
-        observed.extend(record_machine_drift(
-            config,
-            machine_name,
-            lock,
-            state_dir,
-            dry_run,
-            verbose,
-        )?);
+    // `load_machine_locks` returns a HashMap, and a HashMap's iteration order
+    // is not an order: the `drift:` lines and the returned findings came out in
+    // a different sequence on every run. Sorting costs nothing here and makes
+    // the fan-out below deterministic.
+    let mut locks: Vec<(String, types::StateLock)> =
+        load_machine_locks(config, state_dir, scope.machine)?
+            .into_iter()
+            .collect();
+    locks.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let run = GateRun {
+        config,
+        state_dir,
+        scope,
+        dry_run,
+        verbose,
+    };
+    let observed = if locks.len() <= 1 {
+        gate_sequential(run, &locks)?
+    } else {
+        gate_parallel(run, &locks)?
+    };
+
+    // PRINTED HERE, NOT IN THE WORKER. Under the fan-out, per-finding
+    // `eprintln!`s from several machines interleave mid-line; emitting them
+    // from the join point keeps the exact same text in a stable machine order.
+    for d in &observed {
+        eprintln!("  drift: [{}] {} — {}", d.machine, d.resource_id, d.detail);
     }
     if !observed.is_empty() && verbose {
         eprintln!(
@@ -83,18 +167,68 @@ pub(super) fn check_pre_apply_drift(
     Ok(observed)
 }
 
+/// One machine (or none): no thread is worth starting.
+fn gate_sequential(
+    run: GateRun<'_>,
+    locks: &[(String, types::StateLock)],
+) -> Result<Vec<DriftRepair>, String> {
+    let mut observed = Vec::new();
+    for (name, lock) in locks {
+        observed.extend(record_machine_drift(run, name, lock)?);
+    }
+    Ok(observed)
+}
+
+/// forjar#404: check every machine at once.
+///
+/// `forjar drift` has fanned this identical work out with `std::thread::scope`
+/// since FJ-1396 (`cli/drift.rs`); the apply gate ran the same detector in a
+/// bare `for` loop, so machine 2 waited on machine 1's handshakes. Modelled at
+/// 100 machines × 50 resources that is 25–50 minutes of pure SSH setup before
+/// any convergence work starts.
+///
+/// Results are collected in the handles' order, so the caller's output does not
+/// depend on which machine answered first.
+fn gate_parallel(
+    run: GateRun<'_>,
+    locks: &[(String, types::StateLock)],
+) -> Result<Vec<DriftRepair>, String> {
+    let results: Vec<Result<Vec<DriftRepair>, String>> = std::thread::scope(|s| {
+        let handles: Vec<_> = locks
+            .iter()
+            .map(|(name, lock)| s.spawn(move || record_machine_drift(run, name, lock)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .unwrap_or_else(|_| Err("drift gate worker panicked".to_string()))
+            })
+            .collect()
+    });
+    let mut observed = Vec::new();
+    for r in results {
+        observed.extend(r?);
+    }
+    Ok(observed)
+}
+
 /// The per-machine half: detect, print, record, and hand the findings back.
 ///
 /// Extracted so `check_pre_apply_drift` stays inside the repo's complexity cap
 /// once it accumulates rather than discards.
 fn record_machine_drift(
-    config: &types::ForjarConfig,
+    run: GateRun<'_>,
     machine_name: &str,
     lock: &types::StateLock,
-    state_dir: &Path,
-    dry_run: bool,
-    verbose: bool,
 ) -> Result<Vec<DriftRepair>, String> {
+    let GateRun {
+        config,
+        state_dir,
+        scope,
+        dry_run,
+        verbose,
+    } = run;
     // FJ-1378-fix: Pass the machine object so container transports use
     // docker exec instead of checking the host filesystem.
     // USE THE SAME DETECTOR `forjar drift` USES.
@@ -133,9 +267,17 @@ fn record_machine_drift(
         &config.machines,
         &config.secrets,
     );
+    // forjar#404: DETECT THROUGH THE SCOPE, WRITE THROUGH THE WHOLE LOCK.
+    //
+    // Every detector in `tripwire::drift` walks `lock.resources`, so narrowing
+    // the lock is what bounds the remote queries — that is the whole cost of
+    // the gate. It must NOT be the lock that gets persisted below: saving the
+    // narrowed clone would delete every out-of-scope resource from
+    // `state.lock.yaml`, turning a `-r` apply into state amputation.
+    let narrowed = scope.narrow(lock, &config.resources);
     let findings = match config.machines.get(machine_name) {
-        Some(m) => crate::tripwire::drift::detect_drift_full(lock, m, &resolved),
-        None => crate::tripwire::drift::detect_drift(lock),
+        Some(m) => crate::tripwire::drift::detect_drift_full(&narrowed, m, &resolved),
+        None => crate::tripwire::drift::detect_drift(&narrowed),
     };
     if findings.is_empty() {
         return Ok(Vec::new());
@@ -147,10 +289,6 @@ fn record_machine_drift(
     let mut updated = lock.clone();
     let mut observed = Vec::with_capacity(findings.len());
     for f in &findings {
-        eprintln!(
-            "  drift: [{}] {} — {}",
-            machine_name, f.resource_id, f.detail
-        );
         if let Some(rl) = updated.resources.get_mut(&f.resource_id) {
             rl.status = types::ResourceStatus::Drifted;
         }

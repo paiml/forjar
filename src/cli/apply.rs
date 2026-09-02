@@ -76,6 +76,19 @@ pub(crate) fn cmd_apply_scoped(
     apply_goal_closure(&mut config, goals, verbose)?;
     strip_unrequested_phony(&mut config, goals);
     apply_filters(&mut config, subset, exclude, verbose)?;
+
+    // forjar#404 (CRUX audit E02): OPEN THE SOCKETS BEFORE THE GATES.
+    //
+    // The pre-apply drift gate two lines below queries every locked resource of
+    // every target machine through the transport. `apply_machine` did not start
+    // the ControlMaster until twenty frames later, so `build_ssh_args` found no
+    // socket and every one of those queries was a full handshake — 306 ms
+    // median measured against 6.7 ms multiplexed, 45×, repeated once per locked
+    // resource. Held to the end of the function: dropping it early closes the
+    // sockets the gate and the executor are about to use.
+    let _ssh_mux =
+        super::apply_mux::open_control_masters(&config, machine_filter, force, dry_run, verbose);
+
     let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,
         state_dir,

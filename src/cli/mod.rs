@@ -10,6 +10,7 @@ mod apply_from_plan_checks;
 mod apply_gates;
 mod apply_gates_budget;
 mod apply_helpers;
+mod apply_mux;
 mod apply_output;
 mod apply_preflight;
 mod apply_preview;
