@@ -39,7 +39,11 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     // call site; a gate that each exit has to remember is not a gate, so this
     // fixes the POSITION instead of adding a fourth copy.
     if !is_read_only_apply_mode(&args) {
-        check_operator_auth(&args.file, args.operator.as_deref())?;
+        check_operator_auth(
+            &args.file,
+            args.operator.as_deref(),
+            args.machine.as_deref(),
+        )?;
     }
 
     if let Some(r) = apply_early_exits(&args) {
@@ -143,9 +147,15 @@ fn is_read_only_apply_mode(args: &ApplyArgs) -> bool {
 }
 
 /// Does this invocation make `apply_pre_checks` execute something forjar does
-/// not control — a script, or an outbound request naming the config?
+/// not control — a script, an outbound request naming the config — or contact
+/// the managed hosts? `--abort-on-drift` runs `cmd_drift` from `apply_pre_checks`,
+/// which probes every host in scope; a probe is an execution against the fleet
+/// whatever flag sits next to it (quorum review of #374).
 fn runs_an_external_hook(args: &ApplyArgs) -> bool {
-    args.pre_script.is_some() || args.pre_flight.is_some() || args.webhook_before.is_some()
+    args.pre_script.is_some()
+        || args.pre_flight.is_some()
+        || args.webhook_before.is_some()
+        || args.abort_on_drift
 }
 
 /// Early exits for dry-run and canary modes.
@@ -383,7 +393,11 @@ fn apply_backups(args: &ApplyArgs) {
 /// Execute the main apply, notifications, and post-apply hooks.
 fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     // FJ-2300: Operator authorization check
-    check_operator_auth(&args.file, args.operator.as_deref())?;
+    check_operator_auth(
+        &args.file,
+        args.operator.as_deref(),
+        args.machine.as_deref(),
+    )?;
 
     let base_sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
     // FJ-3500: Environment-scoped state directory

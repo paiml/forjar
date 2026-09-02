@@ -124,6 +124,13 @@ pub(crate) fn cmd_apply_canary_machine(
         "\n=== Fleet: applying to {} remaining machines ===\n",
         remaining.len()
     );
+    // forjar#374 (quorum review): one confirmation for the fleet, not one per
+    // machine. `cmd_apply` prompts per machine when `yes` is false, so an
+    // operator with N remaining machines was asked N times; the first EOF
+    // aborted the rest silently. Ask once here, then hand each leg `yes`.
+    if !yes {
+        confirm_fleet_rollout(remaining.len())?;
+    }
     for machine_name in &remaining {
         cmd_apply(
             file,
@@ -148,7 +155,7 @@ pub(crate) fn cmd_apply_canary_machine(
             false,
             false,
             0,
-            yes,
+            true, // confirmed once above, or --yes was typed
             false,
             None,
             false,
@@ -355,5 +362,19 @@ pub(crate) fn cmd_apply_dry_run_cost(
     println!("  No-op:   {noops}");
     println!("  ─────────────");
     println!("  Total changes: {}", creates + updates + deletes);
+    Ok(())
+}
+
+/// forjar#374: the fleet leg's single confirmation. EOF (a closed stdin, as in
+/// CI) reads as "no", the same rule `apply_preflight` uses per machine.
+fn confirm_fleet_rollout(remaining: usize) -> Result<(), String> {
+    eprint!("Apply to {remaining} remaining machine(s)? [y/N] ");
+    let mut answer = String::new();
+    std::io::stdin()
+        .read_line(&mut answer)
+        .map_err(|e| format!("stdin error: {e}"))?;
+    if !answer.trim().eq_ignore_ascii_case("y") {
+        return Err("aborted by user".to_string());
+    }
     Ok(())
 }
