@@ -224,6 +224,16 @@ Infrastructure query — search resources across config and state.
 forjar query -f forjar.yaml [--pattern <P>] [--type <T>] [--machine <M>] [--tag <T>] [--live] [--json]
 ```
 
+`--type` and the `resource_type` field of `--json` use the spelling the config
+itself declares — `package`, `github_release` — not the Rust type name. Before
+[paiml/forjar#366][fj366-q] the report said `"resource_type": "GithubRelease"`
+and `--type github_release` matched nothing, so the value printed could not be
+fed back into the filter that produced it. Anything parsing this output for a
+capitalised type name needs updating; `--type` is still a case-insensitive
+substring match, so `--type github` is unaffected.
+
+[fj366-q]: https://github.com/paiml/forjar/issues/366
+
 ### forjar preservation
 
 Preservation checking — verify resources that must never be destroyed.

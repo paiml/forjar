@@ -72,7 +72,12 @@ fn execute_query(
         let status = compute_status(id, res, state_dir);
         matches.push(QueryMatch {
             resource_id: id.clone(),
-            resource_type: format!("{:?}", res.resource_type),
+            // The DOCUMENT's spelling, via `Display` — `github_release`, not
+            // the `Debug` rendering `GithubRelease`, which is a value serde
+            // rejects with `unknown variant` (paiml/forjar#366). An id a report
+            // prints should be one the reader can put back into a config or a
+            // filter.
+            resource_type: res.resource_type.to_string(),
             machine: res.machine.iter().map(|s| s.to_owned()).collect(),
             tags: res.tags.clone(),
             status,
@@ -82,18 +87,22 @@ fn execute_query(
 }
 
 /// The free-text pattern hits either the resource id (as written) or its type
-/// name (lowercased).
+/// name in the document's own spelling.
 fn matches_pattern(id: &str, res: &crate::core::types::Resource, pattern: &str) -> bool {
-    id.contains(pattern)
-        || format!("{:?}", res.resource_type)
-            .to_lowercase()
-            .contains(pattern)
+    id.contains(pattern) || res.resource_type.to_string().contains(pattern)
 }
 
 /// Type filter: case-insensitive substring of the type name.
+///
+/// The name is `Display`, so `--type github_release` — the spelling the config
+/// itself declares — matches. It used to be the lowercased `Debug` spelling,
+/// where the substring `github` matched and the full `github_release` did not
+/// (paiml/forjar#366). Moves with the report above: filtering on one spelling
+/// while printing another is how `--type <the value we just printed>` returns
+/// nothing.
 fn matches_resource_type(res: &crate::core::types::Resource, wanted: &str) -> bool {
-    format!("{:?}", res.resource_type)
-        .to_lowercase()
+    res.resource_type
+        .to_string()
         .contains(&wanted.to_lowercase())
 }
 
