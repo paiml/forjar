@@ -1,5 +1,5 @@
 {
-  "issue": "#374 \u2014 apply --canary-machine performed a real apply (the whole fleet, with a --yes nobody typed) and --refresh-only rewrote every lock without ever reaching check_operator_auth; a read mode carrying --pre-script ran the script before the refusal",
+  "issue": "#374 — apply --canary-machine performed a real apply (the whole fleet, with a --yes nobody typed) and --refresh-only rewrote every lock without ever reaching check_operator_auth; a read mode carrying --pre-script ran the script before the refusal",
   "base": "origin/main",
   "recorded_at": "2026-09-03",
   "quorum": {
@@ -16,19 +16,19 @@
     "claims_confirmed": 9,
     "claims_refuted": 4,
     "refuted_claims": [
-      "Gate every apply mode including the reads \u2014 REFUTED: check_operator_auth iterates every machine regardless of --machine, so a listed operator would lose `apply -m theirs --check` for zero confidentiality gain; the reads stay open and the line is pinned in both directions.",
-      "Fixing the gate position also fixes the unconfirmed rollout \u2014 REFUTED: independent defects; the gate tests pass --yes explicitly so the restored prompt cannot mask an unreached gate, and the prompt test runs as the authorized operator so the gate cannot mask the missing prompt.",
-      "The hook exemption misses --post-script (agy charge) \u2014 COUNTERED: post_script runs at one site inside apply_execute (dispatch_apply_b.rs (the single post_script site, inside apply_execute at the merge-base)), unreachable from any read mode; adding it would only over-refuse.",
-      "Exempting --check is a confidentiality leak (agy charge) \u2014 DIVERGENCE recorded, not accepted: apply --check prints what the ungated check/plan/graph verbs print to anyone; gating one spelling of the read buys nothing."
+      "Gate every apply mode including the reads — REFUTED: check_operator_auth iterates every machine regardless of --machine, so a listed operator would lose `apply -m theirs --check` for zero confidentiality gain; the reads stay open and the line is pinned in both directions.",
+      "Fixing the gate position also fixes the unconfirmed rollout — REFUTED: independent defects; the gate tests pass --yes explicitly so the restored prompt cannot mask an unreached gate, and the prompt test runs as the authorized operator so the gate cannot mask the missing prompt.",
+      "The hook exemption misses --post-script (agy charge) — COUNTERED: post_script runs at one site inside apply_execute (dispatch_apply_b.rs (the single post_script site, inside apply_execute at the merge-base)), unreachable from any read mode; adding it would only over-refuse.",
+      "Exempting --check is a confidentiality leak (agy charge) — DIVERGENCE recorded, not accepted: apply --check prints what the ungated check/plan/graph verbs print to anyone; gating one spelling of the read buys nothing."
     ],
     "divergence": "the agy lane refuted four of five charges against the first tree; three were accepted and fixed in the same branch (abort-on-drift is not a read; the gate honours --machine; the fleet leg asks once), each pinned by a falsifier measured RED without its hunk; the post-script charge was countered by the call site and the --check charge is recorded as a design divergence"
   },
   "crux": {
     "systems": [
-      "Terraform Cloud/Enterprise \u2014 run tasks and Sentinel evaluate who may apply before any apply; a targeted or partial apply is still an apply",
-      "Ansible Tower/AWX \u2014 execute permission and credentials are bound per job template; --limit narrows hosts, never the permission check",
-      "Pulumi \u2014 stack permissions gate `up`; `--target` is still `up`",
-      "Salt \u2014 publisher_acl gates who may publish which functions to which minions; a batch of one is still a publish"
+      "Terraform Cloud/Enterprise — run tasks and Sentinel evaluate who may apply before any apply; a targeted or partial apply is still an apply",
+      "Ansible Tower/AWX — execute permission and credentials are bound per job template; --limit narrows hosts, never the permission check",
+      "Pulumi — stack permissions gate `up`; `--target` is still `up`",
+      "Salt — publisher_acl gates who may publish which functions to which minions; a batch of one is still a publish"
     ],
     "verdict": "at the industry default after this branch: the operator check is positional and runs before any exit, hook or backup; no invocation shape (canary, refresh, pre-hook) routes around it, and the reads that every ungated verb already serves stay open"
   },
@@ -36,8 +36,8 @@
     "ran": true,
     "verdict": "five charges: three accepted and fixed (abort-on-drift read bypass; scoped-operator regression from the every-machine iteration; N prompts on the fleet leg), one countered (post-script is unreachable from a read), one recorded as divergence (--check exemption); its 'below the industry default' verdict described the tree before the three fixes",
     "unique_findings": [
-      "--canary-machine calls cmd_apply directly and skips apply_pre_checks, so --pre-script/--webhook-before/--abort-on-drift are silently ignored on the canary path \u2014 pre-existing, filed as its own ticket",
-      "--backup is a silent no-op in read modes \u2014 known limit; a read takes no backup because it changes nothing"
+      "--canary-machine calls cmd_apply directly and skips apply_pre_checks, so --pre-script/--webhook-before/--abort-on-drift are silently ignored on the canary path — pre-existing, filed as its own ticket",
+      "--backup is a silent no-op in read modes — known limit; a read takes no backup because it changes nothing"
     ]
   },
   "pmat": {
@@ -54,7 +54,7 @@
     "test_file": "tests/falsification_canary_apply_is_authorized.rs",
     "cargo_test_target": "falsification_canary_apply_is_authorized",
     "reverted": "src/cli/dispatch_apply_b.rs and src/cli/apply_variants.rs -> the merge-base's (9e0815c0), tests kept",
-    "observed_failure": "src/cli/dispatch_apply_b.rs, apply_variants.rs, dispatch_apply.rs, apply_from_plan.rs at the merge-base, tests kept: first binary 8 of 14 RED \u2014 canary_apply_refuses_an_unlisted_operator, canary_apply_writes_nothing_when_refused, canary_apply_does_not_converge_the_rest_of_the_fleet, canary_apply_does_not_imply_yes, refresh_only_refuses_an_unlisted_operator, an_unauthorized_apply_does_not_run_the_pre_script, a_read_mode_does_not_launder_the_pre_script_hook, a_read_flag_does_not_launder_a_canary_rollout; second binary (round-2 hunks reverted, measured separately): 3 of 3 RED \u2014 a_check_with_abort_on_drift_is_not_a_read, a_machine_scoped_operator_keeps_their_own_machine, the_fleet_leg_asks_once_not_once_per_machine",
+    "observed_failure": "src/cli/dispatch_apply_b.rs, apply_variants.rs, dispatch_apply.rs, apply_from_plan.rs at the merge-base, tests kept: first binary 8 of 14 RED — canary_apply_refuses_an_unlisted_operator, canary_apply_writes_nothing_when_refused, canary_apply_does_not_converge_the_rest_of_the_fleet, canary_apply_does_not_imply_yes, refresh_only_refuses_an_unlisted_operator, an_unauthorized_apply_does_not_run_the_pre_script, a_read_mode_does_not_launder_the_pre_script_hook, a_read_flag_does_not_launder_a_canary_rollout; second binary (round-2 hunks reverted, measured separately): 3 of 3 RED — a_check_with_abort_on_drift_is_not_a_read, a_machine_scoped_operator_keeps_their_own_machine, the_fleet_leg_asks_once_not_once_per_machine",
     "still_green_when_reverted": "the regression guards, by design: control_the_ordinary_apply_refuses_an_unlisted_operator, a_listed_operator_still_gets_a_read_with_a_hook, a_listed_operator_still_gets_a_canary_rollout, the_read_only_apply_modes_stay_ungated, an_unrestricted_config_is_unaffected, a_machine_scoped_operator_can_still_read_its_own_machine"
   },
   "evidence": {
@@ -65,8 +65,8 @@
           "claims"
         ],
         "bytes": 8175,
-        "sha256": "4d94f566b5e8d2ce080d18c83e8e7140c4edcae982905d1d49ad7d977ec9a4ce",
-        "blob": "02853393563c3a377bc82775e586fe26b364c493"
+        "sha256": "4dc30657373280237d3e71ff43eafa2fd7bc11f7d4f41798330e97304a19a3ae",
+        "blob": "805c11ba036ce4640f9a9172269b070d8c35466a"
       },
       {
         "path": ".quorum/evidence/374-lanes.md",
@@ -120,5 +120,5 @@
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "0a6528fbf30f96f49bbb5880afd82b87515b82d7"
+  "diff_sha256": "dc274e0223baffdb6873e261abc16c6c175ceabb"
 }
