@@ -38,7 +38,7 @@
    - corrected: they are independent defects. Every gate test passes `--yes` explicitly so that the restored prompt (which aborts the canary leg on EOF) cannot mask an unreached gate; `canary_apply_does_not_imply_yes` runs as the AUTHORIZED operator so that the gate cannot mask the missing prompt.
 
 3. [design] refuted 1/1 (agy lane's charge, countered) — "The hook exemption misses `--post-script`."
-   - countered: `post_script` runs at ONE site, inside `apply_execute` (`src/cli/dispatch_apply_b.rs:465`), which no read mode reaches; a read invocation carrying `--post-script` executes nothing. Not added to the predicate — adding it would over-refuse a listed operator's `--check --post-script` for no execution avoided. Recorded as divergence, not accepted.
+   - corrected: (countered) `post_script` runs at ONE site, inside `apply_execute` (`src/cli/dispatch_apply_b.rs:465`), which no read mode reaches; a read invocation carrying `--post-script` executes nothing. Not added to the predicate — adding it would over-refuse a listed operator's `--check --post-script` for no execution avoided. Recorded as divergence, not accepted.
 
 4. [design] refuted 1/1 (agy lane's charge, countered) — "Exempting `--check` is a confidentiality leak."
-   - countered: `apply --check` prints what the ungated `forjar check` / `plan` / `graph` verbs print to anyone who can read the config, none of which accepts `--operator`; gating one spelling of the read buys nothing while the others stay open. The line is recorded in the receipt; changing it is a verb-surface decision, not a #374 one.
+   - corrected: (countered) `apply --check` prints what the ungated `forjar check` / `plan` / `graph` verbs print to anyone who can read the config, none of which accepts `--operator`; gating one spelling of the read buys nothing while the others stay open. The line is recorded in the receipt; changing it is a verb-surface decision, not a #374 one.
