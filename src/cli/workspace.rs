@@ -47,7 +47,11 @@ pub(crate) fn cmd_workspace_current() -> Result<(), String> {
 /// A name must therefore be a single, ordinary path component. This is checked
 /// BEFORE any filesystem access, so a malicious name cannot even be probed for
 /// existence.
-fn validate_workspace_name(name: &str) -> Result<(), String> {
+///
+/// `pub(crate)` because `mcp::paths` joins the same marker file onto a state
+/// base (#367) and must apply the same check — a second, hand-rolled copy of
+/// this predicate is exactly how the first one came to be needed.
+pub(crate) fn validate_workspace_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("workspace name must not be empty".to_string());
     }

@@ -4,11 +4,11 @@
 //! cap, and then given the tests that the claim which shipped with the verb
 //! needed and did not have.
 //!
-//! THE RETRACTED CLAIM. The commit that added this verb justified it on
-//! "`workspace` decides where every other verb reads its state". It does not.
-//! `mcp::paths::resolve_state_dir*` — which every state-reading verb calls —
-//! resolves `<config dir>/state` and never joins the active workspace onto it,
-//! while `cli::workspace::resolve_state_dir` does. Measured against the built
+//! THE RETRACTED CLAIM, and what became of it. The commit that added this verb
+//! justified it on "`workspace` decides where every other verb reads its state".
+//! It did not: `mcp::paths::resolve_state_dir*` — which every state-reading verb
+//! calls — resolved `<config dir>/state` and never joined the active workspace,
+//! while `cli::workspace::resolve_state_dir` did. Measured against the built
 //! binary, one project, `.forjar/workspace = prod`, lock and trail under
 //! `state/prod/`:
 //!
@@ -24,10 +24,15 @@
 //!   { "event_count": 0, "events": [] }      # over a four-event trail
 //! ```
 //!
-//! That divergence is PRE-EXISTING and is filed as paiml/forjar#367; it is not
-//! fixed here. What is fixed here is the report: `workspace_state_dir` now
-//! names the directory the selection designates, so a caller can pass it to the
-//! next verb instead of assuming the selection was honoured.
+//! That divergence was filed as paiml/forjar#367 and is now CLOSED — the two
+//! surfaces agree, and the last two tests in this file are what would notice if
+//! they stopped. `falsification_verb_honours_the_workspace` carries the rest of
+//! that fix's rejection criteria, including the two ways it can be wrong.
+//!
+//! What this file fixed at the time is the report: `workspace_state_dir` names
+//! the directory the selection designates, which is still the path a caller
+//! passes back as `state_dir` to PIN a read — to another workspace, or against
+//! a selection that could change underneath it.
 //!
 //! Usage: cargo test --test falsification_verb_workspace_report
 
@@ -261,11 +266,11 @@ fn the_designated_directory_is_the_one_another_verb_has_to_be_given() {
     )
     .expect("audit runs");
     assert_eq!(
-        blind["event_count"], 0,
-        "the `audit` verb now honours the active workspace. If that is \
-         deliberate, paiml/forjar#367 has been fixed and the doc comment on \
-         `WorkspaceOutput::workspace_state_dir` — which states the opposite, as \
-         measured — has to be rewritten with it: {blind}"
+        blind["event_count"], 2,
+        "paiml/forjar#367: `audit` called with `path` alone must reach the \
+         trail under the SELECTED workspace. It used to report 0 here, which \
+         is what an untouched project reports — the tell-free wrong answer the \
+         issue was opened for: {blind}"
     );
 
     let told = call(
@@ -281,14 +286,14 @@ fn the_designated_directory_is_the_one_another_verb_has_to_be_given() {
     );
 }
 
-/// The measurement the doc comment on `workspace_state_dir` quotes, run against
-/// the BUILT BINARY so the quote cannot go stale silently.
+/// One project, one selection, two surfaces — run against the BUILT BINARY, so
+/// the agreement is asserted where a user reaches it rather than in the library.
 ///
-/// One project, one selection, two surfaces: `forjar plan` resolves
-/// `state/prod` and reports the resource as unchanged; `verb call plan` on the
-/// same config resolves `state` and reports it as a create.
+/// `forjar plan` resolves `state/prod` and reports the resource as unchanged.
+/// `verb call plan` on the same config resolved `state` and reported a CREATE
+/// until paiml/forjar#367; the two must now answer the same.
 #[test]
-fn the_cli_honours_the_selection_and_the_verb_surface_does_not() {
+fn the_cli_and_the_verb_surface_honour_the_same_selection() {
     let d = tempfile::tempdir().unwrap();
     let target = d.path().join("out.conf");
     let cfg = d.path().join("forjar.yaml");
@@ -357,10 +362,15 @@ fn the_cli_honours_the_selection_and_the_verb_surface_does_not() {
     )
     .expect("plan runs");
     assert_eq!(
-        verb["to_create"], 1,
-        "the `plan` verb now reads the selected workspace's lock. That is \
-         paiml/forjar#367 fixed — good — and the doc comment on \
-         `WorkspaceOutput::workspace_state_dir` quotes this measurement, so it \
-         has to be rewritten with it: {verb}"
+        verb["unchanged"], cli["unchanged"],
+        "paiml/forjar#367: one project, one selection, two surfaces — they must \
+         now agree. `forjar plan` says {} unchanged; the `plan` verb says \
+         {}.\ncli:  {cli}\nverb: {verb}",
+        cli["unchanged"], verb["unchanged"]
+    );
+    assert_eq!(
+        verb["to_create"], 0,
+        "the `plan` verb read `state/` while the CLI wrote `state/prod/`, so a \
+         converged resource came back as work to do: {verb}"
     );
 }

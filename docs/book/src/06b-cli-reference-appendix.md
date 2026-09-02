@@ -120,13 +120,20 @@ verb unattended without risking a change to a machine.
 list` and `workspace current` read, so they are on the surface; `workspace new`,
 `select` and `delete` write, so they are not.
 
-It REPORTS a selection; it does not impose one. The active workspace is joined
-onto the state dir by the CLI commands that take `--workspace` (`apply`, `plan`,
-`drift`, `lock`) and by nothing on the verb surface — a verb called with the
-same `path` reads `<config dir>/state`, not `<config dir>/state/<active>`. The
-report therefore carries `workspace_state_dir`, the directory the selection
-designates, so a caller that wants the CLI's view can pass it as the next verb's
-`state_dir`. Closing the gap itself is [paiml/forjar#367][fj367].
+It REPORTS a selection; it does not impose one — but since
+[paiml/forjar#367][fj367] the other verbs honour the same selection anyway. A
+state-reading verb called with `path` and no `state_dir` now resolves
+`<config dir>/state/<active>`, the directory `forjar plan --workspace` reaches,
+instead of the bare `<config dir>/state` it used to read. Until that fix the two
+surfaces answered differently about one project: `forjar plan` reported a
+converged resource as unchanged while the `plan` verb reported it as a CREATE,
+and `audit` reported zero events over a four-event trail — neither answer
+distinguishable from an empty project.
+
+An explicit `state_dir` is still honoured verbatim and never joined onto, so
+`workspace_state_dir` remains the path to hand back when a caller wants to PIN a
+read: to a workspace that is not the selected one, or against a selection that
+might change underneath it.
 
 [fj367]: https://github.com/paiml/forjar/issues/367
 

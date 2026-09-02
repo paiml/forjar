@@ -1639,7 +1639,7 @@ The server runs on stdio transport and exposes 12 tools:
 `forjar verb list` is the authoritative set; a list typed into a document
 drifts, and this one already has.
 
-All twelve are read-only, and `forjar mcp --schema` reports `readOnlyHint: true` for each. The RUNNING server does not send the annotation (paiml/forjar#375), so today a client learns this from the docs. Since 1.21.1 (forjar#372) the property also
+All twelve are read-only, and both `forjar mcp --schema` and the RUNNING server report `readOnlyHint: true` for each, along with an `outputSchema` a client can type-check against. Until paiml/forjar#375 only `--schema` did: over real stdio every tool object was `['description', 'inputSchema', 'name']`, so a connected agent learned the property from these docs or not at all. Since 1.21.1 (forjar#372) the property also
 means **they do not run what the config declares**. `forjar_plan` used to
 execute the config's `ambient_inputs` commands, `sops`/`op` for
 `secrets.provider`, and `output_equivalence` normalisers, so pointing an agent
@@ -1671,8 +1671,15 @@ Configure in your MCP client:
 Export tool schemas as JSON (for external consumers, IDEs, documentation):
 
 ```bash
-forjar mcp --schema > docs/mcp-schema.json
+forjar mcp --schema
 ```
+
+Print it, do not check it in. `docs/mcp-schema.json` used to be exactly that
+redirect committed, and it went stale the moment the verb table changed: it
+advertised nine tools at 1.20.1 while the server exposed twelve, and neither the
+compiler nor CI could see the difference (paiml/forjar#371). The command is
+derived from `verb_table!` and is always current; a copy of its output can only
+drift from it.
 
 See Architecture chapter for full tool reference and handler details.
 

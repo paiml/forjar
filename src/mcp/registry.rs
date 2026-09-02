@@ -1,8 +1,11 @@
 //! MCP registry, server, and schema export for forjar tools.
 
-use pforge_config::{ForgeConfig, ForgeMetadata, OptimizationLevel, ParamSchema, TransportType};
-use pforge_runtime::{HandlerRegistry, McpServer};
+use std::sync::Arc;
 
+use pforge_runtime::HandlerRegistry;
+use tokio::sync::RwLock;
+
+use super::adapter::VerbToolAdapter;
 use super::handlers::*;
 use super::handlers_ops::*;
 
@@ -72,65 +75,60 @@ pub fn build_registry() -> HandlerRegistry {
     registry
 }
 
-/// Build the ForgeConfig for the forjar MCP server.
+/// Build the pmcp server: one tool per verb-table row, metadata and all.
 ///
-/// Exposed as `pub(super)` for testing from sibling test modules.
-#[cfg(test)]
-pub(super) fn build_forge_config_for_test() -> ForgeConfig {
-    build_forge_config()
-}
+/// forjar#375: this used to be a `pforge_config::ForgeConfig` handed to
+/// `pforge_runtime::McpServer`, and pforge's own tool adapter answered
+/// `metadata()` with a bare `ToolInfo::new(..)` — which hard-sets
+/// `annotations: None, output_schema: None`. So `--schema` published
+/// `readOnlyHint` for all twelve tools and a connected agent received it for
+/// none. Building the pmcp server here is what lets [`VerbToolAdapter`] fill
+/// those two fields in.
+///
+/// Nothing observable was lost with `ForgeConfig`: pforge never enforced
+/// `timeout_ms` for `Native` tools (its serve path applies it to `Cli` and
+/// `Http` handlers only, and prints "requires handler implementation" for
+/// `Native`), and the `inputSchema` it derived was already byte-identical to
+/// `(v.input_schema)()`.
+///
+/// `.name("forjar-mcp")` is asserted by `e2e_mcp_stdio_t`; `.tool()` is what
+/// sets the `tools` capability the same suite checks.
+fn build_server(registry: Arc<RwLock<HandlerRegistry>>) -> Result<pmcp::Server, String> {
+    let mut builder = pmcp::Server::builder()
+        .name("forjar-mcp")
+        .version(env!("CARGO_PKG_VERSION"));
 
-fn build_forge_config() -> ForgeConfig {
-    use pforge_config::{HandlerRef, ToolDef};
-    use rustc_hash::FxHashMap;
-
-    let empty_params = ParamSchema {
-        fields: FxHashMap::default(),
-    };
-
-    ForgeConfig {
-        forge: ForgeMetadata {
-            name: "forjar-mcp".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            transport: TransportType::Stdio,
-            optimization: OptimizationLevel::Release,
-        },
-        tools: crate::verb::verbs()
-            .iter()
-            .map(|v| ToolDef::Native {
+    for v in crate::verb::verbs() {
+        builder = builder.tool(
+            v.mcp_name(),
+            VerbToolAdapter {
+                registry: registry.clone(),
                 name: v.mcp_name(),
                 description: v.description.to_string(),
-                handler: HandlerRef {
-                    // pforge resolves this by name at config level; the runtime
-                    // registry above is what actually dispatches.
-                    path: format!("handlers::{}", v.name),
-                    inline: None,
-                },
-                params: empty_params.clone(),
-                timeout_ms: Some(v.timeout_ms),
-            })
-            .collect(),
-        resources: vec![],
-        prompts: vec![],
-        state: None,
+                // Derived, never a literal — see VerbToolAdapter::read_only.
+                read_only: v.effects.read_only(),
+                input_schema: (v.input_schema)(),
+                output_schema: (v.output_schema)(),
+            },
+        );
     }
+
+    builder
+        .build()
+        .map_err(|e| format!("cannot build MCP server: {e}"))
 }
 
 /// Start the forjar MCP server (stdio transport).
 pub async fn serve() -> Result<(), String> {
-    let config = build_forge_config();
-    let server = McpServer::new(config);
+    // The SAME `register_all` list `build_registry()` uses, so the tested set
+    // and the served set cannot differ — and dispatch stays with pforge's
+    // registry, which is load-bearing rather than incidental. See the header of
+    // `mcp::adapter`.
+    let registry = Arc::new(RwLock::new(HandlerRegistry::new()));
+    register_all(&mut *registry.write().await);
 
-    // Register forjar handlers into the server's registry — the SAME list
-    // build_registry() uses, so the tested set and the served set cannot differ.
-    let registry = server.registry();
-    {
-        let mut reg = registry.write().await;
-        register_all(&mut reg);
-    }
-
-    server
-        .run()
+    build_server(registry)?
+        .run_stdio()
         .await
         .map_err(|e| format!("MCP server error: {e}"))
 }
