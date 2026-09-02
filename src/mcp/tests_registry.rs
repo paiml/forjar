@@ -37,9 +37,8 @@ fn test_fj063_build_registry_no_unknown_tools() {
 // The properties they were reaching for are now asserted where a CLIENT sees
 // them, over real stdio, in
 // `tests/falsification_mcp_publishes_readonly_hint_over_stdio.rs` — server name,
-// tool count, per-tool names, `readOnlyHint` and `outputSchema` — with
-// `e2e_mcp_stdio_t` proving the transport is reachable from the shipped binary
-// at all.
+// tool count, per-tool names and `readOnlyHint` — with `e2e_mcp_stdio_t` proving
+// the transport is reachable from the shipped binary at all.
 
 #[tokio::test]
 async fn test_fj063_registry_dispatch_validate() {

@@ -1639,7 +1639,7 @@ The server runs on stdio transport and exposes 12 tools:
 `forjar verb list` is the authoritative set; a list typed into a document
 drifts, and this one already has.
 
-All twelve are read-only, and both `forjar mcp --schema` and the RUNNING server report `readOnlyHint: true` for each, along with an `outputSchema` a client can type-check against. Until paiml/forjar#375 only `--schema` did: over real stdio every tool object was `['description', 'inputSchema', 'name']`, so a connected agent learned the property from these docs or not at all. Since 1.21.1 (forjar#372) the property also
+All twelve are read-only, and both `forjar mcp --schema` and the RUNNING server report `readOnlyHint: true` for each. Until paiml/forjar#375 only `--schema` did: over real stdio every tool object was `['description', 'inputSchema', 'name']`, so a connected agent learned the property from these docs or not at all. `outputSchema` stays on `--schema` only: under MCP 2025-06-18 publishing one obligates the server to return `structuredContent`, which the runtime sends only for widget tools, and the official MCP client refuses every call to a tool that promises it and does not deliver. Since 1.21.1 (forjar#372) the property also
 means **they do not run what the config declares**. `forjar_plan` used to
 execute the config's `ambient_inputs` commands, `sops`/`op` for
 `secrets.provider`, and `output_equivalence` normalisers, so pointing an agent

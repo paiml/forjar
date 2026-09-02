@@ -83,13 +83,19 @@ pub fn build_registry() -> HandlerRegistry {
 /// `annotations: None, output_schema: None`. So `--schema` published
 /// `readOnlyHint` for all twelve tools and a connected agent received it for
 /// none. Building the pmcp server here is what lets [`VerbToolAdapter`] fill
-/// those two fields in.
+/// the annotation in.
 ///
 /// Nothing observable was lost with `ForgeConfig`: pforge never enforced
 /// `timeout_ms` for `Native` tools (its serve path applies it to `Cli` and
 /// `Http` handlers only, and prints "requires handler implementation" for
 /// `Native`), and the `inputSchema` it derived was already byte-identical to
 /// `(v.input_schema)()`.
+///
+/// `(v.output_schema)()` is NOT handed over: an `outputSchema` on the wire
+/// promises `structuredContent` that pmcp 1.20 only sends for widget tools, and
+/// the official MCP client rejects every call to a tool that promises it and
+/// does not deliver. `--schema` still publishes it, where it documents rather
+/// than promises. See the header of [`super::adapter`].
 ///
 /// `.name("forjar-mcp")` is asserted by `e2e_mcp_stdio_t`; `.tool()` is what
 /// sets the `tools` capability the same suite checks.
@@ -108,7 +114,6 @@ fn build_server(registry: Arc<RwLock<HandlerRegistry>>) -> Result<pmcp::Server, 
                 // Derived, never a literal — see VerbToolAdapter::read_only.
                 read_only: v.effects.read_only(),
                 input_schema: (v.input_schema)(),
-                output_schema: (v.output_schema)(),
             },
         );
     }

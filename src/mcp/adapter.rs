@@ -5,8 +5,7 @@
 //! `forjar mcp --schema` published `annotations.readOnlyHint` for every tool.
 //! The running server published nothing. Measured on 1.24.0 over real stdio,
 //! the key set of every one of the twelve tool objects was exactly
-//! `['description', 'inputSchema', 'name']` — no `annotations`, no
-//! `outputSchema`.
+//! `['description', 'inputSchema', 'name']` — no `annotations`.
 //!
 //! The discard point is three layers down and none of them is forjar's:
 //! `pforge_config::ToolDef::Native` carries no annotations field, and
@@ -24,6 +23,38 @@
 //! read `export_schema()` or `mcp --schema`; the single suite that drove real
 //! `tools/list` asserted only `name` and `inputSchema`. Agreement between two
 //! non-wire surfaces cannot falsify what goes over the wire.
+//!
+//! # Why `outputSchema` is NOT published, though the same line dropped it
+//!
+//! It looks free and it is not. MCP 2025-06-18 — the revision this server
+//! negotiates, measured — makes an output schema a PROMISE: *"If an output
+//! schema is provided: Servers MUST provide structured results that conform to
+//! this output schema."* pmcp 1.20 cannot keep it. Its `handle_call_tool` builds
+//! `CallToolResult::new(vec![Content::Text { .. }])` and attaches
+//! `structuredContent` only through `with_widget_enrichment`, which fires solely
+//! for tools carrying ChatGPT widget `_meta`. Nothing a `ToolHandler` returns
+//! reaches `structuredContent`, `TypedToolWithOutput` included.
+//!
+//! So a published `outputSchema` here is an unkeepable promise, and clients
+//! enforce it. Driven against this binary with the OFFICIAL MCP TypeScript SDK
+//! client (`@modelcontextprotocol/sdk` 1.30.0), which caches each tool's output
+//! schema at `listTools()` and checks it on every call:
+//!
+//! ```text
+//!   with `info.output_schema = Some(..)`:
+//!     McpError -32600: Tool forjar_validate has an output schema but did not
+//!                      return structured content
+//!   without it:
+//!     content: [{ type: "text", text: "{"valid":true,…}" }], isError: false
+//! ```
+//!
+//! Every `tools/call` failed, on all twelve tools, for the most widely deployed
+//! client stack there is — a strictly worse outcome than the missing hint #375
+//! was opened for, which at least failed SAFE. `readOnlyHint` carries no such
+//! obligation, which is why it is published and this is not.
+//! `falsification_mcp_publishes_readonly_hint_over_stdio` asserts the pairing
+//! rather than the absence, so the day pmcp can fill `structuredContent` the
+//! schema goes back in and the test says so.
 //!
 //! # What is deliberately NOT changed
 //!
@@ -66,8 +97,6 @@ pub struct VerbToolAdapter {
     pub read_only: bool,
     /// `schemars`-derived schema of the verb's input type.
     pub input_schema: Value,
-    /// `schemars`-derived schema of the verb's output type.
-    pub output_schema: Value,
 }
 
 #[async_trait::async_trait]
@@ -95,6 +124,10 @@ impl pmcp::server::ToolHandler for VerbToolAdapter {
     ///
     /// `ToolInfo` and `ToolAnnotations` are `#[non_exhaustive]`, so this is
     /// `new()` plus field assignment rather than a struct literal.
+    ///
+    /// `output_schema` is deliberately left `None` — see the module header: it
+    /// is a promise pmcp 1.20 cannot keep, and the official client rejects every
+    /// call to a tool that makes it and does not.
     fn metadata(&self) -> Option<ToolInfo> {
         let mut info = ToolInfo::new(
             self.name.clone(),
@@ -102,7 +135,6 @@ impl pmcp::server::ToolHandler for VerbToolAdapter {
             self.input_schema.clone(),
         );
         info.annotations = Some(ToolAnnotations::new().with_read_only(self.read_only));
-        info.output_schema = Some(self.output_schema.clone());
         Some(info)
     }
 }
@@ -118,7 +150,6 @@ mod tests {
             description: "probe".to_string(),
             read_only,
             input_schema: serde_json::json!({"type": "object"}),
-            output_schema: serde_json::json!({"type": "object", "title": "Out"}),
         }
     }
 
@@ -126,14 +157,31 @@ mod tests {
     /// camelCase names the MCP spec uses — `read_only_hint` reaching the wire
     /// as `read_only_hint` would be just as unreadable as not sending it.
     #[test]
-    fn metadata_carries_the_hint_and_the_output_schema() {
+    fn metadata_carries_the_hint() {
         use pmcp::server::ToolHandler;
         let info = adapter(true).metadata().expect("metadata");
         let v = serde_json::to_value(&info).expect("ToolInfo serialises");
 
         assert_eq!(v["annotations"]["readOnlyHint"], serde_json::json!(true));
-        assert_eq!(v["outputSchema"]["title"], serde_json::json!("Out"));
         assert_eq!(v["name"], serde_json::json!("forjar_probe"));
+    }
+
+    /// An `outputSchema` obligates `structuredContent` under MCP 2025-06-18, and
+    /// pmcp 1.20 never sends it for a non-widget tool. Publishing one made the
+    /// official TypeScript client reject EVERY call with
+    /// "has an output schema but did not return structured content" — so the
+    /// field stays absent until the runtime can fill the promise.
+    #[test]
+    fn metadata_makes_no_promise_the_runtime_cannot_keep() {
+        use pmcp::server::ToolHandler;
+        let info = adapter(true).metadata().expect("metadata");
+        let v = serde_json::to_value(&info).expect("ToolInfo serialises");
+
+        assert!(
+            v.get("outputSchema").is_none_or(serde_json::Value::is_null),
+            "an outputSchema on the wire promises structuredContent that pmcp \
+             1.20 does not send, and the official client refuses the call: {v}"
+        );
     }
 
     /// The hint is a FUNCTION of the row, not a constant. A literal `true`

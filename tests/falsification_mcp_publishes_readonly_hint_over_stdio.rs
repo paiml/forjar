@@ -25,6 +25,18 @@
 //! reachability argument that suite's header makes about `serve_stdio` having no
 //! caller.
 //!
+//! `outputSchema` is the other field that same pforge line dropped, and it is
+//! deliberately NOT restored — see the last-but-one test below and the header
+//! of `src/mcp/adapter.rs`. Under
+//! MCP 2025-06-18, which this server negotiates, publishing one obligates
+//! `structuredContent`, and pmcp 1.20 sends that only for widget tools. Measured
+//! against the official `@modelcontextprotocol/sdk` 1.30.0 client: with the
+//! schema published, EVERY `tools/call` came back
+//! `-32600 Tool forjar_validate has an output schema but did not return
+//! structured content`; with it absent, the same call succeeded and
+//! `readOnlyHint` still arrived. A hint that fails safe was the defect; an
+//! outage is not an improvement on it.
+//!
 //! ORDER IS NONDETERMINISTIC. pmcp caches tool metadata in a `HashMap`, so
 //! `tools/list` comes back scrambled (measured: `remediate, trace, plan, lint,
 //! …`). Every assertion below is keyed by NAME; a positional zip against
@@ -154,29 +166,90 @@ fn the_wire_and_the_schema_agree_per_tool() {
     );
 }
 
-/// REJECTION CRITERION: no `outputSchema` on the wire.
+/// REJECTION CRITERION: a tool that PROMISES a structured result the server
+/// does not send.
 ///
-/// The same line in the adapter dropped both fields, so shipping one and not
-/// the other is arbitrary — and `output_schema` is already derived from the
-/// verb's `$output` type, the type the handler's success value serialises
-/// through, so publishing it costs nothing and lets a client type-check what it
-/// gets back.
+/// `outputSchema` is not a free extra field. MCP 2025-06-18 — the revision this
+/// server negotiates, measured — says a server providing one MUST return
+/// structured results conforming to it, and the official
+/// `@modelcontextprotocol/sdk` client caches the schema at `listTools()` and
+/// enforces exactly that on every call. pmcp 1.20 attaches `structuredContent`
+/// only via `with_widget_enrichment`, i.e. only for tools carrying ChatGPT
+/// widget `_meta`, so nothing a `ToolHandler` returns can reach it.
+///
+/// Driven against this binary with that client, 1.30.0:
+///
+/// ```text
+///   schema published, no structured content:
+///     McpError -32600: Tool forjar_validate has an output schema but did not
+///                      return structured content        (all twelve tools)
+///   schema absent:
+///     content: [{type:"text", …}], isError: false; readOnlyHint still true
+/// ```
+///
+/// So this asserts the PAIRING, not the absence: the day pmcp can fill
+/// `structuredContent`, publishing the schema again turns this green rather
+/// than red. `forjar mcp --schema` publishes `output_schema` regardless — there
+/// it documents rather than promises.
 #[test]
-fn the_wire_carries_an_output_schema() {
+fn no_tool_promises_a_structured_result_the_server_does_not_send() {
     let tools = wire_tools();
-
-    let silent: Vec<String> = tools
+    let advertising: Vec<String> = tools
         .iter()
         .filter(|t| {
-            !t.get("outputSchema")
+            t.get("outputSchema")
                 .is_some_and(serde_json::Value::is_object)
         })
         .map(name_of)
         .collect();
-
     assert!(
-        silent.is_empty(),
-        "these tools publish no `outputSchema` over stdio: {silent:?}"
+        advertising.is_empty() || advertising.len() == tools.len(),
+        "one adapter serves every row, so the schema is published for all of \
+         them or none — {} of {} is a third state nobody wrote: {advertising:?}",
+        advertising.len(),
+        tools.len()
+    );
+
+    // A real, SUCCEEDING call: the obligation is explicitly lifted for an error
+    // result, so a failed call would prove nothing.
+    let d = tempfile::tempdir().unwrap();
+    let cfg = d.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        "version: \"1.0\"\nname: probe\nmachines:\n  local:\n    hostname: localhost\n    \
+         addr: localhost\nresources: {}\n",
+    )
+    .expect("write config");
+
+    let mut s = McpServer::spawn();
+    s.initialize();
+    let r = s.call_tool(
+        7,
+        "forjar_validate",
+        &serde_json::json!({ "path": cfg.display().to_string() }),
+    );
+    let result = r
+        .get("result")
+        .unwrap_or_else(|| panic!("tools/call returned no result: {r}"));
+    assert_ne!(
+        result.get("isError"),
+        Some(&serde_json::json!(true)),
+        "the witness call failed, so the structured-result obligation never \
+         applied and this test would pass on an outage: {r}"
+    );
+
+    let structured = result.get("structuredContent").is_some();
+    let promised = advertising.iter().any(|n| n == "forjar_validate");
+    assert_eq!(
+        promised, structured,
+        "MCP 2025-06-18: a tool publishing `outputSchema` MUST return \
+         `structuredContent`. `forjar_validate` publishes a schema: {promised}. \
+         Its successful result carried structured content: {structured}. \
+         Tools advertising a schema: {advertising:?}.\n\
+         Published-without-delivering is what the official TypeScript client \
+         refuses, with `-32600 ... has an output schema but did not return \
+         structured content`, on every tool — a worse failure than the missing \
+         `readOnlyHint` this file was written for, which at least failed safe."
     );
 }
 
