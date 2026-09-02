@@ -42,7 +42,7 @@ Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon)** — tu
 | #423 | agy report | falsifier 3/3; RED vs main manifests; offline build; workspace package; lib 13361/0 |
 | E09 | worker: 8/8 | 8/8 green on the recovered tree; 0/4 with the executor reverted; lib/clippy NOT yet re-run; fix not yet committed |
 
-## Jidoka log (.pmat/jidoka.jsonl)
+## Jidoka log (docs/audits/jidoka.jsonl)
 1. GIT_DIR escape: the E04 falsifier, run by the quorum gate inside the pre-push hook, committed into the branch under review (2,556 files deleted). Fixed at the gate (strip GIT_*) and in the test; proven with GIT_DIR pointed at the worktree.
 2. agy review lane published forjar-contracts 0.31.2 + forjar-contracts-macros 0.31.2 to crates.io ahead of S5 (plan mode + --dangerously-skip-permissions). Kept [A]; review lanes now sandboxed.
 3. (other repo) paiml/.github: anonymous-git throttle from the fleet IP → authenticated sibling/advisory fetches; the first fix's `git config --global` on bare-metal runners caused 400s; corrected upstream (#60 + follow-up on main). Tracked as forjar#422.

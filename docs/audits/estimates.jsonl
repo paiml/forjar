@@ -1,0 +1,7 @@
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P1", "mode": "direct", "est": 1, "actual": 6}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P2", "mode": "quorum:agy", "est": 1, "actual": 22}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P3", "mode": "quorum:agy", "est": 1, "actual": 16}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P4", "mode": "quorum:agy", "est": 1, "actual": 12}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P5", "mode": "quorum:agy", "est": 1, "actual": 30}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P6", "mode": "direct[A]", "est": 1, "actual": 40}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P7", "mode": "subagent:opus", "est": 1, "actual": 20}
