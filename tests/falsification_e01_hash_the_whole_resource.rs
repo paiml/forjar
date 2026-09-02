@@ -57,8 +57,19 @@ fn assert_moves(field: &str, before: &[&str], after: &[&str]) {
 }
 
 fn assert_holds(what: &str, before: &[&str], after: &[&str]) {
-    let a = hash_desired_state(&resource(&body(before)));
-    let b = hash_desired_state(&resource(&body(after)));
+    let (ra, rb) = (resource(&body(before)), resource(&body(after)));
+    // The guard is only meaningful if the two declarations really differ
+    // once parsed. Unknown YAML keys are a WARNING in this parser, not an
+    // error, so a field renamed away from `Resource` would otherwise make
+    // both sides identical defaults and this test would pass having checked
+    // nothing — raised by the E01 quorum's agy lane.
+    assert_ne!(
+        serde_yaml_ng::to_value(&ra).expect("serialises"),
+        serde_yaml_ng::to_value(&rb).expect("serialises"),
+        "{what}: the two declarations parsed identically, so this guard is vacuous"
+    );
+    let a = hash_desired_state(&ra);
+    let b = hash_desired_state(&rb);
     assert_eq!(
         a, b,
         "{what} must NOT change the desired-state hash — it decides whether a run touches the \
@@ -200,6 +211,50 @@ fn model_checksum_moves_the_hash() {
     );
 }
 
+/// `backup_*` keys live on a `#[serde(flatten)]` `BackupSpec`, not on
+/// `Resource` directly. The reflection guard walks the serialised form, where
+/// flatten puts them at top level — this pins that the hasher sees them too.
+#[test]
+fn flattened_backup_schedule_moves_the_hash() {
+    assert_moves(
+        "backup_schedule",
+        &[
+            "type: backup_sync",
+            "machine: box",
+            "backup_source: [/srv]",
+            "backup_remote: nas:/b",
+            "backup_schedule: daily",
+        ],
+        &[
+            "type: backup_sync",
+            "machine: box",
+            "backup_source: [/srv]",
+            "backup_remote: nas:/b",
+            "backup_schedule: hourly",
+        ],
+    );
+}
+
+/// Same for the flattened `ArchiveSpec`.
+#[test]
+fn flattened_archive_destination_moves_the_hash() {
+    assert_moves(
+        "archive_destination",
+        &[
+            "type: nas_archive",
+            "machine: box",
+            "archive_dirs: [/data]",
+            "archive_destination: /mnt/nas/a",
+        ],
+        &[
+            "type: nas_archive",
+            "machine: box",
+            "archive_dirs: [/data]",
+            "archive_destination: /mnt/nas/b",
+        ],
+    );
+}
+
 #[test]
 fn selection_filters_do_not_move_the_hash() {
     assert_holds(
@@ -223,20 +278,30 @@ fn selection_filters_do_not_move_the_hash() {
 
 #[test]
 fn overlay_hosts_insertion_order_does_not_move_the_hash() {
-    assert_holds(
-        "HashMap insertion order",
-        &[
-            "type: overlay_interface",
-            "machine: box",
-            "overlay_ip: 10.0.0.1",
-            "overlay_hosts: {a: 10.0.0.2, b: 10.0.0.3}",
-        ],
-        &[
-            "type: overlay_interface",
-            "machine: box",
-            "overlay_ip: 10.0.0.1",
-            "overlay_hosts: {b: 10.0.0.3, a: 10.0.0.2}",
-        ],
+    let ra = resource(&body(&[
+        "type: overlay_interface",
+        "machine: box",
+        "overlay_ip: 10.0.0.1",
+        "overlay_hosts: {a: 10.0.0.2, b: 10.0.0.3}",
+    ]));
+    let rb = resource(&body(&[
+        "type: overlay_interface",
+        "machine: box",
+        "overlay_ip: 10.0.0.1",
+        "overlay_hosts: {b: 10.0.0.3, a: 10.0.0.2}",
+    ]));
+    // Same content by construction, so the `assert_holds` vacuity check does
+    // not apply; prove the map actually parsed instead.
+    assert_eq!(
+        ra.overlay_hosts.as_ref().map(|m| m.len()),
+        Some(2),
+        "overlay_hosts must have parsed, or this guard checks nothing"
+    );
+    assert_eq!(
+        hash_desired_state(&ra),
+        hash_desired_state(&rb),
+        "HashMap insertion order must NOT change the desired-state hash, or every plan replans \
+         every overlay_interface forever"
     );
 }
 
