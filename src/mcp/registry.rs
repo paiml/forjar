@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 
 use super::adapter::VerbToolAdapter;
 use super::handlers::*;
+use super::handlers_drift::DriftHandler;
 use super::handlers_ops::*;
 
 // ── Registry + Server ───────────────────────────────────────────────

@@ -7,12 +7,14 @@
 mod dag;
 mod data;
 pub(crate) mod functions;
+mod redaction;
 mod resource;
 pub(crate) mod staleness;
 pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::resolve_data_sources;
+pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{
     has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,
     resolve_resource_templates_with_secrets, unresolved_secret_resources,
@@ -41,6 +43,8 @@ mod tests_helpers;
 mod tests_proptest;
 #[cfg(test)]
 mod tests_proptest_templates;
+#[cfg(test)]
+mod tests_redaction;
 #[cfg(test)]
 mod tests_resource;
 #[cfg(test)]

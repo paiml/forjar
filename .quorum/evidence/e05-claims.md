@@ -1,0 +1,41 @@
+# Quorum evidence — #407 (CRUX audit E05) — adjudicated claims
+
+## CONFIRMED — 9 claims survived refutation
+
+1. [probe] (explains-symptom) The `drift` verb — reachable over MCP, HTTP and `forjar verb call` — hashed the CONTROLLER's filesystem and reported it as the remote machine's state.
+   - evidence: `impl Handler for DriftHandler` at src/mcp/handlers.rs:166 (base; now src/mcp/handlers_drift.rs) held `config.machines[name]` and called `drift::detect_drift(&lock)`, which is `detect_drift_reported(lock, None)`; with no machine the file detector at `tripwire/drift/file.rs` falls to its `_ =>` arm and hashes this host's copy of the path. Reproduced through the binary in tests/falsification_e05_verb_drift_contacts_the_host.rs: a file present on the controller with the locked hash, over 203.0.113.9 (TEST-NET-3, unroutable) — with the `Some(machine)` argument mutated back to `None`, `drift_over_an_unreachable_machine_must_not_answer_clean` goes RED with `drifted: false` and no `unchecked`.
+
+2. [probe] (explains-symptom) Every non-file lock entry was census-skipped as "no config loaded" three lines after the config was loaded, and `DriftOutput` carried no census at all.
+   - evidence: `DriftOutput` at src/mcp/types.rs:108 had `drifted`, `findings` (src/mcp/types.rs:112) and `unchecked` (src/mcp/types.rs:119) only, and the handler built it at src/mcp/handlers.rs:231, so an agent reading `drifted: false` could not tell six inspected resources from zero — forjar#380's false clean, live on every transport an agent can reach. The fix carries `census`, `resources_inspected` and `resources_skipped`, the shape `forjar drift --json` has published since #380. Pinned by `the_verb_discloses_how_much_it_inspected` and, at the unit level, by `mcp::tests_drift_adversarial::a_locked_package_with_an_observed_hash_is_actually_queried`, which requires `inspected_by_type.package == 1` and a hash that came from the target — so a census that merely RENAMES the skip reason cannot pass.
+
+3. [design] The fix is the CLI's own call, not a second implementation: `detect_drift_full_reported(&lock, machine, &resolved, opts)` with template-resolved resources.
+   - evidence: `detect_drift_full_reported` at src/tripwire/drift/mod.rs:144 is what `forjar drift` (src/cli/drift.rs) has called since PMAT-197; the verb now does too, through `unattended::sanitize_config` first (forjar#372) with the removals disclosed in `unattended_skipped`. One detector, two callers — the E09 (#412) drift class closed for this surface rather than reproduced.
+
+4. [design] Querying the TARGET is not a side effect a read-only verb must decline; executing a config-declared shell command is.
+   - evidence: `Effects::ReadOnly` on the `drift` row at src/verb/registry.rs:122 publishes `readOnlyHint: true`, which means "safe for an agent to call unattended". Reaching the machine over the transport is what the verb is for; running the config author's `completion_check` on the controller is forjar#372's category. The verb's `DriftOptions` in src/mcp/handlers_drift.rs therefore sets `run_task_checks: false`; the CLI is deliberately unchanged, because the operator who typed `forjar drift` chose their own config — the same split `core::unattended` already draws for `plan`.
+
+5. [probe] (explains-symptom) The first cut of #407 executed a config-declared `completion_check` on the controller under `readOnlyHint: true`.
+   - evidence: `DriftOptions::default()` carries `run_task_checks: true`, and `task_check::check_task_drift` hands a locked task's `completion_check` to `transport::exec_script_timeout` — for a machine whose `addr` is local, this host's shell. Measured: a config declaring `completion_check: "touch COMPLETION_CHECK_FIRED"` with that task in a `state/` the checkout ships — the file existed the moment the verb was called. Pinned by `the_readonly_verb_neither_runs_the_completion_check_nor_hides_that`, RED with `run_task_checks` mutated to `true`.
+
+6. [design] Declining to run the check is disclosed on both channels, and the disclosure is derived from the detector's own decisions rather than a second list.
+   - evidence: the census counts the task under the existing closed-set reason `SkipReason::TaskChecksDisabled` (src/tripwire/drift/census.rs:50, rendered `--no-task-checks` at src/tripwire/drift/census.rs:71), and `unattended_skipped` NAMES the resource; `DriftCensus::skipped_ids` (added to the struct at src/tripwire/drift/census.rs:90) derives that list from the skips the detectors actually recorded, so it cannot drift from them the way a hand-maintained list would. Both assertions are in the binary-level falsifier.
+
+7. [agy] (explains-symptom) A container or pepita machine that declares `addr: 127.0.0.1` was read as the CONTROLLER by the file detector.
+   - evidence: `check_file_resource_drift` at src/tripwire/drift/file.rs:227 routed by `!is_local_addr(&m.addr)` alone, so a container transport at a local address fell through to `check_file_drift` on this host's filesystem — forjar#407's defect one transport over. Taken: `reads_the_controller` in src/tripwire/drift/file.rs says local-transport only; `tests_e05_routing` pins container and pepita machines at 127.0.0.1 as NOT the controller, 2 of 4 RED with the predicate reverted.
+
+8. [agy] (explains-symptom) A SERVICE-mode task's `completion_check` still executed under the read-only verb, because `task_check::owns` excludes service tasks and the generic state query prefers the declared check.
+   - evidence: `owns` at src/tripwire/drift/task_check.rs:79 excludes `TaskMode::Service` (their lock digest was written against the PID-file query), so `detect_nonfile_drift` at src/tripwire/drift/mod.rs:201 ran `task::state_query_script`, which is `verdict::single(<completion_check>)` when there are no output artifacts. Taken: under `run_task_checks: false` such a task is declined with the same closed-set census reason. Pinned by `a_service_task_completion_check_is_declined_too`, RED with the arm reverted (the trap file appeared).
+
+9. [agy] (explains-symptom) An unknown `machine` filter answered `drifted: false` with zero inspected — an empty clean answer.
+   - evidence: the machine loop (src/mcp/handlers.rs:166 at base, src/mcp/handlers_drift.rs now) matched nothing and `Scan::default()` was returned as-is. Taken: the verb now refuses an unknown machine by name and lists the declared ones. Pinned by `an_unknown_machine_filter_is_refused_by_name`, RED with the guard reverted.
+
+## REFUTED — 3 claims killed
+
+1. [design] refuted 1/1 — The unit suite in `mcp::tests_drift_e05` is the falsifier for this change.
+   - corrected: It is the falsifier for the HANDLER, and the quorum gate binds to an integration target; more to the point, "what does an agent get back" is a property of the process — the verb's JSON on stdout, exit code and all — not of a struct's `handle()`. The three cases were rewritten through `forjar verb call drift --json` and both mutations (`Some(machine)` → `None`; `run_task_checks: false` → `true`) turn them RED; the unit suite is kept as the fast inner loop.
+
+2. [design] refuted 1/1 — The verb should run the config's `completion_check` against the target the way the CLI does, because a drift report that skips task checks is incomplete.
+   - corrected: It is incomplete and SAYS so, which is the only honest shape for an unattended surface: an agent pointed at an untrusted checkout that ships its own `state/` would otherwise execute whatever that checkout declares, on the controller, under a verb advertised as read-only. The CLI keeps the checks because the operator who typed it owns the config. Completeness for the verb is a census entry and a named skip, not a shell.
+
+3. [agy] refuted 1/1 — A machine with no lock hides the `completion_check` it would have declined, because `machine_lock`'s `continue` skips `scan.absorb`.
+   - corrected: `machine_lock` takes `&mut scan.unchecked` and pushes the machine there before the `continue`, so an unlocked machine is disclosed as UNCHECKED in the answer — and a machine with no lock has no converged resource whose check could be declined; there is nothing for `absorb` to record. The `is_local_addr` string-match the same review flagged (a port-forwarded VM mistaken for the controller) is real, pre-existing, and recorded as a known limit.

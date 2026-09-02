@@ -307,14 +307,33 @@ Install a compliance pack (e.g., `cis-ubuntu-22`, `nist-800-53`, `soc2`, `hipaa`
 forjar policy-install <PACK> [--output-dir policies] [--json]
 ```
 
-### forjar sign
+### forjar digest
 
-Recipe signing — sign or verify a recipe file (optionally post-quantum dual
-signing).
+Record a recipe's BLAKE3 digest in a `<recipe>.digest.json` sidecar, or
+re-check the recipe against one already recorded. `--verify` exits non-zero
+when the hashes differ.
 
 ```bash
-forjar sign <RECIPE> [--verify] [--signer <ID>] [--pq] [--json]
+forjar digest <RECIPE> [--verify] [--json]
 ```
+
+**This is tamper evidence, not a signature.** There is no key, so anyone who
+can edit the recipe can recompute the sidecar next to it. It catches accidental
+edits and transfer corruption; it does not authenticate an author and must not
+gate an apply against an attacker with write access.
+
+Until v1.24 this verb was `forjar sign`, and it wrote `signature` and `signer`
+fields that `--verify` never read — a sidecar edited to
+`"signature": "deadbeef", "signer": "root@prod"` still reported
+`"valid": true`. The fields are gone rather than fixed; `forjar sign --pq`,
+which made the same claim twice, is gone with them. See
+[paiml/forjar#405][fj405].
+
+For a keyed check over state locks, use `forjar lock-sign --key K` and
+`forjar lock-verify-sig --key K`, which recompute `blake3(lock ++ key)` and
+compare it.
+
+[fj405]: https://github.com/paiml/forjar/issues/405
 
 ### forjar remediate
 

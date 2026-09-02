@@ -167,20 +167,6 @@ resources: {}
         }
     }
 
-    #[test]
-    fn test_fj495_lock_audit_trail_dispatch() {
-        let cmd = Commands::LockAuditTrail(LockAuditTrailArgs {
-            state_dir: PathBuf::from("state"),
-            machine: None,
-            json: false,
-        });
-        match cmd {
-            Commands::LockAuditTrail(LockAuditTrailArgs { machine, .. }) => {
-                assert!(machine.is_none())
-            }
-            _ => panic!("expected LockAuditTrail"),
-        }
-    }
 
     #[test]
     fn test_fj505_lock_rotate_keys_dispatch() {
@@ -321,20 +307,6 @@ resources: {}
     }
 
     // ── Phase 46 Tests: FJ-600→FJ-607 Security Hardening & Audit ──
-
-    #[test]
-    fn test_fj605_lock_verify_hmac() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = cmd_lock_verify_hmac(dir.path(), false);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_fj605_lock_verify_hmac_json() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = cmd_lock_verify_hmac(dir.path(), true);
-        assert!(result.is_ok());
-    }
 
     // ── Phase 47 Tests: FJ-610→FJ-617 Resource Intelligence & Analytics ──
 

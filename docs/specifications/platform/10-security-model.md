@@ -143,12 +143,87 @@ fn hash_desired_state_with_secrets(resource):
     // This means: changing the secret value does NOT change the hash
     // → forjar apply doesn't detect secret rotation
     // → use `forjar apply --force` or `forjar drift` for secret rotation
-
-fn log_event(resource, event):
-    // Redact any resolved secret values from event details
-    for secret_name in resource.secret_refs:
-        event.details = event.details.replace(secret_value, "***")
 ```
+
+#### Run transcripts (Refs #406, CRUX audit E04)
+
+The lock file hashes templates, but the **run transcript** does not: the executor
+resolves `{{secrets.*}}` into the resource *before* codegen, so
+`state/<machine>/runs/<run_id>/` holds the script that actually ran. Until #406
+this claim was false for those three files, and `forjar apply --auto-commit`
+staged them into git.
+
+`core::resolver::redaction` now stands between the executor and the writer:
+
+```
+fn capture_exec_output(slot, executed, transcript, output, duration):
+    ensure_run_dir(...)                 // meta.yaml always records the run
+    if transcript.suppress: return None // `sensitive: true` — no transcript
+    script = redact_transcript(script, transcript.secrets)
+    stdout = redact_transcript(stdout, transcript.secrets)
+    stderr = redact_transcript(stderr, transcript.secrets)
+```
+
+`redact_transcript` runs two passes, because a secret reaches a transcript two
+ways:
+
+| Shape | How it appears | Pass |
+|---|---|---|
+| `command: "curl -H 'Auth: {{secrets.tok}}'"` | literal plaintext | value substitution → `***` |
+| `content: "api_token={{secrets.tok}}"` | `echo '<base64 of the whole content>' \| base64 -d` | decode every base64 run; strike any run whose **plaintext** holds a secret |
+
+The second pass is not optional and value substitution alone cannot replace it:
+the blob encodes `api_token=` + secret + `\n`, and `api_token=` is 10 bytes, so
+the secret does not start on a 3-byte boundary and `base64(secret)` is **not** a
+substring of `base64(content)`.
+
+#### `sensitive: true`
+
+Redaction can only strike values forjar can *name*. A value derived on the host,
+compressed, or re-encoded some other way is unmatchable. For those, declare the
+resource sensitive — Ansible's `no_log: true`, Chef's `sensitive true`, Salt's
+`show_changes: False`:
+
+```yaml
+resources:
+  deploy-key:
+    type: file
+    machine: web
+    path: /etc/app/id_ed25519
+    content: "{{secrets.deploy-key}}"
+    mode: "0600"
+    sensitive: true      # run directory and meta.yaml still record the resource;
+                         # no .log, .json or .script is written for it
+```
+
+`ENC[age,…]` values get this treatment automatically. They are decrypted
+*after* template substitution, so the plaintext never passes through a
+`{{secrets.*}}` span and the redactor cannot name it — a resource carrying one
+suppresses its own transcript whether or not it says `sensitive: true`.
+
+#### git
+
+`forjar init` writes a `.gitignore` containing `state/*/runs/`, and
+`--auto-commit` stages with `:(exclude)state/*/runs/*` so repositories whose
+`.gitignore` predates the fix are covered too.
+
+The trailing `*` is load-bearing. git honours a *directory* exclusion
+(`state/*/runs/`) only while that directory is entirely untracked; once one file
+under it is tracked, matching is per path, `state/*/runs/` no longer matches
+`state/local/runs/<run>/<res>.script`, and the exclusion stops excluding.
+
+**Migration.** `.gitignore` and `:(exclude)` both govern what git *starts*
+tracking. A repository that already **committed** run transcripts keeps them in
+its history, and a secret that reached history cannot be redacted after the
+fact:
+
+```sh
+git rm -r --cached 'state/*/runs'   # stop tracking; keeps the files on disk
+```
+
+Then rotate every secret that appeared in a committed transcript, and rewrite
+history only if the repository was ever pushed somewhere it should not have
+been.
 
 ### Secret Rotation
 

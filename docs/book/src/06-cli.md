@@ -1803,7 +1803,7 @@ forjar lock -f forjar.yaml --json           # JSON output
 Sign lock files with HMAC for tamper detection.
 
 ```bash
-forjar lock-sign --state-dir <DIR> --key <KEY> [--json]
+forjar lock-sign --state-dir <DIR> --key file:<PATH>|env:<VAR> [--json]
 ```
 
 | Flag | Default | Description |
@@ -1819,7 +1819,7 @@ Signs each machine's lock file by computing BLAKE3(content + key) and writing th
 Verify lock file HMAC signatures.
 
 ```bash
-forjar lock-verify-sig --state-dir <DIR> --key <KEY> [--json]
+forjar lock-verify-sig --state-dir <DIR> --key file:<PATH>|env:<VAR> [--json]
 ```
 
 | Flag | Default | Description |
@@ -1835,14 +1835,14 @@ Re-computes BLAKE3(content + key) and compares against stored signatures. Report
 Verify the chain of custody of every machine's lock signature.
 
 ```bash
-forjar lock-verify-chain --state-dir <DIR> --key <KEY> [--json]
+forjar lock-verify-chain --state-dir <DIR> --key file:<PATH>|env:<VAR> [--json]
 forjar lock-verify-chain --state-dir <DIR> --presence-only [--json]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--state-dir` | `state` | State directory |
-| `--key` | none | Signing key `lock-sign` used; verifies each signature against its lock |
+| `--key` | none | Signing key `lock-sign` used, as `file:<PATH>` or `env:<VAR>`; verifies each signature against its lock. A bare literal is deprecated — it is visible in `ps` — and is removed in 2.0.0 |
 | `--presence-only` | false | Only check that a well-formed signature exists; does NOT verify custody |
 | `--json` | false | JSON output |
 
@@ -1853,7 +1853,7 @@ Exits non-zero when any link is broken: a signature that is missing, malformed, 
 Rotate lock file signing keys.
 
 ```bash
-forjar lock-rotate-keys --state-dir <DIR> --old-key <KEY> --new-key <KEY> [--json]
+forjar lock-rotate-keys --state-dir <DIR> --old-key file:<PATH> --new-key file:<PATH> [--json]
 ```
 
 Verifies the old key matches existing signatures before rotating. If the old key doesn't match, rotation is aborted to prevent accidental key loss.
