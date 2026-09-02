@@ -1,0 +1,125 @@
+{
+  "issue": "#366 / #369 — a policy rule scoped to a multi-word resource type was silently inert (matches_scope compared the serde spelling against the Debug spelling), and a rule without an id was identified by a slug of its message, so two rules sharing a message were one rule to policy-coverage and remediate",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "Keep RULE-<slug> and suffix a counter only on collision — REFUTED: an id then depends on which other rules exist, so adding a rule renames its sibling; RULE-<index>-<slug> is stable under everything but reordering.",
+      "Fixing display_id_at closes #369 entirely — REFUTED: only the un-id'd half; duplicate EXPLICIT ids are not diagnosed by validate or lint and still collide on remediate (measured, both applied); recorded as a known limit.",
+      "The Debug-spelling defect is fully resolved (agy charge) — ACCEPTED as a scope correction: fixed on the surfaces #366 names; ~50 display-only CLI sites remain, filed as #433.",
+      "RULE-<index>-<slug> is a stable cross-run identity (agy charge) — ACCEPTED as a limitation: order-dependent, with a TOCTOU on forjar_remediate and an explicit/generated collision; mandatory explicit unique ids filed as #434."
+    ],
+    "divergence": "the agy lane confirmed the three defects and the structural tally, found the falsifiers non-vacuous, and refuted two overstatements — the spelling fix's breadth (narrowed; #433) and the generated id's stability (limitation; #434); no code changed on this branch as a result"
+  },
+  "crux": {
+    "systems": [
+      "OPA / conftest and Sentinel — a policy's identity is its declared name or path+rule, never its message; a scope mismatch is a validation error",
+      "ansible-lint and puppet-lint — stable rule ids (yaml[trailing-spaces], E0001); an unknown id in a skip list is refused",
+      "Kyverno and Gatekeeper — a constraint is identified by kind+name and violations are reported one per constraint"
+    ],
+    "verdict": "at the industry default after this branch: an index-stable generated id used identically by coverage and remediate, and the document's own spelling everywhere a type is compared or printed; explicit duplicate ids remain undiagnosed (known limit)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "root causes confirmed; implementation judged incomplete on two axes — ~50 remaining Debug-spelling display sites and an order-dependent generated id — both accepted and filed (#433, #434) rather than claimed",
+    "unique_findings": [
+      "an explicit id of the form RULE-<n>-<slug> collides with a generated one (#434)",
+      "duplicate explicit ids are not diagnosed and collide on remediate (#434)",
+      "inserting a rule above another shifts the generated id an MCP caller just read (#434)"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17818,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the falsifiers or any file this branch touches; clippy --all-targets -D warnings 0; fmt clean"
+  },
+  "falsification": {
+    "test": "seven identity cases (an idle rule is listed even when its twin fired; two firing rules count as two; an explicit id is still the identity; the printed report accounts for every rule; a reported policy id selects exactly the rule that reported it; an unknown id selects nothing; each unfixable rule reports its own reason), five scope-spelling cases including the shipped binary, three query-spelling cases, and the inverted coverage-withdrawn pin",
+    "test_file": "tests/falsification_policy_rule_identity.rs",
+    "cargo_test_target": "falsification_policy_rule_identity",
+    "reverted": "src/core/parser/policy.rs, src/core/types/policy_rule_types.rs, src/core/policy_coverage/mod.rs, src/cli/infra_query.rs -> the merge-base's (9e0815c0), tests kept",
+    "observed_failure": "src/core/parser/policy.rs, types/policy_rule_types.rs, policy_coverage/mod.rs, cli/infra_query.rs, remediate/mod.rs, compliance_gate.rs at the merge-base, tests kept: falsification_policy_rule_identity 5 of 7 RED — two_rules_that_both_fire_count_as_two, an_idle_rule_is_listed_even_when_its_twin_fired, each_unfixable_rule_reports_its_own_reason, a_reported_policy_id_selects_exactly_the_rule_that_reported_it, the_printed_report_accounts_for_every_rule; spelling binaries with src/core/parser/policy.rs, src/cli/infra_query.rs and src/core/compliance_gate.rs at the merge-base: falsification_policy_scope_spelling 4 of 5 RED (a_rule_scoped_to_a_multi_word_type_is_enforced, the_debug_spelling_is_not_a_scope, the_type_field_reads_the_serde_spelling, forjar_policy_blocks_on_a_multi_word_scope), falsification_query_type_spelling 3 of 3 RED",
+    "still_green_when_reverted": "an_explicit_id_is_still_the_identity and an_unknown_policy_id_selects_nothing (an explicit id was always verbatim; an unknown id never selected anything) — the guards, by design; display_is_the_serde_spelling_for_every_variant (the Display impl itself was already the serde spelling — the defect was the comparison and print sites using Debug)"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/366-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6619,
+        "sha256": "5fc3b3a16cc3c7927f1ac5af83dec79491cd9b97898b88318663aecbc0ce9014",
+        "blob": "09f6ca0772aa33b89df7cef9aae7c013d3d5e5c5"
+      },
+      {
+        "path": ".quorum/evidence/366-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1431,
+        "sha256": "af8edbc46e32de34c25b0d5091e73f20438a77ab0da22cafbfcdb3ae98a097d2",
+        "blob": "dd1a36454fc7507400ef16567515d4db3b12c767"
+      },
+      {
+        "path": ".quorum/evidence/366-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 930,
+        "sha256": "610de3912dd4cf3ebb02f94e3f400883c403b73f4d96569d512bd3c69332cff3",
+        "blob": "b7d9e08c1f42b2067055cf6f989a9b46e930164a"
+      },
+      {
+        "path": ".quorum/evidence/366-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 5053,
+        "sha256": "3c455b9e62881ed8def3d00969ea677cc59c3820b0468745c37fba67cb916fde",
+        "blob": "648fd2fae277f83f699debe5e7e0c14c7a6a0551"
+      },
+      {
+        "path": ".quorum/evidence/366-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 992,
+        "sha256": "879198014f59305dc5eb517b5e7d0ca9c48e3a84c71bfed83b5c5388855cfbcd",
+        "blob": "8028945f97e0e84a12cb2bfd5c945f35d75ab67a"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/366-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "Generated ids are order-dependent; explicit unique ids are the fix (#434).",
+      "Duplicate explicit ids and RULE-prefixed explicit ids are not diagnosed (#434).",
+      "~50 CLI display sites still print the Debug spelling of ResourceType (#433).",
+      "policy-coverage stays withdrawn from the verb surface; re-publishing is its own decision.",
+      "The generated id spelling moves from RULE-<slug> to RULE-<index>-<slug>, user-visible on the shipped forjar_remediate tool."
+    ],
+    "total_bytes": 15025
+  },
+  "gates": {
+    "lib_tests": "13370 passed, 0 failed, 4 ignored",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
+  "diff_sha256": "6d293cbc4a6faf1e35af5b84ace3963186fce351"
+}
