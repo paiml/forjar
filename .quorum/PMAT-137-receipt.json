@@ -1,0 +1,6 @@
+{
+  "issue": "PMAT-137 — implementation receipt (docs/audits/impl-PMAT-137-receipt.md) and jidoka/estimates ledgers",
+  "waived": {
+    "reason": "Docs-and-ledgers-only branch: it adds the program's implementation receipt under docs/audits/ and appends .pmat/jidoka.jsonl and .pmat/estimates.jsonl. There is no production hunk to falsify; every claim in the receipt names the PR and receipt it comes from. Waived on the record [A] rather than fabricating a quorum for a document about quorums."
+  }
+}
