@@ -1,6 +1,6 @@
 {
   "issue": "#403 (CRUX audit E01) — hash_desired_state covered 35 of 122 Resource fields, so changed config was reported `unchanged` and never applied",
-  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base_commit": "b7f6d501c10a65099cfced4311ee8469b0cab4cd",
   "base": "origin/main",
   "recorded_at": "2026-09-02",
   "quorum": {
@@ -121,5 +121,7 @@
     "lib_tests": "13408 passed, 0 failed, 4 ignored",
     "clippy": "-D warnings, 0 errors"
   },
-  "diff_sha256": "84a76a95a5cf02163dc255ee1ceab907c9e24ba9"
+  "diff_sha256": "dab4ee10307618c91528fa46a54fb24a35771c94",
+  "base_commit_rebased": "Re-anchored from f0cbf6352c87 after merging origin/main (#418 audit doc, #420 E03, #421 E02) to clear the .pmat/baseline.json conflict (#401). The evidence was NOT re-run and is not claimed to have been: none of the three merged PRs touches src/core/planner/, src/core/observe/ or tests/falsification_e01_hash_the_whole_resource.rs, so every quote still reads the same bytes.",
+  "diff_sha256_note": "Recomputed after the merge; the diff the gate hashes is unchanged in content but is taken against the new merge-base."
 }
