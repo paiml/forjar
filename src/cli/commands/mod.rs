@@ -247,9 +247,6 @@ pub enum Commands {
     LockNormalize(LockNormalizeArgs),
     /// FJ-595: Validate lock file schema and cross-references
     LockValidate(LockValidateArgs),
-    /// FJ-605: Verify lock file HMAC signatures
-    #[command(name = "lock-verify-hmac")]
-    LockVerifyHmac(LockVerifyHmacArgs),
     /// FJ-615: Archive old lock files to compressed storage
     #[command(name = "lock-archive")]
     LockArchive(LockArchiveArgs),
@@ -385,9 +382,9 @@ pub enum Commands {
     /// FJ-1430+1431: Infrastructure query
     #[command(name = "query")]
     InfraQuery(InfraQueryArgs),
-    /// FJ-1432+1433: Recipe signing
-    #[command(name = "sign")]
-    RecipeSign(RecipeSignArgs),
+    /// FJ-1432 (paiml/forjar#405): Record or re-check a recipe's BLAKE3 digest
+    #[command(name = "digest")]
+    RecipeDigest(RecipeDigestArgs),
     /// FJ-1434: Preservation checking
     #[command(name = "preservation")]
     Preservation(PreservationArgs),

@@ -142,9 +142,6 @@ fn dispatch_lock_cmd_d(cmd: Commands) -> Result<(), String> {
         Commands::LockValidate(LockValidateArgs { state_dir, json }) => {
             cmd_lock_validate(&state_dir, json)
         }
-        Commands::LockVerifyHmac(LockVerifyHmacArgs { state_dir, json }) => {
-            cmd_lock_verify_hmac(&state_dir, json)
-        }
         other => dispatch_lock_cmd_e(other),
     }
 }

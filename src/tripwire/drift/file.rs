@@ -224,7 +224,7 @@ pub(super) fn check_file_resource_drift(
         // timeout at exactly 15m01s. The defect being fixed is answering about
         // the WRONG HOST; for a local machine there is no other host to be
         // wrong about.
-        Some(m) if !crate::transport::is_local_addr(&m.addr) => {
+        Some(m) if !reads_the_controller(m) => {
             check_file_drift_via_transport(id, path, expected, m)
         }
         _ => check_file_drift(id, path, expected),
@@ -239,4 +239,17 @@ pub(super) fn detect_drift_impl(
     census: &mut DriftCensus,
 ) -> Vec<DriftFinding> {
     detect_drift_with_lifecycle(lock, machine, &indexmap::IndexMap::new(), census)
+}
+
+/// Is this machine's filesystem the controller's own?
+///
+/// Only a machine reached by the LOCAL transport is. A container or pepita
+/// machine commonly declares `addr: 127.0.0.1` (or nothing routable at all),
+/// and its files live inside the namespace — reading the controller's path of
+/// the same name answers about the wrong host, which is forjar#407's defect
+/// shape one transport over (E05 quorum, agy lane).
+pub(super) fn reads_the_controller(m: &Machine) -> bool {
+    crate::transport::is_local_addr(&m.addr)
+        && !m.is_container_transport()
+        && !m.is_pepita_transport()
 }

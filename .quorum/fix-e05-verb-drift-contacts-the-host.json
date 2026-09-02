@@ -1,0 +1,123 @@
+{
+  "issue": "#407 (CRUX audit E05) — the MCP/HTTP/verb-call drift verb hashed the controller's filesystem for remote machines and dropped the census",
+  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 9,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "The unit suite in mcp::tests_drift_e05 is the falsifier for this change — REFUTED: it proves the handler, not the process an agent talks to; the three cases were rewritten through `forjar verb call drift --json` and both load-bearing mutations turn them RED.",
+      "The verb should run the config's completion_check against the target the way the CLI does, because a report that skips task checks is incomplete — REFUTED: under readOnlyHint: true an untrusted checkout would execute shell on the controller; completeness for the verb is a census entry and a named skip.",
+      "A machine with no lock hides the completion_check it would have declined — REFUTED: machine_lock pushes the machine to `unchecked` before continuing, and an unlocked machine has no converged resource whose check could be declined."
+    ],
+    "divergence": "the probe lane confirmed the fix through the binary; the agy lane REJECTED it on five charges — three were correct and are taken (container/pepita at a local addr read the controller; service-task completion_checks still ran; an unknown machine answered clean), one tightened the falsifier (the MISSING verdict must show the failed reach), one was refuted (unlocked machines are disclosed as unchecked)."
+  },
+  "crux": {
+    "systems": [
+      "Ansible — check mode is a contract; modules that cannot honour it skip and REPORT the skip, never execute the play's own commands",
+      "Terraform — plan refreshes by querying providers against the TARGET but never runs local-exec provisioners",
+      "Salt — test=True returns what would change and names states it could not evaluate",
+      "Puppet — --noop reports every resource it did not apply"
+    ],
+    "verdict": "every surveyed tool queries the target under a read-only mode and none executes user-declared shell there; the verb was below that bar on both counts and is now at it."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "REJECTED the first cut on five charges: local-addr containers still read the controller, service-mode tasks executed their completion_check under the read-only verb, an unknown -m answered clean, the MISSING assertion could pass vacuously, and unlocked machines hid a declined check. Four were correct and are taken; the last was refuted (unlocked machines are disclosed as unchecked).",
+    "unique_findings": [
+      "a container or pepita machine at 127.0.0.1 fell through the local-addr shortcut to the controller's filesystem — taken: reads_the_controller is local-transport only",
+      "service-mode tasks bypassed task_check's decline and ran their completion_check via the generic state query — taken: declined under the same census reason"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17816,
+    "accepted": [],
+    "quality_gate": "zero findings in the falsification file or any production file touched; clippy -D warnings 0 errors; fmt clean"
+  },
+  "falsification": {
+    "test": "mutated the two load-bearing lines of the handler one at a time, tests kept",
+    "test_file": "tests/falsification_e05_verb_drift_contacts_the_host.rs",
+    "cargo_test_target": "falsification_e05_verb_drift_contacts_the_host",
+    "reverted": "src/mcp/handlers_drift.rs: detector pointed at a Machine whose addr is 127.0.0.1 (the controller); UNATTENDED.run_task_checks false -> true; unknown-machine guard removed; src/tripwire/drift/mod.rs service-task decline removed; src/tripwire/drift/file.rs reads_the_controller -> is_local_addr only",
+    "observed_failure": "detector pointed at the controller (Machine addr 127.0.0.1): drift_over_an_unreachable_machine_must_not_answer_clean RED — `drifted: false`, no `unchecked`, the controller's copy hashed and reported as 203.0.113.9's state. run_task_checks true: the_readonly_verb_neither_runs_the_completion_check_nor_hides_that RED — COMPLETION_CHECK_FIRED exists on the controller. the_verb_discloses_how_much_it_inspected stays green under both (it guards the denominator). Unknown-machine guard removed: an_unknown_machine_filter_is_refused_by_name RED. Service decline removed: a_service_task_completion_check_is_declined_too RED (SERVICE_CHECK_FIRED exists). Routing predicate reverted: 2 of 4 tests_e05_routing RED.",
+    "still_green_when_reverted": "the_verb_discloses_how_much_it_inspected — RED on main by construction (no census key) and green from the first #407 commit on; it guards the denominator, not the second commit"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e05-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 8367,
+        "sha256": "3ef6ce5fa24174d073af3356493f803478de7ce8c9079bafb4fdfbe293a48e6e",
+        "blob": "a6a6adbc8809b575991b4bdb9483529a1162bf04"
+      },
+      {
+        "path": ".quorum/evidence/e05-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1839,
+        "sha256": "880e815c2493d929c51d05e5b1ad6453db359bfa7df7e80805ceb9db5002cad8",
+        "blob": "390749f1aca58951c9fb91ce2085ad96aa91d20c"
+      },
+      {
+        "path": ".quorum/evidence/e05-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1015,
+        "sha256": "fe5092d2da6f2374ff9f6cea336a1c4c8d1213de21635dcd7522b5d0fde602ba",
+        "blob": "93b02a5a243d7b4cd2b3b856c3a08053f46e9874"
+      },
+      {
+        "path": ".quorum/evidence/e05-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2337,
+        "sha256": "fe33bf81b504de70d3cdea899ae5a9028373e4af326bfc9fb1f0e3e3b03b2404",
+        "blob": "b82fd14f05301ee0d77befd00770f2490e18ea83"
+      },
+      {
+        "path": ".quorum/evidence/e05-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1221,
+        "sha256": "9cf02ab80cd3870f7b48cadacad3d9e2061b2718a7f5b3c46b91e89a48300c1e",
+        "blob": "b6199b5ff994b6a3710203e2b408659de0d9b16b"
+      }
+    ],
+    "total_bytes": 14779,
+    "claims_digest": ".quorum/evidence/e05-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The CLI `forjar drift` still runs config-declared completion_checks by default; that is deliberate (the operator owns the config) and unchanged here.",
+      "Proves the verb contacts the declared target and declines the config's shell; does not prove every detector honours a machine argument — file, package and task are exercised.",
+      "`is_local_addr` is a string match on the address; a port-forwarded VM at 127.0.0.1 with the plain SSH transport is still read as the controller. Pre-existing; a transport-aware locality check is a separate change."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13373 passed, 0 failed, 4 ignored",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "ae8f7006314d52a4a69cc84318668aac48faf034"
+}

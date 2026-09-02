@@ -1,109 +1,13 @@
-//! Additional coverage tests for pq_signing, sbom (parse_image_tag),
-//! and undo_helpers edge cases.
+//! Additional coverage tests for sbom (parse_image_tag) and
+//! undo_helpers edge cases.
+//!
+//! The `pq_signing` block that opened this file is gone with the module
+//! (paiml/forjar#405): its `dual_verify` asserted `classical_valid` and
+//! `pq_valid` from one content-hash comparison, so the tests asserted a
+//! signature check that never happened.
 
-use super::pq_signing::*;
 use super::undo_helpers::*;
 use crate::core::types;
-
-// ── pq_signing: cmd_dual_sign coverage ─────────────────────────────
-
-#[test]
-fn cmd_dual_sign_text_output() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("file.yaml");
-    std::fs::write(&f, "test content").unwrap();
-    // Sign in text mode (not JSON)
-    let result = cmd_dual_sign(&f, false, Some("ci-bot"), false);
-    assert!(result.is_ok());
-}
-
-#[test]
-fn cmd_dual_sign_verify_json_valid() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("file.yaml");
-    std::fs::write(&f, "hello").unwrap();
-    dual_sign(&f, "signer").unwrap();
-    // Verify JSON mode
-    let result = cmd_dual_sign(&f, true, None, true);
-    assert!(result.is_ok());
-}
-
-#[test]
-fn cmd_dual_sign_verify_text_valid() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("file.yaml");
-    std::fs::write(&f, "hello").unwrap();
-    dual_sign(&f, "signer").unwrap();
-    // Verify text mode
-    let result = cmd_dual_sign(&f, true, None, false);
-    assert!(result.is_ok());
-}
-
-#[test]
-fn cmd_dual_sign_verify_tampered() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("file.yaml");
-    std::fs::write(&f, "original").unwrap();
-    dual_sign(&f, "signer").unwrap();
-    std::fs::write(&f, "tampered").unwrap();
-    // Verify should fail
-    let result = cmd_dual_sign(&f, true, None, false);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("verification failed"));
-}
-
-#[test]
-fn cmd_dual_sign_verify_no_sig_json() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("nosig.yaml");
-    std::fs::write(&f, "test").unwrap();
-    // Verify with no signature file — should fail
-    let result = cmd_dual_sign(&f, true, None, true);
-    assert!(result.is_err());
-}
-
-#[test]
-fn cmd_dual_sign_default_signer() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("test.yaml");
-    std::fs::write(&f, "data").unwrap();
-    // None signer → defaults to "local"
-    let result = cmd_dual_sign(&f, false, None, false);
-    assert!(result.is_ok());
-}
-
-#[test]
-fn dual_sign_missing_file() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("nonexistent.yaml");
-    let result = dual_sign(&f, "signer");
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("read:"));
-}
-
-#[test]
-fn dual_verify_missing_file() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("nosig.yaml");
-    std::fs::write(&f, "test").unwrap();
-    let result = dual_verify(&f).unwrap();
-    assert!(!result.both_valid);
-    assert!(result.reason.contains("no dual signature"));
-}
-
-#[test]
-fn dual_verify_result_fields() {
-    let dir = tempfile::tempdir().unwrap();
-    let f = dir.path().join("check.yaml");
-    std::fs::write(&f, "hello").unwrap();
-    dual_sign(&f, "tester").unwrap();
-    let r = dual_verify(&f).unwrap();
-    assert!(r.classical_valid);
-    assert!(r.pq_valid);
-    assert!(r.both_valid);
-    assert!(r.reason.contains("valid"));
-    assert!(r.path.contains("check.yaml"));
-}
 
 // ── undo_helpers: cmd_undo_destroy coverage ────────────────────────
 

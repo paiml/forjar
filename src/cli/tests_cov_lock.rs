@@ -380,20 +380,6 @@ mod tests {
         let _ = cmd_lock_audit(dir.path(), true);
     }
 
-    // ── lock_audit: cmd_lock_verify_hmac ──
-
-    #[test]
-    fn test_lock_verify_hmac_plain() {
-        let dir = make_dir();
-        let _ = cmd_lock_verify_hmac(dir.path(), false);
-    }
-
-    #[test]
-    fn test_lock_verify_hmac_json() {
-        let dir = make_dir();
-        let _ = cmd_lock_verify_hmac(dir.path(), true);
-    }
-
     // ── lock_audit: cmd_lock_restore ──
 
     #[test]

@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+**The desired-state hash covered 35 of 122 fields, so changed config was
+reported `unchanged` and never applied (#403, CRUX audit E01).**
+
+`hash_desired_state` was a hand-maintained ALLOWLIST — 14 core fields, 20
+phase-2 fields, the type. The other 76 fields were not hashed at all, including
+identity-bearing ones: `uid`, `groups`, `ssh_authorized_keys`, `tag`, `repo`,
+`binary`, `install_dir`, `driver_version`, `cuda_version`, `checksum`,
+`quantization`, `script`, `timeout`, `working_dir`, `sudo`, every `budget_*`,
+`backup_*` and `archive_*` key.
+
+`plan` returns `NoOp` iff the recorded lock hash equals that hash, and `apply`
+then reports `unchanged` and skips the resource. So editing a release tag, a
+user's uid or SSH keys, a GPU driver version, a model checksum or a task's
+working directory after first convergence changed nothing on the machine, and
+said so in green. Measured: two six-resource configs differing in eleven
+identity fields produced byte-identical `state.lock.yaml` files while
+`forjar codegen --phase apply` emitted visibly different scripts. Patched
+piecemeal at least five times (FJ-127, FJ-035, GH-206, #390, FJ-036) — once per
+field, never generally.
+
+The hash is now a canonical serialisation of the whole resolved `Resource`
+minus an explicit denylist of non-identity fields (`depends_on`, `machine`,
+`tags`, `arch`, `resource_group`, `when`, `count`, `for_each`, `lifecycle`,
+`triggers`, `phony`). An allowlist fails silently — a field added later is
+simply never converged; a denylist fails loudly.
+`planner::tests_hash_completeness` reflects over the serialised `Resource` and
+fails if any field is neither hashed nor denylisted, the guard
+`parser::tests_known_fields_completeness`, `resolver::tests_completeness` and
+`types::resource_type_all` already have. Folding in the rest also forced 45 new
+entries in the observability registry (`core::observe`), which had been
+classifying a third of the desired state.
+
+### Upgrade note — every resource replans as `Update` once
+
+This is a hash-identity migration. The canonical form carries an explicit
+generation marker (`forjar-desired-state-v2`), so no lock hash written by an
+older forjar can match one written by this version, and the first `forjar plan`
+after upgrading shows every resource as `Update`.
+
+**Resources declared `state: absent` show as `Destroy`, not `Update`, and
+re-run their destroy step once.** `determine_absent_action` uses this same hash
+to tell "already converged to absent" from "converged as present, now
+redeclared absent", so a generation bump puts every absent resource back in the
+first bucket. The destroy paths are written to be idempotent (`file` emits
+`rm -rf`; `user` puts `userdel` behind an `id` guard) and
+`lifecycle.prevent_destroy` still blocks the action — but read the plan before
+applying it.
+
+That is correct, not a regression: forjar cannot know whether the 76 previously
+unhashed fields drifted while nothing was watching them, so it re-converges
+rather than assuming they did not. Run `forjar plan` first, then one
+`forjar apply`; the second plan is clean. `forjar reseal` does NOT shortcut
+this — it regenerates BLAKE3 integrity sidecars for a lock file and never
+touches the recorded desired-state hashes.
+
+Note for maintainers: because `Resource` has no `skip_serializing_if`, ANY
+future release that adds a `Resource` field moves every recorded hash the same
+way and needs the same note. See the `planner::hashing` module header.
+
 ## [1.24.0] — 2026-09-01
 
 ### Added
@@ -114,6 +177,48 @@ Follow-ups filed rather than folded in: #390-A (the parallel wave path writes no
 run log at all), #390-B (that path also skips post-apply verification),
 #390-C (`--json` still reports `error: null` for a failed resource),
 #390-E (the nested-shell `set -euo pipefail` hole).
+
+### Removed
+
+**Three "verify" commands that never read a signature (#405, audit E03).**
+`forjar sign --verify` deserialised the sidecar's `signature` and `signer`
+fields and then compared only a BLAKE3 content hash. Editing the sidecar to
+`"signature": "deadbeef", "signer": "root@prod"` still printed
+`{"valid": true, "signer": "root@prod"}` and exited 0. `forjar sign --pq
+--verify` made the same non-check twice and reported "both signatures valid".
+`forjar lock-verify-hmac` re-hashed each lock into `let _hash`, discarded it,
+counted the lock as `verified`, and returned `Ok(())` — and looked for the
+signature at `<state>/<machine>.lock.yaml.sig`, which is not where `lock-sign`
+writes it. A CI gate built on any of the three was green by construction.
+
+Subtracted rather than implemented, which is what #405 asked for:
+
+- `forjar sign --pq` and `cli::pq_signing` are gone.
+- `forjar sign` is now **`forjar digest`** — recording and re-checking a BLAKE3
+  hash was all it ever did. The sidecar moves from `<recipe>.sig.json` to
+  `<recipe>.digest.json` and no longer carries `signature`, `signer`, or the
+  false `algorithm: blake3-hmac`; `--signer` is gone with them. This is tamper
+  evidence, not authenticity: there is no key, so anyone who can edit the
+  recipe can recompute the sidecar beside it.
+- `forjar lock-verify-hmac` is gone. `forjar lock-verify-sig --key K` already
+  recomputes `blake3(lock ++ key)` and compares it, and is the command to use.
+
+About 40 unit tests went with the modules. None of them could fail on a forged
+signature, because the code they covered never read one — the closest,
+`test_cmd_recipe_sign_verify_tampered`, mutated the recipe, the one input that
+was checked. `tests/falsification_e03_signatures_are_read.rs` replaces them
+with the assertion the issue asked for: no forjar verb may accept a forged
+signature and exit 0. Verified RED against the unfixed tree first.
+
+Adversarial review of that change found the same defect shape surviving in the
+verb that replaced them: `digest --verify` deserialised the sidecar's
+`algorithm` field and copied it into the verdict beside `"valid": true`, while
+the check that actually ran was BLAKE3. A sidecar edited to
+`"algorithm": "ed25519-dsse"` printed
+`{"valid": true, "algorithm": "ed25519-dsse", "reason": "digest matches"}` and
+exited 0. Verify now requires the recorded algorithm to be `blake3` — anything
+else is `valid: false` — and reports the algorithm it computed, never the one
+the sidecar claims.
 
 ## [1.23.1] — 2026-08-30
 
