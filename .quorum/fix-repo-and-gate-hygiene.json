@@ -13,7 +13,7 @@
     "refuters_per_claim": 3,
     "kill_rule": "any un-countered substantive objection kills the claim",
     "judges": 3,
-    "claims_confirmed": 7,
+    "claims_confirmed": 4,
     "claims_refuted": 2,
     "refuted_claims": [
       "Keep .pmat/baseline.json tracked and re-include it with a ! negation — REFUTED: pmat's own .pmat/.gitignore (*) outranks the root negation and is untracked, so the rule differs between CI and any machine pmat has run on; measured to survive one commit.",
@@ -61,9 +61,9 @@
         "roles": [
           "claims"
         ],
-        "bytes": 6062,
-        "sha256": "86753b5314090a922cf1d3ba55ede7c63b1381bc87766a63a28795bcbb779a15",
-        "blob": "f2f70d6f6b86c6589e22f3a3cb8f1d68054c0f48"
+        "bytes": 5792,
+        "sha256": "0a33a9e716e9811d49d9dd169571e57dfabeccb6a97715cef1c3cac875402f86",
+        "blob": "5d30c1b61f4f432ca2bd82ae9b5f78c74aa054ca"
       },
       {
         "path": ".quorum/evidence/400-lanes.md",
@@ -109,12 +109,12 @@
       "Untracking .pmat/ means the TDG pre-commit hook re-derives its baseline on a fresh clone; the hook's regression check compares against the on-disk baseline, which is now a local artefact.",
       "The docs/audits ledgers (jidoka, estimates) live outside .pmat/ for this reason (relocated on the PMAT-137-receipt branch)."
     ],
-    "total_bytes": 14207
+    "total_bytes": 13937
   },
   "gates": {
     "lib_tests": "13370 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "97bf9556ddc68dcecdde6d0464267234f3639590"
+  "diff_sha256": "20181172107add4217dac2fa8cb91da4cdfad56b"
 }
