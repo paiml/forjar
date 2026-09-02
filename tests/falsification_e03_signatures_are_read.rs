@@ -309,6 +309,43 @@ fn digest_verify_fails_on_a_one_byte_mutation() {
     );
 }
 
+/// FALSIFY-E03-007 — a forged `algorithm` is neither believed nor echoed.
+///
+/// The narrow form of #405's defect survived the rename: `verify_digest`
+/// deserialised the sidecar's `algorithm` and copied it into the verdict
+/// beside `"valid": true`, while the check that actually ran was BLAKE3. A
+/// sidecar edited to `"algorithm": "ed25519-dsse"` produced
+/// `{"valid": true, "algorithm": "ed25519-dsse", "reason": "digest matches"}` —
+/// a consumer parsing that reads an asymmetric signature check that never
+/// happened.
+///
+/// RED under: restoring `algorithm: recorded.algorithm` in
+/// `cli::recipe_digest::verify_digest`, or dropping its algorithm guard.
+#[test]
+fn a_forged_algorithm_name_is_neither_believed_nor_echoed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let file = dir.path().join("f.txt");
+    std::fs::write(&file, "payload\n").expect("write file");
+    let f = file.to_string_lossy().to_string();
+
+    assert!(run(&["digest", &f]).status.success(), "digest failed");
+    let sidecar = dir.path().join("f.digest.json");
+    forge_json_field(&sidecar, "algorithm", "ed25519-dsse");
+
+    let out = run(&["digest", &f, "--verify", "--json"]);
+    let printed = stdout(&out);
+    assert!(
+        !out.status.success(),
+        "`digest --verify` exited 0 on a sidecar claiming an algorithm the \
+         check never ran.\nstdout: {printed}"
+    );
+    assert!(
+        !printed.contains("ed25519-dsse"),
+        "the verdict echoed the sidecar's own unverified algorithm name.\n\
+         stdout: {printed}"
+    );
+}
+
 /// FALSIFY-E03-006 — the digest sidecar makes no signature claim.
 ///
 /// The old sidecar carried `"signature"`, `"signer"` and

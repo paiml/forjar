@@ -23,6 +23,9 @@
 
 use std::path::Path;
 
+/// The only algorithm `digest` computes. Recorded, and required on verify.
+const ALGORITHM: &str = "blake3";
+
 /// A recorded content digest of a recipe.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RecipeDigest {
@@ -54,7 +57,7 @@ pub fn digest_recipe(recipe_path: &Path) -> Result<RecipeDigest, String> {
     let digest = RecipeDigest {
         recipe_path: recipe_path.display().to_string(),
         blake3_hash,
-        algorithm: "blake3".to_string(),
+        algorithm: ALGORITHM.to_string(),
         timestamp: format!("{:?}", std::time::SystemTime::now()),
     };
 
@@ -80,6 +83,22 @@ pub fn verify_digest(recipe_path: &Path) -> Result<VerifyResult, String> {
     let recorded: RecipeDigest =
         serde_json::from_str(&data).map_err(|e| format!("parse digest: {e}"))?;
 
+    // The check below is BLAKE3 and only BLAKE3. A sidecar that names any other
+    // algorithm has not been checked by it, so it cannot be reported valid, and
+    // the name it carries is never echoed into the result — the whole point of
+    // paiml/forjar#405 is that an unverified sidecar field must not appear
+    // inside a verification verdict.
+    if recorded.algorithm != ALGORITHM {
+        return Ok(VerifyResult {
+            recipe_path: recipe_path.display().to_string(),
+            valid: false,
+            algorithm: ALGORITHM.to_string(),
+            reason: format!(
+                "digest file records an unsupported algorithm; forjar digest only computes {ALGORITHM}"
+            ),
+        });
+    }
+
     let content = std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
     let current_hash = blake3::hash(&content).to_hex().to_string();
 
@@ -87,7 +106,7 @@ pub fn verify_digest(recipe_path: &Path) -> Result<VerifyResult, String> {
     Ok(VerifyResult {
         recipe_path: recipe_path.display().to_string(),
         valid,
-        algorithm: recorded.algorithm,
+        algorithm: ALGORITHM.to_string(),
         reason: if valid {
             "digest matches".to_string()
         } else {

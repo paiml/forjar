@@ -147,6 +147,16 @@ was checked. `tests/falsification_e03_signatures_are_read.rs` replaces them
 with the assertion the issue asked for: no forjar verb may accept a forged
 signature and exit 0. Verified RED against the unfixed tree first.
 
+Adversarial review of that change found the same defect shape surviving in the
+verb that replaced them: `digest --verify` deserialised the sidecar's
+`algorithm` field and copied it into the verdict beside `"valid": true`, while
+the check that actually ran was BLAKE3. A sidecar edited to
+`"algorithm": "ed25519-dsse"` printed
+`{"valid": true, "algorithm": "ed25519-dsse", "reason": "digest matches"}` and
+exited 0. Verify now requires the recorded algorithm to be `blake3` — anything
+else is `valid: false` — and reports the algorithm it computed, never the one
+the sidecar claims.
+
 ## [1.23.1] — 2026-08-30
 
 Two fixes shipped as a patch because the first one is the difference between

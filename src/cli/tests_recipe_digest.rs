@@ -89,6 +89,30 @@ fn verify_without_a_sidecar_is_not_valid() {
 }
 
 #[test]
+fn a_sidecar_that_renames_the_algorithm_neither_verifies_nor_is_echoed() {
+    // The verify path computes BLAKE3 and nothing else. A sidecar naming any
+    // other algorithm has not been checked by the check that ran, so it must
+    // not come back valid, and its self-declared name must not appear inside
+    // the verdict — that echo is the shape paiml/forjar#405 was filed about.
+    let (dir, recipe) = fixture("payload\n");
+    digest_recipe(&recipe).unwrap();
+    let sidecar = dir.path().join("recipe.digest.json");
+    let text = std::fs::read_to_string(&sidecar).unwrap();
+    std::fs::write(&sidecar, text.replace("\"blake3\"", "\"ed25519-dsse\"")).unwrap();
+
+    let r = verify_digest(&recipe).unwrap();
+    assert!(
+        !r.valid,
+        "a sidecar declaring ed25519-dsse was reported valid by a BLAKE3 check"
+    );
+    assert_eq!(
+        r.algorithm, "blake3",
+        "the verdict echoed the sidecar's own algorithm name"
+    );
+    assert!(r.reason.contains("unsupported algorithm"), "{}", r.reason);
+}
+
+#[test]
 fn digest_of_a_missing_file_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let err = digest_recipe(&dir.path().join("absent.yaml")).unwrap_err();
