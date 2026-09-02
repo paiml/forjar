@@ -31,7 +31,10 @@ fn verify_machine_sig(
     Ok(Some((valid, entry)))
 }
 
+/// `key` is a key SOURCE (`file:<PATH>` / `env:<VAR>` / deprecated inline).
 pub(crate) fn cmd_lock_verify_sig(state_dir: &Path, key: &str, json: bool) -> Result<(), String> {
+    let key = crate::core::key_source::resolve(key, "--key")?;
+    let key = key.as_str();
     let machines = discover_machines(state_dir);
     let mut results: Vec<serde_json::Value> = Vec::new();
     let mut all_valid = true;
@@ -178,6 +181,8 @@ pub(crate) fn cmd_lock_rotate_keys(
     json: bool,
 ) -> Result<(), String> {
     use crate::tripwire::hasher;
+    let old_key = crate::core::key_source::resolve(old_key, "--old-key")?;
+    let new_key = crate::core::key_source::resolve(new_key, "--new-key")?;
     let machines = discover_machines(state_dir);
     let mut rotated = 0;
     for m in &machines {
