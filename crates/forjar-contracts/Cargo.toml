@@ -1,0 +1,39 @@
+[package]
+name = "forjar-contracts"
+version = "0.31.2"
+edition = "2021"
+rust-version = "1.89"
+authors = ["Noah Gift <noah@paiml.com>"]
+license = "MIT"
+repository = "https://github.com/paiml/aprender"
+description = "Papers to Math to Contracts in Code — YAML contract parsing, validation, scaffold generation, and Kani harness codegen for provable Rust kernels"
+keywords = ["verification", "formal-methods", "kani", "contracts", "ml-kernels"]
+categories = ["development-tools::testing", "mathematics"]
+exclude = ["tests/", "benches/"]
+
+[features]
+default = []
+kani = []
+
+[lib]
+name = "provable_contracts"
+
+[dependencies]
+provable-contracts-macros = { path = "../forjar-contracts-macros", version = "0.31.2", package = "forjar-contracts-macros" }
+regex = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+thiserror = "2.0"
+
+[build-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[lints.rust]
+unsafe_code = "allow"
