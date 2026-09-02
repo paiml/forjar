@@ -4,6 +4,7 @@ use pforge_config::{ForgeConfig, ForgeMetadata, OptimizationLevel, ParamSchema, 
 use pforge_runtime::{HandlerRegistry, McpServer};
 
 use super::handlers::*;
+use super::handlers_drift::DriftHandler;
 use super::handlers_ops::*;
 
 // ── Registry + Server ───────────────────────────────────────────────
