@@ -99,12 +99,38 @@ fn read_key_file(path: &Path, flag: &str) -> Result<String, String> {
     }
     let raw = std::fs::read_to_string(path)
         .map_err(|e| format!("{flag}: cannot read key file {}: {e}", path.display()))?;
+    warn_if_shared(path, flag);
     let key = raw.trim().to_string();
     if key.is_empty() {
         return Err(format!("{flag}: key file {} is empty", path.display()));
     }
     Ok(key)
 }
+
+/// A key file other users can read is the argv leak one directory over.
+///
+/// ssh refuses such a key outright ("UNPROTECTED PRIVATE KEY FILE"); this
+/// warns rather than refuses, because a fleet that already signs from a
+/// shared file needs a release to fix its modes, not a broken pipeline.
+/// (E13 quorum, agy lane.)
+#[cfg(unix)]
+fn warn_if_shared(path: &Path, flag: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(meta) = std::fs::metadata(path) else {
+        return;
+    };
+    let mode = meta.permissions().mode() & 0o777;
+    if mode & 0o077 != 0 {
+        eprintln!(
+            "warning: {flag}: key file {} is mode {mode:04o} — readable by other users on this host. \
+             chmod 600 it.",
+            path.display()
+        );
+    }
+}
+
+#[cfg(not(unix))]
+fn warn_if_shared(_path: &Path, _flag: &str) {}
 
 /// Read key material from an environment variable.
 fn read_key_env(var: &str, flag: &str) -> Result<String, String> {

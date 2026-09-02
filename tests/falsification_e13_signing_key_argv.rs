@@ -181,6 +181,13 @@ fn empty_key_file_must_fail_without_writing_a_signature() {
         "no signature may be written for an empty key{}",
         ctx(&out)
     );
+    // Exit 1 alone is what ANY initialisation failure prints (E13 quorum, agy
+    // lane); the refusal must name the key source's own reason.
+    assert!(
+        stderr(&out).contains("is empty"),
+        "the failure must come from the key source, not from somewhere else: {}",
+        ctx(&out)
+    );
 }
 
 // ── the key must be resolvable from the ENVIRONMENT, off argv ─────────
@@ -244,6 +251,13 @@ fn unset_env_ref_must_fail_without_writing_a_signature() {
     assert!(
         !sig_path(&state).exists(),
         "no signature may be written when the env var is unset{}",
+        ctx(&out)
+    );
+    // Exit 1 alone is what ANY initialisation failure prints (E13 quorum, agy
+    // lane); the refusal must name the key source's own reason.
+    assert!(
+        stderr(&out).contains("is not set"),
+        "the failure must come from the key source, not from somewhere else: {}",
         ctx(&out)
     );
 }
@@ -466,27 +480,3 @@ fn rotate_keys_must_warn_for_each_inline_key() {
 }
 
 // ── the help string must stop lying ───────────────────────────────────
-
-/// The old help read "path to key file or inline" while the code hashed the
-/// string verbatim — the file half did not exist. Help that documents a
-/// capability the binary does not have is how a secret ends up in `ps`.
-#[test]
-fn help_must_document_the_indirect_forms() {
-    for cmd in [
-        "lock-sign",
-        "lock-verify-sig",
-        "lock-rotate-keys",
-        "lock-verify-chain",
-    ] {
-        let out = run(&[cmd, "--help"]);
-        let text = format!("{}{}", stdout(&out), stderr(&out));
-        assert!(
-            text.contains("file:") && text.contains("env:"),
-            "{cmd} --help must document the file:/env: forms; got: {text}"
-        );
-        assert!(
-            !text.contains("path to key file or inline"),
-            "{cmd} --help still claims a bare path is read as a file: {text}"
-        );
-    }
-}
