@@ -49,14 +49,21 @@ fn stdout(out: &Output) -> String {
     String::from_utf8_lossy(&out.stdout).to_string()
 }
 
-/// True when clap rejected the invocation because the verb/flag is not there.
+/// True when clap rejected the invocation because `what` — the verb or flag
+/// named in quotes in clap's own message — is not there.
 ///
-/// Strict on purpose: "the binary exited non-zero" is not evidence a verb was
-/// withdrawn — a panic, a missing file, or an unrelated error would all pass a
-/// loose check and let a still-broken verb hide behind them.
-fn withdrawn(out: &Output) -> bool {
+/// Strict on purpose, twice over. "The binary exited non-zero" is not
+/// evidence a verb was withdrawn — a panic, a missing file, or an unrelated
+/// error would all pass a loose check and let a still-broken verb hide behind
+/// them. And "some clap error" is not evidence either (E03 quorum, agy lane):
+/// a re-introduced `sign` whose flags had merely been renamed would print
+/// `unexpected argument '--verify'` and pass a check that only looked for the
+/// phrase. The error has to name the exact thing this test says is gone.
+fn withdrawn(out: &Output, what: &str) -> bool {
     let e = stderr(out);
+    let names_it = e.contains(&format!("'{what}'"));
     !out.status.success()
+        && names_it
         && (e.contains("unrecognized subcommand")
             || e.contains("unexpected argument")
             || e.contains("invalid subcommand"))
@@ -115,7 +122,7 @@ fn forged_recipe_signature_is_never_accepted() {
     let signed = run(&["sign", &r, "--signer", "ci"]);
     if !signed.status.success() {
         assert!(
-            withdrawn(&signed),
+            withdrawn(&signed, "sign"),
             "`forjar sign` failed for a reason other than being withdrawn.\n\
              stderr: {}",
             stderr(&signed)
@@ -152,7 +159,7 @@ fn forged_dual_signature_is_never_accepted() {
     let signed = run(&["sign", &f, "--pq", "--signer", "ci"]);
     if !signed.status.success() {
         assert!(
-            withdrawn(&signed),
+            withdrawn(&signed, "sign"),
             "`forjar sign --pq` failed for a reason other than being \
              withdrawn.\nstderr: {}",
             stderr(&signed)
@@ -199,7 +206,7 @@ fn garbage_lock_hmac_is_never_reported_verified() {
     let out = run(&["lock-verify-hmac", "--state-dir", &s, "--json"]);
     if !out.status.success() {
         assert!(
-            withdrawn(&out),
+            withdrawn(&out, "lock-verify-hmac"),
             "`forjar lock-verify-hmac` failed for a reason other than being \
              withdrawn.\nstderr: {}",
             stderr(&out)

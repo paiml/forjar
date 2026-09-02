@@ -75,7 +75,6 @@ pub(crate) fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Re
 
 /// Audit a single parsed lock, returning (valid, reason).
 fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) {
-    use crate::tripwire::hasher;
     let mut valid = true;
     let mut reason = "ok".to_string();
     for (rname, rlock) in &lock.resources {
@@ -86,12 +85,15 @@ fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) 
             reason = format!("invalid hash for resource {rname}");
             break;
         }
-        // Verify hash by recomputing from resource type + status
-        let recomputed = hasher::hash_string(&format!("{}:{:?}", rname, rlock.status));
-        if recomputed != *hash {
-            // Hash mismatch could indicate tampering or legitimate state change
-            // We flag it but don't fail — the hash is computed from full resource state
-        }
+        // NO RECOMPUTATION HERE, ON PURPOSE. This used to recompute
+        // `blake3("{rname}:{status:?}")`, compare it to the recorded hash, and
+        // then do nothing with the answer — "flag it but don't fail". The
+        // recorded hash is `planner::hash_desired_state` over the resolved
+        // declaration, which this command does not have, so the comparison
+        // could never match and never fired. A dead check that LOOKS like
+        // tamper detection is the #405 defect shape (E03 quorum, agy lane).
+        // `lock-audit` is a FORMAT audit; tamper evidence for a lock is the
+        // `.b3` sidecar (`lock-verify`), and authentication is `lock-verify-sig`.
     }
     if !lock.generator.starts_with("forjar") {
         valid = false;
