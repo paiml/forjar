@@ -1,5 +1,5 @@
 {
-  "issue": "#423 \u2014 forjar built its contract code from crates.io aprender-contracts/-macros while CI cloned an archived sibling it never read; move the contract crates in-tree",
+  "issue": "#423 — forjar built its contract code from crates.io aprender-contracts/-macros while CI cloned an archived sibling it never read; move the contract crates in-tree",
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
   "base": "origin/main",
   "recorded_at": "2026-09-02",
@@ -17,27 +17,27 @@
     "claims_confirmed": 7,
     "claims_refuted": 4,
     "refuted_claims": [
-      "The vendored crate still reaches crates.io because it depends on regex and serde \u2014 REFUTED: ordinary third-party deps are not contract code and not the fetch that failed CI.",
-      "unsafe_code = \"allow\" in the vendored [lints.rust] hides upstream unsafe from the workspace policy \u2014 REFUTED: that line is upstream's own, in the registry copy's manifest.",
-      "Renaming the package while keeping the [lib] name is an anti-pattern next to cargo vendor / [patch.crates-io] \u2014 REFUTED as a defect: the instruction was to own the crate (the org's aprender-compute/trueno shape); [patch] keeps it external and cannot publish it.",
-      "The release can publish forjar before its member crates exist on crates.io \u2014 REFUTED: cargo publish --workspace publishes members first; the members were in fact published during this quorum by the review lane (incident, kept [A])."
+      "The vendored crate still reaches crates.io because it depends on regex and serde — REFUTED: ordinary third-party deps are not contract code and not the fetch that failed CI.",
+      "unsafe_code = \"allow\" in the vendored [lints.rust] hides upstream unsafe from the workspace policy — REFUTED: that line is upstream's own, in the registry copy's manifest.",
+      "Renaming the package while keeping the [lib] name is an anti-pattern next to cargo vendor / [patch.crates-io] — REFUTED as a defect: the instruction was to own the crate (the org's aprender-compute/trueno shape); [patch] keeps it external and cannot publish it.",
+      "The release can publish forjar before its member crates exist on crates.io — REFUTED: cargo publish --workspace publishes members first; the members were in fact published during this quorum by the review lane (incident, kept [A])."
     ],
-    "divergence": "the probe lane found byte-identical sources and a working offline build; the agy lane found the feature-gated first cut broke --no-default-features (taken, with the version pin, the macros VENDORED.md and a stale comment), and disagreed on the rename-vs-patch shape (recorded, not taken). The same lane executed cargo publish \u2014 an incident, not a finding."
+    "divergence": "the probe lane found byte-identical sources and a working offline build; the agy lane found the feature-gated first cut broke --no-default-features (taken, with the version pin, the macros VENDORED.md and a stale comment), and disagreed on the rename-vs-patch shape (recorded, not taken). The same lane executed cargo publish — an incident, not a finding."
   },
   "crux": {
     "systems": [
-      "paiml/aprender \u2014 crates/aprender-compute carries trueno in-tree with [lib] name = trueno: rename the package, keep the lib name",
-      "tokio / rust-analyzer / wgpu \u2014 first-party crates as workspace members with version + path, published in dependency order",
-      "cargo vendor + [patch.crates-io] \u2014 for pinning an EXTERNAL crate under its own name; keeps it external and cannot publish it"
+      "paiml/aprender — crates/aprender-compute carries trueno in-tree with [lib] name = trueno: rename the package, keep the lib name",
+      "tokio / rust-analyzer / wgpu — first-party crates as workspace members with version + path, published in dependency order",
+      "cargo vendor + [patch.crates-io] — for pinning an EXTERNAL crate under its own name; keeps it external and cannot publish it"
     ],
     "verdict": "owning a crate in-tree means a workspace member published under the new name in dependency order; that is the shape used here and by the organisation's own monorepo. patch/vendor are the right tool for a different intent."
   },
   "agy_teamwork": {
     "ran": true,
-    "verdict": "six charges: four taken (the contracts feature broke --no-default-features; pin =0.31.2; the macros crate's VENDORED.md; a stale release comment), two refuted (ordinary registry deps; upstream's own unsafe_code allow), and a CRUX disagreement on rename-vs-patch recorded. The lane also executed cargo publish --workspace and published the two member crates ahead of S5 \u2014 recorded as an incident.",
+    "verdict": "six charges: four taken (the contracts feature broke --no-default-features; pin =0.31.2; the macros crate's VENDORED.md; a stale release comment), two refuted (ordinary registry deps; upstream's own unsafe_code allow), and a CRUX disagreement on rename-vs-patch recorded. The lane also executed cargo publish --workspace and published the two member crates ahead of S5 — recorded as an incident.",
     "unique_findings": [
-      "six modules import provable_contracts_macros::contract unconditionally, so making the macro crate optional broke CI's --no-default-features job \u2014 taken",
-      "the vendored crate's own build.rs looks for ../../contracts from the upstream repo and finds none \u2014 declared inert in VENDORED.md"
+      "six modules import provable_contracts_macros::contract unconditionally, so making the macro crate optional broke CI's --no-default-features job — taken",
+      "the vendored crate's own build.rs looks for ../../contracts from the upstream repo and finds none — declared inert in VENDORED.md"
     ]
   },
   "pmat": {
@@ -47,7 +47,7 @@
     "vacuous_tests_in_touched_paths": 5,
     "tests_examined": 19109,
     "accepted": [
-      "crates/forjar-contracts/src/*_tests.rs \u2014 five upstream no-failure-mode tests carried byte-for-byte in the vendored payload"
+      "crates/forjar-contracts/src/*_tests.rs — five upstream no-failure-mode tests carried byte-for-byte in the vendored payload"
     ],
     "quality_gate": "zero findings in the falsification file or any forjar file touched; clippy --workspace -D warnings 0; fmt clean; no-default-features check passes; the TDG hook accepted every commit"
   },
@@ -115,13 +115,14 @@
       "The shared sovereign-ci.yml still clones the archived provable-contracts sibling as 'critical'; forjar no longer needs it, and the one-line change to drop it from that list lives in paiml/.github, not here.",
       "`pv` for proofs.yml is installed on the runner, not built from the in-tree crate (which carries no binary).",
       "forjar-contracts 0.31.2 and forjar-contracts-macros 0.31.2 are already on crates.io (published during this quorum by the review lane, ahead of S5); a future upstream bump means re-vendoring and publishing the new version in order.",
-      "Upstream's three clippy findings and its unsafe_code allow are carried as-is; fix upstream and re-vendor."
+      "Upstream's three clippy findings and its unsafe_code allow are carried as-is; fix upstream and re-vendor.",
+      "The max-lines ratchet (lint.yml) exempts crates/forjar-contracts and crates/forjar-contracts-macros: nine vendored files exceed 500 lines and are carried byte-for-byte; the exemption is scoped to those two paths."
     ]
   },
   "gates": {
     "lib_tests": "13361 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets --workspace -D warnings, 0 errors"
   },
-  "diff_sha256": "36a0a1588c2d49abd78f3a6e51cd61b454959648",
+  "diff_sha256": "2ae35515d2d30c058106054598f5af389219afd6",
   "base_commit_rebased": "Re-anchored a second time: #431's tree was the OLD branch's tree placed on new main, which reverted five merged PRs; this branch is the old branch's own diff (b7f6d501..7542952a, 100 lines in src/tests) applied to current main. Same claims, same falsifier, same evidence."
 }
