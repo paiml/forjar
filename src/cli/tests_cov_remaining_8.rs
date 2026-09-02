@@ -100,7 +100,26 @@ mod tests {
     }
 
     // ========================================================================
+    // 34. lock_security: cmd_lock_audit_trail
     // ========================================================================
+
+    #[test]
+    fn test_cov_lock_audit_trail_empty() {
+        let td = tempfile::tempdir().unwrap();
+        assert!(cmd_lock_audit_trail(td.path(), None, false).is_ok());
+    }
+
+    #[test]
+    fn test_cov_lock_audit_trail_json() {
+        let td = tempfile::tempdir().unwrap();
+        assert!(cmd_lock_audit_trail(td.path(), None, true).is_ok());
+    }
+
+    #[test]
+    fn test_cov_lock_audit_trail_with_filter() {
+        let td = tempfile::tempdir().unwrap();
+        assert!(cmd_lock_audit_trail(td.path(), Some("web"), false).is_ok());
+    }
 
     // ========================================================================
     // 35. lock_security: cmd_lock_rotate_keys

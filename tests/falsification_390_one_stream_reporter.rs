@@ -25,16 +25,13 @@ use std::path::Path;
 ///
 /// Each number is a reason, not a high-water mark:
 ///   failure_text  — the choke point; turning streams into text IS its job
-///   run_capture   — persistence: the unelided record the excerpt points at,
-///                   plus the two Refs #406 redaction writes that strike a
-///                   resolved secret out of each stream BEFORE that record is
-///                   written. Both persist bytes; neither renders a message.
+///   run_capture   — persistence: the unelided record the excerpt points at
 ///   resource_ops  — `record_success` hashes the state query's stdout
 ///   helpers       — content hashing and `parse_signature`: data, not messages
 fn budget() -> BTreeMap<&'static str, usize> {
     BTreeMap::from([
         ("failure_text.rs", 3),
-        ("run_capture.rs", 4),
+        ("run_capture.rs", 2),
         ("resource_ops.rs", 1),
         ("helpers.rs", 2),
     ])

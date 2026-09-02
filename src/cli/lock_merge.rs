@@ -163,13 +163,9 @@ pub(crate) fn cmd_lock_rebase(
 
 // ── FJ-465: lock sign ──
 
-/// `key` is a key SOURCE, not key material: `file:<PATH>` / `env:<VAR>`, or a
-/// deprecated inline literal. Resolving before any file is touched means an
-/// unreadable key aborts instead of signing every lock with the spec string.
 pub(crate) fn cmd_lock_sign(state_dir: &Path, key: &str, json: bool) -> Result<(), String> {
     use crate::tripwire::hasher;
 
-    let key = crate::core::key_source::resolve(key, "--key")?;
     let mut signed = 0usize;
     if state_dir.exists() {
         let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;

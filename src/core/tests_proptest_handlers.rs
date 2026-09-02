@@ -193,4 +193,18 @@ proptest! {
         let _ = planner::proof_obligation::is_safe(&po);
     }
 
+    /// FALSIFY-HANDLER-006: Chain hash is deterministic for same content.
+    #[test]
+    fn falsify_handler_006_chain_hash_determinism(
+        lines in proptest::collection::vec("[a-zA-Z0-9 ]{1,100}", 0..10),
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let events = dir.path().join("events.jsonl");
+        let content = lines.join("\n");
+        std::fs::write(&events, &content).unwrap();
+
+        let h1 = crate::tripwire::chain::compute_chain_hash(&events).unwrap();
+        let h2 = crate::tripwire::chain::compute_chain_hash(&events).unwrap();
+        prop_assert_eq!(h1, h2, "chain hash must be deterministic");
+    }
 }

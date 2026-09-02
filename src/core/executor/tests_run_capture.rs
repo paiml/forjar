@@ -49,13 +49,11 @@ fn capture_output_writes_log_and_script() {
     let output = make_output(0, "installed ok\n", "");
     run_capture::capture_output(
         &dir,
-        &run_capture::LogHeader {
-            resource_id: "nginx",
-            resource_type: "package",
-            action: "apply",
-            machine_name: "intel",
-            transport_type: "ssh",
-        },
+        "nginx",
+        "package",
+        "apply",
+        "intel",
+        "ssh",
         "apt-get install -y nginx",
         &output,
         1.5,
@@ -83,13 +81,11 @@ fn capture_output_failure() {
     let output = make_output(100, "", "E: Unable to locate package foo\n");
     run_capture::capture_output(
         &dir,
-        &run_capture::LogHeader {
-            resource_id: "bad-pkg",
-            resource_type: "package",
-            action: "apply",
-            machine_name: "intel",
-            transport_type: "ssh",
-        },
+        "bad-pkg",
+        "package",
+        "apply",
+        "intel",
+        "ssh",
         "apt-get install -y foo",
         &output,
         0.8,
@@ -106,13 +102,11 @@ fn capture_output_nonexistent_dir_noop() {
     // Should not panic even if directory doesn't exist
     run_capture::capture_output(
         std::path::Path::new("/nonexistent/dir"),
-        &run_capture::LogHeader {
-            resource_id: "res",
-            resource_type: "file",
-            action: "apply",
-            machine_name: "m",
-            transport_type: "local",
-        },
+        "res",
+        "file",
+        "apply",
+        "m",
+        "local",
         "echo ok",
         &output,
         0.1,
@@ -220,132 +214,4 @@ fn update_meta_missing_dir_noop() {
         "res",
         ResourceRunStatus::Noop,
     );
-}
-
-// ── Refs #406 (E04): what may be written down ───────────────────────────────
-
-fn slot(state: &std::path::Path) -> run_capture::RunSlot<'_> {
-    run_capture::RunSlot::new(state, "intel", Some("r-406"))
-}
-
-/// The unsuppressed baseline: `capture_exec_output` writes a transcript and
-/// hands back its path. Without this control the suppression test below could
-/// pass because nothing writes transcripts at all.
-#[test]
-fn an_unrestricted_transcript_is_written_and_its_path_returned() {
-    let tmp = tempfile::tempdir().unwrap();
-    let executed = run_capture::Executed {
-        resource_id: "res",
-        resource_type: &crate::core::types::ResourceType::File,
-        action: "create",
-        script: "echo ok",
-        transcript: run_capture::Transcript::unrestricted(),
-    };
-    let log = run_capture::capture_exec_output(
-        &slot(tmp.path()),
-        &executed,
-        &make_output(0, "ok", ""),
-        0.1,
-    );
-    let log = log.expect("a transcript path");
-    assert!(log.exists());
-    assert!(tmp.path().join("intel/runs/r-406/res.script").exists());
-}
-
-/// `sensitive: true`: no transcript, no returned path — but the run directory
-/// and its meta.yaml still exist, so `forjar logs` can still say the run
-/// happened.
-#[test]
-fn a_suppressed_transcript_writes_no_files_but_keeps_the_run_record() {
-    let tmp = tempfile::tempdir().unwrap();
-    let executed = run_capture::Executed {
-        resource_id: "res",
-        resource_type: &crate::core::types::ResourceType::File,
-        action: "create",
-        script: "echo secret",
-        transcript: run_capture::Transcript {
-            secrets: Vec::new(),
-            suppress: true,
-        },
-    };
-    let log = run_capture::capture_exec_output(
-        &slot(tmp.path()),
-        &executed,
-        &make_output(0, "secret", ""),
-        0.1,
-    );
-    assert!(
-        log.is_none(),
-        "a suppressed capture must name no transcript"
-    );
-    let dir = tmp.path().join("intel/runs/r-406");
-    assert!(
-        dir.join("meta.yaml").exists(),
-        "the run must still be recorded"
-    );
-    assert!(!dir.join("res.script").exists());
-    assert!(!dir.join("res.create.log").exists());
-    assert!(!dir.join("res.create.json").exists());
-}
-
-/// Redaction reaches BOTH streams, not just the script.
-#[test]
-fn stdout_and_stderr_are_redacted_too() {
-    let tmp = tempfile::tempdir().unwrap();
-    let executed = run_capture::Executed {
-        resource_id: "res",
-        resource_type: &crate::core::types::ResourceType::File,
-        action: "create",
-        script: "echo s3cret-value-406",
-        transcript: run_capture::Transcript {
-            secrets: vec!["s3cret-value-406".to_string()],
-            suppress: false,
-        },
-    };
-    run_capture::capture_exec_output(
-        &slot(tmp.path()),
-        &executed,
-        &make_output(1, "wrote s3cret-value-406", "failed on s3cret-value-406"),
-        0.1,
-    );
-    let dir = tmp.path().join("intel/runs/r-406");
-    for name in ["res.script", "res.create.log", "res.create.json"] {
-        let body = std::fs::read_to_string(dir.join(name)).unwrap();
-        assert!(
-            !body.contains("s3cret-value-406"),
-            "{name} still holds the secret:\n{body}"
-        );
-    }
-}
-
-/// Refs #406: a resource whose value arrives as `ENC[age,…]` gets the
-/// `sensitive: true` treatment without saying so. The decrypted plaintext never
-/// passes through a `{{secrets.*}}` span, so the redactor cannot name it; a
-/// written transcript would hold it in the clear.
-#[test]
-fn a_ciphertext_bearing_resource_suppresses_its_own_transcript() {
-    use crate::core::types::{Resource, ResourceType, SecretsConfig};
-    let marker = {
-        use crate::core::secrets::B64;
-        use base64::Engine;
-        format!(
-            "ENC[age,{}]",
-            B64.encode("age-ciphertext-stand-in-long-enough")
-        )
-    };
-    let encrypted = Resource {
-        resource_type: ResourceType::File,
-        path: Some("/etc/app.conf".into()),
-        content: Some(format!("api_token={marker}\n")),
-        ..Default::default()
-    };
-    assert!(run_capture::Transcript::for_resource(&encrypted, &SecretsConfig::default()).suppress);
-    // The control: an ordinary resource still gets a transcript.
-    let plain = Resource {
-        resource_type: ResourceType::File,
-        path: Some("/etc/app.conf".into()),
-        content: Some("api_token=plain\n".into()),
-        ..Default::default()
-    };
-    assert!(!run_capture::Transcript::for_resource(&plain, &SecretsConfig::default()).suppress);
 }

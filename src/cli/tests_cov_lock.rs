@@ -78,6 +78,19 @@ mod tests {
         let _ = cmd_lock_compact_all(dir.path(), true, true);
     }
 
+    // ── lock_security: cmd_lock_audit_trail ──
+
+    #[test]
+    fn test_lock_audit_trail_plain() {
+        let dir = make_dir_with_events();
+        let _ = cmd_lock_audit_trail(dir.path(), None, false);
+    }
+
+    #[test]
+    fn test_lock_audit_trail_json() {
+        let dir = make_dir_with_events();
+        let _ = cmd_lock_audit_trail(dir.path(), Some("web"), true);
+    }
 
     // ── lock_security: cmd_lock_rotate_keys ──
 

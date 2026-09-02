@@ -68,8 +68,8 @@ BLAKE3 checksums protect state files from corruption and tampering:
 # Verify all state files
 forjar lock-verify --state-dir state
 
-# Sign lock files with a key read from a file (never typed on the command line)
-forjar lock-sign --state-dir state --key file:signing.key
+# Sign state with ed25519 key
+forjar lock-sign --state-dir state --key signing.key
 ```
 
 Every `save_lock()` and `save_global_lock()` writes a `.b3` sidecar file. Pre-apply verification checks these before proceeding.
@@ -142,42 +142,21 @@ Snapshots capture the complete state directory (lock files, global lock, event j
 ## Lock File Signing & Verification
 
 ```bash
-# Sign lock files with a shared key held in a file
-forjar lock-sign --state-dir state --key file:/etc/forjar/signing.key
+# Sign lock files with a shared key
+forjar lock-sign --state-dir state --key my-secret-key
 
-# Verify signatures match (key from the environment this time)
-forjar lock-verify-sig --state-dir state --key env:FORJAR_SIGNING_KEY
+# Verify signatures match
+forjar lock-verify-sig --state-dir state --key my-secret-key
 
 # Verify the chain of custody: every signature actually covers its lock
-forjar lock-verify-chain --state-dir state --key file:/etc/forjar/signing.key
+forjar lock-verify-chain --state-dir state --key my-secret-key
 
 # Weaker: check only that every lock CARRIES a well-formed signature
 forjar lock-verify-chain --state-dir state --presence-only
 
 # Rotate signing keys (verifies old key before applying new)
-forjar lock-rotate-keys --state-dir state \
-  --old-key file:/etc/forjar/signing.key \
-  --new-key file:/etc/forjar/signing.key.new
+forjar lock-rotate-keys --state-dir state --old-key old-secret --new-key new-secret
 ```
-
-### Never put the key on the command line
-
-Every key flag (`--key`, `--old-key`, `--new-key`) takes a key *source*, not the
-key itself:
-
-| Form | Where the key comes from |
-|------|--------------------------|
-| `file:<PATH>` | the file's contents, surrounding whitespace trimmed |
-| `env:<VAR>` | the environment variable's value, trimmed |
-| anything else | the literal string — **deprecated, removed in forjar 2.0.0** |
-
-A literal key is visible to every user on the host in `ps` output, so it now
-prints a warning on every use. An unreadable or empty `file:`/`env:` source is
-an error: forjar will not fall back to signing with the spec string, which
-would produce locks signed by a key nobody holds while reporting success.
-
-This matches how forjar already treats `script:` bodies, which travel to the
-remote shell on stdin precisely so they stay out of `ps`.
 
 Lock signing uses BLAKE3 HMAC (hash of file content + key). `lock-verify-sig` re-computes the hash and compares it against the stored signature. `lock-rotate-keys` verifies the old key matches existing signatures before rotating, preventing accidental key loss.
 

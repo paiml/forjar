@@ -184,8 +184,8 @@ pub struct LockSignArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
-    /// Signing key: `file:<PATH>` or `env:<VAR>` (E13 — see `KEY_ARG_HELP`)
-    #[arg(long, help = crate::core::key_source::KEY_ARG_HELP)]
+    /// Signing key (path to key file or inline)
+    #[arg(long)]
     pub key: String,
 
     /// Output as JSON
@@ -200,8 +200,8 @@ pub struct LockVerifySigArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
-    /// Signing key to verify against: `file:<PATH>` or `env:<VAR>` (E13)
-    #[arg(long, help = crate::core::key_source::KEY_ARG_HELP)]
+    /// Signing key to verify against
+    #[arg(long)]
     pub key: String,
 
     /// Output as JSON
@@ -225,6 +225,22 @@ pub struct LockCompactAllArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock audit-trail`.
+#[derive(clap::Args, Debug)]
+pub struct LockAuditTrailArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Target specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// CLI arguments for `lock rotate-keys`.
 #[derive(clap::Args, Debug)]
 pub struct LockRotateKeysArgs {
@@ -232,12 +248,12 @@ pub struct LockRotateKeysArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
-    /// Old signing key: `file:<PATH>` or `env:<VAR>` (E13)
-    #[arg(long, help = crate::core::key_source::KEY_ARG_HELP)]
+    /// Old signing key
+    #[arg(long)]
     pub old_key: String,
 
-    /// New signing key: `file:<PATH>` or `env:<VAR>` (E13)
-    #[arg(long, help = crate::core::key_source::KEY_ARG_HELP)]
+    /// New signing key
+    #[arg(long)]
     pub new_key: String,
 
     /// Output as JSON

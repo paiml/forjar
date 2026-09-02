@@ -140,6 +140,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
         | cmd @ Commands::LockSign(..)
         | cmd @ Commands::LockVerifySig(..)
         | cmd @ Commands::LockCompactAll(..)
+        | cmd @ Commands::LockAuditTrail(..)
         | cmd @ Commands::LockRotateKeys(..)
         | cmd @ Commands::LockBackup(..)
         | cmd @ Commands::LockVerifyChain(..)

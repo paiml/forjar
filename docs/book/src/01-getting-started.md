@@ -2324,17 +2324,12 @@ forjar graph --layers -f forjar.yaml
 
 ## Lock Sign
 
-Cryptographically sign lock files with BLAKE3. `--key` names *where the key
-lives* — `file:<PATH>` or `env:<VAR>` — so the secret never reaches `argv`,
-where every other user on the host reads it out of `ps`:
+Cryptographically sign lock files with BLAKE3:
 
 ```bash
-forjar lock-sign --state-dir state --key file:/etc/forjar/signing.key
-forjar lock-sign --state-dir state --key env:FORJAR_SIGNING_KEY --json
+forjar lock-sign --state-dir state --key my-signing-key
+forjar lock-sign --state-dir state --key my-signing-key --json
 ```
-
-A bare literal (`--key my-signing-key`) still works so existing signatures keep
-verifying, but it warns on every use and is removed in forjar 2.0.0.
 
 ## Status Compliance
 
@@ -2390,12 +2385,11 @@ forjar graph -f forjar.yaml --critical-resources
 
 ## Lock Verify Sig
 
-Verify lock file signature against a signing key (same `file:`/`env:` key
-sources as `lock-sign`):
+Verify lock file signature against a signing key:
 
 ```bash
-forjar lock-verify-sig --state-dir state --key file:/etc/forjar/signing.key
-forjar lock-verify-sig --state-dir state --key env:FORJAR_SIGNING_KEY --json
+forjar lock-verify-sig --state-dir state --key my-signing-key
+forjar lock-verify-sig --state-dir state --key my-signing-key --json
 ```
 
 ## Apply Abort on Drift
@@ -2529,12 +2523,12 @@ forjar graph -f forjar.yaml --subgraph my-resource --format dot
 
 ## Lock Audit Trail
 
-`forjar lock-audit-trail` was withdrawn in the fix for forjar#416: it reported
-on a tamper-evident event chain that nothing ever built (`append_event` never
-chained, and `tripwire::chain` had no production caller), so its output was a
-claim with no evidence behind it. The history of a lock is `forjar lock-history
---state-dir state`; tamper evidence is the `.b3` sidecar (`forjar lock-verify`)
-and authentication is `forjar lock-verify-sig`.
+Show full audit trail of lock file changes with timestamps:
+
+```bash
+forjar lock-audit-trail --state-dir state
+forjar lock-audit-trail --state-dir state --machine gpu-box --json
+```
 
 ## Apply Circuit Breaker
 
@@ -2597,15 +2591,11 @@ forjar graph -f forjar.yaml --impact-radius base-packages
 
 ## Lock Rotate Keys
 
-Rotate all lock file signing keys. Both key flags take the same `file:`/`env:`
-key sources, so neither the old nor the new key appears on the command line:
+Rotate all lock file signing keys:
 
 ```bash
-forjar lock-rotate-keys --state-dir state \
-  --old-key file:/etc/forjar/signing.key \
-  --new-key file:/etc/forjar/signing.key.new
-forjar lock-rotate-keys --state-dir state \
-  --old-key env:FORJAR_OLD_KEY --new-key env:FORJAR_NEW_KEY --json
+forjar lock-rotate-keys --state-dir state --old-key old-key --new-key new-key
+forjar lock-rotate-keys --state-dir state --old-key old --new-key new --json
 ```
 
 ## Apply Change Window
@@ -2801,8 +2791,8 @@ Verify full chain of custody from lock signatures (needs the `lock-sign` key —
 without it there is nothing to verify a signature against):
 
 ```bash
-forjar lock-verify-chain --state-dir state --key file:/etc/forjar/signing.key
-forjar lock-verify-chain --state-dir state --key env:FORJAR_SIGNING_KEY --json
+forjar lock-verify-chain --state-dir state --key my-secret-key
+forjar lock-verify-chain --state-dir state --key my-secret-key --json
 forjar lock-verify-chain --state-dir state --presence-only   # signatures exist, custody unchecked
 ```
 

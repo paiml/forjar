@@ -317,13 +317,11 @@ fn capture_output_creates_files() {
     };
     run_capture::capture_output(
         &run_dir,
-        &run_capture::LogHeader {
-            resource_id: "pkg-nginx",
-            resource_type: "package",
-            action: "apply",
-            machine_name: "web",
-            transport_type: "local",
-        },
+        "pkg-nginx",
+        "package",
+        "apply",
+        "web",
+        "local",
         "apt-get install -y nginx",
         &output,
         1.5,
@@ -350,13 +348,11 @@ fn capture_output_no_dir_no_crash() {
     // Should silently return without writing
     run_capture::capture_output(
         std::path::Path::new("/nonexistent/run"),
-        &run_capture::LogHeader {
-            resource_id: "pkg",
-            resource_type: "package",
-            action: "apply",
-            machine_name: "web",
-            transport_type: "local",
-        },
+        "pkg",
+        "package",
+        "apply",
+        "web",
+        "local",
         "echo ok",
         &output,
         0.1,

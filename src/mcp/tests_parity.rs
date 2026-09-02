@@ -7,7 +7,7 @@
 
 use super::handlers::*;
 use super::types::*;
-use crate::mcp::handlers_drift::DriftHandler;
+use crate::mcp::handlers::DriftHandler;
 use pforge_runtime::Handler;
 
 fn project(dir: &std::path::Path) -> std::path::PathBuf {

@@ -5,7 +5,6 @@
 
 use super::spec::{Effects, VerbSpec};
 use crate::mcp::handlers::*;
-use crate::mcp::handlers_drift::DriftHandler;
 use crate::mcp::handlers_ops::*;
 use crate::mcp::types::*;
 use pforge_runtime::Handler;

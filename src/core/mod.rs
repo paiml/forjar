@@ -13,7 +13,6 @@ pub mod ephemeral;
 pub mod error;
 pub mod executor;
 pub mod gitenv;
-pub mod key_source;
 pub mod metric_collector;
 pub mod metric_source;
 pub mod migrate;

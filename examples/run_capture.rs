@@ -39,13 +39,11 @@ fn main() {
     };
     run_capture::capture_output(
         &dir,
-        &run_capture::LogHeader {
-            resource_id: "nginx-pkg",
-            resource_type: "package",
-            action: "apply",
-            machine_name: machine,
-            transport_type: "ssh",
-        },
+        "nginx-pkg",
+        "package",
+        "apply",
+        machine,
+        "ssh",
         "apt-get install -y nginx",
         &ok_output,
         1.2,
@@ -69,13 +67,11 @@ fn main() {
     };
     run_capture::capture_output(
         &dir,
-        &run_capture::LogHeader {
-            resource_id: "cargo-tools",
-            resource_type: "package",
-            action: "apply",
-            machine_name: machine,
-            transport_type: "ssh",
-        },
+        "cargo-tools",
+        "package",
+        "apply",
+        machine,
+        "ssh",
         "apt-get install -y cargo-watch",
         &fail_output,
         0.8,

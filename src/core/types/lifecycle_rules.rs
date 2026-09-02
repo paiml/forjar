@@ -1,10 +1,10 @@
 //! What `lifecycle.ignore_drift` is allowed to say.
 //!
-//! The STRUCT stays in `resource.rs` beside the field that carries it; the
-//! impl lives here so there is exactly ONE place that decides what an
-//! `ignore_drift` entry means, and the parser and the tripwire cannot drift
-//! apart on it (forjar#335 was precisely that — the schema said "field
-//! list", the engine read "any entry means everything").
+//! Split out of `resource.rs` to keep that file under the 500-line budget, in
+//! the same spirit as `lock_observed.rs`: there is exactly ONE place that
+//! decides what an `ignore_drift` entry means, so the parser and the tripwire
+//! cannot drift apart on it (forjar#335 was precisely that — the schema said
+//! "field list", the engine read "any entry means everything").
 
 use super::resource::LifecycleRules;
 

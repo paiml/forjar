@@ -50,6 +50,13 @@ mod tests {
         dir
     }
 
+    fn make_state_dir_with_events() -> tempfile::TempDir {
+        let dir = make_state_dir();
+        let events = "{\"timestamp\":\"2026-01-01T00:00:00Z\",\"resource\":\"f\",\"action\":\"apply\"}\n{\"timestamp\":\"2026-02-01T00:00:00Z\",\"resource\":\"g\",\"action\":\"converge\"}\n";
+        write_yaml(dir.path(), "web/events.jsonl", events);
+        write_yaml(dir.path(), "web.events.jsonl", events);
+        dir
+    }
 
     // ========================================================================
     // 43. destroy: cmd_destroy
@@ -367,8 +374,15 @@ mod tests {
     }
 
     // ========================================================================
+    // 52. lock_security: cmd_lock_audit_trail with machine filter
     // ========================================================================
 
+    #[test]
+    fn test_cov_lock_audit_trail_nonexistent_machine() {
+        let dir = make_state_dir_with_events();
+        let result = cmd_lock_audit_trail(dir.path(), Some("nonexistent"), false);
+        assert!(result.is_ok());
+    }
 
     // ========================================================================
     // 53. lock_core: cmd_lock with workspace

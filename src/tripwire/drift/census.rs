@@ -159,21 +159,6 @@ impl DriftCensus {
         counts
     }
 
-    /// The ids skipped for one reason, in lock order.
-    ///
-    /// `skipped_by_reason` COUNTS; a disclosure has to NAME. forjar#372's
-    /// unattended surface reports which config-declared executions it declined
-    /// to run, and "1 skipped" is not that sentence. Derived from the decisions
-    /// the detectors actually took, so it cannot drift from them the way a
-    /// second hand-maintained list would.
-    pub fn skipped_ids(&self, reason: SkipReason) -> Vec<&str> {
-        self.entries
-            .iter()
-            .filter(|(_, e)| e.skipped == Some(reason))
-            .map(|(id, _)| id.as_str())
-            .collect()
-    }
-
     /// The two lines every drift run prints, drift or no drift.
     ///
     /// The second line is omitted when nothing was skipped — that is the only

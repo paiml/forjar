@@ -113,7 +113,6 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "lifecycle",
     "sudo",
     "store",
-    "sensitive",
     "script",
     "gather",
     "scatter",

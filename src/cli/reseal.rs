@@ -5,12 +5,6 @@
 //! <old>, got <new>` after a partial write (old forjar versions silently
 //! discarded sidecar-write errors) or after a `git checkout` / merge that
 //! restored one file without the other.
-//!
-//! NOT a desired-state migration. `reseal` recomputes the `.b3` sidecar over a
-//! lock file's BYTES; it never recomputes the per-resource `hash` field inside
-//! it. After a hash-identity change (#403 bumped the canonical form to
-//! `forjar-desired-state-v2`) the path is `forjar plan` then one `forjar apply`
-//! — every resource replans as `Update` once and re-records its own hash.
 
 use super::helpers_state::list_state_machines;
 use std::path::{Path, PathBuf};

@@ -4,6 +4,7 @@ use pforge_runtime::Handler;
 use std::path::PathBuf;
 
 use crate::core::{parser, planner, quality_gate, resolver, state};
+use crate::tripwire::drift;
 
 use super::types::*;
 
@@ -13,6 +14,8 @@ use super::types::*;
 pub struct ValidateHandler;
 /// MCP handler for execution planning.
 pub struct PlanHandler;
+/// MCP handler for drift detection.
+pub struct DriftHandler;
 /// MCP handler for recipe linting.
 pub struct LintHandler;
 /// MCP handler for dependency graph generation.
@@ -155,6 +158,80 @@ impl Handler for PlanHandler {
             unconsulted_observations: unconsulted,
             unattended_skipped,
             disclosure,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl Handler for DriftHandler {
+    type Input = DriftInput;
+    type Output = DriftOutput;
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
+        let path = PathBuf::from(&input.path);
+        let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
+
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+
+        let mut findings = Vec::new();
+        // GH-208: machines we could not compare, so a caller can tell "clean"
+        // apart from "not looked at".
+        let mut unchecked: Vec<String> = Vec::new();
+
+        for machine_name in config.machines.keys() {
+            if let Some(ref m) = input.machine {
+                if machine_name != m {
+                    continue;
+                }
+            }
+
+            // GH-208: `if let Ok(Some(..))` discarded BOTH `Err` (state could
+            // not be read) and `Ok(None)` (machine never applied), so "I did not
+            // compare anything" was reported as `{"drifted": false}` — a clean
+            // bill of health for a machine that was never inspected. drift is
+            // the tripwire tool; a false clean is the worst outcome it has.
+            //
+            // forjar#385 changed what the CLI does with the SAME input, and this
+            // tool has deliberately not followed it there. The CLI now runs the
+            // `completion_check` of every `type: task` when no lock exists, an
+            // assertion that needs no baseline; this handler only hash-compares
+            // (`detect_drift`), so it has nothing to run and keeps naming the
+            // machine in `unchecked` instead. Two different answers, both
+            // stating their own coverage — which is the property that matters.
+            let lock_data = match state::load_lock(&state_dir, machine_name) {
+                Ok(Some(l)) => l,
+                Ok(None) => {
+                    // Genuinely no state for this machine: nothing to compare,
+                    // and that is not drift. Skip it, but say so.
+                    unchecked.push(format!("{machine_name}: no state recorded (never applied)"));
+                    continue;
+                }
+                Err(e) => {
+                    return Err(pforge_runtime::Error::Handler(format!(
+                        "cannot read state for machine '{machine_name}' in {}: {e}",
+                        state_dir.display()
+                    )));
+                }
+            };
+            {
+                let drift_findings = drift::detect_drift(&lock_data);
+                for f in drift_findings {
+                    findings.push(DriftFindingOutput {
+                        resource: f.resource_id.clone(),
+                        expected_hash: f.expected_hash.clone(),
+                        actual_hash: f.actual_hash.clone(),
+                        detail: f.detail.clone(),
+                    });
+                }
+            }
+        }
+
+        let drifted = !findings.is_empty();
+        Ok(DriftOutput {
+            drifted,
+            findings,
+            unchecked,
         })
     }
 }
