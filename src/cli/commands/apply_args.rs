@@ -101,8 +101,7 @@ pub struct ApplyArgs {
     #[arg(long, default_value = "0")]
     pub retry: u32,
 
-    /// FJ-286: Skip the confirmation prompt (CI mode). Prompting only — it relaxes no safety gate.
-    /// Refs #368: needed by `--plan-file` too, which used to converge without asking
+    /// FJ-286: Skip the confirmation prompt (CI mode); prompting only, relaxes no gate. Refs #368: `--plan-file` asks too.
     #[arg(long)]
     pub yes: bool,
 
@@ -130,8 +129,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub subset: Option<String>,
 
-    /// FJ-335: Require confirmation for destructive (destroy/remove) actions.
-    /// Refs #368: honoured on `--plan-file` too, counted over the reviewed delta
+    /// FJ-335: Require confirmation for destructive actions. Refs #368: honoured on `--plan-file`, over the reviewed delta.
     #[arg(long)]
     pub confirm_destructive: bool,
 
@@ -195,9 +193,7 @@ pub struct ApplyArgs {
     #[arg(long = "label", value_name = "KEY=VALUE")]
     pub labels: Vec<String>,
 
-    /// FJ-386: Execute a previously saved plan file.
-    /// Refs #368: runs the same preflight an ordinary apply does — integrity,
-    /// policy, security gate, pre_apply hook, destructive block, confirmation
+    /// FJ-386: Execute a saved plan file. Refs #368: the same preflight as an ordinary apply (integrity, policy, security, pre_apply, destructive block, confirmation).
     #[arg(long)]
     pub plan_file: Option<PathBuf>,
 
