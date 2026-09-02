@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+**The desired-state hash covered 35 of 122 fields, so changed config was
+reported `unchanged` and never applied (#403, CRUX audit E01).**
+
+`hash_desired_state` was a hand-maintained ALLOWLIST — 14 core fields, 20
+phase-2 fields, the type. The other 76 fields were not hashed at all, including
+identity-bearing ones: `uid`, `groups`, `ssh_authorized_keys`, `tag`, `repo`,
+`binary`, `install_dir`, `driver_version`, `cuda_version`, `checksum`,
+`quantization`, `script`, `timeout`, `working_dir`, `sudo`, every `budget_*`,
+`backup_*` and `archive_*` key.
+
+`plan` returns `NoOp` iff the recorded lock hash equals that hash, and `apply`
+then reports `unchanged` and skips the resource. So editing a release tag, a
+user's uid or SSH keys, a GPU driver version, a model checksum or a task's
+working directory after first convergence changed nothing on the machine, and
+said so in green. Measured: two six-resource configs differing in eleven
+identity fields produced byte-identical `state.lock.yaml` files while
+`forjar codegen --phase apply` emitted visibly different scripts. Patched
+piecemeal at least five times (FJ-127, FJ-035, GH-206, #390, FJ-036) — once per
+field, never generally.
+
+The hash is now a canonical serialisation of the whole resolved `Resource`
+minus an explicit denylist of non-identity fields (`depends_on`, `machine`,
+`tags`, `arch`, `resource_group`, `when`, `count`, `for_each`, `lifecycle`,
+`triggers`, `phony`). An allowlist fails silently — a field added later is
+simply never converged; a denylist fails loudly.
+`planner::tests_hash_completeness` reflects over the serialised `Resource` and
+fails if any field is neither hashed nor denylisted, the guard
+`parser::tests_known_fields_completeness`, `resolver::tests_completeness` and
+`types::resource_type_all` already have. Folding in the rest also forced 45 new
+entries in the observability registry (`core::observe`), which had been
+classifying a third of the desired state.
+
+### Upgrade note — every resource replans as `Update` once
+
+This is a hash-identity migration. The canonical form carries an explicit
+generation marker (`forjar-desired-state-v2`), so no lock hash written by an
+older forjar can match one written by this version, and the first `forjar plan`
+after upgrading shows every resource as `Update`.
+
+**Resources declared `state: absent` show as `Destroy`, not `Update`, and
+re-run their destroy step once.** `determine_absent_action` uses this same hash
+to tell "already converged to absent" from "converged as present, now
+redeclared absent", so a generation bump puts every absent resource back in the
+first bucket. The destroy paths are written to be idempotent (`file` emits
+`rm -rf`; `user` puts `userdel` behind an `id` guard) and
+`lifecycle.prevent_destroy` still blocks the action — but read the plan before
+applying it.
+
+That is correct, not a regression: forjar cannot know whether the 76 previously
+unhashed fields drifted while nothing was watching them, so it re-converges
+rather than assuming they did not. Run `forjar plan` first, then one
+`forjar apply`; the second plan is clean. `forjar reseal` does NOT shortcut
+this — it regenerates BLAKE3 integrity sidecars for a lock file and never
+touches the recorded desired-state hashes.
+
+Note for maintainers: because `Resource` has no `skip_serializing_if`, ANY
+future release that adds a `Resource` field moves every recorded hash the same
+way and needs the same note. See the `planner::hashing` module header.
+
 ## [1.24.0] — 2026-09-01
 
 ### Added
