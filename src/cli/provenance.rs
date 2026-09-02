@@ -1,7 +1,7 @@
 //! FJ-1404: SLSA provenance attestation generation.
 //!
 //! Generates an in-toto-style provenance attestation linking:
-//! config hash -> plan hash -> state hash for SLSA Level 3.
+//! config hash -> plan hash -> state hash (unsigned, not SLSA-conformant).
 
 use super::helpers::*;
 use crate::core::types;
@@ -196,7 +196,7 @@ fn print_provenance_text(
     }
 
     println!(
-        "\n  {} SLSA Level 3 attestation chain: config -> plan -> state",
+        "\n  {} unsigned, not SLSA-conformant provenance chain: config -> plan -> state",
         green("✓")
     );
 }
