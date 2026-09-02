@@ -210,6 +210,7 @@ pub(super) fn apply_pre_validate(
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
     resource_filter: Option<&str>,
+    group_filter: Option<&str>,
     confirm_destructive: bool,
     dry_run: bool,
     force: bool,
@@ -230,10 +231,26 @@ pub(super) fn apply_pre_validate(
     // forjar#336: the observation is CARRIED, not consumed. Before this it was
     // spent on an stderr line and a lock write and the function returned unit,
     // so the summary two frames later could not say why a resource converged.
+    //
+    // forjar#404: the gate is SCOPED. It used to take only `machine_filter`, so
+    // `apply -r one-resource` probed every locked resource on the machine —
+    // one SSH handshake each — and recorded `drifted` on resources the run
+    // would then skip, leaving the lock claiming a repair that never happened.
+    //
+    // ALL THREE resource-level filters, not two. `group_filter` was not even a
+    // parameter of this function; measured on the build that scoped only
+    // `-r`/`-t`, `apply -g net` still probed the out-of-group resource and left
+    // `status: drifted` behind for it. The executor filters on resource id, tag
+    // AND group (`resource_ops::resource_filtered_out`), so the gate does too.
     let observed_drift = super::apply_drift::check_pre_apply_drift(
         config,
         state_dir,
-        machine_filter,
+        super::apply_drift::GateScope {
+            machine: machine_filter,
+            resource: resource_filter,
+            tag: tag_filter,
+            group: group_filter,
+        },
         force,
         dry_run,
         verbose,

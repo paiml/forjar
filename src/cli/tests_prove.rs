@@ -29,7 +29,11 @@ resources:
         )
         .unwrap();
         let result = super::super::prove::cmd_prove(&config_path, &state_dir, None, false);
-        assert!(result.is_ok(), "prove failed: {:?}", result.err());
+        // forjar#416: a package resource carries obligations nothing here has
+        // proved, so they are UNKNOWN — and UNKNOWN now FAILS the proof instead
+        // of rendering as [PASS]. The honest outcome of this fixture is Err.
+        let err = result.expect_err("prove must fail while an obligation is UNKNOWN");
+        assert!(err.contains("UNKNOWN"), "the failure must name the UNKNOWN state: {err}");
     }
 
     #[test]
@@ -107,7 +111,9 @@ resources:
         )
         .unwrap();
         let result = super::super::prove::cmd_prove(&config_path, &state_dir, None, false);
-        assert!(result.is_ok(), "multi prove: {:?}", result.err());
+        // forjar#416: see test_fj1401_prove_basic — UNKNOWN obligations fail the proof.
+        let err = result.expect_err("prove must fail while an obligation is UNKNOWN");
+        assert!(err.contains("UNKNOWN"), "{err}");
     }
 
     #[test]
@@ -145,7 +151,9 @@ resources:
         .unwrap();
         let result =
             super::super::prove::cmd_prove(&config_path, &state_dir, Some("web"), false);
-        assert!(result.is_ok(), "filtered prove: {:?}", result.err());
+        // forjar#416: see test_fj1401_prove_basic — UNKNOWN obligations fail the proof.
+        let err = result.expect_err("prove must fail while an obligation is UNKNOWN");
+        assert!(err.contains("UNKNOWN"), "{err}");
     }
 
     #[test]

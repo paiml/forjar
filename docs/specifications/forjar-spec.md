@@ -2237,7 +2237,7 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-602 | `forjar status --security-posture` — show security-relevant resource states (modes, ownership). Audit. | Done |
 | FJ-603 | `forjar apply --approval-timeout <duration>` — timeout for interactive approval prompts. Safety. | Done |
 | FJ-604 | `forjar graph --security-boundaries` — highlight resources crossing security boundaries. Visualization. | Done |
-| FJ-605 | `forjar lock verify-hmac` — verify lock file BLAKE3-based HMAC signatures. Integrity. | Done |
+| FJ-605 | `forjar lock verify-hmac` — verify lock file BLAKE3-based HMAC signatures. Integrity. | **Removed (paiml/forjar#405)** — it never compared anything; use FJ-475 `lock verify-sig --key` |
 | FJ-606 | `forjar apply --pre-flight <script>` — run pre-flight validation script before apply. Safety gate. | Done |
 | FJ-607 | `forjar status --compliance-report` — generate compliance report from resource states. Audit. | Done |
 

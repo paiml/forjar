@@ -13,7 +13,7 @@ mod tests_helpers_state_b;
 #[cfg(test)]
 mod tests_helpers_time_b;
 #[cfg(test)]
-mod tests_pq_sbom_undo_b;
+mod tests_sbom_undo_b;
 #[cfg(test)]
 mod tests_lock_merge_b;
 #[cfg(test)]
@@ -26,8 +26,6 @@ mod tests_validate_ownership_b_cov;
 mod tests_validate_paths_cov;
 #[cfg(test)]
 mod tests_init_c;
-#[cfg(test)]
-mod tests_pq_signing_cov;
 #[cfg(test)]
 mod tests_status_counts_cov;
 #[cfg(test)]
@@ -48,8 +46,6 @@ mod tests_validate_ordering_b_cov;
 mod tests_validate_ordering_b_cov_b;
 #[cfg(test)]
 mod tests_lock_merge_cov;
-#[cfg(test)]
-mod tests_recipe_signing_cov;
 #[cfg(test)]
 mod tests_sbom_cov;
 #[cfg(test)]

@@ -73,10 +73,18 @@ pub(crate) fn apply_machine(
         transport::container::ensure_container(machine)?;
     }
 
-    // FJ-252: Start SSH ControlMaster for connection multiplexing
+    // FJ-252: Start SSH ControlMaster for connection multiplexing.
+    //
+    // forjar#404: `Ok(_) => true` claimed ownership of a master this frame did
+    // NOT open — `start_control_master` returns `Ok(false)` for "one is already
+    // running". Since the E02 fix opens the fleet's masters in `cmd_apply`
+    // (before the drift gate), that stale `true` made the FIRST machine to
+    // finish tear down a socket the run-level guard still owns and later
+    // machines, hooks and the readback would then have to re-handshake for.
+    // Only stop what this frame started.
     let ssh_mux = if !cfg.dry_run && transport::is_ssh_transport(machine) {
         match transport::ssh::start_control_master(machine) {
-            Ok(_) => true,
+            Ok(started) => started,
             Err(e) => {
                 eprintln!("warning: SSH multiplexing failed for {machine_name}: {e}");
                 false
