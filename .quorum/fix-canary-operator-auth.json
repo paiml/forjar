@@ -64,9 +64,9 @@
         "roles": [
           "claims"
         ],
-        "bytes": 8151,
-        "sha256": "f5f77c631efd5f77d1dd14df950734139fb6f7ee66a329a7170594618fd26f15",
-        "blob": "43ba1d9a73b59a81b10e3f19f286a7e0ce53d37b"
+        "bytes": 8175,
+        "sha256": "4d94f566b5e8d2ce080d18c83e8e7140c4edcae982905d1d49ad7d977ec9a4ce",
+        "blob": "02853393563c3a377bc82775e586fe26b364c493"
       },
       {
         "path": ".quorum/evidence/374-lanes.md",
@@ -113,12 +113,12 @@
       "--backup with a read mode takes no backup and says nothing; a read changes nothing to back up.",
       "The redundant per-exit copy #370 added on the --plan-file path is left in place."
     ],
-    "total_bytes": 17368
+    "total_bytes": 17392
   },
   "gates": {
     "lib_tests": "13371 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "79c51839bbc3844b2974019a890ef2ca70dbbda8"
+  "diff_sha256": "0a6528fbf30f96f49bbb5880afd82b87515b82d7"
 }
