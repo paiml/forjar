@@ -140,8 +140,11 @@ fn test_golden_hash_pinned_value() {
         ..Resource::default()
     };
     let hash = hash_desired_state(&r);
+    // Repinned for #406: `Resource` gained `sensitive`, and since #403 the
+    // canonical form serialises EVERY field, so a new field moves every
+    // recorded hash — a one-time fleet re-converge, named in the changelog.
     assert_eq!(
-        hash, "blake3:8e1e6846a906d820a62e4fa5341a29e4e4b2ee14f7fb45bb1a49839ee5bbe6d4",
+        hash, "blake3:8702d3d90f36257293c018e8fae98270d0ce4bb852cbe096500aeac6f4436e15",
         "Golden hash changed — the canonical desired-state form moved. Read the \
          comment above before repinning: this is a fleet-wide re-converge."
     );

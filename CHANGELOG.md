@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrade note — `sensitive:` is a new `Resource` field, so every hash moves once (#406)
+
+Since #403 the desired-state hash covers every serialised field of
+`Resource`, so adding `sensitive:` (this release) moves every recorded lock
+hash: the first `forjar apply` after upgrading replans every resource as
+`Update` once, and every `state: absent` resource as `Destroy` once. This is
+the same one-time re-converge #403 documents for any new field; `forjar
+reseal` is NOT the migration — `plan` then one `apply` is.
+
+
 ### Fixed
 
 **The desired-state hash covered 35 of 122 fields, so changed config was
