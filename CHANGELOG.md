@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 reported `unchanged` and never applied (#403, CRUX audit E01).**
 
 `hash_desired_state` was a hand-maintained ALLOWLIST — 14 core fields, 20
-phase-2 fields, the type. The other 74 fields were not hashed at all, including
+phase-2 fields, the type. The other 76 fields were not hashed at all, including
 identity-bearing ones: `uid`, `groups`, `ssh_authorized_keys`, `tag`, `repo`,
 `binary`, `install_dir`, `driver_version`, `cuda_version`, `checksum`,
 `quantization`, `script`, `timeout`, `working_dir`, `sudo`, every `budget_*`,
@@ -48,12 +48,25 @@ generation marker (`forjar-desired-state-v2`), so no lock hash written by an
 older forjar can match one written by this version, and the first `forjar plan`
 after upgrading shows every resource as `Update`.
 
-That is correct, not a regression: forjar cannot know whether the 74 previously
+**Resources declared `state: absent` show as `Destroy`, not `Update`, and
+re-run their destroy step once.** `determine_absent_action` uses this same hash
+to tell "already converged to absent" from "converged as present, now
+redeclared absent", so a generation bump puts every absent resource back in the
+first bucket. The destroy paths are written to be idempotent (`file` emits
+`rm -rf`; `user` puts `userdel` behind an `id` guard) and
+`lifecycle.prevent_destroy` still blocks the action — but read the plan before
+applying it.
+
+That is correct, not a regression: forjar cannot know whether the 76 previously
 unhashed fields drifted while nothing was watching them, so it re-converges
 rather than assuming they did not. Run `forjar plan` first, then one
 `forjar apply`; the second plan is clean. `forjar reseal` does NOT shortcut
 this — it regenerates BLAKE3 integrity sidecars for a lock file and never
 touches the recorded desired-state hashes.
+
+Note for maintainers: because `Resource` has no `skip_serializing_if`, ANY
+future release that adds a `Resource` field moves every recorded hash the same
+way and needs the same note. See the `planner::hashing` module header.
 
 ## [1.24.0] — 2026-09-01
 

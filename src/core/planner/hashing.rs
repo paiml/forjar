@@ -24,13 +24,29 @@
 //!
 //! The old collector's field ORDER was hash identity, so inserting a component
 //! invalidated every recorded hash on every machine. The canonical form below
-//! sorts mapping keys instead, so adding a `Resource` field changes only the
-//! hashes of resources that actually set it. [`HASH_GENERATION`] gates the one
-//! unavoidable break: it changes when the CANONICAL FORM itself changes, and
-//! every resource then replans as `Update` exactly once. That is the correct
-//! outcome, not a regression — forjar cannot know whether the 74 previously
-//! unhashed fields drifted while nothing was watching them, so it re-converges
-//! rather than assuming they did not.
+//! sorts mapping keys instead, so a field can now be declared ANYWHERE in the
+//! `Resource` struct without moving anything.
+//!
+//! Sorting does NOT buy addition-independence, and it is worth being exact
+//! about that because the cost lands on a fleet. `Resource` carries no
+//! `skip_serializing_if`, so `serde_yaml_ng::to_value` emits all 122 of its
+//! keys for EVERY resource — a `None` renders `~` just as loudly as a value
+//! renders itself. ADDING A FIELD TO `Resource` THEREFORE MOVES EVERY RECORDED
+//! HASH ON EVERY MACHINE, whether or not any config sets it, and is itself a
+//! fleet re-converge. Skipping default-valued keys would buy that back and
+//! reintroduce this module's own defect one level up: a field whose DEFAULT
+//! later changed would then not re-converge, silently, which is the failure
+//! this file exists to stop. The loud side is the one to keep — but say so in
+//! the release note when you add a field.
+//!
+//! [`HASH_GENERATION`] gates the break when the CANONICAL FORM ITSELF changes.
+//! Every resource then replans as `Update` exactly once — and every resource
+//! declared `state: absent` replans as `Destroy` and RE-RUNS its destroy step,
+//! because `determine_absent_action` separates "already converged to absent"
+//! from "converged as present, now redeclared absent" using this same hash.
+//! That is the correct outcome, not a regression — forjar cannot know whether
+//! the 76 previously unhashed fields drifted while nothing was watching them,
+//! so it re-converges rather than assuming they did not.
 
 use crate::core::types::*;
 use crate::tripwire::hasher;

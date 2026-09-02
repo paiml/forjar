@@ -123,9 +123,13 @@ fn test_golden_hash_pinned_value() {
     // lock hash on every machine stops matching and every resource replans as
     // `Update` once. Last moved by #403 / audit E01, which replaced the 35-field
     // allowlist with the whole declaration minus `NON_IDENTITY_FIELDS` and
-    // stamped `HASH_GENERATION = "forjar-desired-state-v2"` into the input. If
-    // you are here because you added a `Resource` field, that is NOT a reason to
-    // repin — a new field only moves the hashes of resources that set it.
+    // stamped `HASH_GENERATION = "forjar-desired-state-v2"` into the input.
+    //
+    // If you are here because you ADDED a `Resource` field: repinning is the
+    // correct action, and it is still a fleet migration. `Resource` has no
+    // `skip_serializing_if`, so a new field serialises as `~` on every resource
+    // and moves EVERY recorded hash — not only the hashes of configs that set
+    // it. Repin, and write the upgrade note.
     let r = Resource {
         resource_type: ResourceType::Package,
         machine: MachineTarget::Single("m1".to_string()),
