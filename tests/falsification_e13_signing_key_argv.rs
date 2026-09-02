@@ -324,6 +324,69 @@ fn verify_chain_must_resolve_a_key_ref() {
     );
 }
 
+/// `lock-verify-sig` must resolve its OWN key ref — the verifier is a second
+/// call site, not a passenger on `lock-sign`.
+///
+/// Deliberately crossed the other way from
+/// `key_file_ref_must_resolve_to_the_files_contents`: sign with the material,
+/// verify by naming a file. Every other test in this file verifies with a
+/// literal, so an unresolved verifier would sail through all of them while
+/// calling a perfectly good signature invalid in the field.
+#[test]
+fn verify_sig_must_resolve_a_key_ref() {
+    let d = tempfile::tempdir().unwrap();
+    let state = state_with_lock(d.path());
+    let kf = key_file(d.path(), "verify.key", SECRET);
+
+    let signed = run(&[
+        "lock-sign",
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--key",
+        SECRET,
+    ]);
+    assert_eq!(code(&signed), 0, "sign{}", ctx(&signed));
+
+    let out = run(&[
+        "lock-verify-sig",
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--key",
+        &format!("file:{}", kf.display()),
+    ]);
+    assert_eq!(
+        code(&out),
+        0,
+        "lock-verify-sig --key file:<path> must verify against the file's \
+         CONTENTS, not the literal string \"file:<path>\"{}",
+        ctx(&out)
+    );
+
+    // An unreadable key file must be reported AS an unreadable key file.
+    // Exit 1 alone cannot tell the two apart: an unresolved verifier also
+    // exits 1, but for the wrong reason — it says the signature is bad when
+    // the truth is that the operator's key never got read. Pin the reason.
+    let missing = run(&[
+        "lock-verify-sig",
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--key",
+        &format!("file:{}", d.path().join("absent.key").display()),
+    ]);
+    assert_eq!(
+        code(&missing),
+        1,
+        "an unreadable key file must fail{}",
+        ctx(&missing)
+    );
+    assert!(
+        stderr(&missing).contains("cannot read key file"),
+        "an unreadable key must be named as such, not reported as an invalid \
+         signature; stderr was: {}",
+        stderr(&missing)
+    );
+}
+
 // ── inline key material still works, but is loudly deprecated ─────────
 
 /// Compatibility is kept — and paid for with a warning that names the risk,
@@ -409,7 +472,12 @@ fn rotate_keys_must_warn_for_each_inline_key() {
 /// capability the binary does not have is how a secret ends up in `ps`.
 #[test]
 fn help_must_document_the_indirect_forms() {
-    for cmd in ["lock-sign", "lock-verify-sig", "lock-rotate-keys"] {
+    for cmd in [
+        "lock-sign",
+        "lock-verify-sig",
+        "lock-rotate-keys",
+        "lock-verify-chain",
+    ] {
         let out = run(&[cmd, "--help"]);
         let text = format!("{}{}", stdout(&out), stderr(&out));
         assert!(
