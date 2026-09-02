@@ -50,7 +50,20 @@ pub(crate) fn cmd_prove(
     if all_passed {
         Ok(())
     } else {
-        Err("convergence proof failed: see above".to_string())
+        // NAME THE STATES. "see above" told a CI consumer nothing it could
+        // branch on; an UNKNOWN obligation and a FALSIFIED one are different
+        // failures with different owners (forjar#416).
+        let unknown = proofs
+            .iter()
+            .filter(|p| !p.passed && p.detail.starts_with("[UNKNOWN]"))
+            .count();
+        let falsified = proofs
+            .iter()
+            .filter(|p| !p.passed && p.detail.starts_with("[FALSIFIED]"))
+            .count();
+        Err(format!(
+            "convergence proof failed: {unknown} obligation(s) UNKNOWN, {falsified} FALSIFIED — see above"
+        ))
     }
 }
 
