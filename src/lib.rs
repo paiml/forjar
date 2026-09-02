@@ -3,6 +3,15 @@
 //! Bare-metal first. BLAKE3 state hashing. Provenance tracing.
 //! Faster, more provable, more sovereign than Terraform, Pulumi, or Ansible.
 //!
+//! # Where the contract code comes from
+//!
+//! `#[contract]` and the `build_helper` that verifies `contracts/binding.yaml`
+//! are workspace members under `crates/forjar-contracts*` (forjar#423) — a
+//! byte-faithful copy of `aprender-contracts` 0.31.2 with the library names
+//! `provable_contracts` / `provable_contracts_macros` unchanged. Nothing
+//! about contract code is fetched from a registry or a sibling checkout;
+//! `cargo build --offline` proves it.
+//!
 //! # Using forjar as a library
 //!
 //! **Start at [`api`].** That module is the supported surface and the only part
