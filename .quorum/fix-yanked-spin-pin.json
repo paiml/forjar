@@ -7,7 +7,8 @@
       "probe",
       "crux",
       "design",
-      "judges"
+      "judges",
+      "agy"
     ],
     "refuters_per_claim": 3,
     "kill_rule": "any un-countered substantive objection kills the claim",
@@ -17,7 +18,7 @@
     "refuted_claims": [
       "Set yanked = \"deny\" in deny.toml and be done — REFUTED: measured to exit 0 without seeing the crate, because all-features = false keeps the optional wasmi subtree out of cargo-deny's feature graph; the lockfile reader (cargo-audit) is the lane that has to deny."
     ],
-    "divergence": "none: a two-file change with a lockfile-reading falsifier; the agy lane was not run (below the width that triggers it) and is recorded as NotRun"
+    "divergence": "none: the probe lane and the agy lane agree; the agy lane refuted five attacks (un-yanked 0.9.9, forgiven flag, deny.toml widening, tautology, vacuity) with file:line evidence and added that cargo-deny defaults yanked to warn even with all-features = true"
   },
   "crux": {
     "systems": [
@@ -28,9 +29,11 @@
     "verdict": "at the industry default after this branch: the lockfile reader denies yanked pins, and a test in the tree keeps the pin from returning between releases"
   },
   "agy_teamwork": {
-    "ran": false,
-    "verdict": "NotRun: a lockfile pin bump and one workflow flag, pinned by a test that reads both files; below the width that triggers the lane",
-    "unique_findings": []
+    "ran": true,
+    "verdict": "passes adversarial review: the lockfile-reading falsifier is non-vacuous (refuses under 100 packages or without exactly one cargo-audit invocation), --deny yanked reds the lane, deny.toml is centrally deployed and not the place to fix it; design above the ecosystem default (tokio, cargo itself let yanks warn)",
+    "unique_findings": [
+      "cargo-deny defaults yanked to warn; all-features = true alone would still have passed the lane"
+    ]
   },
   "pmat": {
     "tools": [
@@ -66,8 +69,8 @@
           "lanes"
         ],
         "bytes": 1302,
-        "sha256": "19c9d43e03ba88109cf9bff1c874d4a77c2b2bde93fbefbdd66655b1b653e330",
-        "blob": "3865ecd131f6c95b6b14e4ce10a2d7e10269c17f"
+        "sha256": "6a3ee8ec768d41c171e1dc0558ec0f816af834314228a25573ece485cb20d20a",
+        "blob": "288682a380d44921c6b54e75844fa8e966e7bacf"
       },
       {
         "path": ".quorum/evidence/364-judges.md",
@@ -86,6 +89,15 @@
         "bytes": 559,
         "sha256": "61ad58fadbcb3da4f6af3d4369f7cb6b8c14927a57ca7a2a32746d769a668519",
         "blob": "e001cd35f9885f48a7c8b9324a58279b7a3825a8"
+      },
+      {
+        "path": ".quorum/evidence/364-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 4212,
+        "sha256": "e0544efc45f736de3ec2abcf67533193e5d8773b9e39dafa4bcea35b0f519ec2",
+        "blob": "750e2091b442d8ac29819a230e6588947fd13f7b"
       }
     ],
     "claims_digest": ".quorum/evidence/364-claims.md",
@@ -94,12 +106,12 @@
       "The known-yanked set in the test is a list; a new yank is caught by the audit lane's --deny yanked, not by the test, until the list is extended.",
       "deny.toml's all-features = false is left as is; widening it would change every other deny check's graph."
     ],
-    "total_bytes": 4803
+    "total_bytes": 9015
   },
   "gates": {
     "lib_tests": "not affected (no Rust source change outside the new test); lockfile resolves --locked",
     "clippy": "not affected"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "29e8e826c144ab7007c7112026dac1eefc033651"
+  "diff_sha256": "b2bec495c2feb6a8d5bd51dc8c449ad71de8730b"
 }
