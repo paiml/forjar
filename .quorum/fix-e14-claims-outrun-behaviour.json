@@ -231,6 +231,6 @@
     "lib_tests": "13373 passed, 0 failed, 4 ignored",
     "clippy": "-D warnings, 0 errors"
   },
-  "diff_sha256": "f077c37142dd66da303d651f4fabd2a3b2b023ea",
+  "diff_sha256": "96549ac8d8c45eb48515e6cf1305f44b9dd9209c",
   "base_commit_rebased": "Re-anchored from f0cbf6352c87 after rebasing onto origin/main (#418, #419 E01, #420 E03, #421 E02, #424 E05, #426 E13) to clear the .pmat/baseline.json conflict (#401) and a row-30 conflict in docs/specifications/improve-quality-forjar-v2.md with #420. The evidence was NOT re-run: none of those PRs touches src/cli/prove.rs, src/cli/provenance.rs, the withdrawn chain module or tests/falsification_e14_claims_outrun_behaviour.rs. Rebased rather than merged because the merge commit could not pass the TDG pre-commit hook on src/cli/dispatch_lock.rs (paiml-mcp-agent-toolkit#1162: an edited file loses its cached entropy score), and the replay ran with hooks disabled [A] because the post-commit baseline hook dirties the tree between replayed commits; every replayed commit had already passed the hook when it was made."
 }
