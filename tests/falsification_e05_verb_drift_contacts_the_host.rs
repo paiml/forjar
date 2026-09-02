@@ -125,6 +125,86 @@ fn drift_over_an_unreachable_machine_must_not_answer_clean() {
          controller's filesystem was read instead. detail={}",
         conf["detail"]
     );
+    // `MISSING` is also what a REACHED host answers for an absent file, so the
+    // detail must show the transport failing to reach 203.0.113.9 — otherwise
+    // an environment where TEST-NET-3 routes somewhere would pass vacuously
+    // (E05 quorum, agy lane).
+    let detail = conf["detail"].as_str().unwrap_or("");
+    assert!(
+        detail.contains("203.0.113.9") || detail.contains("not accessible"),
+        "the verdict must come from a failed attempt to reach the target, not from a \
+         successful read somewhere: {detail}"
+    );
+}
+
+/// FALSIFY-E05-004 — an unknown `machine` filter is an error, not an empty
+/// clean answer. RED on the first cut: the loop matched nothing and returned
+/// `drifted: false` with zero inspected.
+#[test]
+fn an_unknown_machine_filter_is_refused_by_name() {
+    let d = tempfile::tempdir().expect("tempdir");
+    let (cfg, state_dir) = unreachable_fleet(d.path());
+    let params = serde_json::json!({
+        "path": cfg.display().to_string(),
+        "state_dir": state_dir.display().to_string(),
+        "machine": "nope",
+    })
+    .to_string();
+    let out = Command::new(forjar())
+        .args(["verb", "call", "drift", "--json", &params])
+        .output()
+        .expect("spawn forjar");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !out.status.success(),
+        "an unknown machine name answered as if it were clean: {text}"
+    );
+    assert!(
+        text.contains("unknown machine") && text.contains("nope"),
+        "the refusal must name the machine: {text}"
+    );
+}
+
+/// FALSIFY-E05-005 — a SERVICE-mode task is not owned by the task detector, so
+/// its `completion_check` reaches the generic state query. Under the read-only
+/// verb that must be declined too. RED on the first cut: the trap fired.
+#[test]
+fn a_service_task_completion_check_is_declined_too() {
+    let d = tempfile::tempdir().expect("tempdir");
+    let trap = d.path().join("SERVICE_CHECK_FIRED");
+    let cfg = d.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        format!(
+            "version: \"1.0\"\nname: e05svc\nmachines:\n  local:\n    hostname: localhost\n\
+             \x20   addr: 127.0.0.1\nresources:\n  daemon:\n    type: task\n    machine: local\n\
+             \x20   task_mode: service\n    command: \"true\"\n    completion_check: \"touch {}\"\n",
+            trap.display()
+        ),
+    )
+    .expect("write config");
+    let state_dir = d.path().join("state");
+    write_lock(
+        &state_dir,
+        "local",
+        "  daemon:\n    type: task\n    status: converged\n    hash: \"h\"\n\
+         \x20   details:\n      live_hash: \"blake3:0000\"\n",
+    );
+    let out = call_drift(&cfg, &state_dir);
+    assert!(
+        !trap.exists(),
+        "a service task's completion_check ran on the controller under a read-only verb: {out}"
+    );
+    let census = &out["census"][0];
+    assert_eq!(
+        census["skipped_by_reason"]["--no-task-checks"],
+        serde_json::json!(1),
+        "declining must be counted, not silent: {out}"
+    );
 }
 
 /// FALSIFY-E05-002 — the answer carries its own denominator. RED on main:

@@ -192,6 +192,19 @@ impl Handler for DriftHandler {
             &config.secrets,
         );
 
+        // An unknown `machine` filter used to fall through this loop matching
+        // nothing and return an EMPTY answer — `drifted: false`, zero
+        // inspected — indistinguishable from a clean host (E05 quorum, agy
+        // lane). Refuse it by name instead.
+        if let Some(wanted) = input.machine.as_deref() {
+            if !config.machines.contains_key(wanted) {
+                let known: Vec<&str> = config.machines.keys().map(String::as_str).collect();
+                return Err(pforge_runtime::Error::Handler(format!(
+                    "unknown machine `{wanted}`; the config declares: {}",
+                    known.join(", ")
+                )));
+            }
+        }
         let mut scan = Scan::default();
         for (machine_name, machine) in &config.machines {
             if input.machine.as_ref().is_some_and(|m| m != machine_name) {

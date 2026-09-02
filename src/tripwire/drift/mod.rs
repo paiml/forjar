@@ -156,7 +156,13 @@ pub fn detect_drift_full_reported(
         opts,
         &mut census,
     ));
-    findings.extend(detect_nonfile_drift(lock, machine, resources, &mut census));
+    findings.extend(detect_nonfile_drift(
+        lock,
+        machine,
+        resources,
+        opts,
+        &mut census,
+    ));
     findings.extend(image::detect_image_drift(
         lock,
         machine,
@@ -202,6 +208,7 @@ fn detect_nonfile_drift(
     lock: &StateLock,
     machine: &Machine,
     resources: &indexmap::IndexMap<String, Resource>,
+    opts: DriftOptions,
     census: &mut DriftCensus,
 ) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
@@ -212,6 +219,25 @@ fn detect_nonfile_drift(
         // — `task::state_query_script` IS `verdict::single(<the check>)` — and
         // report one violated guard as two findings.
         if resources.get(id).is_some_and(task_check::owns) {
+            continue;
+        }
+        // A SERVICE-mode task is not owned by `task_check` (its lock digest was
+        // written against the PID-file query), so it reaches the state query
+        // here — and `task::state_query_script` still prefers the declared
+        // `completion_check` when there are no output artifacts. Under
+        // `run_task_checks: false` that is a config-declared command about to
+        // run on a read-only surface (E05 quorum, agy lane): decline it under
+        // the same closed-set reason, so the census says so.
+        if !opts.run_task_checks
+            && resources.get(id).is_some_and(|r| {
+                r.resource_type == ResourceType::Task && r.completion_check.is_some()
+            })
+        {
+            census.skipped(
+                id,
+                &rl.resource_type,
+                census::SkipReason::TaskChecksDisabled,
+            );
             continue;
         }
         // FILE RESOURCES ARE NOT EXCLUDED ANY MORE.
@@ -302,6 +328,8 @@ pub use task_check::DriftOptions;
 mod tests_basic;
 #[cfg(test)]
 mod tests_basic_b;
+#[cfg(test)]
+mod tests_e05_routing;
 #[cfg(test)]
 mod tests_edge_fj131;
 #[cfg(test)]
