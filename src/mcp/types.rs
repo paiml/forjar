@@ -137,7 +137,11 @@ pub struct DriftOutput {
     /// declined to run. `drift` now resolves templates so it can regenerate a
     /// state query, and template resolution is where a `sops`/`op` secrets
     /// provider spawns; the verb publishes `readOnlyHint: true`, so it strips
-    /// them and says which ones instead.
+    /// them and says which ones instead. It carries the `completion_check` of
+    /// every locked task for the same reason — that is a command string the
+    /// config author typed, and running it is what `readOnlyHint` promises not
+    /// to do. Each one is also counted in `census` as `--no-task-checks`, so
+    /// the coverage number and the disclosure cannot disagree.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unattended_skipped: Vec<String>,
 }

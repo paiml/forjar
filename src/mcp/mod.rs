@@ -19,6 +19,8 @@ pub mod types_ops;
 #[cfg(test)]
 mod tests_dogfood;
 #[cfg(test)]
+mod tests_drift_adversarial;
+#[cfg(test)]
 mod tests_drift_e05;
 #[cfg(test)]
 mod tests_handlers;
