@@ -44,7 +44,10 @@ impl Sandbox {
     /// `machines` is `(machine, allowed_operators)`; an empty operator list
     /// restricts nobody on that machine.
     fn new(name: &str, machines: &[(&str, &[&str])]) -> Self {
-        let dir = std::env::temp_dir().join(format!("forjar-374-{name}"));
+        // Per-process: two concurrent runs of this suite on one box would
+        // otherwise share `forjar-374-<name>`, and each `Drop` deletes the
+        // other's fixture out from under it mid-run.
+        let dir = std::env::temp_dir().join(format!("forjar-374-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("sandbox");
         let me = Self { dir };
@@ -296,6 +299,64 @@ fn an_unauthorized_apply_does_not_run_the_pre_script() {
         !sentinel.exists(),
         "the apply was refused AFTER running the operator's pre-script"
     );
+}
+
+/// The OTHER door of the same pre-hook window, and the read-mode exemption is
+/// what opens it. `--check` exits from `apply_mode_exits`, which sits BELOW
+/// `apply_pre_checks` — so an exemption written as "is `--check` set?" skips the
+/// gate, `apply_pre_checks` runs the operator's `--pre-script` to completion,
+/// and the check results print with no refusal anywhere, because the read modes
+/// are deliberately ungated. Measured against the first cut of this fix:
+/// `apply --check --pre-script pre.sh --operator mallory` created the sentinel
+/// and exited on "2 check(s) failed". A read mode carrying a hook is not a read.
+#[test]
+fn a_read_mode_does_not_launder_the_pre_script_hook() {
+    let sb = Sandbox::fleet("read-pre-script");
+    let script = sb.dir.join("pre.sh");
+    let sentinel = sb.dir.join("pre-script-ran");
+    std::fs::write(
+        &script,
+        format!("#!/bin/bash\ntouch {}\n", sentinel.display()),
+    )
+    .expect("script");
+
+    let out = sb.apply(Some("mallory"), &["--check", "--pre-script", "pre.sh"]);
+    assert!(
+        !sentinel.exists(),
+        "`apply --check --pre-script` ran an unlisted operator's script: the \
+         read-mode exemption skipped the gate and `apply_pre_checks` runs \
+         BELOW it.\nexit {:?}\nstdout: {}",
+        out.status.code(),
+        stdout(&out)
+    );
+    refused(&out, "`apply --check --pre-script --operator mallory`");
+}
+
+/// The over-correction guard for the test above: carrying a hook must gate the
+/// read, not forbid it. alice is listed, so her hook runs and her check runs.
+#[test]
+fn a_listed_operator_still_gets_a_read_with_a_hook() {
+    let sb = Sandbox::fleet("read-pre-script-ok");
+    let script = sb.dir.join("pre.sh");
+    let sentinel = sb.dir.join("pre-script-ran");
+    std::fs::write(
+        &script,
+        format!("#!/bin/bash\ntouch {}\n", sentinel.display()),
+    )
+    .expect("script");
+
+    let out = sb.apply(Some("alice"), &["--check", "--pre-script", "pre.sh"]);
+    assert!(
+        !stderr(&out).contains("not authorized"),
+        "alice is listed on every machine: {}",
+        stderr(&out)
+    );
+    assert!(
+        sentinel.exists(),
+        "an AUTHORIZED operator's --pre-script must still run: {}",
+        stderr(&out)
+    );
+    assert!(sb.nothing_was_written(), "`--check` converged something");
 }
 
 /// Precedence, not a set. `apply_early_exits` runs BEFORE `apply_mode_exits`,

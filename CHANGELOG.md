@@ -23,8 +23,8 @@ forjar apply --refresh-only --operator mallory             -> every lock rewritt
 ```
 
 `--pre-script` had the same shape: `apply_pre_checks` ran the operator's script and
-*then* refused. #370 patched exactly one of these exits (`--plan-file`) at its own
-call site; a gate each exit has to remember is not a gate, so the check now runs in
+*then* refused. #370 patched exactly one of these exits (`--plan-file`) at its own call
+site; a gate each exit has to remember is not a gate, so the check now runs in
 `dispatch_apply_cmd` before any exit, hook or backup.
 
 Second, independent defect in the same command: `cmd_apply_canary_machine` hard-coded
@@ -43,6 +43,12 @@ costs a real refusal: `check_operator_auth` iterates *every* machine regardless 
 `--machine`, so an operator listed on one machine would lose `apply -m theirs --check`.
 This is the same line #370 drew when it left `plan --out` ungated, and both directions
 are pinned by tests in `tests/falsification_canary_apply_is_authorized.rs`.
+
+A read is only a read if the *invocation* is. `--check`, `--diff-only` and
+`--output-scripts` exit from `apply_mode_exits`, which sits *below* `apply_pre_checks`,
+so `apply --check --pre-script deploy.sh --operator mallory` used to run `deploy.sh`
+and then print check results with no refusal anywhere. An invocation carrying
+`--pre-script`, `--pre-flight` or `--webhook-before` is therefore gated in every mode.
 
 ## [1.24.0] — 2026-09-01
 

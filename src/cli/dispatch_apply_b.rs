@@ -121,7 +121,18 @@ pub(super) fn effective_dry_run(args: &ApplyArgs) -> bool {
 /// read. Anything not named here — `--refresh-only`, `--plan-file`, `--dry-run`,
 /// a plain apply, and any mode added later — is gated. Fail-safe by default:
 /// forgetting to add a new read here can only over-refuse, never over-apply.
+///
+/// A read mode is only a read if the INVOCATION is. `--check`, `--diff-only`
+/// and `--output-scripts` exit from `apply_mode_exits`, which is BELOW
+/// `apply_pre_checks` — so `apply --check --pre-script deploy.sh` executes
+/// `deploy.sh` on the way to printing the check results. That is the same
+/// pre-hook window #374 closed on the ordinary path, and exempting it here
+/// would have left one door of it open, so an invocation carrying a hook that
+/// runs something outside forjar is not a read no matter what else is on it.
 fn is_read_only_apply_mode(args: &ApplyArgs) -> bool {
+    if runs_an_external_hook(args) {
+        return false;
+    }
     if args.dry_run_verbose || args.dry_run_graph || args.dry_run_cost {
         return true;
     }
@@ -129,6 +140,12 @@ fn is_read_only_apply_mode(args: &ApplyArgs) -> bool {
         return false;
     }
     args.output_scripts.is_some() || args.diff_only || args.check
+}
+
+/// Does this invocation make `apply_pre_checks` execute something forjar does
+/// not control — a script, or an outbound request naming the config?
+fn runs_an_external_hook(args: &ApplyArgs) -> bool {
+    args.pre_script.is_some() || args.pre_flight.is_some() || args.webhook_before.is_some()
 }
 
 /// Early exits for dry-run and canary modes.
