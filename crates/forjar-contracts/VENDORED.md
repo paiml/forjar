@@ -16,3 +16,10 @@ without a `check-cfg` declaration, one `manual_strip`, one
 `manual_is_multiple_of`. They are allowed in this crate's `[lints]` table
 rather than fixed, so the source stays byte-identical to the registry copy;
 fix them upstream and re-vendor.
+
+## Trimmed
+
+`examples/` (and any benches) are removed: they `include_str!` contract YAML
+by path from the upstream repository (`../../../contracts/*.yaml`), which
+does not exist here, so `cargo clippy --all-targets --workspace` could not
+build them. forjar uses the library, the build helper and the macro only.
