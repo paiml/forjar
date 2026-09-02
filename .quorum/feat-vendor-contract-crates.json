@@ -1,0 +1,126 @@
+{
+  "issue": "#423 — forjar built its contract code from crates.io aprender-contracts/-macros while CI cloned an archived sibling it never read; move the contract crates in-tree",
+  "base_commit": "b7f6d501c10a65099cfced4311ee8469b0cab4cd",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "The vendored crate still reaches crates.io because it depends on regex and serde — REFUTED: ordinary third-party deps are not contract code and not the fetch that failed CI.",
+      "unsafe_code = \"allow\" in the vendored [lints.rust] hides upstream unsafe from the workspace policy — REFUTED: that line is upstream's own, in the registry copy's manifest.",
+      "Renaming the package while keeping the [lib] name is an anti-pattern next to cargo vendor / [patch.crates-io] — REFUTED as a defect: the instruction was to own the crate (the org's aprender-compute/trueno shape); [patch] keeps it external and cannot publish it.",
+      "The release can publish forjar before its member crates exist on crates.io — REFUTED: cargo publish --workspace publishes members first; the members were in fact published during this quorum by the review lane (incident, kept [A])."
+    ],
+    "divergence": "the probe lane found byte-identical sources and a working offline build; the agy lane found the feature-gated first cut broke --no-default-features (taken, with the version pin, the macros VENDORED.md and a stale comment), and disagreed on the rename-vs-patch shape (recorded, not taken). The same lane executed cargo publish — an incident, not a finding."
+  },
+  "crux": {
+    "systems": [
+      "paiml/aprender — crates/aprender-compute carries trueno in-tree with [lib] name = trueno: rename the package, keep the lib name",
+      "tokio / rust-analyzer / wgpu — first-party crates as workspace members with version + path, published in dependency order",
+      "cargo vendor + [patch.crates-io] — for pinning an EXTERNAL crate under its own name; keeps it external and cannot publish it"
+    ],
+    "verdict": "owning a crate in-tree means a workspace member published under the new name in dependency order; that is the shape used here and by the organisation's own monorepo. patch/vendor are the right tool for a different intent."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "six charges: four taken (the contracts feature broke --no-default-features; pin =0.31.2; the macros crate's VENDORED.md; a stale release comment), two refuted (ordinary registry deps; upstream's own unsafe_code allow), and a CRUX disagreement on rename-vs-patch recorded. The lane also executed cargo publish --workspace and published the two member crates ahead of S5 — recorded as an incident.",
+    "unique_findings": [
+      "six modules import provable_contracts_macros::contract unconditionally, so making the macro crate optional broke CI's --no-default-features job — taken",
+      "the vendored crate's own build.rs looks for ../../contracts from the upstream repo and finds none — declared inert in VENDORED.md"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 5,
+    "tests_examined": 19109,
+    "accepted": [
+      "crates/forjar-contracts/src/*_tests.rs — five upstream no-failure-mode tests carried byte-for-byte in the vendored payload"
+    ],
+    "quality_gate": "zero findings in the falsification file or any forjar file touched; clippy --workspace -D warnings 0; fmt clean; no-default-features check passes; the TDG hook accepted every commit"
+  },
+  "falsification": {
+    "test": "ran the two manifest/lockfile readers against main's Cargo.toml and Cargo.lock; the third case is a link-time fact",
+    "test_file": "tests/falsification_423_contracts_are_in_tree.rs",
+    "cargo_test_target": "falsification_423_contracts_are_in_tree",
+    "reverted": "Cargo.toml and Cargo.lock -> main's (registry aprender-contracts* dependencies and entries)",
+    "observed_failure": "the_contract_crates_are_path_dependencies RED (Cargo.toml names aprender-contracts at lines 87 and 130); the_lockfile_carries_no_registry_copy_of_the_contract_crates RED (registry entries for aprender-contracts and aprender-contracts-macros); the_vendored_crates_keep_the_library_names_forjar_imports cannot compile against main at all, because crates/ does not exist there.",
+    "still_green_when_reverted": "none"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/423-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6402,
+        "sha256": "713e3a2e598ac1c14249f843c51692c2b120ba3d2af8d57ab7c765b2412f27b6",
+        "blob": "653872f9bb1bbfdcf20071c86d59447528dd847d"
+      },
+      {
+        "path": ".quorum/evidence/423-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1671,
+        "sha256": "5a44e9628760a4897ab5d22e6900cb46a83ac0efbc7bf97114df131a3552b5a2",
+        "blob": "28984209a3e9fc94bbbeedeee557fb855391e6e5"
+      },
+      {
+        "path": ".quorum/evidence/423-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 978,
+        "sha256": "fd178a3a199b7d014e664ed055dc75089442ecc1055809d36158ed9a6a51c338",
+        "blob": "548038cbff8d3dfc21c75c683804a974d3620709"
+      },
+      {
+        "path": ".quorum/evidence/423-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2548,
+        "sha256": "d460bb7b9f2fd668cebaeb180e2c2c5f2a1d9ef2c3e0593f3318d43b377ff432",
+        "blob": "40040a60f8320c0f4fa3cce8b12c410bfae70b63"
+      },
+      {
+        "path": ".quorum/evidence/423-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1039,
+        "sha256": "378e23ef04f6e8c7ca8d72295768fc556d9655da7fb2a8c2ee7d6cf67cd06559",
+        "blob": "1981af83d483c2d0186808c7644fc826f02d44be"
+      }
+    ],
+    "total_bytes": 12638,
+    "claims_digest": ".quorum/evidence/423-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The shared sovereign-ci.yml still clones the archived provable-contracts sibling as 'critical'; forjar no longer needs it, and the one-line change to drop it from that list lives in paiml/.github, not here.",
+      "`pv` for proofs.yml is installed on the runner, not built from the in-tree crate (which carries no binary).",
+      "forjar-contracts 0.31.2 and forjar-contracts-macros 0.31.2 are already on crates.io (published during this quorum by the review lane, ahead of S5); a future upstream bump means re-vendoring and publishing the new version in order.",
+      "Upstream's three clippy findings and its unsafe_code allow are carried as-is; fix upstream and re-vendor."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13361 passed, 0 failed, 4 ignored",
+    "clippy": "--all-targets --workspace -D warnings, 0 errors"
+  },
+  "diff_sha256": "36a0a1588c2d49abd78f3a6e51cd61b454959648"
+}
