@@ -17,7 +17,9 @@ pub(crate) fn dispatch_platform_cmd(cmd: Commands) -> Result<(), String> {
             super::stack_dep_graph::cmd_stack_graph(&file, json)
         }
         Commands::InfraQuery(args) => dispatch_query(args),
-        Commands::RecipeSign(args) => dispatch_sign(args),
+        Commands::RecipeDigest(args) => {
+            super::recipe_digest::cmd_recipe_digest(&args.recipe, args.verify, args.json)
+        }
         other => dispatch_platform_cmd_b(other),
     }
 }
@@ -108,22 +110,4 @@ fn dispatch_pull_agent(args: PullAgentArgs) -> Result<(), String> {
         mode,
         args.json,
     )
-}
-
-fn dispatch_sign(args: RecipeSignArgs) -> Result<(), String> {
-    if args.pq {
-        super::pq_signing::cmd_dual_sign(
-            &args.recipe,
-            args.verify,
-            args.signer.as_deref(),
-            args.json,
-        )
-    } else {
-        super::recipe_signing::cmd_recipe_sign(
-            &args.recipe,
-            args.verify,
-            args.signer.as_deref(),
-            args.json,
-        )
-    }
 }

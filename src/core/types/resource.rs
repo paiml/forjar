@@ -395,6 +395,10 @@ pub struct Resource {
     /// Enable content-addressed store.
     #[serde(default)]
     pub store: bool,
+    /// Refs #406: write no run transcript for this resource (Ansible `no_log`).
+    /// See `resolver::redaction` for what redaction can and cannot name.
+    #[serde(default)]
+    pub sensitive: bool,
     /// Build script for derivation resources.
     #[serde(default)]
     pub script: Option<String>,

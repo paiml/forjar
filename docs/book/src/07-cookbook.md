@@ -1939,7 +1939,7 @@ Reports privilege levels: `unprivileged`, `system-write`, `package-manager`, `se
 
 ## SLSA Provenance Attestation
 
-Generate in-toto-style SLSA Level 3 provenance attestations:
+Generate an in-toto-style provenance attestation (unsigned, not SLSA-conformant — it links config, plan and state digests, and nothing signs it; forjar#416):
 
 ```bash
 # Generate provenance attestation

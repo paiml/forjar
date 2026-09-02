@@ -10,8 +10,8 @@ pub struct LockVerifyChainArgs {
     pub state_dir: PathBuf,
 
     /// Signing key used by `lock-sign` — required to verify that a signature
-    /// actually covers the lock it sits next to
-    #[arg(long)]
+    /// actually covers the lock it sits next to. `file:<PATH>` or `env:<VAR>`
+    #[arg(long, help = crate::core::key_source::KEY_ARG_HELP)]
     pub key: Option<String>,
 
     /// Only check that every lock carries a well-formed signature. Does NOT
@@ -87,18 +87,6 @@ pub struct LockNormalizeArgs {
 /// CLI arguments for `lock validate`.
 #[derive(clap::Args, Debug)]
 pub struct LockValidateArgs {
-    /// State directory
-    #[arg(long, default_value = "state")]
-    pub state_dir: PathBuf,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
-/// CLI arguments for `lock verify-hmac`.
-#[derive(clap::Args, Debug)]
-pub struct LockVerifyHmacArgs {
     /// State directory
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
