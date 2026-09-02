@@ -95,6 +95,7 @@ pub(crate) fn cmd_apply_scoped(
         machine_filter,
         tag_filter,
         resource_filter,
+        group_filter,
         confirm_destructive,
         dry_run,
         force,

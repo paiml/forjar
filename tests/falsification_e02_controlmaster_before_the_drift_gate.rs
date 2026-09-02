@@ -363,3 +363,111 @@ fn gate_fans_out_across_machines() {
          no two queries were ever open at the same time. Markers:\n{log}"
     );
 }
+/// The SAME must hold for `-t` and `-g`, whose branches of the gate's
+/// predicate are separate code from `-r`'s.
+///
+/// ADVERSARIAL REVIEW (forjar#404): `-t` shipped untested, and `-g` was not
+/// scoped AT ALL — `group_filter` was not even a parameter of
+/// `apply_pre_validate`, so `GateScope` could not have honoured it in
+/// principle. Measured on that build, `apply -g net` printed
+/// `drift: [alpha] alpha-b` for an out-of-group resource and left
+/// `status: drifted` in its lock entry while the same run reported it skipped.
+///
+/// One oracle, two callers: an excluded resource must be neither PROBED (each
+/// probe is a remote query, which is what this issue costs) nor RECORDED as
+/// drifted (a lock that claims a repair no run performed).
+fn assert_gate_left_alpha_b_alone(fleet: &Fleet, cfg: &Path, args: &[&str], excluded_by: &str) {
+    let run = fleet.run(cfg, args, None);
+
+    assert!(
+        !run.stderr.contains("alpha-b"),
+        "the gate probed alpha-b, which `{excluded_by}` excluded from the run:\n{}",
+        run.stderr
+    );
+
+    let lock = fleet.lock_text("alpha");
+    let b_block = lock
+        .split("alpha-b:")
+        .nth(1)
+        .unwrap_or_else(|| panic!("alpha-b vanished from the lock:\n{lock}"));
+    let b_status = b_block
+        .lines()
+        .find(|l| l.trim_start().starts_with("status:"))
+        .unwrap_or_else(|| panic!("alpha-b has no status:\n{lock}"));
+    assert!(
+        b_status.contains("converged"),
+        "an out-of-scope resource was rewritten as drifted by a gate that \
+         `{excluded_by}` should have kept away from it: {}\nlock:\n{lock}",
+        b_status.trim()
+    );
+}
+
+/// Two resources, one selector each, so a filter can exclude exactly one.
+fn write_selector_config(fleet: &Fleet, base: u8, a_sel: &str, b_sel: &str) -> PathBuf {
+    let cfg = fleet.path("forjar.yaml");
+    fs::write(
+        &cfg,
+        format!(
+            "version: \"1.0\"\nname: e02-sel\nmachines:\n  \
+             alpha: {{ hostname: alpha, addr: {}, user: root }}\nresources:\n  \
+             alpha-a: {{ type: file, machine: alpha, path: /srv/a.txt, content: \"x\\n\", mode: \"0644\", {a_sel} }}\n  \
+             alpha-b: {{ type: file, machine: alpha, path: /srv/b.txt, content: \"x\\n\", mode: \"0644\", {b_sel} }}\n",
+            addr(base, 0)
+        ),
+    )
+    .expect("write selector config");
+    cfg
+}
+
+#[test]
+fn gate_is_scoped_by_the_tag_filter() {
+    let fleet = Fleet::new();
+    clear_sockets(70, 1);
+    let cfg = write_selector_config(&fleet, 70, "tags: [web]", "tags: [db]");
+    fleet.seed_lock("alpha", &["a", "b"]);
+    assert_gate_left_alpha_b_alone(&fleet, &cfg, &["--yes", "-t", "web"], "-t web");
+}
+
+#[test]
+fn gate_is_scoped_by_the_group_filter() {
+    let fleet = Fleet::new();
+    clear_sockets(110, 1);
+    let cfg = write_selector_config(&fleet, 110, "resource_group: net", "resource_group: db");
+    fleet.seed_lock("alpha", &["a", "b"]);
+    assert_gate_left_alpha_b_alone(&fleet, &cfg, &["--yes", "-g", "net"], "-g net");
+}
+
+/// A ControlMaster this run did NOT open belongs to somebody else.
+///
+/// ADVERSARIAL REVIEW (forjar#404): the fix hoists the fleet's masters up into
+/// `cmd_apply`, and `executor::machine` recorded `Ok(_) => true` — it claimed
+/// ownership of a socket it had merely FOUND (`start_control_master` returns
+/// `Ok(false)` for "one is already running"). With the hoist in place that
+/// makes the executor tear down a socket the run-level guard, a concurrent
+/// apply, or a live `ControlPersist` window still owns. The commit changed it
+/// to `Ok(started) => started` and shipped no test for that hunk; this is it.
+#[test]
+fn a_control_master_this_run_did_not_open_survives_the_apply() {
+    let fleet = Fleet::new();
+    clear_sockets(90, 1);
+    let cfg = fleet.write_config(&["alpha"], 90, &["a"]);
+    fleet.seed_lock("alpha", &["a"]);
+
+    // Stand in for a concurrent apply's master: the socket is already there and
+    // the shim answers `ssh -O check` successfully, so forjar's
+    // `start_control_master` reports "already running" and this run owns none.
+    let sock = PathBuf::from(format!("/tmp/forjar-ssh/root@{}", addr(90, 0)));
+    fs::create_dir_all("/tmp/forjar-ssh").expect("create control dir");
+    fs::write(&sock, b"").expect("seed a foreign ControlMaster socket");
+
+    let run = fleet.run(&cfg, &["--yes"], None);
+    let survived = sock.exists();
+    let _ = fs::remove_file(&sock);
+
+    assert!(
+        survived,
+        "the apply tore down a ControlMaster socket it never opened — that is \
+         a concurrent apply's live connection. ssh spawns:\n{}\nstderr:\n{}",
+        run.ssh, run.stderr
+    );
+}

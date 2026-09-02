@@ -24,26 +24,50 @@ pub(super) struct GateScope<'a> {
     pub resource: Option<&'a str>,
     /// `-t` / `--tag`.
     pub tag: Option<&'a str>,
+    /// `-g` / `--group`.
+    ///
+    /// ADVERSARIAL REVIEW (forjar#404): this was the one filter of the family
+    /// that never reached the gate — `group_filter` was not even a parameter of
+    /// `apply_pre_validate`. Measured on the unscoped build: `apply -g net`
+    /// probed the out-of-group resource anyway and left `status: drifted` in
+    /// `state.lock.yaml` for a resource the same run reported as skipped.
+    pub group: Option<&'a str>,
 }
 
 impl GateScope<'_> {
     /// Does the run act on this resource id?
     ///
     /// Mirrors the executor's own predicates: `resource_filter` is an exact id
-    /// match (`resource_ops::should_skip_single`) and `tag_filter` requires the
-    /// declaration to carry the tag (`resource_ops::resource_filtered_out`). A
-    /// locked id with no declaration left cannot carry a tag, so a tag filter
-    /// excludes it — exactly as the executor would.
+    /// match (`resource_ops::should_skip_single`), while `tag_filter` and
+    /// `group_filter` require the declaration to carry the tag / the group
+    /// (`resource_ops::resource_filtered_out`). A locked id with no declaration
+    /// left carries neither, so either filter excludes it — exactly as the
+    /// executor would.
     fn covers(&self, id: &str, resources: &indexmap::IndexMap<String, types::Resource>) -> bool {
         if self.resource.is_some_and(|r| r != id) {
             return false;
         }
-        match self.tag {
-            None => true,
-            Some(tag) => resources
-                .get(id)
-                .is_some_and(|r| r.tags.iter().any(|t| t == tag)),
+        // A locked id whose declaration is gone carries neither a tag nor a
+        // group, so either filter excludes it — exactly as the executor would.
+        let Some(declared) = resources.get(id) else {
+            return self.tag.is_none() && self.group.is_none();
+        };
+        // The two predicates below are `resource_ops::resource_filtered_out`
+        // inverted, deliberately literally: the gate and the executor must
+        // answer the same question about the same resource.
+        if self
+            .tag
+            .is_some_and(|tag| !declared.tags.iter().any(|t| t == tag))
+        {
+            return false;
         }
+        if self
+            .group
+            .is_some_and(|group| declared.resource_group.as_deref() != Some(group))
+        {
+            return false;
+        }
+        true
     }
 
     /// The lock as the gate should read it: only the entries in scope.
@@ -55,7 +79,7 @@ impl GateScope<'_> {
         lock: &'l types::StateLock,
         resources: &indexmap::IndexMap<String, types::Resource>,
     ) -> Cow<'l, types::StateLock> {
-        if self.resource.is_none() && self.tag.is_none() {
+        if self.resource.is_none() && self.tag.is_none() && self.group.is_none() {
             return Cow::Borrowed(lock);
         }
         let mut scoped = lock.clone();
