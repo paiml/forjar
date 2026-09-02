@@ -91,11 +91,7 @@ pub(crate) fn run_pre_apply_hook(
     hook: &str,
     timeout: Option<u64>,
 ) -> Option<String> {
-    match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(out) if !out.success() => Some(failure_text::hook_failure("pre_apply", &out)),
-        Err(e) => Some(failure_text::hook_error("pre_apply", &e)),
-        _ => None,
-    }
+    run_hook(machine, hook, timeout, "pre_apply")
 }
 
 /// Run post_apply hook; returns error string on failure.
@@ -104,9 +100,24 @@ pub(crate) fn check_post_hook(
     hook: &str,
     timeout: Option<u64>,
 ) -> Option<String> {
+    run_hook(machine, hook, timeout, "post_apply")
+}
+
+/// THE hook runner. Refs #412: there used to be two — this one and
+/// `machine_wave::exec_validated_hook` — so which diagnostics a failing hook
+/// produced, and whether it was I8-validated at all, depended on whether the
+/// resource landed in a wave of width 1 or width 2. A wide wave also ran
+/// `post_apply` through BOTH of them, twice per resource.
+///
+/// I8 (no raw shell execution) is asserted here for every hook on every width;
+/// it was previously asserted only on the wide-wave path.
+fn run_hook(machine: &Machine, hook: &str, timeout: Option<u64>, label: &str) -> Option<String> {
+    if let Err(e) = crate::core::purifier::validate_script(hook) {
+        return Some(format!("{label} hook failed I8 validation: {e}"));
+    }
     match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(pout) if !pout.success() => Some(failure_text::hook_failure("post_apply", &pout)),
-        Err(e) => Some(failure_text::hook_error("post_apply", &e)),
+        Ok(out) if !out.success() => Some(failure_text::hook_failure(label, &out)),
+        Err(e) => Some(failure_text::hook_error(label, &e)),
         _ => None,
     }
 }

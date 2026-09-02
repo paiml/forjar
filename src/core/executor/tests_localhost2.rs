@@ -269,32 +269,12 @@ fn test_fj131_resource_outcome_variants() {
     let converged = ResourceOutcome::Converged;
     let unchanged = ResourceOutcome::Unchanged;
     let skipped = ResourceOutcome::Skipped;
-    let failed_stop = ResourceOutcome::Failed {
-        should_stop: true,
-        retryable: true,
-    };
-    let failed_continue = ResourceOutcome::Failed {
-        should_stop: false,
-        retryable: true,
-    };
+    let failed = ResourceOutcome::Failed;
 
     assert!(matches!(converged, ResourceOutcome::Converged));
     assert!(matches!(unchanged, ResourceOutcome::Unchanged));
     assert!(matches!(skipped, ResourceOutcome::Skipped));
-    assert!(matches!(
-        failed_stop,
-        ResourceOutcome::Failed {
-            should_stop: true,
-            ..
-        }
-    ));
-    assert!(matches!(
-        failed_continue,
-        ResourceOutcome::Failed {
-            should_stop: false,
-            ..
-        }
-    ));
+    assert!(matches!(failed, ResourceOutcome::Failed));
 }
 
 #[test]

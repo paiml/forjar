@@ -23,23 +23,6 @@ impl MachineCounters {
         }
     }
 
-    fn record(&mut self, outcome: &ResourceOutcome, resource_id: &str) {
-        match outcome {
-            ResourceOutcome::Converged => {
-                self.converged += 1;
-                self.converged_resources.insert(resource_id.to_string());
-            }
-            ResourceOutcome::Unchanged => {
-                self.unchanged += 1;
-            }
-            ResourceOutcome::Skipped => {}
-            ResourceOutcome::Failed { .. } => {
-                self.failed += 1;
-                self.failed_resources.insert(resource_id.to_string());
-            }
-        }
-    }
-
     /// FJ-63: Check if a resource should be skipped because it depends on a failed resource.
     /// Returns the name of the failed dependency if found.
     pub(crate) fn failed_dependency<'a>(&self, depends_on: &'a [String]) -> Option<&'a str> {
@@ -173,11 +156,15 @@ pub(crate) fn apply_machine(
         &run_id,
         &machine_start,
         &counters,
-        machine,
     )
 }
 
-/// Execute all resource changes for a machine (parallel waves or sequential).
+/// Execute all resource changes for a machine.
+///
+/// Refs #412 (CRUX audit E09): there is ONE scheduler. "Sequential" is not a
+/// second implementation, it is this scheduler running a schedule whose every
+/// wave has width 1 — so a feature added to the wave path is a feature the
+/// sequential path has, and the two cannot drift apart again.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn execute_machine_changes(
     cfg: &ApplyConfig,
@@ -188,101 +175,7 @@ pub(super) fn execute_machine_changes(
     machine_name: &str,
     counters: &mut MachineCounters,
 ) -> Result<(), String> {
-    let use_parallel = cfg.parallel.unwrap_or(cfg.config.policy.parallel_resources);
-    if use_parallel && machine_changes.len() > 1 {
-        execute_parallel_waves(
-            cfg,
-            machine_changes,
-            machine,
-            ctx,
-            trace_session,
-            machine_name,
-            counters,
-        )
-    } else {
-        execute_sequential(
-            cfg,
-            machine_changes,
-            machine,
-            ctx,
-            trace_session,
-            machine_name,
-            counters,
-        )
-    }
-}
-
-/// Execute changes sequentially.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn execute_sequential(
-    cfg: &ApplyConfig,
-    machine_changes: &[&PlannedChange],
-    machine: &Machine,
-    ctx: &mut RecordCtx,
-    trace_session: &mut tracer::TraceSession,
-    machine_name: &str,
-    counters: &mut MachineCounters,
-) -> Result<(), String> {
-    let total = machine_changes.len();
-    for (idx, change) in machine_changes.iter().enumerate() {
-        if cfg.progress {
-            eprint!("[{}/{}] {} ", idx + 1, total, change.resource_id);
-        }
-        // FJ-63: Skip resources whose dependencies have failed (cascade)
-        if let Some(resource) = cfg.config.resources.get(&change.resource_id) {
-            if let Some(failed_dep) = counters.failed_dependency(&resource.depends_on) {
-                if cfg.progress {
-                    eprintln!("skipped (dependency '{}' failed)", failed_dep);
-                }
-                eprintln!(
-                    "JIDOKA: skipping {} — depends on failed '{}'",
-                    change.resource_id, failed_dep
-                );
-                counters.failed += 1;
-                counters.failed_resources.insert(change.resource_id.clone());
-                continue;
-            }
-        }
-        let outcome = apply_and_record_outcome(
-            cfg,
-            change,
-            machine,
-            ctx,
-            trace_session,
-            machine_name,
-            &counters.converged_resources,
-        )?;
-        if cfg.progress {
-            match &outcome {
-                ResourceOutcome::Converged => eprintln!("converged"),
-                ResourceOutcome::Unchanged => eprintln!("unchanged"),
-                ResourceOutcome::Skipped => eprintln!("skipped"),
-                ResourceOutcome::Failed { .. } => eprintln!("FAILED"),
-            }
-        }
-        counters.record(&outcome, &change.resource_id);
-    }
-    Ok(())
-}
-
-/// Execute changes in parallel waves with dependency ordering.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn execute_parallel_waves(
-    cfg: &ApplyConfig,
-    machine_changes: &[&PlannedChange],
-    machine: &Machine,
-    ctx: &mut RecordCtx,
-    trace_session: &mut tracer::TraceSession,
-    machine_name: &str,
-    counters: &mut MachineCounters,
-) -> Result<(), String> {
-    let change_ids: Vec<&str> = machine_changes
-        .iter()
-        .map(|c| c.resource_id.as_str())
-        .collect();
-    let raw_waves = compute_resource_waves(cfg.config, &change_ids);
-    let waves = split_waves_by_max_parallel(raw_waves, cfg.max_parallel);
-
+    let waves = schedule_waves(cfg, machine_changes);
     for wave in &waves {
         let should_stop = execute_single_wave(
             cfg,
@@ -301,7 +194,37 @@ pub(super) fn execute_parallel_waves(
     Ok(())
 }
 
-/// Execute a single wave — either sequentially (1 resource) or in parallel.
+/// The schedule: dependency waves when parallel, width 1 in PLAN ORDER when not.
+///
+/// The width-1 schedule deliberately does NOT go through
+/// `compute_resource_waves`: that sorts each wave alphabetically, which would
+/// reorder the console output, the event stream and the run log of every
+/// existing sequential apply. Plan order is already topological.
+pub(super) fn schedule_waves(
+    cfg: &ApplyConfig,
+    machine_changes: &[&PlannedChange],
+) -> Vec<Vec<String>> {
+    let use_parallel = cfg.parallel.unwrap_or(cfg.config.policy.parallel_resources);
+    if !use_parallel || machine_changes.len() <= 1 {
+        return machine_changes
+            .iter()
+            .map(|c| vec![c.resource_id.clone()])
+            .collect();
+    }
+    let change_ids: Vec<&str> = machine_changes
+        .iter()
+        .map(|c| c.resource_id.as_str())
+        .collect();
+    let raw_waves = compute_resource_waves(cfg.config, &change_ids);
+    split_waves_by_max_parallel(raw_waves, cfg.max_parallel)
+}
+
+/// Execute one wave of the schedule. Refs #412 (CRUX audit E09): there is
+/// no width-1 special case here on purpose — a one-resource wave is the wave
+/// scheduler running one resource, so `--retry`, `--trace`, `--progress`, the
+/// input cache, hook timing and failure attribution are the same code at
+/// every width. The old single-resource path (`apply_and_record_outcome`)
+/// was the second implementation the ticket retires.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn execute_single_wave(
     cfg: &ApplyConfig,
@@ -313,44 +236,36 @@ pub(super) fn execute_single_wave(
     machine_name: &str,
     counters: &mut MachineCounters,
 ) -> Result<bool, String> {
-    if wave.len() == 1 {
-        if let Some(change) = machine_changes.iter().find(|c| c.resource_id == wave[0]) {
-            // FJ-63: Skip resources whose dependencies have failed
-            if let Some(resource) = cfg.config.resources.get(&change.resource_id) {
-                if let Some(failed_dep) = counters.failed_dependency(&resource.depends_on) {
-                    eprintln!(
-                        "JIDOKA: skipping {} — depends on failed '{}'",
-                        change.resource_id, failed_dep
-                    );
-                    counters.failed += 1;
-                    counters.failed_resources.insert(change.resource_id.clone());
-                    return Ok(false);
-                }
-            }
-            let outcome = apply_and_record_outcome(
-                cfg,
-                change,
-                machine,
-                ctx,
-                trace_session,
-                machine_name,
-                &counters.converged_resources,
-            )?;
-            counters.record(&outcome, &change.resource_id);
-            return Ok(false);
-        }
-        Ok(false)
-    } else {
-        execute_wave_parallel(
-            cfg,
-            wave,
-            machine_changes,
-            machine,
-            ctx,
-            trace_session,
-            machine_name,
-            counters,
-        )
+    execute_wave_parallel(
+        cfg,
+        wave,
+        machine_changes,
+        machine,
+        ctx,
+        trace_session,
+        machine_name,
+        counters,
+    )
+}
+
+/// FJ-272: the `[n/total] id` prefix, position taken from the PLAN order so it
+/// is the same number whichever wave the resource landed in.
+pub(super) fn progress_prefix(machine_changes: &[&PlannedChange], resource_id: &str) -> String {
+    let pos = machine_changes
+        .iter()
+        .position(|c| c.resource_id == resource_id)
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    format!("[{}/{}] {}", pos, machine_changes.len(), resource_id)
+}
+
+/// The single word `--progress` prints once a resource has an outcome.
+pub(super) fn progress_word(outcome: &ResourceOutcome) -> &'static str {
+    match outcome {
+        ResourceOutcome::Converged => "converged",
+        ResourceOutcome::Unchanged => "unchanged",
+        ResourceOutcome::Skipped => "skipped",
+        ResourceOutcome::Failed => "FAILED",
     }
 }
 
