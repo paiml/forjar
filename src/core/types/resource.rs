@@ -2,7 +2,6 @@
 
 use super::backup_sync_types::BackupSpec;
 use super::disk_budget_types::ReclaimRule;
-use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
 use super::resource_enums::{MachineTarget, ResourceType};
@@ -396,13 +395,8 @@ pub struct Resource {
     /// Enable content-addressed store.
     #[serde(default)]
     pub store: bool,
-    /// Refs #406: suppress this resource's run transcript entirely.
-    ///
-    /// Ansible's `no_log: true`, Chef's `sensitive true`, Salt's
-    /// `show_changes: False`. Redaction (see `resolver::redaction`) can only
-    /// remove secret values it can NAME; a resource whose whole script is
-    /// sensitive — a private key written through a `command:`, a token derived
-    /// on the host — needs the transcript not written at all.
+    /// Refs #406: write no run transcript for this resource (Ansible `no_log`).
+    /// See `resolver::redaction` for what redaction can and cannot name.
     #[serde(default)]
     pub sensitive: bool,
     /// Build script for derivation resources.
@@ -484,4 +478,22 @@ pub struct Resource {
     /// FJ-038: `nas_archive` declaration fields.
     #[serde(flatten)]
     pub archive: ArchiveSpec,
+}
+
+/// FJ-1220: Lifecycle protection rules for a resource.
+///
+/// Controls how a resource is handled during destroy, replacement, and drift detection.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleRules {
+    /// Prevent this resource from being destroyed (forjar destroy skips with warning)
+    #[serde(default)]
+    pub prevent_destroy: bool,
+
+    /// Write new version before removing old (avoids config-absent window)
+    #[serde(default)]
+    pub create_before_destroy: bool,
+
+    /// Fields whose drift is suppressed (reported as "suppressed" not "detected")
+    #[serde(default)]
+    pub ignore_drift: Vec<String>,
 }

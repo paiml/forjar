@@ -243,6 +243,12 @@ fn no_state_file_contains_the_resolved_secret() {
         "task must have run with the resolved secret, got {task_out:?}"
     );
 
+    // A leak scan over ZERO transcripts is vacuous (E04 quorum, agy lane): the
+    // apply must actually have written a run directory for this to prove anything.
+    assert!(
+        !run_transcripts(&sb.state()).is_empty(),
+        "no run transcript was written, so the leak scan below checks nothing"
+    );
     let found = leaks(&sb.state());
     assert!(
         found.is_empty(),

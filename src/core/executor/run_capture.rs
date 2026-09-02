@@ -32,22 +32,42 @@ pub fn ensure_run_dir(dir: &Path, run_id: &str, machine_name: &str, command: &st
     let _ = serde_yaml_ng::to_string(&meta).map(|yaml| std::fs::write(dir.join("meta.yaml"), yaml));
 }
 
+/// What the run-log header records about one execution.
+///
+/// Bundled so `capture_output` names five facts once instead of taking nine
+/// positional strings (the E04 quorum's TDG lane: "too many parameters").
+#[derive(Debug, Clone, Copy)]
+pub struct LogHeader<'a> {
+    /// Resource id, which names the log file.
+    pub resource_id: &'a str,
+    /// Lower-cased resource type for the header.
+    pub resource_type: &'a str,
+    /// `create` / `update`, which also names the log file.
+    pub action: &'a str,
+    /// Machine whose run directory this is.
+    pub machine_name: &'a str,
+    /// Transport label for the header.
+    pub transport_type: &'a str,
+}
+
 /// Capture transport output to a log file in the run directory.
 ///
 /// Writes `<resource_id>.<action>.log` with structured sections,
 /// and `<resource_id>.script` with the raw script.
-#[allow(clippy::too_many_arguments)]
 pub fn capture_output(
     run_dir: &Path,
-    resource_id: &str,
-    resource_type: &str,
-    action: &str,
-    machine_name: &str,
-    transport_type: &str,
+    header: &LogHeader<'_>,
     script: &str,
     output: &ExecOutput,
     duration_secs: f64,
 ) {
+    let LogHeader {
+        resource_id,
+        resource_type,
+        action,
+        machine_name,
+        transport_type,
+    } = *header;
     if !run_dir.exists() {
         return;
     }
@@ -260,11 +280,13 @@ pub fn capture_exec_output(
     let rt = format!("{resource_type:?}").to_lowercase();
     capture_output(
         &dir,
-        resource_id,
-        &rt,
-        action,
-        machine_name,
-        "transport",
+        &LogHeader {
+            resource_id,
+            resource_type: &rt,
+            action,
+            machine_name,
+            transport_type: "transport",
+        },
         &script,
         output,
         duration_secs,

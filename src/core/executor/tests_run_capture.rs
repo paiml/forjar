@@ -49,11 +49,13 @@ fn capture_output_writes_log_and_script() {
     let output = make_output(0, "installed ok\n", "");
     run_capture::capture_output(
         &dir,
-        "nginx",
-        "package",
-        "apply",
-        "intel",
-        "ssh",
+        &run_capture::LogHeader {
+            resource_id: "nginx",
+            resource_type: "package",
+            action: "apply",
+            machine_name: "intel",
+            transport_type: "ssh",
+        },
         "apt-get install -y nginx",
         &output,
         1.5,
@@ -81,11 +83,13 @@ fn capture_output_failure() {
     let output = make_output(100, "", "E: Unable to locate package foo\n");
     run_capture::capture_output(
         &dir,
-        "bad-pkg",
-        "package",
-        "apply",
-        "intel",
-        "ssh",
+        &run_capture::LogHeader {
+            resource_id: "bad-pkg",
+            resource_type: "package",
+            action: "apply",
+            machine_name: "intel",
+            transport_type: "ssh",
+        },
         "apt-get install -y foo",
         &output,
         0.8,
@@ -102,11 +106,13 @@ fn capture_output_nonexistent_dir_noop() {
     // Should not panic even if directory doesn't exist
     run_capture::capture_output(
         std::path::Path::new("/nonexistent/dir"),
-        "res",
-        "file",
-        "apply",
-        "m",
-        "local",
+        &run_capture::LogHeader {
+            resource_id: "res",
+            resource_type: "file",
+            action: "apply",
+            machine_name: "m",
+            transport_type: "local",
+        },
         "echo ok",
         &output,
         0.1,
