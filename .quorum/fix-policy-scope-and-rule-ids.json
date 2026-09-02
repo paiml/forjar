@@ -64,9 +64,9 @@
         "roles": [
           "claims"
         ],
-        "bytes": 6619,
-        "sha256": "5fc3b3a16cc3c7927f1ac5af83dec79491cd9b97898b88318663aecbc0ce9014",
-        "blob": "09f6ca0772aa33b89df7cef9aae7c013d3d5e5c5"
+        "bytes": 6997,
+        "sha256": "16053101b2a49addca8518e280ab009d270023f0d3cb04bf5748ab2fedb74e90",
+        "blob": "f3cb835fc5f163b73de5f3713dd9f24afa620963"
       },
       {
         "path": ".quorum/evidence/366-lanes.md",
@@ -114,12 +114,12 @@
       "policy-coverage stays withdrawn from the verb surface; re-publishing is its own decision.",
       "The generated id spelling moves from RULE-<slug> to RULE-<index>-<slug>, user-visible on the shipped forjar_remediate tool."
     ],
-    "total_bytes": 15025
+    "total_bytes": 15403
   },
   "gates": {
     "lib_tests": "13370 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "6d293cbc4a6faf1e35af5b84ace3963186fce351"
+  "diff_sha256": "3f563db8a73d4c88898d978eb01a482fc5bbe1b2"
 }
