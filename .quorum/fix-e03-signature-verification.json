@@ -1,0 +1,132 @@
+{
+  "issue": "#405 (CRUX audit E03) — sign --verify, sign --pq --verify and lock-verify-hmac never read the signature they verified",
+  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "digest --verify and lock-audit still pass on a hash the attacker controls, so the branch fails verification on every remaining path — REFUTED: digest is documented in its module header and help as tamper evidence with no key; it claims no verification to fail. The keyed check is lock-verify-sig.",
+      "The right fix was to implement real signatures (option a) rather than withdraw the verbs (option b) — REFUTED: there was no key material and no key-distribution answer; a real signature under the old flags would ship the hard part unanswered. Subtraction leaves one honest keyed verb and one honest unkeyed one.",
+      "lock_verify_sig_rejects_a_one_byte_mutation is a falsifier of this change — REFUTED: it was green before the change and is labelled a regression guard in the file; the falsifiers are the five that go red with src/ reverted plus the algorithm-echo case."
+    ],
+    "divergence": "the probe lane confirmed the subtraction and the algorithm-echo fix; the agy lane found a dead tamper-detection block in lock-audit and an over-broad withdrawal helper in the test (both taken) and charged the unkeyed verbs with failing a claim they do not make (refuted)."
+  },
+  "crux": {
+    "systems": [
+      "Sigstore/cosign — key and algorithm from Fulcio/Rekor or the operator; nothing self-reported in the artifact is trusted",
+      "TUF — keys, algorithms and thresholds pinned in an out-of-band root.json; a target is trusted only through that root",
+      "git commit signing (gpg/ssh) — the key id in the signature is a lookup hint into a local keyring or allowed_signers; trust lives in the keyring",
+      "Debian apt Release/InRelease — the hashes in Release are trusted only after the detached signature verifies against /etc/apt/trusted.gpg.d/"
+    ],
+    "verdict": "every surveyed verifier obtains its key and algorithm out of band and trusts nothing the artifact says about itself. A verb that read a signature field and checked a hash was below that bar; a keyed verb that takes its key from the operator and an unkeyed verb that says so are at it."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "confirmed key-binding of lock-verify-sig and no-self-trust of digest --verify against attack; found the dead recompute in lock-audit and the over-broad withdrawn() helper (both taken); charged the unkeyed verbs with failing verification they do not claim (refuted); placed the surviving design at the industry default on cosign, TUF, git and apt",
+    "unique_findings": [
+      "lock-audit's audit_lock_integrity recomputed a hash that could never match and ignored the result — a dead check shaped like tamper detection; deleted and documented",
+      "withdrawn() accepted any clap 'unexpected argument', so a re-introduced verb with renamed flags would pass; it now requires clap to quote the withdrawn name"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 8,
+    "tests_examined": 17766,
+    "accepted": [
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_audit_trail_args_construct — pre-existing clap-struct constructor test; this branch only removed its --pq/hmac references",
+      "src/cli/tests_cov_args_extra.rs::test_cov_lock_audit_args_construct — same",
+      "src/cli/tests_cov_lock.rs::test_lock_audit_trail_plain — pre-existing smoke test of an untouched verb; file edited only to delete withdrawn-verb cases",
+      "src/cli/tests_cov_lock.rs::test_lock_audit_trail_json — same",
+      "src/cli/tests_cov_lock.rs::test_lock_compact_plain — same",
+      "src/cli/tests_cov_lock.rs::test_lock_compact_json — same",
+      "src/cli/tests_cov_lock.rs::test_lock_archive_plain — same",
+      "src/cli/tests_cov_lock.rs::test_lock_archive_json — same"
+    ],
+    "quality_gate": "zero findings in the falsification file or any production file touched; clippy -D warnings 0 errors; fmt clean"
+  },
+  "falsification": {
+    "test": "reverted src/ and docs/ to the parent commit with the test file kept; separately reverted only digest --verify's algorithm guard; separately mutated the hash comparison to true",
+    "test_file": "tests/falsification_e03_signatures_are_read.rs",
+    "cargo_test_target": "falsification_e03_signatures_are_read",
+    "reverted": "all of src/ and docs/ -> parent; src/cli/recipe_digest.rs algorithm guard -> echo recorded.algorithm; src/cli/recipe_digest.rs `current_hash == recorded.blake3_hash` -> true",
+    "observed_failure": "src/ reverted: 5 of 6 RED — forged_recipe_signature_is_never_accepted (`\"valid\": true, \"signer\": \"root@prod\"`), forged_dual_signature_is_never_accepted (`both_valid: true`), garbage_lock_hmac_is_never_reported_verified (`{\"verified\":1,\"unsigned\":0}`), digest_verify_fails_on_a_one_byte_mutation and the_digest_sidecar_claims_no_signature (\"unrecognized subcommand 'digest'\"). Algorithm guard reverted: a_forged_algorithm_name_is_neither_believed_nor_echoed RED with `\"valid\": true, \"algorithm\": \"ed25519-dsse\"`. Comparison mutated: digest_verify_fails_on_a_one_byte_mutation RED.",
+    "still_green_when_reverted": "lock_verify_sig_rejects_a_one_byte_mutation — green before and after by design; it is the ticket's success criterion applied to the verb that survived, labelled a regression guard in the file"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e03-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 7231,
+        "sha256": "e930a6e5c30b111220a55c99843d04c8c188dfe57c1f1e4d13420140d1bc78c2",
+        "blob": "3de1c5c461846f4cca7bb18d88cb534dc6a63f55"
+      },
+      {
+        "path": ".quorum/evidence/e03-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 2200,
+        "sha256": "3cde5d151da58ad74f5ec8b3dc2982d521e762192977010aade5a987724c943b",
+        "blob": "a059c38d0772e5e22e45aa50992b5850284e20e0"
+      },
+      {
+        "path": ".quorum/evidence/e03-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1473,
+        "sha256": "114072a00402d5d26d7ef670e4ef488883dec09c9273d729fd9a355e29d28028",
+        "blob": "047a9c48f6e2421d47dea66110b9ffb6e2441f05"
+      },
+      {
+        "path": ".quorum/evidence/e03-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2288,
+        "sha256": "728de0dabd6246f15d8cf18bd92d465b04924d7632776b6c8ce75ea9359aed94",
+        "blob": "02417cc22571bd7a644c488743d85157e84de1f3"
+      },
+      {
+        "path": ".quorum/evidence/e03-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1543,
+        "sha256": "2d69683e7ca68387339c66ec6b3db49ef64628697ee2371cbb9219f04c999b74",
+        "blob": "2c6127190dd655a27f2b24e45b01f5d993d398e3"
+      }
+    ],
+    "total_bytes": 14735,
+    "claims_digest": ".quorum/evidence/e03-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "This is a breaking CLI change: `sign`, `sign --pq` and `lock-verify-hmac` are gone and `<recipe>.sig.json` becomes `<recipe>.digest.json`. Documented in CHANGELOG and the book; there is no compatibility shim by design.",
+      "`lock-verify-sig` binds a lock to a shared secret via blake3(lock ++ key), which is a MAC, not a signature: anyone who can verify can also sign. An asymmetric scheme with a key-distribution story is a separate ticket.",
+      "`lock-sign --key` still takes the secret from argv on this branch; #408 (E13) moves it off argv and lands separately."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13352 passed, 0 failed, 4 ignored",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "d09c1dfae3852710795c586cdbecb248b3c4397d"
+}

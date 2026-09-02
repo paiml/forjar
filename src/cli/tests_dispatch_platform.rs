@@ -161,7 +161,7 @@ resources:
 }
 
 #[test]
-fn dispatch_recipe_sign_no_verify() {
+fn dispatch_recipe_digest_no_verify() {
     let dir = tempfile::tempdir().unwrap();
     let recipe = dir.path().join("recipe.yaml");
     std::fs::write(
@@ -177,31 +177,28 @@ resources:
 "#,
     )
     .unwrap();
-    // Sign mode (not verify) — generates a signature
-    let cmd = Commands::RecipeSign(RecipeSignArgs {
-        recipe,
+    // Record mode (not verify) — writes recipe.digest.json
+    let cmd = Commands::RecipeDigest(RecipeDigestArgs {
+        recipe: recipe.clone(),
         verify: false,
-        signer: None,
         json: false,
-        pq: false,
     });
     let result = dispatch_platform_cmd(cmd);
     assert!(result.is_ok());
+    assert!(dir.path().join("recipe.digest.json").exists());
 }
 
 #[test]
-fn dispatch_recipe_sign_verify_missing_sig() {
+fn dispatch_recipe_digest_verify_missing_sidecar() {
     let dir = tempfile::tempdir().unwrap();
     let recipe = dir.path().join("recipe.yaml");
     std::fs::write(&recipe, "recipe:\n  name: test\nresources: {}\n").unwrap();
-    let cmd = Commands::RecipeSign(RecipeSignArgs {
+    let cmd = Commands::RecipeDigest(RecipeDigestArgs {
         recipe,
         verify: true,
-        signer: None,
         json: false,
-        pq: false,
     });
-    // Verify fails when no signature exists
+    // Verify fails when no digest has been recorded
     let result = dispatch_platform_cmd(cmd);
     assert!(result.is_err());
 }
@@ -387,22 +384,6 @@ fn dispatch_parallel_apply() {
         file: vec![file],
         max_parallel: 2,
         json: false,
-    });
-    let result = dispatch_platform_cmd(cmd);
-    assert!(result.is_ok());
-}
-
-#[test]
-fn dispatch_recipe_sign_pq() {
-    let dir = tempfile::tempdir().unwrap();
-    let recipe = dir.path().join("recipe.yaml");
-    std::fs::write(&recipe, "recipe:\n  name: pq-test\nresources: {}\n").unwrap();
-    let cmd = Commands::RecipeSign(RecipeSignArgs {
-        recipe,
-        verify: false,
-        signer: Some("ci".to_string()),
-        json: true,
-        pq: true,
     });
     let result = dispatch_platform_cmd(cmd);
     assert!(result.is_ok());

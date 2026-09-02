@@ -484,16 +484,4 @@ resources:
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_cov_dispatch_lock_audit_trail() {
-        let dir = tempfile::tempdir().unwrap();
-        let state = dir.path().join("state");
-        std::fs::create_dir_all(&state).unwrap();
-        let result = dispatch_lock_cmd(Commands::LockAuditTrail(LockAuditTrailArgs {
-            state_dir: state,
-            machine: None,
-            json: false,
-        }));
-        assert!(result.is_ok());
-    }
 }

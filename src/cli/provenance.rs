@@ -1,7 +1,7 @@
 //! FJ-1404: SLSA provenance attestation generation.
 //!
 //! Generates an in-toto-style provenance attestation linking:
-//! config hash -> plan hash -> state hash for SLSA Level 3.
+//! config hash -> plan hash -> state hash (unsigned, not SLSA-conformant).
 
 use super::helpers::*;
 use crate::core::types;
@@ -146,7 +146,7 @@ fn print_provenance_json(
         .collect();
 
     println!(
-        r#"{{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://slsa.dev/provenance/v1","subject":{{"name":"{}","config_digest":"blake3:{}","plan_digest":"blake3:{}","timestamp":"{}"}},"predicate":{{"buildType":"forjar/apply","state":[{}],"materials":[{}]}}}}"#,
+        r#"{{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://forjar.paiml.com/provenance/unsigned/v0","signed":false,"slsa_level":null,"subject":{{"name":"{}","config_digest":"blake3:{}","plan_digest":"blake3:{}","timestamp":"{}"}},"predicate":{{"buildType":"forjar/apply","state":[{}],"materials":[{}]}}}}"#,
         name,
         config_hash,
         plan_hash,
@@ -196,7 +196,7 @@ fn print_provenance_text(
     }
 
     println!(
-        "\n  {} SLSA Level 3 attestation chain: config -> plan -> state",
+        "\n  {} unsigned, not SLSA-conformant provenance chain: config -> plan -> state",
         green("✓")
     );
 }

@@ -162,22 +162,6 @@ mod tests {
         let _ = cmd_lock_prune(f.path(), d.path(), false);
     }
 
-    // lock_security
-    #[test]
-    fn test_lock_audit_trail_empty() {
-        let d = tempfile::tempdir().unwrap();
-        assert!(cmd_lock_audit_trail(d.path(), None, false).is_ok());
-    }
-    #[test]
-    fn test_lock_audit_trail_with_state() {
-        let d = setup_state();
-        assert!(cmd_lock_audit_trail(d.path(), None, false).is_ok());
-    }
-    #[test]
-    fn test_lock_audit_trail_json() {
-        let d = setup_state();
-        assert!(cmd_lock_audit_trail(d.path(), None, true).is_ok());
-    }
     #[test]
     fn test_lock_backup() {
         let d = setup_state();
@@ -365,7 +349,6 @@ mod tests {
         let d = setup_valid_state();
         write_yaml(d.path(), "srv1/srv1.events.jsonl",
             "{\"timestamp\":\"2026-01-01\",\"resource\":\"app\",\"action\":\"apply\"}\n");
-        assert!(cmd_lock_audit_trail(d.path(), Some("srv1"), false).is_ok());
     }
 
     #[test]
@@ -373,19 +356,6 @@ mod tests {
         let d = setup_valid_state();
         write_yaml(d.path(), "srv1/srv1.events.jsonl",
             "{\"timestamp\":\"2026-01-01\",\"resource\":\"app\",\"action\":\"apply\"}\n");
-        assert!(cmd_lock_audit_trail(d.path(), Some("srv1"), true).is_ok());
-    }
-
-    #[test]
-    fn test_lock_verify_hmac() {
-        let d = setup_valid_state();
-        assert!(super::super::lock_audit::cmd_lock_verify_hmac(d.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_lock_verify_hmac_json() {
-        let d = setup_valid_state();
-        assert!(super::super::lock_audit::cmd_lock_verify_hmac(d.path(), true).is_ok());
     }
 
     #[test]
