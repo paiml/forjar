@@ -97,6 +97,10 @@ fn plan_request<'a>(
         workspace: Some("pfws"),
         operator: None,
         dry_run: false,
+        // Refs #368: these tests are non-interactive, and the plan-file
+        // preflight now runs the FJ-286 prompt like every other apply.
+        yes: true,
+        confirm_destructive: false,
         selectors: crate::core::plan_selectors::PlanSelectors::default(),
         knobs: super::apply_from_plan::ApplyKnobs::default(),
     }

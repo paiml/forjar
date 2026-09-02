@@ -121,7 +121,9 @@ pub(crate) fn cmd_apply_scoped(
 
     // GH-210 (FJ-129): measured BEFORE the apply. Measuring afterwards read a
     // lock the apply had just rewritten, so every resource looked unchanged.
-    let forced_noop_count = measure_forced_noops(&cfg, dry_run);
+    // Refs #378: the measurement is now a candidate SET, reconciled with the
+    // run below — the timing constraint is unchanged.
+    let forced_noop_candidates = measure_forced_noops(&cfg, dry_run);
 
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
@@ -132,6 +134,8 @@ pub(crate) fn cmd_apply_scoped(
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
+    // Refs #378: a candidate the run skipped or failed is not a forced no-op.
+    let forced_noop_count = forced_noops_that_ran(&forced_noop_candidates, &results);
     // GH-336: intersect what drifted BEFORE the run with what the run actually
     // converged. Raw findings would claim repairs for resources the filters
     // excluded or that failed.
@@ -297,21 +301,51 @@ fn load_apply_config(
     Ok(config)
 }
 
-/// GH-210 (FJ-129): how many already-converged resources `--force` will
-/// re-apply.
+/// GH-210 (FJ-129): which already-converged resources `--force` will re-apply.
 ///
-/// Decides when that count is defined at all: only on a real forced run.
+/// Decides when that set is defined at all: only on a real forced run.
 /// Without `--force` nothing is being forced, and a `--dry-run` re-applies
-/// nothing, so both report zero rather than paying for the measurement.
+/// nothing, so both report nothing rather than paying for the measurement.
 /// Exists so that condition sits beside its own name instead of inline in the
 /// command body. The *timing* constraint — this must be measured before the
 /// apply rewrites the lock — belongs to the call site and is documented there.
-fn measure_forced_noops(cfg: &executor::ApplyConfig, dry_run: bool) -> u32 {
+fn measure_forced_noops(cfg: &executor::ApplyConfig, dry_run: bool) -> Vec<(String, String)> {
     if cfg.force && !dry_run {
-        executor::forced_noop_count(cfg)
+        executor::forced_noop_candidates(cfg)
     } else {
-        0
+        Vec::new()
     }
+}
+
+/// Refs #378: RECONCILE THE PRE-APPLY MEASUREMENT WITH THE RUN.
+///
+/// A candidate counts only if the run actually re-ran it. Nothing did this, so
+/// a resource the shadow plan called a NoOp and the executor then SKIPPED
+/// (`-r`, `-g`) or FAILED was still reported as a forced no-op — producing
+/// `forced_noop_count > total_converged`, which the summary's own
+/// `debug_assert!` aborts a debug build over, and which a release build prints
+/// as a `--json` summary that contradicts its own contract plus a note line
+/// naming more resources than the run touched.
+///
+/// The oracle is the one `apply_drift::repaired` already uses for the drift
+/// dimension of the very same summary line: `build_resource_reports` derives
+/// `status` from the POST-apply lock, so "the lock says converged afterwards"
+/// is the sound test for "the run re-ran it". Refs #390-C narrowed
+/// `resource_reports` to `converged ∪ failed`, which is what makes the
+/// intersection tight — a binary predating that narrowing reports every
+/// resource on the machine and would make this look like a no-op change.
+fn forced_noops_that_ran(candidates: &[(String, String)], results: &[types::ApplyResult]) -> u32 {
+    candidates
+        .iter()
+        .filter(|(machine, resource_id)| {
+            results.iter().any(|r| {
+                r.machine == *machine
+                    && r.resource_reports
+                        .iter()
+                        .any(|rr| rr.resource_id == *resource_id && rr.status == "converged")
+            })
+        })
+        .count() as u32
 }
 
 /// Persist one apply report per result.

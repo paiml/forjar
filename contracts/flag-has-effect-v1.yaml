@@ -366,9 +366,10 @@ proof_obligations:
     property: "A flag does not relax a gate its help text does not name"
     formal: "gate G blocks c ∧ f ∉ overrides(G) ⟹ obs(c, A ⊕ f) still blocked by G"
     tolerance: 0.0
-    applies_to: "--yes vs the BLAKE3 state-integrity gate; every future
+    applies_to: "--yes vs the BLAKE3 state-integrity gate; --plan-file and
+                 --refresh-only vs the whole apply preflight; every future
                  confirmation flag"
-    discharged_by: "FALSIFY-FLAG-A17"
+    discharged_by: "FALSIFY-FLAG-A17, FALSIFY-FLAG-A18, FALSIFY-FLAG-A19"
 
   - type: liveness
     property: "Every named sink is written, reached, or executed before exit 0"
@@ -1065,6 +1066,78 @@ falsification_tests:
       Tamper detection is off for every unattended apply on the fleet — `--yes`
       is the only way past the confirmation prompt, so the population that
       cannot read a warning is exactly the population that has no gate.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A18
+    rule: INV-FLAG-EFFECT-CONFINED
+    defect: plan-file-skipped-the-entire-apply-preflight
+    severity: HIGH
+    prediction: >-
+      `apply --plan-file p.json --yes` runs every gate an ordinary `apply --yes`
+      runs, over a plan the ungated `forjar plan --out` produced from the SAME
+      config: a corrupted `.b3` sidecar refuses with "state integrity check
+      failed", a blocking `policies:` rule refuses, `policy.security_gate:
+      critical` refuses BEFORE the secret is written, the declared
+      `policy.pre_apply` hook runs, `--confirm-destructive` blocks the destroy
+      and, without `--yes`, FJ-286 asks first.
+    fixture: none    # tests/falsification_plan_file_runs_every_gate.rs builds
+                     # its own tempdir sandbox; only `type: file` resources
+    command: |
+      cargo test --test falsification_plan_file_runs_every_gate
+      # equivalently, by hand:
+      #   forjar apply -f c.yaml --state-dir s --yes        # converge
+      #   forjar plan -f c.yaml --state-dir s --out p.json  # after editing c.yaml
+      #   printf 'deadbeef' > s/<m>/state.lock.yaml.b3      # sidecar ONLY
+      #   forjar apply -f c.yaml --state-dir s --plan-file p.json --yes; echo "rc=$?"
+    red_output: |
+      Plan applied: 1 converged, 1 unchanged, 0 failed
+      rc=0
+    can_go_red: >-
+      Measured RED on 1.24.0 and again on a debug build of f0cbf635: seven of the
+      nine tests failed, and each named a different gate. The in-binary controls
+      are `a_gate_free_plan_file_apply_still_applies` and
+      `refresh_only_still_works_on_honest_state` — identical fixtures with no
+      gate declared and no tamper — so the difference is the gate, not "plan-file
+      refuses everything now". Only the `.b3` sidecar is corrupted, never the
+      lock body, because `plan_seal::digest::state_leg` hashes the BODY: the
+      seal still verifies, the plan loads, and the gate that would have caught
+      the tamper simply never ran.
+    if_fails: >-
+      The documented two-stage plan/review/apply flow — the flow the feature
+      exists for — runs with the policy engine, the security gate, the pre_apply
+      hook, the destructive block, the confirmation prompt and state integrity
+      all off, at exit 0.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A19
+    rule: INV-FLAG-EFFECT-CONFINED
+    defect: refresh-only-re-sealed-a-tampered-lock-and-laundered-the-gate
+    severity: HIGH
+    prediction: >-
+      Over a tampered lock BODY the sequence `apply --yes` → `apply
+      --refresh-only` → `apply --yes` refuses, refuses, refuses. The `.b3`
+      sidecar is byte-identical before and after the refresh.
+    fixture: none    # same sandbox as A18
+    command: |
+      cargo test --test falsification_plan_file_runs_every_gate \
+        refresh_only_cannot_launder_a_tampered_lock
+      # equivalently, by hand:
+      #   sed -i 's/content_hash: /content_hash: X/' s/<m>/state.lock.yaml
+      #   forjar apply --yes ; forjar apply --refresh-only ; forjar apply --yes
+    red_output: |
+      error: state integrity check failed — … No apply flag overrides this check.
+      Refresh complete: 1 resources queried, 0 drifted      # .b3 7d869a9f… -> 9b96fcbd…
+      Apply complete: 1 converged (1 repaired drift), 0 unchanged.
+    can_go_red: >-
+      Measured RED on 1.24.0. This is the half that makes the fix structural
+      rather than a fourth one-off after #356, #358 and #370: `--refresh-only`
+      takes the same `apply_mode_exits` early return `--plan-file` does and
+      writes state through `state::save_lock` with no gate, so a fix confined to
+      `cmd_apply_from_plan` would leave the same hole open one flag over.
+    if_fails: >-
+      The BLAKE3 gate whose own refusal text says "No apply flag overrides this
+      check" is overridable by running a different apply mode first, and the
+      re-seal destroys the only evidence the tamper happened.
     owner: forjar
 
 enforcement:

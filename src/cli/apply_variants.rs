@@ -270,6 +270,27 @@ fn refresh_machine_lock(
 
 /// FJ-1230: Refresh state only — re-query live state for all converged resources
 /// and update lock hashes without applying any changes.
+///
+/// # Refs #368: "without applying any changes" is not "without writing state"
+///
+/// This takes the same `apply_mode_exits` early return `--plan-file` does, so
+/// it never reached `apply_pre_validate` either — and it rewrites
+/// `state.lock.yaml` and re-seals its `.b3` in a loop. That made it a laundry
+/// for the one gate whose refusal text says no flag overrides it. Measured on
+/// 1.24.0 with the lock BODY tampered:
+///
+/// ```text
+///   apply --yes           -> error: state integrity check failed … No apply
+///                            flag overrides this check.
+///   apply --refresh-only  -> Refresh complete: 1 resources queried, 0 drifted
+///                            (.b3 rewritten: 7d869a9f… -> 9b96fcbd…)
+///   apply --yes           -> Apply complete: 1 converged (1 repaired drift)
+/// ```
+///
+/// So a fix confined to `cmd_apply_from_plan` would have left the same hole
+/// open one flag over. `check_operator_auth` runs here too, for the reason
+/// forjar#370 moved it into `cmd_apply_from_plan`: the gate belongs to the act
+/// of writing state, not to the dispatcher that remembered.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_refresh_only(
     file: &Path,
@@ -280,12 +301,18 @@ pub(crate) fn cmd_refresh_only(
     env_file: Option<&Path>,
     workspace: Option<&str>,
 ) -> Result<(), String> {
+    super::dispatch_apply::check_operator_auth(file, None)?;
+
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
+
+    // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
+    // tampered lock has destroyed the only evidence the tamper happened.
+    super::apply_preflight::lock_write_gates(state_dir, verbose)?;
 
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let mut refreshed = 0usize;

@@ -81,6 +81,14 @@ pub(crate) struct PlanApplyRequest<'a> {
     pub operator: Option<&'a str>,
     /// Any flag in the `--dry-run` family (GH-208).
     pub dry_run: bool,
+    /// Refs #368: `--yes`. The FJ-286 prompt was unreachable through a plan
+    /// file, so `apply --plan-file` over a destroy converged it without asking;
+    /// this struct did not carry the flag that would have answered.
+    pub yes: bool,
+    /// Refs #368: `--confirm-destructive`. A hard block on the ordinary path
+    /// (`apply_preflight` returns Err without reading stdin) and a no-op here —
+    /// `apply --plan-file --confirm-destructive` blocked nothing.
+    pub confirm_destructive: bool,
     /// `-m` / `-r` / `-t` / `-g` as passed to THIS invocation; they may only
     /// narrow the reviewed delta.
     pub selectors: PlanSelectors,
@@ -323,6 +331,13 @@ pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> 
     }
 
     check_selectors_narrow_the_plan(&scope, &config, &req.selectors)?;
+
+    // Refs #368: the preflight an ordinary apply runs. `apply_mode_exits`
+    // returns for `--plan-file` before `apply_execute`, and `cmd_apply` is the
+    // only caller of `apply_pre_validate`, so every gate below `check_operator_auth`
+    // was unreachable through a plan file — including the BLAKE3 state-integrity
+    // gate whose own refusal says "No apply flag overrides this check".
+    super::apply_from_plan_gates::run_plan_apply_gates(&config, req, &loaded.plan, &scope)?;
 
     if req.dry_run {
         preview_scoped_plan(&loaded.plan, &scope, &config, &req.selectors);

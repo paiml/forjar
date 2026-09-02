@@ -278,6 +278,12 @@ fn apply_from_plan(
         // GH-208: the whole --dry-run FAMILY means "change nothing". Passing
         // `args.dry_run` alone left `--plan-file --dry-run-json` converging.
         dry_run: effective_dry_run(args),
+        // Refs #368: the two gate flags this call site used to drop. `args.yes`
+        // was read only at `apply_execute`'s FJ-286 prompt and
+        // `args.confirm_destructive` only at its destructive block — both
+        // inside the function this branch returns before reaching.
+        yes: args.yes,
+        confirm_destructive: args.confirm_destructive,
         selectors: crate::core::plan_selectors::PlanSelectors::new(
             args.machine.as_deref(),
             args.resource.as_deref(),

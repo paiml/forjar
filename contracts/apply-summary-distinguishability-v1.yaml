@@ -20,17 +20,25 @@ metadata:
 equations:
   forced_noop_count:
     formula: |
-      forced_noop_count(cfg) =
+      forced_noop_candidates(cfg) =
         if cfg.force then
-          shadow_plan(cfg.config, real_locks(cfg.state_dir)).unchanged
+          { (c.machine, c.resource_id)
+            : c ∈ shadow_plan(cfg.config, real_locks(cfg.state_dir)).changes
+            , c.action = NoOp }
         else
-          0
-    domain: "cfg ∈ ApplyConfig"
+          ∅
+
+      forced_noop_count(cfg, results) =
+        | { p ∈ forced_noop_candidates(cfg)
+            : post_lock[p.machine][p.resource_id].status = Converged } |
+    domain: "cfg ∈ ApplyConfig, results ∈ Vec<ApplyResult>"
     codomain: "u32"
     invariants:
       - "forced_noop_count = 0 when cfg.force is false"
       - "forced_noop_count ≤ total_converged"
       - "forced_noop_count + actual_changes = total_converged"
+      - "a candidate excluded by -r / -g, or one that failed, is Skipped/Failed in the post-apply lock and is therefore NOT counted — the planner never sees resource_filter or group_filter, so the raw shadow-plan count exceeded total_converged and tripped this contract's own debug_assert! (forjar#378)"
+      - "machine_filter is not a trigger: load_machine_locks drops the excluded machine's lock, so its resources plan as Create rather than NoOp"
 
   drift_repaired_count:
     formula: |
@@ -152,7 +160,15 @@ enforcement:
       forced_noop must never exceed converged; a debug_assert! aborts a debug
       build on planner/executor disagreement. Release builds skip the assert,
       so the integration test carries the same shape on CI.
-    check: "src/core/executor/mod.rs::forced_noop_count"
+
+      forjar#378: that disagreement was REAL, not hypothetical, and the assert
+      was the only thing reporting it — by aborting with SIGABRT and zero
+      stdout, which is worse than the wrong number it replaced. The invariant is
+      now established at the source: the pre-apply candidate set is intersected
+      with the resources the post-apply lock reports as converged, so the count
+      is a subset of total_converged by construction. The assert remains as the
+      tripwire.
+    check: "src/cli/apply.rs::forced_noops_that_ran"
     severity: "ERROR"
 
 verification_level: L3
