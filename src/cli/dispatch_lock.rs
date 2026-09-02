@@ -101,11 +101,6 @@ fn dispatch_lock_cmd_c(cmd: Commands) -> Result<(), String> {
             yes,
             json,
         }) => cmd_lock_compact_all(&state_dir, yes, json),
-        Commands::LockAuditTrail(LockAuditTrailArgs {
-            state_dir,
-            machine,
-            json,
-        }) => cmd_lock_audit_trail(&state_dir, machine.as_deref(), json),
         Commands::LockRotateKeys(LockRotateKeysArgs {
             state_dir,
             old_key,

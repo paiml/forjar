@@ -83,7 +83,7 @@
 | 27 | **Heredoc injection safety** — Single-quoted heredocs prevent shell expansion; template injection impossible | C | ✅ | Falsifiable claim C8; tested explicitly |
 | 28 | **No plaintext secrets in logs** — Secrets redacted from event logs and plan output | C, D | ✅ | Age-encrypted markers only |
 | 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ✅ | `forjar sbom`: SPDX 2.3 JSON output; collects packages, docker images, models, files with sources; BLAKE3 hashes from state locks; `--json` for SPDX, text table default; 5 tests |
-| 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ✅ | `forjar provenance` generates in-toto v0.1 attestation linking config BLAKE3 -> plan hash -> state hashes |
+| 30 | **Provenance attestation** (unsigned, not SLSA-conformant — relabelled in forjar#416; was claimed as "SLSA Level 3") — in-toto-shaped attestations linking source recipe → plan → applied state | A, D | ✅ | `forjar provenance` generates in-toto v0.1 attestation linking config BLAKE3 -> plan hash -> state hashes |
 | 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ❌ | **Not implemented.** `forjar sign` claimed this and did not do it: no key, no identity, and `--verify` never read the `signature`/`signer` fields — a sidecar forged to `"signature": "deadbeef"` verified. Withdrawn in v1.24 (paiml/forjar#405) and replaced by `forjar digest`, which honestly claims only BLAKE3 tamper evidence in a `.digest.json` sidecar. Real signing needs an asymmetric key and a trusted-keys file. |
 | 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
 | 33 | **CBOM (Cryptographic Bill of Materials)** — Inventory all crypto algorithms, key lengths, certificates on managed systems | A, D | ✅ | `forjar cbom` scans BLAKE3, age/X25519, SSH, TLS, docker digests |
@@ -304,7 +304,7 @@ Required for defense/aerospace procurement contracts.
 | # | Feature | Impact |
 |---|---------|--------|
 | 29 | SBOM generation | Executive Order 14028 compliance |
-| 30 | SLSA Level 3 provenance | Full artifact traceability |
+| 30 | Provenance attestation (unsigned; not SLSA-conformant, forjar#416) | Config→plan→state digest chain |
 | 31 | Cryptographic recipe signing | Tamper-evident recipe distribution |
 | 32 | Tamper-evident transparency log | Immutable audit trail |
 | 70 | Recipe SBOM | Per-recipe component inventory |

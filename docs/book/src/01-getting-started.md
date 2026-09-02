@@ -2529,12 +2529,12 @@ forjar graph -f forjar.yaml --subgraph my-resource --format dot
 
 ## Lock Audit Trail
 
-Show full audit trail of lock file changes with timestamps:
-
-```bash
-forjar lock-audit-trail --state-dir state
-forjar lock-audit-trail --state-dir state --machine gpu-box --json
-```
+`forjar lock-audit-trail` was withdrawn in the fix for forjar#416: it reported
+on a tamper-evident event chain that nothing ever built (`append_event` never
+chained, and `tripwire::chain` had no production caller), so its output was a
+claim with no evidence behind it. The history of a lock is `forjar lock-history
+--state-dir state`; tamper evidence is the `.b3` sidecar (`forjar lock-verify`)
+and authentication is `forjar lock-verify-sig`.
 
 ## Apply Circuit Breaker
 

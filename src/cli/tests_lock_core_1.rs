@@ -167,20 +167,6 @@ resources: {}
         }
     }
 
-    #[test]
-    fn test_fj495_lock_audit_trail_dispatch() {
-        let cmd = Commands::LockAuditTrail(LockAuditTrailArgs {
-            state_dir: PathBuf::from("state"),
-            machine: None,
-            json: false,
-        });
-        match cmd {
-            Commands::LockAuditTrail(LockAuditTrailArgs { machine, .. }) => {
-                assert!(machine.is_none())
-            }
-            _ => panic!("expected LockAuditTrail"),
-        }
-    }
 
     #[test]
     fn test_fj505_lock_rotate_keys_dispatch() {

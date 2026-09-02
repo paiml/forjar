@@ -222,9 +222,6 @@ pub enum Commands {
     /// FJ-485: Compact all machine lock files in one operation
     #[command(name = "lock-compact-all")]
     LockCompactAll(LockCompactAllArgs),
-    /// FJ-495: Show full audit trail of lock file changes with timestamps
-    #[command(name = "lock-audit-trail")]
-    LockAuditTrail(LockAuditTrailArgs),
     /// FJ-505: Rotate all lock file signing keys
     #[command(name = "lock-rotate-keys")]
     LockRotateKeys(LockRotateKeysArgs),

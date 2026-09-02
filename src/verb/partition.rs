@@ -140,7 +140,6 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["lock"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["lock-archive"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["lock-audit"], bucket: Bucket::Pending("paiml/forjar#288") },
-    Leaf { path: &["lock-audit-trail"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["lock-backup"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["lock-compact"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["lock-compact-all"], bucket: Bucket::Pending("paiml/forjar#288") },
