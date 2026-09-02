@@ -117,7 +117,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("bad.yaml");
         std::fs::write(&p, "not: valid: yaml: [[[").unwrap();
-        let r = cmd_refresh_only(&p, dir.path(), None, false, None, None, None);
+        let r = cmd_refresh_only(&p, dir.path(), None, false, None, None, None, None);
         assert!(r.is_err());
     }
 
@@ -128,17 +128,17 @@ mod tests {
         let cfg = write_cfg(dir.path(), &target, "x");
         let sd = dir.path().join("state");
         std::fs::create_dir_all(&sd).unwrap();
-        let r = cmd_refresh_only(&cfg, &sd, None, false, None, None, None);
+        let r = cmd_refresh_only(&cfg, &sd, None, false, None, None, None, None);
         assert!(r.is_ok());
     }
 
     #[test]
     fn refresh_after_converge_ok() {
         let (_d, cfg, sd, _t) = converged_setup();
-        let r = cmd_refresh_only(&cfg, &sd, None, false, None, None, None);
+        let r = cmd_refresh_only(&cfg, &sd, None, false, None, None, None, None);
         assert!(r.is_ok(), "refresh on converged state: {r:?}");
         // Second refresh: live_hash now stored, stable hash → no drift path.
-        let r2 = cmd_refresh_only(&cfg, &sd, None, true, None, None, None);
+        let r2 = cmd_refresh_only(&cfg, &sd, None, true, None, None, None, None);
         assert!(r2.is_ok());
     }
 
@@ -146,23 +146,23 @@ mod tests {
     fn refresh_detects_drift_verbose() {
         let (_d, cfg, sd, target) = converged_setup();
         // Seed live_hash, then mutate the target file out-of-band.
-        cmd_refresh_only(&cfg, &sd, None, false, None, None, None).unwrap();
+        cmd_refresh_only(&cfg, &sd, None, false, None, None, None, None).unwrap();
         std::fs::write(&target, "tampered").unwrap();
-        let r = cmd_refresh_only(&cfg, &sd, None, true, None, None, None);
+        let r = cmd_refresh_only(&cfg, &sd, None, true, None, None, None, None);
         assert!(r.is_ok(), "drift is reported, not an error: {r:?}");
     }
 
     #[test]
     fn refresh_machine_filter_no_match_ok() {
         let (_d, cfg, sd, _t) = converged_setup();
-        let r = cmd_refresh_only(&cfg, &sd, Some("ghost"), false, None, None, None);
+        let r = cmd_refresh_only(&cfg, &sd, Some("ghost"), false, None, None, None, None);
         assert!(r.is_ok());
     }
 
     #[test]
     fn refresh_with_workspace_param_ok() {
         let (_d, cfg, sd, _t) = converged_setup();
-        let r = cmd_refresh_only(&cfg, &sd, Some("m"), true, Some(30), None, Some("ws1"));
+        let r = cmd_refresh_only(&cfg, &sd, Some("m"), true, Some(30), None, Some("ws1"), None);
         assert!(r.is_ok());
     }
 
@@ -177,6 +177,7 @@ mod tests {
             None,
             Some(Path::new("/nonexistent/params.env")),
             None,
+            None,
         );
         assert!(r.is_err());
     }
@@ -189,7 +190,7 @@ mod tests {
         std::fs::create_dir_all(&sd).unwrap();
         let config = parse_and_validate(&cfg).unwrap();
         let _ = apply_local(&config, &sd); // resource fails → status Failed in lock
-        let r = cmd_refresh_only(&cfg, &sd, None, true, None, None, None);
+        let r = cmd_refresh_only(&cfg, &sd, None, true, None, None, None, None);
         assert!(r.is_ok(), "failed resources are skipped: {r:?}");
     }
 

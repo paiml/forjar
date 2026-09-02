@@ -239,6 +239,11 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             args.timeout,
             args.env_file.as_deref(),
             args.workspace.as_deref(),
+            // Refs #368: the operator gate now runs on this mode too, so the
+            // flag that answers it must travel with it. Passing `None` here
+            // resolves the identity from `$USER@$(hostname)` and refuses the
+            // operator who typed `--operator`.
+            args.operator.as_deref(),
         ));
     }
     if let Some(ref pf) = args.plan_file {

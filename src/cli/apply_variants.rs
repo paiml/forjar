@@ -291,6 +291,16 @@ fn refresh_machine_lock(
 /// open one flag over. `check_operator_auth` runs here too, for the reason
 /// forjar#370 moved it into `cmd_apply_from_plan`: the gate belongs to the act
 /// of writing state, not to the dispatcher that remembered.
+///
+/// `operator` is a PARAMETER and not a hard-coded `None`, and the difference is
+/// not cosmetic. `OperatorIdentity::resolve(None)` falls back to
+/// `$USER@$(hostname)`, so a gate that ignores the flag refuses the very person
+/// it is meant to admit: on a machine declaring `allowed_operators: [alice]`,
+/// `apply --refresh-only --operator alice` answered
+/// `error: operator 'noah@box' not authorized for machine 'box'` while the
+/// ordinary `apply --operator alice` converged. That is forjar#358's defect —
+/// a mode that drops what the operator actually typed — reappearing one flag
+/// over, which is precisely the shape this change exists to close.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_refresh_only(
     file: &Path,
@@ -300,8 +310,9 @@ pub(crate) fn cmd_refresh_only(
     timeout: Option<u64>,
     env_file: Option<&Path>,
     workspace: Option<&str>,
+    operator: Option<&str>,
 ) -> Result<(), String> {
-    super::dispatch_apply::check_operator_auth(file, None)?;
+    super::dispatch_apply::check_operator_auth(file, operator)?;
 
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {

@@ -401,6 +401,64 @@ fn a_gate_free_plan_file_apply_still_applies() {
     assert_eq!(std::fs::read_to_string(&fx.bravo).expect("bravo"), "B");
 }
 
+/// GREEN GUARD: the operator gate `--refresh-only` gained must honour the flag
+/// that answers it.
+///
+/// Adding `check_operator_auth` to this mode is right — it writes state. Wiring
+/// it as `check_operator_auth(file, None)` is not: `OperatorIdentity::resolve`
+/// falls back to `$USER@$(hostname)` when the flag is dropped, so the gate
+/// refuses the very operator it exists to admit. Measured before this
+/// assertion was wired:
+///
+/// ```text
+///   apply --yes --operator alice           -> Apply complete: 1 converged
+///   apply --refresh-only --operator alice  -> error: operator
+///       'noah@noah-Lambda-Vector' not authorized for machine 'box'   rc=1
+/// ```
+///
+/// That is forjar#358's defect — a mode dropping what the operator typed —
+/// one flag over from the one this file closes.
+#[test]
+fn refresh_only_honours_the_operator_flag() {
+    let fx = fixture();
+    let yaml = std::fs::read_to_string(&fx.cfg).expect("read cfg").replace(
+        "\x20   addr: 127.0.0.1\n",
+        "\x20   addr: 127.0.0.1\n\x20   allowed_operators:\n\x20     - alice\n",
+    );
+    std::fs::write(&fx.cfg, &yaml).expect("write cfg");
+    assert!(
+        yaml.contains("allowed_operators"),
+        "the fixture must actually restrict the machine"
+    );
+
+    let converge = fx.apply(&["--yes", "--operator", "alice"]);
+    assert!(
+        converge.status.success(),
+        "an authorized operator must be able to apply: {}",
+        combined(&converge)
+    );
+
+    let out = fx.apply(&["--refresh-only", "--operator", "alice"]);
+    let text = combined(&out);
+    assert!(
+        out.status.success(),
+        "the authorized operator must be able to refresh too: {text}"
+    );
+
+    // And the gate is not inert: an operator the machine does not name is still
+    // refused, so the assertion above is not passing because the check is off.
+    let denied = fx.apply(&["--refresh-only", "--operator", "mallory"]);
+    let denied_text = combined(&denied);
+    assert!(
+        !denied.status.success(),
+        "an unauthorized operator must still be refused: {denied_text}"
+    );
+    assert!(
+        denied_text.contains("not authorized"),
+        "the refusal must name the operator gate: {denied_text}"
+    );
+}
+
 /// And `--refresh-only` over an untampered state still refreshes.
 #[test]
 fn refresh_only_still_works_on_honest_state() {
