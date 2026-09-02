@@ -4,6 +4,7 @@ pub mod container;
 pub mod local;
 pub mod pepita;
 pub mod ssh;
+pub mod ssh_mux;
 pub mod stdin_isolation;
 
 #[cfg(test)]
