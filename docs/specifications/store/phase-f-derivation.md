@@ -1,6 +1,6 @@
 # Phase F: Derivations (FJ-1330–FJ-1344)
 
-**Status**: ✅ Complete — types + build execution + CLI wiring
+**Status**: 🔧 In progress — types + CLI wiring (sandbox execution pending)
 **Implementation**: `src/core/store/derivation.rs`, `src/core/store/derivation_exec.rs`, `src/core/store/provider.rs`, `src/core/store/provider_exec.rs`, `src/core/store/sandbox_run.rs`, `src/core/store/sync_exec.rs`
 
 ---

@@ -4,10 +4,9 @@
 //! via the transport layer. Each step's command is validated (I8) and
 //! executed sequentially. Cleanup runs on failure.
 
-use super::sandbox_exec::{SandboxPlan, SandboxStep};
+use super::sandbox_exec::SandboxPlan;
 use crate::core::purifier;
 use crate::core::types::Machine;
-use crate::transport;
 use std::path::Path;
 
 /// Result of a completed sandbox execution.
@@ -28,90 +27,13 @@ pub struct SandboxExecResult {
 /// Each step's command is validated via bashrs (I8 invariant) and executed
 /// sequentially. On failure, cleanup is attempted.
 pub fn execute_sandbox_plan(
-    plan: &SandboxPlan,
-    script: &str,
-    machine: &Machine,
-    store_dir: &Path,
-    timeout_secs: Option<u64>,
+    _plan: &SandboxPlan,
+    _script: &str,
+    _machine: &Machine,
+    _store_dir: &Path,
+    _timeout_secs: Option<u64>,
 ) -> Result<SandboxExecResult, String> {
-    let start = std::time::Instant::now();
-    let mut steps_executed = Vec::new();
-
-    for step in &plan.steps {
-        let success = execute_step(step, machine, timeout_secs)?;
-        steps_executed.push((step.step, step.description.clone(), success));
-
-        if !success {
-            cleanup_namespace(&plan.namespace_id, machine);
-            return Err(format!(
-                "sandbox step {} failed: {}",
-                step.step, step.description
-            ));
-        }
-    }
-
-    let duration = start.elapsed().as_secs_f64();
-
-    // Compute output hash from the sandbox execution
-    let output_hash = compute_sandbox_output_hash(plan, script);
-    let hash_bare = output_hash.strip_prefix("blake3:").unwrap_or(&output_hash);
-    let store_path = format!("{}/{hash_bare}/content", store_dir.display());
-
-    Ok(SandboxExecResult {
-        output_hash,
-        store_path,
-        steps_executed,
-        duration_secs: duration,
-    })
-}
-
-/// Execute a single sandbox step.
-///
-/// Returns `Ok(true)` on success, `Ok(false)` if no command to run,
-/// `Err` on I8 validation or transport failure.
-fn execute_step(
-    step: &SandboxStep,
-    machine: &Machine,
-    timeout_secs: Option<u64>,
-) -> Result<bool, String> {
-    let cmd = match &step.command {
-        Some(c) => c,
-        None => return Ok(true), // No command = informational step
-    };
-
-    // I8 gate: validate before execution
-    purifier::validate_script(cmd)
-        .map_err(|e| format!("I8 violation at step {}: {e}", step.step))?;
-
-    let output = transport::exec_script_timeout(machine, cmd, timeout_secs)
-        .map_err(|e| format!("step {} transport error: {e}", step.step))?;
-
-    Ok(output.success())
-}
-
-/// Clean up namespace resources on failure.
-fn cleanup_namespace(namespace_id: &str, machine: &Machine) {
-    let cleanup_cmd = format!("rm -rf '/tmp/forjar-sandbox/{namespace_id}' 2>/dev/null; true");
-    // Best-effort cleanup — ignore errors
-    let _ = transport::exec_script_timeout(machine, &cleanup_cmd, Some(10));
-}
-
-/// Compute the output hash for a sandbox build.
-///
-/// Uses the same deterministic approach as `simulate_sandbox_build()`:
-/// hash of input paths + script content.
-fn compute_sandbox_output_hash(plan: &SandboxPlan, script: &str) -> String {
-    let mut components: Vec<String> = plan
-        .overlay
-        .lower_dirs
-        .iter()
-        .map(|p| p.display().to_string())
-        .collect();
-    components.sort();
-    components.push(script.to_string());
-
-    let refs: Vec<&str> = components.iter().map(|s| s.as_str()).collect();
-    crate::tripwire::hasher::composite_hash(&refs)
+    Err("not implemented: sandbox execution (delegation to pepita namespace + hash_directory + atomic_move_to_store) is pending".to_string())
 }
 
 /// Execute a sandbox plan in dry-run mode (validate all commands without running).
