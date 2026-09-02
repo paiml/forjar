@@ -115,6 +115,48 @@ run log at all), #390-B (that path also skips post-apply verification),
 #390-C (`--json` still reports `error: null` for a failed resource),
 #390-E (the nested-shell `set -euo pipefail` hole).
 
+### Removed
+
+**Three "verify" commands that never read a signature (#405, audit E03).**
+`forjar sign --verify` deserialised the sidecar's `signature` and `signer`
+fields and then compared only a BLAKE3 content hash. Editing the sidecar to
+`"signature": "deadbeef", "signer": "root@prod"` still printed
+`{"valid": true, "signer": "root@prod"}` and exited 0. `forjar sign --pq
+--verify` made the same non-check twice and reported "both signatures valid".
+`forjar lock-verify-hmac` re-hashed each lock into `let _hash`, discarded it,
+counted the lock as `verified`, and returned `Ok(())` — and looked for the
+signature at `<state>/<machine>.lock.yaml.sig`, which is not where `lock-sign`
+writes it. A CI gate built on any of the three was green by construction.
+
+Subtracted rather than implemented, which is what #405 asked for:
+
+- `forjar sign --pq` and `cli::pq_signing` are gone.
+- `forjar sign` is now **`forjar digest`** — recording and re-checking a BLAKE3
+  hash was all it ever did. The sidecar moves from `<recipe>.sig.json` to
+  `<recipe>.digest.json` and no longer carries `signature`, `signer`, or the
+  false `algorithm: blake3-hmac`; `--signer` is gone with them. This is tamper
+  evidence, not authenticity: there is no key, so anyone who can edit the
+  recipe can recompute the sidecar beside it.
+- `forjar lock-verify-hmac` is gone. `forjar lock-verify-sig --key K` already
+  recomputes `blake3(lock ++ key)` and compares it, and is the command to use.
+
+About 40 unit tests went with the modules. None of them could fail on a forged
+signature, because the code they covered never read one — the closest,
+`test_cmd_recipe_sign_verify_tampered`, mutated the recipe, the one input that
+was checked. `tests/falsification_e03_signatures_are_read.rs` replaces them
+with the assertion the issue asked for: no forjar verb may accept a forged
+signature and exit 0. Verified RED against the unfixed tree first.
+
+Adversarial review of that change found the same defect shape surviving in the
+verb that replaced them: `digest --verify` deserialised the sidecar's
+`algorithm` field and copied it into the verdict beside `"valid": true`, while
+the check that actually ran was BLAKE3. A sidecar edited to
+`"algorithm": "ed25519-dsse"` printed
+`{"valid": true, "algorithm": "ed25519-dsse", "reason": "digest matches"}` and
+exited 0. Verify now requires the recorded algorithm to be `blake3` — anything
+else is `valid: false` — and reports the algorithm it computed, never the one
+the sidecar claims.
+
 ## [1.23.1] — 2026-08-30
 
 Two fixes shipped as a patch because the first one is the difference between

@@ -150,7 +150,6 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
         | cmd @ Commands::LockDefrag(..)
         | cmd @ Commands::LockNormalize(..)
         | cmd @ Commands::LockValidate(..)
-        | cmd @ Commands::LockVerifyHmac(..)
         | cmd @ Commands::LockArchive(..)
         | cmd @ Commands::LockSnapshot(..)
         | cmd @ Commands::LockRepair(..)

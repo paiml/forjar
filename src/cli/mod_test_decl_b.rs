@@ -373,9 +373,7 @@ mod tests_infra_query;
 #[cfg(test)]
 mod tests_infra_query_live;
 #[cfg(test)]
-mod tests_recipe_signing;
-#[cfg(test)]
-mod tests_pq_signing;
+mod tests_recipe_digest;
 #[cfg(test)]
 mod tests_preservation_check;
 #[cfg(test)]

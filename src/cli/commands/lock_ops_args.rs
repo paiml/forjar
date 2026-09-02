@@ -96,18 +96,6 @@ pub struct LockValidateArgs {
     pub json: bool,
 }
 
-/// CLI arguments for `lock verify-hmac`.
-#[derive(clap::Args, Debug)]
-pub struct LockVerifyHmacArgs {
-    /// State directory
-    #[arg(long, default_value = "state")]
-    pub state_dir: PathBuf,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
 /// CLI arguments for `lock archive`.
 #[derive(clap::Args, Debug)]
 pub struct LockArchiveArgs {
