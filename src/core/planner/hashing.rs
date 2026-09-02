@@ -124,7 +124,14 @@ fn write_canonical(out: &mut String, value: &Value) {
         }
         Value::Mapping(map) => write_canonical_mapping(out, map),
         Value::Tagged(tagged) => {
-            out.push_str(&format!("!{}", tagged.tag));
+            // Length-prefixed like a string. Bare `!{tag}` was NOT injective:
+            // tag `a` over tagged(`b`, ~) and tag `a!!b` over ~ both rendered
+            // `!!a!!b~`. Found by the E01 quorum, not by a user — a tag only
+            // reaches here through `inputs:` — but a collision in the one
+            // function whose whole contract is "different declaration,
+            // different bytes" is a defect wherever it sits.
+            let tag = tagged.tag.to_string();
+            out.push_str(&format!("!{}:{tag}", tag.len()));
             write_canonical(out, &tagged.value);
         }
     }

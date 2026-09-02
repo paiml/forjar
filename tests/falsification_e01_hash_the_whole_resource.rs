@@ -239,3 +239,36 @@ fn overlay_hosts_insertion_order_does_not_move_the_hash() {
         ],
     );
 }
+
+/// A tag over a tagged null, versus a longer tag over a bare null.
+///
+/// Found by refutation of the "injective" claim during the E01 quorum: bare
+/// `!{tag}` rendered `!!a!!b~` for both of these (`Tag`'s Display carries its
+/// own leading `!`, which is why the first counterexample, `a!b`, did NOT
+/// collide and the test had to be corrected before it could go red). A tag only reaches the hasher
+/// through `inputs:`, so no user has hit it — but the one function whose
+/// contract is "different declaration, different bytes" must not have a
+/// collision anywhere in it.
+#[test]
+fn tagged_input_values_do_not_collide() {
+    use serde_yaml_ng::value::{Tag, TaggedValue};
+    use serde_yaml_ng::Value;
+
+    let tagged = |tag: &str, value: Value| {
+        Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new(tag),
+            value,
+        }))
+    };
+    let mut a = Resource::default();
+    a.inputs
+        .insert("k".into(), tagged("a", tagged("b", Value::Null)));
+    let mut b = Resource::default();
+    b.inputs.insert("k".into(), tagged("a!!b", Value::Null));
+
+    assert_ne!(
+        hash_desired_state(&a),
+        hash_desired_state(&b),
+        "two different tagged declarations must not share a desired-state hash"
+    );
+}
