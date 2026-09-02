@@ -18,10 +18,12 @@
 //!   * `cargo audit`, in the SAME job, reads `Cargo.lock` directly with no
 //!     feature resolution, and HAS been reporting it on every daily cron run:
 //!
-//!       Crate:     spin
-//!       Version:   0.9.8
-//!       Warning:   yanked
-//!       Dependency tree: spin 0.9.8 └── wasmi 0.40.0 └── forjar
+//! ```text
+//! Crate:     spin
+//! Version:   0.9.8
+//! Warning:   yanked
+//! Dependency tree: spin 0.9.8 └── wasmi 0.40.0 └── forjar
+//! ```
 //!
 //!     It exits 0 anyway, because a yank is a warning class:
 //!     `warning: 2 allowed warnings found`. The gate saw it every day for
