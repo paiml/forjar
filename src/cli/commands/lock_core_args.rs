@@ -225,22 +225,6 @@ pub struct LockCompactAllArgs {
     pub json: bool,
 }
 
-/// CLI arguments for `lock audit-trail`.
-#[derive(clap::Args, Debug)]
-pub struct LockAuditTrailArgs {
-    /// State directory
-    #[arg(long, default_value = "state")]
-    pub state_dir: PathBuf,
-
-    /// Target specific machine
-    #[arg(short, long)]
-    pub machine: Option<String>,
-
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
 /// CLI arguments for `lock rotate-keys`.
 #[derive(clap::Args, Debug)]
 pub struct LockRotateKeysArgs {

@@ -144,15 +144,6 @@ mod tests {
         let _ = format!("{a:?}");
     }
 
-    #[test]
-    fn test_cov_lock_audit_trail_args_construct() {
-        let a = LockAuditTrailArgs {
-            state_dir: PathBuf::from("s"),
-            machine: None,
-            json: true,
-        };
-        let _ = format!("{a:?}");
-    }
 
     #[test]
     fn test_cov_lock_rotate_keys_args_construct() {
