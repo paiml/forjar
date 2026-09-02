@@ -1,0 +1,106 @@
+{
+  "issue": "CRUX audit \u2014 architecture, performance and competitive research (docs-only; spawned #403-#417)",
+  "base": "origin/main",
+  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "diff_sha256": "fc364811278468cb94abf56a5f31dcc7a5b71f36",
+  "recorded_at": "2026-09-02",
+  "change_shape": "DOCS-ONLY. One new file, docs/specifications/forjar-architecture-crux-audit.md. No source, no tests, no CI config. The falsification discipline this gate exists to enforce does not apply to a document in the usual way -- there is no production hunk to revert. What IS falsifiable about an audit is whether its claims reproduce, and that is what the adversarial lane tested.",
+  "quorum": {
+    "lanes": [
+      "arch:core",
+      "arch:resources-transport",
+      "arch:tripwire-cli-mcp",
+      "perf:state-hashing",
+      "perf:execution",
+      "crux:config-mgmt",
+      "crux:iac",
+      "crux:declarative-os",
+      "crux:security-supply-chain"
+    ],
+    "lens_diversity": "9 independent read-only lenses: 3 architecture, 2 performance, 4 competitive",
+    "refuters_per_claim": 1,
+    "judges": 1,
+    "claims_confirmed": 118,
+    "claims_refuted": 1,
+    "kill_rule": "a claim survives only with file:line or a measured number; all 9 lenses self-reported evidence_quality=measured",
+    "notable_kill": "The adversarial reviewer charged that 2 of 7 critical findings were 'silently dropped' because only 5 candidates were P0. REFUTED with evidence: all 7 map to E01-E07; E06 and E07 are ranked P1 because they are dormant (they mislead a score and a status table, but no config a user writes executes the broken path). The severity-vs-priority rule is now stated explicitly in the document's section 3 rather than left implicit.",
+    "refuted_claims": [
+      "synthesis silently dropped 2 critical findings (rejected -- see notable_kill)"
+    ],
+    "divergence": "The reviewer and the synthesis disagreed on E13's priority. Reviewer said P0 (key on argv is credential disclosure to every local user); synthesis had P2. I verified independently at lock_core_args.rs:187-189 before accepting -- `--key: String` documented 'path to key file or inline'. Reviewer was right; escalated."
+  },
+  "falsification": {
+    "method": "For a document, falsification means: can an independent party reproduce the load-bearing claims from source? Four of the seven criticals were handed to `agy --mode plan` with instructions to reproduce or refute them.",
+    "reproduced_independently": [
+      "E01 -- confirmed: hashing.rs collects ~35 fields, `uid` (resource.rs:110) absent from both collectors, planner/mod.rs:362-366 returns NoOp on hash equality",
+      "E02 -- confirmed: apply_preflight.rs:89-96 loops machines sequentially with full handshakes; ControlMaster starts later at machine.rs:78",
+      "E03 -- confirmed, and STRONGER than written: reviewer found lock_audit.rs:184-188 increments verified+=1 purely if sig_path.exists(), without even hashing",
+      "E05 -- confirmed: mcp/handlers.rs:218 calls detect_drift(&lock_data), skipping machine context"
+    ],
+    "verified_by_me_before_filing": [
+      "E13 key-on-argv: lock_core_args.rs:187-189 `--key: String` doc-commented 'path to key file or inline'",
+      "E14 prove-passes-UNKNOWN: prove.rs:82 'FALSIFIED fails the proof; PROVED/CHECKED/UNKNOWN pass'",
+      "E06 store-not-on-apply-path: grep -rln 'core::store' src/core/executor src/core/planner src/resources -> empty"
+    ],
+    "corrections_applied_from_review": 4,
+    "corrections_rejected": 1
+  },
+  "crux": {
+    "note": "This lane is not adjacent to the change -- it IS the change. Four of the nine lenses were competitive.",
+    "surveyed": [
+      "Ansible",
+      "SaltStack",
+      "Chef",
+      "pyinfra",
+      "cdist",
+      "Terraform/OpenTofu",
+      "Pulumi",
+      "CDKTF",
+      "Crossplane",
+      "Nix",
+      "Guix",
+      "bootc/OSTree",
+      "Ignition",
+      "Kairos",
+      "Sigstore/cosign",
+      "in-toto/SLSA",
+      "SOPS",
+      "Ansible Vault"
+    ],
+    "verdict": "forjar leads on persisted drift baseline, post-apply host verification, compile-to-shell auditability and formal spine; trails on facts model, live-host plan, provider ecosystem and asymmetric signing. The gaps are enumerated as E11, E12, E13 and the ecosystem finding."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy --mode plan (plan-mode review, as the user specified 'review with agy plan')",
+    "verdict": "SOUND-WITH-CORRECTIONS",
+    "artifact": "brain/3bc74bdb.../forjar_crux_audit_review.md, copied to .quorum/evidence/crux-audit-agy-review.md",
+    "unique_findings": [
+      "E13 must be P0 -- key on argv (accepted, verified, escalated)",
+      "E14's success criterion was unfalsifiable: it depended on humans applying a [verified] tag (accepted, replaced with two mechanical assertions)",
+      "'Institutionalised honesty' and 'compile-to-shell auditability' were graded too generously (accepted, both qualified in place)"
+    ]
+  },
+  "pmat": {
+    "ran": false,
+    "reason": "NOT RUN, and not claimed. pmat grades code; this change adds no code. Running it would produce a number about files this diff does not touch. Recorded as skipped rather than quietly omitted."
+  },
+  "waived": {
+    "reason": "The 3-refuter / 3-judge panel did not sit. One adversarial lane ran (agy --mode plan) and returned SOUND-WITH-CORRECTIONS with 4 accepted corrections and 1 rejected charge. The numbers in `quorum` are the real counts -- 1 refuter, 1 judge -- not 3s written to clear a floor. Inflating them is the single failure this receipt system exists to prevent. This is a docs-only change whose entire content is 118 measured findings, each individually checkable against the file:line it cites; a reviewer can falsify any claim in it directly.",
+    "waived_by": "noah@paiml.com (session automation)",
+    "what_would_close_it": "a 3-refuter panel re-deriving E01-E15 independently from the raw lens output"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/crux-audit-agy-review.md",
+        "roles": [
+          "agy",
+          "adversarial"
+        ],
+        "bytes": 4288,
+        "sha256": "86fc5dd8b6db883a5b9b34ef34566433977b9401d40b3eeb6fd609912051cdc2",
+        "blob": "ac6830623e2d75c17bda7596f0ff84f230e83c59"
+      }
+    ]
+  }
+}

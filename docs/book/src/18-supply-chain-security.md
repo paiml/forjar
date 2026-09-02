@@ -285,40 +285,52 @@ forjar prove -f forjar.yaml --json | jq -e '.passed == .total'
 forjar provenance -f forjar.yaml --json > provenance.json
 ```
 
-## Recipe Signing (FJ-1432)
+## Recipe Digest (FJ-1432)
 
-Sign recipes with BLAKE3-HMAC to verify integrity before apply:
+Record a recipe's BLAKE3 hash and re-check it later:
 
 ```bash
-# Sign a recipe
-forjar recipe-sign recipes/nginx.yaml --signer ci-bot
+# Record the digest
+forjar digest recipes/nginx.yaml
 
-# Verify signature
-forjar recipe-sign recipes/nginx.yaml --verify
+# Re-check the recipe against it (exits non-zero on mismatch)
+forjar digest recipes/nginx.yaml --verify
 
 # JSON output
-forjar recipe-sign recipes/nginx.yaml --verify --json
+forjar digest recipes/nginx.yaml --verify --json
 ```
 
-Signing produces a `.sig.json` file alongside the recipe:
+This writes a `.digest.json` file alongside the recipe:
 
 ```json
 {
   "recipe_path": "recipes/nginx.yaml",
   "blake3_hash": "a1b2c3d4...",
-  "algorithm": "blake3-hmac",
-  "signer": "ci-bot",
-  "timestamp": "2026-03-07T22:00:00Z",
-  "signature": "e5f6a7b8..."
+  "algorithm": "blake3",
+  "timestamp": "2026-03-07T22:00:00Z"
 }
 ```
 
-Verification re-hashes the recipe and compares against the stored
-signature. If someone modifies the recipe after signing, verification
-fails with "hash mismatch."
+**It is tamper evidence, not a signature.** There is no key, so anyone who can
+edit the recipe can recompute the sidecar next to it. It catches accidental
+edits and transfer corruption. It does not authenticate an author, and it must
+not be the thing a CI gate trusts against someone with write access.
 
-Post-quantum dual signing is available with `--pq`, which produces
-both a BLAKE3-HMAC and a Dilithium lattice-based signature.
+Until v1.24 this section described `forjar sign`, a `signature`/`signer` pair
+and a "post-quantum" `--pq` mode producing "a Dilithium lattice-based
+signature". None of that was true. There was no key and no lattice — `--pq`
+hashed the same content twice with BLAKE3 — and `--verify` never read the
+signature fields at all: a sidecar edited to `"signature": "deadbeef"` and
+`"signer": "root@prod"` still reported `"valid": true` and exited 0. The verbs
+were removed rather than repaired ([paiml/forjar#405][fj405]).
+
+For a keyed integrity check over state locks, use `forjar lock-sign --key K`
+and `forjar lock-verify-sig --key K`, which recompute `blake3(lock ++ key)` and
+compare it. That is a shared secret, so it detects tampering by anyone who does
+not hold the key; it is not a public-key identity binding of the kind Sigstore
+gives you.
+
+[fj405]: https://github.com/paiml/forjar/issues/405
 
 ## Recipe Registry (FJ-1426)
 

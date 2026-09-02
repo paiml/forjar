@@ -242,15 +242,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cov_lock_verify_hmac_args_construct() {
-        let a = LockVerifyHmacArgs {
-            state_dir: PathBuf::from("s"),
-            json: true,
-        };
-        let _ = format!("{a:?}");
-    }
-
-    #[test]
     fn test_cov_lock_archive_args_construct() {
         let a = LockArchiveArgs {
             state_dir: PathBuf::from("s"),

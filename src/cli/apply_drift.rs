@@ -6,7 +6,138 @@
 
 use super::helpers_state::*;
 use crate::core::types;
+use std::borrow::Cow;
 use std::path::Path;
+
+/// Which resources this apply is actually going to act on.
+///
+/// forjar#404 (CRUX audit E02): the gate took only `machine_filter`, so
+/// `apply -r one-resource` still probed EVERY locked resource on the machine
+/// — one full SSH handshake each — and then wrote `status: drifted` over
+/// resources the very same run was about to skip. The lock came back claiming
+/// drift nothing had repaired, and the next `forjar drift` read it as fact.
+#[derive(Clone, Copy, Default)]
+pub(super) struct GateScope<'a> {
+    /// `-m` / `--machine`.
+    pub machine: Option<&'a str>,
+    /// `-r` / `--resource`: an exact resource id.
+    pub resource: Option<&'a str>,
+    /// `-t` / `--tag`.
+    pub tag: Option<&'a str>,
+    /// `-g` / `--group`.
+    ///
+    /// ADVERSARIAL REVIEW (forjar#404): this was the one filter of the family
+    /// that never reached the gate — `group_filter` was not even a parameter of
+    /// `apply_pre_validate`. Measured on the unscoped build: `apply -g net`
+    /// probed the out-of-group resource anyway and left `status: drifted` in
+    /// `state.lock.yaml` for a resource the same run reported as skipped.
+    pub group: Option<&'a str>,
+}
+
+impl GateScope<'_> {
+    /// Does the run act on this resource id?
+    ///
+    /// Mirrors the executor's own predicates: `resource_filter` is an exact id
+    /// match (`resource_ops::should_skip_single`), while `tag_filter` and
+    /// `group_filter` require the declaration to carry the tag / the group
+    /// (`resource_ops::resource_filtered_out`). A locked id with no declaration
+    /// left carries neither, so either filter excludes it — exactly as the
+    /// executor would.
+    fn covers(&self, id: &str, resources: &indexmap::IndexMap<String, types::Resource>) -> bool {
+        if self.resource.is_some_and(|r| r != id) {
+            return false;
+        }
+        // A locked id with no declaration is OUT of scope, unconditionally.
+        // `--exclude`, `--skip` and `--subset` all prune `config.resources`
+        // before this gate runs, and a declaration deleted from the file never
+        // reaches it at all — in every case the executor cannot touch the
+        // resource, so a `drifted` written here is a drift no run repairs,
+        // verbatim the harm forjar#404 fixed for `-r`. Measured before this
+        // arm: `apply --exclude alpha-b` left `status: drifted` on alpha-b.
+        // `forjar drift` still reports orphaned lock entries; that is its job.
+        let Some(declared) = resources.get(id) else {
+            return false;
+        };
+        // The two predicates below are `resource_ops::resource_filtered_out`
+        // inverted, deliberately literally: the gate and the executor must
+        // answer the same question about the same resource.
+        if self
+            .tag
+            .is_some_and(|tag| !declared.tags.iter().any(|t| t == tag))
+        {
+            return false;
+        }
+        if self
+            .group
+            .is_some_and(|group| declared.resource_group.as_deref() != Some(group))
+        {
+            return false;
+        }
+        true
+    }
+
+    /// The lock as the gate should read it: only the entries in scope.
+    ///
+    /// Borrows when nothing is filtered, so the common unfiltered apply pays
+    /// no clone.
+    fn narrow<'l>(
+        &self,
+        lock: &'l types::StateLock,
+        resources: &indexmap::IndexMap<String, types::Resource>,
+    ) -> Cow<'l, types::StateLock> {
+        let unfiltered = self.resource.is_none() && self.tag.is_none() && self.group.is_none();
+        if unfiltered && lock.resources.keys().all(|id| resources.contains_key(id)) {
+            return Cow::Borrowed(lock);
+        }
+        let mut scoped = lock.clone();
+        scoped.resources.retain(|id, _| self.covers(id, resources));
+        Cow::Owned(scoped)
+    }
+
+    /// The machines this run will actually reach: every one that hosts at
+    /// least one declared resource the scope covers.
+    ///
+    /// ADVERSARIAL REVIEW (forjar#404, agy lane): the ControlMaster hoist
+    /// narrowed the fleet by `-m` only, so `apply -r one-resource` opened a
+    /// master to EVERY SSH machine in the file — an O(fleet) handshake bill
+    /// for an O(1) apply, which is the exact cost this issue exists to remove.
+    /// Ansible, Salt-SSH and pyinfra all open connections lazily against the
+    /// filtered inventory; nothing surveyed connects to hosts it will not use.
+    pub(super) fn machines_in_scope(&self, config: &types::ForjarConfig) -> Vec<String> {
+        config
+            .machines
+            .keys()
+            .filter(|name| self.machine.is_none_or(|m| m == name.as_str()))
+            .filter(|name| {
+                config.resources.iter().any(|(id, r)| {
+                    r.machine.iter().any(|t| t == name.as_str())
+                        && self.covers(id, &config.resources)
+                })
+            })
+            .cloned()
+            .collect()
+    }
+}
+
+/// Will `check_pre_apply_drift` query any host at all?
+///
+/// One predicate, shared with the ControlMaster hoist in `apply_mux`, so the
+/// decision "open a socket for the gate" and the decision "run the gate" can
+/// never disagree.
+pub(super) fn gate_will_run(config: &types::ForjarConfig, force: bool) -> bool {
+    config.policy.tripwire && !force
+}
+
+/// Everything the per-machine half of the gate needs, so the fan-out closure
+/// captures one `Copy` value instead of six.
+#[derive(Clone, Copy)]
+pub(super) struct GateRun<'a> {
+    config: &'a types::ForjarConfig,
+    state_dir: &'a Path,
+    scope: GateScope<'a>,
+    dry_run: bool,
+    verbose: bool,
+}
 
 /// One drift finding observed BEFORE the apply ran.
 ///
@@ -49,7 +180,7 @@ pub(super) struct DriftRepair {
 pub(super) fn check_pre_apply_drift(
     config: &types::ForjarConfig,
     state_dir: &Path,
-    machine_filter: Option<&str>,
+    scope: GateScope<'_>,
     force: bool,
     dry_run: bool,
     verbose: bool,
@@ -59,20 +190,34 @@ pub(super) fn check_pre_apply_drift(
     // missing measurement. Running the detector here anyway would add a full
     // transport round-trip per resource to the one path that exists to skip
     // observation.
-    if !config.policy.tripwire || force {
+    if !gate_will_run(config, force) {
         return Ok(Vec::new());
     }
-    let locks = load_machine_locks(config, state_dir, machine_filter)?;
-    let mut observed: Vec<DriftRepair> = Vec::new();
-    for (machine_name, lock) in &locks {
-        observed.extend(record_machine_drift(
-            config,
-            machine_name,
-            lock,
-            state_dir,
-            dry_run,
-            verbose,
-        )?);
+    // `load_machine_locks` returns a HashMap, and a HashMap's iteration order
+    // is not an order: the `drift:` lines and the returned findings came out in
+    // a different sequence on every run. Sorting costs nothing here and fixes
+    // the ORDER the findings are collected and printed in — not the order the
+    // machines answer, which is the network's to decide.
+    let mut locks: Vec<(String, types::StateLock)> =
+        load_machine_locks(config, state_dir, scope.machine)?
+            .into_iter()
+            .collect();
+    locks.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let run = GateRun {
+        config,
+        state_dir,
+        scope,
+        dry_run,
+        verbose,
+    };
+    let observed = super::apply_drift_fanout::gate(run, &locks)?;
+
+    // PRINTED HERE, NOT IN THE WORKER. Under the fan-out, per-finding
+    // `eprintln!`s from several machines interleave mid-line; emitting them
+    // from the join point keeps the exact same text in a stable machine order.
+    for d in &observed {
+        eprintln!("  drift: [{}] {} — {}", d.machine, d.resource_id, d.detail);
     }
     if !observed.is_empty() && verbose {
         eprintln!(
@@ -87,14 +232,18 @@ pub(super) fn check_pre_apply_drift(
 ///
 /// Extracted so `check_pre_apply_drift` stays inside the repo's complexity cap
 /// once it accumulates rather than discards.
-fn record_machine_drift(
-    config: &types::ForjarConfig,
+pub(super) fn record_machine_drift(
+    run: GateRun<'_>,
     machine_name: &str,
     lock: &types::StateLock,
-    state_dir: &Path,
-    dry_run: bool,
-    verbose: bool,
 ) -> Result<Vec<DriftRepair>, String> {
+    let GateRun {
+        config,
+        state_dir,
+        scope,
+        dry_run,
+        verbose,
+    } = run;
     // FJ-1378-fix: Pass the machine object so container transports use
     // docker exec instead of checking the host filesystem.
     // USE THE SAME DETECTOR `forjar drift` USES.
@@ -133,9 +282,17 @@ fn record_machine_drift(
         &config.machines,
         &config.secrets,
     );
+    // forjar#404: DETECT THROUGH THE SCOPE, WRITE THROUGH THE WHOLE LOCK.
+    //
+    // Every detector in `tripwire::drift` walks `lock.resources`, so narrowing
+    // the lock is what bounds the remote queries — that is the whole cost of
+    // the gate. It must NOT be the lock that gets persisted below: saving the
+    // narrowed clone would delete every out-of-scope resource from
+    // `state.lock.yaml`, turning a `-r` apply into state amputation.
+    let narrowed = scope.narrow(lock, &config.resources);
     let findings = match config.machines.get(machine_name) {
-        Some(m) => crate::tripwire::drift::detect_drift_full(lock, m, &resolved),
-        None => crate::tripwire::drift::detect_drift(lock),
+        Some(m) => crate::tripwire::drift::detect_drift_full(&narrowed, m, &resolved),
+        None => crate::tripwire::drift::detect_drift(&narrowed),
     };
     if findings.is_empty() {
         return Ok(Vec::new());
@@ -147,10 +304,6 @@ fn record_machine_drift(
     let mut updated = lock.clone();
     let mut observed = Vec::with_capacity(findings.len());
     for f in &findings {
-        eprintln!(
-            "  drift: [{}] {} — {}",
-            machine_name, f.resource_id, f.detail
-        );
         if let Some(rl) = updated.resources.get_mut(&f.resource_id) {
             rl.status = types::ResourceStatus::Drifted;
         }
