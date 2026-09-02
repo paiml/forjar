@@ -365,8 +365,20 @@ fn init_gitignores_run_transcripts() {
 // ── `--auto-commit` (Refs #406, fix item 2) ─────────────────────────────────
 
 fn git(repo: &Path, args: &[&str]) -> String {
+    // SCRUB THE INHERITED GIT ENVIRONMENT. Under `git push`, the pre-push hook
+    // (and so the quorum gate, and so `cargo test`) runs with GIT_DIR pointing
+    // at the developer's own repository. A `git init`/`add -A`/`commit` here
+    // with that inherited GIT_DIR operated on THAT repository with this
+    // tempdir as its work tree: one commit by "e04" deleted 2,556 tracked
+    // files from a feature branch (2026-09-02, forjar#406 quorum). The test
+    // must never be able to escape its sandbox, whatever spawned it.
     let out = Command::new("git")
         .current_dir(repo)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_OBJECT_DIRECTORY")
+        .env_remove("GIT_COMMON_DIR")
         .args(args)
         .output()
         .expect("git failed to start");
