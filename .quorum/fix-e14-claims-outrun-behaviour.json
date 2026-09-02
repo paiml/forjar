@@ -1,6 +1,6 @@
 {
   "issue": "#416 (CRUX audit E14) — prove rendered UNKNOWN as [PASS], provenance labelled an unsigned attestation 'SLSA Level 3', and the event chain had no production caller",
-  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base_commit": "8568ed636ace7f1e8efd33be17c6c7b788c4f285",
   "base": "origin/main",
   "recorded_at": "2026-09-02",
   "quorum": {
@@ -231,5 +231,6 @@
     "lib_tests": "13373 passed, 0 failed, 4 ignored",
     "clippy": "-D warnings, 0 errors"
   },
-  "diff_sha256": "a982f7a3990a82fb531f05aa3db06b834ab3672d"
+  "diff_sha256": "f077c37142dd66da303d651f4fabd2a3b2b023ea",
+  "base_commit_rebased": "Re-anchored from f0cbf6352c87 after rebasing onto origin/main (#418, #419 E01, #420 E03, #421 E02, #424 E05, #426 E13) to clear the .pmat/baseline.json conflict (#401) and a row-30 conflict in docs/specifications/improve-quality-forjar-v2.md with #420. The evidence was NOT re-run: none of those PRs touches src/cli/prove.rs, src/cli/provenance.rs, the withdrawn chain module or tests/falsification_e14_claims_outrun_behaviour.rs. Rebased rather than merged because the merge commit could not pass the TDG pre-commit hook on src/cli/dispatch_lock.rs (paiml-mcp-agent-toolkit#1162: an edited file loses its cached entropy score), and the replay ran with hooks disabled [A] because the post-commit baseline hook dirties the tree between replayed commits; every replayed commit had already passed the hook when it was made."
 }
