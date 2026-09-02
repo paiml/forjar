@@ -3,6 +3,7 @@
 use pforge_runtime::Handler;
 
 use super::handlers::*;
+use super::handlers_drift::DriftHandler;
 use super::types::*;
 
 #[tokio::test]

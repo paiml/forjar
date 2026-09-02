@@ -338,7 +338,7 @@ fi
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
 python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
-import json, subprocess, sys
+import json, os, subprocess, sys
 
 path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed = sys.argv[1:8]
 min_lanes, min_refuters, min_judges = int(min_lanes), int(min_refuters), int(min_judges)
@@ -545,9 +545,17 @@ if head_now != pushed_full:
           "on the PR head.")
 else:
     print(f"  verifying falsification test passes with the fix: {target}")
+    # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push hook,
+    # where git has exported GIT_DIR for the repository being pushed. A test that
+    # spawns `git` in its own tempdir then inherits that GIT_DIR and operates on
+    # the developer's repository with the tempdir as work tree -- measured on
+    # 2026-09-02: a falsification test's `git add -A && git commit` deleted 2,556
+    # tracked files from the branch under review. The tests get a clean git
+    # environment; the gate keeps its own.
+    test_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     proc = subprocess.run(
         ["cargo", "test", "--test", target, "--quiet"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, env=test_env,
     )
     if proc.returncode != 0:
         tail = (proc.stdout + proc.stderr).strip().splitlines()[-15:]

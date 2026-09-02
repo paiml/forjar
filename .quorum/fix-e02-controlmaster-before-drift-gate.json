@@ -1,0 +1,123 @@
+{
+  "issue": "#404 (CRUX audit E02) — the pre-apply drift gate opened one fresh SSH handshake per resource, before ControlMaster existed; no-op apply perf claims were false",
+  "base_commit": "f0cbf6352c878246c6af7f071d4c2a40179c1028",
+  "base": "origin/main",
+  "recorded_at": "2026-09-02",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 9,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "`--plan-file` bypasses the hoist so its gate queries still handshake before any master exists — REFUTED: that path never runs the drift gate (apply_from_plan calls neither apply_pre_validate nor check_pre_apply_drift); the executor starts its own master before its first remote command, as always.",
+      "Sorting the locks by machine name makes the fan-out deterministic — REFUTED as worded: it fixes the order findings are collected and printed, not which machine answers first. Comment corrected.",
+      "Closing the --exclude/--skip gap is a semantics call about whether the gate should report a locked resource whose declaration is gone (the first cut's commit message) — REFUTED: the apply gate records drift THIS RUN will repair, and a resource the executor cannot touch is out of scope by the fix's own principle. Decided, implemented, pinned by gate_is_scoped_by_exclude."
+    ],
+    "divergence": "the probe lane confirmed the hoist and the fan-out; the agy lane found the hoist opened masters to the WHOLE fleet under -r/-t/-g and that the fan-out was unbounded with first-error short-circuit — three of its five charges were taken, two refuted against the code."
+  },
+  "crux": {
+    "systems": [
+      "Ansible — ControlPersist via the ssh client; connections opened lazily against the FILTERED inventory, bounded by forks",
+      "Salt-SSH — opens per target as execution demands, from a bounded worker pool",
+      "pyinfra / Fabric — connect on the first remote operation against a specific host, never to hosts the run will not touch",
+      "Terraform SSH provisioner — one connection per provisioned resource, scoped to that resource"
+    ],
+    "verdict": "nothing surveyed connects to hosts it will not use or runs unbounded. The first cut was below that bar on both counts; masters-by-scope and waves of 32 bring the gate to it."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "REJECTED the first cut on five charges: fleet-wide masters under -r/-t/-g, --exclude unscoped, unbounded fan-out with first-error short-circuit, a duplicated gate predicate, and --plan-file. The first four were correct and are taken; --plan-file was refuted (that path runs no gate).",
+    "unique_findings": [
+      "with -r/-t/-g the hoist opened a ControlMaster to every SSH machine in the file — an O(fleet) setup cost for an O(1) apply — taken: masters only for machines hosting an in-scope declared resource",
+      "r? on the first failing machine dropped the findings and errors of every machine after it — taken: every failure reported by name"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17827,
+    "accepted": [],
+    "quality_gate": "no touched path in the vacuous or conditional-skip lists; clippy -D warnings 0 errors; fmt clean"
+  },
+  "falsification": {
+    "test": "reverted each production hunk in turn with the tests kept: the orphan-scope arm of GateScope::covers; the machines_in_scope narrowing (back to -m only); and, from the first cut, the group threading, the machine.rs socket-ownership hunk, and all of src/",
+    "test_file": "tests/falsification_e02_controlmaster_before_the_drift_gate.rs",
+    "cargo_test_target": "falsification_e02_controlmaster_before_the_drift_gate",
+    "reverted": "src/cli/apply_drift.rs covers(): undeclared id -> `tag.is_none() && group.is_none()`; src/cli/apply_mux.rs ssh_machines_in_scope -> filter on scope.machine only; src/core/executor/machine.rs `Ok(started) => started` -> `Ok(_) => true`; group threading; all of src/",
+    "observed_failure": "orphan arm reverted: gate_is_scoped_by_exclude RED (the gate probed alpha-b, which --exclude alpha-b excluded; lock came back drifted). Narrowing reverted: resource_and_tag_filters_narrow_the_fleet RED (3 machines picked for a one-resource scope). machine.rs reverted: a_control_master_this_run_did_not_open_survives_the_apply RED. All of src/ reverted: 0 passed, 4 failed.",
+    "still_green_when_reverted": "gate_fans_out_across_machines stays green when only the bound is removed — the bound changes concurrency, not the overlap the test measures; it is pinned by the wave size being a named constant, not by a test"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e02-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6977,
+        "sha256": "b1b95aebe1c27c15ccd688717f5cf209adf17c3f4d992848a195001c70e16ec9",
+        "blob": "44838c29721ab0ff61ef4e35811b0a2aa716de86"
+      },
+      {
+        "path": ".quorum/evidence/e02-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 2025,
+        "sha256": "66cf7892c6ec6cb92b8577e3fd4c0529212c4630d0b08c65c4dddf9fd5c673b8",
+        "blob": "793fd3aac9b30a349279743c88fe739a5ebfa296"
+      },
+      {
+        "path": ".quorum/evidence/e02-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1237,
+        "sha256": "d5f7f1733fa7d9acc769baa3919f9ca371f102671e88a82813957944523b6a34",
+        "blob": "c292ac7a8a1887bbbae891c39579feb3df6bf218"
+      },
+      {
+        "path": ".quorum/evidence/e02-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2536,
+        "sha256": "54ce6caf28f9176026ef9bd40bed9aadb5afcca317dccabbb25c3acac8cb955d",
+        "blob": "f1ae14f05b534e12a0e2d726162282287912a093"
+      },
+      {
+        "path": ".quorum/evidence/e02-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1036,
+        "sha256": "34d6e25bf9c939e963e7896b485f3617110d5f76d4340905e591e34b58b48aed",
+        "blob": "cc506815d070a1210e9b989c45de1419f3154aa4"
+      }
+    ],
+    "total_bytes": 13811,
+    "claims_digest": ".quorum/evidence/e02-claims.md",
+    "redaction": "no machine-local identity in this set; the falsification fleet uses TEST-NET-1 addresses",
+    "known_limits": [
+      "`forjar drift` (cli/drift.rs) still fans out unbounded, drops a panicked worker silently, and is not scoped by --exclude; the same repairs apply there and are deliberately not widened into a #404 change.",
+      "The wave size (32) is a constant, not a flag; a fleet whose gate wants a different pool size cannot set one yet.",
+      "Proves the masters open before the gate and only for in-scope machines, on the shim; does not measure the 45x on real hosts in CI."
+    ]
+  },
+  "gates": {
+    "lib_tests": "13413 passed, 0 failed, 4 ignored",
+    "clippy": "-D warnings, 0 errors"
+  },
+  "diff_sha256": "2b54cd50e21126ed46dbc07d9084194428db7e94"
+}

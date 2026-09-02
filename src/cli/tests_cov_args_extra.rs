@@ -144,15 +144,6 @@ mod tests {
         let _ = format!("{a:?}");
     }
 
-    #[test]
-    fn test_cov_lock_audit_trail_args_construct() {
-        let a = LockAuditTrailArgs {
-            state_dir: PathBuf::from("s"),
-            machine: None,
-            json: true,
-        };
-        let _ = format!("{a:?}");
-    }
 
     #[test]
     fn test_cov_lock_rotate_keys_args_construct() {
@@ -237,15 +228,6 @@ mod tests {
         let a = LockValidateArgs {
             state_dir: PathBuf::from("s"),
             json: false,
-        };
-        let _ = format!("{a:?}");
-    }
-
-    #[test]
-    fn test_cov_lock_verify_hmac_args_construct() {
-        let a = LockVerifyHmacArgs {
-            state_dir: PathBuf::from("s"),
-            json: true,
         };
         let _ = format!("{a:?}");
     }

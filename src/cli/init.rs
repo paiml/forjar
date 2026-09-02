@@ -67,11 +67,40 @@ policy:
 "#;
     std::fs::write(&config_path, template)
         .map_err(|e| format!("cannot write {}: {}", config_path.display(), e))?;
+    let ignore_path = ensure_gitignore(path)?;
 
     println!("Initialized forjar project at {}", path.display());
     println!("  Created: {}", config_path.display());
     println!("  Created: {}/", state_dir.display());
+    println!("  Created: {}", ignore_path.display());
     Ok(())
+}
+
+/// Refs #406 (CRUX audit E04): keep run transcripts out of git.
+///
+/// `state/<machine>/runs/<run_id>/<res>.script` holds the script forjar actually
+/// executed — including whatever a `{{secrets.*}}` template resolved to, and
+/// including the base64 blob a `type: file` resource's content is written
+/// through. `forjar apply --auto-commit` stages the whole state tree, so without
+/// this line the first apply of a secret-bearing resource publishes it into the
+/// repository's history, where a later redaction cannot reach it.
+///
+/// Appends rather than overwrites: `forjar init` runs in directories that
+/// already have a `.gitignore` from `git init` or a language toolchain.
+pub(crate) fn ensure_gitignore(dir: &Path) -> Result<std::path::PathBuf, String> {
+    const RULE: &str = "state/*/runs/";
+    const BLOCK: &str =
+        "\n# forjar: run transcripts hold the EXECUTED script, including any value a\n\
+                         # {{secrets.*}} template resolved to. Never commit them. (Refs #406)\n\
+                         state/*/runs/\n";
+    let ignore_path = dir.join(".gitignore");
+    let existing = std::fs::read_to_string(&ignore_path).unwrap_or_default();
+    if existing.lines().any(|l| l.trim() == RULE) {
+        return Ok(ignore_path);
+    }
+    std::fs::write(&ignore_path, format!("{existing}{BLOCK}"))
+        .map_err(|e| format!("cannot write {}: {}", ignore_path.display(), e))?;
+    Ok(ignore_path)
 }
 
 pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
@@ -318,6 +347,11 @@ fn build_resource_schema(stage_schema: serde_json::Value) -> serde_json::Value {
     props.insert("task_inputs".into(), arr_s());
     props.insert(
         "cache".into(),
+        serde_json::json!({ "type": "boolean", "default": false }),
+    );
+    // Refs #406: suppress this resource's run transcript entirely.
+    props.insert(
+        "sensitive".into(),
         serde_json::json!({ "type": "boolean", "default": false }),
     );
     props.insert("gpu_device".into(), s("integer"));

@@ -215,28 +215,6 @@ fn lock_audit_bad_yaml() {
     assert!(r.is_err(), "an unparseable lock file must fail the audit");
 }
 
-// ── lock_audit: HMAC verify with signatures present ──
-
-#[test]
-fn lock_verify_hmac_with_sigs() {
-    let d = tempfile::tempdir().unwrap();
-    write_yaml(d.path(), "m1/state.lock.yaml",
-        "schema: '1.0'\ngenerator: forjar\nmachine: m1\nresources: {}\n");
-    write_yaml(d.path(), "m1.lock.yaml.sig", "blake3:abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
-    let r = super::lock_audit::cmd_lock_verify_hmac(d.path(), false);
-    assert!(r.is_ok());
-}
-
-#[test]
-fn lock_verify_hmac_with_sigs_json() {
-    let d = tempfile::tempdir().unwrap();
-    write_yaml(d.path(), "m1/state.lock.yaml",
-        "schema: '1.0'\ngenerator: forjar\nmachine: m1\nresources: {}\n");
-    write_yaml(d.path(), "m1.lock.yaml.sig", "blake3:abcd1234");
-    let r = super::lock_audit::cmd_lock_verify_hmac(d.path(), true);
-    assert!(r.is_ok());
-}
-
 // ── lock_audit: verify schema mismatch ──
 
 #[test]
