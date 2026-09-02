@@ -1,0 +1,120 @@
+{
+  "issue": "#400 / #401 / #386 — the quorum gate judged the working tree, not the pushed ref (and an untracked waived receipt passed it silently); 14 tracked files were also gitignored, so .pmat/baseline.json churned on every commit and conflicted on every merge; the hosted Coverage lane's guard could not see Swatinem/rust-cache and nothing tested the debug-info reduction that keeps the tree under the disk",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "Keep .pmat/baseline.json tracked and re-include it with a ! negation — REFUTED: pmat's own .pmat/.gitignore (*) outranks the root negation and is untracked, so the rule differs between CI and any machine pmat has run on; measured to survive one commit.",
+      "Build at the pushed sha in a git worktree so cargo test can follow it — REFUTED for cost: a second full target dir on a fleet that already races on a shared CARGO_TARGET_DIR; the loud local skip plus quorum.yml on the PR head is the trade, written where the skip lives."
+    ],
+    "divergence": "none: the agy lane attacked the working-tree reads, the branch-deletion path, the cross-branch skip, the old baseline paths, the --no-index invariant and the cache/debug-info guard, and refuted each attack with file:line evidence"
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes (Prow) — pre-submit validation on the PR head remotely; no local binding to the pushed commit",
+      "Terraform (pre-commit) — hooks analyse the working tree or the staging area, not the pushed commit",
+      "Ansible (tox / ansible-test) — cache exhaustion handled reactively, not blocked by a structural workflow test"
+    ],
+    "verdict": "above the industry default after this branch: the local gate is bound to the pushed sha via git cat-file, the tracked/ignored invariant is structural, and a hosted job that caches an instrumented tree is refused before it runs"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "passes adversarial review: no charge survived; the gate resolves everything but cargo test from the pushed sha, quorum.yml closes the local skip on the PR head, nothing reads .pmat/baseline.json from the old place, the --no-index invariant cannot pass vacuously, and the coverage guard recognises both cache actions",
+    "unique_findings": [
+      "--no-index is load-bearing: without it git check-ignore consults the index and reports every tracked path as not-ignored",
+      "the gate's GIT_* scrub before cargo test (from main, folded into the cross-branch else branch) keeps a falsifier's git from operating on the developer's repository"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17815,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the three falsifier binaries or any file this branch touches; clippy --all-targets -D warnings 0; fmt clean; bashrs on the two scripts"
+  },
+  "falsification": {
+    "test": "a synthetic repository drives the real scripts/quorum-gate.sh from a branch-A checkout pushing branch-B (receipt found, hash of B's diff), with an untracked waived receipt (refused), and with an all-zero local sha (short-circuit); git ls-files fed into git check-ignore --no-index must be empty and the index non-empty; the workflow scanner must find the real coverage job, flag rust-cache and actions/cache on an instrumented hosted job, and require line-tables-only",
+    "test_file": "tests/falsification_quorum_gate_reads_the_pushed_ref.rs",
+    "cargo_test_target": "falsification_quorum_gate_reads_the_pushed_ref",
+    "reverted": "scripts/quorum-gate.sh, scripts/hooks/pre-push, .github/workflows/coverage.yml -> the merge-base's (9e0815c0), .pmat/baseline.json re-staged from it; tests kept",
+    "observed_failure": "with .pmat/baseline.json re-staged from the merge-base: no_tracked_file_in_this_repo_is_matched_by_gitignore RED (2 of 3 in that binary stay green: the cb200 ratchet file is tracked-and-not-ignored, and --no-index is what sees the defect); the hosted-jobs binary stays green with coverage.yml at the merge-base because the WORKFLOW was already fixed (#386) — the guard's controls are what this branch adds; gate binary with scripts/quorum-gate.sh and scripts/hooks/pre-push at the merge-base: 4 of 5 RED — a_receipt_committed_on_the_pushed_branch_is_found_from_another_checkout, the_bound_diff_hash_is_the_pushed_branchs_diff_not_the_checkouts, an_untracked_receipt_cannot_waive_the_gate, a_branch_deletion_is_not_asked_for_a_receipt",
+    "still_green_when_reverted": "the_cb200_ratchets_baseline_is_tracked_and_not_ignored, the_checker_sees_a_tracked_and_ignored_file_only_with_no_index, and the ten hosted-jobs cases (the workflow was fixed before this branch; the guard is what changed); the_ordinary_same_branch_push_still_passes_with_and_without_the_flag (the over-correction control: make quorum and quorum.yml pass no sha and are unchanged)"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/400-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6062,
+        "sha256": "86753b5314090a922cf1d3ba55ede7c63b1381bc87766a63a28795bcbb779a15",
+        "blob": "f2f70d6f6b86c6589e22f3a3cb8f1d68054c0f48"
+      },
+      {
+        "path": ".quorum/evidence/400-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1520,
+        "sha256": "a12fe476c77e10a29f1e032fd82a76d8431901a673b774b78f9292854b66fb08",
+        "blob": "9d6b531e880a19109b113f544e2211189ebfaf81"
+      },
+      {
+        "path": ".quorum/evidence/400-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 885,
+        "sha256": "d3d0c200e6514a7fb75d8f00170951d9a05fe718f12e398678918074227b24ab",
+        "blob": "47088e5e20b1cc37dfa027978d04ea643de57001"
+      },
+      {
+        "path": ".quorum/evidence/400-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 4836,
+        "sha256": "0154c10519a8691efcb19cde9a90f817ccc6258d7a0d69870ae1f9881d46f71e",
+        "blob": "f554e1ff25f3984358cebd4a70ee49495428eefc"
+      },
+      {
+        "path": ".quorum/evidence/400-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 904,
+        "sha256": "3d362a990953bbe17e98b36597a7e6852836f83ae39f13a657fc4fe5daf05798",
+        "blob": "65bd11045f38b0cf04dbf8b433bc6d4276e0b45c"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/400-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The cargo test step of the local gate skips on a cross-branch push; quorum.yml on the PR head is the check that runs it.",
+      "Untracking .pmat/ means the TDG pre-commit hook re-derives its baseline on a fresh clone; the hook's regression check compares against the on-disk baseline, which is now a local artefact.",
+      "The docs/audits ledgers (jidoka, estimates) live outside .pmat/ for this reason (relocated on the PMAT-137-receipt branch)."
+    ],
+    "total_bytes": 14207
+  },
+  "gates": {
+    "lib_tests": "13370 passed, 0 failed, 4 ignored",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
+  "diff_sha256": "97bf9556ddc68dcecdde6d0464267234f3639590"
+}
