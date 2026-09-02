@@ -86,8 +86,14 @@ pub(crate) fn cmd_apply_scoped(
     // median measured against 6.7 ms multiplexed, 45×, repeated once per locked
     // resource. Held to the end of the function: dropping it early closes the
     // sockets the gate and the executor are about to use.
+    let gate_scope = super::apply_drift::GateScope {
+        machine: machine_filter,
+        resource: resource_filter,
+        tag: tag_filter,
+        group: group_filter,
+    };
     let _ssh_mux =
-        super::apply_mux::open_control_masters(&config, machine_filter, force, dry_run, verbose);
+        super::apply_mux::open_control_masters(&config, &gate_scope, force, dry_run, verbose);
 
     let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,

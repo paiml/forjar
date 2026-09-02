@@ -4,6 +4,7 @@ mod agent_registry;
 mod agent_sbom;
 mod apply;
 mod apply_drift;
+mod apply_drift_fanout;
 mod apply_dry_run;
 mod apply_from_plan;
 mod apply_from_plan_checks;

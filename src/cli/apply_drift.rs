@@ -47,10 +47,16 @@ impl GateScope<'_> {
         if self.resource.is_some_and(|r| r != id) {
             return false;
         }
-        // A locked id whose declaration is gone carries neither a tag nor a
-        // group, so either filter excludes it — exactly as the executor would.
+        // A locked id with no declaration is OUT of scope, unconditionally.
+        // `--exclude`, `--skip` and `--subset` all prune `config.resources`
+        // before this gate runs, and a declaration deleted from the file never
+        // reaches it at all — in every case the executor cannot touch the
+        // resource, so a `drifted` written here is a drift no run repairs,
+        // verbatim the harm forjar#404 fixed for `-r`. Measured before this
+        // arm: `apply --exclude alpha-b` left `status: drifted` on alpha-b.
+        // `forjar drift` still reports orphaned lock entries; that is its job.
         let Some(declared) = resources.get(id) else {
-            return self.tag.is_none() && self.group.is_none();
+            return false;
         };
         // The two predicates below are `resource_ops::resource_filtered_out`
         // inverted, deliberately literally: the gate and the executor must
@@ -79,19 +85,53 @@ impl GateScope<'_> {
         lock: &'l types::StateLock,
         resources: &indexmap::IndexMap<String, types::Resource>,
     ) -> Cow<'l, types::StateLock> {
-        if self.resource.is_none() && self.tag.is_none() && self.group.is_none() {
+        let unfiltered = self.resource.is_none() && self.tag.is_none() && self.group.is_none();
+        if unfiltered && lock.resources.keys().all(|id| resources.contains_key(id)) {
             return Cow::Borrowed(lock);
         }
         let mut scoped = lock.clone();
         scoped.resources.retain(|id, _| self.covers(id, resources));
         Cow::Owned(scoped)
     }
+
+    /// The machines this run will actually reach: every one that hosts at
+    /// least one declared resource the scope covers.
+    ///
+    /// ADVERSARIAL REVIEW (forjar#404, agy lane): the ControlMaster hoist
+    /// narrowed the fleet by `-m` only, so `apply -r one-resource` opened a
+    /// master to EVERY SSH machine in the file — an O(fleet) handshake bill
+    /// for an O(1) apply, which is the exact cost this issue exists to remove.
+    /// Ansible, Salt-SSH and pyinfra all open connections lazily against the
+    /// filtered inventory; nothing surveyed connects to hosts it will not use.
+    pub(super) fn machines_in_scope(&self, config: &types::ForjarConfig) -> Vec<String> {
+        config
+            .machines
+            .keys()
+            .filter(|name| self.machine.is_none_or(|m| m == name.as_str()))
+            .filter(|name| {
+                config.resources.iter().any(|(id, r)| {
+                    r.machine.iter().any(|t| t == name.as_str())
+                        && self.covers(id, &config.resources)
+                })
+            })
+            .cloned()
+            .collect()
+    }
+}
+
+/// Will `check_pre_apply_drift` query any host at all?
+///
+/// One predicate, shared with the ControlMaster hoist in `apply_mux`, so the
+/// decision "open a socket for the gate" and the decision "run the gate" can
+/// never disagree.
+pub(super) fn gate_will_run(config: &types::ForjarConfig, force: bool) -> bool {
+    config.policy.tripwire && !force
 }
 
 /// Everything the per-machine half of the gate needs, so the fan-out closure
 /// captures one `Copy` value instead of six.
 #[derive(Clone, Copy)]
-struct GateRun<'a> {
+pub(super) struct GateRun<'a> {
     config: &'a types::ForjarConfig,
     state_dir: &'a Path,
     scope: GateScope<'a>,
@@ -150,13 +190,14 @@ pub(super) fn check_pre_apply_drift(
     // missing measurement. Running the detector here anyway would add a full
     // transport round-trip per resource to the one path that exists to skip
     // observation.
-    if !config.policy.tripwire || force {
+    if !gate_will_run(config, force) {
         return Ok(Vec::new());
     }
     // `load_machine_locks` returns a HashMap, and a HashMap's iteration order
     // is not an order: the `drift:` lines and the returned findings came out in
-    // a different sequence on every run. Sorting costs nothing here and makes
-    // the fan-out below deterministic.
+    // a different sequence on every run. Sorting costs nothing here and fixes
+    // the ORDER the findings are collected and printed in — not the order the
+    // machines answer, which is the network's to decide.
     let mut locks: Vec<(String, types::StateLock)> =
         load_machine_locks(config, state_dir, scope.machine)?
             .into_iter()
@@ -170,11 +211,7 @@ pub(super) fn check_pre_apply_drift(
         dry_run,
         verbose,
     };
-    let observed = if locks.len() <= 1 {
-        gate_sequential(run, &locks)?
-    } else {
-        gate_parallel(run, &locks)?
-    };
+    let observed = super::apply_drift_fanout::gate(run, &locks)?;
 
     // PRINTED HERE, NOT IN THE WORKER. Under the fan-out, per-finding
     // `eprintln!`s from several machines interleave mid-line; emitting them
@@ -191,57 +228,11 @@ pub(super) fn check_pre_apply_drift(
     Ok(observed)
 }
 
-/// One machine (or none): no thread is worth starting.
-fn gate_sequential(
-    run: GateRun<'_>,
-    locks: &[(String, types::StateLock)],
-) -> Result<Vec<DriftRepair>, String> {
-    let mut observed = Vec::new();
-    for (name, lock) in locks {
-        observed.extend(record_machine_drift(run, name, lock)?);
-    }
-    Ok(observed)
-}
-
-/// forjar#404: check every machine at once.
-///
-/// `forjar drift` has fanned this identical work out with `std::thread::scope`
-/// since FJ-1396 (`cli/drift.rs`); the apply gate ran the same detector in a
-/// bare `for` loop, so machine 2 waited on machine 1's handshakes. Modelled at
-/// 100 machines × 50 resources that is 25–50 minutes of pure SSH setup before
-/// any convergence work starts.
-///
-/// Results are collected in the handles' order, so the caller's output does not
-/// depend on which machine answered first.
-fn gate_parallel(
-    run: GateRun<'_>,
-    locks: &[(String, types::StateLock)],
-) -> Result<Vec<DriftRepair>, String> {
-    let results: Vec<Result<Vec<DriftRepair>, String>> = std::thread::scope(|s| {
-        let handles: Vec<_> = locks
-            .iter()
-            .map(|(name, lock)| s.spawn(move || record_machine_drift(run, name, lock)))
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err("drift gate worker panicked".to_string()))
-            })
-            .collect()
-    });
-    let mut observed = Vec::new();
-    for r in results {
-        observed.extend(r?);
-    }
-    Ok(observed)
-}
-
 /// The per-machine half: detect, print, record, and hand the findings back.
 ///
 /// Extracted so `check_pre_apply_drift` stays inside the repo's complexity cap
 /// once it accumulates rather than discards.
-fn record_machine_drift(
+pub(super) fn record_machine_drift(
     run: GateRun<'_>,
     machine_name: &str,
     lock: &types::StateLock,

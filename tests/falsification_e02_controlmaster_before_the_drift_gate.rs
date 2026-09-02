@@ -428,6 +428,25 @@ fn gate_is_scoped_by_the_tag_filter() {
     assert_gate_left_alpha_b_alone(&fleet, &cfg, &["--yes", "-t", "web"], "-t web");
 }
 
+/// forjar#404 (agy lane): `--exclude` prunes `config.resources` before the
+/// gate runs, but the gate walks the LOCK. Measured before the fix: `apply
+/// --exclude alpha-b` probed alpha-b and left `status: drifted` on it — a
+/// drift no run repairs, verbatim the `-r` harm. A locked id with no
+/// declaration is now out of scope unconditionally.
+#[test]
+fn gate_is_scoped_by_exclude() {
+    let fleet = Fleet::new();
+    clear_sockets(36, 1);
+    let cfg = write_selector_config(&fleet, 36, "tags: [x]", "tags: [y]");
+    fleet.seed_lock("alpha", &["a", "b"]);
+    assert_gate_left_alpha_b_alone(
+        &fleet,
+        &cfg,
+        &["--yes", "--exclude", "alpha-b"],
+        "--exclude alpha-b",
+    );
+}
+
 #[test]
 fn gate_is_scoped_by_the_group_filter() {
     let fleet = Fleet::new();
