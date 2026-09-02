@@ -117,6 +117,29 @@ pub struct DriftOutput {
     /// was never inspected.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unchecked: Vec<String>,
+    /// forjar#407: THE DENOMINATOR, one entry per machine that had a lock —
+    /// `DriftCensus::to_json()` plus the machine name, exactly the shape
+    /// `forjar drift --json` has published since forjar#380.
+    ///
+    /// Without it `drifted: false` stood over an unstated population, and the
+    /// agent-facing transports were the ONLY surface with no way to tell six
+    /// inspected resources from zero. It is never conditional on findings: the
+    /// census is worth least when something drifted (the findings speak for
+    /// themselves) and most when nothing did.
+    pub census: Vec<serde_json::Value>,
+    /// Resources a detector actually queried the target about, summed over
+    /// every machine scanned.
+    pub resources_inspected: usize,
+    /// Resources in scope that nothing queried — skipped, with the reasons
+    /// broken down per machine in `census`.
+    pub resources_skipped: usize,
+    /// forjar#372: config-declared subprocesses this unattended surface
+    /// declined to run. `drift` now resolves templates so it can regenerate a
+    /// state query, and template resolution is where a `sops`/`op` secrets
+    /// provider spawns; the verb publishes `readOnlyHint: true`, so it strips
+    /// them and says which ones instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unattended_skipped: Vec<String>,
 }
 
 /// A single drift finding for a resource.

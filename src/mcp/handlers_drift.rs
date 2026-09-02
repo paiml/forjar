@@ -1,0 +1,175 @@
+//! Drift for the agent-facing transports (MCP, HTTP, `forjar verb call`).
+//!
+//! # forjar#407 — the verb answered about the CONTROLLER
+//!
+//! This handler parsed the config, held `config.machines[name]`, and then
+//! called `drift::detect_drift(&lock)` — which is
+//! `detect_drift_reported(lock, None)`. Two things follow from that `None`:
+//!
+//! 1. `check_file_resource_drift` takes the `_ =>` arm and hashes the
+//!    CONTROLLER's filesystem, reporting the answer as the target's state.
+//!    That is forjar#305's false CLEAN — fixed in `tripwire/drift/file.rs`
+//!    when a machine IS passed, and still live here for every caller that is
+//!    not the CLI.
+//! 2. Every non-file lock entry is census-skipped as `NoConfigLoaded`, three
+//!    lines after the config was loaded. Nothing regenerated a state query, so
+//!    a package, a service and a mount were all reported by saying nothing.
+//!
+//! Measured on 1.23.1 against a machine at 203.0.113.9 (TEST-NET-3,
+//! unroutable): `{"drifted": false, "findings": []}` in 0.016 s, with no
+//! packet sent. An agent asking "is web drifted?" got a confident wrong
+//! answer, and `DriftOutput` had no field that could have made it suspicious.
+//!
+//! The fix is the CLI's own call: `detect_drift_full_reported` with
+//! `Some(machine)` and the TEMPLATE-RESOLVED resources, and the census carried
+//! into the output. `src/cli/drift.rs::check_machine_drift` is the sibling;
+//! the two now compute the same thing on the same input, which is what
+//! `mcp::tests_drift_e05` and `tests_parity` hold in place.
+//!
+//! # Why the config is sanitized first (forjar#372)
+//!
+//! Resolving templates is what lets drift regenerate a state query, and it is
+//! also where a `sops`/`op` secrets provider spawns a process. This verb ships
+//! `readOnlyHint: true`, which `src/verb/spec.rs` defines as "safe for an agent
+//! to call unattended", so the config-declared subprocesses come out before
+//! anything reads the config and the removals are disclosed in
+//! `unattended_skipped`. Querying the TARGET is not in that category — it is
+//! the whole verb, and a drift check that runs nothing on the machine is the
+//! defect above.
+
+use pforge_runtime::Handler;
+use std::path::{Path, PathBuf};
+
+use crate::core::types::StateLock;
+use crate::core::{parser, resolver, state, unattended};
+use crate::tripwire::drift;
+
+use super::types::*;
+
+/// MCP handler for drift detection.
+pub struct DriftHandler;
+
+/// One tool answer under construction, accumulated across machines.
+#[derive(Default)]
+struct Scan {
+    findings: Vec<DriftFindingOutput>,
+    unchecked: Vec<String>,
+    census: Vec<serde_json::Value>,
+    inspected: usize,
+    skipped: usize,
+}
+
+impl Scan {
+    /// Fold one machine's report in — findings AND the denominator they came
+    /// from. Taking only the findings is precisely how a numerator with no
+    /// population attached reached the caller.
+    fn absorb(&mut self, machine: &str, report: drift::DriftReport) {
+        let drift::DriftReport { findings, census } = report;
+        for f in &findings {
+            self.findings.push(DriftFindingOutput {
+                resource: f.resource_id.clone(),
+                expected_hash: f.expected_hash.clone(),
+                actual_hash: f.actual_hash.clone(),
+                detail: f.detail.clone(),
+            });
+        }
+        self.inspected += census.inspected_total();
+        self.skipped += census.skipped_total();
+        let mut value = census.to_json();
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("machine".to_string(), serde_json::json!(machine));
+        }
+        self.census.push(value);
+    }
+
+    fn finish(self, unattended_skipped: Vec<String>) -> DriftOutput {
+        DriftOutput {
+            drifted: !self.findings.is_empty(),
+            findings: self.findings,
+            unchecked: self.unchecked,
+            census: self.census,
+            resources_inspected: self.inspected,
+            resources_skipped: self.skipped,
+            unattended_skipped,
+        }
+    }
+}
+
+/// The lock for one machine, or `None` with `unchecked` saying why.
+///
+/// GH-208: `if let Ok(Some(..))` discarded BOTH `Err` (state could not be read)
+/// and `Ok(None)` (machine never applied), so "I did not compare anything" was
+/// reported as `{"drifted": false}` — a clean bill of health for a machine that
+/// was never inspected. drift is the tripwire tool; a false clean is the worst
+/// outcome it has.
+///
+/// forjar#385 changed what the CLI does with the SAME input, and this tool has
+/// deliberately not followed it there. The CLI now runs the `completion_check`
+/// of every `type: task` when no lock exists, an assertion that needs no
+/// baseline; this handler names the machine in `unchecked` instead. Two
+/// different answers, both stating their own coverage — which is the property
+/// that matters.
+fn machine_lock(
+    state_dir: &Path,
+    machine_name: &str,
+    unchecked: &mut Vec<String>,
+) -> Result<Option<StateLock>, pforge_runtime::Error> {
+    match state::load_lock(state_dir, machine_name) {
+        Ok(Some(lock)) => Ok(Some(lock)),
+        Ok(None) => {
+            unchecked.push(format!("{machine_name}: no state recorded (never applied)"));
+            Ok(None)
+        }
+        Err(e) => Err(pforge_runtime::Error::Handler(format!(
+            "cannot read state for machine '{machine_name}' in {}: {e}",
+            state_dir.display()
+        ))),
+    }
+}
+
+#[async_trait::async_trait]
+impl Handler for DriftHandler {
+    type Input = DriftInput;
+    type Output = DriftOutput;
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
+        let path = PathBuf::from(&input.path);
+        let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
+
+        let parsed = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let (config, unattended_skipped) = unattended::sanitize_config(&parsed);
+
+        // PMAT-197: resources MUST be template-resolved before they are
+        // compared against live machine state. Passing raw `config.resources`
+        // makes every `{{params.*}}`-bearing resource report permanent false
+        // drift. `cli::drift` learnt this the hard way; this is the same call.
+        let resolved = resolver::resolve_all(
+            &config.resources,
+            &config.params,
+            &config.machines,
+            &config.secrets,
+        );
+
+        let mut scan = Scan::default();
+        for (machine_name, machine) in &config.machines {
+            if input.machine.as_ref().is_some_and(|m| m != machine_name) {
+                continue;
+            }
+            let Some(lock) = machine_lock(&state_dir, machine_name, &mut scan.unchecked)? else {
+                continue;
+            };
+            // ASK THE MACHINE. `detect_drift(&lock)` passed `None` here, which
+            // hashed this host's filesystem and called it the target's state.
+            let report = drift::detect_drift_full_reported(
+                &lock,
+                machine,
+                &resolved,
+                drift::DriftOptions::default(),
+            );
+            scan.absorb(machine_name, report);
+        }
+
+        Ok(scan.finish(unattended_skipped))
+    }
+}
