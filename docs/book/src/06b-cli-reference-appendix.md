@@ -94,12 +94,14 @@ the set this binary actually ships; a list typed into a document is the drift
 the registry exists to prevent.
 
 `policy-coverage` was on this list and was **withdrawn**. The unified
-calculation derives a rule's identity from its `message:` when the rule declares
-no `id:`, so two such rules sharing a message collapse into one and a rule that
-never ran is reported as having run — in the one report whose job is to say what
-is *not* covered. The leaf is back in `Pending` citing
-[paiml/forjar#369][fj369], and `forjar policy-coverage` is still the way to ask.
-Honest debt beats a tool that answers wrongly on every transport at once.
+calculation derived a rule's identity from its `message:` when the rule declared
+no `id:`, so two such rules sharing a message collapsed into one and a rule that
+never ran was reported as having run — in the one report whose job is to say what
+is *not* covered. That defect ([paiml/forjar#369][fj369]) is **fixed**: rule
+identity is now `RULE-<index>-<slug>`, and every rule is accounted for as fired
+or idle. The leaf is still in `Pending` because re-publishing a tool on every
+transport is a decision with its own test surface, not a side effect of a
+bugfix — `forjar policy-coverage` remains the way to ask.
 
 [fj369]: https://github.com/paiml/forjar/issues/369
 
@@ -293,12 +295,18 @@ forjar policy-coverage -f forjar.yaml [--json]
 not a projection of it, so a renderer cannot reshape the answer. There is one
 calculation behind this command and no second one anywhere.
 
+A rule that declares no `id:` is named `RULE-<index>-<slug of its message>` in
+`untriggered_rules`, where `index` is its position in `policies:`. The index is
+part of the name because a slug of the message is not unique: two un-id'd rules
+sharing a message used to collapse into one, and the satisfied one disappeared
+from `untriggered_rules` instead of being listed. See
+[paiml/forjar#369][fj369-pc]. `forjar remediate --policy-id` accepts the same
+spelling, so an id printed here is one you can act on.
+
 This command is **CLI-only**. A `policy-coverage` verb shipped briefly on the
-unified surface and was withdrawn: rule identity is derived from `message:` for
-a rule that declares no `id:`, so two such rules sharing a message collapse and
-the satisfied one disappears from `untriggered_rules` instead of being listed.
-See [paiml/forjar#369][fj369-pc]. Until that is fixed the wrong answer is
-reachable from one place rather than from every transport.
+unified surface and was withdrawn over that defect. The defect is fixed;
+re-shipping the verb publishes a new tool on every transport and is tracked as
+its own change.
 
 [fj369-pc]: https://github.com/paiml/forjar/issues/369
 

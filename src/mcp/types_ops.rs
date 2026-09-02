@@ -15,9 +15,10 @@ use serde::{Deserialize, Serialize};
 // lost that the CLI does not still print, and an input type with no handler is
 // a schema for a tool that is not published.
 //
-// `core::policy_coverage` is unchanged and still has exactly one calculation.
-// Re-shipping the verb once #369 is fixed is these two declarations, one
-// handler, one `register_all` line and one `verb_table!` row.
+// `core::policy_coverage` still has exactly one calculation, and #369 is now
+// fixed in it. Re-shipping the verb is these two declarations, one handler, one
+// `register_all` line and one `verb_table!` row — plus the verb-surface suites
+// that a newly published tool has to answer to.
 
 // ── audit (FJ-341) ──────────────────────────────────────────────────
 

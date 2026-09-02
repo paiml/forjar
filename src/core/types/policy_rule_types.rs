@@ -124,8 +124,35 @@ impl PolicyRule {
     }
 
     /// Stable display ID: the explicit id or a generated one from the message.
+    ///
+    /// NOT an identity within a config — see [`PolicyRule::display_id_at`].
+    /// Two rules that declare no `id:` and share a `message:` return the same
+    /// string from here, which is why nothing keys a per-rule map on it.
     pub fn display_id(&self) -> String {
         display_id_of(self.id.as_deref(), &self.message)
+    }
+
+    /// THE rule's identity within a config: its explicit `id:` when it declares
+    /// one, else `RULE-<index>-<slug>` built from its position in `policies:`.
+    ///
+    /// [`PolicyRule::display_id`] derives the generated half from the message
+    /// alone, and a message is not unique: two un-id'd rules sharing one
+    /// collapse to a single string. `policy-coverage` counted DISTINCT such
+    /// strings, so a rule that never ran was neither counted nor listed
+    /// (`total_rules: 2, rules_triggered: 1, untriggered_rules: []`), and
+    /// `remediate` keyed its selector and its reason map on it, so
+    /// `--policy-id RULE-<slug>` edited a rule the caller did not select and
+    /// reported one rule's "why not" under the other's name (paiml/forjar#369).
+    ///
+    /// The index is a total, injective function of the declaration, so no two
+    /// rules of one config can collide — and every call site already holds it:
+    /// `parser::violating_pairs` yields it, `remediate::Candidate` stores it,
+    /// and `policies.iter().enumerate()` produces it.
+    pub fn display_id_at(&self, index: usize) -> String {
+        match self.id.as_deref() {
+            Some(id) => id.to_string(),
+            None => format!("RULE-{index}-{}", message_slug(&self.message)),
+        }
     }
 }
 
@@ -142,13 +169,20 @@ fn display_id_of(id: Option<&str>, message: &str) -> String {
     if let Some(id) = id {
         return id.to_string();
     }
-    // Generate from first 40 chars of message, slugified
-    let slug: String = message
+    format!("RULE-{}", message_slug(message))
+}
+
+/// The first 40 characters of a message, slugified.
+///
+/// A slug of PROSE, and prose is not unique — which is exactly why
+/// [`PolicyRule::display_id_at`] prefixes it with the rule's index rather than
+/// using it alone.
+fn message_slug(message: &str) -> String {
+    message
         .chars()
         .take(40)
         .map(|c| if c.is_alphanumeric() { c } else { '-' })
-        .collect();
-    format!("RULE-{slug}")
+        .collect()
 }
 
 // ============================================================================
@@ -250,221 +284,5 @@ impl PolicyCheckResult {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_effective_severity_defaults() {
-        let deny = PolicyRule {
-            rule_type: PolicyRuleType::Deny,
-            message: "test".into(),
-            id: None,
-            resource_type: None,
-            tag: None,
-            field: None,
-            condition_field: None,
-            condition_value: None,
-            max_count: None,
-            min_count: None,
-            severity: None,
-            remediation: None,
-            compliance: vec![],
-        };
-        assert_eq!(deny.effective_severity(), PolicySeverity::Error);
-
-        let warn = PolicyRule {
-            rule_type: PolicyRuleType::Warn,
-            severity: None,
-            ..deny.clone()
-        };
-        assert_eq!(warn.effective_severity(), PolicySeverity::Warning);
-
-        let assert_r = PolicyRule {
-            rule_type: PolicyRuleType::Assert,
-            severity: None,
-            ..deny.clone()
-        };
-        assert_eq!(assert_r.effective_severity(), PolicySeverity::Error);
-
-        let limit = PolicyRule {
-            rule_type: PolicyRuleType::Limit,
-            severity: None,
-            ..deny.clone()
-        };
-        assert_eq!(limit.effective_severity(), PolicySeverity::Warning);
-
-        let require = PolicyRule {
-            rule_type: PolicyRuleType::Require,
-            severity: None,
-            ..deny.clone()
-        };
-        assert_eq!(require.effective_severity(), PolicySeverity::Error);
-    }
-
-    #[test]
-    fn test_effective_severity_override() {
-        let rule = PolicyRule {
-            rule_type: PolicyRuleType::Deny,
-            message: "test".into(),
-            id: None,
-            resource_type: None,
-            tag: None,
-            field: None,
-            condition_field: None,
-            condition_value: None,
-            max_count: None,
-            min_count: None,
-            severity: Some(PolicySeverity::Info),
-            remediation: None,
-            compliance: vec![],
-        };
-        assert_eq!(rule.effective_severity(), PolicySeverity::Info);
-    }
-
-    #[test]
-    fn test_display_id_explicit() {
-        let rule = PolicyRule {
-            rule_type: PolicyRuleType::Deny,
-            message: "no root".into(),
-            id: Some("SEC-001".into()),
-            resource_type: None,
-            tag: None,
-            field: None,
-            condition_field: None,
-            condition_value: None,
-            max_count: None,
-            min_count: None,
-            severity: None,
-            remediation: None,
-            compliance: vec![],
-        };
-        assert_eq!(rule.display_id(), "SEC-001");
-    }
-
-    #[test]
-    fn test_display_id_generated() {
-        let rule = PolicyRule {
-            rule_type: PolicyRuleType::Warn,
-            message: "files should have owner".into(),
-            id: None,
-            resource_type: None,
-            tag: None,
-            field: None,
-            condition_field: None,
-            condition_value: None,
-            max_count: None,
-            min_count: None,
-            severity: None,
-            remediation: None,
-            compliance: vec![],
-        };
-        assert_eq!(rule.display_id(), "RULE-files-should-have-owner");
-    }
-
-    #[test]
-    fn test_violation_is_blocking() {
-        let v = PolicyViolation {
-            rule_message: "test".into(),
-            resource_id: "r1".into(),
-            rule_type: PolicyRuleType::Deny,
-            severity: PolicySeverity::Error,
-            policy_id: None,
-            remediation: None,
-            compliance: vec![],
-        };
-        assert!(v.is_blocking());
-
-        let v2 = PolicyViolation {
-            severity: PolicySeverity::Warning,
-            ..v.clone()
-        };
-        assert!(!v2.is_blocking());
-    }
-
-    #[test]
-    fn test_policy_check_result_counts() {
-        let result = PolicyCheckResult {
-            violations: vec![
-                PolicyViolation {
-                    rule_message: "e1".into(),
-                    resource_id: "r1".into(),
-                    rule_type: PolicyRuleType::Deny,
-                    severity: PolicySeverity::Error,
-                    policy_id: None,
-                    remediation: None,
-                    compliance: vec![],
-                },
-                PolicyViolation {
-                    rule_message: "w1".into(),
-                    resource_id: "r2".into(),
-                    rule_type: PolicyRuleType::Warn,
-                    severity: PolicySeverity::Warning,
-                    policy_id: None,
-                    remediation: None,
-                    compliance: vec![],
-                },
-                PolicyViolation {
-                    rule_message: "i1".into(),
-                    resource_id: "r3".into(),
-                    rule_type: PolicyRuleType::Warn,
-                    severity: PolicySeverity::Info,
-                    policy_id: None,
-                    remediation: None,
-                    compliance: vec![],
-                },
-            ],
-            rules_evaluated: 5,
-            resources_checked: 10,
-        };
-        assert!(result.has_blocking_violations());
-        assert_eq!(result.error_count(), 1);
-        assert_eq!(result.warning_count(), 1);
-        assert_eq!(result.info_count(), 1);
-    }
-
-    #[test]
-    fn test_policy_check_result_no_blocking() {
-        let result = PolicyCheckResult {
-            violations: vec![PolicyViolation {
-                rule_message: "w1".into(),
-                resource_id: "r1".into(),
-                rule_type: PolicyRuleType::Warn,
-                severity: PolicySeverity::Warning,
-                policy_id: None,
-                remediation: None,
-                compliance: vec![],
-            }],
-            rules_evaluated: 1,
-            resources_checked: 1,
-        };
-        assert!(!result.has_blocking_violations());
-    }
-
-    #[test]
-    fn test_compliance_mapping_serde() {
-        let m = ComplianceMapping {
-            framework: "cis".into(),
-            control: "6.1.2".into(),
-        };
-        let json = serde_json::to_string(&m).unwrap();
-        assert!(json.contains("cis"));
-        assert!(json.contains("6.1.2"));
-    }
-
-    #[test]
-    fn test_policy_severity_serde() {
-        let s = PolicySeverity::Error;
-        let json = serde_json::to_string(&s).unwrap();
-        assert_eq!(json, "\"error\"");
-        let w: PolicySeverity = serde_json::from_str("\"warning\"").unwrap();
-        assert_eq!(w, PolicySeverity::Warning);
-    }
-
-    #[test]
-    fn test_policy_rule_type_serde_new_variants() {
-        let a: PolicyRuleType = serde_json::from_str("\"assert\"").unwrap();
-        assert_eq!(a, PolicyRuleType::Assert);
-        let l: PolicyRuleType = serde_json::from_str("\"limit\"").unwrap();
-        assert_eq!(l, PolicyRuleType::Limit);
-    }
-}
+#[path = "tests_policy_rule_types.rs"]
+mod tests;
