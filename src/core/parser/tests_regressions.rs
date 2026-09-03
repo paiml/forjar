@@ -91,9 +91,26 @@ fn config_with_ignore_drift(entries: &[&str]) -> ForjarConfig {
     .expect("valid YAML")
 }
 
+/// forjar#360 re-based this from #335's "a narrowed `ignore_drift` is always
+/// refused": a file resource's state query reports named fields, so `mode` is
+/// now masked out of the observation and accepted.
 #[test]
-fn narrowed_ignore_drift_is_a_validation_error() {
+fn narrowed_ignore_drift_on_a_file_is_honoured() {
     let errors = validate_config(&config_with_ignore_drift(&["mode"]));
+    assert!(errors.is_empty(), "expected no error, got {errors:?}");
+}
+
+/// The #335 refusal survives verbatim where it is still true: a resource type
+/// whose state query reports no named fields cannot honour a narrowed list.
+#[test]
+fn narrowed_ignore_drift_without_a_field_vocabulary_is_a_validation_error() {
+    let cfg = parse_config(
+        "version: \"1.0\"\nname: ignore-drift\nresources:\n  tool:\n    type: package\n\
+         \x20   machine: localhost\n    provider: apt\n    packages: [curl]\n\
+         \x20   lifecycle:\n      ignore_drift:\n        - \"version\"\n",
+    )
+    .expect("valid YAML");
+    let errors = validate_config(&cfg);
     assert_eq!(
         errors.len(),
         1,
@@ -102,7 +119,7 @@ fn narrowed_ignore_drift_is_a_validation_error() {
     let msg = errors[0].message.clone();
     assert!(msg.contains("ignore_drift"), "{msg}");
     assert!(msg.contains("335"), "{msg}");
-    assert!(msg.contains("mode"), "{msg}");
+    assert!(msg.contains("version"), "{msg}");
 }
 
 #[test]
