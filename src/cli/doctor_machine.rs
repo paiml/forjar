@@ -266,13 +266,30 @@ impl ToolNeed {
     }
 }
 
+/// `(provider, executable)` — a `package` resource's provider needs its
+/// executable on the TARGET. Extend the table, not a match.
+const PACKAGE_TOOLS: &[(&str, &str)] = &[
+    ("apt", "apt-get"),
+    ("apt-get", "apt-get"),
+    ("dnf", "dnf"),
+    ("yum", "yum"),
+    ("zypper", "zypper"),
+    ("pacman", "pacman"),
+    ("apk", "apk"),
+    ("brew", "brew"),
+    ("snap", "snap"),
+    ("cargo", "cargo"),
+    ("uv", "uv"),
+    ("pip", "pip3"),
+    ("pip3", "pip3"),
+];
+
 fn package_tool(resource: &Resource) -> Option<&'static str> {
-    match resource.provider.as_deref()? {
-        "apt" | "apt-get" => Some("apt-get"),
-        "dnf" => Some("dnf"),
-        "yum" => Some("yum"),
-        _ => None,
-    }
+    let provider = resource.provider.as_deref()?;
+    PACKAGE_TOOLS
+        .iter()
+        .find(|(p, _)| *p == provider)
+        .map(|(_, tool)| *tool)
 }
 
 /// A `source:` that is a git remote needs git on the TARGET, because that is

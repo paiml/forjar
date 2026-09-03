@@ -20,7 +20,7 @@ fn disk(mount: &str, avail_kb: u64, use_pct: u32, inode_use_pct: u32) -> Disk {
 fn facts_with(user: &str, uid: u64, sudo: bool) -> Facts {
     let mut f = parse_facts("");
     f.user = user.to_string();
-    f.uid = uid;
+    f.uid = Some(uid);
     f.sudo = sudo;
     f
 }
@@ -68,7 +68,7 @@ fn parse_facts_reads_every_kind_of_line_and_tolerates_junk() {
                 garbage line\nuptime_s=notanumber\n";
     let f = parse_facts(text);
     assert_eq!(f.hostname, "box");
-    assert_eq!(f.uid, 1000);
+    assert_eq!(f.uid, Some(1000));
     assert!(f.sudo);
     assert_eq!(f.path, "/usr/bin:/bin");
     assert_eq!(f.disks.len(), 2);
@@ -198,4 +198,32 @@ fn summary_and_verdict_follow_the_worst_check() {
     assert_eq!(summary_line(&checks), "3 checks: 1 pass, 1 warn, 1 fail");
     assert!(verdict("m1", &checks).is_err());
     assert!(verdict("m1", &checks[..2]).is_ok());
+}
+
+#[test]
+fn a_uid_that_does_not_parse_is_unknown_not_root() {
+    let f = parse_facts("user=ci\nuid=abc\nnproc=many\n");
+    assert_eq!(f.uid, None);
+    assert_eq!(f.nproc, 0, "an unparsable count keeps its default");
+    assert!(f.identity().contains("uid ?"), "{}", f.identity());
+    let stat = DirStat {
+        path: "/opt/app".into(),
+        exists: true,
+        owner: "root".into(),
+        group: "root".into(),
+        mode: "755".into(),
+        writable: false,
+    };
+    assert!(permission_detail(&stat, &f).contains("uid ?"));
+}
+
+#[test]
+fn ipv4_lines_are_collected_and_rendered() {
+    let f = parse_facts("hostname=box\nipv4=10.0.0.5\nipv4=192.168.1.9\nipv4=\n");
+    assert_eq!(f.ipv4, vec!["10.0.0.5", "192.168.1.9"]);
+    let text = render("m1", &f);
+    assert!(
+        text.contains("10.0.0.5") && text.contains("192.168.1.9"),
+        "{text}"
+    );
 }

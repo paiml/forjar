@@ -207,14 +207,13 @@ fn fj446_doctor_machine_reports_path_and_disk() {
 /// directory and its ownership — the question the operator could not answer.
 #[test]
 fn fj446_doctor_machine_fails_on_unwritable_destination() {
-    if Command::new("id")
+    // root writes through any mode, so under root only the exit-code half of
+    // this case is inexpressible; the naming half still runs.
+    let root = Command::new("id")
         .arg("-u")
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "0")
-        .unwrap_or(false)
-    {
-        return; // root writes through any mode; the case is not expressible.
-    }
+        .unwrap_or(false);
     let dir = tempfile::tempdir().expect("tempdir");
     let locked = dir.path().join("locked");
     std::fs::create_dir(&locked).expect("mkdir");
@@ -229,7 +228,7 @@ fn fj446_doctor_machine_fails_on_unwritable_destination() {
     set_mode(&locked, 0o755); // so the tempdir can be cleaned up
 
     assert!(
-        !out.status.success(),
+        root || !out.status.success(),
         "an unwritable destination must fail the doctor: {text}"
     );
     assert!(

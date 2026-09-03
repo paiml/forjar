@@ -34,7 +34,11 @@ pub(crate) struct Facts {
     pub(crate) os: String,
     pub(crate) uptime_s: u64,
     pub(crate) user: String,
-    pub(crate) uid: u64,
+    /// `None` when the target did not answer or answered nonsense — never coerced
+    /// to 0, which would read as root.
+    pub(crate) uid: Option<u64>,
+    /// Global IPv4 addresses, one per interface (`hostname -I`, else `ip`).
+    pub(crate) ipv4: Vec<String>,
     pub(crate) groups: String,
     pub(crate) sudo: bool,
     pub(crate) shell: String,
@@ -49,9 +53,13 @@ pub(crate) struct Facts {
 }
 
 impl Facts {
-    /// `ci (uid 1000)` — the identity forjar connects as, for a diagnostic.
+    /// `ci (uid 1000)` — the identity forjar connects as, for a diagnostic;
+    /// `ci (uid ?)` when the target did not report a usable uid.
     pub(crate) fn identity(&self) -> String {
-        format!("{} (uid {})", self.user, self.uid)
+        match self.uid {
+            Some(uid) => format!("{} (uid {uid})", self.user),
+            None => format!("{} (uid ?)", self.user),
+        }
     }
 
     /// True when `<name>` resolved to a path on the target.
@@ -103,6 +111,9 @@ else
 fi
 echo "shell=$SHELL"
 echo "path=$PATH"
+for a in $(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{{ print $4 }}' | cut -d/ -f1); do
+  echo "ipv4=$a"
+done
 echo "nproc=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)"
 if [ -r /proc/meminfo ]; then
   echo "mem_total_kb=$(awk '/^MemTotal:/ {{ print $2 }}' /proc/meminfo)"
@@ -178,15 +189,22 @@ fn assign_flag(facts: &mut Facts, key: &str, value: &str) -> bool {
     true
 }
 
+/// A numeric key. An unparsable value is SKIPPED (the field keeps its
+/// default), never coerced: a `uid` that failed to parse must not read as 0.
 fn assign_number(facts: &mut Facts, key: &str, value: &str) -> bool {
-    let parsed = value.parse::<u64>().unwrap_or(0);
-    match key {
-        "uid" => facts.uid = parsed,
-        "uptime_s" => facts.uptime_s = parsed,
-        "nproc" => facts.nproc = parsed,
-        "mem_total_kb" => facts.mem_total_kb = parsed,
-        "mem_avail_kb" => facts.mem_avail_kb = parsed,
+    let slot: &mut u64 = match key {
+        "uid" => {
+            facts.uid = value.parse::<u64>().ok();
+            return true;
+        }
+        "uptime_s" => &mut facts.uptime_s,
+        "nproc" => &mut facts.nproc,
+        "mem_total_kb" => &mut facts.mem_total_kb,
+        "mem_avail_kb" => &mut facts.mem_avail_kb,
         _ => return false,
+    };
+    if let Ok(parsed) = value.parse::<u64>() {
+        *slot = parsed;
     }
     true
 }
@@ -194,6 +212,11 @@ fn assign_number(facts: &mut Facts, key: &str, value: &str) -> bool {
 fn assign_row(facts: &mut Facts, key: &str, value: &str) {
     match key {
         "disk" => facts.disks.extend(parse_disk(value)),
+        "ipv4" => {
+            if !value.is_empty() {
+                facts.ipv4.push(value.to_string());
+            }
+        }
         "tool" => {
             if let Some((name, path)) = parse_tool(value) {
                 facts.tools.insert(name, path);
@@ -265,6 +288,9 @@ pub(crate) fn human_kb(kb: u64) -> String {
 pub(crate) fn render(machine: &str, facts: &Facts) -> String {
     let mut out = format!("machine: {machine}\n");
     out.push_str(&format!("  host:    {} — {}\n", facts.hostname, facts.os));
+    if !facts.ipv4.is_empty() {
+        out.push_str(&format!("  ipv4:    {}\n", facts.ipv4.join(", ")));
+    }
     out.push_str(&format!("  kernel:  {}\n", facts.kernel));
     out.push_str(&format!(
         "  user:    {} groups: {} sudo: {}\n",
