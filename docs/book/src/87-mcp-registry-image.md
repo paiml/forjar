@@ -11,28 +11,32 @@ use forjar::mcp::registry::{export_schema, build_registry};
 
 // Export tool schemas (JSON)
 let schema = export_schema();
-assert_eq!(schema["tool_count"], 9);
 assert_eq!(schema["server"], "forjar-mcp");
 
-// Build handler registry
+// Build handler registry — one entry per `verb_table!` row
 let registry = build_registry();
-assert_eq!(registry.len(), 9);
+assert_eq!(registry.len(), forjar::verb::verbs().len());
 assert!(registry.has_handler("forjar_validate"));
 ```
 
 ### Registered Tools
 
-| Tool | Description |
-|------|-------------|
-| forjar_validate | Validate forjar.yaml configuration |
-| forjar_plan | Show execution plan for changes |
-| forjar_drift | Detect configuration drift |
-| forjar_lint | Lint config for best practices |
-| forjar_graph | Generate dependency graph |
-| forjar_show | Show resolved config |
-| forjar_status | Show current state |
-| forjar_trace | View trace provenance |
-| forjar_anomaly | Detect anomalous behavior |
+There is no list here, and its absence is deliberate. This page carried a
+nine-row table and two hard-coded `9` literals for five months after the surface
+grew to twelve, while chapter 06 of this same book said twelve — the book
+contradicting itself about the thing it was documenting (paiml/forjar#371). A
+tool count typed into a document drifts; the count above is read from
+`verbs()`, so it cannot.
+
+Ask the binary:
+
+```bash
+forjar verb list          # the authoritative set, one name per line
+forjar mcp --schema       # names, descriptions, input/output schemas, annotations
+```
+
+Both are derived from `verb_table!` in `src/verb/registry.rs`, which is the one
+place the surface is declared.
 
 ## Image Assembler (FJ-2104)
 

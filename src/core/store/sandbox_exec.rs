@@ -165,11 +165,15 @@ pub fn plan_sandbox_build(
         let denied: Vec<&str> = seccomp_rules.iter().map(|r| r.syscall.as_str()).collect();
         steps.push(SandboxStep {
             step: 5,
-            description: format!("Apply seccomp BPF (deny: {})", denied.join(", ")),
-            command: Some(format!(
-                "seccomp-bpf --deny {} -- /bin/sh",
-                denied.join(",")
-            )),
+            // Refs #410 (CRUX E07): `seccomp-bpf` is not a binary on any host.
+            // The step stays in the plan so the lifecycle is documented, but
+            // it carries no command — execution refuses by name instead of
+            // emitting a script that would fail or, worse, be skipped silently.
+            description: format!(
+                "Apply seccomp BPF (deny: {}) — NOT EXECUTABLE: seccomp-bpf does not exist (#410)",
+                denied.join(", ")
+            ),
+            command: None,
         });
     }
 
@@ -202,8 +206,12 @@ pub fn plan_sandbox_build(
     // Step 8: hash_directory
     steps.push(SandboxStep {
         step: 8,
-        description: "Compute BLAKE3 hash of output directory".to_string(),
-        command: Some(format!("forjar-hash-dir {}", out_dir.display())),
+        // Refs #410: `forjar-hash-dir` does not exist either; same rule as step 5.
+        description: format!(
+            "Compute BLAKE3 hash of output directory {} — NOT EXECUTABLE: forjar-hash-dir does not exist (#410)",
+            out_dir.display()
+        ),
+        command: None,
     });
 
     // Step 9: Atomic move to store

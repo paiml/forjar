@@ -1,0 +1,125 @@
+{
+  "issue": "#409 / #410 (CRUX audit E06 / E07) — `store: true` changed the reproducibility score and promoted resources to Pure while nothing on the apply path honoured it; the derivation sandbox emitted seccomp-bpf and forjar-hash-dir commands, neither a binary on any host, and reported a composite output hash as if a build had run",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "The score and the purity ladder count only what executes (first cut) — REFUTED by the agy lane: the book (phase-b-purity.md, phase-d-scoring.md) still granted Pure/100 for store+sandbox; both tables now say declared-not-enforced and 80/0/20.",
+      "The E06 falsifier proves two byte-identical apply scripts score equal (first cut) — REFUTED: it compared two hand-built structs; it now parses two configs, generates both apply scripts through codegen, asserts them byte-identical and compares the composite the shipped validate --check-reproducibility-score --json prints.",
+      "The 15 existing store tests were fixed (the lane's report) — REFUTED by the orchestrator's re-run: 15 failures on the old doctrine; re-based, with the spec statements B-06/D-10 rewritten and the step deletion reverted so D-14/K-12 and the derivation suites hold as written.",
+      "The sandbox refuses by name when the binaries are absent — REFUTED as worded: it refuses unconditionally, because nothing can execute today with or without them; the message names both binaries and the reason.",
+      "A dry-run derivation must refuse like execution does (agy charge) — NOT accepted: simulate_derivation is the --dry-run path and three pre-existing suites pin its simulated hash; the printed plan now names the steps that cannot run and execution refuses; recorded as a known limit."
+    ],
+    "divergence": "the implementation lane reported lib green and a complete fix; the orchestrator's re-run found 15 store tests red and the agy review found six overstatements and two remaining lies (the DerivationPlan's step text, an empty recipe crediting the store); five of six were accepted and fixed in the same branch, one is recorded as a limit"
+  },
+  "crux": {
+    "systems": [
+      "Nix — sandbox = true that cannot be honoured refuses to build; nothing is simulated",
+      "Bazel — strict sandboxing fails loudly when linux-sandbox is unavailable",
+      "Docker BuildKit — hard-fails when namespaces/seccomp cannot be applied; never downgrades silently",
+      "Guix — will not build a derivation it cannot isolate"
+    ],
+    "verdict": "at the industry default for execution (refuse by name) and for scoring (count only what runs) after this branch; below it on one point the branch records rather than fixes — the dry-run simulation still produces a simulated hash"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "implementation lane: chose option (b), two commits, claimed lib green (false — 15 store tests red); review lane: 'dishonest regressions' verdict against the first cut with six refutations and two unique findings — five accepted and fixed (book tables, end-to-end falsifier, refusal names the binaries, JSON model card, empty-recipe store score, DerivationPlan step text), one recorded as a limit (dry-run simulation)",
+    "unique_findings": [
+      "compute_score returned store_score 100 for an empty recipe — fixed to 0 on every path",
+      "DerivationPlan hardcoded the removed sandbox steps' descriptions — the steps now say NOT EXECUTABLE and why"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17807,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the falsifiers or any file this branch touches; clippy --all-targets -D warnings, fmt, cargo test --lib — counts in gates"
+  },
+  "falsification": {
+    "test": "E06: two YAML configs differing only by store: true — codegen::apply_script byte-identical and the shipped validate --check-reproducibility-score --json composite equal; plus the signals-level case. E07: execute_sandbox_plan refuses with a message naming seccomp-bpf and forjar-hash-dir; the full-profile plan carries exactly two NOT EXECUTABLE steps with no command and no command in the plan invokes either binary",
+    "test_file": "tests/falsification_e06_store_is_not_scored.rs",
+    "cargo_test_target": "falsification_e06_store_is_not_scored",
+    "reverted": "src/core/store/purity.rs and repro_score.rs -> the merge-base's for E06; src/core/store/sandbox_run.rs and sandbox_exec.rs -> the merge-base's for E07; tests kept",
+    "observed_failure": "E06 with src/core/store/purity.rs and repro_score.rs at the merge-base, tests kept: 0 passed, 2 failed (two_byte_identical_apply_scripts_score_equal — byte-identical scripts, composites differ; test_e06_store_flag_does_not_affect_score — Pure vs Pinned). E07 with src/core/store/sandbox_run.rs and sandbox_exec.rs at the merge-base: 0 passed, 2 failed (test_e07_execute_sandbox_plan_returns_honest_error — the merge-base returns Ok with a composite hash; the_plan_names_the_steps_it_cannot_run — the merge-base's plan invokes seccomp-bpf and forjar-hash-dir). Restored: 2 + 2 passed, plus falsification_derivation_dag 36, falsification_sandbox_derivation 22, falsification_sandbox_derivation_hf 24, and the store module's 1192 unit tests",
+    "still_green_when_reverted": "none"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/409-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6174,
+        "sha256": "09d6810a8a235bbbca6f44d3fd733e85b1d141120c52b4e659fb5da99c0d9f91",
+        "blob": "d5151082266448e7388bcec597c09ca6c7126981"
+      },
+      {
+        "path": ".quorum/evidence/409-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1505,
+        "sha256": "392884aaf8fb42fe83a77c1b2b2af2757bea9e0a95328f430deb35c1f35a1615",
+        "blob": "893642305baac2d24795ba25af4d5bc8b87bb6a2"
+      },
+      {
+        "path": ".quorum/evidence/409-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 849,
+        "sha256": "0165bdc2d618b61dc99f6d7608042007ecf5f4434bbaa49d3d7c6c614bdfc134",
+        "blob": "13a40667496ebc59de6d6dc91ad11940bf2308d3"
+      },
+      {
+        "path": ".quorum/evidence/409-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 7079,
+        "sha256": "4d0ccae92538f70cc6b42fa2c5cb4876a660a90feec110f705663477898e03a8",
+        "blob": "ce61f6e8abaabf19abcbfaa614c4cb2cf8effda9"
+      },
+      {
+        "path": ".quorum/evidence/409-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 954,
+        "sha256": "c4cbb6c55ddc891f1ffda4c4cbe70564c0546b5a360e536f5b3063647665c4f3",
+        "blob": "6417ed33347ac32aaba26f2a4fbe46ca75c2e400"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/409-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "simulate_derivation (the --dry-run path) still produces a simulated closure hash; the printed plan names the steps that cannot run and execution refuses, but a dry run does not.",
+      "Option (a) — putting the store on the apply path — is the E07 delegation (#410 stays open for it); this branch closes the false claims, not the feature.",
+      "The plan keeps ten lifecycle steps; two carry no command and say NOT EXECUTABLE; a reader of the plan sees the lifecycle, a runner gets a refusal.",
+      "Nine pre-existing suites pinned the old doctrine (store/sandbox → Pure; store weighted 30%): tests_purity, tests_validate, tests_repro_score, tests_sandbox_run, tests_falsify_spec_{a,d,h,j}, falsification_convert_pin_validate, falsification_purity_reproscore_refs_hf, falsification_store_purity_repro, falsification_store_validate_gc. Each re-based to Pinned / store unscored with a Refs #409 note; the spec statements B-06 and D-10 rewritten. Full suite: 264 targets, exit 0 after the re-base."
+    ],
+    "total_bytes": 16561
+  },
+  "gates": {
+    "lib_tests": "13370 passed, 0 failed, 4 ignored (full suite: 264 targets green after the nine re-bases)",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
+  "diff_sha256": "7a9a217cc7c719d49b4a1e4875f00f4b9a706aa6"
+}

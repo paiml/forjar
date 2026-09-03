@@ -36,13 +36,15 @@ fn impure_signals() -> PuritySignals {
     }
 }
 
+/// Refs #409 (CRUX E06): the "pure" signals declare a store and a sandbox that
+/// nothing enforces, so the recipe validates as Pinned, not Pure.
 #[test]
-fn test_fj1306_validate_all_pure() {
+fn test_fj1306_validate_all_declared_is_pinned() {
     let sig = pure_signals();
     let result = validate_purity(&[("nginx", &sig)], None);
     assert!(result.pass);
-    assert_eq!(result.recipe_purity, PurityLevel::Pure);
-    assert_eq!(result.resources[0].level, PurityLevel::Pure);
+    assert_eq!(result.recipe_purity, PurityLevel::Pinned);
+    assert_eq!(result.resources[0].level, PurityLevel::Pinned);
 }
 
 #[test]
@@ -80,7 +82,9 @@ fn test_fj1306_format_report() {
     let sig = pure_signals();
     let result = validate_purity(&[("nginx", &sig)], None);
     let report = format_purity_report(&result);
-    assert!(report.contains("Pure"));
+    // Refs #409: declared store/sandbox report as Pinned, never as Pure.
+    assert!(report.contains("Pinned"));
+    assert!(!report.contains("Pure"));
     assert!(report.contains("PASS"));
     assert!(report.contains("nginx"));
 }

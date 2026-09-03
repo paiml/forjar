@@ -98,12 +98,11 @@ jobs:
 
       - name: Verify package tarball
         run: |
-          CRATE="${{ steps.parse.outputs.crate_name }}"
-          if [ -n "$CRATE" ]; then
-            cargo package -p "$CRATE"
-          else
-            cargo package
-          fi
+          # #423: the contract crates are workspace members and the root's path
+          # dependencies until the release publishes them, so the tarball is
+          # verified for the whole workspace (cargo >= 1.90 resolves the root
+          # against the members it just packaged).
+          cargo package --workspace
 
   # ── crates.io publish: handled out-of-band ─────────────
   # The OIDC trusted-publishing job was removed. Trusted Publishing is not
@@ -112,7 +111,11 @@ jobs:
   # Until that's set up (https://crates.io/trusted-publishing), publish to
   # crates.io manually from a host with `~/.cargo/credentials.toml`:
   #
-  #     git checkout v<x.y.z> && cargo publish
+  #     git checkout v<x.y.z> && cargo publish --workspace
+  #
+  # (#423: `--workspace` publishes forjar-contracts-macros, forjar-contracts
+  # and forjar in dependency order; the two contract crates must exist on
+  # crates.io at the pinned version before `forjar` can.)
   #
   # This workflow now only builds binary release artifacts and creates the
   # GitHub Release.

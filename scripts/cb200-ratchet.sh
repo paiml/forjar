@@ -7,7 +7,15 @@
 # and says which of the two states it is in.
 set -euo pipefail
 
-BASE=".pmat/cb200-baseline.json"
+# THE CEILING LIVES WHERE THE REPO OWNS IT, not under `.pmat/` (#401).
+#
+# It was `.pmat/cb200-baseline.json`: tracked, and matched by `**/.pmat/` in the
+# root .gitignore — and, since pmat started writing its own `.pmat/.gitignore`
+# containing `*`, unrescuable by any negation, because a deeper .gitignore
+# outranks a shallower one. A shared ratchet floor cannot live in a directory
+# another tool declares derived and ignores wholesale. Next to its only reader
+# instead.
+BASE="scripts/ratchets/cb200-baseline.json"
 [ -f "$BASE" ] || { echo "✗ no $BASE — the ceiling is undeclared"; exit 1; }
 
 ceiling=$(python3 -c "import json;print(json.load(open('$BASE'))['ceiling'])")

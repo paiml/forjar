@@ -133,7 +133,12 @@ jobs:
               A)  IFS= read -r -d '' new; check "$new" "" ;;
               *)  IFS= read -r -d '' new; check "$new" "$new" ;;
             esac
-          done < <(git diff -z -M --name-status --diff-filter=ACMR "$BASE" HEAD -- '*.rs')
+          # Refs #423: the vendored contract crates are upstream's sources carried
+          # byte-for-byte (see crates/*/VENDORED.md); splitting them would break
+          # the byte-faithfulness the vendoring receipt asserts. They are not new
+          # code this repository wrote, so the ratchet does not bill them.
+          done < <(git diff -z -M --name-status --diff-filter=ACMR "$BASE" HEAD -- '*.rs' \
+                     ':!crates/forjar-contracts/**' ':!crates/forjar-contracts-macros/**')
 
           if [ "$failed" -ne 0 ]; then
             echo "File health check failed."
