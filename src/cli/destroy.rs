@@ -245,6 +245,13 @@ pub(crate) fn cmd_destroy(
         cleanup_succeeded_entries(state_dir, &succeeded_resources);
     }
 
+    // forjar#449: record the generation this destroy produced, exactly as
+    // apply does (GH-376: failures included — a generation is a record of what
+    // happened). Without it `undo` had nothing earlier than "current" to
+    // rewind to, and the destroy/undo roundtrip the contract
+    // destroy-undo-roundtrip-v1 names could not happen.
+    super::apply_snapshot::maybe_record_generation(&config, state_dir, false, verbose);
+
     println!();
     if failed > 0 {
         println!("Destroy completed with errors: {destroyed} destroyed, {failed} failed");
