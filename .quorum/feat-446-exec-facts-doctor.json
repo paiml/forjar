@@ -131,5 +131,5 @@
     "[A] exec is CliOnly and facts is Pending(#414) in the verb partition",
     "[A] standalone permission facts declined with the reason above"
   ],
-  "diff_sha256": "48730a34bfc17430ad82b2640af3f500ff58d1fb"
+  "diff_sha256": "efc2e16f4b8da382f5ef1533b9eeb34454a0844f"
 }
