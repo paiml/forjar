@@ -48,6 +48,12 @@ pub enum SkipReason {
     NoConfigLoaded,
     /// `--no-task-checks`: the operator declined to execute completion checks.
     TaskChecksDisabled,
+    /// forjar#360: the lock's observation was taken under a different
+    /// `lifecycle.ignore_drift` field list than the config now declares, so the
+    /// stored digest answers a different question than a fresh reading would.
+    /// Comparing them would report drift on the field being ignored; the next
+    /// apply re-baselines under the current mask.
+    ObservationMaskChanged,
     /// forjar#385: there is no lock AT ALL — the state dir is absent, so
     /// nothing was ever applied through it. Distinct from `NotInLock`, which
     /// is one resource missing from a lock that exists: this is the whole
@@ -69,6 +75,7 @@ impl SkipReason {
             Self::NoLockedHash => "no hash recorded in the lock",
             Self::NoConfigLoaded => "no config loaded (file hashes only)",
             Self::TaskChecksDisabled => "--no-task-checks",
+            Self::ObservationMaskChanged => "ignore_drift changed since the baseline",
             Self::NoLock => "no lock (never applied from here)",
         }
     }

@@ -17,6 +17,7 @@ pub mod key_source;
 pub mod metric_collector;
 pub mod metric_source;
 pub mod migrate;
+pub mod observation_mask;
 pub mod observe;
 pub mod parser;
 pub mod plan_seal;

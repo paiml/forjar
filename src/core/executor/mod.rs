@@ -73,6 +73,7 @@ mod tests_waves_cov;
 
 use super::codegen;
 use super::conditions;
+use super::observation_mask;
 use super::planner;
 use super::resolver;
 use super::state;

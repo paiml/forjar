@@ -40,15 +40,27 @@ pub(crate) fn record_success(
     // be empty when the queried file/service doesn't exist yet — use the
     // sentinel wrapper to uphold the STRONG `!input.is_empty()` precondition
     // without losing the drift signal.
+    //
+    // forjar#360: the digest is taken over the stdout MINUS the fields
+    // `lifecycle.ignore_drift` names, so `["mode"]` suppresses the mode and
+    // nothing else. Empty mask => the stdout verbatim, so no resource without
+    // the key moves. All three writers of this digest apply the same mask; see
+    // `core::observation_mask`.
     let live_hash = match codegen::state_query_script(resolved) {
         Ok(query) => match transport::exec_script_timeout(machine, &query, ctx.timeout_secs) {
-            Ok(qout) if qout.success() => Some(hasher::hash_string_or_sentinel(&qout.stdout)),
+            Ok(qout) if qout.success() => Some(hasher::hash_string_or_sentinel(
+                &observation_mask::masked_for(&qout.stdout, resolved),
+            )),
             _ => None,
         },
         Err(_) => None,
     };
 
     let mut details = build_resource_details(resolved, machine);
+    // The mask this baseline was taken under, so drift can tell a stale
+    // unmasked baseline from a comparable one instead of reporting the
+    // difference as drift on the ignored field.
+    observation_mask::record_mask(&mut details, &observation_mask::mask_key(resolved));
     // NOTE: `live_hash` is inserted into `details` here rather than through
     // `ResourceLock::set_observed_state`, because the lock struct is not built
     // until further down this function. The typed field is populated from this
