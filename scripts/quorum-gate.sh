@@ -141,10 +141,22 @@ command -v python3 >/dev/null 2>&1 || die "python3 is required to read the recei
 # so the hook passes it here with --remote-ref. Standalone runs (no hook) fall
 # back to the local name, which is fine because a human running this by hand is
 # not the adversary it defends against.
+#
+# AND SO IS THE COMMIT (#400). Taking the NAME from the push while resolving the
+# diff, the receipt and the falsification test from the local checkout is not
+# half a fix -- it is two different subjects with one verdict, and it broke in
+# both directions. `git push origin branch-B` from a branch-A checkout died with
+# "no quorum receipt at .quorum/branch-B.json" while `git cat-file -e
+# branch-B:.quorum/branch-B.json` had it; and PRINT_HASH printed a different
+# hash per checkout, so the binding that stops a receipt being recycled was
+# computed against code nobody was pushing. `--local-sha` is the second half of
+# git's line, and everything below resolves from it.
 remote_ref=""
+local_sha=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --remote-ref) remote_ref="${2:-}"; shift 2 ;;
+        --local-sha)  local_sha="${2:-}"; shift 2 ;;
         *) shift ;;
     esac
 done
@@ -155,6 +167,12 @@ else
     branch="$(git rev-parse --abbrev-ref HEAD)"
     [ "$branch" != "HEAD" ] || die "detached HEAD -- cannot identify the branch under review"
 fi
+
+# Callers that pass no sha keep working unchanged: `make quorum` (Makefile) and
+# .github/workflows/quorum.yml both invoke this with at most --remote-ref, and
+# in CI the checkout IS `pull_request.head.sha`, so HEAD is already the honest
+# answer there.
+pushed="${local_sha:-HEAD}"
 
 # A TAG IS NOT A BRANCH AND HAS NO DIFF TO REFUTE.
 #
@@ -173,6 +191,20 @@ case "$branch" in
     main|master) echo "✓ quorum gate: '$branch' is not a PR branch, skipping"; exit 0 ;;
 esac
 
+# A DELETION HAS NO DIFF TO REFUTE.
+#
+# `git push --delete branch-B` hands the hook an all-zero LOCAL sha (measured:
+# `local_ref=[(delete)] local_sha=[000…0] remote_ref=[refs/heads/branch-B]`).
+# The hook's comment claimed the gate's own empty/branch logic already skipped
+# this; it did not, and the guard has to sit HERE rather than next to the
+# receipt read, because `git merge-base 0000…0 origin/main` is the first thing
+# that breaks -- `fatal: Not a valid commit name`, exit 128.
+case "$pushed" in
+    "") ;;
+    *[!0]*) ;;
+    *) echo "✓ quorum gate: '$branch' is being deleted -- no diff to refute"; exit 0 ;;
+esac
+
 # THE DIFF THIS RECEIPT MUST MATCH.
 #
 # Bound to the merge-base, not to HEAD~1: a receipt has to cover everything the
@@ -188,13 +220,17 @@ fi
 # not exist on macOS, where `set -euo pipefail` would turn its absence into exit
 # 127 and block every push for every macOS contributor. git is by definition
 # present in a git hook.
-merge_base="$(git merge-base HEAD "$BASE_REF")" \
-    || die "no merge-base between HEAD and $BASE_REF"
+git rev-parse --verify "$pushed^{commit}" >/dev/null 2>&1 \
+    || die "'$pushed' is not a commit in this repository -- cannot review it."
 
-# A base equal to HEAD means the diff is empty by construction -- the shape the
-# removed $QUORUM_BASE override exploited. Refuse rather than report clean.
-if [ "$merge_base" = "$(git rev-parse HEAD)" ]; then
-    die "HEAD is at the merge-base with $BASE_REF -- there is nothing on this branch.
+merge_base="$(git merge-base "$pushed" "$BASE_REF")" \
+    || die "no merge-base between $pushed and $BASE_REF"
+
+# A base equal to the pushed commit means the diff is empty by construction --
+# the shape the removed $QUORUM_BASE override exploited. Refuse rather than
+# report clean.
+if [ "$merge_base" = "$(git rev-parse "$pushed")" ]; then
+    die "$pushed is at the merge-base with $BASE_REF -- there is nothing on this branch.
      If you expected changes, you are on the wrong branch or have not committed."
 fi
 
@@ -210,7 +246,7 @@ fi
 #
 # The rule: the hash covers what a REVIEWER reviews. Generated artefacts are not
 # claims, so they are not part of the diff a quorum adjudicated.
-diff_text="$(git diff "$merge_base" HEAD -- . ':(exclude,glob).quorum/*.json' ':(exclude).pmat')"
+diff_text="$(git diff "$merge_base" "$pushed" -- . ':(exclude,glob).quorum/*.json' ':(exclude).pmat')"
 diff_hash="$(printf '%s' "$diff_text" | git hash-object --stdin)"
 [ -n "$diff_hash" ] || die "could not compute a diff hash"
 
@@ -237,30 +273,38 @@ fi
 
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
 
-# THE RECEIPT MUST BE COMMITTED, NOT MERELY WRITTEN.
+# THE RECEIPT IS READ FROM THE COMMIT, NOT FROM THE WORKING TREE.
 #
-# The gate reads the receipt from the WORKING TREE but hashes the COMMITTED diff.
-# An uncommitted receipt therefore passes locally and fails in CI, which reviews
-# what was actually pushed -- and that is not hypothetical: it happened on this
-# gate's own first PR. A `git add` in the write-the-receipt step errored on an
-# ignored path, `&&` short-circuited, the amend never ran, the local gate went
-# green against the edited-but-uncommitted file, and CI rejected the stale
-# committed one 22 seconds later.
+# It used to be `[ -f "$receipt" ]` plus a pair of `git diff --quiet` calls
+# meant to catch an edited-but-uncommitted receipt, because the gate hashed the
+# COMMITTED diff and a local-green/CI-red gate teaches people the gate is noise.
+# That happened on this gate's own first PR: a `git add` in the write-the-receipt
+# step errored on an ignored path, `&&` short-circuited, the amend never ran, and
+# CI rejected the stale committed receipt 22 seconds later.
 #
-# Local-green/CI-red is the worst failure mode a pre-push gate can have: it
-# teaches people the gate is noise. Check it here, where the fix is one commit
-# away, rather than after the PR is open.
-if ! git diff --quiet -- "$receipt" 2>/dev/null \
-   || ! git diff --cached --quiet -- "$receipt" 2>/dev/null; then
-    die "the receipt $receipt has uncommitted changes.
-     What gets pushed is the COMMITTED receipt, so this would pass here and fail
-     in CI. Commit it:  git add $receipt && git commit"
-fi
+# The guard was silent for the case that mattered. MEASURED on an UNTRACKED
+# `.quorum/<branch>.json`: `git diff --quiet -- <path>` exits 0 and `git diff
+# --cached --quiet -- <path>` exits 0, so a receipt that was never `git add`ed
+# sailed through -- and with a `waived.reason` in it the gate exited 0 announcing
+# "(committed in ... -- visible in the PR diff)" about a file `git status`
+# reports as `??`. A complete, silent, unreviewable bypass, available to exactly
+# the enforced authors QUORUM_SKIP is refused to, in the script that says
+# "Bypass exists; silent bypass does not". (Tracked-then-modified DID trip it:
+# the guard worked for the one case it was written for and only that one.)
+#
+# Reading the blob out of the pushed commit subsumes both: a receipt that is not
+# committed is not there, and one that is committed is read exactly as CI will
+# read it. No separate uncommitted-changes check is needed, and none can be
+# skipped.
+receipt_blob="$(mktemp)"
+trap 'rm -f "$receipt_blob"' EXIT
+git cat-file -p "$pushed:$receipt" > "$receipt_blob" 2>/dev/null \
+    || die "no quorum receipt at $receipt in the commit being pushed ($pushed)
 
-[ -f "$receipt" ] || die "no quorum receipt at $receipt
-
+  A receipt written but not committed does not exist to this gate, because it
+  will not exist to the reviewer or to CI either.
   This branch proposes changes that have not survived refutation.
-  Run the quorum, then write the receipt. See docs/quorum.md.
+  Run the quorum, then write the receipt AND COMMIT IT. See docs/quorum.md.
   Emergency bypass (recorded in the reflog): git push --no-verify"
 
 # THE WAIVER -- a bypass that leaves a permanent, reviewable record.
@@ -269,7 +313,7 @@ fi
 # becomes a hostage the first time it is wrong. It is a reason STRING in the
 # COMMITTED receipt: it lands in the PR diff where a reviewer sees it, and it
 # cannot be set from the environment. Bypass exists; silent bypass does not.
-waiver="$(python3 - "$receipt" <<'WAIVE_PY' 2>/dev/null || true
+waiver="$(python3 - "$receipt_blob" <<'WAIVE_PY' 2>/dev/null || true
 import json, sys
 try:
     print((json.load(open(sys.argv[1])).get("waived") or {}).get("reason", "").strip())
@@ -280,7 +324,10 @@ WAIVE_PY
 if [ -n "$waiver" ]; then
     echo "⚠ quorum gate WAIVED for '$branch'"
     echo "    reason: $waiver"
-    echo "    (committed in $receipt -- visible in the PR diff)"
+    # This line used to claim the receipt was committed for a file that need not
+    # have been. It is now true by construction -- the reason was read out of
+    # $pushed's tree, so there is no other place it could have come from.
+    echo "    (from $receipt in $pushed -- visible in the PR diff)"
     exit 0
 fi
 
@@ -288,12 +335,12 @@ fi
 # instead of eight times through eight greps.
 # The files this branch actually touches, so the falsification test can be
 # required to be one of them (see the free-rider defence below).
-touched="$(git diff --name-only "$merge_base" HEAD)"
+touched="$(git diff --name-only "$merge_base" "$pushed")"
 
-python3 - "$receipt" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" <<'PY' || exit 1
+python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
 import json, os, subprocess, sys
 
-path, want_hash, min_lanes, min_refuters, min_judges, touched_raw = sys.argv[1:7]
+path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed = sys.argv[1:8]
 min_lanes, min_refuters, min_judges = int(min_lanes), int(min_refuters), int(min_judges)
 touched = set(filter(None, touched_raw.splitlines()))
 
@@ -422,10 +469,24 @@ for field in ("test", "reverted", "observed_failure"):
     if not f.get(field):
         die(f"falsification is missing '{field}' -- the revert-the-hunk check is not optional")
 
+def in_pushed_tree(rel_path):
+    """Is this path in the COMMIT BEING PUSHED?
+
+    `os.path.exists` answered about the working tree, which is a different
+    subject entirely when the push is not of the checked-out branch -- and it
+    would happily accept a test file that is present locally and absent from
+    everything a reviewer will ever see.
+    """
+    return subprocess.run(
+        ["git", "cat-file", "-e", f"{pushed}:{rel_path}"],
+        capture_output=True,
+    ).returncode == 0
+
 test_file = f.get("test_file", "")
-if not test_file or not os.path.exists(test_file):
-    die(f"falsification names test_file '{test_file}', which does not exist in the tree.\n"
-        "  A falsification against a test that is not here cannot have happened.")
+if not test_file or not in_pushed_tree(test_file):
+    die(f"falsification names test_file '{test_file}', which is not in the commit "
+        "being pushed.\n"
+        "  A falsification against a test nobody else can see cannot have happened.")
 
 # THE FREE-RIDER DEFENCE.
 #
@@ -452,23 +513,54 @@ target = f.get("cargo_test_target")
 if not target:
     die("falsification is missing 'cargo_test_target' (e.g. the --test name)")
 
-print(f"  verifying falsification test passes with the fix: {target}")
-# SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push hook,
-# where git has exported GIT_DIR for the repository being pushed. A test that
-# spawns `git` in its own tempdir then inherits that GIT_DIR and operates on
-# the developer's repository with the tempdir as work tree -- measured on
-# 2026-09-02: a falsification test's `git add -A && git commit` deleted 2,556
-# tracked files from the branch under review. The tests get a clean git
-# environment; the gate keeps its own.
-test_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-proc = subprocess.run(
-    ["cargo", "test", "--test", target, "--quiet"],
-    capture_output=True, text=True, env=test_env,
-)
-if proc.returncode != 0:
-    tail = (proc.stdout + proc.stderr).strip().splitlines()[-15:]
-    die("the falsification test does NOT pass on this tree:\n     "
-        + "\n     ".join(tail))
+# THE ONE CHECK THAT CANNOT FOLLOW THE PUSHED SHA, STATED AS A TRADE.
+#
+# Everything above resolves from $pushed. `cargo test` cannot: it compiles the
+# WORKING TREE, so on a cross-branch push it would report on code that is not
+# being reviewed -- a green that means nothing, which is worse than an absence.
+#
+# This IS a reachable local bypass: `git checkout main && git push origin
+# my-branch` skips the only check this gate actually executes. It is accepted,
+# deliberately, for two reasons and they must both hold:
+#   1. .github/workflows/quorum.yml re-runs this entire gate on the PR head,
+#      where the checkout IS the pushed commit, so the skip is local-only.
+#   2. The honest alternative -- `git worktree add` at $pushed and build there
+#      -- is not impossible, it is expensive: a second full target dir, and this
+#      fleet already races on a shared CARGO_TARGET_DIR.
+# If (1) ever stops being true, this skip becomes a hole and must be replaced by
+# the worktree build, not by deleting the message.
+head_now = subprocess.run(
+    ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+).stdout.strip()
+pushed_full = subprocess.run(
+    ["git", "rev-parse", pushed], capture_output=True, text=True
+).stdout.strip()
+
+if head_now != pushed_full:
+    print(f"  ⚠ NOT RUNNING the falsification test '{target}': the working tree is at "
+          f"{head_now[:12]} but {pushed_full[:12]} is being pushed.")
+    print("    cargo compiles the tree, not the commit, so a result here would "
+          "describe code")
+    print("    that is not under review. CI (.github/workflows/quorum.yml) runs it "
+          "on the PR head.")
+else:
+    print(f"  verifying falsification test passes with the fix: {target}")
+    # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push hook,
+    # where git has exported GIT_DIR for the repository being pushed. A test that
+    # spawns `git` in its own tempdir then inherits that GIT_DIR and operates on
+    # the developer's repository with the tempdir as work tree -- measured on
+    # 2026-09-02: a falsification test's `git add -A && git commit` deleted 2,556
+    # tracked files from the branch under review. The tests get a clean git
+    # environment; the gate keeps its own.
+    test_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    proc = subprocess.run(
+        ["cargo", "test", "--test", target, "--quiet"],
+        capture_output=True, text=True, env=test_env,
+    )
+    if proc.returncode != 0:
+        tail = (proc.stdout + proc.stderr).strip().splitlines()[-15:]
+        die("the falsification test does NOT pass on this tree:\n     "
+            + "\n     ".join(tail))
 
 print(f"✓ quorum receipt valid for {r['issue']}")
 print(f"    lanes={len(lanes)} refuters={refuters} judges={judges} "
@@ -479,15 +571,19 @@ print(f"      observed: {f['observed_failure']}")
 PY
 
 # EVIDENCE -- the owner's rule: intermediate results AND conclusion attached.
-head_commit="$(git rev-parse HEAD)"
-tallies="$(python3 - "$receipt" <<'TALLY_PY'
+#
+# quorum_evidence.py resolves every manifest blob at the commit it is handed, so
+# it gets $pushed too. Handing it HEAD while the receipt described another branch
+# was the same split subject as everything above.
+head_commit="$(git rev-parse "$pushed")"
+tallies="$(python3 - "$receipt_blob" <<'TALLY_PY'
 import json, sys
 q = json.load(open(sys.argv[1])).get("quorum", {})
 print(int(q.get("claims_confirmed", 0)), int(q.get("claims_refuted", 0)))
 TALLY_PY
 )"
 python3 "$(dirname "$0")/quorum_evidence.py" \
-    "$receipt" ${tallies} "$touched" "$merge_base" "$head_commit" \
+    "$receipt_blob" ${tallies} "$touched" "$merge_base" "$head_commit" \
     || die "evidence checks failed (see above)"
 
 echo "✓ quorum gate passed ($MODE)"
