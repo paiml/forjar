@@ -147,16 +147,26 @@ fn serve(
             break;
         }
         let Ok(stream) = stream else { break };
-        if let Some((method, path)) = answer(stream, router) {
-            seen.lock().expect("recorder lock").push((method, path));
-        }
+        answer(stream, router, seen);
     }
 }
 
-/// Read one request, drain its body, and write the routed reply.
-fn answer(stream: TcpStream, router: &Router) -> Option<(String, String)> {
+/// Read one request, RECORD it, drain its body, and write the routed reply.
+///
+/// The record goes in before the reply is written. Recording after it (the
+/// original order) raced the client: a caller that had already received its
+/// response could run `saw()` before the recorder's push, and
+/// `a_registry_that_rejects_the_manifest_is_a_failed_push` failed on a hosted
+/// coverage runner with "the manifest PUT must actually have been attempted"
+/// although the 401 it asserted on had been served (forjar#451's lint lane).
+fn answer(stream: TcpStream, router: &Router, seen: &Arc<Mutex<Vec<(String, String)>>>) {
     let mut reader = BufReader::new(stream);
-    let (method, path, length) = read_head(&mut reader)?;
+    let Some((method, path, length)) = read_head(&mut reader) else {
+        return;
+    };
+    seen.lock()
+        .expect("recorder lock")
+        .push((method.clone(), path.clone()));
     if length > 0 {
         let mut body = vec![0u8; length];
         let _ = reader.read_exact(&mut body);
@@ -164,7 +174,6 @@ fn answer(stream: TcpStream, router: &Router) -> Option<(String, String)> {
     let response = router(&method, &path);
     let _ = reader.get_mut().write_all(response.as_bytes());
     let _ = reader.get_mut().flush();
-    Some((method, path))
 }
 
 fn read_head(reader: &mut BufReader<TcpStream>) -> Option<(String, String, usize)> {
