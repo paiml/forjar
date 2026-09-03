@@ -115,6 +115,6 @@
     "lib_tests": "13370 passed, 0 failed",
     "clippy": "--all-targets -D warnings, 0 errors (re-run on the merged tree)"
   },
-  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "a50a26fc41f22c3a051ab10510cc9c85578b13c2"
+  "base_commit": "15aa687471476acbb71b4201df536b873caa319d",
+  "diff_sha256": "cd9630379f8131abfdeec58f088cafdcb11a3490"
 }
