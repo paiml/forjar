@@ -48,7 +48,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Verify Cargo.lock is committed and current
-        run: cargo package --locked --no-verify
+        # #423: the contract crates are workspace members, so the root crate's
+        # path dependencies are unpublished until the release publishes them in
+        # order. `--workspace` packages the members first and resolves the root
+        # against that overlay (cargo >= 1.90), which is exactly what
+        # `cargo publish --workspace` does at release time.
+        run: cargo package --locked --no-verify --workspace
 
   # Regression guard (#179): every shipped standalone example config must pass
   # `forjar validate`. The sovereign-ci `test` job only runs `cargo test --lib`,
@@ -110,6 +115,26 @@ jobs:
       # workflows and prints its denominator; self-hosted jobs are exempt.
       - name: No hosted job may cache a Rust build directory
         run: cargo test --locked --test falsification_hosted_jobs_do_not_cache_target
+      # #401: fourteen paths were BOTH tracked and matched by .gitignore
+      # (3,759,246 bytes). Nothing visibly broke — gitignore does not un-track a
+      # file — which is exactly why it survived, while the post-commit hook
+      # re-staged a 1.2 MB `.pmat/baseline.json` after every commit and any two
+      # branches conflicted on its `created_at` line. Asserts the index against
+      # the rules, with `--no-index` (without it git answers about the index and
+      # reports every tracked path as not-ignored, hiding the defect) and
+      # WITHOUT `-v` (which prints negation matches and exits 0, making the
+      # assertion unsatisfiable while any file is deliberately re-included).
+      - name: No tracked file may be gitignored
+        run: cargo test --locked --test falsification_no_tracked_file_is_gitignored
+      # #400: the quorum gate took the branch NAME from the pushed ref and
+      # everything else — diff, receipt, falsification test — from the local
+      # checkout. Pushing a branch you were not standing on was refused with
+      # "no quorum receipt" for a receipt that was in the pushed commit, and an
+      # UNTRACKED receipt carrying a `waived.reason` bypassed the whole gate
+      # silently, for exactly the enforced authors QUORUM_SKIP is refused to.
+      # Drives the real scripts/quorum-gate.sh against synthetic repos.
+      - name: The quorum gate must judge the pushed commit
+        run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's

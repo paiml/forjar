@@ -9,8 +9,8 @@
 
 | Level | Name | Definition | Example |
 |-------|------|------------|---------|
-| 0 | **Pure** | All inputs hashed, sandboxed, deterministic | `store: true` + `sandbox: full` + pinned version |
-| 1 | **Pinned** | Version-locked but not sandboxed | `version: "1.24.0"` + `store: true` |
+| 0 | **Pure** | All inputs hashed, sandboxed, deterministic — requires the store and the sandbox to EXECUTE; unreachable until #410 lands (`store:`/`sandbox:` are declared, not enforced — #409) | (none today) |
+| 1 | **Pinned** | Version-locked; a declared `store:`/`sandbox:` is reported as "declared but not enforced" and does not promote | `version: "1.24.0"` (with or without `store: true`) |
 | 2 | **Constrained** | Provider-scoped but floating version | `provider: apt` + `packages: [nginx]` (no version) |
 | 3 | **Impure** | Unconstrained network/side-effect access | `curl \| bash` install scripts |
 

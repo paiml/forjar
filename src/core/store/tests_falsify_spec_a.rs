@@ -217,7 +217,10 @@ fn falsify_b05_no_sandbox_pinned() {
     assert_eq!(result.level, PurityLevel::Pinned);
 }
 
-/// B-06: Version + store + sandbox → Pure.
+/// B-06 (rewritten for #409, CRUX E06): Version + store + sandbox → Pinned,
+/// with the declaration reported as unenforced. Pure is unreachable until the
+/// store and the sandbox execute (#410); a declared-but-unenforced flag must
+/// not move the ladder.
 #[test]
 fn falsify_b06_full_pure() {
     let signals = PuritySignals {
@@ -227,7 +230,11 @@ fn falsify_b06_full_pure() {
         ..Default::default()
     };
     let result = classify("test", &signals);
-    assert_eq!(result.level, PurityLevel::Pure);
+    assert_eq!(result.level, PurityLevel::Pinned);
+    assert!(result
+        .reasons
+        .iter()
+        .any(|r| r.contains("declared but not enforced")));
 }
 
 /// B-07: Monotonicity — recipe purity = max(deps).

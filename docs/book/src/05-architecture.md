@@ -463,7 +463,7 @@ forjar anomaly --state-dir state --json | jq '.anomalies'
 
 ## Provable Contracts
 
-Forjar integrates with the `provable-contracts` framework for formal invariant verification. Ten core functions are annotated with `#[contract]` attributes that bind them to YAML contract equations.
+Forjar integrates with the `provable-contracts` framework (vendored in-tree as `crates/forjar-contracts`, forjar#423) for formal invariant verification. Ten core functions are annotated with `#[contract]` attributes that bind them to YAML contract equations.
 
 ### Verification Layers
 
@@ -1095,7 +1095,7 @@ The executor tracks which resources depend on failed ones and skips them transit
 
 ### Compile-Time Verification
 
-Forjar uses `provable_contracts_macros` to verify bindings at compile time:
+Forjar uses `provable_contracts_macros` (from the in-tree `crates/forjar-contracts-macros`, forjar#423) to verify bindings at compile time:
 
 ```rust
 #[contract("dag-ordering-v1", equation = "topological_sort")]
