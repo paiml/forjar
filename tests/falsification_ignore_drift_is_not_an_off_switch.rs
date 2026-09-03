@@ -88,19 +88,30 @@ impl Drop for Sandbox {
     }
 }
 
-/// THE FALSIFICATION. A narrowed `ignore_drift` must be refused, not accepted
-/// and then read as skip-everything. Before the fix `validate` exited 0 with a
-/// clean verdict over a declaration the engine would honour inside out.
+/// THE FALSIFICATION. A narrowed `ignore_drift` must never be silently WIDENED
+/// — accepted and then read as skip-everything. Before the fix `validate`
+/// exited 0 with a clean verdict over a declaration the engine would honour
+/// inside out.
+///
+/// RETARGETED FOR forjar#360. This used to write `["mode"]`, which is now a
+/// field forjar genuinely suppresses (see
+/// `falsification_ignore_drift_names_one_field.rs`), so refusing it would be
+/// over-rejection rather than safety. The invariant this test exists for is
+/// unchanged and is asserted here over a field forjar still cannot mask: an
+/// entry that cannot be honoured must be REFUSED, never widened. `content` is
+/// outside the File vocabulary because a file's content hash is a bare line
+/// with no `=`, indistinguishable from the `MISSING` existence sentinel — see
+/// `core::observation_mask`.
 #[test]
 fn a_narrowed_ignore_drift_is_refused_not_silently_widened() {
     let sb = Sandbox::new("narrowed");
-    sb.write_config(&["mode"]);
+    sb.write_config(&["content"]);
 
     let (out, ok) = sb.run(&["validate"]);
 
     assert!(
         !ok,
-        "validate accepted ignore_drift: [mode], which the engine reads as \
+        "validate accepted ignore_drift: [content], which the engine reads as \
          suppress-everything. A silently broader exemption is the defect.\n{out}"
     );
     assert!(
@@ -108,9 +119,13 @@ fn a_narrowed_ignore_drift_is_refused_not_silently_widened() {
         "the refusal must name the key it is refusing:\n{out}"
     );
     assert!(
-        out.contains("335"),
-        "the refusal must say per-field suppression is unimplemented, not \
-         merely illegal — the operator needs to know which one:\n{out}"
+        out.contains("content"),
+        "the refusal must echo the entry it cannot honour:\n{out}"
+    );
+    assert!(
+        out.contains("mode"),
+        "the refusal must say what CAN be suppressed, or the operator has no \
+         way to find the vocabulary:\n{out}"
     );
 }
 
@@ -126,7 +141,7 @@ fn wildcard_ignore_drift_still_validates() {
 
     assert!(ok, "ignore_drift: [\"*\"] must stay legal:\n{out}");
     assert!(
-        !out.contains("335"),
+        !out.contains("ignore_drift"),
         "the wildcard is implemented; it must not be flagged:\n{out}"
     );
 }
@@ -166,9 +181,9 @@ fn a_narrowed_ignore_drift_never_reaches_the_tripwire() {
 
     if !applied {
         assert!(
-            apply_out.contains("ignore_drift") && apply_out.contains("335"),
-            "apply failed for some reason OTHER than the #335 refusal, so this \
-             test proves nothing:\n{apply_out}"
+            apply_out.contains("ignore_drift") && apply_out.contains("content"),
+            "apply failed for some reason OTHER than the ignore_drift refusal, \
+             so this test proves nothing:\n{apply_out}"
         );
         return;
     }

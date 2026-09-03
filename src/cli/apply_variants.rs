@@ -207,9 +207,18 @@ fn refreshed_live_hash(
 
     // STRONG contract: refresh-query stdout may legitimately be empty when
     // state is absent — use the sentinel wrapper to uphold `!input.is_empty()`.
+    // forjar#360: THE THIRD WRITER of the observed digest. `record_success` and
+    // `drift::check_nonfile_drift` are the obvious two; this one re-baselines
+    // the same value under `apply --refresh` / `--refresh-only`. Masking the
+    // other two and not this one means one `--refresh` stores an UNMASKED
+    // digest and the next `drift` reports false drift on the ignored field —
+    // and `observed_state_drifted` below mis-counts refresh's own `drift:`
+    // lines while it does so.
     let query = codegen::state_query_script(&resolved).ok()?;
     match transport::exec_script_timeout(machine, &query, timeout) {
-        Ok(out) if out.success() => Some(hasher::hash_string_or_sentinel(&out.stdout)),
+        Ok(out) if out.success() => Some(hasher::hash_string_or_sentinel(
+            &crate::core::observation_mask::masked_for(&out.stdout, &resolved),
+        )),
         _ => None,
     }
 }
@@ -278,6 +287,14 @@ fn refresh_machine_lock(
             // stale one. That is forjar#305's exact shape (two stores, readers
             // split between them), which this refactor exists to remove.
             entry.set_observed_state(hash);
+            // The mask travels with the digest it was taken under, exactly as
+            // in `record_success`. Without this a `--refresh` under a newly
+            // added `ignore_drift` writes a masked digest beside a stale mask
+            // record, and drift declines to compare (forjar#360).
+            if let Some(r) = config.resources.get(id) {
+                let key = crate::core::observation_mask::mask_key(r);
+                crate::core::observation_mask::record_mask(&mut entry.details, &key);
+            }
         }
         refreshed += 1;
     }

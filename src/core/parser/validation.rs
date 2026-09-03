@@ -134,24 +134,41 @@ pub(super) fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<Va
     }
 }
 
-/// forjar#335: `ignore_drift` is a field list in the schema and a
-/// resource-wide off switch in the engine. Until the lock stores the per-field
-/// observation instead of a digest, the narrower form cannot be honoured — so
-/// it is refused rather than silently widened.
+/// forjar#335 / #360: `ignore_drift` is a field list, and forjar honours the
+/// entries it can actually mask out of the observation before hashing it.
+///
+/// Everything else is still refused. An unrecognised entry cannot be masked, so
+/// accepting it would suppress nothing while reading as though it suppressed
+/// something — and a resource type with no field-shaped observation at all
+/// keeps the original #335 refusal verbatim, because for that type the narrowed
+/// form genuinely is unimplemented.
 pub(super) fn validate_lifecycle(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     let Some(lifecycle) = resource.lifecycle.as_ref() else {
         return;
     };
-    let unhonoured = lifecycle.unhonoured_ignore_drift();
+    let vocabulary = crate::core::observation_mask::vocabulary(&resource.resource_type);
+    let unhonoured = lifecycle.unhonoured_ignore_drift(vocabulary.unwrap_or(&[]));
     if unhonoured.is_empty() {
         return;
     }
+    let remedy = match vocabulary {
+        Some(fields) => format!(
+            "forjar can suppress these fields for a {} resource: {} (forjar#360).",
+            resource.resource_type,
+            fields.join(", ")
+        ),
+        None => format!(
+            "per-field drift suppression is not implemented for a {} resource (forjar#335) — \
+             its state query reports no named fields to select over.",
+            resource.resource_type
+        ),
+    };
     errors.push(ValidationError {
         message: format!(
-            "resource '{id}' has lifecycle.ignore_drift {unhonoured:?}, but per-field drift \
-             suppression is not implemented (forjar#335) — forjar would suppress ALL drift for \
-             this resource, not just those fields. Write ignore_drift: [\"*\"] if you mean that, \
-             or remove the key to keep drift detection on."
+            "resource '{id}' has lifecycle.ignore_drift {unhonoured:?}, which forjar cannot \
+             honour — it would suppress NOTHING while reading as though it suppressed those \
+             fields. {remedy} Write ignore_drift: [\"*\"] to suppress the whole resource, or \
+             remove the key to keep drift detection on."
         ),
     });
 }

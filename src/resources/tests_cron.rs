@@ -31,8 +31,10 @@ fn fj154_cron_name_quote_neutralized() {
     let r = cron_resource("n';reboot;'");
     let script = apply_script(&r);
     assert!(script.contains("'\"'\"'"), "{script}");
-    // The grep marker stays a single quoted word.
-    assert!(!script.contains("grep -v '# forjar:n';reboot"), "{script}");
+    // The deletion filter's marker stays a single quoted word. Retargeted for
+    // forjar#362 — it used to name `grep -v`, which no longer appears at all,
+    // so the assertion was passing without testing anything.
+    assert!(!script.contains("FJ_M='# forjar:n';reboot"), "{script}");
 }
 
 #[test]

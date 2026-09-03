@@ -2,6 +2,15 @@
 //!
 //! Split out of cron.rs, which was exactly at the 500-line limit.
 //! Asserts on generated script text only; never spawns a shell or crontab.
+//!
+//! forjar#362: the removal assertions here used to pin `grep -v '# forjar:x'`
+//! with messages like "must remove old entry before re-adding" and
+//! "(prevents duplication)". That filter dropped only the two COMMENT lines —
+//! the job itself survived and was duplicated — so the assertions were pinning
+//! text, not behaviour, and they are the reason the defect shipped. Removal is
+//! now proved by executing the script against a fake crontab in
+//! `tests_cron_exec.rs`; what stays here is only that the block markers reach
+//! the deletion filter as exact, correctly-escaped words.
 
 use super::cron::*;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
@@ -139,7 +148,7 @@ fn test_fj033_apply_absent() {
     let mut r = make_cron_resource("old-job");
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("grep -v '# forjar:old-job'"));
+    assert!(script.contains("FJ_M='# forjar:old-job'"), "{script}");
 }
 
 #[test]
@@ -181,13 +190,14 @@ fn test_fj033_unique_tagging() {
 
 #[test]
 fn test_fj033_apply_preserves_existing_entries() {
-    // Apply should filter out existing forjar entries before re-adding
+    // The old entry must reach the deletion filter before the fresh block is
+    // appended. That it is ACTUALLY removed — and that unrelated lines are not
+    // — is proved by executing the script:
+    // tests_cron_exec::fj362_three_applies_install_one_job.
     let r = make_cron_resource("backup");
     let script = apply_script(&r);
-    assert!(
-        script.contains("grep -v '# forjar:backup'"),
-        "must remove old entry before re-adding"
-    );
+    assert!(script.contains("FJ_M='# forjar:backup'"), "{script}");
+    assert!(script.contains("FJ_C='# forjar-cmd:backup'"), "{script}");
 }
 
 #[test]
@@ -196,8 +206,8 @@ fn test_fj033_absent_preserves_other_entries() {
     let mut r = make_cron_resource("old-job");
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("grep -v '# forjar:old-job'"));
-    assert!(script.contains("grep -v '# forjar-cmd:old-job'"));
+    assert!(script.contains("FJ_M='# forjar:old-job'"), "{script}");
+    assert!(script.contains("FJ_C='# forjar-cmd:old-job'"), "{script}");
     // Should re-install the filtered crontab
     assert!(script.contains("crontab -u 'root' -"));
 }
@@ -272,15 +282,18 @@ fn test_fj033_absent_ignores_schedule_and_command() {
         !script.contains("/bin/cleanup"),
         "absent should not include command"
     );
-    assert!(script.contains("grep -v '# forjar:old-job'"));
+    assert!(script.contains("FJ_M='# forjar:old-job'"), "{script}");
 }
 
 #[test]
 fn test_fj033_apply_cmd_tag_idempotency() {
-    // Verify forjar-cmd tag is also filtered out on re-apply (prevents duplication)
+    // The cmd tag is both written and given to the deletion filter, so a
+    // re-apply replaces the block rather than stacking a second one. The
+    // "prevents duplication" this test used to claim is asserted for real in
+    // tests_cron_exec::fj362_three_applies_install_one_job.
     let r = make_cron_resource("backup");
     let script = apply_script(&r);
-    assert!(script.contains("grep -v '# forjar-cmd:backup'"));
+    assert!(script.contains("FJ_C='# forjar-cmd:backup'"), "{script}");
     assert!(script.contains("echo '# forjar-cmd:backup'"));
 }
 
@@ -358,8 +371,8 @@ fn test_fj036_cron_apply_absent_removes() {
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("grep -v '# forjar:stale-job'"),
-        "absent state must generate crontab removal via grep -v"
+        script.contains("FJ_M='# forjar:stale-job'"),
+        "absent state must hand the block marker to the deletion filter"
     );
     assert!(
         script.contains("crontab -u 'root' -"),
@@ -405,7 +418,7 @@ fn test_fj153_cron_absent_all_defaults() {
     r.state = Some("absent".to_string());
     r.owner = None;
     let script = apply_script(&r);
-    assert!(script.contains("grep -v '# forjar:old'"));
+    assert!(script.contains("FJ_M='# forjar:old'"), "{script}");
     assert!(script.contains("crontab -u 'root' -"));
     assert!(!script.contains("echo '"));
 }

@@ -20,13 +20,20 @@ impl LifecycleRules {
             .any(|f| f == Self::IGNORE_DRIFT_ALL)
     }
 
-    /// Entries that are NOT the wildcard — the narrowed form the engine cannot
-    /// honour. Empty means the declaration is implementable as written.
-    pub fn unhonoured_ignore_drift(&self) -> Vec<&str> {
+    /// Entries this resource type cannot honour: neither the wildcard nor a
+    /// field its state query actually reports. Empty means the declaration is
+    /// implementable as written.
+    ///
+    /// forjar#360 narrowed this from "everything that is not `*`". A field in
+    /// the type's vocabulary is now masked out of the observation before it is
+    /// hashed (`core::observation_mask`), so refusing it would be
+    /// over-rejection. Everything else is still refused — a typo must not
+    /// become a silent no-op now that some entries mean something.
+    pub fn unhonoured_ignore_drift(&self, vocabulary: &[&str]) -> Vec<&str> {
         self.ignore_drift
             .iter()
             .map(String::as_str)
-            .filter(|f| *f != Self::IGNORE_DRIFT_ALL)
+            .filter(|f| *f != Self::IGNORE_DRIFT_ALL && !vocabulary.contains(f))
             .collect()
     }
 }

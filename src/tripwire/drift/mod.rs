@@ -95,7 +95,14 @@ fn check_nonfile_drift(
     match crate::transport::exec_script_timeout(machine, &query, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
         Ok(out) if out.success() => {
             // STRONG contract: query stdout may be empty when state absent.
-            let actual_hash = hasher::hash_string_or_sentinel(&out.stdout);
+            //
+            // forjar#360: masked with the SAME field list the baseline was
+            // taken under (the caller has already refused to compare when the
+            // two disagree), so `ignore_drift: ["mode"]` suppresses the mode
+            // and leaves content, owner, group and existence being watched.
+            let actual_hash = hasher::hash_string_or_sentinel(
+                &crate::core::observation_mask::masked_for(&out.stdout, resource),
+            );
             if actual_hash != stored_live_hash {
                 Some(DriftFinding {
                     resource_id: id.to_string(),
@@ -303,6 +310,19 @@ fn detect_nonfile_drift(
             census.skipped(id, &rl.resource_type, SkipReason::NotInConfig);
             continue;
         };
+        // forjar#360: the baseline was hashed under whatever mask was in force
+        // when it was taken. Adding `ignore_drift: ["mode"]` to an
+        // already-converged resource leaves an UNMASKED baseline, and comparing
+        // a masked live reading against it manufactures drift on the exact
+        // field the operator asked forjar to ignore — which, since forjar#307,
+        // then blocks the apply that would fix it. An incomparable baseline is
+        // an absence of evidence, so it is censused, not reported.
+        if crate::core::observation_mask::recorded_mask(rl)
+            != crate::core::observation_mask::mask_key(resource)
+        {
+            census.skipped(id, &rl.resource_type, SkipReason::ObservationMaskChanged);
+            continue;
+        }
         census.inspected(id, &rl.resource_type);
         if let Some(f) = check_nonfile_drift(id, rl, resource, machine, stored_live_hash) {
             findings.push(f);
