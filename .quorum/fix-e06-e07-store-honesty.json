@@ -111,14 +111,15 @@
     "known_limits": [
       "simulate_derivation (the --dry-run path) still produces a simulated closure hash; the printed plan names the steps that cannot run and execution refuses, but a dry run does not.",
       "Option (a) — putting the store on the apply path — is the E07 delegation (#410 stays open for it); this branch closes the false claims, not the feature.",
-      "The plan keeps ten lifecycle steps; two carry no command and say NOT EXECUTABLE; a reader of the plan sees the lifecycle, a runner gets a refusal."
+      "The plan keeps ten lifecycle steps; two carry no command and say NOT EXECUTABLE; a reader of the plan sees the lifecycle, a runner gets a refusal.",
+      "Nine pre-existing suites pinned the old doctrine (store/sandbox → Pure; store weighted 30%): tests_purity, tests_validate, tests_repro_score, tests_sandbox_run, tests_falsify_spec_{a,d,h,j}, falsification_convert_pin_validate, falsification_purity_reproscore_refs_hf, falsification_store_purity_repro, falsification_store_validate_gc. Each re-based to Pinned / store unscored with a Refs #409 note; the spec statements B-06 and D-10 rewritten. Full suite: 264 targets, exit 0 after the re-base."
     ],
     "total_bytes": 16561
   },
   "gates": {
-    "lib_tests": "13370 passed, 0 failed, 4 ignored",
+    "lib_tests": "13370 passed, 0 failed, 4 ignored (full suite: 264 targets green after the nine re-bases)",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "71395463ba5e77066b01c93d05470a7437f13e1e"
+  "diff_sha256": "7a9a217cc7c719d49b4a1e4875f00f4b9a706aa6"
 }
