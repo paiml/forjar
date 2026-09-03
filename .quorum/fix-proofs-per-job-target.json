@@ -1,0 +1,6 @@
+{
+  "issue": "#447 — kani, lean and ledger-replay compiled in one shared target/release on a self-hosted runner and raced on cargo's dep-info files (two jobs red on one run with nothing in the diff)",
+  "waived": {
+    "reason": "Workflow-only change [A]: one env line in .github/workflows/proofs.yml (CARGO_TARGET_DIR per job name). There is no Rust hunk to falsify and no pre-existing .rs file to anchor; the measurement is the run itself — run 33729549197 (PR #440) shows the ENOENT under a shared target/release, and the next proofs run on this branch and on every later PR is the falsifier: the same two jobs, separate directories, no dep-info race. Five-whys and the fix are on #447."
+  }
+}
