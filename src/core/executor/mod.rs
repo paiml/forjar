@@ -7,10 +7,12 @@ mod failure_text;
 mod helpers;
 mod machine;
 mod machine_wave;
+mod machine_wave_record;
 pub mod output_verify;
 mod plan_scope;
 mod refresh;
 mod refresh_seed;
+mod resource_meta;
 mod resource_ops;
 pub mod run_capture;
 mod strategies;
@@ -89,13 +91,10 @@ pub use plan_scope::PlanScope;
 // Re-export internal items for sibling submodule access via `use super::*;`
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
 pub(crate) use helpers::copia_apply_file;
-pub(crate) use helpers::{
-    apply_and_record_outcome, build_resource_details, compute_resource_waves,
-};
+pub(crate) use helpers::{build_resource_details, compute_resource_waves};
 pub(crate) use machine::apply_machine;
-pub(crate) use resource_ops::{
-    apply_single_resource, record_failure, record_success, RecordCtx, ResourceOutcome,
-};
+pub(crate) use resource_meta::{check_task_input_cache, update_run_meta};
+pub(crate) use resource_ops::{record_failure, record_success, RecordCtx, ResourceOutcome};
 pub(crate) use strategies::{
     apply_machines_parallel, apply_machines_rolling, apply_machines_sequential,
 };

@@ -1,5 +1,6 @@
 use super::machine::*;
-use super::machine_wave::{execute_wave_io, record_wave_outcomes};
+use super::machine_wave::execute_wave_io;
+use super::machine_wave_record::{record_wave_outcomes, WaveRecord};
 use super::*;
 
 /// FJ-313: Split large waves to respect max_parallel constraint.
@@ -32,7 +33,6 @@ pub(super) fn finalize_machine(
     run_id: &str,
     machine_start: &Instant,
     counters: &MachineCounters,
-    _machine: &Machine,
 ) -> Result<ApplyResult, String> {
     lock.generated_at = eventlog::now_iso8601();
     if cfg.config.policy.lock_file {
@@ -137,11 +137,14 @@ fn cleanup_container_if_needed(cfg: &ApplyConfig, machine: &Machine, machine_nam
 /// Prepared resource for parallel wave execution.
 pub(crate) struct PreparedResource {
     pub(crate) change_idx: usize,
+    /// Refs #412: carried so the thread can name the resource it is running —
+    /// `--trace` and the `--retry` line both report it.
+    pub(crate) resource_id: String,
     pub(crate) resolved: Resource,
     pub(crate) use_copia: bool,
 }
 
-/// FJ-257: Execute a multi-resource wave in parallel.
+/// FJ-257: Execute a wave of more than one resource, in parallel.
 /// Returns true if jidoka should stop processing further waves.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn execute_wave_parallel(
@@ -198,18 +201,44 @@ pub(super) fn execute_wave_parallel(
     let exec_results = execute_wave_io(cfg, &prepared, machine);
 
     // Phase 3: Record outcomes
+    let record = WaveRecord {
+        wave_changes: &wave_changes,
+        machine_changes,
+        skipped_or_unchanged: &skipped_or_unchanged,
+        prepared: &prepared,
+    };
     record_wave_outcomes(
         cfg,
-        &wave_changes,
-        &skipped_or_unchanged,
+        &record,
         exec_results,
-        &prepared,
         machine,
         ctx,
         trace_session,
         machine_name,
         counters,
     )
+}
+
+/// FJ-2701 / Refs #412: is this task's declared input set unchanged since its
+/// last run? Reports the hit under `--trace`, the way the width-1 path always
+/// has. Its own function so `prepare_wave_resources` stays inside the
+/// cognitive budget.
+fn task_inputs_are_cached(
+    cfg: &ApplyConfig,
+    ctx: &RecordCtx,
+    resource_id: &str,
+    resolved: &Resource,
+) -> bool {
+    if !(resolved.cache && crate::core::task::declares_inputs(resolved)) {
+        return false;
+    }
+    let Some(cached) = check_task_input_cache(resource_id, resolved, ctx) else {
+        return false;
+    };
+    if cfg.trace {
+        eprintln!("[TRACE] {resource_id} cached: {cached}");
+    }
+    true
 }
 
 /// Phase 1: Filter and prepare resources for parallel execution.
@@ -253,6 +282,13 @@ fn prepare_wave_resources(
             &cfg.config.machines,
             &cfg.config.secrets,
         )?;
+        // FJ-2701: Task input caching — skip execution if inputs unchanged.
+        // Refs #412: the width-1 path has done this since FJ-2701; a wide wave
+        // re-ran every cached task.
+        if task_inputs_are_cached(cfg, ctx, &change.resource_id, &resolved) {
+            skipped.push((idx, ResourceOutcome::Unchanged));
+            continue;
+        }
         let use_copia = resolved.resource_type == ResourceType::File
             && resolved
                 .source
@@ -261,6 +297,7 @@ fn prepare_wave_resources(
                 .unwrap_or(false);
         prepared.push(PreparedResource {
             change_idx: idx,
+            resource_id: change.resource_id.clone(),
             resolved,
             use_copia,
         });

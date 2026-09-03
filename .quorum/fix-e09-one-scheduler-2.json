@@ -1,0 +1,120 @@
+{
+  "issue": "#412 (CRUX audit E09) — the parallel and sequential executors had drifted: five features were sequential-only, post_apply fired twice on the wave path, and a thread panic was attributed to index 0",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "There is one scheduler (the worker's first cut) — REFUTED by the agy lane: execute_single_wave still routed width-1 waves to apply_and_record_outcome and wider ones to execute_wave_parallel, so the parity tests were green because the five features had been PORTED to both sides, the option the judges rejected. Fixed on the branch by deleting the width-1 branch and the whole single-resource path; clippy -D warnings listed every retired function as dead first.",
+      "Keeping two schedulers and porting the five features is the smaller change — REFUTED: it is what #393/#394 did twice this cycle and the next divergence is one feature away; the ticket's criterion is a parity test that stays green because there is one implementation.",
+      "The orchestrator's falsification (executor reverted to main) proves each hunk individually — REFUTED: it proves the change as a whole (0 of 4 green in the first binary, 0 of 4 in the second); a per-hunk revert table was not produced and is recorded as a gap."
+    ],
+    "divergence": "the probe lane measured the double-fire, the lock/event differences and the misattribution on 1.24.0 and found them gone on the first cut; the agy lane read the first cut and found the fork relocated rather than removed — accepted, and the second implementation was deleted before this receipt was written"
+  },
+  "crux": {
+    "systems": [
+      "Ansible — linear and free strategies are two schedules over ONE task executor",
+      "Terraform — -parallelism=1 is the same graph walker with a semaphore of one",
+      "Puppet — one catalog applier regardless of concurrency; Salt — the same state module under any batch size"
+    ],
+    "verdict": "at the industry default after this branch: one executor, and 'sequential' is the schedule whose every wave has width 1 in plan order"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "one charge, taken: the first cut relocated the width-1 fork into execute_single_wave instead of removing it, so retry and input-cache behaviour still diverged by wave width; fixed by retiring apply_single_resource and the path behind it",
+    "unique_findings": [
+      "the retry loop and the input-cache check existed twice, once per side of the fork — both copies are now one (machine_wave.rs, machine_b.rs)"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17821,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the two parity binaries or any executor file touched; clippy --all-targets -D warnings 0; fmt clean"
+  },
+  "falsification": {
+    "test": "the same fixture through the built binary with and without --parallel, comparing hook counter files, state.lock.yaml, the event stream and the run log (scrubbed of run ids and timestamps only), --retry attempt counts, --trace script echoes, --progress lines and the input-cache hit; plus a failing resource's attribution",
+    "test_file": "tests/falsification_e09_one_scheduler.rs",
+    "cargo_test_target": "falsification_e09_one_scheduler",
+    "reverted": "src/core/executor -> origin/main's, tests kept",
+    "observed_failure": "src/core/executor at origin/main (the merge-base), tests kept: first binary 0 passed, 4 failed (hooks_fire_exactly_once_per_resource_on_both_paths, the_lock_is_identical_between_the_two_paths, the_event_stream_and_the_run_log_agree_between_the_two_paths, a_failure_is_attributed_to_the_resource_that_failed); second binary 0 passed, 4 failed (retry_reruns_the_failed_resource_the_same_number_of_times, trace_prints_the_generated_script_on_both_paths, progress_reports_every_resource_on_both_paths, the_input_cache_holds_on_both_paths); restored: 4 + 4 passed, plus E04's six run-log cases",
+    "still_green_when_reverted": "none"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/e09-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6174,
+        "sha256": "2fd56776643398bf250cc8d397e0a3086cfd6412f0048bf8b7b968dfcf6563cc",
+        "blob": "0ae8bca9a9a5674e38f7a256a2bf1a9d2ab2ed33"
+      },
+      {
+        "path": ".quorum/evidence/e09-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1664,
+        "sha256": "8a89e2d5d4ba0cdb7e210236663117bf7c1e1c0f0233fda451e607b9874b65cb",
+        "blob": "20c0a6972f4b25c78cc6cf9e4472f2c49f7892b0"
+      },
+      {
+        "path": ".quorum/evidence/e09-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 801,
+        "sha256": "265eefcf30769b72c56efa2a1357b88c4f70d6e047694d12956b197d21c729df",
+        "blob": "fc49697beffcc30c95bae8394948cec4398a1c2f"
+      },
+      {
+        "path": ".quorum/evidence/e09-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1950,
+        "sha256": "8bbb61f8ec6e009f52d78202aec5fdcd85125c8049d0c0e65cc8602803e6666a",
+        "blob": "a8513b46ed70afe7ba1f8c3daebeac978ede75eb"
+      },
+      {
+        "path": ".quorum/evidence/e09-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 973,
+        "sha256": "2957b70da5803b59de96f56757455d4ae20e8b080c7d9407a3a3ef6b6dbb8f2b",
+        "blob": "e184217d59357c6360fee284032769dde1a6cccc"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/e09-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "A per-hunk revert table was not produced; the falsification is of the change as a whole (both binaries RED with the executor at main).",
+      "Under the default failure policy --retry is inert on both widths (should_retry returns false under StopOnFirst); that is the shipped behaviour the retired path had, carried over, not a fix.",
+      "The wave path never stops between waves (FJ-63); StopOnFirst is honoured through dependency skipping, as before."
+    ],
+    "total_bytes": 11562
+  },
+  "gates": {
+    "lib_tests": "13370 passed, 0 failed, 4 ignored (full suite on this tree: every target green, exit 0)",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "5d80ed7d6cacfdcca76fc915f48ccd009658ebbc",
+  "diff_sha256": "68f1131e861c099b3d1ec413a066a18b79ad3cbd"
+}
