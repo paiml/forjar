@@ -5,10 +5,12 @@
 //! `src/verb/registry.rs` publishes EVERY verb with `Effects::ReadOnly`,
 //! and `src/verb/spec.rs` says what that means: *safe for an agent to call
 //! unattended*. `forjar mcp --schema` publishes the same bit as
-//! `readOnlyHint: true` — though the running server does not yet send the
-//! annotation (paiml/forjar#375) — which is
-//! the only signal an agent has before deciding to call a tool without a human
-//! watching.
+//! `readOnlyHint: true`, and so does the running server — but only since
+//! paiml/forjar#375. Before it, the annotation reached `--schema` and nothing
+//! else: over real stdio every tool object came back as
+//! `['description', 'inputSchema', 'name']`, so the one signal an agent is
+//! supposed to consult before calling a tool without a human watching was
+//! never delivered to it.
 //!
 //! `plan` did not keep it. Three ordinary config keys reach a subprocess from
 //! inside `planner::plan`, with no flag involved and nothing to opt into:

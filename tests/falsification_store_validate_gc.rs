@@ -32,6 +32,7 @@ use std::collections::BTreeSet;
 // ============================================================================
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn validate_purity_all_pure_passes() {
     let signals = PuritySignals {
         has_version: true,
@@ -42,7 +43,7 @@ fn validate_purity_all_pure_passes() {
     };
     let result = validate_purity(&[("nginx", &signals)], None);
     assert!(result.pass);
-    assert_eq!(result.recipe_purity, PurityLevel::Pure);
+    assert_eq!(result.recipe_purity, PurityLevel::Pinned);
 }
 
 #[test]
@@ -99,6 +100,7 @@ fn validate_purity_multiple_resources() {
 }
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn format_purity_report_contains_levels() {
     let signals = PuritySignals {
         has_version: true,
@@ -109,7 +111,8 @@ fn format_purity_report_contains_levels() {
     };
     let validation = validate_purity(&[("nginx", &signals)], None);
     let report = format_purity_report(&validation);
-    assert!(report.contains("Pure (0)"));
+    assert!(report.contains("Pinned (1)"));
+    assert!(!report.contains("Pure (0)"));
     assert!(report.contains("PASS"));
     assert!(report.contains("nginx"));
 }

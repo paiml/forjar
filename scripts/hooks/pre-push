@@ -21,9 +21,18 @@ set -euo pipefail
 # main:real-feature` takes the main exemption while pushing a feature branch.
 # Anything below that reads stdin would eat these lines, so they are captured up
 # front and every later consumer gets </dev/null.
-remote_refs=""
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
-    [ -n "${remote_ref:-}" ] && remote_refs="$remote_refs $remote_ref"
+#
+# THE LOCAL SHA IS KEPT TOO (#400). It used to be discarded, so the gate learned
+# WHICH branch was being pushed and then resolved that branch's diff, receipt and
+# falsification test from whatever happened to be checked out. `git push origin
+# branch-B` from a branch-A checkout was refused with "no quorum receipt at
+# .quorum/branch-B.json" while the receipt sat in branch-B's own commit. One
+# line per ref, "<sha> <ref>", because a push can carry several.
+pushed_refs=""
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+    [ -n "${remote_ref:-}" ] || continue
+    pushed_refs="${pushed_refs}${local_sha:-} ${remote_ref}
+"
 done
 
 echo "🔍 forjar pre-push"
@@ -54,20 +63,27 @@ run_check "Unit tests"    cargo test --lib --quiet
 # THE QUORUM GATE.
 #
 # Runs per pushed ref, because one `git push` can carry several and each is a
-# separate claim about a separate branch. A deletion (all-zero local sha) has no
-# diff to refute and is skipped by the gate's own empty/branch logic.
-if [ -n "${remote_refs}" ]; then
-    # shellcheck disable=SC2086 -- deliberate word-split: one ref per iteration
-    for ref in ${remote_refs}; do
+# separate claim about a separate branch. A deletion arrives as an all-zero
+# LOCAL sha (measured: local_ref=[(delete)] local_sha=[000...0]); the gate now
+# recognises that explicitly and exits 0 saying so, which is what this comment
+# used to claim without it being true.
+#
+# The loop reads a here-STRING, not a pipeline: `printf ... | while read` runs
+# the body in a subshell, so a $FAILED set inside it is discarded and a failing
+# gate would report ❌ and then exit 0. Each invocation still gets </dev/null so
+# it cannot eat the remaining lines.
+if [ -n "${pushed_refs}" ]; then
+    while read -r sha ref; do
+        [ -n "${ref:-}" ] || continue
         printf '  Quorum gate (%s)... ' "${ref#refs/heads/}"
-        if out="$(./scripts/quorum-gate.sh --remote-ref "$ref" 2>&1 < /dev/null)"; then
+        if out="$(./scripts/quorum-gate.sh --remote-ref "$ref" --local-sha "$sha" 2>&1 < /dev/null)"; then
             echo "✅"
         else
             echo "❌"
             printf '%s\n' "$out" | sed 's/^/   | /'
             FAILED=1
         fi
-    done
+    done <<< "${pushed_refs}"
 else
     # No refs on stdin means this was not invoked as a hook. UNMEASURED is not a
     # pass anywhere else in this repo and is not one here either.

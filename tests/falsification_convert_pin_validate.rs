@@ -246,11 +246,13 @@ fn pin_needs_update_fresh() {
 // ── FJ-1306/1329: validate purity ──
 
 #[test]
+// Refs #409 (CRUX E06): `store:` + `sandbox:` are declared, not enforced, so the
+// "pure" signals validate as Pinned — Pure is unreachable until #410 lands.
 fn validate_purity_pure_passes() {
     let sig = purity_sig(true, true, true, false);
-    let v = validate_purity(&[("nginx", &sig)], Some(PurityLevel::Pure));
+    let v = validate_purity(&[("nginx", &sig)], Some(PurityLevel::Pinned));
     assert!(v.pass);
-    assert_eq!(v.recipe_purity, PurityLevel::Pure);
+    assert_eq!(v.recipe_purity, PurityLevel::Pinned);
 }
 
 #[test]
@@ -270,7 +272,7 @@ fn validate_purity_no_requirement_always_passes() {
 #[test]
 fn validate_purity_report_format() {
     let sig = purity_sig(true, true, true, false);
-    let v = validate_purity(&[("nginx", &sig)], Some(PurityLevel::Pure));
+    let v = validate_purity(&[("nginx", &sig)], Some(PurityLevel::Pinned));
     let report = format_purity_report(&v);
     assert!(report.contains("PASS"));
     assert!(report.contains("nginx"));
