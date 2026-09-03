@@ -12,16 +12,16 @@
    - evidence: `DoctorArgs` gains `machine: Option<String>` beside `network` (`src/cli/commands/misc_ops_args.rs:8`, `src/cli/commands/misc_ops_args.rs:23` at the merge-base); the arm in `dispatch_misc_tools_b` (`src/cli/dispatch_tools.rs:68`) routes it to `src/cli/doctor_machine.rs`; thresholds `DISK_WARN_FREE_PCT=10`, `DISK_FAIL_FREE_PCT=2`, `DISK_WARN_FREE_KB=1 GiB`, `INODE_WARN_FREE_PCT=5` pinned at their boundaries by `disk_check_thresholds_at_the_boundaries` and `inode_check_warns_below_five_percent_free`; the permission detail names dir, owner:group, mode, user, uid and sudo (`dir_check_names_owner_mode_and_identity_when_unwritable`); on the host, `fj446_doctor_machine_fails_on_unwritable_destination` makes a 0555 directory the destination and asserts a non-zero exit naming it.
 
 4. [probe] The falsifier cannot pass vacuously — under root included.
-   - evidence: at the RED commit (tests only, `30f33afd`) all 8 cases fail with `error: unrecognized subcommand 'exec'` / `'facts'` (0/8); on the branch 8/8. Every case drives the built binary and asserts bytes or exit codes; `fj446_doctor_machine_is_not_a_no_op` asks for a machine that does not exist and requires an error; `fj446_doctor_machine_requires_a_config` requires the refusal without `-f`; the unwritable-destination case asserts the naming half (directory, `mode 555`, the connecting identity) under root too and skips only the exit code there (agy lane's correction — the first version returned early under root).
+   - evidence: the three pre-existing `DoctorArgs` literals in the lib tests (`src/cli/tests_doctor.rs:176`, `src/cli/tests_misc_3.rs:216`, `src/cli/tests_cov_args_extra_b.rs:14` at the merge-base) had to learn the new field before the crate's tests compiled — the field is not optional to the type. At the RED commit (tests only, `30f33afd`) all 8 cases fail with `error: unrecognized subcommand 'exec'` / `'facts'` (0/8); on the branch 8/8. Every case drives the built binary and asserts bytes or exit codes; `fj446_doctor_machine_is_not_a_no_op` asks for a machine that does not exist and requires an error; `fj446_doctor_machine_requires_a_config` requires the refusal without `-f`; the unwritable-destination case asserts the naming half (directory, `mode 555`, the connecting identity) under root too and skips only the exit code there (agy lane's correction — the first version returned early under root).
 
 5. [design] No new dependency, no new transport path, no change to the apply path.
-   - evidence: `git diff cba05bba --stat` touches only `src/cli/**`, `src/verb/partition.rs` and the two test files; `Cargo.toml`/`Cargo.lock` untouched; `src/core/executor` untouched.
+   - evidence: the enum gains two variants beside `Doctor(DoctorArgs)` (`src/cli/commands/mod.rs:143` at the merge-base) and nothing else changes shape; `git diff cba05bba --stat` touches only `src/cli/**`, `src/verb/partition.rs` and the two test files; `Cargo.toml`/`Cargo.lock` untouched; `src/core/executor` untouched.
 
 6. [design] The verb partition stays total: `exec` is CliOnly (its value is the terminal rendering and exit code) and `facts` is Pending on the E11 facts model (#414) that will unify it.
    - evidence: `src/verb/partition.rs` rows next to `doctor` (`src/cli/mod.rs:86` registers the modules); `verb::partition::tests::the_partition_is_total` was the one red test in the 13,392-test lib suite after the feature landed and is green with the rows.
 
 7. [probe] A "Permission denied" on the remote side points the operator at the diagnosis instead of leaving them to add debug steps to a YAML.
-   - evidence: `permission_hint` in `src/cli/exec.rs` prints one stderr line naming `doctor --machine <m>`; `permission_hint_only_on_permission_denied` pins that it fires only on that text.
+   - evidence: the arm sits in the ops dispatcher next to `Inventory` (`src/cli/dispatch_misc_c.rs:74` at the merge-base); `permission_hint` in `src/cli/exec.rs` prints one stderr line naming `doctor --machine <m>`; `permission_hint_only_on_permission_denied` pins that it fires only on that text.
 
 ## REFUTED — 4 claims killed
 
@@ -32,7 +32,7 @@
    - corrected: the ticket's scenarios are permission and PATH problems on a remote host; a fixer there would need sudo and would mutate a machine forjar has not been asked to converge. The remote doctor is read-only by construction (only `stat`, `test -w`, `command -v`, `df`); `apply` remains the only verb that writes.
 
 3. [design] refuted 1/1 (agy lane) — "A number the target reports as nonsense can default to 0; the operator sees a 0 and moves on."
-   - corrected: a uid of 0 is root, so the coercion masked exactly the permission problem the verb exists to show. `uid` is `Option<u64>` and renders `uid ?`; every other numeric key keeps its default instead of being overwritten (`a_uid_that_does_not_parse_is_unknown_not_root`).
+   - corrected: `DoctorArgs` (`src/cli/commands/misc_ops_args.rs:8` at the merge-base) is where the identity reaches the operator; a uid of 0 is root, so the coercion masked exactly the permission problem the verb exists to show. `uid` is `Option<u64>` and renders `uid ?`; every other numeric key keeps its default instead of being overwritten (`a_uid_that_does_not_parse_is_unknown_not_root`).
 
 4. [design] refuted 1/1 (agy lane) — "Facts without network addresses and a package-tool table of three entries are at the industry default."
    - corrected: Ansible `setup`, facter and grains all report addresses first; `facts` now emits `ipv4=` lines (rendered and in `--json`), and the provider→executable table covers apt, dnf, yum, zypper, pacman, apk, brew, snap, cargo, uv and pip.
