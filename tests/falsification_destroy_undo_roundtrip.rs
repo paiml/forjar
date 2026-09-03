@@ -53,6 +53,17 @@ impl Sbx {
         );
         std::fs::write(self.cfg(), yaml).unwrap();
     }
+    /// The same stack plus a second managed file `b`.
+    fn write_config_with_b(&self, content: &str) {
+        self.write_config(content);
+        let extra = format!(
+            "  b: {{ type: file, machine: local, path: {}, content: \"second\" }}\n",
+            self.dir.join("b.txt").display()
+        );
+        let mut yaml = std::fs::read_to_string(self.cfg()).unwrap();
+        yaml.push_str(&extra);
+        std::fs::write(self.cfg(), yaml).unwrap();
+    }
     fn run(&self, args: &[&str]) -> Output {
         Command::new(FORJAR)
             .args(args)
@@ -66,7 +77,11 @@ impl Sbx {
     }
     fn generations(&self) -> Vec<String> {
         let mut v: Vec<String> = std::fs::read_dir(self.state().join("generations"))
-            .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect())
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
             .unwrap_or_default();
         v.retain(|n| n.chars().all(|c| c.is_ascii_digit()));
         v.sort();
@@ -81,7 +96,11 @@ impl Drop for Sbx {
 }
 
 fn combined(o: &Output) -> String {
-    format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr))
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&o.stdout),
+        String::from_utf8_lossy(&o.stderr)
+    )
 }
 
 fn assert_bytes(p: &Path, want: &str, what: &str) {
@@ -99,7 +118,11 @@ fn control_apply_apply_undo_restores_the_earlier_generation() {
     assert!(sb.run(&["apply", "--yes"]).status.success());
     assert_bytes(&sb.target(), "two", "after the second apply");
     let out = sb.run(&["undo", "--yes"]);
-    assert!(out.status.success(), "undo across two applies failed:\n{}", combined(&out));
+    assert!(
+        out.status.success(),
+        "undo across two applies failed:\n{}",
+        combined(&out)
+    );
     assert_bytes(&sb.target(), "one", "after undo");
 }
 
@@ -109,10 +132,17 @@ fn destroy_records_a_generation() {
     let sb = Sbx::new("gen");
     assert!(sb.run(&["apply", "--yes"]).status.success());
     let before = sb.generations();
-    assert_eq!(before, vec!["0".to_string()], "one generation after the first apply");
+    assert_eq!(
+        before,
+        vec!["0".to_string()],
+        "one generation after the first apply"
+    );
     let out = sb.run(&["destroy", "--yes"]);
     assert!(out.status.success(), "destroy failed:\n{}", combined(&out));
-    assert!(!sb.target().exists(), "destroy did not remove the managed file");
+    assert!(
+        !sb.target().exists(),
+        "destroy did not remove the managed file"
+    );
     let after = sb.generations();
     assert!(
         after.len() > before.len(),
@@ -128,7 +158,10 @@ fn destroy_then_undo_restores_the_managed_file() {
     assert!(sb.run(&["apply", "--yes"]).status.success());
     assert_bytes(&sb.target(), "dogfood", "after apply");
     assert!(sb.run(&["destroy", "--yes"]).status.success());
-    assert!(!sb.target().exists(), "destroy did not remove the managed file");
+    assert!(
+        !sb.target().exists(),
+        "destroy did not remove the managed file"
+    );
     let out = sb.run(&["undo", "--yes"]);
     assert!(
         out.status.success(),
@@ -136,4 +169,76 @@ fn destroy_then_undo_restores_the_managed_file() {
         combined(&out)
     );
     assert_bytes(&sb.target(), "dogfood", "after destroy → undo");
+}
+
+/// The review's poisoned rollback: after apply → destroy → apply, `undo` lands
+/// on the generation the DESTROY produced. That generation's recorded config
+/// must declare nothing the destroy removed — otherwise undo re-creates the
+/// very resources the destroy took away.
+#[test]
+fn undo_onto_the_destroy_generation_leaves_the_resources_destroyed() {
+    let sb = Sbx::new("poisoned");
+    assert!(sb.run(&["apply", "--yes"]).status.success());
+    assert!(sb.run(&["destroy", "--yes"]).status.success());
+    assert!(
+        !sb.target().exists(),
+        "destroy did not remove the managed file"
+    );
+    assert!(sb.run(&["apply", "--yes"]).status.success());
+    assert_bytes(&sb.target(), "dogfood", "after the second apply");
+    let out = sb.run(&["undo", "--yes"]);
+    assert!(out.status.success(), "undo failed:\n{}", combined(&out));
+    assert!(
+        !sb.target().exists(),
+        "undo landed on the destroy's generation and RE-CREATED the destroyed file: \
+         that generation's config still declared it"
+    );
+}
+
+/// Found by the case above: destroy removed the lock but left its BLAKE3
+/// sidecar, so the next apply refused with "lock file is missing but its
+/// sidecar survives". A destroyed machine has no lock and no seal.
+#[test]
+fn apply_after_destroy_is_not_refused_by_a_stale_sidecar() {
+    let sb = Sbx::new("sidecar");
+    assert!(sb.run(&["apply", "--yes"]).status.success());
+    assert!(sb.run(&["destroy", "--yes"]).status.success());
+    let sidecar = sb.state().join("local").join("state.lock.yaml.b3");
+    assert!(
+        !sidecar.exists(),
+        "destroy left the sidecar {} behind",
+        sidecar.display()
+    );
+    let out = sb.run(&["apply", "--yes"]);
+    assert!(
+        out.status.success(),
+        "apply after destroy was refused:\n{}",
+        combined(&out)
+    );
+    assert_bytes(&sb.target(), "dogfood", "after destroy → apply");
+}
+
+/// The same defect without any destroy: `apply a` → `apply a,b` → `undo`
+/// printed "b: will be destroyed" and left b on the host, because the replay
+/// is an apply and apply never removes. Undo must make its own diff true.
+#[test]
+fn undo_destroys_what_the_target_generation_does_not_hold() {
+    let sb = Sbx::new("absent");
+    assert!(sb.run(&["apply", "--yes"]).status.success());
+    sb.write_config_with_b("dogfood");
+    assert!(sb.run(&["apply", "--yes"]).status.success());
+    let b = sb.dir.join("b.txt");
+    assert!(b.exists(), "second apply did not create b");
+    let out = sb.run(&["undo", "--yes"]);
+    assert!(out.status.success(), "undo failed:\n{}", combined(&out));
+    assert!(
+        combined(&out).contains("b (local): will be destroyed"),
+        "undo did not announce b's destruction:\n{}",
+        combined(&out)
+    );
+    assert!(
+        !b.exists(),
+        "undo announced b's destruction and left b on the host"
+    );
+    assert_bytes(&sb.target(), "dogfood", "a after undo");
 }

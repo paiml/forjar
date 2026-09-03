@@ -290,6 +290,7 @@ pub mod tui;
 mod undo;
 mod undo_helpers;
 mod undo_progress;
+mod undo_prune;
 mod undo_replay;
 mod validate_advanced;
 mod validate_analytics;
