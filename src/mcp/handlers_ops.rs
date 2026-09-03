@@ -7,10 +7,12 @@
 //! keeps it from becoming a comment.
 //!
 //! There was a third — `PolicyCoverageHandler` — and it is gone rather than
-//! parked here unregistered. The calculation it projected is wrong about rule
+//! parked here unregistered. The calculation it projected was wrong about rule
 //! identity (paiml/forjar#369), so the verb was withdrawn and the leaf put back
 //! in `Bucket::Pending`; a handler that no `verb_table!` row names is the dead
-//! module #356 was opened to remove, not a head start on re-adding it.
+//! module #356 was opened to remove, not a head start on re-adding it. #369 is
+//! fixed now, and that is still true: the handler comes back with the row, in
+//! the same commit, or not at all.
 
 use pforge_runtime::Handler;
 use std::path::{Path, PathBuf};

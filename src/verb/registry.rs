@@ -110,13 +110,18 @@ macro_rules! verb_table {
 // forgotten. It shipped as a row on the e4 branch, was found to answer wrongly,
 // and was withdrawn: `display_id_of(None, message)` derives a rule's identity
 // from its `message:`, so two rules declared without an `id:` that share a
-// message collapse to one. Measured on the built binary — two such rules, one
-// violated and one satisfied — the report is `"total_rules": 2,
+// message collapsed to one. Measured on the built binary — two such rules, one
+// violated and one satisfied — the report was `"total_rules": 2,
 // "rules_triggered": 1, "untriggered_rules": []`. Two is not one plus zero: a
-// rule that never ran is reported as having run, in the one report whose job is
-// to say what is NOT covered. That is paiml/forjar#369, the leaf is back in
-// `Bucket::Pending` citing it, and re-adding this row before #369 is fixed
-// publishes the wrong answer on every transport at once instead of one.
+// rule that never ran was reported as having run, in the one report whose job
+// is to say what is NOT covered. That is paiml/forjar#369.
+//
+// #369 IS FIXED — `policy_coverage::trigger_split` splits by rule index and
+// names an idle rule with `PolicyRule::display_id_at`. The row is still in
+// `Bucket::Pending` because re-adding it publishes a new tool schema on every
+// transport at once and has to answer to the verb-surface suites; that is a
+// decision to take on its own, and `tests/falsification_policy_coverage_
+// withdrawn.rs` is where a human takes it.
 verb_table! {
     "validate", Effects::ReadOnly, 30_000, "Validate a forjar.yaml configuration file", ValidateInput, ValidateOutput, ValidateHandler;
     "plan",     Effects::ReadOnly, 60_000, "Show execution plan for infrastructure changes", PlanInput, PlanOutput, PlanHandler;

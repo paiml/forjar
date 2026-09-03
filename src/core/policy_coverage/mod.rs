@@ -35,8 +35,8 @@
 //! the engine would then never evaluate against it: coverage that reports
 //! enforcement which does not happen is worse than no coverage report.
 
-use crate::core::parser::{evaluate_policies_full, matches_scope};
-use crate::core::types::{ForjarConfig, PolicyCheckResult, PolicyRuleType};
+use crate::core::parser::{matches_scope, violating_pairs};
+use crate::core::types::{ForjarConfig, PolicyRuleType};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -101,7 +101,12 @@ pub struct PolicyCoverage {
 /// network, no process. That is what lets the `policy-coverage` verb declare
 /// `Effects::ReadOnly` truthfully.
 pub fn compute_coverage(config: &ForjarConfig) -> PolicyCoverage {
-    let result = evaluate_policies_full(config);
+    // `violating_pairs`, not `evaluate_policies_full`: the pairs carry the rule
+    // INDEX, and a `PolicyViolation` carries only the rule's message and its
+    // optional id. This module used to reconstruct rule identity from those two
+    // and count distinct strings, which merged rules that share a message
+    // (paiml/forjar#369).
+    let pairs = violating_pairs(config);
     let per_resource = scoped_rule_counts(config);
 
     let total_resources = config.resources.len();
@@ -116,7 +121,7 @@ pub fn compute_coverage(config: &ForjarConfig) -> PolicyCoverage {
         .collect();
     uncovered.sort();
 
-    let (rules_triggered, untriggered_rules) = trigger_split(config, &result);
+    let (rules_triggered, untriggered_rules) = trigger_split(config, &pairs);
 
     PolicyCoverage {
         total_resources,
@@ -128,7 +133,7 @@ pub fn compute_coverage(config: &ForjarConfig) -> PolicyCoverage {
         total_rules: config.policies.len(),
         rules_triggered,
         untriggered_rules,
-        clean_resources: clean_resource_count(&result),
+        clean_resources: clean_resource_count(config, &pairs),
         by_type: tally(config, |r| policy_type_name(&r.rule_type)),
         by_severity: tally(config, |r| {
             format!("{:?}", r.effective_severity()).to_lowercase()
@@ -163,33 +168,38 @@ fn scoped_rule_counts(config: &ForjarConfig) -> BTreeMap<String, usize> {
     counts
 }
 
-/// `(rules that fired, ids of rules that did not)`.
+/// `(rules that fired, ids of rules that did not)`, split by INDEX.
 ///
-/// BOTH sides use `display_id()`. The version this replaced read the raw
-/// `policy_id: Option<String>` off each violation and compared it with the
-/// rules' `display_id()`, so a rule declared without an explicit `id:` was
-/// reported as untriggered no matter how many resources it failed — in a
-/// report that counted those same failures under `clean_resources` one field
-/// away.
-fn trigger_split(config: &ForjarConfig, result: &PolicyCheckResult) -> (usize, Vec<String>) {
-    let triggered: BTreeSet<String> = result.violations.iter().map(|v| v.display_id()).collect();
+/// Every rule index lands in exactly one half, so `total_rules ==
+/// rules_triggered + untriggered_rules.len()` is structural rather than
+/// asserted. It was not: both halves used to be sets of `display_id()`, which
+/// derives a rule with no explicit `id:` from a slug of its `message:`. Two
+/// such rules sharing a message were ONE rule to this calculation — N co-firing
+/// siblings counted as one, and an idle rule whose sibling fired was dropped by
+/// the filter. `total_rules` is index-based (`config.policies.len()`), so the
+/// two halves were counted in different id-spaces and the arithmetic could not
+/// close: `total_rules: 2, rules_triggered: 1, untriggered_rules: []`
+/// (paiml/forjar#369).
+///
+/// The ids that come OUT are `display_id_at`, so a name printed here is one
+/// `remediate --policy-id` accepts. A spelling that only this report knows
+/// would be the cross-surface disagreement paiml/forjar#356 existed to delete.
+fn trigger_split(config: &ForjarConfig, pairs: &[(usize, String)]) -> (usize, Vec<String>) {
+    let fired: BTreeSet<usize> = pairs.iter().map(|(index, _)| *index).collect();
     let untriggered: Vec<String> = config
         .policies
         .iter()
-        .map(|r| r.display_id())
-        .filter(|id| !triggered.contains(id))
+        .enumerate()
+        .filter(|(index, _)| !fired.contains(index))
+        .map(|(index, rule)| rule.display_id_at(index))
         .collect();
-    (triggered.len(), untriggered)
+    (fired.len(), untriggered)
 }
 
 /// Resources that produced no violation.
-fn clean_resource_count(result: &PolicyCheckResult) -> usize {
-    let violating: BTreeSet<&str> = result
-        .violations
-        .iter()
-        .map(|v| v.resource_id.as_str())
-        .collect();
-    result.resources_checked.saturating_sub(violating.len())
+fn clean_resource_count(config: &ForjarConfig, pairs: &[(usize, String)]) -> usize {
+    let violating: BTreeSet<&str> = pairs.iter().map(|(_, id)| id.as_str()).collect();
+    config.resources.len().saturating_sub(violating.len())
 }
 
 /// Count the rules by whatever key `key` reads off each of them.

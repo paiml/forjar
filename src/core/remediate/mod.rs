@@ -99,13 +99,23 @@ struct Candidate {
     value: String,
 }
 
-/// Keyed by `(resource_id, policy_display_id)`.
+/// Keyed by `(resource_id, rule.display_id_at(index))`.
+///
+/// `display_id_at`, never `display_id`: the latter derives an un-id'd rule's
+/// name from a slug of its `message:`, so two such rules sharing a message
+/// wrote to ONE key here and the later `record()` silently replaced the
+/// earlier's reason (paiml/forjar#369).
 type ReasonMap = BTreeMap<(String, String), String>;
 
 /// Compute the corrections `config`'s own policies determine, and return the
 /// corrected document. Never writes.
 ///
-/// `policy_ids` filters by [`PolicyRule::display_id`]; `None` or empty is all.
+/// `policy_ids` filters by [`PolicyRule::display_id_at`] — the rule's explicit
+/// `id:`, or `RULE-<index>-<slug>` when it declares none. `None` or empty is
+/// all. It filtered by [`PolicyRule::display_id`] until paiml/forjar#369, and
+/// that string is not an identity: two un-id'd rules sharing a `message:`
+/// generate the same one, so naming it applied BOTH — there was no string that
+/// selected one of the two.
 pub fn remediate(
     source_text: &str,
     config: &ForjarConfig,
@@ -140,8 +150,14 @@ fn derive_candidates(
     let mut out = Vec::new();
     for (rule_index, resource_id) in violating_pairs(config) {
         let rule = &config.policies[rule_index];
-        if !selected(rule, policy_ids) {
-            record(reasons, &resource_id, rule, "not selected by policy_ids");
+        let policy_id = rule.display_id_at(rule_index);
+        if !selected(rule, rule_index, policy_ids) {
+            record(
+                reasons,
+                &resource_id,
+                policy_id,
+                "not selected by policy_ids",
+            );
             continue;
         }
         match fixes::derive(rule) {
@@ -151,7 +167,7 @@ fn derive_candidates(
                 field: spec.field,
                 value: spec.value,
             }),
-            Err(reason) => record(reasons, &resource_id, rule, &reason),
+            Err(reason) => record(reasons, &resource_id, policy_id, &reason),
         }
     }
     // Determinism is a property, not an accident of iteration order.
@@ -173,6 +189,7 @@ fn drop_conflicts(
     candidates: Vec<Candidate>,
     reasons: &mut ReasonMap,
 ) -> Vec<Candidate> {
+    let policy_id = |c: &Candidate| config.policies[c.rule_index].display_id_at(c.rule_index);
     let mut demanded: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
     for c in &candidates {
         demanded
@@ -197,29 +214,21 @@ fn drop_conflicts(
             c.field,
             values.join(" and ")
         );
-        record(
-            reasons,
-            &c.resource_id,
-            &config.policies[c.rule_index],
-            &reason,
-        );
+        record(reasons, &c.resource_id, policy_id(&c), &reason);
     }
     keep
 }
 
-fn selected(rule: &PolicyRule, policy_ids: Option<&[String]>) -> bool {
+fn selected(rule: &PolicyRule, index: usize, policy_ids: Option<&[String]>) -> bool {
     match policy_ids {
         None => true,
         Some([]) => true,
-        Some(ids) => ids.contains(&rule.display_id()),
+        Some(ids) => ids.contains(&rule.display_id_at(index)),
     }
 }
 
-fn record(reasons: &mut ReasonMap, resource_id: &str, rule: &PolicyRule, reason: &str) {
-    reasons.insert(
-        (resource_id.to_string(), rule.display_id()),
-        reason.to_string(),
-    );
+fn record(reasons: &mut ReasonMap, resource_id: &str, policy_id: String, reason: &str) {
+    reasons.insert((resource_id.to_string(), policy_id), reason.to_string());
 }
 
 /// The document and the fixes that survived anchoring AND verification.
@@ -242,7 +251,6 @@ fn apply_all(
     let mut expected: BTreeSet<Vec<String>> = BTreeSet::new();
 
     for c in candidates {
-        let rule = &config.policies[c.rule_index];
         match apply_one(&text, config, c) {
             Ok((next, fix)) => {
                 expected.insert(vec![
@@ -253,7 +261,12 @@ fn apply_all(
                 text = next;
                 applied.push(fix);
             }
-            Err(reason) => record(reasons, &c.resource_id, rule, &reason),
+            Err(reason) => record(
+                reasons,
+                &c.resource_id,
+                config.policies[c.rule_index].display_id_at(c.rule_index),
+                &reason,
+            ),
         }
     }
 
@@ -306,7 +319,7 @@ fn apply_one(
     Ok((
         yaml_edit::splice(text, &span, &emitted),
         ScalarFix {
-            policy_id: rule.display_id(),
+            policy_id: rule.display_id_at(c.rule_index),
             resource_id: c.resource_id.clone(),
             field: c.field.clone(),
             from: resolved,
@@ -406,8 +419,8 @@ fn remaining_violations(
         .map(|(rule_index, resource_id)| {
             let rule = &updated.policies[rule_index];
             Unfixable {
-                reason: reason_for(reasons, &resource_id, rule, policy_ids),
-                policy_id: rule.display_id(),
+                reason: reason_for(reasons, &resource_id, rule_index, rule, policy_ids),
+                policy_id: rule.display_id_at(rule_index),
                 resource_id,
                 message: rule.message.clone(),
                 severity: format!("{:?}", rule.effective_severity()).to_lowercase(),
@@ -421,13 +434,14 @@ fn remaining_violations(
 fn reason_for(
     reasons: &ReasonMap,
     resource_id: &str,
+    index: usize,
     rule: &PolicyRule,
     policy_ids: Option<&[String]>,
 ) -> String {
-    if let Some(reason) = reasons.get(&(resource_id.to_string(), rule.display_id())) {
+    if let Some(reason) = reasons.get(&(resource_id.to_string(), rule.display_id_at(index))) {
         return reason.clone();
     }
-    if !selected(rule, policy_ids) {
+    if !selected(rule, index, policy_ids) {
         return "not selected by policy_ids".to_string();
     }
     match fixes::derive(rule) {

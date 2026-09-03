@@ -8,9 +8,9 @@
 //!
 //! `PolicyRule::display_id` and `PolicyViolation::display_id` both derive an
 //! identity from the rule's `message:` when it declares no `id:`
-//! (`RULE-<slugified message>`), and `policy-coverage` uses that string AS an
-//! identity — it decides which rules fired by intersecting two sets of it. Two
-//! rules with no `id:` that share a `message:` are therefore ONE rule to this
+//! (`RULE-<slugified message>`), and `policy-coverage` used that string AS an
+//! identity — it decided which rules fired by intersecting two sets of it. Two
+//! rules with no `id:` that shared a `message:` were therefore ONE rule to this
 //! report. Measured on the built binary, one violated rule and one satisfied
 //! rule sharing a message:
 //!
@@ -18,15 +18,26 @@
 //!   "total_rules": 2, "rules_triggered": 1, "untriggered_rules": []
 //! ```
 //!
-//! Two is not one plus zero. The satisfied rule never ran and the report cannot
-//! say so — in the one report whose entire job is to say what is NOT covered.
+//! Two is not one plus zero. The satisfied rule never ran and the report could
+//! not say so — in the one report whose entire job is to say what is NOT
+//! covered.
 //!
-//! Main is wrong in the opposite direction (it reports every un-id'd rule as
-//! untriggered), so unifying the two exposed a defect older than both. The
-//! branch's spelling is the worse one, so the row goes back to `Bucket::Pending`
-//! and the CLI keeps the calculation. Nothing here reverts #356's merge: one
-//! calculation is still the right end state, and `the_cli_leaf_prints_the_one_
-//! calculation_verbatim` below is what holds it to that.
+//! THAT DEFECT IS FIXED. `trigger_split` splits by rule INDEX and names an idle
+//! rule with `PolicyRule::display_id_at`, so `total_rules == rules_triggered +
+//! untriggered_rules.len()` holds structurally;
+//! `tests/falsification_policy_rule_identity.rs` is the falsifier, and the pin
+//! below is inverted to measure the right answer through the same binary.
+//!
+//! The ROW is still `Bucket::Pending`, and this file still guards that: putting
+//! a tool back on the unified surface publishes a new schema on every transport
+//! and is a decision with its own test surface (`falsification_verb_pending_
+//! discharge.rs`, `falsification_readonly_surface_executes_nothing.rs`,
+//! `e2e_verb_surface_t.rs`), not a side effect of a bugfix. What changed is the
+//! REASON: the answer is no longer wrong, only unpublished.
+//!
+//! Nothing here reverts #356's merge: one calculation is still the right end
+//! state, and `the_cli_leaf_prints_the_one_calculation_verbatim` below is what
+//! holds it to that.
 //!
 //! `the_verb_and_the_cli_leaf_print_the_same_document` could never have caught
 //! this: both surfaces were wrong identically. Its surviving half is here.
@@ -100,21 +111,27 @@ policies:
 
 // ── the withdrawal itself ───────────────────────────────────────────
 
-/// REJECTION CRITERION: `policy-coverage` back on the unified surface while
-/// #369 is open.
+/// REJECTION CRITERION: `policy-coverage` re-added to the unified surface as a
+/// side effect, rather than as a decision.
 ///
 /// Checked on every transport-facing table at once, because the failure this
 /// guards against is a row being re-added to one of them: the verb registry,
 /// the MCP handler map and the published `tools/list` schema each have to agree
 /// that the tool is not there.
+///
+/// The #369 defect that forced the withdrawal is fixed. Re-shipping is now a
+/// deliberate edit — two type declarations, one handler, one `register_all`
+/// line, one `verb_table!` row — that publishes a new tool schema on every
+/// transport and has to answer to the verb-surface suites. Making it happen is
+/// editing this test; letting it happen is not.
 #[test]
 fn policy_coverage_is_not_on_the_unified_surface() {
     assert!(
         forjar::verb::find("policy-coverage").is_none(),
-        "`policy-coverage` is a verb again. Its rule identity is derived from \
-         `message:` (paiml/forjar#369), so it reports a rule that never ran as \
-         having run; putting it back publishes that on every transport at once \
-         instead of on one"
+        "`policy-coverage` is a verb again. That publishes a new tool on every \
+         transport at once; do it as its own change, with `falsification_verb_\
+         pending_discharge.rs` and the read-only surface suites run against it, \
+         and edit this test in the same commit"
     );
 
     let reg = forjar::mcp::build_registry();
@@ -139,7 +156,11 @@ fn policy_coverage_is_not_on_the_unified_surface() {
 
 /// The row is DEBT, not a gap. `Bucket::Pending` is the ledger and its reason
 /// has to name the defect — "not done yet" would read as work never started,
-/// when this is work that shipped and was taken back.
+/// when this is work that shipped and was taken back. The reason now also says
+/// the defect is FIXED — a ledger that still describes a repaired answer as
+/// wrong is a ledger nobody can act on — but only the issue reference is
+/// asserted here: the wording of a debt note is prose, and pinning prose is how
+/// a ledger becomes unmaintainable.
 #[test]
 fn the_withdrawal_is_recorded_as_debt_naming_the_defect() {
     let row = partition()
@@ -165,19 +186,21 @@ fn the_withdrawal_is_recorded_as_debt_naming_the_defect() {
 
 // ── the defect that justifies the withdrawal ────────────────────────
 
-/// THE PIN FOR #369. It asserts the WRONG answer on purpose.
+/// #369, FIXED — this used to pin the WRONG answer on purpose.
 ///
-/// Fixing #369 makes this test fail, and that is what it is for: the fix has to
-/// be a deliberate edit here, with a human reading why the numbers were what
-/// they were. Delete it only together with the defect.
-///
-/// The fixture is the minimum that triggers it: two `require` rules, neither
+/// The fixture is the minimum that triggered it: two `require` rules, neither
 /// declaring an `id:`, sharing one `message:`. One is violated (`conf` has no
 /// owner) and one is satisfied (`pkg` declares a provider). The satisfied rule
-/// never fired, so it must appear in `untriggered_rules` — and does not,
-/// because both rules slugify to the same `RULE-resources-need-a-field`.
+/// never fired, so it must appear in `untriggered_rules` — and did not, because
+/// both rules slugified to the same `RULE-resources-need-a-field` and the
+/// report intersected those strings.
+///
+/// `trigger_split` now splits by rule INDEX and names an idle rule with
+/// `display_id_at`, so the arithmetic below closes structurally rather than by
+/// assertion. The test is kept, inverted, because the numbers it measures are
+/// the ones that were wrong.
 #[test]
-fn two_unnamed_rules_sharing_a_message_collapse_to_one_id() {
+fn two_unnamed_rules_sharing_a_message_are_two_rules() {
     let d = tempfile::tempdir().unwrap();
     let cfg = write_cfg(
         d.path(),
@@ -219,30 +242,26 @@ policies:
     );
     assert_eq!(
         out["rules_triggered"], 1,
-        "CURRENT, WRONG. Only the file rule is violated, but the package rule \
-         is invisible rather than untriggered — both rules derive the id \
-         `RULE-resources-need-a-field` from their shared message. When #369 is \
-         fixed this becomes 1 of 2 DISTINCT rules and the assertion below is \
-         the one that changes: {out}"
+        "only the file rule is violated: {out}"
     );
     assert_eq!(
         out["untriggered_rules"],
-        serde_json::json!([]),
-        "CURRENT, WRONG. The `require: provider` rule is satisfied — it never \
-         fired — so it belongs here. #369's fix must put it back: {out}"
+        serde_json::json!(["RULE-1-resources-need-a-field"]),
+        "the `require: provider` rule is satisfied — it never fired — so it \
+         belongs here, named by its INDEX rather than by the message slug it \
+         shares with the rule that did fire: {out}"
     );
 
-    // The arithmetic that states the defect without naming an implementation.
-    // A report that cannot say what did not run is the one report that must.
+    // The arithmetic the defect broke, stated without naming an
+    // implementation. A report that cannot say what did not run is the one
+    // report that must.
     let total = out["total_rules"].as_u64().unwrap();
     let fired = out["rules_triggered"].as_u64().unwrap();
     let idle = out["untriggered_rules"].as_array().unwrap().len() as u64;
-    assert_ne!(
+    assert_eq!(
         total,
         fired + idle,
-        "paiml/forjar#369 is FIXED — every rule is now accounted for as fired \
-         or idle. Remove this pin and the withdrawal above with it, and put \
-         `policy-coverage` back on the unified surface: {out}"
+        "every rule is accounted for as fired or idle: {out}"
     );
 }
 

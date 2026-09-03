@@ -33,10 +33,12 @@ pub fn config_to_resource_map(config: &ForjarConfig) -> HashMap<String, HashMap<
     let mut resources = HashMap::new();
     for (id, resource) in &config.resources {
         let mut fields = HashMap::new();
-        fields.insert(
-            "type".into(),
-            format!("{:?}", resource.resource_type).to_lowercase(),
-        );
+        // Serde's spelling, via `Display` — the one a pack rule's `field: type`
+        // can name in `expected:`. The lowercased `Debug` spelling this used to
+        // insert is rejected by `type:` itself (paiml/forjar#366); the built-in
+        // packs scope only to single-word types, where the two agree, but a
+        // pack loaded through `load_pack` can name any of the twenty-one.
+        fields.insert("type".into(), resource.resource_type.to_string());
         if let Some(ref owner) = resource.owner {
             fields.insert("owner".into(), owner.clone());
         }

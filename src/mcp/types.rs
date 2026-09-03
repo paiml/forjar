@@ -415,8 +415,16 @@ pub struct AnomalyFindingOutput {
 pub struct RemediateInput {
     /// Path to forjar.yaml
     pub path: String,
-    /// Restrict to these policy ids (the rule's `id`, or its generated
-    /// `RULE-<slug>`). Omitted or empty means every rule.
+    /// Restrict to these policy ids: the rule's `id`, or — when it declares
+    /// none — its generated `RULE-<index>-<slug>`, where `index` is the rule's
+    /// position in `policies:`. Omitted or empty means every rule.
+    ///
+    /// The index is part of the identity because a slug of the `message:` is
+    /// not one: two un-id'd rules sharing a message generated the same name, so
+    /// naming it applied BOTH and no string selected between them
+    /// (paiml/forjar#369). The ids this tool REPORTS in `remediations_applied`
+    /// and `remaining_violations` are the ids it accepts here, so round-tripping
+    /// one back is exact.
     pub policy_ids: Option<Vec<String>>,
 }
 

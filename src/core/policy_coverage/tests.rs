@@ -210,57 +210,55 @@ fn an_unnamed_rule_that_fires_is_not_reported_as_untriggered() {
     );
 }
 
-/// THE PIN FOR paiml/forjar#369 — it asserts the WRONG answer on purpose.
+/// paiml/forjar#369, FIXED. This test used to pin the WRONG answer.
 ///
 /// `display_id_of(None, message)` yields `RULE-<slugified message>`, and
-/// [`trigger_split`] uses that string AS an identity. Two rules declared
-/// without an `id:` that share a `message:` are therefore ONE rule to this
+/// [`trigger_split`] used that string AS an identity. Two rules declared
+/// without an `id:` that shared a `message:` were therefore ONE rule to this
 /// calculation: below, the file rule fires and the package rule is satisfied,
-/// and the satisfied one is neither counted nor listed.
+/// and the satisfied one was neither counted nor listed — `total_rules: 2,
+/// rules_triggered: 1, untriggered_rules: []`, in the one report whose job is
+/// to say what did NOT run.
 ///
-/// This is why the `policy-coverage` VERB was withdrawn from the unified
-/// surface rather than shipped — a report that cannot say what did not run is
-/// the one report that must. `tests/falsification_policy_coverage_withdrawn.rs`
-/// measures the same thing through the shipped binary and holds the row in
-/// `Bucket::Pending`.
-///
-/// Fixing #369 makes this test fail. That is the point: the fix has to be a
-/// deliberate edit here. Delete it only together with the defect.
+/// [`trigger_split`] now splits by rule INDEX, and the ids it prints come from
+/// `display_id_at`, so no two rules of one config can share an identity and
+/// every index lands in exactly one half.
 #[test]
-fn two_unnamed_rules_sharing_a_message_collapse_to_one_id() {
+fn two_unnamed_rules_sharing_a_message_are_still_two_rules() {
     let mut violated = require_policy("file");
     violated.id = None;
     violated.message = "resources need a field".into();
 
-    // Satisfied: `pkg` is a package and the rule requires a field it has.
+    // Genuinely satisfied: `pkg` declares the provider this rule requires.
     let mut satisfied = require_policy("package");
     satisfied.id = None;
     satisfied.message = "resources need a field".into();
-    satisfied.field = Some("resource_type".into());
+    satisfied.field = Some("provider".into());
 
-    let cov = compute_coverage(&make_config(
+    let mut config = make_config(
         &[("f1", "file"), ("pkg", "package")],
         vec![violated, satisfied],
-    ));
+    );
+    config
+        .resources
+        .get_mut("pkg")
+        .expect("the fixture declares `pkg`")
+        .provider = Some("apt".into());
+
+    let cov = compute_coverage(&config);
 
     assert_eq!(cov.total_rules, 2, "two rules are declared: {cov:?}");
+    assert_eq!(cov.rules_triggered, 1, "only the file rule fires: {cov:?}");
     assert_eq!(
-        cov.rules_triggered, 1,
-        "CURRENT, WRONG: both rules slugify to `RULE-resources-need-a-field`, \
-         so the satisfied one is invisible rather than untriggered: {cov:?}"
+        cov.untriggered_rules,
+        vec!["RULE-1-resources-need-a-field"],
+        "the satisfied rule never fired and is named by its INDEX, not by a \
+         slug of the message it shares with the rule that did: {cov:?}"
     );
-    assert!(
-        cov.untriggered_rules.is_empty(),
-        "CURRENT, WRONG: the satisfied rule never fired and belongs here. \
-         #369's fix must put it back: {:?}",
-        cov.untriggered_rules
-    );
-    assert_ne!(
+    assert_eq!(
         cov.total_rules,
         cov.rules_triggered + cov.untriggered_rules.len(),
-        "paiml/forjar#369 is FIXED — every rule is accounted for as fired or \
-         idle. Remove this pin, and put `policy-coverage` back on the unified \
-         surface: {cov:?}"
+        "every rule is accounted for as fired or idle: {cov:?}"
     );
 }
 

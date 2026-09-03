@@ -63,9 +63,17 @@ const FIELD_VALUES: &[(&str, FieldValue)] = &[
     ("name", |r| r.name.clone()),
     ("provider", |r| r.provider.clone()),
     ("state", |r| r.state.clone()),
-    ("type", |r| {
-        Some(format!("{:?}", r.resource_type).to_lowercase())
-    }),
+    // `to_string()`, NOT the lowercased `Debug` spelling. `Debug` renders
+    // `GithubRelease`; the ONLY spelling `type:` accepts is serde's
+    // `github_release`, so a `deny` or `assert` rule comparing
+    // `type == github_release` could never match (paiml/forjar#366).
+    //
+    // `remediate` reads this table too, but never for `type`: `type` is not in
+    // `remediate::fixes::SETTABLE`, so `derive` rejects a `type`-keyed rule
+    // before `apply_one` ever compares the value. The issue's claim that
+    // remediation refused such a candidate with "the value is produced by a
+    // recipe or a {{template}} expansion" describes an unreachable path.
+    ("type", |r| Some(r.resource_type.to_string())),
     ("shell", |r| r.shell.clone()),
     ("home", |r| r.home.clone()),
     ("schedule", |r| r.schedule.clone()),
@@ -150,10 +158,19 @@ fn violates_limit(rule: &PolicyRule, resource: &Resource) -> bool {
 /// covers and must answer with the same predicate this evaluator decides with;
 /// it used to carry its own substring variant, and so reported enforcement
 /// that never happened (paiml/forjar#356).
+///
+/// The type is compared through `Display`, which is serde's spelling — the one
+/// a `type:` key accepts. It used to be compared through the lowercased `Debug`
+/// spelling, which agrees for the fifteen single-word variants and diverges for
+/// the six multi-word ones: `resource_type: github_release`, the only form a
+/// document can declare, matched NOTHING, while `githubrelease` — which serde
+/// rejects with `unknown variant` — was the one string that worked. A rule
+/// scoped to any multi-word type was silently inert, and the apply gate
+/// (`cli::apply_preflight::check_policy_violations`) failed OPEN
+/// (paiml/forjar#366).
 pub(crate) fn matches_scope(rule: &PolicyRule, resource: &Resource) -> bool {
     if let Some(ref rt) = rule.resource_type {
-        let actual = format!("{:?}", resource.resource_type).to_lowercase();
-        if actual != *rt {
+        if resource.resource_type.to_string() != *rt {
             return false;
         }
     }
