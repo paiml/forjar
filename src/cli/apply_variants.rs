@@ -329,7 +329,7 @@ pub(crate) fn cmd_refresh_only(
     workspace: Option<&str>,
     operator: Option<&str>,
 ) -> Result<(), String> {
-    super::dispatch_apply::check_operator_auth(file, operator)?;
+    super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
 
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
