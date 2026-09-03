@@ -21,6 +21,7 @@ fn purity_level_ordering() {
 // ── FJ-1305: classify ──
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn classify_pure() {
     let s = PuritySignals {
         has_version: true,
@@ -29,8 +30,8 @@ fn classify_pure() {
         ..Default::default()
     };
     let r = classify("pkg", &s);
-    assert_eq!(r.level, PurityLevel::Pure);
-    assert!(r.reasons[0].contains("sandbox"));
+    assert_eq!(r.level, PurityLevel::Pinned);
+    assert!(r.reasons[0].contains("declared but not enforced"));
 }
 
 #[test]
@@ -141,6 +142,7 @@ fn score_empty_is_perfect() {
 }
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn score_all_pure() {
     let s = compute_score(&[
         ri("a", PurityLevel::Pure, true, true),
@@ -148,7 +150,7 @@ fn score_all_pure() {
     ]);
     assert!((s.composite - 100.0).abs() < 0.01);
     assert!((s.purity_score - 100.0).abs() < 0.01);
-    assert!((s.store_score - 100.0).abs() < 0.01);
+    assert!((s.store_score - 0.0).abs() < 0.01); // store is not scored (#409)
     assert!((s.lock_score - 100.0).abs() < 0.01);
 }
 
