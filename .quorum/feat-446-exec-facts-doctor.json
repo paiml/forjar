@@ -72,9 +72,9 @@
         "roles": [
           "claims"
         ],
-        "bytes": 7744,
-        "sha256": "725490c6d3a7f6ba40a8a970ad014bc1475c0882739ec595c0140bd1bc184ab5",
-        "blob": "874c58031a07c09223cefcfab74fba5045adb34b"
+        "bytes": 8392,
+        "sha256": "a95bc387a18cf8313b72d328c62d2963fe6ed302ec548bde4073a7087e9ca915",
+        "blob": "cf3fb6d3749d602e938a670e5450b76a9667c0cf"
       },
       {
         "path": ".quorum/evidence/446-lanes.md",
@@ -124,12 +124,12 @@
       "a standalone permissions fact is not reported; permissions are reported per declared destination by doctor --machine",
       "where df -i is unavailable the inode figure reads as 0"
     ],
-    "total_bytes": 17909
+    "total_bytes": 18557
   },
   "decisions_taken_autonomously": [
     "[A] facts as a report now; the resolver-visible facts model stays E11 (#414)",
     "[A] exec is CliOnly and facts is Pending(#414) in the verb partition",
     "[A] standalone permission facts declined with the reason above"
   ],
-  "diff_sha256": "84482b43d1fcc62e9b25c9ecd7ac03072305978d"
+  "diff_sha256": "48730a34bfc17430ad82b2640af3f500ff58d1fb"
 }
