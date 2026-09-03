@@ -54,6 +54,14 @@ concurrency:
 permissions:
   contents: read
 
+# forjar#447: every job of this workflow may land on the same self-hosted runner
+# and, by default, the same _work checkout — so kani, lean and ledger-replay
+# compiled in ONE target/release and raced on cargo's dep-info files
+# (ENOENT on pmcp-*.d, two jobs red on one run, nothing in the diff). One build
+# directory per job name, persistent per runner so the clean-room stays warm.
+env:
+  CARGO_TARGET_DIR: ${{ github.workspace }}/target-${{ github.job }}
+
 jobs:
   kani:
     name: kani
