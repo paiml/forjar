@@ -139,7 +139,10 @@ pub fn masked_for(stdout: &str, resource: &Resource) -> String {
 }
 
 /// Record the mask a freshly written observation was taken under.
-pub fn record_mask(details: &mut std::collections::HashMap<String, serde_yaml_ng::Value>, key: &str) {
+pub fn record_mask(
+    details: &mut std::collections::HashMap<String, serde_yaml_ng::Value>,
+    key: &str,
+) {
     if key.is_empty() {
         details.remove(MASK_KEY);
     } else {

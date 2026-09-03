@@ -87,10 +87,7 @@ impl Sandbox {
         if state_dir {
             cmd.arg("--state-dir").arg(self.state_dir());
         }
-        let out = cmd
-            .current_dir(&self.dir)
-            .output()
-            .expect("run forjar");
+        let out = cmd.current_dir(&self.dir).output().expect("run forjar");
         (
             format!(
                 "{}{}",

@@ -69,8 +69,8 @@ struct FakeCrontab {
 
 impl FakeCrontab {
     fn new(tag: &str) -> Self {
-        let dir = std::env::temp_dir()
-            .join(format!("forjar-cron-exec-{}-{}", tag, std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("forjar-cron-exec-{}-{}", tag, std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("bin")).expect("create fake bin dir");
         let fx = FakeCrontab { dir };
