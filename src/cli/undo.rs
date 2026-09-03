@@ -300,6 +300,18 @@ pub(crate) fn cmd_undo(
     println!("\nPre-flight check:");
     preflight_ssh_check(&target_config, machine_filter)?;
 
+    // forjar#449: what the target does not hold is destroyed, with the current
+    // config's definitions, before the lock is rolled away from under them.
+    super::undo_prune::destroy_absent_from_target(&super::undo_prune::UndoPrune {
+        file,
+        state_dir,
+        current,
+        current_config: &current_config,
+        current_locks: &current_locks,
+        target_locks: &target_locks,
+        machine_filter,
+    })?;
+
     super::generation::rollback_to_generation(state_dir, target, true)?;
 
     // GH-376: written AFTER the rollback. `restore_generation_to_state` deletes

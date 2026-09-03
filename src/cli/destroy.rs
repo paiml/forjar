@@ -60,6 +60,13 @@ fn cleanup_state_files(state_dir: &Path, machines: &[String], machine_filter: Op
         if lock_path.exists() {
             let _ = std::fs::remove_file(&lock_path);
         }
+        // forjar#449 (found by its falsifier): the BLAKE3 sidecar outlived the
+        // lock, and the next `apply` refused — "lock file is missing but its
+        // sidecar survives". A destroyed machine has no lock and no seal.
+        let sidecar = state_dir.join(machine_name).join("state.lock.yaml.b3");
+        if sidecar.exists() {
+            let _ = std::fs::remove_file(&sidecar);
+        }
     }
 }
 
@@ -82,8 +89,12 @@ pub(crate) fn cleanup_succeeded_entries(
         }
         if lock.resources.is_empty() {
             let _ = std::fs::remove_file(&lock_path);
+            let _ = std::fs::remove_file(state_dir.join(machine_name).join("state.lock.yaml.b3"));
         } else if let Ok(yaml) = serde_yaml_ng::to_string(&lock) {
             let _ = std::fs::write(&lock_path, yaml);
+            // forjar#449: a rewritten lock needs a fresh seal, or the next
+            // apply's integrity check refuses it as tampered.
+            let _ = crate::core::state::integrity::write_b3_sidecar(&lock_path);
         }
     }
 }
@@ -244,6 +255,28 @@ pub(crate) fn cmd_destroy(
         // FJ-2005: Partial failure — only remove lock entries for succeeded resources
         cleanup_succeeded_entries(state_dir, &succeeded_resources);
     }
+
+    // forjar#449: record the generation this destroy produced, exactly as
+    // apply does (GH-376: failures included — a generation is a record of what
+    // happened). Without it `undo` had nothing earlier than "current" to
+    // rewind to, and the destroy/undo roundtrip the contract
+    // destroy-undo-roundtrip-v1 names could not happen.
+    //
+    // A generation pairs a state with the config that PRODUCED it, and `undo`
+    // re-converges a generation by re-applying that config. The config that
+    // produced a destroyed state is one that no longer declares what was
+    // destroyed — recording the file's config unchanged would pair empty locks
+    // with resources still declared, and a later `undo` landing here would
+    // re-create everything the destroy removed (the quorum review's poisoned
+    // rollback). So the recorded config drops exactly the resources this run
+    // destroyed; a resource that failed to destroy, or was outside -m, stays.
+    let mut produced = config.clone();
+    for ids in succeeded_resources.values() {
+        for id in ids {
+            produced.resources.shift_remove(id);
+        }
+    }
+    super::apply_snapshot::maybe_record_generation(&produced, state_dir, false, verbose);
 
     println!();
     if failed > 0 {
