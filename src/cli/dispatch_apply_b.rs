@@ -310,10 +310,8 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
             args.timeout,
             args.env_file.as_deref(),
             args.workspace.as_deref(),
-            // Refs #368: the operator gate now runs on this mode too, so the
-            // flag that answers it must travel with it. Passing `None` here
-            // resolves the identity from `$USER@$(hostname)` and refuses the
-            // operator who typed `--operator`.
+            // Refs #368: the operator gate runs on this mode too; `None` here
+            // would resolve `$USER@$(hostname)` and refuse the typed operator.
             args.operator.as_deref(),
         ));
     }
@@ -354,10 +352,8 @@ fn apply_from_plan(
         // GH-208: the whole --dry-run FAMILY means "change nothing". Passing
         // `args.dry_run` alone left `--plan-file --dry-run-json` converging.
         dry_run: effective_dry_run(args),
-        // Refs #368: the two gate flags this call site used to drop. `args.yes`
-        // was read only at `apply_execute`'s FJ-286 prompt and
-        // `args.confirm_destructive` only at its destructive block — both
-        // inside the function this branch returns before reaching.
+        // Refs #368: the two gate flags this call site dropped — both were read
+        // only inside `apply_execute`, which this branch returns before reaching.
         yes: args.yes,
         confirm_destructive: args.confirm_destructive,
         selectors: crate::core::plan_selectors::PlanSelectors::new(

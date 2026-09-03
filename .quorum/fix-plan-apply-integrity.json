@@ -116,5 +116,5 @@
     "clippy": "--all-targets -D warnings, 0 errors (re-run on the merged tree)"
   },
   "base_commit": "15aa687471476acbb71b4201df536b873caa319d",
-  "diff_sha256": "cd9630379f8131abfdeec58f088cafdcb11a3490"
+  "diff_sha256": "f8b788ee55a50fb20fa737ac0f9aae1020732208"
 }
