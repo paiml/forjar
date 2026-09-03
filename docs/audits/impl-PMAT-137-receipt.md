@@ -32,6 +32,8 @@ Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon) — turn
 | E09/#374/mcp/policy/hygiene/#364/#368/E06E07 review | agy plan, scrubbed HOME | 10–20 min each | - | - | every charge re-run against the code; dispositions in each .quorum/evidence/*-agy.md |
 | paiml-impl-worker | (previous run) | - | - | - | - |
 | #449 review | agy plan, scrubbed HOME | ~12 min | - | - | REJECTED the first fix (poisoned generation, falsifier never replayed it); every charge re-run; disposition in .quorum/evidence/449-agy.md |
+| #446 implement | paiml-impl-worker (opus) — interrupted by Noah after the RED commit and the module drafts; finished by the orchestrator | ~1 h | n/a | no | exec/facts/doctor --machine; the worker's facts script failed forjar's own bashrs I8 gate (SC2242 `continue` in a `while read` loop), caught by the falsifier |
+| #446 review | agy plan, scrubbed HOME | ~10 min | - | - | 4 refutations taken (uid coerced to 0 read as root; no network facts; short package-tool table; silent root skip); 2 wording corrections; disposition in .quorum/evidence/446-agy.md |
 
 ## Verification (claimed vs re-run by the orchestrator)
 | item | claimed | orchestrator re-run |
@@ -46,6 +48,7 @@ Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon) — turn
 | p368 | branch: 3 falsifiers green | 14/18 RED at base; lib 13370/0; clippy 0; colour-test race serialized |
 | E06/E07 | lane: lib green, fix complete | 15 store tests red → re-based; both falsifiers 0/2 at base; lib 13370/0; clippy 0; convert/pin suite re-based after #444's coverage job |
 | #449 (PR #450) | first fix: 3/3 green | review refuted it; rework: 6/6 falsifier cases, each hunk neutered → its cases RED (generation 2,3; pruning 4; sidecar 4,5; undo prune 4,6); lib 13380/0; six undo suites green; clippy 0 |
+| #446 | worker: RED committed, modules drafted | falsifier 0/8 at the RED commit (`unrecognized subcommand`), 8/8 on the branch; 16 unit tests; verb partition made total (exec CliOnly, facts Pending #414); lib 13394/0; clippy 0; stable rustfmt clean |
 
 ## Jidoka log (docs/audits/jidoka.jsonl)
 1–4. (previous run) GIT_DIR escape; agy publish incident; paiml/.github credentials; pmat #1162.
@@ -67,7 +70,8 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - pv_lane=NotRun (contracts_dir=contracts; contracts/apply-summary-distinguishability-v1.yaml and flag-has-effect-v1.yaml touched by #368's branch; proofs.yml green on that PR).
 - Dry-run derivation simulation (E07) still emits a simulated hash — recorded in #444's receipt; #410 stays open for the delegation.
 - Pre-dogfood #2 (during the LAN outage, local integration tree `preview/integ2` = main@15aa6874 + #437 #439 #440 #443 #448 #450, HEAD e0e0e48d, all six merged clean, no src/tests deletions): Gate 2 156 help-ok / 0 panics (4 flags labelled `[UNIMPLEMENTED — rejected, see GH-211]`, E10 #413; `help --help` exit 2 is clap); Gate 3 C1–C10 all hold; Gate 4 35 contracts, 45/45 bindings; Gate 5 lib 13381/0, clippy 0, fmt clean; Gate 6 line 95.83%; Gate 8 apply→destroy→undo→destroy→apply→undo lands on the destroy generation with the file absent and no stale sidecar; Gate 8b content/mode/delete detect+converge, control and dir all ok; Gates 9, 10 (P1 P3 P4 P5), 11 ok. Verdict GO for the tree; the official S4 run repeats on main after the merges.
-- #449 → PR #450 (`autopilot2.sh` merges it on all-green). Known limits carried: `snapshot_generations: 1` evicts the only undo target after a destroy; `destroy` has no `--dry-run`; undo's new destroy step is not resumable through `undo --resume`.
+- #449 → PR #450 merged 18:03 UTC; #440 18:12, #451 18:06, #448 17:13, #437 (admin-bypass pilot during the outage) 15:55.
+- #446 → PR feat/446-exec-facts-doctor (receipt `.quorum/feat-446-exec-facts-doctor.json`, 7 confirmed / 4 refuted); the release driver waits for it and #450 before cutting v1.25.0. Known limits carried: `snapshot_generations: 1` evicts the only undo target after a destroy; `destroy` has no `--dry-run`; undo's new destroy step is not resumable through `undo --resume`.
 
 ## Decisions marked [A] (taken without escalation, per the program's rule)
 - (previous run) E14 withdrawal; hooks-off replays; #423 takeover; crates kept on crates.io; LogHeader.
@@ -81,6 +85,7 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - Triage of E08/E10/E11/E12/E15 and #360/#362 as deferred-with-reason rather than implemented in this budget.
 - #449: `undo` now destroys the resources the target generation lacks (the behaviour its own diff announced) rather than refusing when such resources exist; the refusal would have left the destroy→undo contract unmeetable in the apply→destroy→apply→undo direction. The gc-eviction and dry-run findings of the review are carried as known limits.
 - #446 (host facts / exec / doctor, filed by a teammate) triaged as accepted-and-sequenced with E11 (#414), not implemented in this pass.
+- #446 folded into the 1.25.0 release on Noah's instruction ("fold in ALL open tickets by alfredo"): facts shipped as a report (`--json`), the resolver-visible facts model stays E11; `exec` does not consult `policy:` (queued with E10); standalone permission facts declined because permissions need a destination, which `doctor --machine` reports per declared resource.
 
 ## Verdict
 PARTIAL(andon) — 12 PRs merged across both runs (#418–#421, #424–#427, #436, #438, #442, #444), 7 open with receipts through the pre-push quorum gate (#437, #439–#441, #443, #448, #450), drift-observables scripted, the integration-branch pre-dogfood GO except #449 (fixed in #450), S4 official run, S5 and S6 not started. The unattended tail (`autopilot.sh`, `merge-rest.sh`, `drift-auto.sh`) continues the merges without a session; everything it merges has every check green on its head.
