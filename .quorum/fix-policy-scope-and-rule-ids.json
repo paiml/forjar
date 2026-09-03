@@ -120,6 +120,6 @@
     "lib_tests": "13370 passed, 0 failed, 4 ignored",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
-  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
-  "diff_sha256": "3f563db8a73d4c88898d978eb01a482fc5bbe1b2"
+  "base_commit": "5d80ed7d6cacfdcca76fc915f48ccd009658ebbc",
+  "diff_sha256": "db9a0a051972d10b89a9c6c9e2b48f01633523bd"
 }
