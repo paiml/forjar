@@ -32,8 +32,8 @@ Create namespace → overlay mount (lower=inputs, upper=tmpfs) → bind inputs r
 
 | Component | Weight | Scoring |
 |-----------|--------|---------|
-| Purity level | 50% | Pure=100, Pinned=75, Constrained=25, Impure=0 |
-| Store coverage | 30% | Percentage of resources with `store: true` |
+| Purity level | 80% | Pure=100, Pinned=75, Constrained=25, Impure=0 |
+| Store coverage | 0% (not scored) | `store: true` is declared, not enforced (#409); reported as 0 until the store is on the apply path |
 | Lock coverage | 20% | Percentage of resources with lock file pin |
 
 Grade thresholds: A ≥ 90, B ≥ 75, C ≥ 50, D ≥ 25, F < 25.

@@ -71,17 +71,13 @@ pub fn classify(name: &str, signals: &PuritySignals) -> PurityResult {
     } else if !signals.has_version {
         reasons.push("no version pin".to_string());
         PurityLevel::Constrained
-    } else if !signals.has_store || !signals.has_sandbox {
-        if !signals.has_store {
-            reasons.push("version pinned but store not enabled".to_string());
-        }
-        if !signals.has_sandbox {
-            reasons.push("version pinned but no sandbox".to_string());
+    } else {
+        if signals.has_store || signals.has_sandbox {
+            reasons.push("version pinned (sandbox/store declared but not enforced)".to_string());
+        } else {
+            reasons.push("version pinned".to_string());
         }
         PurityLevel::Pinned
-    } else {
-        reasons.push("version pinned + store + sandbox".to_string());
-        PurityLevel::Pure
     };
 
     // Monotonicity: a resource is at least as impure as its deps
