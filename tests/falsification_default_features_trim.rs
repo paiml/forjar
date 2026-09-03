@@ -30,7 +30,11 @@ const HEAVY: &[&str] = &[
     "clap",
     "clap_complete",
     "pforge-runtime",
-    "pforge-config",
+    // `pforge-config` was here until forjar#375. It described a `ForgeConfig`
+    // only `build_forge_config()` built, and the server that consumed it dropped
+    // every tool annotation on the floor; forjar now constructs the pmcp server
+    // itself and the config crate has no call site left.
+    "pmcp",
     "tokio",
     "async-trait",
     "schemars",

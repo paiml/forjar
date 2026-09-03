@@ -28,30 +28,17 @@ fn test_fj063_build_registry_no_unknown_tools() {
     assert!(!registry.has_handler("nonexistent"));
 }
 
-#[test]
-fn test_fj063_forge_config_metadata() {
-    let config = super::registry::build_forge_config_for_test();
-    assert_eq!(config.forge.name, "forjar-mcp");
-    assert_eq!(config.tools.len(), 12);
-}
-
-#[test]
-fn test_fj063_forge_config_tool_names() {
-    let config = super::registry::build_forge_config_for_test();
-    let names: Vec<&str> = config.tools.iter().map(|t| t.name()).collect();
-    assert!(names.contains(&"forjar_validate"));
-    assert!(names.contains(&"forjar_plan"));
-    assert!(names.contains(&"forjar_drift"));
-    assert!(names.contains(&"forjar_lint"));
-    assert!(names.contains(&"forjar_graph"));
-    assert!(names.contains(&"forjar_show"));
-    assert!(names.contains(&"forjar_status"));
-    assert!(names.contains(&"forjar_trace"));
-    assert!(names.contains(&"forjar_anomaly"));
-    assert!(names.contains(&"forjar_remediate"));
-    assert!(names.contains(&"forjar_audit"));
-    assert!(names.contains(&"forjar_workspace"));
-}
+// forjar#375: `test_fj063_forge_config_metadata` and
+// `test_fj063_forge_config_tool_names` used to assert about a
+// `pforge_config::ForgeConfig` built by `build_forge_config()` — a value no user
+// ever reached, whose only consumer dropped every tool annotation on the way to
+// the wire. That is the same shape the comment on `register_all` describes for
+// `build_registry`: a test asserting about a structure production does not use.
+// The properties they were reaching for are now asserted where a CLIENT sees
+// them, over real stdio, in
+// `tests/falsification_mcp_publishes_readonly_hint_over_stdio.rs` — server name,
+// tool count, per-tool names and `readOnlyHint` — with `e2e_mcp_stdio_t` proving
+// the transport is reachable from the shipped binary at all.
 
 #[tokio::test]
 async fn test_fj063_registry_dispatch_validate() {
