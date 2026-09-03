@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+**`apply --canary-machine` converged the whole fleet past the operator gate, with a
+`--yes` nobody typed (#374).**
+
+`check_operator_auth` was the first line of `apply_execute` — the *last* stage of the
+apply dispatcher — and every early exit returns above it. So with
+`allowed_operators: [alice]` on two machines:
+
+```text
+forjar apply --operator mallory --yes                      -> not authorized  EXIT=1
+forjar apply --canary-machine sandbox --operator mallory   -> 2 machines converged, EXIT=0
+forjar apply --refresh-only --operator mallory             -> every lock rewritten, EXIT=0
+```
+
+`--pre-script` had the same shape: `apply_pre_checks` ran the operator's script and
+*then* refused. #370 patched exactly one of these exits (`--plan-file`) at its own call
+site; a gate each exit has to remember is not a gate, so the check now runs in
+`dispatch_apply_cmd` before any exit, hook or backup.
+
+Second, independent defect in the same command: `cmd_apply_canary_machine` hard-coded
+`yes = true` into both legs. A flag whose whole promise is "one machine first, so you
+can look" rolled the remaining fleet out with no confirmation prompt — for *authorized*
+operators too, needing no misconfiguration at all. `--yes` is now threaded from the
+command line and each leg asks in turn.
+
+### Changed
+
+**The read-only `apply` modes stay ungated, deliberately (#374).** `--check`,
+`--diff-only`, `--output-scripts` and `--dry-run-{graph,cost,verbose}` change nothing
+and print what the ungated `forjar check` / `plan` / `graph` verbs already print to
+anyone — none of which accepts `--operator`. Gating them buys no confidentiality and
+costs a real refusal: `check_operator_auth` iterates *every* machine regardless of
+`--machine`, so an operator listed on one machine would lose `apply -m theirs --check`.
+This is the same line #370 drew when it left `plan --out` ungated, and both directions
+are pinned by tests in `tests/falsification_canary_apply_is_authorized.rs`.
+
+A read is only a read if the *invocation* is. `--check`, `--diff-only` and
+`--output-scripts` exit from `apply_mode_exits`, which sits *below* `apply_pre_checks`,
+so `apply --check --pre-script deploy.sh --operator mallory` used to run `deploy.sh`
+and then print check results with no refusal anywhere. An invocation carrying
+`--pre-script`, `--pre-flight` or `--webhook-before` is therefore gated in every mode.
+
 ### Upgrade note — `sensitive:` is a new `Resource` field, so every hash moves once (#406)
 
 Since #403 the desired-state hash covers every serialised field of

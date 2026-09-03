@@ -53,13 +53,15 @@ pub struct ReproInput {
 
 /// Compute reproducibility score from resource inputs.
 ///
-/// Scoring weights: purity 50%, store coverage 30%, lock coverage 20%.
+/// Scoring weights: purity 80%, lock coverage 20%. Store coverage is DECLARED,
+/// not enforced (Refs #409, CRUX E06), so it is reported as 0 and not scored —
+/// for an empty recipe too, so no path credits it.
 pub fn compute_score(inputs: &[ReproInput]) -> ReproScore {
     if inputs.is_empty() {
         return ReproScore {
             composite: 100.0,
             purity_score: 100.0,
-            store_score: 100.0,
+            store_score: 0.0,
             lock_score: 100.0,
             resources: vec![],
         };
@@ -71,23 +73,21 @@ pub fn compute_score(inputs: &[ReproInput]) -> ReproScore {
     let purity_total: f64 = inputs.iter().map(|r| purity_points(r.purity)).sum();
     let purity_score = purity_total / n;
 
-    // Store coverage: percentage with store enabled
-    let store_count = inputs.iter().filter(|r| r.has_store).count() as f64;
-    let store_score = (store_count / n) * 100.0;
+    // Store coverage is declared but not enforced, so it is not scored.
+    let store_score = 0.0;
 
     // Lock coverage: percentage with lock file pin
     let lock_count = inputs.iter().filter(|r| r.has_lock_pin).count() as f64;
     let lock_score = (lock_count / n) * 100.0;
 
-    // Weighted composite
-    let composite = purity_score * 0.5 + store_score * 0.3 + lock_score * 0.2;
+    // Weighted composite (80% purity, 20% lock)
+    let composite = purity_score * 0.8 + lock_score * 0.2;
 
     let resources = inputs
         .iter()
         .map(|r| {
-            let score = purity_points(r.purity) * 0.5
-                + if r.has_store { 100.0 } else { 0.0 } * 0.3
-                + if r.has_lock_pin { 100.0 } else { 0.0 } * 0.2;
+            let score =
+                purity_points(r.purity) * 0.8 + if r.has_lock_pin { 100.0 } else { 0.0 } * 0.2;
             ResourceScore {
                 name: r.name.clone(),
                 purity: r.purity,

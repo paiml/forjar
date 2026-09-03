@@ -1,0 +1,120 @@
+{
+  "issue": "#367 / #371 / #375 — the verb/MCP surface ignored the active workspace (every verb described an empty project); docs/mcp-schema.json was a checked-in copy of the tool surface nothing generated; readOnlyHint was published by --schema but never sent by the running server",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "Route WorkspaceHandler through the joined resolver too — REFUTED: that handler enumerates state/ and joins itself; through the joined resolver its listing becomes the machine directories under the active workspace (the same double-join re-entered).",
+      "Bump pforge to get annotations on the wire — REFUTED: pforge 0.2.1's adapter is byte-identical; metadata() answers a bare ToolInfo::new that hard-sets annotations: None, so only an in-tree pmcp server fills the field.",
+      "Publishing outputSchema on the wire is a free extra (the first cut) — REFUTED by the branch's own adversarial review: MCP 2025-06-18 makes it an obligation to return structuredContent, pmcp 1.20 cannot, and every tools/call failed on @modelcontextprotocol/sdk 1.30.0; removed, with a pairing test in place of the presence test."
+    ],
+    "divergence": "none: the probe lane and the agy lane agree; the agy lane attacked the double-join, the traversal marker, the enumerator, the hint derivation, the adapter's dispatch parity, the outputSchema reasoning and the docs deletion, and refuted each attack with file:line evidence"
+  },
+  "crux": {
+    "systems": [
+      "Terraform — workspace selection and -chdir bind every command, CLI and Cloud API, to one state",
+      "Pulumi — stack selection is one source of truth for the CLI and the Automation API",
+      "MCP reference servers (2025-06-18) — annotations.readOnlyHint published as advisory; outputSchema omitted unless structuredContent is filled"
+    ],
+    "verdict": "at the industry default after this branch: one selection for CLI and verb surface, advisory hints on the wire, no binding promise the runtime cannot keep, and no hand-maintained copy of the surface in docs"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "passes adversarial review: no charge survived; readOnlyHint is derived from effects, the in-tree adapter drops nothing pforge's did, outputSchema is correctly withheld under MCP 2025-06-18, and docs/mcp-schema.json and pforge-config have no remaining consumers",
+    "unique_findings": [
+      "the --schema/wire divergence was entirely pforge_config::ToolInfo::new hard-setting annotations: None",
+      "the CLI and MCP resolvers stay separate on purpose: delegating to the CLI's would double-join when an agent hands workspace_state_dir back as state_dir"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17823,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the falsifiers or any file this branch touches; clippy --all-targets -D warnings 0; fmt clean"
+  },
+  "falsification": {
+    "test": "six workspace cases apply real state under a selected workspace and compare the verb's plan/audit/status answers with the files on disk, plus explicit-state_dir, no-selection and enumerator cases; seven workspace-report cases; four stdio cases drive the built binary through a real MCP session (hint on every tool, wire agrees with --schema, no output schema promised, every tool dispatches); three docs cases",
+    "test_file": "tests/falsification_verb_honours_the_workspace.rs",
+    "cargo_test_target": "falsification_verb_honours_the_workspace",
+    "reverted": "src/mcp/paths.rs, src/mcp/adapter.rs, src/mcp/registry.rs, src/mcp/mod.rs -> the merge-base's (9e0815c0), tests kept",
+    "observed_failure": "stdio binary with Cargo.toml/Cargo.lock/src/mcp/src/cli/workspace.rs/src/core/unattended.rs at the merge-base: 2 of 4 RED (every_tool_sends_a_read_only_hint_over_the_wire, the_wire_and_the_schema_agree_per_tool); workspace binaries with the join removed from mcp::paths::resolve_state_dir (the merge-base's behaviour; a full file revert does not compile because the enumerator's resolver lives in the same file): 5 of 13 RED — plan_reads_the_lock_the_selection_points_at, audit_reads_the_trail_the_selection_points_at, status_sees_the_machines_under_the_selected_workspace, the_designated_directory_is_the_one_another_verb_has_to_be_given, the_cli_and_the_verb_surface_honour_the_same_selection",
+    "still_green_when_reverted": "no_tool_promises_a_structured_result_the_server_does_not_send and every_advertised_tool_still_dispatches (the merge-base publishes no output schema either, and its tools dispatch) — the pairing test is green on both sides by design; the eight workspace cases that pin the UNJOINED half (explicit state_dir, no selection, the enumerator, the report's shape) — by design, they guard against the double-join"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/367-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6410,
+        "sha256": "c0c97189f04476cbf48ff09a56178bda9c7bb67b5d944d8d0ff53dc8d578573b",
+        "blob": "04b202f53170ddf2f3d58d974313a05dc03b5fcc"
+      },
+      {
+        "path": ".quorum/evidence/367-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1526,
+        "sha256": "53682ed4bc3cc477625e77b10dea65e790441fbc679369bc9a3448563f78287e",
+        "blob": "3367a43c9499da6b687bfb32cd054d70d59f5687"
+      },
+      {
+        "path": ".quorum/evidence/367-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 1018,
+        "sha256": "57a7356d3f89bc40be72d730f619e4b2030131745f6aef577eeeb6df2b97337a",
+        "blob": "96fc70a042394b034571947ba4fa31da3eead736"
+      },
+      {
+        "path": ".quorum/evidence/367-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 6976,
+        "sha256": "4a783cbcff73aaec8b238b3d4ab923b9f4c1b3a112bc89636b3851e27f71ff00",
+        "blob": "9c6a3fedde01f6529ec765fbb1b62354edc0198a"
+      },
+      {
+        "path": ".quorum/evidence/367-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 930,
+        "sha256": "3c13a20f7fb5dca83dae47d1091d8d6b67bde916915a63b373dfd6125a263a50",
+        "blob": "9493691d89fa554530131c07ac025b62559c0008"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/367-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "outputSchema is documented in --schema and not sent on the wire until the runtime can fill structuredContent; the pairing test turns green the day it can.",
+      "A workspace marker naming a traversal falls back to the unjoined base rather than erroring, because the verb surface only reads."
+    ],
+    "total_bytes": 16860
+  },
+  "gates": {
+    "lib_tests": "13377 passed, 0 failed, 4 ignored",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "9e0815c0e19d914c0603ea3bad8d8b15b3d00894",
+  "diff_sha256": "ef302e12c513cc5ce481f026ad955b68680de7ad"
+}

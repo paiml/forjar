@@ -35,12 +35,22 @@ pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
 }
 
 /// FJ-510: Canary machine — apply to single machine first, then remaining.
+///
+/// # `yes` is the operator's, not ours (forjar#374)
+///
+/// Both legs used to pass a hard-coded `true` for `--yes`. A flag whose whole
+/// promise is "one machine first, so you can look" therefore converged the
+/// canary AND every remaining machine in the config without the confirmation
+/// prompt every other apply asks for — for authorized operators too, needing no
+/// misconfiguration to reach. The confirmation is the operator's decision, so
+/// it is threaded from the command line and each leg asks in turn.
 pub(crate) fn cmd_apply_canary_machine(
     file: &Path,
     state_dir: &Path,
     canary: &str,
     params: &[String],
     timeout: Option<u64>,
+    yes: bool,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     if !config.machines.contains_key(canary) {
@@ -80,7 +90,7 @@ pub(crate) fn cmd_apply_canary_machine(
         false,
         false,
         0,
-        true,
+        yes,
         false,
         None,
         false,
@@ -114,6 +124,13 @@ pub(crate) fn cmd_apply_canary_machine(
         "\n=== Fleet: applying to {} remaining machines ===\n",
         remaining.len()
     );
+    // forjar#374 (quorum review): one confirmation for the fleet, not one per
+    // machine. `cmd_apply` prompts per machine when `yes` is false, so an
+    // operator with N remaining machines was asked N times; the first EOF
+    // aborted the rest silently. Ask once here, then hand each leg `yes`.
+    if !yes {
+        confirm_fleet_rollout(remaining.len())?;
+    }
     for machine_name in &remaining {
         cmd_apply(
             file,
@@ -138,7 +155,7 @@ pub(crate) fn cmd_apply_canary_machine(
             false,
             false,
             0,
-            true,
+            true, // confirmed once above, or --yes was typed
             false,
             None,
             false,
@@ -383,5 +400,19 @@ pub(crate) fn cmd_apply_dry_run_cost(
     println!("  No-op:   {noops}");
     println!("  ─────────────");
     println!("  Total changes: {}", creates + updates + deletes);
+    Ok(())
+}
+
+/// forjar#374: the fleet leg's single confirmation. EOF (a closed stdin, as in
+/// CI) reads as "no", the same rule `apply_preflight` uses per machine.
+fn confirm_fleet_rollout(remaining: usize) -> Result<(), String> {
+    eprint!("Apply to {remaining} remaining machine(s)? [y/N] ");
+    let mut answer = String::new();
+    std::io::stdin()
+        .read_line(&mut answer)
+        .map_err(|e| format!("stdin error: {e}"))?;
+    if !answer.trim().eq_ignore_ascii_case("y") {
+        return Err("aborted by user".to_string());
+    }
     Ok(())
 }

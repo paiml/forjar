@@ -223,6 +223,25 @@ mod tests {
     fn early_canary_machine_single_ok() {
         let (_d, cfg, sd) = setup();
         // Single machine → canary converges, "No remaining machines" path.
+        // forjar#374: `--yes` is explicit now. It used to be hard-coded inside
+        // `cmd_apply_canary_machine`, which is the defect, not the fixture.
+        let r = run_apply(&[
+            "-f",
+            &s(&cfg),
+            "--state-dir",
+            &s(&sd),
+            "--canary-machine",
+            "m",
+            "--yes",
+        ]);
+        assert!(r.is_ok(), "canary on single machine should pass: {r:?}");
+    }
+
+    /// forjar#374: `--canary-machine` must not imply `--yes`. stdin is at EOF
+    /// here, exactly as it is in CI, so an unconfirmed canary aborts.
+    #[test]
+    fn early_canary_machine_without_yes_asks_first() {
+        let (_d, cfg, sd) = setup();
         let r = run_apply(&[
             "-f",
             &s(&cfg),
@@ -231,7 +250,11 @@ mod tests {
             "--canary-machine",
             "m",
         ]);
-        assert!(r.is_ok(), "canary on single machine should pass: {r:?}");
+        assert_eq!(
+            r,
+            Err("aborted by user".to_string()),
+            "the canary leg converged without the confirmation every other apply asks for"
+        );
     }
 
     // ── apply_pre_checks branches ──

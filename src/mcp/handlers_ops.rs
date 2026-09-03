@@ -82,18 +82,27 @@ impl Handler for WorkspaceHandler {
             .as_deref()
             .and_then(|p| Path::new(p).parent().map(Path::to_path_buf))
             .unwrap_or_else(|| PathBuf::from("."));
+        // `resolve_state_base_opt`, NOT `resolve_state_dir_opt`. This handler is
+        // the one caller that wants the directory workspaces live UNDER: it
+        // enumerates that directory and does its own `join(active)` below. Given
+        // the joined resolver instead it would enumerate `state/prod/`, report
+        // the MACHINE directories there as workspaces, and designate
+        // `state/prod/prod` — the #367 double-join, re-entered from inside the
+        // fix for #367.
         let state_base =
-            super::paths::resolve_state_dir_opt(input.path.as_deref(), input.state_dir.as_deref());
+            super::paths::resolve_state_base_opt(input.path.as_deref(), input.state_dir.as_deref());
 
         let found = crate::cli::workspace::list_workspaces_in(&root, &state_base)
             .map_err(pforge_runtime::Error::Handler)?;
         let active = crate::cli::workspace::current_workspace_in(&root);
 
-        // The directory the selection DESIGNATES — which is not the directory
-        // any verb on this surface reads. `mcp::paths::resolve_state_dir_opt`
-        // above never joins `active`, so a caller that wants what `forjar plan`
-        // sees under this selection has to pass this path back as `state_dir`.
-        // paiml/forjar#367.
+        // The directory the selection designates — and, since #367, the
+        // directory the other verbs on this surface actually read when they are
+        // given no explicit `state_dir`. It is still reported, because a caller
+        // that wants to pin the read (or to read a workspace that is NOT
+        // selected) passes it back as the next verb's `state_dir`, and because
+        // an agent that has to name the directory the CLI is working in cannot
+        // otherwise ask.
         let workspace_state_dir = match active.as_deref() {
             Some(ws) => state_base.join(ws),
             None => state_base.clone(),

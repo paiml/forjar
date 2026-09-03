@@ -313,7 +313,7 @@ fn honour_an_empty_plan(
 pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> {
     // forjar#370: FIRST, and before the plan file is even read — the same
     // position and the same function `apply_execute` uses.
-    super::dispatch_apply::check_operator_auth(req.file, req.operator)?;
+    super::dispatch_apply::check_operator_auth(req.file, req.operator, None)?;
 
     let config = prepare_config(req.file, req.env_file, req.workspace)?;
     let loaded = load_plan_file(req.plan_path, &config, req.state_dir)?;

@@ -104,7 +104,7 @@ fn canary_machine_not_found() {
     let state_dir = dir.path().join("state");
     std::fs::create_dir_all(&state_dir).unwrap();
     let file = make_config(dir.path(), MULTI_MACHINE_CONFIG);
-    let result = cmd_apply_canary_machine(&file, &state_dir, "nonexistent", &[], None);
+    let result = cmd_apply_canary_machine(&file, &state_dir, "nonexistent", &[], None, true);
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("not found"));
 }

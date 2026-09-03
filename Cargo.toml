@@ -4,6 +4,7 @@ version = "1.24.0"
 edition.workspace = true
 rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
+publish = false
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license.workspace = true
 repository.workspace = true
@@ -14,6 +15,7 @@ exclude = ["benches/", ".pmat/", ".pmat-work/", ".claude/", "/state/", "docs/", 
 
 [workspace]
 resolver = "2"
+members = ["crates/*", "."]
 
 [workspace.package]
 edition = "2021"
@@ -84,11 +86,19 @@ serde_yaml_ng = "0.10"
 serde_json.workspace = true
 clap = { version = "4", features = ["derive"], optional = true }
 indexmap = { version = "2.7", features = ["serde"] }
-aprender-contracts-macros = "0.31"
+forjar-contracts-macros = { path = "crates/forjar-contracts-macros", version = "=0.31.2" }
 base64 = "0.22.1"
 bashrs = "6.68.0"
 pforge-runtime = { version = "0.1.4", optional = true }
-pforge-config = { version = "0.1.4", optional = true }
+# pmcp is the MCP protocol crate pforge-runtime itself speaks (it declares
+# `pmcp = "1.8", default-features = false`; the lock resolves 1.20.0), so this
+# adds no crate to the tree. forjar names it directly because pforge's own
+# tool adapter builds `ToolInfo::new(..)`, which hard-sets `annotations: None`
+# and `output_schema: None` — so `forjar mcp --schema` published
+# `readOnlyHint` while a connected agent received nothing (paiml/forjar#375).
+# forjar therefore owns the pmcp server construction and leaves DISPATCH with
+# pforge's `HandlerRegistry`, which carries no pmcp type across the boundary.
+pmcp = { version = "1.20", default-features = false, optional = true }
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"], optional = true }
 async-trait = { version = "0.1", optional = true }
 schemars = { version = "0.8", features = ["derive"], optional = true }
@@ -127,12 +137,12 @@ openssl = { version = "0.10", optional = true }
 ureq = { version = "3.4", features = ["platform-verifier"] }
 
 [build-dependencies]
-aprender-contracts = "0.31"
+forjar-contracts = { path = "crates/forjar-contracts", version = "=0.31.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_ng = "0.10"
 
 [dev-dependencies]
-aprender-contracts = "0.31"
+forjar-contracts = { path = "crates/forjar-contracts", version = "=0.31.2" }
 tempfile.workspace = true
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1"
@@ -184,7 +194,7 @@ cli = [
   "dep:clap",
   "dep:clap_complete",
   "dep:pforge-runtime",
-  "dep:pforge-config",
+  "dep:pmcp",
   "dep:tokio",
   "dep:async-trait",
   "dep:schemars",

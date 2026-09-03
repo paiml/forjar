@@ -38,15 +38,28 @@ state/*/events.jsonl
 # scratch; on 2026-08-23 a `git add -A src/` staged eight of them.
 #
 # Unanchored so it catches every depth, which also covers the root — that is
-# deliberate. The root `.pmat/` files the ratchets read (baseline.json,
-# cb200-baseline.json, context.db) are already TRACKED, and gitignore never
-# affects a tracked file, so they keep working. What this stops is a NEW cache
-# artefact drifting into a commit from either place. Adding a genuinely new
-# tracked file under .pmat/ needs `git add -f`, which is the right amount of
-# friction for a directory that is otherwise all scratch.
+# deliberate.
+#
+# NOTHING UNDER `.pmat/` CAN BE TRACKED, and no `!` negation here can change
+# that (#401). pmat writes its OWN `.pmat/.gitignore` containing `*`, with a
+# header saying the directory is derived and rebuilt on demand; a .gitignore in
+# a deeper directory outranks every pattern in a shallower one, so a negation at
+# this level is unreachable. MEASURED, after a `pmat tdg baseline update` run
+# dropped that file in: `git check-ignore --no-index -v .pmat/cb200-baseline.json`
+# -> `.pmat/.gitignore:10:*`, with `!/.pmat/cb200-baseline.json` sitting right
+# here and doing nothing. It is untracked too, so it appears only on machines
+# where pmat has run — a rule that is silently different for CI and for a
+# developer.
+#
+# So the repo keeps what it owns OUTSIDE this directory:
+# `scripts/ratchets/cb200-baseline.json` is the CB-200 floor, next to the one
+# script that reads it. `.pmat/project.toml` was left behind deliberately: it is
+# pmat's own state file, pinned at version 3.7.1 against a 3.34.0 toolchain and
+# carrying a `last_compliance_check` timestamp from April, so "hand-set config"
+# describes one of its four lines.
 **/.pmat/
 
-# ── Derived pmat/pv caches (forjar#287) ─────────────────────────────────────
+# ── Derived pmat/pv caches (forjar#287, finished in forjar#401) ─────────────
 # These are regenerated from the source tree on demand. Tracking them meant the
 # working tree was NEVER clean: every commit rewrote them, every rebase
 # conflicted on them, and `.pmat/baseline.json` alone churns ~3700 lines per
@@ -60,11 +73,31 @@ state/*/events.jsonl
 # `.pmat/context.db-shm` and `-wal` are SQLite journal sidecars — tracking a live
 # database's write-ahead log in git cannot be right under any policy.
 #
-# NOT ignored, deliberately: baseline.json, cb200-baseline.json,
-# file-health-baseline.json, metrics/dependencies.json and project.toml. The
-# pre-commit hook reads baseline.json as a quality RATCHET, so it needs a shared
-# starting point rather than one generated from whatever the local tree happens
-# to be. Churny, and load-bearing — a separate decision from this one.
+# WHAT THE PREVIOUS VERSION OF THIS BLOCK CLAIMED, AND WHY IT WAS WRONG.
+# It read "NOT ignored, deliberately: baseline.json, cb200-baseline.json,
+# file-health-baseline.json, metrics/dependencies.json and project.toml" —
+# and all five WERE matched by the rule above. gitignore does not un-track a
+# file, so nothing visibly broke and the contradiction survived. Measured, it
+# was not free: `.git/hooks/post-commit` regenerates `.pmat/baseline.json`
+# after every commit and re-stages it, and `git add` on a tracked-and-ignored
+# path prints "The following paths are ignored", exits 1, and STAGES IT ANYWAY
+# — the exit code is cosmetic, which is precisely why the churn never stopped.
+# Two `pmat tdg baseline create` runs over an unchanged tree differ in exactly
+# one line, `created_at` (ZERO float drift, measured; no flag suppresses it),
+# so every branch rewrites line 3 of a 1.2 MB file and any two-branch merge
+# conflicts there. Two `.quorum` receipts in this tree name that conflict as
+# the reason a re-anchor was needed, and the history carries 75 revisions of
+# that one file.
+#
+# So every one of them is untracked. No in-repo consumer reads any of them: the
+# pre-commit hook branches on `[ ! -f ... ]` and regenerates a missing baseline,
+# and the one file that WAS load-bearing — the CB-200 ceiling — moved to
+# `scripts/ratchets/cb200-baseline.json`, out of a directory pmat owns and
+# ignores wholesale.
+#
+# tests/falsification_no_tracked_file_is_gitignored.rs pins the invariant: no
+# path in the index may be matched by any ignore rule in effect, this file's or
+# a nested one's.
 .pmat/context.db
 .pmat/context.db-shm
 .pmat/context.db-wal
