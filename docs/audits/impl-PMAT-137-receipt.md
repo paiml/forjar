@@ -31,6 +31,7 @@ Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon) — turn
 | E06/E07 implement | agy accept-edits, scrubbed HOME, own cargo home + target dir | ~25 min | n/a | no | 2 commits on a pre-existing worktree whose base was old main; "lib green" claim false (15 red) |
 | E09/#374/mcp/policy/hygiene/#364/#368/E06E07 review | agy plan, scrubbed HOME | 10–20 min each | - | - | every charge re-run against the code; dispositions in each .quorum/evidence/*-agy.md |
 | paiml-impl-worker | (previous run) | - | - | - | - |
+| #449 review | agy plan, scrubbed HOME | ~12 min | - | - | REJECTED the first fix (poisoned generation, falsifier never replayed it); every charge re-run; disposition in .quorum/evidence/449-agy.md |
 
 ## Verification (claimed vs re-run by the orchestrator)
 | item | claimed | orchestrator re-run |
@@ -44,6 +45,7 @@ Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon) — turn
 | vendor | #431 gate green | footprint check: 70 files reverted → rebuilt; src/lib.rs + falsifier only; lockfile --locked ok |
 | p368 | branch: 3 falsifiers green | 14/18 RED at base; lib 13370/0; clippy 0; colour-test race serialized |
 | E06/E07 | lane: lib green, fix complete | 15 store tests red → re-based; both falsifiers 0/2 at base; lib 13370/0; clippy 0; convert/pin suite re-based after #444's coverage job |
+| #449 (PR #450) | first fix: 3/3 green | review refuted it; rework: 6/6 falsifier cases, each hunk neutered → its cases RED (generation 2,3; pruning 4; sidecar 4,5; undo prune 4,6); lib 13380/0; six undo suites green; clippy 0 |
 
 ## Jidoka log (docs/audits/jidoka.jsonl)
 1–4. (previous run) GIT_DIR escape; agy publish incident; paiml/.github credentials; pmat #1162.
@@ -64,6 +66,7 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - E10 part (a) (delete the 61 unimplemented flags), E08, E11, E12, E15: triaged with cited reasons on the tickets, not implemented.
 - pv_lane=NotRun (contracts_dir=contracts; contracts/apply-summary-distinguishability-v1.yaml and flag-has-effect-v1.yaml touched by #368's branch; proofs.yml green on that PR).
 - Dry-run derivation simulation (E07) still emits a simulated hash — recorded in #444's receipt; #410 stays open for the delegation.
+- #449 → PR #450 (`autopilot2.sh` merges it on all-green). Known limits carried: `snapshot_generations: 1` evicts the only undo target after a destroy; `destroy` has no `--dry-run`; undo's new destroy step is not resumable through `undo --resume`.
 
 ## Decisions marked [A] (taken without escalation, per the program's rule)
 - (previous run) E14 withdrawal; hooks-off replays; #423 takeover; crates kept on crates.io; LogHeader.
@@ -75,6 +78,8 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - Vendored crates exempted from the max-lines ratchet (byte-faithful payload).
 - E06: option (b) — stop scoring a store nothing enforces; the ten-step plan kept with two NOT EXECUTABLE steps.
 - Triage of E08/E10/E11/E12/E15 and #360/#362 as deferred-with-reason rather than implemented in this budget.
+- #449: `undo` now destroys the resources the target generation lacks (the behaviour its own diff announced) rather than refusing when such resources exist; the refusal would have left the destroy→undo contract unmeetable in the apply→destroy→apply→undo direction. The gc-eviction and dry-run findings of the review are carried as known limits.
+- #446 (host facts / exec / doctor, filed by a teammate) triaged as accepted-and-sequenced with E11 (#414), not implemented in this pass.
 
 ## Verdict
-PARTIAL(andon) — 10 PRs merged across both runs (#418–#421, #424–#427, #436, #438), 7 open with receipts through the pre-push quorum gate (#437, #439–#444), drift-observables scripted, S4–S6 not started. The unattended tail (`autopilot.sh`, `merge-rest.sh`, `drift-auto.sh`) continues the merges without a session; everything it merges has every check green on its head.
+PARTIAL(andon) — 12 PRs merged across both runs (#418–#421, #424–#427, #436, #438, #442, #444), 7 open with receipts through the pre-push quorum gate (#437, #439–#441, #443, #448, #450), drift-observables scripted, the integration-branch pre-dogfood GO except #449 (fixed in #450), S4 official run, S5 and S6 not started. The unattended tail (`autopilot.sh`, `merge-rest.sh`, `drift-auto.sh`) continues the merges without a session; everything it merges has every check green on its head.
