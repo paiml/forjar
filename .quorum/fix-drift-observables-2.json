@@ -62,9 +62,9 @@
         "roles": [
           "claims"
         ],
-        "bytes": 5657,
-        "sha256": "bd186c78bcc48dba8aee4ee79237a6b1dc5f2ae8ffc890218767ece2ca0e1393",
-        "blob": "8a37ccf97c7dbecdb0eb6be1f36e386a3b4dcfb6"
+        "bytes": 5659,
+        "sha256": "bd4818beb004637269a6832bc3e5dfa0596e89b2ef377a1daf1da3917b571b71",
+        "blob": "b8a65eff8c7f681293c8d76f0fc781f789304b0d"
       },
       {
         "path": ".quorum/evidence/360-lanes.md",
@@ -110,13 +110,13 @@
       "ignore_drift: [\"content\"] stays a hard error until the file generator carries an explicit existence marker.",
       "The mask vocabulary is per resource type and starts narrow (file: mode/owner/group; service: active/enabled); unknown fields are validation errors."
     ],
-    "total_bytes": 14703
+    "total_bytes": 14705
   },
   "gates": {
     "lib_tests": "13397 passed, 1 failed",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "005347b0eb684565384fe46c61181e648c070a0f",
-  "diff_sha256": "ffd462d6868e1ab79de50b820420a0f18ff17a6d",
+  "diff_sha256": "1bf4e5107b07e9fe00eecfec01eb1915e0229963",
   "base_commit_rebased": "Rebuilt from the holding commit's own diff on main@005347b0 (after #439); the rebuild's lib suite had one red — core::parser::tests_regressions::narrowed_ignore_drift_is_a_validation_error, a #335 regression from #361 that asserts the doctrine #360 retires for file resources — re-based into narrowed_ignore_drift_on_a_file_is_honoured and narrowed_ignore_drift_without_a_field_vocabulary_is_a_validation_error (package keeps the verbatim #335 refusal). Full lib 13399/0, both falsifiers, clippy 0 re-run before the push."
 }
