@@ -22,7 +22,8 @@ fn test_fj1329_perfect_score() {
     let score = compute_score(&inputs);
     assert!((score.composite - 100.0).abs() < 0.01);
     assert!((score.purity_score - 100.0).abs() < 0.01);
-    assert!((score.store_score - 100.0).abs() < 0.01);
+    // Refs #409: the store term is declared, not enforced — never scored.
+    assert!((score.store_score - 0.0).abs() < 0.01);
     assert!((score.lock_score - 100.0).abs() < 0.01);
 }
 
@@ -55,11 +56,11 @@ fn test_fj1329_mixed_resources() {
         },
     ];
     let score = compute_score(&inputs);
-    // purity: (75+0)/2 = 37.5, store: 50%, lock: 50%
-    // composite: 37.5*0.5 + 50*0.3 + 50*0.2 = 18.75 + 15 + 10 = 43.75
-    assert!((score.composite - 43.75).abs() < 0.01);
+    // purity: (75+0)/2 = 37.5, lock: 50%; store is not scored (#409)
+    // composite: 37.5*0.8 + 50*0.2 = 30 + 10 = 40.0
+    assert!((score.composite - 40.0).abs() < 0.01);
     assert!((score.purity_score - 37.5).abs() < 0.01);
-    assert!((score.store_score - 50.0).abs() < 0.01);
+    assert!((score.store_score - 0.0).abs() < 0.01);
     assert!((score.lock_score - 50.0).abs() < 0.01);
 }
 
@@ -132,9 +133,9 @@ fn test_fj1329_all_pinned_with_store_and_lock() {
         has_lock_pin: true,
     }];
     let score = compute_score(&inputs);
-    // purity: 75, store: 100, lock: 100
-    // composite: 75*0.5 + 100*0.3 + 100*0.2 = 37.5 + 30 + 20 = 87.5
-    assert!((score.composite - 87.5).abs() < 0.01);
+    // purity: 75, lock: 100; store is declared, not scored (#409)
+    // composite: 75*0.8 + 100*0.2 = 60 + 20 = 80.0
+    assert!((score.composite - 80.0).abs() < 0.01);
     assert_eq!(grade(score.composite), "B");
 }
 
@@ -147,9 +148,9 @@ fn test_fj1329_constrained_scores() {
         has_lock_pin: false,
     }];
     let score = compute_score(&inputs);
-    // purity: 25, store: 0, lock: 0
-    // composite: 25*0.5 = 12.5
-    assert!((score.composite - 12.5).abs() < 0.01);
+    // purity: 25, lock: 0; store is not scored (#409)
+    // composite: 25*0.8 = 20.0
+    assert!((score.composite - 20.0).abs() < 0.01);
 }
 
 #[test]

@@ -6,6 +6,7 @@
 //! HandlerRegistry for O(1) dispatch and pforge McpServer for protocol
 //! handling.
 
+pub mod adapter;
 pub mod handlers;
 pub mod handlers_drift;
 pub mod handlers_ops;

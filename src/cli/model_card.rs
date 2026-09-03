@@ -89,7 +89,7 @@ fn print_model_cards_json(models: &[ModelInfo], name: &str, state_dir: &Path) {
             let tags: Vec<String> = m.tags.iter().map(|t| format!("\"{t}\"")).collect();
             let deps: Vec<String> = m.deps.iter().map(|d| format!("\"{d}\"")).collect();
             format!(
-                r#"{{"id":"{}","type":"{}","machine":"{}","tags":[{}],"group":{},"dependencies":[{}],"store":{},"outputs":{}}}"#,
+                r#"{{"id":"{}","type":"{}","machine":"{}","tags":[{}],"group":{},"dependencies":[{}],"store":{},"store_enforced":false,"outputs":{}}}"#,
                 m.id,
                 m.resource_type,
                 m.machine,
@@ -135,7 +135,7 @@ fn print_model_cards_text(models: &[ModelInfo], name: &str, state_dir: &Path) {
             println!("    Deps:    {}", model.deps.join(", "));
         }
         if model.has_store {
-            println!("    Store:   {}", green("yes"));
+            println!("    Store:   {} (declared, not enforced)", green("yes"));
         }
         if model.has_output {
             println!("    Outputs: {}", green("yes"));

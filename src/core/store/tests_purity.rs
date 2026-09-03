@@ -4,6 +4,10 @@ use super::purity::{classify, level_label, recipe_purity, PurityLevel, PuritySig
 
 #[test]
 fn test_fj1305_pure_resource() {
+    // Refs #409 (CRUX E06): `store:` and `sandbox:` are DECLARED, not enforced —
+    // nothing on the apply path honours them — so declaring both no longer
+    // promotes a pinned resource to Pure. Pure is unreachable until the store
+    // and the sandbox actually execute (#410).
     let signals = PuritySignals {
         has_version: true,
         has_store: true,
@@ -12,8 +16,12 @@ fn test_fj1305_pure_resource() {
         dep_levels: vec![],
     };
     let result = classify("nginx", &signals);
-    assert_eq!(result.level, PurityLevel::Pure);
+    assert_eq!(result.level, PurityLevel::Pinned);
     assert_eq!(result.name, "nginx");
+    assert!(result
+        .reasons
+        .iter()
+        .any(|r| r.contains("declared but not enforced")));
 }
 
 #[test]
@@ -27,7 +35,11 @@ fn test_fj1305_pinned_no_sandbox() {
     };
     let result = classify("nginx", &signals);
     assert_eq!(result.level, PurityLevel::Pinned);
-    assert!(result.reasons.iter().any(|r| r.contains("no sandbox")));
+    // Refs #409: a declared store is reported as declared, not as a missing sandbox.
+    assert!(result
+        .reasons
+        .iter()
+        .any(|r| r.contains("declared but not enforced")));
 }
 
 #[test]
@@ -41,10 +53,8 @@ fn test_fj1305_pinned_no_store() {
     };
     let result = classify("nginx", &signals);
     assert_eq!(result.level, PurityLevel::Pinned);
-    assert!(result
-        .reasons
-        .iter()
-        .any(|r| r.contains("store not enabled")));
+    // Refs #409: no store, no sandbox, nothing declared — plain "version pinned".
+    assert!(result.reasons.iter().any(|r| r.contains("version pinned")));
 }
 
 #[test]

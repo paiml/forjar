@@ -90,6 +90,7 @@ fn meta_no_provenance(hash: &str) -> StoreMeta {
 // ============================================================================
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn purity_pure_all_signals() {
     let signals = PuritySignals {
         has_version: true,
@@ -99,7 +100,7 @@ fn purity_pure_all_signals() {
         dep_levels: vec![],
     };
     let result = classify("pkg", &signals);
-    assert_eq!(result.level, PurityLevel::Pure);
+    assert_eq!(result.level, PurityLevel::Pinned);
     assert_eq!(result.name, "pkg");
 }
 
@@ -244,6 +245,7 @@ fn repro_empty_inputs_perfect_score() {
 }
 
 #[test]
+// Refs #409 (CRUX E06): store/sandbox are declared, not enforced — Pinned, not Pure.
 fn repro_all_pure_with_store_and_lock() {
     let inputs = vec![ReproInput {
         name: "pkg".into(),
@@ -254,7 +256,7 @@ fn repro_all_pure_with_store_and_lock() {
     let score = compute_score(&inputs);
     assert_eq!(score.composite, 100.0);
     assert_eq!(score.purity_score, 100.0);
-    assert_eq!(score.store_score, 100.0);
+    assert_eq!(score.store_score, 0.0); // store is not scored (#409)
     assert_eq!(score.lock_score, 100.0);
 }
 

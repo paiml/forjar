@@ -164,13 +164,13 @@ pub fn plan_derivation(
 
     steps.push(DerivationStep {
         step: 6,
-        description: "Execute bashrs-purified build script".to_string(),
+        description: "Execute bashrs-purified build script — refused by name until sandbox execution exists (#410)".to_string(),
         skipped: false,
     });
 
     steps.push(DerivationStep {
         step: 7,
-        description: "Compute BLAKE3 hash of $out directory".to_string(),
+        description: "Compute BLAKE3 hash of $out directory — NOT EXECUTABLE: forjar-hash-dir does not exist (#410)".to_string(),
         skipped: false,
     });
 
