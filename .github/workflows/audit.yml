@@ -28,6 +28,23 @@ jobs:
         # Build --ignore flags from .cargo/audit.toml so exemption list
         # stays in sync with deny.toml without duplicating the list in
         # this workflow. Mirrors the aprender sovereign-ci.yml pattern.
+        #
+        # `--deny yanked` (forjar#364). A yanked pin was reaching THIS job and
+        # being reported and forgiven on every daily run for months:
+        #
+        #   Crate: spin / Version: 0.9.8 / Warning: yanked
+        #   spin 0.9.8 └── wasmi 0.40.0 └── forjar
+        #   warning: 2 allowed warnings found        <- exit 0
+        #
+        # `cargo deny check` above could not see it at all: it resolves a
+        # FEATURE graph and deny.toml's `all-features = false` keeps the
+        # optional `wasmi` out of it. cargo-audit reads Cargo.lock directly,
+        # so it saw the crate — a yank is just a warning CLASS, so the lane
+        # stayed green. This makes that class fail. Yanked only: `unsound`
+        # and `unmaintained` stay warnings and will not red the lane.
+        #
+        # deny.toml is NOT the lever here — its line 2 says it is deployed
+        # from paiml/infra and must not be edited in this repo.
         run: |
           cargo install --locked cargo-audit
           IGNORE_FLAGS=""
@@ -37,4 +54,4 @@ jobs:
             done
             echo "Audit ignores: $IGNORE_FLAGS"
           fi
-          cargo audit $IGNORE_FLAGS
+          cargo audit $IGNORE_FLAGS --deny yanked
