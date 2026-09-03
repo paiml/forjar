@@ -1,0 +1,121 @@
+{
+  "issue": "#360 / #362 — lifecycle.ignore_drift suppressed the whole observation instead of the named field (the lock held one digest); cron drift detection could not see the job (two grep -v's dropped only the comment lines and a substring match orphaned sibling jobs)",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "Make ResourceLock.observed a per-field map (the issue's proposal) — REFUTED: a schema bump, a migration and every generator; the field-shaped stdout already carries the fields, so the mask honours the list with the observation still a digest.",
+      "The branch drops the ResourceType::File exclusion so files are reported twice (agy lane's unique finding) — COUNTERED: the diff removes one line in drift/mod.rs (the unmasked digest) and the exclusion at :75 is untouched; the lane read main's own comment about an earlier change as this branch's.",
+      "String masking and awk are below the industry default (agy lane's verdict) — REFUTED in part: forjar observes a shell transcript by design; the token mask and the exact-line block are the honest forms on that substrate and match Terraform/Puppet's ignore semantics in effect; the structured crontab replacement is #445."
+    ],
+    "divergence": "the agy lane refuted twelve of its own attacks with file:line evidence, confirmed the hand-edited-block case (deliberate, pre-existing, filed as #445) and raised one finding the diff does not support (countered by the diff itself)"
+  },
+  "crux": {
+    "systems": [
+      "Terraform — lifecycle.ignore_changes scopes a structured attribute; a stale plan is refused, not guessed",
+      "Puppet — the audit metaparameter tracks per-attribute state; the cron type parses and rewrites the named block",
+      "Ansible — the cron module parses the crontab and replaces the job under its #Ansible: <name> comment"
+    ],
+    "verdict": "at the default for ignore semantics (one field, every writer, stale baselines censused) on a transcript substrate; below it for crontab replacement, where the parser-based route is #445"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "twelve attacks refuted (mask prefix/=/non-key output/content hard error; every writer masked; ObservationMaskChanged census; re-baseline; cron exact-line, ENVIRON markers, empty crontab; vacuity; edited expectations); one confirmed and filed (#445); one unique finding countered by the diff",
+    "unique_findings": [
+      "a hand-edited entry under a forjar marker is left in place and a fresh block appended — deliberate and pre-existing; refuse-by-name filed as #445",
+      "file resources double-reported — does not match the diff (exclusion untouched)"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": "see the pmat lane (analyze_vacuous_tests on the rebuilt tree)",
+    "accepted": [],
+    "quality_gate": "clippy --all-targets -D warnings 0; fmt clean; counts in gates"
+  },
+  "falsification": {
+    "test": "ignore_drift: apply a file with ignore_drift: [mode], chmod it (censused, not drift), change its content (drift on content still reported); --refresh does not re-baseline an unmasked observation; cron: a real bash execution against a fake crontab store — a schedule edit replaces the job, applying backup leaves backup-db, exists: is exact-line",
+    "test_file": "tests/falsification_ignore_drift_names_one_field.rs",
+    "cargo_test_target": "falsification_ignore_drift_names_one_field",
+    "reverted": "src/core/executor/resource_ops.rs, src/tripwire/drift/mod.rs, src/cli/apply_variants.rs and src/core/observation_mask.rs -> the merge-base's for #360; src/resources/cron.rs -> the merge-base's for #362; tests kept",
+    "observed_failure": "with the four #360 files and cron.rs at the merge-base (observation_mask removed), tests kept:  — RED: ; restored: 4 passed, 0 failed; 5 passed, 0 failed",
+    "still_green_when_reverted": "none"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/360-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 5657,
+        "sha256": "bd186c78bcc48dba8aee4ee79237a6b1dc5f2ae8ffc890218767ece2ca0e1393",
+        "blob": "8a37ccf97c7dbecdb0eb6be1f36e386a3b4dcfb6"
+      },
+      {
+        "path": ".quorum/evidence/360-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1494,
+        "sha256": "85c9100808e3bed8187a60bf06ea2e5fb65ca11ec75162a85dca5c669fa3c377",
+        "blob": "b521f9ab71d4333c1227ab839213ef9bf22398d3"
+      },
+      {
+        "path": ".quorum/evidence/360-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 914,
+        "sha256": "ef094be5095e07ddf85475c3939c96f0d01f207d88478eb5175855885836c642",
+        "blob": "6efc232b5da03cb5dac4a07c01ec8ea4562b293a"
+      },
+      {
+        "path": ".quorum/evidence/360-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 5874,
+        "sha256": "286ca2fbdb495957474381896b28d5ecf366bb795481e030c103040fcd3d5127",
+        "blob": "c5de3e551d9a92694b589f45fa45e520a37cb6b7"
+      },
+      {
+        "path": ".quorum/evidence/360-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 764,
+        "sha256": "cdac06128a43a1e3afd7c5f8acbc3f1e24045fbdfa79b81d2ea052f99b15116f",
+        "blob": "87ad2d004135d2e53760aabcb4e9732a1066e68e"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/360-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "A hand-edited entry under a forjar marker is left in place and a fresh block appended (#445).",
+      "ignore_drift: [\"content\"] stays a hard error until the file generator carries an explicit existence marker.",
+      "The mask vocabulary is per resource type and starts narrow (file: mode/owner/group; service: active/enabled); unknown fields are validation errors."
+    ],
+    "total_bytes": 14703
+  },
+  "gates": {
+    "lib_tests": "13397 passed, 1 failed",
+    "clippy": "--all-targets -D warnings, 0 errors"
+  },
+  "base_commit": "005347b0eb684565384fe46c61181e648c070a0f",
+  "diff_sha256": "d2830c773b7073195de724153343eaf5ee788867"
+}
