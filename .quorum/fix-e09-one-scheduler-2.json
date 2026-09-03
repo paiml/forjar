@@ -115,6 +115,6 @@
     "lib_tests": "13370 passed, 0 failed, 4 ignored (full suite on this tree: every target green, exit 0)",
     "clippy": "--all-targets -D warnings, 0 errors"
   },
-  "base_commit": "bd913d70e43b19ac3cf0ac9d3337af2952d81770",
+  "base_commit": "5d80ed7d6cacfdcca76fc915f48ccd009658ebbc",
   "diff_sha256": "68f1131e861c099b3d1ec413a066a18b79ad3cbd"
 }
