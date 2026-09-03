@@ -61,7 +61,7 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 
 ## Gaps (NotRun lanes and the artefact that closes each)
 - Merges: #436 and #438 merged; #442 (hygiene) re-pushed with main merged, CI running; #439 #440 #441 #443 #444 need one re-merge of main each after #442 lands (baseline.json churn, #401) — `merge-rest.sh` does it; #437 after #441 (`fixup-p368.sh` passes the machine filter). `autopilot.sh` merges each PR only when every check on its head is green (incl. `gate`, `ci / gate`, `quorum receipt`) and triggers the chain; logs in the scratchpad.
-- drift-observables (#360/#362): `drift-auto.sh` after #439 — rebuild from the holding commit's diff, falsifiers, RED, receipt, push, PR.
+- drift-observables (#360/#362): rebuilt on main@005347b0 after #439 → PR #451 (falsifiers 4/4 + 5/5 green, 0/9 at base; lib 13399/0; the #335 regression re-based, see jidoka). `autopilot2.sh` merges it on all-green.
 - S4 dogfood on main (repo `dogfood` skill, GO/WARN/FAIL), S5 release 1.25.0 (bump Cargo.toml+Cargo.lock together, CHANGELOG, PR, clean-room CI green, tag `v1.25.0`, `cargo publish --workspace` from this host — never --allow-dirty), S6 `crate-release-dogfood` on the published tarball.
 - E10 part (a) (delete the 61 unimplemented flags), E08, E11, E12, E15: triaged with cited reasons on the tickets, not implemented.
 - pv_lane=NotRun (contracts_dir=contracts; contracts/apply-summary-distinguishability-v1.yaml and flag-has-effect-v1.yaml touched by #368's branch; proofs.yml green on that PR).
