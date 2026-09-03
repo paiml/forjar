@@ -23,9 +23,9 @@ mod tests {
             dir.path(),
             "  web:\n    hostname: localhost\n    addr: 127.0.0.1\n    transport: local",
         );
-        let r = check_operator_auth(&file, Some("anyone"));
+        let r = check_operator_auth(&file, Some("anyone"), None);
         assert!(r.is_ok(), "Expected ok, got: {r:?}");
-        assert!(check_operator_auth(&file, None).is_ok());
+        assert!(check_operator_auth(&file, None, None).is_ok());
     }
 
     #[test]
@@ -35,8 +35,8 @@ mod tests {
             dir.path(),
             "  web:\n    hostname: localhost\n    addr: 127.0.0.1\n    transport: local\n    allowed_operators:\n      - deploy-bot\n      - noah",
         );
-        assert!(check_operator_auth(&file, Some("deploy-bot")).is_ok());
-        assert!(check_operator_auth(&file, Some("noah")).is_ok());
+        assert!(check_operator_auth(&file, Some("deploy-bot"), None).is_ok());
+        assert!(check_operator_auth(&file, Some("noah"), None).is_ok());
     }
 
     #[test]
@@ -46,7 +46,7 @@ mod tests {
             dir.path(),
             "  web:\n    hostname: localhost\n    addr: 127.0.0.1\n    transport: local\n    allowed_operators:\n      - deploy-bot",
         );
-        let result = check_operator_auth(&file, Some("attacker"));
+        let result = check_operator_auth(&file, Some("attacker"), None);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("attacker"), "error should mention operator: {err}");
@@ -65,9 +65,9 @@ mod tests {
         std::fs::write(&file, yaml).unwrap();
 
         // ci-bot is allowed on prod (explicit) and web (no restrictions)
-        assert!(check_operator_auth(&file, Some("ci-bot")).is_ok());
+        assert!(check_operator_auth(&file, Some("ci-bot"), None).is_ok());
         // random-user is allowed on web but denied on prod
-        let result = check_operator_auth(&file, Some("random-user"));
+        let result = check_operator_auth(&file, Some("random-user"), None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("prod"));
     }
@@ -77,6 +77,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("forjar.yaml");
         std::fs::write(&file, "invalid yaml content: [[[").unwrap();
-        assert!(check_operator_auth(&file, Some("anyone")).is_err());
+        assert!(check_operator_auth(&file, Some("anyone"), None).is_err());
     }
 }

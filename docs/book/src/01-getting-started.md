@@ -2633,6 +2633,11 @@ Apply to a single machine first as a canary before the rest of the fleet:
 forjar apply -f forjar.yaml --canary-machine gpu-box
 ```
 
+Each leg asks before it converges — the canary, then the rest of the fleet — which
+is FJ-510's "confirm before fleet". Pass `--yes` to skip both prompts in CI.
+`--canary-machine` is an apply, so `allowed_operators` gates it exactly like a
+plain `forjar apply` (forjar#374).
+
 ### Complexity Check
 
 Warn on resources with high dependency fan-out or fan-in:

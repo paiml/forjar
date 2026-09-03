@@ -145,7 +145,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cfg = write_one_machine_cfg(dir.path());
         let sd = state_dir(dir.path());
-        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], None));
+        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], None, true));
         assert!(r.is_ok(), "single-machine canary apply: {r:?}");
     }
 
@@ -154,7 +154,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cfg = write_two_machine_cfg(dir.path());
         let sd = state_dir(dir.path());
-        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], Some(60)));
+        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], Some(60), true));
         assert!(r.is_ok(), "canary + fleet apply: {r:?}");
         assert!(dir.path().join("a.txt").exists());
         assert!(dir.path().join("b.txt").exists());
@@ -165,7 +165,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cfg = write_failing_canary_cfg(dir.path());
         let sd = state_dir(dir.path());
-        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], None));
+        let r = on_big_stack(move || cmd_apply_canary_machine(&cfg, &sd, "m1", &[], None, true));
         assert!(r.is_err(), "failed canary apply must return Err");
     }
 }

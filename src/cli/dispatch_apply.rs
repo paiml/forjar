@@ -118,11 +118,29 @@ pub(super) fn check_cost_limit(
     Ok(())
 }
 
-/// FJ-2300: Check operator authorization against all machines in config.
-pub(super) fn check_operator_auth(file: &Path, operator: Option<&str>) -> Result<(), String> {
+/// FJ-2300: Check operator authorization against the machines this invocation
+/// touches — the one `--machine` names, or every machine in the config.
+///
+/// forjar#374 (quorum review): the check used to iterate EVERY machine whatever
+/// `-m` said, so an operator listed on `sandbox` alone was refused
+/// `apply -m sandbox` for lacking `prod`. A machine filter that names nothing in
+/// the config falls through to the full iteration: fail-safe, never fail-open.
+pub(super) fn check_operator_auth(
+    file: &Path,
+    operator: Option<&str>,
+    machine: Option<&str>,
+) -> Result<(), String> {
     let config = super::helpers::parse_and_validate(file)?;
     let identity = types::OperatorIdentity::resolve(operator);
-    for (name, m) in &config.machines {
+    let in_scope = |name: &str| machine.is_none_or(|m| m == name);
+    let scoped = config.machines.iter().filter(|(name, _)| in_scope(name));
+    let all = config.machines.iter();
+    let machines: Vec<_> = if config.machines.keys().any(|k| in_scope(k)) {
+        scoped.collect()
+    } else {
+        all.collect()
+    };
+    for (name, m) in machines {
         if !m.is_operator_allowed(&identity.name) {
             return Err(format!(
                 "operator '{}' not authorized for machine '{name}'",

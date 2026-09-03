@@ -251,7 +251,7 @@ resources:
         let c = write_cfg(d.path(), local_cfg());
         let s = d.path().join("state");
         std::fs::create_dir_all(&s).unwrap();
-        let r = cmd_apply_canary_machine(&c, &s, "ghost", &[], None);
+        let r = cmd_apply_canary_machine(&c, &s, "ghost", &[], None, true);
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("not found"));
     }
@@ -259,7 +259,7 @@ resources:
     #[test]
     fn canary_machine_invalid() {
         assert!(
-            cmd_apply_canary_machine(Path::new("/no.yaml"), Path::new("/s"), "x", &[], None)
+            cmd_apply_canary_machine(Path::new("/no.yaml"), Path::new("/s"), "x", &[], None, true)
                 .is_err()
         );
     }

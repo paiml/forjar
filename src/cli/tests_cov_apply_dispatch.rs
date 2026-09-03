@@ -132,7 +132,7 @@ mod tests {
         )
         .unwrap();
         // No operator restrictions — should succeed
-        let result = check_operator_auth(&file, None);
+        let result = check_operator_auth(&file, None, None);
         assert!(result.is_ok());
     }
 
