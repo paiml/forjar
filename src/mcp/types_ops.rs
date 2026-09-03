@@ -116,32 +116,27 @@ pub struct WorkspaceOutput {
     /// The directory the workspace selection designates: `state_base` joined
     /// with `active`, or `state_base` itself when nothing is selected.
     ///
-    /// It is reported because NOTHING ON THIS SURFACE RESOLVES IT. The CLI
-    /// commands that take `--workspace` (`apply`, `plan`, `drift`, `lock`)
-    /// join the active workspace onto their state dir in
-    /// `cli::workspace::resolve_state_dir`; the verbs go through
-    /// `mcp::paths::resolve_state_dir*`, which never does. A caller that wants
-    /// the view those CLI commands have under this selection must pass this
-    /// path back as the next verb's `state_dir`.
-    ///
-    /// MEASURED against this binary, one project, `.forjar/workspace = prod`
-    /// and the lock under `state/prod/`:
+    /// Since paiml/forjar#367 this is also the directory the OTHER verbs read
+    /// when they are given no explicit `state_dir` — `mcp::paths::resolve_state_dir`
+    /// joins the same marker file the CLI's `--workspace` resolution does, so
+    /// the two surfaces no longer answer differently about one project. Before
+    /// that fix they did, silently:
     ///
     /// ```text
-    ///   $ forjar plan -f forjar.yaml
-    ///   state: <root>/state/prod
-    ///   Plan: 0 to add, 0 to change, 0 to destroy, 1 unchanged.
-    ///
+    ///   $ forjar plan -f forjar.yaml                            1 unchanged
     ///   $ forjar verb call plan --json '{"path":"<root>/forjar.yaml"}'
-    ///   { "to_create": 1, "unchanged": 0, ... }
+    ///     { "to_create": 1, "unchanged": 0 }     # CREATE for a converged file
     /// ```
     ///
-    /// and `verb call audit` on the same config reports `event_count: 0` over
-    /// a four-event trail in `state/prod/local/events.jsonl`. That divergence
-    /// is pre-existing and is filed as paiml/forjar#367; this field is not the
-    /// fix, it is the fact stated where a caller reading the report will see
-    /// it. (`forjar audit` takes no `--workspace` and does not join it either,
-    /// so it prints "No audit events found." on the same project.)
+    /// The field is still worth reporting, for two reasons that survive the
+    /// fix. An agent that has to NAME the directory the CLI is working in has
+    /// no other way to ask. And a caller that wants to pin the read — to a
+    /// workspace that is not the selected one, or against a selection that
+    /// might change under it — passes this path back as the next verb's
+    /// `state_dir`, which is honoured verbatim and never joined onto again.
+    ///
+    /// `state_base` is deliberately NOT this path: it is the directory
+    /// workspaces live under, which is what `workspaces` above enumerates.
     pub workspace_state_dir: String,
 }
 

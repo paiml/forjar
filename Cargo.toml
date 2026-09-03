@@ -90,7 +90,15 @@ forjar-contracts-macros = { path = "crates/forjar-contracts-macros", version = "
 base64 = "0.22.1"
 bashrs = "6.68.0"
 pforge-runtime = { version = "0.1.4", optional = true }
-pforge-config = { version = "0.1.4", optional = true }
+# pmcp is the MCP protocol crate pforge-runtime itself speaks (it declares
+# `pmcp = "1.8", default-features = false`; the lock resolves 1.20.0), so this
+# adds no crate to the tree. forjar names it directly because pforge's own
+# tool adapter builds `ToolInfo::new(..)`, which hard-sets `annotations: None`
+# and `output_schema: None` — so `forjar mcp --schema` published
+# `readOnlyHint` while a connected agent received nothing (paiml/forjar#375).
+# forjar therefore owns the pmcp server construction and leaves DISPATCH with
+# pforge's `HandlerRegistry`, which carries no pmcp type across the boundary.
+pmcp = { version = "1.20", default-features = false, optional = true }
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"], optional = true }
 async-trait = { version = "0.1", optional = true }
 schemars = { version = "0.8", features = ["derive"], optional = true }
@@ -186,7 +194,7 @@ cli = [
   "dep:clap",
   "dep:clap_complete",
   "dep:pforge-runtime",
-  "dep:pforge-config",
+  "dep:pmcp",
   "dep:tokio",
   "dep:async-trait",
   "dep:schemars",
