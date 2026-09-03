@@ -1,0 +1,10 @@
+{
+  "issue": "release v1.25.0 — the README's dependency snippet pinned forjar \"1.20\"; the crate-release probe (P6) refused to publish 1.25.0 over it",
+  "base_commit": "c525ada74f3358478d42246f20a0f53a89471149",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Docs-only change [A]: one version string in README.md. No Rust hunk to falsify; the measurement is the crate-release probe P6 (README claims), which failed on the tagged tree with this pin and passes with it corrected."
+  },
+  "diff_sha256": "078b80907c3ec840db9ed39bda8e90a96bbac13d"
+}
