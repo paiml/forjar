@@ -117,6 +117,6 @@
     "clippy": "--all-targets -D warnings, 0 errors"
   },
   "base_commit": "005347b0eb684565384fe46c61181e648c070a0f",
-  "diff_sha256": "83a0f3c0242b323070852d5dcf6972a3ec01baf8",
+  "diff_sha256": "7da88089eee4a5ef4f82e84096ec7adcf40976a5",
   "base_commit_rebased": "Rebuilt from the holding commit's own diff on main@005347b0 (after #439); the rebuild's lib suite had one red — core::parser::tests_regressions::narrowed_ignore_drift_is_a_validation_error, a #335 regression from #361 that asserts the doctrine #360 retires for file resources — re-based into narrowed_ignore_drift_on_a_file_is_honoured and narrowed_ignore_drift_without_a_field_vocabulary_is_a_validation_error (package keeps the verbatim #335 refusal). Full lib 13399/0, both falsifiers, clippy 0 re-run before the push."
 }
