@@ -1,0 +1,127 @@
+{
+  "issue": "#449 — destroy recorded no generation, so undo could not rewind past a destroy; found by the S4 pre-dogfood of the integration branch",
+  "base_commit": "5d80ed7d6cacfdcca76fc915f48ccd009658ebbc",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "Record the generation BEFORE destroy touches the lock — REFUTED: inverts apply's convention (a generation records what a run PRODUCED) and rewinds to a generation identical to current.",
+      "Recording the destroy's generation under the unchanged config is enough — REFUTED by the agy lane: that generation pairs an empty lock with a config that still declares everything, and apply → destroy → apply → undo re-creates what the destroy removed. Taken: the recorded config is pruned to what survived.",
+      "The first falsifier proved the roundtrip — REFUTED: it only rewound to generation 0. Cases 4–6 now replay the destroy's own generation and the plain a → a,b → undo shape."
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Terraform — backs the state up and bumps the serial on EVERY state-changing command, destroy included; no config-replay undo",
+      "Nix — a profile generation for every switch; the closure and the profile always agree, so rollback is bidirectional",
+      "Puppet — no undo, only --noop; reversal is a git revert plus a run"
+    ],
+    "verdict": "recording the destroy's generation with the config that produced it puts forjar at the Nix default (config and state agree); undo destroying what the target lacks is what makes the rollback bidirectional rather than apply-only."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "review lane (plan mode, scrubbed HOME) REJECTED the first fix: the destroy generation was poisoned (empty lock under a full config) and the falsifier never replayed it. Taken. Getting its sequence green exposed two more defects: destroy left the BLAKE3 sidecar so the next apply was refused, and undo's 'will be destroyed' line was announce-only.",
+    "unique_findings": [
+      "poisoned rollback: apply → destroy → apply → undo re-created the destroyed resources — taken: pruned config + falsifier case 4",
+      "gc eviction with snapshot_generations: 1 removes the only undo target — carried as a known limit, same as apply [A]",
+      "destroy has no dry_run — noted; the literal false is the verb's truth, not a mask [A]"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 19172,
+    "accepted": []
+  },
+  "falsification": {
+    "test": "each production hunk reverted or neutered with the tests kept; the whole file run against the merge-base",
+    "test_file": "tests/falsification_destroy_undo_roundtrip.rs",
+    "cargo_test_target": "falsification_destroy_undo_roundtrip",
+    "reverted": "src/cli/destroy.rs generation call absent (merge-base) → cases 2,3 RED; config unpruned → case 4 RED (file re-created); sidecar removal absent → case 4 and 5 RED ('lock file is missing but its BLAKE3 sidecar survives'); src/cli/undo.rs undo_prune call neutered (`if false`) → cases 4 and 6 RED, cases 1,2,3,5 green",
+    "observed_failure": "RED commit 5262a69d: 'undo failed: cannot undo 1 generation(s): generation 0 is current'; then 'apply after destroy was refused: state integrity check failed'; then 'undo announced b's destruction and left b on the host'",
+    "green": "6 passed, 0 failed on the branch"
+  },
+  "gates": {
+    "lib_tests": "13380 passed, 0 failed, 4 ignored",
+    "integration": "falsification_destroy_undo_roundtrip 6/6; undo_actually_undoes 8/8; undo_advice_is_actionable 4/4; undo_replay_fidelity 6/6; undo_state_dir_interlock 6/6; undo_webhook 35/35",
+    "clippy": "-D warnings, 0 errors",
+    "fmt": "clean"
+  },
+  "decisions_taken_autonomously": [
+    "[A] undo now destroys resources the target generation lacks (the announced behaviour) instead of refusing when such resources exist; the conservative-refusal alternative would have left the destroy-undo roundtrip contract unmeetable in the apply→destroy→apply→undo direction",
+    "[A] gc eviction under snapshot_generations: 1 and destroy's missing dry-run are carried as known limits, not fixed in this PR"
+  ],
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/449-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 7012,
+        "sha256": "e7dff5044651f312a13adabf9f85b0529cfc81204046126d113a806b6b804318",
+        "blob": "450f4271a196ce4570db19d4ddde857831dc24e3"
+      },
+      {
+        "path": ".quorum/evidence/449-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1515,
+        "sha256": "def4d4eb5bdbca1722d63761176d14c76a0d1d039ca0ee181749f3c251441484",
+        "blob": "6c65e8989fa0bd902c49bff4f61a9c01b4bf445e"
+      },
+      {
+        "path": ".quorum/evidence/449-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 515,
+        "sha256": "2eabb095b381609afd5c50c5cc9ced337882e2a0e19cf05717bd1dafa63a800d",
+        "blob": "cd83d7c7302d383fe9f5b8c4df23efd0e5f6b0ab"
+      },
+      {
+        "path": ".quorum/evidence/449-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 5778,
+        "sha256": "c7d111e16453ad26c6b716356e50f554e928654d91c701da9ecfb602c006968d",
+        "blob": "ef99da91e3eef12027d4136fc254c92f3eee4381"
+      },
+      {
+        "path": ".quorum/evidence/449-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 546,
+        "sha256": "c6e6dc3118c9eb6e56b40bc8370c81d2d6171f7f8696e9f2b55f30e5e00c9d7c",
+        "blob": "0f64a36e5b816a1d4e2d3f0a3b2e411781b21ace"
+      }
+    ],
+    "total_bytes": 15366,
+    "claims_digest": ".quorum/evidence/449-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "snapshot_generations: 1 — the destroy's generation evicts generation 0, so undo after that destroy has no target; apply behaves the same under the same policy. A policy floor is a separate ticket. [A]",
+      "destroy has no --dry-run; the false passed to maybe_record_generation is the verb's truth today.",
+      "undo's destroy step runs before the progress ledger exists (the ledger is written after the rollback wipes the machine dir), so it is not resumable through undo --resume."
+    ]
+  },
+  "diff_sha256": "9ef797c2fbbff119926fb0f4a721f62b62158e38"
+}
