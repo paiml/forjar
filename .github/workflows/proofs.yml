@@ -201,6 +201,19 @@ jobs:
   ledger-replay:
     name: ledger-replay
     runs-on: [self-hosted, clean-room]
+    # forjar#447 (second signature, measured on the host 2026-09-03): all 16
+    # clean-room runners share ONE $HOME/.cargo registry, and two sweepers
+    # delete extracted crate sources by age (the hourly ci-reaper's
+    # `find registry/src -mtime +30 -exec rm -rf`, and cargo's own auto-gc)
+    # while other runners are mid-compile — 962 crate dirs re-extracted in
+    # 30 minutes right after the 09:01 sweep, bashrs/pmcp dep-info ENOENT on
+    # runners 8 and 9 in that window. This job is the only one here that
+    # compiles the whole binary from a cold target, so it is the one that dies.
+    # A registry private to this runner takes the job off the shared surface;
+    # the host-side fix is paiml/infra's (registry sweeps must not run under
+    # live builds, or each runner gets its own CARGO_HOME like its toolchain).
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
