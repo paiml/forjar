@@ -107,6 +107,8 @@ static PARTITION: &[Leaf] = &[
     Leaf { path: &["digest"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["dist"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["doctor"], bucket: Bucket::CliOnly("prints host diagnostics for a human reading a terminal; its value IS the rendering") },
+    Leaf { path: &["exec"], bucket: Bucket::CliOnly("a one-off remote command runner for an operator at a terminal (#446): its argv, forwarded streams and propagated exit code are the whole verb; a program declares a `task` and uses `run`") },
+    Leaf { path: &["facts"], bucket: Bucket::Pending("paiml/forjar#414") },
     Leaf { path: &["dogfood"], bucket: Bucket::Pending("paiml/forjar#288") },
     Leaf { path: &["drift"], bucket: Bucket::Unified },
     Leaf { path: &["drift-predict"], bucket: Bucket::Pending("paiml/forjar#288") },

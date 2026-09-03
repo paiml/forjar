@@ -84,13 +84,16 @@ mod dist_verify_exec;
 mod dist_verify_tier2;
 mod dist_verify_tier2_stage;
 mod doctor;
+mod doctor_machine;
 mod drift;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;
 mod drift_state;
 mod environments;
+mod exec;
 mod extract;
+mod facts;
 mod fault_inject;
 mod fleet_ops;
 mod fleet_reporting;
@@ -334,6 +337,11 @@ pub use dispatch::{dispatch, dispatch_classified};
 include!("mod_test_decl.rs");
 include!("mod_test_decl_b.rs");
 include!("mod_test_decl_c.rs");
+
+/// #446: unit tests for the pure parts of `exec`, `facts` and
+/// `doctor --machine` — quoting, transcript parsing, and thresholds.
+#[cfg(test)]
+mod tests_446;
 
 /// FJ-2729: the phony filter, for the MCP layer.
 ///

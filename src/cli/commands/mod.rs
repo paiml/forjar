@@ -163,6 +163,10 @@ pub enum Commands {
     Generation(GenerationCmd),
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
+    /// #446: Run one command on one machine — no YAML required
+    Exec(ExecArgs),
+    /// #446: Report what is true about a machine (disk, inodes, PATH, tools)
+    Facts(FactsArgs),
     /// FJ-327: Re-run only previously failed resources
     RetryFailed(RetryFailedArgs),
     /// FJ-324: Rolling deployment — apply N machines at a time

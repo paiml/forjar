@@ -21,6 +21,48 @@ pub struct DoctorArgs {
     /// FJ-343: Test SSH connectivity to all machines
     #[arg(long)]
     pub network: bool,
+
+    /// #446: Diagnose this MACHINE instead of the controller (requires -f)
+    #[arg(long)]
+    pub machine: Option<String>,
+}
+
+/// CLI arguments for the `exec` command (#446).
+///
+/// `command` is `last = true`, so the operator's argv is taken verbatim after
+/// `--`: `forjar exec web-01 -- ls -la /srv`. Without the separator clap would
+/// try to parse `-la` as forjar's own flag.
+#[derive(clap::Args, Debug)]
+pub struct ExecArgs {
+    /// Machine name, as declared under `machines:` in the config
+    pub machine: String,
+
+    /// The command to run, after `--`
+    #[arg(last = true)]
+    pub command: Vec<String>,
+
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// CLI arguments for the `facts` command (#446).
+#[derive(clap::Args, Debug)]
+pub struct FactsArgs {
+    /// Machine name, as declared under `machines:` in the config
+    pub machine: String,
+
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
 }
 
 /// CLI arguments for the `completion` command.

@@ -1,0 +1,135 @@
+{
+  "issue": "#446 — host facts, one-off remote exec and remote diagnosis: forjar exec <machine> -- <cmd>, forjar facts <machine>, forjar doctor --machine <m>",
+  "base_commit": "cba05bba08287e8d10d5c894fcb0ee9c28873222",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "Model facts as a resolver-visible per-host facts cache now (Ansible setup-style) — REFUTED: that is CRUX E11 (#414), triaged for the next pass; #446 ships the transport verb and a --json facts report E11 can lift unchanged.",
+      "Let doctor --machine fix what it finds — REFUTED: a remote fixer needs sudo and mutates a host forjar was not asked to converge; the remote doctor is read-only by construction (stat, test -w, command -v, df).",
+      "A number the target reports as nonsense can default to 0 — REFUTED by the agy lane: uid 0 is root, so the coercion masked the permission problem; uid is Option<u64> rendered `uid ?`, other numbers keep their default.",
+      "Facts without network addresses and a three-entry package-tool table are at the industry default — REFUTED by the agy lane: facts now emits ipv4= lines; the provider→executable table covers eleven managers."
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Ansible — ad-hoc `-m shell` and `-m setup` facts are the first two verbs an operator learns; run-now is separate from converge",
+      "Salt — `cmd.run` and grains; Puppet — facter plus `bolt command run`",
+      "Bolt/`puppet agent --noop` — a preflight that joins host facts with what the catalog will touch"
+    ],
+    "verdict": "exec and facts put forjar at the industry default for the run-now half; doctor --machine goes past bare facts by joining them with the config (destination directories the declared resources will write, executables their providers need)."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "review lane (plan mode, scrubbed HOME) confirmed shell quoting and the transport/no-dependency/no-apply-path claims, refuted four wordings or defects — the 'verbatim stderr' wording, df -i as non-POSIX plus uid coerced to 0 (taken: Option<u64>), owner/mode always reported (wording), and the silent root skip (taken) — and found two gaps: only file destinations are checked (carried) and the package-tool table was short (taken).",
+    "unique_findings": [
+      "uid coerced to 0 on a parse failure read as root — taken: Option<u64>, rendered `uid ?`",
+      "no network facts — taken: ipv4= lines from hostname -I / ip",
+      "package-tool table stopped at apt/dnf/yum — taken: eleven managers",
+      "doctor checks destinations only for file resources — carried as a known limit",
+      "standalone permission facts not delivered — not taken, with the reason recorded (permissions need a destination)"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests",
+      "work add"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 19237,
+    "accepted": []
+  },
+  "falsification": {
+    "test": "the whole falsifier run at the RED commit (tests only) and on the branch; the facts script also run through forjar's bashrs I8 gate",
+    "test_file": "tests/falsification_446_exec_facts_doctor.rs",
+    "cargo_test_target": "falsification_446_exec_facts_doctor",
+    "reverted": "RED commit 30f33afd = base + tests: every verb absent",
+    "observed_failure": "0/8 at 30f33afd — `error: unrecognized subcommand 'exec'` / `'facts'` on every case; on the first implementation the facts cases were RED with `I8 violation — script failed bashrs validation (SC2242)` until `continue` left the df loop",
+    "green": "8/8 falsifier, 16/16 unit (src/cli/tests_446.rs), verb::partition 20/20, full lib 13394 passed / 0 failed"
+  },
+  "gates": {
+    "lib_tests": "13394 passed, 0 failed, 4 ignored",
+    "integration": "falsification_446_exec_facts_doctor 8/8",
+    "clippy": "-D warnings, 0 errors",
+    "fmt": "stable rustfmt clean"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/446-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 8392,
+        "sha256": "a95bc387a18cf8313b72d328c62d2963fe6ed302ec548bde4073a7087e9ca915",
+        "blob": "cf3fb6d3749d602e938a670e5450b76a9667c0cf"
+      },
+      {
+        "path": ".quorum/evidence/446-lanes.md",
+        "roles": [
+          "lanes",
+          "crux"
+        ],
+        "bytes": 1731,
+        "sha256": "9f8b9c2d59de5537662f61e45f928c0e50a12409e023532c6bb0096ea3629b26",
+        "blob": "ee310c05bf7799f88fff182d67f3fa12d0ab0e95"
+      },
+      {
+        "path": ".quorum/evidence/446-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 746,
+        "sha256": "57227e9e199e2ab461e3a82071b6d3d14f7454026d20e53cea742ef7bfcae598",
+        "blob": "b2c03277856550a5a141442c67acc4f25e1c4bdd"
+      },
+      {
+        "path": ".quorum/evidence/446-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 7121,
+        "sha256": "006da1e50fad893258cb1e2009740c46d3c215f7f99a73f5e962fa2a9d1005bb",
+        "blob": "acb84d707e2f2fa3c2ad14d02c623734a315821b"
+      },
+      {
+        "path": ".quorum/evidence/446-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 567,
+        "sha256": "f668944c078095cbe86f21d5430339145d76b3b3d9832eef0fb69a11aa3da829",
+        "blob": "ba0e4e898ddae6b5dd7faf156053ee032b3b26dc"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/446-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "exec does not consult policy: rules (an ad-hoc exec policy hook is queued with E10/#413)",
+      "doctor --machine reads destination directories only for file resources",
+      "facts reports the transport's login PATH, which is what apply's scripts see",
+      "under root the unwritable-destination case asserts the naming half only",
+      "a standalone permissions fact is not reported; permissions are reported per declared destination by doctor --machine",
+      "where df -i is unavailable the inode figure reads as 0"
+    ],
+    "total_bytes": 18557
+  },
+  "decisions_taken_autonomously": [
+    "[A] facts as a report now; the resolver-visible facts model stays E11 (#414)",
+    "[A] exec is CliOnly and facts is Pending(#414) in the verb partition",
+    "[A] standalone permission facts declined with the reason above"
+  ],
+  "diff_sha256": "efc2e16f4b8da382f5ef1533b9eeb34454a0844f"
+}

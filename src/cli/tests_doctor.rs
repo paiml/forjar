@@ -178,6 +178,7 @@ resources:
             json: false,
             fix: false,
             network: true,
+            machine: None,
         });
         match cmd {
             Commands::Doctor(DoctorArgs { network, .. }) => assert!(network),

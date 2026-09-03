@@ -70,6 +70,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::ConfigMerge(..)
         | Commands::Extract(..)
         | Commands::Inventory(..)
+        | Commands::Exec(..)
+        | Commands::Facts(..)
         | Commands::Output(..)
         | Commands::Policy(..)
         | Commands::PolicyCoverage(..)

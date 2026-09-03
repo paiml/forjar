@@ -644,3 +644,58 @@ That property is the point. The previous shell-script gate covered only `file`
 resources and still reported success while two new resource types shipped
 broken — a gate that can quietly stop covering things is worse than none,
 because it reports GO with authority.
+
+## Host Operations (#446)
+
+Three verbs for the moment before a converge: what is this machine, can I
+run one command on it, and will the declared resources be able to write
+where they intend to. All three go through the same transport `apply` uses
+and take `-f forjar.yaml` for the machine inventory; none needs a resource.
+
+### forjar exec
+
+```bash
+forjar exec <machine> -- <cmd...>
+forjar exec web1 -f forjar.yaml -- df -h /var
+forjar exec web1 --json -- sh -c 'echo hi; exit 3'
+```
+
+Runs the operator's argv on `<machine>`, shell-quoted word by word (a
+quote, a space or a `$` reaches the remote command unchanged), forwards
+stdout and stderr byte for byte, and exits with the remote exit code.
+`--json` prints `{machine, exit_code, stdout, stderr}`. When stderr
+contains `Permission denied`, one hint line follows it pointing at
+`forjar doctor --machine`.
+
+### forjar facts
+
+```bash
+forjar facts <machine>
+forjar facts web1 --json
+```
+
+One POSIX `sh` script (validated by bashrs like every script forjar runs)
+reports the host: hostname, OS, kernel, uptime, the connecting user with
+uid and groups, whether `sudo -n` works, the login shell, the PATH the
+transport sees, IPv4 addresses, cpu and memory, every real filesystem with
+use and inode use, and whether `bash sh curl wget git python3 systemctl
+apt-get dnf yum tar sudo` are on the PATH. A value the host cannot report
+is left unset — a uid that does not parse is `?`, never `0`.
+
+### forjar doctor --machine
+
+```bash
+forjar doctor --machine web1 -f forjar.yaml
+forjar doctor --machine web1 -f forjar.yaml --json
+```
+
+The local `forjar doctor` checks the controller; `--machine` diagnoses the
+target, read-only: reachability, the facts above, PATH sanity (a warning
+when `/usr/local/bin` or `/usr/sbin` is missing — the recurring cause of
+"command not found" over SSH), disk pressure (warn under 10% or 1 GiB
+free, fail under 2%), inode pressure (warn under 5% free), every `file`
+resource's destination directory (exists, `owner:group`, mode, writable by
+the connecting identity, sudo), and the executables the machine's
+resources need (the package provider's manager, `systemctl` for services,
+`curl`/`wget` for downloads, `git` for git sources). The exit code is
+non-zero only when a check fails.
