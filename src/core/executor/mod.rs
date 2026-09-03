@@ -230,12 +230,34 @@ fn selective_force_locks(
     result
 }
 
-/// FJ-129: Count resources that the lock reports as unchanged at apply
-/// time, *before* `--force` clears the lock to nuke-and-pave them. The
-/// caller invokes this only when `cfg.force` is true; the count answers
-/// "how many resources did `--force` re-run that the lock said were
-/// already converged?" which is the missing piece in the apply summary
-/// that makes claim **C3** observable through `--force`.
+/// FJ-129: the resources the lock reports as unchanged at apply time, *before*
+/// `--force` clears the lock to nuke-and-pave them. The caller invokes this
+/// only when `cfg.force` is true; the set answers "which resources did
+/// `--force` re-run that the lock said were already converged?" which is the
+/// missing piece in the apply summary that makes claim **C3** observable
+/// through `--force`.
+///
+/// # Refs #378: CANDIDATES, not a count
+///
+/// This returned the raw `u32`, and nothing reconciled it with the run. The
+/// shadow plan below is built by `planner::plan`, which is never shown
+/// `cfg.resource_filter` or `cfg.group_filter`; the executor applies those in
+/// `resource_ops`, routing the excluded resources to `ResourceOutcome::Skipped`,
+/// which `MachineCounters::record` maps to no counter at all, and a failure
+/// takes the other escape, `Failed`. So a run where a planned NoOp was skipped
+/// by `-r`/`-g` or failed reported more forced no-ops than it converged:
+///
+/// ```text
+///   $ forjar apply --yes --json --force -r marker   # converged 2-resource stack
+///   rc=134 (SIGABRT), stdout 0 bytes
+///   C3-FORCE-DISTINGUISHABLE violated: forced_noop (2) > converged (1)
+/// ```
+///
+/// and in release, where the assert is compiled out, `forced_noop_count: 2`
+/// against `total_converged: 1` plus a note claiming two re-runs for one.
+/// `machine_filter` is NOT a trigger: `load_machine_locks` drops the excluded
+/// machine's lock, so its resources plan as Create rather than NoOp. Returning
+/// the pairs lets the caller intersect them with what the run converged.
 ///
 /// This is the runtime side of contract
 /// `apply-summary-distinguishability-v1`: the apply summary MUST be
@@ -266,15 +288,15 @@ fn selective_force_locks(
 /// A resource is a genuine forced no-op only if the lock says NoOp **and** the
 /// live machine still matches the lock. The live half costs a drift probe, so
 /// this runs only under `--force`, and only for a real apply.
-pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
+pub fn forced_noop_candidates(cfg: &ApplyConfig) -> Vec<(String, String)> {
     let execution_order = match resolver::build_execution_order(cfg.config) {
         Ok(o) => o,
-        Err(_) => return 0,
+        Err(_) => return Vec::new(),
     };
     let all_machines = collect_machines(cfg.config);
     let real_locks = match load_machine_locks(cfg, &all_machines) {
         Ok(l) => l,
-        Err(_) => return 0,
+        Err(_) => return Vec::new(),
     };
     let shadow_plan = planner::plan(cfg.config, &execution_order, &real_locks, cfg.tag_filter);
     // GH-208 REGRESSION FIX: this briefly subtracted live-filesystem drift
@@ -295,12 +317,25 @@ pub fn forced_noop_count(cfg: &ApplyConfig) -> u32 {
     // unchanged?" is cheap and deterministic; Q2 "how many have live drift?" is
     // what `forjar drift` answers. Conflating them was the ORIGINAL bug, and
     // subtracting drift here re-introduced it — FJ-129 shape 4 went 2 -> 1.
-    count_forced_noops(&shadow_plan.changes, &Default::default())
+    noop_pairs(&shadow_plan.changes, &Default::default())
+}
+
+/// The planned NoOps the machine still agrees with, as `(machine, resource_id)`.
+fn noop_pairs(
+    changes: &[crate::core::types::PlannedChange],
+    drifted: &std::collections::HashSet<String>,
+) -> Vec<(String, String)> {
+    changes
+        .iter()
+        .filter(|c| c.action == crate::core::types::PlanAction::NoOp)
+        .filter(|c| !drifted.contains(&c.resource_id))
+        .map(|c| (c.machine.clone(), c.resource_id.clone()))
+        .collect()
 }
 
 /// A planned NoOp is a genuine forced no-op only if the machine still agrees.
 ///
-/// Split out from [`forced_noop_count`] so the discrimination that contract
+/// Split out from [`forced_noop_candidates`] so the discrimination that contract
 /// `apply-summary-distinguishability-v1` requires can be tested without a
 /// machine: the shipped code was `shadow_plan.unchanged`, which counts a
 /// drifted resource as a no-op.
@@ -308,11 +343,7 @@ pub fn count_forced_noops(
     changes: &[crate::core::types::PlannedChange],
     drifted: &std::collections::HashSet<String>,
 ) -> u32 {
-    changes
-        .iter()
-        .filter(|c| c.action == crate::core::types::PlanAction::NoOp)
-        .filter(|c| !drifted.contains(&c.resource_id))
-        .count() as u32
+    noop_pairs(changes, drifted).len() as u32
 }
 
 /// Execute the apply loop.

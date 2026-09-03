@@ -63,9 +63,21 @@ pub(super) fn print_apply_summary(
     json: bool,
 ) -> Result<(), String> {
     // FJ-129 contract: forced_noop must not exceed converged. If --force
-    // wasn't used, the caller passes 0; if --force WAS used, every forced
-    // no-op is by definition counted in `total_converged` (the executor
-    // ran the resource), so forced_noop ≤ converged is an invariant.
+    // wasn't used, the caller passes 0.
+    //
+    // Refs #378: the second half of this comment used to read "if --force WAS
+    // used, every forced no-op is by definition counted in `total_converged`
+    // (the executor ran the resource)". That premise was FALSE, and it was the
+    // defect. The count came from a shadow plan the planner built without
+    // `resource_filter` or `group_filter`, so a resource the executor then
+    // SKIPPED (`-r`, `-g`) or FAILED was still counted — neither reaches
+    // `converged`, and this assert duly aborted the debug binary with
+    // `forced_noop (2) > converged (1)` and zero stdout.
+    //
+    // It holds now because the caller RECONCILES: `apply::forced_noops_that_ran`
+    // keeps only candidates the post-apply lock reports as converged, so the
+    // count is a subset of `total_converged` by construction rather than by
+    // assumption. The assert stays as the tripwire that caught it.
     debug_assert!(
         forced_noop_count <= total_converged,
         "C3-FORCE-DISTINGUISHABLE violated: forced_noop ({}) > converged ({})",

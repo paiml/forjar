@@ -163,6 +163,7 @@ mod tests {
 
     #[test]
     fn test_fj263_no_color_env_respected() {
+        let _color_guard = crate::cli::colors::COLOR_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Verify NO_COLOR flag disables all color functions
         NO_COLOR.store(true, Ordering::Relaxed);
         assert_eq!(red("x"), "x");

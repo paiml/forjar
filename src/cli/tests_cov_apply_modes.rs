@@ -186,6 +186,12 @@ mod tests {
             "pfws",
             "--plan-file",
             &s(&plan_path),
+            // Refs #368: `--plan-file` now runs the FJ-286 prompt like every
+            // other apply mode. This test converges one CREATE and asserts the
+            // roundtrip, not the prompt; without `--yes` it reads the test
+            // harness's stdin and aborts. That IS the fix — the measured defect
+            // was `apply --plan-file` destroying a file without asking.
+            "--yes",
         ]);
         assert!(r.is_ok(), "plan-file apply should succeed: {r:?}");
     }

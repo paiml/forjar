@@ -1,0 +1,120 @@
+{
+  "issue": "#363 / #368 / #378 — a saved plan could not be applied (plan --out hashed a stripped config, apply --plan-file hashed the unstripped one); apply --plan-file reached the executor with every gate unrun and never prompted before a destructive change; apply --force aborted on debug_assert when a forced resource failed; --refresh-only dropped --operator",
+  "base": "origin/main",
+  "recorded_at": "2026-09-03",
+  "quorum": {
+    "lanes": [
+      "probe",
+      "crux",
+      "design",
+      "judges",
+      "agy"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "Every gate the interactive apply runs also runs on --plan-file, or is refused by name — REFUTED by the agy lane: the live drift probe (check_pre_apply_drift) neither runs nor is refused by name on the plan-file path; the omission is deliberate and documented in apply_from_plan_gates.rs (the probe writes Drifted into the lock), the plan is bound to config_hash + state_hash instead (Terraform's apply-tfplan shape), and a host that drifted under an unchanged state file is converged over silently. Filed as #432; not claimed by this branch.",
+      "The debug_assert abort is fixed by widening the invariant — REFUTED: forced_noop <= converged is the contract (apply-summary-distinguishability-v1) and stays; the count is now taken from what RAN (forced_noops_that_ran), not from what was planned."
+    ],
+    "divergence": "the probe lane found the three symptoms reproduce on 1.24.0 and the falsifiers pin them; the agy lane found the drift-gate claim overstated and a pre-existing GH-208 decision it read as a regression — the first was accepted and filed (#432), the second was checked against the merge-base (src/core/executor/mod.rs:270 at 9e0815c0) and found to predate the branch"
+  },
+  "crux": {
+    "systems": [
+      "Terraform — plan -out binds the plan to the state's lineage/serial; apply tfplan refuses a stale plan without prompting and does not refresh; the plan is the review",
+      "Pulumi — up --plan constrains the engine to the plan and evaluates live state at execution time; prompts by default",
+      "Ansible — no saved-plan artefact; --check and --diff are dry runs over live hosts, so a stale delta is never applied from a file"
+    ],
+    "verdict": "at the Terraform default after this branch: the plan is hash-bound, every gate the interactive apply runs (except the mutating live probe) runs, and the destructive prompt runs; the live evaluation Pulumi performs is the recorded gap (#432)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "five charges: four confirmed (seal_config hashes the same shape both sides; forced_noops_that_ran reconciles against the run; cmd_refresh_only passes --operator; the falsifiers assert text and filesystem consequence), one refuted (the drift gate) — accepted and filed as #432",
+    "unique_findings": [
+      "forced_noop_candidates passes an empty drifted set to noop_pairs — checked against the merge-base: pre-existing GH-208 design (lock-based count per contract), only renamed by this branch; not a regression"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 17821,
+    "accepted": [],
+    "quality_gate": "zero vacuous tests in the three falsifiers or any file this branch touches; clippy --all-targets -D warnings 0; fmt clean"
+  },
+  "falsification": {
+    "test": "the three falsifiers run the built binary: plan --out then apply --plan-file on a config with one phony resource (must converge); apply --force with two forced candidates of which one fails (summary must say 1 and the process must not abort); plan-file apply against a tampered state sidecar and --refresh-only against a tampered lock (refused by the gate's own text, managed file absent)",
+    "test_file": "tests/falsification_plan_file_survives_a_phony_resource.rs",
+    "cargo_test_target": "falsification_plan_file_survives_a_phony_resource",
+    "reverted": "src/cli and src/core/executor/mod.rs -> the merge-base's (9e0815c0), tests kept",
+    "observed_failure": "src/cli/{apply,apply_from_plan,apply_preflight,apply_summary,apply_variants,dispatch_apply_b,mod,plan}.rs, src/cli/commands/apply_args.rs and src/core/executor/mod.rs at the merge-base, tests kept: 14 of 18 RED — forced: a_forced_resource_that_fails_is_not_a_forced_noop, forced_noop_never_exceeds_converged_under_a_resource_selector, forced_noop_never_exceeds_converged_under_a_group_selector; every-gate: plan_file_apply_runs_the_pre_apply_hook, plan_file_apply_runs_the_policy_engine, plan_file_apply_runs_the_security_gate, plan_file_apply_asks_before_destroying, plan_file_apply_honours_confirm_destructive, plan_file_apply_refuses_a_tampered_state_sidecar, refresh_only_cannot_launder_a_tampered_lock, refresh_only_honours_the_operator_flag; phony: two_configs_that_differ_only_in_a_phony_resource_do_not_seal_alike, a_saved_plan_of_a_config_with_a_phony_resource_applies, the_phony_resource_still_does_not_run; restored: 4 + 10 + 4 passed",
+    "still_green_when_reverted": "the controls, by design: a_config_with_no_phony_resource_is_the_control, a_gate_free_plan_file_apply_still_applies, refresh_only_still_works_on_honest_state, an_unfiltered_force_over_a_converged_stack_still_counts_every_resource"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/368-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The live drift probe does not run on the plan-file path (deliberate, documented, filed as #432); this branch does not claim it.",
+      "A sealed zero-change plan returns from honour_an_empty_plan before the gates run (documented KNOWN AND DELIBERATE GAP in apply_from_plan_gates.rs); nothing converges, but no gate runs either.",
+      "--refresh-only's --operator fix is covered by the cov suite and the tampered-lock falsifier, not by a dedicated operator-identity falsifier.",
+      "Carries an unrelated test fix: 25 colour tests take COLOR_TEST_LOCK before flipping the process-global NO_COLOR flag (a pre-existing parallel-test race that failed this branch's pre-push gate); no production code changes."
+    ],
+    "files": [
+      {
+        "path": ".quorum/evidence/368-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 5332,
+        "sha256": "b7d6ad0a22ef30ec86bf9210bf1f76a7be39a54133b34f9f7f98ba9f0dda88d9",
+        "blob": "4a056c9b41648af6e702ccf9c159439ca8bf0037"
+      },
+      {
+        "path": ".quorum/evidence/368-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1627,
+        "sha256": "d1f512d6383c89ea06fddb14464f5be342d97f4cdbf3ad65ab4a05b5a36ffb99",
+        "blob": "99ccaa0b4f23995e7b3f67faf4d6ccda9b3fa947"
+      },
+      {
+        "path": ".quorum/evidence/368-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 940,
+        "sha256": "5387e3de4a7004ca81ee4f83fc1763829b155ee1a6ef2ab78bc3bd7537b1abfa",
+        "blob": "c75bff1b861ba539c51d2556d86126a0d08a716b"
+      },
+      {
+        "path": ".quorum/evidence/368-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 3235,
+        "sha256": "9dd36814f3a265620b9ac8bf69c4e5569f22c1be7a8fa58d177c7b6e62d4ab77",
+        "blob": "ba0179f90836b11c04de6a5a0d210922ce6da44d"
+      },
+      {
+        "path": ".quorum/evidence/368-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 756,
+        "sha256": "4ebc031a0e0ab8124e4dd5f8b9bea3e39351d74ba345700fb742b03aebe8c7a5",
+        "blob": "2ce16420fbb85588eb24f7a6d57092116aae47f7"
+      }
+    ],
+    "total_bytes": 11890
+  },
+  "gates": {
+    "lib_tests": "13370 passed, 0 failed",
+    "clippy": "--all-targets -D warnings, 0 errors (re-run on the merged tree)"
+  },
+  "base_commit": "15aa687471476acbb71b4201df536b873caa319d",
+  "diff_sha256": "f8b788ee55a50fb20fa737ac0f9aae1020732208"
+}

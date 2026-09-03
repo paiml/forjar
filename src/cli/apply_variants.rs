@@ -287,6 +287,37 @@ fn refresh_machine_lock(
 
 /// FJ-1230: Refresh state only — re-query live state for all converged resources
 /// and update lock hashes without applying any changes.
+///
+/// # Refs #368: "without applying any changes" is not "without writing state"
+///
+/// This takes the same `apply_mode_exits` early return `--plan-file` does, so
+/// it never reached `apply_pre_validate` either — and it rewrites
+/// `state.lock.yaml` and re-seals its `.b3` in a loop. That made it a laundry
+/// for the one gate whose refusal text says no flag overrides it. Measured on
+/// 1.24.0 with the lock BODY tampered:
+///
+/// ```text
+///   apply --yes           -> error: state integrity check failed … No apply
+///                            flag overrides this check.
+///   apply --refresh-only  -> Refresh complete: 1 resources queried, 0 drifted
+///                            (.b3 rewritten: 7d869a9f… -> 9b96fcbd…)
+///   apply --yes           -> Apply complete: 1 converged (1 repaired drift)
+/// ```
+///
+/// So a fix confined to `cmd_apply_from_plan` would have left the same hole
+/// open one flag over. `check_operator_auth` runs here too, for the reason
+/// forjar#370 moved it into `cmd_apply_from_plan`: the gate belongs to the act
+/// of writing state, not to the dispatcher that remembered.
+///
+/// `operator` is a PARAMETER and not a hard-coded `None`, and the difference is
+/// not cosmetic. `OperatorIdentity::resolve(None)` falls back to
+/// `$USER@$(hostname)`, so a gate that ignores the flag refuses the very person
+/// it is meant to admit: on a machine declaring `allowed_operators: [alice]`,
+/// `apply --refresh-only --operator alice` answered
+/// `error: operator 'noah@box' not authorized for machine 'box'` while the
+/// ordinary `apply --operator alice` converged. That is forjar#358's defect —
+/// a mode that drops what the operator actually typed — reappearing one flag
+/// over, which is precisely the shape this change exists to close.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_refresh_only(
     file: &Path,
@@ -296,13 +327,20 @@ pub(crate) fn cmd_refresh_only(
     timeout: Option<u64>,
     env_file: Option<&Path>,
     workspace: Option<&str>,
+    operator: Option<&str>,
 ) -> Result<(), String> {
+    super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
+
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
+
+    // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
+    // tampered lock has destroyed the only evidence the tamper happened.
+    super::apply_preflight::lock_write_gates(state_dir, verbose)?;
 
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let mut refreshed = 0usize;

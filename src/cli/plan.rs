@@ -41,6 +41,39 @@ pub(crate) fn cmd_plan(
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
 
+    // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
+    //
+    // `save_plan_file` hands this value to `plan_seal::seal`, whose config leg
+    // is `config_hash::config_hash` over the WHOLE `ForjarConfig`. Below this
+    // line the config is NARROWED twice — `--target` retains one resource plus
+    // its transitive deps, and `strip_unrequested_phony` removes every
+    // unrequested phony resource. `apply --plan-file` rebuilds the config from
+    // the file and stops after `resolve_data_sources`
+    // (`apply_from_plan::prepare_config`), so it recomputes the leg over the
+    // UNNARROWED config and the two can never agree. Measured: a config with
+    // one `phony: true` resource planned and applied back-to-back, nothing
+    // changed in between,
+    //
+    //     error: PLAN_HASH_MISMATCH: the config changed since the plan was
+    //     sealed (config leg: expected blake3:48529cd5…, got blake3:76887d58…)
+    //
+    // Sharper than "the hashes differ": the sealed document DENOTED a different
+    // config from the one it was planned from. The plan file written from a
+    // config holding a phony `cleanup` applied cleanly against a config with
+    // `cleanup` physically deleted, so two configs differing only in their
+    // phony resources sealed identically — a small forgery surface this closes.
+    //
+    // Only the SEAL takes this value. The plan BODY stays narrowed, which is
+    // what `apply_from_plan::replan` reproduces (it performs the same phony
+    // strip before re-planning), so the diff leg still agrees.
+    //
+    // The snapshot sits here and not one line earlier or later on purpose: the
+    // four mutations above are exactly `prepare_config`'s, in the same order,
+    // minus `--what-if` — which is why `plan --what-if … --out` keeps being
+    // refused at apply time, as it must be. Nothing below mutates `config`
+    // except the two narrowings.
+    let seal_config = config.clone();
+
     // FJ-285: --target filters config to one resource + transitive deps
     if let Some(target_id) = target {
         let keep = collect_transitive_deps(&config, target_id)?;
@@ -92,7 +125,15 @@ pub(crate) fn cmd_plan(
     // that IS load-bearing is at execution, and it now runs there —
     // `cmd_apply_from_plan` checks before it reads the plan file at all.
     if let Some(out_path) = plan_out {
-        super::plan_file::save_plan_file(&plan, &selectors, &config, file, state_dir, out_path)?;
+        // Refs #363: `seal_config`, not `config` — see the snapshot above.
+        super::plan_file::save_plan_file(
+            &plan,
+            &selectors,
+            &seal_config,
+            file,
+            state_dir,
+            out_path,
+        )?;
         println!("Plan saved to {}", out_path.display());
         return Ok(());
     }
