@@ -14,3 +14,4 @@
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7/#423 vendor (rebuild from own diff, PR #436)","mode":"direct","est":2,"actual":6,"basis":"plan.md:P8; stale-tree rebuild"}
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7/#409 #410 E06+E07 (agy lane + round 2)","mode":"quorum:agy","est":6,"actual":14,"basis":"plan.md:P10; lane claimed green, 15 tests re-based"}
 {"repo":"forjar","ticket":"PMAT-137","phase":"P7 pushes/PRs for 8 branches (gate anchor floor, sublines, ratchets)","mode":"direct","est":4,"actual":12,"basis":"plan.md:P12; five gate refusals fixed"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7 merges + integration + autopilot","mode":"direct","est":6,"actual":22,"basis":"plan.md:P13; baseline.json churn ×2, SSH idle-out, cross-PR gate signature"}
