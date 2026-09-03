@@ -16,6 +16,7 @@ mod tests {
             json: false,
             fix: false,
             network: false,
+            machine: None,
         };
         let _ = format!("{a:?}");
     }

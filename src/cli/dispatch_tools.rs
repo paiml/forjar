@@ -70,7 +70,18 @@ pub(super) fn dispatch_misc_tools_b(cmd: Commands) -> Result<(), String> {
             json,
             fix,
             network,
+            machine,
         }) => {
+            // #446: `--machine` diagnoses a HOST, which needs the config that
+            // declares it. Refusing here is better than silently falling back
+            // to the controller checks under a flag that named a machine.
+            if let Some(name) = machine {
+                let config = file.as_deref().ok_or_else(|| {
+                    "doctor --machine needs the config that declares the machine: pass -f <forjar.yaml>"
+                        .to_string()
+                })?;
+                return super::doctor_machine::cmd_doctor_machine(config, &name, json);
+            }
             if network {
                 return cmd_doctor_network(file.as_deref(), json);
             }

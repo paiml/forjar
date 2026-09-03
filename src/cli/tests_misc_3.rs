@@ -218,6 +218,7 @@ mod tests {
             json: false,
             fix: true,
             network: false,
+            machine: None,
         });
         match cmd {
             Commands::Doctor(DoctorArgs { fix, .. }) => assert!(fix),

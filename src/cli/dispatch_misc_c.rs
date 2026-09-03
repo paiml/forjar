@@ -72,6 +72,20 @@ fn dispatch_misc_ops_b(cmd: Commands) -> Result<(), String> {
             json,
         ),
         Commands::Inventory(InventoryArgs { file, json }) => cmd_inventory(&file, json),
+        // #446: one-off remote execution and host facts. Both resolve the
+        // machine out of the SAME config the rest of forjar uses, so `exec`
+        // cannot reach a host `apply` would not.
+        Commands::Exec(ExecArgs {
+            machine,
+            command,
+            file,
+            json,
+        }) => super::exec::cmd_exec(&file, &machine, &command, json),
+        Commands::Facts(FactsArgs {
+            machine,
+            file,
+            json,
+        }) => super::facts::cmd_facts(&file, &machine, json),
         Commands::Output(OutputArgs { file, key, json }) => cmd_output(&file, key.as_deref(), json),
         Commands::Policy(PolicyArgs { file, json, sarif }) => cmd_policy(&file, json, sarif),
         Commands::PolicyCoverage(PolicyCoverageArgs { file, json }) => {
