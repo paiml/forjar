@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] — 2026-09-03
+
+This release closes the CRUX architecture audit (`docs/specifications/forjar-architecture-crux-audit.md`, PMAT-137): fifteen findings E01–E15 were each falsified, fixed or triaged with a cited reason, every fix landed through the adversarial quorum gate with a receipt under `.quorum/`, and the implementation receipt is `docs/audits/impl-PMAT-137-receipt.md`.
+
+### Highlights
+
+- **Convergence is honest again.** The desired-state hash covers every resource field (#419, E01); `lifecycle.ignore_drift` names one field instead of switching a resource off, and a cron job is observed as one block (#451, #360/#362); `destroy` records the generation it produced, leaves no stale BLAKE3 sidecar, and `undo` now destroys what the target generation does not hold instead of only announcing it (#450, #449).
+- **Verification verbs verify.** Three "verify" verbs read the signature they verify (#420, E03); `prove` fails on UNKNOWN and `provenance` says its attestation is unsigned (#425, E14); the lock signing key comes from a file or the environment, never argv (#426, E13).
+- **Secrets stay out of transcripts** — redacted or suppressed in run logs, never staged by `--auto-commit` (#427, E04).
+- **One scheduler.** The sequential executor is the wave scheduler at width 1; the second implementation is gone (#439, E09). `--canary-machine` and `--refresh-only` reach the operator gate, which is positional now (#441, #374). A saved plan applies, with every gate on, and says what it forced (#437, #363/#368/#378).
+- **Policy rules scoped to a multi-word type match, and rules without an id are distinct** (#440, #366/#369).
+- **The store scores only what executes**, and the derivation sandbox refuses by name rather than reporting a hash for a build that never ran (#444, E06/E07).
+- **MCP:** the drift verb asks the target and discloses its denominator (#424, E05); the verb surface honours the workspace and the server sends annotations (#438).
+- **Apply opens ControlMaster before the drift gate; the gate is scoped and bounded** (#421, E02).
+- **Repo hygiene:** the contract crates live in-tree as workspace members (#436, #423); the quorum gate judges the commit, not the working tree (#442); the yanked `spin 0.9.8` is off the lockfile (#443, #364); a failed task's stdout, the parallel wave's run log, and `--json` error fields are all reported (#392, #398, #399, #390); the proofs lane builds in one directory per job with a per-runner cargo home (#448, #447).
+
+### Triaged, not implemented in this release (reasons on the tickets)
+
+E08 (#411) SSH sessions per resource, E10 (#413) CLI surface cut, E11 (#414) facts model, E12 (#415) host-consulting plan, E15 (#417) error taxonomy; follow-ups #432–#435, #445, #446, #452 (vendored `forjar-contracts` tests are not run by any lane).
+
+### Pull requests in this release (25)
+
+- #397 fix(codegen): timeout:/sudo: nested shells lose strictness, stdin, and their own script (#390-E)
+- #398 fix(executor): parallel wave path wrote no run log and skipped verification (#390-A, #390-B)
+- #399 fix(executor): --json reported error:null for every failed resource (#390-C)
+- #402 fix(quality): task.rs sat 26 lines over the limit on main, and no CI lane could see it
+- #418 docs: CRUX audit — architecture, performance and competitive research (E01–E15)
+- #419 fix(planner): hash the whole resource — 35 of 122 fields were reported `unchanged` forever (#403, CRUX E01)
+- #420 fix(sign): three "verify" verbs never read the signature they verified (#405, CRUX E03)
+- #421 perf(apply): open ControlMaster before the drift gate; scope and bound the gate (#404, CRUX E02)
+- #424 fix(mcp): the drift verb asks the target, declines the config's shell, and discloses its denominator (#407, CRUX E05)
+- #425 fix(prove,provenance): UNKNOWN fails the proof, the attestation says unsigned, the chain nobody built is withdrawn (#416, CRUX E14)
+- #426 fix(lock): the signing key comes from a file or the environment, never argv (#408, CRUX E13)
+- #427 fix(security): secrets are redacted or suppressed in run transcripts, and --auto-commit never stages them (#406, CRUX E04)
+- #436 build(contracts): the contract crates live in-tree as workspace members (#423)
+- #437 fix(plan-apply): a saved plan could not be applied, applied with every gate off, and lied about what it forced (#363, #368, #378)
+- #438 fix(mcp): the verb surface ignored the workspace, the server sent no annotations, and the docs carried a copy of the surface (#367, #371, #375)
+- #439 fix(executor): one wave scheduler — the sequential path is width-1 waves, and the second implementation is gone (#412, CRUX E09)
+- #440 fix(policy): a rule scoped to a multi-word type was silently inert, and un-id'd rules sharing a message were one rule (#366, #369)
+- #441 fix(apply): --canary-machine and --refresh-only never reached the operator gate; the gate is positional now (#374)
+- #442 fix(ci): the quorum gate judged the working tree, 14 tracked files were gitignored, and the coverage guard had a hole (#400, #401, #386)
+- #443 build(deps): Cargo.lock pinned the yanked spin 0.9.8 through wasmi, and the audit lane forgave it (#364)
+- #444 fix(store): stop scoring a store nothing enforces, and refuse the sandbox by name (#409, #410 — CRUX E06/E07)
+- #448 ci(proofs): one build directory per job on the self-hosted runners (#447)
+- #450 fix(destroy,undo): the destroy generation carries the config that produced it; destroy drops the stale sidecar; undo destroys what the target lacks (Closes #449)
+- #451 fix(drift): ignore_drift names one field, and a cron job is one block (#360, #362)
+- #453 feat(cli): forjar exec, forjar facts, forjar doctor --machine — one-off remote exec, host facts and remote diagnosis (#446)
+
 ### Fixed
 
 **`apply --canary-machine` converged the whole fleet past the operator gate, with a
