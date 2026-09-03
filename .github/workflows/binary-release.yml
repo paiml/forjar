@@ -126,7 +126,8 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
 
       # Contract assertions (src/generated_contracts.rs) are git-tracked and
-      # aprender-contracts resolves from crates.io — no sibling checkout or
+      # the contract crates are workspace members under crates/ (#423) — no
+      # sibling checkout, no registry fetch for contract code, and no
       # pv codegen needed (the old provable-contracts path-dep dance caused
       # issues #104/#112/#113).
 

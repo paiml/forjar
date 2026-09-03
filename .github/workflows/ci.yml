@@ -48,7 +48,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Verify Cargo.lock is committed and current
-        run: cargo package --locked --no-verify
+        # #423: the contract crates are workspace members, so the root crate's
+        # path dependencies are unpublished until the release publishes them in
+        # order. `--workspace` packages the members first and resolves the root
+        # against that overlay (cargo >= 1.90), which is exactly what
+        # `cargo publish --workspace` does at release time.
+        run: cargo package --locked --no-verify --workspace
 
   # Regression guard (#179): every shipped standalone example config must pass
   # `forjar validate`. The sovereign-ci `test` job only runs `cargo test --lib`,

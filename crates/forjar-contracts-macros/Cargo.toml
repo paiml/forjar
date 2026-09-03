@@ -1,0 +1,23 @@
+[package]
+name = "forjar-contracts-macros"
+version = "0.31.2"
+edition = "2021"
+rust-version = "1.89"
+authors = ["Noah Gift <noah@paiml.com>"]
+license = "MIT"
+repository = "https://github.com/paiml/aprender"
+description = "Proc macros for compile-time contract enforcement — #[contract] attribute"
+keywords = ["verification", "contracts", "proc-macro", "compile-time"]
+categories = ["development-tools::testing"]
+
+[lib]
+name = "provable_contracts_macros"
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+
+[dev-dependencies]
+trybuild = "1"
