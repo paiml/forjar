@@ -1,0 +1,18 @@
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P1", "mode": "direct", "est": 1, "actual": 6}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P2", "mode": "quorum:agy", "est": 1, "actual": 22}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P3", "mode": "quorum:agy", "est": 1, "actual": 16}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P4", "mode": "quorum:agy", "est": 1, "actual": 12}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P5", "mode": "quorum:agy", "est": 1, "actual": 30}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P6", "mode": "direct[A]", "est": 1, "actual": 40}
+{"repo": "forjar", "ticket": "PMAT-137", "phase": "P7", "mode": "subagent:opus", "est": 1, "actual": 20}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#412 E09 (rebuild + retire the second scheduler)","mode":"direct+quorum:agy","est":8,"actual":21,"basis":"plan.md:P7; two rebuilds (relocated fork; stale tree)"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#374 canary gate (round 2 from review)","mode":"quorum:agy","est":4,"actual":9,"basis":"plan.md:P9"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#367 #371 #375 mcp (quorum only)","mode":"quorum:agy","est":3,"actual":4,"basis":"plan.md:P9"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#366 #369 policy (quorum only)","mode":"quorum:agy","est":3,"actual":4,"basis":"plan.md:P9"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#400 #401 #386 hygiene (merge + quorum)","mode":"quorum:agy","est":3,"actual":5,"basis":"plan.md:P9"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#364 yanked pin (carve-out + quorum, agy NotRun)","mode":"direct","est":1,"actual":2,"basis":"plan.md:P9"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#423 vendor (rebuild from own diff, PR #436)","mode":"direct","est":2,"actual":6,"basis":"plan.md:P8; stale-tree rebuild"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7/#409 #410 E06+E07 (agy lane + round 2)","mode":"quorum:agy","est":6,"actual":14,"basis":"plan.md:P10; lane claimed green, 15 tests re-based"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7 pushes/PRs for 8 branches (gate anchor floor, sublines, ratchets)","mode":"direct","est":4,"actual":12,"basis":"plan.md:P12; five gate refusals fixed"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P7 merges + integration + autopilot","mode":"direct","est":6,"actual":22,"basis":"plan.md:P13; baseline.json churn ×2, SSH idle-out, cross-PR gate signature"}
+{"repo":"forjar","ticket":"PMAT-137","phase":"P8 #449 destroy generation (+sidecar, +undo prune) → PR #450","mode":"direct + quorum:agy","est":3,"actual":11,"basis":"plan.md:P8; agy refutation forced a rework that found two more defects"}
