@@ -1,0 +1,10 @@
+{
+  "issue": "PMAT-137 ledger — jidoka row: the homebrew job needs the HOMEBREW_TAP_TOKEN secret, which does not exist",
+  "base_commit": "a61bdb37b85418e6e8256d9d22ab88af00764b74",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Docs-only change [A]: one row appended to docs/audits/jidoka.jsonl. No Rust hunk to falsify."
+  },
+  "diff_sha256": "fa2a1419b6f80d5c2a053c57503795217ea2e657"
+}
