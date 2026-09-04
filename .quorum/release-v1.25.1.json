@@ -1,0 +1,10 @@
+{
+  "issue": "release v1.25.1 — 1.25.0 with package.publish = false removed (#436 left it on the root crate; cargo publish refused 1.25.0)",
+  "base_commit": "120f29b08f3783eaf41e220cbe4b5c673849ff85",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Release-only change [A]: Cargo.toml version 1.25.0 -> 1.25.1 (+ .pmat-metrics/, .pmat-metrics.toml, .pmat-tickets/, .pmat-gates.toml kept out of the crate), Cargo.lock's own entry, CHANGELOG.md. No Rust hunk to falsify; every change in this release carries its own receipt under .quorum/ and was merged through the gate. The measurements are cargo package --locked on this branch, this PR's ci / gate, and the clean-room CI on main after the merge, which the release driver requires before tagging."
+  },
+  "diff_sha256": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+}

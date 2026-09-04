@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.1] — 2026-09-04
+
+Publishable again. `v1.25.0` was tagged and its GitHub release built, but `cargo publish` refused it: #436 (the contract crates moved in-tree) had left `package.publish = false` on the root crate, so 1.25.0 never reached crates.io. 1.25.1 is 1.25.0 with that line removed and nothing else — the crate-release probe (build from the artifact, install, downstream link, README claims) passes on it. Everything under [1.25.0] below applies.
+
+### Pull requests in this release (2)
+
+- #454 release: v1.25.0 — the CRUX audit release (PMAT-137)
+- #455 docs(readme): depend on forjar "1.25" (crate-release probe P6)
+
 ## [1.25.0] — 2026-09-03
 
 This release closes the CRUX architecture audit (`docs/specifications/forjar-architecture-crux-audit.md`, PMAT-137): fifteen findings E01–E15 were each falsified, fixed or triaged with a cited reason, every fix landed through the adversarial quorum gate with a receipt under `.quorum/`, and the implementation receipt is `docs/audits/impl-PMAT-137-receipt.md`.
