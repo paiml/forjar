@@ -57,6 +57,9 @@ jobs:
             CRATE_NAME="${BASH_REMATCH[1]}"
             TAG_VER="${BASH_REMATCH[2]}"
             echo "Workspace release: crate=$CRATE_NAME version=$TAG_VER"
+          # Since #436 the repo is a workspace: .packages[0] is forjar-contracts
+          # (0.31.2), which failed the v1.25.0/v1.25.1 tags as "Tag version !=
+          # Cargo.toml version 0.31.2". A single-crate tag names the ROOT crate.
           elif [[ "$TAG" =~ ^v([0-9]+\..+)$ ]]; then
             CRATE_NAME=""
             TAG_VER="${BASH_REMATCH[1]}"
@@ -76,7 +79,7 @@ jobs:
             fi
           else
             CARGO_VER=$(cargo metadata --format-version 1 --no-deps \
-              | jq -r '.packages[0].version')
+              | jq -r '.packages[] | select(.name == "forjar") | .version')
           fi
 
           if [ "$TAG_VER" != "$CARGO_VER" ]; then
