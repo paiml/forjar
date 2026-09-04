@@ -1,0 +1,10 @@
+{
+  "issue": "PMAT-137 ledger — jidoka row for the release.yml dist-artifacts refusal on the v1.25.1 backfill",
+  "base_commit": "efcb97f617e7aedc367ec716c469156d903b636b",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Docs-only change [A]: one row appended to docs/audits/jidoka.jsonl. No Rust hunk to falsify."
+  },
+  "diff_sha256": "abf83aa01288bf2e0ff4ad45a3a57e5df5e8b7b4"
+}
