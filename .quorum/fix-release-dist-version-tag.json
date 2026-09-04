@@ -1,0 +1,10 @@
+{
+  "issue": "release.yml dist-artifacts ran `forjar dist --all` without `--version <tag>`, which the CLI refuses ('--homebrew and --nix embed real checksums and require --version'), so v1.25.1's installer and homebrew formula were never produced",
+  "base_commit": "efcb97f617e7aedc367ec716c469156d903b636b",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Workflow-only change [A]: one flag (`--version \"$RELEASE_TAG\"`) added to the dist step. No Rust hunk to falsify; the measurement is release.yml run 33831716398 (dist-artifacts failed with that exact refusal after a 28-minute build) and the workflow_dispatch re-run for v1.25.1 after this merge."
+  },
+  "diff_sha256": "94b17570d10c4131d54b9fc7ae83c4853a103764"
+}

@@ -339,9 +339,13 @@ jobs:
 
       - name: Generate distribution artifacts
         run: |
+          # `dist --all` embeds real checksums into the homebrew formula and the
+          # nix flake, so it REQUIRES the tag (placeholders are never emitted);
+          # the v1.25.1 backfill failed here without it.
           cargo run --release -- dist \
             -f dist-forjar.yaml \
             --all \
+            --version "$RELEASE_TAG" \
             --output-dir /tmp/dist-output
 
       - name: Upload installer to GitHub Release
