@@ -1,0 +1,10 @@
+{
+  "issue": "release.yml verify read .packages[0].version, which is forjar-contracts 0.31.2 since #436 made the repo a workspace — the v1.25.0 and v1.25.1 tag runs failed 'Tag version 1.25.1 != Cargo.toml version 0.31.2' and built no binaries",
+  "base_commit": "4e2b1fe34ec22b0eac4d0fa1deb26cad5579e0bc",
+  "base": "origin/main",
+  "recorded_at": "2026-09-04",
+  "waived": {
+    "reason": "Workflow-only change [A]: one jq expression in .github/workflows/release.yml selects the root crate by name. No Rust hunk to falsify; the measurement is release.yml itself — runs 33829516046 (v1.25.1) and the v1.25.0 run fail at verify with the 0.31.2 mismatch, and a workflow_dispatch re-run for v1.25.1 after this merge is the falsifier."
+  },
+  "diff_sha256": "c3a7376c3e23146990bc0c4c3b0d70478f02b2e9"
+}
