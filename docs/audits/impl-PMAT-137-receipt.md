@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-137 (CRUX audit program)
 
-Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **PARTIAL(andon) — turn budget K=200 reached at stage S3 with the merge pipeline running unattended**
+Skill: paiml-implement (AUTO-IMPL-SKILL-001). Verdict: **DONE — forjar 1.25.1 published to crates.io 2026-09-04 02:26 UTC from main@4e2b1fe3 (tag v1.25.1); S6 GO on the published crate**
 
 ## Identity
 - ticket: PMAT-137 (umbrella); per-finding tickets PMAT-138..154 ↔ GH #403–#417, #422, #423; new this run: #432–#435
@@ -65,7 +65,8 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 ## Gaps (NotRun lanes and the artefact that closes each)
 - Merges: #436 and #438 merged; #442 (hygiene) re-pushed with main merged, CI running; #439 #440 #441 #443 #444 need one re-merge of main each after #442 lands (baseline.json churn, #401) — `merge-rest.sh` does it; #437 after #441 (`fixup-p368.sh` passes the machine filter). `autopilot.sh` merges each PR only when every check on its head is green (incl. `gate`, `ci / gate`, `quorum receipt`) and triggers the chain; logs in the scratchpad.
 - drift-observables (#360/#362): rebuilt on main@005347b0 after #439 → PR #451 (falsifiers 4/4 + 5/5 green, 0/9 at base; lib 13399/0; the #335 regression re-based, see jidoka). `autopilot2.sh` merges it on all-green.
-- S4 dogfood on main (repo `dogfood` skill, GO/WARN/FAIL), S5 release 1.25.0 (bump Cargo.toml+Cargo.lock together, CHANGELOG, PR, clean-room CI green, tag `v1.25.0`, `cargo publish --workspace` from this host — never --allow-dirty), S6 `crate-release-dogfood` on the published tarball.
+- S4/S5/S6 done — see the verdict. v1.25.0 stays a git tag with a GitHub release (binaries built by binary-release.yml) but no crate; 1.25.1 is the crate.
+- release.yml (tag-triggered) failed at `verify` for both tags (`.packages[0]` is the vendored crate since #436) — fix PR `fix/release-verify-workspace-root` open; after it merges a `workflow_dispatch` for v1.25.1 builds the remaining assets.
 - E10 part (a) (delete the 61 unimplemented flags), E08, E11, E12, E15: triaged with cited reasons on the tickets, not implemented.
 - pv_lane=NotRun (contracts_dir=contracts; contracts/apply-summary-distinguishability-v1.yaml and flag-has-effect-v1.yaml touched by #368's branch; proofs.yml green on that PR).
 - Dry-run derivation simulation (E07) still emits a simulated hash — recorded in #444's receipt; #410 stays open for the delegation.
@@ -74,6 +75,9 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - #446 → PR feat/446-exec-facts-doctor (receipt `.quorum/feat-446-exec-facts-doctor.json`, 7 confirmed / 4 refuted); the release driver waits for it and #450 before cutting v1.25.0. Known limits carried: `snapshot_generations: 1` evicts the only undo target after a destroy; `destroy` has no `--dry-run`; undo's new destroy step is not resumable through `undo --resume`.
 
 ## Decisions marked [A] (taken without escalation, per the program's rule)
+- Release as 1.25.1 rather than moving the pushed v1.25.0 tag: tags are immutable; 1.25.1 = 1.25.0 + the `publish` line.
+- The release driver probes and publishes from a fresh target dir and removes any prior `.crate` first (the stale-byte and stale-build-script findings).
+- Pipeline tooling moved to `~/.local/state/forjar-pipeline/` and runs as user systemd units after two session-scratchpad wipes.
 - (previous run) E14 withdrawal; hooks-off replays; #423 takeover; crates kept on crates.io; LogHeader.
 - Ledgers relocated to docs/audits/ (nothing under .pmat/ can be tracked, #401).
 - TDG baseline re-recorded with pmat's own update before commits the hook's recompute (pmat #1162) refused: E09b, policy, #374, hygiene, mcp.
@@ -84,8 +88,11 @@ K̂=16 basis=first-run[U]; K=200 (user); actual orchestrator turns ≈190 at and
 - E06: option (b) — stop scoring a store nothing enforces; the ten-step plan kept with two NOT EXECUTABLE steps.
 - Triage of E08/E10/E11/E12/E15 and #360/#362 as deferred-with-reason rather than implemented in this budget.
 - #449: `undo` now destroys the resources the target generation lacks (the behaviour its own diff announced) rather than refusing when such resources exist; the refusal would have left the destroy→undo contract unmeetable in the apply→destroy→apply→undo direction. The gc-eviction and dry-run findings of the review are carried as known limits.
-- #446 (host facts / exec / doctor, filed by a teammate) triaged as accepted-and-sequenced with E11 (#414), not implemented in this pass.
 - #446 folded into the 1.25.0 release on Noah's instruction ("fold in ALL open tickets by alfredo"): facts shipped as a report (`--json`), the resolver-visible facts model stays E11; `exec` does not consult `policy:` (queued with E10); standalone permission facts declined because permissions need a destination, which `doctor --machine` reports per declared resource.
 
 ## Verdict
-PARTIAL(andon) — 12 PRs merged across both runs (#418–#421, #424–#427, #436, #438, #442, #444), 7 open with receipts through the pre-push quorum gate (#437, #439–#441, #443, #448, #450), drift-observables scripted, the integration-branch pre-dogfood GO except #449 (fixed in #450), S4 official run, S5 and S6 not started. The unattended tail (`autopilot.sh`, `merge-rest.sh`, `drift-auto.sh`) continues the merges without a session; everything it merges has every check green on its head.
+DONE. S1–S3: the CRUX audit's fifteen findings were each falsified, fixed or triaged with a cited reason; 21 PRs merged across the two runs (#418–#421, #424–#427, #436–#444, #448, #450, #451, #453, #454, #455, #457), every code PR through the adversarial quorum gate with a receipt under `.quorum/`; one admin-bypass merge (#437, during the second site outage, every sovereign job already green) is the only deviation. #446 (alfredodeza) folded in on Noah's instruction as `exec`, `facts` and `doctor --machine`. S4: the eleven dogfood gates GO on the integration tree and again on main. S5: `v1.25.0` was tagged (120f29b0) but `cargo publish` refused it — #436 had left `package.publish = false` on the root crate — so **1.25.1** (identical code, flag removed) is the crates.io release: tag `v1.25.1` at `4e2b1fe3`, crate-release probe P1–P7 clean from a fresh target, `cargo publish -p forjar --locked`, crates.io max_version 1.25.1 at 02:26:36 UTC. S6: `cargo install forjar@1.25.1` from the registry; 162/163 subcommands answer `--help` (the one "failure" is clap's `help --help`, exit 2); apply → idempotent (0 converged, 1 unchanged) → drift detected (2 lines) → converged → destroy → undo (file back) → destroy → apply → undo onto the destroy generation (file absent, no stale sidecar); cycle and missing-file inputs exit non-zero; `exec` propagates the remote exit code, `facts --json` reports uid/disks/ipv4, `doctor --machine` 6/6 pass. GO.
+
+Open after the release (queued, per Noah): #452 (vendored `forjar-contracts` tests run by no lane), #456 (`build.rs` bakes `CARGO_MANIFEST_DIR` at compile time), the `release.yml` verify fix (workspace-blind `.packages[0]`; PR in flight, then a `workflow_dispatch` backfills v1.25.1's binaries and homebrew formula), E08/E10/E11/E12/E15 and #432–#435, #445 as triaged on their tickets, and infra#430 (the shared cargo registry sweep).
+
+Transcript gate: PASS (2 subagent intervals, peak concurrency 1). Status lint: PASS (18 blocks, all with `basis=`).
