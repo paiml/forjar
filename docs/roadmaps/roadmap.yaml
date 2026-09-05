@@ -1844,6 +1844,7 @@ roadmap:
   labels: []
   notes: null
 - id: PMAT-160
+  kind: code
   github_issue: 466
   item_type: task
   title: 'apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip and the machine selector (#467), --subset resolves depends_on by graph closure (#468) — one PR, one code path: parse -> filter by graph closure -> validate -> check | dry-run | apply'
@@ -1864,6 +1865,7 @@ roadmap:
   labels: [bug, apply, filters]
   notes: null
 - id: PMAT-161
+  kind: code
   github_issue: 469
   item_type: task
   title: 'state stamp keyed by config name (as the lock is): undo honours it, single-stamp state migrates on first apply, the six-stack one-state-dir layout is supported and documented (#469)'
