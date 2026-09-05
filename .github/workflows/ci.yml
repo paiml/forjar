@@ -161,6 +161,17 @@ jobs:
         env:
           FORJAR_REQUIRE_SUDO_TESTS: "1"
         run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
+      # PMAT-159: a release ships ONE version and every artefact that states it
+      # must state the same one — manifest, lockfile, changelog, and the binary's
+      # own `--version`. The target existed and ran in NO CI job, which is the
+      # same absence as not having it. `--locked` is the load-bearing flag, not
+      # house style: under a bare `cargo test` cargo repairs a stale `Cargo.lock`
+      # before the test body runs, so the #131 lockfile invariant cannot go red
+      # here; `--locked` makes cargo refuse a lagging lock at resolution and the
+      # test is the message-bearing witness for it. Drop the flag and this step
+      # measures three of its four legs.
+      - name: The release version is coherent (manifest, lock, changelog, binary)
+        run: cargo test --locked --test falsification_version_matches_manifest
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's

@@ -40,6 +40,13 @@
 //! `enforce.json` lists only `tester@example.com`, so a run that inherited the
 //! machine's global email would fall to `advisory`, where `die` exits 0 — and
 //! every assertion here would pass against the broken script.
+//!
+//! PMAT-159 gave that same gate a SECOND subject: its evidence pass recognised
+//! no citation a RELEASE commit can make, so a release commit could not pass it
+//! at all. That defect and its four fixtures are in the sibling file
+//! `tests/falsification_quorum_anchors_release_shaped.rs`; they are not here
+//! because their fixture block is ~200 lines and this file is against CB-040's
+//! 500-line ceiling.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};

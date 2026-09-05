@@ -37,7 +37,18 @@ SEC_RE = re.compile(r"(?m)^#{2,4}\s+(CONFIRMED|REFUTED)\b")
 ITEM_RE = re.compile(r"(?m)^(?=\d+\.\s+\[)")
 STOP_RE = re.compile(r"(?m)^(?:\d+\.\s+\[|#)")
 SUB_RE = re.compile(r"(?m)^\s*-\s+(evidence|corrected):\s*(.*)$")
-CIT_RE = re.compile(r"\b((?:src|tests|scripts|benches)/[A-Za-z0-9_./-]+\.rs):(\d+)\b")
+# A RELEASE COMMIT MUST BE ABLE TO CITE ITSELF. This matched Rust sources only,
+# so the three files a release edits -- Cargo.toml, Cargo.lock, CHANGELOG.md --
+# were not citations at all, and v1.25.2's receipt anchored 0 of 19 claims.
+# v1.25.0 (0b4f2e3e) and v1.25.1 (813159f2) were pushed `waived` for the same
+# reason: the gate was refusing a SHAPE rather than bad evidence, and a gate that
+# cannot be passed honestly is what teaches a repo to reach for the waiver.
+# The root files are matched AT THE ROOT ONLY -- the lookbehind refuses
+# `crates/x/Cargo.toml:3`, which would resolve to a different file than it names.
+CIT_RE = re.compile(
+    r"\b((?:src|tests|scripts|benches)/[A-Za-z0-9_./-]+\.rs"
+    r"|(?<![\w./-])(?:Cargo\.toml|Cargo\.lock|CHANGELOG\.md|README\.md)):(\d+)\b"
+)
 
 # SHAPE-BASED, never environment-derived. A scanner keyed on "whoever is running
 # it" passes clean on every other machine. These sixteen are a DENYLIST and
@@ -177,7 +188,7 @@ def check_redaction(blobs):
                     "  THIS REPO IS PUBLIC -- this exact class already leaked once.")
 
 
-def check_claims(blobs, dp, want_conf, want_ref, base, touched):
+def check_claims(blobs, dp, want_conf, want_ref, base, head, touched):
     text = blobs[dp][1].decode("utf-8", "replace")
     counts, seen, adjudicated = {"CONFIRMED": 0, "REFUTED": 0}, set(), []
     for kind, body in sections(text):
@@ -210,17 +221,63 @@ def check_claims(blobs, dp, want_conf, want_ref, base, touched):
             die(f"{label}={want} but the digest carries {counts[kind]} {kind} claims.\n"
                 "  A tally that disagrees with its own prose is the black box this gate\n"
                 "  already rejects for the refuted side.")
-    check_anchors(adjudicated, dp, base, touched)
+    check_anchors(adjudicated, dp, base, head, touched)
 
 
-def check_anchors(adjudicated, dp, base, touched):
-    """A citation must resolve AT THE BASE COMMIT and name a file this diff touches.
+def anchors_at_base(src, dp, p, n, touched):
+    """Whether a citation that RESOLVES AT THE MERGE BASE anchors its claim.
+
+    This is the strong form. The cited text sits in a tree the pusher did not
+    author, so a line number cannot be invented to fit a claim. An out-of-range
+    citation is refused BY NAME rather than quietly dropped: a citation the gate
+    cannot check is not a citation the gate should count.
+    """
+    if int(n) > src.count(b"\n") + 1:
+        die(f"'{dp}': cites '{p}:{n}' but that file has {src.count(chr(10).encode())+1} lines at base")
+    return p in touched
+
+
+def anchors_as_added(head, dp, p, n, touched):
+    """Whether a citation into a file THIS BRANCH ADDS anchors its claim.
+
+    The guarantee is weaker than `anchors_at_base`'s and worth naming rather
+    than glossing. It cannot be "resolves against a tree the pusher did not
+    author" -- the pusher wrote every line of it. What remains mechanically
+    checkable is that the cited line EXISTS in the commit being pushed: the line
+    is in the diff by construction, so the citation names real, reviewable text
+    and a fabricated line number is refused BY NAME, the same treatment the base
+    rule has always given an out-of-range citation.
+
+    Refusing the whole shape instead was measured: it left a release commit --
+    Cargo.toml, Cargo.lock, CHANGELOG.md and one new test -- with nothing it
+    could cite. A path that is neither at base nor in the diff is neither this
+    branch's work nor the tree it started from, and anchors nothing.
+    """
+    if p not in touched:
+        return False
+    added = blob_at(head, p)
+    if added is None:
+        return False
+    if int(n) > added.count(b"\n") + 1:
+        die(f"'{dp}': cites '{p}:{n}' but that file, which this branch "
+            f"ADDS, has {added.count(chr(10).encode())+1} lines at HEAD")
+    return True
+
+
+def check_anchors(adjudicated, dp, base, head, touched):
+    """A citation must resolve IN THE TREE and name a file this diff touches.
 
     This is the check with teeth, because it is anchored to the merge-base tree --
     something the pusher did not author. It is the free-rider defence the gate
     already applies to falsification.test_file, extended from the test to the
     reasoning. File-level, not hunk-level: hunk-level was measured at 25% on real
     data and would have failed honest work.
+
+    Two resolutions anchor and they carry different guarantees: `anchors_at_base`
+    is the strong one, `anchors_as_added` the weaker one a release commit needs
+    in order to be able to cite itself. Both are consulted for EVERY citation,
+    never short-circuited, so an out-of-range line number is still refused once a
+    claim is already anchored by an earlier citation.
     """
     anchored = 0
     for it in adjudicated:
@@ -228,15 +285,9 @@ def check_anchors(adjudicated, dp, base, touched):
         for p, n in CIT_RE.findall(it):
             src = blob_at(base, p)
             if src is None:
-                # A citation to a file this branch ADDS is legitimate -- a fix
-                # that introduces a module has nothing to cite at base. It simply
-                # cannot serve as an anchor, because an anchor's whole value is
-                # resolving against a tree the pusher did not author.
-                continue
-            if int(n) > src.count(b"\n") + 1:
-                die(f"'{dp}': cites '{p}:{n}' but that file has {src.count(chr(10).encode())+1} lines at base")
-            if p in touched:
-                hit = True
+                hit = anchors_as_added(head, dp, p, n, touched) or hit
+            else:
+                hit = anchors_at_base(src, dp, p, n, touched) or hit
         anchored += 1 if hit else 0
     if adjudicated:
         rate = anchored / len(adjudicated)
@@ -280,7 +331,7 @@ def main():
     dp = ev.get("claims_digest")
     if dp not in blobs:
         die("evidence.claims_digest must name one of evidence.files[]")
-    check_claims(blobs, dp, want_conf, want_ref, base, touched)
+    check_claims(blobs, dp, want_conf, want_ref, base, head, touched)
     print(f"  evidence: {len(blobs)} files, {ev['total_bytes']}B, "
           f"{want_conf} confirmed + {want_ref} refuted, redaction clean")
 
