@@ -229,7 +229,10 @@ fn only_machine_narrows_and_contracts() {
         types::MachineTarget::Single("other".to_string()),
         "the survivor targets only the requested machine"
     );
-    assert_eq!(out.removed, vec!["a".to_string(), "b".to_string(), "d".to_string()]);
+    assert_eq!(
+        out.removed,
+        vec!["a".to_string(), "b".to_string(), "d".to_string()]
+    );
 }
 
 #[test]
@@ -290,8 +293,14 @@ fn an_unknown_resource_selector_is_an_error() {
         },
     )
     .expect_err("typo'd -r must fail");
-    assert!(err.starts_with("--resource 'zz' matches no resource"), "{err}");
-    assert!(err.contains("a, b, c, d"), "the error names what exists: {err}");
+    assert!(
+        err.starts_with("--resource 'zz' matches no resource"),
+        "{err}"
+    );
+    assert!(
+        err.contains("a, b, c, d"),
+        "the error names what exists: {err}"
+    );
 }
 
 #[test]

@@ -9,8 +9,24 @@
 //!   Downward-closed, so it can never strand a prerequisite.
 //! * `apply_filters` — `--subset`/`--exclude` pattern filters, which CAN cut a
 //!   resource out from under a dependent. That is why `make` does not use them.
+//!
+//! PMAT-160 (#466 #467 #468) adds a fourth, which subsumes the other three
+//! for `apply`: `resolve_selection` in [`closure`], the single path every apply
+//! mode takes to decide what it is about to touch.
 
 use crate::core::{resolver, types};
+
+// PMAT-160 phase 1 lands the resolver and its tests; phase 2 rewires
+// `cmd_apply_scoped`, the `--check` branch and the dry run onto it. Until that
+// lands the resolver has no non-test caller, which is a fact about the rollout
+// rather than about the code, so the lint is silenced here and nowhere deeper.
+#[allow(unused)]
+mod closure;
+#[allow(unused)]
+mod narrow;
+
+#[allow(unused)]
+pub(crate) use closure::{resolve_selection, Selection, Selectors};
 
 /// FJ-2723 (PMAT-199): a selector that matches nothing is an error, not a no-op.
 ///
