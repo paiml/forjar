@@ -1,0 +1,125 @@
+{
+  "issue": "PMAT-159 — release v1.25.2: the sudo transport crosses as a private temp file; release-shaped diffs can anchor",
+  "base_commit": "09f7dc1156fe8f90e0464f583ba916df990c5d2a",
+  "base": "origin/main",
+  "recorded_at": "2026-09-05",
+  "quorum": {
+    "lanes": [
+      "claim lane A — the gate change: is widening CIT_RE to the root release files, and letting a file the branch ADDS anchor a claim, a weakening of the forgery defence? Returned A1-A6",
+      "claim lane B — the release commit and the CI step: manifest/lock/changelog/tag coherence measured with git diff --stat, plus a D1 review of the new examples-validate step. Returned B1-B6",
+      "claim lane C — falsifier honesty: what each of the four new or changed tests actually pins, and whether --locked rather than the test body is the enforcing mechanism. Returned C1-C6"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived, because every narrowing moved a citation or an example and left the substance standing",
+    "judges": 4,
+    "claims_confirmed": 19,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "[B6] The claim that the target was running nowhere prior to this CI step is misleading because the target file `tests/falsification_version_matches_manifest.rs` is added entirely by this diff, so the target did not exist and could not have run in any CI job before this. Citation: tests/falsification_version_matches_manifest.rs:1.",
+      "[C4] The text contradicts the claim that `starts_with` would admit `1.25.20`. The expected head includes the closing bracket `]`, so `starts_with(\"## [1.25.2]\")` will safely reject `## [1.25.20]`. Citation: tests/falsification_version_matches_manifest.rs:200."
+    ],
+    "refuter_note": "The count of three is a count of refuter lanes that returned real adjudications, not a claim that all three attacks were sound. R1 and R2 each attacked all twenty-one claims in wave 2. R3 was briefed as refuter AND crux surveyor; ITS FIRST RUN RETURNED NOTHING USABLE — twenty-six items carrying claim headlines with no verdict, no reasoning and no citation — so the crux survey was reassigned to judge J3 and the wave-3 judges were told to break every R1/R2 tie by opening the files themselves. R3 was rerun in wave 4 against the final file layout and returned twenty-one real adjudications (ten sustained, seven narrowed, four refuted), three of which contradicted a finished unanimous panel. A fourth judge, J4, re-adjudicated exactly those three — A2, A6 and B1 — and upheld the panel on all three, finding that two of R3's three citations DO NOT EXIST (line 530 and line 624 of an added test file that is 409 lines long, either of which would have been fatal rather than merely unanchored) and that the third misdescribes a real lockfile line. No R3 argument changed a single verdict.",
+    "divergence": "The independent agy /teamwork review returned do-not-implement-as-written while all four judges returned PASS. The disagreement is not about the facts: on its Q1 and Q3 it agrees with the panel that the added-file rule surrenders the authorship-independence property and that 'message-bearing witness' is a self-flattering phrase for a leg cargo repairs, and differs only on whether those are blockers. Its Q4 is wrong on a checkable point — it argues the new CI step can be SILENTLY skipped because an earlier step in the job may fail, which is ordinary fail-fast behaviour that turns the job RED — and was not adopted."
+  },
+  "crux": {
+    "systems": [
+      "Danger (danger-js / danger-ruby)",
+      "reviewdog",
+      "Gerrit",
+      "semantic-release commit-analyzer"
+    ],
+    "verdict": "MATCHES ON GRANULARITY, STRICTER THAN THE FIELD ON PROVENANCE. (i) GRANULARITY: reviewdog's `added` filter_mode is line-exact and strictly stricter than forjar's file-level rule; Danger degrades an out-of-diff anchor to a file-level or general PR comment rather than dropping the message; Gerrit keeps a stale comment attached to the older patch set as an unresolved thread. forjar's file-level looseness is correct for its subject: a review claim about a conceptual change, not a syntax error at a point, so citing Cargo.lock:1171 to assert a lockfile update is valid. (ii) PROVENANCE: none of the four derives trust from authorship-independence — semantic-release binds its entire release decision to the author's own commit message and never checks it against the diff. forjar's OLD rule was uniquely stricter than the field; by relaxing it for files the branch adds, forjar has moved TOWARD the industry standard, not below it, while keeping base-tree anchoring for every pre-existing file.",
+    "source": "briefed to refuter R3, which returned nothing usable, and reassigned to judge J3. The survey is one reading's work rather than three, and is recorded that way in .quorum/evidence/release-1252-crux.md rather than presented as a three-lane result."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "do-not-implement-as-written, returned against the PRE-REFACTOR tree: 'The branch introduces critical weaknesses to the quorum gate's forgery defense, adds an inert test that will never execute its assertions in CI, and places a new CI step where it can be silently skipped. It must be reworked.' Its blocking points were adjudicated by the panel and NOT adopted: Q1 and Q3 state facts the panel accepts (the added-file rule does surrender authorship-independence; the lockfile leg is enforced by cargo's --locked and not by its own body) and the disagreement is only over whether they block a release, while Q4 is wrong on a checkable point — a failing earlier step turns examples-validate RED rather than silently skipping the new step. The review also ran against the layout before the four gate cases moved into their own file, so its reasoning about the anchor rule survives that move and its citations do not.",
+    "unique_findings": [
+      "was the only lane to name the 33% floor as trivially satisfiable for a release branch under a file-level rule — citing a touched Cargo.lock line the branch did not itself change still counts as an anchor. The panel confirmed the substance as claim A3 and accepted it as the stated cost of the widening.",
+      "checked the four new gate cases against the banner's own arithmetic and found them mathematically consistent (both rules reverted 0/4 = 0%, CIT_RE alone reverted 1/4 = 25%, added-file rule alone reverted 0/4 with the out-of-range citation silently ignored rather than refused by name)."
+    ],
+    "did_not_cover": "it spawned NO child agents — the brain directory count moved from 503 to 504 across the whole wave, a delta of one, which is the run itself — so this was a single-agent review wearing the teamwork name, and it is recorded as that rather than as an independent panel.",
+    "measured_caveat": "agy's --sandbox flag is not a write barrier and is not reported as one: three scratch artefacts appeared inside the repository across the run (two judge fixtures in wave 3 and a 42 KB copy of the branch diff written into the worktree root by the wave-4 rerun refuter, which had been told to write nothing). All three were untracked, none was inside the diff, all were removed, and the worktree pointer was checked after every wave and never moved."
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 19315,
+    "files_parsed": 2101,
+    "quality_gate": "pmat 3.37.0 `pmat analyze vacuous-tests -p . -f json`, run repo-wide because a single-file -p is refused: 360 of 19315 #[test] fns cannot fail (1.9%), 4 conditional skips, skipped.unmeasured_tests = 0. Neither list contains an entry for any of the four touched test files — tests/falsification_version_matches_manifest.rs, tests/falsification_quorum_anchors_release_shaped.rs, tests/falsification_quorum_gate_reads_the_pushed_ref.rs, tests/integration_smoke.rs — so the filtered count is 0.",
+    "accepted": [
+      "the_compiled_version_is_the_manifest_version (tests/falsification_version_matches_manifest.rs:132) — NOT VACUOUS by body and NOT DISCRIMINATING under a plain `cargo test`: it compares the manifest text on disk to CARGO_PKG_VERSION, and cargo rebuilds the test binary from that same manifest before the body runs, so the two agree by construction. It discriminates only against an out-of-band binary, i.e. one built before the bump.",
+      "the_built_binary_reports_the_manifest_version (tests/falsification_version_matches_manifest.rs:149) — same repair one step out: cargo rebuilds the forjar binary from the bumped manifest first, so `forjar --version` cannot disagree with it under the command CI runs. It discriminates against an already-built or installed binary, which is the effective-artefact case, not under the invocation that rebuilds.",
+      "the_lockfile_records_the_manifest_version (tests/falsification_version_matches_manifest.rs:177) — the ENFORCER of the #131 invariant is cargo under `--locked`, not this body: without the flag cargo silently REPAIRS a stale Cargo.lock and the assertion then reads a lockfile fixed a second earlier; with it, cargo refuses at resolution and the test never starts. The body goes red on its own only when the already-built test binary is run directly."
+    ],
+    "limit": "The zero is what the tool measured, not a verdict that every touched test can fail. `analyze vacuous-tests` reads the test BODY and asks whether its assertions can be false; all three tests above have assertions that CAN be false, so the tool is right to pass them. Their failing state is repaired by cargo before the body executes, which is a property of the INVOCATION and outside what a body-level detector can see. The quorum measured it by hand and the file documents it at tests/falsification_version_matches_manifest.rs:38. The fourth leg, the_changelog_has_an_entry_for_this_version (tests/falsification_version_matches_manifest.rs:194), IS discriminating under a plain `cargo test` — nothing in the toolchain writes CHANGELOG.md — and is the leg that went red when Cargo.toml:3 was bumped alone."
+  },
+  "falsification": {
+    "test": "a_release_shaped_diff_can_anchor_its_claims",
+    "test_file": "tests/falsification_quorum_anchors_release_shaped.rs",
+    "cargo_test_target": "falsification_quorum_anchors_release_shaped",
+    "reverted": "CIT_RE widening reverted alone, then the added-file rule reverted alone, each restored from a sha256-verified copy",
+    "observed_failure": "✗ QUORUM GATE: only 1/4 (25%) adjudicated claims cite a file:line inside this branch's own diff; floor is 33% — and, for the added-file rule, the refusal never names line 9999"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/release-1252-claims.md",
+        "roles": ["claims"],
+        "bytes": 11298,
+        "sha256": "e9319bb2887bfb1cd3cbc67f23ae74814069727cb1727696f41ef8b021a685c7",
+        "blob": "dedc11ebd75a180c3736b2739c9e32d57afd7a11"
+      },
+      {
+        "path": ".quorum/evidence/release-1252-lanes.md",
+        "roles": ["lanes"],
+        "bytes": 4876,
+        "sha256": "c94c4efccabefebbcf7e248291ad4c6088736e8720cd8634bba84cb2ae0c4fd2",
+        "blob": "d61297b1e4c082c1026b9d8503e34ebba832adea"
+      },
+      {
+        "path": ".quorum/evidence/release-1252-judges.md",
+        "roles": ["judges"],
+        "bytes": 5709,
+        "sha256": "cdf8a7732b31f2737d0048953cd4599d95372efeb885878c7426328da085fbb4",
+        "blob": "2f52dec1d4f498cc2a5dd67ae9d737981e3f46da"
+      },
+      {
+        "path": ".quorum/evidence/release-1252-crux.md",
+        "roles": ["crux"],
+        "bytes": 2277,
+        "sha256": "e8fd66ab37abc5d8de26ca7148d79e6e846b4729f73d4904a196d8ba1fd19d74",
+        "blob": "8ab3463e108eea87a401a2ced2816a5580fcc0ab"
+      },
+      {
+        "path": ".quorum/evidence/release-1252-agy.md",
+        "roles": ["agy"],
+        "bytes": 3585,
+        "sha256": "57a7d3a2c3dbde6f848f409d67ac770d40afca11c29e8b8c8dd881f1a703755c",
+        "blob": "5abe6d48ac8615bbdad9bca28c82ceadea8226d7"
+      },
+      {
+        "path": ".quorum/evidence/release-1252-pmat.md",
+        "roles": ["pmat"],
+        "bytes": 4078,
+        "sha256": "182394c949fd3fa5a5ccc0c16f44c70826bb230cbe64d0e35f7e8629af8ebba2",
+        "blob": "abe975cff01f961dbf1b1a9580ab9aee08e861de"
+      }
+    ],
+    "total_bytes": 31823,
+    "claims_digest": ".quorum/evidence/release-1252-claims.md",
+    "anchors": "21 of 21 adjudicated claims anchor against the final layout (rate 1.00, floor 0.33), with 0 out-of-range citations. Cargo.toml:3, Cargo.lock:1171 and CHANGELOG.md:10/:49 resolve through anchors_at_base; the two files this branch ADDS — tests/falsification_version_matches_manifest.rs (231 lines) and tests/falsification_quorum_anchors_release_shaped.rs (409 lines) — resolve through anchors_as_added.",
+    "redaction": "The eleven raw lane, refuter and judge JSON envelopes each carry a conversation_id UUID, which is quorum_evidence.py's session_uuid LEAK pattern, and the assembly manifest carries all of them. NONE of those files is committed; the six markdown files above are extracted from their structured summaries and findings, and were re-checked against every one of the fifteen LEAK patterns before commit — session_uuid, home_path, claude_scratch, user_at_ip, mac_scratch, credential shapes, sshd/ControlPath — with zero hits.",
+    "assembly_note": "One correction was made to the claims draft before committing it: its opening paragraph still described the state of the run BEFORE the wave-4 refuter rerun and the fourth judge, saying the third refuter was 'not counted' and that three judges adjudicated. That paragraph now states what .quorum/evidence/release-1252-lanes.md and release-1252-judges.md already recorded and what this receipt's refuters_per_claim=3 and judges=4 assert. No claim item, verdict, citation or tally was touched; the other four drafts are byte-identical to what the lanes produced (their sha256s match the assembly manifest).",
+    "known_limits": [
+      "The third refuter is counted but contributed nothing to the outcome. Its first run returned claim headlines with no verdict, reason or citation; its rerun's adjudications were weighed by a fourth judge who found two of the three citations it checked DO NOT EXIST (line 530 and line 624 of a 409-line added file) and the third misdescribing a real lockfile line. No R3 argument changed a verdict, and refuters_per_claim=3 should be read as three lanes that returned adjudications, not three sound attacks.",
+      "The independent /teamwork review ran with 0 child agents (brain directory delta of one across the wave) and against the PRE-REFACTOR tree, before the four gate cases moved into their own file. It is a single-agent review wearing the teamwork name, and its file and line references predate the move — its reasoning about the anchor rule survives it, its citations do not.",
+      "The added-file anchor rule is a STATED, BOUNDED WEAKENING, not a neutral refactor. anchors_at_base derives its strength from resolving against a tree the pusher did not author; anchors_as_added cannot, because the pusher wrote every line of the file. What remains mechanically checkable is that the cited line EXISTS in the commit being pushed and that an out-of-range citation is still refused BY NAME. It was adopted because the old rule could not be passed honestly by a release commit — Cargo.toml, Cargo.lock and CHANGELOG.md were not citations at all, so v1.25.2's claims anchored 0 of 19 — and v1.25.0 (0b4f2e3e) and v1.25.1 (813159f2) both shipped with WAIVED receipts for exactly that reason. A gate that cannot be passed honestly is what teaches a repo to reach for the waiver.",
+      "The file-level rule means a citation to a touched file that this branch did not change at that line still anchors (claim A3, confirmed). anchors_at_base also bounds-checks against the file length AT THE MERGE-BASE, so a citation into lines this branch APPENDS to a pre-existing file is refused even though those lines are exactly as reviewable as an added file's (claim M1, confirmed). Neither is fixed here.",
+      "Nothing pins the base-side bounds check — the die in anchors_at_base — so one branch of a security check ships untested (claim M3, confirmed by all three judges)."
+    ]
+  },
+  "diff_sha256": "3ceb368937ff27ef72e889e68b658ed17d3cf320"
+}
