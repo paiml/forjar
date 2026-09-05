@@ -1,13 +1,26 @@
 //! Tests: FJ-1394 sudo elevation in codegen dispatch.
 
-// Refs #390-E: the wrapper now passes the script on fd 3 rather than on stdin.
-// The heredoc is unchanged in kind -- these still assert "sudo elevates via a
-// heredoc" -- but the nested bash no longer has its own script as stdin, which
-// is what let a stdin-reading command eat the remainder of it.
+// Refs #390-E and PMAT-158. The wrapper hands the script to `sudo bash` as a
+// private temp file: not on stdin (#390-E — a stdin-reading command ate the
+// rest of its own script) and not on descriptor 3 (PMAT-158 — sudo closes
+// every descriptor >= 3 before exec, so `bash /dev/fd/3` found nothing and
+// every `sudo: true` resource exited 127 for a non-root user). These assert
+// the TEXT of the form. The text of the fd-3 form was asserted here too, and
+// was green for the whole life of the defect, so the form is also EXECUTED
+// under real sudo in `tests/falsification_sudo_transport_survives_closefrom.rs`.
 #[cfg(test)]
 mod tests {
     use crate::core::codegen;
     use crate::core::types::{Resource, ResourceType};
+
+    /// The line that crosses the privilege boundary: a PATH argument, which
+    /// survives sudo's `closefrom`, not a descriptor, which does not.
+    const SUDO_LINE: &str = "sudo bash \"$forjar_sudo_script\"";
+
+    /// The cleanup, on the same signal set as the repo's other two mktemp
+    /// emitters (`disk_budget::reaper`, `backup_sync::sync`): a ^C or a
+    /// `kill` during a slow elevated apply must not leave a 0600 file behind.
+    const TRAP_LINE: &str = "trap 'rm -f \"$forjar_sudo_script\"' EXIT INT TERM";
 
     fn file_resource(sudo: bool) -> Resource {
         Resource {
@@ -17,6 +30,22 @@ mod tests {
             sudo,
             ..Default::default()
         }
+    }
+
+    /// Every textual property of the sudo form, in one place.
+    fn assert_sudo_form(script: &str) {
+        assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
+        assert!(script.contains(SUDO_LINE), "{script}");
+        assert!(script.contains("mktemp"), "{script}");
+        assert!(script.contains("<<'FORJAR_SUDO'"), "{script}");
+        assert!(
+            script.contains(TRAP_LINE),
+            "the temp file must be removed on EXIT, INT and TERM:\n{script}"
+        );
+        assert!(
+            !script.contains("/dev/fd/"),
+            "sudo closes every fd >= 3 (closefrom); a /dev/fd transport runs nothing:\n{script}"
+        );
     }
 
     #[test]
@@ -30,8 +59,43 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_script() {
         let r = file_resource(true);
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
-        assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"));
+        assert_sudo_form(&script);
+    }
+
+    /// PMAT-159: the sudo transport is a temp file, on all three entry points.
+    /// `sudo bash /dev/fd/3 3<<'D'` was the #390-E form; sudo's `closefrom`
+    /// closed the descriptor and the elevated bash exited 127 without running
+    /// a line — for apply, check and state_query alike.
+    #[test]
+    fn test_pmat159_sudo_transport_is_a_temp_file_not_fd3() {
+        let r = file_resource(true);
+        for (name, script) in [
+            ("apply", codegen::apply_script(&r).unwrap()),
+            ("check", codegen::check_script(&r).unwrap()),
+            ("state_query", codegen::state_query_script(&r).unwrap()),
+        ] {
+            assert!(!script.contains("/dev/fd/"), "{name}:\n{script}");
+            assert!(script.contains(SUDO_LINE), "{name}:\n{script}");
+            assert!(
+                script.contains("cat >\"$forjar_sudo_script\" <<'FORJAR_SUDO'"),
+                "{name}: the script must be written into the temp file by a quoted heredoc:\n{script}"
+            );
+            assert!(script.contains(TRAP_LINE), "{name}:\n{script}");
+        }
+    }
+
+    /// PMAT-159: the cleanup covers the two signals a `^C` or a `kill` sends,
+    /// not just a normal exit — the form the repo's other mktemp emitters use.
+    /// A bare `EXIT` trap was the first fix and left a 0600 file behind when a
+    /// slow elevated apply was interrupted.
+    #[test]
+    fn test_pmat159_sudo_temp_file_cleanup_covers_int_and_term() {
+        let script = codegen::apply_script(&file_resource(true)).unwrap();
+        assert!(script.contains(TRAP_LINE), "{script}");
+        assert!(
+            !script.contains("trap 'rm -f \"$forjar_sudo_script\"' EXIT\n"),
+            "the bare-EXIT trap leaves the temp file behind on ^C:\n{script}"
+        );
     }
 
     #[test]
@@ -44,7 +108,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
+        assert_sudo_form(&script);
     }
 
     #[test]
@@ -57,7 +121,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"));
+        assert_sudo_form(&script);
     }
 
     #[test]
@@ -72,11 +136,7 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_check_script() {
         let r = file_resource(true);
         let script = codegen::check_script(&r).unwrap();
-        assert!(
-            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
-            "{script}"
-        );
-        assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
+        assert_sudo_form(&script);
     }
 
     /// #349: the state query is the half that writes `live_hash`/`observed`.
@@ -84,11 +144,7 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_state_query_script() {
         let r = file_resource(true);
         let script = codegen::state_query_script(&r).unwrap();
-        assert!(
-            script.contains("sudo bash /dev/fd/3 3<<'FORJAR_SUDO'"),
-            "{script}"
-        );
-        assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"), "{script}");
+        assert_sudo_form(&script);
     }
 
     /// The over-wrap guard: elevating unconditionally would demand sudo for

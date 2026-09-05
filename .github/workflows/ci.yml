@@ -135,6 +135,32 @@ jobs:
       # Drives the real scripts/quorum-gate.sh against synthetic repos.
       - name: The quorum gate must judge the pushed commit
         run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
+      # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
+      # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
+      # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake
+      # id that forces the non-root branch, then the real emitted wrapper. It went
+      # RED on the old emitter and needs no privilege. The reusable test job is
+      # `cargo test --lib`, so it runs here or nowhere.
+      - name: The sudo transport survives closefrom
+        run: cargo test --locked --test falsification_sudo_transport_closefrom_emulated
+      # And the LIVE half of the same falsifier. The emulated test fakes `sudo`,
+      # so it can show the transport surviving an emulated closefrom but never
+      # the host's real one with a real uid 0 on the other side.
+      # tests/falsification_sudo_transport_survives_closefrom.rs does exactly
+      # that, but every test in it is gated on `sudo -n true` and SKIPS where
+      # that is missing — and a skip is an absence of evidence: on a host
+      # without passwordless sudo that file was green against the fd-3 emitter
+      # too. FORJAR_REQUIRE_SUDO_TESTS=1 turns each of those skips into a panic
+      # naming the missing capability, so a green step here means the gated
+      # tests RAN, under real sudo, not that they declined to. ubuntu-latest
+      # satisfies the gate by GitHub's documented hosted-runner environment
+      # (the `runner` user is non-root and has passwordless sudo) — that is
+      # cited, not measured here, which is why the switch is set: if it ever
+      # stops holding, this step fails loudly instead of skipping silently.
+      - name: The sudo transport survives closefrom under real sudo (required, not skippable)
+        env:
+          FORJAR_REQUIRE_SUDO_TESTS: "1"
+        run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's

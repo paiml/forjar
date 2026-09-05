@@ -145,16 +145,55 @@ fn the_sudo_wrapper_is_stdin_isolated_and_collision_free() {
     let mut r = task("echo hi\n", None);
     r.sudo = true;
     let script = forjar::core::codegen::apply_script(&r).unwrap();
+    // PMAT-159: fd 3 was the first answer and sudo closed it before exec, so
+    // the script now crosses the boundary as a private temp file.
+    //
+    // Asserted as an ORDER, not as a bag of substrings. Two disconnected
+    // `contains` calls are satisfied by a script that creates the temp file
+    // AFTER handing its name to sudo, or that arms the cleanup before there is
+    // a name to clean up, or that runs `sudo bash` from INSIDE the heredoc —
+    // all of which are broken and all of which contain both fragments. The
+    // pipeline is one sequence, so the test compares byte offsets.
+    let at = |needle: &str| -> usize {
+        script.find(needle).unwrap_or_else(|| {
+            panic!("missing from the sudo wrapper: {needle}\n--- script ---\n{script}")
+        })
+    };
+    let mktemp = at("forjar_sudo_script=\"$(mktemp ");
+    let trap = at("trap 'rm -f \"$forjar_sudo_script\"' EXIT INT TERM");
+    let cat = at("cat >\"$forjar_sudo_script\" <<'");
     assert!(
-        script.contains("sudo bash /dev/fd/3 3<<'"),
-        "sudo must pass the script on fd 3, leaving stdin free.\n--- script ---\n{script}"
+        mktemp < trap && trap < cat,
+        "the wrapper must name the temp file, then arm its cleanup, then fill \
+         it — got mktemp@{mktemp} trap@{trap} cat@{cat}.\n--- script ---\n{script}"
+    );
+
+    // The delimiter is chosen to avoid collision, so read it out of the script
+    // rather than hard-coding `FORJAR_SUDO` — a hard-coded one would make the
+    // "after the heredoc closes" assertion vacuous on a colliding body.
+    let delim = script[cat..]
+        .split("<<'")
+        .nth(1)
+        .and_then(|r| r.split('\'').next())
+        .expect("the sudo heredoc's delimiter must be parseable");
+    let close = cat
+        + script[cat..]
+            .find(&format!("\n{delim}\n"))
+            .expect("the sudo heredoc must close")
+        + 1;
+    let sudo = at("sudo bash \"$forjar_sudo_script\"");
+    assert!(
+        sudo > close,
+        "`sudo bash \"$forjar_sudo_script\"` must run AFTER the heredoc's \
+         closing `{delim}` — inside it, it is script text, not a command; \
+         got sudo@{sudo} close@{close}.\n--- script ---\n{script}"
     );
 
     let mut collide = task("echo hi\nFORJAR_SUDO\necho bye\n", None);
     collide.sudo = true;
     let s2 = forjar::core::codegen::apply_script(&collide).unwrap();
     assert!(
-        !s2.contains("3<<'FORJAR_SUDO'"),
+        !s2.contains("<<'FORJAR_SUDO'"),
         "a script mentioning FORJAR_SUDO must not use it as its own delimiter — \
          for a sudo: resource that runs the remainder UNPRIVILEGED"
     );

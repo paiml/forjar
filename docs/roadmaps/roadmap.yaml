@@ -1852,3 +1852,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-159
+  github_issue: null
+  item_type: task
+  title: 'sudo: true ran nothing for a non-root user — the wrapper passed the script on fd 3 and sudo closes fd 3'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-05T08:49:18Z
+  updated: 2026-09-05T08:50:21.253426742+00:00
+  spec: null
+  acceptance_criteria:
+  - 'Measured 2026-09-05 on lambda-labs, forjar 1.24.0: in_declared_privilege_context (src/core/codegen/dispatch.rs) emits ''sudo bash /dev/fd/3 3<<DELIM'' for every sudo: true resource run by a non-root user. sudo''s closefrom default closes every descriptor >= 3 before exec, so the elevated bash reports ''/dev/fd/3: No such file or directory'' and exits 127 — apply, check and state_query alike, since all three share the wrapper. Repro: ''sudo bash /dev/fd/3 3<<<echo'' fails, ''sudo bash -s <<<echo'' works. The unit tests asserted the TEXT of the form and stayed green. Fix: cross the sudo boundary as a private 0600 temp file (mktemp, quoted heredoc, ''sudo bash <tmp>'', EXIT trap removes it), keeping stdin as the transport left it. Tests: unit test asserting no /dev/fd in the sudo form; integration test that EXECUTES the wrapper under real sudo (gated on uid != 0 and ''sudo -n true''), asserting exit code, stdout and that the temp file is gone; discrimination proven by reverting the emitter.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
