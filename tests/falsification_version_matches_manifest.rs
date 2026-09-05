@@ -33,6 +33,36 @@
 //!     test binary directly (so cargo cannot silently repair the lock first) →
 //!     `the_lockfile_records_the_manifest_version` goes RED. That is the #131
 //!     defect reproduced exactly.
+//!
+//! WHAT EACH LEG PINS, AND WHO ACTUALLY ENFORCES IT — because the second half of
+//! that measurement is a disclosure, not a footnote. Under a bare `cargo test`,
+//! cargo REBUILDS from the manifest on disk and REPAIRS a stale `Cargo.lock`
+//! before any test body runs, so three of these four cannot go RED under the
+//! command CI uses. They are kept, and this is what each is for:
+//!
+//!   * `the_compiled_version_is_the_manifest_version` and
+//!     `the_built_binary_reports_the_manifest_version` pin *manifest text ==
+//!     the artefact's own answer*. Cargo makes them agree by construction on the
+//!     spot, so they discriminate only against an OUT-OF-BAND binary — the
+//!     already-built test binary or an installed `forjar` run against a bumped
+//!     manifest, which is exactly the "verify the effective artefact" case this
+//!     fleet keeps meeting.
+//!   * `the_lockfile_records_the_manifest_version` pins the #131 invariant, and
+//!     the ENFORCER is cargo itself under **`--locked`**: with that flag cargo
+//!     refuses at resolution and the tests never start, which is a build error
+//!     rather than a review-able message. This test is the message-bearing
+//!     witness for the same invariant — it names the defect, the cost and the
+//!     fix — and it is the leg that goes red when the binary is run directly.
+//!     Every invocation of this target is `--locked` for that reason:
+//!     `ci.yml`'s `examples-validate` step says so in its own comment.
+//!   * `the_changelog_has_an_entry_for_this_version` is the only leg that
+//!     discriminates under a plain `cargo test`. Nothing in the toolchain
+//!     writes `CHANGELOG.md`, so nothing can repair it underneath the
+//!     assertion.
+//!
+//! Saying which is which is the point: a suite that lets a reader believe four
+//! independent checks are running when one is would be the "reported a result it
+//! did not measure" shape these files exist to refuse.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

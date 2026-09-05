@@ -9,14 +9,30 @@ fn forjar() -> Command {
     Command::new(env!("CARGO_BIN_EXE_forjar"))
 }
 
+/// `forjar --version` prints exactly `forjar <the version this was built from>`.
+///
+/// This asserted `stdout.contains("forjar")` for its whole life, which the
+/// BINARY'S OWN NAME satisfies: `forjar 0.0.1`, `forjar 1.4.0` and a bare
+/// `forjar` all pass it, so it was green for every version the binary could
+/// possibly report and could not have failed a release. The assertion is on the
+/// whole rendering now.
+///
+/// The oracle is `CARGO_PKG_VERSION`, a compile-time constant, so this leg says
+/// only that the spawned binary agrees with the build this test came from — it
+/// catches a `--version` renderer that drops or mangles the number, not a stale
+/// tree. The MANIFEST TEXT is the oracle in
+/// `tests/falsification_version_matches_manifest.rs`; the two are deliberately
+/// different subjects and the other file says which is which.
 #[test]
 fn version_flag_prints_version() {
     let out = forjar().arg("--version").output().expect("failed to run");
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(
-        stdout.contains("forjar"),
-        "expected 'forjar' in version output, got: {stdout}"
+    assert_eq!(
+        stdout.trim(),
+        format!("forjar {}", env!("CARGO_PKG_VERSION")),
+        "`forjar --version` must print the whole rendering — name AND version. \
+         Got: {stdout:?}"
     );
 }
 
