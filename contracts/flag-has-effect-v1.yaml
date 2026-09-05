@@ -306,6 +306,27 @@ fixtures:
         c-file: {type: file, machine: local, path: "{{params.sandbox}}/c.txt", content: "C\n", mode: "0644"}
       EOF
 
+  - id: FX-3FILE-SCOPE
+    description: >-
+      PMAT-160 (#466 #467): three file resources on two machines, one in a
+      resource group, so `--subset`/`--exclude`/`-g`/`--skip`/`-m` each have a
+      distinct set to select. Writes only inside /tmp/forjar-dogfood.
+    setup: |
+      export FORJAR=${FORJAR:-/home/noah/.cargo/bin/forjar}
+      export G=/tmp/forjar-dogfood/flagA/scope
+      rm -rf "$G" && mkdir -p "$G" && cd "$G"
+      cat > forjar.yaml <<EOF
+      version: "1.0"
+      name: dogfood-sandbox
+      machines:
+        local: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+        other: {hostname: localhost, addr: 127.0.0.1, user: noah, arch: x86_64}
+      resources:
+        a-file: {type: file, machine: local, resource_group: web, path: "$G/a.txt", content: "A\n", mode: "0644"}
+        b-file: {type: file, machine: local, path: "$G/b.txt", content: "B\n", mode: "0644"}
+        c-file: {type: file, machine: other, path: "$G/c.txt", content: "C\n", mode: "0644"}
+      EOF
+
   - id: FX-HTTP-SINK
     description: >-
       A localhost HTTP receiver that logs method, path, headers and body of
@@ -1138,6 +1159,88 @@ falsification_tests:
       The BLAKE3 gate whose own refusal text says "No apply flag overrides this
       check" is overridable by running a different apply mode first, and the
       re-seal destroys the only evidence the tamper happened.
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A20
+    rule: INV-FLAG-EFFECT-OR-REJECT
+    defect: apply-check-ignored-every-scope-flag-but-machine-and-resource
+    severity: HIGH
+    prediction: >-
+      `apply --check` under each of --subset, --exclude, -g and --skip checks
+      only the selected resources and exits 0 when only an UNSELECTED resource
+      is red, exactly as -m already did.
+    fixture: FX-3FILE-SCOPE
+    command: |
+      cd "$G"; rm -rf state
+      "$FORJAR" apply --yes > setup.out 2>&1   # converge a-file, b-file, c-file
+      printf 'TAMPERED\n' > c.txt              # drift c-file only
+      t(){ "$FORJAR" apply --yes --check "$@" >out 2>&1
+           echo "[$*] rc=$? checked=[$(grep -oE '(ok|FAIL) [a-z]+-file' out | awk '{print $2}' | sort -u | tr '\n' ' ')]"; }
+      t --subset a-file
+      t --exclude c-file
+      t -g web
+      t --skip c-file
+      t -m local              # in-binary control
+    red_output: |
+      [--subset a-file] rc=1 checked=[a-file b-file c-file ]
+      [--exclude c-file] rc=1 checked=[a-file b-file c-file ]
+      [-g web] rc=1 checked=[a-file b-file c-file ]
+      [--skip c-file] rc=1 checked=[a-file b-file c-file ]
+      [-m local] rc=0 checked=[a-file b-file ]
+    can_go_red: >-
+      Confirmed by the family measured 2026-08 and 2026-09-05 (#467):
+      `dispatch_apply_b.rs` returned into `cmd_check` before `cmd_apply_scoped`
+      ran, so `--check` saw only the four parameters that path already forwarded
+      to `cmd_check` (file, machine, resource, tag) — `--subset`, `--exclude`,
+      `-g` and `--skip` were not read at all. `-m` is the in-binary control:
+      it went through unchanged and already restricts, which is why the last
+      line is the only one that restricts pre-fix — the identical harness, same
+      fixture, same drifted resource. GREEN is every line matching `-m`'s shape:
+      `checked` excludes `c-file` and `rc=0`.
+    if_fails: >-
+      A scoped `--check` in CI reports the operator's own target as broken
+      because something outside the scope they asked about is red, which is
+      the exact defect #467 was filed from (`ok screen-sharing` followed by
+      `error: 4 check(s) failed` on four resources nobody asked about).
+    owner: forjar
+
+  - id: FALSIFY-FLAG-A21
+    rule: INV-FLAG-EFFECT-OR-REJECT
+    defect: apply-dry-run-rendered-the-unscoped-plan-under-r-and-g
+    severity: HIGH
+    prediction: >-
+      `apply --dry-run` under -r and -g lists only the selected resources,
+      exactly as `plan -r`/`plan -g` already do over the same config.
+    fixture: FX-3FILE-SCOPE
+    command: |
+      cd "$G"; rm -rf state
+      t(){ "$FORJAR" apply --yes --dry-run "$@" >out 2>&1
+           echo "[$*] rc=$? listed=[$(grep -oE '[a-z]+-file' out | sort -u | tr '\n' ' ')]"; }
+      t -r a-file
+      t -g web
+      t                        # unscoped, for comparison — this one SHOULD list all three
+      p(){ "$FORJAR" plan "$@" >out 2>&1
+           echo "[plan $*] listed=[$(grep -oE '[a-z]+-file' out | sort -u | tr '\n' ' ')]"; }
+      p -r a-file              # in-binary control
+    red_output: |
+      [-r a-file] rc=0 listed=[a-file b-file c-file ]
+      [-g web] rc=0 listed=[a-file b-file c-file ]
+      [] rc=0 listed=[a-file b-file c-file ]
+      [plan -r a-file] listed=[a-file ]
+    can_go_red: >-
+      Confirmed RED on 1.24.0 and read unchanged on 1.25.2 (#466, measured
+      against `paiml/infra`: `apply --dry-run -r stack-tool-forjar` printed all
+      139 resources of a fleet manifest as "would execute"). `plan -r` on the
+      identical config, through `plan_selector`, is the in-binary control and
+      restricts correctly, which is what makes "the flag is unimplemented"
+      unavailable as an explanation. GREEN is `-r a-file` and `-g web` matching
+      `plan -r a-file`'s shape — a strict subset of the unscoped line, which
+      stays `[a-file b-file c-file ]` because it asked for everything.
+    if_fails: >-
+      The one flag that exists to preview an apply's blast radius shows work
+      the apply will not do, so an operator either aborts a correct scoped
+      apply or learns to ignore the preview — the exact incident #466 was
+      filed from.
     owner: forjar
 
 enforcement:

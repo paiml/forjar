@@ -18,10 +18,14 @@ forjar make [GOALS...] [-f forjar.yaml] [-n] [-B] [-j <N>] [-p KEY=VALUE] [--yes
 ```
 
 The goal closure is downward-closed, so a targeted build can never run against
-an unconverged prerequisite. This is what distinguishes it from `apply -r`,
-which is exact-match with no closure (make's `-o` semantics), and from
-`--subset`/`--exclude`, whose patterns can cut a resource out from under a
-dependent.
+an unconverged prerequisite (#468). `apply -r`, `-g` and `--subset` resolve the
+same way now: each selects its own `depends_on` closure, not an exact match, so
+they too can never run against an unconverged prerequisite they did not name.
+`--exclude`/`--skip` remain the one place a resource can be cut out from under
+a dependent — but the dependent's edge to it is contracted rather than left
+dangling, so the dependent still runs with the excluded resource assumed
+satisfied, and never sees a reference to a resource no longer in the config
+(#466).
 
 With no goals it is equivalent to `forjar apply`. An unknown goal is an error
 listing the known targets, never a silent no-op.

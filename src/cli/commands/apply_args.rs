@@ -13,7 +13,7 @@ pub struct ApplyArgs {
     #[arg(short, long)]
     pub machine: Option<String>,
 
-    /// Target specific resource
+    /// Target specific resource — also selects its depends_on closure (#468)
     #[arg(short, long)]
     pub resource: Option<String>,
 
@@ -21,7 +21,7 @@ pub struct ApplyArgs {
     #[arg(short, long)]
     pub tag: Option<String>,
 
-    /// FJ-281: Filter to resources in this group
+    /// FJ-281: Filter to resources in this group — also selects the group's depends_on closure (#468)
     #[arg(short, long)]
     pub group: Option<String>,
 
@@ -37,7 +37,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub force_tag: Option<String>,
 
-    /// Show what would be executed without running
+    /// Show what would be executed without running — lists exactly the resolved selection (-r/-g's depends_on closure included), never the whole config (#466)
     #[arg(long)]
     pub dry_run: bool,
 
@@ -73,7 +73,7 @@ pub struct ApplyArgs {
     #[arg(short = 'w', long)]
     pub workspace: Option<String>,
 
-    /// FJ-226: Run check scripts instead of apply scripts (exit 2 = changes needed)
+    /// FJ-226: Run check scripts instead of apply scripts (exit 2 = changes needed) — honours every apply selector (--subset, --exclude, -g, --skip, -m) and exits 0 when only an unselected resource fails (#467)
     #[arg(long)]
     pub check: bool,
 
@@ -125,7 +125,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify: Option<String>,
 
-    /// FJ-331: Apply only resources matching glob pattern (e.g., web-*)
+    /// FJ-331: Apply only resources matching glob pattern (e.g., web-*) — selection includes each matched resource's depends_on closure, never refused as "unknown" (#468)
     #[arg(long)]
     pub subset: Option<String>,
 
@@ -137,7 +137,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub backup: bool,
 
-    /// FJ-345: Exclude resources matching glob pattern from apply
+    /// FJ-345: Exclude resources matching glob pattern from apply — an excluded dependency is skipped and its dependents still run (#466)
     #[arg(long)]
     pub exclude: Option<String>,
 
@@ -201,7 +201,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub notify_email: Option<String>,
 
-    /// FJ-396: Skip specific resource during apply
+    /// FJ-396: Skip specific resource during apply — a skipped dependency is contracted out and its dependents still run (#466)
     #[arg(long)]
     pub skip: Option<String>,
 
