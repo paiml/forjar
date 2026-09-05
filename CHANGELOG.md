@@ -46,7 +46,8 @@ also verified rather than silently assumed. `--subset` no longer refuses a
 resource for a `depends_on` outside its glob. Unscoped `apply` (no selectors)
 is unchanged for every valid config; a config whose graph is invalid (a cycle,
 an undeclared `depends_on`) is now refused before any SSH socket is opened or
-the drift gate runs, with the same message as before.
+the drift gate runs, with the same message as before (the members of a cycle
+may be listed in the other order).
 
 Two refinements the review quorum forced: a negative selector that removes
 every selected resource (`--exclude '*'`; a negative that removes the target but
