@@ -145,9 +145,12 @@ fn the_sudo_wrapper_is_stdin_isolated_and_collision_free() {
     let mut r = task("echo hi\n", None);
     r.sudo = true;
     let script = forjar::core::codegen::apply_script(&r).unwrap();
+    // PMAT-158: fd 3 was the first answer and sudo closed it before exec, so
+    // the script now crosses the boundary as a private temp file.
     assert!(
-        script.contains("sudo bash /dev/fd/3 3<<'"),
-        "sudo must pass the script on fd 3, leaving stdin free.\n--- script ---\n{script}"
+        script.contains("cat >\"$forjar_sudo_script\" <<'")
+            && script.contains("sudo bash \"$forjar_sudo_script\""),
+        "sudo must pass the script as a file it wrote, leaving stdin free.\n--- script ---\n{script}"
     );
 
     let mut collide = task("echo hi\nFORJAR_SUDO\necho bye\n", None);

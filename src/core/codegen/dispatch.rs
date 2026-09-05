@@ -289,12 +289,32 @@ fn in_declared_privilege_context(resource: &Resource, script: String) -> String 
     //   * The nested bash's stdin IS the heredoc, so a stdin-reading command
     //     eats the remainder of its own script (FJ-2732, one layer in).
     //
-    // `bash /dev/fd/3 3<<'D'` leaves stdin as the transport left it. Strictness
-    // needs no repair here, unlike the timeout wrapper: the wrapped `{script}`
-    // is the WHOLE generated script and already opens with `set -euo pipefail`.
+    // #390-E answered the second with `sudo bash /dev/fd/3 3<<'D'`, and that
+    // ran NOTHING for a non-root user (PMAT-158): sudo closes every descriptor
+    // >= 3 before it execs the command (`closefrom`, on by default), so the
+    // elevated bash opened `/dev/fd/3`, got `No such file or directory`, and
+    // exited 127 -- apply, check and state_query alike, since all three come
+    // through here. Measured 2026-09-05 on lambda-labs against 1.24.0; the
+    // unit tests asserted the TEXT of the form and stayed green.
+    //
+    // So the script crosses the boundary as a FILE: a private temp file
+    // (mktemp, 0600, owned by the caller -- root can read it) that the outer
+    // shell fills through the quoted heredoc and hands to `sudo bash` by
+    // path. stdin stays whatever the transport left it, the property fd 3 was
+    // chosen for; bash READS the file, so a `noexec` TMPDIR is fine; the EXIT
+    // trap removes it on every path, sudo refusing included, and leaves the
+    // status alone. `sudo bash` is the last command of the branch, so the
+    // wrapper exits with its status exactly as the fd-3 form's `fi` did.
+    // Strictness needs no repair here, unlike the timeout wrapper: the wrapped
+    // `{script}` is the WHOLE generated script and already opens with
+    // `set -euo pipefail`.
     let delim = crate::resources::task::heredoc_delimiter("FORJAR_SUDO", &script);
     format!(
-        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash /dev/fd/3 3<<'{delim}'\n{script}\n{delim}\nfi"
+        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\n\
+         forjar_sudo_script=\"$(mktemp \"${{TMPDIR:-/tmp}}/forjar-sudo.XXXXXX\")\" || exit 1\n\
+         trap 'rm -f \"$forjar_sudo_script\"' EXIT\n\
+         cat >\"$forjar_sudo_script\" <<'{delim}' || exit 1\n{script}\n{delim}\n\
+         sudo bash \"$forjar_sudo_script\"\nfi"
     )
 }
 
