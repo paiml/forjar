@@ -21,6 +21,7 @@ jobs:
         features: ["", encryption]
         # Windows excluded: openssl-sys vendored build requires Perl/NASM
         # which is unreliable on GH runners. Sovereign-ci handles lint on Linux.
+    timeout-minutes: 27
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -60,6 +61,7 @@ jobs:
   # PR *and* is now over 500. A pre-existing over-limit file (the declarative
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

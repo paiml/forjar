@@ -38,6 +38,7 @@ concurrency:
 jobs:
   # ── Verify: tag-version match + package tarball ─────────
   verify:
+    timeout-minutes: 29
     runs-on: [self-hosted, clean-room]
     outputs:
       crate_name: ${{ steps.parse.outputs.crate_name }}
@@ -126,6 +127,7 @@ jobs:
   # ── Create GitHub Release ─────────────────────────────
   create-release:
     needs: verify
+    timeout-minutes: 21
     runs-on: [self-hosted, clean-room]
     steps:
       - name: Create or update GitHub Release
@@ -163,6 +165,7 @@ jobs:
             runner: macos-latest
           - target: aarch64-apple-darwin
             runner: macos-latest
+    timeout-minutes: 73
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -257,6 +260,7 @@ jobs:
   checksums:
     needs: [verify, create-release, build-binaries]
     if: needs.verify.outputs.has_binaries == 'true'
+    timeout-minutes: 21
     runs-on: [self-hosted, clean-room]
     steps:
       # THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL.
@@ -332,6 +336,7 @@ jobs:
   dist-artifacts:
     needs: [verify, checksums]
     if: needs.verify.outputs.has_binaries == 'true'
+    timeout-minutes: 38
     runs-on: [self-hosted, clean-room]
     steps:
       - name: Checkout
@@ -368,6 +373,7 @@ jobs:
   homebrew:
     needs: [verify, dist-artifacts]
     if: needs.verify.outputs.has_binaries == 'true'
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room]
     steps:
       - name: Checkout

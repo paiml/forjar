@@ -55,6 +55,7 @@ jobs:
   # build leg runs — hosted runners only, no self-hosted dependency.
   ensure-release:
     name: Ensure release exists
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -99,6 +100,7 @@ jobs:
     # musl legs are static and aarch64 legs build inside cross containers,
     # so only the x86_64-gnu leg actually needs this, but one runner keeps
     # the matrix uniform.
+    timeout-minutes: 33
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -241,6 +243,7 @@ jobs:
   checksums:
     name: Aggregate SHA256SUMS
     needs: [ensure-release, build]
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     steps:
       - name: Regenerate and upload SHA256SUMS
@@ -285,6 +288,7 @@ jobs:
   summary:
     name: Summary
     needs: [ensure-release, build]
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     if: always()
     steps:
