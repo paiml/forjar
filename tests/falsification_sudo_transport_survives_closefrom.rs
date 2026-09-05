@@ -1,4 +1,4 @@
-//! Refs PMAT-158: `sudo: true` ran nothing for a non-root user.
+//! Refs PMAT-159: `sudo: true` ran nothing for a non-root user.
 //!
 //! THE FLAW THIS CLOSES.
 //!
@@ -27,10 +27,22 @@
 //! must not leave behind. Reverting the emitter to the fd-3 form makes every
 //! gated test here fail with exit 127.
 //!
-//! HOST GATE. The sudo branch is only taken when uid != 0, and executing it
-//! needs a passwordless `sudo -n true`. Where either is missing the test prints
-//! `SKIP: <test>: <capability>` and returns — the convention
-//! `tests/container_transport.rs` uses for docker.
+//! THIS IS THE LIVE-PRIVILEGE CONFIRMATION, NOT THE ALWAYS-ON FALSIFIER.
+//! Every test below is gated on real sudo, so on a host without it this file
+//! executes NOTHING and would have been green against the fd-3 emitter too.
+//! The always-on falsifier is
+//! `tests/falsification_sudo_transport_closefrom_emulated.rs`, which needs no
+//! privilege: it reproduces sudo's closefrom with a fake `sudo` on `PATH` and
+//! runs everywhere. This file adds what emulation cannot: the wrapper under
+//! the host's REAL sudo, with a real uid 0 inside.
+//!
+//! HOST GATE, AND HOW IT FAILS CLOSED. The sudo branch is only taken when
+//! uid != 0, and executing it needs a passwordless `sudo -n true`. Where either
+//! is missing the test prints `SKIP: <test>: <capability>` and returns — the
+//! convention `tests/container_transport.rs` uses for docker. A skip is an
+//! absence of evidence, so a caller that needs the evidence sets
+//! `FORJAR_REQUIRE_SUDO_TESTS=1` and the same missing capability PANICS instead,
+//! naming the test and what was missing.
 
 use forjar::core::codegen;
 use forjar::core::types::{MachineTarget, Resource, ResourceType};
@@ -38,6 +50,27 @@ use forjar::transport::stdin_isolation::wrap_script_stdin_isolated;
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+/// Set to `1` to turn a skip into a failure. A gated test that prints SKIP
+/// proves nothing; `scripts/quorum-gate.sh` executes a receipt's
+/// `falsification.cargo_test_target` and reads green as verification, so a
+/// caller that is relying on THIS file rather than the emulated one must be
+/// able to demand that it actually ran.
+const REQUIRE_ENV: &str = "FORJAR_REQUIRE_SUDO_TESTS";
+
+/// Skip, or fail closed when the caller demanded the capability.
+fn missing(test: &str, capability: &str) -> bool {
+    if std::env::var(REQUIRE_ENV).as_deref() == Ok("1") {
+        panic!(
+            "{REQUIRE_ENV}=1 but {test} cannot run: {capability}. \
+             This test is the live-privilege confirmation of the sudo \
+             transport; the always-on falsifier is \
+             tests/falsification_sudo_transport_closefrom_emulated.rs."
+        );
+    }
+    eprintln!("SKIP: {test}: {capability}");
+    false
+}
 
 /// Can this host take the wrapper's sudo branch and execute it?
 fn sudo_branch_is_executable(test: &str) -> bool {
@@ -47,8 +80,10 @@ fn sudo_branch_is_executable(test: &str) -> bool {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
     if uid == "0" {
-        eprintln!("SKIP: {test}: running as root, so the wrapper's sudo branch is never taken");
-        return false;
+        return missing(
+            test,
+            "running as root, so the wrapper's sudo branch is never taken",
+        );
     }
     let ok = Command::new("sudo")
         .args(["-n", "true"])
@@ -57,8 +92,10 @@ fn sudo_branch_is_executable(test: &str) -> bool {
         .map(|o| o.status.success())
         .unwrap_or(false);
     if !ok {
-        eprintln!("SKIP: {test}: `sudo -n true` fails on this host (no passwordless sudo)");
-        return false;
+        return missing(
+            test,
+            "`sudo -n true` fails on this host (no passwordless sudo)",
+        );
     }
     true
 }

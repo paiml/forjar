@@ -301,18 +301,33 @@ fn in_declared_privilege_context(resource: &Resource, script: String) -> String 
     // (mktemp, 0600, owned by the caller -- root can read it) that the outer
     // shell fills through the quoted heredoc and hands to `sudo bash` by
     // path. stdin stays whatever the transport left it, the property fd 3 was
-    // chosen for; bash READS the file, so a `noexec` TMPDIR is fine; the EXIT
-    // trap removes it on every path, sudo refusing included, and leaves the
-    // status alone. `sudo bash` is the last command of the branch, so the
-    // wrapper exits with its status exactly as the fd-3 form's `fi` did.
+    // chosen for; bash READS the file, so a `noexec` TMPDIR is fine; the
+    // `EXIT INT TERM` trap removes it on every path, sudo refusing included,
+    // and leaves the status alone -- the same signal set the repo's other two
+    // mktemp emitters use (`disk_budget::reaper`, `backup_sync::sync`), so a
+    // ^C during a slow elevated apply does not leave a 0600 file behind.
+    // `sudo bash` is the last command of the branch, so the wrapper exits with
+    // its status exactly as the fd-3 form's `fi` did.
     // Strictness needs no repair here, unlike the timeout wrapper: the wrapped
     // `{script}` is the WHOLE generated script and already opens with
     // `set -euo pipefail`.
+    //
+    // The bare EXIT trap and the fixed variable name are safe UNSCOPED because
+    // codegen never concatenates two wrapped scripts into one shell: this
+    // function is private, its only three callers are `apply_script`,
+    // `check_script` and `state_query_script`, each wraps one WHOLE generated
+    // script exactly once, and every consumer feeds one such script to one
+    // `bash` process (`transport::exec_script*` writes one script to one child;
+    // `store::container_build::execute_scripts` runs one `exec -i ... bash` per
+    // element of its `&[String]`, never a join). Should a future caller join
+    // two, the else-branch must move into a subshell `( ... )` so the trap and
+    // the variable are scoped -- bash REPLACES an EXIT trap rather than
+    // stacking it, so the second wrapper would disarm the first one's cleanup.
     let delim = crate::resources::task::heredoc_delimiter("FORJAR_SUDO", &script);
     format!(
         "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\n\
          forjar_sudo_script=\"$(mktemp \"${{TMPDIR:-/tmp}}/forjar-sudo.XXXXXX\")\" || exit 1\n\
-         trap 'rm -f \"$forjar_sudo_script\"' EXIT\n\
+         trap 'rm -f \"$forjar_sudo_script\"' EXIT INT TERM\n\
          cat >\"$forjar_sudo_script\" <<'{delim}' || exit 1\n{script}\n{delim}\n\
          sudo bash \"$forjar_sudo_script\"\nfi"
     )

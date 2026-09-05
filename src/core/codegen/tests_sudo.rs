@@ -17,6 +17,11 @@ mod tests {
     /// survives sudo's `closefrom`, not a descriptor, which does not.
     const SUDO_LINE: &str = "sudo bash \"$forjar_sudo_script\"";
 
+    /// The cleanup, on the same signal set as the repo's other two mktemp
+    /// emitters (`disk_budget::reaper`, `backup_sync::sync`): a ^C or a
+    /// `kill` during a slow elevated apply must not leave a 0600 file behind.
+    const TRAP_LINE: &str = "trap 'rm -f \"$forjar_sudo_script\"' EXIT INT TERM";
+
     fn file_resource(sudo: bool) -> Resource {
         Resource {
             resource_type: ResourceType::File,
@@ -34,8 +39,8 @@ mod tests {
         assert!(script.contains("mktemp"), "{script}");
         assert!(script.contains("<<'FORJAR_SUDO'"), "{script}");
         assert!(
-            script.contains("rm -f \"$forjar_sudo_script\""),
-            "the temp file must be removed:\n{script}"
+            script.contains(TRAP_LINE),
+            "the temp file must be removed on EXIT, INT and TERM:\n{script}"
         );
         assert!(
             !script.contains("/dev/fd/"),
@@ -57,12 +62,12 @@ mod tests {
         assert_sudo_form(&script);
     }
 
-    /// PMAT-158: the sudo transport is a temp file, on all three entry points.
+    /// PMAT-159: the sudo transport is a temp file, on all three entry points.
     /// `sudo bash /dev/fd/3 3<<'D'` was the #390-E form; sudo's `closefrom`
     /// closed the descriptor and the elevated bash exited 127 without running
     /// a line — for apply, check and state_query alike.
     #[test]
-    fn test_pmat158_sudo_transport_is_a_temp_file_not_fd3() {
+    fn test_pmat159_sudo_transport_is_a_temp_file_not_fd3() {
         let r = file_resource(true);
         for (name, script) in [
             ("apply", codegen::apply_script(&r).unwrap()),
@@ -75,7 +80,22 @@ mod tests {
                 script.contains("cat >\"$forjar_sudo_script\" <<'FORJAR_SUDO'"),
                 "{name}: the script must be written into the temp file by a quoted heredoc:\n{script}"
             );
+            assert!(script.contains(TRAP_LINE), "{name}:\n{script}");
         }
+    }
+
+    /// PMAT-159: the cleanup covers the two signals a `^C` or a `kill` sends,
+    /// not just a normal exit — the form the repo's other mktemp emitters use.
+    /// A bare `EXIT` trap was the first fix and left a 0600 file behind when a
+    /// slow elevated apply was interrupted.
+    #[test]
+    fn test_pmat159_sudo_temp_file_cleanup_covers_int_and_term() {
+        let script = codegen::apply_script(&file_resource(true)).unwrap();
+        assert!(script.contains(TRAP_LINE), "{script}");
+        assert!(
+            !script.contains("trap 'rm -f \"$forjar_sudo_script\"' EXIT\n"),
+            "the bare-EXIT trap leaves the temp file behind on ^C:\n{script}"
+        );
     }
 
     #[test]
