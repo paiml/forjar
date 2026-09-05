@@ -135,6 +135,14 @@ jobs:
       # Drives the real scripts/quorum-gate.sh against synthetic repos.
       - name: The quorum gate must judge the pushed commit
         run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
+      # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
+      # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
+      # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake
+      # id that forces the non-root branch, then the real emitted wrapper. It went
+      # RED on the old emitter and needs no privilege. The reusable test job is
+      # `cargo test --lib`, so it runs here or nowhere.
+      - name: The sudo transport survives closefrom
+        run: cargo test --locked --test falsification_sudo_transport_closefrom_emulated
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's
