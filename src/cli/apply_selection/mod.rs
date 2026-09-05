@@ -15,6 +15,7 @@
 //! (goal-only phony resources, which `plan` and the MCP layer share).
 
 use crate::core::types;
+use std::collections::HashSet;
 
 mod closure;
 mod narrow;
@@ -113,12 +114,22 @@ pub(crate) fn strip_unrequested_phony(config: &mut types::ForjarConfig, goals: &
     if dropped.is_empty() {
         return;
     }
+    // PMAT-160: contract the `depends_on` edges THROUGH the phony rather than
+    // scrubbing them, so `a -> phony -> c` keeps `a` ordered after `c` once the
+    // phony is gone — the same rewrite the negative selectors get.
+    let removed: HashSet<String> = dropped.iter().cloned().collect();
+    let keep: Vec<String> = config
+        .resources
+        .keys()
+        .filter(|id| !removed.contains(*id))
+        .cloned()
+        .collect();
+    let _ = narrow::contract_edges(config, &keep, &removed);
     for id in &dropped {
         config.resources.shift_remove(id);
     }
-    // Scrub edges to the removed resources so the DAG stays well-formed.
+    // Trigger edges have no transitive meaning: scrub them.
     for resource in config.resources.values_mut() {
-        resource.depends_on.retain(|d| !dropped.contains(d));
         resource.triggers.retain(|t| !dropped.contains(t));
         resource.restart_on.retain(|t| !dropped.contains(t));
     }

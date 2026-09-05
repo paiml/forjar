@@ -46,6 +46,14 @@ also verified rather than silently assumed. `--subset` no longer refuses a
 resource for a `depends_on` outside its glob. Unscoped `apply` (no selectors)
 is unchanged.
 
+Two refinements the review quorum forced: a negative selector that removes
+every selected resource (`--exclude '*'`, `--subset x --exclude x`) is now
+refused with `no resources remain: ... removed every selected resource` instead
+of converging nothing at exit 0, and `make`'s stripping of an unrequested phony
+target now contracts the `depends_on` edges through it (`a -> phony -> c` keeps
+`a` after `c`) instead of scrubbing them, which could reorder a goal ahead of
+its transitive prerequisite.
+
 The standalone `forjar check` command (not `apply --check`) resolves its own
 `-r`/`-t` through the same resolver as a deliberate consequence, not a second
 fix: `check -r <id>` now also checks `<id>`'s `depends_on` closure, and a typo

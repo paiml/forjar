@@ -375,3 +375,54 @@ fn selected_by_apply(sel: &[&str]) -> Vec<String> {
     assert!(out.status.success(), "apply {sel:?}:\n{}", combined(&out));
     p.applied()
 }
+
+/// PMAT-160 quorum finding: the standalone `check` command was routed through
+/// the same resolver and this suite never drove it. `check -r` selects the
+/// closure; `check -r <typo>` is refused rather than reported as `0 pass`.
+#[test]
+fn standalone_check_selects_the_closure_and_refuses_a_typo() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    p.converge(&["alpha", "bravo"]);
+    let check = |extra: &[&str]| {
+        forjar()
+            .args(["check", "-f"])
+            .arg(&p.cfg)
+            .arg("--state-dir")
+            .arg(&p.state)
+            .args(extra)
+            .output()
+            .expect("run check")
+    };
+    let out = check(&["-r", "alpha", "--json"]);
+    let mut ids = checked_ids(&out);
+    ids.sort();
+    assert_eq!(ids, ["alpha", "bravo"], "{}", combined(&out));
+    let out = check(&["-r", "typo"]);
+    assert!(
+        !out.status.success(),
+        "a typo must be refused:\n{}",
+        combined(&out)
+    );
+    assert!(
+        combined(&out).contains("matches no resource"),
+        "{}",
+        combined(&out)
+    );
+}
+
+/// PMAT-160 quorum finding: a negative selector that empties the selection
+/// used to converge nothing at exit 0 — the FJ-2723 silent-green shape.
+#[test]
+fn a_negative_that_empties_the_selection_is_refused() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    let out = p.run(&["--dry-run", "--exclude", "*"]);
+    assert!(!out.status.success(), "{}", combined(&out));
+    assert!(
+        combined(&out).contains("no resources remain"),
+        "{}",
+        combined(&out)
+    );
+    assert!(p.applied().is_empty());
+}

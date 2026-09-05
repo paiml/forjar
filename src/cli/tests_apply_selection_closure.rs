@@ -405,3 +405,54 @@ fn an_unknown_goal_keeps_makes_message() {
     .expect_err("an unknown goal is an error");
     assert!(err.starts_with("no rule to make target 'nope'"), "{err}");
 }
+
+// ── PMAT-160 quorum findings (agy teamwork lane; claim lane 3) ─────────────
+
+#[test]
+fn a_negative_that_removes_every_selected_resource_is_an_error() {
+    let mut c = cfg();
+    let err = resolve(
+        &mut c,
+        Selectors {
+            exclude: Some("*"),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(err.contains("no resources remain"), "{err}");
+    assert!(err.contains("--exclude '*'"), "{err}");
+}
+
+#[test]
+fn skipping_the_selected_resource_keeps_its_closure() {
+    let mut c = cfg();
+    let s = resolve(
+        &mut c,
+        Selectors {
+            resource: Some("a"),
+            skip: Some("a"),
+            ..Default::default()
+        },
+    )
+    .expect("the dependency is still a valid selection");
+    assert_eq!(ids(&c), ["b"]);
+    assert_eq!(s.removed, ["a"]);
+}
+
+#[test]
+fn stripping_an_unrequested_phony_contracts_through_it() {
+    let mut c = chain();
+    let machines: Vec<String> = c.machines.keys().cloned().collect();
+    let names: Vec<&str> = machines.iter().map(String::as_str).collect();
+    let mut phony = res(&["b"], None, &names);
+    phony.phony = true;
+    c.resources.insert("p".to_string(), phony);
+    c.resources.get_mut("a").expect("a").depends_on = vec!["p".to_string()];
+    super::apply_selection::strip_unrequested_phony(&mut c, &["a".to_string()]);
+    assert!(!c.resources.contains_key("p"));
+    assert_eq!(
+        deps(&c, "a"),
+        ["b"],
+        "a stays ordered after b through the phony"
+    );
+}

@@ -114,6 +114,9 @@ pub(crate) fn resolve_selection(
         .cloned()
         .collect();
 
+    if keep.is_empty() && !dropped.is_empty() {
+        return Err(empty_after_narrowing(&dropped, closure.len()));
+    }
     out.cut_edges = contract_edges(config, &keep, &removed);
     out.removed = dropped.iter().map(|(id, _)| id.clone()).collect();
     prune(config, &keep);
@@ -121,6 +124,22 @@ pub(crate) fn resolve_selection(
         report(config, sel, &out, &dropped);
     }
     Ok(out)
+}
+
+/// A negative selector that removes every selected resource is a mistake in
+/// the invocation, not a request to do nothing (the FJ-2723 rule, applied to
+/// the negatives): `--exclude '*'` used to converge nothing at exit 0.
+fn empty_after_narrowing(dropped: &[(String, String)], selected: usize) -> String {
+    let mut causes: Vec<&str> = Vec::new();
+    for (_, cause) in dropped {
+        if !causes.contains(&cause.as_str()) {
+            causes.push(cause);
+        }
+    }
+    format!(
+        "no resources remain: {} removed every selected resource ({selected} of {selected})",
+        causes.join(", ")
+    )
 }
 
 // ── existence checks (step 2) ────────────────────────────────────────────────
