@@ -1,0 +1,131 @@
+{
+  "issue": "PMAT-159 — sudo: true ran nothing for a non-root user: sudo closes fd 3, so the script crosses as a private temp file",
+  "base_commit": "b190750f49e0ad2b13cca8eba5395711af7b54e4",
+  "base": "origin/main",
+  "recorded_at": "2026-09-05",
+  "quorum": {
+    "lanes": [
+      "claim lane A — transport: read the emitter and the wrapper it produces",
+      "claim lane B — falsifier/tests: read the three test files the branch writes or changes",
+      "claim lane C — briefed as crux; returned one root-cause claim and no survey, so the crux role is carried by refuter R3"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived, because every narrowing moved a citation anchor and kept the substance",
+    "judges": 3,
+    "claims_confirmed": 15,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "The live test properly manages four combinations of sudo presence and FORJAR_REQUIRE_SUDO_TESTS — REFUTED: the variable is set in no workflow, Makefile or config, so the fail-closed branch never engages in CI and tests/falsification_sudo_transport_survives_closefrom.rs skips wherever passwordless sudo is absent; the emulated test is the sole runtime falsifier.",
+      "The strictness test's ordered byte-offset checks still risk passing vacuously — REFUTED by J2 and J3 on contradictory readings, resolved by reading the file at both ends: at base tests/falsification_390e_nested_shell_strictness.rs:150 is the message of a plain script.contains(\"sudo bash /dev/fd/3 3<<'\") assertion, so J3's \"no offset logic\" describes the base file; at HEAD the test asserts mktemp < trap && trap < cat and requires `sudo bash \"$forjar_sudo_script\"` after the heredoc's closing delimiter, so the offsets exist and are what removes the vacuity the claim says remains."
+    ],
+    "divergence": "Two of the three judges returned do-not-implement-as-written, and neither verdict is about the fix: both scored 'does the fix close the defect' 5 of 5 and objected to CLAIM TEXT — imprecise citations and two unsupported test claims. Refuter R1's most aggressive attack was itself fabricated (it asserted tests_sudo.rs spawns bash through a run_as_transport helper; J2 and J3 independently read the file and found only .contains())."
+  },
+  "crux": {
+    "systems": [
+      "Ansible become",
+      "Terraform remote-exec",
+      "SaltStack",
+      "Puppet"
+    ],
+    "verdict": "forjar's temp-file transport matches Ansible and Terraform in the property that matters: the script crosses the privilege boundary as a FILE ARGUMENT, which is exactly what makes it immune to sudo's closefrom, while SaltStack and Puppet avoid the transition entirely by running a long-lived root agent. R3's four hardening gaps — attacker-controlled TMPDIR, no explicit umask, no sticky-bit check, no cleanup on SIGKILL — were ruled NON-BLOCKING by all three judges, and for a stated reason: the comparators execute remotely as a different principal, whereas this wrapper is generated for the invoking user's own local shell, mktemp opens with O_EXCL at 0600, and SIGKILL is uncatchable by POSIX design in every one of the four systems too.",
+    "source": "refuter-3 carried both the crux survey and the R3 attack; the lane briefed as crux returned one claim and no survey, which is recorded as a lane shortfall in .quorum/evidence/sudo-fd3-lanes.md rather than re-labelled"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "The file transport fix is robust. It uses mktemp safely, isolates stdin as intended, handles disk-full scenarios gracefully, and preserves the exact exit status (even on signals like ^C) because the cleanup traps do not call exit. The new emulated-closefrom test correctly falsifies the old broken behavior.",
+    "unique_findings": [
+      "stated the exit-status argument as a mechanism rather than an assertion: the status survives because a bash EXIT trap that does not itself call exit leaves the last command's status in place, which is why the wrapper needs no explicit save-and-restore",
+      "was the only review to ask what happens when the transport half FAILS — mktemp and cat are each guarded with || exit 1, so an invalid TMPDIR or a full disk stops the wrapper before it elevates anything"
+    ],
+    "did_not_cover": "it ran no field survey, and it did not examine whether the live-privilege test can ever run in CI — the finding that killed claim B3"
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 19307,
+    "files_parsed": 2099,
+    "accepted": [],
+    "quality_gate": "pmat 3.37.0 `analyze vacuous-tests`: 360 of 19307 #[test] fns cannot fail (1.9%) repo-wide, 4 silent skips, skipped.unmeasured_tests = 0. None of the four touched test paths appears in either list.",
+    "limit": "The zero is what the tool measured, not a claim that every touched test can fail. tests/falsification_sudo_transport_survives_closefrom.rs DOES skip and return when the host has no passwordless sudo — the [silent-skip] shape the tool reports elsewhere — and it was not flagged because the guard sits behind a require_sudo! macro rather than a literal if/return in the token stream the detector reads. The quorum reached the same conclusion independently and killed claim B3 over it, which is why the falsification target below is the EMULATED test."
+  },
+  "falsification": {
+    "test": "the_sudo_wrapper_runs_the_script_under_closefrom_and_removes_its_temp_file (and the nine other tests of falsification_sudo_transport_closefrom_emulated, which drives the production emitter under a fake sudo that closes every inherited descriptor >= 3 and a fake id that forces the non-root branch)",
+    "test_file": "tests/falsification_sudo_transport_closefrom_emulated.rs",
+    "cargo_test_target": "falsification_sudo_transport_closefrom_emulated",
+    "reverted": "git show origin/main:src/core/codegen/dispatch.rs > src/core/codegen/dispatch.rs (the /dev/fd/3 emitter restored), test run, fixed file restored from a saved copy",
+    "observed_failure": "bash: /dev/fd/3: No such file or directory — exit 127; test result: FAILED. 4 passed; 6 failed",
+    "still_green_when_reverted": "4 of 10 — the three fixture self-probes (the fake sudo really closes fd >= 3, it passes stdout/stderr/status through, the fake id forces the non-root branch) and the no-sudo control, none of which asserts behaviour this change introduces"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/sudo-fd3-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3598,
+        "sha256": "a98b838cc7ee69abbf0b6ef62d4b40697a8b128402aa2c09ea0a4562b1532296",
+        "blob": "d824bf5fb6f4d904ad367a791630c766ddfdb774"
+      },
+      {
+        "path": ".quorum/evidence/sudo-fd3-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 3805,
+        "sha256": "b0c19eb1c44fed3c7091f5734b80f58f37c08abcb2b4e132d366f50cadcbdc3f",
+        "blob": "45f3b4d7713d9d3655ed369cb42ef9715d58416f"
+      },
+      {
+        "path": ".quorum/evidence/sudo-fd3-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 10553,
+        "sha256": "c17715497a811a159b36010cf4110a7580fcc22f31833852ba65df60ed306bc0",
+        "blob": "b8ea5f9bcc48804c07ba85871296102e26e2e167"
+      },
+      {
+        "path": ".quorum/evidence/sudo-fd3-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1776,
+        "sha256": "712fad38e5a1e4c1ba73b2ac7fe1ef40ad5815c696b86ba2ffd0c25fa35fc3d3",
+        "blob": "08a45e26ed50ef63bc0755c26463e8c54613d84b"
+      },
+      {
+        "path": ".quorum/evidence/sudo-fd3-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 2906,
+        "sha256": "3392634104f0b85bf3ac5e7f959c01a63c9134b17ab15b13906bf3cfa4a00d61",
+        "blob": "034ce74279c59b27bcc3a1c02c1439d6dda4a4bf"
+      },
+      {
+        "path": ".quorum/evidence/sudo-fd3-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 3586,
+        "sha256": "3df442b1f8cb72d2f78691da2998a9ad10baa0809d661588e801be3cbbecc756",
+        "blob": "a72d0eccbd095460861e9e006129731f3c6ba7d8"
+      }
+    ],
+    "total_bytes": 26224,
+    "claims_digest": ".quorum/evidence/sudo-fd3-judges.md",
+    "redaction": "The ten raw lane/refuter/judge JSON envelopes each carry a conversation_id UUID, which is quorum_evidence.py's session_uuid LEAK pattern. None of them is committed; the markdown above is extracted from their structured_output summaries and findings with every UUID stripped.",
+    "known_limits": [
+      "The live-privilege test skips wherever passwordless sudo is absent and nothing in the repo sets FORJAR_REQUIRE_SUDO_TESTS, so it is a confirmation and not a falsifier — claim B3 was killed over exactly this.",
+      "R3's four hardening gaps (attacker-controlled TMPDIR, no explicit umask, no sticky-bit check, no cleanup on SIGKILL) are unaddressed by design and were ruled non-blocking by all three judges, not solved.",
+      "forjar's ci.yml does not execute this falsification target: the sovereign-ci test job is hard-scoped to `cargo test --lib`, and examples-validate names integration targets by hand and does not name this one. It is executed on the PR by .github/workflows/quorum.yml, which re-runs this gate on the PR head and with it `cargo test --test falsification_sudo_transport_closefrom_emulated`.",
+      "addendum after the quorum: one step in .github/workflows/ci.yml examples-validate runs the emulated falsifier in forjar CI proper (sovereign-ci is --lib only); the claim lanes did not see this step — a separate 3-lane D1 pass reviewed it (agy conversations 4969e0ca-6402-4f87-bfbd-f4b1df985986, 7272a36a-eaae-4299-9042-9bc269e978ed, f6f5f53a-30b0-45b6-a639-fbd65c667831): PASS 3/3 — the diff only adds a step; examples-validate runs on pull_request on ubuntu-latest; the test needs no privilege (fake sudo and id in a TempDir on PATH); --locked matches its siblings; a /dev/fd/3 regression fires assert_eq!(r.code, Some(0)) at tests/falsification_sudo_transport_closefrom_emulated.rs:243. Recorded here, not in an evidence file, so the hashed diff stays what the lanes saw plus that one step",
+      "RESOLUTION of refuted claim 1 (the live test skipped in CI because FORJAR_REQUIRE_SUDO_TESTS was set nowhere): .github/workflows/ci.yml examples-validate now carries a second step, \"The sudo transport survives closefrom under real sudo (required, not skippable)\", with env FORJAR_REQUIRE_SUDO_TESTS: \"1\" running `cargo test --locked --test falsification_sudo_transport_survives_closefrom`. With the variable set, a missing capability panics in missing() at tests/falsification_sudo_transport_survives_closefrom.rs:64 instead of printing SKIP, so a green step means the gated tests EXECUTED under real sudo, not that they declined to. The job runs on ubuntu-latest, where the `runner` user is non-root with passwordless sudo by GitHub's documented hosted-runner environment — cited, not measured here, and if it ever stops holding this step fails loudly rather than silently skipping. Measured on lambda-labs 2026-09-05 (uid 1000, passwordless sudo): the same command exits 0 with `6 passed; 0 failed` and no SKIP line; the negative, the same command with a PATH whose `sudo` exits 1, exits 101 with 5 of 6 tests panicking \"FORJAR_REQUIRE_SUDO_TESTS=1 but <test> cannot run: `sudo -n true` fails on this host\". The claim lanes did not see this step; a D1 review of it is to follow, as for the emulated step above.",
+      "RESOLUTION of refuted claim 2 (the strictness test's ordered byte-offset checks): resolved by reading the file at both ends, not by changing code. At base, `git show origin/main:tests/falsification_390e_nested_shell_strictness.rs` line 150 is the MESSAGE STRING of a plain `script.contains(\"sudo bash /dev/fd/3 3<<'\")` assertion spanning lines 148-151 — there is no offset logic there, which is the file J3 was describing. At HEAD the same test, the_sudo_wrapper_is_stdin_isolated_and_collision_free, resolves byte offsets with a `find` closure at tests/falsification_390e_nested_shell_strictness.rs:157-161, takes mktemp@162, trap@163 and cat@164, and asserts `mktemp < trap && trap < cat` at :165-169; it then parses the heredoc delimiter out of the script at :174-178, locates the closing delimiter at :179-183, and asserts `sudo bash \"$forjar_sudo_script\"` (at :184) occurs AFTER that close at :185-190. The ordered offsets the claim says are missing are therefore present at HEAD and are exactly what removes the vacuity two disconnected `contains` calls would leave. No further change is warranted."
+    ]
+  },
+  "diff_sha256": "4a997a40c5f3ae26a6ccda5c34aaa86b3199f4a2"
+}
