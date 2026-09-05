@@ -1,0 +1,100 @@
+{
+ "ticket": "PMAT-137",
+ "base": "origin/main",
+ "head": "de55ebd91b81ed752570c755d2fb438cf94ddd76",
+ "diff_sha256": "41c09e7757e1b91bc7f42e3fd844899035c454ac20c95edb7e67ba2e99ae3b33",
+ "width": 3,
+ "executor": "agy",
+ "prompt_mode": "inline",
+ "prompt_bytes": 63534,
+ "agreed": false,
+ "lanes": [
+  {
+   "lane": 1,
+   "verdict": "FAIL",
+   "summary": "The diff fails to implement the ticket correctly. It omits the `timeout-minutes` property on the `ci` job in `ci.yml`, failing the 'every job' requirement. Furthermore, it introduces multiple unrequested and destructive changes: it reformats the existing PMAT-136 ticket in `roadmap.yaml` (flattening multi-line strings), it indiscriminately strips blank lines and alters formatting across all workflow YAML files, and it adds an `.github/actionlint.yaml` configuration file that was not requested by this specific ticket.",
+   "findings": [
+    {
+     "claim": "The `ci` job is missing a `timeout-minutes` field, violating the ticket requirement to add it to 'every job'. Diff shows no addition to this job:\n```diff\n jobs:\n   ci:\n     uses: paiml/.github/.github/workflows/sovereign-ci.yml@main\n```",
+     "file": ".github/workflows/ci.yml",
+     "grounding": "cited",
+     "line": 25
+    },
+    {
+     "claim": "The diff reformats the existing PMAT-136 ticket, destroying its formatting by flattening its multi-line title and acceptance_criteria into single lines, which was not asked for by the ticket:\n```diff\n-  title: forjar could not replace a binary that was running, and its repair path\n-    was not atomic\n+  title: forjar could not replace a binary that was running, and its repair path was not atomic\n```",
+     "file": "docs/roadmaps/roadmap.yaml",
+     "grounding": "cited",
+     "line": 1815
+    },
+    {
+     "claim": "The change strips empty lines / vertical whitespace across all modified workflow files. Formatting the YAML files and removing all empty lines was not asked for by the ticket. Example in audit.yml:\n```diff\n-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1\n-\n+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n```",
+     "file": ".github/workflows/audit.yml",
+     "grounding": "cited",
+     "line": 10
+    },
+    {
+     "claim": "The diff creates a new actionlint configuration file. While related to BSE-001, the specific ticket (BSE-05) only asks for 'timeout-minutes on every job', making this an unrequested change:\n```diff\n--- /dev/null\n+++ b/.github/actionlint.yaml\n@@ -0,0 +1,5 @@\n+# actionlint knows GitHub-hosted labels only\n```",
+     "file": ".github/actionlint.yaml",
+     "grounding": "cited",
+     "line": 1
+    }
+   ],
+   "raw_bytes": 5471
+  },
+  {
+   "lane": 2,
+   "verdict": "FAIL",
+   "summary": "The diff fails to meet the ticket's explicit acceptance criteria by omitting the timeout on the `ci` job. Furthermore, it introduces out-of-scope file modifications (`.github/actionlint.yaml`) and performs indiscriminate whitespace destruction across all YAML files, which the ticket did not ask for.",
+   "findings": [
+    {
+     "claim": "The `ci` job was skipped and does not have `timeout-minutes` added. This directly fails the ticket's explicit acceptance command `yq -e '[.jobs[]|select(has(\"timeout-minutes\")|not)]|length==0' \"$f\"`, which asserts that *every* job must have the property.",
+     "file": ".github/workflows/ci.yml",
+     "grounding": "cited",
+     "line": 36
+    },
+    {
+     "claim": "The ticket explicitly restricts the scope to `.github/workflows/*.yml`. Creating `.github/actionlint.yaml` is outside this scope and constitutes a change the ticket did not ask for.",
+     "file": ".github/actionlint.yaml",
+     "grounding": "cited",
+     "line": 1
+    },
+    {
+     "claim": "The diff indiscriminately removes blank lines and alters whitespace formatting throughout all workflow files. The ticket did not ask for this extensive reformatting.",
+     "file": ".github/workflows/audit.yml",
+     "grounding": "cited",
+     "line": 5
+    }
+   ],
+   "raw_bytes": 3357
+  },
+  {
+   "lane": 3,
+   "verdict": "FAIL",
+   "summary": "The diff fails for three reasons: it hijacks the PMAT-137 ticket ID (which the receipt shows is for the CRUX audit program) to use for BSE-05, it introduces widespread unrequested formatting changes by stripping blank lines across all GitHub Actions workflows, and it reformats the unrelated PMAT-136 ticket.",
+   "findings": [
+    {
+     "claim": "The diff implements the correct PMAT-137 ticket.",
+     "file": "docs/roadmaps/roadmap.yaml",
+     "fix": "Do not hijack the PMAT-137 ticket ID. The receipt clearly states PMAT-137 is the 'CRUX audit program' umbrella ticket, but the diff defines PMAT-137 as 'BSE-05: timeout-minutes on every job'. Use a new, unique ID for the BSE-05 ticket.",
+     "grounding": "cited",
+     "line": 1827
+    },
+    {
+     "claim": "The diff only performs changes requested by the ticket.",
+     "file": ".github/workflows/bench.yml",
+     "fix": "Revert the sweeping, unrequested formatting changes across all workflow files (such as stripping blank lines between steps and altering comment indentation). The ticket only asks to add timeout-minutes.",
+     "grounding": "asserted",
+     "line": 7
+    },
+    {
+     "claim": "The diff only modifies the target ticket.",
+     "file": "docs/roadmaps/roadmap.yaml",
+     "fix": "Revert the unrequested formatting changes to PMAT-136, such as unwrapping the title and acceptance criteria into single lines.",
+     "grounding": "cited",
+     "line": 1815
+    }
+   ],
+   "raw_bytes": 3710
+  }
+ ]
+}
