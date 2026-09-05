@@ -44,10 +44,13 @@ converged reports `1 converged, 1 unchanged` where it previously reported
 `1 converged, 0 unchanged` — the dependency was always required, it is now
 also verified rather than silently assumed. `--subset` no longer refuses a
 resource for a `depends_on` outside its glob. Unscoped `apply` (no selectors)
-is unchanged.
+is unchanged for every valid config; a config whose graph is invalid (a cycle,
+an undeclared `depends_on`) is now refused before any SSH socket is opened or
+the drift gate runs, with the same message as before.
 
 Two refinements the review quorum forced: a negative selector that removes
-every selected resource (`--exclude '*'`, `--subset x --exclude x`) is now
+every selected resource (`--exclude '*'`; a negative that removes the target but
+not its closure, `--subset x --exclude x` with `x -> y`, still runs `y`) is now
 refused with `no resources remain: ... removed every selected resource` instead
 of converging nothing at exit 0, and `make`'s stripping of an unrequested phony
 target now contracts the `depends_on` edges through it (`a -> phony -> c` keeps
