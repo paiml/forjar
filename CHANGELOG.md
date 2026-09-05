@@ -31,7 +31,10 @@ apply cannot run against an unconverged prerequisite it never selected;
 `--exclude`/`--skip`/`--only-machine`/`--exclude-machine` narrow that closure
 by *contracting* the edges to what they remove rather than deleting them, so a
 dependent whose prerequisite was explicitly excluded keeps running instead of
-failing on a dangling edge. `--check`, `--dry-run` and the real apply all
+failing on a dangling edge; the narrowed selection is validated again before
+any SSH socket or gate runs. `-m` stays the executor-level machine filter it
+was (a closure must not pull a dependency across machines) and `-t` the
+plan-level tag filter. `--check`, `--dry-run` and the real apply all
 consume that one resolved selection — none of them re-derives its own.
 
 Two behaviour changes are consequences of the closure, not new features:
@@ -51,7 +54,8 @@ may be listed in the other order).
 
 Two refinements the review quorum forced: a negative selector that removes
 every selected resource (`--exclude '*'`; a negative that removes the target but
-not its closure, `--subset x --exclude x` with `x -> y`, still runs `y`) is now
+not its closure, `--subset x --exclude x` with `x -> y`, still runs `y`; machine
+narrowing that empties the frame keeps converging nothing, as GH-211 pinned) is now
 refused with `no resources remain: ... removed every selected resource` instead
 of converging nothing at exit 0, and `make`'s stripping of an unrequested phony
 target now contracts the `depends_on` edges through it (`a -> phony -> c` keeps

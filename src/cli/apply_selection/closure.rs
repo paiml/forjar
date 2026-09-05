@@ -114,16 +114,31 @@ pub(crate) fn resolve_selection(
         .cloned()
         .collect();
 
-    if keep.is_empty() && !dropped.is_empty() {
+    // A RESOURCE negative that empties the selection is an invocation error
+    // (FJ-2723); MACHINE narrowing that empties the frame is the GH-211 rule —
+    // excluding the only machine converges nothing — and is left alone.
+    if keep.is_empty() && dropped.iter().any(|(_, c)| is_resource_negative(c)) {
         return Err(empty_after_narrowing(&dropped, closure.len()));
     }
     out.cut_edges = contract_edges(config, &keep, &removed);
     out.removed = dropped.iter().map(|(id, _)| id.clone()).collect();
     prune(config, &keep);
+    // 7. Validate the SELECTION too — the post-condition of the contraction:
+    //    the pruned graph must still order, before any socket or gate runs.
+    //    An emptied frame (`--exclude-machine` of the only machine) is the one
+    //    legitimate empty selection and converges nothing, as it always did.
+    if !config.resources.is_empty() {
+        resolver::build_execution_order(config)?;
+    }
     if verbose {
         report(config, sel, &out, &dropped);
     }
     Ok(out)
+}
+
+/// `--exclude` / `--skip` causes, as `narrow.rs` labels them.
+fn is_resource_negative(cause: &str) -> bool {
+    cause.starts_with("--exclude '") || cause.starts_with("--skip '")
 }
 
 /// A negative selector that removes every selected resource is a mistake in
