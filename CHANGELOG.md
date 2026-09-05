@@ -23,7 +23,7 @@ edges (#468).
 
 Every resource-set selector `-r`, `-g`, `--subset`, `--resource-filter` and
 `make` goals now resolves exactly once, in one order that is the fix:
-**parse -> filter by graph closure -> validate -> check | dry-run | apply.**
+**parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply.**
 The full graph is validated first, so a declared `depends_on` is never
 "unknown"; the positive selection is then closed downward over `depends_on`
 (the way `apply_goal_closure` already did for `make` goals), so a targeted
