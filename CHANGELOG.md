@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`apply --dry-run` listed every resource under `-r` / `-g`.** The executor
+skipped everything but the named id and the confirmation prompt already
+counted only it, but the dry-run body was rendered from the UNSCOPED plan:
+`apply --dry-run -r stack-tool-forjar` printed all 139 resources of a fleet
+manifest as "would execute" — measured 2026-09-05 against 1.24.0, unchanged in
+1.25.2 — for a flag that exists to preview the blast radius. The `--json` body
+planned separately and skipped even the machine filter. Both are now rendered
+from ONE plan narrowed by the same `plan_selector` filters `plan -m/-r/-g`
+uses, so text, summary line and JSON agree by construction (PMAT-160).
+
 ## [1.25.2] — 2026-09-05
 
 **`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege

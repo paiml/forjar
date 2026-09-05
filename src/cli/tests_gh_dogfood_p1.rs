@@ -240,3 +240,70 @@ fn a_well_formed_header_json_is_accepted() {
             .is_ok()
     );
 }
+
+// ── PMAT-160: apply --dry-run listed every resource under -r / -g ──
+//
+// Measured 2026-09-05 against 1.24.0 and read unchanged in 1.25.2:
+// `apply --dry-run -r stack-tool-forjar` printed all 139 resources of a
+// fleet manifest as "would execute" while the executor acted on one. The
+// body is now rendered from a plan narrowed by the same `plan_selector`
+// filters `plan -r/-g` uses; these are RED on the unscoped rendering.
+
+#[test]
+fn dry_run_under_r_lists_only_the_named_resource() {
+    let config = three_resource_config();
+    let mut plan = three_change_plan();
+    super::apply_dry_run::scope_plan(&mut plan, &config, &sel(Some("b-file"), None)).unwrap();
+    let out = super::apply_dry_run::render_dry_run_actions(&plan);
+    assert!(out.contains("b-file"), "{out}");
+    for id in ["a-file", "c-file"] {
+        assert!(!out.contains(id), "-r b-file must not list {id}:\n{out}");
+    }
+    assert!(
+        out.contains("1 to add, 0 to change"),
+        "the summary must count the scoped plan, not the config:\n{out}"
+    );
+}
+
+#[test]
+fn dry_run_under_g_lists_only_that_group() {
+    // a-file is the only member of `alpha` in the fixture.
+    let config = three_resource_config();
+    let mut plan = three_change_plan();
+    super::apply_dry_run::scope_plan(&mut plan, &config, &sel(None, Some("alpha"))).unwrap();
+    let out = super::apply_dry_run::render_dry_run_actions(&plan);
+    assert!(out.contains("a-file"), "{out}");
+    for id in ["b-file", "c-file"] {
+        assert!(!out.contains(id), "-g alpha must not list {id}:\n{out}");
+    }
+    assert!(out.contains("1 to add, 0 to change"), "{out}");
+}
+
+#[test]
+fn dry_run_json_is_rendered_from_the_same_scoped_plan() {
+    let config = three_resource_config();
+    let mut plan = three_change_plan();
+    super::apply_dry_run::scope_plan(&mut plan, &config, &sel(Some("c-file"), None)).unwrap();
+    let json = super::apply_dry_run::render_dry_run_json(&plan);
+    assert_eq!(json["to_create"], 1, "{json}");
+    assert_eq!(json["changes"].as_array().map(Vec::len), Some(1), "{json}");
+    assert_eq!(json["changes"][0]["resource"], "c-file", "{json}");
+}
+
+#[test]
+fn dry_run_under_r_naming_nothing_is_refused_not_emptied() {
+    let config = three_resource_config();
+    let mut plan = three_change_plan();
+    let err = super::apply_dry_run::scope_plan(&mut plan, &config, &sel(Some("b-fil"), None))
+        .unwrap_err();
+    assert!(err.contains("b-fil"), "{err}");
+}
+
+/// `-r` / `-g` alone, the two selectors PMAT-160 found ignored.
+fn sel<'a>(resource: Option<&'a str>, group: Option<&'a str>) -> super::apply_drift::GateScope<'a> {
+    super::apply_drift::GateScope {
+        resource,
+        group,
+        ..Default::default()
+    }
+}

@@ -1,6 +1,7 @@
 //! Tests: Coverage for apply_post_actions, count_results, dry_run_output, summary, reports (part 2).
 
 #![allow(unused_imports)]
+use super::apply_drift::GateScope;
 use super::apply_output::*;
 use super::apply_summary::print_apply_summary;
 use super::apply_variants::*;
@@ -251,7 +252,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, None, None, false).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), false).is_ok());
     }
 
     #[test]
@@ -260,7 +261,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, None, None, true).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), true).is_ok());
     }
 
     #[test]
@@ -269,7 +270,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, Some("m"), None, true).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { machine: Some("m"), ..Default::default() }, true).is_ok());
     }
 
     #[test]
@@ -278,7 +279,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, None, Some("web"), false).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { tag: Some("web"), ..Default::default() }, false).is_ok());
     }
 
     // ================================================================

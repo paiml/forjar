@@ -1869,3 +1869,21 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-160
+  github_issue: null
+  item_type: task
+  title: 'forjar apply --dry-run lists every resource under -r / -g: the executor scopes, the confirmation count scopes, the listing does not'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-05T17:08:33Z
+  updated: 2026-09-05T17:08:33Z
+  spec: null
+  acceptance_criteria:
+  - 'Measured 2026-09-05 on 1.24.0 and read in 1.25.2 source: apply --dry-run -r stack-tool-forjar printed all 139 lambda-labs resources as ''would execute'' (2 to add, 30 to change on mini for -r screen-sharing) while the executor (resource_ops.rs) skipped everything but the one id and scoped_action_counts already narrows the confirmation prompt. print_dry_run_actions takes machine_filter and tag_filter only; the JSON dry-run branch in apply_output.rs is the same. A dry run that reports work the apply would not do is the fleet''s signature defect shape, in the flag that exists to preview the blast radius.'
+  - 'Fix: apply_dry_run::scoped_dry_run_plan narrows one plan with plan_selector::apply_{machine,resource,group}_filter (the predicates plan -m/-r/-g use); text body, summary line and --json render from it. Executed: the debug binary against infra machines/mini/forjar.yaml with -r screen-sharing lists 1 resource where 1.25.2 listed 32.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
