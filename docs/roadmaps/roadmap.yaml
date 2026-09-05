@@ -1870,7 +1870,7 @@ roadmap:
   labels: []
   notes: null
 - id: PMAT-160
-  github_issue: null
+  github_issue: 466
   item_type: task
   title: 'forjar apply --dry-run lists every resource under -r / -g: the executor scopes, the confirmation count scopes, the listing does not'
   status: inprogress
