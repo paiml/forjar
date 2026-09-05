@@ -1,6 +1,6 @@
 # Quorum evidence — PMAT-160 — adjudicated claims (majority of three judges)
 
-Fifty-four claim ids (eighteen numbered claims and eighteen findings from three blind claim lanes, ten findings of the independent teamwork review, eight orchestrator dispositions and four measured claims) were put to three refuters on a clean tree at 753eb232 and then to three judges (agy 1.1.27, sandboxed; 210 s, 1413 s and 222 s). The rule is a majority of the three; CONFIRMED-AS-NARROWED counts as survived because each narrowing kept the substance and changed a sentence. Per-lane totals: judge 1 44 confirmed / 3 narrowed / 7 refuted; judge 2 44 / 2 / 8; judge 3 45 / 2 / 7. Majority: 47 survived (45 confirmed, 2 narrowed), 7 refuted. Judge 2 ran an in-place mutation experiment in src/cli/apply_dry_run.rs against the brief (whitespace residue, reverted by the orchestrator); judges 1 and 3 finished before that edit and judge 2's table diverges from theirs only on L2-F4, the claim about the file it mutated. Claim text is reproduced as the lanes posed it at 3ac1c791; a citation whose line no longer resolves in the base tree or the pushed tree is kept as a bare path.
+Fifty-four claim ids (eighteen numbered claims and eighteen findings from three blind claim lanes, ten findings of the independent teamwork review, eight orchestrator dispositions and four measured claims) were put to three refuters on a clean tree at 753eb232 and then to three judges (agy 1.1.27, sandboxed; 210 s, 1413 s and 222 s). The rule is a majority of the three; CONFIRMED-AS-NARROWED counts as survived because each narrowing kept the substance and changed a sentence. Per-lane totals: judge 1 44 confirmed / 3 narrowed / 7 refuted; judge 2 44 / 2 / 8; judge 3 45 / 2 / 7. Majority: 47 survived (45 confirmed, 2 narrowed), 7 refuted. A delta round followed (below): 5 more claims confirmed on 753eb232..2b53621b. Judge 2 ran an in-place mutation experiment in src/cli/apply_dry_run.rs against the brief (whitespace residue, reverted by the orchestrator); judges 1 and 3 finished before that edit and judge 2's table diverges from theirs only on L2-F4, the claim about the file it mutated. Claim text is reproduced as the lanes posed it at 3ac1c791; a citation whose line no longer resolves in the base tree or the pushed tree is kept as a bare path.
 
 ## REFUTED — 7 claims killed (each 3-0)
 
@@ -169,6 +169,25 @@ Fifty-four claim ids (eighteen numbered claims and eighteen findings from three 
 
 47. [measured] F4 — — The three fixes to 1.25.2 behaviour named in CHANGELOG.md are all reproduced on the fixture: 1.25.2 `apply --dry-run -r alpha` listed charlie (3 to add), `apply --subset alpha` was refused with `depends on unknown 'bravo'`, `apply --check --subset alpha` checked all three and failed on charlie; the branch lists alpha and bravo, converges 2, and reports `2 pass, 0 fail`.
    - evidence: CONFIRMED by the majority of three judges after three refuters attacked it on a clean tree at 753eb232; the mechanism was read at HEAD around src/cli/apply.rs:113 and matches the sentence as posed.
+
+## CONFIRMED — delta round, 5 claims on 753eb232..2b53621b (three refuter-judges, each 3-0)
+
+The merge helper's first review (1 PASS, 2 FAIL at 14e6120b) read the ticket's old wording as demanding `-m` in the resolver, and read the standalone check change as unasked-for and the selection as unvalidated before the SSH sockets. 2b53621b answered: the acceptance criterion now says what the code does and why, and resolve_selection re-validates the narrowed selection as its last step. Three agy lanes attacked and ruled on the delta; all five claims survived 3-0 with no findings; the merge helper's second review then agreed 3-0.
+
+1. [delta] DC1 — resolve_selection re-validates the narrowed selection with build_execution_order as its last step, guarded so an emptied frame skips it, and that runs before any SSH socket or gate on the apply path.
+   - evidence: CONFIRMED 3-0; the guarded call sits at src/cli/apply_selection/closure.rs:131 and the resolve call in cmd_apply_scoped precedes open_control_masters (src/cli/apply.rs:113 is the gate scope built after it).
+
+2. [delta] DC2 — a resource negative (--exclude, --skip) that empties the selection is refused, while machine narrowing that empties the frame converges nothing, the GH-211 rule the pinned test keeps.
+   - evidence: CONFIRMED 3-0; src/cli/apply_selection/closure.rs:140 decides by the cause label narrow.rs writes and the refusal at src/cli/apply_selection/closure.rs:120 fires only for resource negatives; measured on the fixture: `--exclude '*'` exits 1 with the refusal, `--exclude-machine local` prints `(nothing selected)` at exit 0.
+
+3. [delta] DC3 — the ticket's acceptance criterion now states that -m stays the executor-level machine filter, -t the plan-level tag filter, the CLI dispatches per mode with the selection pipeline as the one shared path, and the standalone check command resolves through it; each sentence is true of the code and of CHANGELOG.md.
+   - evidence: CONFIRMED 3-0; CHANGELOG.md:26 carries the order and the paragraph under it the -m and -t rule; the roadmap entry PMAT-160 carries the same sentences; the merge helper's second review names the standalone check change as an explicit consequence of the one-code-path mandate.
+
+4. [delta] DC4 — no unscoped apply of a valid config produces different observable output than before 2b53621b, the extra build_execution_order call being pure.
+   - evidence: CONFIRMED 3-0; re-measured by the orchestrator on the final binary against installed 1.25.2: apply --dry-run, plan, apply, apply --check, a second dry run and a second apply — six of six identical after normalisation (src/cli/apply.rs:113 unchanged since 670b318d).
+
+5. [delta] DC5 — every changed test file is green at HEAD: the six touched lib test modules (118 passed) and the binary suite tests/falsification_apply_filter_pipeline.rs (12 passed), with clippy and fmt clean.
+   - evidence: CONFIRMED 3-0 and re-run by the orchestrator after the amend: 118 passed, 12 passed (tests/falsification_apply_filter_pipeline.rs:383 among them), clippy exit 0, fmt clean.
 
 ## Dissent recorded
 

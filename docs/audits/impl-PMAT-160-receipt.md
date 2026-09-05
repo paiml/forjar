@@ -9,13 +9,13 @@ Verdict: **DONE** (pending the merge gates named under Gaps). Skill: paiml-imple
 | ticket | PMAT-160 (kind: code; GitHub #466, #467, #468) |
 | branch | fix/dry-run-honours-resource-filter |
 | base | origin/main at 20a255b0 (v1.25.2); merge-base 20a255b0be1300e74fdd9188b2cb2073434c57b2 |
-| code HEAD when the quorum judged | 753eb232 (evidence and receipts committed after it) |
+| code HEAD when the quorum judged | 753eb232 (full quorum); 2b53621b (delta round + merge-helper review, after the ticket amendment and the selection re-validation) |
 | discover.json sha256 | a733384121f291cf1e265600deed0d92d7aab5a5c91f90d2fe238412b0792c79 |
 | gate_cmd | `cargo test --workspace` — **gate_cmd_fallback=true** (discover.sh found no Makefile gate); CI's real gate is the clean-room `gate` check plus per-target `cargo test --locked --test ...` steps |
 | required_check | gate (rulesets) |
 | quorum_tool | agy 1.1.27 |
 
-Status-line join (AUTO-IMPL-SKILL-002): every row **[U]** unmeasured — the session started in /home/noah/src/forjar and moved to the worktree after the skill was invoked, so statusLine `session_id` = hook `session_id`, `tasks[].id` = hook `agent_id`, and `transcript_path` on subagentStatusLine stdin were not measured; the command that measures them is `bash ~/.claude/skills/paiml-implement/scripts/statusline.sh --probe`. `k_measured` (distinct assistant message ids in the session transcript, `jq -r 'select(.type=="assistant" and ((.isSidechain // false)|not)) | (.message.id // .uuid)' | sort -u | wc -l`) = 44 at receipt time against the orchestrator's own count k = 37 for the implement run: the 12-turn gap is the bootstrap (ticket creation) and the root-checkout reconcile that preceded the skill invocation in the same session — a finding, recorded here, not a miscount.
+Status-line join (AUTO-IMPL-SKILL-002): every row **[U]** unmeasured — the session started in /home/noah/src/forjar and moved to the worktree after the skill was invoked, so statusLine `session_id` = hook `session_id`, `tasks[].id` = hook `agent_id`, and `transcript_path` on subagentStatusLine stdin were not measured; the command that measures them is `bash ~/.claude/skills/paiml-implement/scripts/statusline.sh --probe`. `k_measured` (distinct assistant message ids in the session transcript, `jq -r 'select(.type=="assistant" and ((.isSidechain // false)|not)) | (.message.id // .uuid)' | sort -u | wc -l`) = 44 at receipt time against the orchestrator's own count k = 51 for the implement run (44 was the reading at first receipt time): the 12-turn gap is the bootstrap (ticket creation) and the root-checkout reconcile that preceded the skill invocation in the same session — a finding, recorded here, not a miscount.
 
 ## Plan (routing + trigger)
 
@@ -43,6 +43,8 @@ Estimate: K̂ = 3 (`estimate.sh`, basis=first-run[U], 0 rows); K = 60 (`--budget
 | 9 | PMAT-160/ph4.refuters2 width 3 (round 2, DISCARDED: root filesystem filled by lane copies of target/) | a1a0ef534c2441cbf | opus | 32 / 30 — maxTurns hit | no | (two lanes died) |
 | 10 | PMAT-160/ph4.refuters3 width 3 (round 3, clean) | ad20260d91337532f | opus | 17 | no | 7720465d-3732-46c6-9b51-21b9fb530691, 021c56e4-4086-4e15-bf54-5504f0578874, 64df9db2-5703-4fe9-83c6-17d7f71d7a56 |
 | 11 | PMAT-160/ph4.judges width 3 | a56f46fd41dacb433 | opus | 23 | no | 1b416a1e-d1f6-4417-a818-2e96e077c7e8, b385a3e8-ed56-43df-93e7-7449460cd1b8, 2438d63f-d934-4b73-96bc-5ba74002e53a |
+| 12 | PMAT-160/ph4.merge-review — quorum-review.sh width 3 at 14e6120b (1 PASS / 2 FAIL: -m wording; standalone check scope; validate before sockets) | ab72b64cba3d25eaf | opus | 13 | no | 30b61106-273d-431a-a3e3-bc9aa8d3f224, 9d321dc3-3a76-4a8b-aa4e-8fbd1648711b, f3d135dc-612e-49ce-9eda-5107f8542bae |
+| 13 | PMAT-160/ph4.delta width 3 on 753eb232..2b53621b (3 PASS, DC1-DC5 confirmed) then merge-review2 quorum-review.sh width 3 (agreed: 3 PASS) | a746e3b9536994615 | opus | 23 | no | 95b5722b-be40-4c39-9ec6-42c525722e0e, 4931f610-a3d9-455e-8897-6facd7a4f043, 28b1994c-6b13-4b07-be30-32790d143319; merge-review2 (unordered): 53b22575-cb16-4e47-824b-2ea0a432568e, 1d731457-8981-4075-8cd6-ccd6360fa842, caa43747-02a8-4511-a20f-8b79502842a5 |
 
 child_conversations: reported 0 by every delegate (the brain-dir counter it samples moves independently of the run).
 
@@ -71,10 +73,13 @@ child_conversations: reported 0 by every delegate (the brain-dir counter it samp
 | Phase 4 | refuter round 2: lanes copied the repository with target/ into /tmp and filled the root filesystem (100%); two lanes died, the orchestrator's scratchpad was lost | quorum protocol | 212 G freed (`/tmp/refute-*`); briefs now mandate `git clone --shared` and a `df` check; other multi-GB /tmp directories (forjar-copy, forjar-test, forjar-base, paiml-mcp-agent-toolkit-test, ruchy*) were left for the owner |
 | Phase 4 | judge 2 mutated `src/cli/apply_dry_run.rs` in place (whitespace residue) | quorum protocol | reverted; judges 1 and 3 finished before the edit; judge 2's table diverges only on the file it mutated |
 | Phase 4 | `transcript-gate.sh` run from the worktree finds 0 subagents (session transcript lives under the root project key) | skill | re-run with the session directory argument; both results recorded |
+| Phase 4 | the emptied-selection refusal (3fdae0c3) broke `exclude_machine_empties_the_frame_when_it_is_the_only_machine`, a GH-211 behaviour pinned at origin/main; not caught because the orchestrator re-ran only the closure and binary suites after that commit | orchestrator | machine narrowing exempted from the refusal (2b53621b); the six touched lib test modules are now part of every re-run |
+| Phase 4 | the merge helper's first review returned 1 PASS / 2 FAIL on the ticket's own over-specified wording (-m) and on the standalone check scope | ticket text | acceptance criterion amended to what the user asked and the code does (recorded as the orchestrator's decision, not the owner's); delta quorum and a second merge review both 3-0 PASS |
+| Phase 4 | `git push` / `gh pr create` denied by the SubagentStart hook while a delegate was running ("push/PR is orchestrator-only; a worker is running") | protocol | re-issued after the delegate returned |
 
 ## Estimates
 
-`estimate.sh`: K̂=3, basis=first-run[U]. K=60. Actual: 37 orchestrator turns (implement run), ~44 session-wide. Appended to docs/audits/impl-estimates.jsonl.
+`estimate.sh`: K̂=3, basis=first-run[U]. K=60. Actual: 51 orchestrator turns (implement run, including three discarded/re-run quorum rounds and the merge-review loop), ~63 session-wide. Appended to docs/audits/impl-estimates.jsonl.
 
 ## Gaps
 

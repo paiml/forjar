@@ -1,0 +1,59 @@
+{
+ "ticket": "PMAT-160",
+ "base": "origin/main",
+ "head": "2b53621b64296c47e05331baee94f71f705c1cd7",
+ "diff_sha256": "5c78ebbc567d61bd971e8fbac15180861ffa2a8c3bd7891c0a9c71078d846733",
+ "width": 3,
+ "executor": "agy",
+ "prompt_mode": "file",
+ "prompt_bytes": 258176,
+ "agreed": true,
+ "lanes": [
+  {
+   "lane": 1,
+   "verdict": "PASS",
+   "summary": "The diff successfully unifies the resource selection pipeline into a single `resolve_selection` step as mandated by PMAT-160. It validates the full graph, expands closures, correctly applies negative filters, and ensures `--check`, `--dry-run`, and `apply` exhibit identical selection semantics. The evidence in the quorum documentation confirms that all previously identified defects, such as empty selection successes and phony edge stripping, have been successfully addressed in the final commit. Therefore, the implementation meets all requirements specified in the ticket without violating any rules.",
+   "findings": [],
+   "raw_bytes": 2245
+  },
+  {
+   "lane": 2,
+   "verdict": "PASS",
+   "summary": "I have read and analyzed the full review brief, the quorum evidence, and the complete diff. The diff strictly implements the ticket's requirement: `parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply` by unifying the filtering logic in `resolve_selection` and calling it across the three commands.\n\nNo tests assert the opposite of the ticket (falsification tests explicitly assert the correct behavior, and assertions were strengthened). No gates were weakened. The receipt claims (such as new contract additions, test passes, and byte-identical unchanged behaviors) are fully backed by the diff. Finally, the change does not introduce unauthorized features; the modifications to `forjar check` are an explicit consequence of the \"one code path: ... -> check | dry-run | apply\" mandate, and pre-existing bugs (e.g. `--only-machine m1 -m m2`, `--refresh-only`) were correctly left unmodified and ticketed separately. Therefore, there are no valid refutations.",
+   "findings": [],
+   "raw_bytes": 3162
+  },
+  {
+   "lane": 3,
+   "verdict": "PASS",
+   "summary": "The diff perfectly implements the requested filter pipeline logic. The graph is correctly validated before closing over `depends_on`, ensuring the 'depends on unknown' bug is avoided. `--check` successfully scopes its execution, and `--dry-run` agrees with the apply selection. All previous review findings (such as empty negative selection holes and phony edge destruction) have been fixed in the current diff. The ticket's requested order is strictly followed, tests support the required behavior, and no gates are weakened by this diff.",
+   "findings": [
+    {
+     "claim": "Graph is validated before positive selectors are resolved and closure is computed",
+     "file": "src/cli/apply_selection/closure.rs",
+     "grounding": "cited",
+     "line": 93
+    },
+    {
+     "claim": "apply --check mode resolves selectors before checking the selected config",
+     "file": "src/cli/dispatch_apply_check.rs",
+     "grounding": "cited",
+     "line": 73
+    },
+    {
+     "claim": "dry_run outputs exactly the closure and summary agrees",
+     "file": "tests/falsification_apply_filter_pipeline.rs",
+     "grounding": "cited",
+     "line": 206
+    },
+    {
+     "claim": "unrequested phonies contract edges through them instead of destructively dropping them",
+     "file": "src/cli/apply_selection/mod.rs",
+     "grounding": "cited",
+     "line": 124
+    }
+   ],
+   "raw_bytes": 3475
+  }
+ ]
+}
