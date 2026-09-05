@@ -43,6 +43,7 @@ jobs:
   # then dirties the tree and skips release creation entirely.
   lockfile:
     name: lockfile-preflight
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,6 +69,7 @@ jobs:
   # guards to this list, or accept that they are documentation.
   examples-validate:
     name: examples-validate
+    timeout-minutes: 27
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -175,6 +177,7 @@ jobs:
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".
   gate:
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     needs: [ci, lockfile, examples-validate, no-default-features, doctests]
     if: always()

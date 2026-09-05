@@ -1852,3 +1852,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-158
+  github_issue: null
+  item_type: task
+  title: 'BSE-05: timeout-minutes on every job (BSE-001 wave 1)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-05T05:05:40Z
+  updated: 2026-09-05T05:05:40Z
+  spec: null
+  acceptance_criteria:
+  - 'spec: ~/src/infra/docs/specifications/build-system-enhancement.md §4 wave 1'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

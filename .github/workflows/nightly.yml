@@ -21,6 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
@@ -77,6 +78,7 @@ jobs:
             runner: macos-latest
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
+    timeout-minutes: 47
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -142,6 +144,7 @@ jobs:
   # ── Create/update nightly prerelease ─────────────────────
   release:
     needs: build
+    timeout-minutes: 21
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
