@@ -347,6 +347,12 @@ fn check_resource_machines(
     }
 }
 
+/// PMAT-160 (#467): the path-taking entry point — `forjar check`.
+///
+/// Parses, resolves EVERY selector once (the same resolver `apply` uses, so a
+/// `-r` that names a dependent selects its prerequisites too and a `-r` that
+/// names nothing is refused rather than reported as 0 pass, 0 fail), and then
+/// checks the config that came back.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_check(
     file: &Path,
@@ -357,8 +363,43 @@ pub(crate) fn cmd_check(
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let mut config = parse_and_validate(file)?;
+    let selectors = super::apply_selection::Selectors {
+        resource: resource_filter,
+        tag: tag_filter,
+        ..Default::default()
+    };
+    super::apply_selection::resolve_selection(&mut config, &selectors, verbose)?;
+    cmd_check_selected(
+        &config,
+        machine_filter,
+        tag_filter,
+        state_dir,
+        json,
+        verbose,
+    )
+}
 
+/// PMAT-160 (#467): run the checks over a config that is ALREADY the selection.
+///
+/// `apply --check` returned from `dispatch_apply_b` before a single selector
+/// ran, so `apply --check --subset a` observed the whole config and a red
+/// resource the run would never touch failed the invocation. Selection now
+/// happens once, upstream, which is why there is no `resource_filter`
+/// parameter here: a second id filter could only re-drop the prerequisites the
+/// closure pulled in — #466 and #468 reintroduced at the last frame.
+///
+/// `machine_filter` and `tag_filter` stay, unchanged and for the same reasons
+/// they stay in `apply`: `-m` picks the executor, `-t` is a per-resource filter
+/// the planner applies too.
+pub(crate) fn cmd_check_selected(
+    config: &types::ForjarConfig,
+    machine_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    state_dir: &Path,
+    json: bool,
+    verbose: bool,
+) -> Result<(), String> {
     if verbose {
         eprintln!(
             "Checking {} ({} machines, {} resources)",
@@ -368,12 +409,12 @@ pub(crate) fn cmd_check(
         );
     }
 
-    let execution_order = resolver::build_execution_order(&config)?;
+    let execution_order = resolver::build_execution_order(config)?;
     let ctx = CheckCtx {
         machines: &config.machines,
         localhost: localhost_machine(),
         machine_filter,
-        state: load_check_locks(state_dir, &config),
+        state: load_check_locks(state_dir, config),
         json,
     };
 
@@ -385,8 +426,8 @@ pub(crate) fn cmd_check(
             None => continue,
         };
 
-        let (skip, count) =
-            check_resource_filters(resource_id, resource, resource_filter, tag_filter);
+        // PMAT-160: `None` — the id selection already happened upstream.
+        let (skip, count) = check_resource_filters(resource_id, resource, None, tag_filter);
         if skip {
             if count {
                 tally.skip += 1;

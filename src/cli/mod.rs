@@ -48,6 +48,7 @@ pub mod dispatch;
 mod dispatch_analysis;
 mod dispatch_apply;
 mod dispatch_apply_b;
+mod dispatch_apply_check;
 mod dispatch_apply_notify_opts;
 mod dispatch_graph;
 mod dispatch_graph_b;

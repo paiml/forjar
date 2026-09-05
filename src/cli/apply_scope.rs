@@ -28,9 +28,20 @@
 //! touch `b`. So the machine selectors rewrite each surviving resource's target
 //! list, which is what makes the frame obligation hold literally:
 //! `frame(--exclude-machine m) ∩ resources_on(m) = ∅`.
+//!
+//! # PMAT-160: the four selectors are data here, and nothing else
+//!
+//! This file used to carry a second implementation of all four — `scope_skip`,
+//! `scope_resource_filter`, `scope_only_machine`, `scope_exclude_machine` — run
+//! from `cmd_apply_scoped` before `--subset`/`--exclude` and before the goal
+//! closure. That ordering is what #468 reported: a prune before validation
+//! turns a correctly declared `depends_on` into "depends on unknown". The
+//! selectors now travel to `apply_selection::resolve_selection`, which applies
+//! them AFTER the graph is validated and the positive set closed, with edge
+//! contraction (`apply_selection::narrow`) instead of a bare delete. What is
+//! left here is the struct that carries them.
 
 use super::apply::cmd_apply_scoped;
-use crate::core::types;
 use std::path::Path;
 
 /// The four scope selectors that reach `cmd_apply` alongside `--subset`/`-r`/`-m`.
@@ -44,136 +55,6 @@ pub(crate) struct ApplyScope<'a> {
     pub exclude_machine: Option<&'a str>,
     /// `--resource-filter <GLOB>` (FJ-666): keep only resources matching a glob.
     pub resource_filter: Option<&'a str>,
-}
-
-impl ApplyScope<'_> {
-    /// True when no scope selector was supplied — the common path.
-    pub(crate) fn is_empty(&self) -> bool {
-        self.skip.is_none()
-            && self.only_machine.is_none()
-            && self.exclude_machine.is_none()
-            && self.resource_filter.is_none()
-    }
-}
-
-/// Sorted, comma-joined key list for an error message that names what IS available.
-fn known(keys: impl Iterator<Item = String>) -> String {
-    let mut v: Vec<String> = keys.collect();
-    v.sort_unstable();
-    v.join(", ")
-}
-
-/// FJ-396: `--skip <RESOURCE>` removes one resource by exact id.
-///
-/// A `--skip` naming nothing is a typo, and following the house rule from
-/// FJ-2723 a selector that matches nothing is an error rather than a silent
-/// no-op — otherwise `--skip a-fil` would apply `a-file` and report success.
-fn scope_skip(config: &mut types::ForjarConfig, id: &str) -> Result<(), String> {
-    if config.resources.shift_remove(id).is_none() {
-        return Err(format!(
-            "--skip '{id}' matches no resource in this config. Known: {}",
-            known(config.resources.keys().cloned())
-        ));
-    }
-    Ok(())
-}
-
-/// FJ-666: `--resource-filter <GLOB>` keeps only the resources a glob matches.
-///
-/// Deliberately the same predicate as `--subset`, because the help text
-/// promises the same thing. The two compose as an intersection.
-fn scope_resource_filter(config: &mut types::ForjarConfig, pattern: &str) -> Result<(), String> {
-    super::apply_gates::filter_subset(&mut config.resources, pattern)
-        .map(|_| ())
-        .map_err(|e| format!("--resource-filter: {e}"))
-}
-
-/// FJ-736: `--only-machine <MACHINE>` restricts the apply to a single machine.
-fn scope_only_machine(config: &mut types::ForjarConfig, machine: &str) -> Result<(), String> {
-    if !config.machines.contains_key(machine) {
-        return Err(format!(
-            "--only-machine '{machine}' matches no machine in this config. Known: {}",
-            known(config.machines.keys().cloned())
-        ));
-    }
-    config
-        .resources
-        .retain(|_, r| r.machine.iter().any(|m| m == machine));
-    if config.resources.is_empty() {
-        return Err(format!(
-            "--only-machine '{machine}' matches no resource in this config"
-        ));
-    }
-    // Narrow multi-machine targets so the apply cannot reach any other host.
-    for r in config.resources.values_mut() {
-        r.machine = types::MachineTarget::Single(machine.to_string());
-    }
-    Ok(())
-}
-
-/// FJ-726: `--exclude-machine <MACHINE>` applies to everything except one machine.
-///
-/// An empty result is legitimate here in a way it never is for a positive
-/// selector: excluding the only machine SHOULD converge nothing. It is
-/// announced rather than treated as an error, because "you asked for nothing
-/// and got nothing" is the requested behaviour, and the shipped bug was the
-/// opposite — asking for nothing and getting everything.
-fn scope_exclude_machine(
-    config: &mut types::ForjarConfig,
-    machine: &str,
-    verbose: bool,
-) -> Result<(), String> {
-    if !config.machines.contains_key(machine) {
-        return Err(format!(
-            "--exclude-machine '{machine}' matches no machine in this config. Known: {}",
-            known(config.machines.keys().cloned())
-        ));
-    }
-    for r in config.resources.values_mut() {
-        let rest: Vec<String> = r
-            .machine
-            .iter()
-            .filter(|m| *m != machine)
-            .map(str::to_string)
-            .collect();
-        r.machine = types::MachineTarget::Multiple(rest);
-    }
-    config.resources.retain(|_, r| !r.machine.is_empty());
-    if config.resources.is_empty() && verbose {
-        eprintln!("--exclude-machine '{machine}': no resources remain to apply");
-    }
-    Ok(())
-}
-
-/// Apply every scope selector, in a fixed order, to the parsed config.
-///
-/// Runs before `--subset`/`--exclude` and before the goal closure, so the
-/// existence checks above see the config the user wrote rather than a
-/// previously narrowed one.
-pub(crate) fn apply_scope(
-    config: &mut types::ForjarConfig,
-    scope: &ApplyScope,
-    verbose: bool,
-) -> Result<(), String> {
-    if let Some(p) = scope.resource_filter {
-        scope_resource_filter(config, p)?;
-    }
-    if let Some(id) = scope.skip {
-        scope_skip(config, id)?;
-    }
-    if let Some(m) = scope.only_machine {
-        scope_only_machine(config, m)?;
-    }
-    if let Some(m) = scope.exclude_machine {
-        scope_exclude_machine(config, m, verbose)?;
-    }
-    if verbose && !scope.is_empty() {
-        eprintln!(
-            "Scope selectors: {} resources selected",
-            config.resources.len()
-        );
-    }
-    Ok(())
 }
 
 // GH-208: `cmd_apply` is the default-scope entry point. It lived in apply.rs as

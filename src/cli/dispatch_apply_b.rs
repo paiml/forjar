@@ -1,7 +1,6 @@
 use super::apply::*;
 use super::apply_from_plan::{cmd_apply_from_plan, ApplyKnobs, PlanApplyRequest};
 use super::apply_variants::*;
-use super::check::*;
 use super::commands::*;
 use super::dispatch_apply::*;
 use super::dispatch_apply_notify_opts::notify_opts_from_args;
@@ -290,14 +289,9 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
     }
     if args.check {
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_check(
-            &args.file,
-            args.machine.as_deref(),
-            args.resource.as_deref(),
-            args.tag.as_deref(),
-            &sd,
-            args.json,
-            verbose,
+        // PMAT-160 (#467): the selection runs FIRST — see dispatch_apply_check.
+        return Some(super::dispatch_apply_check::cmd_apply_check(
+            args, &sd, verbose,
         ));
     }
     if args.refresh_only {
@@ -430,12 +424,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     }
 
     // GH-211: the four scope selectors that were declared and never read.
-    let scope = super::apply_scope::ApplyScope {
-        skip: args.skip.as_deref(),
-        only_machine: args.only_machine.as_deref(),
-        exclude_machine: args.exclude_machine.as_deref(),
-        resource_filter: args.resource_filter.as_deref(),
-    };
+    // PMAT-160: read through the same function `--check` reads them with.
+    let scope = super::dispatch_apply_check::scope_of(args);
 
     let result = cmd_apply_scoped(
         &args.file,

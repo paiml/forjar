@@ -51,6 +51,20 @@ pub(crate) struct Selectors<'a> {
     pub tag: Option<&'a str>,
 }
 
+impl<'a> Selectors<'a> {
+    /// Fold in the four `ApplyScope` selectors (GH-211), which every apply mode
+    /// carries as one value. Keeping them in `ApplyScope` and reading them here
+    /// means `apply`, `apply --check` and `apply --dry-run` cannot disagree
+    /// about which flags are part of the selection.
+    pub(crate) fn with_scope(mut self, scope: &crate::cli::apply_scope::ApplyScope<'a>) -> Self {
+        self.skip = scope.skip;
+        self.only_machine = scope.only_machine;
+        self.exclude_machine = scope.exclude_machine;
+        self.resource_filter = scope.resource_filter;
+        self
+    }
+}
+
 /// What the resolver did, for the verbose lines and for tests.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(crate) struct Selection {

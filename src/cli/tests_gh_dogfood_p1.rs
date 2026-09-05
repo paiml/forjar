@@ -307,3 +307,85 @@ fn sel<'a>(resource: Option<&'a str>, group: Option<&'a str>) -> super::apply_dr
         ..Default::default()
     }
 }
+
+// ── PMAT-160 (#467): `apply --check` ran before any selector ────────────────
+//
+// `dispatch_apply_b`'s `--check` arm returned into `cmd_check` with four of the
+// operator's arguments and none of the scope, so a red resource the run would
+// never touch failed the invocation. `cmd_check_selected` takes the config the
+// resolver produced and asks nothing further about ids — these two tests are
+// that contract, and the exit-code half of it.
+
+/// `kept` is converged, `red` is not. A check over a config that no longer
+/// CONTAINS `red` must be green: the selection decides the exit code.
+#[test]
+fn check_over_a_selected_config_ignores_what_it_does_not_contain() {
+    let d = tempfile::tempdir().unwrap();
+    let file = two_resource_check_fixture(d.path());
+
+    let mut config = super::helpers::parse_and_validate(&file).unwrap();
+    // The unselected resource is red — prove it, so the test cannot pass by
+    // checking nothing.
+    super::check::cmd_check_selected(&config, None, None, d.path(), true, false)
+        .expect_err("the fixture's `red` resource must fail its check");
+
+    super::apply_selection::resolve_selection(
+        &mut config,
+        &super::apply_selection::Selectors {
+            resource: Some("kept"),
+            ..Default::default()
+        },
+        false,
+    )
+    .unwrap();
+    assert_eq!(config.resources.len(), 1, "the selection is one resource");
+    super::check::cmd_check_selected(&config, None, None, d.path(), true, false)
+        .expect("a red resource outside the selection must not fail the check");
+}
+
+/// `-t` is NOT part of the resource selection — it stays a per-resource filter
+/// inside the check loop, exactly as the planner applies it.
+#[test]
+fn check_over_a_selected_config_still_honours_the_tag_filter() {
+    let d = tempfile::tempdir().unwrap();
+    let file = two_resource_check_fixture(d.path());
+    let config = super::helpers::parse_and_validate(&file).unwrap();
+
+    super::check::cmd_check_selected(&config, None, Some("live"), d.path(), true, false)
+        .expect("only the converged, tagged resource is checked");
+}
+
+/// `kept` (converged, tagged `live`) and `red` (its file is absent, untagged).
+fn two_resource_check_fixture(dir: &std::path::Path) -> std::path::PathBuf {
+    let file = dir.join("forjar.yaml");
+    std::fs::write(dir.join("kept.txt"), "kept").unwrap();
+    std::fs::write(
+        &file,
+        format!(
+            r#"
+version: "1.0"
+name: check-selected
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  kept:
+    type: file
+    machine: local
+    path: {}
+    content: kept
+    tags: [live]
+  red:
+    type: file
+    machine: local
+    path: {}
+    content: red
+"#,
+            dir.join("kept.txt").display(),
+            dir.join("red.txt").display()
+        ),
+    )
+    .unwrap();
+    file
+}
