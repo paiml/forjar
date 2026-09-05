@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.2] — 2026-09-05
+
+**`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege
+wrapper handed the generated script to the elevated shell on descriptor 3
+(`sudo bash /dev/fd/3 3<<'FORJAR_SUDO'`), and sudo's `closefrom` default closes
+every descriptor >= 3 before exec — so the elevated bash reported
+`/dev/fd/3: No such file or directory` and exited 127 on apply, check and
+`state_query` alike, since all three share the wrapper. Every `sudo: true`
+resource on every non-root target was affected, and the unit tests stayed green
+for the whole life of the defect because they asserted the TEXT of the form.
+The script now crosses as a `mktemp`'d 0600 file removed by an `EXIT INT TERM`
+trap on every path, sudo refusing included; `timeout:` keeps its fd-3 form,
+which is opened by the elevated bash itself and so survives `closefrom`. A
+`disk_budget` with `sudo: true` re-converges exactly once after upgrading, by
+design: its desired-state hash covers the generated script text.
+
+The falsifier is ungated and needs no privilege (#464): a fake `sudo` first on
+PATH closes every inherited descriptor >= 3 and execs its arguments, and probes
+itself by running the old form through the same fake and requiring exit 127.
+
+Release-pipeline repairs, both found by the v1.25.1 backfill: `verify` reads the
+ROOT crate's version rather than `.packages[0]`, which is `forjar-contracts`
+0.31.2 and failed the v1.25.0 and v1.25.1 tags (#458); and `dist --all` is given
+`--version <tag>`, without which it cannot embed real checksums (#459).
+
+This release also carries `tests/falsification_version_matches_manifest.rs`: the
+binary's `--version`, `Cargo.lock`'s own `forjar` entry and this changelog are
+each checked against the version in `Cargo.toml`. The lockfile leg is #131 — the
+bump every v1.4.x tag committed without its refreshed `Cargo.lock` — asserted
+from inside the suite, where the pre-push quorum gate looks, rather than only in
+`ci.yml`'s `lockfile-preflight` job, which can speak only on a PR.
+
+### Pull requests in this release (6)
+
+- #430 docs(audits): PMAT-137 receipt — forjar 1.25.1 on crates.io, S6 GO
+- #458 ci(release): verify reads the ROOT crate's version, not .packages[0]
+- #459 ci(release): dist --all needs --version <tag>
+- #460 docs(audits): jidoka row — dist --all needs --version on the v1.25.1 backfill
+- #461 docs(audits): jidoka row — homebrew publish needs the HOMEBREW_TAP_TOKEN secret
+- #464 fix(codegen): sudo transport via a private temp file — sudo closes fd 3 (PMAT-159)
+
 ## [1.25.1] — 2026-09-04
 
 Publishable again. `v1.25.0` was tagged and its GitHub release built, but `cargo publish` refused it: #436 (the contract crates moved in-tree) had left `package.publish = false` on the root crate, so 1.25.0 never reached crates.io. 1.25.1 is 1.25.0 with that line removed and nothing else — the crate-release probe (build from the artifact, install, downstream link, README claims) passes on it. Everything under [1.25.0] below applies.
