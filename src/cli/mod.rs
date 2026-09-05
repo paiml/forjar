@@ -338,6 +338,10 @@ include!("mod_test_decl.rs");
 include!("mod_test_decl_b.rs");
 include!("mod_test_decl_c.rs");
 
+/// PMAT-160: one selection path for `apply`, resolved by graph closure.
+#[cfg(test)]
+mod tests_apply_selection_closure;
+
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.
 #[cfg(test)]
