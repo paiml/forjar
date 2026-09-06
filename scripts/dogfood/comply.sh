@@ -110,7 +110,7 @@ fi
 
 # ------------------------------------------ Arm 3: the scripts THIS gate ships
 shopt -s nullglob
-gates=(scripts/dogfood/*.sh)
+gates=(scripts/dogfood/*.sh scripts/dogfood/lib/*.sh)
 shopt -u nullglob
 if [ "${#gates[@]}" -lt 1 ]; then
   fail "scripts/dogfood/ holds no gate scripts — every loop in this file is vacuous"
