@@ -381,4 +381,6 @@ mod tests_outputs;
 #[cfg(test)]
 mod tests_reconstruct;
 #[cfg(test)]
+mod tests_stack_stamp;
+#[cfg(test)]
 mod tests_state_cov;
