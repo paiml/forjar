@@ -2243,3 +2243,39 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-182
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: gc_generations (src/cli/generation/mod.rs) has no shared-dir guard and removes the oldest generation dirs of every stack in a shared state dir — the second retention path PMAT-177 did not cover (refuter q2)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T17:12:18Z
+  updated: 2026-09-06T17:12:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-183
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: stack_conflict calls same_config_file with state_dir None, so the wrong-stack guard still uses the suffix match PMAT-175 removed from the rename path (refuter q2)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T17:12:18Z
+  updated: 2026-09-06T17:12:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
