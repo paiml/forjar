@@ -1,0 +1,241 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-06"
+  author: "PAIML Engineering"
+  description: |
+    Publish-from-tag — `scripts/publish-from-tag.sh` publishes the workspace
+    to crates.io only from a DETACHED worktree of a release tag, never from
+    the ambient working tree, and never with `--allow-dirty`.
+
+    WHY THIS PATTERN EXISTS (PMAT-165)
+
+    Publishing from the ambient working tree lets untracked state — agent
+    memory directories, other worktrees, scratch files left by a previous
+    session — dirty the tree that `cargo publish` inspects, and
+    `--allow-dirty` has been the standing temptation to paper over that
+    rather than clean the tree. The sanctioned path checks the tag out into
+    its own detached worktree, asserts that worktree is clean, and publishes
+    crate by crate from there — with the registry token stripped from the
+    environment for every `cargo publish` invocation, so a leaked token in a
+    build log is not a way this can fail.
+
+    MUTATION GUARD: `--detach` ON `git worktree add`. A tag is not a branch;
+    removing `--detach` makes `git worktree add "$WT" "$TAG"` fail outright
+    rather than silently attaching a dirtiable, non-detached worktree. This
+    is the single line a mutation run must not be able to remove without
+    every falsification test in this contract going RED — cases (c) and (d)
+    below both depend on the worktree existing and dry-running clean, so a
+    non-detached regression that fails to check out at all fails loudly
+    rather than degrading quietly to the pre-PMAT-165 behaviour.
+  references:
+    - "ticket: PMAT-165"
+    - "tests/falsification_publish_from_tag.rs — the falsification suite this
+       contract's rows are discharged by"
+    - "scripts/publish-from-tag.sh — the implementation under contract"
+
+equations:
+  tag_refusal:
+    formula: |
+      refuse(TAG) = true  iff
+          TAG = ε                                    -- missing
+        ∨ TAG ≁ /^v[0-9]+\.[0-9]+\.[0-9]+$/           -- malformed
+        ∨ ¬exists(refs/tags/TAG)                      -- nonexistent
+        ∨ ¬is_ancestor(TAG, origin/main)               -- not on main
+        ∨ version(TAG:Cargo.toml) ≠ TAG stripped of 'v' -- version mismatch
+
+      Every refusal exits 2 BEFORE any `cargo` invocation — the shim log in
+      the falsification suite must be empty for every refusal row.
+    domain: "TAG ∈ String ∪ {ε}"
+    codomain: "Bool × ExitCode"
+    invariants:
+      - "A missing or malformed TAG exits 2 via usage() before touching git"
+      - "A nonexistent tag exits 2 with an empty shim log"
+      - "A tag whose commit is not an ancestor of origin/main exits 2"
+      - "A tag whose Cargo.toml [package] version disagrees with the tag name
+         exits 2 — the version is read AT THE TAG (`git show TAG:Cargo.toml`),
+         never from the ambient working tree, so the two cannot silently
+         diverge if main has moved since the tag was cut"
+      - "No refusal calls the cargo shim at all — the log file it writes to
+         stays empty"
+
+  detached_worktree_isolation:
+    formula: |
+      publish(TAG) ⟹ ∃ WT : WT = worktree_add(--detach, TAG) ∧
+        cwd(every cargo call) = WT ≠ repo_root ∧
+        clean(WT) ∧
+        ¬exists(WT) after exit
+    domain: "TAG ∈ ValidTag, repo_root ∈ Path"
+    codomain: "Path (the ephemeral worktree) × Bool (cleanup)"
+    invariants:
+      - "Every cargo invocation runs with cwd = the detached worktree, never
+         the ambient repo path — this holds even when the ambient checkout is
+         dirty (an untracked file in the repo, not the worktree)"
+      - "Tracked drift or stray untracked files in the checked-out worktree
+         (other than build litter under target/) refuse with exit 3 before
+         any cargo call"
+      - "The worktree is removed (`git worktree remove --force`) on every
+         exit path, success or failure — a `trap cleanup EXIT` guards this,
+         not just the happy path"
+      - "A dirty AMBIENT checkout never prevents the worktree from dry-running
+         clean, because the worktree is a fresh checkout of the tag,
+         independent of ambient untracked files"
+
+  token_free_environment:
+    formula: |
+      ∀ invocation ∈ {cargo publish --dry-run, cargo publish} :
+        CARGO_REGISTRY_TOKEN ∉ env(invocation)
+    domain: "invocation ∈ CargoInvocation"
+    codomain: "Bool"
+    invariants:
+      - "`env -u CARGO_REGISTRY_TOKEN` wraps every `cargo publish` call,
+         dry-run or real, even though the test harness sets the variable in
+         the script's own environment"
+      - "A token visible to the publish step is a defect regardless of
+         whether publishing actually succeeds"
+
+  dry_run_then_publish_order:
+    formula: |
+      ∀ pkg : publish(pkg) = dry_run(pkg) ⋅ [DRY_RUN=1 ? ε : real_publish(pkg)]
+
+      i.e. `cargo publish --dry-run --locked -p pkg` always precedes
+      `cargo publish --locked -p pkg`, and under DRY_RUN=1 the real publish
+      never runs for any package.
+    domain: "pkg ∈ workspace crates, topologically ordered"
+    codomain: "Sequence<CargoInvocation>"
+    invariants:
+      - "Under DRY_RUN=1, the shim log contains `publish --dry-run --locked`
+         lines and NEVER a bare `publish --locked` line"
+      - "A package already on the index (per `cargo search`) is skipped
+         entirely — dry-run and real publish are both omitted for it"
+
+  index_poll_backoff:
+    formula: |
+      poll_index(pkg) = first success of {already_published(pkg) after delay_i}
+        for delay ∈ [1, 2, 4, 8, 8, 8, 8, 8]  -- bounded backoff, never fixed
+      poll_index skipped when pkg = last(topo_order)
+    domain: "pkg ∈ workspace crates except the last in publish order"
+    codomain: "Result<(), String>"
+    invariants:
+      - "No single fixed `sleep N` gates the whole publish loop — the delay
+         sequence is bounded and increasing, and the loop gives up (refusing)
+         if the index never catches up"
+      - "The last package in topological order is never polled — nothing
+         downstream depends on it within this run"
+
+proof_obligations:
+  - type: completeness
+    property: "Every refusal precondition exits before any cargo call"
+    formal: "refuse(TAG) ⟹ shim_log = ε"
+    tolerance: 0.0
+    applies_to: "missing TAG, malformed TAG, nonexistent tag, tag not on
+                 origin/main, Cargo.toml/tag version mismatch"
+    discharged_by: "FALSIFY-PUBLISH-A, FALSIFY-PUBLISH-B"
+
+  - type: frame
+    property: "Every cargo invocation runs from the detached worktree, not
+               the ambient repo, and the worktree does not outlive the run"
+    formal: "cwd(cargo call) ≠ repo_root ∧ worktree_count(after) = 1"
+    tolerance: 0.0
+    applies_to: "scripts/publish-from-tag.sh worktree lifecycle"
+    discharged_by: "FALSIFY-PUBLISH-C"
+
+  - type: independence
+    property: "A dirty ambient checkout does not propagate into the
+               detached worktree's cleanliness"
+    formal: "dirty(repo_root) ∧ clean(WT) ⟹ dry_run(TAG) succeeds"
+    tolerance: 0.0
+    applies_to: "the clean-tree assertion, scoped to the worktree only"
+    discharged_by: "FALSIFY-PUBLISH-D"
+
+  - type: safety
+    property: "CARGO_REGISTRY_TOKEN never reaches a publish invocation"
+    formal: "∀ call ∈ publish_calls : TOKEN ∉ env(call)"
+    tolerance: 0.0
+    applies_to: "env -u CARGO_REGISTRY_TOKEN wrapper around every cargo
+                 publish call"
+    discharged_by: "FALSIFY-PUBLISH-E"
+
+  - type: ordering
+    property: "Dry-run always precedes the real publish, and DRY_RUN=1 never
+               performs a real publish"
+    formal: "DRY_RUN=1 ⟹ ∄ call : call = 'publish --locked -p pkg'"
+    tolerance: 0.0
+    applies_to: "the dry-run-then-publish sequence per package"
+    discharged_by: "FALSIFY-PUBLISH-C"
+
+enforcement:
+  refusals_exit_before_any_cargo_call:
+    description: |
+      Missing/malformed/nonexistent tag, a tag not on origin/main, and a
+      Cargo.toml/tag version mismatch must all exit 2 with an empty shim log.
+    check: "tests/falsification_publish_from_tag.rs::a_nonexistent_tag_refuses_before_any_cargo_call"
+    severity: "ERROR"
+  detached_worktree_no_survivor:
+    description: |
+      cargo calls run with cwd != repo path, and `git worktree list` shows
+      exactly one worktree (the main one) after the script exits.
+    check: "tests/falsification_publish_from_tag.rs::c_dry_run_never_publishes_and_leaves_no_worktree_behind"
+    severity: "ERROR"
+  dirty_ambient_does_not_block_the_worktree:
+    description: |
+      An untracked file in the ambient repo (not the worktree) must not
+      prevent a clean dry-run from the detached worktree.
+    check: "tests/falsification_publish_from_tag.rs::d_a_dirty_ambient_checkout_still_dry_runs_clean_from_the_worktree"
+    severity: "ERROR"
+  token_never_reaches_publish:
+    description: |
+      CARGO_REGISTRY_TOKEN, set in the script's own environment by the test,
+      must read as `<unset>` in the shim log for every `publish` call.
+    check: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-PUBLISH-A
+    rule: "tag_refusal"
+    prediction: "A tag that does not exist in the sandbox repo exits 2 with an empty shim log"
+    test: "tests/falsification_publish_from_tag.rs::a_nonexistent_tag_refuses_before_any_cargo_call"
+    if_fails: "A typo'd or stale release tag reaches cargo publish instead of refusing"
+
+  - id: FALSIFY-PUBLISH-B
+    rule: "tag_refusal"
+    prediction: "A tag whose Cargo.toml [package] version disagrees with the tag name exits 2 with an empty shim log"
+    test: "tests/falsification_publish_from_tag.rs::b_a_version_mismatch_refuses_before_any_cargo_call"
+    if_fails: "crates.io receives a package whose version does not match the git tag naming it, breaking release traceability"
+
+  - id: FALSIFY-PUBLISH-C
+    rule: "detached_worktree_isolation / dry_run_then_publish_order"
+    prediction: |
+      Under DRY_RUN=1 on a valid tag: only `publish --dry-run --locked` is
+      logged, never a plain `publish --locked`; every cargo call ran in a
+      cwd other than the repo path; no worktree survives afterwards.
+    test: "tests/falsification_publish_from_tag.rs::c_dry_run_never_publishes_and_leaves_no_worktree_behind"
+    if_fails: "DRY_RUN=1 either performs a real publish, runs against the ambient tree, or leaks a worktree on every invocation"
+
+  - id: FALSIFY-PUBLISH-D
+    rule: "detached_worktree_isolation"
+    prediction: "A dirty AMBIENT checkout (an untracked file in the repo, not the worktree) still dry-runs clean, because the worktree is fresh"
+    test: "tests/falsification_publish_from_tag.rs::d_a_dirty_ambient_checkout_still_dry_runs_clean_from_the_worktree"
+    if_fails: "Ambient scratch files (agent memory, other worktrees) block a publish that should be unaffected by them, or worse, the check is skipped and dirt from the ambient tree leaks into what is published"
+
+  - id: FALSIFY-PUBLISH-E
+    rule: "token_free_environment"
+    prediction: "The shim never sees CARGO_REGISTRY_TOKEN, even though the test sets one in the script's environment"
+    test: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
+    if_fails: "A registry token is visible to the publish subprocess environment and therefore to anything that inspects it — process listings, crash dumps, build logs"
+
+qa_gate:
+  id: F-PUBLISH-001
+  name: "Publish-From-Tag Contract"
+  description: "Publishing to crates.io happens only from a clean, detached, token-scrubbed worktree of a validated release tag"
+  checks:
+    - "tag_refusal"
+    - "detached_worktree_isolation"
+    - "token_free_environment"
+    - "dry_run_then_publish_order"
+    - "index_poll_backoff"
+  pass_criteria: "All 5 falsification tests pass"
+  falsification: "Remove `--detach` from `git worktree add` (the mutation guard named above), or remove `env -u CARGO_REGISTRY_TOKEN` from either cargo publish call, or drop the TAG version-mismatch check"
+
+verification_level: L2
