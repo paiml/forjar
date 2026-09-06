@@ -57,3 +57,98 @@ fn a_config_sharing_a_basename_does_not_retire_the_root_stack() {
         "and the machines of the retired stamp were folded into the wrong stack"
     );
 }
+
+// ── the predicate itself ─────────────────────────────────────────────
+
+/// The reproducer at its smallest: the recorded path and the config in hand
+/// share a basename and nothing else.
+#[test]
+fn a_shared_basename_in_another_directory_is_not_the_same_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let state = root.join("state");
+    let mini = config_at(root, "machines/mini/forjar.yaml");
+    assert!(
+        !same_config_file("../forjar.yaml", Some(&state), &mini),
+        "`../forjar.yaml` names <root>/forjar.yaml, not every */forjar.yaml \
+         underneath it"
+    );
+}
+
+/// And the case the relative form exists for: the SAME file, recorded and
+/// applied through the same state dir.
+#[test]
+fn the_path_this_state_dir_would_record_is_the_same_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let state = root.join("state");
+    let top = config_at(root, "forjar.yaml");
+    let mini = config_at(root, "machines/mini/forjar.yaml");
+    assert!(same_config_file("../forjar.yaml", Some(&state), &top));
+    assert!(same_config_file(
+        "../machines/mini/forjar.yaml",
+        Some(&state),
+        &mini
+    ));
+    assert!(
+        !same_config_file("../machines/mini/forjar.yaml", Some(&state), &top),
+        "and the comparison is symmetric — neither direction is a suffix match"
+    );
+}
+
+/// Portability, which is what the relative form is FOR: the same layout in
+/// another checkout — the config and the state dir moving together — is the
+/// same stack.
+#[test]
+fn the_same_layout_in_another_checkout_is_still_the_same_file() {
+    let two = tempfile::tempdir().unwrap();
+    let elsewhere = config_at(two.path(), "forjar.yaml");
+    assert!(same_config_file(
+        "../forjar.yaml",
+        Some(&two.path().join("state")),
+        &elsewhere
+    ));
+}
+
+/// A stamp with NO recorded file is not evidence of anything, and in
+/// particular is not evidence of a rename: `retire_renamed` would otherwise
+/// delete a 1.0 migration's stamp on the next apply.
+#[test]
+fn a_file_less_stamp_never_matches() {
+    let dir = tempfile::tempdir().unwrap();
+    let top = config_at(dir.path(), "forjar.yaml");
+    let stamp = StackStamp {
+        file: None,
+        last_apply: "2026-09-06T00:00:00Z".to_string(),
+        generator: "forjar test".to_string(),
+        machines: vec!["box".to_string()],
+        outputs: Vec::new(),
+    };
+    assert!(!records_config_file(
+        &stamp,
+        Some(&dir.path().join("state")),
+        Some(&top)
+    ));
+    assert!(
+        !records_config_file(&stamp, None, Some(&top)),
+        "and not through the unattributed comparison either"
+    );
+}
+
+/// PMAT-175 leaves ONE reader on the old comparison, and it is stated rather
+/// than hidden: [`stack_conflict`] is asked without a state dir, so a relative
+/// recorded path cannot be resolved and is matched by the part it names. That
+/// branch only ever EXEMPTS a warning — the destructive reader always passes
+/// the dir — but it is a live difference and this row pins it, so tightening it
+/// (by giving `stack_conflict` the state dir its two callers already hold) is a
+/// deliberate change with a failing test, not a silent one.
+#[test]
+fn without_a_state_dir_the_comparison_is_still_by_the_part_it_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let mini = config_at(dir.path(), "machines/mini/forjar.yaml");
+    assert!(
+        same_config_file("../forjar.yaml", None, &mini),
+        "the unattributed branch cannot tell these apart; see \
+         `identity::unattributed_match`"
+    );
+}

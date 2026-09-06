@@ -18,6 +18,8 @@
 //!   per-machine locks are keyed by machine name alone, so two stacks sharing
 //!   a machine name overwrite each other's history.
 
+pub mod declared;
+pub mod identity;
 pub mod replay;
 
 mod rename;
@@ -27,11 +29,13 @@ mod tests_file_identity;
 
 use crate::core::types::{GlobalLock, MachineSummary};
 use crate::tripwire::eventlog::now_iso8601;
+pub use identity::stamped_config_file;
+use identity::{records_config_file, same_config_file};
 use indexmap::IndexMap;
 use rename::{next_stamp, retire_renamed};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// forjar#469: one config's record inside `GlobalLock::stacks`.
 ///
@@ -216,65 +220,6 @@ pub fn migrate(lock: &mut GlobalLock) {
     lock.schema = SCHEMA_CURRENT.to_string();
 }
 
-/// Canonicalise a path, falling back to the path as given.
-///
-/// The config may have moved since the apply that recorded it; comparing two
-/// uncanonicalised paths still beats claiming they differ.
-fn canonical(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// The path relative to `base`, or `None` when the two share no prefix.
-fn relative_to(base: &Path, target: &Path) -> Option<PathBuf> {
-    let base: Vec<_> = base.components().collect();
-    let target: Vec<_> = target.components().collect();
-    let shared = base
-        .iter()
-        .zip(target.iter())
-        .take_while(|(a, b)| a == b)
-        .count();
-    // One shared component is the filesystem root: no common tree.
-    if shared <= 1 {
-        return None;
-    }
-    let mut relative = PathBuf::new();
-    for _ in shared..base.len() {
-        relative.push("..");
-    }
-    for component in &target[shared..] {
-        relative.push(component);
-    }
-    Some(relative)
-}
-
-/// How a config path is stored in a stamp: relative to the state dir when both
-/// sit in one tree, else the absolute canonical path.
-#[must_use]
-pub fn stamped_config_file(state_dir: &Path, file: Option<&Path>) -> Option<String> {
-    let config = canonical(file?);
-    let base = canonical(state_dir);
-    let stored = relative_to(&base, &config).unwrap_or(config);
-    Some(stored.display().to_string())
-}
-
-/// Does a recorded stamp path name the config now being applied?
-///
-/// A recorded RELATIVE path is compared by the part it actually names (its
-/// `..` prefix is the state dir's business, not the config's), which is what
-/// makes the same layout in another checkout the same stack.
-fn same_config_file(recorded: &str, config_file: &Path) -> bool {
-    let recorded = Path::new(recorded);
-    let current = canonical(config_file);
-    if recorded == current {
-        return true;
-    }
-    let named: PathBuf = recorded
-        .components()
-        .skip_while(|c| matches!(c, std::path::Component::ParentDir))
-        .collect();
-    !named.as_os_str().is_empty() && recorded.is_relative() && current.ends_with(&named)
-}
-
 /// The stack in this dir that owns `machine`, other than `name`.
 ///
 /// A stamp that records the very config file now being applied is not another
@@ -299,20 +244,9 @@ fn machine_owner(
         .find(|(stack, stamp)| {
             stack.as_str() != name
                 && stamp.machines.iter().any(|m| m == machine)
-                && !records_config_file(stamp, config_file)
+                && !records_config_file(stamp, None, config_file)
         })
         .map(|(stack, _)| stack.clone())
-}
-
-/// Does this stamp record the config file now being applied?
-fn records_config_file(stamp: &StackStamp, config_file: Option<&Path>) -> bool {
-    let Some(current) = config_file else {
-        return false;
-    };
-    stamp
-        .file
-        .as_deref()
-        .is_some_and(|recorded| same_config_file(recorded, current))
 }
 
 /// GH-377 + forjar#469: is this apply about to write over another stack's work?
@@ -350,7 +284,7 @@ pub fn stack_written_from_other_file(
 ) -> Option<String> {
     let recorded = lock.stamp_for(name)?.file.as_ref()?;
     let current = config_file?;
-    (!same_config_file(recorded, current)).then(|| recorded.clone())
+    (!same_config_file(recorded, None, current)).then(|| recorded.clone())
 }
 
 /// Write one stack's stamp plus the machine summaries from its apply.
@@ -359,6 +293,12 @@ pub fn stack_written_from_other_file(
 /// when the same file was last applied under another name (a rename). Every
 /// other stack's record is left exactly as it was, and the top-level
 /// `name`/`last_apply`/`generator` still track the stack that applied LAST.
+///
+/// PMAT-176: the machines the stamp claims are the ones the CONFIG declares —
+/// [`declared::DeclaredMachines`], read here for the same reason `replay` is —
+/// not the ones this invocation happened to converge. A scoped `apply -m X`
+/// used to rewrite the set as `[X]` and release the rest to any stack that
+/// asked for them.
 ///
 /// PMAT-172: `config_name`/`config_file` are the config being applied, which
 /// under `undo`'s replay is a document from the past staged in a temp file.
@@ -387,9 +327,12 @@ pub fn apply_stamp(
     let retired = retire_renamed(lock, state_dir, (config_name, config_file));
     let stamp = next_stamp(
         lock.stamp_for(config_name),
-        retired,
+        &retired,
         stamped_config_file(state_dir, config_file),
         machine_results.iter().map(|(m, ..)| m.clone()).collect(),
+        // PMAT-176: what the CONFIG declares, when the caller has said so —
+        // resolved here, at the same choke point `replay` is resolved at.
+        declared::declared().as_deref(),
         (&now, &generator),
     );
     lock.stacks.insert(config_name.to_string(), stamp);

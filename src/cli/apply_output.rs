@@ -160,9 +160,19 @@ pub(super) fn apply_post_actions(
     // they are asked here so the wrong-stack WARNING inside
     // `update_global_lock` is about the invoking stack too, rather than
     // reporting a machine as owned by the stack's own former name.
+    //
+    // PMAT-176: the machines the CONFIG declares, held across the one call that
+    // writes the stamp. `machine_results` is what this invocation converged,
+    // which under `-m` is one machine of several; writing that as the stack's
+    // machine set released the others to any sibling stack that named them.
+    // The declaration is the config's, so it is made here, where the config is.
     let stack = stamp::replay::stamping_name(&config.name);
     let stamped_from = stamp::replay::stamping_file(Some(file));
-    state::update_global_lock(state_dir, &stack, stamped_from.as_deref(), &machine_results)?;
+    let declared: Vec<String> = config.machines.keys().cloned().collect();
+    {
+        let _declared = stamp::declared::DeclaredMachines::of(&declared);
+        state::update_global_lock(state_dir, &stack, stamped_from.as_deref(), &machine_results)?;
+    }
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {

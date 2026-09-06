@@ -262,7 +262,10 @@ fn rollback_on_failure_is_refused_before_the_apply_writes_anything() {
     let state = root.join("state");
     let alpha = write_stack(&root, "alpha", "alpha", "mini", "one");
     let (rc, out) = apply_with(&alpha, &state, &["--rollback-on-failure"]);
-    assert_eq!(rc, 0, "a single-stack --rollback-on-failure was refused:\n{out}");
+    assert_eq!(
+        rc, 0,
+        "a single-stack --rollback-on-failure was refused:\n{out}"
+    );
     assert_eq!(marker(&root, "alpha"), "one\n", "and it must still apply");
 }
 
@@ -284,7 +287,11 @@ fn a_config_sharing_a_basename_is_not_a_rename_of_the_root_stack() {
     let state = root.join("state");
     // The root stack: <root>/forjar.yaml, stamped as `../forjar.yaml`.
     let top = write_stack(&root, ".", "root-stack", "box", "one");
-    assert_eq!(apply(&top, &state).0, 0, "the root stack's apply must succeed");
+    assert_eq!(
+        apply(&top, &state).0,
+        0,
+        "the root stack's apply must succeed"
+    );
 
     // A DIFFERENT stack, in the layout that produced the reproducer:
     // <root>/machines/mini/forjar.yaml, its own name, its own machine.
