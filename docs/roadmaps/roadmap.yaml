@@ -2171,3 +2171,75 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-178
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: release-check.sh enumerates merged PRs with git log --merges, so under squash merges the quorum-receipt arm loops over nothing and passes (DF quorum q1)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T16:19:15Z
+  updated: 2026-09-06T16:19:15Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-179
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: coverage.sh IGNORED_CEILING is one-directional, so a newly parked corpus test hides inside the slack (DF quorum q1)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T16:19:16Z
+  updated: 2026-09-06T16:19:16Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-180
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: release-check.sh reports PENDING pre-tag from the local tag list, so a missing GitHub release for an existing remote tag is masked (DF quorum q1)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T16:19:17Z
+  updated: 2026-09-06T16:19:17Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-181
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S3: FALSIFY-DF-006 names nothing_in_the_tree_is_still_called_dogfood for the exactly-one-skill rule (DF quorum q1)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T16:19:17Z
+  updated: 2026-09-06T16:19:17Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
