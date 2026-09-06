@@ -146,7 +146,8 @@ pub(super) fn apply_post_actions(
             )
         })
         .collect();
-    state::update_global_lock(state_dir, &config.name, &machine_results)?;
+    // forjar#469: `None` until the `-f` path is threaded down from cmd_apply.
+    state::update_global_lock(state_dir, &config.name, None, &machine_results)?;
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {

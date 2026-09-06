@@ -54,7 +54,9 @@ pub(super) fn output_lock_results(
         .iter()
         .map(|(name, resources)| (name.clone(), resources.len(), 0, 0))
         .collect();
-    state::update_global_lock(state_dir, config_name, &machine_results)?;
+    // forjar#469: `lock` has no `-f` in hand here; `None` keeps whatever
+    // config file the stack's stamp already recorded.
+    state::update_global_lock(state_dir, config_name, None, &machine_results)?;
 
     if json {
         let result = serde_json::json!({
