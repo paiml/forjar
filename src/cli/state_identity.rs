@@ -1,4 +1,6 @@
-//! GH-377: refuse to join one stack's config to another stack's state dir.
+//! GH-377 + forjar#469: refuse to join one stack's config to another stack's
+//! state dir — without refusing the layout where N stacks legitimately share
+//! one.
 //!
 //! THE DEFECT. `-f/--file` defaults to `forjar.yaml` in the CWD while
 //! `--state-dir` is a separate argument, so the two can name different stacks
@@ -13,18 +15,25 @@
 //! makes `undo` a refusal rather than a warning: `apply` at least does exactly
 //! what its two arguments say.
 //!
-//! THE SIGNAL. `state/forjar.lock.yaml` carries `name:`, copied verbatim from
-//! the config's top-level `name` on every apply (`state::update_global_lock`).
-//! `name` is required — parsing fails without it — never templated, never
-//! param-substituted, and untouched by include merges. It is the only stable
-//! stack identity the state dir records, and it is already there.
+//! THE SIGNAL, forjar#469. The first guard compared the lock's single `name:`
+//! against the config's. That name is written by whichever stack applied LAST,
+//! so in the supported many-stacks-one-state-dir layout (paiml/infra: six
+//! `machines/<m>/forjar.yaml`, one `state/`) it named a different stack on
+//! every second apply and `undo` refused a layout `apply` supports.
+//!
+//! The identity is now the map `stacks: {name -> StackStamp}`, keyed exactly as
+//! the lock's machine sections are, and this guard asks the SAME question
+//! `apply` warns on — `state::stack_conflict` — so the two cannot disagree
+//! about what "wrong stack" means. `undo` refuses where `apply` warns, plus one
+//! case only `undo` has: a name this dir has no record of at all, whose
+//! generations therefore belong to somebody else.
 //!
 //! FAIL-OPEN IS LOAD-BEARING, NOT LAZINESS. A state dir with no readable
 //! `forjar.lock.yaml` is reachable in normal use: `forjar rollback
 //! --generation 0 --yes` restores a generation that predates the first global
 //! lock and leaves the state dir without one. Refusing there would brick a
-//! state dir that works today, so absence, unreadability and an empty name all
-//! ALLOW; only a name that is present and different refuses.
+//! state dir that works today, so absence, unreadability and a lock with no
+//! stamps at all all ALLOW.
 
 use crate::core::{state, types};
 use std::path::{Path, PathBuf};
@@ -35,7 +44,8 @@ fn shown(p: &Path) -> PathBuf {
     std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
-/// Refuse when `state_dir` was last applied by a stack other than `config`.
+/// Refuse when `state_dir`'s stamps say this config does not own what `undo`
+/// would replay.
 ///
 /// `verb` names the command in the message ("undo", "undo --resume").
 pub(super) fn check_state_dir_owner(
@@ -47,10 +57,21 @@ pub(super) fn check_state_dir_owner(
     let Ok(Some(lock)) = state::load_global_lock(state_dir) else {
         return Ok(());
     };
-    if lock.name.is_empty() || lock.name == config.name {
+    if lock.stacks.is_empty() {
         return Ok(());
     }
-    // The name in the lock is not the only name this state dir has answered to.
+    let machines: Vec<String> = config.machines.keys().cloned().collect();
+    // The same condition `apply` warns on, asked of the same map: the same name
+    // from a different `-f`, or a machine another stack owns.
+    if let Some(conflict) = state::stack_conflict(&lock, &config.name, Some(file), &machines) {
+        let detail = format!("stack '{}' {conflict}", config.name);
+        return Err(refusal(verb, &config.name, &lock, &detail, file, state_dir));
+    }
+    if lock.stamp_for(&config.name).is_some() {
+        return Ok(());
+    }
+    // The name in the stamps is not the only name this state dir has answered
+    // to.
     //
     // `undo` replays a generation's RECORDED config, and that replay stamps the
     // global lock with the name the stack carried BACK THEN. So undoing across
@@ -66,36 +87,49 @@ pub(super) fn check_state_dir_owner(
     if applied_under_before(state_dir, &config.name) {
         return Ok(());
     }
-    Err(mismatch_error(
-        verb,
-        &config.name,
-        &lock.name,
-        file,
-        state_dir,
-    ))
+    let detail = format!(
+        "state dir {} has no record of stack '{}' (it was applied by: {}), so {verb} would \
+         replay another stack's generations against this config's resources.",
+        shown(state_dir).display(),
+        config.name,
+        stack_names(&lock),
+    );
+    Err(refusal(verb, &config.name, &lock, &detail, file, state_dir))
 }
 
-/// The refusal. It names both stacks, both absolute paths, what would have
+/// The stacks this dir has stamps for, quoted, in the order they were recorded.
+fn stack_names(lock: &types::GlobalLock) -> String {
+    lock.stacks
+        .keys()
+        .map(|n| format!("'{n}'"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The refusal. It names both sides, both absolute paths, what would have
 /// happened, and the two ways out — including the one that is not a mistake at
 /// all, a stack that was renamed.
-fn mismatch_error(
+///
+/// `detail` is the sentence `apply` warns with, verbatim, so an operator who
+/// read the warning recognises the refusal.
+fn refusal(
     verb: &str,
     config_name: &str,
-    owner: &str,
+    lock: &types::GlobalLock,
+    detail: &str,
     file: &Path,
     state_dir: &Path,
 ) -> String {
     format!(
         "refusing to {verb}: --state-dir belongs to a different stack.\n  \
          config:    '{config_name}' ({})\n  \
-         state dir: '{owner}' ({})\n\
-         The generations there record what '{owner}' applied, but {verb} would re-converge \
-         the host from '{config_name}' — every resource '{config_name}' declares would be \
-         applied against state that does not describe it.\n\
+         state dir: {} ({})\n\
+         {detail}\n\
          Point -f at the config that owns that state, or --state-dir at the state that \
-         belongs to this config. If '{config_name}' is '{owner}' renamed, run \
-         `forjar apply` once to re-stamp the state dir, then {verb} again",
+         belongs to this config. If '{config_name}' is a stack this dir knows under another \
+         name, run `forjar apply` once to re-stamp the state dir, then {verb} again",
         shown(file).display(),
+        stack_names(lock),
         shown(state_dir).display(),
     )
 }

@@ -252,6 +252,7 @@ pub(crate) fn cmd_apply_scoped(
 
     apply_post_actions(
         state_dir,
+        file,
         &config,
         &results,
         total_converged,

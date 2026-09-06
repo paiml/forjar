@@ -229,13 +229,43 @@ fn same_config_file(recorded: &str, config_file: &Path) -> bool {
 }
 
 /// The stack in this dir that owns `machine`, other than `name`.
-fn machine_owner(lock: &GlobalLock, name: &str, machine: &str) -> Option<String> {
+///
+/// A stamp that records the very config file now being applied is not another
+/// stack: it is THIS stack under its old name. Renaming a stack (edit `name:`,
+/// same `-f`, same machines) leaves the old name's entry behind still owning
+/// every machine, so reading that ghost as a second stack made the documented
+/// rename remedy self-defeating — the one apply that re-stamps the dir is what
+/// creates the entry that would then own the machine for ever, and `undo`
+/// would refuse a single stack against its own state dir.
+///
+/// Positive evidence only: the ghost must RECORD a file, and it must be this
+/// file. A stamp with no file (migrated from 1.0) is not proof of a rename, so
+/// the machine collision stands.
+fn machine_owner(
+    lock: &GlobalLock,
+    name: &str,
+    machine: &str,
+    config_file: Option<&Path>,
+) -> Option<String> {
     lock.stacks
         .iter()
         .find(|(stack, stamp)| {
-            stack.as_str() != name && stamp.machines.iter().any(|m| m == machine)
+            stack.as_str() != name
+                && stamp.machines.iter().any(|m| m == machine)
+                && !records_config_file(stamp, config_file)
         })
         .map(|(stack, _)| stack.clone())
+}
+
+/// Does this stamp record the config file now being applied?
+fn records_config_file(stamp: &StackStamp, config_file: Option<&Path>) -> bool {
+    let Some(current) = config_file else {
+        return false;
+    };
+    stamp
+        .file
+        .as_deref()
+        .is_some_and(|recorded| same_config_file(recorded, current))
 }
 
 /// GH-377 + forjar#469: is this apply about to write over another stack's work?
@@ -256,7 +286,7 @@ pub fn stack_conflict(
         return Some(StackConflict::OtherFile { old });
     }
     machines.iter().find_map(|machine| {
-        machine_owner(lock, name, machine).map(|stack| StackConflict::MachineOwnedBy {
+        machine_owner(lock, name, machine, config_file).map(|stack| StackConflict::MachineOwnedBy {
             machine: machine.clone(),
             stack,
         })

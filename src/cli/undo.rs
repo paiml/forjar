@@ -351,6 +351,10 @@ fn replay_generation(
     machine_filter: Option<&str>,
 ) -> Result<(), String> {
     let _paused = super::apply_snapshot::PauseGenerationRecording::new();
+    // forjar#469: `file` here is the STAGED recorded config, a temp sibling
+    // deleted when this returns. Recording it as the stack's `-f` would make
+    // the operator's next ordinary apply look like a different config file.
+    let _withheld = super::apply_output::WithheldStampFile::new();
     cmd_apply(
         file,
         state_dir,
