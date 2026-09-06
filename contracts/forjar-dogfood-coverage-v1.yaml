@@ -102,11 +102,19 @@ proof_obligations:
     property: "The operator runs the repo's procedure, not a same-named user-scope one"
     formal: "exactly one skill declares `name: forjar-dogfood`, and none declares `dogfood`"
     applies_to: ".claude/skills/"
-    enforced_by: "tests/falsification_dogfood_skill_is_named.rs::its_first_frontmatter_line_declares_the_unshadowable_name"
+    enforced_by: "tests/falsification_dogfood_skill_is_named.rs::exactly_one_skill_claims_the_name"
     notes: |
       Claude Code resolves a skill by frontmatter name and a user-scope skill
       wins over a repo-scope one. Shadowing is invisible by construction: both
       load, one is chosen, nothing prints which.
+
+      The `exactly one` half is what `exactly_one_skill_claims_the_name`
+      decides; `its_first_frontmatter_line_declares_the_unshadowable_name`
+      (FALSIFY-DF-005) decides that the one claimant is the repo's own skill and
+      `nothing_in_the_tree_is_still_called_dogfood` (FALSIFY-DF-007) that the
+      shadowable name is gone. One rule per test, and each row below names the
+      test that decides IT — a row pointing at a neighbouring assertion is a
+      citation that resolves and still proves something else.
 
 enforcement:
   gate_b_comply:
@@ -140,9 +148,9 @@ enforcement:
     mutation: "set MIN_SYSTEMS=4 — every row written to provable-iac.md's floor of 3 reads as thin and the gate exits 1"
     severity: "ERROR"
   gate_r_release:
-    description: "Tag on main, GitHub release and its prerelease flag, crates.io version, docs.rs status.json, a quorum receipt per PR since the last tag, the crux doc"
+    description: "Tag on origin AND on main, GitHub release and its prerelease flag, crates.io version, docs.rs status.json, a quorum receipt per PR GitHub reports merged into this release, the crux doc"
     check: "scripts/dogfood/release-check.sh"
-    mutation: "delete any one docs/audits/quorum-<pr>.md for a PR merged since the previous tag — Arm 5 names that exact path and the gate exits 1"
+    mutation: "put `--merges` back — enumerate Arm 5 with `git log --merges` instead of `gh pr list --search merged:>=<prev tag date>`; on this squash-merging repo the PR set collapses to empty and the gate exits 1 on commits that landed with no PR (second address: delete any one docs/audits/quorum-<pr>.md for a PR in the window)"
     severity: "ERROR"
   the_gates_are_admissible:
     description: "Each gate declares its mutation, is strict, swallows nothing, and exists"
@@ -151,6 +159,10 @@ enforcement:
   the_skill_is_unshadowable:
     description: "Exactly one skill is named forjar-dogfood and nothing in the tree is still named dogfood"
     check: "tests/falsification_dogfood_skill_is_named.rs"
+    severity: "ERROR"
+  the_release_window_is_real:
+    description: "Gate R's PR set comes from GitHub (this repo squash-merges) and its PENDING comes from origin's tag list, driven against the real script in a fixture repository"
+    check: "tests/falsification_dogfood_release_check_pr_window.rs"
     severity: "ERROR"
 
 falsification_tests:
@@ -186,9 +198,27 @@ falsification_tests:
 
   - id: FALSIFY-DF-006
     rule: "Exactly one skill claims the name"
-    prediction: "Restoring .claude/skills/dogfood/ alongside the renamed one makes the guard test fail"
+    prediction: "Adding a second SKILL.md whose frontmatter declares `name: forjar-dogfood` makes the guard test fail, listing both claimants"
+    test: "tests/falsification_dogfood_skill_is_named.rs::exactly_one_skill_claims_the_name"
+    if_fails: "Two documents answer to one name, one of them is chosen, and nothing prints which — the ambiguity the rename was meant to end, reintroduced inside the repo"
+
+  - id: FALSIFY-DF-007
+    rule: "Nothing in the tree is still called `dogfood`"
+    prediction: "Restoring .claude/skills/dogfood/ alongside the renamed one makes the guard test fail naming that directory"
     test: "tests/falsification_dogfood_skill_is_named.rs::nothing_in_the_tree_is_still_called_dogfood"
     if_fails: "A rename that leaves the old copy behind has not removed the collision"
+
+  - id: FALSIFY-DF-008
+    rule: "The set of PRs in a release is asked of GitHub, not of the merge commits"
+    prediction: "Enumerating Arm 5 with `git log --merges` again makes the guard test fail: on a squash-merged fixture the set is empty and the gate reports PASS over zero PRs"
+    test: "tests/falsification_dogfood_release_check_pr_window.rs::an_empty_pr_set_over_commits_that_landed_is_red"
+    if_fails: "A squash-merged release passes the receipt arm by vacuity — the loop runs zero times and CI cannot tell that from a check that ran"
+
+  - id: FALSIFY-DF-009
+    rule: "A version origin already carries is never PENDING"
+    prediction: "Deciding Arm 1 from the local tag list again makes the guard test fail: a tag on origin that this checkout lacks is reported as not-yet-cut"
+    test: "tests/falsification_dogfood_release_check_pr_window.rs::a_tag_that_exists_on_the_remote_is_never_pending"
+    if_fails: "A tagged, pushed, unreleased version reads as PENDING, which is the one state nobody goes back to look at"
 
 qa_gate:
   id: F-DF-001
@@ -204,6 +234,7 @@ qa_gate:
     - "gate_r_release"
     - "the_gates_are_admissible"
     - "the_skill_is_unshadowable"
+    - "the_release_window_is_real"
   pass_criteria: "make dogfood exits 0 and both falsification test binaries pass"
   falsification: "Apply any one `mutation:` above and that gate exits 1; add `|| true` anywhere in scripts/dogfood/ and FALSIFY-DF-003 goes red"
 

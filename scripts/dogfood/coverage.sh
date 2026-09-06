@@ -45,11 +45,15 @@ FLOOR=95
 # `#[cfg_attr(not(feature = "aprender-corpus"), ignore = "…")]` — compiled on
 # every run, each printing its own reason, none deleted.
 #
-# Both numbers MAY ONLY SHRINK. They exist so a NEWLY broken test cannot be
-# parked behind that feature without this gate saying so, which is the only way
+# BOTH NUMBERS ARE EXACT, NOT CEILINGS. A ceiling catches only the direction
+# where somebody parks a new test, and silently accepts the other one: an
+# ignored test deleted or un-ignored leaves the ceiling slack, and the next
+# parked test then fits under it with nothing said. An exact figure is a ratchet
+# in both directions — every change to the excluded set is a deliberate edit of
+# these two lines, in the diff, where a reviewer sees it. That is the only way
 # an exclusion mechanism stays honest.
 APRENDER_ANNOTATIONS=38
-IGNORED_CEILING=43
+IGNORED_EXPECTED=43
 
 fail() {
   echo "GATE F FAIL $1"
@@ -95,8 +99,11 @@ if [ "$failed" -ne 0 ]; then
   printf '%s\n' "$contracts_out"
   fail "cargo test -p forjar-contracts --lib: ${failed} failed"
 fi
-if [ "$ignored" -gt "$IGNORED_CEILING" ]; then
-  fail "forjar-contracts ignores ${ignored} tests, recorded ceiling ${IGNORED_CEILING} — a test was parked rather than fixed"
+if [ "$ignored" -gt "$IGNORED_EXPECTED" ]; then
+  fail "forjar-contracts ignores ${ignored} tests, recorded ${IGNORED_EXPECTED} — a test was parked rather than fixed"
+fi
+if [ "$ignored" -lt "$IGNORED_EXPECTED" ]; then
+  fail "forjar-contracts ignores ${ignored} tests, recorded ${IGNORED_EXPECTED} — the ignored set SHRANK, which is good news this gate has not been told about: set IGNORED_EXPECTED=${ignored} in scripts/dogfood/coverage.sh and commit it with the change that un-ignored the test, so that the smaller number is what the next parked test has to fit under"
 fi
 
 # An exclusion is honest only while it covers the set it was written for, so the
@@ -146,7 +153,7 @@ if [ "$grc" -gt 1 ]; then
 fi
 if [ "$changed_rs" -eq 0 ]; then
   rm -rf "${work:?}"
-  echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations, at ceiling); no .rs differs from origin/main, so there is nothing to mutate"
+  echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); no .rs differs from origin/main, so there is nothing to mutate"
   exit 0
 fi
 
@@ -172,7 +179,7 @@ if [ "$timeouts" -gt 0 ]; then
 fi
 rm -rf "${work:?}"
 
-echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations, at ceiling); ${total} in-diff mutant(s) over ${changed_rs} changed .rs file(s), 0 survived, 0 timed out"
+echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); ${total} in-diff mutant(s) over ${changed_rs} changed .rs file(s), 0 survived, 0 timed out"
 
 # mutation: change FLOOR to 90 — Arm 0 then reports the floor as DRIFTED from
 # the Makefile's two `--fail-under-lines 95` and the gate exits 1 in a second,
