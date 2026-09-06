@@ -18,6 +18,8 @@
 //!   per-machine locks are keyed by machine name alone, so two stacks sharing
 //!   a machine name overwrite each other's history.
 
+pub mod replay;
+
 mod rename;
 
 use crate::core::types::{GlobalLock, MachineSummary};
@@ -354,13 +356,23 @@ pub fn stack_written_from_other_file(
 /// when the same file was last applied under another name (a rename). Every
 /// other stack's record is left exactly as it was, and the top-level
 /// `name`/`last_apply`/`generator` still track the stack that applied LAST.
+///
+/// PMAT-172: `config_name`/`config_file` are the config being applied, which
+/// under `undo`'s replay is a document from the past staged in a temp file.
+/// [`replay::stamping_name`] and [`replay::stamping_file`] resolve that to the
+/// stack that actually invoked the command; outside a replay they are the
+/// identity and nothing changes. Resolved HERE, at the one choke point every
+/// stamp passes through, so no caller can bypass it.
 pub fn apply_stamp(
     lock: &mut GlobalLock,
     state_dir: &Path,
     config: (&str, Option<&Path>), // (config name, -f path)
     machine_results: &[(String, usize, usize, usize)], // (name, total, converged, failed)
 ) {
-    let (config_name, config_file) = config;
+    let stamped_as = replay::stamping_name(config.0);
+    let config_name = stamped_as.as_str();
+    let stamped_from = replay::stamping_file(config.1);
+    let config_file = stamped_from.as_deref();
     let now = now_iso8601();
     let generator = format!("forjar {}", env!("CARGO_PKG_VERSION"));
 
@@ -369,7 +381,7 @@ pub fn apply_stamp(
     lock.last_apply.clone_from(&now);
     lock.generator.clone_from(&generator);
 
-    let retired = retire_renamed(lock, state_dir, config);
+    let retired = retire_renamed(lock, state_dir, (config_name, config_file));
     let stamp = next_stamp(
         lock.stamp_for(config_name),
         retired,
@@ -400,6 +412,11 @@ pub fn apply_stamp(
 /// records the keys it owns: those are withdrawn, this apply's keys inserted,
 /// and every other stack's keys left alone.
 pub fn merge_outputs(lock: &mut GlobalLock, config_name: &str, outputs: &IndexMap<String, String>) {
+    // PMAT-172: the same resolution `apply_stamp` makes. Outputs persisted
+    // under the replayed config's name would put back the very second stamp
+    // the stamp itself no longer writes.
+    let owner = replay::stamping_name(config_name);
+    let config_name = owner.as_str();
     for key in owned_output_keys(lock, config_name) {
         lock.outputs.shift_remove(&key);
     }

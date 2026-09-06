@@ -1,6 +1,6 @@
 ---
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   kind: pattern
   created: "2026-09-06"
   author: "PAIML Engineering"
@@ -185,6 +185,21 @@ invariants:
       ever been applied to "holds 2 stacks", and the renamed stack's own undo is
       refused for ever — by the very apply the refusal names as the remedy.
 
+  - id: INV-A-REPLAY-STAMPS-THE-INVOKING-STACK
+    statement: >-
+      The apply `undo` runs underneath itself stamps the state dir as the stack
+      that INVOKED the command, from the `-f` that invoked it — never as the
+      identity of the document it is replaying. The target generation's
+      recorded config carries the `name:` the stack had THEN, and
+      `rollback_to_generation` restores that generation's `forjar.lock.yaml`
+      before the replay runs, so a replay that stamps what it applies writes
+      the historical name straight back: a stack renamed under
+      INV-A-RENAME-IS-ONE-LINEAGE is un-renamed by its own first undo, and
+      because the replay records no `-f` for the staged temp config, the
+      file-less stamp it leaves is not positive evidence of a rename and the
+      next apply's retirement cannot clear it. `|stacks(D)|` then counts a
+      stack that is not there and the next restore is refused.
+
   - id: INV-SINGLE-STACK-UNCHANGED
     statement: >-
       One stack, one state dir — the overwhelmingly common case — restores
@@ -305,6 +320,13 @@ proof_obligations:
     tolerance: 0.0
     applies_to: "state::stamp::apply_stamp, whose retirement makes the count honest"
     discharged_by: "FALSIFY-MSD-09"
+
+  - type: soundness
+    property: "An undo does not add a stack to the dir it is undoing in"
+    formal: "undo(D, g) ⟹ stacks(D) = {invoking} when |stacks(D)| = 1 before"
+    tolerance: 0.0
+    applies_to: "cli::undo_replay::replay_generation and state::stamp::replay, which resolve the identity the replay stamps with"
+    discharged_by: "FALSIFY-MSD-10"
 
 falsification_tests:
   - id: FALSIFY-MSD-01
@@ -569,6 +591,46 @@ falsification_tests:
       disables its own undo, and the documented way out makes it worse.
     owner: forjar
 
+  - id: FALSIFY-MSD-10
+    rule: INV-A-REPLAY-STAMPS-THE-INVOKING-STACK
+    defect: undos-replay-restamps-the-dir-under-the-generations-historical-name
+    severity: HIGH
+    prediction: >-
+      A stack renamed in place, applied, then undone with `forjar undo --yes`
+      exits 0, reverts the resource, and leaves `forjar.lock.yaml` holding
+      exactly ONE stamp — under the CURRENT name, with the operator's own `-f`
+      still recorded and the top-level `name:` the current one too. A further
+      `apply` + `undo --yes` cycle exits 0 with no `warning:` and never reaches
+      the multi-stack refusal.
+    fixture: FX-RENAMED-STACK
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        an_undo_across_a_rename_stamps_the_invoking_stack_not_the_replayed_name
+      cargo test --lib -- core::state::stamp::replay
+    red_output: |
+      assertion `left == right` failed: the replay re-stamped the dir under the
+      generation's HISTORICAL name, so a dir one config has ever been applied to
+      holds two stamps again — and the next undo is refused as a multi-stack restore
+        left: ["alpha"]
+       right: ["alpha2"]
+    can_go_red: >-
+      Measured 2026-09-06 at 0d3d7102, with MSD-09 green: the rename was
+      retired on apply and resurrected by the very next undo, because the
+      replay applied generation 0's recorded config (`name: alpha`) over the
+      lock the rollback had just restored from that same generation. Drop
+      `StampOverride` from `undo_replay::replay_generation`, or the
+      `replay::stamping_name` call in `state::stamp::apply_stamp`, and this row
+      goes red while MSD-09 stays green — the retirement is not what fixes it.
+      Anti-vacuity: stamp the replayed config's `-f` instead of the operator's
+      and `a_single_stack_dir_behaves_exactly_as_before` goes red, because the
+      staged temp path is deleted before the next apply reads it.
+    if_fails: >-
+      One honest undo puts back the condition PMAT-171 removed, and the next
+      undo of a stack that has only ever been itself is refused as a
+      multi-stack restore — or demands a re-stamping apply that the operator
+      has no reason to think is needed.
+    owner: forjar
+
 enforcement:
   restore_asks_the_lock_before_it_writes:
     description: >-
@@ -675,10 +737,12 @@ known_gaps:
       first apply by the second stack records it and the guard engages from
       then on. There is no cheaper signal: generations do not record a stack
       name until the config snapshot inside them is parsed. A RENAME is no
-      longer counted twice — the next apply retires the old name's stamp — but
-      the evidence is positive only: a stamp with no recorded `-f` (migrated
-      from 1.0, or written by `undo`'s replay, which withholds the staged temp
-      config) cannot be shown to be a rename and is left standing.
+      longer counted twice — the next apply retires the old name's stamp
+      (INV-A-RENAME-IS-ONE-LINEAGE) and `undo`'s replay no longer writes the
+      historical name back (INV-A-REPLAY-STAMPS-THE-INVOKING-STACK, pinned by
+      FALSIFY-MSD-10). What remains is the 1.0 migration: a stamp with no
+      recorded `-f` cannot be shown to be a rename and is left standing until
+      the one apply that pins it.
 
   - id: GAP-A-DELETED-LOCK-DEFEATS-IT
     statement: >-
@@ -704,8 +768,9 @@ qa_gate:
     - "INV-GUARD-AT-THE-PRIMITIVE"
     - "INV-SINGLE-STACK-UNCHANGED"
     - "INV-A-RENAME-IS-ONE-LINEAGE"
+    - "INV-A-REPLAY-STAMPS-THE-INVOKING-STACK"
   pass_criteria: >-
-    All nine falsification rows pass against the fixed binary, AND MSD-01..04
+    All ten falsification rows pass against the fixed binary, AND MSD-01..04
     and MSD-06 still reproduce their recorded red_output at c26c468a (the
     commit before the guard), and MSD-08 at 40829d02 (the commit that had the
     guard at the primitive only). A row green against both is not evidence of a
@@ -718,6 +783,8 @@ qa_gate:
     goes red while MSD-01 stays green; write the condition over
     `machines.len()` instead of `stacks.len()` and MSD-05 goes red; delete the
     retirement in `state::stamp::apply_stamp` and MSD-09 goes red while every
-    other row stays green.
+    other row stays green; drop the `StampOverride` scope from
+    `undo_replay::replay_generation` and MSD-10 goes red while MSD-09 stays
+    green.
 
 verification_level: L2

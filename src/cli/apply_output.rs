@@ -3,6 +3,7 @@
 use super::apply_drift::GateScope;
 use super::apply_helpers::*;
 use super::helpers::*;
+use crate::core::state::stamp;
 use crate::core::{state, types};
 use std::path::Path;
 
@@ -120,52 +121,6 @@ pub(super) fn print_timing(
     println!("  {:<20} {:>10.3}s", bold("Total"), dur_total.as_secs_f64());
 }
 
-thread_local! {
-    /// forjar#469: set while `undo` replays a recorded generation.
-    static STAMP_FILE_WITHHELD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// Scope guard that stops the apply underneath it from recording its `-f` in
-/// the state dir's stamp.
-///
-/// `undo` re-converges the host by applying the target generation's recorded
-/// config, staged as a HIDDEN SIBLING of the operator's config
-/// (`.forjar-undo-gen3-1234.yaml`) and deleted seconds later. Stamping the
-/// stack with that path would pin it to a file that no longer exists, so the
-/// operator's next ordinary `apply -f forjar.yaml` would read as "the same name
-/// from a different -f" — warning on apply and REFUSING on undo, forever, for a
-/// stack that never did anything wrong. That is the forjar#469 false positive
-/// re-entering through the one door the fix does not otherwise cover.
-///
-/// Withholding is not losing information: `state::update_global_lock` with
-/// `None` keeps the file the stack already recorded, which is the real one.
-pub(super) struct WithheldStampFile {
-    previous: bool,
-}
-
-impl WithheldStampFile {
-    pub(super) fn new() -> Self {
-        let previous = STAMP_FILE_WITHHELD.with(|w| w.replace(true));
-        Self { previous }
-    }
-}
-
-impl Drop for WithheldStampFile {
-    fn drop(&mut self) {
-        STAMP_FILE_WITHHELD.with(|w| w.set(self.previous));
-    }
-}
-
-/// The `-f` this apply should record in the stamp, or `None` while a replay is
-/// in flight (see [`WithheldStampFile`]).
-fn stamp_file(file: &Path) -> Option<&Path> {
-    if STAMP_FILE_WITHHELD.with(std::cell::Cell::get) {
-        None
-    } else {
-        Some(file)
-    }
-}
-
 /// Post-apply actions: state update, auto-commit, hooks, notifications.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn apply_post_actions(
@@ -196,12 +151,23 @@ pub(super) fn apply_post_actions(
     // forjar#469: the `-f` the operator applied is this stack's identity in a
     // shared state dir — the one thing that distinguishes "six manifests, one
     // state dir" from "one name, two configs".
-    state::update_global_lock(state_dir, &config.name, stamp_file(file), &machine_results)?;
+    //
+    // PMAT-172: resolved through `stamp::replay` because `undo` reaches here by
+    // applying the TARGET generation's recorded config — a document from the
+    // past, whose `name:` may be the stack's historical one, staged in a temp
+    // file that is deleted seconds later. Outside a replay both resolve to the
+    // arguments as given. `apply_stamp` resolves them again at the choke point;
+    // they are asked here so the wrong-stack WARNING inside
+    // `update_global_lock` is about the invoking stack too, rather than
+    // reporting a machine as owned by the stack's own former name.
+    let stack = stamp::replay::stamping_name(&config.name);
+    let stamped_from = stamp::replay::stamping_file(Some(file));
+    state::update_global_lock(state_dir, &stack, stamped_from.as_deref(), &machine_results)?;
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {
         let resolved = state::resolve_outputs(config);
-        state::persist_outputs(state_dir, &config.name, &resolved, config.secrets.ephemeral)?;
+        state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
     }
 
     // FJ-1200: Run post-apply check blocks

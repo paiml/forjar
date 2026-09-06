@@ -111,7 +111,13 @@ A rename is one lineage: applying the same config file under a new `name:`
 retires the old name's stamp into the new one — its machines and output keys
 move with it, `apply` prints one `note: stack '<old>' renamed to '<new>' in
 <dir>` line, and the dir stops counting as two stacks, which had refused the
-renamed stack's own `undo` for ever (PMAT-171).
+renamed stack's own `undo` for ever (PMAT-171). The apply `undo` runs
+underneath itself now stamps the dir as the stack that INVOKED the command,
+from the `-f` that invoked it, rather than as the identity of the generation
+it is replaying — that config carries the name the stack had *then*, and the
+rollback restores that generation's lock just before the replay, so an undo
+used to write the old name straight back and un-rename the stack it had just
+reverted (PMAT-172).
 
 A `1.0` lock (single stamp in the top-level `name:`) migrates the first time
 it is read: the old stamp becomes that name's entry with no recorded `-f`
