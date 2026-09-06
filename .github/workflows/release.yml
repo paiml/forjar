@@ -137,11 +137,30 @@ jobs:
           if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists — leaving notes intact, downstream jobs will upload assets."
           else
+            # PMAT-166: born a PRERELEASE. The clean-room verify above is the
+            # hard gate for the artifact; promotion to a full release is the
+            # operator's step after the published crate passes the dogfood
+            # arm (`make dogfood-published VERSION=`), never this workflow's.
             gh release create "$RELEASE_TAG" \
               --title "$RELEASE_TAG" \
               --generate-notes \
+              --verify-tag \
+              --prerelease \
               --repo "${{ github.repository }}"
           fi
+
+      - name: Assert the release exists and is a prerelease until promoted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # release-check (PMAT-166): a tag whose release vanished, or one this
+          # workflow silently promoted, is a NO-GO. A release promoted by the
+          # operator earlier (re-run of an old tag) is reported, not failed.
+          state="$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json isPrerelease,isDraft --jq '"prerelease=\(.isPrerelease) draft=\(.isDraft)"')"
+          echo "release $RELEASE_TAG: $state"
+          case "$state" in
+            *draft=true*) echo "::error::release $RELEASE_TAG is a draft"; exit 1 ;;
+          esac
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
   build-binaries:
