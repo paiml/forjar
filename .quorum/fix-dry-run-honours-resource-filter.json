@@ -147,9 +147,9 @@
   "total_bytes": 102075,
   "claims_digest": ".quorum/evidence/filter-pipeline-judges.md"
  },
- "diff_sha256": "ee526c92e642a25cc043cd937afa8e518f898441",
+ "diff_sha256": "e247c1dd50caf55a2917976ddd89f115dfa89838",
  "merge_helper": {
-  "artifact": "docs/audits/quorum-PMAT-160.json",
+  "artifact": "docs/audits/quorum-PMAT-160.json (kept uncommitted and posted on the PR: the helper accepts only an artifact naming the pushed head)",
   "first_run": "at 14e6120b: 1 PASS / 2 FAIL (the ticket wording on -m; the standalone check scope; validate the selection before the SSH sockets)",
   "second_run": "at 2b53621b: agreed, 3 PASS"
  }
