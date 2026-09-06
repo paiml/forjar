@@ -56,6 +56,12 @@ fail() {
   exit 1
 }
 
+# `grep` exits 1 on "no match", and `set -o pipefail` turns that into a silent
+# script death in the middle of an assignment — a gate that prints nothing and
+# exits non-zero is indistinguishable from one that never ran. Every place
+# below where "no match" is a MEANINGFUL answer captures rc instead, so that
+# "none" (1) and "grep could not run" (>=2, UNMEASURED) stay apart.
+
 # ------------------------------------------- Arm 0: the floor has not drifted
 # Every `--fail-under-lines` in the Makefile must carry the same number as
 # $FLOOR. The comparison runs before anything expensive, so a lowered floor is
@@ -71,7 +77,11 @@ fi
 # ----------------------------- Arm 1: the vendored contracts suite is not red
 rc=0
 contracts_out="$(cargo test -p forjar-contracts --lib 2>&1)" || rc=$?
-result_line="$(printf '%s\n' "$contracts_out" | grep '^test result:' | tail -1)"
+grc=0
+result_line="$(printf '%s\n' "$contracts_out" | grep '^test result:' | tail -1)" || grc=$?
+if [ "$grc" -gt 1 ]; then
+  fail "grep exited ${grc} reading the libtest summary — UNMEASURED"
+fi
 if [ -z "$result_line" ]; then
   printf '%s\n' "$contracts_out"
   fail "cargo test -p forjar-contracts --lib printed no 'test result:' line (exit ${rc}) — UNMEASURED, which is not the same as passing"
@@ -91,7 +101,11 @@ fi
 
 # An exclusion is honest only while it covers the set it was written for, so the
 # annotations are counted in the source and not merely trusted.
-annotated="$(grep -rc 'not(feature = "aprender-corpus")' crates/forjar-contracts/src --include='*.rs' | awk -F: '{n += $2} END {print n + 0}')"
+grc=0
+annotated="$(grep -rc 'not(feature = "aprender-corpus")' crates/forjar-contracts/src --include='*.rs' | awk -F: '{n += $2} END {print n + 0}')" || grc=$?
+if [ "$grc" -gt 1 ]; then
+  fail "grep exited ${grc} counting the aprender-corpus annotations — the ratchet is UNMEASURED"
+fi
 if [ "$annotated" -gt "$APRENDER_ANNOTATIONS" ]; then
   fail "${annotated} tests are gated behind aprender-corpus, recorded ${APRENDER_ANNOTATIONS} — a new test was excluded rather than made to pass"
 fi
@@ -125,7 +139,11 @@ fi
 work="$(mktemp -d)"
 diff_file="${work}/branch.diff"
 git diff "origin/main...HEAD" -- '*.rs' >"$diff_file"
-changed_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' | grep -c .)"
+grc=0
+changed_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' | grep -c .)" || grc=$?
+if [ "$grc" -gt 1 ]; then
+  fail "grep exited ${grc} counting the changed .rs files — the mutation scope is UNMEASURED"
+fi
 if [ "$changed_rs" -eq 0 ]; then
   rm -rf "${work:?}"
   echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations, at ceiling); no .rs differs from origin/main, so there is nothing to mutate"

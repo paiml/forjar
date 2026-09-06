@@ -117,7 +117,15 @@ if [ "$rc" -ne 0 ]; then
   echo "$lint"
   fail "pv lint contracts exited ${rc}"
 fi
-summary="$(printf '%s' "$lint" | grep -E '^Summary: [0-9]+ errors' || true)"
+# `grep` exits 1 on "no match", and `set -o pipefail` turns that into a silent
+# script death mid-assignment. Capturing rc keeps the two apart: 1 means the
+# Summary line is absent (handled below, and fatal), >=2 means grep itself
+# failed and the arm is UNMEASURED.
+rc=0
+summary="$(printf '%s' "$lint" | grep -E '^Summary: [0-9]+ errors')" || rc=$?
+if [ "$rc" -gt 1 ]; then
+  fail "grep exited ${rc} scanning pv lint output — the Summary line is UNMEASURED, and unmeasured is not clean"
+fi
 if [ -z "$summary" ]; then
   echo "$lint"
   fail "pv lint printed no 'Summary: N errors' line — the linter cannot be shown to have run, and unmeasured is not clean"
@@ -246,7 +254,14 @@ for k in $kinds; do
     ungoverned="${ungoverned}kind:${k}"$'\n'
   fi
 done
-observed_ung="$(printf '%s' "$ungoverned" | grep . | sort || true)"
+# An EMPTY observed set is the good case here, and `grep` reports it with exit
+# 1, which pipefail would turn into a silent death. rc is captured so that
+# "nothing ungoverned" and "grep could not run" stay distinguishable.
+rc=0
+observed_ung="$(printf '%s' "$ungoverned" | grep . | sort)" || rc=$?
+if [ "$rc" -gt 1 ]; then
+  fail "grep exited ${rc} collecting the ungoverned surface — the ratchet is UNMEASURED"
+fi
 recorded_ung="$(printf '%s\n' "${UNGOVERNED[@]}" | sort)"
 new_ung="$(comm -23 <(printf '%s\n' "$observed_ung") <(printf '%s\n' "$recorded_ung"))"
 if [ -n "$new_ung" ]; then
