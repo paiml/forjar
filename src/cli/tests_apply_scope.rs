@@ -3,8 +3,15 @@
 //! Each test states its RED condition against the published 1.12.3, where all
 //! four flags were inert: the assertion below that names three files is exactly
 //! what 1.12.3 produced for every one of these invocations.
+//!
+//! PMAT-160: the selectors are the same and so are the answers — only the
+//! implementation moved. `apply_scope`'s four private prunes were a second copy
+//! of `apply_selection::narrow`, applied before validation instead of after, so
+//! the copy went and these tests now drive `resolve_selection` directly. Every
+//! expectation below is unchanged, which is the point of running them here.
 
-use super::apply_scope::{apply_scope, ApplyScope};
+use super::apply_scope::ApplyScope;
+use super::apply_selection::{resolve_selection, Selectors};
 use crate::core::types;
 use std::path::Path;
 
@@ -56,7 +63,7 @@ fn ids(config: &types::ForjarConfig) -> Vec<&str> {
 }
 
 fn run(config: &mut types::ForjarConfig, scope: ApplyScope) -> Result<(), String> {
-    apply_scope(config, &scope, false)
+    resolve_selection(config, &Selectors::default().with_scope(&scope), false).map(|_| ())
 }
 
 #[test]
@@ -237,8 +244,6 @@ fn an_empty_scope_changes_nothing() {
     let d = tempfile::tempdir().unwrap();
     let mut c = cfg(d.path());
     let before = ids(&c).len();
-    let scope = ApplyScope::default();
-    assert!(scope.is_empty());
-    run(&mut c, scope).unwrap();
+    run(&mut c, ApplyScope::default()).unwrap();
     assert_eq!(ids(&c).len(), before);
 }

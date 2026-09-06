@@ -120,9 +120,12 @@ resources:
             target.display()
         ),
     );
-    // tag "web" doesn't match "database" → all skipped
-    let result = super::check::cmd_check(&file, None, None, Some("web"), std::path::Path::new("state"), false, false);
-    assert!(result.is_ok());
+    // PMAT-160: `check` resolves its selectors through the same resolver
+    // `apply` does, so a tag naming nothing is now the FJ-2723 error rather
+    // than "0 pass, 0 fail" at exit 0.
+    let err = super::check::cmd_check(&file, None, None, Some("web"), std::path::Path::new("state"), false, false)
+        .expect_err("a tag matching nothing is a typo, not an empty success");
+    assert!(err.contains("web"), "{err}");
 }
 
 #[test]
@@ -208,10 +211,12 @@ resources:
     content: hello
 "#,
     );
-    // resource "nonexistent" doesn't match "cfg" → all filtered out
-    let result =
-        super::check::cmd_check(&file, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false);
-    assert!(result.is_ok());
+    // PMAT-160: refused, not emptied — see `check_tag_filter_no_match`.
+    let err =
+        super::check::cmd_check(&file, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false)
+            .expect_err("a -r matching nothing is a typo, not an empty success");
+    assert!(err.contains("nonexistent"), "{err}");
+    assert!(err.contains("cfg"), "the error must name what IS there: {err}");
 }
 
 // ── machine filter ──────────────────────────────────────────────────

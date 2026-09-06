@@ -1524,6 +1524,13 @@ forjar apply -f forjar.yaml --subset "web-*"
 # Only applies resources whose ID matches web-* (e.g., web-config, web-service)
 ```
 
+The selection also includes each matched resource's `depends_on` closure, so a
+`web-*` resource that depends on an unmatched prerequisite still converges it
+rather than being refused as "depends on unknown" (#468). `--check` and
+`--dry-run` honour `--subset` the same way `apply` does: a scoped `--check`
+reports 0 only on the selected resources, and a scoped `--dry-run` lists
+exactly that closure, never the whole config (#466, #467).
+
 ## Plan What-If
 
 Show plan with hypothetical param override — preview changes without modifying config:
@@ -1610,6 +1617,11 @@ Exclude resources matching a glob pattern from apply (inverse of --subset):
 forjar apply -f forjar.yaml --exclude "test-*"
 forjar apply -f forjar.yaml --exclude "*-staging"
 ```
+
+An excluded resource that another resource depends on is skipped, not deleted
+from the graph: the dependent still runs, with the excluded prerequisite
+assumed satisfied rather than reported as a dangling edge. `--skip` behaves the
+same way for a single id.
 
 ## Health Score
 

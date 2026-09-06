@@ -6,7 +6,6 @@
 
 use crate::core::state;
 use crate::core::types;
-use indexmap::IndexMap;
 use std::path::Path;
 
 /// FJ-1270: verify every lock file against its BLAKE3 `.b3` sidecar.
@@ -86,32 +85,6 @@ pub(crate) fn security_gate_should_block(
         "low" => Ok(total > 0),
         _ => Err(format!("unknown security_gate severity: {threshold}")),
     }
-}
-
-/// Apply subset filter to a resource map — retain only matching resources.
-///
-/// Returns the count of retained resources, or Err if none match.
-pub(crate) fn filter_subset(
-    resources: &mut IndexMap<String, types::Resource>,
-    pattern: &str,
-) -> Result<usize, String> {
-    resources.retain(|id, _| super::helpers_state::simple_glob_match(pattern, id));
-    if resources.is_empty() {
-        return Err(format!("no resources match subset pattern '{pattern}'"));
-    }
-    Ok(resources.len())
-}
-
-/// Apply exclude filter to a resource map — remove matching resources.
-///
-/// Returns the number of resources removed.
-pub(crate) fn filter_exclude(
-    resources: &mut IndexMap<String, types::Resource>,
-    pattern: &str,
-) -> usize {
-    let before = resources.len();
-    resources.retain(|id, _| !super::helpers_state::simple_glob_match(pattern, id));
-    before - resources.len()
 }
 
 /// Determine whether destructive actions should be blocked.
@@ -199,21 +172,6 @@ pub(crate) fn scoped_action_counts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::{Resource, ResourceType};
-
-    fn make_resources(names: &[&str]) -> IndexMap<String, Resource> {
-        let mut map = IndexMap::new();
-        for name in names {
-            map.insert(
-                name.to_string(),
-                Resource {
-                    resource_type: ResourceType::Package,
-                    ..Default::default()
-                },
-            );
-        }
-        map
-    }
 
     // ── convergence budget ──
 
@@ -290,68 +248,6 @@ mod tests {
     fn security_gate_case_insensitive() {
         assert!(security_gate_should_block("CRITICAL", 1, 0, 0, 1).unwrap());
         assert!(security_gate_should_block("High", 0, 1, 0, 1).unwrap());
-    }
-
-    // ── subset filter ──
-
-    #[test]
-    fn filter_subset_exact_match() {
-        let mut resources = make_resources(&["nginx", "postgres", "redis"]);
-        let count = filter_subset(&mut resources, "nginx").unwrap();
-        assert_eq!(count, 1);
-        assert!(resources.contains_key("nginx"));
-    }
-
-    #[test]
-    fn filter_subset_wildcard() {
-        let mut resources = make_resources(&["web-nginx", "web-apache", "db-postgres"]);
-        let count = filter_subset(&mut resources, "web-*").unwrap();
-        assert_eq!(count, 2);
-        assert!(resources.contains_key("web-nginx"));
-        assert!(resources.contains_key("web-apache"));
-        assert!(!resources.contains_key("db-postgres"));
-    }
-
-    #[test]
-    fn filter_subset_no_match() {
-        let mut resources = make_resources(&["nginx", "postgres"]);
-        let err = filter_subset(&mut resources, "missing-*").unwrap_err();
-        assert!(err.contains("no resources match"));
-    }
-
-    #[test]
-    fn filter_subset_star_matches_all() {
-        let mut resources = make_resources(&["a", "b", "c"]);
-        let count = filter_subset(&mut resources, "*").unwrap();
-        assert_eq!(count, 3);
-    }
-
-    // ── exclude filter ──
-
-    #[test]
-    fn filter_exclude_removes_matching() {
-        let mut resources = make_resources(&["nginx", "postgres", "redis"]);
-        let removed = filter_exclude(&mut resources, "nginx");
-        assert_eq!(removed, 1);
-        assert_eq!(resources.len(), 2);
-        assert!(!resources.contains_key("nginx"));
-    }
-
-    #[test]
-    fn filter_exclude_wildcard() {
-        let mut resources = make_resources(&["web-nginx", "web-apache", "db-postgres"]);
-        let removed = filter_exclude(&mut resources, "web-*");
-        assert_eq!(removed, 2);
-        assert_eq!(resources.len(), 1);
-        assert!(resources.contains_key("db-postgres"));
-    }
-
-    #[test]
-    fn filter_exclude_no_match() {
-        let mut resources = make_resources(&["nginx", "postgres"]);
-        let removed = filter_exclude(&mut resources, "missing-*");
-        assert_eq!(removed, 0);
-        assert_eq!(resources.len(), 2);
     }
 
     // ── drift gate ──

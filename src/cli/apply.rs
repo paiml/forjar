@@ -2,7 +2,7 @@
 
 use super::apply_helpers::*;
 use super::apply_output::*;
-use super::apply_scope::{apply_scope, ApplyScope};
+use super::apply_scope::ApplyScope;
 use super::apply_selection::*;
 use super::apply_summary::print_apply_summary;
 use super::helpers::*;
@@ -71,11 +71,27 @@ pub(crate) fn cmd_apply_scoped(
     }
     apply_param_overrides(&mut config, param_overrides)?;
 
-    reject_empty_selection(&config, resource_filter, tag_filter, group_filter)?;
-    apply_scope(&mut config, scope, verbose)?;
-    apply_goal_closure(&mut config, goals, verbose)?;
+    // PMAT-160 (#466 #467 #468): ONE resolution, against the config the operator
+    // wrote. This was four independent prunes in a fixed order, and the order
+    // was the bug: `--subset a` pruned before the DAG was validated, so `a`'s
+    // own declared `depends_on` came back as "depends on unknown". Resolving
+    // once — validate, close over `depends_on`, then narrow — means the
+    // selection is a set of resources rather than a sequence of filters, and
+    // everything downstream can stop re-deriving it.
+    let selectors = Selectors {
+        resource: resource_filter,
+        group: group_filter,
+        subset,
+        goals,
+        exclude,
+        tag: tag_filter,
+        ..Default::default()
+    }
+    .with_scope(scope);
+    resolve_selection(&mut config, &selectors, verbose)?;
+    // Unchanged position: the goal closure has always run over the UNSTRIPPED
+    // graph, so a goal's phony prerequisite is ordered and then dropped.
     strip_unrequested_phony(&mut config, goals);
-    apply_filters(&mut config, subset, exclude, verbose)?;
 
     // forjar#404 (CRUX audit E02): OPEN THE SOCKETS BEFORE THE GATES.
     //
@@ -86,11 +102,17 @@ pub(crate) fn cmd_apply_scoped(
     // median measured against 6.7 ms multiplexed, 45×, repeated once per locked
     // resource. Held to the end of the function: dropping it early closes the
     // sockets the gate and the executor are about to use.
+    // PMAT-160: `resource` and `group` are None because `resolve_selection`
+    // already removed everything they exclude. Re-applying them here would
+    // drop the prerequisites the closure just pulled IN — the #466 dry run,
+    // reintroduced one frame later — and `-r a` would once more probe, plan
+    // and preview `a` without `b`. `-m` and `-t` stay: the machine picks the
+    // executor and the lock, and the tag is a plan-level filter.
     let gate_scope = super::apply_drift::GateScope {
         machine: machine_filter,
-        resource: resource_filter,
+        resource: None,
         tag: tag_filter,
-        group: group_filter,
+        group: None,
     };
     let _ssh_mux =
         super::apply_mux::open_control_masters(&config, &gate_scope, force, dry_run, verbose);
@@ -100,8 +122,9 @@ pub(crate) fn cmd_apply_scoped(
         state_dir,
         machine_filter,
         tag_filter,
-        resource_filter,
-        group_filter,
+        // PMAT-160: already selected — see `gate_scope` above.
+        None,
+        None,
         confirm_destructive,
         dry_run,
         force,
@@ -115,9 +138,11 @@ pub(crate) fn cmd_apply_scoped(
         force,
         dry_run,
         machine_filter,
-        resource_filter,
+        // PMAT-160: the executor iterates `config.resources`, which IS the
+        // selection. A second filter here could only narrow it further.
+        resource_filter: None,
         tag_filter,
-        group_filter,
+        group_filter: None,
         timeout_secs,
         force_unlock,
         progress,
@@ -150,7 +175,9 @@ pub(crate) fn cmd_apply_scoped(
     let dur_apply = t_apply.elapsed();
 
     if dry_run {
-        return apply_dry_run_output(&config, state_dir, machine_filter, tag_filter, json);
+        // PMAT-160: the SAME scope the drift gate and the ControlMaster opener
+        // took, so what the dry run lists is what the run would act on.
+        return apply_dry_run_output(&config, state_dir, &gate_scope, json);
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);

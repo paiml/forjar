@@ -1812,8 +1812,7 @@ roadmap:
 - id: PMAT-136
   github_issue: null
   item_type: task
-  title: forjar could not replace a binary that was running, and its repair path
-    was not atomic
+  title: forjar could not replace a binary that was running, and its repair path was not atomic
   status: planned
   priority: medium
   assigned_to: null
@@ -1821,32 +1820,7 @@ roadmap:
   updated: 2026-08-29T18:00:00Z
   spec: null
   acceptance_criteria:
-  - 'Three code paths placed an executable with a plain ''cp'', which opens the destination
-    in place and is therefore refused by the kernel for a RUNNING binary (ETXTBSY,
-    "Text file busy") and by coreutils for a DANGLING SYMLINK — the two states forjar
-    most needs to repair. Verified by executing the generated shell, not by reading
-    it: github_release.rs:147 (live on the fleet for rclone, age, sops into /usr/local/bin
-    and apr, batuta, renacer into a shared ~/.cargo/bin) and dist_generators.rs:384/399,
-    the generated install.sh — the ''curl | sh'' path by which every sovereign tool
-    is UPGRADED, so the destination is routinely the binary the user just ran. The
-    cost was a machine: paiml/infra''s lambda-labs self-applies, so its forjar.yaml
-    left forjar undeclared (":155", ":207") and the box drifted to 1.20.1 while the
-    fleet ran 1.21.x, which made its sovereign YAML guard NO-GO. NOTE the ":207" claim
-    — that a cargo resource cannot re-install the running forjar — was already FALSE:
-    the cargo provider moved to install(1) in v1.15.0 (PMAT-135) and cargo install
-    itself stages and renames. (2) install(1), PMAT-135''s fix, clears both refusals
-    but is NOT atomic: GNU unlinks the destination then creates it, so the path is
-    briefly absent and a concurrent exec fails ENOENT — which matters on a host where
-    sixteen CI runners share one $CARGO_HOME/bin. Measured on lambda-labs over 4000
-    replacements: install(1) 10611 absent of 396132 stats; temp+mv 0 of 741725. Fix:
-    one emitted shell helper, core::shell_install::_fj_install_bin — stage a SIBLING
-    of the destination (so the rename stays on one filesystem) then mv -f, i.e. rename(2),
-    which neither opens the destination nor follows it and leaves no window. Used by
-    all three sites, replacing both cp and install(1) so there is one mechanism rather
-    than three. Poka-yoke: tests/falsification_replace_running_binary.rs executes each
-    generator against a genuinely running binary and a genuinely dangling symlink, and
-    proven to discriminate by reverting the helper to cp (4 red) and to install(1) (the
-    atomicity probe red, 10252 of 356398 absent).'
+  - 'Three code paths placed an executable with a plain ''cp'', which opens the destination in place and is therefore refused by the kernel for a RUNNING binary (ETXTBSY, "Text file busy") and by coreutils for a DANGLING SYMLINK — the two states forjar most needs to repair. Verified by executing the generated shell, not by reading it: github_release.rs:147 (live on the fleet for rclone, age, sops into /usr/local/bin and apr, batuta, renacer into a shared ~/.cargo/bin) and dist_generators.rs:384/399, the generated install.sh — the ''curl | sh'' path by which every sovereign tool is UPGRADED, so the destination is routinely the binary the user just ran. The cost was a machine: paiml/infra''s lambda-labs self-applies, so its forjar.yaml left forjar undeclared (":155", ":207") and the box drifted to 1.20.1 while the fleet ran 1.21.x, which made its sovereign YAML guard NO-GO. NOTE the ":207" claim — that a cargo resource cannot re-install the running forjar — was already FALSE: the cargo provider moved to install(1) in v1.15.0 (PMAT-135) and cargo install itself stages and renames. (2) install(1), PMAT-135''s fix, clears both refusals but is NOT atomic: GNU unlinks the destination then creates it, so the path is briefly absent and a concurrent exec fails ENOENT — which matters on a host where sixteen CI runners share one $CARGO_HOME/bin. Measured on lambda-labs over 4000 replacements: install(1) 10611 absent of 396132 stats; temp+mv 0 of 741725. Fix: one emitted shell helper, core::shell_install::_fj_install_bin — stage a SIBLING of the destination (so the rename stays on one filesystem) then mv -f, i.e. rename(2), which neither opens the destination nor follows it and leaves no window. Used by all three sites, replacing both cp and install(1) so there is one mechanism rather than three. Poka-yoke: tests/falsification_replace_running_binary.rs executes each generator against a genuinely running binary and a genuinely dangling symlink, and proven to discriminate by reverting the helper to cp (4 red) and to install(1) (the atomicity probe red, 10252 of 356398 absent).'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1868,4 +1842,47 @@ roadmap:
   subtasks: []
   estimated_effort: null
   labels: []
+  notes: null
+- id: PMAT-160
+  kind: code
+  github_issue: 466
+  item_type: task
+  title: 'apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip and the machine selector (#467), --subset resolves depends_on by graph closure (#468) — one PR, one code path: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-05T17:08:33Z
+  updated: 2026-09-05T17:53:20Z
+  spec: null
+  acceptance_criteria:
+  - 'Measured 2026-09-05 on forjar 1.25.2 against paiml/infra (found by paiml/infra#442), three bugs in one family: (#466) apply --dry-run -r stack-tool-forjar listed all 139 lambda-labs resources as ''would execute'' while the executor and the confirmation count scoped to one; (#467) apply --check --subset screen-sharing on mini ran every one of 32 resources, never printed the ''Subset filter ... selected'' line apply prints, and exited 1 on four drifts outside the subset — and --check cannot take --exclude / -g / --skip at all; (#468) apply --subset stack-tool-forjar (and --dry-run --subset) was refused with "depends on unknown ''rustup-installer''" although the file declares it and the lock has it converged, while -r stack-tool-forjar converged. Root causes: the dry-run listing renders the unscoped plan; dispatch_apply_b.rs returns into cmd_check before apply_scope/apply_filters run; apply_gates::filter_subset prunes config.resources before resolver::build_execution_order validates edges.'
+  - 'Fix is ONE code path in ONE PR, in this order: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply. Every resource-set selector (-r, -g, --subset, --resource-filter, make goals, and the negatives --exclude, --skip, --only-machine, --exclude-machine) is resolved exactly once — full graph validated, closure taken, negatives contracted, selection re-validated — and apply --check, --dry-run and the real apply all consume that set; none of the three re-derives its own resource selection. -m stays the executor-level machine filter and lock selector it is today (a closure must not pull a dependency across machines, and unscoped and -m paths stay byte-identical); -t stays the plan-level tag filter. The CLI still dispatches per mode; the one code path is the selection pipeline (Selectors + resolve_selection) that every mode calls. The standalone `forjar check` command shares cmd_check and resolves through the same pipeline, so `check -r` follows the closure and a selector naming nothing is refused. The selection expands to its depends_on closure and says so (''Subset filter x: 1 selected, +1 dependency''), the way apply_goal_closure already does for goals; a declared dependency outside the selection is never reported as unknown. --check accepts --subset/--exclude/-g/--skip and the machine selector and prints the same selection line as the apply it stands in for.'
+  - 'Falsifiable, with a fixture where a depends_on b and c is unrelated: (a) apply --dry-run -r a lists exactly a and b, and the listing count equals the summary count and the --json body; (b) apply --check --subset a checks exactly a and b, never c, and exits 0 while c drifts; (c) apply --subset a converges a after b with no unknown-dependency refusal; (d) one test runs --check --subset X, --dry-run --subset X and --subset X over the same config and asserts the three selected key sets are identical, and repeats that for -r, -g, --exclude and --skip. The existing plan_selector tests and tests_gh_dogfood_p1 / tests_cov_apply_b stay green.'
+  - 'Starting point is the two unpushed commits on fix/dry-run-honours-resource-filter (5b20cb41 scoped_dry_run_plan, d7da5996 roadmap); they are carried forward, not rewritten. The whole widened diff is quorumed by three real agy lanes against this ticket — no waiver; the existing .quorum/evidence/PMAT-160-agy-3-lanes.json covered head 5b20cb41 only and is superseded by the receipt for the final head. CHANGELOG names #466 #467 #468; contracts/flag-has-effect-v1.yaml gains rows for --check x {--subset,--exclude,-g,--skip,-m} and --dry-run x {-r,-g}; the release gate (clean-room) must pass. Closes #466, #467, #468.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: [bug, apply, filters]
+  notes: null
+- id: PMAT-161
+  kind: code
+  github_issue: 469
+  item_type: task
+  title: 'state stamp keyed by config name (as the lock is): undo honours it, single-stamp state migrates on first apply, the six-stack one-state-dir layout is supported and documented (#469)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-05T17:53:20Z
+  updated: 2026-09-05T17:53:20Z
+  spec: null
+  acceptance_criteria:
+  - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:), and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room''; this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each touched only its own lock section. The lock file is already keyed by config name; the stamp is a single value, so for this layout the warning is a false positive on every apply and undo refuses a layout apply supports.'
+  - 'Fix: the state stamp becomes a per-name map keyed exactly as the lock is (name -> {file, applied_at, ...}); apply writes only its own name''s entry. The #377 warning fires only when the SAME name''s entry was last written from a different -f (the rename / wrong-stack case it was built for) — that case still warns, and the #377 tests stay green with their intent unchanged. Six stacks through one state dir produce zero warnings.'
+  - 'undo keys on the same map: after applies of lambda-labs and mini into one state dir, undo -f machines/mini/forjar.yaml --state-dir state undoes mini''s section only and does not refuse; undo of a name whose entry was written from a different -f still refuses with the #377 message. One integration test drives three configs through one state dir (apply, apply, apply, undo one, re-apply) and asserts zero warnings and the untouched sections byte-identical.'
+  - 'Migration: a state dir carrying the old single stamp is migrated on the first apply (or undo) that reads it — the old stamp becomes the entry for its own name, nothing is dropped, the sidecar/integrity hash is re-sealed by the same write, and no warning fires on that first apply unless the #377 condition genuinely holds. Migration is idempotent and covered by a test whose fixture was written in the pre-fix format; an older forjar reading the new format fails closed with a message naming the format, never silently.'
+  - 'Documented: the six-stack layout (one state dir, N configs, each applied with -f machines/<m>/forjar.yaml --state-dir state) is stated as supported in the state-dir documentation and in the --state-dir CLI help, with the one remaining refusal (same name, different -f) explained next to it. CHANGELOG entry references #469 and #377; the PR answers and closes #469.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: [bug, state, undo]
   notes: null

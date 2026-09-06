@@ -452,8 +452,11 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false);
-        assert!(result.is_ok());
+        // PMAT-160: `check` resolves selectors like `apply` — a -r that names
+        // nothing is refused instead of reported as an empty success.
+        let err = cmd_check(&config, None, Some("nonexistent"), None, std::path::Path::new("state"), false, false)
+            .expect_err("a -r matching nothing is a typo");
+        assert!(err.contains("nonexistent"), "{err}");
     }
 
     #[test]
@@ -479,9 +482,10 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        // Filter to a tag that doesn't match
-        let result = cmd_check(&config, None, None, Some("db"), std::path::Path::new("state"), false, false);
-        assert!(result.is_ok());
+        // PMAT-160: a tag naming nothing is refused, not silently empty.
+        let err = cmd_check(&config, None, None, Some("db"), std::path::Path::new("state"), false, false)
+            .expect_err("a -t matching nothing is a typo");
+        assert!(err.contains("db"), "{err}");
     }
 
 }

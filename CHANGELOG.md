@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`apply`'s resource-set selectors resolved independently, one bug per
+selector (#466, #467, #468).** Measured 2026-09-05 against `paiml/infra`:
+`apply --dry-run -r stack-tool-forjar` printed all 139 resources of a fleet
+manifest as "would execute" although the executor and the confirmation prompt
+scoped to one (#466); `apply --check --subset screen-sharing` ran all 32
+resources of a manifest and exited 1 on four drifts outside the subset because
+`dispatch_apply_b.rs` returned into `cmd_check` before the scope filters ran,
+and `--check` had no parameter for `--subset`/`--exclude`/`-g`/`--skip`/the
+machine selectors at all (#467); `apply --subset stack-tool-forjar` was
+refused with `depends on unknown 'rustup-installer'` although the file
+declares it and the lock has it converged, because `filter_subset` pruned
+`config.resources` before `resolver::build_execution_order` validated the
+edges (#468).
+
+Every resource-set selector `-r`, `-g`, `--subset`, `--resource-filter` and
+`make` goals now resolves exactly once, in one order that is the fix:
+**parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply.**
+The full graph is validated first, so a declared `depends_on` is never
+"unknown"; the positive selection is then closed downward over `depends_on`
+(the way `apply_goal_closure` already did for `make` goals), so a targeted
+apply cannot run against an unconverged prerequisite it never selected;
+`--exclude`/`--skip`/`--only-machine`/`--exclude-machine` narrow that closure
+by *contracting* the edges to what they remove rather than deleting them, so a
+dependent whose prerequisite was explicitly excluded keeps running instead of
+failing on a dangling edge; the narrowed selection is validated again before
+any SSH socket or gate runs. `-m` stays the executor-level machine filter it
+was (a closure must not pull a dependency across machines) and `-t` the
+plan-level tag filter. `--check`, `--dry-run` and the real apply all
+consume that one resolved selection — none of them re-derives its own.
+
+Two behaviour changes are consequences of the closure, not new features:
+`--check` now honours `--subset`/`--exclude`/`-g`/`--skip`/`-m` exactly as
+`apply` does, prints the same `Subset filter '...': N selected` line, and
+exits 0 when only resources outside the selection are drifted; and
+`apply -r x` (and `-g`, `--subset`) now also converges `x`'s dependencies when
+they are not already converged, so `-r x` whose one dependency is already
+converged reports `1 converged, 1 unchanged` where it previously reported
+`1 converged, 0 unchanged` — the dependency was always required, it is now
+also verified rather than silently assumed. `--subset` no longer refuses a
+resource for a `depends_on` outside its glob. Unscoped `apply` (no selectors)
+is unchanged for every valid config; a config whose graph is invalid (a cycle,
+an undeclared `depends_on`) is now refused before any SSH socket is opened or
+the drift gate runs, with the same message as before (the members of a cycle
+may be listed in the other order).
+
+Two refinements the review quorum forced: a negative selector that removes
+every selected resource (`--exclude '*'`; a negative that removes the target but
+not its closure, `--subset x --exclude x` with `x -> y`, still runs `y`; machine
+narrowing that empties the frame keeps converging nothing, as GH-211 pinned) is now
+refused with `no resources remain: ... removed every selected resource` instead
+of converging nothing at exit 0, and `make`'s stripping of an unrequested phony
+target now contracts the `depends_on` edges through it (`a -> phony -> c` keeps
+`a` after `c`) instead of scrubbing them, which could reorder a goal ahead of
+its transitive prerequisite.
+
+The standalone `forjar check` command (not `apply --check`) resolves its own
+`-r`/`-t` through the same resolver as a deliberate consequence, not a second
+fix: `check -r <id>` now also checks `<id>`'s `depends_on` closure, and a typo
+in `check -r` or `check -t` is refused up front (the FJ-2723 house rule) rather
+than silently reported as `0 pass, 0 fail` at exit 0. (PMAT-160)
+
 ## [1.25.2] — 2026-09-05
 
 **`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege

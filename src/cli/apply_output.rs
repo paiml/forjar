@@ -1,9 +1,9 @@
 //! Apply command output formatting helpers.
 
+use super::apply_drift::GateScope;
 use super::apply_helpers::*;
 use super::helpers::*;
-use super::helpers_state::*;
-use crate::core::{planner, resolver, state, types};
+use crate::core::{state, types};
 use std::path::Path;
 
 pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
@@ -19,45 +19,26 @@ pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
 }
 
 /// Handle dry-run output.
+///
+/// PMAT-160: ONE plan, scoped by every selector the apply honours (`-m`, `-t`,
+/// `-r`, `-g`), feeds both the text body and `--json` — see `apply_dry_run`.
+/// The JSON branch used to plan on its own and skipped even the machine
+/// filter the text branch applied, so the two bodies could disagree.
 pub(super) fn apply_dry_run_output(
     config: &types::ForjarConfig,
     state_dir: &Path,
-    machine_filter: Option<&str>,
-    tag_filter: Option<&str>,
+    scope: &GateScope<'_>,
     json: bool,
 ) -> Result<(), String> {
+    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope)?;
     if json {
-        let execution_order = resolver::build_execution_order(config)?;
-        let plan_locks = load_machine_locks(config, state_dir, machine_filter)?;
-        let plan = planner::plan(config, &execution_order, &plan_locks, tag_filter);
-        let changes: Vec<serde_json::Value> = plan
-            .changes
-            .iter()
-            .map(|c| {
-                serde_json::json!({
-                    "resource": c.resource_id,
-                    "machine": c.machine,
-                    "type": c.resource_type.to_string(),
-                    "action": format!("{:?}", c.action).to_lowercase(),
-                    "description": c.description,
-                })
-            })
-            .collect();
-        let output = serde_json::json!({
-            "dry_run": true,
-            "name": plan.name,
-            "to_create": plan.to_create,
-            "to_update": plan.to_update,
-            "to_destroy": plan.to_destroy,
-            "unchanged": plan.unchanged,
-            "changes": changes,
-        });
+        let output = super::apply_dry_run::render_dry_run_json(&plan);
         println!(
             "{}",
             serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
-        super::apply_dry_run::print_dry_run_actions(config, state_dir, machine_filter, tag_filter)?;
+        print!("{}", super::apply_dry_run::render_dry_run_actions(&plan));
     }
     Ok(())
 }

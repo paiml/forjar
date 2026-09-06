@@ -1,0 +1,158 @@
+{
+ "issue": "PMAT-160 — apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip/-m (#467), --subset resolves depends_on by graph closure (#468) — one code path: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply",
+ "base_commit": "20a255b0be1300e74fdd9188b2cb2073434c57b2",
+ "base": "origin/main",
+ "recorded_at": "2026-09-05",
+ "quorum": {
+  "lanes": [
+   "claim lane A — resolver and callers: src/cli/apply_selection/, apply.rs, dispatch_apply_check.rs, check.rs, apply_dry_run.rs",
+   "claim lane B — tests: can every added or changed test fail, and what does it pin",
+   "claim lane C — documents versus code: CHANGELOG, contracts/flag-has-effect-v1.yaml, book pages, --help text",
+   "independent-stack review — agy /teamwork-preview on the final diff",
+   "crux — competitive survey (Terraform, Ansible, SaltStack, Puppet)",
+   "delta refuter-judges — three lanes on 753eb232..2b53621b after the ticket amendment and the selection re-validation"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived, because both narrowings kept the substance and changed a sentence",
+  "claims_confirmed": 51,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "L3-F1 — CHANGELOG.md states the order as filter by graph closure -> validate, which the code contradicts by validating first — REFUTED as stale: 3ab88290 rewrote the line to parse -> validate the full graph -> filter by graph closure -> validate the selection.",
+   "L3-F2 — the ticket mandates filter -> validate and resolving -m before validation, which would break cross-machine dependencies — REFUTED as stale: the ticket text was corrected in 3ab88290 and -m was never resolved before validation in the code.",
+   "T1 — `-r a --skip a` leaves the selection empty, resolve_selection returns Ok and apply exits 0 doing nothing — REFUTED: false as stated (the closure survives and bravo runs) and stale for the hole underneath, which `--exclude '*'` did expose and 3fdae0c3 closed with closure.rs::empty_after_narrowing.",
+   "T2 — strip_unrequested_phony runs after resolve_selection and scrubs the edges to a stripped phony, destroying the transitive dependencies contract_edges preserved — REFUTED as stale: 3fdae0c3 makes it contract the edges through the phony.",
+   "T8 — the standalone check behaviour change is buried in the CHANGELOG — REFUTED on the merits: it is its own paragraph of the [Unreleased] entry naming both consequences.",
+   "T9 — the binary suite never drives the standalone check command the branch changed — REFUTED as stale: standalone_check_selects_the_closure_and_refuses_a_typo (3fdae0c3).",
+   "T10 — AC2 asks parse -> filter -> validate while the diff implements parse -> validate -> filter — REFUTED as stale: the acceptance criterion was corrected in 3ab88290 to what the code does.",
+   "L2-F4 — 'changing scope_plan in apply_dry_run.rs to not call apply_resource_filter would make dry_run_lists_exactly_the_closure_and_its_summary_agrees fail' — REFUTED by measurement after the merge helper's review: the test stays green with the call removed, because the apply path builds the gate scope with resource: None and the selection is pinned upstream."
+  ],
+  "rounds": "refuter round 1 discarded (a lane mutated src/cli/dispatch_apply_check.rs in the working tree and two lanes ruled on it); round 2 discarded (lanes copied the repository with target/ into /tmp, filled the root filesystem, two lanes died); round 3 ran with git status clean before and after and 212 G free; judge 2 left whitespace in src/cli/apply_dry_run.rs, reverted, judges 1 and 3 finished before the edit; delta round on 753eb232..2b53621b: three refuter-judge lanes, five claims DC1-DC5 confirmed 3-0, no findings"
+ },
+ "crux": {
+  "systems": [
+   "Terraform -target",
+   "Ansible --tags / --check",
+   "SaltStack state.apply test=True with requisites",
+   "Puppet --tags / --noop"
+  ],
+  "verdict": "forjar matches Terraform on dependency closure, Puppet and Terraform on contracting the edge to an explicitly excluded prerequisite, SaltStack on refusing an emptied selection, and all four on the dry run / check scoping identically to the apply by construction; the three deviations (closure versus Ansible/Puppet run-target-alone, contraction versus Salt refusal, refusal versus the silent no-op of Terraform/Ansible/Puppet) are each defensible and named in CHANGELOG.md; no surveyed system has a rule forjar violates. All external claims are from documentation memory (sandboxed lane, no network) and are marked asserted in the evidence."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, sandboxed, agy 1.1.27, 498 s on the final diff; a second run grilled the plan before phase 1",
+  "verdict": "do-not-implement-as-written on ten findings, six cited: two real defects the branch then fixed (an emptied selection converged nothing at exit 0; strip_unrequested_phony scrubbed edges instead of contracting them), one test gap it then closed (the standalone check command), one wording defect fixed, two pre-existing defects filed (#470, #471), one as-designed, and two affirmations of the unscoped path (machine_b.rs:316 unchanged with resource_filter=None; confirmation counts agree with the selection). The judges killed its T1, T2, T8, T9 and T10 as stale or wrong and narrowed T3."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 4,
+  "tests_examined": 19347,
+  "files_parsed": 2106,
+  "accepted": [
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_resource_report_empty",
+    "reason": "pre-existing print-helper smoke test (no-failure-mode) at line 332, untouched by the branch, which changed nine lines elsewhere in the file for the scoped dry-run test"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_resource_report_mixed",
+    "reason": "pre-existing, line 338, same as above"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_timing_basic",
+    "reason": "pre-existing, line 353, same as above"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_timing_zero_durations",
+    "reason": "pre-existing, line 362, same as above"
+   }
+  ],
+  "quality_gate": "pmat 3.37.0 `analyze vacuous-tests -f json` over the repository: 360 of 19347 #[test] fns cannot fail repo-wide, 4 conditional skips; of the seven touched test paths only src/cli/tests_cov_apply_b.rs carries any, the four print-helper smoke tests above, none of them added or changed by this branch.",
+  "limit": "The zero-for-the-branch is what the tool measured, not a claim that every touched test can fail. Measured separately: four mutations of the fix turn 6, 1, 1 and 5 tests red, and the two review-driven tests are red with their hunks reverted (falsification block)."
+ },
+ "falsification": {
+  "test": "check_under_subset_ignores_the_red_resource_out_of_scope (and the eleven other tests of falsification_apply_filter_pipeline, which drive the built binary over a three-resource local fixture: alpha depends_on bravo in group web, charlie unrelated and left red)",
+  "test_file": "tests/falsification_apply_filter_pipeline.rs",
+  "cargo_test_target": "falsification_apply_filter_pipeline",
+  "reverted": "M4: the resolve_selection call in the --check branch (src/cli/dispatch_apply_check.rs:73) commented out; M3, separately: the operator's -r/-g passed back into GateScope and the executor at src/cli/apply.rs:113-127; each applied with sed, the target run, the file restored with git checkout (tree verified clean after each). Also measured at unit level: no closure (6 of 18 fail) and validation moved after the prune (1 fails), and the two tests added in 3fdae0c3 with their hunks reverted (each fails).",
+  "observed_failure": "M4: test result: FAILED. 5 passed; 5 failed — check_under_subset_ignores_the_red_resource_out_of_scope panicked at tests/falsification_apply_filter_pipeline.rs:169 \"an out-of-scope red resource must not fail a scoped check\", with check_under_r_and_g_..., check_under_exclude_and_skip_..., check_still_honours_the_machine_selector and check_dry_run_and_apply_select_the_same_ids (assertion left == right failed: check [\"--subset\",\"alpha\"]). M3: test result: FAILED. 9 passed; 1 failed — check_dry_run_and_apply_select_the_same_ids: assertion left == right failed: dry run [\"-r\",\"alpha\"] left: [\"alpha\"] right: [\"alpha\",\"bravo\"].",
+  "still_green_when_reverted": "M4: 5 of 10 — the dry-run, apply, unscoped and undeclared-dependency cases, none of which goes through the --check branch; M3: 9 of 10 — every case but the identity test, because the check path and the apply path were still selected upstream and only the re-filtered dry run diverged."
+ },
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/filter-pipeline-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 20051,
+    "sha256": "3fcb038892d7dbecb5190010f3f610e36333cc90cee1bea8dec86bfd8dafd308",
+    "blob": "c21abdd4922a91c81d1c99ad12176021ead55a0b"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 6151,
+    "sha256": "d7ada71dfda6eef02fd2fc8c668f0c2154328cf5ee042874bbb7b518f2df4943",
+    "blob": "55e81e3d70635538b6eb35fedcdbeef52c9ccf52"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 14076,
+    "sha256": "339c921347538bc9f38c7bd1527ad49b87b41b77c76919e41da59070f2efba3b",
+    "blob": "465a0576baf0b1b4f307e66b1473e762935c4c38"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 47315,
+    "sha256": "5543b54d6d14f36a059b0ace67fe53ed8890516fc33d106c98e806a35343ca92",
+    "blob": "6f875534cef0b8391585a87ed46749c1242b5fce"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 7041,
+    "sha256": "b341209bc41df937ce38e01d72354de778ec08a1ada227c29f2c7504ad0b0755",
+    "blob": "c6752a5e6226253bd1f0cba0fdbc79ae7be7db92"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 5968,
+    "sha256": "0ae1b0f3bf9a410aae344447a24388cabd74223f45431eb8c42ba6a0e30520fb",
+    "blob": "5ff5eb74bc676534353d9f9e21449c8aef712176"
+   },
+   {
+    "path": ".quorum/evidence/filter-pipeline-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1953,
+    "sha256": "bef8d80c0d70329d2d15c59be25dadc48f5346f984389c907a04c539cc9804a2",
+    "blob": "dcb2170ef466af7a1d3de88e56cdf405073ecc71"
+   }
+  ],
+  "total_bytes": 102555,
+  "claims_digest": ".quorum/evidence/filter-pipeline-judges.md"
+ },
+ "diff_sha256": "db6ae2fb8a99e95f3a3a3f2021c929c13f88727e",
+ "merge_helper": {
+  "artifact": "docs/audits/quorum-PMAT-160.json (kept uncommitted and posted on the PR: the helper accepts only an artifact naming the pushed head)",
+  "first_run": "at 14e6120b: 1 PASS / 2 FAIL (the ticket wording on -m; the standalone check scope; validate the selection before the SSH sockets)",
+  "second_run": "at 2b53621b: agreed, 3 PASS",
+  "third_run": "at 349956f1: 2 PASS / 1 FAIL on L2-F4 (a digest sentence, not code); settled by measurement, digest and receipt corrected"
+ }
+}

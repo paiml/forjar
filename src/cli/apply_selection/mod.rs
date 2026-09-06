@@ -1,16 +1,30 @@
 //! FJ-2723 / FJ-2724 (PMAT-199): resource selection for `apply` and `make`.
 //!
-//! Split out of `apply.rs` to keep it under the 500-line limit. Three ways to
-//! narrow an apply live here, and they are not interchangeable:
+//! Split out of `apply.rs` to keep it under the 500-line limit.
 //!
-//! * `reject_empty_selection` — a selector naming nothing is a mistake in the
-//!   invocation, not a request to do nothing.
-//! * `apply_goal_closure` — `make`-style: the goals plus everything they need.
-//!   Downward-closed, so it can never strand a prerequisite.
-//! * `apply_filters` — `--subset`/`--exclude` pattern filters, which CAN cut a
-//!   resource out from under a dependent. That is why `make` does not use them.
+//! PMAT-160 (#466 #467 #468): `resolve_selection` in [`closure`] is THE path.
+//! It replaced three independent prunes — `apply_goal_closure` (make-style
+//! goals), `apply_filters` (`--subset`/`--exclude`) and `apply_scope`'s four
+//! selectors — which each ran at a different point of `cmd_apply_scoped` and
+//! could not run at all for `--check`. Every apply mode now resolves once, in
+//! one order, against the config the operator wrote.
+//!
+//! Two helpers survive them, because they answer questions the resolver does
+//! not: `reject_empty_selection` (a selector naming nothing is a mistake in the
+//! invocation, and `check_existence` calls it) and `strip_unrequested_phony`
+//! (goal-only phony resources, which `plan` and the MCP layer share).
 
-use crate::core::{resolver, types};
+use crate::core::types;
+use std::collections::HashSet;
+
+mod closure;
+mod narrow;
+
+/// The resolver's own report, asserted by `tests_apply_selection_closure`.
+/// Nothing in the shipped path reads it — the config it returns IS the answer.
+#[cfg(test)]
+pub(crate) use closure::Selection;
+pub(crate) use closure::{resolve_selection, Selectors};
 
 /// FJ-2723 (PMAT-199): a selector that matches nothing is an error, not a no-op.
 ///
@@ -58,66 +72,6 @@ pub(crate) fn reject_empty_selection(
     Ok(())
 }
 
-/// FJ-2724 (PMAT-199): prune the config to the goals' prerequisite closure.
-///
-/// This is what makes `forjar make <goal>` mean what `make <goal>` means. The
-/// prune happens after param overrides and before every other filter, so
-/// `make a --exclude 'x-*'` composes.
-///
-/// Pruning is safe here in a way `--subset` is not: a `depends_on` closure is
-/// downward-closed, so the pruned config can never execute a resource whose
-/// prerequisites were dropped. It also cannot produce a spurious Destroy — the
-/// plan iterates the execution order derived from `config.resources`, so lock
-/// entries with no config resource are simply never visited.
-pub(crate) fn apply_goal_closure(
-    config: &mut types::ForjarConfig,
-    goals: &[String],
-    verbose: bool,
-) -> Result<(), String> {
-    if goals.is_empty() {
-        return Ok(());
-    }
-    let keep = resolver::goal_closure(config, goals)?;
-    let before = config.resources.len();
-    config.resources.retain(|id, _| keep.contains(id));
-    if verbose {
-        eprintln!(
-            "Goals {:?}: {} of {} resources in the prerequisite closure",
-            goals,
-            config.resources.len(),
-            before
-        );
-    }
-    Ok(())
-}
-
-/// Apply subset and exclude filters to config.
-pub(crate) fn apply_filters(
-    config: &mut types::ForjarConfig,
-    subset: Option<&str>,
-    exclude: Option<&str>,
-    verbose: bool,
-) -> Result<(), String> {
-    if let Some(pattern) = subset {
-        let count = super::apply_gates::filter_subset(&mut config.resources, pattern)?;
-        if verbose {
-            eprintln!("Subset filter '{pattern}': {count} resources selected");
-        }
-    }
-    if let Some(pattern) = exclude {
-        let removed = super::apply_gates::filter_exclude(&mut config.resources, pattern);
-        if verbose {
-            eprintln!(
-                "Exclude filter '{}': removed {} resources ({} remaining)",
-                pattern,
-                removed,
-                config.resources.len()
-            );
-        }
-    }
-    Ok(())
-}
-
 /// FJ-2725 (PMAT-199): remove phony resources that were not explicitly requested.
 ///
 /// A phony resource names an ACTION (`clean`, `test`, `all`), not a file. It has
@@ -160,12 +114,22 @@ pub(crate) fn strip_unrequested_phony(config: &mut types::ForjarConfig, goals: &
     if dropped.is_empty() {
         return;
     }
+    // PMAT-160: contract the `depends_on` edges THROUGH the phony rather than
+    // scrubbing them, so `a -> phony -> c` keeps `a` ordered after `c` once the
+    // phony is gone — the same rewrite the negative selectors get.
+    let removed: HashSet<String> = dropped.iter().cloned().collect();
+    let keep: Vec<String> = config
+        .resources
+        .keys()
+        .filter(|id| !removed.contains(*id))
+        .cloned()
+        .collect();
+    let _ = narrow::contract_edges(config, &keep, &removed);
     for id in &dropped {
         config.resources.shift_remove(id);
     }
-    // Scrub edges to the removed resources so the DAG stays well-formed.
+    // Trigger edges have no transitive meaning: scrub them.
     for resource in config.resources.values_mut() {
-        resource.depends_on.retain(|d| !dropped.contains(d));
         resource.triggers.retain(|t| !dropped.contains(t));
         resource.restart_on.retain(|t| !dropped.contains(t));
     }
