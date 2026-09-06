@@ -448,19 +448,36 @@ fn a_renamed_stack_is_one_lineage_not_two_stacks() {
         "the undo was allowed but reverted nothing:\n{out}"
     );
 
-    // ANTI-VACUITY. The retirement must not swallow a genuinely second stack:
-    // bravo has its own file and its own machine, so the dir really does hold
-    // two and every restore in it is still refused.
+    // ANTI-VACUITY. The retirement retires ONE entry — the one recording this
+    // `-f` — and a genuinely second stack still makes every restore refuse.
+    //
+    // In a dir of its own, deliberately: the undo above replays the target
+    // generation's recorded config, which stamps this dir under the stack's
+    // HISTORICAL name with no `-f` recorded (`WithheldStampFile`), and a stamp
+    // with no file is not evidence of a rename (see `retire_renamed`). Asserted
+    // here that state would make "still refuses" true for the wrong reason.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    let alpha = write_stack(&root, "alpha", "alpha", "mini", "one");
+    assert_eq!(apply(&alpha, &state).0, 0, "the first apply must succeed");
+    rename_stack(&alpha, "alpha", "alpha-renamed", "two");
+    assert_eq!(apply(&alpha, &state).0, 0, "the rename apply must succeed");
     let bravo = write_stack(&root, "bravo", "bravo", "lambda-labs", "one");
     assert_eq!(apply(&bravo, &state).0, 0, "bravo's apply must succeed");
-    assert_eq!(apply(&alpha, &state).0, 0, "the renamed stack re-applies");
+    // One more apply by the renamed stack, so the generation `undo` targets
+    // differs from the live state — otherwise undo reports "already at
+    // generation N" and returns before the refusal it is here to prove.
+    rename_stack(&alpha, "alpha-renamed", "alpha-renamed", "three");
+    assert_eq!(apply(&alpha, &state).0, 0, "the fourth apply must succeed");
+
     let (rc, out) = undo(&alpha, &state);
     assert_ne!(
         rc, 0,
         "a dir holding two real stacks must still refuse:\n{out}"
     );
     assert!(
-        out.contains("PMAT-162") && out.contains("'bravo'"),
-        "the refusal must still name the other stack and the ticket; got:\n{out}"
+        out.contains("PMAT-162") && out.contains("'alpha-renamed'") && out.contains("'bravo'"),
+        "the refusal must still name both stacks and the ticket; got:\n{out}"
     );
 }

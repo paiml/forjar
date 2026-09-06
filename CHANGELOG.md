@@ -107,6 +107,12 @@ before. Stack-scoped restore (schema `1.2`, owner and machines recorded per
 generation) is tracked as PMAT-162 ("GO: generation ownership and
 stack-scoped restore").
 
+A rename is one lineage: applying the same config file under a new `name:`
+retires the old name's stamp into the new one — its machines and output keys
+move with it, `apply` prints one `note: stack '<old>' renamed to '<new>' in
+<dir>` line, and the dir stops counting as two stacks, which had refused the
+renamed stack's own `undo` for ever (PMAT-171).
+
 A `1.0` lock (single stamp in the top-level `name:`) migrates the first time
 it is read: the old stamp becomes that name's entry with no recorded `-f`
 (1.0 never recorded one), which matches any `-f` on the one apply

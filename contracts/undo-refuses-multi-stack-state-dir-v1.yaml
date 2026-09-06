@@ -1,6 +1,6 @@
 ---
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   kind: pattern
   created: "2026-09-06"
   author: "PAIML Engineering"
@@ -174,6 +174,17 @@ invariants:
       calls are additions to the guard at the primitive, never replacements:
       deleting the primitive's call must still turn MSD-04 red.
 
+  - id: INV-A-RENAME-IS-ONE-LINEAGE
+    statement: >-
+      A stack renamed in place — the same config file under a new `name:` — is
+      ONE stack, and the count this contract refuses on is a count of stacks,
+      not of stamps. The apply that finds a stamp recording the very `-f` it is
+      being applied from retires that stamp into the new name (machines and
+      output keys move with it) and says so in one `note:` line. Without the
+      retirement the old name's entry stays in `stacks`, a dir one config has
+      ever been applied to "holds 2 stacks", and the renamed stack's own undo is
+      refused for ever — by the very apply the refusal names as the remedy.
+
   - id: INV-SINGLE-STACK-UNCHANGED
     statement: >-
       One stack, one state dir — the overwhelmingly common case — restores
@@ -239,6 +250,26 @@ fixtures:
       # src/cli/tests_generation.rs::write_global_lock(state_dir, &["alpha", "bravo"])
       # schema: "1.1" with stacks: {alpha: {...}, bravo: {...}}
 
+  - id: FX-RENAMED-STACK
+    description: >-
+      One stack, one state dir, renamed in place: alpha is applied, then the
+      SAME `forjar.yaml` is rewritten with `name: alpha-renamed` and new
+      content (the resource ids and the machine are untouched — a rename OF the
+      stack, not an edit to it), and applied again. The content changes so the
+      undo that follows has work to do: without it the undo reports "already at
+      generation N" and "allowed" cannot be told from "did nothing", which is
+      how the interlock suite's renamed-stack test passed while the real undo
+      was refused.
+    setup: |
+      # tests/common/stack_stamp_harness.rs::rename_stack, driven by
+      # tests/falsification_state_stamp_per_name.rs::
+      #   a_renamed_stack_is_one_lineage_not_two_stacks
+      #   write_stack(root, "alpha", "alpha", "mini", "one"); apply
+      #   rename_stack(cfg, "alpha", "alpha-renamed", "two"); apply
+      # The anti-vacuity half adds bravo (its own file, its own machine) in a
+      # state dir of its own, because the undo above replays the target
+      # generation's config and re-stamps the dir under the historical name.
+
 proof_obligations:
   - type: safety
     property: "A restore that cannot be scoped does not run"
@@ -267,6 +298,13 @@ proof_obligations:
     tolerance: 0.0
     applies_to: "single-stack dirs, legacy 1.0 dirs, dirs with no global lock"
     discharged_by: "FALSIFY-MSD-05, FALSIFY-MSD-07"
+
+  - type: soundness
+    property: "The refusal counts stacks, not stamps: a rename is one lineage"
+    formal: "rename(D, old -> new) ⟹ |stacks(D)| unchanged"
+    tolerance: 0.0
+    applies_to: "state::stamp::apply_stamp, whose retirement makes the count honest"
+    discharged_by: "FALSIFY-MSD-09"
 
 falsification_tests:
   - id: FALSIFY-MSD-01
@@ -491,6 +529,46 @@ falsification_tests:
       for.
     owner: forjar
 
+  - id: FALSIFY-MSD-09
+    rule: INV-A-RENAME-IS-ONE-LINEAGE
+    defect: a-renamed-stack-counts-as-two-and-is-refused-for-ever
+    severity: HIGH
+    prediction: >-
+      A stack renamed in place applies with one `note: stack 'alpha' renamed to
+      'alpha-renamed' in <dir>` line and NO `warning:`; `forjar.lock.yaml` then
+      holds exactly one stamp, carrying the old name's machines and output
+      keys; `forjar undo --yes` with the renamed config exits 0 and reverts the
+      resource. A genuinely second stack (its own file, its own machine) in
+      such a dir is still refused, naming both stacks and PMAT-162.
+    fixture: FX-RENAMED-STACK
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_renamed_stack_is_one_lineage_not_two_stacks
+      cargo test --test falsification_undo_state_dir_interlock \
+        a_renamed_stack_is_unblocked_by_one_apply
+      cargo test --lib -- core::state::tests_stack_stamp::a_rename_retires_the_old_names_stamp_into_the_new_one \
+        core::state::tests_stack_stamp::a_different_file_taking_a_renamed_stacks_machine_still_conflicts
+    red_output: |
+      assertion `left == right` failed: undo still refused after the named remedy:
+      error: refusing to restore generation 1: state dir …/stateA holds 2 stacks
+      ('stack-alpha', 'stack-renamed'); a restore is whole-dir, so it would revert
+      every one of them. Stack-scoped restore is PMAT-162 …
+    can_go_red: >-
+      Measured 2026-09-06 at 08700b80, with the guard green: the rename left
+      the old name's stamp in `stacks`, so the dir counted two and the renamed
+      stack's undo was refused — after the apply the refusal itself names as
+      the remedy. The interlock row went red only once its undo was made a REAL
+      undo (the remedy apply moves the host); with a no-op undo it passed
+      against the defect, which is why the fixture changes the content.
+      Anti-vacuity: retire on a stamp with no recorded file, or on any entry
+      rather than the one recording this `-f`, and
+      `a_different_file_taking_a_renamed_stacks_machine_still_conflicts` goes
+      red — a different file taking that machine is still `MachineOwnedBy`.
+    if_fails: >-
+      Renaming a stack — one edit, one config, one operator — permanently
+      disables its own undo, and the documented way out makes it worse.
+    owner: forjar
+
 enforcement:
   restore_asks_the_lock_before_it_writes:
     description: >-
@@ -585,13 +663,10 @@ known_gaps:
       generation N" return, so in a shared dir `undo --dry-run` still previews
       and a no-op `undo` still exits 0 — neither writes a byte, and both
       behaved this way before the guard existed. Moving it above those returns
-      also refuses the renamed-stack remedy that
-      `falsification_undo_state_dir_interlock::a_renamed_stack_is_unblocked_by_one_apply`
-      pins, because a rename leaves the old name stamped and `|stacks(D)|`
-      counts stamps, not stacks (see GAP-STACKS-IS-A-RECORD-NOT-A-TRUTH). That
-      renamed stack's REAL undo is refused today, at the primitive; whether the
-      count should discount a stamp the same `-f` wrote is PMAT-162's
-      question, not this contract's.
+      also refuses a renamed stack's remedy in the window before its next
+      apply. The count itself is no longer the problem: a rename is retired on
+      the next apply (INV-A-RENAME-IS-ONE-LINEAGE, PMAT-171), so `|stacks(D)|`
+      counts stacks rather than stamps for every stack that has applied since.
 
   - id: GAP-STACKS-IS-A-RECORD-NOT-A-TRUTH
     statement: >-
@@ -599,7 +674,11 @@ known_gaps:
       share but only one has applied to since the upgrade counts as one. The
       first apply by the second stack records it and the guard engages from
       then on. There is no cheaper signal: generations do not record a stack
-      name until the config snapshot inside them is parsed.
+      name until the config snapshot inside them is parsed. A RENAME is no
+      longer counted twice — the next apply retires the old name's stamp — but
+      the evidence is positive only: a stamp with no recorded `-f` (migrated
+      from 1.0, or written by `undo`'s replay, which withholds the staged temp
+      config) cannot be shown to be a rename and is left standing.
 
   - id: GAP-A-DELETED-LOCK-DEFEATS-IT
     statement: >-
@@ -624,8 +703,9 @@ qa_gate:
     - "INV-NO-OVERRIDE"
     - "INV-GUARD-AT-THE-PRIMITIVE"
     - "INV-SINGLE-STACK-UNCHANGED"
+    - "INV-A-RENAME-IS-ONE-LINEAGE"
   pass_criteria: >-
-    All eight falsification rows pass against the fixed binary, AND MSD-01..04
+    All nine falsification rows pass against the fixed binary, AND MSD-01..04
     and MSD-06 still reproduce their recorded red_output at c26c468a (the
     commit before the guard), and MSD-08 at 40829d02 (the commit that had the
     guard at the primitive only). A row green against both is not evidence of a
@@ -636,6 +716,8 @@ qa_gate:
     (with the wrong-reason failure recorded there); delete the call in
     `cmd_undo` — or move it below `destroy_absent_from_target` — and MSD-08
     goes red while MSD-01 stays green; write the condition over
-    `machines.len()` instead of `stacks.len()` and MSD-05 goes red.
+    `machines.len()` instead of `stacks.len()` and MSD-05 goes red; delete the
+    retirement in `state::stamp::apply_stamp` and MSD-09 goes red while every
+    other row stays green.
 
 verification_level: L2

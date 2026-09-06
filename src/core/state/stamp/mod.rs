@@ -18,9 +18,12 @@
 //!   per-machine locks are keyed by machine name alone, so two stacks sharing
 //!   a machine name overwrite each other's history.
 
+mod rename;
+
 use crate::core::types::{GlobalLock, MachineSummary};
 use crate::tripwire::eventlog::now_iso8601;
 use indexmap::IndexMap;
+use rename::{next_stamp, retire_renamed};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -347,10 +350,10 @@ pub fn stack_written_from_other_file(
 
 /// Write one stack's stamp plus the machine summaries from its apply.
 ///
-/// Only `stacks[config_name]` is touched; every other stack's record in this
-/// dir is left exactly as it was. The top-level `name`/`last_apply`/`generator`
-/// still track the stack that applied LAST, so an older forjar reads a
-/// sensible file.
+/// Only `stacks[config_name]` is touched — plus the entry this apply RETIRES,
+/// when the same file was last applied under another name (a rename). Every
+/// other stack's record is left exactly as it was, and the top-level
+/// `name`/`last_apply`/`generator` still track the stack that applied LAST.
 pub fn apply_stamp(
     lock: &mut GlobalLock,
     state_dir: &Path,
@@ -366,17 +369,14 @@ pub fn apply_stamp(
     lock.last_apply.clone_from(&now);
     lock.generator.clone_from(&generator);
 
-    let previous = lock.stamp_for(config_name);
-    let stamp = StackStamp {
-        // A caller with no `-f` keeps the existing record instead of erasing
-        // the only evidence `stack_conflict` has.
-        file: stamped_config_file(state_dir, config_file)
-            .or_else(|| previous.and_then(|s| s.file.clone())),
-        outputs: previous.map(|s| s.outputs.clone()).unwrap_or_default(),
-        last_apply: now.clone(),
-        generator,
-        machines: machine_results.iter().map(|(m, ..)| m.clone()).collect(),
-    };
+    let retired = retire_renamed(lock, state_dir, config);
+    let stamp = next_stamp(
+        lock.stamp_for(config_name),
+        retired,
+        stamped_config_file(state_dir, config_file),
+        machine_results.iter().map(|(m, ..)| m.clone()).collect(),
+        (&now, &generator),
+    );
     lock.stacks.insert(config_name.to_string(), stamp);
 
     for (name, total, converged, failed) in machine_results {
