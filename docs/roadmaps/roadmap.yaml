@@ -1844,7 +1844,6 @@ roadmap:
   labels: []
   notes: null
 - id: PMAT-160
-  kind: code
   github_issue: 466
   item_type: task
   title: 'apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip and the machine selector (#467), --subset resolves depends_on by graph closure (#468) — one PR, one code path: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply'
@@ -1862,27 +1861,140 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: [bug, apply, filters]
+  labels:
+  - bug
+  - apply
+  - filters
   notes: null
 - id: PMAT-161
-  kind: code
   github_issue: 469
   item_type: task
   title: 'state stamp keyed by config name (as the lock is): undo honours it, single-stamp state migrates on first apply, the six-stack one-state-dir layout is supported and documented (#469)'
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-05T17:53:20Z
-  updated: 2026-09-05T17:53:20Z
+  updated: 2026-09-06T08:09:21.005820513+00:00
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:), and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room''; this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each touched only its own lock section. The lock file is already keyed by config name; the stamp is a single value, so for this layout the warning is a false positive on every apply and undo refuses a layout apply supports.'
   - 'Fix: the state stamp becomes a per-name map keyed exactly as the lock is (name -> {file, applied_at, ...}); apply writes only its own name''s entry. The #377 warning fires only when the SAME name''s entry was last written from a different -f (the rename / wrong-stack case it was built for) — that case still warns, and the #377 tests stay green with their intent unchanged. Six stacks through one state dir produce zero warnings.'
   - 'undo keys on the same map: after applies of lambda-labs and mini into one state dir, undo -f machines/mini/forjar.yaml --state-dir state undoes mini''s section only and does not refuse; undo of a name whose entry was written from a different -f still refuses with the #377 message. One integration test drives three configs through one state dir (apply, apply, apply, undo one, re-apply) and asserts zero warnings and the untouched sections byte-identical.'
   - 'Migration: a state dir carrying the old single stamp is migrated on the first apply (or undo) that reads it — the old stamp becomes the entry for its own name, nothing is dropped, the sidecar/integrity hash is re-sealed by the same write, and no warning fires on that first apply unless the #377 condition genuinely holds. Migration is idempotent and covered by a test whose fixture was written in the pre-fix format; an older forjar reading the new format fails closed with a message naming the format, never silently.'
+  - 'Widened after the plan grill (agy teamwork lane, 2026-09-06): calling the layout supported also requires (i) a machine-ownership guard — a machine name already recorded under another stack''s entry is the same wrong-stack condition as a same-name-different-file stamp (warn on apply, refuse on undo), because generations and per-machine locks are keyed by machine name only; (ii) per-stack outputs — persist_outputs merges this stack''s outputs into the map and removes only keys this stack owned, instead of replacing the whole map; (iii) forjar status attributes each machine to the stack that wrote it, from the stacks map, not to the last-applied name; (iv) the config identity in the stamp is the config path relative to the state dir when both share a tree (absolute otherwise), so the same checkout layout at another path is the same stack; (v) a migrated legacy stamp (file unknown) matches any file on the first post-upgrade apply and is then pinned — documented as the one-apply window.'
   - 'Documented: the six-stack layout (one state dir, N configs, each applied with -f machines/<m>/forjar.yaml --state-dir state) is stated as supported in the state-dir documentation and in the --state-dir CLI help, with the one remaining refusal (same name, different -f) explained next to it. CHANGELOG entry references #469 and #377; the PR answers and closes #469.'
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: [bug, state, undo]
+  labels:
+  - bug
+  - state
+  - undo
+  notes: null
+- id: PMAT-162
+  github_issue: null
+  item_type: task
+  title: 'GO: generation ownership and stack-scoped restore — spec first (schema 1.2 owner+machines per generation; restore identity on non-owner stacks)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:09:20Z
+  updated: 2026-09-06T08:09:20Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-163
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'DF: forjar-dogfood v1 — eight standing gates (harness receipt, pmat comply, surface CLI/MCP/HTTP, README+cookbook executable claims, teamwork quorum per PR, 95% coverage with in-diff mutants, pv depth, CRUX reconcile)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:41:30Z
+  updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-164
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'CX: CRUX audit for the 1.26.0 release — every CHANGELOG behaviour change against three reference systems'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:41:30Z
+  updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-165
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'RC: release cut 1.26.0 — bump, changelog, tag, prerelease, publish, promote'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:41:30Z
+  updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-166
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'RP: release workflow creates the GitHub prerelease after the clean-room verify (no publish job, no registry secret)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:41:30Z
+  updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-167
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'IP: pin forjar 1.26.0 in paiml/infra machines and apply on this host only'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T08:41:30Z
+  updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
   notes: null

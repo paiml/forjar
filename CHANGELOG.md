@@ -68,6 +68,57 @@ fix: `check -r <id>` now also checks `<id>`'s `depends_on` closure, and a typo
 in `check -r` or `check -t` is refused up front (the FJ-2723 house rule) rather
 than silently reported as `0 pass, 0 fail` at exit 0. (PMAT-160)
 
+**One state dir shared by a fleet of stacks warned on every apply and said
+`undo` would refuse — it doesn't (#469).** Measured 2026-09-05 against
+`paiml/infra`: one `state/` dir serves six machine manifests
+(`machines/<m>/forjar.yaml`, each with its own `name:`), every one applied
+with `--state-dir state`. Two correct applies of different configs in a row
+each printed the #377 warning ("state dir ... was last applied by stack
+'...'; this apply re-stamps it ... `forjar undo` refuses this combination"),
+although each touched only its own lock section — the lock's machine and
+output maps were already keyed by config name, but the stamp recording "who
+last applied here" was a single value, so any different name looked like a
+rename.
+
+The stamp (`forjar.lock.yaml`'s `stacks:` map, schema `1.1`) is now keyed by
+name exactly as the rest of the lock is; `apply` writes only its own name's
+entry and warns on exactly two conditions: the SAME name last applied from a
+DIFFERENT `-f` — #377's original case — or a machine this apply would write
+recorded under ANOTHER stack's entry, because generations and per-machine
+locks are keyed by machine name alone and two stacks sharing one would
+overwrite each other's history. The one-state-dir-many-stacks layout above
+now produces zero warnings on `apply`; a different name applying into the
+same dir is the supported case, not a wrong-stack condition. Outputs merge
+per stack instead of being replaced wholesale, so a second stack's apply no longer
+wipes the first's `{{stack.*}}` values, and `forjar status` now attributes
+each machine to the stack that actually wrote it rather than to whichever
+config applied last.
+
+`apply`, `forjar status`, and the `stack_conflict` warning above are what
+this fix covers — `undo`, `undo --resume`, and `rollback` are not.
+Restoring a generation replays a whole snapshot, and a snapshot is not yet
+split per stack, so restoring one name's generation would revert every
+stack sharing the dir. Until stack-scoped restore lands, all three refuse
+outright whenever the state dir holds more than one stack, regardless of
+which name's generation was asked for: `refusing to restore generation N:
+state dir <dir> holds N stacks (<names>); Stack-scoped restore is
+PMAT-162`. A dir holding exactly one stack undoes and rolls back exactly as
+before. Stack-scoped restore (schema `1.2`, owner and machines recorded per
+generation) is tracked as PMAT-162 ("GO: generation ownership and
+stack-scoped restore").
+
+A `1.0` lock (single stamp in the top-level `name:`) migrates the first time
+it is read: the old stamp becomes that name's entry with no recorded `-f`
+(1.0 never recorded one), which matches any `-f` on the one apply
+immediately after the upgrade and is pinned by it — a deliberate one-apply
+quiet window, after which the usual same-name-different-file check applies.
+Migration is one-way: an older forjar that re-saves a migrated (1.1) lock
+keeps `name:` as whichever stack applied last but drops the `stacks:` map,
+so mixing forjar versions against one state dir is not supported.
+Deliberately unchanged: the #377 warning and refusal text for a genuine
+wrong-stack apply, and every per-machine and per-config lock section's own
+schema.
+
 ## [1.25.2] — 2026-09-05
 
 **`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege
