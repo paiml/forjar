@@ -208,7 +208,8 @@ fn warn_on_stack_conflict(
     machines: &[String],
 ) {
     let (config_name, config_file) = config;
-    let Some(conflict) = stamp::stack_conflict(lock, config_name, config_file, machines) else {
+    let Some(conflict) = stamp::stack_conflict(lock, state_dir, config_name, config_file, machines)
+    else {
         return;
     };
     eprintln!(

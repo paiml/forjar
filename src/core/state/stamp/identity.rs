@@ -7,6 +7,15 @@
 //! the comparison are normalised THE SAME WAY — a recorded path is whatever
 //! [`stamped_config_file`] wrote, so the question "is this the same file?" is
 //! answered by writing it again and comparing.
+//!
+//! PMAT-183: ONE comparison, and it is that one. PMAT-175 tightened the reader
+//! that deletes on a match and left a looser sibling for the reader that only
+//! warns ([`super::stack_conflict`], which was called without a state dir) —
+//! documented as an accepted limit. It was not one: `../forjar.yaml` still
+//! matched every `machines/<m>/forjar.yaml`, so the wrong-stack guard was
+//! silent on the same name applied from a different file, which is the case it
+//! exists for. Every reader supplies the state dir now, so the tail comparison
+//! is gone rather than narrowed.
 
 use super::StackStamp;
 use std::path::{Path, PathBuf};
@@ -68,44 +77,23 @@ pub fn stamped_config_file(state_dir: &Path, file: Option<&Path>) -> Option<Stri
 /// renamed and [`rename::retire_renamed`] DELETED the root stack's stamp,
 /// machines and output keys included (executed reproducer, review lane).
 ///
-/// `state_dir` is `None` for the callers that ask about a lock without saying
-/// which dir it came from ([`stack_conflict`] and its two callers). A relative
-/// recorded path cannot be resolved without that base, so those keep the old
-/// tail comparison — see [`unattributed_match`] for what that costs and why it
-/// is not tightened here.
-pub(super) fn same_config_file(
-    recorded: &str,
-    state_dir: Option<&Path>,
-    config_file: &Path,
-) -> bool {
-    let Some(state_dir) = state_dir else {
-        return unattributed_match(recorded, config_file);
-    };
-    stamped_config_file(state_dir, Some(config_file)).is_some_and(|now| now == recorded)
-}
-
-/// The comparison available to a caller that does not know the state dir the
-/// recorded path is relative to: the absolute form exactly, and a relative form
-/// by the part it names.
+/// PMAT-183: and there is no second comparison left to fall back to.
+/// `state_dir` used to be an option, `None` meaning "the caller does not know
+/// which dir the lock came from" — which was true of exactly one reader,
+/// [`super::stack_conflict`], and answered with a match by the tail of the
+/// path. So the guard whose job is "one of `-f`/`--state-dir` points at the
+/// wrong stack" kept the very defect the rename path had been cured of, and
+/// kept it SILENTLY, because a loose match there exempts a warning rather than
+/// deleting anything. Both of that guard's callers hold the dir already, so it
+/// is a `&Path` here and a future reader cannot ask the question without
+/// saying which dir it is about.
 ///
-/// FAIL-OPEN, deliberately and narrowly. Its two readers ([`machine_owner`] and
-/// [`stack_written_from_other_file`], through [`stack_conflict`]) use a match as
-/// an EXEMPTION from a warning, so being loose here misses a warning rather than
-/// deleting a stamp; being strict instead would refuse every ordinary apply,
-/// whose recorded path is relative and cannot be resolved from here. The
-/// destructive reader, [`rename::retire_renamed`], always has the state dir and
-/// therefore never lands in this branch.
-fn unattributed_match(recorded: &str, config_file: &Path) -> bool {
-    let recorded = Path::new(recorded);
-    let current = canonical(config_file);
-    if recorded == current {
-        return true;
-    }
-    let named: PathBuf = recorded
-        .components()
-        .skip_while(|c| matches!(c, std::path::Component::ParentDir))
-        .collect();
-    !named.as_os_str().is_empty() && recorded.is_relative() && current.ends_with(&named)
+/// A stamp with NO recorded file — the 1.0 migration's one-apply window — is
+/// answered before this is reached: [`records_config_file`] and
+/// [`super::stack_written_from_other_file`] both return early on `file: None`,
+/// so "origin unknown" is still not evidence of anything.
+pub(super) fn same_config_file(recorded: &str, state_dir: &Path, config_file: &Path) -> bool {
+    stamped_config_file(state_dir, Some(config_file)).is_some_and(|now| now == recorded)
 }
 
 /// Does this stamp record the config file now being applied?
@@ -115,7 +103,7 @@ fn unattributed_match(recorded: &str, config_file: &Path) -> bool {
 /// ([`rename::retire_renamed`]) would otherwise retire a 1.0 migration's stamp.
 pub(super) fn records_config_file(
     stamp: &StackStamp,
-    state_dir: Option<&Path>,
+    state_dir: &Path,
     config_file: Option<&Path>,
 ) -> bool {
     let Some(current) = config_file else {

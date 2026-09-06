@@ -236,6 +236,7 @@ pub fn migrate(lock: &mut GlobalLock) {
 /// the machine collision stands.
 fn machine_owner(
     lock: &GlobalLock,
+    state_dir: &Path,
     name: &str,
     machine: &str,
     config_file: Option<&Path>,
@@ -245,7 +246,7 @@ fn machine_owner(
         .find(|(stack, stamp)| {
             stack.as_str() != name
                 && stamp.machines.iter().any(|m| m == machine)
-                && !records_config_file(stamp, None, config_file)
+                && !records_config_file(stamp, state_dir, config_file)
         })
         .map(|(stack, _)| stack.clone())
 }
@@ -257,20 +258,32 @@ fn machine_owner(
 /// different `-f`, or a machine another stack owns. A stamp with no recorded
 /// file (migrated from 1.0) and a caller with no `-f` both mean "origin
 /// unknown", which is not evidence of a mismatch.
+///
+/// PMAT-183: `state_dir` is the dir this lock was READ FROM, and it is
+/// required. A stamp records its `-f` relative to that dir, so asked without
+/// it this guard fell back to a comparison by the tail of the path:
+/// `../forjar.yaml` matched every `machines/<m>/forjar.yaml`, and the same
+/// name applied from a different file — GH-377's own case, the one condition
+/// this function exists to name — went unwarned. Both callers
+/// (`state::update_global_lock` and `cli::state_identity`) always held the
+/// dir; they simply were not asked for it.
 #[must_use]
 pub fn stack_conflict(
     lock: &GlobalLock,
+    state_dir: &Path,
     name: &str,
     config_file: Option<&Path>,
     machines: &[String],
 ) -> Option<StackConflict> {
-    if let Some(old) = stack_written_from_other_file(lock, name, config_file) {
+    if let Some(old) = stack_written_from_other_file(lock, state_dir, name, config_file) {
         return Some(StackConflict::OtherFile { old });
     }
     machines.iter().find_map(|machine| {
-        machine_owner(lock, name, machine, config_file).map(|stack| StackConflict::MachineOwnedBy {
-            machine: machine.clone(),
-            stack,
+        machine_owner(lock, state_dir, name, machine, config_file).map(|stack| {
+            StackConflict::MachineOwnedBy {
+                machine: machine.clone(),
+                stack,
+            }
         })
     })
 }
@@ -280,12 +293,13 @@ pub fn stack_conflict(
 #[must_use]
 pub fn stack_written_from_other_file(
     lock: &GlobalLock,
+    state_dir: &Path,
     name: &str,
     config_file: Option<&Path>,
 ) -> Option<String> {
     let recorded = lock.stamp_for(name)?.file.as_ref()?;
     let current = config_file?;
-    (!same_config_file(recorded, None, current)).then(|| recorded.clone())
+    (!same_config_file(recorded, state_dir, current)).then(|| recorded.clone())
 }
 
 /// Write one stack's stamp plus the machine summaries from its apply.

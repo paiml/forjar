@@ -69,7 +69,7 @@ fn a_shared_basename_in_another_directory_is_not_the_same_file() {
     let state = root.join("state");
     let mini = config_at(root, "machines/mini/forjar.yaml");
     assert!(
-        !same_config_file("../forjar.yaml", Some(&state), &mini),
+        !same_config_file("../forjar.yaml", &state, &mini),
         "`../forjar.yaml` names <root>/forjar.yaml, not every */forjar.yaml \
          underneath it"
     );
@@ -84,14 +84,14 @@ fn the_path_this_state_dir_would_record_is_the_same_file() {
     let state = root.join("state");
     let top = config_at(root, "forjar.yaml");
     let mini = config_at(root, "machines/mini/forjar.yaml");
-    assert!(same_config_file("../forjar.yaml", Some(&state), &top));
+    assert!(same_config_file("../forjar.yaml", &state, &top));
     assert!(same_config_file(
         "../machines/mini/forjar.yaml",
-        Some(&state),
+        &state,
         &mini
     ));
     assert!(
-        !same_config_file("../machines/mini/forjar.yaml", Some(&state), &top),
+        !same_config_file("../machines/mini/forjar.yaml", &state, &top),
         "and the comparison is symmetric — neither direction is a suffix match"
     );
 }
@@ -105,7 +105,7 @@ fn the_same_layout_in_another_checkout_is_still_the_same_file() {
     let elsewhere = config_at(two.path(), "forjar.yaml");
     assert!(same_config_file(
         "../forjar.yaml",
-        Some(&two.path().join("state")),
+        &two.path().join("state"),
         &elsewhere
     ));
 }
@@ -126,13 +126,18 @@ fn a_file_less_stamp_never_matches() {
     };
     assert!(!records_config_file(
         &stamp,
-        Some(&dir.path().join("state")),
+        &dir.path().join("state"),
         Some(&top)
     ));
-    assert!(
-        !records_config_file(&stamp, None, Some(&top)),
-        "and not through the unattributed comparison either"
-    );
+    // PMAT-183: and there is no looser reading of it left to try — the branch
+    // that answered without a state dir is gone, so a file-less stamp is
+    // "origin unknown" to every reader, whichever dir it is asked about.
+    let other = tempfile::tempdir().unwrap();
+    assert!(!records_config_file(
+        &stamp,
+        &other.path().join("state"),
+        Some(&top)
+    ));
 }
 
 // ── the wrong-stack guard asks the same question (PMAT-183) ──────────
@@ -158,7 +163,7 @@ fn the_wrong_file_guard_does_not_match_by_the_part_it_names() {
     let lock = load_global_lock(&state).unwrap().unwrap();
 
     assert_eq!(
-        stack_conflict(&lock, "shared", Some(&mini), &["box".to_string()]),
+        stack_conflict(&lock, &state, "shared", Some(&mini), &["box".to_string()]),
         Some(StackConflict::OtherFile {
             old: "../forjar.yaml".to_string()
         }),
@@ -180,7 +185,7 @@ fn the_file_the_stamp_records_is_never_a_conflict() {
     let lock = load_global_lock(&state).unwrap().unwrap();
 
     assert_eq!(
-        stack_conflict(&lock, "shared", Some(&top), &["box".to_string()]),
+        stack_conflict(&lock, &state, "shared", Some(&top), &["box".to_string()]),
         None,
         "re-applying a stack from the very file its stamp records must stay silent"
     );

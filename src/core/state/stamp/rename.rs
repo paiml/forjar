@@ -42,8 +42,7 @@ pub(super) fn retire_renamed(
         .stacks
         .iter()
         .filter(|(stack, stamp)| {
-            stack.as_str() != config_name
-                && records_config_file(stamp, Some(state_dir), config_file)
+            stack.as_str() != config_name && records_config_file(stamp, state_dir, config_file)
         })
         .map(|(stack, _)| stack.clone())
         .collect();

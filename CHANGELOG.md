@@ -144,6 +144,19 @@ and the `forjar generation gc` verb inherit it together; a dir with one stack
 prunes to its keep count exactly as before, oldest generation first
 (PMAT-182).
 
+The wrong-stack guard compares the recorded `-f` exactly, like every other
+reader of it. A stamp records its config relative to the state dir
+(`../forjar.yaml`), and the guard was asked without knowing which dir the lock
+came from, so it fell back to matching by the tail of the path — under which
+`../forjar.yaml` names every `machines/<m>/forjar.yaml`. The one condition the
+guard exists for, the same `name:` applied from a different file, was therefore
+silent in exactly the layout it was written for: `apply` did not warn and `undo`
+did not refuse. `state::stack_conflict` now takes the state dir its two callers
+always held, and the tail comparison is deleted rather than narrowed. Portability
+is unchanged — the same layout in another checkout, config and state moving
+together, is still the same stack — and a stamp with no recorded file (the 1.0
+migration's one-apply window) still matches nothing (PMAT-183).
+
 ## [1.25.2] — 2026-09-05
 
 **`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege

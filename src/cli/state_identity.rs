@@ -70,7 +70,9 @@ pub(super) fn check_state_dir_owner(
     let machines: Vec<String> = config.machines.keys().cloned().collect();
     // The same condition `apply` warns on, asked of the same map: the same name
     // from a different `-f`, or a machine another stack owns.
-    if let Some(conflict) = state::stack_conflict(&lock, &config.name, Some(file), &machines) {
+    if let Some(conflict) =
+        state::stack_conflict(&lock, state_dir, &config.name, Some(file), &machines)
+    {
         let detail = format!("stack '{}' {conflict}", config.name);
         return Err(refusal(verb, &config.name, &lock, &detail, file, state_dir));
     }

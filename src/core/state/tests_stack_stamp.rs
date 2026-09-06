@@ -60,11 +60,11 @@ fn two_stacks_in_one_state_dir_both_get_a_stamp() {
     // The supported layout: a DIFFERENT name in the same dir is not the
     // GH-377 case and must not warn.
     assert_eq!(
-        stack_written_from_other_file(&lock, "beta", Some(&beta)),
+        stack_written_from_other_file(&lock, &state, "beta", Some(&beta)),
         None
     );
     assert_eq!(
-        stack_written_from_other_file(&lock, "alpha", Some(&alpha)),
+        stack_written_from_other_file(&lock, &state, "alpha", Some(&alpha)),
         None
     );
 }
@@ -78,7 +78,7 @@ fn same_name_from_another_file_is_the_gh377_case() {
 
     update_global_lock(&state, "alpha", Some(&here), &results("mini")).unwrap();
     let lock = load_global_lock(&state).unwrap().unwrap();
-    let previous = stack_written_from_other_file(&lock, "alpha", Some(&there))
+    let previous = stack_written_from_other_file(&lock, &state, "alpha", Some(&there))
         .expect("same name, different -f: this is the case the warning is for");
     assert!(
         previous.ends_with("here.yaml"),
@@ -97,7 +97,7 @@ fn same_name_from_another_file_is_the_gh377_case() {
         "the apply re-stamps the entry with the file it came from"
     );
     assert_eq!(
-        stack_written_from_other_file(&lock, "alpha", Some(&there)),
+        stack_written_from_other_file(&lock, &state, "alpha", Some(&there)),
         None,
         "re-applying from the same file is silent"
     );
@@ -135,7 +135,7 @@ fn legacy_single_stamp_lock_migrates_on_load() {
     // first apply after migration.
     let after = config_file(dir.path(), "alpha");
     assert_eq!(
-        stack_written_from_other_file(&lock, "alpha", Some(&after)),
+        stack_written_from_other_file(&lock, dir.path(), "alpha", Some(&after)),
         None
     );
 
@@ -222,13 +222,13 @@ fn a_machine_another_stack_owns_is_a_conflict() {
     // Generations and machine locks are keyed by machine name alone, so beta
     // writing "mini" would overwrite alpha's history.
     assert_eq!(
-        stack_conflict(&lock, "beta", Some(&beta), &["mini".to_string()]),
+        stack_conflict(&lock, &state, "beta", Some(&beta), &["mini".to_string()]),
         Some(StackConflict::MachineOwnedBy {
             machine: "mini".to_string(),
             stack: "alpha".to_string(),
         })
     );
-    let sentence = stack_conflict(&lock, "beta", Some(&beta), &["mini".to_string()])
+    let sentence = stack_conflict(&lock, &state, "beta", Some(&beta), &["mini".to_string()])
         .unwrap()
         .to_string();
     assert!(
@@ -241,7 +241,13 @@ fn a_machine_another_stack_owns_is_a_conflict() {
     );
     // Its own machines are not a conflict.
     assert_eq!(
-        stack_conflict(&lock, "beta", Some(&beta), &["lambda-labs".to_string()]),
+        stack_conflict(
+            &lock,
+            &state,
+            "beta",
+            Some(&beta),
+            &["lambda-labs".to_string()]
+        ),
         None
     );
 }
@@ -255,7 +261,7 @@ fn a_stack_reapplying_its_own_machine_is_not_a_conflict() {
     update_global_lock(&state, "alpha", Some(&alpha), &results("mini")).unwrap();
     let lock = load_global_lock(&state).unwrap().unwrap();
     assert_eq!(
-        stack_conflict(&lock, "alpha", Some(&alpha), &["mini".to_string()]),
+        stack_conflict(&lock, &state, "alpha", Some(&alpha), &["mini".to_string()]),
         None,
         "a stack re-applying the machine it owns is the normal case"
     );
@@ -278,7 +284,7 @@ fn a_released_machine_can_be_claimed_by_another_stack() {
         vec!["lambda-labs"]
     );
     assert_eq!(
-        stack_conflict(&lock, "beta", Some(&beta), &["mini".to_string()]),
+        stack_conflict(&lock, &state, "beta", Some(&beta), &["mini".to_string()]),
         None,
         "nobody owns mini any more"
     );
@@ -363,11 +369,15 @@ fn the_stamped_file_is_relative_to_the_state_dir() {
          layout is the same stack"
     );
     assert_eq!(
-        stack_written_from_other_file(&lock, "alpha", Some(&alpha)),
+        stack_written_from_other_file(&lock, &state, "alpha", Some(&alpha)),
         None
     );
 }
 
+/// PMAT-183: asked with the CLONE's state dir, because a checkout moves its
+/// config and its state together — that is what "the same layout" means. The
+/// original dir with this config is `-f` in one tree and `--state-dir` in
+/// another, which is the wrong-stack shape and does warn.
 #[test]
 fn the_same_layout_in_another_checkout_is_the_same_stack() {
     let one = tempfile::tempdir().unwrap();
@@ -378,16 +388,17 @@ fn the_same_layout_in_another_checkout_is_the_same_stack() {
 
     // A second clone of the same tree: same relative layout, different root.
     let two = tempfile::tempdir().unwrap();
+    let two_state = two.path().join("state");
     let elsewhere = config_file(two.path(), "alpha");
     assert_eq!(
-        stack_written_from_other_file(&lock, "alpha", Some(&elsewhere)),
+        stack_written_from_other_file(&lock, &two_state, "alpha", Some(&elsewhere)),
         None,
         "same layout, another checkout — not a wrong-stack warning"
     );
 
     let unrelated = config_file(two.path(), "beta");
     assert!(
-        stack_written_from_other_file(&lock, "alpha", Some(&unrelated)).is_some(),
+        stack_written_from_other_file(&lock, &two_state, "alpha", Some(&unrelated)).is_some(),
         "a genuinely different config still trips it"
     );
 }
@@ -401,7 +412,7 @@ fn a_migrated_stamp_matches_any_file_once_then_pins() {
 
     let lock = load_global_lock(&state).unwrap().unwrap();
     assert_eq!(
-        stack_conflict(&lock, "alpha", Some(&alpha), &["mini".to_string()]),
+        stack_conflict(&lock, &state, "alpha", Some(&alpha), &["mini".to_string()]),
         None,
         "the one-apply window: an unknown origin matches any -f"
     );
@@ -413,7 +424,7 @@ fn a_migrated_stamp_matches_any_file_once_then_pins() {
         lock.stamp_for("alpha").unwrap().file.is_some(),
         "that apply pinned it"
     );
-    assert!(stack_written_from_other_file(&lock, "alpha", Some(&other)).is_some());
+    assert!(stack_written_from_other_file(&lock, &state, "alpha", Some(&other)).is_some());
 }
 
 // ── a rename is one lineage (PMAT-161 S2) ────────────────────────────
@@ -472,7 +483,7 @@ fn a_different_file_taking_a_renamed_stacks_machine_still_conflicts() {
     // Anti-vacuity: retiring a rename must not retire a genuinely different
     // stack. alpha3 comes from another file and would write alpha2's machine.
     assert_eq!(
-        stack_conflict(&lock, "alpha3", Some(&other), &["mini".to_string()]),
+        stack_conflict(&lock, &state, "alpha3", Some(&other), &["mini".to_string()]),
         Some(StackConflict::MachineOwnedBy {
             machine: "mini".to_string(),
             stack: "alpha2".to_string(),
