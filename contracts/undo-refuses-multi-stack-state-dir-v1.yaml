@@ -1,0 +1,551 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-06"
+  author: "PAIML Engineering"
+  description: |
+    Undo-refuses-multi-stack-state-dir — a restore that cannot be scoped to the
+    stack asking for it must be refused, not performed on all of them.
+
+    THE SHAPE OF THE DEFECT
+
+    forjar has two independent keys over one state dir and they do not agree.
+    The lock file is keyed by CONFIG NAME (`stacks: {name -> StackStamp}` since
+    forjar#469, machine sections since 1.0), so N stacks may legitimately share
+    one `--state-dir`: paiml/infra keeps ONE `state/` for six machine manifests,
+    `machines/<m>/forjar.yaml`, each with its own `name:` and its own machine.
+    Generations are keyed by NOTHING but the state dir: they are numbered 0, 1,
+    2 … per dir, and a generation snapshot is a copy of the WHOLE dir.
+
+    So `generation::restore::restore_generation_to_state` deletes everything in
+    the state dir (bar `generations/`, `snapshots/`, `.snapshots/`) and copies
+    one numbered generation back over it. In the six-manifest layout, "undo
+    mini" restores whatever manifest happened to apply at that number and takes
+    every other stack's machine lock back with it — including stacks whose
+    operator is not present, whose config was not read, and whose resources were
+    never diffed.
+
+    WHY IT SURVIVED REVIEW. Every visible signal looks right. `-f` names the
+    right config, `--state-dir` names a dir this stack really does own a stamp
+    in, the printed diff is computed from the asking config's machines only, and
+    the marker files that stack owns end up exactly where the operator expected.
+    The reverted stacks show up in nothing the command prints. The test that
+    stood in this slot asserted the opposite of the truth — "undoing one stack
+    leaves the other two untouched" — and passed only because it drove two extra
+    applies of the undone stack first, making the target generation that stack's
+    OWN. It was measuring apply ordering, not scoping.
+
+    WHAT THIS CONTRACT REQUIRES. Not that restore be scoped — that is PMAT-162,
+    a spec-first ticket. It requires that an operation forjar cannot perform
+    correctly be REFUSED, at the primitive, before the first byte is written,
+    with no override. A whole-dir restore in a dir holding N > 1 stacks is such
+    an operation. The refusal names every stack it would have reverted and names
+    the ticket that will make the operation possible, because a refusal without
+    a way forward trains operators to route around it.
+
+    NO KANI HARNESS, DELIBERATELY. The property quantifies over filesystem
+    state: what a process left on disk after it exited non-zero. That is not in
+    Kani's model, and a harness over a stubbed filesystem would prove something
+    about the stub. The obligations are discharged by binary-level tests that
+    fingerprint every file under the state dir before and after.
+  verification_command: |
+    cargo test --test falsification_state_stamp_per_name
+    cargo test --test falsification_undo_state_dir_interlock
+    cargo test --test falsification_undo_actually_undoes
+    cargo test --lib -- generation undo state_identity
+    # RED leg (must still reproduce against the defect):
+    #   git revert the guard in src/cli/generation/restore.rs and
+    #   a_state_dir_holding_several_stacks_refuses_every_restore fails with
+    #   "undo --yes restored a state dir holding three stacks"
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/469 — per-name stamps
+       (PMAT-161); this contract is the half #469 did not close: it settled WHO
+       a state dir belongs to, not what a restore may do to the others."
+    - "PMAT-162 — stack-scoped generations and restore. The refusal here names
+       it, and is expected to be narrowed (not removed) when it lands."
+    - "destroy-undo-roundtrip-v1.yaml — rollback(snapshot(S)) = S. That
+       roundtrip is stated over a whole state dir, which is exactly the
+       assumption this contract makes explicit: it holds for one stack's dir
+       and is false for a shared one."
+    - "state-dir-visibility-v1.yaml — the sibling: state the operator cannot
+       see. Here the state is visible and the DAMAGE is not."
+
+equations:
+  restore_is_whole_dir:
+    formula: |
+      Let D be a state dir, stacks(D) = keys of D/forjar.lock.yaml `stacks`,
+      and gen(D, n) the snapshot numbered n.
+
+      restore(D, n) : D ← gen(D, n)          -- every path in D, not a subset
+
+      ⟹ ∀ s ∈ stacks(D) : state(s, D) ← state(s, gen(D, n))
+
+      There is no argument of `restore` naming a stack, so its effect on stack
+      s is independent of which stack asked. |stacks(D)| > 1 ⟹ a request made
+      on behalf of one stack is executed on behalf of all of them.
+    domain: "D ∈ StateDirs, n ∈ ℕ, s ∈ stacks(D)"
+    codomain: "StateDir"
+    invariants:
+      - "restore takes no stack argument, so it cannot honour one"
+      - "generations are numbered per state dir; stack names do not appear in
+         `generations/`"
+      - "the diff `undo` prints is computed from the asking config's machines
+         only, so it cannot describe what the restore will do to the others"
+
+  refusal_is_total_and_early:
+    formula: |
+      ∀ entry points e ∈ {undo, undo --generations, undo --resume,
+                          rollback --generation, apply --rollback-on-failure} :
+        |stacks(D)| > 1  ⟹  exit(e) ≠ 0  ∧  bytes(D)_after = bytes(D)_before
+
+      where bytes(D) is the digest of every path under D — file contents,
+      symlink targets, directory structure — including forjar.lock.yaml and
+      every machine dir.
+
+      Negation (what the tests assert): the guard is ABSENT iff some e exits 0,
+      or exits non-zero having already changed bytes(D).
+    domain: "e ∈ EntryPoints, D ∈ StateDirs"
+    codomain: "⟨exit, Δstate⟩"
+    invariants:
+      - "no flag lifts the refusal: there is no --force, and --yes does not
+         double as one"
+      - "the refusal is at the primitive, so a new caller inherits it"
+      - "a refused restore leaves the host converged as it was"
+
+  single_stack_is_untouched:
+    formula: |
+      |stacks(D)| ≤ 1  ⟹  restore(D, n) behaves exactly as before the guard
+
+      Covering: a dir with one stamp, a legacy 1.0 dir (which migrates to
+      exactly one stamp on load), and a dir with no readable global lock at all
+      — the state `rollback --generation 0` itself produces.
+    domain: "D ∈ StateDirs with |stacks(D)| ≤ 1"
+    codomain: "StateDir"
+    invariants:
+      - "the common single-stack layout is not made harder to operate"
+      - "absence of a lock ALLOWS: refusing there would brick a dir that works"
+      - "an over-broad guard is a worse defect than the one it fixes, because
+         it removes the only recovery path an operator has"
+
+invariants:
+  - id: INV-RESTORE-REFUSES-A-SHARED-STATE-DIR
+    statement: >-
+      A whole-dir restore in a state dir holding more than one stack exits
+      non-zero. `forjar undo --yes` against a dir stamped by alpha, bravo and
+      charlie is the canonical violation: it exits 0, prints alpha's diff, and
+      returns bravo's and charlie's machine locks to whatever the target
+      generation held.
+
+  - id: INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE
+    statement: >-
+      The refusal happens before the state dir is read back or written. A
+      command that destroys and then refuses is not a guard, it is the defect
+      with an error message. Asserted by fingerprinting every path under the
+      state dir before and after each refused command.
+
+  - id: INV-REFUSAL-NAMES-WHAT-IT-WOULD-HAVE-DONE
+    statement: >-
+      The refusal lists every stack the restore would have reverted and names
+      the ticket that makes the operation possible (PMAT-162). A refusal that
+      says only "no" is routed around; one that names the other stacks tells
+      the operator whose state dir they are actually holding.
+
+  - id: INV-NO-OVERRIDE
+    statement: >-
+      No flag lifts this refusal. There is no `--force`, and `--yes` does not
+      acquire a second meaning — the flag-has-effect-v1 lesson (`--yes` also
+      disabling BLAKE3 integrity) applied before the second meaning exists. The
+      escape is a separate state dir, which is a real operation an operator can
+      verify, not a promise the binary cannot keep.
+
+  - id: INV-GUARD-AT-THE-PRIMITIVE
+    statement: >-
+      The guard sits on the function that writes the dir back, not on any verb.
+      `rollback --generation` reaches it with no config in the picture at all
+      and `apply --rollback-on-failure` reaches it from the failure path, so a
+      guard in `undo` would leave both open. The one exception is stated and
+      tested: `undo --resume` never reaches that function — it re-applies the
+      target generation's recorded config directly — and carries its own call
+      to the same guard.
+
+  - id: INV-SINGLE-STACK-UNCHANGED
+    statement: >-
+      One stack, one state dir — the overwhelmingly common case — restores
+      exactly as it did before. Anti-vacuity: without this the whole contract
+      is satisfiable by refusing every restore, which would be a worse defect
+      than the one it fixes.
+
+fixtures:
+  - id: FX-THREE-STACKS
+    description: >-
+      alpha/bravo/charlie: three configs, three DISTINCT machine names, three
+      distinct file resources, ONE `--state-dir` — the paiml/infra shape, and a
+      layout forjar supports and must keep supporting for `apply`. A fourth
+      apply by alpha follows, so every generation `undo` can target differs
+      from the live state and the command reaches the restore instead of
+      reporting "already at generation N". Writes only inside a tempdir.
+    setup: |
+      # tests/common/stack_stamp_harness.rs::fleet(), verbatim in Rust:
+      #   write_stack(root, "alpha",   "alpha",   "mini",        "one")
+      #   write_stack(root, "bravo",   "bravo",   "lambda-labs", "one")
+      #   write_stack(root, "charlie", "charlie", "clean-room",  "one")
+      #   for cfg in [alpha, bravo, charlie]:
+      #       forjar apply -f $cfg --state-dir $root/state --yes
+      #   write_stack(root, "alpha", "alpha", "mini", "two")
+      #   forjar apply -f $root/alpha/forjar.yaml --state-dir $root/state --yes
+      # each config sets policy.snapshot_generations: 10, without which apply
+      # records no generation at all and undo has nothing to target.
+
+  - id: FX-ONE-STACK
+    description: >-
+      The control: alpha alone, applied twice into its own state dir, so the
+      dir holds exactly one stamp. Every assertion the multi-stack fixture
+      makes is made here with the opposite expectation.
+    setup: |
+      # tests/falsification_state_stamp_per_name.rs::
+      #   a_single_stack_dir_behaves_exactly_as_before
+      #   write_stack(root, "alpha", "alpha", "mini", "one"); apply
+      #   write_stack(root, "alpha", "alpha", "mini", "two"); apply
+
+  - id: FX-LOCK-BY-HAND
+    description: >-
+      A global lock written by hand with N stamps, over a state dir with one
+      real generation. The shape under test belongs to the DIR, not to any one
+      apply, so the unit tests construct it directly instead of driving N
+      applies. No `.b3` sidecar is needed: `load_global_lock` does not verify
+      one (the pre-apply integrity gate does, and no apply runs here).
+    setup: |
+      # src/cli/tests_generation.rs::write_global_lock(state_dir, &["alpha", "bravo"])
+      # schema: "1.1" with stacks: {alpha: {...}, bravo: {...}}
+
+proof_obligations:
+  - type: safety
+    property: "A restore that cannot be scoped does not run"
+    formal: "|stacks(D)| > 1 ⟹ exit ≠ 0 ∧ Δstate = ∅"
+    tolerance: 0.0
+    applies_to: "generation::rollback_to_generation and every caller of it"
+    discharged_by: "FALSIFY-MSD-01, FALSIFY-MSD-02, FALSIFY-MSD-03, FALSIFY-MSD-04, FALSIFY-MSD-06"
+
+  - type: completeness
+    property: "Every entry point onto the restore primitive is covered"
+    formal: "∀ e ∈ EntryPoints : guarded(e)"
+    tolerance: 0.0
+    applies_to: "undo, undo --generations, undo --resume, rollback --generation"
+    discharged_by: "FALSIFY-MSD-01..04 (one row per entry point)"
+
+  - type: soundness
+    property: "The guard does not fire on a dir it has no business refusing"
+    formal: "|stacks(D)| ≤ 1 ⟹ restore behaves as before"
+    tolerance: 0.0
+    applies_to: "single-stack dirs, legacy 1.0 dirs, dirs with no global lock"
+    discharged_by: "FALSIFY-MSD-05, FALSIFY-MSD-07"
+
+falsification_tests:
+  - id: FALSIFY-MSD-01
+    rule: INV-RESTORE-REFUSES-A-SHARED-STATE-DIR
+    defect: undo-in-a-shared-state-dir-reverts-every-stack
+    severity: HIGH
+    prediction: >-
+      `forjar undo --yes` in a dir holding three stacks exits non-zero, names
+      PMAT-162, lists 'bravo' and 'charlie', and leaves every path under the
+      state dir byte-identical.
+    fixture: FX-THREE-STACKS
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_state_dir_holding_several_stacks_refuses_every_restore
+    red_output: |
+      undo --yes restored a state dir holding three stacks, reverting the other
+      two with it:
+      Undo: generation 3 → 2
+      Changes (3 resource(s)):
+        + charlie_file (clean-room): will be created
+        + bravo_file (lambda-labs): will be created
+        ~ alpha_file (mini): will be updated
+      Rolled back to generation 2
+      Re-applying generation 2's recorded config to converge the host...
+      Apply complete: 1 converged, 0 unchanged.
+    can_go_red: >-
+      Measured 2026-09-06 at c26c468a, before the guard: rc=0, and the
+      re-applied config was CHARLIE's — the operator asked to undo alpha. The
+      test also runs the same command from bravo's config, so "refused" cannot
+      be an accident of which stack asked.
+    if_fails: >-
+      An operator undoing their own manifest silently rolls the rest of a fleet
+      back to a state nobody asked for, and the lock files that would have
+      shown it are themselves what got reverted.
+    owner: forjar
+
+  - id: FALSIFY-MSD-02
+    rule: INV-RESTORE-REFUSES-A-SHARED-STATE-DIR
+    defect: explicit-generation-target-bypasses-nothing
+    severity: HIGH
+    prediction: >-
+      `forjar undo --generations 3 --yes` — the same restore with its target
+      named explicitly — is refused identically. (`undo` spells it
+      `--generations N`, "how many back"; `--generation N` belongs to
+      `rollback`.)
+    fixture: FX-THREE-STACKS
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_state_dir_holding_several_stacks_refuses_every_restore
+    red_output: |
+      undo --generations 3 --yes restored a state dir holding three stacks,
+      reverting the other two with it
+    can_go_red: >-
+      Same run as MSD-01: naming the generation changed nothing about the
+      restore, because the number IS the dir's, not the stack's.
+    if_fails: >-
+      The most deliberate form of the command — the operator who read
+      `generation list` first — is the one that reverts the most.
+    owner: forjar
+
+  - id: FALSIFY-MSD-03
+    rule: INV-GUARD-AT-THE-PRIMITIVE
+    defect: undo-resume-writes-the-dir-through-another-path
+    severity: HIGH
+    prediction: >-
+      `forjar undo --resume --yes` is refused with the same message. It is the
+      one undo path that never reaches `rollback_to_generation` — it re-applies
+      the target generation's recorded config — so it carries its own call to
+      the guard, ahead of the ledger read.
+    fixture: FX-THREE-STACKS
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_state_dir_holding_several_stacks_refuses_every_restore
+    red_output: |
+      undo --resume --yes restored a state dir holding three stacks
+    can_go_red: >-
+      With the guard placed only at the primitive, `--resume` reaches its
+      ledger read and fails with "no partial undo found — nothing to resume":
+      non-zero, but for the wrong reason and without naming PMAT-162, which is
+      why the row asserts the message and not just the exit code. The ledger it
+      reads is keyed by MACHINE name, and machine names are exactly what stacks
+      sharing a dir collide on.
+    if_fails: >-
+      The resume path is reached by an operator whose first undo already failed
+      halfway — the worst moment to silently converge someone else's stack.
+    owner: forjar
+
+  - id: FALSIFY-MSD-04
+    rule: INV-GUARD-AT-THE-PRIMITIVE
+    defect: rollback-verb-is-a-second-door-onto-the-same-primitive
+    severity: HIGH
+    prediction: >-
+      `forjar rollback --generation 0 --yes` is refused. It reaches the restore
+      with no config in the picture at all, so a guard written into `undo`
+      leaves it wide open.
+    fixture: FX-THREE-STACKS
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_state_dir_holding_several_stacks_refuses_every_restore
+    red_output: |
+      rollback --generation 0 --yes restored a state dir holding three stacks
+    can_go_red: >-
+      Confirmed against c26c468a: `rollback --generation` never consulted the
+      global lock at all. It is also the in-binary control for placement — the
+      row goes green only for a guard below the verbs.
+    if_fails: >-
+      Every guard forjar adds to `undo` has a second door next to it.
+    owner: forjar
+
+  - id: FALSIFY-MSD-05
+    rule: INV-SINGLE-STACK-UNCHANGED
+    defect: over-correction-refusing-the-ordinary-case
+    severity: HIGH
+    prediction: >-
+      One stack, one state dir: `forjar undo --yes` still exits 0, still
+      reverts that stack's file, and the re-apply after it still warns about
+      nothing.
+    fixture: FX-ONE-STACK
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_single_stack_dir_behaves_exactly_as_before
+    red_output: |
+      a normal single-stack undo was refused
+    can_go_red: >-
+      Goes red the moment the guard is written over `stacks.is_empty()`,
+      `machines.len()` or any other count that is not the number of STACKS —
+      each of which is a plausible mis-implementation and each of which refuses
+      the ordinary case. This row is the anti-vacuity control for the whole
+      contract.
+    if_fails: >-
+      Undo becomes unusable for every operator who is not sharing a state dir,
+      i.e. almost all of them, in exchange for a hazard they do not have.
+    owner: forjar
+
+  - id: FALSIFY-MSD-06
+    rule: INV-REFUSAL-NAMES-WHAT-IT-WOULD-HAVE-DONE
+    defect: refusal-at-the-primitive-names-neither-the-stacks-nor-the-way-out
+    severity: MEDIUM
+    prediction: >-
+      The primitive itself refuses a hand-written two-stack lock and the error
+      names both stacks and PMAT-162; the same primitive over a one-stack lock
+      restores as before.
+    fixture: FX-LOCK-BY-HAND
+    command: |
+      cargo test --lib -- generation::tests::rollback_refuses_a_state_dir_holding_more_than_one_stack \
+        generation::tests::rollback_of_a_single_stack_dir_is_unchanged
+    red_output: |
+      called `Result::unwrap_err()` on an `Ok` value: ()
+      Rolled back to generation 0
+    can_go_red: >-
+      Measured 2026-09-06 at c26c468a: `rollback_to_generation` printed "Rolled
+      back to generation 0" over a lock naming two stacks. The paired
+      single-stack case is the in-test control.
+    if_fails: >-
+      A refusal that names no stacks and no ticket is a dead end, and operators
+      route around dead ends — here by deleting the lock, which is the one file
+      that records the sharing.
+    owner: forjar
+
+  - id: FALSIFY-MSD-07
+    rule: INV-SINGLE-STACK-UNCHANGED
+    defect: guard-refuses-a-dir-it-cannot-judge
+    severity: MEDIUM
+    prediction: >-
+      A legacy 1.0 dir (one stamp after migration) and a dir with no readable
+      global lock still apply and still undo. The existing interlock suite
+      pins both, and `falsification_undo_actually_undoes` pins that undo still
+      undoes.
+    fixture: FX-ONE-STACK
+    command: |
+      cargo test --test falsification_undo_state_dir_interlock
+      cargo test --test falsification_undo_actually_undoes
+    red_output: |
+      one_stack_editing_and_undoing_is_never_refused ... FAILED
+      undo_returns_the_file_to_the_previous_version ... FAILED
+    can_go_red: >-
+      Goes red for any guard that treats an absent or unreadable lock as a
+      refusal. `rollback --generation 0` can itself restore a generation that
+      predates the first global lock and leave the dir without one, so
+      fail-closed here would brick a dir that works today.
+    if_fails: >-
+      The recovery path stops working exactly when it is needed.
+    owner: forjar
+
+enforcement:
+  restore_asks_the_lock_before_it_writes:
+    description: >-
+      `generation::rollback_to_generation` calls
+      `generation::restore::refuse_multi_stack_restore` before it reads the
+      generation or touches the state dir, and `undo --resume` calls the same
+      function before it reads the progress ledger.
+    check: "cargo test --test falsification_state_stamp_per_name"
+    severity: "ERROR"
+    layer: process
+    failure_mode: test_failure
+    ci_gate: required
+    notes: |
+      The guard lives beside `restore_generation_to_state`, the function that
+      empties the dir, so a future caller inherits it. Placing it in `cmd_undo`
+      was the tempting half-fix and would have left `rollback --generation` and
+      `apply --rollback-on-failure` open.
+
+  the_refusal_is_asserted_on_the_disk_not_on_the_text:
+    description: >-
+      Each refused command is followed by a fingerprint of every path under the
+      state dir — file digests, symlink targets, directory structure — compared
+      against the fingerprint taken before.
+    check: "tests/common/stack_stamp_harness.rs::fingerprint"
+    severity: "ERROR"
+    layer: process
+    failure_mode: test_failure
+    ci_gate: required
+    notes: |
+      A non-zero exit proves nothing about what already happened. `undo`
+      destroys resources the target generation does not hold BEFORE it
+      restores, so "exits non-zero" and "changed nothing" are genuinely
+      different claims — see GAP-DESTROY-RUNS-BEFORE-THE-RESTORE.
+
+  no_second_meaning_for_yes:
+    description: >-
+      The refusal takes no override argument. `--yes` gates confirmation and
+      nothing else; no `--force` is added.
+    check: "review gate + grep: no --force on refuse_multi_stack_restore"
+    severity: "ERROR"
+    layer: review
+    failure_mode: review_rejection
+    ci_gate: required
+    notes: |
+      flag-has-effect-v1 § INV-FLAG-EFFECT-CONFINED records what a second
+      meaning for `--yes` cost last time: BLAKE3 integrity verification was off
+      for exactly the runs nobody watches. The test asserts the refusal text
+      does not contain "--force", so the override cannot be added quietly.
+
+  anti_vacuity_control_is_mandatory:
+    description: >-
+      Every revision of this contract keeps at least one row that FAILS if the
+      guard is over-broad.
+    check: "FALSIFY-MSD-05, FALSIFY-MSD-07"
+    severity: "ERROR"
+    layer: review
+    failure_mode: review_rejection
+    ci_gate: required
+    notes: |
+      A contract whose every row is satisfied by refusing everything is not a
+      contract, and this one is one line away from that at all times.
+
+known_gaps:
+  - id: GAP-RESTORE-IS-STILL-NOT-SCOPED
+    statement: >-
+      This contract does not make undo work in a shared state dir; it makes it
+      refuse. An operator who genuinely needs to undo one of six manifests must
+      give that manifest its own `--state-dir` and re-apply. Stack-scoped
+      generations and restore are PMAT-162, and when they land this refusal
+      should be NARROWED (to the generations a stack does not own), not
+      removed.
+
+  - id: GAP-DESTROY-RUNS-BEFORE-THE-RESTORE
+    statement: >-
+      `cmd_undo` destroys the resources the target generation does not hold
+      BEFORE calling the restore, so in a shared dir where the target drops
+      resources, that destroy still runs and only then does the restore refuse.
+      The tests here fingerprint the state dir and observe no change because
+      their target generations drop nothing. Moving the guard above the destroy
+      requires `undo_prune`, which was outside this change's scope; it belongs
+      with PMAT-162.
+
+  - id: GAP-STACKS-IS-A-RECORD-NOT-A-TRUTH
+    statement: >-
+      `|stacks(D)| > 1` counts what has been STAMPED, so a dir that two stacks
+      share but only one has applied to since the upgrade counts as one. The
+      first apply by the second stack records it and the guard engages from
+      then on. There is no cheaper signal: generations do not record a stack
+      name until the config snapshot inside them is parsed.
+
+  - id: GAP-A-DELETED-LOCK-DEFEATS-IT
+    statement: >-
+      Deleting `forjar.lock.yaml` removes the evidence and the guard with it,
+      by design (absence ALLOWS, so a dir restored from a pre-lock generation
+      keeps working). That is a deliberate trade: fail-closed here would brick
+      recovery. The refusal names the other stacks partly so that deleting the
+      lock is an obviously destructive act rather than an obvious workaround.
+
+qa_gate:
+  id: F-MSD-01
+  name: "Undo refuses a multi-stack state dir (PMAT-161, forjar#469)"
+  description: >-
+    Gates the honesty of forjar's restore path: an operation whose effect
+    cannot be confined to the stack that asked for it is refused at the
+    primitive, before any byte is written, with no override and with the
+    other stacks named.
+  checks:
+    - "INV-RESTORE-REFUSES-A-SHARED-STATE-DIR"
+    - "INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE"
+    - "INV-REFUSAL-NAMES-WHAT-IT-WOULD-HAVE-DONE"
+    - "INV-NO-OVERRIDE"
+    - "INV-GUARD-AT-THE-PRIMITIVE"
+    - "INV-SINGLE-STACK-UNCHANGED"
+  pass_criteria: >-
+    All seven falsification rows pass against the fixed binary, AND MSD-01..04
+    and MSD-06 still reproduce their recorded red_output at c26c468a (the
+    commit before the guard). A row green against both is not evidence of a
+    fix.
+  falsification: >-
+    Delete the call in `rollback_to_generation` and MSD-01, MSD-02, MSD-04 and
+    MSD-06 go red; delete the call in `cmd_undo_resume` and MSD-03 goes red
+    (with the wrong-reason failure recorded there); write the condition over
+    `machines.len()` instead of `stacks.len()` and MSD-05 goes red.
+
+verification_level: L2
