@@ -140,6 +140,20 @@ pub(crate) fn current_generation(gen_dir: &Path) -> Option<u32> {
 }
 
 /// Garbage-collect old generations, keeping only the newest `keep` entries.
+///
+/// PMAT-182: NOT in a state dir several stacks share. Generations are numbered
+/// per STATE DIR and this sweep removes the oldest numbers by count, so in the
+/// paiml/infra layout one manifest's apply deleted the generations its
+/// neighbours' `undo` would have targeted — the same defect PMAT-177 fixed for
+/// named snapshots, one directory over. Both sweeps now ask
+/// [`state::stamp::retention::skip_note`], so a third cannot be written
+/// without it and the two that exist cannot drift apart again.
+///
+/// The check sits AFTER the keep-count test, so a dir under its retention
+/// count is silent: the note is owed to an operator whose generations are
+/// being kept beyond what they asked for, not to every apply. Every caller —
+/// `apply`, `destroy` and the `generation gc` verb — inherits it here, because
+/// the guard is at the primitive rather than in any one of them.
 pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
     let gen_dir = generations_dir(state_dir);
     if !gen_dir.exists() {
@@ -149,6 +163,10 @@ pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
         return;
     };
     if gens.len() <= keep as usize {
+        return;
+    }
+    if let Some(note) = crate::core::state::stamp::retention::skip_note(state_dir, "generation") {
+        eprintln!("{note}");
         return;
     }
     gens.sort();

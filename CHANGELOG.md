@@ -131,6 +131,19 @@ Deliberately unchanged: the #377 warning and refusal text for a genuine
 wrong-stack apply, and every per-machine and per-config lock section's own
 schema.
 
+Retention keeps what it cannot attribute, in BOTH directories it sweeps. An
+apply into a state dir holding more than one stack already kept every named
+snapshot (`snapshots/`); it now also keeps every numbered generation
+(`generations/`), printing `note: generation gc skipped: state dir holds N
+stacks (PMAT-162)` once per sweep. Generations are numbered per state dir, so
+the sweep that trimmed them to `policy.snapshot_generations` was deleting the
+generations a neighbouring stack's `undo` would have targeted — and unlike a
+snapshot there is no named copy to fall back on. The condition is one helper
+(`state::stamp::retention::skip_note`) both sweeps ask, so `apply`, `destroy`
+and the `forjar generation gc` verb inherit it together; a dir with one stack
+prunes to its keep count exactly as before, oldest generation first
+(PMAT-182).
+
 ## [1.25.2] — 2026-09-05
 
 **`sudo: true` ran nothing for a non-root user.** Since #390-E the privilege

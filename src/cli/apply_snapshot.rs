@@ -132,21 +132,6 @@ fn record_generation(state_dir: &Path, config: &types::ForjarConfig, gens: u32, 
     }
 }
 
-/// PMAT-177: how many stacks this state dir holds, when that is more than one.
-///
-/// The one question snapshot retention has to ask before deleting anything,
-/// and it is asked of the same record `stack_conflict` and the restore refusal
-/// read, so the three cannot disagree about how many stacks a dir has. A dir
-/// with no global lock, an unreadable one and a single-stack dir all answer
-/// `None` — the ordinary case, unchanged.
-fn shared_stack_count(state_dir: &Path) -> Option<usize> {
-    let lock = crate::core::state::load_global_lock(state_dir)
-        .ok()
-        .flatten()?;
-    let stacks = crate::core::state::stack_names(&lock).len();
-    (stacks > 1).then_some(stacks)
-}
-
 /// FJ-1381: Garbage-collect old snapshots, keeping only the newest `keep`.
 ///
 /// PMAT-177: NOT in a state dir several stacks share. Retention counts the
@@ -157,10 +142,10 @@ fn shared_stack_count(state_dir: &Path) -> Option<usize> {
 /// so there is nothing here to count per stack yet; attributing them is
 /// PMAT-162, and until it lands the apply keeps every snapshot and says why.
 ///
-/// Skipping is the safe direction — a dir that grows is recoverable, a deleted
-/// snapshot is not — and it is stated on stderr rather than done quietly,
-/// because an operator who set `snapshot_generations: 10` and finds 40
-/// snapshots is owed the reason.
+/// PMAT-182: the condition itself lives in
+/// [`state::stamp::retention::skip_note`], which the generation sweep asks
+/// too. It was written here, inline, and the second retention path went a day
+/// without it.
 fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
     let snap_dir = super::snapshot::snapshots_dir(state_dir);
     if !snap_dir.exists() {
@@ -174,8 +159,8 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
     if to_remove == 0 {
         return;
     }
-    if let Some(stacks) = shared_stack_count(state_dir) {
-        eprintln!("note: snapshot gc skipped: state dir holds {stacks} stacks (PMAT-162)");
+    if let Some(note) = crate::core::state::stamp::retention::skip_note(state_dir, "snapshot") {
+        eprintln!("{note}");
         return;
     }
     entries.sort_by_key(|e| e.file_name());
@@ -239,19 +224,21 @@ mod tests_gc_scope {
         save_global_lock(state_dir, &lock).unwrap();
     }
 
+    /// PMAT-182: the sweep asks the SHARED helper, so the two retention paths
+    /// cannot answer this differently — which is exactly how the generation
+    /// sweep was left unguarded when this one was fixed.
     #[test]
-    fn no_lock_and_one_stack_are_not_shared() {
+    fn the_sweep_asks_the_shared_helper_about_this_dir() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(shared_stack_count(dir.path()), None, "no global lock");
+        let skip = |d: &Path| crate::core::state::stamp::retention::skip_note(d, "snapshot");
+        assert_eq!(skip(dir.path()), None, "no global lock");
         lock_with(dir.path(), &["alpha"]);
-        assert_eq!(shared_stack_count(dir.path()), None, "one stack");
-    }
-
-    #[test]
-    fn two_stacks_are_shared_and_counted() {
-        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(skip(dir.path()), None, "one stack");
         lock_with(dir.path(), &["alpha", "bravo"]);
-        assert_eq!(shared_stack_count(dir.path()), Some(2));
+        assert_eq!(
+            skip(dir.path()).as_deref(),
+            Some("note: snapshot gc skipped: state dir holds 2 stacks (PMAT-162)")
+        );
     }
 
     /// PMAT-177: the deletion itself is what the shared dir is spared.

@@ -21,6 +21,7 @@
 pub mod declared;
 pub mod identity;
 pub mod replay;
+pub mod retention;
 
 mod rename;
 

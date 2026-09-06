@@ -1,6 +1,6 @@
 ---
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   kind: pattern
   created: "2026-09-06"
   author: "PAIML Engineering"
@@ -53,7 +53,7 @@ metadata:
     cargo test --test falsification_state_stamp_per_name
     cargo test --test falsification_undo_state_dir_interlock
     cargo test --test falsification_undo_actually_undoes
-    cargo test --lib -- generation undo state_identity
+    cargo test --lib -- generation undo state_identity retention
     # RED leg (must still reproduce against the defect):
     #   git revert the guard in src/cli/generation/restore.rs and
     #   a_state_dir_holding_several_stacks_refuses_every_restore fails with
@@ -248,14 +248,22 @@ invariants:
 
   - id: INV-RETENTION-DOES-NOT-CROSS-STACKS
     statement: >-
-      Snapshot retention deletes nothing it cannot attribute. The count is per
-      state dir while `policy.snapshot_generations` is promised by ONE config,
-      so in a dir several stacks share, one stack's apply trimmed its
-      neighbours' pre-apply snapshots — the copies an operator reaches for to
-      recover from this very class of mistake. Until snapshots carry an owner
-      (PMAT-162), an apply into a dir holding more than one stack keeps every
-      snapshot and says so on stderr, naming the count and the ticket. A
-      single-stack dir prunes exactly as before.
+      Retention deletes nothing it cannot attribute, in EVERY directory it
+      sweeps. The count is per state dir while `policy.snapshot_generations` is
+      promised by ONE config, so in a dir several stacks share, one stack's
+      apply trimmed its neighbours' pre-apply snapshots — the copies an
+      operator reaches for to recover from this very class of mistake. Until
+      those copies carry an owner (PMAT-162), an apply into a dir holding more
+      than one stack keeps every one of them and says so on stderr, naming the
+      count and the ticket. A single-stack dir prunes exactly as before.
+
+      forjar sweeps TWO directories — `snapshots/` and `generations/` — and the
+      first fix reached only the first (PMAT-177), leaving `gc_generations`
+      deleting the numbered generations an `undo` targets for a day longer
+      (PMAT-182). The condition is therefore one function,
+      `state::stamp::retention::skip_note`, which both sweeps call and a third
+      inherits: an invariant stated twice is an invariant that will be fixed
+      once.
 
 fixtures:
   - id: FX-THREE-STACKS
@@ -379,6 +387,24 @@ fixtures:
       #   snapshot_gc_is_skipped_while_the_state_dir_holds_several_stacks
       # The anti-vacuity half plants the same twelve in a SINGLE-stack dir.
 
+  - id: FX-GENERATIONS-PAST-THE-KEEP-COUNT
+    description: >-
+      FX-THREE-STACKS, then alpha applies until the dir holds MORE numbered
+      generations than the keep count every config sets
+      (`snapshot_generations: 10`). Applied rather than planted, unlike
+      FX-PLANTED-SNAPSHOTS: a generation is recorded by the apply itself
+      (unconditionally, failures included) and is numbered `max + 1`, so
+      driving the applies is both the honest fixture and free of the
+      second-resolution name collision that forced planting for snapshots. The
+      anti-vacuity half drives the same applies against a dir holding ONE
+      stack, where the sweep must still take the oldest number.
+    setup: |
+      # tests/common/stack_stamp_harness.rs::fleet(), then
+      #   for _ in 0..=10: forjar apply -f $root/alpha/forjar.yaml \
+      #                      --state-dir $root/state --yes
+      # tests/common/stack_stamp_harness.rs::generation_numbers reads
+      # `generations/` the way `snapshot_names` reads `snapshots/`.
+
 
 proof_obligations:
   - type: safety
@@ -445,11 +471,11 @@ proof_obligations:
     discharged_by: "FALSIFY-MSD-13"
 
   - type: safety
-    property: "Retention deletes no snapshot in a dir it cannot attribute"
-    formal: "|stacks(D)| > 1 ⟹ snapshots(D) after ⊇ snapshots(D) before"
+    property: "Retention deletes nothing in a dir it cannot attribute, in every directory it sweeps"
+    formal: "|stacks(D)| > 1 ⟹ snapshots(D) after ⊇ snapshots(D) before ∧ generations(D) after ⊇ generations(D) before"
     tolerance: 0.0
-    applies_to: "cli::apply_snapshot::gc_old_snapshots"
-    discharged_by: "FALSIFY-MSD-14"
+    applies_to: "cli::apply_snapshot::gc_old_snapshots and cli::generation::gc_generations, through state::stamp::retention::skip_note"
+    discharged_by: "FALSIFY-MSD-14, FALSIFY-MSD-15"
 
 falsification_tests:
   - id: FALSIFY-MSD-01
@@ -900,6 +926,49 @@ falsification_tests:
       an apply that never read that stack's config.
     owner: forjar
 
+  - id: FALSIFY-MSD-15
+    rule: INV-RETENTION-DOES-NOT-CROSS-STACKS
+    defect: one-stacks-apply-deletes-its-neighbours-generations
+    severity: HIGH
+    prediction: >-
+      Applying into a dir holding three stacks past the keep count exits 0,
+      prints `note: generation gc skipped: state dir holds 3 stacks
+      (PMAT-162)` once per sweep, and the set of numbered generations only
+      GROWS across every apply. A single-stack dir prints no such note and
+      still prunes to its keep count, oldest number first.
+    fixture: FX-GENERATIONS-PAST-THE-KEEP-COUNT
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        generation_gc_is_skipped_while_the_state_dir_holds_several_stacks
+      cargo test --lib -- \
+        cli::tests_generation::tests::generation_gc \
+        core::state::stamp::retention
+    red_output: |
+      assertion failed: alpha's apply deleted a generation out of a dir bravo and
+      charlie also undo in: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] -> [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      mini: 0 converged, 1 unchanged, 0 failed (0.0s)
+      Apply complete: 0 converged, 1 unchanged.
+    can_go_red: >-
+      Measured 2026-09-06 at 52afcef0, with MSD-14 green: `gc_generations`
+      sorted the numbered generation dirs and removed the oldest until the keep
+      count remained, so alpha's eleventh apply deleted generation 0 — a
+      generation bravo or charlie wrote, and the only target their `undo` had
+      for it. PMAT-177 had guarded the SNAPSHOT sweep the day before and this
+      one was not touched, which is why the condition now lives in one helper
+      both sweeps call. Delete the `skip_note` call in `gc_generations` and
+      this row goes red while MSD-14 stays green; delete the one in
+      `gc_old_snapshots` and the converse holds. Anti-vacuity:
+      `generation_gc_still_prunes_a_single_stack_dir` and
+      `generation_gc_of_a_single_stack_dir_is_unchanged` fail if the skip is
+      written over anything broader than `|stacks(D)| > 1` — never pruning at
+      all satisfies the first half alone and grows the dir without bound.
+    if_fails: >-
+      The numbered generations a neighbouring stack would `undo` to are deleted
+      by an apply that never read that stack's config, and unlike a snapshot
+      there is no named copy to fall back on — `undo` reports "no generations"
+      or silently targets a stranger's.
+    owner: forjar
+
 enforcement:
   restore_asks_the_lock_before_it_writes:
     description: >-
@@ -1043,13 +1112,14 @@ qa_gate:
     - "INV-A-SCOPE-NARROWS-WORK-NOT-OWNERSHIP"
     - "INV-RETENTION-DOES-NOT-CROSS-STACKS"
   pass_criteria: >-
-    All fourteen falsification rows pass against the fixed binary, AND
+    All fifteen falsification rows pass against the fixed binary, AND
     MSD-01..04 and MSD-06 still reproduce their recorded red_output at c26c468a
     (the commit before the guard), MSD-08 at 40829d02 (the commit that had the
     guard at the primitive only), and MSD-11..14 at f0f6defa (the commit that
     carries the four round-1 review findings as tests and none of their fixes;
-    MSD-14 at 00af3c08, once MSD-11 was green). A row green against both is not
-    evidence of a fix.
+    MSD-14 at 00af3c08, once MSD-11 was green; MSD-15 at 52afcef0, the
+    commit that carries the round-2 findings as tests and none of their
+    fixes). A row green against both is not evidence of a fix.
   falsification: >-
     Delete the call in `rollback_to_generation` and MSD-01, MSD-02, MSD-04 and
     MSD-06 go red; delete the call in `cmd_undo_resume` and MSD-03 goes red
@@ -1064,8 +1134,9 @@ qa_gate:
     MSD-11 goes red; restore the suffix comparison in
     `stamp::identity::same_config_file` and MSD-12 goes red while MSD-09 stays
     green; drop the `DeclaredMachines` scope in `cli::apply_output` and MSD-13
-    goes red; delete the `shared_stack_count` guard in
-    `apply_snapshot::gc_old_snapshots` and MSD-14 goes red. Each of the four is
-    independent of the other three.
+    goes red; delete the `retention::skip_note` call in
+    `apply_snapshot::gc_old_snapshots` and MSD-14 goes red; delete the one in
+    `generation::gc_generations` and MSD-15 goes red while MSD-14 stays green.
+    Each is independent of the others.
 
 verification_level: L2
