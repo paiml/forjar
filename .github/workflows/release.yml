@@ -127,8 +127,11 @@ jobs:
   create-release:
     needs: verify
     runs-on: [self-hosted, clean-room]
+    outputs:
+      created: ${{ steps.create.outputs.created }}
     steps:
       - name: Create or update GitHub Release
+        id: create
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -136,31 +139,40 @@ jobs:
           # (and its hand-written notes) intact so re-runs don't clobber them.
           if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists — leaving notes intact, downstream jobs will upload assets."
+            echo "created=false" >> "$GITHUB_OUTPUT"
           else
             # PMAT-166: born a PRERELEASE. The clean-room verify above is the
             # hard gate for the artifact; promotion to a full release is the
             # operator's step after the published crate passes the dogfood
             # arm (`make dogfood-published VERSION=`), never this workflow's.
+            # Born a DRAFT so no consumer sees a half-uploaded asset set
+            # (the field's pattern: cargo-dist and GoReleaser build into a
+            # draft); the publish-release job un-drafts once every asset job
+            # has finished. It stays a PRERELEASE after that.
             gh release create "$RELEASE_TAG" \
               --title "$RELEASE_TAG" \
               --generate-notes \
               --verify-tag \
+              --draft \
               --prerelease \
               --repo "${{ github.repository }}"
+            echo "created=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Assert the release exists and is a prerelease until promoted
+      - name: Assert the release this run created is a draft prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # release-check (PMAT-166): a tag whose release vanished, or one this
-          # workflow silently promoted, is a NO-GO. A release promoted by the
-          # operator earlier (re-run of an old tag) is reported, not failed.
+          # release-check (PMAT-166): what this run created must be exactly a
+          # draft prerelease at this point — anything else means the create
+          # step was bypassed or a producer raced it. A release that existed
+          # before this run (re-run of an old tag) is reported, never touched.
           state="$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json isPrerelease,isDraft --jq '"prerelease=\(.isPrerelease) draft=\(.isDraft)"')"
-          echo "release $RELEASE_TAG: $state"
-          case "$state" in
-            *draft=true*) echo "::error::release $RELEASE_TAG is a draft"; exit 1 ;;
-          esac
+          echo "release $RELEASE_TAG: $state (created by this run: ${{ steps.create.outputs.created }})"
+          if [ "${{ steps.create.outputs.created }}" = "true" ] && [ "$state" != "prerelease=true draft=true" ]; then
+            echo "::error::release $RELEASE_TAG was created by this run but is not a draft prerelease: $state"
+            exit 1
+          fi
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
   build-binaries:
@@ -448,3 +460,32 @@ jobs:
           git add Formula/forjar.rb
           git commit -m "forjar ${VERSION}" || echo "No changes to commit"
           git push
+
+  # ── Publish: un-draft once every asset job has finished ───────
+  publish-release:
+    needs: [verify, create-release, build-binaries, checksums, dist-artifacts]
+    if: >-
+      always() &&
+      needs.verify.result == 'success' &&
+      needs.create-release.result == 'success' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - name: Publish the prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only a release this run created is un-drafted here; an existing
+          # release keeps whatever state the operator gave it (PMAT-166).
+          if [ "${{ needs.create-release.outputs.created }}" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --repo "${{ github.repository }}"
+          fi
+          state="$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json isPrerelease,isDraft --jq '"prerelease=\(.isPrerelease) draft=\(.isDraft)"')"
+          echo "release $RELEASE_TAG: $state"
+          if [ "${{ needs.create-release.outputs.created }}" = "true" ] && [ "$state" != "prerelease=true draft=false" ]; then
+            echo "::error::release $RELEASE_TAG is not a published prerelease after the asset jobs: $state"
+            exit 1
+          fi
+          echo "Promotion to a full release is the operator's step after 'make dogfood-published VERSION=' passes."
+

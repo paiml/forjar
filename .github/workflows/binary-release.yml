@@ -89,6 +89,7 @@ jobs:
               --title "$TAG" \
               --generate-notes \
               --verify-tag \
+              --prerelease \
               --repo "${{ github.repository }}"
           fi
 
