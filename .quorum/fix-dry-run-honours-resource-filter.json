@@ -15,8 +15,8 @@
   "refuters_per_claim": 3,
   "judges": 3,
   "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived, because both narrowings kept the substance and changed a sentence",
-  "claims_confirmed": 52,
-  "claims_refuted": 7,
+  "claims_confirmed": 51,
+  "claims_refuted": 8,
   "refuted_claims": [
    "L3-F1 — CHANGELOG.md states the order as filter by graph closure -> validate, which the code contradicts by validating first — REFUTED as stale: 3ab88290 rewrote the line to parse -> validate the full graph -> filter by graph closure -> validate the selection.",
    "L3-F2 — the ticket mandates filter -> validate and resolving -m before validation, which would break cross-machine dependencies — REFUTED as stale: the ticket text was corrected in 3ab88290 and -m was never resolved before validation in the code.",
@@ -24,7 +24,8 @@
    "T2 — strip_unrequested_phony runs after resolve_selection and scrubs the edges to a stripped phony, destroying the transitive dependencies contract_edges preserved — REFUTED as stale: 3fdae0c3 makes it contract the edges through the phony.",
    "T8 — the standalone check behaviour change is buried in the CHANGELOG — REFUTED on the merits: it is its own paragraph of the [Unreleased] entry naming both consequences.",
    "T9 — the binary suite never drives the standalone check command the branch changed — REFUTED as stale: standalone_check_selects_the_closure_and_refuses_a_typo (3fdae0c3).",
-   "T10 — AC2 asks parse -> filter -> validate while the diff implements parse -> validate -> filter — REFUTED as stale: the acceptance criterion was corrected in 3ab88290 to what the code does."
+   "T10 — AC2 asks parse -> filter -> validate while the diff implements parse -> validate -> filter — REFUTED as stale: the acceptance criterion was corrected in 3ab88290 to what the code does.",
+   "L2-F4 — 'changing scope_plan in apply_dry_run.rs to not call apply_resource_filter would make dry_run_lists_exactly_the_closure_and_its_summary_agrees fail' — REFUTED by measurement after the merge helper's review: the test stays green with the call removed, because the apply path builds the gate scope with resource: None and the selection is pinned upstream."
   ],
   "rounds": "refuter round 1 discarded (a lane mutated src/cli/dispatch_apply_check.rs in the working tree and two lanes ruled on it); round 2 discarded (lanes copied the repository with target/ into /tmp, filled the root filesystem, two lanes died); round 3 ran with git status clean before and after and 212 G free; judge 2 left whitespace in src/cli/apply_dry_run.rs, reverted, judges 1 and 3 finished before the edit; delta round on 753eb232..2b53621b: three refuter-judge lanes, five claims DC1-DC5 confirmed 3-0, no findings"
  },
@@ -112,9 +113,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 46835,
-    "sha256": "2db76172ae82d879c5de59fcd13f112131ea8f22b45c2fc9a70fd0cbc1ef8755",
-    "blob": "a92c7e030c888a28cde652bd7f98c763081da085"
+    "bytes": 47315,
+    "sha256": "5543b54d6d14f36a059b0ace67fe53ed8890516fc33d106c98e806a35343ca92",
+    "blob": "6f875534cef0b8391585a87ed46749c1242b5fce"
    },
    {
     "path": ".quorum/evidence/filter-pipeline-agy.md",
@@ -144,13 +145,14 @@
     "blob": "dcb2170ef466af7a1d3de88e56cdf405073ecc71"
    }
   ],
-  "total_bytes": 102075,
+  "total_bytes": 102555,
   "claims_digest": ".quorum/evidence/filter-pipeline-judges.md"
  },
- "diff_sha256": "e247c1dd50caf55a2917976ddd89f115dfa89838",
+ "diff_sha256": "db6ae2fb8a99e95f3a3a3f2021c929c13f88727e",
  "merge_helper": {
   "artifact": "docs/audits/quorum-PMAT-160.json (kept uncommitted and posted on the PR: the helper accepts only an artifact naming the pushed head)",
   "first_run": "at 14e6120b: 1 PASS / 2 FAIL (the ticket wording on -m; the standalone check scope; validate the selection before the SSH sockets)",
-  "second_run": "at 2b53621b: agreed, 3 PASS"
+  "second_run": "at 2b53621b: agreed, 3 PASS",
+  "third_run": "at 349956f1: 2 PASS / 1 FAIL on L2-F4 (a digest sentence, not code); settled by measurement, digest and receipt corrected"
  }
 }
