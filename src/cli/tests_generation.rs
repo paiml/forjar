@@ -86,6 +86,63 @@ mod tests {
         assert!(content.contains("schema: '1.0'"));
     }
 
+    /// PMAT-161 (#469): a global lock naming N stacks, written by hand because
+    /// the shape under test is the DIR's, not any one apply's.
+    fn write_global_lock(state_dir: &std::path::Path, stacks: &[&str]) {
+        let mut yaml = String::from(
+            "schema: \"1.1\"\nname: alpha\nlast_apply: \"2026-09-06T00:00:00Z\"\n\
+             generator: forjar test\nmachines: {}\nstacks:\n",
+        );
+        for stack in stacks {
+            yaml.push_str(&format!(
+                "  {stack}:\n    last_apply: \"2026-09-06T00:00:00Z\"\n    \
+                 generator: forjar test\n    machines: [m1]\n"
+            ));
+        }
+        std::fs::write(state_dir.join("forjar.lock.yaml"), yaml).unwrap();
+    }
+
+    /// PMAT-161 (#469): the restore is WHOLE-DIR — it empties the state dir and
+    /// copies one generation back over it — while generations are numbered per
+    /// state dir. In a dir several stacks share, restoring any generation
+    /// reverts all of them, so the primitive refuses and names every stack it
+    /// would have taken with it. Stack-scoped restore is PMAT-162.
+    #[test]
+    fn rollback_refuses_a_state_dir_holding_more_than_one_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+        create_generation(&state_dir, None).unwrap();
+        write_global_lock(&state_dir, &["alpha", "bravo"]);
+
+        let err = rollback_to_generation(&state_dir, 0, true).unwrap_err();
+        assert!(
+            err.contains("alpha") && err.contains("bravo"),
+            "the refusal must list every stack the restore would revert: {err}"
+        );
+        assert!(
+            err.contains("PMAT-162"),
+            "the refusal must name the ticket that scopes restore: {err}"
+        );
+    }
+
+    /// The over-correction guard: one stack in the dir — the ordinary case —
+    /// restores exactly as before.
+    #[test]
+    fn rollback_of_a_single_stack_dir_is_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+        let lock_path = state_dir.join("m1").join("state.lock.yaml");
+        create_generation(&state_dir, None).unwrap();
+        std::fs::write(&lock_path, "version: 2").unwrap();
+        write_global_lock(&state_dir, &["alpha"]);
+
+        rollback_to_generation(&state_dir, 0, true).unwrap();
+
+        assert!(std::fs::read_to_string(&lock_path)
+            .unwrap()
+            .contains("schema: '1.0'"));
+    }
+
     #[test]
     fn test_rollback_requires_yes() {
         let dir = tempfile::tempdir().unwrap();

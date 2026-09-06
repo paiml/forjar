@@ -31,138 +31,10 @@
 //! Every assertion here is at the binary level, because the defect was only
 //! visible as stderr text and a lock file on disk.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
+#[path = "common/stack_stamp_harness.rs"]
+mod harness;
 
-use forjar::core::state;
-
-fn forjar() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_forjar"))
-}
-
-/// One stack, in its own directory, with its OWN machine name and its own file
-/// resource — the paiml/infra shape. `machines/<m>/forjar.yaml` differs from
-/// its neighbours in exactly these three ways.
-fn write_stack(root: &Path, dir: &str, name: &str, machine: &str, content: &str) -> PathBuf {
-    let d = root.join(dir);
-    std::fs::create_dir_all(&d).unwrap();
-    let cfg = d.join("forjar.yaml");
-    std::fs::write(
-        &cfg,
-        format!(
-            r#"version: "1.0"
-name: {name}
-policy:
-  snapshot_generations: 10
-machines:
-  {machine}:
-    hostname: localhost
-    addr: 127.0.0.1
-    transport: local
-resources:
-  {name}_file:
-    type: file
-    machine: {machine}
-    path: {}
-    content: "{content}\n"
-"#,
-            d.join("marker.txt").display()
-        ),
-    )
-    .unwrap();
-    cfg
-}
-
-fn run(args: &[&str]) -> (i32, String) {
-    let out = forjar().args(args).output().unwrap();
-    let mut merged = String::from_utf8_lossy(&out.stdout).into_owned();
-    merged.push_str(&String::from_utf8_lossy(&out.stderr));
-    (out.status.code().unwrap_or(-1), merged)
-}
-
-fn apply(cfg: &Path, state: &Path) -> (i32, String) {
-    run(&[
-        "apply",
-        "-f",
-        &cfg.display().to_string(),
-        "--state-dir",
-        &state.display().to_string(),
-        "--yes",
-    ])
-}
-
-fn undo(cfg: &Path, state: &Path) -> (i32, String) {
-    run(&[
-        "undo",
-        "-f",
-        &cfg.display().to_string(),
-        "--state-dir",
-        &state.display().to_string(),
-        "--yes",
-    ])
-}
-
-/// Every `warning:` line, whatever printed it. The point of forjar#469 is that
-/// a supported layout produces NONE — a warning an operator sees on every
-/// correct apply is a warning they stop reading.
-///
-/// ONE exclusion, and it is not a stack signal: named snapshots carry a
-/// second-resolution timestamp, so two applies inside the same second collide
-/// on the name and the second prints "pre-apply snapshot failed … already
-/// exists". A test that drives five applies in three seconds hits that; an
-/// operator does not. Excluded by its text so anything else still fails here.
-fn warnings(out: &str) -> Vec<String> {
-    out.lines()
-        .filter(|l| l.trim_start().starts_with("warning:"))
-        .filter(|l| !l.contains("pre-apply snapshot failed"))
-        .map(str::to_string)
-        .collect()
-}
-
-fn lock_of(state: &Path) -> forjar::core::types::GlobalLock {
-    state::load_global_lock(state).unwrap().unwrap()
-}
-
-fn machine_lock_bytes(state: &Path, machine: &str) -> Vec<u8> {
-    std::fs::read(state.join(machine).join("state.lock.yaml")).unwrap()
-}
-
-fn marker(root: &Path, dir: &str) -> String {
-    std::fs::read_to_string(root.join(dir).join("marker.txt")).unwrap()
-}
-
-/// alpha/bravo/charlie, distinct machines, distinct resources, ONE state dir.
-struct Fleet {
-    _dir: tempfile::TempDir,
-    root: PathBuf,
-    state: PathBuf,
-    bravo: PathBuf,
-}
-
-fn fleet() -> (Fleet, Vec<String>) {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().to_path_buf();
-    let state = root.join("state");
-    let alpha = write_stack(&root, "alpha", "alpha", "mini", "one");
-    let bravo = write_stack(&root, "bravo", "bravo", "lambda-labs", "one");
-    let charlie = write_stack(&root, "charlie", "charlie", "clean-room", "one");
-
-    let mut warned = Vec::new();
-    for cfg in [&alpha, &bravo, &charlie] {
-        let (rc, out) = apply(cfg, &state);
-        assert_eq!(rc, 0, "apply of {} failed:\n{out}", cfg.display());
-        warned.extend(warnings(&out));
-    }
-    (
-        Fleet {
-            _dir: dir,
-            root,
-            state,
-            bravo,
-        },
-        warned,
-    )
-}
+use harness::*;
 
 /// (a) THE BLOCKER. Three configs, one state dir, zero warnings — and the lock
 /// holds three stamps, not one that keeps being overwritten.
@@ -189,64 +61,81 @@ fn three_stacks_through_one_state_dir_warn_about_nothing() {
     assert_eq!(lock.stamp_for("charlie").unwrap().machines, ["clean-room"]);
 }
 
-/// (a) continued: `undo` of ONE stack is not refused, reverts that stack, and
-/// leaves the other two sections byte-identical — then that stack re-applies
-/// without a warning.
+/// (a) continued: a state dir holding MORE THAN ONE stack refuses EVERY
+/// restore, and refuses it before writing a byte.
 ///
-/// The re-apply is not decoration. `undo` replays the target generation from a
-/// config staged in a temp sibling file; a stamp that recorded THAT path would
-/// pin the stack to a file deleted seconds later, and the operator's next real
-/// apply would look like a different `-f` — reintroducing the false positive
-/// through the back door.
+/// Generations are numbered per STATE DIR and the restore is WHOLE-DIR:
+/// `generation::rollback_to_generation` empties the dir (bar `generations/`
+/// and the snapshot dirs) and copies one generation back over it. So "undo
+/// alpha" in a dir shared with bravo and charlie reverts bravo's and
+/// charlie's machine locks too — here to a generation that is bravo's own
+/// apply. Per-name stamps (#469) fixed WHO the dir belongs to; they did not
+/// make the restore stack-scoped, and a guard is the honest interim state.
+///
+/// The test that stood here asserted the opposite — that undoing one stack
+/// left the other two untouched — and passed only because it drove two extra
+/// applies of the undone stack first, making the target generation that
+/// stack's OWN. It measured apply ordering, not scoping: undo any generation
+/// another stack wrote and the other stacks go back with it.
+///
+/// All four doors onto the primitive are checked, because a guard placed in
+/// `cmd_undo` would leave `rollback --generation` wide open.
 #[test]
-fn undoing_one_stack_leaves_the_other_two_untouched() {
+fn a_state_dir_holding_several_stacks_refuses_every_restore() {
     let (f, _) = fleet();
-    // Two more bravo applies, so the generation `undo` targets is bravo's own.
-    write_stack(&f.root, "bravo", "bravo", "lambda-labs", "two");
-    assert_eq!(apply(&f.bravo, &f.state).0, 0);
-    write_stack(&f.root, "bravo", "bravo", "lambda-labs", "three");
-    assert_eq!(apply(&f.bravo, &f.state).0, 0);
+    // A fourth apply, by alpha, so every generation `undo` can target differs
+    // from the live state — otherwise undo reports "already at generation N"
+    // and never reaches the restore this is about.
+    write_stack(&f.root, "alpha", "alpha", "mini", "two");
+    assert_eq!(apply(&f.alpha, &f.state).0, 0);
 
-    let before_alpha = machine_lock_bytes(&f.state, "mini");
-    let before_charlie = machine_lock_bytes(&f.state, "clean-room");
-    let stamps_before = lock_of(&f.state);
+    let before = fingerprint(&f.state);
+    for (label, (rc, out)) in [
+        ("undo --yes", undo(&f.alpha, &f.state)),
+        (
+            "undo --generations 3 --yes",
+            undo_generations(&f.alpha, &f.state, "3"),
+        ),
+        ("undo --resume --yes", undo_resume(&f.alpha, &f.state)),
+        ("rollback --generation 0 --yes", rollback(&f.state, "0")),
+    ] {
+        assert_ne!(
+            rc, 0,
+            "{label} restored a state dir holding three stacks, reverting the other \
+             two with it:\n{out}"
+        );
+        assert!(
+            out.contains("PMAT-162"),
+            "{label}: the refusal must name the ticket that makes restore \
+             stack-scoped, or it is a dead end; got:\n{out}"
+        );
+        assert!(
+            out.contains("bravo") && out.contains("charlie"),
+            "{label}: the refusal must list the stacks it would have reverted; \
+             got:\n{out}"
+        );
+        assert!(
+            !out.contains("--force"),
+            "{label}: this refusal has no override — offering one is the defect \
+             with a flag on it; got:\n{out}"
+        );
+        assert_eq!(
+            fingerprint(&f.state),
+            before,
+            "{label} refused, but had already written the state dir:\n{out}"
+        );
+    }
 
-    let (rc, out) = undo(&f.bravo, &f.state);
     assert_eq!(
-        rc, 0,
-        "undo of one stack in a shared state dir was refused:\n{out}"
-    );
-    assert_eq!(
-        marker(&f.root, "bravo"),
+        marker(&f.root, "alpha"),
         "two\n",
-        "undo did not revert its own stack:\n{out}"
+        "a refused restore still converged the host"
     );
-    assert_eq!(marker(&f.root, "alpha"), "one\n", "undo touched alpha");
-    assert_eq!(marker(&f.root, "charlie"), "one\n", "undo touched charlie");
+    assert_eq!(marker(&f.root, "bravo"), "one\n", "a refused restore moved bravo");
     assert_eq!(
-        machine_lock_bytes(&f.state, "mini"),
-        before_alpha,
-        "undo of bravo rewrote alpha's machine lock:\n{out}"
-    );
-    assert_eq!(
-        machine_lock_bytes(&f.state, "clean-room"),
-        before_charlie,
-        "undo of bravo rewrote charlie's machine lock:\n{out}"
-    );
-
-    let after = lock_of(&f.state);
-    assert_eq!(after.stamp_for("alpha"), stamps_before.stamp_for("alpha"));
-    assert_eq!(
-        after.stamp_for("charlie"),
-        stamps_before.stamp_for("charlie")
-    );
-
-    let (rc, out) = apply(&f.bravo, &f.state);
-    assert_eq!(rc, 0, "re-apply after undo failed:\n{out}");
-    assert!(
-        warnings(&out).is_empty(),
-        "the re-apply after an undo warned — the replay stamped the stack with the \
-         staged temp config:\n{out}"
+        marker(&f.root, "charlie"),
+        "one\n",
+        "a refused restore moved charlie"
     );
 }
 
@@ -408,6 +297,19 @@ fn a_single_stack_dir_behaves_exactly_as_before() {
     let (rc, out) = undo(&alpha, &state);
     assert_eq!(rc, 0, "a normal single-stack undo was refused:\n{out}");
     assert_eq!(marker(&root, "alpha"), "one\n", "the undo did not revert");
+
+    // Inherited from the multi-stack test this file used to end on: `undo`
+    // replays the target generation from a config staged in a temp sibling
+    // file, and a stamp that recorded THAT path would pin the stack to a file
+    // deleted seconds later — so the operator's next ordinary apply would look
+    // like a different `-f`.
+    let (rc, out) = apply(&alpha, &state);
+    assert_eq!(rc, 0, "re-apply after undo failed:\n{out}");
+    assert!(
+        warnings(&out).is_empty(),
+        "the re-apply after an undo warned — the replay stamped the stack with \
+         the staged temp config:\n{out}"
+    );
 
     let (rc, out) = run(&["status", "--state-dir", &state.display().to_string()]);
     assert_eq!(rc, 0, "status failed:\n{out}");
