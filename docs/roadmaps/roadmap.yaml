@@ -1909,7 +1909,6 @@ roadmap:
   - kind:code
   notes: null
 - id: PMAT-163
-  kind: code
   github_issue: null
   item_type: task
   title: 'DF: forjar-dogfood v1 — eight standing gates (harness receipt, pmat comply, surface CLI/MCP/HTTP, README+cookbook executable claims, teamwork quorum per PR, 95% coverage with in-diff mutants, pv depth, CRUX reconcile)'
@@ -1927,7 +1926,6 @@ roadmap:
   - kind:code
   notes: null
 - id: PMAT-164
-  kind: code
   github_issue: null
   item_type: task
   title: 'CX: CRUX audit for the 1.26.0 release — every CHANGELOG behaviour change against three reference systems'
@@ -1945,7 +1943,6 @@ roadmap:
   - kind:code
   notes: null
 - id: PMAT-165
-  kind: code
   github_issue: null
   item_type: task
   title: 'RC: release cut 1.26.0 — bump, changelog, tag, prerelease, publish, promote'
@@ -1963,7 +1960,6 @@ roadmap:
   - kind:code
   notes: null
 - id: PMAT-166
-  kind: code
   github_issue: null
   item_type: task
   title: 'RP: release workflow creates the GitHub prerelease after the clean-room verify (no publish job, no registry secret)'
@@ -1981,7 +1977,6 @@ roadmap:
   - kind:code
   notes: null
 - id: PMAT-167
-  kind: code
   github_issue: null
   item_type: task
   title: 'IP: pin forjar 1.26.0 in paiml/infra machines and apply on this host only'
@@ -1990,6 +1985,112 @@ roadmap:
   assigned_to: null
   created: 2026-09-06T08:41:30Z
   updated: 2026-09-06T08:41:30Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-168
+  github_issue: null
+  item_type: task
+  title: 'S1: undo runs destroy_absent_from_target before the multi-stack restore refusal — the guard must precede any destroy (found by the SG worker)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T09:15:54Z
+  updated: 2026-09-06T09:15:54Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-169
+  github_issue: null
+  item_type: task
+  title: 'S1: forjar-contracts vendored unit tests fail in the workspace (38, aprender corpus paths) so cargo llvm-cov --workspace cannot pass (#452)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T09:15:54Z
+  updated: 2026-09-06T09:15:54Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-170
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: release.yml and binary-release.yml both fire on a v* tag and race on overlapping assets and SHA256SUMS (found by triage lane F)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T09:15:54Z
+  updated: 2026-09-06T09:15:54Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-171
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: a renamed stack leaves its old stamp in the shared state dir, so the multi-stack restore guard counts two stacks and refuses the renamed stack''s undo (found by the S1fix worker)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T09:55:56Z
+  updated: 2026-09-06T09:55:56Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-172
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: undo''s replay re-stamps the shared state dir under the target generation''s historical name with file None, resurrecting a retired rename after one real undo (found by the PMAT-171 worker)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T11:28:10Z
+  updated: 2026-09-06T11:28:10Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-173
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: spec v2 review findings absorbed into spec v3 — R4 journaled per-dir switch instead of one rename, R3 lineage keyed by file not name, R2 lineage-cursor semantics for --generations K'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-06T11:28:10Z
+  updated: 2026-09-06T11:28:10Z
   spec: null
   acceptance_criteria: []
   phases: []
