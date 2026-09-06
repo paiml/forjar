@@ -44,6 +44,13 @@ fn shown(p: &Path) -> PathBuf {
     std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
+/// The global lock, when this dir has one that parses. Absence, unreadability
+/// and an unknown schema all yield `None`, and both guards below read that as
+/// ALLOW — the fail-open half documented at the top of this module.
+fn recorded_lock(state_dir: &Path) -> Option<types::GlobalLock> {
+    state::load_global_lock(state_dir).ok().flatten()
+}
+
 /// Refuse when `state_dir`'s stamps say this config does not own what `undo`
 /// would replay.
 ///
@@ -54,7 +61,7 @@ pub(super) fn check_state_dir_owner(
     file: &Path,
     state_dir: &Path,
 ) -> Result<(), String> {
-    let Ok(Some(lock)) = state::load_global_lock(state_dir) else {
+    let Some(lock) = recorded_lock(state_dir) else {
         return Ok(());
     };
     if lock.stacks.is_empty() {
@@ -99,8 +106,13 @@ pub(super) fn check_state_dir_owner(
 
 /// The stacks this dir has stamps for, quoted, in the order they were recorded.
 fn stack_names(lock: &types::GlobalLock) -> String {
-    lock.stacks
-        .keys()
+    quoted(&state::stack_names(lock))
+}
+
+/// `'a', 'b'` — the stack list as every message in this module prints it.
+fn quoted(names: &[String]) -> String {
+    names
+        .iter()
         .map(|n| format!("'{n}'"))
         .collect::<Vec<_>>()
         .join(", ")

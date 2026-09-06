@@ -9,7 +9,10 @@ pub mod stamp;
 
 use super::types::{ApplyResult, GlobalLock, StateLock};
 use provable_contracts_macros::contract;
-pub use stamp::{stack_conflict, stack_written_from_other_file, StackConflict};
+pub use stamp::{
+    multi_stack_restore_refusal, stack_conflict, stack_names, stack_written_from_other_file,
+    StackConflict,
+};
 use std::path::{Path, PathBuf};
 
 /// Derive the lock file path for a machine within the state directory.

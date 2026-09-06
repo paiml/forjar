@@ -438,6 +438,12 @@ pub(crate) fn cmd_undo_resume(
     // machines named in the CWD config, and machine names collide constantly
     // (`local`, `web`, `prod`). Unguarded it is the identical bypass.
     super::state_identity::check_state_dir_owner("undo --resume", &config, file, state_dir)?;
+    // PMAT-161 (#469): `--resume` is the one undo path that never reaches
+    // `rollback_to_generation` — it re-applies the target generation's recorded
+    // config directly — so the restore guard has to be asked here too, and
+    // before the ledger read: `undo-progress.yaml` is keyed by MACHINE name,
+    // and machine names are exactly what stacks sharing a dir collide on.
+    super::generation::restore::refuse_multi_stack_restore(state_dir, None)?;
     let machines: Vec<String> = config
         .machines
         .keys()

@@ -127,6 +127,45 @@ impl fmt::Display for StackConflict {
     }
 }
 
+/// The stacks this dir has stamps for, in the order they were recorded.
+///
+/// The one place "how many stacks share this dir, and which" is answered, so
+/// the apply-time warning, the `undo` owner check and the restore refusal
+/// cannot disagree about it.
+#[must_use]
+pub fn stack_names(lock: &GlobalLock) -> Vec<String> {
+    lock.stacks.keys().cloned().collect()
+}
+
+/// PMAT-161 (#469): the refusal a WHOLE-DIR restore owes a state dir that more
+/// than one stack has applied to — `None` when the dir is one stack's, which is
+/// the ordinary case and is unchanged.
+///
+/// Pure, and shared: the caller supplies the lock it loaded, the dir as it
+/// wants it printed and how the target is named, so `undo`, `undo --resume` and
+/// `rollback --generation` refuse in the same words. Restoring is whole-dir
+/// while generations are numbered per state dir, so a restore in a shared dir
+/// reverts every stack in it; scoping that is PMAT-162.
+#[must_use]
+pub fn multi_stack_restore_refusal(
+    lock: &GlobalLock,
+    state_dir: &str,
+    target: &str,
+) -> Option<String> {
+    let names = stack_names(lock);
+    if names.len() <= 1 {
+        return None;
+    }
+    let quoted: Vec<String> = names.iter().map(|n| format!("'{n}'")).collect();
+    Some(format!(
+        "refusing to restore {target}: state dir {state_dir} holds {} stacks ({}); \
+         a restore is whole-dir, so it would revert every one of them. Stack-scoped \
+         restore is PMAT-162; until it lands, give this stack a --state-dir of its own.",
+        names.len(),
+        quoted.join(", "),
+    ))
+}
+
 /// Reject a global lock whose schema this binary does not understand.
 ///
 /// The fail-closed half of forjar#469: a 1.2 (or 2.0) state dir written by a

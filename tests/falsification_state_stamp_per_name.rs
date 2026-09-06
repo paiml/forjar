@@ -97,6 +97,9 @@ fn a_state_dir_holding_several_stacks_refuses_every_restore() {
             undo_generations(&f.alpha, &f.state, "3"),
         ),
         ("undo --resume --yes", undo_resume(&f.alpha, &f.state)),
+        // The refusal is about the DIR, not about who asks: bravo owns its own
+        // machine here and is refused for the same reason alpha is.
+        ("undo --yes, from bravo", undo(&f.bravo, &f.state)),
         ("rollback --generation 0 --yes", rollback(&f.state, "0")),
     ] {
         assert_ne!(
@@ -131,7 +134,11 @@ fn a_state_dir_holding_several_stacks_refuses_every_restore() {
         "two\n",
         "a refused restore still converged the host"
     );
-    assert_eq!(marker(&f.root, "bravo"), "one\n", "a refused restore moved bravo");
+    assert_eq!(
+        marker(&f.root, "bravo"),
+        "one\n",
+        "a refused restore moved bravo"
+    );
     assert_eq!(
         marker(&f.root, "charlie"),
         "one\n",
