@@ -1,4 +1,6 @@
-//! PMAT-161 (S2): a RENAME of a stack, and what `undo` does across one.
+//! PMAT-161 (S2): a RENAME of a stack, what `undo` does across one, and the
+//! four S1 findings the round-1 review quorum returned against the shipped
+//! per-name stamp (PMAT-174, PMAT-175, PMAT-176, PMAT-177).
 //!
 //! Split out of `falsification_state_stamp_per_name.rs` for the 500-line cap
 //! only; these are rows of that suite and run in its binary. Nothing here is
@@ -202,5 +204,214 @@ fn an_undo_across_a_rename_stamps_the_invoking_stack_not_the_replayed_name() {
         stack_names(&state),
         ["alpha2"],
         "and the dir is still one stack after the second round trip"
+    );
+}
+
+// ── the round-1 review findings (PMAT-174..177) ──────────────────────
+
+/// (i) PMAT-174. `apply --rollback-on-failure` in a shared state dir is
+/// refused BEFORE the apply, not after it.
+///
+/// THE DEFECT. The flag promises a restore, and the restore is the whole-dir
+/// one this contract refuses in a dir holding more than one stack. The refusal
+/// was reached only from `apply_failure_path`, after the executor had
+/// converged the host and `apply_post_actions` had rewritten the state dir —
+/// and `maybe_rollback_generation` swallowed it into `warning: generation
+/// rollback failed`, so the run exited on whatever the resources did. The
+/// operator asked for "apply, and rewind if anything fails", was told nothing
+/// until the failure, and then got neither the rewind nor an error naming why.
+///
+/// The gate now runs in the preflight, above the drift gate and the SSH
+/// sockets, so the promise is checked before the first byte.
+#[test]
+fn rollback_on_failure_is_refused_before_the_apply_writes_anything() {
+    let (f, _) = fleet();
+    // A change alpha would converge, so "refused" and "did nothing" are
+    // different claims.
+    write_stack(&f.root, "alpha", "alpha", "mini", "two");
+    let before = fingerprint(&f.state);
+
+    let (rc, out) = apply_with(&f.alpha, &f.state, &["--rollback-on-failure"]);
+    assert_ne!(
+        rc, 0,
+        "apply --rollback-on-failure ran in a dir holding three stacks, promising \
+         a restore that would revert the other two:\n{out}"
+    );
+    assert!(
+        out.contains("PMAT-162"),
+        "the refusal must name the ticket that makes restore stack-scoped; got:\n{out}"
+    );
+    assert!(
+        out.contains("bravo") && out.contains("charlie"),
+        "the refusal must list the stacks the promised rollback would revert; got:\n{out}"
+    );
+    assert_eq!(
+        fingerprint(&f.state),
+        before,
+        "the refusal arrived after the apply had already written the state dir:\n{out}"
+    );
+    assert_eq!(
+        marker(&f.root, "alpha"),
+        "one\n",
+        "the refusal arrived after the host had already been converged:\n{out}"
+    );
+
+    // ANTI-VACUITY: the flag is not refused in the dir it can honour.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    let alpha = write_stack(&root, "alpha", "alpha", "mini", "one");
+    let (rc, out) = apply_with(&alpha, &state, &["--rollback-on-failure"]);
+    assert_eq!(rc, 0, "a single-stack --rollback-on-failure was refused:\n{out}");
+    assert_eq!(marker(&root, "alpha"), "one\n", "and it must still apply");
+}
+
+/// (j) PMAT-175. A config that merely SHARES A BASENAME with a stamped one is
+/// not a rename of it.
+///
+/// THE DEFECT, an executed reproducer from the review lane. A stamp records its
+/// `-f` relative to the state dir (`../forjar.yaml`), and
+/// `stamp::same_config_file` compared it by dropping the `..` components and
+/// asking whether the current path ENDS WITH the rest. Every
+/// `machines/<m>/forjar.yaml` in the paiml/infra layout ends with
+/// `forjar.yaml`, so the first machine manifest applied into the root stack's
+/// state dir was read as that stack RENAMED: `retire_renamed` deleted the root
+/// stack's stamp and took its machines and output keys with it.
+#[test]
+fn a_config_sharing_a_basename_is_not_a_rename_of_the_root_stack() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    // The root stack: <root>/forjar.yaml, stamped as `../forjar.yaml`.
+    let top = write_stack(&root, ".", "root-stack", "box", "one");
+    assert_eq!(apply(&top, &state).0, 0, "the root stack's apply must succeed");
+
+    // A DIFFERENT stack, in the layout that produced the reproducer:
+    // <root>/machines/mini/forjar.yaml, its own name, its own machine.
+    let mini = write_stack(&root, "machines/mini", "mini", "mini-box", "one");
+    let (rc, out) = apply(&mini, &state);
+    assert_eq!(rc, 0, "the machine manifest's apply must succeed:\n{out}");
+    assert!(
+        !out.contains("renamed to"),
+        "a different file in a different directory is a second stack, not a \
+         rename of the first; got:\n{out}"
+    );
+
+    let lock = lock_of(&state);
+    let mut names: Vec<&str> = lock.stacks.keys().map(String::as_str).collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        ["mini", "root-stack"],
+        "the root stack's stamp was RETIRED by a config that only shares its \
+         basename — the dir now claims a stack it has never been applied by"
+    );
+    assert_eq!(
+        lock.stamp_for("root-stack").unwrap().machines,
+        ["box"],
+        "and its machines went with it"
+    );
+}
+
+/// (k) PMAT-176. A SCOPED apply (`-m`) narrows what runs, not what the stack
+/// OWNS.
+///
+/// THE DEFECT. `rename::next_stamp` set `machines` from the apply's own
+/// results, and a scoped apply produces results for the filtered machine only.
+/// So `apply -m mini` rewrote `stacks[alpha].machines` as `[mini]` and RELEASED
+/// `lambda-labs` — the ownership record `stack_conflict` reads — although the
+/// config still declares it. The next sibling stack naming that machine was
+/// then silent about overwriting alpha's generations and per-machine lock.
+///
+/// A machine is released when the CONFIG stops declaring it, which is an edit
+/// the operator made, not when one invocation happens not to converge it.
+#[test]
+fn a_scoped_apply_keeps_the_machines_the_config_still_declares() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    let alpha = write_two_machine_stack(&root, "alpha", "alpha", ("mini", "lambda-labs"), "one");
+    assert_eq!(apply(&alpha, &state).0, 0, "the full apply must succeed");
+    assert_eq!(
+        lock_of(&state).stamp_for("alpha").unwrap().machines,
+        ["mini", "lambda-labs"],
+        "fixture: the unscoped apply owns both machines"
+    );
+
+    // The scoped apply: a change on one machine only.
+    write_two_machine_stack(&root, "alpha", "alpha", ("mini", "lambda-labs"), "two");
+    let (rc, out) = apply_with(&alpha, &state, &["-m", "mini"]);
+    assert_eq!(rc, 0, "the scoped apply failed:\n{out}");
+    assert_eq!(
+        lock_of(&state).stamp_for("alpha").unwrap().machines,
+        ["mini", "lambda-labs"],
+        "`-m mini` released 'lambda-labs' to any stack that asks for it, although \
+         the config still declares it:\n{out}"
+    );
+
+    // THE CONSEQUENCE, asserted rather than assumed: a sibling stack claiming
+    // the machine alpha did not converge this time is still a conflict.
+    let beta = write_stack(&root, "beta", "beta", "lambda-labs", "one");
+    let (rc, out) = apply(&beta, &state);
+    assert_eq!(rc, 0, "apply warns here, it does not refuse:\n{out}");
+    assert!(
+        out.contains("which stack 'alpha' owns"),
+        "a machine alpha still declares must still be reported as alpha's; got:\n{out}"
+    );
+}
+
+/// (l) PMAT-177. Snapshot GC does not trim a state dir it cannot attribute.
+///
+/// THE DEFECT. `gc_old_snapshots` keeps the newest `policy.snapshot_generations`
+/// snapshots IN THE DIR and deletes the rest. Snapshots carry no owner, so in a
+/// shared dir the count is every stack's, and one stack's apply deleted the
+/// pre-apply snapshots another stack made — the copies an operator would use to
+/// recover from exactly this class of mistake. Retention is per state dir while
+/// the promise (`snapshot_generations`) is per config.
+///
+/// Ownership is PMAT-162; until it lands, an apply into a dir holding more than
+/// one stack skips the GC and says so.
+#[test]
+fn snapshot_gc_is_skipped_while_the_state_dir_holds_several_stacks() {
+    let (f, _) = fleet();
+    // More snapshots than any stack's keep count (10), planted rather than
+    // applied: the name carries a second-resolution timestamp.
+    let planted = plant_snapshots(&f.state, 12);
+    write_stack(&f.root, "alpha", "alpha", "mini", "two");
+
+    let (rc, out) = apply(&f.alpha, &f.state);
+    assert_eq!(rc, 0, "the apply itself must still succeed:\n{out}");
+    assert!(
+        out.contains("snapshot gc skipped") && out.contains("PMAT-162"),
+        "the skip must be stated, and name the ticket that makes retention \
+         per-stack; got:\n{out}"
+    );
+    let kept = snapshot_names(&f.state);
+    for name in &planted {
+        assert!(
+            kept.contains(name),
+            "alpha's apply deleted snapshot {name} out of a dir bravo and charlie \
+             also keep snapshots in; kept: {kept:?}"
+        );
+    }
+
+    // ANTI-VACUITY: a dir with one stack still prunes, exactly as before.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    let solo = write_stack(&root, "solo", "solo", "mini", "one");
+    assert_eq!(apply(&solo, &state).0, 0, "the first apply must succeed");
+    let planted = plant_snapshots(&state, 12);
+    write_stack(&root, "solo", "solo", "mini", "two");
+    let (rc, out) = apply(&solo, &state);
+    assert_eq!(rc, 0, "the single-stack apply failed:\n{out}");
+    assert!(
+        !out.contains("snapshot gc skipped"),
+        "a single-stack dir must not skip its own gc:\n{out}"
+    );
+    let kept = snapshot_names(&state);
+    assert!(
+        planted.iter().any(|name| !kept.contains(name)),
+        "the single-stack gc pruned nothing — the skip is over-broad; kept: {kept:?}"
     );
 }

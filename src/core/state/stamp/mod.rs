@@ -22,6 +22,9 @@ pub mod replay;
 
 mod rename;
 
+#[cfg(test)]
+mod tests_file_identity;
+
 use crate::core::types::{GlobalLock, MachineSummary};
 use crate::tripwire::eventlog::now_iso8601;
 use indexmap::IndexMap;

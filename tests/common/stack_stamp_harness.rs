@@ -80,6 +80,88 @@ pub fn extra_marker(root: &Path, dir: &str) -> PathBuf {
     root.join(dir).join("extra.txt")
 }
 
+/// PMAT-176: ONE stack that declares TWO machines, each with its own file
+/// resource — the shape a scoped `apply -m <machine>` narrows.
+///
+/// `write_stack` cannot express it: a stack with one machine has nothing to
+/// leave out of a scoped apply, so the stamp it writes is the same set either
+/// way and the defect (the other machine dropping out of `stacks[name]`) is
+/// invisible.
+pub fn write_two_machine_stack(
+    root: &Path,
+    dir: &str,
+    name: &str,
+    machines: (&str, &str),
+    content: &str,
+) -> PathBuf {
+    let (first, second) = machines;
+    let d = root.join(dir);
+    std::fs::create_dir_all(&d).unwrap();
+    let cfg = d.join("forjar.yaml");
+    let mut body = format!(
+        r#"version: "1.0"
+name: {name}
+policy:
+  snapshot_generations: 10
+machines:
+"#
+    );
+    for machine in [first, second] {
+        body.push_str(&format!(
+            "  {machine}:\n    hostname: localhost\n    addr: 127.0.0.1\n    transport: local\n"
+        ));
+    }
+    body.push_str("resources:\n");
+    for machine in [first, second] {
+        body.push_str(&format!(
+            "  {name}_{machine}_file:\n    type: file\n    machine: {machine}\n    path: {}\n    content: \"{content}\\n\"\n",
+            machine_marker(root, dir, machine).display(),
+        ));
+    }
+    std::fs::write(&cfg, body).unwrap();
+    cfg
+}
+
+/// Where `write_two_machine_stack` puts one machine's file.
+pub fn machine_marker(root: &Path, dir: &str, machine: &str) -> PathBuf {
+    root.join(dir).join(format!("marker-{machine}.txt"))
+}
+
+/// PMAT-177: named snapshots planted directly in the state dir.
+///
+/// The snapshot name carries a SECOND-resolution timestamp, so applies driven
+/// back to back inside one second collide on it and the dir never reaches the
+/// retention count by applying alone. Planting the directories is both faster
+/// and deterministic; `gc_old_snapshots` reads the dir, not the applies that
+/// filled it. The names sort before `pre-apply-*`, so they are exactly what a
+/// gc that runs would remove first.
+pub fn plant_snapshots(state: &Path, count: usize) -> Vec<String> {
+    let dir = state.join("snapshots");
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut planted = Vec::new();
+    for i in 0..count {
+        let name = format!("planted-{i:02}");
+        std::fs::create_dir_all(dir.join(&name)).unwrap();
+        std::fs::write(dir.join(&name).join("marker"), "planted\n").unwrap();
+        planted.push(name);
+    }
+    planted
+}
+
+/// The named snapshots this state dir holds, sorted.
+pub fn snapshot_names(state: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(state.join("snapshots")) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    names.sort();
+    names
+}
+
 pub fn run(args: &[&str]) -> (i32, String) {
     let out = forjar().args(args).output().unwrap();
     let mut merged = String::from_utf8_lossy(&out.stdout).into_owned();
@@ -88,14 +170,18 @@ pub fn run(args: &[&str]) -> (i32, String) {
 }
 
 pub fn apply(cfg: &Path, state: &Path) -> (i32, String) {
-    run(&[
-        "apply",
-        "-f",
-        &cfg.display().to_string(),
-        "--state-dir",
-        &state.display().to_string(),
-        "--yes",
-    ])
+    apply_with(cfg, state, &[])
+}
+
+/// `apply` carrying extra flags — `--rollback-on-failure` (PMAT-174), `-m`
+/// (PMAT-176). The base arguments are the ones `apply` uses, so a row that adds
+/// a flag differs from the ordinary apply in exactly that flag.
+pub fn apply_with(cfg: &Path, state: &Path, extra: &[&str]) -> (i32, String) {
+    let cfg = cfg.display().to_string();
+    let state = state.display().to_string();
+    let mut args = vec!["apply", "-f", &cfg, "--state-dir", &state, "--yes"];
+    args.extend_from_slice(extra);
+    run(&args)
 }
 
 pub fn undo(cfg: &Path, state: &Path) -> (i32, String) {
