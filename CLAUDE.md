@@ -34,6 +34,49 @@ cargo llvm-cov --summary-only           # Check coverage
 cargo clippy -- -D warnings             # Lint check
 ```
 
+## Pre-publish gate
+
+**Nothing is published until `make dogfood-release` exits 0.** It is the release
+blocker, and it is the human-run half of the pair the clean-room CI lane is the
+machine-run half of: the clean room proves the artifact BUILDS from a cold tree,
+`dogfood-release` proves the artifact DOES WHAT THIS REPO SAYS IT DOES.
+
+```bash
+make dogfood            # B C D G — hermetic, cheap; run it on every commit
+make dogfood-release    # + F H    — the pre-publish gate
+make dogfood-published VERSION=x.y.z   # C and D against what crates.io serves
+make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
+```
+
+| gate | asks |
+|---|---|
+| B `comply.sh` | `pmat comply` against the committed `.pmat.yaml`, with a stronger instrument in place of each disabled check |
+| C `surface.sh` | the CLI/MCP/HTTP surface, measured from the running artifact: declared vs live, diffed against `docs/audits/surface_audit.csv` |
+| D `docs.sh` | every fenced `forjar …` block in README.md, run against a fixture in a sandboxed HOME |
+| F `coverage.sh` | the 95% line floor enforced inside llvm-cov, plus `cargo mutants` over this branch's own diff |
+| G `contracts.sh` | the contract corpus validates, lints, has depth, and every citation resolves |
+| H `crux-reconcile.sh` | every behaviour bullet under CHANGELOG `[Unreleased]` has a `docs/audits/crux-<ver>.md` row naming >=3 world-class systems |
+| R `release-check.sh` | the tag, the release, crates.io, docs.rs, a quorum receipt per merged PR |
+
+The operator-facing procedure is the **`forjar-dogfood` skill**
+(`.claude/skills/forjar-dogfood/SKILL.md`) — that name, never `dogfood`: a
+user-scope skill of the same name silently wins, and
+`tests/falsification_dogfood_skill_is_named.rs` exists to keep the collision
+from coming back.
+
+Every gate prints exactly one `GATE <letter> PASS|FAIL <detail>` line, its exit
+code is the verdict, and it carries a trailing `# mutation:` comment naming the
+one-line change that turns it RED. That comment is the point: a green shell gate
+proves nothing on its own, so each one ships with the address of its own
+falsifier, and `tests/falsification_dogfood_scripts_declare_mutations.rs`
+asserts the address exists, that the script is strict, and that no `|| true`
+swallows a measurement. `contracts/forjar-dogfood-coverage-v1.yaml` records the
+whole set.
+
+**Never `--skip`, never `|| true` on a measurement, never lower a floor.** An
+UNMEASURED check is a FAILING check: a gate that could not run and a gate that
+passed must never print the same thing.
+
 ## Architecture
 
 - `src/core/` — Config parsing, planning, execution, state management

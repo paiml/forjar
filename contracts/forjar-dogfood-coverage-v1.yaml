@@ -1,0 +1,210 @@
+---
+metadata:
+  version: "1.0.0"
+  # kind: pattern — the obligations here are about a SUITE OF SHELL GATES and
+  # the evidence each one produces. There is no decidable core to prove over:
+  # the properties are observed by running the gate against the real tree and
+  # the real registries, and falsified by applying the one-line mutation each
+  # gate carries. Nothing below is a theorem; everything below is a probe.
+  kind: pattern
+  created: "2026-09-06"
+  author: "PAIML Engineering"
+  description: |
+    PMAT-163: forjar-dogfood v1 — the release blocker.
+
+    The defect this governs is not any single missing check. It is that a green
+    shell gate proves nothing on its own. `set -e` absent, a `|| true` on the
+    measuring command, an `exit 0` at the bottom, a loop over an empty
+    directory — each turns a gate into a printer, and in CI output all four are
+    indistinguishable from a gate that ran. The project has already been bitten
+    by the general form twice: paiml/forjar#288 shipped a derived transport tree
+    that nothing routed to and that stayed green in every parity test, and
+    GH-298 had `pv audit` report "Falsification tests: 14 / No audit findings"
+    over a contract two of whose falsifiers named functions that did not exist.
+
+    So every gate in `scripts/dogfood/` carries a `# mutation:` line naming the
+    ONE-LINE change that turns it RED. That comment is the falsifier's address:
+    a reviewer applies it and watches the gate fail. The rows below record those
+    addresses in one place, and two guard tests assert mechanically that each
+    address exists, that the script is strict, and that no measurement is
+    swallowed.
+
+    Coverage of the SUITE, not of the code: this contract is about whether the
+    eight gates are present, strict, falsifiable and wired into a make target
+    that a human will actually run before publishing. Line coverage of forjar
+    itself is gate F's business.
+  references:
+    - "ticket: PMAT-163"
+    - "issue: https://github.com/paiml/forjar/issues/288 — a transport nothing routed to stayed green in every parity test"
+    - "issue: https://github.com/paiml/forjar/issues/452 — 38 vendored tests failing about the vendoring, not the code"
+    - "docs/specifications/provable-iac.md — quorum-validated design, >=3 world-class systems (gate H's floor)"
+    - "docs/specifications/quorum-spec.md — the receipt gate H and release-check both read"
+    - ".claude/skills/forjar-dogfood/SKILL.md — the operator-facing procedure these targets implement"
+
+equations:
+  gate_verdict:
+    formula: |
+      verdict(g) = PASS  if exit(g) = 0
+                 = FAIL  otherwise
+      admissible(g) ⟺ mutation(g) ≠ ∅ ∧ strict(g) ∧ ¬swallows(g)
+      trusted(g)    ⟺ admissible(g) ∧ verdict(g) = PASS
+    domain: "g ∈ scripts/dogfood/*.sh"
+    codomain: "{PASS, FAIL}"
+    invariants:
+      - "A gate's exit code IS its verdict; the GATE line reports it and never decides it"
+      - "verdict(g) = PASS with admissible(g) false is worth nothing — a printer, not a gate"
+      - "UNMEASURED is FAIL: a check that could not run is never reported as one that passed"
+
+proof_obligations:
+  - type: soundness
+    property: "Every gate names the one-line change that turns it red"
+    formal: "∀ g ∈ scripts/dogfood/*.sh . ∃ a line matching `# mutation:` with a non-trivial detail"
+    applies_to: all
+    enforced_by: "tests/falsification_dogfood_scripts_declare_mutations.rs::every_gate_script_names_its_mutation"
+    notes: |
+      The detail is required to be >= 20 characters. A bare `# mutation:` would
+      satisfy an existence check while naming no address, which is the vacuous
+      form of exactly this obligation.
+
+  - type: safety
+    property: "A failing stage stops the gate"
+    formal: "∀ g . `set -euo pipefail` ∈ lines(g)"
+    applies_to: all
+    enforced_by: "tests/falsification_dogfood_scripts_declare_mutations.rs::every_gate_script_is_strict"
+    notes: |
+      Without it a failing stage is a passing script. pipefail matters as much
+      as -e here: every gate reads its evidence out of a pipeline.
+
+  - type: soundness
+    property: "No measurement is swallowed"
+    formal: "∀ g . `|| true` ∉ lines(g)"
+    applies_to: all
+    enforced_by: "tests/falsification_dogfood_scripts_declare_mutations.rs::no_gate_script_swallows_a_measurement"
+    notes: |
+      Including in comments — a `|| true` in a comment is still an instruction
+      to copy. This obligation caught two real ones in contracts.sh, and the
+      hazard behind them is worth recording: `grep` exits 1 on "no match" and
+      pipefail turns that into a script death mid-assignment, so the gate prints
+      NOTHING and exits non-zero, which is indistinguishable from a gate that
+      never ran. The fix is to capture rc and keep "none" (1) apart from "grep
+      could not run" (>=2, UNMEASURED), never to suppress the exit code.
+
+  - type: completeness
+    property: "The gates the receipt claims all exist"
+    formal: "{comply, surface, docs, coverage, contracts, crux-reconcile, release-check} ⊆ scripts/dogfood/"
+    applies_to: all
+    enforced_by: "tests/falsification_dogfood_scripts_declare_mutations.rs::the_expected_gates_are_all_present"
+    notes: |
+      The anti-vacuity clause. An empty scripts/dogfood/ satisfies every ∀ above
+      it, so the set is pinned by name and by a count floor.
+
+  - type: determinism
+    property: "The operator runs the repo's procedure, not a same-named user-scope one"
+    formal: "exactly one skill declares `name: forjar-dogfood`, and none declares `dogfood`"
+    applies_to: ".claude/skills/"
+    enforced_by: "tests/falsification_dogfood_skill_is_named.rs::its_first_frontmatter_line_declares_the_unshadowable_name"
+    notes: |
+      Claude Code resolves a skill by frontmatter name and a user-scope skill
+      wins over a repo-scope one. Shadowing is invisible by construction: both
+      load, one is chosen, nothing prints which.
+
+enforcement:
+  gate_b_comply:
+    description: "pmat comply against the committed .pmat.yaml, with each disabled check replaced by a stronger instrument"
+    check: "scripts/dogfood/comply.sh"
+    mutation: "set BASHRS_ERROR_CEILING=0 — the known scripts/ledger-replay.sh SEC011 finding reads as a regression and the gate exits 1"
+    severity: "ERROR"
+  gate_c_surface:
+    description: "The CLI/MCP/HTTP surface measured from the running artifact, declared vs live, diffed against the committed snapshot"
+    check: "scripts/dogfood/surface.sh"
+    mutation: "raise MIN_CLI to 9999 — the vacuity floor rejects the real 211-name surface and the gate exits 1"
+    severity: "ERROR"
+  gate_d_docs:
+    description: "Every fenced forjar invocation in README.md run against a fixture in a sandboxed HOME, and the README's count/version claims reconciled"
+    check: "scripts/dogfood/docs.sh"
+    mutation: "change `forjar plan -f forjar.yaml` in README.md to `forjar plan --f forjar.yaml` — clap exits 2 on the rebound argv and the gate reports a documented invocation that does not hold"
+    severity: "ERROR"
+  gate_f_coverage:
+    description: "95% line floor enforced inside llvm-cov, plus cargo mutants over this branch's own diff; survivors and timeouts are both RED"
+    check: "scripts/dogfood/coverage.sh"
+    mutation: "change FLOOR to 90 — Arm 0 reports the floor as DRIFTED from the Makefile's two `--fail-under-lines 95` and the gate exits 1"
+    severity: "ERROR"
+  gate_g_contracts:
+    description: "The corpus validates and lints, every contract names a falsifier, every citation resolves, and the shipped surface is reconciled against it"
+    check: "scripts/dogfood/contracts.sh"
+    mutation: "delete the falsification_tests block from contracts/apply-receipt-v1.yaml — Arm 3 reports it and the gate exits 1"
+    severity: "ERROR"
+  gate_h_crux:
+    description: "Every behaviour bullet under CHANGELOG [Unreleased] has a row in docs/audits/crux-<version>.md naming >=3 world-class systems"
+    check: "scripts/dogfood/crux-reconcile.sh"
+    mutation: "set MIN_SYSTEMS=4 — every row written to provable-iac.md's floor of 3 reads as thin and the gate exits 1"
+    severity: "ERROR"
+  gate_r_release:
+    description: "Tag on main, GitHub release and its prerelease flag, crates.io version, docs.rs status.json, a quorum receipt per PR since the last tag, the crux doc"
+    check: "scripts/dogfood/release-check.sh"
+    mutation: "delete any one docs/audits/quorum-<pr>.md for a PR merged since the previous tag — Arm 5 names that exact path and the gate exits 1"
+    severity: "ERROR"
+  the_gates_are_admissible:
+    description: "Each gate declares its mutation, is strict, swallows nothing, and exists"
+    check: "tests/falsification_dogfood_scripts_declare_mutations.rs"
+    severity: "ERROR"
+  the_skill_is_unshadowable:
+    description: "Exactly one skill is named forjar-dogfood and nothing in the tree is still named dogfood"
+    check: "tests/falsification_dogfood_skill_is_named.rs"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-DF-001
+    rule: "A gate that cannot be shown to go red is inadmissible"
+    prediction: "Deleting the `# mutation:` line from any scripts/dogfood/*.sh makes the guard test fail naming that file"
+    test: "tests/falsification_dogfood_scripts_declare_mutations.rs::every_gate_script_names_its_mutation"
+    if_fails: "A gate could be a printer and nothing would say so"
+
+  - id: FALSIFY-DF-002
+    rule: "A failing stage must stop the gate"
+    prediction: "Removing `set -euo pipefail` from any gate makes the guard test fail naming that file"
+    test: "tests/falsification_dogfood_scripts_declare_mutations.rs::every_gate_script_is_strict"
+    if_fails: "A failing stage becomes a passing script"
+
+  - id: FALSIFY-DF-003
+    rule: "No measurement may be suppressed"
+    prediction: "Adding `|| true` to any line of any gate makes the guard test fail naming file and line"
+    test: "tests/falsification_dogfood_scripts_declare_mutations.rs::no_gate_script_swallows_a_measurement"
+    if_fails: "The measurement it guards can no longer fail, and the gate reports green over it"
+
+  - id: FALSIFY-DF-004
+    rule: "The suite may not shrink below the gates the receipt names"
+    prediction: "Deleting scripts/dogfood/coverage.sh makes the guard test fail naming gate F"
+    test: "tests/falsification_dogfood_scripts_declare_mutations.rs::the_expected_gates_are_all_present"
+    if_fails: "Every quantifier in this contract ranges over a smaller set than the receipt claims"
+
+  - id: FALSIFY-DF-005
+    rule: "The repo's dogfood skill cannot be shadowed by a user-scope one"
+    prediction: "Renaming the skill back to `dogfood` makes the guard test fail on the frontmatter's first line"
+    test: "tests/falsification_dogfood_skill_is_named.rs::its_first_frontmatter_line_declares_the_unshadowable_name"
+    if_fails: "The release gate a contributor believes they are running is silently a different document"
+
+  - id: FALSIFY-DF-006
+    rule: "Exactly one skill claims the name"
+    prediction: "Restoring .claude/skills/dogfood/ alongside the renamed one makes the guard test fail"
+    test: "tests/falsification_dogfood_skill_is_named.rs::nothing_in_the_tree_is_still_called_dogfood"
+    if_fails: "A rename that leaves the old copy behind has not removed the collision"
+
+qa_gate:
+  id: F-DF-001
+  name: "forjar-dogfood v1 — the standing gates"
+  description: "Eight gates, each with a registered one-line mutation, wired into make targets a human runs before publishing"
+  checks:
+    - "gate_b_comply"
+    - "gate_c_surface"
+    - "gate_d_docs"
+    - "gate_f_coverage"
+    - "gate_g_contracts"
+    - "gate_h_crux"
+    - "gate_r_release"
+    - "the_gates_are_admissible"
+    - "the_skill_is_unshadowable"
+  pass_criteria: "make dogfood exits 0 and both falsification test binaries pass"
+  falsification: "Apply any one `mutation:` above and that gate exits 1; add `|| true` anywhere in scripts/dogfood/ and FALSIFY-DF-003 goes red"
+
+verification_level: L2
