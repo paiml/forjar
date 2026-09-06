@@ -367,3 +367,21 @@ pub fn rename_stack(cfg: &Path, old: &str, new: &str, content: &str) {
     }
     std::fs::write(cfg, out).unwrap();
 }
+
+/// PMAT-182: the numbered generations this state dir holds, sorted.
+///
+/// The SECOND retention path. `snapshot_names` reads `snapshots/`, which an
+/// operator restores by name; this reads `generations/`, which is what `undo`
+/// and `rollback --generation` target — and what `gc_generations` trims by a
+/// keep count that knows nothing about which stack wrote which number.
+pub fn generation_numbers(state: &Path) -> Vec<u32> {
+    let Ok(entries) = std::fs::read_dir(state.join("generations")) else {
+        return Vec::new();
+    };
+    let mut nums: Vec<u32> = entries
+        .flatten()
+        .filter_map(|e| e.file_name().to_string_lossy().parse::<u32>().ok())
+        .collect();
+    nums.sort_unstable();
+    nums
+}

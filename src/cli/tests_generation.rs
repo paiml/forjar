@@ -210,6 +210,52 @@ mod tests {
         assert!(gen_dir.join("4").exists());
     }
 
+    /// PMAT-182: the SECOND retention path. `gc_generations` removes the
+    /// oldest generation dirs by keep count with no notion of which stack
+    /// wrote them, and generations are numbered per STATE DIR — so in a dir
+    /// several stacks share, one stack's apply deletes the generations its
+    /// neighbours' `undo` would have targeted. PMAT-177 guarded the snapshot
+    /// sweep; this is the same defect one directory over, and the guard is
+    /// asked of the same record, through the same helper.
+    #[test]
+    fn generation_gc_is_skipped_in_a_dir_holding_more_than_one_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+        for _ in 0..5 {
+            create_generation(&state_dir, None).unwrap();
+        }
+        write_global_lock(&state_dir, &["alpha", "bravo"]);
+
+        gc_generations(&state_dir, 2, false);
+
+        let gen_dir = state_dir.join("generations");
+        for num in 0..5 {
+            assert!(
+                gen_dir.join(num.to_string()).exists(),
+                "generation {num} was deleted out of a dir alpha and bravo share"
+            );
+        }
+    }
+
+    /// ANTI-VACUITY for the row above: one stack in the dir prunes exactly as
+    /// before. A sweep that refuses to run at all satisfies the guard and
+    /// grows the dir without bound.
+    #[test]
+    fn generation_gc_of_a_single_stack_dir_is_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = setup_state(dir.path());
+        for _ in 0..5 {
+            create_generation(&state_dir, None).unwrap();
+        }
+        write_global_lock(&state_dir, &["alpha"]);
+
+        gc_generations(&state_dir, 2, false);
+
+        let gen_dir = state_dir.join("generations");
+        assert!(!gen_dir.join("0").exists(), "the oldest must still go");
+        assert!(gen_dir.join("4").exists(), "the newest must still stay");
+    }
+
     #[test]
     fn test_gc_noop_when_under_limit() {
         let dir = tempfile::tempdir().unwrap();

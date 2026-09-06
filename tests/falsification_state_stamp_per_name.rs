@@ -40,6 +40,11 @@ mod harness;
 #[path = "common/stamp_rename_cases.rs"]
 mod rename_cases;
 
+// PMAT-182 (S1, round 2). The second retention path — `gc_generations`, which
+// PMAT-177 left unguarded — in its own file for the same reason.
+#[path = "common/stamp_gc_cases.rs"]
+mod gc_cases;
+
 use harness::*;
 
 /// (a) THE BLOCKER. Three configs, one state dir, zero warnings — and the lock
