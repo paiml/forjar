@@ -2279,3 +2279,93 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-184
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: publish-from-tag.sh writes .publish-* metadata into the tag worktree after its clean-tree gate, so cargo publish refuses the root crate for uncommitted files (PP quorum q1, measured)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-06T21:09:19Z
+  updated: 2026-09-06T21:09:19Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-185
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: publish-from-tag.sh polls the index with grep -qF on cargo search, which collides on prefixes and never terminates once a newer version exists (PP quorum q1)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-06T21:09:19Z
+  updated: 2026-09-06T21:09:19Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-186
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: publish-from-tag.sh''s topological sort does not filter dev-dependencies, so a dev-dep back-edge is reported as a cycle (PP quorum q1)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-06T21:09:20Z
+  updated: 2026-09-06T21:09:20Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-187
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S3: publish-from-tag test C does not pin the detached worktree, and the header''s --detach mutation claim is vacuous because git detaches at a tag anyway (PP quorum q1)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-06T21:09:21Z
+  updated: 2026-09-06T21:09:21Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-188
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S3: crux-1.26.0.md cites src/core/state/stamp.rs (a path that exists on no branch) with stale line ranges, copies one adopt() rationale across the Nix, Pulumi and Kubernetes rows, and overstates the emptied-selection refusal (CX quorum q1)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-06T21:09:21Z
+  updated: 2026-09-06T21:09:21Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
