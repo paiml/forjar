@@ -135,20 +135,53 @@ fn a_file_less_stamp_never_matches() {
     );
 }
 
-/// PMAT-175 leaves ONE reader on the old comparison, and it is stated rather
-/// than hidden: [`stack_conflict`] is asked without a state dir, so a relative
-/// recorded path cannot be resolved and is matched by the part it names. That
-/// branch only ever EXEMPTS a warning — the destructive reader always passes
-/// the dir — but it is a live difference and this row pins it, so tightening it
-/// (by giving `stack_conflict` the state dir its two callers already hold) is a
-/// deliberate change with a failing test, not a silent one.
+// ── the wrong-stack guard asks the same question (PMAT-183) ──────────
+
+/// PMAT-183. PMAT-175 left ONE reader on the old comparison — [`stack_conflict`]
+/// was called without a state dir, so a relative recorded path could not be
+/// resolved and was matched by the part it names. The row that stood here
+/// PINNED that fallback ("without a state dir the comparison is still by the
+/// part it names") and said tightening it would be a deliberate change with a
+/// failing test. This is that change, and this is that test.
+///
+/// The pair is the reproducer's: `../forjar.yaml` recorded, and a
+/// `machines/mini/forjar.yaml` carrying the SAME name. The tail matched, the
+/// guard exempted it, and a genuinely wrong `-f` was recorded in silence.
 #[test]
-fn without_a_state_dir_the_comparison_is_still_by_the_part_it_names() {
+fn the_wrong_file_guard_does_not_match_by_the_part_it_names() {
     let dir = tempfile::tempdir().unwrap();
-    let mini = config_at(dir.path(), "machines/mini/forjar.yaml");
-    assert!(
-        same_config_file("../forjar.yaml", None, &mini),
-        "the unattributed branch cannot tell these apart; see \
-         `identity::unattributed_match`"
+    let root = dir.path();
+    let state = root.join("state");
+    let top = config_at(root, "forjar.yaml");
+    let mini = config_at(root, "machines/mini/forjar.yaml");
+    update_global_lock(&state, "shared", Some(&top), &results("box")).unwrap();
+    let lock = load_global_lock(&state).unwrap().unwrap();
+
+    assert_eq!(
+        stack_conflict(&lock, "shared", Some(&mini), &["box".to_string()]),
+        Some(StackConflict::OtherFile {
+            old: "../forjar.yaml".to_string()
+        }),
+        "the same name from a file that only shares the recorded basename is \
+         the GH-377 case, and the guard was silent on it"
+    );
+}
+
+/// ANTI-VACUITY: the file the stamp actually records is never a conflict, so
+/// the tightened comparison does not warn on every ordinary apply — which is
+/// precisely what the relative form exists to prevent.
+#[test]
+fn the_file_the_stamp_records_is_never_a_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let state = root.join("state");
+    let top = config_at(root, "forjar.yaml");
+    update_global_lock(&state, "shared", Some(&top), &results("box")).unwrap();
+    let lock = load_global_lock(&state).unwrap().unwrap();
+
+    assert_eq!(
+        stack_conflict(&lock, "shared", Some(&top), &["box".to_string()]),
+        None,
+        "re-applying a stack from the very file its stamp records must stay silent"
     );
 }

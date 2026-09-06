@@ -45,6 +45,11 @@ mod rename_cases;
 #[path = "common/stamp_gc_cases.rs"]
 mod gc_cases;
 
+// PMAT-183 (S2, round 2). The wrong-stack guard's own comparison — the one
+// reader PMAT-175 left on the suffix match — likewise.
+#[path = "common/stamp_wrong_file_cases.rs"]
+mod wrong_file_cases;
+
 use harness::*;
 
 /// (a) THE BLOCKER. Three configs, one state dir, zero warnings — and the lock
