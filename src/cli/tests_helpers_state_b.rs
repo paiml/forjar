@@ -369,26 +369,56 @@ fn pre_apply_generation_no_state() {
 fn maybe_rollback_generation_disabled() {
     let dir = tempfile::tempdir().unwrap();
     // Should return immediately without doing anything
-    maybe_rollback_generation(false, dir.path(), Some(0), false);
+    assert!(maybe_rollback_generation(false, dir.path(), Some(0), false).is_ok());
 }
 
 #[test]
 fn maybe_rollback_generation_no_pre_gen() {
     let dir = tempfile::tempdir().unwrap();
     // Should return immediately when pre_apply_gen is None
-    maybe_rollback_generation(true, dir.path(), None, false);
+    assert!(maybe_rollback_generation(true, dir.path(), None, false).is_ok());
 }
 
 #[test]
 fn maybe_rollback_generation_missing_gen_dir() {
     let dir = tempfile::tempdir().unwrap();
     // Should print warning but not panic
-    maybe_rollback_generation(true, dir.path(), Some(99), false);
+    assert!(maybe_rollback_generation(true, dir.path(), Some(99), false).is_ok());
 }
 
 #[test]
 fn maybe_rollback_generation_verbose() {
     let dir = tempfile::tempdir().unwrap();
     // Missing generation dir — triggers error path, not verbose success
-    maybe_rollback_generation(true, dir.path(), Some(0), true);
+    assert!(maybe_rollback_generation(true, dir.path(), Some(0), true).is_ok());
+}
+
+/// PMAT-174: the multi-stack refusal leaves as an `Err`, where the caller can
+/// put it in front of the operator, rather than as `warning: generation
+/// rollback failed` under an error about the resources.
+#[test]
+fn maybe_rollback_generation_propagates_the_multi_stack_refusal() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path();
+    let mut lock = crate::core::state::new_global_lock("alpha");
+    for name in ["alpha", "bravo"] {
+        lock.stacks.insert(
+            name.to_string(),
+            crate::core::types::StackStamp {
+                file: Some(format!("../{name}/forjar.yaml")),
+                last_apply: "2026-01-01T00:00:00Z".to_string(),
+                generator: "forjar test".to_string(),
+                machines: vec![name.to_string()],
+                outputs: Vec::new(),
+            },
+        );
+    }
+    crate::core::state::save_global_lock(state, &lock).unwrap();
+
+    let err = maybe_rollback_generation(true, state, Some(3), false)
+        .expect_err("a rollback in a two-stack dir must refuse, not warn");
+    assert!(
+        err.contains("PMAT-162") && err.contains("'alpha'") && err.contains("'bravo'"),
+        "the refusal must name the ticket and the stacks it would revert: {err}"
+    );
 }

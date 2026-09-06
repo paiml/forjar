@@ -56,6 +56,11 @@ pub(crate) fn cmd_apply_scoped(
     scope: &ApplyScope,
 ) -> Result<(), String> {
     warn_sequential_ignored(sequential);
+    // PMAT-174: the FIRST gate, above the config, the sockets and the drift
+    // pass, because it is about the arguments rather than the config — a
+    // promise `--rollback-on-failure` makes that a shared state dir cannot
+    // keep. Everything below this line either reads the state dir or writes it.
+    super::apply_preflight::rollback_on_failure_gate(rollback_on_failure, dry_run, state_dir)?;
 
     use std::time::Instant;
     let t_total = Instant::now();
@@ -314,7 +319,8 @@ fn apply_failure_path(
 ) -> String {
     let (total_converged, total_failed, total_unchanged) = counts;
     // FJ-1388: Generation-based rollback on failure
-    maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
+    let rollback =
+        maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
     super::apply_output::notify_on_failure(
         notify,
         config,
@@ -323,7 +329,14 @@ fn apply_failure_path(
         t_total,
         verbose,
     );
-    format!("{total_failed} resource(s) failed")
+    // PMAT-174: a REFUSED rollback is part of what the operator is told, not a
+    // warning under an error about something else. `rollback_on_failure_gate`
+    // makes this unreachable from `apply`; keeping it means the message cannot
+    // go missing if a future path arrives here without passing that gate.
+    match rollback {
+        Ok(()) => format!("{total_failed} resource(s) failed"),
+        Err(refusal) => format!("{total_failed} resource(s) failed; {refusal}"),
+    }
 }
 
 /// Parse the config and fold in every *input* that can still change it before
