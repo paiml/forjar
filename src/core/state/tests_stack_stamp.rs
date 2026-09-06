@@ -415,3 +415,74 @@ fn a_migrated_stamp_matches_any_file_once_then_pins() {
     );
     assert!(stack_written_from_other_file(&lock, "alpha", Some(&other)).is_some());
 }
+
+// ── a rename is one lineage (PMAT-161 S2) ────────────────────────────
+
+#[test]
+fn a_rename_retires_the_old_names_stamp_into_the_new_one() {
+    let dir = tempfile::tempdir().unwrap();
+    // ONE file, applied under two names in turn: that is a rename, and the
+    // file is the only evidence of it the lock has.
+    let file = config_file(dir.path(), "alpha");
+    let state = dir.path().join("state");
+
+    update_global_lock(&state, "alpha", Some(&file), &results("mini")).unwrap();
+    persist_outputs(
+        &state,
+        "alpha",
+        &outputs_of(&[("a_host", "10.0.0.1")]),
+        false,
+    )
+    .unwrap();
+    update_global_lock(&state, "alpha2", Some(&file), &results("mini")).unwrap();
+
+    let lock = load_global_lock(&state).unwrap().unwrap();
+    assert_eq!(
+        stack_names(&lock),
+        ["alpha2"],
+        "the old name's stamp must be retired, or one config's dir counts as \
+         two stacks and its own restore is refused for ever"
+    );
+    let stamp = lock.stamp_for("alpha2").unwrap();
+    assert_eq!(stamp.machines, ["mini"], "the machines move with the name");
+    assert_eq!(
+        stamp.outputs,
+        ["a_host"],
+        "and so does ownership of the outputs, which are still in the map"
+    );
+    assert_eq!(lock.outputs["a_host"], "10.0.0.1");
+    assert_eq!(
+        multi_stack_restore_refusal(&lock, "state", "generation 1"),
+        None,
+        "after the retirement the multi-stack count is honest"
+    );
+}
+
+#[test]
+fn a_different_file_taking_a_renamed_stacks_machine_still_conflicts() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = config_file(dir.path(), "alpha");
+    let other = config_file(dir.path(), "other");
+    let state = dir.path().join("state");
+
+    update_global_lock(&state, "alpha", Some(&file), &results("mini")).unwrap();
+    update_global_lock(&state, "alpha2", Some(&file), &results("mini")).unwrap();
+    let lock = load_global_lock(&state).unwrap().unwrap();
+
+    // Anti-vacuity: retiring a rename must not retire a genuinely different
+    // stack. alpha3 comes from another file and would write alpha2's machine.
+    assert_eq!(
+        stack_conflict(&lock, "alpha3", Some(&other), &["mini".to_string()]),
+        Some(StackConflict::MachineOwnedBy {
+            machine: "mini".to_string(),
+            stack: "alpha2".to_string(),
+        })
+    );
+    update_global_lock(&state, "alpha3", Some(&other), &results("mini")).unwrap();
+    let lock = load_global_lock(&state).unwrap().unwrap();
+    assert_eq!(
+        stack_names(&lock),
+        ["alpha2", "alpha3"],
+        "a different file is a second stack, not a rename: both stamps stand"
+    );
+}

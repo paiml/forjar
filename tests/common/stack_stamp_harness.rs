@@ -249,3 +249,27 @@ pub fn fleet() -> (Fleet, Vec<String>) {
         warned,
     )
 }
+
+/// PMAT-161 (S2): RENAME a stack in place — same file, same resource ids, same
+/// machine, a new `name:` and new content.
+///
+/// The identity that matters is the config FILE: `write_stack` with a new name
+/// would also rename the resource (`<name>_file`), which is an edit to the
+/// stack, not a rename OF it. The content changes with it so the apply that
+/// follows moves the host, without which the undo that follows is a no-op and
+/// "allowed" cannot be told from "did nothing".
+pub fn rename_stack(cfg: &Path, old: &str, new: &str, content: &str) {
+    let body = std::fs::read_to_string(cfg).unwrap();
+    let mut out = String::new();
+    for line in body.lines() {
+        if line == format!("name: {old}") {
+            out.push_str(&format!("name: {new}\n"));
+        } else if line.trim_start().starts_with("content:") {
+            out.push_str(&format!("    content: \"{content}\\n\"\n"));
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    std::fs::write(cfg, out).unwrap();
+}

@@ -382,3 +382,85 @@ fn a_single_stack_dir_behaves_exactly_as_before() {
         "a single-stack dir must print exactly what it printed before #469:\n{out}"
     );
 }
+
+/// (g) PMAT-161 S2. A RENAME is one lineage, not two stacks.
+///
+/// The same config file applied under a new `name:` used to leave the old
+/// name's stamp in `stacks`, so a dir one operator has ever applied one config
+/// to "held 2 stacks" — and the multi-stack refusal above, which counts
+/// exactly that, refused the renamed stack's own undo for ever. The documented
+/// remedy ("run `forjar apply` once to re-stamp") is what CREATED the second
+/// entry, so it could not be undone by repeating it.
+///
+/// The apply that finds a stamp recording the very `-f` it is being applied
+/// from retires that stamp into the new name — machines and outputs move with
+/// it — and says so in one `note:` line. It is not a warning: nothing is
+/// wrong, and this is the rename `stack_conflict` has always exempted.
+#[test]
+fn a_renamed_stack_is_one_lineage_not_two_stacks() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    let state = root.join("state");
+    let alpha = write_stack(&root, "alpha", "alpha", "mini", "one");
+    assert_eq!(apply(&alpha, &state).0, 0, "the first apply must succeed");
+
+    // The rename: same file, same machine, same resource ids — only `name:`
+    // and the content the undo below has to revert.
+    rename_stack(&alpha, "alpha", "alpha-renamed", "two");
+    let (rc, out) = apply(&alpha, &state);
+    assert_eq!(rc, 0, "the apply after a rename failed:\n{out}");
+    assert!(
+        out.contains("note: stack 'alpha' renamed to 'alpha-renamed'"),
+        "the retirement must be stated once, as a note; got:\n{out}"
+    );
+    assert!(
+        warnings(&out).is_empty(),
+        "a rename is not a wrong-stack condition and must not warn:\n{out}"
+    );
+
+    let lock = lock_of(&state);
+    let names: Vec<&str> = lock.stacks.keys().map(String::as_str).collect();
+    assert_eq!(
+        names,
+        ["alpha-renamed"],
+        "the old name's stamp must be RETIRED, not left beside the new one — \
+         it is what makes a one-config dir count as two stacks"
+    );
+    assert_eq!(
+        lock.stamp_for("alpha-renamed").unwrap().machines,
+        ["mini"],
+        "the machines the old name owned move to the new one"
+    );
+
+    assert_eq!(
+        marker(&root, "alpha"),
+        "two\n",
+        "fixture: the apply moved the host"
+    );
+    let (rc, out) = undo(&alpha, &state);
+    assert_eq!(
+        rc, 0,
+        "a renamed stack's own undo was refused as a multi-stack restore:\n{out}"
+    );
+    assert_eq!(
+        marker(&root, "alpha"),
+        "one\n",
+        "the undo was allowed but reverted nothing:\n{out}"
+    );
+
+    // ANTI-VACUITY. The retirement must not swallow a genuinely second stack:
+    // bravo has its own file and its own machine, so the dir really does hold
+    // two and every restore in it is still refused.
+    let bravo = write_stack(&root, "bravo", "bravo", "lambda-labs", "one");
+    assert_eq!(apply(&bravo, &state).0, 0, "bravo's apply must succeed");
+    assert_eq!(apply(&alpha, &state).0, 0, "the renamed stack re-applies");
+    let (rc, out) = undo(&alpha, &state);
+    assert_ne!(
+        rc, 0,
+        "a dir holding two real stacks must still refuse:\n{out}"
+    );
+    assert!(
+        out.contains("PMAT-162") && out.contains("'bravo'"),
+        "the refusal must still name the other stack and the ticket; got:\n{out}"
+    );
+}
