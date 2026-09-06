@@ -32,3 +32,33 @@ exempt. `build.rs` looks for `../../contracts/*.yaml` from the upstream
 repository and finds none here, so it reports "0 preconditions, 0
 postconditions" — the crate's own binding self-check is inert in this tree;
 forjar's `build.rs` verifies forjar's bindings.
+
+## The aprender corpus tests (#452)
+
+The same missing corpus that makes `build.rs` inert makes 38 of the crate's
+1,376 unit tests fail: they read `contracts/aprender/binding.yaml`, copy
+`contracts/softmax-kernel-v1.yaml`, query the index for `softmax`/`RMSNorm`, or
+assert `contracts.len() > 100`. All of those describe **aprender's** corpus.
+forjar vendors the crate, not the corpus, so every one of them fails on
+`NotFound` or an empty result set — a statement about the vendoring, never about
+the code under test, and 38 permanent reds that make a real regression in this
+crate invisible.
+
+They are gated by
+
+```rust
+#[cfg_attr(not(feature = "aprender-corpus"), ignore = "<reason>")]
+```
+
+which is deliberately **not** `#[cfg(...)]`: the bodies still compile on every
+run, so they cannot rot against an API change, and libtest prints the reason per
+test, so the exclusion is counted and legible in the output rather than silent.
+Run them with the corpus present:
+
+```bash
+cargo test -p forjar-contracts --lib --features aprender-corpus
+```
+
+`scripts/dogfood/coverage.sh` (gate F) asserts the ignored count against a
+recorded ceiling that may only shrink, so a newly broken test cannot be parked
+behind this feature without the gate saying so.

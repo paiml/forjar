@@ -117,6 +117,7 @@ equations:
 }
 
 #[test]
+#[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
 fn score_real_softmax_contract() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../contracts/softmax-kernel-v1.yaml");
@@ -142,6 +143,7 @@ fn grade_display_all_variants() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
 fn contract_score_display() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../contracts/softmax-kernel-v1.yaml");

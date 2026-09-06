@@ -53,8 +53,8 @@ fn skill_files() -> Vec<PathBuf> {
 
 /// The lines between the opening `---` and the closing `---`.
 fn frontmatter(path: &Path) -> Vec<String> {
-    let text = std::fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
+    let text =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
     let mut lines = text.lines();
     let opener = lines.next().unwrap_or_default();
     assert_eq!(
