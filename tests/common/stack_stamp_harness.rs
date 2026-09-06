@@ -211,6 +211,14 @@ pub fn lock_of(state: &Path) -> forjar::core::types::GlobalLock {
     state::load_global_lock(state).unwrap().unwrap()
 }
 
+/// The stack names stamped in `state`, in the order the lock records them.
+///
+/// PMAT-161 asserts on this map constantly — it is the count
+/// `multi_stack_restore_refusal` refuses on — so it is read in one place.
+pub fn stack_names(state: &Path) -> Vec<String> {
+    lock_of(state).stacks.keys().cloned().collect()
+}
+
 pub fn marker(root: &Path, dir: &str) -> String {
     std::fs::read_to_string(root.join(dir).join("marker.txt")).unwrap()
 }
