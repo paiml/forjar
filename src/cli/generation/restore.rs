@@ -22,8 +22,16 @@ use std::path::Path;
 /// `--force` and `--yes` does not lift it — an override here is the data loss
 /// with a flag on it. Stack-scoped restore is PMAT-162.
 ///
-/// `generation` is `None` for `undo --resume`, which asks before it has read
-/// the ledger that names its target.
+/// Two callers ask EARLIER than the primitive, because they have destructive
+/// work in front of it and a guard behind that work is the defect with an error
+/// message on it: `cmd_undo`, which destroys the resources the target
+/// generation does not hold BEFORE it restores, and `cmd_undo_resume`, which
+/// never reaches the primitive at all. The call here stays regardless — it is
+/// what a future caller of `restore_generation_to_state` inherits, and what
+/// `rollback --generation` and `apply --rollback-on-failure` arrive at.
+///
+/// `generation` is `None` only for `undo --resume`, which asks before it has
+/// read the ledger that names its target.
 ///
 /// Unchanged: a dir with no global lock, an unreadable one, a legacy 1.0 dir
 /// (one stamp after migration) and any single-stack dir.

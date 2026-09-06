@@ -292,6 +292,18 @@ pub(crate) fn cmd_undo(
     if !yes {
         return Err("undo requires --yes to confirm".to_string());
     }
+    // PMAT-161 (#469): the LAST read-only line. Everything below writes —
+    // `stage_target_config` puts a file beside the operator's config,
+    // `destroy_absent_from_target` removes resources from the HOST, and only
+    // then does `rollback_to_generation` reach its own copy of this guard. A
+    // command that destroys and then refuses is not a guard, it is the defect
+    // with an error message on it (INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE).
+    //
+    // The primitive keeps its call regardless: it is what a future caller
+    // inherits, and `rollback --generation` arrives there with no config in the
+    // picture at all. `Some(target)`, so the refusal is word for word the one
+    // that call would have printed for this same restore.
+    super::generation::restore::refuse_multi_stack_restore(state_dir, Some(target))?;
 
     let (replay, target_config) = stage_target_config(file, target, &target_body)?;
 

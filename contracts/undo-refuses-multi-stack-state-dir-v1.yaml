@@ -1,6 +1,6 @@
 ---
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   kind: pattern
   created: "2026-09-06"
   author: "PAIML Engineering"
@@ -164,10 +164,15 @@ invariants:
       The guard sits on the function that writes the dir back, not on any verb.
       `rollback --generation` reaches it with no config in the picture at all
       and `apply --rollback-on-failure` reaches it from the failure path, so a
-      guard in `undo` would leave both open. The one exception is stated and
-      tested: `undo --resume` never reaches that function — it re-applies the
-      target generation's recorded config directly — and carries its own call
-      to the same guard.
+      guard in `undo` would leave both open. Two verbs ALSO ask earlier, and
+      both are stated and tested: `undo --resume` never reaches that function
+      at all (it re-applies the target generation's recorded config directly),
+      and `undo` has destructive work in front of it —
+      `undo_prune::destroy_absent_from_target` removes the resources the target
+      generation does not hold, from the host, before the restore is called, so
+      the primitive's copy of the guard fires too late for that verb. Earlier
+      calls are additions to the guard at the primitive, never replacements:
+      deleting the primitive's call must still turn MSD-04 red.
 
   - id: INV-SINGLE-STACK-UNCHANGED
     statement: >-
@@ -208,6 +213,21 @@ fixtures:
       #   write_stack(root, "alpha", "alpha", "mini", "one"); apply
       #   write_stack(root, "alpha", "alpha", "mini", "two"); apply
 
+  - id: FX-THREE-STACKS-PLUS-A-DROPPED-RESOURCE
+    description: >-
+      FX-THREE-STACKS, then alpha applies a SECOND file resource
+      (`alpha_extra` → `alpha/extra.txt`) over a dir whose earlier generations
+      were written without it. That asymmetry is what makes the target
+      generation DROP a resource, which is what sends `undo` through
+      `undo_prune::destroy_absent_from_target` with real work to do. The
+      three-stack fixture alone cannot exercise the ordering: alpha's resource
+      SET never changes there, only its content.
+    setup: |
+      # tests/common/stack_stamp_harness.rs::fleet(), then
+      #   write_stack_plus_extra(root, "alpha", "alpha", "mini", "one")
+      #   forjar apply -f $root/alpha/forjar.yaml --state-dir $root/state --yes
+      # undo's target then holds alpha_file but not alpha_extra.
+
   - id: FX-LOCK-BY-HAND
     description: >-
       A global lock written by hand with N stamps, over a state dir with one
@@ -225,7 +245,14 @@ proof_obligations:
     formal: "|stacks(D)| > 1 ⟹ exit ≠ 0 ∧ Δstate = ∅"
     tolerance: 0.0
     applies_to: "generation::rollback_to_generation and every caller of it"
-    discharged_by: "FALSIFY-MSD-01, FALSIFY-MSD-02, FALSIFY-MSD-03, FALSIFY-MSD-04, FALSIFY-MSD-06"
+    discharged_by: "FALSIFY-MSD-01, FALSIFY-MSD-02, FALSIFY-MSD-03, FALSIFY-MSD-04, FALSIFY-MSD-06, FALSIFY-MSD-08"
+
+  - type: safety
+    property: "The refusal precedes every destructive step of the asking verb, not just the restore"
+    formal: "|stacks(D)| > 1 ⟹ ¬∃ w ∈ writes(e) : w before refuse(e)"
+    tolerance: 0.0
+    applies_to: "cmd_undo, whose destroy of the resources the target generation drops runs before the restore"
+    discharged_by: "FALSIFY-MSD-08"
 
   - type: completeness
     property: "Every entry point onto the restore primitive is covered"
@@ -424,13 +451,56 @@ falsification_tests:
       The recovery path stops working exactly when it is needed.
     owner: forjar
 
+  - id: FALSIFY-MSD-08
+    rule: INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE
+    defect: undo-destroys-and-then-refuses
+    severity: HIGH
+    prediction: >-
+      `forjar undo --yes` in a shared dir whose target generation DROPS a
+      resource is refused with the resource still on the host: exit non-zero,
+      PMAT-162 named, 'bravo' and 'charlie' listed, `alpha/extra.txt` still
+      readable and every path under the state dir byte-identical.
+    fixture: FX-THREE-STACKS-PLUS-A-DROPPED-RESOURCE
+    command: |
+      cargo test --test falsification_state_stamp_per_name \
+        a_refused_undo_destroys_nothing_on_the_way_to_refusing
+    red_output: |
+      Destroying 1 resource(s) the target generation does not hold: alpha_extra
+        - alpha_extra (file)
+      Destroy complete: 1 resources removed.
+      error: refusing to restore generation 2: state dir …/state holds 3 stacks
+      ('alpha', 'bravo', 'charlie') …
+      assertion `left == right` failed: undo DESTROYED a resource and then
+      refused the restore — the guard is below the destroy
+        left: None
+       right: Some("extra\n")
+    can_go_red: >-
+      Measured 2026-09-06 at 40829d02, with the guard already at the primitive
+      and MSD-01..07 all green: `cmd_undo` calls
+      `undo_prune::destroy_absent_from_target` BEFORE
+      `rollback_to_generation`, so the destroy ran to completion and the
+      refusal arrived after it. Goes red again for any future step inserted
+      between `cmd_undo`'s own call and the restore. MSD-01 cannot see it: its
+      target generations drop nothing, so the destroy is a no-op there — which
+      is why this row carries its own fixture.
+    if_fails: >-
+      The refusal reads as a guard and behaves as a warning after the fact: the
+      operator is told the restore was refused while the resources it would
+      have dropped are already gone from the host, and gone with the current
+      config's definitions, which the refused restore then leaves no lock entry
+      for.
+    owner: forjar
+
 enforcement:
   restore_asks_the_lock_before_it_writes:
     description: >-
       `generation::rollback_to_generation` calls
       `generation::restore::refuse_multi_stack_restore` before it reads the
-      generation or touches the state dir, and `undo --resume` calls the same
-      function before it reads the progress ledger.
+      generation or touches the state dir; `undo --resume` calls the same
+      function before it reads the progress ledger; and `cmd_undo` calls it
+      once its plan is confirmed and before its FIRST write —
+      `stage_target_config`, then `undo_prune::destroy_absent_from_target`,
+      then the restore.
     check: "cargo test --test falsification_state_stamp_per_name"
     severity: "ERROR"
     layer: process
@@ -438,9 +508,17 @@ enforcement:
     ci_gate: required
     notes: |
       The guard lives beside `restore_generation_to_state`, the function that
-      empties the dir, so a future caller inherits it. Placing it in `cmd_undo`
-      was the tempting half-fix and would have left `rollback --generation` and
-      `apply --rollback-on-failure` open.
+      empties the dir, so a future caller inherits it. Placing it ONLY in
+      `cmd_undo` was the tempting half-fix and would have left `rollback
+      --generation` and `apply --rollback-on-failure` open; placing it only at
+      the primitive left `cmd_undo`'s destroy in front of it (MSD-08). Both
+      calls are load-bearing and neither replaces the other.
+
+      `rollback --generation` and `apply --rollback-on-failure` were re-checked
+      for the same ordering hazard: both reach `rollback_to_generation`
+      directly (`dispatch_misc::dispatch_misc_fleet`,
+      `helpers_state::maybe_rollback_generation`) with nothing destructive
+      between the verb and the guard, so they need no earlier call.
 
   the_refusal_is_asserted_on_the_disk_not_on_the_text:
     description: >-
@@ -456,7 +534,9 @@ enforcement:
       A non-zero exit proves nothing about what already happened. `undo`
       destroys resources the target generation does not hold BEFORE it
       restores, so "exits non-zero" and "changed nothing" are genuinely
-      different claims — see GAP-DESTROY-RUNS-BEFORE-THE-RESTORE.
+      different claims — MSD-08 is the row that separates them, and it needs a
+      fixture whose target generation actually drops a resource, because the
+      fingerprint alone cannot see a destroy that had nothing to destroy.
 
   no_second_meaning_for_yes:
     description: >-
@@ -496,15 +576,22 @@ known_gaps:
       should be NARROWED (to the generations a stack does not own), not
       removed.
 
-  - id: GAP-DESTROY-RUNS-BEFORE-THE-RESTORE
+  - id: GAP-READ-ONLY-UNDO-PATHS-STILL-EXIT-ZERO
     statement: >-
-      `cmd_undo` destroys the resources the target generation does not hold
-      BEFORE calling the restore, so in a shared dir where the target drops
-      resources, that destroy still runs and only then does the restore refuse.
-      The tests here fingerprint the state dir and observe no change because
-      their target generations drop nothing. Moving the guard above the destroy
-      requires `undo_prune`, which was outside this change's scope; it belongs
-      with PMAT-162.
+      CLOSED, in part: `cmd_undo` now asks the guard before its own first
+      write, so nothing is destroyed on the way to the refusal (MSD-08). What
+      remains open is deliberate and read-only. The call sits after the plan is
+      printed, after the `--dry-run` return and after the "already at
+      generation N" return, so in a shared dir `undo --dry-run` still previews
+      and a no-op `undo` still exits 0 — neither writes a byte, and both
+      behaved this way before the guard existed. Moving it above those returns
+      also refuses the renamed-stack remedy that
+      `falsification_undo_state_dir_interlock::a_renamed_stack_is_unblocked_by_one_apply`
+      pins, because a rename leaves the old name stamped and `|stacks(D)|`
+      counts stamps, not stacks (see GAP-STACKS-IS-A-RECORD-NOT-A-TRUTH). That
+      renamed stack's REAL undo is refused today, at the primitive; whether the
+      count should discount a stamp the same `-f` wrote is PMAT-162's
+      question, not this contract's.
 
   - id: GAP-STACKS-IS-A-RECORD-NOT-A-TRUTH
     statement: >-
@@ -538,14 +625,17 @@ qa_gate:
     - "INV-GUARD-AT-THE-PRIMITIVE"
     - "INV-SINGLE-STACK-UNCHANGED"
   pass_criteria: >-
-    All seven falsification rows pass against the fixed binary, AND MSD-01..04
+    All eight falsification rows pass against the fixed binary, AND MSD-01..04
     and MSD-06 still reproduce their recorded red_output at c26c468a (the
-    commit before the guard). A row green against both is not evidence of a
+    commit before the guard), and MSD-08 at 40829d02 (the commit that had the
+    guard at the primitive only). A row green against both is not evidence of a
     fix.
   falsification: >-
     Delete the call in `rollback_to_generation` and MSD-01, MSD-02, MSD-04 and
     MSD-06 go red; delete the call in `cmd_undo_resume` and MSD-03 goes red
-    (with the wrong-reason failure recorded there); write the condition over
+    (with the wrong-reason failure recorded there); delete the call in
+    `cmd_undo` — or move it below `destroy_absent_from_target` — and MSD-08
+    goes red while MSD-01 stays green; write the condition over
     `machines.len()` instead of `stacks.len()` and MSD-05 goes red.
 
 verification_level: L2
