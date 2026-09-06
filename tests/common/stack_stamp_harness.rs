@@ -49,6 +49,37 @@ resources:
     cfg
 }
 
+/// `write_stack` plus a SECOND file resource, `<name>_extra` → `extra.txt`.
+///
+/// The asymmetry is the point: apply this over a dir whose earlier generations
+/// were written without it and the target of an `undo` no longer holds
+/// `<name>_extra`, so the undo reaches `undo_prune::destroy_absent_from_target`
+/// with something real to destroy — the only shape in which "refused" and
+/// "changed nothing" are different claims.
+pub fn write_stack_plus_extra(
+    root: &Path,
+    dir: &str,
+    name: &str,
+    machine: &str,
+    content: &str,
+) -> PathBuf {
+    let cfg = write_stack(root, dir, name, machine, content);
+    let extra = extra_marker(root, dir);
+    let mut body = std::fs::read_to_string(&cfg).unwrap();
+    body.push_str(&format!(
+        "  {name}_extra:\n    type: file\n    machine: {machine}\n    path: {}\n    content: \"extra\\n\"\n",
+        extra.display()
+    ));
+    std::fs::write(&cfg, body).unwrap();
+    cfg
+}
+
+/// Where `write_stack_plus_extra` puts the extra resource's file — the
+/// destroyed candidate, on the HOST rather than in the state dir.
+pub fn extra_marker(root: &Path, dir: &str) -> PathBuf {
+    root.join(dir).join("extra.txt")
+}
+
 pub fn run(args: &[&str]) -> (i32, String) {
     let out = forjar().args(args).output().unwrap();
     let mut merged = String::from_utf8_lossy(&out.stdout).into_owned();

@@ -146,6 +146,63 @@ fn a_state_dir_holding_several_stacks_refuses_every_restore() {
     );
 }
 
+/// (a) continued, and the part the fingerprint above cannot see: WHERE in
+/// `undo` the refusal sits.
+///
+/// `cmd_undo` destroys the resources the target generation does not hold —
+/// `undo_prune::destroy_absent_from_target`, on the host, with the CURRENT
+/// config's definitions — and only then calls the restore. A guard at the
+/// restore therefore fires after the destroy has already run. The test above
+/// does not catch it because its target generations drop nothing: alpha's
+/// resource set never changes there, only its content.
+///
+/// So this fixture makes the target generation drop a resource. alpha applies
+/// a SECOND file resource over a dir whose earlier generations were written
+/// without it; `undo` onto one of those generations wants `alpha_extra` gone.
+/// The refusal must arrive first, and `extra.txt` must still be on disk
+/// afterwards — a command that destroys and then refuses is INV-REFUSAL-IS-
+/// BEFORE-THE-FIRST-BYTE violated, the defect with an error message on it.
+#[test]
+fn a_refused_undo_destroys_nothing_on_the_way_to_refusing() {
+    let (f, _) = fleet();
+    let alpha = write_stack_plus_extra(&f.root, "alpha", "alpha", "mini", "one");
+    let (rc, out) = apply(&alpha, &f.state);
+    assert_eq!(rc, 0, "apply of alpha's second resource failed:\n{out}");
+
+    let extra = extra_marker(&f.root, "alpha");
+    assert_eq!(
+        std::fs::read_to_string(&extra).ok().as_deref(),
+        Some("extra\n"),
+        "fixture: the resource the undo would destroy must exist first"
+    );
+    let before = fingerprint(&f.state);
+
+    let (rc, out) = undo(&alpha, &f.state);
+    assert_ne!(
+        rc, 0,
+        "undo in a dir holding three stacks was not refused:\n{out}"
+    );
+    assert!(
+        out.contains("PMAT-162"),
+        "the refusal must name the ticket that makes restore stack-scoped; got:\n{out}"
+    );
+    assert!(
+        out.contains("bravo") && out.contains("charlie"),
+        "the refusal must list the stacks it would have reverted; got:\n{out}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&extra).ok().as_deref(),
+        Some("extra\n"),
+        "undo DESTROYED a resource and then refused the restore — the guard is \
+         below the destroy:\n{out}"
+    );
+    assert_eq!(
+        fingerprint(&f.state),
+        before,
+        "undo refused, but the destroy had already rewritten the state dir:\n{out}"
+    );
+}
+
 /// (b) The GH-377 case survives, narrowed: the SAME name from a DIFFERENT `-f`.
 /// `apply` warns (it does what its arguments say); `undo` refuses (its plan and
 /// its work would be about different stacks).
