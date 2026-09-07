@@ -65,7 +65,7 @@
  "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "efdc2e5f5d46f9e6623dc486c093678e3d88ea27",
+ "diff_sha256": "5ec5a3fe844a2e0bf6e7fbf6ef5d8c9e66ddb13d",
  "evidence": {
   "files": [
    {
@@ -91,9 +91,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 18411,
-    "sha256": "0635413fef5742c46aec69aec19eaf9668de358ac92f6074471c2a6c3173a803",
-    "blob": "acd3d1bc447291d30a7867a3de624eab365efe63"
+    "bytes": 18718,
+    "sha256": "5c4c33eeb59e2707643c8b0e6d21af04f9fb56f7cbdea9c19f7b4fcedcbc08fb",
+    "blob": "a6e71fa6050c4855fe9a513d2fa0196454938cba"
    },
    {
     "path": ".quorum/evidence/crux-audit-agy.md",
@@ -123,7 +123,7 @@
     "blob": "f4158ea4ae90f7b053fefc2b6f5dcecb264094f8"
    }
   ],
-  "total_bytes": 52284,
+  "total_bytes": 52591,
   "claims_digest": ".quorum/evidence/crux-audit-judges.md"
  }
 }
