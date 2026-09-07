@@ -263,3 +263,38 @@ unbound:
       Per-class levels (none/metadata/content), from the Kubernetes
       audit-policy precedent. Every resource currently emits at full content
       level. Deferred because it changes the config surface.
+
+# Only the mechanisms that SHIPPED are pinned here. The `unbound:` block above
+# lists three equations this contract specifies and the tree does not satisfy;
+# inventing falsifiers for those would turn an honest gap into a green test.
+# Each id below names a test that runs in `ci / gate` today.
+falsification_tests:
+  - id: FALSIFY-RCP-001
+    rule: "A deletion records what it used to be"
+    prediction: "action = deleted ⇒ the row carries before_digest ≠ null"
+    test: "tests/falsification_apply_receipt.rs::a_deleted_resource_is_recorded_with_what_it_used_to_be"
+    if_fails: "The log answers 'how many' and not 'did forjar remove this file?' — the originating incident"
+
+  - id: FALSIFY-RCP-002
+    rule: "A converge records the hash it overwrote"
+    prediction: "action = changed ⇒ before_digest is the pre-apply hash, not the post-apply one"
+    test: "tests/falsification_apply_receipt.rs::a_converge_records_the_hash_it_overwrote"
+    if_fails: "Before and after collapse to the same value and no row describes a change"
+
+  - id: FALSIFY-RCP-003
+    rule: "A first converge has no previous hash to record"
+    prediction: "action = created ⇒ the previous-hash field is absent, not an empty string"
+    test: "tests/falsification_apply_receipt.rs::a_first_converge_omits_the_previous_hash_entirely"
+    if_fails: "A created resource is indistinguishable from one whose predecessor hashed to nothing"
+
+  - id: FALSIFY-RCP-004
+    rule: "Append-only means old lines stay readable"
+    prediction: "a pre-1.14 line without the previous-hash field still deserialises"
+    test: "tests/falsification_apply_receipt.rs::a_pre_existing_log_line_without_previous_hash_still_deserialises"
+    if_fails: "`forjar history` stops reading the forensic window this contract exists to preserve"
+
+  - id: FALSIFY-RCP-005
+    rule: "An unwritable event log is a hard failure, not a warning"
+    prediction: "¬writable(events(m)) ⇒ the run is refused before it mutates"
+    test: "tests/falsification_apply_receipt.rs::an_unwritable_event_log_is_refused_up_front"
+    if_fails: "'forjar did not run' and 'forjar ran and did not record it' stay indistinguishable"

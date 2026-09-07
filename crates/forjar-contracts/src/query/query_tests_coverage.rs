@@ -141,6 +141,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)")]
     fn binding_unbound_path() {
         let index = test_index();
         // Use a fake binding path to trigger the "no binding found" path
@@ -176,6 +177,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn pagerank_enrichment() {
         let index = test_index();
         let params = QueryParams {
@@ -195,6 +197,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)")]
     fn binding_info_unbound_equations() {
         let index = test_index();
         // Use a real binding that doesn't cover all equations of a contract
@@ -234,6 +237,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn violations_enrichment() {
         let index = test_index();
         let params = QueryParams {
@@ -320,6 +324,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn all_projects_triggers_xp_scan() {
         let index = test_index();
         let params = QueryParams {

@@ -298,6 +298,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        not(feature = "aprender-corpus"),
+        ignore = "asserts 100+ contracts — that is aprender's corpus size, not forjar's (#452)"
+    )]
     fn load_contracts_real() {
         let (contracts, errors) = load_contracts(&contracts_dir());
         assert!(contracts.len() > 100, "Expected 100+ contracts");

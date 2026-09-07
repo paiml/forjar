@@ -2369,6 +2369,61 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-201
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: forjar-dogfood gates A (harness receipt per merged PR) and E (quorum receipt per merged
+    PR) are not mechanical — the skill delegated them to an agent and dogfood-release omits them (PMAT-163
+    merge review 2, lanes 2 and 3 at 507c730f)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: '2026-09-07T13:30:00Z'
+  updated: '2026-09-07T13:30:00Z'
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/harness.sh (gate A): every PR merged since the previous v* tag maps to a ticket id
+    and docs/audits/impl-<id>-receipt.md exists, ends with IMPL-<id>-RECEIPT-END and has exactly one verdict:
+    line; gh unreachable or a PR with no ticket id is FAIL, never skipped'
+  - 'scripts/dogfood/quorum.sh (gate E): every PR merged since the previous v* tag has .quorum/<headRefName
+    with / as ->.json at HEAD with quorum.lanes >= 3, judges >= 3, refuters_per_claim >= 3, claims_refuted
+    >= 1, evidence.files non-empty and no waiver key'
+  - make dogfood-release runs both before coverage; the REQUIRED array of falsification_dogfood_scripts_declare_mutations
+    names nine scripts; shim-backed guard tests for both scripts mirror falsification_dogfood_release_check_pr_window
+  - .claude/skills/forjar-dogfood/SKILL.md describes A, E and H as mechanical gates read from make output,
+    allows no Agent tool and provisions no subagents, and still lists no surface
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: Found by the PMAT-163 merge review (quorum-review.sh width 3, lanes 2 and 3 FAIL at 507c730f).
+    Absorbed on the DF branch; S1 because forjar-dogfood is the release blocker and its gate set was short
+    of the ticket.
+- id: PMAT-203
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: CB-200 ratchet re-based to pmat 3.39''s grader — 651 functions below grade A on main (the
+    August baseline commit measures 628 under the same grader, so 23 is real growth); bring it back under
+    628, then keep shrinking (1.27)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: '2026-09-07T15:00:00Z'
+  updated: '2026-09-07T15:00:00Z'
+  spec: null
+  acceptance_criteria:
+  - scripts/ratchets/cb200-baseline.json ceiling <= 628 with pmat 3.39.0 and a fresh index
+  - no function under src/ regresses below its grade at 0776fd82
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found through the PMAT-163 merge review 5: the ratchet was UNMEASURED with CB-200 disabled and
+    REGRESSED (651 > 27) with it enabled; the falsifier in the baseline file shows the instrument changed.'
 - id: PMAT-204
   kind: code
   github_issue: null

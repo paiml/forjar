@@ -172,3 +172,45 @@ enforcement:
     severity: "ERROR"
 
 verification_level: L3
+
+# `enforcement.forced_noop_not_counted_as_converged` names the SOURCE that
+# establishes the invariant. This block names the tests that go red when it
+# stops holding — forjar#378 is the reason the two are listed separately: the
+# debug_assert! was the whole enforcement, and in a release build it reported
+# the disagreement by not existing.
+falsification_tests:
+  - id: FALSIFY-ASD-001
+    rule: "All four step shapes of #129 hold"
+    prediction: "forced/unforced × changed/unchanged each produce their own summary line"
+    test: "tests/test_fj129_force_distinguishability.rs::fj129_force_distinguishability_four_shapes"
+    if_fails: "`--force` collapses 'ran and changed nothing' into 'changed something'"
+
+  - id: FALSIFY-ASD-002
+    rule: "A repair is named, not merely counted"
+    prediction: "a pre-apply finding this run converged appears by resource id in the JSON summary"
+    test: "tests/falsification_apply_summary_names_drift_repair.rs::a_drift_repair_is_named_in_the_json_summary"
+    if_fails: "The summary reports a repair count no operator can attribute to a resource"
+
+  - id: FALSIFY-ASD-003
+    rule: "drift_repaired ranges over pre-apply FINDINGS, not over changes"
+    prediction: "an ordinary config change with no pre-apply finding is not counted as a repair"
+    test: "tests/falsification_apply_summary_names_drift_repair.rs::an_ordinary_config_change_is_not_reported_as_drift"
+    if_fails: "Every edit is reported as drift repair and the count stops meaning anything"
+
+  - id: FALSIFY-ASD-004
+    rule: "The text surface names what the JSON surface names"
+    prediction: "the repaired resource id appears in the human summary too"
+    test: "tests/falsification_apply_summary_names_drift_repair.rs::the_text_summary_names_the_repaired_resource"
+    if_fails: "The distinction exists only on the surface its consumer cannot read"
+
+  - id: FALSIFY-ASD-005
+    rule: "A repair is claimed only for a resource this run converged"
+    prediction: "post_lock[f].status ≠ Converged ⇒ f is not in drift_repaired"
+    test: "tests/falsification_apply_summary_names_drift_repair.rs::an_unrepaired_drift_is_not_counted_as_repaired"
+    if_fails: "forjar claims to have fixed drift it left in place"
+
+  - id: FALSIFY-ASD-006
+    rule: "The distinction is surfaced only when it is meaningful"
+    prediction: "a converged stack with no force and no findings prints the summary it printed before"
+    test: "tests/falsification_apply_summary_names_drift_repair.rs::a_converged_stack_prints_the_same_summary_as_before"
+    if_fails: "Two extra zero-valued lines on every apply, which is how a signal becomes noise"
