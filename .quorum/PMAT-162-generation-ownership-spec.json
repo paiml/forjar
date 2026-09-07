@@ -1,0 +1,129 @@
+{
+ "issue": "PMAT-162 — generation ownership and stack-scoped restore: the spec-first design (v10, reviewed) for the restore that 1.26.0 refuses in a multi-stack state dir — owner metadata per generation, one append-only sequence with parent pointers, lineage by the stamp's name set, a journaled scoped restore, one decision function every writer calls; implementation deferred to 1.27 under this ticket",
+ "quorum": {
+  "lanes": [
+   "v8 review lane 1 (contradiction hunt)",
+   "v8 review lane 2",
+   "v8 review lane 3",
+   "independent-stack review — the plan-stage /teamwork-preview grill and the v1 lanes",
+   "crux — the 1.26.0 CRUX panel on generations, restore and undo"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
+  "rounds": "nine three-lane rounds (v1–v9); v9 PASS 3/3 with no contradicting sentence pair; v10 folded the polish; the shape test pins the document",
+  "claims_confirmed": 19,
+  "claims_refuted": 12,
+  "refuted_claims": [
+   "L1-F1 — docs/specifications/forjar-state-generation-ownership.md:17 — v8 sentence closing the first v7 defect: 'the snapshot the apply itself took a moment earlier, which therefore carries an owner (R1) and is never legacy, so R5 does not arise' and 'R5 itself applies to every verb, `--rollback-on-failure` included: a legacy pre-apply generation cannot occur, but if one were named the refusal stands.' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L1-F2 — docs/specifications/forjar-state-generation-ownership.md:83 — v8 sentence closing the second v7 defect: 'select by file instead of by name, or newest global instead of newest-in-lineage → R3 RED' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L1-F3 — docs/specifications/forjar-state-generation-ownership.md:27 — v8 sentence closing the third v7 defect: 'when a lineage takes back one of its former names, that name is removed from the list, so `former_names` never contains the current name (v7 review)' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L1-F4 — docs/specifications/forjar-state-generation-ownership.md:17 — Contradicting Sentence 1 (R4): 'which is why `apply --rollback-on-failure` is sound: it restores the failing stack's own machines from the pre-apply generation — the snapshot the apply itself took a moment earlier, which therefore carries an owner (R1) and is never legacy, so R5 does not arise' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L1-F5 — docs/specifications/forjar-state-generation-ownership.md:80 — Contradicting Sentence 2 (§9 R8 falsifier): '`apply --rollback-on-failure` for alpha in a shared dir whose pre-apply generation is bravo-owned restores alpha's machines only; bravo byte-identical' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L1-F6 — docs/specifications/forjar-state-generation-ownership.md:17 — R4 crash walk classification: A crash during (i) staging or a torn journal in (ii) (which reads as absent) leaves the staging dir as garbage. A crash in (iii) machine dir renames leaves the state in one of the five shapes. A crash in (iv) global lock write or a torn lock (which reads absent-or-old) results in redo-from-journal. — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L2-F1 — docs/specifications/forjar-state-generation-ownership.md:25 — Rule R4 contradicts the R8 falsifier in §9 and the interface definition in §5 regarding the ownership of the pre-apply generation for `--rollback-on-failure`. R4 asserts the snapshot is taken by the apply itself and thus owned by the invoking stack, but §9 explicitly tests a scenario where it is foreign-owned, and §5 states the owner is ignored. — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L3-F1 — docs/specifications/forjar-state-generation-ownership.md:17 — The v7 defect regarding R5 applying to every verb is addressed by the sentence: 'R5 itself applies to every verb, --rollback-on-failure included: a legacy pre-apply generation cannot occur, but if one were named the refusal stands.' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L3-F2 — docs/specifications/forjar-state-generation-ownership.md:83 — The v7 defect regarding the §9 mutation row is addressed by the sentence: 'Mutations the implementation must survive: drop the owner write → R1 RED; select by file instead of by name, or newest global instead of newest-in-lineage → R3 RED;' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L3-F3 — docs/specifications/forjar-state-generation-ownership.md:27 — The v7 defect regarding a reclaimed former name is addressed by the sentence: 'and when a lineage takes back one of its former names, that name is removed from the list, so former_names never contains the current name (v7 review)' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L3-F4 — docs/specifications/forjar-state-generation-ownership.md:17 — R4 contradicts R8 by claiming that a pre-flight evaluates the decision before the apply starts: 'and R8's pre-flight evaluates restore_decision for that snapshot before the apply starts, so the verb can never reach a refusal after the apply has run (1.26.0's PMAT-174 rule, kept).' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair",
+   "L3-F5 — docs/specifications/forjar-state-generation-ownership.md:25 — R8 contradicts R4 by explicitly placing the call in the post-apply failure path without any mention of a pre-flight: 'EVERY path that writes the state dir from a generation — undo, undo --resume, rollback, and apply --rollback-on-failure (helpers_state::maybe_rollback_generation, which today calls rollback_to_generation directly with no scope — the one bypass all three review lanes named) — calls restore_decision first; a direct call to the primitive from anywhere else is a defect the §9 mutation table catches.' — REFUTED: stale: the v8 contradiction was folded into v9 (4ec8c4a5), which three lanes passed with no contradicting sentence pair"
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Nix profile generations",
+   "Kubernetes rollout history and undo",
+   "Terraform state locking and workspaces",
+   "Pulumi per-stack state"
+  ],
+  "verdict": "the field scopes restore to one lineage; the spec copies Nix for navigation (a per-lineage pointer that walks back through parent pointers) and Kubernetes for storage (an append-only log); no surveyed system shows a rule the design violates. Third-party figures are from documentation memory (sandboxed lanes) and asserted."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview plan grill before phase 1 of PMAT-161 (conv-aea0ebd6), plus the v1 review's three plan lanes",
+  "verdict": "do-not-implement-as-written on the original per-name-stamp-only plan: generations keyed by machine name, whole-map outputs and status attribution were live hazards — the first two were shipped as fixes in PMAT-161 and the generation problem became this spec; the design that emerged survived nine rounds."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19355,
+  "files_parsed": 2107,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests over the branch: 0 hit(s) in the touched test paths.",
+  "limit": "discrimination measured by emptying the spec (falsification block)"
+ },
+ "falsification": {
+  "test": "the eight tests of falsification_spec_generation_ownership_shape (status line; R1–R9 in order; a §9 row per rule; a mutation per rule; restore_decision with RestoreVerb and RestoreScope; the v9 review record; parent and restores in §4; no TODO/TBD/ownership-file term)",
+  "test_file": "tests/falsification_spec_generation_ownership_shape.rs",
+  "cargo_test_target": "falsification_spec_generation_ownership_shape",
+  "reverted": "docs/specifications/forjar-state-generation-ownership.md emptied, the target run, the file restored from a copy (tree verified clean)",
+  "observed_failure": "test falsifier_table_has_a_row_for_every_rule_r1_through_r9 ... FAILED\ntest interfaces_name_restore_decision_with_restore_verb_and_restore_scope ... FAILED\ntest mutation_list_names_a_mutation_for_every_rule_r1_through_r9 ... FAILED\ntest section_4_example_carries_parent_and_restores_keys ... FAILED\ntest status_line_names_v10_and_reviewed ... FAILED\ntest review_record_shows_v9_review_three_of_three_pass ... FAILED\ntest rules_r1_through_r9_appear_as_bold_headings_in_order ... FAILED\ntest result: FAILED. 1 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+  "still_green_when_reverted": "the no-TODO/TBD/withdrawn-term control, which is a leakage check rather than a presence check"
+ },
+ "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "82b08f101edd34eb797daabdc0a5cf82af7a8c23",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/generation-ownership-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 14939,
+    "sha256": "7048fb1e06da247ab41a32e3a1bee9d0e5b20223aa79c58ef189c2f3448c8366",
+    "blob": "2e1b5c9d4b9f58f841f4fd6f7cac8be955559d99"
+   },
+   {
+    "path": ".quorum/evidence/generation-ownership-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 6850,
+    "sha256": "8cf306ee0660cd05822f4c5bd5d5d16b2681df0884219764c4f10a71cb72a524",
+    "blob": "c39dc17c56bfbfb5a73afaca502cfab829df3bad"
+   },
+   {
+    "path": ".quorum/evidence/generation-ownership-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 22693,
+    "sha256": "834e51da823c957de3082c74d174b3fa2462be9b2b4ba714a7b638045adfe327",
+    "blob": "a5157260667e782c0fee4ba26af2bd902297e0a7"
+   },
+   {
+    "path": ".quorum/evidence/generation-ownership-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 9154,
+    "sha256": "f4da18738c369e08d7df4dade87bcc1db2da17275632703bcc2506e094ca4b6f",
+    "blob": "5102aee33b5adf9efe1651d362158e13c5afdba1"
+   },
+   {
+    "path": ".quorum/evidence/generation-ownership-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 6248,
+    "sha256": "d7a32bde294192a4febf1011c991a813ea3c6223fc9892bce86b8daf5cee532e",
+    "blob": "0a2f517b3f2eddd13cdd598cac8a7eba5ac93d27"
+   },
+   {
+    "path": ".quorum/evidence/generation-ownership-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 552,
+    "sha256": "6f83af80fc829b5f75b72acda43f5cda5925fc9481cf0cd3176252904b606ea6",
+    "blob": "b6d2ad5234bff594c1e0bca806a859d7aa92f0da"
+   }
+  ],
+  "total_bytes": 60436,
+  "claims_digest": ".quorum/evidence/generation-ownership-judges.md"
+ }
+}
