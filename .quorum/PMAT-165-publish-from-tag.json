@@ -59,10 +59,10 @@
   "observed_failure": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s",
   "still_green_when_reverted": "every case but c — the refusals, the scratch-dir rule, the index poll and the dependency order do not depend on the checkout being a worktree"
  },
- "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base_commit": "ccfe23930eb485eb03cc4bd46de690430ab85aec",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "468bfca645e0ceb40c190307726668d24352af9a",
+ "diff_sha256": "47eeecc366d62ddf73794c48948bac8100e4d3d0",
  "evidence": {
   "files": [
    {
