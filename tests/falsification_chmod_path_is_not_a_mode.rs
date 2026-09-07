@@ -385,6 +385,26 @@ fn only_plain_path_literals_are_redacted() {
     assert!(validate_script("chmod '0644' '/opt/app666/t'\n").is_ok());
 }
 
+/// The fourth round's counterexamples. Five of the seven are refused at the
+/// pre-PMAT-204 baseline and here, so they refute nothing; the two the baseline
+/// also accepted are below. This test pins the one that is now closed: an octal
+/// mode wider than six digits.
+#[test]
+fn an_octal_mode_of_any_width_is_read() {
+    for script in [
+        "chmod 0000666 /foo\n",
+        "chmod '0000777' '/foo'\n",
+        "chmod '000000662' '/foo'\n",
+    ] {
+        assert!(
+            validate_script(script).is_err(),
+            "a wide octal world-writable mode was accepted: {script}"
+        );
+    }
+    // And a wide SAFE mode is still fine.
+    assert!(validate_script("chmod '0000644' '/opt/app666/t'\n").is_ok());
+}
+
 /// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
 /// a mode in a variable and a mode taken from another file pass now exactly as
 /// they passed before PMAT-204. This test fails the day one of them starts

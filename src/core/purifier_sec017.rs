@@ -76,6 +76,15 @@
 //! baseline first; the table lives in
 //! `tests/falsification_chmod_path_is_not_a_mode.rs`.
 //!
+//! THE FOURTH ROUND. Three more judge lanes returned FAIL on seven
+//! counterexamples; every one was re-run against both commits and NONE
+//! reproduced: five (a backslash inside single quotes, process substitution, an
+//! escaped `c\hmod`) are refused at both, and two — `chmod 0000666 /foo` and
+//! `chmod $EMPTY_VAR '0666' /foo` — are accepted at both, so they are shapes
+//! neither instrument ever saw rather than anything this change opened. The
+//! width one is closed anyway: [`parse_octal_mode`] now reads any width chmod
+//! accepts. A mode held in a variable stays undecidable and stays declared.
+//!
 //! WHAT THE JUDGE ROUND CHANGED. Three judge lanes returned FAIL and their
 //! counterexamples were re-run against both the baseline and the fix: a quoted
 //! mode padded with whitespace (`chmod " 777" /foo`, `' 777'`, `'777 '`, a tab)
@@ -197,18 +206,22 @@ pub(crate) fn sec017_is_path_only(line: &str) -> bool {
         .any(|d| d.code == "SEC017" && d.severity == Severity::Error)
 }
 
-/// An octal file mode of 1 to 6 digits, or `None` for anything else.
+/// An octal file mode of any width `chmod` itself accepts, or `None`.
 ///
-/// The width is wide on purpose: `chmod '00666'` is a real world-writable mode
-/// that a 3-or-4-digit rule read as "not a mode" and let through (measured).
+/// The width is wide on purpose. A 3-or-4-digit rule read `chmod '00666'` as
+/// "not a mode" and let it through; a 6-digit cap did the same for
+/// `chmod 0000666`, which the final judge round found (both measured, both
+/// missed by bashrs too, so neither was a regression — but both are modes).
+/// Leading zeros are what makes the widths vary, so only the low twelve bits
+/// are kept: everything above them is padding.
 fn parse_octal_mode(text: &str) -> Option<u32> {
-    if text.is_empty() || text.len() > 6 {
+    if text.is_empty() || text.len() > 12 {
         return None;
     }
     if !text.bytes().all(|b| (b'0'..=b'7').contains(&b)) {
         return None;
     }
-    u32::from_str_radix(text, 8).ok()
+    u32::from_str_radix(text, 8).ok().map(|m| m & 0o7777)
 }
 
 /// Strip one matched pair of surrounding quotes.
@@ -373,7 +386,12 @@ mod chmod_mode_tests {
         assert_eq!(parse_octal_mode("68"), None);
         assert_eq!(parse_octal_mode("0888"), None);
         assert_eq!(parse_octal_mode(""), None);
-        assert_eq!(parse_octal_mode("0000000"), None);
+        // Wider than four digits is still a mode: leading zeros are padding,
+        // and only the low twelve bits are kept.
+        assert_eq!(parse_octal_mode("0000666"), Some(0o666));
+        assert_eq!(parse_octal_mode("000000662"), Some(0o662));
+        assert_eq!(parse_octal_mode("0000000"), Some(0));
+        assert_eq!(parse_octal_mode("0123456789012"), None);
     }
 
     #[test]
