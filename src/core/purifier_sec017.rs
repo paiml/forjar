@@ -64,6 +64,18 @@
 //! mode computed at run time. Those pass this module exactly as they passed it
 //! before PMAT-204.
 //!
+//! WHAT THE REFUTER ROUND CHANGED. Three refuter lanes attacked the redaction
+//! rule and killed it twice. A backslash-escaped quote (`echo \\" ; (chmod 777
+//! /foo) ; echo \\"`) re-paired the quotes and swallowed a real `chmod 777`,
+//! which the pre-PMAT-204 gate refused — a regression, fixed by honouring
+//! backslash escapes here. And a comma-separated symbolic mode (`u=rwx,o=w`)
+//! grants world write in its second clause, which the first version of
+//! [`symbolic_grants_world_write`] never read; that shape was accepted before
+//! PMAT-204 too, so closing it makes this gate stricter than the one it
+//! replaced. Twenty-one shapes are now measured, each against the pre-PMAT-204
+//! baseline first; the table lives in
+//! `tests/falsification_chmod_path_is_not_a_mode.rs`.
+//!
 //! FALSIFY IT: make [`sec017_is_path_only`] return `true` unconditionally, or
 //! make [`world_writable_modes`] return an empty vector, and
 //! `tests/falsification_chmod_path_is_not_a_mode.rs` goes red.
@@ -77,31 +89,60 @@ use bashrs::linter::{lint_shell, Severity};
 /// is path-shaped text, and path text is what SEC017 mistakes for a mode.
 fn redact_quoted_paths(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
-    let mut rest = line;
-    while let Some(open) = rest.find(['\'', '"']) {
-        let quote = rest.as_bytes()[open] as char;
-        out.push_str(&rest[..open]);
-        let after = &rest[open + 1..];
-        match after.find(quote) {
-            Some(close) => {
-                let inner = &after[..close];
-                if parse_octal_mode(inner).is_some() {
-                    out.push(quote);
-                    out.push_str(inner);
-                    out.push(quote);
-                } else {
-                    out.push_str("'/x'");
+    let mut chars = line.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        match c {
+            // A backslash escapes the next character, quote or not. Without
+            // this, `echo \\" ; chmod 777 /foo ; echo \\"` re-pairs the two
+            // ESCAPED quotes, swallows the real `chmod 777` between them and
+            // exempts a line that bashrs refused before PMAT-204 — measured,
+            // and the reason this scanner is not a `find(['\'', '"'])` loop.
+            '\\' => {
+                out.push(c);
+                if let Some((_, next)) = chars.next() {
+                    out.push(next);
                 }
-                rest = &after[close + 1..];
             }
-            None => {
-                // An unbalanced quote: leave the remainder exactly as written.
-                out.push_str(&rest[open..]);
-                return out;
+            '\'' | '"' => {
+                let quote = c;
+                let start = i + quote.len_utf8();
+                let mut end = None;
+                let mut escaped = false;
+                for (j, d) in chars.by_ref() {
+                    if escaped {
+                        escaped = false;
+                        continue;
+                    }
+                    if d == '\\' {
+                        escaped = true;
+                        continue;
+                    }
+                    if d == quote {
+                        end = Some(j);
+                        break;
+                    }
+                }
+                match end {
+                    Some(j) => {
+                        let inner = &line[start..j];
+                        if parse_octal_mode(inner).is_some() {
+                            out.push(quote);
+                            out.push_str(inner);
+                            out.push(quote);
+                        } else {
+                            out.push_str("'/x'");
+                        }
+                    }
+                    None => {
+                        // An unbalanced quote: leave the remainder verbatim.
+                        out.push_str(&line[i..]);
+                        return out;
+                    }
+                }
             }
+            _ => out.push(c),
         }
     }
-    out.push_str(rest);
     out
 }
 
@@ -149,15 +190,21 @@ fn unquote(token: &str) -> &str {
 }
 
 /// True where a symbolic mode grants write to everyone (`a+w`, `o+w`, `+w`).
+///
+/// Every comma-separated clause is judged, not just the first: `u=rwx,o=w`
+/// grants world write in its SECOND clause, and a rule that read only the
+/// leading `who` group called it safe (found by three refuter lanes, measured).
 fn symbolic_grants_world_write(text: &str) -> bool {
-    let (who, op_rest) = match text.find(['+', '=']) {
-        Some(i) => (&text[..i], &text[i..]),
-        None => return false,
-    };
-    if !op_rest.contains('w') {
-        return false;
-    }
-    who.is_empty() || who.contains('a') || who.contains('o')
+    text.split(',').any(|clause| {
+        let (who, op_rest) = match clause.find(['+', '=']) {
+            Some(i) => (&clause[..i], &clause[i..]),
+            None => return false,
+        };
+        if !op_rest.contains('w') {
+            return false;
+        }
+        who.is_empty() || who.contains('a') || who.contains('o')
+    })
 }
 
 /// Every world-writable mode written on `line`, as it was written.
@@ -169,7 +216,7 @@ pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut tokens = line.split_whitespace().peekable();
     while let Some(tok) = tokens.next() {
-        if unquote(tok).trim_end_matches(';') != "chmod" {
+        if unquote(tok).trim_matches(|c: char| ";&|(){}`".contains(c)) != "chmod" {
             continue;
         }
         for arg in tokens.by_ref() {

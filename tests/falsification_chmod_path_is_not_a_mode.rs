@@ -295,6 +295,60 @@ fn a_world_writable_mode_is_refused_wherever_it_sits() {
     }
 }
 
+/// The refuter round's own counterexamples, each measured against the
+/// pre-PMAT-204 baseline first so the table says what it means:
+///
+/// ```text
+/// | shape                                        | at 0776fd82 | required |
+/// |----------------------------------------------|-------------|----------|
+/// | echo \" ; chmod 777 /foo ; echo \"            | refused     | refused  |
+/// | echo \" ; (chmod 777 /foo) ; echo \"          | refused     | refused  |  <- regression, fixed
+/// | chmod 'u=rwx,o=w' '/srv/b'                    | ACCEPTED    | refused  |  <- pre-existing hole, closed
+/// | chmod u=r,o=w /srv/b                          | ACCEPTED    | refused  |
+/// | chmod 'u=rwx,a+w' '/srv/b'                    | ACCEPTED    | refused  |
+/// | `chmod 777 /foo`                              | ACCEPTED    | refused  |
+/// ```
+///
+/// The second row is the one that matters most: a backslash-escaped quote made
+/// the redactor re-pair the quotes and swallow a real `chmod 777`. It is why
+/// the scanner honours backslash escapes rather than searching for quote
+/// characters.
+#[test]
+fn the_refuted_shapes_are_refused() {
+    for script in [
+        "echo \\\" ; chmod 777 /foo ; echo \\\"\n",
+        "echo \\\" ; (chmod 777 /foo) ; echo \\\"\n",
+        "chmod 'u=rwx,o=w' '/srv/b'\n",
+        "chmod u=r,o=w /srv/b\n",
+        "chmod 'u=rwx,a+w' '/srv/b'\n",
+        "(chmod 777 /foo)\n",
+        "`chmod 777 /foo`\n",
+    ] {
+        assert!(
+            validate_script(script).is_err(),
+            "a shape the refuters killed is accepted again: {script}"
+        );
+    }
+}
+
+/// The other half of the same round: escaping and quoting must not make the
+/// gate refuse a correct script either, or the fix would trade one broken
+/// direction for another.
+#[test]
+fn escaped_and_embedded_quotes_do_not_break_a_correct_script() {
+    for script in [
+        "echo \\\"x\\\" ; chmod '0644' '/opt/app666/t'\n",
+        "chmod '0644' '/srv/it\"s/t'\n",
+        "chmod 'u+x' '/srv/b'\n",
+        "chmod 'g+w' '/srv/b'\n",
+    ] {
+        assert!(
+            validate_script(script).is_ok(),
+            "a correct script is refused: {script}"
+        );
+    }
+}
+
 /// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
 /// a mode in a variable and a mode taken from another file pass now exactly as
 /// they passed before PMAT-204. This test fails the day one of them starts

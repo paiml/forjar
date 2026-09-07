@@ -20,12 +20,14 @@ speak for the mode, and it does not try to parse shell itself: it redacts every
 quoted argument that cannot be a mode, asks bashrs again, and drops the SEC017
 finding only if the rule stops reporting on the redacted line. A second chmod
 anywhere on the line — behind `sudo`, inside backticks, after `env`, in a
-subshell, in an `&&` list — survives redaction untouched and is still refused;
-the first attempt at this fix looked for the chmod command itself and accepted
-all five of those shapes, which three review lanes and a direct re-run caught
-before it shipped. In the other direction forjar now judges what bashrs cannot:
+subshell, in an `&&` list, or behind a backslash-escaped quote — survives
+redaction untouched and is still refused; the first attempt at this fix looked
+for the chmod command itself and accepted all of those shapes, and the second
+mis-paired escaped quotes, both caught by review lanes and a direct re-run
+against the pre-fix baseline before either shipped. In the other direction forjar now judges what bashrs cannot:
 every world-writable mode on any line, in any width (`0666`, `00666`, `0662`),
-symbolic (`a+w`, `o+w`) or sitting inside `find -exec`, is refused under
+symbolic in any clause (`a+w`, `o+w`, `u=rwx,o=w`) or sitting inside a
+subshell, backticks or `find -exec`, is refused under
 forjar's own code `FJ-CHMOD-WW`, naming the mode. Two shapes remain undecidable
 by either instrument and are refused by neither, exactly as before: a mode held
 in a variable, and `--reference=FILE`, which takes the mode from another file.
