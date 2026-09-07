@@ -211,9 +211,29 @@ jobs:
 
   # Top-level gate: satisfies org ruleset which requires check named "gate".
   # The reusable workflow produces "ci / gate" but rulesets need exact match on "gate".
+  # PMAT-163: the tool-free dogfood gates run here on every PR — surface
+  # derived from the built artifact (C) and every documented invocation
+  # executed against fixtures (D), plus the guard tests. Gates B (pmat comply),
+  # F (coverage + mutants), G (pv contracts) and H (crux reconcile) need pmat
+  # and pv, which are provisioned on the clean-room hosts by forjar.yaml, so
+  # they run there through `make dogfood-release`.
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the artifact the surface gate measures
+        run: cargo build --release --locked
+      - name: Gate C — surface from the built artifact
+        run: bash scripts/dogfood/surface.sh
+      - name: Gate D — documented invocations run against fixtures
+        run: bash scripts/dogfood/docs.sh
+      - name: Guard tests
+        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations
+
   gate:
     runs-on: ubuntu-latest
-    needs: [ci, lockfile, examples-validate, no-default-features, doctests]
+    needs: [ci, lockfile, examples-validate, no-default-features, doctests, dogfood]
     if: always()
     steps:
       - name: Check required jobs
@@ -236,6 +256,10 @@ jobs:
           fi
           if [ "${{ needs.doctests.result }}" != "success" ]; then
             echo "doctests failed: ${{ needs.doctests.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.dogfood.result }}" != "success" ]; then
+            echo "dogfood gates failed: ${{ needs.dogfood.result }}"
             exit 1
           fi
           echo "All required jobs passed"
