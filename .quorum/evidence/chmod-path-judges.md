@@ -144,3 +144,15 @@ Two lanes returned FAIL on one claim: that `chmod 644 'a\' /foo 777 'b'` and `ch
 The same round did find one true gap, and it is fixed: `chmod '0644' '/x' 0666 '/y'` — a world-writable mode later in the SAME chmod's arguments — was accepted at the baseline too (SEC017 cannot see 0666 behind its leading zero) and forjar's own check stopped after the first argument. `world_writable_modes` now reads every argument up to the next command separator, and the shape is pinned by `tests/falsification_chmod_path_is_not_a_mode.rs`.
 
 One lane wrote into the worktree during this round (a `[[bin]]` stanza in Cargo.toml, a `run_manual.rs`, a `test_script.rs` and an appended test), which is why merge-review lanes belong in clones like every other lane. The writes were reverted and the tree verified clean before this commit.
+
+## Merge review, second round (three lanes, in a clone)
+
+Three lanes, all FAIL, five counterexamples; each re-run through `validate_script` at the pre-PMAT-204 baseline and at the head. Three were real and are closed:
+
+- `chmod 0644 /foo ; bash -c 'c\hmod 777 /bar'` — REFUSED at baseline, ACCEPTED at that head. The quoted payload had a slash, no metacharacter, and not the literal word `chmod` (the backslash breaks it), so it was redacted whole and the `777` left bashrs's sight. A regression. Closed: a redacted argument may now contain no whitespace and no backslash.
+- `chmod o=r-w /foo` and `chmod o+x-w /foo` — ACCEPTED at baseline, REFUSED at that head. The clause removes world write and was refused anyway: a false refusal introduced by this change. Closed: a symbolic clause is applied left to right, so `-w` after `+w` or `=w` takes the bit away again.
+- `chmod 0644 file1;chmod '0666' file2` and `chmod 0000000000666 /foo` — ACCEPTED at both. Pre-existing holes, closed anyway: the line is split on command separators before tokenising, and octal padding of any length is stripped before the mode is read.
+
+Two did not reproduce: `chmod 644 'a\' /foo 777 'b'` and the `eval` variant are refused at BOTH commits, by bashrs's SC2075 and SEC001 respectively — rules redaction never reaches, because a line that is not a plain path literal is never redacted.
+
+The fifty-shape matrix was re-measured against both commits after these fixes: four rows go refused to accepted, all four the ticket's own bug, and fourteen go accepted to refused. No row regresses.
