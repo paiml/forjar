@@ -68,7 +68,7 @@ Findings:
 
 ## Orchestrator dispositions (each is itself a claim to refute)
 
-- D1 — every citation of `src/core/state/stamp.rs` names a path that exists on no branch, with stale line ranges (L1, L3): CONFIRMED. FIXED in 17bdb497 (PMAT-188): every [V] cell re-derived against the PMAT-161 branch head (`src/core/state/stamp/mod.rs`, `identity.rs`, `rename.rs`, `src/cli/apply_selection/closure.rs`, `narrow.rs`, `src/cli/generation/restore.rs`, `src/cli/status_core.rs`, `src/cli/dispatch_apply_check.rs`).
+- D1 — every citation of `src/core/state/stamp.rs` names a path that exists on no branch, with stale line ranges (L1, L3): CONFIRMED. FIXED in 17bdb497 and 299c49fc (PMAT-188; the behaviour-8 cells kept a body line of merge_outputs, :382, until the refuters caught it and 299c49fc cites the range 375-403): every [V] cell re-derived against the PMAT-161 branch head (`src/core/state/stamp/mod.rs`, `identity.rs`, `rename.rs`, `src/cli/apply_selection/closure.rs`, `narrow.rs`, `src/cli/generation/restore.rs`, `src/cli/status_core.rs`, `src/cli/dispatch_apply_check.rs`).
 - D2 — rows 44–46 (Nix, Pulumi, Kubernetes for behaviour 7) carried one copy-pasted adopt() rationale (L2): CONFIRMED. FIXED in 17bdb497: each system has its own mechanism sentence, and the Dissent section names Kubernetes for lane 3.
 - D3 — the behaviour-4 [V] cell said every emptied selection is refused, while the code exempts machine narrowing (T, asserted from a broken clone): CONFIRMED against the code (`empty_after_narrowing` refuses resource negatives; `--only-machine`/`--exclude-machine` still converge nothing, GH-211). FIXED in 17bdb497.
 - D4 — the Make row for behaviour 3 named the system without its mechanism (T): CONFIRMED. FIXED in 17bdb497 (an unknown target fails before any recipe; prerequisites are built first).
@@ -77,5 +77,5 @@ Findings:
 
 ## Orchestrator's own measured claims
 
-- F1 — At 17bdb497: `docs/audits/crux-1.26.0.md` exists, `grep -c 'src/core/state/stamp.rs'` is 0, and `grep -n '\[X\]' README.md docs/book/src/*.md` matches nothing outside docs/audits; every behaviour has at least three systems and one disposition (adopt(PMAT-162) for behaviour 7, reject(rationale) elsewhere); the reconciliation list maps every bold behaviour bullet of the PMAT-161 branch's CHANGELOG to a row.
+- F1 — At 17bdb497: `docs/audits/crux-1.26.0.md` exists, `grep -c 'src/core/state/stamp.rs'` is 0, and `grep -n '\[X\]' README.md docs/book/src/*.md` matches nothing outside docs/audits; every behaviour has at least three systems and one disposition (adopt(PMAT-162) for behaviour 7, reject(rationale) elsewhere); the reconciliation list maps every bold lead-in paragraph of the PMAT-161 branch's CHANGELOG [Unreleased] entry (nine of them, quoted verbatim; they are paragraphs, not markdown bullets) to a row.
 
