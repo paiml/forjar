@@ -67,13 +67,30 @@ fn is_word_boundary(line: &str, pos: usize, len: usize) -> bool {
     before_ok && after_ok
 }
 
-/// Byte offsets of every `chmod` word on the line.
+/// Words that may stand between the start of a command and `chmod` without
+/// making `chmod` an argument of something else.
+const COMMAND_PREFIX_WORDS: &[&str] = &["sudo", "then", "do", "else", "{", "!", "time"];
+
+/// True where the text between the start of this command and `chmod` leaves
+/// `chmod` in command position. `echo chmod 777 /x` is a chmod WORD but not a
+/// chmod COMMAND — it has no mode argument to read, so bashrs keeps it.
+fn is_command_position(line: &str, pos: usize) -> bool {
+    let start = line[..pos]
+        .rfind([';', '&', '|', '(', '\n'])
+        .map_or(0, |i| i + 1);
+    line[start..pos].split_whitespace().all(|w| {
+        // `FOO=bar chmod ...` — an environment assignment, still command position.
+        w.contains('=') || COMMAND_PREFIX_WORDS.contains(&w)
+    })
+}
+
+/// Byte offsets of every `chmod` COMMAND on the line.
 fn chmod_positions(line: &str) -> Vec<usize> {
     let mut out = Vec::new();
     let mut from = 0usize;
     while let Some(rel) = line[from..].find("chmod") {
         let pos = from + rel;
-        if is_word_boundary(line, pos, "chmod".len()) {
+        if is_word_boundary(line, pos, "chmod".len()) && is_command_position(line, pos) {
             out.push(pos);
         }
         from = pos + "chmod".len();

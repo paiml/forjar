@@ -29,6 +29,15 @@ fn validate_resource_formats(id: &str, resource: &Resource, errors: &mut Vec<Val
 }
 
 /// Mode must be octal string: exactly 3 or 4 octal digits, optionally prefixed with 0.
+///
+/// PMAT-204: it must also not grant world write. Nothing refused that before —
+/// bashrs SEC017, the I8 gate's rule for unsafe permissions, produces NO finding
+/// for the line forjar generates from `mode: "0666"` (`chmod '0666' '/path'`),
+/// because its digit-boundary check cannot see `666` behind the leading `0`
+/// (measured 2026-09-07, bashrs 6.68.0; see `core::purifier_sec017`). So the
+/// declaration reached the target unchallenged. The bit is decided here, where
+/// the mode is already parsed, so the operator is told at validation time and
+/// by the resource's own name — not by a lint code from a generated script.
 fn validate_mode(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if let Some(ref mode) = resource.mode {
         // Skip template expressions
@@ -41,8 +50,27 @@ fn validate_mode(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
                     "resource '{id}': invalid mode '{mode}' (expected octal like '0644' or '0755')"
                 ),
             });
+            return;
+        }
+        if is_world_writable_mode(mode) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}': mode '{mode}' is world-writable (the o+w bit is set) — \
+                     every user on the target could rewrite this path; use '0644' or '0755', \
+                     or express shared write with a group"
+                ),
+            });
         }
     }
+}
+
+/// True where a valid octal mode string carries the world-write bit.
+///
+/// Reads the bit, not the digit: `0666` and `0777` are the shapes people write,
+/// but `0662` and `0622` are just as world-writable and no substring rule sees
+/// them.
+pub(crate) fn is_world_writable_mode(mode: &str) -> bool {
+    u32::from_str_radix(mode, 8).is_ok_and(|m| m & 0o002 != 0)
 }
 
 /// Check if a mode string is valid octal: 4 digits where each is 0-7.
