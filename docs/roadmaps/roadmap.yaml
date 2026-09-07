@@ -2385,27 +2385,6 @@ roadmap:
   - 'scripts/dogfood/quorum.sh (gate E): every PR merged since the previous v* tag has .quorum/<headRefName with / as ->.json at HEAD with quorum.lanes >= 3, judges >= 3, refuters_per_claim >= 3, claims_refuted >= 1, evidence.files non-empty and no waiver key'
   - 'make dogfood-release runs both before coverage; the REQUIRED array of falsification_dogfood_scripts_declare_mutations names nine scripts; shim-backed guard tests for both scripts mirror falsification_dogfood_release_check_pr_window'
   - '.claude/skills/forjar-dogfood/SKILL.md describes A, E and H as mechanical gates read from make output, allows no Agent tool and provisions no subagents, and still lists no surface'
-- id: PMAT-204
-  kind: code
-  github_issue: null
-  item_type: task
-  title: 'S2: any file resource whose PATH contains 666 or 777 fails to apply — bashrs SEC017 matches the literal path text on the generated chmod line, and forjar''s I8 gate refuses the script'
-  status: inprogress
-  priority: high
-  assigned_to: null
-  created: 2026-09-07T16:00:00Z
-  updated: 2026-09-07T16:00:00Z
-  spec: null
-  acceptance_criteria:
-  - 'a file resource at a path containing 666 or 777 (e.g. /opt/app666/config) applies, and the falsification test that pins it is RED before the fix'
-  - 'forjar refuses a world-writable declared mode (0666, 0777, any mode with the world-write bit) with its own error, which bashrs SEC017 does NOT catch: measured 2026-09-07 with bashrs 7.0.1, `chmod ''0666'' ''/tmp/plain/t''` produces no finding at all'
-  - 'a genuine bare `chmod 666` in a user-supplied command: still fails I8 validation through SEC017, unchanged'
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: 'Found by the PMAT-163 merge review (quorum-review.sh width 3, lanes 2 and 3 FAIL at 507c730f). Absorbed on the DF branch; S1 because forjar-dogfood is the release blocker and its gate set was short of the ticket. Delta quorum (three lanes, conv-392746c8, conv-1b76d5b6, conv-add74d03): C1-C8 confirmed 3/3; lane 3 found that an empty PR window with commits on main passed both gates vacuously — absorbed here: window.sh refuses it like release-check.sh Arm 5 (PMAT-178).'
 - id: PMAT-203
   kind: code
   github_issue: null
@@ -2426,4 +2405,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found through the PMAT-163 merge review 5: the ratchet was UNMEASURED with CB-200 disabled and REGRESSED (651 > 27) with it enabled; the falsifier in the baseline file shows the instrument changed.'
+  notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
+- id: PMAT-204
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: any file resource whose PATH contains 666 or 777 fails to apply — bashrs SEC017 matches the literal path text on the generated chmod line, and forjar''s I8 gate refuses the script'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-07T16:00:00Z
+  updated: 2026-09-07T16:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'a file resource at a path containing 666 or 777 (e.g. /opt/app666/config) applies, and the falsification test that pins it is RED before the fix'
+  - 'forjar refuses a world-writable declared mode (0666, 0777, any mode with the world-write bit) with its own error, which bashrs SEC017 does NOT catch: measured 2026-09-07 with bashrs 7.0.1, `chmod ''0666'' ''/tmp/plain/t''` produces no finding at all'
+  - 'a genuine bare `chmod 666` in a user-supplied command: still fails I8 validation through SEC017, unchanged'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
   notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
