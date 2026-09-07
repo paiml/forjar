@@ -287,7 +287,7 @@ fn clause_grants_world_write(clause: &str) -> bool {
     let mut granted = false;
     let mut op = None;
     let mut perms = String::new();
-    let mut settle = |op: Option<char>, perms: &str, granted: &mut bool| match op {
+    let settle = |op: Option<char>, perms: &str, granted: &mut bool| match op {
         Some('+') if perms.contains('w') => *granted = true,
         Some('-') if perms.contains('w') => *granted = false,
         Some('=') => *granted = perms.contains('w'),
