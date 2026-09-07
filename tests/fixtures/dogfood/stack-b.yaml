@@ -1,0 +1,33 @@
+# Half of the two-stack pair. `stack-diff` and `compare` are binary operators:
+# given one config they have nothing to say, and given two identical ones they
+# report "no differences" whatever they are computing. stack-a and stack-b
+# differ in exactly three ways — a resource only b has, a resource only a has,
+# and a resource both have whose content differs — so a diff that reports fewer
+# than three findings has lost one of the three shapes.
+version: "1.0"
+name: dogfood-stack
+description: "Dogfood fixture B of the two-stack pair."
+
+machines:
+  here:
+    hostname: localhost
+    addr: 127.0.0.1
+    transport: local
+
+params:
+  root: /tmp/forjar-dogfood-stack-b
+
+resources:
+  shared:
+    type: file
+    machine: here
+    path: "{{ params.root }}/shared.txt"
+    content: "value from stack B\n"
+    mode: "0644"
+
+  only_in_b:
+    type: file
+    machine: here
+    path: "{{ params.root }}/only-b.txt"
+    content: "b\n"
+    mode: "0644"

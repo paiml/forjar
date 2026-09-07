@@ -1,0 +1,27 @@
+# The single-stack fixture: one machine, one resource, no dependency edge.
+#
+# It exists so that a verb which reports "N resources" can be checked against a
+# config where N is 1 and not 2. Several of forjar's summary paths differ
+# between "one" and "many" (pluralisation, the ordering banner, the closure
+# walk), and a gate whose only fixture has two resources never enters the
+# one-resource branch at all.
+version: "1.0"
+name: dogfood-single
+description: "Dogfood fixture: exactly one machine and exactly one resource."
+
+machines:
+  here:
+    hostname: localhost
+    addr: 127.0.0.1
+    transport: local
+
+params:
+  root: /tmp/forjar-dogfood-single
+
+resources:
+  lone:
+    type: file
+    machine: here
+    path: "{{ params.root }}/lone.txt"
+    content: "the only resource\n"
+    mode: "0644"

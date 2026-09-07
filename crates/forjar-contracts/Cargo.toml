@@ -14,6 +14,16 @@ exclude = ["tests/", "benches/"]
 [features]
 default = []
 kani = []
+# The 38 tests that read aprender's contract corpus (contracts/aprender/binding.yaml,
+# softmax/rmsnorm kernel contracts, "100+ contracts"). forjar vendors this CRATE, not
+# aprender's corpus, so those tests measure a directory that does not exist here and
+# fail on NotFound — a failure about the vendoring, never about the code under test
+# (#452). They are `ignore`d, not deleted and not #[cfg]'d out: they still COMPILE on
+# every run, each names its own reason in the test output, and
+# `cargo test -p forjar-contracts --lib --features aprender-corpus` runs them for
+# anyone who has the corpus checked out. scripts/dogfood/coverage.sh ratchets the
+# count so a new failure cannot be parked here silently.
+aprender-corpus = []
 
 [lib]
 name = "provable_contracts"

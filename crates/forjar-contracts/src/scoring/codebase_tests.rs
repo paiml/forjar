@@ -24,6 +24,10 @@ fn load_contracts_and_binding() -> (Vec<(String, Contract)>, BindingRegistry) {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)"
+)]
 fn score_codebase_with_binding() {
     let (parsed, binding) = load_contracts_and_binding();
     let contracts: Vec<_> = parsed.iter().map(|(s, c)| (s.clone(), c)).collect();
@@ -79,6 +83,10 @@ fn empty_binding_scores_low() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)"
+)]
 fn gap_actions_are_populated() {
     let (parsed, binding) = load_contracts_and_binding();
     let contracts: Vec<_> = parsed.iter().map(|(s, c)| (s.clone(), c)).collect();
@@ -90,6 +98,10 @@ fn gap_actions_are_populated() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)"
+)]
 fn pagerank_weighted_gaps_differ() {
     let (parsed, binding) = load_contracts_and_binding();
     let contracts: Vec<_> = parsed.iter().map(|(s, c)| (s.clone(), c)).collect();
@@ -140,6 +152,10 @@ fn dependency_fanout_with_pagerank() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)"
+)]
 fn drift_override_affects_composite() {
     let (parsed, binding) = load_contracts_and_binding();
     let contracts: Vec<_> = parsed.iter().map(|(s, c)| (s.clone(), c)).collect();

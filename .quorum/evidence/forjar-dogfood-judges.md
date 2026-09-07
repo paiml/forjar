@@ -1,0 +1,279 @@
+# Quorum evidence — PMAT-163 — adjudicated claims (majority of three judges)
+
+36 claim ids (three blind claim lanes' findings, the teamwork review, the crux rows, eight orchestrator dispositions and four measured claims) were put to three refuters (per-lane standalone clones, HEAD 029925b1) and then to three judges (per-lane standalone clones, HEAD 6887af54; conv-71450f19, conv-7115af1f, conv-79416a7d; 226–246 s). The judges read the dossier at 029925b1 because the copy at 6887af54 had been truncated to zero bytes by an orchestrator scripting error (restored afterwards). No judge found a CONFIRMED claim asserting a defect unfixed at HEAD; two verdict fields said FAIL for having findings, one PASS — the tables agree on 34 of 35 ids. Majority rule; CONFIRMED-AS-NARROWED counts as survived; D8 was added after the judges ran and is adjudicated by their unanimous T-F7 narrowing. Every item names the Rust guard test in this diff that pins the property it describes (the corpus gating itself lives in crates/forjar-contracts and is pinned by the exact ignored-count ratchet the mutation guard covers).
+
+## REFUTED — 5 claims killed
+
+1. [contracts-crate] L3-F1 — contracts/forjar-dogfood-coverage-v1.yaml:941 — FALSIFY-DF-006 maps the rule 'Exactly one skill claims the name' to the test `nothing_in_the_tree_is_still_called_dogfood` instead of `exactly_one_skill_claims_the_name`, creating a mismatch between the rule text and the test function named. (proposed fix: Change the test reference to `tests/falsification_dogfood_skill_is_named.rs::exactly_one_skill_claims_the_name` or update the rule text to match `nothing_in_the_tree_is_still_called_dogfood`.)
+   - evidence: REFUTED — stale: fixed in f7d97024 (DF-006 cites exactly_one_skill_claims_the_name); the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_skill_is_named.rs:128. (verbatim)
+
+2. [teamwork] T-F1 — scripts/dogfood/docs.sh:197 — Gate theater: docs.sh reads the surface list from the committed CSV rather than the built artifact, allowing dead verbs to pass the presence check if the CSV is stale.
+   - evidence: REFUTED — refuted on the merits: gate C verifies the committed ledger against the built binary in the same make run (surface.sh) before docs.sh reads it; the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+3. [teamwork] T-F2 — scripts/dogfood/release-check.sh:140 — Exit 0 on failure: release-check.sh uses git log --merges to find PRs. If PRs are squash-merged, the pipeline returns empty but exits 0, bypassing the loop and silently passing the quorum check.
+   - evidence: REFUTED — stale: fixed in f7d97024 and 3c740863 (gh pr list enumeration; committed receipt rule); the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+4. [teamwork] T-F5 — scripts/dogfood/docs.sh:250 — docs.sh executes blocks, so dead verbs fail execution. However, a dead verb listed in KNOWN_BROKEN (like forjar make clean) bypasses the exit code check and silently passes.
+   - evidence: REFUTED — refuted on the merits: a KNOWN_BROKEN row prints a NOTE and is counted; nothing passes silently; the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+5. [teamwork] T-F6 — scripts/dogfood/release-check.sh:158 — release-check.sh exits 0 (PASS) with PENDING if the tag is missing locally. If the release failed on GitHub but the tag isn't fetched locally, this script masks the failure by passing.
+   - evidence: REFUTED — stale: fixed in f7d97024 (the remote is the authority; PENDING only when it has no tag); the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+## CONFIRMED — 31 claims survived refutation (26 as written, 5 as narrowed)
+
+1. [crux] X-F1 — /tmp/lanes-163q1-1355373/scripts/dogfood/coverage.sh:11 — Like Rust's cargo-mutants convention, forjar uses mutation testing to prevent coverage gaming, but explicitly applies it in-diff alongside a strict 95% floor.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+2. [crux] X-F2 — /tmp/lanes-163q1-1355373/scripts/dogfood/surface.sh:15 — Like Kubernetes conformance tests, forjar verifies the live surface of the running artifact rather than trusting static source declarations.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+3. [crux] X-F3 — /tmp/lanes-163q1-1355373/.claude/skills/forjar-dogfood/SKILL.md:128 — Like Debian's reproducible builds, forjar enforces strict determinism by ensuring the generated dogfood receipt is bit-for-bit identical across runs.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+4. [crux] X-F4 — /tmp/lanes-163q1-1355373/scripts/dogfood/docs.sh:11 — Unlike Terraform where docs are often generated but not run, forjar extracts and executes all fenced commands in the README inside a sandboxed environment.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+5. [disposition] D1 — — release-check enumerated merged PRs with `git log --merges`, invisible to squash merges (T): CONFIRMED (PR #472 was a squash). FIXED in f7d97024 and 3c740863 (PMAT-178): `gh pr list --state merged --base main --search merged:>=<previous tag date>` with each merge commit checked as an ancestor of HEAD; a gh that cannot answer is FAIL; an empty set over commits that landed is FAIL; and the per-PR receipt is the COMMITTED `.quorum/<slug>.json` (slug = head branch with `/` → `-`, the file scripts/quorum-gate.sh enforces on every push, which survives a squash) read at the merge commit or HEAD — JSON, no `waived` key, ≥ 3 lanes and ≥ 3 judges. The brief's `docs/audits/quorum-<pr>.md` matched nothing in this repository.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+6. [disposition] D2 — — `coverage.sh` compared the ignored-test count with `-gt` only (T): CONFIRMED. FIXED in f7d97024 (PMAT-179): the count must EQUAL the committed figure (43), RED in both directions.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+7. [disposition] D3 — — release-check reported PENDING from the local tag list, masking a missing release for a remote tag (T): CONFIRMED. FIXED in f7d97024 (PMAT-180): PENDING only when `git ls-remote --tags origin` has no tag for Cargo.toml's version; a remote tag this checkout lacks is FAIL naming `git fetch --tags`; the crux arm (Arm 6, gate H) is PENDING until Cargo.toml's version differs from the last cut tag (3c740863).
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+8. [disposition] D4 — — FALSIFY-DF-006 named `nothing_in_the_tree_is_still_called_dogfood` for the exactly-one-skill rule (L3): CONFIRMED. FIXED in f7d97024 (PMAT-181): DF-006 cites `exactly_one_skill_claims_the_name`; DF-007 carries the other test; DF-010..012 register the new falsifiers.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_skill_is_named.rs:128.
+
+9. [disposition] D5 — — `docs.sh` reads the surface set from the committed CSV for its presence cross-check (T): REJECTED as theater — gate C regenerates `docs/audits/surface_audit.csv` from the built binary earlier in the same `make dogfood` run and fails if it differs, and docs.sh EXECUTES the README blocks; the CSV feeds only the presence cross-check.
+   - corrected: gate C does not regenerate the ledger: it derives the surface from the built binary and fails on diff -u against the committed CSV (surface.sh writes it only under FORJAR_DOGFOOD_WRITE=1); the rejection of the theater charge stands because Makefile orders surface.sh before docs.sh
+   - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+10. [disposition] D6 — — a documented verb pinned as KNOWN_BROKEN passes by design (T): CONFIRMED as a SKIP row with a named blocker, which the DF verdict rules allow (a SKIP stays in the receipt with its blocker; a vanished gate reads as passed). The one pinned row (`forjar make clean` in README.md) is minted as PMAT-189 and fixed in the release-cut PR, after which the pin is removed.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+11. [disposition] D7 — — L3's four citations are past EOF (yaml:941 in a 210-line file, Makefile:636 in 178, CLAUDE.md:575 in 86, VENDORED.md:1046 in 64): the delegate re-grepped the substantive defect to contracts/forjar-dogfood-coverage-v1.yaml:187-190, where it was real; the line numbers are lane artifacts.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+12. [disposition] D8 — — a refuter noted the `aprender-corpus` feature is enabled in no workflow, so the 43 corpus tests never run in this repository's CI: CONFIRMED as an accepted, documented limit, not a hidden failure — the corpus is aprender's, the ignore reason names it, the exact ratchet fails if the count moves in either direction, and the vendored crate's corpus tests run in aprender's own CI; `cargo test -p forjar-contracts --lib --features aprender-corpus` runs them here when the corpus is present.
+   - corrected: adjudicated by the judges as the T-F7 narrowing: the feature is enabled in no CI workflow; accepted and documented
+   - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+13. [make-docs-guards] L2-F1 — scripts/dogfood/crux-reconcile.sh:53 — Gate H fails if any behaviour bullet under [Unreleased] lacks a row naming >=3 systems; mutating MIN_SYSTEMS=4 turns it RED by reporting every row as thin since they were written to the original floor of 3.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+14. [make-docs-guards] L2-F2 — Makefile:154 — make dogfood runs the B, C, D, and G gates, while make dogfood-release depends on dogfood and adds the F and H release-blocking gates.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+15. [make-docs-guards] L2-F3 — scripts/dogfood/coverage.sh:105 — aprender-corpus tests are excluded with a cfg_attr ignore, ensuring they are compiled and reported as ignored (tracked by IGNORED_CEILING) rather than being silently deleted or hidden.
+   - corrected: the ratchet variable is IGNORED_EXPECTED (scripts/dogfood/coverage.sh line 56), exact in both directions
+   - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+16. [make-docs-guards] L2-F4 — tests/falsification_dogfood_skill_is_named.rs:92 — Test its_first_frontmatter_line_declares_the_unshadowable_name() fails if the first frontmatter line of the skill file is changed, preserving the collision-free forjar-dogfood name.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_skill_is_named.rs:128.
+
+17. [make-docs-guards] L2-F5 — docs/audits/surface_audit.csv:1 — The surface_audit.csv declares the header `transport,kind,name,declared,live`, which is the exact column layout written by the surface.sh generator to guarantee the committed ledger format.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+18. [make-docs-guards] L2-F6 — scripts/dogfood/surface.sh:237 — surface.sh asserts explicit vacuity floors (MIN_CLI, MIN_MCP, MIN_HTTP) against the measured surface to ensure the parity checks cannot pass vacuously on an empty binary output.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+19. [measured] F1 — — `make dogfood` at cf9ac6f7, run by the orchestrator: GATE B PASS (comply clean; ruleset 13878864 requires [gate]; 8 gate scripts at 0 bashrs errors), GATE C PASS (211 CLI names, 12 MCP tools, 12 HTTP verbs, every declared name live and every live name declared, matching the committed ledger), GATE D PASS (18 README invocations run or parse against the fixtures, 1 pinned as known-broken), GATE G PASS (35 contracts validate, pv lint 0 errors, 4 kernels with equations and kani harnesses, every contract names a falsifier); the guard tests 4 + 4 passed; `cargo test -p forjar-contracts --lib` 1333 passed, 0 failed, 43 ignored; `pv validate` of the new contract valid.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+20. [measured] F2 — — Coverage on origin/main, `cargo llvm-cov --locked --ignore-run-fail --summary-only` on a clean clone: lines 96.41% workspace, 96.54% forjar crate (functions 92.76% / 92.67%, regions 95.64% / 95.79%) — above the 95-line floor gate F enforces; no gap tickets were needed.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+21. [measured] F3 — — `bash scripts/dogfood/release-check.sh` at 3c740863 on this tree (Cargo.toml 1.25.2 = the last tag, so the window is v1.25.1..HEAD): Arms 1–4 evaluate for real and pass (tag on main, GitHub release published, crates.io 1.25.2, docs.rs true); Arm 5 reports receipt=ok for #472, #465, #464 and receipt=waived for #461, #460, #459, #458, #457, #430 — GATE R FAIL, the honest verdict: six pre-run PRs shipped under waivers. For 1.26.0 the window becomes v1.25.2..HEAD, which holds #472 and this run's PRs, every one with a real four-lane receipt.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_release_check_pr_window.rs:61.
+
+22. [measured] F4 — — The ci.yml wiring (24129273, orchestrator): a `dogfood` job builds the release binary and runs gates C and D plus the guard tests on every PR, and `gate` requires it; gates B, F, G and H need pmat and pv (pv is `aprender-contracts-cli`, a path crate not on crates.io), so they run in the clean-room through `make dogfood-release` with the tools provisioned by forjar.yaml (the IP ticket).
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+23. [scripts] L1-F1 — scripts/dogfood/comply.sh:144 — Gate B (comply.sh) passes if `pmat comply check` exits 0, an active branch ruleset exists, gate scripts have 0 bashrs errors, and legacy shell errors don't exceed the ceiling; mutating `BASHRS_ERROR_CEILING=0` turns it red by making the known SEC011 finding a regression.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+24. [scripts] L1-F2 — Makefile:148 — The `make dogfood` target runs `comply.sh`, `surface.sh`, `docs.sh`, and `contracts.sh`, whereas `make dogfood-release` additionally runs `coverage.sh` and `crux-reconcile.sh`.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+25. [scripts] L1-F3 — scripts/dogfood/coverage.sh:45 — The `aprender-corpus` tests are gated behind a `not(feature = "aprender-corpus")` ignore attribute rather than deleted, ensuring they compile on every run, print their ignore reason, and are bounded by the `IGNORED_CEILING` and `APRENDER_ANNOTATIONS` ratchets.
+   - corrected: the ratchet variable is IGNORED_EXPECTED (scripts/dogfood/coverage.sh line 56), exact in both directions
+   - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+26. [scripts] L1-F4 — scripts/dogfood/contracts.sh:226 — The test `falsification_contract_citations_resolve` will fail if a source change introduces a citation where a falsifier names an item that is not in the `.rs` file it names.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+27. [scripts] L1-F5 — scripts/dogfood/surface.sh:230 — The `surface_audit.csv` header strictly matches `transport,kind,name,declared,live`, proven by the python script explicitly writing this string to the output file.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+28. [scripts] L1-F6 — scripts/dogfood/surface.sh:239 — None of the gate scripts can pass vacuously, as proved by explicit minimum floors such as `MIN_CLI` which fails the gate if the CLI surface shrinks below the floor.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+29. [teamwork] T-F3 — scripts/dogfood/surface.sh:41 — Vacuity floors: The floors are hardcoded in the bash scripts (e.g., MIN_CLI=211). Shrinking the ledger does not lower the floor; a developer must manually edit the script to lower the hardcoded value.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+30. [teamwork] T-F4 — scripts/dogfood/comply.sh:144 — Mutation comments: They are genuine one-line changes that turn their respective gates red, proving the gate is falsifiable.
+   - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+31. [teamwork] T-F7 — scripts/dogfood/coverage.sh:98 — #452 gating: coverage.sh checks if ignored > IGNORED_CEILING, but lacks a check to enforce shrinkage if ignored < IGNORED_CEILING. Slack can be used to silently ignore new failures.
+   - corrected: shrinkage IS enforced (-lt IGNORED_EXPECTED is RED); what remains is that the aprender-corpus feature is enabled in no CI workflow, recorded as the accepted limit D8
+   - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
+
+## Tables as returned
+
+### Judge 1 (verdict FAIL)
+
+L1-F1: CONFIRMED
+L1-F2: CONFIRMED
+L1-F3: CONFIRMED-AS-NARROWED
+L1-F4: CONFIRMED
+L1-F5: CONFIRMED
+L1-F6: CONFIRMED
+L2-F1: CONFIRMED
+L2-F2: CONFIRMED
+L2-F3: CONFIRMED-AS-NARROWED
+L2-F4: CONFIRMED
+L2-F5: CONFIRMED
+L2-F6: CONFIRMED
+L3-F1: REFUTED
+T-F1: REFUTED
+T-F2: REFUTED
+T-F3: CONFIRMED
+T-F4: CONFIRMED
+T-F5: REFUTED
+T-F6: REFUTED
+T-F7: CONFIRMED-AS-NARROWED
+X-F1: CONFIRMED
+X-F2: CONFIRMED
+X-F3: CONFIRMED
+X-F4: CONFIRMED
+D1: CONFIRMED
+D2: CONFIRMED
+D3: CONFIRMED
+D4: CONFIRMED
+D5: CONFIRMED-AS-NARROWED
+D6: CONFIRMED
+D7: CONFIRMED
+F1: CONFIRMED
+F2: CONFIRMED
+F3: CONFIRMED
+F4: CONFIRMED
+
+Totals: 26 CONFIRMED / 4 CONFIRMED-AS-NARROWED / 5 REFUTED
+
+### Judge 2 (verdict PASS)
+
+L1-F1: CONFIRMED
+L1-F2: CONFIRMED
+L1-F3: CONFIRMED-AS-NARROWED
+L1-F4: CONFIRMED
+L1-F5: CONFIRMED
+L1-F6: CONFIRMED
+L2-F1: CONFIRMED
+L2-F2: CONFIRMED
+L2-F3: CONFIRMED-AS-NARROWED
+L2-F4: CONFIRMED
+L2-F5: CONFIRMED
+L2-F6: CONFIRMED
+L3-F1: REFUTED
+T-F1: REFUTED
+T-F2: REFUTED
+T-F3: CONFIRMED
+T-F4: CONFIRMED
+T-F5: CONFIRMED-AS-NARROWED
+T-F6: REFUTED
+T-F7: CONFIRMED-AS-NARROWED
+X-F1: CONFIRMED
+X-F2: CONFIRMED
+X-F3: CONFIRMED
+X-F4: CONFIRMED
+D1: CONFIRMED
+D2: CONFIRMED
+D3: CONFIRMED
+D4: CONFIRMED
+D5: CONFIRMED-AS-NARROWED
+D6: CONFIRMED
+D7: CONFIRMED
+F1: CONFIRMED
+F2: CONFIRMED
+F3: CONFIRMED
+F4: CONFIRMED
+
+Totals:
+CONFIRMED: 26
+CONFIRMED-AS-NARROWED: 5
+REFUTED: 4
+
+### Judge 3 (verdict FAIL)
+
+Adjudication Table:
+
+| Claim ID | Ruling |
+|----------|--------|
+| L1-F1 | CONFIRMED |
+| L1-F2 | CONFIRMED |
+| L1-F3 | CONFIRMED-AS-NARROWED |
+| L1-F4 | CONFIRMED |
+| L1-F5 | CONFIRMED |
+| L1-F6 | CONFIRMED |
+| L2-F1 | CONFIRMED |
+| L2-F2 | CONFIRMED |
+| L2-F3 | CONFIRMED-AS-NARROWED |
+| L2-F4 | CONFIRMED |
+| L2-F5 | CONFIRMED |
+| L2-F6 | CONFIRMED |
+| L3-F1 | REFUTED |
+| T-F1 | REFUTED |
+| T-F2 | REFUTED |
+| T-F3 | CONFIRMED |
+| T-F4 | CONFIRMED |
+| T-F5 | REFUTED |
+| T-F6 | REFUTED |
+| T-F7 | CONFIRMED-AS-NARROWED |
+| X-F1 | CONFIRMED |
+| X-F2 | CONFIRMED |
+| X-F3 | CONFIRMED |
+| X-F4 | CONFIRMED |
+| D1 | CONFIRMED |
+| D2 | CONFIRMED |
+| D3 | CONFIRMED |
+| D4 | CONFIRMED |
+| D5 | CONFIRMED-AS-NARROWED |
+| D6 | CONFIRMED |
+| D7 | CONFIRMED |
+| F1 | CONFIRMED |
+| F2 | CONFIRMED |
+| F3 | CONFIRMED |
+| F4 | CONFIRMED |
+
+Totals:
+CONFIRMED: 26
+CONFIRMED-AS-NARROWED: 4
+REFUTED: 5
+
+## After the judges: two merge reviews and a delta quorum
+
+The merge helper (quorum-review.sh, three lanes on the whole diff against origin/main) ran twice after the judges. Review 1 at 9463bff6 (1 FAIL, 2 PASS): lane 1 read the ci.yml dogfood guard step and found it named two of the three falsification binaries this branch adds; fixed in 14bac2ef. Review 2 at 507c730f (1 PASS, 2 FAIL): lanes 2 and 3 held the branch to the ticket's words — eight mechanical gates from Make with no agent — and found gates A (a harness receipt per merged PR) and E (a quorum receipt per merged PR) left to the skill and an agent, and the mutation guard's REQUIRED array at seven scripts. Minted as PMAT-201 (S1) and fixed on this branch: scripts/dogfood/harness.sh, scripts/dogfood/quorum.sh, scripts/dogfood/lib/window.sh, the Make wiring, tests/falsification_dogfood_harness_and_quorum.rs with its fixture in tests/dogfood_gates_harness/mod.rs, the skill rewritten without an Agent tool or subagents, the ci.yml guard step naming all four binaries, and docs/audits/impl-PMAT-161-receipt.md so gate A passes live (2 of 2 since v1.25.2; the previous release's own PR #465 is excluded as the previous window's).
+
+A delta quorum of three blind lanes then judged `git diff 507c730f..0bfec461` against eight claims C1–C8 (each gate as the ticket's acceptance criteria state it, the window rules, set -euo pipefail and mutation lines, the non-vacuous shim-backed cases, the Make and ci wiring, the skill, the receipts):
+
+- delta lane 1 (PASS): Analyzed the PMAT-163 delta and verified all 8 claims against the codebase at 0bfec461. No defects found. All claims CONFIRMED.
+- delta lane 2 (PASS): All eight claims (C1-C8) were CONFIRMED by thoroughly inspecting the delta in `/run/user/1000/paiml-implement/agy/PMAT-163/delta/clone-2` and verifying the requirements of PMAT-201 without running any builds. 
+
+- **C1: CONFIRMED**. `scripts/dogfood/harness.sh` derives the ticket ID from `headRefName`, `title`, or `body` (lines 44-52), locates `docs/audits/impl-<id>-receipt.md` (lines 64-67), asserts the last line is `IMPL-<id>-RECEIPT-END` (lines 74-77), ensures exactly one `verdict:` line (lines 79-85), and fails UNMEASURED or names the PR if `gh` is unreachable or the PR has no ticket ID (lines 58-62, and `window.sh` lines 72-74).
+- **C2: CONFIRMED**. `scripts/dogfood/quorum.sh` expects `.
+- delta lane 3 (FAIL): I have evaluated the PR delta against the acceptance criteria in PMAT-201. All 8 claims stated in the ticket are factually correct and CONFIRMED. However, I have identified a critical defect not covered by the claims: both Gate A (`harness.sh`) and Gate E (`quorum.sh`) can pass vacuously. If a commit is pushed directly to `main` without a PR, `gh pr list` returns 0, and `DOGFOOD_PR_COUNT` is 0. Unlike `release-check.sh`, which explicitly checks if `commits_since` > 0 to prevent this (the PMAT-178 fix), `window.sh` performs no such check. Consequently, `harness.sh` and `quorum.sh` will incorrectly exit 0 with "GATE PASS 0 of 0", allowing unreviewed work to bypass the gates. Therefore, the ove
+
+All three lanes CONFIRMED C1–C8; the verdicts split 2 PASS / 1 FAIL on one uncovered defect that lane 3 found and lane 2 had dismissed as a design choice: both gates said PASS 0 of 0 over an empty PR window even when commits had reached HEAD since the tag, the vacuous pass release-check.sh Arm 5 refuses (PMAT-178). Adjudicated for lane 3: window.sh now refuses commits-with-no-PR as UNMEASURED-or-bypassed, with two shim-backed cases observed RED against the previous helper. Conversations conv-392746c8, conv-1b76d5b6, conv-add74d03; lanes read standalone shared clones at 0bfec461 and built nothing.
+
+Merge review 3 at 816ac9c3 (2 PASS, 1 FAIL): lane 3 read scripts/dogfood/comply.sh and found gate B linting the gate scripts and a fixed legacy list only, so a shell script added anywhere else was never scored. Adjudicated for the lane: Arm 4b now enumerates every tracked *.sh and requires 0 bashrs errors from each file that is neither a gate nor on the legacy list (the ceiling covers legacy only). Measured RED by staging a throwaway script with an unquoted rm -rf and an eval: GATE B FAIL bashrs errors in tracked shell scripts outside the recorded legacy set — a new script is scored, not inherited: scripts/zz-throwaway.sh(1) — then removed; GATE B PASS live afterwards.
+
+Merge review 4 at 7dfaf2fa (1 FAIL, 2 PASS): lane 1 raised three points. (1) .pmat.yaml disabled CB-2100 with a comment naming a workflow edit this branch had since made: measured with enabled: true on this branch, gate-effect still fails (no required status check runs a CB check; the ci.yml dogfood job runs gates C and D and the guard tests, and gate B runs under make dogfood-release), so the disable stands with the measurement written into the comment and PMAT-202 minted for the re-enable. (2) release-check.sh Arm 5 checked a top-level waived key and the lane and judge floors only, weaker than gate E: adjudicated for the lane — one predicate now lives in scripts/dogfood/lib/receipt.sh and both scripts source it; two shim-backed release-check cases (a nested override key, a round with claims_refuted 0) observed RED against the previous arm. (3) release-check.sh as an unrequested ninth script: rejected — it is the post-tag audit the release brief's published arm requires (make release-check), not a lettered gate, and the ticket's acceptance names it.
+
+Merge review 5 at 20253405 (1 FAIL, 2 PASS): lane 1 held that .pmat.yaml's disables of cb-200 and cb-2100 weakened gate B because their replacements did not run in the dogfood pipeline. Adjudicated for the lane: comply.sh Arm 5 now runs the CB-200 ratchet (scripts/cb200-ratchet.sh) inside gate B, and Arm 6 measures the required check's gate effect from ci.yml (each required context's job must reach, through needs, a job that runs a scripts/dogfood/*.sh gate); both observed RED under a temporary mutation and GATE B PASS live afterwards. CB-2100 itself stays disabled with its measurement recorded (PMAT-202).
+
+Correction to the review-5 entry above, measured before any push: with cb-200 disabled the ratchet Arm 5 runs reported UNMEASURED (it reads CB-200's count from the comply report), so the two RED observations recorded there were not measurements. Re-measured: CB-200 enabled reports 651 functions below grade A on this branch and on main (0776fd82); the commit that recorded the ceiling of 27 (6961b29d, 2026-08-23) reports 628 under pmat 3.39.0 with a fresh index, so the instrument changed. Adjudicated: CB-200 reports again; Arm 1 reads the comply JSON and fails on any failing check other than CB-200; the baseline restarts at 651 with instrument, previous series and falsifier recorded (23 of it is real growth since August, PMAT-203); Arm 5 observed RED at a ceiling of 600 and Arm 6 observed RED with dogfood removed from the gate's needs, both restored; GATE B PASS live afterwards.
+
+Merge review 6 at 0e755874 (3 FAIL): two lanes found gate D (docs.sh) skipping its cookbook arm when a hard-coded home path was absent, which passes vacuously in CI; one lane found the roadmap diff rewriting every timestamp in docs/roadmaps/roadmap.yaml (a YAML round-trip by the orchestrator's minting script, not asked for by the ticket). Adjudicated for all three: the cookbook (paiml/forjar-cookbook, public) is required — default beside the main repository, COOKBOOK overrides, absent is UNMEASURED and RED (observed with COOKBOOK=/nonexistent/cookbook), the ci.yml dogfood job clones it into the runner's temp dir for gate D; the roadmap file is main's text with the two minted rows appended (diff: two rows).
+
+Merge review 7 at 868687e4 (2 FAIL, 1 PASS): both failing lanes found documentation behind the code — the skill said ci / gate runs make dogfood (ci.yml's dogfood job runs gates C and D and the guard tests directly, since B and G need pmat, gh, bashrs and pv), and CLAUDE.md's dogfood-release line and gate table stopped at F and H without A and E. Adjudicated for the lanes: both passages now say what the Makefile and ci.yml do.

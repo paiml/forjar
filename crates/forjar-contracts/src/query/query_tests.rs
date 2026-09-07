@@ -6,6 +6,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn semantic_query_returns_results() {
         let index = test_index();
         let params = QueryParams {
@@ -23,6 +24,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn literal_query_finds_contracts() {
         let index = test_index();
         let params = QueryParams {
@@ -35,6 +37,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn regex_query_works() {
         let index = test_index();
         let params = QueryParams {
@@ -76,6 +79,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn show_score_enriches_results() {
         let index = test_index();
         let params = QueryParams {
@@ -90,6 +94,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn display_output_is_valid() {
         let index = test_index();
         let params = QueryParams {
@@ -104,6 +109,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn proof_status_enrichment_works() {
         let index = test_index();
         let params = QueryParams {
@@ -119,6 +125,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn binding_enrichment_without_registry() {
         let index = test_index();
         let params = QueryParams {
@@ -134,6 +141,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)")]
     fn binding_enrichment_with_registry() {
         let binding_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../contracts/aprender/binding.yaml");
@@ -173,6 +181,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn markdown_output_format() {
         let index = test_index();
         let params = QueryParams {
@@ -201,6 +210,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)")]
     fn display_with_all_enrichment() {
         let index = test_index();
         let binding_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -223,6 +233,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)")]
     fn markdown_with_proof_and_binding() {
         let index = test_index();
         let binding_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -276,6 +287,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs a registry-kind contract, which only aprender's corpus ships (#452)")]
     fn kind_filter_narrows_to_registries() {
         use crate::schema::ContractKind;
         let index = test_index();
@@ -416,6 +428,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn get_by_equation_works() {
         let index = test_index();
         let results = index.get_by_equation("softmax");
@@ -443,6 +456,7 @@
     }
 
     #[test]
+    #[cfg_attr(not(feature = "aprender-corpus"), ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)")]
     fn query_result_path_is_clean() {
         let index = test_index();
         let params = QueryParams {
