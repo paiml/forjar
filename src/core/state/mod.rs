@@ -5,9 +5,14 @@ pub mod integrity;
 pub mod process_lock;
 pub mod reconstruct;
 pub mod rulebook_log;
+pub mod stamp;
 
-use super::types::{ApplyResult, GlobalLock, MachineSummary, StateLock};
+use super::types::{ApplyResult, GlobalLock, StateLock};
 use provable_contracts_macros::contract;
+pub use stamp::{
+    multi_stack_restore_refusal, stack_conflict, stack_names, stack_written_from_other_file,
+    StackConflict,
+};
 use std::path::{Path, PathBuf};
 
 /// Derive the lock file path for a machine within the state directory.
@@ -94,8 +99,13 @@ pub fn load_global_lock(state_dir: &Path) -> Result<Option<GlobalLock>, String> 
     }
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("cannot read {}: {}", path.display(), e))?;
-    let lock: GlobalLock = serde_yaml_ng::from_str(&content)
+    let mut lock: GlobalLock = serde_yaml_ng::from_str(&content)
         .map_err(|e| format!("invalid global lock {}: {}", path.display(), e))?;
+    // forjar#469: refuse a schema we do not know (fail closed), then migrate a
+    // legacy single stamp into the per-name map. Both are in-memory; the next
+    // save persists the migration and re-seals the integrity sidecar with it.
+    stamp::check_schema(&lock.schema, &path)?;
+    stamp::migrate(&mut lock);
     Ok(Some(lock))
 }
 
@@ -143,58 +153,71 @@ pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), Strin
 pub fn new_global_lock(name: &str) -> GlobalLock {
     use crate::tripwire::eventlog::now_iso8601;
     GlobalLock {
-        schema: "1.0".to_string(),
+        schema: stamp::SCHEMA_CURRENT.to_string(),
         name: name.to_string(),
         last_apply: now_iso8601(),
         generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
         machines: indexmap::IndexMap::new(),
         outputs: indexmap::IndexMap::new(),
+        stacks: indexmap::IndexMap::new(),
     }
 }
 
 /// Update global lock with results from an apply.
+///
+/// forjar#469: per config NAME. Only `stacks[config_name]` and the machines
+/// this apply wrote are touched, so N configs can share one state dir — the
+/// layout paiml/infra has run for months — without overwriting each other's
+/// record.
+///
+/// `config_file` is the `-f` the caller applied; `None` means the caller has
+/// no config path in hand, and then no file mismatch can be detected (see
+/// [`stamp::stack_conflict`]).
 pub fn update_global_lock(
     state_dir: &Path,
     config_name: &str,
+    config_file: Option<&Path>,
     machine_results: &[(String, usize, usize, usize)], // (name, total, converged, failed)
 ) -> Result<(), String> {
-    use crate::tripwire::eventlog::now_iso8601;
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
-    // GH-377: this line is the silent stack rename. Applying stack B against
-    // stack A's state dir re-stamps the dir as B's, destroying the only record
-    // that they were ever different — which is exactly the evidence `undo`'s
-    // refusal depends on. `apply` still proceeds: it does what its two arguments
-    // say, it runs unattended in every CI job and cron, and state dirs already
-    // carrying the loser's name exist in the wild. The warning is the migration
-    // path; only `undo`, whose plan and its work would be about different
-    // stacks, refuses.
-    if !lock.name.is_empty() && lock.name != config_name {
-        eprintln!(
-            "warning: state dir {} was last applied by stack '{}'; this apply re-stamps it as \
-             '{}'. If that is not a rename, one of -f/--state-dir points at the wrong stack \
-             (`forjar undo` refuses this combination).",
-            state_dir.display(),
-            lock.name,
-            config_name,
-        );
-    }
-    lock.name = config_name.to_string();
-    lock.last_apply = now_iso8601();
-    lock.generator = format!("forjar {}", env!("CARGO_PKG_VERSION"));
-
-    for (name, total, converged, failed) in machine_results {
-        lock.machines.insert(
-            name.clone(),
-            MachineSummary {
-                resources: *total,
-                converged: *converged,
-                failed: *failed,
-                last_apply: now_iso8601(),
-            },
-        );
-    }
-
+    let machines: Vec<String> = machine_results.iter().map(|(m, ..)| m.clone()).collect();
+    warn_on_stack_conflict(state_dir, &lock, (config_name, config_file), &machines);
+    stamp::apply_stamp(
+        &mut lock,
+        state_dir,
+        (config_name, config_file),
+        machine_results,
+    );
     save_global_lock(state_dir, &lock)
+}
+
+/// GH-377's warning, narrowed by forjar#469 to the cases it was built for.
+///
+/// It used to fire whenever the dir's single stamp carried a different NAME,
+/// which in the many-stacks-one-state-dir layout is every apply — the fastest
+/// way to teach an operator to stop reading warnings, while telling them undo
+/// would refuse a layout apply supports. It now fires on
+/// [`stamp::stack_conflict`] only: the same name from a different `-f`, or a
+/// machine another stack owns. `apply` still proceeds — it does what its
+/// arguments say — and only `undo`, whose plan and its work would be about
+/// different stacks, refuses.
+fn warn_on_stack_conflict(
+    state_dir: &Path,
+    lock: &GlobalLock,
+    config: (&str, Option<&Path>),
+    machines: &[String],
+) {
+    let (config_name, config_file) = config;
+    let Some(conflict) = stamp::stack_conflict(lock, state_dir, config_name, config_file, machines)
+    else {
+        return;
+    };
+    eprintln!(
+        "warning: state dir {}: stack '{}' {}",
+        state_dir.display(),
+        config_name,
+        conflict,
+    );
 }
 
 /// FJ-1260: Resolve all output values from a config into a flat map.
@@ -225,11 +248,15 @@ pub fn persist_outputs(
     ephemeral: bool,
 ) -> Result<(), String> {
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
-    lock.outputs = if ephemeral {
+    let values = if ephemeral {
         ephemeral::redact_outputs(outputs, true)
     } else {
         outputs.clone()
     };
+    // forjar#469: MERGE, do not replace. Assigning `lock.outputs` deleted every
+    // other stack's outputs in a shared state dir — and with them every
+    // `{{stack.*}}` reference that resolved through them.
+    stamp::merge_outputs(&mut lock, config_name, &values);
     save_global_lock(state_dir, &lock)
 }
 
@@ -380,5 +407,7 @@ mod tests_integrity_cov;
 mod tests_outputs;
 #[cfg(test)]
 mod tests_reconstruct;
+#[cfg(test)]
+mod tests_stack_stamp;
 #[cfg(test)]
 mod tests_state_cov;

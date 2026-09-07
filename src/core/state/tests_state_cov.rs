@@ -153,7 +153,8 @@ fn new_lock_fields() {
 #[test]
 fn new_global_lock_fields() {
     let lock = new_global_lock("my-stack");
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(lock.schema, "1.1");
     assert_eq!(lock.name, "my-stack");
     assert!(!lock.last_apply.is_empty());
     assert!(lock.generator.contains("forjar"));
@@ -224,7 +225,7 @@ fn update_global_lock_creates_new() {
         ("web".to_string(), 3usize, 2usize, 1usize),
         ("db".to_string(), 2, 2, 0),
     ];
-    update_global_lock(dir.path(), "my-stack", &results).unwrap();
+    update_global_lock(dir.path(), "my-stack", None, &results).unwrap();
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.name, "my-stack");
     assert_eq!(lock.machines.len(), 2);
@@ -237,9 +238,9 @@ fn update_global_lock_creates_new() {
 fn update_global_lock_updates_existing() {
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 3usize, 3usize, 0usize)];
-    update_global_lock(dir.path(), "my-stack", &results1).unwrap();
+    update_global_lock(dir.path(), "my-stack", None, &results1).unwrap();
     let results2 = vec![("web".to_string(), 4, 3, 1)];
-    update_global_lock(dir.path(), "my-stack", &results2).unwrap();
+    update_global_lock(dir.path(), "my-stack", None, &results2).unwrap();
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.machines["web"].resources, 4);
     assert_eq!(lock.machines["web"].failed, 1);

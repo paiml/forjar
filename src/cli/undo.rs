@@ -1,4 +1,3 @@
-use super::apply::*;
 use super::helpers::*;
 use super::helpers_state::load_generation_locks;
 use crate::core::types;
@@ -292,6 +291,18 @@ pub(crate) fn cmd_undo(
     if !yes {
         return Err("undo requires --yes to confirm".to_string());
     }
+    // PMAT-161 (#469): the LAST read-only line. Everything below writes —
+    // `stage_target_config` puts a file beside the operator's config,
+    // `destroy_absent_from_target` removes resources from the HOST, and only
+    // then does `rollback_to_generation` reach its own copy of this guard. A
+    // command that destroys and then refuses is not a guard, it is the defect
+    // with an error message on it (INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE).
+    //
+    // The primitive keeps its call regardless: it is what a future caller
+    // inherits, and `rollback --generation` arrives there with no config in the
+    // picture at all. `Some(target)`, so the refusal is word for word the one
+    // that call would have printed for this same restore.
+    super::generation::restore::refuse_multi_stack_restore(state_dir, Some(target))?;
 
     let (replay, target_config) = stage_target_config(file, target, &target_body)?;
 
@@ -330,65 +341,16 @@ pub(crate) fn cmd_undo(
     }
 
     println!("\nRe-applying generation {target}'s recorded config to converge the host...");
-    let result = replay_generation(replay.path(), state_dir, machine_filter);
+    let result = super::undo_replay::replay_generation(
+        replay.path(),
+        state_dir,
+        machine_filter,
+        (&current_config.name, file),
+    );
 
     // Mark progress completed or partial
     mark_undo_progress_final(state_dir, affected.iter(), result.is_ok());
     result
-}
-
-/// Apply a generation's recorded config so the host converges to that
-/// generation. `force` is on and confirmation is pre-granted; every other knob
-/// is the `cmd_apply` default.
-///
-/// Generation recording is paused for the duration: `rollback_to_generation`
-/// has already pointed `current` at the target, and appending a new generation
-/// here would push `current` past the state the host is in, making a second
-/// `undo` target what the first had just restored.
-fn replay_generation(
-    file: &Path,
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-) -> Result<(), String> {
-    let _paused = super::apply_snapshot::PauseGenerationRecording::new();
-    cmd_apply(
-        file,
-        state_dir,
-        machine_filter,
-        None,
-        None,
-        None,
-        true,
-        false,
-        false,
-        &[],
-        false,
-        None,
-        false,
-        false,
-        None,
-        None,
-        false,
-        false,
-        None,
-        false,
-        false,
-        0,
-        true,
-        false,
-        None,
-        false,
-        None,
-        None,
-        None,
-        false,
-        None,
-        false,
-        None,  // telemetry_endpoint
-        false, // refresh
-        None,  // force_tag
-        &[],
-    )
 }
 
 /// The generation a partial undo was heading for and the machines whose ledgers
@@ -434,6 +396,12 @@ pub(crate) fn cmd_undo_resume(
     // machines named in the CWD config, and machine names collide constantly
     // (`local`, `web`, `prod`). Unguarded it is the identical bypass.
     super::state_identity::check_state_dir_owner("undo --resume", &config, file, state_dir)?;
+    // PMAT-161 (#469): `--resume` is the one undo path that never reaches
+    // `rollback_to_generation` — it re-applies the target generation's recorded
+    // config directly — so the restore guard has to be asked here too, and
+    // before the ledger read: `undo-progress.yaml` is keyed by MACHINE name,
+    // and machine names are exactly what stacks sharing a dir collide on.
+    super::generation::restore::refuse_multi_stack_restore(state_dir, None)?;
     let machines: Vec<String> = config
         .machines
         .keys()
@@ -459,7 +427,12 @@ pub(crate) fn cmd_undo_resume(
     let (replay, _) = stage_target_config(file, target, &body)?;
 
     println!("\nRe-applying generation {target}'s recorded config to complete the undo...");
-    let result = replay_generation(replay.path(), state_dir, machine_filter);
+    let result = super::undo_replay::replay_generation(
+        replay.path(),
+        state_dir,
+        machine_filter,
+        (&config.name, file),
+    );
     // Without this the ledger stays Partial after a successful resume and
     // `--resume` would find the same undo for ever. It was unreachable before
     // GH-376 only because the ledger never survived the rollback at all.

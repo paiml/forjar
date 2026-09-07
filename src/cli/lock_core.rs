@@ -160,6 +160,7 @@ pub(crate) fn cmd_lock(
     } else {
         super::lock_output::output_lock_results(
             state_dir,
+            file,
             &config.name,
             &machine_resources,
             total_machines,
