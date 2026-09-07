@@ -62,7 +62,7 @@
   "observed_failure": "test every_behaviour_has_at_least_three_reference_rows ... FAILED\ntest every_row_cites_a_third_party_and_forjars_own_code ... FAILED\ntest every_row_has_exactly_one_disposition ... FAILED\ntest the_audit_exists_and_its_title_names_1_26_0 ... FAILED\ntest the_go_spec_section_names_its_two_precedents ... FAILED\ntest the_reconciliation_section_maps_every_changelog_bullet ... FAILED\ntest result: FAILED. 3 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
   "still_green_when_reverted": "the three vacuous-on-empty rules the test file documents (no stale path, no ownership file, no [X] in README or the book), which are controls against leakage rather than presence checks"
  },
- "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
  "diff_sha256": "992234ad8a88cc9fe0a90dd227fef7eda5df3163",
