@@ -64,7 +64,7 @@
  "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "73b413ac1091e0d4f4a558431ba09304db8de94c",
+ "diff_sha256": "353f527e9b1392aeb5bbfa01309636be48fa911f",
  "evidence": {
   "files": [
    {
@@ -90,9 +90,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 21873,
-    "sha256": "9395d1308917cadd744e9f0a00490cd36be54f12589bcc5b6e05a5ef7ab344d9",
-    "blob": "b0ee2c5cfa068c31ce7cdd7993723a6a08b514c0"
+    "bytes": 24157,
+    "sha256": "c1432592e5963b360c2c043e3e4fdc3d4bbcaa4ddd8614f8943ac124b54c4b3e",
+    "blob": "794777261868e71eba8ae6914a30740b02ab04ec"
    },
    {
     "path": ".quorum/evidence/forjar-dogfood-agy.md",
@@ -122,7 +122,7 @@
     "blob": "a3571a232f53021dfc1b762923b86f5675bb72f4"
    }
   ],
-  "total_bytes": 55011,
+  "total_bytes": 57295,
   "claims_digest": ".quorum/evidence/forjar-dogfood-judges.md"
  }
 }
