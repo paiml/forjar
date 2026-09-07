@@ -105,11 +105,26 @@ dogfood_merged_prs() {
   fi
 
   DOGFOOD_PR_OUTSIDE=0
+  DOGFOOD_PR_PREVIOUS=0
   while [ "$i" -lt "$n" ]; do
     num="$(printf '%s' "$raw" | jq -r ".[${i}].number // \"-\"")"
     oid="$(printf '%s' "$raw" | jq -r ".[${i}].mergeCommit.oid // \"-\"")"
     if [ "$oid" = "-" ] || [ -z "$oid" ]; then
       fail "GitHub reports PR #${num} merged since ${DOGFOOD_PREV_TAG} with no merge commit, so whether it is inside this HEAD cannot be decided — UNMEASURED"
+    fi
+    # The previous release's own PR is merged at the very second its tag is
+    # cut, so `merged:>=<tag date>` returns it; its merge commit is an ancestor
+    # of (or is) the tag, which puts it in the PREVIOUS window, not this one.
+    prev_rc=0
+    git merge-base --is-ancestor "$oid" "$DOGFOOD_PREV_TAG" >/dev/null 2>&1 || prev_rc=$?
+    if [ "$prev_rc" -eq 0 ]; then
+      echo "  #${num} ${oid} is inside ${DOGFOOD_PREV_TAG} (the previous release) — not counted"
+      DOGFOOD_PR_PREVIOUS=$((DOGFOOD_PR_PREVIOUS + 1))
+      i=$((i + 1))
+      continue
+    fi
+    if [ "$prev_rc" -ne 1 ]; then
+      fail "git merge-base --is-ancestor ${oid} ${DOGFOOD_PREV_TAG} exited ${prev_rc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin) — UNMEASURED"
     fi
     arc=0
     git merge-base --is-ancestor "$oid" HEAD >/dev/null 2>&1 || arc=$?
