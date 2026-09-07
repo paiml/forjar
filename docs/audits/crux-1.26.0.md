@@ -104,9 +104,9 @@ whole-dir snapshot mechanism to a Nix-like stack-scoped restore.*
 
 ## Reconciliation
 
-Every behaviour-change bullet in `CHANGELOG.md`'s `[Unreleased]` section
+Every behaviour-change paragraph in `CHANGELOG.md`'s `[Unreleased]` section
 (read from `PMAT-161-state-stamp-per-name`), mapped to its behaviour number,
-so `scripts/dogfood/crux-reconcile.sh` can check each bullet has a row above:
+so `scripts/dogfood/crux-reconcile.sh` can check each paragraph has a row above:
 
 1. **(1)** "Every resource-set selector `-r`, `-g`, `--subset`,
    `--resource-filter` and `make` goals now resolves exactly once ... the
