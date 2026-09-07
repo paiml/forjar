@@ -11,7 +11,7 @@
 #   cb-1700, cb-1701  pmat reads `branches/main/protection`, which 404s because
 #                     paiml/forjar is protected by a RULESET. Arm 2 reads the
 #                     ruleset.
-#   cb-400            one bashrs ERROR (scripts/ledger-replay.sh:42, SEC011 — a
+#   cb-400            (Arm 4/4b) one bashrs ERROR (scripts/ledger-replay.sh:42, SEC011 — a
 #                     trap that rm -rf's an unguarded variable) fails the whole
 #                     check, and that file is outside PMAT-163's scope. Arm 3
 #                     requires 0 bashrs errors in the scripts this ticket ships;
@@ -139,7 +139,30 @@ if [ "$errors" -gt "$BASHRS_ERROR_CEILING" ]; then
   fail "bashrs errors in pre-existing shell REGRESSED: ${errors} > recorded ceiling ${BASHRS_ERROR_CEILING}"
 fi
 
-echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) at 0 bashrs errors; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
+# ---------------------------------------------------------------- Arm 4b
+# Every OTHER tracked shell script is scored at 0 errors. The legacy list above
+# is a ceiling for files that predate this gate; a file that is neither a gate
+# nor on that list — whenever it was added — is measured on its own and never
+# inherited into the ceiling. Without this arm a script added anywhere outside
+# scripts/dogfood/ would go unlinted (found by the PMAT-163 merge review).
+mapfile -d '' tracked_shell < <(git ls-files -z -- '*.sh')
+others_dirty=""
+n_others=0
+for f in "${tracked_shell[@]}"; do
+  case " ${gates[*]} ${LEGACY_SHELL[*]} " in
+    *" ${f} "*) continue ;;
+  esac
+  n_others=$((n_others + 1))
+  bashrs_count "$f"
+  if [ "$BASHRS_ERR_COUNT" -ne 0 ]; then
+    others_dirty="${others_dirty} ${f}(${BASHRS_ERR_COUNT})"
+  fi
+done
+if [ -n "$others_dirty" ]; then
+  fail "bashrs errors in tracked shell scripts outside the recorded legacy set — a new script is scored, not inherited:${others_dirty}"
+fi
+
+echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) and ${n_others} other tracked script(s) at 0 bashrs errors; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
 
 # mutation: set BASHRS_ERROR_CEILING=0 — Arm 4 then reports the known
 # scripts/ledger-replay.sh SEC011 finding as a regression and the gate exits 1.
