@@ -5,7 +5,7 @@
 ## REFUTED — 5 claims killed
 
 1. [contracts-crate] L3-F1 — contracts/forjar-dogfood-coverage-v1.yaml:941 — FALSIFY-DF-006 maps the rule 'Exactly one skill claims the name' to the test `nothing_in_the_tree_is_still_called_dogfood` instead of `exactly_one_skill_claims_the_name`, creating a mismatch between the rule text and the test function named. (proposed fix: Change the test reference to `tests/falsification_dogfood_skill_is_named.rs::exactly_one_skill_claims_the_name` or update the rule text to match `nothing_in_the_tree_is_still_called_dogfood`.)
-   - evidence: REFUTED — stale: fixed in f7d97024 (DF-006 cites exactly_one_skill_claims_the_name); the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_skill_is_named.rs:128.
+   - evidence: REFUTED — stale: fixed in f7d97024 (DF-006 cites exactly_one_skill_claims_the_name); the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_skill_is_named.rs:128. (verbatim)
 
 2. [teamwork] T-F1 — scripts/dogfood/docs.sh:197 — Gate theater: docs.sh reads the surface list from the committed CSV rather than the built artifact, allowing dead verbs to pass the presence check if the CSV is stale.
    - evidence: REFUTED — refuted on the merits: gate C verifies the committed ledger against the built binary in the same make run (surface.sh) before docs.sh reads it; the sentence above is reproduced as the lane posed it. Pinned by tests/falsification_dogfood_scripts_declare_mutations.rs:32.
