@@ -97,21 +97,41 @@
 //! world-writable mode the baseline could not see), and the rest are unchanged.
 //! No shape the baseline refused is accepted here.
 //!
+//! THE MERGE REVIEW. Three more lanes attacked the whole diff and found three
+//! real defects, each re-run against the baseline first: `bash -c 'c\hmod 777
+//! /bar'` inside quotes was redacted away (REFUSED at baseline — a regression,
+//! closed by forbidding whitespace in a redacted argument); `o=r-w` was refused
+//! as world-writable although it removes the bit (ACCEPTED at baseline — a
+//! false refusal, closed by reading a symbolic clause the way chmod applies it);
+//! and a command separator with no space around it hid the second chmod
+//! (ACCEPTED at baseline too). Fifty shapes are now measured against both
+//! commits: four go refused -> accepted, all of them this ticket's bug, and
+//! fourteen go accepted -> refused.
+//!
 //! FALSIFY IT: make [`sec017_is_path_only`] return `true` unconditionally, or
 //! make [`world_writable_modes`] return an empty vector, and
 //! `tests/falsification_chmod_path_is_not_a_mode.rs` goes red.
 
 use bashrs::linter::{lint_shell, Severity};
 
-/// True where a quoted argument is a plain path literal: a `/` in it, no shell
-/// metacharacter that could make it executable text, and no `chmod`.
+/// True where a quoted argument is a plain path literal: a `/` in it, NO
+/// WHITESPACE, no backslash, no shell metacharacter, and no `chmod`.
 ///
-/// Deliberately conservative in the direction that keeps findings: anything
-/// this is unsure about is left on the line for bashrs to judge.
+/// Whitespace is the load-bearing condition. `bash -c 'c\hmod 777 /bar'` has a
+/// slash, no metacharacter from the list and — because of the backslash — not
+/// the literal word `chmod`, so a rule that allowed spaces redacted the whole
+/// payload and took `777` out of SEC017's sight. That line was REFUSED before
+/// PMAT-204 and accepted after, until this condition was added (measured).
+///
+/// The cost is a path containing a space AND a mode-shaped digit run: it is not
+/// redacted, so SEC017 still mistakes it for a mode and the script is refused.
+/// That is the safe direction — a refusal, not an acceptance — and it is the
+/// only false positive this module knowingly keeps.
 fn is_plain_path_literal(inner: &str) -> bool {
     inner.contains('/')
         && !inner.contains("chmod")
-        && !inner.contains(['$', '`', ';', '&', '|', '\n'])
+        && !inner.chars().any(char::is_whitespace)
+        && !inner.contains(['$', '`', ';', '&', '|', '\\', '<', '>', '(', ')', '\n'])
 }
 
 /// Replace quoted PATH LITERALS with a fixed path, and nothing else.
@@ -215,13 +235,18 @@ pub(crate) fn sec017_is_path_only(line: &str) -> bool {
 /// Leading zeros are what makes the widths vary, so only the low twelve bits
 /// are kept: everything above them is padding.
 fn parse_octal_mode(text: &str) -> Option<u32> {
-    if text.is_empty() || text.len() > 12 {
+    if text.is_empty() || !text.bytes().all(|b| (b'0'..=b'7').contains(&b)) {
         return None;
     }
-    if !text.bytes().all(|b| (b'0'..=b'7').contains(&b)) {
+    // Leading zeros are padding, and chmod accepts any number of them: a
+    // thirteen-digit `0000000000666` is the same mode as `0666`. Strip them
+    // first, then require what is left to be a mode.
+    let digits = text.trim_start_matches('0');
+    let digits = if digits.is_empty() { "0" } else { digits };
+    if digits.len() > 4 {
         return None;
     }
-    u32::from_str_radix(text, 8).ok().map(|m| m & 0o7777)
+    u32::from_str_radix(digits, 8).ok()
 }
 
 /// Strip one matched pair of surrounding quotes.
@@ -242,16 +267,43 @@ fn unquote(token: &str) -> &str {
 /// grants world write in its SECOND clause, and a rule that read only the
 /// leading `who` group called it safe (found by three refuter lanes, measured).
 fn symbolic_grants_world_write(text: &str) -> bool {
-    text.split(',').any(|clause| {
-        let (who, op_rest) = match clause.find(['+', '=']) {
-            Some(i) => (&clause[..i], &clause[i..]),
-            None => return false,
-        };
-        if !op_rest.contains('w') {
-            return false;
+    text.split(',').any(clause_grants_world_write)
+}
+
+/// One symbolic clause, read left to right the way chmod applies it.
+///
+/// `o=r-w` sets the other bits to `r` and then removes `w`: it does NOT grant
+/// world write, and a rule that only asked whether a `w` appeared after the
+/// first operator refused it (measured — a false refusal the baseline did not
+/// make). `+` grants, `-` revokes, `=` replaces, and the last word wins.
+fn clause_grants_world_write(clause: &str) -> bool {
+    let Some(first) = clause.find(['+', '-', '=']) else {
+        return false;
+    };
+    let (who, ops) = clause.split_at(first);
+    if !(who.is_empty() || who.contains('a') || who.contains('o')) {
+        return false;
+    }
+    let mut granted = false;
+    let mut op = None;
+    let mut perms = String::new();
+    let mut settle = |op: Option<char>, perms: &str, granted: &mut bool| match op {
+        Some('+') if perms.contains('w') => *granted = true,
+        Some('-') if perms.contains('w') => *granted = false,
+        Some('=') => *granted = perms.contains('w'),
+        _ => {}
+    };
+    for c in ops.chars() {
+        if matches!(c, '+' | '-' | '=') {
+            settle(op, &perms, &mut granted);
+            op = Some(c);
+            perms.clear();
+        } else {
+            perms.push(c);
         }
-        who.is_empty() || who.contains('a') || who.contains('o')
-    })
+    }
+    settle(op, &perms, &mut granted);
+    granted
 }
 
 /// Every world-writable mode written on `line`, as it was written.
@@ -260,6 +312,19 @@ fn symbolic_grants_world_write(text: &str) -> bool {
 /// `find -exec chmod '0666' {} \;` is as world-writable as any other, and this
 /// function may only ever ADD a refusal.
 pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    // Split on command separators FIRST: `chmod 0644 a;chmod '0666' b` has no
+    // space before the second command, so whitespace tokenising alone reads
+    // `a;chmod` as one word and never sees it (measured, missed at the
+    // pre-PMAT-204 baseline too).
+    for segment in line.split([';', '&', '|', '\n']) {
+        found.extend(world_writable_modes_in_segment(segment));
+    }
+    found
+}
+
+/// The world-writable modes written in one command segment.
+fn world_writable_modes_in_segment(line: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut tokens = line.split_whitespace().peekable();
     while let Some(tok) = tokens.next() {
@@ -275,9 +340,6 @@ pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
         for arg in tokens.by_ref() {
             let inner = unquote(arg);
             if inner.starts_with("--reference") {
-                break;
-            }
-            if inner.contains([';', '&', '|']) {
                 break;
             }
             match parse_octal_mode(inner) {

@@ -17,7 +17,8 @@ and the resource failed. The same rule missed the real case — measured
 produces no finding at all, because the boundary check cannot see `666` behind
 the leading `0`. The gate no longer lets the path
 speak for the mode, and it does not try to parse shell itself: it redacts quoted
-PATH LITERALS only — a `/` in them, no shell metacharacter, no `chmod` — asks
+PATH LITERALS only — a `/` in them, no whitespace, no backslash, no shell
+metacharacter, no `chmod` — asks
 bashrs again, and drops the SEC017 finding only if the rule stops reporting on
 the redacted line. A second chmod
 anywhere on the line — behind `sudo`, inside backticks, after `env`, in a
@@ -27,8 +28,9 @@ for the chmod command itself and accepted all of those shapes, and the second
 mis-paired escaped quotes, both caught by review lanes and a direct re-run
 against the pre-fix baseline before either shipped. In the other direction forjar now judges what bashrs cannot:
 every world-writable mode on any line, in any width (`0666`, `00666`, `0662`),
-symbolic in any clause (`a+w`, `o+w`, `u=rwx,o=w`) or sitting inside a
-subshell, backticks or `find -exec`, is refused under
+symbolic in any clause that ends up granting it (`a+w`, `o+w`, `u=rwx,o=w`, but
+not `o=r-w`, which takes it away again) or sitting inside a subshell, backticks
+or `find -exec`, is refused under
 forjar's own code `FJ-CHMOD-WW`, naming the mode. Two shapes remain undecidable
 by either instrument and are refused by neither, exactly as before: a mode held
 in a variable, and `--reference=FILE`, which takes the mode from another file.
