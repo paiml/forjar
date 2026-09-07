@@ -45,17 +45,18 @@
 //! green for the wrong reason the day bashrs learns to parse quotes.
 //!
 //! WHAT A GREEN RUN PROVES. (1) A path containing `666` or `777` converges.
-//! (2) A declared world-writable mode is refused by forjar, by name, at
-//! validation time — a property nothing had before. (3) A genuine bare
+//! (2) A declared world-writable mode is refused by forjar's own rule at the
+//! I8 gate, before the script runs — a property nothing had before, because
+//! the existing world-writable rule (`validate --check-security`,
+//! `core::security_scanner`) only ever REPORTED it. (3) A genuine bare
 //! `chmod 666` is still refused through SEC017: the true positive survives.
 //! (4) The gate is not vacuous — it still refuses an unrelated Error-severity
 //! class (SC1078, unterminated string).
 //!
-//! HOW TO FALSIFY. Make `core::purifier::chmod_mode_verdict` return the
-//! exempt verdict unconditionally: the true-positive cells go red. Delete the
-//! world-write check in `core::parser::format_validation::validate_mode` and
-//! the declared-mode cells go red. Suppress SEC017 wholesale and the bare
-//! `chmod 666` cells go red.
+//! HOW TO FALSIFY. Make `core::purifier_sec017::chmod_mode_verdict` return the
+//! exempt verdict unconditionally: the true-positive cells go red. Delete
+//! `core::purifier::world_writable_chmod_errors` and the declared-mode cells go
+//! red. Suppress SEC017 wholesale and the bare `chmod 666` cells go red.
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -63,7 +63,8 @@ fn is_word_boundary(line: &str, pos: usize, len: usize) -> bool {
     let bytes = line.as_bytes();
     let before_ok = pos == 0 || matches!(bytes[pos - 1], b' ' | b'\t' | b';' | b'&' | b'|' | b'(');
     let after = pos + len;
-    let after_ok = after >= bytes.len() || matches!(bytes[after], b' ' | b'\t' | b';' | b'&' | b'|');
+    let after_ok =
+        after >= bytes.len() || matches!(bytes[after], b' ' | b'\t' | b';' | b'&' | b'|');
     before_ok && after_ok
 }
 

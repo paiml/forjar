@@ -20,9 +20,12 @@ SEC017 hit is exempted only where the line is a single chmod whose first
 non-flag argument is a quoted octal literal without the world-write bit, and
 everything else — a bare `chmod 666`, a symbolic mode, a second chmod on the
 line, a line where `chmod` is an argument — still refuses. Both directions of
-the mistake are fixed, so this is stricter than before, not looser: forjar also
-refuses a world-writable declared mode at validation time now, naming the
-resource and the mode.
+the mistake are fixed, so this is stricter than before, not looser: a chmod
+whose mode really does carry the world-write bit is now refused under forjar's
+own code `FJ-CHMOD-WW`, naming the mode, before the script is allowed to run.
+`forjar validate --check-security` still reports such a mode as a warning on a
+config that loads — the refusal is at the point of execution, so scanning an
+insecure config remains possible.
 
 **`apply`'s resource-set selectors resolved independently, one bug per
 selector (#466, #467, #468).** Measured 2026-09-05 against `paiml/infra`:
