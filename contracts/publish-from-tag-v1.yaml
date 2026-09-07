@@ -21,19 +21,35 @@ metadata:
     environment for every `cargo publish` invocation, so a leaked token in a
     build log is not a way this can fail.
 
-    MUTATION GUARD: `--detach` ON `git worktree add`. A tag is not a branch;
-    removing `--detach` makes `git worktree add "$WT" "$TAG"` fail outright
-    rather than silently attaching a dirtiable, non-detached worktree. This
-    is the single line a mutation run must not be able to remove without
-    every falsification test in this contract going RED — cases (c) and (d)
-    below both depend on the worktree existing and dry-running clean, so a
-    non-detached regression that fails to check out at all fails loudly
-    rather than degrading quietly to the pre-PMAT-165 behaviour.
+    MUTATION GUARD: THE CHECKOUT IS A WORKTREE OF THIS REPOSITORY (PMAT-187).
+    It is NOT `--detach`. `git worktree add` detaches at a tag whether or not
+    the flag is passed, so removing `--detach` changes nothing any test can
+    observe — the earlier claim that it was the guard was false. The line a
+    mutation run must not be able to change is `git worktree add` itself:
+    replacing it with `git clone` or `cp -r` still yields a clean,
+    tag-shaped, non-repo-path tree that dry-runs green and defeats a naive
+    "cwd != repo_root" assertion. Case (c) therefore pins two facts only a
+    worktree can satisfy — cargo's `git rev-parse --git-common-dir` resolves
+    to THIS repo's `.git`, and `git worktree list` reports two entries WHILE
+    cargo runs (one after the script exits). A clone reports its own `.git`
+    and one worktree; a `cp -r` reports the copy's `.git`. Both go RED.
+
+    SCRATCH FILES LIVE OUTSIDE THE WORKTREE (PMAT-184). The script's own
+    metadata/package/order files are written to a sibling `mktemp -d`, not
+    into the tag checkout. Written inside it they are untracked files in the
+    very tree `cargo publish` packages, and cargo then refuses the crate
+    unless handed `--allow-dirty` — the one flag this pattern exists to
+    avoid. The clean-tree assertion is re-run immediately before every
+    publish, not only at checkout.
   references:
     - "ticket: PMAT-165"
     - "tests/falsification_publish_from_tag.rs — the falsification suite this
        contract's rows are discharged by"
     - "scripts/publish-from-tag.sh — the implementation under contract"
+    - "tests/publish_from_tag_harness/mod.rs — the sandbox repo and the shim
+       `cargo` that observes every invocation (not a separate test target)"
+    - "ticket: PMAT-184, PMAT-185, PMAT-186, PMAT-187 — the review findings
+       this revision discharges"
 
 equations:
   tag_refusal:
@@ -81,6 +97,20 @@ equations:
       - "A dirty AMBIENT checkout never prevents the worktree from dry-running
          clean, because the worktree is a fresh checkout of the tag,
          independent of ambient untracked files"
+      - "The checkout is a WORKTREE OF THIS REPOSITORY, not a clone or a
+         copy: `git rev-parse --git-common-dir` from cargo's cwd resolves to
+         repo_root/.git, and `git worktree list` shows two entries while
+         cargo runs (PMAT-187)"
+      - "The script's own scratch files (metadata, package list, publish
+         order) are written OUTSIDE the worktree, under a sibling temporary
+         directory removed by the same trap — the worktree cargo packages
+         contains no `.publish-*` file at any point (PMAT-184)"
+      - "The clean-tree assertion is re-run immediately before EVERY cargo
+         publish, dry-run or real, not only once after checkout: strict
+         (`--ignored`, no exemptions) on the fresh checkout, and mirroring
+         cargo's own semantics (gitignored build litter exempt) thereafter"
+      - "Both the worktree and the scratch directory are created under
+         $TMPDIR, so a crashed run leaks nothing into a shared /tmp"
 
   token_free_environment:
     formula: |
@@ -94,6 +124,23 @@ equations:
          the script's own environment"
       - "A token visible to the publish step is a defect regardless of
          whether publishing actually succeeds"
+
+  publish_order_ignores_dev_edges:
+    formula: |
+      edges(pkg) = { d ∈ deps(pkg) : d.path ≠ null ∧ d.kind ∈ {null, "build"} }
+
+      topo_order = Kahn(workspace crates minus publish=false, edges)
+      A dev-dependency (kind = "dev") is NEVER an ordering edge, so a
+      dev-dependency back-edge is not a cycle.
+    domain: "the `cargo metadata --no-deps` package graph"
+    codomain: "Sequence<crate> ∪ {refusal}"
+    invariants:
+      - "Only normal (kind == null) and build dependencies order publishing —
+         dev-dependencies are resolved for `cargo test`, never for packaging
+         (PMAT-186)"
+      - "`a_app` depending on `b_core` while `b_core` DEV-depends back on
+         `a_app` sorts b_core then a_app; it is NOT reported as a cycle"
+      - "A real cycle over normal/build edges still refuses with exit 2"
 
   dry_run_then_publish_order:
     formula: |
@@ -112,15 +159,30 @@ equations:
 
   index_poll_backoff:
     formula: |
+      already_published(name, version) =
+          exit(cargo info "name@version" --registry crates-io) = 0
+        , or where `cargo info` is unavailable,
+          ∃ line ∈ cargo search name --limit 1 :
+              index(line, 'name = "version"') = 1      -- anchored at column 1
+
       poll_index(pkg) = first success of {already_published(pkg) after delay_i}
         for delay ∈ [1, 2, 4, 8, 8, 8, 8, 8]  -- bounded backoff, never fixed
       poll_index skipped when pkg = last(topo_order)
     domain: "pkg ∈ workspace crates except the last in publish order"
-    codomain: "Result<(), String>"
+    codomain: "Result<(), ExitCode 2>"
     invariants:
-      - "No single fixed `sleep N` gates the whole publish loop — the delay
-         sequence is bounded and increasing, and the loop gives up (refusing)
-         if the index never catches up"
+      - "The poll asks about ONE EXACT VERSION. `cargo search` reports only
+         the newest version of a prefix-matched name, so the version being
+         published could never appear for an older-than-newest release, and
+         an unanchored substring match accepts another crate's line
+         (`other-demo = \"0.0.1\"`) as evidence about `demo` (PMAT-185)"
+      - "`cargo search` is a FALLBACK for a cargo without `cargo info`, and
+         then only with a column-1-anchored exact name AND version match"
+      - "No single fixed `sleep N` gates the publish loop — the delay
+         sequence is bounded and increasing (overridable only by the test
+         hook PUBLISH_POLL_DELAYS)"
+      - "When the bound is exhausted the run exits 2 NAMING the crate and
+         version, and the dependent crate is never published"
       - "The last package in topological order is never polled — nothing
          downstream depends on it within this run"
 
@@ -140,6 +202,14 @@ proof_obligations:
     tolerance: 0.0
     applies_to: "scripts/publish-from-tag.sh worktree lifecycle"
     discharged_by: "FALSIFY-PUBLISH-C"
+
+  - type: frame
+    property: "The tree cargo publishes from contains none of this script's
+               scratch files, and is clean at every cargo call"
+    formal: "∀ call : `.publish-*` ∉ ls(cwd(call)) ∧ git_status(WT) = ε"
+    tolerance: 0.0
+    applies_to: "the scratch directory, and the pre-publish clean assertion"
+    discharged_by: "FALSIFY-PUBLISH-F"
 
   - type: independence
     property: "A dirty ambient checkout does not propagate into the
@@ -165,6 +235,23 @@ proof_obligations:
     applies_to: "the dry-run-then-publish sequence per package"
     discharged_by: "FALSIFY-PUBLISH-C"
 
+  - type: ordering
+    property: "A dependent publishes only after the exact version of its
+               dependency answers on the index; an index that never catches
+               up refuses instead of publishing the dependent"
+    formal: "publish(dependent) ⟹ already_published(dep, exact version)"
+    tolerance: 0.0
+    applies_to: "poll_index and its bound"
+    discharged_by: "FALSIFY-PUBLISH-G, FALSIFY-PUBLISH-H, FALSIFY-PUBLISH-I"
+
+  - type: completeness
+    property: "Dev-dependency back-edges do not order publishing and are not
+               cycles"
+    formal: "kind = 'dev' ⟹ edge ∉ topo_order constraints"
+    tolerance: 0.0
+    applies_to: "the jq dependency filter and the Kahn sort"
+    discharged_by: "FALSIFY-PUBLISH-J"
+
 enforcement:
   refusals_exit_before_any_cargo_call:
     description: |
@@ -174,9 +261,10 @@ enforcement:
     severity: "ERROR"
   detached_worktree_no_survivor:
     description: |
-      cargo calls run with cwd != repo path, and `git worktree list` shows
-      exactly one worktree (the main one) after the script exits.
-    check: "tests/falsification_publish_from_tag.rs::c_dry_run_never_publishes_and_leaves_no_worktree_behind"
+      cargo calls run with cwd != repo path, in a worktree OF THIS REPO (same
+      git common dir, two live worktrees during the run), and `git worktree
+      list` shows exactly one worktree (the main one) after the script exits.
+    check: "tests/falsification_publish_from_tag.rs::c_dry_run_publishes_only_from_a_worktree_of_this_repo"
     severity: "ERROR"
   dirty_ambient_does_not_block_the_worktree:
     description: |
@@ -189,6 +277,26 @@ enforcement:
       CARGO_REGISTRY_TOKEN, set in the script's own environment by the test,
       must read as `<unset>` in the shim log for every `publish` call.
     check: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
+    severity: "ERROR"
+
+  scratch_files_stay_out_of_the_worktree:
+    description: |
+      No `.publish-*` file appears in any `ls -a` the shim logs, and
+      `git status --porcelain` in the worktree is empty at every cargo call.
+    check: "tests/falsification_publish_from_tag.rs::f_no_scratch_file_ever_lands_in_the_publish_worktree"
+    severity: "ERROR"
+  index_poll_asks_for_the_exact_version:
+    description: |
+      The poll retries `cargo info NAME@VERSION` until that exact version
+      answers before the dependent publishes; an index that never catches up
+      exits 2 naming the crate; the `cargo search` fallback is anchored.
+    check: "tests/falsification_publish_from_tag.rs::g_the_index_poll_waits_until_cargo_info_confirms_the_exact_version"
+    severity: "ERROR"
+  dev_dependencies_do_not_order_publishing:
+    description: |
+      A dev-dependency back-edge sorts cleanly instead of refusing as a
+      cycle.
+    check: "tests/falsification_publish_from_tag.rs::j_a_dev_dependency_back_edge_is_not_a_cycle"
     severity: "ERROR"
 
 falsification_tests:
@@ -208,10 +316,12 @@ falsification_tests:
     rule: "detached_worktree_isolation / dry_run_then_publish_order"
     prediction: |
       Under DRY_RUN=1 on a valid tag: only `publish --dry-run --locked` is
-      logged, never a plain `publish --locked`; every cargo call ran in a
-      cwd other than the repo path; no worktree survives afterwards.
-    test: "tests/falsification_publish_from_tag.rs::c_dry_run_never_publishes_and_leaves_no_worktree_behind"
-    if_fails: "DRY_RUN=1 either performs a real publish, runs against the ambient tree, or leaks a worktree on every invocation"
+      logged, never a plain `publish --locked`; every cargo call ran in a cwd
+      other than the repo path, whose `git rev-parse --git-common-dir` is
+      THIS repo's `.git` and where `git worktree list` shows two entries; one
+      worktree remains after the script exits.
+    test: "tests/falsification_publish_from_tag.rs::c_dry_run_publishes_only_from_a_worktree_of_this_repo"
+    if_fails: "DRY_RUN=1 performs a real publish, runs against the ambient tree, publishes from a clone or copy rather than a worktree of this repo, or leaks a worktree on every invocation"
 
   - id: FALSIFY-PUBLISH-D
     rule: "detached_worktree_isolation"
@@ -225,6 +335,36 @@ falsification_tests:
     test: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
     if_fails: "A registry token is visible to the publish subprocess environment and therefore to anything that inspects it — process listings, crash dumps, build logs"
 
+  - id: FALSIFY-PUBLISH-F
+    rule: "detached_worktree_isolation"
+    prediction: "Under DRY_RUN=1 the shim's `ls -a` of its cwd never contains a `.publish-*` file, and `git status --porcelain` there is empty at every call"
+    test: "tests/falsification_publish_from_tag.rs::f_no_scratch_file_ever_lands_in_the_publish_worktree"
+    if_fails: "The script dirties the very tree it publishes, and `cargo publish` refuses the root crate for uncommitted files — the pressure that produces `--allow-dirty`"
+
+  - id: FALSIFY-PUBLISH-G
+    rule: "index_poll_backoff"
+    prediction: "With `cargo info alpha@0.1.0` failing twice and then succeeding, the poll retries exactly twice and beta (which depends on alpha) publishes only afterwards"
+    test: "tests/falsification_publish_from_tag.rs::g_the_index_poll_waits_until_cargo_info_confirms_the_exact_version"
+    if_fails: "A dependent is published against an index that has not yet got its dependency, or the poll accepts a prefix/newest-version match as proof"
+
+  - id: FALSIFY-PUBLISH-H
+    rule: "index_poll_backoff"
+    prediction: "An index that never answers exhausts the bound, exits 2 naming `alpha 0.1.0`, and never publishes beta"
+    test: "tests/falsification_publish_from_tag.rs::h_an_index_that_never_catches_up_exits_2_before_the_dependent"
+    if_fails: "The publish loop either hangs unbounded or continues into a dependent whose dependency is not resolvable"
+
+  - id: FALSIFY-PUBLISH-I
+    rule: "index_poll_backoff"
+    prediction: "Where `cargo info` does not exist, `other-demo = \"0.0.1\"` in `cargo search` output is NOT accepted as evidence that demo 0.0.1 is published — demo is still dry-run published"
+    test: "tests/falsification_publish_from_tag.rs::i_the_cargo_search_fallback_matches_the_exact_name_not_a_substring"
+    if_fails: "A crate is silently skipped because a different crate's search line contained its name and version as a substring"
+
+  - id: FALSIFY-PUBLISH-J
+    rule: "publish_order_ignores_dev_edges"
+    prediction: "`a_app` depending on `b_core`, with `b_core` DEV-depending back on `a_app`, publishes b_core then a_app — not a cycle refusal"
+    test: "tests/falsification_publish_from_tag.rs::j_a_dev_dependency_back_edge_is_not_a_cycle"
+    if_fails: "A release refuses with a phantom cycle for a dependency shape cargo itself publishes happily"
+
 qa_gate:
   id: F-PUBLISH-001
   name: "Publish-From-Tag Contract"
@@ -235,7 +375,8 @@ qa_gate:
     - "token_free_environment"
     - "dry_run_then_publish_order"
     - "index_poll_backoff"
-  pass_criteria: "All 5 falsification tests pass"
-  falsification: "Remove `--detach` from `git worktree add` (the mutation guard named above), or remove `env -u CARGO_REGISTRY_TOKEN` from either cargo publish call, or drop the TAG version-mismatch check"
+    - "publish_order_ignores_dev_edges"
+  pass_criteria: "All 10 falsification tests pass"
+  falsification: "Replace `git worktree add` with `git clone` or `cp -r` (the mutation guard named above), or move the scratch files back inside the worktree, or remove `env -u CARGO_REGISTRY_TOKEN` from either cargo publish call, or poll the index with an unanchored `cargo search` match, or count dev-dependencies as publish-order edges, or drop the TAG version-mismatch check"
 
 verification_level: L2
