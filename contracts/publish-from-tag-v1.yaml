@@ -1,0 +1,382 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-06"
+  author: "PAIML Engineering"
+  description: |
+    Publish-from-tag — `scripts/publish-from-tag.sh` publishes the workspace
+    to crates.io only from a DETACHED worktree of a release tag, never from
+    the ambient working tree, and never with `--allow-dirty`.
+
+    WHY THIS PATTERN EXISTS (PMAT-165)
+
+    Publishing from the ambient working tree lets untracked state — agent
+    memory directories, other worktrees, scratch files left by a previous
+    session — dirty the tree that `cargo publish` inspects, and
+    `--allow-dirty` has been the standing temptation to paper over that
+    rather than clean the tree. The sanctioned path checks the tag out into
+    its own detached worktree, asserts that worktree is clean, and publishes
+    crate by crate from there — with the registry token stripped from the
+    environment for every `cargo publish` invocation, so a leaked token in a
+    build log is not a way this can fail.
+
+    MUTATION GUARD: THE CHECKOUT IS A WORKTREE OF THIS REPOSITORY (PMAT-187).
+    It is NOT `--detach`. `git worktree add` detaches at a tag whether or not
+    the flag is passed, so removing `--detach` changes nothing any test can
+    observe — the earlier claim that it was the guard was false. The line a
+    mutation run must not be able to change is `git worktree add` itself:
+    replacing it with `git clone` or `cp -r` still yields a clean,
+    tag-shaped, non-repo-path tree that dry-runs green and defeats a naive
+    "cwd != repo_root" assertion. Case (c) therefore pins two facts only a
+    worktree can satisfy — cargo's `git rev-parse --git-common-dir` resolves
+    to THIS repo's `.git`, and `git worktree list` reports two entries WHILE
+    cargo runs (one after the script exits). A clone reports its own `.git`
+    and one worktree; a `cp -r` reports the copy's `.git`. Both go RED.
+
+    SCRATCH FILES LIVE OUTSIDE THE WORKTREE (PMAT-184). The script's own
+    metadata/package/order files are written to a sibling `mktemp -d`, not
+    into the tag checkout. Written inside it they are untracked files in the
+    very tree `cargo publish` packages, and cargo then refuses the crate
+    unless handed `--allow-dirty` — the one flag this pattern exists to
+    avoid. The clean-tree assertion is re-run immediately before every
+    publish, not only at checkout.
+  references:
+    - "ticket: PMAT-165"
+    - "tests/falsification_publish_from_tag.rs — the falsification suite this
+       contract's rows are discharged by"
+    - "scripts/publish-from-tag.sh — the implementation under contract"
+    - "tests/publish_from_tag_harness/mod.rs — the sandbox repo and the shim
+       `cargo` that observes every invocation (not a separate test target)"
+    - "ticket: PMAT-184, PMAT-185, PMAT-186, PMAT-187 — the review findings
+       this revision discharges"
+
+equations:
+  tag_refusal:
+    formula: |
+      refuse(TAG) = true  iff
+          TAG = ε                                    -- missing
+        ∨ TAG ≁ /^v[0-9]+\.[0-9]+\.[0-9]+$/           -- malformed
+        ∨ ¬exists(refs/tags/TAG)                      -- nonexistent
+        ∨ ¬is_ancestor(TAG, origin/main)               -- not on main
+        ∨ version(TAG:Cargo.toml) ≠ TAG stripped of 'v' -- version mismatch
+
+      Every refusal exits 2 BEFORE any `cargo` invocation — the shim log in
+      the falsification suite must be empty for every refusal row.
+    domain: "TAG ∈ String ∪ {ε}"
+    codomain: "Bool × ExitCode"
+    invariants:
+      - "A missing or malformed TAG exits 2 via usage() before touching git"
+      - "A nonexistent tag exits 2 with an empty shim log"
+      - "A tag whose commit is not an ancestor of origin/main exits 2"
+      - "A tag whose Cargo.toml [package] version disagrees with the tag name
+         exits 2 — the version is read AT THE TAG (`git show TAG:Cargo.toml`),
+         never from the ambient working tree, so the two cannot silently
+         diverge if main has moved since the tag was cut"
+      - "No refusal calls the cargo shim at all — the log file it writes to
+         stays empty"
+
+  detached_worktree_isolation:
+    formula: |
+      publish(TAG) ⟹ ∃ WT : WT = worktree_add(--detach, TAG) ∧
+        cwd(every cargo call) = WT ≠ repo_root ∧
+        clean(WT) ∧
+        ¬exists(WT) after exit
+    domain: "TAG ∈ ValidTag, repo_root ∈ Path"
+    codomain: "Path (the ephemeral worktree) × Bool (cleanup)"
+    invariants:
+      - "Every cargo invocation runs with cwd = the detached worktree, never
+         the ambient repo path — this holds even when the ambient checkout is
+         dirty (an untracked file in the repo, not the worktree)"
+      - "Tracked drift or stray untracked files in the checked-out worktree
+         (other than build litter under target/) refuse with exit 3 before
+         any cargo call"
+      - "The worktree is removed (`git worktree remove --force`) on every
+         exit path, success or failure — a `trap cleanup EXIT` guards this,
+         not just the happy path"
+      - "A dirty AMBIENT checkout never prevents the worktree from dry-running
+         clean, because the worktree is a fresh checkout of the tag,
+         independent of ambient untracked files"
+      - "The checkout is a WORKTREE OF THIS REPOSITORY, not a clone or a
+         copy: `git rev-parse --git-common-dir` from cargo's cwd resolves to
+         repo_root/.git, and `git worktree list` shows two entries while
+         cargo runs (PMAT-187)"
+      - "The script's own scratch files (metadata, package list, publish
+         order) are written OUTSIDE the worktree, under a sibling temporary
+         directory removed by the same trap — the worktree cargo packages
+         contains no `.publish-*` file at any point (PMAT-184)"
+      - "The clean-tree assertion is re-run immediately before EVERY cargo
+         publish, dry-run or real, not only once after checkout: strict
+         (`--ignored`, no exemptions) on the fresh checkout, and mirroring
+         cargo's own semantics (gitignored build litter exempt) thereafter"
+      - "Both the worktree and the scratch directory are created under
+         $TMPDIR, so a crashed run leaks nothing into a shared /tmp"
+
+  token_free_environment:
+    formula: |
+      ∀ invocation ∈ {cargo publish --dry-run, cargo publish} :
+        CARGO_REGISTRY_TOKEN ∉ env(invocation)
+    domain: "invocation ∈ CargoInvocation"
+    codomain: "Bool"
+    invariants:
+      - "`env -u CARGO_REGISTRY_TOKEN` wraps every `cargo publish` call,
+         dry-run or real, even though the test harness sets the variable in
+         the script's own environment"
+      - "A token visible to the publish step is a defect regardless of
+         whether publishing actually succeeds"
+
+  publish_order_ignores_dev_edges:
+    formula: |
+      edges(pkg) = { d ∈ deps(pkg) : d.path ≠ null ∧ d.kind ∈ {null, "build"} }
+
+      topo_order = Kahn(workspace crates minus publish=false, edges)
+      A dev-dependency (kind = "dev") is NEVER an ordering edge, so a
+      dev-dependency back-edge is not a cycle.
+    domain: "the `cargo metadata --no-deps` package graph"
+    codomain: "Sequence<crate> ∪ {refusal}"
+    invariants:
+      - "Only normal (kind == null) and build dependencies order publishing —
+         dev-dependencies are resolved for `cargo test`, never for packaging
+         (PMAT-186)"
+      - "`a_app` depending on `b_core` while `b_core` DEV-depends back on
+         `a_app` sorts b_core then a_app; it is NOT reported as a cycle"
+      - "A real cycle over normal/build edges still refuses with exit 2"
+
+  dry_run_then_publish_order:
+    formula: |
+      ∀ pkg : publish(pkg) = dry_run(pkg) ⋅ [DRY_RUN=1 ? ε : real_publish(pkg)]
+
+      i.e. `cargo publish --dry-run --locked -p pkg` always precedes
+      `cargo publish --locked -p pkg`, and under DRY_RUN=1 the real publish
+      never runs for any package.
+    domain: "pkg ∈ workspace crates, topologically ordered"
+    codomain: "Sequence<CargoInvocation>"
+    invariants:
+      - "Under DRY_RUN=1, the shim log contains `publish --dry-run --locked`
+         lines and NEVER a bare `publish --locked` line"
+      - "A package already on the index (per `cargo search`) is skipped
+         entirely — dry-run and real publish are both omitted for it"
+
+  index_poll_backoff:
+    formula: |
+      already_published(name, version) =
+          exit(cargo info "name@version" --registry crates-io) = 0
+        , or where `cargo info` is unavailable,
+          ∃ line ∈ cargo search name --limit 1 :
+              index(line, 'name = "version"') = 1      -- anchored at column 1
+
+      poll_index(pkg) = first success of {already_published(pkg) after delay_i}
+        for delay ∈ [1, 2, 4, 8, 8, 8, 8, 8]  -- bounded backoff, never fixed
+      poll_index skipped when pkg = last(topo_order)
+    domain: "pkg ∈ workspace crates except the last in publish order"
+    codomain: "Result<(), ExitCode 2>"
+    invariants:
+      - "The poll asks about ONE EXACT VERSION. `cargo search` reports only
+         the newest version of a prefix-matched name, so the version being
+         published could never appear for an older-than-newest release, and
+         an unanchored substring match accepts another crate's line
+         (`other-demo = \"0.0.1\"`) as evidence about `demo` (PMAT-185)"
+      - "`cargo search` is a FALLBACK for a cargo without `cargo info`, and
+         then only with a column-1-anchored exact name AND version match"
+      - "No single fixed `sleep N` gates the publish loop — the delay
+         sequence is bounded and increasing (overridable only by the test
+         hook PUBLISH_POLL_DELAYS)"
+      - "When the bound is exhausted the run exits 2 NAMING the crate and
+         version, and the dependent crate is never published"
+      - "The last package in topological order is never polled — nothing
+         downstream depends on it within this run"
+
+proof_obligations:
+  - type: completeness
+    property: "Every refusal precondition exits before any cargo call"
+    formal: "refuse(TAG) ⟹ shim_log = ε"
+    tolerance: 0.0
+    applies_to: "missing TAG, malformed TAG, nonexistent tag, tag not on
+                 origin/main, Cargo.toml/tag version mismatch"
+    discharged_by: "FALSIFY-PUBLISH-A, FALSIFY-PUBLISH-B"
+
+  - type: frame
+    property: "Every cargo invocation runs from the detached worktree, not
+               the ambient repo, and the worktree does not outlive the run"
+    formal: "cwd(cargo call) ≠ repo_root ∧ worktree_count(after) = 1"
+    tolerance: 0.0
+    applies_to: "scripts/publish-from-tag.sh worktree lifecycle"
+    discharged_by: "FALSIFY-PUBLISH-C"
+
+  - type: frame
+    property: "The tree cargo publishes from contains none of this script's
+               scratch files, and is clean at every cargo call"
+    formal: "∀ call : `.publish-*` ∉ ls(cwd(call)) ∧ git_status(WT) = ε"
+    tolerance: 0.0
+    applies_to: "the scratch directory, and the pre-publish clean assertion"
+    discharged_by: "FALSIFY-PUBLISH-F"
+
+  - type: independence
+    property: "A dirty ambient checkout does not propagate into the
+               detached worktree's cleanliness"
+    formal: "dirty(repo_root) ∧ clean(WT) ⟹ dry_run(TAG) succeeds"
+    tolerance: 0.0
+    applies_to: "the clean-tree assertion, scoped to the worktree only"
+    discharged_by: "FALSIFY-PUBLISH-D"
+
+  - type: safety
+    property: "CARGO_REGISTRY_TOKEN never reaches a publish invocation"
+    formal: "∀ call ∈ publish_calls : TOKEN ∉ env(call)"
+    tolerance: 0.0
+    applies_to: "env -u CARGO_REGISTRY_TOKEN wrapper around every cargo
+                 publish call"
+    discharged_by: "FALSIFY-PUBLISH-E"
+
+  - type: ordering
+    property: "Dry-run always precedes the real publish, and DRY_RUN=1 never
+               performs a real publish"
+    formal: "DRY_RUN=1 ⟹ ∄ call : call = 'publish --locked -p pkg'"
+    tolerance: 0.0
+    applies_to: "the dry-run-then-publish sequence per package"
+    discharged_by: "FALSIFY-PUBLISH-C"
+
+  - type: ordering
+    property: "A dependent publishes only after the exact version of its
+               dependency answers on the index; an index that never catches
+               up refuses instead of publishing the dependent"
+    formal: "publish(dependent) ⟹ already_published(dep, exact version)"
+    tolerance: 0.0
+    applies_to: "poll_index and its bound"
+    discharged_by: "FALSIFY-PUBLISH-G, FALSIFY-PUBLISH-H, FALSIFY-PUBLISH-I"
+
+  - type: completeness
+    property: "Dev-dependency back-edges do not order publishing and are not
+               cycles"
+    formal: "kind = 'dev' ⟹ edge ∉ topo_order constraints"
+    tolerance: 0.0
+    applies_to: "the jq dependency filter and the Kahn sort"
+    discharged_by: "FALSIFY-PUBLISH-J"
+
+enforcement:
+  refusals_exit_before_any_cargo_call:
+    description: |
+      Missing/malformed/nonexistent tag, a tag not on origin/main, and a
+      Cargo.toml/tag version mismatch must all exit 2 with an empty shim log.
+    check: "tests/falsification_publish_from_tag.rs::a_nonexistent_tag_refuses_before_any_cargo_call"
+    severity: "ERROR"
+  detached_worktree_no_survivor:
+    description: |
+      cargo calls run with cwd != repo path, in a worktree OF THIS REPO (same
+      git common dir, two live worktrees during the run), and `git worktree
+      list` shows exactly one worktree (the main one) after the script exits.
+    check: "tests/falsification_publish_from_tag.rs::c_dry_run_publishes_only_from_a_worktree_of_this_repo"
+    severity: "ERROR"
+  dirty_ambient_does_not_block_the_worktree:
+    description: |
+      An untracked file in the ambient repo (not the worktree) must not
+      prevent a clean dry-run from the detached worktree.
+    check: "tests/falsification_publish_from_tag.rs::d_a_dirty_ambient_checkout_still_dry_runs_clean_from_the_worktree"
+    severity: "ERROR"
+  token_never_reaches_publish:
+    description: |
+      CARGO_REGISTRY_TOKEN, set in the script's own environment by the test,
+      must read as `<unset>` in the shim log for every `publish` call.
+    check: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
+    severity: "ERROR"
+
+  scratch_files_stay_out_of_the_worktree:
+    description: |
+      No `.publish-*` file appears in any `ls -a` the shim logs, and
+      `git status --porcelain` in the worktree is empty at every cargo call.
+    check: "tests/falsification_publish_from_tag.rs::f_no_scratch_file_ever_lands_in_the_publish_worktree"
+    severity: "ERROR"
+  index_poll_asks_for_the_exact_version:
+    description: |
+      The poll retries `cargo info NAME@VERSION` until that exact version
+      answers before the dependent publishes; an index that never catches up
+      exits 2 naming the crate; the `cargo search` fallback is anchored.
+    check: "tests/falsification_publish_from_tag.rs::g_the_index_poll_waits_until_cargo_info_confirms_the_exact_version"
+    severity: "ERROR"
+  dev_dependencies_do_not_order_publishing:
+    description: |
+      A dev-dependency back-edge sorts cleanly instead of refusing as a
+      cycle.
+    check: "tests/falsification_publish_from_tag.rs::j_a_dev_dependency_back_edge_is_not_a_cycle"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-PUBLISH-A
+    rule: "tag_refusal"
+    prediction: "A tag that does not exist in the sandbox repo exits 2 with an empty shim log"
+    test: "tests/falsification_publish_from_tag.rs::a_nonexistent_tag_refuses_before_any_cargo_call"
+    if_fails: "A typo'd or stale release tag reaches cargo publish instead of refusing"
+
+  - id: FALSIFY-PUBLISH-B
+    rule: "tag_refusal"
+    prediction: "A tag whose Cargo.toml [package] version disagrees with the tag name exits 2 with an empty shim log"
+    test: "tests/falsification_publish_from_tag.rs::b_a_version_mismatch_refuses_before_any_cargo_call"
+    if_fails: "crates.io receives a package whose version does not match the git tag naming it, breaking release traceability"
+
+  - id: FALSIFY-PUBLISH-C
+    rule: "detached_worktree_isolation / dry_run_then_publish_order"
+    prediction: |
+      Under DRY_RUN=1 on a valid tag: only `publish --dry-run --locked` is
+      logged, never a plain `publish --locked`; every cargo call ran in a cwd
+      other than the repo path, whose `git rev-parse --git-common-dir` is
+      THIS repo's `.git` and where `git worktree list` shows two entries; one
+      worktree remains after the script exits.
+    test: "tests/falsification_publish_from_tag.rs::c_dry_run_publishes_only_from_a_worktree_of_this_repo"
+    if_fails: "DRY_RUN=1 performs a real publish, runs against the ambient tree, publishes from a clone or copy rather than a worktree of this repo, or leaks a worktree on every invocation"
+
+  - id: FALSIFY-PUBLISH-D
+    rule: "detached_worktree_isolation"
+    prediction: "A dirty AMBIENT checkout (an untracked file in the repo, not the worktree) still dry-runs clean, because the worktree is fresh"
+    test: "tests/falsification_publish_from_tag.rs::d_a_dirty_ambient_checkout_still_dry_runs_clean_from_the_worktree"
+    if_fails: "Ambient scratch files (agent memory, other worktrees) block a publish that should be unaffected by them, or worse, the check is skipped and dirt from the ambient tree leaks into what is published"
+
+  - id: FALSIFY-PUBLISH-E
+    rule: "token_free_environment"
+    prediction: "The shim never sees CARGO_REGISTRY_TOKEN, even though the test sets one in the script's environment"
+    test: "tests/falsification_publish_from_tag.rs::e_the_registry_token_never_reaches_the_shim"
+    if_fails: "A registry token is visible to the publish subprocess environment and therefore to anything that inspects it — process listings, crash dumps, build logs"
+
+  - id: FALSIFY-PUBLISH-F
+    rule: "detached_worktree_isolation"
+    prediction: "Under DRY_RUN=1 the shim's `ls -a` of its cwd never contains a `.publish-*` file, and `git status --porcelain` there is empty at every call"
+    test: "tests/falsification_publish_from_tag.rs::f_no_scratch_file_ever_lands_in_the_publish_worktree"
+    if_fails: "The script dirties the very tree it publishes, and `cargo publish` refuses the root crate for uncommitted files — the pressure that produces `--allow-dirty`"
+
+  - id: FALSIFY-PUBLISH-G
+    rule: "index_poll_backoff"
+    prediction: "With `cargo info alpha@0.1.0` failing twice and then succeeding, the poll retries exactly twice and beta (which depends on alpha) publishes only afterwards"
+    test: "tests/falsification_publish_from_tag.rs::g_the_index_poll_waits_until_cargo_info_confirms_the_exact_version"
+    if_fails: "A dependent is published against an index that has not yet got its dependency, or the poll accepts a prefix/newest-version match as proof"
+
+  - id: FALSIFY-PUBLISH-H
+    rule: "index_poll_backoff"
+    prediction: "An index that never answers exhausts the bound, exits 2 naming `alpha 0.1.0`, and never publishes beta"
+    test: "tests/falsification_publish_from_tag.rs::h_an_index_that_never_catches_up_exits_2_before_the_dependent"
+    if_fails: "The publish loop either hangs unbounded or continues into a dependent whose dependency is not resolvable"
+
+  - id: FALSIFY-PUBLISH-I
+    rule: "index_poll_backoff"
+    prediction: "Where `cargo info` does not exist, `other-demo = \"0.0.1\"` in `cargo search` output is NOT accepted as evidence that demo 0.0.1 is published — demo is still dry-run published"
+    test: "tests/falsification_publish_from_tag.rs::i_the_cargo_search_fallback_matches_the_exact_name_not_a_substring"
+    if_fails: "A crate is silently skipped because a different crate's search line contained its name and version as a substring"
+
+  - id: FALSIFY-PUBLISH-J
+    rule: "publish_order_ignores_dev_edges"
+    prediction: "`a_app` depending on `b_core`, with `b_core` DEV-depending back on `a_app`, publishes b_core then a_app — not a cycle refusal"
+    test: "tests/falsification_publish_from_tag.rs::j_a_dev_dependency_back_edge_is_not_a_cycle"
+    if_fails: "A release refuses with a phantom cycle for a dependency shape cargo itself publishes happily"
+
+qa_gate:
+  id: F-PUBLISH-001
+  name: "Publish-From-Tag Contract"
+  description: "Publishing to crates.io happens only from a clean, detached, token-scrubbed worktree of a validated release tag"
+  checks:
+    - "tag_refusal"
+    - "detached_worktree_isolation"
+    - "token_free_environment"
+    - "dry_run_then_publish_order"
+    - "index_poll_backoff"
+    - "publish_order_ignores_dev_edges"
+  pass_criteria: "All 10 falsification tests pass"
+  falsification: "Replace `git worktree add` with `git clone` or `cp -r` (the mutation guard named above), or move the scratch files back inside the worktree, or remove `env -u CARGO_REGISTRY_TOKEN` from either cargo publish call, or poll the index with an unanchored `cargo search` match, or count dev-dependencies as publish-order edges, or drop the TAG version-mismatch check"
+
+verification_level: L2
