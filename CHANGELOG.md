@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A file resource whose PATH contained `666` or `777` could not be applied
+(PMAT-204).** forjar emits `chmod '<mode>' '<path>'` for every file resource
+carrying a `mode:`, and the I8 gate refused it: bashrs SEC017 scans the literal
+text of any line containing the word `chmod` for `777`/`666` and never asks
+which word is the mode, so `/opt/app666/config` read as a world-writable chmod
+and the resource failed. The same rule missed the real case — measured
+2026-09-07 against the pinned bashrs 6.68.0, `chmod '0666' '/tmp/plain/t'`
+produces no finding at all, because the boundary check cannot see `666` behind
+the leading `0`. The gate no longer lets the path
+speak for the mode, and it does not try to parse shell itself: it redacts quoted
+PATH LITERALS only — a `/` in them, no whitespace, no backslash, no shell
+metacharacter, no `chmod` — asks
+bashrs again, and drops the SEC017 finding only if the rule stops reporting on
+the redacted line. A second chmod
+anywhere on the line — behind `sudo`, inside backticks, after `env`, in a
+subshell, in an `&&` list, or behind a backslash-escaped quote — survives
+redaction untouched and is still refused; the first attempt at this fix looked
+for the chmod command itself and accepted all of those shapes, and the second
+mis-paired escaped quotes, both caught by review lanes and a direct re-run
+against the pre-fix baseline before either shipped. In the other direction forjar now judges what bashrs cannot:
+every world-writable mode on any line, in any width (`0666`, `00666`, `0662`),
+symbolic in any clause that ends up granting it (`a+w`, `o+w`, `u=rwx,o=w`, but
+not `o=r-w`, which takes it away again) or sitting inside a subshell, backticks
+or `find -exec`, is refused under
+forjar's own code `FJ-CHMOD-WW`, naming the mode. Two shapes remain undecidable
+by either instrument and are refused by neither, exactly as before: a mode held
+in a variable, and `--reference=FILE`, which takes the mode from another file.
+`forjar validate --check-security` still reports an insecure mode as a warning
+on a config that loads — the refusal is at the point of execution, so scanning
+an insecure config remains possible.
+
 **`apply`'s resource-set selectors resolved independently, one bug per
 selector (#466, #467, #468).** Measured 2026-09-05 against `paiml/infra`:
 `apply --dry-run -r stack-tool-forjar` printed all 139 resources of a fleet
