@@ -1,0 +1,129 @@
+{
+ "issue": "PMAT-164 — CRUX audit for release 1.26.0: nine user-visible behaviour changes against at least three reference systems each, forjar-today cells cited against the PMAT-161 branch, one adopt (stack-scoped restore, PMAT-162) and the rest rejected with rationale; the reconciliation list that gate H of forjar-dogfood reads",
+ "quorum": {
+  "lanes": [
+   "claim lane A — the [V] cells against the code",
+   "claim lane B — the reference cells and dispositions",
+   "claim lane C — the reconciliation and GO-spec sections",
+   "independent-stack review — agy /teamwork-preview",
+   "crux — the three CRUX panel lanes the audit is built from"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
+  "rounds": "claim round at 240fb93f (two lanes lost their object store mid-run) forced 17bdb497 (PMAT-188); refuters at 4c13f399 in standalone clones caught the remaining in-function citation (299c49fc); judges at 299c49fc, 3/3 PASS, 19 of 24 unanimous; the shape test and the wording fix followed",
+  "claims_confirmed": 16,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "L1-F6 — docs/audits/crux-1.26.0.md:41 — Behaviour (6) citation is FALSE (cited src/core/state/stamp.rs-333, 354-393 but actually in src/core/state/stamp/mod.rs:260) — REFUTED: stale: fixed in 17bdb497 (citations re-derived against the branch head)",
+   "L1-F8 — docs/audits/crux-1.26.0.md:47 — Behaviour (8) citation is FALSE (cited src/core/state/stamp.rs-425 but actually in src/core/state/stamp/mod.rs:334-362) — REFUTED: stale: fixed in 17bdb497",
+   "L3-F1 — docs/audits/crux-1.26.0.md:124 — The document has defect fabricating bullets 6-9 and ignoring the actual bullets in CHANGELOG.md [Unreleased] at docs/audits/crux-1.26.0.md:124 — REFUTED: refuted 2-1 on the merits: the nine reconciliation entries quote the PMAT-161 branch CHANGELOG verbatim; the lane that raised it had lost its object store and read the wrong CHANGELOG",
+   "L3-F2 — docs/audits/crux-1.26.0.md:41 — The document has defect citing non-existent file src/core/state/stamp.rs at docs/audits/crux-1.26.0.md:41 — REFUTED: stale: fixed in 17bdb497 and 299c49fc",
+   "L2-F1 — docs/audits/crux-1.26.0.md:46 — The disposition for the Kubernetes row (Lane 3) is a copy-paste error ('matching Nix's per-profile rollback') which explicitly contradicts the Dissent section's statement that Lane 3 pointed to Kubernetes' different rollout history model. — REFUTED: stale: fixed in 17bdb497 (per-system dispositions on rows 44-46)",
+   "T-F1 — docs/audits/crux-1.26.0.md:40 — The 'forjar today' cell for behaviour (4) describes what the ticket wanted rather than the code. It claims ALL emptied selections are refused ('An --exclude/--skip that removes every selected resource is refused'), but the actual code exempts machine narrowing. (proposed fix: Update the behaviour 4 cell to accurately reflect that machine narrowing is exempted.) — REFUTED: stale: fixed in 17bdb497 (the behaviour-4 cell states the resource-negative rule and the machine-narrowing exemption)",
+   "T-F2 — docs/audits/crux-1.26.0.md:41 — The reject rationale for Terraform in behaviour (4) ('refusing an emptied selection catches an operator's typo instead of reporting false success') contradicts Terraform's documented behaviour because Terraform does not even have an '-exclude' flag to report false success on. (proposed fix: Remove or replace the Terraform '-exclude' comparison since the flag does not exist in Terraform.) — REFUTED: stale: fixed in 17bdb497 (the Terraform -exclude version fact hedged and marked [X])",
+   "T-F3 — docs/audits/crux-1.26.0.md:36 — Behaviour (3) Make row is a name-drop without a mechanism. It simply states the error message 'fails with \"No rule to make target\"' without explaining the mechanism Make uses. (proposed fix: Provide the underlying mechanism Make uses to determine valid targets, or replace the reference.) — REFUTED: stale: fixed in 17bdb497 (the Make row states its mechanism)"
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Terraform",
+   "Ansible",
+   "SaltStack",
+   "Puppet",
+   "Make",
+   "Nix profile generations",
+   "Kubernetes rollout history",
+   "Pulumi per-stack state"
+  ],
+  "verdict": "the audit is the crux survey itself: 27 rows, three systems per behaviour, every third-party cell [X]; the one rule the field clearly beats forjar on is stack-scoped restore, adopted as PMAT-162; every other row is a reject with rationale."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, sandboxed, agy 1.1.27, on the audit at 240fb93f (object store lost mid-run)",
+  "verdict": "FAIL on three asserted document defects — all true and fixed in 17bdb497 — plus two measured confirmations (the cited lanes say what the audit attributes; a crux-reconcile check passes)."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19356,
+  "files_parsed": 2107,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests over the branch: 0 hit(s) in the touched test paths.",
+  "limit": "discrimination measured by emptying the audit (falsification block)"
+ },
+ "falsification": {
+  "test": "the nine tests of falsification_crux_audit_shape (title, three rows per behaviour, one disposition per row, [X] and [V] cells, no pre-refactor stamp path, no ownership file, the GO-spec precedents, the reconciliation mapping, no [X] in README or the book)",
+  "test_file": "tests/falsification_crux_audit_shape.rs",
+  "cargo_test_target": "falsification_crux_audit_shape",
+  "reverted": "docs/audits/crux-1.26.0.md emptied, the target run, the file restored from a copy (tree verified clean)",
+  "observed_failure": "test every_behaviour_has_at_least_three_reference_rows ... FAILED\ntest every_row_cites_a_third_party_and_forjars_own_code ... FAILED\ntest every_row_has_exactly_one_disposition ... FAILED\ntest the_audit_exists_and_its_title_names_1_26_0 ... FAILED\ntest the_go_spec_section_names_its_two_precedents ... FAILED\ntest the_reconciliation_section_maps_every_changelog_bullet ... FAILED\ntest result: FAILED. 3 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+  "still_green_when_reverted": "the three vacuous-on-empty rules the test file documents (no stale path, no ownership file, no [X] in README or the book), which are controls against leakage rather than presence checks"
+ },
+ "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "992234ad8a88cc9fe0a90dd227fef7eda5df3163",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/crux-audit-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 11865,
+    "sha256": "3af2d511a4f4f7fce177997ee9a173c546a9fbe7d0cfec2f086047dc3ea62689",
+    "blob": "fc7177146e1c4d09519c9e8a8a3a92f05a0b5437"
+   },
+   {
+    "path": ".quorum/evidence/crux-audit-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 6699,
+    "sha256": "a3b1fd3dc7a5770133e13f798e8ab8387db8946ffb6c2b7f4d055e932ea4c33c",
+    "blob": "4c9c727e04458abb6feb3f6d7acdfa779031775d"
+   },
+   {
+    "path": ".quorum/evidence/crux-audit-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 18411,
+    "sha256": "0635413fef5742c46aec69aec19eaf9668de358ac92f6074471c2a6c3173a803",
+    "blob": "acd3d1bc447291d30a7867a3de624eab365efe63"
+   },
+   {
+    "path": ".quorum/evidence/crux-audit-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 3477,
+    "sha256": "bb3d7645ab708902c393e69e93ddab2cf573bb248a02d132c57b2a6b5224758a",
+    "blob": "48ee9e5bc637b8f63e5db6328934243f3474c074"
+   },
+   {
+    "path": ".quorum/evidence/crux-audit-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 11291,
+    "sha256": "30e99b250c5baee4dd959f96a5d17ab0aaa9b604f82e7e01a23c263f37ce0258",
+    "blob": "3bd3f3e24f234def966d7a8e7a2302710deec3df"
+   },
+   {
+    "path": ".quorum/evidence/crux-audit-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 541,
+    "sha256": "b3691d38b3387a70c4af79c185c621401b9d9ebe78b7895c6089cc6d63cc72ff",
+    "blob": "f4158ea4ae90f7b053fefc2b6f5dcecb264094f8"
+   }
+  ],
+  "total_bytes": 52284,
+  "claims_digest": ".quorum/evidence/crux-audit-judges.md"
+ }
+}
