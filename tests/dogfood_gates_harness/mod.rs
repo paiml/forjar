@@ -276,6 +276,7 @@ pub(crate) fn fixture(impl_receipt: Option<&str>, quorum_receipt: Option<&str>) 
         "scripts/dogfood/harness.sh",
         "scripts/dogfood/quorum.sh",
         "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/receipt.sh",
     ] {
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
         let body = std::fs::read_to_string(&src)

@@ -236,6 +236,13 @@ fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
     )
     .expect("the gate under test must exist");
     write(&root, "scripts/dogfood/release-check.sh", &script);
+    let receipt_lib = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/lib/receipt.sh"),
+    )
+    .expect(
+        "scripts/dogfood/lib/receipt.sh must exist — Arm 5 sources the shared receipt predicate",
+    );
+    write(&root, "scripts/dogfood/lib/receipt.sh", &receipt_lib);
     let crux_script = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/crux-reconcile.sh"),
     )
