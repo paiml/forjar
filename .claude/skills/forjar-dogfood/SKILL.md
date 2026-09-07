@@ -77,8 +77,11 @@ must say `not measured` for them rather than carrying a stale verdict from a
 previous run. An unmeasured gate is not a passing gate.
 
 `make dogfood` is the shorter tier (B, C, D, G) — no coverage, no crux, no
-GitHub window. It is what `ci / gate` runs per commit. `make dogfood-release`
-is the release gate: it adds A and E (seconds, so they run first), then F and H.
+GitHub window. `ci / gate` does NOT run it: its `dogfood` job runs gates C and
+D and the guard tests directly (B and G need pmat, gh, bashrs and pv, which the
+release host and the clean room have and a hosted runner does not).
+`make dogfood-release` is the release gate: it adds A and E (seconds, so they
+run first), then F and H.
 
 ## Gates A and E — what the two window gates read, so you can read their output
 

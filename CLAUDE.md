@@ -43,16 +43,18 @@ machine-run half of: the clean room proves the artifact BUILDS from a cold tree,
 
 ```bash
 make dogfood            # B C D G — hermetic, cheap; run it on every commit
-make dogfood-release    # + F H    — the pre-publish gate
+make dogfood-release    # + A E F H — the pre-publish gate
 make dogfood-published VERSION=x.y.z   # C and D against what crates.io serves
 make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
 ```
 
 | gate | asks |
 |---|---|
+| A `harness.sh` | every PR merged since the newest `v*` tag maps to a ticket whose `docs/audits/impl-<ticket>-receipt.md` exists at HEAD, ends with `IMPL-<ticket>-RECEIPT-END` and has exactly one `verdict:` line; gh unreachable or a PR with no ticket is UNMEASURED |
 | B `comply.sh` | `pmat comply` against the committed `.pmat.yaml`, with a stronger instrument in place of each disabled check |
 | C `surface.sh` | the CLI/MCP/HTTP surface, measured from the running artifact: declared vs live, diffed against `docs/audits/surface_audit.csv` |
 | D `docs.sh` | every fenced `forjar …` block in README.md, run against a fixture in a sandboxed HOME |
+| E `quorum.sh` | every PR merged since the newest `v*` tag has an unwaived `.quorum/<branch>.json` at HEAD: >=3 lanes, judges and refuters per claim, >=1 refuted claim, evidence files, no waiver or override key anywhere (the same predicate `release-check.sh` applies after the tag) |
 | F `coverage.sh` | the 95% line floor enforced inside llvm-cov, plus `cargo mutants` over this branch's own diff |
 | G `contracts.sh` | the contract corpus validates, lints, has depth, and every citation resolves |
 | H `crux-reconcile.sh` | every behaviour bullet under CHANGELOG `[Unreleased]` has a `docs/audits/crux-<ver>.md` row naming >=3 world-class systems |
