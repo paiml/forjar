@@ -186,3 +186,16 @@ fn a_later_clause_that_revokes_world_write_is_honoured() {
     assert!(validate_script("chmod 'a=rwx' '/srv/b'\n").is_err());
     assert!(validate_script("chmod 'u=rwx,o=w' '/srv/b'\n").is_err());
 }
+
+/// The fifth merge review: a symbolic mode may start with a `-`. `-w,o+w`
+/// removes write for everyone and then grants it to others; skipping it as a
+/// command flag left the grant unread (accepted at the pre-PMAT-204 baseline
+/// too, so a hole rather than a regression). Flags that carry no `w` stay
+/// flags, so a bare mode after `-R` is still reached.
+#[test]
+fn a_symbolic_mode_starting_with_a_minus_is_still_a_mode() {
+    assert!(validate_script("chmod -w,o+w /srv/b\n").is_err());
+    assert!(validate_script("chmod -w /srv/b\n").is_ok());
+    assert!(validate_script("chmod -R 777 /var/www\n").is_err());
+    assert!(validate_script("chmod -R '0644' '/opt/app666/t'\n").is_ok());
+}

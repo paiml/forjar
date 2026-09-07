@@ -2390,23 +2390,3 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
-- id: PMAT-205
-  kind: code
-  github_issue: null
-  item_type: task
-  title: 'S3: core::store::tests_conda::test_fj1349_store_hash_deterministic is flaky — one failure inside a full cargo test --lib run, passing in isolation and in two later full runs'
-  status: planned
-  priority: low
-  assigned_to: null
-  created: 2026-09-07T18:30:00Z
-  updated: 2026-09-07T18:30:00Z
-  spec: null
-  acceptance_criteria:
-  - 'the flake is reproduced deterministically (a loop over cargo test --lib, or by forcing the condition) and its cause named: conda_to_far extracts into std::env::temp_dir() keyed by pid and an atomic counter, and hash_directory hashes that tree, so any environmental difference between the two extractions changes store_hash'
-  - 'the test either becomes deterministic under parallel load or the extraction is made insensitive to it; no #[ignore], no serial_test annotation used as the fix without naming why'
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: 'Observed once on 2026-09-07 in the PMAT-204 pre-push gate (cargo test --lib, 13488 passed, 1 failed). The same target passed in isolation immediately afterwards and in two subsequent full --lib runs. Unrelated to PMAT-204''s diff, which touches only the shell purifier and its tests. Recorded rather than reruns-until-green: a flaky test is red until root-caused.'

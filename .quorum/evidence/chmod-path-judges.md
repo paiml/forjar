@@ -174,3 +174,11 @@ The defect: comma-separated symbolic clauses were tested independently, so `chmo
 A leading-minus symbolic mode (`chmod -w /srv/b`) is accepted at both commits: `-w` removes write rather than granting it, so there is nothing to refuse, and the shape is not a regression.
 
 The scope objection — that minting PMAT-205 in this diff does something the ticket did not ask for — is answered rather than accepted: the flake was observed in this branch's own pre-push gate, and a flake seen and not filed is a flake the next rerun launders. The row is one roadmap entry; it is named in the PR body and carried into the release triage table.
+
+## Merge review, fifth round (three lanes, in a clone)
+
+All three FAIL on two points, both acted on.
+
+`chmod -w,o+w /srv/b` — a symbolic mode may begin with a `-`, and the check skipped it as a command flag, leaving the `o+w` grant unread. Accepted at the pre-PMAT-204 baseline too, so a hole rather than a regression, and closed: a leading `-` is a flag only when the token carries no `w`, so `-R` and `-v` stay flags and `chmod -R 777` still reaches its mode.
+
+The PMAT-205 scope objection was raised for the third time. Rather than answer it a third time, the roadmap row is removed from this diff and lands with the release-cut PR, whose subject is the roadmap. The flake is still filed; it is simply filed where a roadmap row belongs. This diff now touches only the purifier, its two test files, the CHANGELOG paragraph and this receipt.
