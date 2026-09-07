@@ -64,7 +64,7 @@
  "base_commit": "6b80b748c230a4b95dd53b46c262b7b27f37c8a3",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "0ffbdebf2d156ea90cd82ce33a3d43ecb571cbc0",
+ "diff_sha256": "bb8dcc384c0d6d8e68be33465a8d7137b5d0c6af",
  "evidence": {
   "files": [
    {
