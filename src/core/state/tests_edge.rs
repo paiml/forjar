@@ -11,10 +11,10 @@ fn test_fj131_update_global_lock_overwrites_machine_stats() {
     // Updating a machine should overwrite its stats completely
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 10_usize, 8_usize, 2_usize)];
-    update_global_lock(dir.path(), "infra", &results1).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results1).unwrap();
 
     let results2 = vec![("web".to_string(), 10_usize, 10_usize, 0_usize)];
-    update_global_lock(dir.path(), "infra", &results2).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results2).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.machines["web"].converged, 10);
@@ -38,7 +38,8 @@ fn test_fj131_new_lock_generator_format() {
 fn test_fj131_new_global_lock_generator_format() {
     let lock = new_global_lock("test");
     assert!(lock.generator.starts_with("forjar "));
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(lock.schema, "1.1");
 }
 
 #[test]
@@ -61,10 +62,10 @@ fn test_fj131_update_global_lock_changes_name() {
     // Calling update_global_lock with a different name should update it
     let dir = tempfile::tempdir().unwrap();
     let results = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
-    update_global_lock(dir.path(), "old-name", &results).unwrap();
+    update_global_lock(dir.path(), "old-name", None, &results).unwrap();
 
     let results2: Vec<(String, usize, usize, usize)> = vec![];
-    update_global_lock(dir.path(), "new-name", &results2).unwrap();
+    update_global_lock(dir.path(), "new-name", None, &results2).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.name, "new-name");
@@ -166,10 +167,10 @@ fn test_fj132_update_global_lock_preserves_existing_machines() {
     // Updating with new machines should keep old ones
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 5usize, 5usize, 0usize)];
-    update_global_lock(dir.path(), "test-config", &results1).unwrap();
+    update_global_lock(dir.path(), "test-config", None, &results1).unwrap();
 
     let results2 = vec![("db".to_string(), 3usize, 2usize, 1usize)];
-    update_global_lock(dir.path(), "test-config", &results2).unwrap();
+    update_global_lock(dir.path(), "test-config", None, &results2).unwrap();
 
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert!(lock.machines.contains_key("web"), "web should be preserved");
@@ -193,7 +194,8 @@ fn test_fj132_new_lock_fields_populated() {
 #[test]
 fn test_fj132_global_lock_schema_version() {
     let lock = new_global_lock("my-infra");
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(lock.schema, "1.1");
     assert_eq!(lock.name, "my-infra");
     assert!(lock.machines.is_empty());
 }

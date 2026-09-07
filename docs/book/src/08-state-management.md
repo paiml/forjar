@@ -43,6 +43,57 @@ machines:
     last_apply: 2026-02-25T14:00:05Z
 ```
 
+### One state dir, many stacks (#469)
+
+Schema `1.1` adds a `stacks:` map to the global lock, keyed by config
+`name`, alongside the top-level fields above (which still track whichever
+stack applied *last*, for tooling that only knows the old schema). Each
+entry records what tells that stack's apply apart from someone else's: the
+`-f` it was last applied from (stored relative to the state dir when both
+sit in one tree, so a colleague's checkout of the same layout counts as
+the same stack, not a different one), the machines its last apply wrote,
+and the output keys it owns.
+
+This is what makes **one `state/` directory serving several configs** a
+supported layout — `paiml/infra` keeps one `state/` for six
+`machines/<m>/forjar.yaml`, each with its own `name:` and its own
+machines, every one applied with `--state-dir state`. A different `name`
+applying into the same dir is not a conflict: it gets its own `stacks`
+entry, and its own machines and outputs sit alongside the others rather
+than replacing them.
+
+`apply` warns on exactly two conditions read from that map:
+
+- the SAME `name` was last applied from a DIFFERENT `-f` — the original
+  GH-377 case (a stale `--state-dir`, or a copy-pasted `-f`); or
+- a machine this apply would write is recorded under ANOTHER stack's
+  entry — generations and per-machine locks are keyed by machine name
+  alone, so two stacks sharing a machine name would overwrite each
+  other's history.
+
+`forjar status` asks the same `stacks` map the same two questions and is
+supported the same way `apply` is. **`forjar undo`, `undo --resume`, and
+`forjar rollback` are not** — see "One state dir, many stacks: restore is
+refused" under [Active Undo](#active-undo) below.
+
+A state dir written before this (`schema: '1.0'`, a single stamp in the
+top-level `name:`) migrates the first time a forjar that knows `stacks`
+reads it: the old stamp becomes that name's entry, with no recorded `-f`
+(1.0 didn't record one). An entry with no recorded file matches ANY `-f`
+on the first apply after the upgrade and is pinned by it — a deliberate
+one-apply window so the upgrade itself stays quiet, after which the usual
+same-name-different-file check applies. An older forjar that re-saves a
+migrated lock keeps `name:` as whichever stack applied last but drops
+`stacks:` — it cannot round-trip detail it does not understand — so
+mixing forjar versions against one state dir is not supported.
+
+Outputs (see "Output Persistence and Cross-Stack Data Flow" below) are
+merged per stack rather than replaced wholesale: a second stack's apply
+withdraws only the output keys it owned last time and adds its current
+ones, so it can no longer wipe another stack's `{{stack.*}}` values.
+`forjar status` attributes each machine to the stack whose `stacks` entry
+last wrote it, not to whichever config was applied most recently.
+
 ### Per-Machine Lock (`state/{machine}/state.lock.yaml`)
 
 Records the full state of every managed resource on a machine:
@@ -419,6 +470,10 @@ forjar rollback -n 3
 
 Rollback reads the previous `forjar.yaml` from git history and re-applies it with `--force`.
 
+Like `undo`, `rollback` refuses outright when `--state-dir` holds more than
+one stack — see "One state dir, many stacks: restore is refused" under
+[Active Undo](#active-undo).
+
 ## Git Integration
 
 State files are designed to be committed to git:
@@ -451,7 +506,7 @@ infra/
     staging-web/         # Staging state
 ```
 
-Each environment uses a separate `--state-dir` or separate machine names. State files never conflict because they're keyed by machine name.
+Each environment uses a separate `--state-dir` or separate machine names. State files never conflict because they're keyed by machine name. Sharing one `--state-dir` across several configs is also supported for `apply` and `forjar status` (see "One state dir, many stacks" above) as long as each config's `name:` and machines are its own — `forjar apply` warns only when a name is reused from a different `-f` or a machine is claimed from another stack. `forjar undo` and `forjar rollback` are not part of that support: both refuse outright while the shared dir holds more than one stack (see "One state dir, many stacks: restore is refused" under [Active Undo](#active-undo)), until stack-scoped restore lands under PMAT-162.
 
 ### State Cleanup
 
@@ -1396,6 +1451,30 @@ Without `--force`, the planner uses BLAKE3 hash comparison for O(1) idempotency 
 ## Active Undo
 
 `forjar undo` reverts to a previous generation by restoring lock files and re-applying. Unlike `rollback` (which reads config from git history), `undo` operates on the generation snapshots in `state/generations/`.
+
+### One state dir, many stacks: restore is refused
+
+Sharing a state dir across several stacks (see "One state dir, many
+stacks" above) is a supported layout for `apply`, `forjar status`, and the
+`stack_conflict` warning — but not for restore. `forjar undo`,
+`undo --resume`, and `forjar rollback` all read the same `stacks` map, and
+all three refuse outright whenever it holds more than one stack, no matter
+whose generation was asked for:
+
+```
+refusing to restore generation N: state dir <dir> holds N stacks (<names>);
+Stack-scoped restore is PMAT-162
+```
+
+A generation snapshot is a snapshot of the whole state dir, not of one
+stack's slice of it — restoring it would revert every stack sharing the
+dir, not just the one named on the command line. That is the gap
+stack-scoped restore (schema `1.2`, recording each generation's owner and
+machines) closes; until it lands, tracked as PMAT-162 ("GO: generation
+ownership and stack-scoped restore"), `undo` and `rollback` are refused on
+any dir with more than one stack. A dir holding exactly one stack is
+unaffected: `undo` still refuses only the original GH-377 case (this
+config's `name` last applied from a different `-f`), same as before #469.
 
 Those snapshots exist only if the config sets `policy.snapshot_generations`, which is both the on-switch and the retention count. Without it `apply` records no generation and `undo` has nothing to target — re-applying will not change that:
 
