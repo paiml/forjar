@@ -228,7 +228,7 @@ jobs:
       - name: Gate D — documented invocations run against fixtures
         run: bash scripts/dogfood/docs.sh
       - name: Guard tests
-        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window
+        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum
 
   gate:
     runs-on: ubuntu-latest
