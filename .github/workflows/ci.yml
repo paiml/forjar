@@ -225,8 +225,12 @@ jobs:
         run: cargo build --release --locked
       - name: Gate C — surface from the built artifact
         run: bash scripts/dogfood/surface.sh
+      - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
+        run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
       - name: Gate D — documented invocations run against fixtures
         run: bash scripts/dogfood/docs.sh
+        env:
+          COOKBOOK: ${{ runner.temp }}/forjar-cookbook
       - name: Guard tests
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum
 

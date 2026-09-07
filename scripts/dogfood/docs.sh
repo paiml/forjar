@@ -40,7 +40,15 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 FIXTURES="tests/fixtures/dogfood"
 CSV="docs/audits/surface_audit.csv"
-COOKBOOK="${COOKBOOK:-/home/noah/src/forjar-cookbook}"
+# The cookbook (paiml/forjar-cookbook, public) is a SEPARATE repository. It is
+# expected as a sibling of the MAIN repository (git-common-dir's parent, so a
+# worktree finds the same sibling), or wherever COOKBOOK points; ci.yml's
+# dogfood job clones it into the runner's temp dir and sets COOKBOOK. Its
+# absence is UNMEASURED, never a skip: a gate that said PASS about recipes it
+# never saw would be the vacuous pass found by the PMAT-163 merge review.
+_common="$(git rev-parse --git-common-dir 2>/dev/null || printf '.git')"
+_common_abs="$(cd "$(dirname "$_common")" 2>/dev/null && pwd -P)"
+COOKBOOK="${COOKBOOK:-${_common_abs}/../forjar-cookbook}"
 
 # Vacuity floor: today's count of fenced `forjar` invocations in README.md.
 # A README that stopped documenting anything would satisfy every loop below.
@@ -301,10 +309,12 @@ fi
 
 # --------------------------------------------------------------- the cookbook
 #
-# The cookbook is a SEPARATE repository. Its absence is not a failure of this
-# tree, but it is not a pass either: the row says SKIP and names the path, so a
-# receipt cannot quietly imply the recipes were exercised when they were not.
-cookbook_note="SKIP (${COOKBOOK} absent)"
+# Every recipe and example config in the cookbook must validate against THIS
+# binary, and there must be some: a cookbook check over zero recipes reports
+# success about nothing.
+if [ ! -d "$COOKBOOK" ]; then
+  fail "cookbook not found at ${COOKBOOK} — UNMEASURED: check out paiml/forjar-cookbook beside the repository or set COOKBOOK=<path>; the documented-claims gate cannot pass over recipes it never saw"
+fi
 if [ -d "$COOKBOOK" ]; then
   shopt -s nullglob
   recipes=("$COOKBOOK"/recipes/*.yaml "$COOKBOOK"/examples/*.yaml)
