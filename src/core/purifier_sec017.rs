@@ -97,7 +97,16 @@
 //! world-writable mode the baseline could not see), and the rest are unchanged.
 //! No shape the baseline refused is accepted here.
 //!
-//! THE MERGE REVIEW. Three more lanes attacked the whole diff and found three
+//! THE THIRD MERGE REVIEW reverted one of the second's demands. It had argued
+//! that `chmod '0644' '/x' 0666 '/y'` hides a second mode and that every
+//! argument should be read; implemented and measured, that refused
+//! `chmod '0644' '/tmp/o+w'` and `chmod 0644 /tmp/a+w` — paths whose last
+//! component reads as a symbolic mode, accepted at the pre-PMAT-204 baseline
+//! and refused by the change. Letting the PATH speak for the mode is the exact
+//! defect this ticket removes, so the mode is once again chmod's own: the FIRST
+//! non-flag argument, and nothing else.
+//!
+//! THE SECOND MERGE REVIEW. Three lanes attacked the whole diff and found three
 //! real defects, each re-run against the baseline first: `bash -c 'c\hmod 777
 //! /bar'` inside quotes was redacted away (REFUSED at baseline — a regression,
 //! closed by forbidding whitespace in a redacted argument); `o=r-w` was refused
@@ -331,16 +340,20 @@ fn world_writable_modes_in_segment(line: &str) -> Vec<String> {
         if unquote(tok).trim_matches(|c: char| ";&|(){}`".contains(c)) != "chmod" {
             continue;
         }
-        // Every argument up to the next command separator is examined, not
-        // only the first: `chmod '0644' '/x' 0666 '/y'` carries a second mode
-        // that a first-argument-only rule missed and that SEC017's
-        // digit-boundary check cannot see either (measured, accepted at the
-        // pre-PMAT-204 baseline too). A path never parses as an octal literal,
-        // so reading them all costs nothing but refuses more.
+        // ONLY THE FIRST non-flag argument. That is chmod's grammar: one mode,
+        // then files. A merge review argued for reading every argument, on the
+        // theory that `chmod '0644' '/x' 0666 '/y'` hides a second mode; it
+        // does not — `0666` there is a FILE. Reading them all was measured and
+        // reverted: it refused `chmod '0644' '/tmp/o+w'` and
+        // `chmod 0644 /tmp/a+w`, paths this gate exists to stop mistaking for
+        // modes, and both are accepted at the pre-PMAT-204 baseline.
         for arg in tokens.by_ref() {
             let inner = unquote(arg);
             if inner.starts_with("--reference") {
                 break;
+            }
+            if inner.starts_with('-') && inner.len() > 1 && parse_octal_mode(inner).is_none() {
+                continue;
             }
             match parse_octal_mode(inner) {
                 Some(mode) if mode & 0o002 != 0 => found.push(inner.to_string()),
@@ -348,6 +361,7 @@ fn world_writable_modes_in_segment(line: &str) -> Vec<String> {
                 None if symbolic_grants_world_write(inner) => found.push(inner.to_string()),
                 None => {}
             }
+            break;
         }
     }
     found

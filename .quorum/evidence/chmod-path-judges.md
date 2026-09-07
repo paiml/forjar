@@ -156,3 +156,11 @@ Three lanes, all FAIL, five counterexamples; each re-run through `validate_scrip
 Two did not reproduce: `chmod 644 'a\' /foo 777 'b'` and the `eval` variant are refused at BOTH commits, by bashrs's SC2075 and SEC001 respectively — rules redaction never reaches, because a line that is not a plain path literal is never redacted.
 
 The fifty-shape matrix was re-measured against both commits after these fixes: four rows go refused to accepted, all four the ticket's own bug, and fourteen go accepted to refused. No row regresses.
+
+## Merge review, third round (three lanes, in a clone)
+
+Two lanes FAIL, one PASS, and the failing lanes were right about a change the SECOND merge review had demanded. That round argued `chmod '0644' '/x' 0666 '/y'` hides a world-writable second mode, and every argument of a chmod was made readable. Measured at both commits afterwards: that reading refuses `chmod '0644' '/tmp/o+w'` and `chmod 0644 /tmp/a+w`, paths whose last component reads as a symbolic mode, and the pre-PMAT-204 gate accepts both. `0666` in that position is a FILE — chmod takes one mode and then files — so the second review's premise was wrong and its demand is reverted: the mode is the first non-flag argument again, and the falsification test that asserted the opposite is replaced by one asserting a path that looks like a mode is still a path.
+
+The fifty-shape matrix was measured again against both commits after the revert: four rows go refused to accepted — all four this ticket's own bug — and thirteen go accepted to refused. Nothing else moves.
+
+One lane also objected to `PMAT-205` (the conda store-hash flake observed in this branch's own pre-push gate) being minted in this diff. It stays: a flake seen and not filed is a flake laundered by the next rerun, and the roadmap row is where this program records one. It is named in the PR body and in the release triage table.

@@ -315,24 +315,32 @@ fn an_octal_mode_of_any_width_is_read() {
     assert!(validate_script("chmod '0000644' '/opt/app666/t'\n").is_ok());
 }
 
-/// A second mode later in the same chmod's arguments. The merge review found
-/// it: `chmod '0644' '/x' 0666 '/y'` was accepted at the pre-PMAT-204 baseline
-/// too — SEC017 cannot see `0666` behind its leading zero and forjar's own
-/// check stopped after the first argument. Both directions are read now.
+/// A path that LOOKS like a mode is still a path. `chmod '0644' '/tmp/o+w'`
+/// and `chmod 0644 /tmp/a+w` name files whose last component reads as a
+/// symbolic mode, and `chmod '0644' '/x' 0666 '/y'` names a file called
+/// `0666`: chmod takes ONE mode and then files, so only the first non-flag
+/// argument is judged.
+///
+/// A merge review argued the opposite — that `0666` there was a second mode —
+/// and reading every argument was implemented, measured, and reverted: it
+/// refused all three of these, and the pre-PMAT-204 gate accepts them. Refusing
+/// a correct script because its PATH looks like a mode is the very defect this
+/// ticket exists to remove.
 #[test]
-fn a_world_writable_mode_later_in_the_arguments_is_refused() {
+fn a_path_that_looks_like_a_mode_is_still_a_path() {
     for script in [
+        "chmod '0644' '/tmp/o+w'\n",
+        "chmod 0644 /tmp/a+w\n",
         "chmod '0644' '/x' 0666 '/y'\n",
-        "chmod '0644' '/x' 'a+w' '/y'\n",
     ] {
         assert!(
-            validate_script(script).is_err(),
-            "a world-writable mode after the first argument was accepted: {script}"
+            validate_script(script).is_ok(),
+            "a path that reads like a mode was refused: {script}"
         );
     }
-    // A path is never an octal literal, so reading every argument does not
-    // start refusing correct scripts.
-    assert!(validate_script("chmod '0644' '/opt/app666/t' '/srv/0666-notes'\n").is_ok());
+    // The mode argument itself is still judged.
+    assert!(validate_script("chmod 'a+w' '/tmp/plain'\n").is_err());
+    assert!(validate_script("chmod '0666' '/tmp/plain'\n").is_err());
 }
 
 /// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
