@@ -19,10 +19,12 @@
 use std::path::{Path, PathBuf};
 
 /// The mechanical gates, by the letter they carry in the dogfood receipt.
-const REQUIRED: [(&str, &str); 7] = [
+const REQUIRED: [(&str, &str); 9] = [
+    ("harness.sh", "A — harness receipt per merged PR"),
     ("comply.sh", "B — pmat comply"),
     ("surface.sh", "C — transport surface"),
     ("docs.sh", "D — documented invocations"),
+    ("quorum.sh", "E — quorum receipt per merged PR"),
     ("coverage.sh", "F — coverage and mutants"),
     ("contracts.sh", "G — contracts"),
     ("crux-reconcile.sh", "H — crux reconciliation"),
