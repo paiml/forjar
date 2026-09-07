@@ -682,17 +682,6 @@ bindings: []
 
     // ── verify_bindings with real binding file ──
 
-    #[test]
-    fn verify_bindings_warn_on_gaps_real_file() {
-        let binding_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../contracts/aprender/binding.yaml");
-        let result = verify_bindings(binding_path.to_str().unwrap(), BindingPolicy::WarnOnGaps);
-        assert!(
-            result.bound_count > 0,
-            "Should have some implemented bindings"
-        );
-    }
-
     // ── verify_bindings: rerun-if-changed with parent directories ──
 
     #[test]
@@ -1227,3 +1216,8 @@ bindings:
         verify_bindings("nonexistent.yaml", BindingPolicy::WarnOnGaps);
     }
 }
+
+// The corpus-dependent tests live in their own file; see there for why (#452).
+#[cfg(test)]
+#[path = "build_helper_corpus_tests.rs"]
+mod build_helper_corpus_tests;

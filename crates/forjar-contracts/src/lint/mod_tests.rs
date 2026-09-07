@@ -134,6 +134,10 @@ fn lint_no_cache_skips_stats() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)"
+)]
 fn lint_cache_second_run_hits() {
     let tmp = tempfile::tempdir().unwrap();
     let tmp_dir = tmp.path().join("contracts");
@@ -214,6 +218,10 @@ fn lint_severity_override() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)"
+)]
 fn lifecycle_first_run_all_new() {
     let tmp = tempfile::tempdir().unwrap();
     let contract_dir = tmp.path().join("contracts");
@@ -233,6 +241,10 @@ fn lifecycle_first_run_all_new() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)"
+)]
 fn lifecycle_second_run_pre_existing() {
     let tmp = tempfile::tempdir().unwrap();
     let contract_dir = tmp.path().join("contracts");
@@ -255,6 +267,10 @@ fn lifecycle_second_run_pre_existing() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "aprender-corpus"),
+    ignore = "needs aprender's kernel corpus in contracts/ (softmax/rmsnorm); forjar ships an IaC corpus (#452)"
+)]
 fn lifecycle_persists_fingerprints() {
     let tmp = tempfile::tempdir().unwrap();
     let contract_dir = tmp.path().join("contracts");

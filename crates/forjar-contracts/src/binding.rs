@@ -201,6 +201,10 @@ bindings:
     }
 
     #[test]
+    #[cfg_attr(
+        not(feature = "aprender-corpus"),
+        ignore = "needs contracts/aprender/binding.yaml — forjar vendors the crate, not aprender's binding registry (#452)"
+    )]
     fn parse_binding_from_file() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../contracts/aprender/binding.yaml");

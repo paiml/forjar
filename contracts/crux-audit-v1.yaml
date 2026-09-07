@@ -1,0 +1,218 @@
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-07"
+  author: "PAIML Engineering"
+  description: |
+    Crux-audit shape — a competitive-UX audit document (`docs/audits/crux-*.md`)
+    is a deliverable with a checkable shape, not free prose. PMAT-164 produced
+    `docs/audits/crux-1.26.0.md`, a nine-behaviour audit of release 1.26.0
+    against >= 3 reference systems per behaviour, and the committed-quorum gate
+    requires a falsification test for the audit itself, because a document is
+    as easy to silently regress (emptied, truncated, a row dropped, a citation
+    left stale after a refactor) as any source file, and `git diff` alone does
+    not catch a shape violation the way a compiler catches a type error.
+
+    WHY THIS CLASS OF DOCUMENT NEEDS A CONTRACT
+
+    The audit's own epistemics depend on its shape holding: `[X]` marks a
+    claim about a third-party system asserted from documentation memory, never
+    measured against a running instance; `[V ...]` marks a claim about forjar
+    itself, backed by a `file:line` citation resolvable on the branch the
+    audit names. If a row drops its `[X]` or `[V` marker, a reader can no
+    longer tell an assertion from a measurement. If a row's disposition cell
+    is missing or ambiguous, `scripts/dogfood/crux-reconcile.sh` cannot
+    determine whether the finding was adopted (and under which ticket) or
+    rejected. If a citation survives a source-layout refactor unchanged (the
+    canonical case here: PMAT-161 turned `src/core/state/stamp.rs` into a
+    directory, `src/core/state/stamp/mod.rs`), the citation resolves to
+    nothing and the audit's central claim — that its `[V]` cells are
+    verifiable, not asserted — becomes false for that row.
+
+    SCOPE
+
+    This contract governs the STRUCTURAL shape of the audit: table row counts
+    per behaviour, the disposition vocabulary, marker presence per cell, the
+    required GO-spec and Reconciliation sections, and the absence of stale
+    citations and of the `[X]` marker leaking into human-facing documentation
+    that never explained what `[X]` means. It does not, and cannot, verify
+    that a `[V file:line]` citation's CONTENT is accurate — that is a human
+    review property, discharged by the PMAT-161 refuter quorum, not by this
+    contract.
+
+    NO KANI HARNESS, DELIBERATELY. This property quantifies over the text of a
+    markdown document, not process or numeric behaviour; there is nothing for
+    Kani to model. The eight falsification tests below are the entire proof:
+    each reads `docs/audits/crux-1.26.0.md` as bytes and asserts a structural
+    invariant a reverted/emptied audit violates.
+  verification_command: |
+    cargo fmt --all -- --check && \
+    cargo clippy --all-targets -- -D warnings && \
+    cargo test --test falsification_crux_audit_shape
+  references:
+    - "docs/audits/crux-1.26.0.md — the audit this contract governs"
+    - "flag-has-effect-v1.yaml — sibling pattern contract for the same
+       ticket family's habit of a declared surface silently drifting from
+       reality; here the declared surface is the audit's own table shape"
+    - "PMAT-161-state-stamp-per-name — the branch every [V] citation in the
+       1.26.0 audit resolves against; PMAT-161 turned
+       src/core/state/stamp.rs into a directory, which is why RULE 5 below
+       exists"
+    - "PMAT-162 — the one adopt() disposition in the 1.26.0 audit
+       (behaviour 7, stack-scoped undo/rollback)"
+
+equations:
+  behaviour_coverage:
+    formula: |
+      Let rows(n) = { r ∈ TableRows : behaviour_number(r) = n }.
+      ∀ n ∈ {1..9} : |rows(n)| >= 3
+    domain: "n ∈ {1,2,...,9} — the nine audited behaviour changes"
+    codomain: "Bool"
+    invariants:
+      - "Every behaviour change is checked against at least three reference
+         systems — a single-system comparison is an anecdote, not an audit"
+      - "A row is identified by its first cell starting with `(<n>)`, matching
+         the audit's own table convention"
+
+  row_marker_and_disposition:
+    formula: |
+      ∀ r ∈ TableRows, let cells(r) = split(r, '|') with outer empty cells
+      dropped:
+        cells(r)[2] contains "[X]"                          -- third-party cell
+        ∧ cells(r)[3] contains "[V"                          -- forjar cell
+        ∧ ( last(cells(r)) starts_with "adopt(PMAT-"
+            ∨ last(cells(r)) starts_with "reject(" )         -- disposition cell
+    domain: "r ∈ TableRows"
+    codomain: "Bool"
+    invariants:
+      - "A third-party claim without [X] cannot be told apart from a measured
+         claim — the marker IS the epistemic status"
+      - "A forjar claim without [V citation] cannot be traced back to code"
+      - "Disposition is exactly one of adopt(PMAT-<ticket>: ...) or
+         reject(<reason>) — never blank, never both, never a bare word"
+
+  no_stale_citation:
+    formula: |
+      ¬ contains(audit_text, "src/core/state/stamp.rs")
+      ∧ ¬ contains(audit_text, "owner.yaml")
+    domain: "audit_text ∈ String"
+    codomain: "Bool"
+    invariants:
+      - "A citation must resolve on the branch the audit names; PMAT-161 made
+         state/stamp a directory, so the pre-refactor flat-file path is
+         unresolvable and must never appear"
+      - "owner.yaml never existed as a flat per-machine ownership file in this
+         codebase; its presence would indicate a hallucinated citation"
+
+  required_sections:
+    formula: |
+      ∃ heading h : starts_with(h, "##") ∧ contains(h, "What the GO spec")
+        ∧ contains(section(h), "Nix profile generations")
+        ∧ contains(section(h), "Kubernetes rollout history")
+      ∧
+      ∃ heading g : starts_with(g, "## Reconciliation")
+        ∧ |mapped_entries(section(g))| >= 9
+    domain: "audit_text ∈ String"
+    codomain: "Bool"
+    invariants:
+      - "The GO-spec section must name both candidate precedents the panel
+         lanes disagreed over (Nix vs. Kubernetes), not silently pick one"
+      - "Reconciliation maps every CHANGELOG.md [Unreleased] behaviour bullet
+         (nine, for 1.26.0) to its row, so
+         scripts/dogfood/crux-reconcile.sh can check completeness"
+
+  no_marker_leak:
+    formula: |
+      ¬ contains(read("README.md"), "[X]")
+      ∧ ∀ f ∈ files_under("docs/book/src") : ¬ contains(read(f), "[X]")
+    domain: "README.md, docs/book/src/**"
+    codomain: "Bool"
+    invariants:
+      - "[X] means \"asserted from memory, not measured\" only inside a CRUX
+         audit; leaking it into user-facing docs would be read as a checkbox
+         or a stray typo by a reader never told the convention"
+
+invariants:
+  - id: INV-BEHAVIOUR-COVERAGE
+    statement: >-
+      Every one of the nine audited behaviours has at least three
+      reference-system rows in the Findings table. Fewer than three is a
+      single anecdote dressed as a competitive audit.
+  - id: INV-ROW-MARKER-COMPLETE
+    statement: >-
+      Every table row carries an `[X]` third-party marker, a `[V` forjar
+      citation marker, and exactly one disposition matching
+      `adopt(PMAT-...)` or `reject(...)`. A row missing any of the three
+      cannot be reconciled by `scripts/dogfood/crux-reconcile.sh` or trusted
+      by a reader who cannot tell which half of the row is asserted and which
+      is measured.
+  - id: INV-NO-STALE-CITATION
+    statement: >-
+      The audit cites no pre-refactor path. `src/core/state/stamp.rs` became
+      a directory (`src/core/state/stamp/mod.rs`) under PMAT-161; a citation
+      of the flat file is unresolvable on the branch the audit claims to cite,
+      which falsifies the audit's central promise that `[V]` means
+      "verifiable", not "asserted". `owner.yaml` never existed and would
+      indicate a hallucinated citation if it appeared.
+  - id: INV-GO-SPEC-AND-RECONCILIATION-PRESENT
+    statement: >-
+      A "What the GO spec" section names both precedents the panel lanes
+      considered (Nix profile generations, Kubernetes rollout history), and a
+      Reconciliation section maps at least nine `CHANGELOG.md` bullets to
+      table rows. Dropping either section silently discards the audit's
+      recommendation or its traceability back to the release notes it audits.
+  - id: INV-MARKER-CONFINED-TO-AUDIT
+    statement: >-
+      The `[X]` "asserted, not measured" marker appears only inside CRUX audit
+      documents. Neither `README.md` nor any page under `docs/book/src` may
+      contain the literal string, because those documents never define the
+      convention and a reader would misread it as a checkbox.
+
+falsification_tests:
+  - id: FALSIFY-CRUX-AUDIT-001
+    rule: "RULE 1 — the audit exists and its title names the release"
+    prediction: "docs/audits/crux-1.26.0.md exists and its top-level `# ` title contains \"1.26.0\""
+    test: "the_audit_exists_and_its_title_names_1_26_0"
+    if_fails: "the audit was emptied, renamed, or retitled for a different release"
+  - id: FALSIFY-CRUX-AUDIT-002
+    rule: "RULE 2 — every behaviour has >= 3 reference rows"
+    prediction: "for n in 1..=9, at least 3 lines start with `| (n)`"
+    test: "every_behaviour_has_at_least_three_reference_rows"
+    if_fails: "a behaviour was audited against fewer than 3 reference systems, or the table was truncated"
+  - id: FALSIFY-CRUX-AUDIT-003
+    rule: "RULE 3 — one disposition per row"
+    prediction: "every table row's last cell matches adopt(PMAT- or reject("
+    test: "every_row_has_exactly_one_disposition"
+    if_fails: "a row has no disposition, a malformed one, or the table was emptied"
+  - id: FALSIFY-CRUX-AUDIT-004
+    rule: "RULE 4 — every row cites a third party and forjar's own code"
+    prediction: "every row's third cell contains [X] and fourth cell contains [V"
+    test: "every_row_cites_a_third_party_and_forjars_own_code"
+    if_fails: "a row lost its asserted-vs-measured marker and can no longer be trusted"
+  - id: FALSIFY-CRUX-AUDIT-005
+    rule: "RULE 5 — no stale pre-refactor citation"
+    prediction: "the audit contains neither \"src/core/state/stamp.rs\" nor \"owner.yaml\""
+    test: "the_audit_cites_no_pre_refactor_stamp_module"
+    test_secondary: "the_audit_names_no_flat_owner_yaml"
+    if_fails: "a citation resolves to nothing on the branch the audit names, or a hallucinated path was introduced"
+  - id: FALSIFY-CRUX-AUDIT-006
+    rule: "RULE 6 — the GO-spec section names both precedents"
+    prediction: "a section headed \"What the GO spec\" contains both \"Nix profile generations\" and \"Kubernetes rollout history\""
+    test: "the_go_spec_section_names_its_two_precedents"
+    if_fails: "the recommendation section was dropped or narrowed to one precedent, hiding the lane dissent"
+  - id: FALSIFY-CRUX-AUDIT-007
+    rule: "RULE 7 — Reconciliation maps every CHANGELOG bullet"
+    prediction: "the Reconciliation section has at least 9 numbered `N. **(n)**` mapped entries"
+    test: "the_reconciliation_section_maps_every_changelog_bullet"
+    if_fails: "a CHANGELOG behaviour bullet is untraceable to any audit row"
+  - id: FALSIFY-CRUX-AUDIT-008
+    rule: "RULE 8 — [X] never leaks into human-facing docs"
+    prediction: "neither README.md nor any file under docs/book/src contains the literal [X]"
+    test: "readme_and_book_never_leak_the_x_marker"
+    if_fails: "a reader outside the audit's context sees an unexplained marker"
+
+qa_gate:
+  id: F-CRUX-AUDIT-001
+  name: CRUX Audit Shape (crux-1.26.0)
+  checks: [behaviour_coverage, row_marker_and_disposition, no_stale_citation, required_sections, no_marker_leak]
+  pass_criteria: "All 8 FALSIFY-CRUX-AUDIT tests pass — behaviour coverage, per-row markers and disposition, no stale citation, GO-spec + Reconciliation sections present, no [X] leak outside the audit."

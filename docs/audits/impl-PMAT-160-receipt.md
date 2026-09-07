@@ -88,3 +88,4 @@ child_conversations: reported 0 by every delegate (the brain-dir counter it samp
 - Full `cargo test --workspace` under the orchestrator: NotRun (see Verification); closed by CI's `gate`.
 - Status-line join table: [U] for all three rows (see Identity).
 - Follow-ups filed from the review: #470 (`--refresh-only` ignores `-r`), #471 (`--only-machine X -m Y` runs nothing at exit 0). Deliberate consequence named in CHANGELOG.md: the standalone `forjar check` command now resolves its selectors through the same resolver (closure for `check -r`, refusal of a typo).
+IMPL-PMAT-160-RECEIPT-END

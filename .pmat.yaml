@@ -1,4 +1,56 @@
+# forjar comply configuration — the committed config `scripts/dogfood/comply.sh`
+# (dogfood gate B) runs against. PMAT-163.
+#
+# Two mechanisms are in use and they are not interchangeable:
+#
+#   suppressions             the check still RUNS; named files stop producing
+#                            findings. CB-400 does not read this list at all.
+#   checks.<id>.enabled      the check does not run.
+#
+# Every `enabled: false` below is a check whose SUBJECT forjar still has,
+# measured by something else that can actually see it. `scripts/dogfood/comply.sh`
+# runs those replacements in the same gate, so each disable is a change of
+# instrument rather than a reduction in what is asserted.
 comply:
+  checks:
+    # Branch protection on paiml/forjar is a repository RULESET ("Green Main",
+    # enforcement=active, required context `gate`), not classic branch
+    # protection; pmat reads repos/:o/:r/branches/main/protection, which returns
+    # 404 for a ruleset-only repo. comply.sh Arm 2 reads the ruleset instead.
+    cb-1700:
+      enabled: false
+    # Same 404, same cause: CB-1701 cannot name the required checks it needs to
+    # look inside. comply.sh Arm 2 asserts the ruleset's contexts and that the
+    # workflow implementing them runs cargo-deny.
+    cb-1701:
+      enabled: false
+    # CB-400 aggregates CB-401 (Makefile) and CB-402 (shell) and does not read
+    # `suppressions:`, so ONE bashrs error — scripts/ledger-replay.sh:42 SEC011,
+    # an `rm -rf "$WORK"` trap with no emptiness guard — fails the check for the
+    # whole tree, and that file is outside PMAT-163's scope. comply.sh Arms 3
+    # and 4 replace it: bashrs must exit 0 on every scripts/dogfood/*.sh, and
+    # the repo-wide ERROR count is ratcheted at 1 so one cannot become two.
+    cb-400:
+      enabled: false
+    # CB-2100 (gate-effect) resolves the required check `gate` and reports that
+    # it "gates nothing in the CB roster": no required status check runs a CB
+    # check. Measured 2026-09-07 with `enabled: true` on this branch: still
+    # 1 fail. The ci.yml `dogfood` job this branch adds runs gates C and D and
+    # the guard tests, not `pmat comply` — gate B runs in `make dogfood-release`,
+    # where pmat, gh and bashrs exist, and comply.sh Arm 2 reads the ruleset
+    # CB-2100 cannot. comply.sh Arm 6 measures what the required check DOES
+    # gate: each required context's job must reach, through `needs`, a job
+    # that runs scripts/dogfood/*.sh. Re-enable in the commit that makes a
+    # required check run `pmat comply check` (PMAT-202, 1.27).
+    cb-2100:
+      enabled: false
+    # CB-200 (TDG grade gate) REPORTS here and is enforced by the dated ratchet
+    # scripts/cb200-ratchet.sh, which scripts/dogfood/comply.sh runs as Arm 5
+    # of gate B against scripts/ratchets/cb200-baseline.json (a ceiling that
+    # may only shrink). Arm 1 of the same gate treats a CB-200 failure as owned
+    # by Arm 5 and fails on any other failing check. The check stays enabled
+    # because the ratchet reads its count from this report: disabling it made
+    # the ratchet UNMEASURED (found by the PMAT-163 merge review).
   suppressions:
     - rules: ["CB-954"]
       files: [".github/workflows/*.yml"]

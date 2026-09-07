@@ -1,0 +1,236 @@
+transport,kind,name,declared,live
+cli,command,agent,yes,yes
+cli,command,agent-registry,yes,yes
+cli,command,agent-sbom,yes,yes
+cli,command,anomaly,yes,yes
+cli,command,apply,yes,yes
+cli,command,archive,yes,yes
+cli,command,audit,yes,yes
+cli,command,bench,yes,yes
+cli,command,bootstrap,yes,yes
+cli,command,build,yes,yes
+cli,command,bundle,yes,yes
+cli,command,cache,yes,yes
+cli,command,canary,yes,yes
+cli,command,catalog-list,yes,yes
+cli,command,cbom,yes,yes
+cli,command,check,yes,yes
+cli,command,checkpoint,yes,yes
+cli,command,codegen,yes,yes
+cli,command,compare,yes,yes
+cli,command,completion,yes,yes
+cli,command,complexity,yes,yes
+cli,command,compliance,yes,yes
+cli,command,config-merge,yes,yes
+cli,command,contracts,yes,yes
+cli,command,convert,yes,yes
+cli,command,cost-estimate,yes,yes
+cli,command,cross-deps,yes,yes
+cli,command,data-freshness,yes,yes
+cli,command,data-validate,yes,yes
+cli,command,dataset-lineage,yes,yes
+cli,command,destroy,yes,yes
+cli,command,diff,yes,yes
+cli,command,digest,yes,yes
+cli,command,dist,yes,yes
+cli,command,doctor,yes,yes
+cli,command,dogfood,yes,yes
+cli,command,drift,yes,yes
+cli,command,drift-predict,yes,yes
+cli,command,env,yes,yes
+cli,command,env-diff,yes,yes
+cli,command,environments,yes,yes
+cli,command,exec,yes,yes
+cli,command,explain,yes,yes
+cli,command,export,yes,yes
+cli,command,extract,yes,yes
+cli,command,facts,yes,yes
+cli,command,fault-inject,yes,yes
+cli,command,fmt,yes,yes
+cli,command,generation,yes,yes
+cli,command,graph,yes,yes
+cli,command,history,yes,yes
+cli,command,image,yes,yes
+cli,command,impact,yes,yes
+cli,command,import,yes,yes
+cli,command,import-brownfield,yes,yes
+cli,command,import-makefile,yes,yes
+cli,command,init,yes,yes
+cli,command,invariants,yes,yes
+cli,command,inventory,yes,yes
+cli,command,iso-export,yes,yes
+cli,command,lineage,yes,yes
+cli,command,lint,yes,yes
+cli,command,lock,yes,yes
+cli,command,lock-archive,yes,yes
+cli,command,lock-audit,yes,yes
+cli,command,lock-backup,yes,yes
+cli,command,lock-compact,yes,yes
+cli,command,lock-compact-all,yes,yes
+cli,command,lock-compress,yes,yes
+cli,command,lock-defrag,yes,yes
+cli,command,lock-diff,yes,yes
+cli,command,lock-export,yes,yes
+cli,command,lock-gc,yes,yes
+cli,command,lock-history,yes,yes
+cli,command,lock-info,yes,yes
+cli,command,lock-integrity,yes,yes
+cli,command,lock-merge,yes,yes
+cli,command,lock-migrate,yes,yes
+cli,command,lock-normalize,yes,yes
+cli,command,lock-prune,yes,yes
+cli,command,lock-rebase,yes,yes
+cli,command,lock-rehash,yes,yes
+cli,command,lock-repair,yes,yes
+cli,command,lock-restore,yes,yes
+cli,command,lock-rotate-keys,yes,yes
+cli,command,lock-sign,yes,yes
+cli,command,lock-snapshot,yes,yes
+cli,command,lock-stats,yes,yes
+cli,command,lock-tag,yes,yes
+cli,command,lock-validate,yes,yes
+cli,command,lock-verify,yes,yes
+cli,command,lock-verify-chain,yes,yes
+cli,command,lock-verify-schema,yes,yes
+cli,command,lock-verify-sig,yes,yes
+cli,command,logs,yes,yes
+cli,command,lsp,yes,yes
+cli,command,make,yes,yes
+cli,command,mcp,yes,yes
+cli,command,migrate,yes,yes
+cli,command,model-card,yes,yes
+cli,command,model-eval,yes,yes
+cli,command,multi-apply,yes,yes
+cli,command,oci-pack,yes,yes
+cli,command,output,yes,yes
+cli,command,parallel-apply,yes,yes
+cli,command,pin,yes,yes
+cli,command,plan,yes,yes
+cli,command,plan-compact,yes,yes
+cli,command,plugin,yes,yes
+cli,command,policy,yes,yes
+cli,command,policy-coverage,yes,yes
+cli,command,policy-install,yes,yes
+cli,command,preservation,yes,yes
+cli,command,privilege-analysis,yes,yes
+cli,command,promote,yes,yes
+cli,command,prove,yes,yes
+cli,command,provenance,yes,yes
+cli,command,query,yes,yes
+cli,command,registry-list,yes,yes
+cli,command,remediate,yes,yes
+cli,command,repro-proof,yes,yes
+cli,command,reseal,yes,yes
+cli,command,retry-failed,yes,yes
+cli,command,rollback,yes,yes
+cli,command,rolling,yes,yes
+cli,command,rules,yes,yes
+cli,command,run,yes,yes
+cli,command,saga,yes,yes
+cli,command,sbom,yes,yes
+cli,command,schema,yes,yes
+cli,command,score,yes,yes
+cli,command,secrets,yes,yes
+cli,command,security-scan,yes,yes
+cli,command,show,yes,yes
+cli,command,snapshot,yes,yes
+cli,command,sovereignty,yes,yes
+cli,command,stack-diff,yes,yes
+cli,command,stack-graph,yes,yes
+cli,command,state-backend,yes,yes
+cli,command,state-decrypt,yes,yes
+cli,command,state-encrypt,yes,yes
+cli,command,state-list,yes,yes
+cli,command,state-mv,yes,yes
+cli,command,state-query,yes,yes
+cli,command,state-reconstruct,yes,yes
+cli,command,state-rekey,yes,yes
+cli,command,state-rm,yes,yes
+cli,command,status,yes,yes
+cli,command,store,yes,yes
+cli,command,store-import,yes,yes
+cli,command,suggest,yes,yes
+cli,command,template,yes,yes
+cli,command,test,yes,yes
+cli,command,trace,yes,yes
+cli,command,trigger,yes,yes
+cli,command,undo,yes,yes
+cli,command,undo-destroy,yes,yes
+cli,command,validate,yes,yes
+cli,command,verb,yes,yes
+cli,command,verify,yes,yes
+cli,command,watch,yes,yes
+cli,command,workspace,yes,yes
+cli,subcommand,archive inspect,yes,yes
+cli,subcommand,archive pack,yes,yes
+cli,subcommand,archive unpack,yes,yes
+cli,subcommand,archive verify,yes,yes
+cli,subcommand,cache list,yes,yes
+cli,subcommand,cache pull,yes,yes
+cli,subcommand,cache push,yes,yes
+cli,subcommand,cache verify,yes,yes
+cli,subcommand,environments diff,yes,yes
+cli,subcommand,environments history,yes,yes
+cli,subcommand,environments list,yes,yes
+cli,subcommand,environments rollback,yes,yes
+cli,subcommand,generation diff,yes,yes
+cli,subcommand,generation gc,yes,yes
+cli,subcommand,generation list,yes,yes
+cli,subcommand,plugin build,yes,yes
+cli,subcommand,plugin init,yes,yes
+cli,subcommand,plugin install,yes,yes
+cli,subcommand,plugin list,yes,yes
+cli,subcommand,plugin remove,yes,yes
+cli,subcommand,plugin run,yes,yes
+cli,subcommand,plugin verify,yes,yes
+cli,subcommand,rules coverage,yes,yes
+cli,subcommand,rules serve,yes,yes
+cli,subcommand,rules validate,yes,yes
+cli,subcommand,secrets decrypt,yes,yes
+cli,subcommand,secrets encrypt,yes,yes
+cli,subcommand,secrets keygen,yes,yes
+cli,subcommand,secrets rekey,yes,yes
+cli,subcommand,secrets rotate,yes,yes
+cli,subcommand,secrets view,yes,yes
+cli,subcommand,snapshot delete,yes,yes
+cli,subcommand,snapshot list,yes,yes
+cli,subcommand,snapshot restore,yes,yes
+cli,subcommand,snapshot save,yes,yes
+cli,subcommand,store diff,yes,yes
+cli,subcommand,store gc,yes,yes
+cli,subcommand,store list,yes,yes
+cli,subcommand,store sync,yes,yes
+cli,subcommand,store verify,yes,yes
+cli,subcommand,verb call,yes,yes
+cli,subcommand,verb list,yes,yes
+cli,subcommand,verb schema,yes,yes
+cli,subcommand,verb serve,yes,yes
+cli,subcommand,workspace current,yes,yes
+cli,subcommand,workspace delete,yes,yes
+cli,subcommand,workspace list,yes,yes
+cli,subcommand,workspace new,yes,yes
+cli,subcommand,workspace select,yes,yes
+http,verb,anomaly,yes,yes
+http,verb,audit,yes,yes
+http,verb,drift,yes,yes
+http,verb,graph,yes,yes
+http,verb,lint,yes,yes
+http,verb,plan,yes,yes
+http,verb,remediate,yes,yes
+http,verb,show,yes,yes
+http,verb,status,yes,yes
+http,verb,trace,yes,yes
+http,verb,validate,yes,yes
+http,verb,workspace,yes,yes
+mcp,tool,forjar_anomaly,yes,yes
+mcp,tool,forjar_audit,yes,yes
+mcp,tool,forjar_drift,yes,yes
+mcp,tool,forjar_graph,yes,yes
+mcp,tool,forjar_lint,yes,yes
+mcp,tool,forjar_plan,yes,yes
+mcp,tool,forjar_remediate,yes,yes
+mcp,tool,forjar_show,yes,yes
+mcp,tool,forjar_status,yes,yes
+mcp,tool,forjar_trace,yes,yes
+mcp,tool,forjar_validate,yes,yes
+mcp,tool,forjar_workspace,yes,yes
