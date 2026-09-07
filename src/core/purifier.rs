@@ -10,7 +10,65 @@
 use bashrs::bash_parser::BashParser;
 use bashrs::bash_quality::Formatter;
 use bashrs::bash_transpiler::{PurificationOptions, Purifier};
-use bashrs::linter::{lint_shell, LintResult, Severity};
+use bashrs::linter::{lint_shell, Diagnostic, LintResult, Severity};
+
+use super::purifier_sec017::{chmod_mode_verdict, ChmodVerdict};
+
+/// forjar's own code for a chmod whose declared mode grants world write.
+/// Not a bashrs code: bashrs has no finding for this shape (see
+/// [`super::purifier_sec017`], measurement row 5).
+const WORLD_WRITABLE_CODE: &str = "FJ-CHMOD-WW";
+
+/// The source line a diagnostic points at, if the span is inside the script.
+///
+/// Spans are 1-indexed. The script here is the one the caller linted — for the
+/// I8 gate that is `strip_data_payloads`' output, which is the text bashrs
+/// judged and the text `numbered_for_diagnosis` prints, so the line numbers
+/// agree with the diagnostic the operator sees.
+fn source_line<'a>(lines: &[&'a str], one_indexed: usize) -> Option<&'a str> {
+    one_indexed
+        .checked_sub(1)
+        .and_then(|i| lines.get(i))
+        .copied()
+}
+
+/// True where a SEC017 Error is a hit on the PATH rather than on the mode.
+///
+/// The judgement is made by parsing the chmod line's mode argument
+/// ([`chmod_mode_verdict`]), never by matching on the message text: the message
+/// says "chmod 666" for `chmod '0644' '/opt/app666/t'`, which is precisely the
+/// text that is wrong.
+fn is_path_false_positive(lines: &[&str], diag: &Diagnostic) -> bool {
+    if diag.code != "SEC017" {
+        return false;
+    }
+    match source_line(lines, diag.span.start_line) {
+        Some(line) => chmod_mode_verdict(line) == ChmodVerdict::SafeQuotedMode,
+        None => false,
+    }
+}
+
+/// forjar's own findings: a chmod line declaring a world-writable mode.
+///
+/// This is the half of the trade that makes PMAT-204 a change of instrument
+/// rather than a loosened gate. bashrs SEC017 produces NO finding for
+/// `chmod '0666' '/tmp/plain/t'` — its digit-boundary check refuses to see
+/// `666` behind the leading `0` — so the one shape forjar generates for a
+/// world-writable mode was invisible to the gate. It is not invisible now.
+fn world_writable_chmod_errors(lines: &[&str]) -> Vec<String> {
+    lines
+        .iter()
+        .enumerate()
+        .filter_map(|(i, line)| match chmod_mode_verdict(line) {
+            ChmodVerdict::WorldWritable(mode) => Some(format!(
+                "[error] {WORLD_WRITABLE_CODE}: line {}: chmod mode '{mode}' is world-writable \
+                 (the o+w bit is set) — every user on the target could rewrite this path",
+                i + 1
+            )),
+            _ => None,
+        })
+        .collect()
+}
 
 /// Validate a shell script via bashrs linter.
 ///
@@ -18,6 +76,7 @@ use bashrs::linter::{lint_shell, LintResult, Severity};
 /// in generated scripts (e.g., SC2162 for `read` without `-r`).
 pub fn validate_script(script: &str) -> Result<(), String> {
     let result = lint_shell(script);
+    let lines: Vec<&str> = script.lines().collect();
     // SC1xxx (SYNTAX) rules were excluded here for a long time, with the note:
     // "bashrs has false positives on generated scripts (SC1035 on `in` in quoted
     // strings, SC1020 on `]` in heredocs)". Both of those were real, and both
@@ -37,18 +96,42 @@ pub fn validate_script(script: &str) -> Result<(), String> {
     // `forjar codegen` from all nine machine YAMLs and linted at Error severity.
     // SC1* findings: ZERO. That sweep did NOT apply `strip_data_payloads`, so it
     // is stricter than this call site, which lints the sanitised script.
-    let errors: Vec<_> = result
+    //
+    // PMAT-204: SEC017 is the one rule whose verdict forjar re-derives, because
+    // it decides from the LITERAL TEXT of the whole chmod line and forjar puts
+    // a config-supplied PATH on that line. `chmod '0644' '/opt/app666/config'`
+    // was refused as world-writable; the file could not be written at all.
+    // Measured 2026-09-07 against the pinned bashrs (6.68.0):
+    //
+    //   chmod '0644' '/tmp/.tmp5k666T/target.txt'  ERROR  false — 666 in PATH
+    //   chmod '0644' '/opt/app666/t'               ERROR  false positive
+    //   chmod '0644' '/tmp/x777y/target.txt'       ERROR  false positive
+    //   chmod '0644' '/tmp/plain/target.txt'       clean
+    //   chmod '0666' '/tmp/plain/t'                NO FINDING AT ALL
+    //   chmod 666 /tmp/real                        ERROR  true positive
+    //
+    // Row 5 is why this is a change of INSTRUMENT, not a reduction: SEC017's
+    // digit-boundary check cannot see `666` inside `'0666'`, so the shape
+    // forjar generates for a genuinely world-writable mode was the one shape
+    // the gate never caught. Reading the mode argument fixes both directions —
+    // the exemption below drops rows 1-3, and `world_writable_chmod_errors`
+    // adds row 5 under forjar's own code. Row 6, the true positive, is
+    // untouched: a bare numeric mode is never exempted.
+    //
+    // Nothing else changes. Every other Error-severity diagnostic, including
+    // SEC017 on a line this cannot parse, still refuses the script. To falsify:
+    // see `super::purifier_sec017`.
+    let mut msgs: Vec<String> = result
         .diagnostics
         .iter()
         .filter(|d| d.severity == Severity::Error)
+        .filter(|d| !is_path_false_positive(&lines, d))
+        .map(|d| format!("[{}] {}: {}", d.severity, d.code, d.message))
         .collect();
-    if errors.is_empty() {
+    msgs.extend(world_writable_chmod_errors(&lines));
+    if msgs.is_empty() {
         Ok(())
     } else {
-        let msgs: Vec<String> = errors
-            .iter()
-            .map(|d| format!("[{}] {}: {}", d.severity, d.code, d.message))
-            .collect();
         Err(format!("bashrs lint errors:\n{}", msgs.join("\n")))
     }
 }
