@@ -1,0 +1,129 @@
+metadata:
+  version: "1.0.0"
+  created: "2026-09-07"
+  author: "PAIML Engineering"
+  kind: pattern
+  description: >
+    Spec-shape lock for docs/specifications/forjar-state-generation-ownership.md
+    (PMAT-162) — the stack-scoped generation-ownership design, v10 REVIEWED
+    after nine three-lane review rounds. Implementation is deferred to 1.27;
+    this contract governs the DOCUMENT, not code, so that a future edit
+    cannot silently drop a rule, a falsifier row, a mutation, or an interface
+    name the deferred implementation will depend on. Each row below is one of
+    the nine rules (R1-R9) in §2 of the spec.
+  references:
+    - "docs/specifications/forjar-state-generation-ownership.md (PMAT-162, v10 REVIEWED — v1 through v9 review records in §11)"
+    - "flag-has-effect-v1.yaml (sibling pattern contract this one is shaped after)"
+
+equations:
+  spec_shape_locked:
+    formula: |
+      Let S = docs/specifications/forjar-state-generation-ownership.md.
+      shape(S) = (status_line, rule_headings[1..9], falsifier_rows[1..9],
+                  mutation_entries[1..9], interfaces, review_record, example)
+      The contract holds when every component of shape(S) is present, in the
+      order R1..R9 for the ordered components.
+    domain: "S = the spec file, read as UTF-8 text"
+    codomain: "Bool"
+    invariants:
+      - "R1: the generation's existing `.generation.yaml` gains `owner` — no new `owner.yaml` file (§2, §9 FALSIFY-GENOWN-002/004)"
+      - "R2: one global monotonic, owner-tagged, append-only sequence with parent pointers; a restore appends, never rewinds `current` (§2, §9)"
+      - "R3: selection is by lineage (current name + former_names), never by file path (§2, §9)"
+      - "R4: restore is scoped to the invoking stack's declared machines and is an atomic journaled transaction (§2, §9)"
+      - "R5: a legacy (unowned) generation restores only in a single-stack state dir (§2, §9)"
+      - "R6: the pre-restore destroy is scoped to the invoking stack and keyed by (machine, resource id) (§2, §9)"
+      - "R7: migration is additive — existing generations stay legacy, new ones always carry `owner`, no conversion on read (§2)"
+      - "R8: every restoring verb calls one decision function, `restore_decision`, before any write (§2, §5, §9)"
+      - "R9: a stack rename is one lineage via `former_names`, reserved against other lineages (§2, §9)"
+
+proof_obligations:
+  - type: invariant
+    property: "The document's status line names the reviewed version"
+    formal: "∃ line ∈ lines(S): line starts with 'Status:' ∧ 'v10' ∈ line ∧ 'REVIEWED' ∈ line"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "R1..R9 appear as bold rule headings, in order, in §2"
+    formal: "∀ n ∈ 1..9: pos(S, 'R{n} **') is defined ∧ strictly increasing in n"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "§9's falsifier table has a row for every rule"
+    formal: "∀ n ∈ 1..9: '| R{n} |' ∈ S"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "§9's mutation catalog names a mutation for every rule"
+    formal: "∀ n ∈ 1..9: 'R{n} RED' ∈ S"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "§5 names the one decision function and its parameter/return types"
+    formal: "'restore_decision' ∈ S ∧ 'RestoreVerb' ∈ S ∧ 'RestoreScope' ∈ S"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "§11 records the v9 review as a unanimous PASS"
+    formal: "∃ line ∈ lines(S): 'v9 review' ∈ line ∧ '3/3 PASS' ∈ line"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "§4's data example carries the parent/restores lineage fields"
+    formal: "'parent:' ∈ S ∧ 'restores:' ∈ S"
+    applies_to: spec_shape_locked
+  - type: invariant
+    property: "The document carries no placeholder or the withdrawn owner.yaml design"
+    formal: "'TODO' ∉ S ∧ 'TBD' ∉ S ∧ 'owner.yaml' ∉ S"
+    applies_to: spec_shape_locked
+
+falsification_tests:
+  - id: FALSIFY-GENOWN-001
+    rule: "status line names v10 and REVIEWED"
+    prediction: "the spec's 'Status:' line contains v10 and REVIEWED"
+    test: tests/falsification_spec_generation_ownership_shape.rs::status_line_names_v10_and_reviewed
+    if_fails: "a future edit ships an unreviewed or mis-versioned spec as though it were final"
+  - id: FALSIFY-GENOWN-002
+    rule: "R1-R9 headings, in order"
+    prediction: "R1 through R9 each appear as a `R<n> **` bold heading in §2, in ascending byte order"
+    test: tests/falsification_spec_generation_ownership_shape.rs::rules_r1_through_r9_appear_as_bold_headings_in_order
+    if_fails: "a rule is renumbered, dropped, or reordered without every cross-reference in §5/§9/§11 being re-checked"
+  - id: FALSIFY-GENOWN-003
+    rule: "falsifier table row per rule"
+    prediction: "§9's table has a `| R<n> |` row for every rule R1-R9"
+    test: tests/falsification_spec_generation_ownership_shape.rs::falsifier_table_has_a_row_for_every_rule_r1_through_r9
+    if_fails: "a rule ships with no binary-level falsifier, i.e. untestable by construction"
+  - id: FALSIFY-GENOWN-004
+    rule: "mutation catalog entry per rule"
+    prediction: "§9's mutation catalog names a `→ R<n> RED` mutation for every rule R1-R9"
+    test: tests/falsification_spec_generation_ownership_shape.rs::mutation_list_names_a_mutation_for_every_rule_r1_through_r9
+    if_fails: "an implementation can defeat a rule's falsifier via a mutation the spec never named — RED at v10 HEAD: R7 has no `→ R7 RED` entry in the mutation catalog (see qa_gate notes)"
+  - id: FALSIFY-GENOWN-005
+    rule: "restore_decision / RestoreVerb / RestoreScope named in §5"
+    prediction: "§5 names restore_decision with a RestoreVerb parameter and a RestoreScope return"
+    test: tests/falsification_spec_generation_ownership_shape.rs::interfaces_name_restore_decision_with_restore_verb_and_restore_scope
+    if_fails: "1.27's implementation has no single decision function to unit-test rule by rule (R8)"
+  - id: FALSIFY-GENOWN-006
+    rule: "v9 review recorded 3/3 PASS"
+    prediction: "§11's v9 review line contains 3/3 PASS"
+    test: tests/falsification_spec_generation_ownership_shape.rs::review_record_shows_v9_review_three_of_three_pass
+    if_fails: "the document is merged as REVIEWED without its review record actually showing a passing round"
+  - id: FALSIFY-GENOWN-007
+    rule: "§4 example carries parent/restores"
+    prediction: "§4's `.generation.yaml` example carries both `parent:` and `restores:` keys"
+    test: tests/falsification_spec_generation_ownership_shape.rs::section_4_example_carries_parent_and_restores_keys
+    if_fails: "the schema 1.2 example drifts from R2's lineage fields, the v10 polish this ticket's diff introduced"
+  - id: FALSIFY-GENOWN-008
+    rule: "no TODO/TBD/owner.yaml"
+    prediction: "the document contains no TODO, TBD, or the withdrawn owner.yaml file design"
+    test: tests/falsification_spec_generation_ownership_shape.rs::the_document_has_no_todo_tbd_or_the_withdrawn_owner_yaml_design
+    if_fails: "RED at v10 HEAD: `owner.yaml` still appears twice — R1 (§2) names it only to reject it ('No new file: a separate owner.yaml would be copied...'), and the v6 review record (§11) mentions it historically as a fixed defect. Both are prose about a REJECTED alternative, not the current design, but this falsifier is a literal substring check and does not distinguish rejection from adoption (see qa_gate notes)"
+
+qa_gate:
+  id: F-GENOWN-001
+  name: Generation Ownership Spec Shape
+  checks: [spec_shape_locked]
+  pass_criteria: "All 8 FALSIFY-GENOWN tests pass against docs/specifications/forjar-state-generation-ownership.md."
+  notes: >
+    As of v10 (HEAD, PMAT-162-generation-ownership-spec branch), FALSIFY-GENOWN-004
+    and FALSIFY-GENOWN-008 are RED, not GREEN: the §9 mutation catalog has no
+    `→ R7 RED` entry, and the document names `owner.yaml` twice as a rejected
+    alternative (R1's rationale for NOT creating it, and the v6 review record's
+    historical mention). Both require an edit to
+    docs/specifications/forjar-state-generation-ownership.md, which is
+    out of scope (read-only) for the ticket that authored this contract and
+    its falsification test — recorded as open questions, not silently
+    resolved.
