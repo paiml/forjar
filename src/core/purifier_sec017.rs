@@ -159,61 +159,59 @@ fn is_plain_path_literal(inner: &str) -> bool {
 /// the script is still refused — as it was before PMAT-204. An earlier version
 /// redacted any quoted token that did not PARSE as a mode, and those four
 /// shapes went from refused to accepted (measured against the baseline).
+/// The index of the quote that closes the one opened at `start`, honouring
+/// backslash escapes, or `None` when the line has no closing quote.
+fn closing_quote(
+    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
+    quote: char,
+) -> Option<usize> {
+    let mut escaped = false;
+    for (j, d) in chars.by_ref() {
+        if escaped {
+            escaped = false;
+        } else if d == '\\' {
+            escaped = true;
+        } else if d == quote {
+            return Some(j);
+        }
+    }
+    None
+}
+
+/// What one quoted span contributes to the redacted line: `'/x'` when it is a
+/// plain path literal, the span verbatim otherwise.
+fn redacted_span(inner: &str, quote: char) -> String {
+    if is_plain_path_literal(inner) {
+        "'/x'".to_string()
+    } else {
+        format!("{quote}{inner}{quote}")
+    }
+}
+
 fn redact_quoted_paths(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut chars = line.char_indices().peekable();
     while let Some((i, c)) = chars.next() {
-        match c {
-            // A backslash escapes the next character, quote or not. Without
-            // this, `echo \\" ; chmod 777 /foo ; echo \\"` re-pairs the two
-            // ESCAPED quotes, swallows the real `chmod 777` between them and
-            // exempts a line that bashrs refused before PMAT-204 — measured,
-            // and the reason this scanner is not a `find(['\'', '"'])` loop.
-            '\\' => {
-                out.push(c);
-                if let Some((_, next)) = chars.next() {
-                    out.push(next);
-                }
-            }
-            '\'' | '"' => {
-                let quote = c;
-                let start = i + quote.len_utf8();
-                let mut end = None;
-                let mut escaped = false;
-                for (j, d) in chars.by_ref() {
-                    if escaped {
-                        escaped = false;
-                        continue;
-                    }
-                    if d == '\\' {
-                        escaped = true;
-                        continue;
-                    }
-                    if d == quote {
-                        end = Some(j);
-                        break;
-                    }
-                }
-                match end {
-                    Some(j) => {
-                        let inner = &line[start..j];
-                        if is_plain_path_literal(inner) {
-                            out.push_str("'/x'");
-                        } else {
-                            out.push(quote);
-                            out.push_str(inner);
-                            out.push(quote);
-                        }
-                    }
-                    None => {
-                        // An unbalanced quote: leave the remainder verbatim.
-                        out.push_str(&line[i..]);
-                        return out;
-                    }
-                }
-            }
-            _ => out.push(c),
+        // A backslash escapes the next character, quote or not. Without this,
+        // `echo \\" ; chmod 777 /foo ; echo \\"` re-pairs the two ESCAPED quotes,
+        // swallows the real `chmod 777` between them and exempts a line that
+        // bashrs refused before PMAT-204 — measured, and the reason this
+        // scanner is not a `find(['\'', '"'])` loop.
+        if c == '\\' {
+            out.push(c);
+            out.extend(chars.next().map(|(_, next)| next));
+            continue;
         }
+        if c != '\'' && c != '"' {
+            out.push(c);
+            continue;
+        }
+        let Some(close) = closing_quote(&mut chars, c) else {
+            // An unbalanced quote: leave the remainder verbatim.
+            out.push_str(&line[i..]);
+            return out;
+        };
+        out.push_str(&redacted_span(&line[i + c.len_utf8()..close], c));
     }
     out
 }
@@ -300,26 +298,35 @@ fn clause_verdict(clause: &str, carried: bool) -> bool {
     if !(who.is_empty() || who.contains('a') || who.contains('o')) {
         return carried;
     }
-    let mut granted = carried;
-    let mut op = None;
-    let mut perms = String::new();
-    let settle = |op: Option<char>, perms: &str, granted: &mut bool| match op {
-        Some('+') if perms.contains('w') => *granted = true,
-        Some('-') if perms.contains('w') => *granted = false,
-        Some('=') => *granted = perms.contains('w'),
-        _ => {}
-    };
+    operations(ops)
+        .into_iter()
+        .fold(carried, |granted, (op, perms)| {
+            apply_op(granted, op, &perms)
+        })
+}
+
+/// A clause's operator segments, in order: `+rwx-w` is `[('+', "rwx"), ('-', "w")]`.
+fn operations(ops: &str) -> Vec<(char, String)> {
+    let mut out: Vec<(char, String)> = Vec::new();
     for c in ops.chars() {
         if matches!(c, '+' | '-' | '=') {
-            settle(op, &perms, &mut granted);
-            op = Some(c);
-            perms.clear();
-        } else {
-            perms.push(c);
+            out.push((c, String::new()));
+        } else if let Some(last) = out.last_mut() {
+            last.1.push(c);
         }
     }
-    settle(op, &perms, &mut granted);
-    granted
+    out
+}
+
+/// One operator applied to the world-write bit: `+` grants, `-` revokes,
+/// `=` replaces, and the last one on the clause wins.
+fn apply_op(granted: bool, op: char, perms: &str) -> bool {
+    match op {
+        '+' if perms.contains('w') => true,
+        '-' if perms.contains('w') => false,
+        '=' => perms.contains('w'),
+        _ => granted,
+    }
 }
 
 /// Every world-writable mode written on `line`, as it was written.
@@ -340,42 +347,56 @@ pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
 }
 
 /// The world-writable modes written in one command segment.
+/// True where a token is the word `chmod`, whatever shell punctuation sits
+/// around it: `(chmod`, `` `chmod ``, `chmod;` and `'chmod'` all are.
+fn is_chmod_word(token: &str) -> bool {
+    unquote(token).trim_matches(|c: char| ";&|(){}`".contains(c)) == "chmod"
+}
+
+/// The mode argument of a chmod: its FIRST non-flag argument.
+///
+/// That is chmod's grammar — one mode, then files. A merge review argued for
+/// reading every argument, on the theory that `chmod '0644' '/x' 0666 '/y'`
+/// hides a second mode; it does not, `0666` there is a FILE. Reading them all
+/// was measured and reverted: it refused `chmod '0644' '/tmp/o+w'` and
+/// `chmod 0644 /tmp/a+w`, paths this gate exists to stop mistaking for modes.
+///
+/// A leading `-` is a flag UNLESS the token carries a `w`: `-w` and `-w,o+w`
+/// are modes, `-R` and `-v` are flags, so `chmod -R 777` still reaches its
+/// mode. `--reference=FILE` takes the mode from elsewhere and is undecidable.
+fn mode_argument<'a>(tokens: &mut impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    for arg in tokens {
+        let inner = unquote(arg);
+        if inner.starts_with("--reference") {
+            return None;
+        }
+        if inner.starts_with('-') && inner.len() > 1 && !inner.contains('w') {
+            continue;
+        }
+        return Some(inner);
+    }
+    None
+}
+
+/// The mode, if it is world-writable as written.
+fn world_writable_mode(inner: &str) -> Option<String> {
+    match parse_octal_mode(inner) {
+        Some(mode) if mode & 0o002 != 0 => Some(inner.to_string()),
+        Some(_) => None,
+        None if symbolic_grants_world_write(inner) => Some(inner.to_string()),
+        None => None,
+    }
+}
+
 fn world_writable_modes_in_segment(line: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut tokens = line.split_whitespace().peekable();
     while let Some(tok) = tokens.next() {
-        if unquote(tok).trim_matches(|c: char| ";&|(){}`".contains(c)) != "chmod" {
+        if !is_chmod_word(tok) {
             continue;
         }
-        // ONLY THE FIRST non-flag argument. That is chmod's grammar: one mode,
-        // then files. A merge review argued for reading every argument, on the
-        // theory that `chmod '0644' '/x' 0666 '/y'` hides a second mode; it
-        // does not — `0666` there is a FILE. Reading them all was measured and
-        // reverted: it refused `chmod '0644' '/tmp/o+w'` and
-        // `chmod 0644 /tmp/a+w`, paths this gate exists to stop mistaking for
-        // modes, and both are accepted at the pre-PMAT-204 baseline.
-        for arg in tokens.by_ref() {
-            let inner = unquote(arg);
-            if inner.starts_with("--reference") {
-                break;
-            }
-            // A leading `-` is a flag UNLESS the token carries a `w`: chmod's
-            // own grammar lets `-w` and `-w,o+w` be modes in the first
-            // argument position, and skipping them as flags left a symbolic
-            // world-write grant unread (found by a merge review; accepted at
-            // the pre-PMAT-204 baseline too, so a hole rather than a
-            // regression). `-R` and `-v` carry no `w` and stay flags, so
-            // `chmod -R 777` still reaches its mode.
-            if inner.starts_with('-') && inner.len() > 1 && !inner.contains('w') {
-                continue;
-            }
-            match parse_octal_mode(inner) {
-                Some(mode) if mode & 0o002 != 0 => found.push(inner.to_string()),
-                Some(_) => {}
-                None if symbolic_grants_world_write(inner) => found.push(inner.to_string()),
-                None => {}
-            }
-            break;
+        if let Some(mode) = mode_argument(&mut tokens).and_then(world_writable_mode) {
+            found.push(mode);
         }
     }
     found

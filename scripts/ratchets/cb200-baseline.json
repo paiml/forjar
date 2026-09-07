@@ -15,7 +15,8 @@
     "Both 61 and 51 measured with --rebuild-index, so the delta is real and not an index artifact.",
     "The remaining 51 are the harder cases plus functions whose grade is not driven by cyclomatic complexity.",
     "61 -> 51 -> 50: the FVS work (paiml/forjar#288) replaced four hand-maintained MCP declaration lists with one derived table, removing the branchiest of them.",
-    "27 -> 651 (2026-09-07) is a change of instrument, not of code alone: the falsifier above puts the August code at 628 under the September grader. The series restarts at what main measures today (0776fd82: 651). The 23 between 628 and 651 is real growth from the two weeks in which this ratchet ran in no gate at all (PMAT-201 wires it into gate B, Arm 5); PMAT-203 brings the count back under 628 in 1.27. Nothing was waived: the number is measured, recorded with its instrument, and may only shrink from here."
+    "27 -> 651 (2026-09-07) is a change of instrument, not of code alone: the falsifier above puts the August code at 628 under the September grader. The series restarts at what main measures today (0776fd82: 651). The 23 between 628 and 651 is real growth from the two weeks in which this ratchet ran in no gate at all (PMAT-201 wires it into gate B, Arm 5); PMAT-203 brings the count back under 628 in 1.27. Nothing was waived: the number is measured, recorded with its instrument, and may only shrink from here.",
+    "2026-09-08 (PMAT-206): the count read 654 against this ceiling until three real reductions and one measurement fix. observe::classify became a table instead of a 34-arm match, redact_quoted_paths and clause_verdict were decomposed, and an example's main was split behind one `criterion` helper. The measurement fix mattered more than any of them: `pmat comply` grades from its own cache under ~/.cache/paiml-mcp-agent-toolkit/comply/index/, which `pmat query --rebuild-index` does not touch, so the gate was quoting a tree that no longer existed \u2014 it still named classify at its old line and old complexity after the refactor. scripts/cb200-ratchet.sh now removes that cache entry, read from comply's own message, before measuring. Fresh number: 651, exactly the ceiling."
   ],
   "not_a_bypass": "The gate still reports CB-200 as failing against grade A. This records the number so it cannot silently grow, per the dogfood protocol: 'Record a dated baseline in the crate rather than weakening a gate.'",
   "sample": [
@@ -25,5 +26,5 @@
     "src/core/state/process_lock.rs:187 reap_stale_if_unchanged [B] complexity 15",
     "src/mcp/handlers_state.rs:140 handle [B] complexity 15"
   ],
-  "measurement_note": "MUST be measured with a FRESH index: pmat query --rebuild-index. CB-200 own advice says plain `pmat query \"x\"` refreshes; it does NOT, and a stale index silently reports pre-change numbers."
+  "measurement_note": "MUST be measured with a FRESH index: pmat query --rebuild-index. CB-200 own advice says plain `pmat query \"x\"` refreshes; it does NOT, and a stale index silently reports pre-change numbers. AND with comply's own index cache cleared: `pmat query --rebuild-index` does NOT refresh it (measured 2026-09-08, PMAT-206)."
 }
