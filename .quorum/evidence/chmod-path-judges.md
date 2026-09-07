@@ -80,3 +80,60 @@ q3: CONFIRMED and fixed — `chmod " 777" /foo`, `' 777'`, `'777 '` and a tab-pa
 
 q4: the three lanes' J1 and J2 refutations did not reproduce. `chmod 644 'a\' /foo 777 'b'`, `echo 'a\' /foo <(chmod 777 /b) 'c'`, `chmod '/path/\' 777 /foo '#'`, `chmod 0644 /foo ; eval 'c\hmod 777 /bar'` and a plain process substitution are refused at BOTH commits; `chmod 0000666 /foo` and `chmod $EMPTY_VAR '0666' /foo` are accepted at BOTH. Under the round's own rule that is a narrowing, not a refutation: the first is closed here (any octal width is read), the second is the declared undecidable shape. J3 (the exemption stays bashrs's judgement) and J4 (forjar's check can only add refusals) were CONFIRMED 3/3 in that round.
 
+
+# Quorum digest — PMAT-204 — adjudicated claims
+
+Sixteen ids: seven claims the measurement confirms and nine rulings from four adversarial rounds, each re-run by the orchestrator against the pre-PMAT-204 baseline (0776fd82) and the branch head before being acted on. Every item names the guard in this diff that pins it.
+
+## CONFIRMED
+
+1. [measured] C1 — A file resource whose path contains 666 or 777 could not be applied: forjar emits `chmod '<mode>' '<path>'`, bashrs SEC017 read the path as the mode, and the I8 gate refused forjar's own correct script. This is the defect the ticket exists for and it is measured, not argued.
+- evidence: rows 01 and 02 of the 45-shape matrix in the claims dossier — `chmod '0644' '/opt/app666/t'` and the real generated script writing under `/tmp/x777y/` are refused at 0776fd82 and accepted at the branch head, and tests/falsification_chmod_path_is_not_a_mode.rs:172 converges a file resource under a directory named with 666 end to end.
+
+2. [measured] C2 — The same rule missed the real case: a quoted world-writable mode produces no SEC017 finding at all, because the digit-boundary check cannot see 666 behind a leading zero, so the one shape forjar generates for a world-writable mode was invisible to the gate it was supposed to pass through.
+- evidence: row 19 of the matrix — `chmod '0666' '/srv/b'` is ACCEPTED at 0776fd82 and refused at the head, by forjar's own code FJ-CHMOD-WW; the refusal is pinned by tests/falsification_chmod_path_is_not_a_mode.rs:281 and produced at src/core/purifier.rs:58.
+
+3. [design] C3 — The exemption is bashrs's own judgement rather than forjar's: forjar rewrites the line, replacing quoted plain path literals with a fixed path, re-runs the linter, and drops the SEC017 finding only where the rule itself stops reporting on the rewritten line.
+- evidence: `sec017_is_path_only` at src/core/purifier_sec017.rs:197 calls `lint_shell` on the redacted line and returns false when nothing was redacted; its only caller is `is_path_false_positive` at src/core/purifier.rs:41, which is gated on the diagnostic code being SEC017.
+
+4. [design] C4 — Redaction removes only a quoted argument that is a plain path literal: it contains a slash, carries no shell metacharacter that could make it executable text, and does not contain the word chmod. Anything else stays on the line for bashrs to judge.
+- evidence: `is_plain_path_literal` at src/core/purifier_sec017.rs:111 and the scanner at src/core/purifier_sec017.rs:133; the restriction is pinned by tests/falsification_chmod_path_is_not_a_mode.rs:380, which asserts that a quoted argument carrying a dollar sign or an unbalanced quote is refused while a plain path containing 666 is accepted.
+
+5. [measured] C5 — No script the pre-PMAT-204 gate refused is accepted by this change. Forty-five shapes were run against both commits: three go refused to accepted and those three are the ticket's own bug, eleven go accepted to refused, and every other row is identical.
+- evidence: the matrix in the claims dossier, produced by running `validate_script` on each shape at 0776fd82 and at the head; the refuted multi-chmod shapes are pinned by tests/falsification_chmod_path_is_not_a_mode.rs:317 and the whitespace-padded modes by tests/falsification_chmod_path_is_not_a_mode.rs:361.
+
+6. [design] C6 — forjar's own world-writable check can only add refusals: it returns a list of offending modes that is appended to the error list, and it has no path by which it can drop or exempt a bashrs diagnostic.
+- evidence: `world_writable_modes` at src/core/purifier_sec017.rs:262 returns a Vec of mode strings; `world_writable_chmod_errors` at src/core/purifier.rs:58 maps them into messages that are appended, never subtracted, and the widths and symbolic clauses it reads are pinned by tests/falsification_chmod_path_is_not_a_mode.rs:393.
+
+7. [design] C7 — The two shapes neither instrument can decide — a mode held in a variable, and a mode taken from another file with --reference — are declared in the module header and in the CHANGELOG rather than claimed as handled, and a test fails the day either starts being refused.
+- evidence: tests/falsification_chmod_path_is_not_a_mode.rs:414 asserts both shapes are accepted and says in its own doc comment that the header and the CHANGELOG must be updated rather than the test deleted; the parser that leaves them alone is at src/core/purifier_sec017.rs:217.
+
+## REFUTED
+
+8. [q1-refuted] R1.1 — q1: the first implementation's exemption was line-scoped — `chmod '0644' '/srv/a'; sudo -u root chmod 777 /srv/b` and the same with the second chmod in backticks, after `env`, in a subshell and in an `&&` list were ACCEPTED although the pre-fix gate REFUSED every one. Re-run and confirmed; the design was replaced.
+- corrected: replaced wholesale — the rule no longer looks for the chmod command; the shapes it accepted are pinned refused by tests/falsification_chmod_path_is_not_a_mode.rs:317 and by the control at tests/falsification_chmod_path_is_not_a_mode.rs:259.
+
+9. [q1-refuted] R1.2 — q1 lane 4 (/teamwork-preview) PASSED that implementation on the premise that a multi-chmod line is left to bashrs; the premise is false and the PASS is recorded as a review that agreed too early.
+- corrected: the review's PASS rested on a premise the re-run disproved; the design that replaced it is at src/core/purifier_sec017.rs:197 and the independent-stack lane's finding is kept in the agy evidence file rather than counted as support.
+
+10. [q2-refuted] R2.3 — q2: `echo \" ; (chmod 777 /foo) ; echo \"` — a backslash-escaped quote re-paired the quotes and swallowed a real chmod 777. Refused at baseline, accepted by that commit: a regression, fixed by honouring backslash escapes.
+- corrected: the chmod word is now recognised through surrounding shell punctuation at src/core/purifier_sec017.rs:262, pinned by tests/falsification_chmod_path_is_not_a_mode.rs:317.
+
+11. [q2-refuted] R2.4 — q2: `chmod 'u=rwx,o=w' '/srv/b'` — a comma-clause symbolic mode was read as safe. Accepted at baseline too, so a hole the new check claimed to close and did not; every clause is judged now.
+- corrected: the chmod word is now recognised through surrounding shell punctuation at src/core/purifier_sec017.rs:262, pinned by tests/falsification_chmod_path_is_not_a_mode.rs:317.
+
+12. [q2-refuted] R2.5 — q2: a chmod behind a backtick or in a subshell was not tokenised as a chmod word by forjar's own check.
+- corrected: the chmod word is now recognised through surrounding shell punctuation at src/core/purifier_sec017.rs:262, pinned by tests/falsification_chmod_path_is_not_a_mode.rs:317.
+
+13. [q3-refuted] R3.6 — q3: `chmod " 777" /foo`, `' 777'`, `'777 '` and a tab-padded mode did not parse as modes, were redacted away with the paths, and turned scripts the baseline REFUSED into accepted ones. Redaction is now restricted to plain path literals.
+- corrected: redaction is restricted to plain path literals at src/core/purifier_sec017.rs:111, and the four padded shapes are pinned refused by tests/falsification_chmod_path_is_not_a_mode.rs:361 while a correct script with embedded quotes stays accepted at tests/falsification_chmod_path_is_not_a_mode.rs:338.
+
+14. [q4-narrowed] R4.7 — q4: five of seven counterexamples (a backslash inside single quotes, process substitution, an escaped `c\hmod`, and two variants) are refused at BOTH commits — the refutation did not reproduce.
+- evidence: re-run against both commits; refused at each, so nothing was opened — the controls that keep those refusals honest are at tests/falsification_chmod_path_is_not_a_mode.rs:225 and tests/falsification_chmod_path_is_not_a_mode.rs:242.
+
+15. [q4-narrowed] R4.8 — q4: `chmod 0000666 /foo` is accepted at both commits — a shape neither instrument ever saw, not a regression; closed anyway by reading any octal width.
+- corrected: closed regardless — any octal width chmod accepts is read at src/core/purifier_sec017.rs:217 and pinned by tests/falsification_chmod_path_is_not_a_mode.rs:393.
+
+16. [q4-narrowed] R4.9 — q4: `chmod $EMPTY_VAR '0666' /foo` is accepted at both commits — the declared undecidable shape (a mode held in a variable), claimed by neither the code nor the CHANGELOG.
+- evidence: the declared undecidable shape, asserted accepted at both commits and documented at tests/falsification_chmod_path_is_not_a_mode.rs:414.
+
