@@ -3,6 +3,7 @@
 use super::apply_drift::GateScope;
 use super::apply_helpers::*;
 use super::helpers::*;
+use crate::core::state::stamp;
 use crate::core::{state, types};
 use std::path::Path;
 
@@ -124,6 +125,7 @@ pub(super) fn print_timing(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn apply_post_actions(
     state_dir: &Path,
+    file: &Path,
     config: &types::ForjarConfig,
     results: &[types::ApplyResult],
     total_converged: u32,
@@ -146,12 +148,36 @@ pub(super) fn apply_post_actions(
             )
         })
         .collect();
-    state::update_global_lock(state_dir, &config.name, &machine_results)?;
+    // forjar#469: the `-f` the operator applied is this stack's identity in a
+    // shared state dir — the one thing that distinguishes "six manifests, one
+    // state dir" from "one name, two configs".
+    //
+    // PMAT-172: resolved through `stamp::replay` because `undo` reaches here by
+    // applying the TARGET generation's recorded config — a document from the
+    // past, whose `name:` may be the stack's historical one, staged in a temp
+    // file that is deleted seconds later. Outside a replay both resolve to the
+    // arguments as given. `apply_stamp` resolves them again at the choke point;
+    // they are asked here so the wrong-stack WARNING inside
+    // `update_global_lock` is about the invoking stack too, rather than
+    // reporting a machine as owned by the stack's own former name.
+    //
+    // PMAT-176: the machines the CONFIG declares, held across the one call that
+    // writes the stamp. `machine_results` is what this invocation converged,
+    // which under `-m` is one machine of several; writing that as the stack's
+    // machine set released the others to any sibling stack that named them.
+    // The declaration is the config's, so it is made here, where the config is.
+    let stack = stamp::replay::stamping_name(&config.name);
+    let stamped_from = stamp::replay::stamping_file(Some(file));
+    let declared: Vec<String> = config.machines.keys().cloned().collect();
+    {
+        let _declared = stamp::declared::DeclaredMachines::of(&declared);
+        state::update_global_lock(state_dir, &stack, stamped_from.as_deref(), &machine_results)?;
+    }
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {
         let resolved = state::resolve_outputs(config);
-        state::persist_outputs(state_dir, &config.name, &resolved, config.secrets.ephemeral)?;
+        state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
     }
 
     // FJ-1200: Run post-apply check blocks

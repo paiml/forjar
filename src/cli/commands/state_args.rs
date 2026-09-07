@@ -9,7 +9,7 @@ pub struct UndoArgs {
     #[arg(short, long, default_value = "forjar.yaml")]
     pub file: PathBuf,
 
-    /// State directory
+    /// State directory — undo refuses outright while this dir holds more than one stack (a restore would revert every stack sharing it), until stack-scoped restore lands under PMAT-162; on a single-stack dir it still refuses only when this name was last applied from a different -f (GH-377, #469)
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 

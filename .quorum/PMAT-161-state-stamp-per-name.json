@@ -1,0 +1,143 @@
+{
+ "issue": "PMAT-161 — state stamp keyed by config name (#469): apply, status and the wrong-stack guard support a shared state dir; every restore verb refuses a multi-stack dir before anything is destroyed until PMAT-162; single-stamp state migrates on first apply; a rename is one lineage",
+ "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "quorum": {
+  "lanes": [
+   "claim lane A — state stamp and resolver (src/core/state/stamp/, state_types.rs, state/mod.rs)",
+   "claim lane B — CLI paths (state_identity.rs, undo.rs, undo_prune.rs, generation/, status_core.rs, apply_output.rs, lock_output.rs)",
+   "claim lane C — tests, contracts and documents",
+   "independent-stack review — agy /teamwork-preview (35-minute retry) plus a plan-mode fallback on the same hunting prompt",
+   "crux — competitive survey (Terraform workspaces, Pulumi stacks, Nix profiles, Kubernetes ownerReferences, Ansible)"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived; a disposition is CONFIRMED when its sentence is true of HEAD and the complaint it answers REFUTED as stale",
+  "claims_confirmed": 59,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "U1 — src/cli/apply.rs:174 — --rollback-on-failure writes to the state dir before the refusal (proposed fix: Check refuse_multi_stack_restore at the beginning of cmd_apply if rollback_on_failure is enabled.) — REFUTED: stale: fixed in 00af3c08",
+   "U2 — src/cli/apply_snapshot.rs:118 — generation snapshots (gc_old_snapshots) deletes snapshots from other stacks in a shared dir (proposed fix: Scope generation snapshots to the stack name or segregate them by stack in the shared dir.) — REFUTED: stale: fixed in 1c6d0d64 and 6c5d9416",
+   "U4 — src/core/state/stamp/rename.rs:33 — retire_renamed uses .find() which only retires the first matching entry, leaving duplicates behind (proposed fix: Use .retain() or a loop to remove all matching entries instead of just the first.) — REFUTED: stale: fixed in be1309f5",
+   "L1-C7 — the diff has defect INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE at src/cli/apply.rs:317. — REFUTED: stale: fixed in 00af3c08 (PMAT-174)",
+   "L1-F7 — src/cli/apply.rs:317 — the diff has defect INV-REFUSAL-IS-BEFORE-THE-FIRST-BYTE (proposed fix: Check refuse_multi_stack_restore at the beginning of cmd_apply_scoped when rollback_on_failure is true, before any resources are destroyed.) — REFUTED: stale: fixed in 00af3c08",
+   "T3 — src/core/state/stamp/mod.rs:262 — CRITICAL: `same_config_file` incorrectly strips `ParentDir` components, causing relative paths like `../forjar.yaml` to collapse into a wildcard matching any relative `*/forjar.yaml`, triggering wrong-file rename retirements. — REFUTED: stale: fixed in be1309f5 and 507b6103",
+   "T4 — src/core/state/stamp/rename.rs:58 — HIGH-SEVERITY: Scoped apply (`apply --machine`) drops untargeted machines from the state stamp because `next_stamp` does not union `previous.machines`, allowing sibling stacks to bypass the ownership guard. — REFUTED: stale: fixed in be1309f5",
+   "T6 — docs/roadmaps/roadmap.yaml:1882 — The code correctly implements the widened criteria (upfront restore refusal), but the roadmap backlog retains stale, contradictory pre-pivot text about per-stack undo. — REFUTED: stale: fixed in 22a359f7"
+  ],
+  "rounds": "plan-stage teamwork grill (conv-aea0ebd6) widened the ticket; claim round at 41c0eac2 (5 lanes); the review forced six fixes (PMAT-174..177 at 00af3c08/be1309f5/1c6d0d64, PMAT-182/183 at 6c5d9416/507b6103); refuter round 1 refused to run because the dossier was not yet committed (no lanes launched); refuter round 2 at 5044ab1f in per-lane clones found the two gaps that became D9/D10; judges at 8182135c, 3/3 PASS"
+ },
+ "crux": {
+  "systems": [
+   "Terraform workspaces and state locking",
+   "Pulumi per-stack state and stack rename",
+   "Nix profiles and generations",
+   "Kubernetes namespaces and ownerReferences",
+   "Ansible (stateless)"
+  ],
+  "verdict": "forjar's machine-ownership check is stronger than Terraform's and Pulumi's (both let two workspaces or stacks fight over one physical resource), comparable to Kubernetes ownerReferences, and its rename-as-lineage matches Pulumi's stack rename where the Terraform CLI has no rename; refusing a multi-stack restore rather than scoping it is the one deviation, deferred to PMAT-162 by design. All third-party figures are from documentation memory (sandboxed lane, no network) and marked asserted."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, 35-minute retry after a 25-minute timeout, sandboxed, agy 1.1.27, on the diff at 41c0eac2; plus a plan-mode fallback on the same prompt; plus the plan-stage grill before phase 1",
+  "verdict": "do-not-implement-as-written on two cited defects (a path-suffix collision in the rename retirement with an executed reproducer; a scoped apply dropping machines from the stamp) and a fallback FAIL on four (rollback-on-failure after the fact, snapshot gc across stacks, retire-first-only, the downgrade limit); every defect is fixed in the diff or rejected with rationale; the judges then killed the stale complaints and confirmed every disposition."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 4,
+  "tests_examined": 19407,
+  "files_parsed": 2120,
+  "accepted": [
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_resource_report_empty",
+    "reason": "pre-existing print-helper smoke test, not added or changed by this branch"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_resource_report_mixed",
+    "reason": "pre-existing print-helper smoke test, not added or changed by this branch"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_timing_basic",
+    "reason": "pre-existing print-helper smoke test, not added or changed by this branch"
+   },
+   {
+    "test": "src/cli/tests_cov_apply_b.rs::test_print_timing_zero_durations",
+    "reason": "pre-existing print-helper smoke test, not added or changed by this branch"
+   }
+  ],
+  "quality_gate": "pmat 3.39.0 `analyze vacuous-tests -f json` over the branch: 4 hit(s) in the touched test paths (listed in the pmat evidence file, each pre-existing); the branch adds 40+ tests and deletes none.",
+  "limit": "The count is what the tool measured; discrimination was measured by mutation (the falsification block) and by committing every review-driven suite RED before its fix."
+ },
+ "falsification": {
+  "test": "a_state_dir_holding_several_stacks_refuses_every_restore (with a_refused_undo_destroys_nothing_on_the_way_to_refusing, rename_cases::rollback_on_failure_is_refused_before_the_apply_writes_anything and rename_cases::a_renamed_stack_is_one_lineage_not_two_stacks; the per-name suite drives the built binary over temp state dirs)",
+  "test_file": "tests/falsification_state_stamp_per_name.rs",
+  "cargo_test_target": "falsification_state_stamp_per_name",
+  "reverted": "the multi-stack threshold disabled: `names.len() <= 1` → `<= 99` in src/core/state/stamp/mod.rs (multi_stack_restore_refusal), applied with sed at HEAD, the target run, the file restored with git checkout (tree verified clean). Also measured at 5044ab1f: the threshold moved to three stacks (1 test red) and the guard call removed from cmd_undo (1 test red); no stack_conflict test moved under any mutation.",
+  "observed_failure": "test rename_cases::rollback_on_failure_is_refused_before_the_apply_writes_anything ... FAILED\ntest a_refused_undo_destroys_nothing_on_the_way_to_refusing ... FAILED\ntest a_state_dir_holding_several_stacks_refuses_every_restore ... FAILED\ntest rename_cases::a_renamed_stack_is_one_lineage_not_two_stacks ... FAILED\ntest result: FAILED. 14 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.24s",
+  "still_green_when_reverted": "the rest of the per-name suite — the stamp, migration, machine-ownership, wrong-file and status cases — which pin the stamp rather than the restore guard"
+ },
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/state-stamp-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 22592,
+    "sha256": "c080506bbea401ffe23741a5f85864359f2b4e064c317b7c453fba42cf7072e2",
+    "blob": "b4b63ddae01824811f7f620053c1bb2c0d71c153"
+   },
+   {
+    "path": ".quorum/evidence/state-stamp-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 14699,
+    "sha256": "08d88703edf4e6814289d32710cdfcda06267945155673abfced9ca36d9b097a",
+    "blob": "46d5e521d4378794e9b15cd3d51af190555d5ae2"
+   },
+   {
+    "path": ".quorum/evidence/state-stamp-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 45246,
+    "sha256": "d0833d3f4c6fb53fec9c6dc7c5727bbfaadf9711df9f2916e62001029d4e1f6e",
+    "blob": "551054eef17bc885840dbd5c968ac00c2563150d"
+   },
+   {
+    "path": ".quorum/evidence/state-stamp-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 4556,
+    "sha256": "459a8a46e83244b7a5021baea643c46cd939fd455595bf0652063fbc8cedca1a",
+    "blob": "eacf98e12d17602ac2b2bb45f1f29296bdf33177"
+   },
+   {
+    "path": ".quorum/evidence/state-stamp-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 5272,
+    "sha256": "e6335425a6088e6d5dd8cb6813d3e6ca12334aaa737da0307e77bd294e4b84e5",
+    "blob": "f85f71f2be744cd5e74885391da6301047f8a823"
+   },
+   {
+    "path": ".quorum/evidence/state-stamp-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1828,
+    "sha256": "67ede2e5a3a0240c051363aed581c71aaf237c5b9fe121d7ddd4df5c0fa3bf90",
+    "blob": "5eabab763ddb6ecca01f59cd4189359312510e8f"
+   }
+  ],
+  "total_bytes": 94193,
+  "claims_digest": ".quorum/evidence/state-stamp-judges.md"
+ },
+ "diff_sha256": "42599deeb1a0414d8faa1f2c5f3b740d270ae5d6"
+}

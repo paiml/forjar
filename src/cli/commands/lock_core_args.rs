@@ -9,7 +9,7 @@ pub struct LockArgs {
     #[arg(short, long, default_value = "forjar.yaml")]
     pub file: PathBuf,
 
-    /// State directory
+    /// State directory — several stacks (config names) may share one state dir as long as their names and machines differ (GH-377, #469)
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 

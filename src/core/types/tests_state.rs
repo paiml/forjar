@@ -89,6 +89,7 @@ fn test_fj131_global_lock_roundtrip() {
             },
         )]),
         outputs: IndexMap::new(),
+        stacks: IndexMap::new(),
     };
     let yaml = serde_yaml_ng::to_string(&lock).unwrap();
     let lock2: GlobalLock = serde_yaml_ng::from_str(&yaml).unwrap();

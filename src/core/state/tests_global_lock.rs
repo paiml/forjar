@@ -8,7 +8,8 @@ use crate::core::types;
 #[test]
 fn new_global_lock_fields() {
     let lock = new_global_lock("test-project");
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(lock.schema, "1.1");
     assert_eq!(lock.name, "test-project");
     assert!(lock.machines.is_empty());
     assert!(lock.outputs.is_empty());
@@ -41,7 +42,7 @@ fn load_global_lock_missing() {
 fn update_global_lock_creates_new() {
     let dir = tempfile::tempdir().unwrap();
     let results = vec![("web".to_string(), 5, 4, 1), ("db".to_string(), 3, 3, 0)];
-    update_global_lock(dir.path(), "test-config", &results).unwrap();
+    update_global_lock(dir.path(), "test-config", None, &results).unwrap();
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.name, "test-config");
     assert_eq!(lock.machines.len(), 2);
@@ -55,10 +56,10 @@ fn update_global_lock_creates_new() {
 fn update_global_lock_updates_existing() {
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 3, 2, 1)];
-    update_global_lock(dir.path(), "proj", &results1).unwrap();
+    update_global_lock(dir.path(), "proj", None, &results1).unwrap();
 
     let results2 = vec![("web".to_string(), 5, 5, 0)];
-    update_global_lock(dir.path(), "proj", &results2).unwrap();
+    update_global_lock(dir.path(), "proj", None, &results2).unwrap();
 
     let lock = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(lock.machines["web"].resources, 5);

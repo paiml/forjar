@@ -53,7 +53,7 @@ fn persist_and_load_outputs() {
     let state_dir = tmp.path();
 
     // First update the global lock so it exists
-    update_global_lock(state_dir, "myconfig", &[]).expect("update global lock");
+    update_global_lock(state_dir, "myconfig", None, &[]).expect("update global lock");
 
     // Persist outputs
     let mut outputs = indexmap::IndexMap::new();

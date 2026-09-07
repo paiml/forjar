@@ -10,6 +10,11 @@
 //! locks (pre-hash for the destroy log) and the CURRENT config's definitions of
 //! the resources; the target generation, by construction, no longer declares
 //! them.
+//!
+//! That ordering is why `cmd_undo` asks `refuse_multi_stack_restore` at its top
+//! rather than relying on the copy inside `rollback_to_generation` (PMAT-161):
+//! anything this module destroys is destroyed before the restore can refuse.
+//! Any new refusal about the RESTORE belongs above this call, not below it.
 
 use std::collections::HashMap;
 use std::path::Path;

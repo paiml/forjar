@@ -118,17 +118,47 @@ fn build_resource_extras(id: &str, config: &Option<types::ForjarConfig>) -> Stri
     String::new()
 }
 
+/// forjar#469: the stack that WROTE this machine, read from the per-name stamp
+/// map — not the `name` at the top of the lock, which is only whichever stack
+/// applied last.
+///
+/// `None` when the dir holds fewer than two stacks, so the overwhelmingly
+/// common one-config-one-state-dir output is byte-identical to what it has
+/// always been. Attribution is a fact about a SHARED dir; printing it for a
+/// single stack would be noise on every status in the wild.
+fn machine_owner<'a>(global: &'a Option<types::GlobalLock>, machine: &str) -> Option<&'a str> {
+    let g = global.as_ref()?;
+    if g.stacks.len() < 2 {
+        return None;
+    }
+    g.stacks
+        .iter()
+        .find(|(_, stamp)| stamp.machines.iter().any(|m| m == machine))
+        .map(|(name, _)| name.as_str())
+}
+
+/// The `Project:`/`Generator:` block, plus the stack roll-call a shared dir
+/// needs to be readable at all.
+fn print_status_header(global: &Option<types::GlobalLock>) {
+    let Some(g) = global.as_ref() else {
+        return;
+    };
+    println!("Project: {} (last apply: {})", g.name, g.last_apply);
+    println!("Generator: {}", g.generator);
+    if g.stacks.len() > 1 {
+        let names: Vec<&str> = g.stacks.keys().map(String::as_str).collect();
+        println!("Stacks: {}", names.join(", "));
+    }
+    println!();
+}
+
 /// Print text output for the status command.
 fn print_status_text(
     global: &Option<types::GlobalLock>,
     machines: &[types::StateLock],
     config: &Option<types::ForjarConfig>,
 ) {
-    if let Some(ref g) = global {
-        println!("Project: {} (last apply: {})", g.name, g.last_apply);
-        println!("Generator: {}", g.generator);
-        println!();
-    }
+    print_status_header(global);
 
     if machines.is_empty() {
         println!("No state found. Run `forjar apply` first.");
@@ -137,6 +167,9 @@ fn print_status_text(
 
     for lock in machines {
         println!("Machine: {} ({})", lock.machine, lock.hostname);
+        if let Some(stack) = machine_owner(global, &lock.machine) {
+            println!("  Stack: {stack}");
+        }
         println!("  Generated: {}", lock.generated_at);
         println!("  Generator: {}", lock.generator);
         println!("  Resources: {}", lock.resources.len());
@@ -156,12 +189,10 @@ fn print_status_text(
     }
 }
 
-/// Print summary mode output (FJ-303).
-fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::StateLock]) {
-    let mut converged = 0u32;
-    let mut failed = 0u32;
-    let mut drifted = 0u32;
-    for lock in machines {
+/// Converged / failed / drifted resource counts over a set of machine locks.
+fn count_statuses<'a>(locks: impl Iterator<Item = &'a types::StateLock>) -> (u32, u32, u32) {
+    let (mut converged, mut failed, mut drifted) = (0u32, 0u32, 0u32);
+    for lock in locks {
         for (_, rl) in &lock.resources {
             match rl.status {
                 types::ResourceStatus::Converged => converged += 1,
@@ -171,6 +202,27 @@ fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::S
             }
         }
     }
+    (converged, failed, drifted)
+}
+
+/// Print summary mode output (FJ-303).
+///
+/// forjar#469: a dir with several stacks gets ONE LINE PER STACK, counting only
+/// the machines that stack wrote. Aggregating every machine under the
+/// last-applied `name` reported six machines' worth of failures against
+/// whichever stack ran most recently.
+fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::StateLock]) {
+    if let Some(g) = global.as_ref().filter(|g| g.stacks.len() > 1) {
+        for (stack, stamp) in &g.stacks {
+            let owned = machines
+                .iter()
+                .filter(|lock| stamp.machines.contains(&lock.machine));
+            let (converged, failed, drifted) = count_statuses(owned);
+            println!("{stack}: {converged} converged, {failed} failed, {drifted} drifted");
+        }
+        return;
+    }
+    let (converged, failed, drifted) = count_statuses(machines.iter());
     let name = global
         .as_ref()
         .map(|g| g.name.as_str())
