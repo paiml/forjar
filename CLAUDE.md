@@ -56,7 +56,7 @@ make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
 | F `coverage.sh` | the 95% line floor enforced inside llvm-cov, plus `cargo mutants` over this branch's own diff |
 | G `contracts.sh` | the contract corpus validates, lints, has depth, and every citation resolves |
 | H `crux-reconcile.sh` | every behaviour bullet under CHANGELOG `[Unreleased]` has a `docs/audits/crux-<ver>.md` row naming >=3 world-class systems |
-| R `release-check.sh` | the tag, the release, crates.io, docs.rs, a quorum receipt per merged PR |
+| R `release-check.sh` | the tag, the release, crates.io, docs.rs, a committed `.quorum/<branch>.json` receipt (unwaived, >=3 lanes, >=3 judges) per merged PR |
 
 The operator-facing procedure is the **`forjar-dogfood` skill**
 (`.claude/skills/forjar-dogfood/SKILL.md`) — that name, never `dogfood`: a

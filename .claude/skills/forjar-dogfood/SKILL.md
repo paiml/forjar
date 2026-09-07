@@ -79,13 +79,19 @@ what `ci / gate` runs per commit. `make dogfood-release` is the release gate.
 LAST=$(git describe --tags --abbrev=0)
 WHEN=$(git log -1 --format=%cs "$LAST")
 gh pr list --repo paiml/forjar --state merged --base main \
-   --search "merged:>=$WHEN" --json number,title,mergedAt
-ls docs/audits/quorum-*.md .quorum/ 2>/dev/null
+   --search "merged:>=$WHEN" --json number,title,mergedAt,headRefName
+ls .quorum/*.json 2>/dev/null
 ```
 
-**E fails** if a PR merged since `$LAST` has no receipt, or if a receipt exists
-whose PR is not in the list (a receipt for a PR that never merged is not
-evidence). Name every unpaired number in the receipt. Do not create the missing
+The per-PR receipt is the COMMITTED `.quorum/<slug>.json`, where `<slug>` is
+the PR's head branch with every `/` replaced by `-` — the same file
+`scripts/quorum-gate.sh` refuses a push without — read at the PR's merge
+commit or, failing that, at HEAD. `docs/audits/quorum-<pr>.md` names nothing
+real; do not look for it.
+
+**E fails** if a PR merged since `$LAST` has no such receipt, if the receipt
+carries a top-level `waived` key, or if it names fewer than 3 lanes or fewer
+than 3 judges. Name every offending PR number in the receipt. Do not create the missing
 receipts — that is the orchestrator's budget, not yours.
 
 ## Gate H — the judgement half

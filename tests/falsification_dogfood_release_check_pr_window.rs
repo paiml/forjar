@@ -1,7 +1,8 @@
-//! PMAT-178 / PMAT-180: what `scripts/dogfood/release-check.sh` counts as the
-//! set of PRs in a release, and what it counts as the tag.
+//! PMAT-178 / PMAT-180 / PMAT-163 (PMAT-178 decision): what
+//! `scripts/dogfood/release-check.sh` counts as the set of PRs in a release,
+//! what it counts as the tag, and what it accepts as a PR's quorum receipt.
 //!
-//! # The two defects these pin
+//! # The defects these pin
 //!
 //! **The PR window (PMAT-178).** Arm 5 enumerated the release's PRs with
 //! `git log --merges`. This repository squash-merges, and a squash merge leaves
@@ -18,14 +19,25 @@
 //! The remote is the authority: PENDING is available only when origin has no
 //! such tag.
 //!
+//! **The receipt itself (PMAT-178's re-decision, tracked as PMAT-163).**
+//! `docs/audits/quorum-<pr>.md` was a placeholder name nothing ever wrote.
+//! `scripts/quorum-gate.sh` already enforces, on every push, that a branch's
+//! quorum lives in the COMMITTED `.quorum/${branch//\//-}.json`, and that file
+//! survives a squash merge because it was committed on the branch. Arm 5 now
+//! reads that exact path — first at the PR's merge commit, falling back to
+//! HEAD — parses it as JSON, refuses a top-level `waived` key outright, and
+//! requires `quorum.lanes` (>=3) and `quorum.judges` (>=3), the same floor
+//! `scripts/quorum-gate.sh` enforces at push time.
+//!
 //! # Why these run the real script
 //!
 //! The gate's subject is a shell script, and a test that re-implements its
 //! logic in Rust would pass over a script that no longer exists. So each case
 //! builds a small repository shaped the way the script reads one — a
 //! `Cargo.toml` version, two tags' worth of history, an `origin` — copies the
-//! REAL `scripts/dogfood/release-check.sh` into it, and runs it. `gh` is
-//! injected through `$GH`, which is how the script names the tool it requires:
+//! REAL `scripts/dogfood/release-check.sh` (and, since Arm 6 now calls it,
+//! `scripts/dogfood/crux-reconcile.sh`) into it, and runs it. `gh` is injected
+//! through `$GH`, which is how the script names the tool it requires:
 //! `GH=false` is "gh cannot answer", and a two-line stub is "gh answers this".
 //! Nothing here touches the network or the real repository.
 
@@ -42,6 +54,13 @@ const TAG: &str = "v0.0.2";
 const PREV_TAG: &str = "v0.0.1";
 /// The PR number the stubbed `gh` reports as merged into this release.
 const PR: u32 = 77;
+/// The PR's head branch, chosen with a `/` so the slug's `/` -> `-` rewrite
+/// (the exact one `scripts/quorum-gate.sh` applies) is actually exercised.
+const HEAD_REF: &str = "feat/pr-77";
+
+fn slug() -> String {
+    HEAD_REF.replace('/', "-")
+}
 
 fn git(cwd: &Path, args: &[&str]) -> Output {
     let out = Command::new("git")
@@ -84,6 +103,22 @@ fn stub_gh(dir: &Path, name: &str, json: &str) -> String {
     p.to_string_lossy().into_owned()
 }
 
+/// A receipt shaped like a real one: 3 lanes, 3 judges — exactly
+/// `scripts/quorum-gate.sh`'s floor.
+fn good_receipt() -> &'static str {
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3}}"#
+}
+
+/// A receipt that waived the quorum instead of running one.
+fn waived_receipt() -> &'static str {
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3}, "waived": {"reason": "no credits"}}"#
+}
+
+/// A receipt below the lane floor — 2 lanes, not 3.
+fn thin_receipt() -> &'static str {
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b"], "judges": 3}}"#
+}
+
 struct Fixture {
     _dir: tempfile::TempDir,
     root: PathBuf,
@@ -93,24 +128,17 @@ struct Fixture {
 }
 
 impl Fixture {
-    /// `gh` answering with one merged PR whose merge commit is in this release.
+    /// `gh` answering with one merged PR whose merge commit is in this
+    /// release, on the branch [`HEAD_REF`].
     fn gh_reporting_the_pr(&self) -> String {
         stub_gh(
             self.root.parent().expect("tempdir"),
             "gh-one-pr",
             &format!(
-                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}}}}]"#,
+                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}"}}]"#,
                 self.head
             ),
         )
-    }
-
-    fn with_receipt_for(&self, pr: u32) {
-        write(
-            &self.root,
-            &format!("docs/audits/quorum-{pr}.md"),
-            "# quorum receipt (fixture)\n",
-        );
     }
 }
 
@@ -161,12 +189,18 @@ fn run(fx: &Fixture, gh: &str) -> Run {
 }
 
 /// A repository shaped the way the gate reads one: a `Cargo.toml` at
-/// [`VERSION`], a previous tag, a commit that landed after it, the crux
-/// document arm 6 wants, and an `origin` that is a bare clone.
+/// [`VERSION`], a previous tag, a commit that landed after it carrying PR
+/// #77's own `.quorum/<slug>.json` (or none, per `receipt`), the crux
+/// document and `CHANGELOG.md` Arm 6 wants once the version differs from the
+/// last cut release (it does here: [`VERSION`] vs [`PREV_TAG`]), and an
+/// `origin` that is a bare clone.
 ///
-/// `tag_on_origin` puts [`TAG`] on origin and NOT in the checkout, which is the
-/// state PMAT-180 is about: a released version this clone has not fetched.
-fn fixture(tag_on_origin: bool) -> Fixture {
+/// `tag_on_origin` puts [`TAG`] on origin and NOT in the checkout, which is
+/// the state PMAT-180 is about: a released version this clone has not
+/// fetched. `receipt`, if given, is committed alongside the squash-merged
+/// work — exactly how a real squash merge lands a branch's own committed
+/// receipt in the same tree.
+fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("repo");
     std::fs::create_dir_all(&root).expect("mkdir repo");
@@ -191,22 +225,37 @@ fn fixture(tag_on_origin: bool) -> Fixture {
     )
     .expect("the gate under test must exist");
     write(&root, "scripts/dogfood/release-check.sh", &script);
+    let crux_script = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/crux-reconcile.sh"),
+    )
+    .expect("scripts/dogfood/crux-reconcile.sh must exist — Arm 6 calls it directly");
+    write(&root, "scripts/dogfood/crux-reconcile.sh", &crux_script);
     write(
         &root,
         "Cargo.toml",
         &format!("[package]\nname = \"fixture\"\nversion = \"{VERSION}\"\n"),
     );
+    // The row and bullet Arm 6 -> crux-reconcile.sh need once VERSION differs
+    // from the previous tag's version (it does: 0.0.2 vs 0.0.1), naming 3
+    // distinct surveyed systems so the row is not "thin".
+    write(
+        &root,
+        "CHANGELOG.md",
+        "## [Unreleased]\n\n**Fixture behaviour bullet.** Exercises the crux reconciliation for this fixture.\n",
+    );
     write(
         &root,
         &format!("docs/audits/crux-{VERSION}.md"),
-        "# crux (fixture)\n",
+        "# crux (fixture)\n\n| Fixture behaviour bullet. | Ansible, Terraform, Nix | matches |\n",
     );
     git(
         &root,
         &[
             "add",
             "scripts/dogfood/release-check.sh",
+            "scripts/dogfood/crux-reconcile.sh",
             "Cargo.toml",
+            "CHANGELOG.md",
             &format!("docs/audits/crux-{VERSION}.md"),
         ],
     );
@@ -215,6 +264,10 @@ fn fixture(tag_on_origin: bool) -> Fixture {
 
     write(&root, "shipped.txt", "work that reached this release\n");
     git(&root, &["add", "shipped.txt"]);
+    if let Some(body) = receipt {
+        write(&root, &format!(".quorum/{}.json", slug()), body);
+        git(&root, &["add", &format!(".quorum/{}.json", slug())]);
+    }
     git(&root, &["commit", "-qm", "squash-merged work (#77)"]);
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
 
@@ -251,8 +304,7 @@ fn fixture(tag_on_origin: bool) -> Fixture {
 
 #[test]
 fn a_gh_that_cannot_answer_is_a_fail_and_never_a_pass() {
-    let fx = fixture(false);
-    fx.with_receipt_for(PR);
+    let fx = fixture(false, Some(good_receipt()));
     // `false` is a tool that runs and refuses to answer — the shape of a
     // missing, unauthenticated or rate-limited gh.
     let r = run(&fx, "false");
@@ -265,7 +317,7 @@ fn a_gh_that_cannot_answer_is_a_fail_and_never_a_pass() {
 
 #[test]
 fn an_empty_pr_set_over_commits_that_landed_is_red() {
-    let fx = fixture(false);
+    let fx = fixture(false, Some(good_receipt()));
     // GitHub reports no merged PR in the window while a commit sits between
     // the previous tag and HEAD: either the enumeration is broken (the
     // `git log --merges` defect) or work reached the release without review.
@@ -280,12 +332,12 @@ fn an_empty_pr_set_over_commits_that_landed_is_red() {
 
 #[test]
 fn a_pr_with_its_receipt_passes_before_the_tag_is_cut() {
-    let fx = fixture(false);
-    fx.with_receipt_for(PR);
+    let fx = fixture(false, Some(good_receipt()));
     let r = run(&fx, &fx.gh_reporting_the_pr());
     assert_eq!(
         r.code, 0,
-        "a release whose one PR has its receipt must pass:\n{}",
+        "a release whose one PR has its (committed, 3-lane, 3-judge) receipt \
+         must pass:\n{}",
         r.text
     );
     // The anti-vacuity half of the case above: the arm CAN pass, so its
@@ -294,21 +346,46 @@ fn a_pr_with_its_receipt_passes_before_the_tag_is_cut() {
     // whole file exists to refuse — a green line here must say ONE.
     assert!(r.text.contains("GATE R PASS"), "no PASS line:\n{}", r.text);
     r.assert_says("1 PR(s)");
+    r.assert_says(&format!("#{PR} {} receipt=ok", slug()));
     r.assert_says("PENDING");
 }
 
 #[test]
 fn a_pr_without_its_receipt_is_named_and_red() {
-    let fx = fixture(false);
+    let fx = fixture(false, None);
     let r = run(&fx, &fx.gh_reporting_the_pr());
-    r.assert_not_green("PR #77 is in this release with no quorum receipt");
-    r.assert_says(&format!("docs/audits/quorum-{PR}.md"));
+    r.assert_not_green(&format!(
+        "PR #{PR} is in this release with no .quorum/{}.json receipt",
+        slug()
+    ));
+    r.assert_says(&format!("#{PR} {} receipt=missing", slug()));
+}
+
+#[test]
+fn a_waived_receipt_is_red() {
+    let fx = fixture(false, Some(waived_receipt()));
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "a top-level `waived` key is an unrefuted claim, not a passed quorum, \
+         and this arm must never treat it as a pass",
+    );
+    r.assert_says(&format!("#{PR} {} receipt=waived", slug()));
+}
+
+#[test]
+fn a_thin_receipt_is_red() {
+    let fx = fixture(false, Some(thin_receipt()));
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "2 lanes is below scripts/quorum-gate.sh's floor of 3, so the receipt \
+         never cleared the bar a real quorum must clear",
+    );
+    r.assert_says(&format!("#{PR} {} receipt=thin", slug()));
 }
 
 #[test]
 fn a_tag_that_exists_on_the_remote_is_never_pending() {
-    let fx = fixture(true);
-    fx.with_receipt_for(PR);
+    let fx = fixture(true, Some(good_receipt()));
     let r = run(&fx, &fx.gh_reporting_the_pr());
     r.assert_not_green(
         "origin serves the release tag, so the release has happened and no arm \

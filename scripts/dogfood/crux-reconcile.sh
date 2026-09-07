@@ -90,6 +90,18 @@ if [ -z "$version" ]; then
 fi
 CRUX="docs/audits/crux-${version}.md"
 
+# PENDING when Cargo.toml's version is the SAME as the most recently cut
+# release's: nobody has bumped it, so no release is currently being prepared
+# and demanding a reconciliation for a version nobody is cutting would be
+# ceremony over a version that already shipped. `scripts/dogfood/release-check.sh`
+# Arm 6 applies the identical rule and calls this script once a version differs.
+latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+latest_tag_version="${latest_tag#v}"
+if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
+  echo "GATE H PENDING Cargo.toml is still at ${latest_tag}'s version (${version}); no release is being cut, so there is nothing to reconcile yet"
+  exit 0
+fi
+
 if [ ! -f "$CHANGELOG" ]; then
   fail "no ${CHANGELOG}: there is nothing to reconcile and no way to notice that"
 fi

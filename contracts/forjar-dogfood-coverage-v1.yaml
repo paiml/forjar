@@ -143,14 +143,14 @@ enforcement:
     mutation: "delete the falsification_tests block from contracts/apply-receipt-v1.yaml — Arm 3 reports it and the gate exits 1"
     severity: "ERROR"
   gate_h_crux:
-    description: "Every behaviour bullet under CHANGELOG [Unreleased] has a row in docs/audits/crux-<version>.md naming >=3 world-class systems"
+    description: "Every behaviour bullet under CHANGELOG [Unreleased] has a row in docs/audits/crux-<version>.md naming >=3 world-class systems; PENDING while Cargo.toml's version has not moved past the most recently cut release, so a reconciliation is never demanded for a version nobody is cutting"
     check: "scripts/dogfood/crux-reconcile.sh"
     mutation: "set MIN_SYSTEMS=4 — every row written to provable-iac.md's floor of 3 reads as thin and the gate exits 1"
     severity: "ERROR"
   gate_r_release:
-    description: "Tag on origin AND on main, GitHub release and its prerelease flag, crates.io version, docs.rs status.json, a quorum receipt per PR GitHub reports merged into this release, the crux doc"
+    description: "Tag on origin AND on main, GitHub release and its prerelease flag, crates.io version, docs.rs status.json, the COMMITTED per-PR quorum receipt (.quorum/<branch>.json, read at the PR's merge commit or HEAD) for every PR GitHub reports merged into this release — present, unwaived, >=3 lanes, >=3 judges — and the crux doc, PENDING while Cargo.toml's version has not moved past the last cut release"
     check: "scripts/dogfood/release-check.sh"
-    mutation: "put `--merges` back — enumerate Arm 5 with `git log --merges` instead of `gh pr list --search merged:>=<prev tag date>`; on this squash-merging repo the PR set collapses to empty and the gate exits 1 on commits that landed with no PR (second address: delete any one docs/audits/quorum-<pr>.md for a PR in the window)"
+    mutation: "delete the `\"waived\" in d` check inside Arm 5's `receipt_status` — a receipt carrying a top-level `waived` key then reads `receipt=ok` instead of `receipt=waived` and the gate passes a release over an unrefuted PR (other addresses: put `--merges` back — `git log --merges` collapses the squash-merged PR set to empty and the gate exits 1 on commits with no PR; delete a PR's `.quorum/<slug>.json` and its row reads `receipt=missing`)"
     severity: "ERROR"
   the_gates_are_admissible:
     description: "Each gate declares its mutation, is strict, swallows nothing, and exists"
@@ -219,6 +219,24 @@ falsification_tests:
     prediction: "Deciding Arm 1 from the local tag list again makes the guard test fail: a tag on origin that this checkout lacks is reported as not-yet-cut"
     test: "tests/falsification_dogfood_release_check_pr_window.rs::a_tag_that_exists_on_the_remote_is_never_pending"
     if_fails: "A tagged, pushed, unreleased version reads as PENDING, which is the one state nobody goes back to look at"
+
+  - id: FALSIFY-DF-010
+    rule: "A PR's quorum receipt is the COMMITTED `.quorum/<branch>.json`, read at the PR's merge commit or at HEAD — not a placeholder `docs/audits/quorum-<pr>.md` nothing ever wrote"
+    prediction: "Reverting Arm 5 to check `docs/audits/quorum-<pr>.md` again makes the guard test fail: a PR whose real `.quorum/<slug>.json` is committed and passes `scripts/quorum-gate.sh`'s own floor is reported `receipt=missing`"
+    test: "tests/falsification_dogfood_release_check_pr_window.rs::a_pr_without_its_receipt_is_named_and_red"
+    if_fails: "Every release reports every PR as missing a receipt it actually has, or — the worse direction — a placeholder name that is never written passes by nobody ever checking it"
+
+  - id: FALSIFY-DF-011
+    rule: "A receipt carrying a top-level `waived` key is never a pass"
+    prediction: "Deleting the `\"waived\" in d` check from Arm 5's `receipt_status` makes the guard test fail: a PR whose receipt waived its own quorum reads `receipt=ok`"
+    test: "tests/falsification_dogfood_release_check_pr_window.rs::a_waived_receipt_is_red"
+    if_fails: "The release-time completeness check this arm exists to be accepts an unrefuted claim as long as its author wrote the word `waived` honestly"
+
+  - id: FALSIFY-DF-012
+    rule: "A receipt below `scripts/quorum-gate.sh`'s own floor (>=3 lanes, >=3 judges) is thin, not ok"
+    prediction: "Lowering Arm 5's lane/judge floor below 3 makes the guard test fail: a 2-lane receipt that never cleared the push-time floor reads `receipt=ok`"
+    test: "tests/falsification_dogfood_release_check_pr_window.rs::a_thin_receipt_is_red"
+    if_fails: "The release-time check enforces a lower bar than the push-time one it is supposed to audit, so a receipt that should never have reached `main` passes retroactively"
 
 qa_gate:
   id: F-DF-001
