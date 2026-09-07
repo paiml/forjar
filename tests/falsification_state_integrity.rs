@@ -117,7 +117,9 @@ fn save_lock_creates_machine_dir() {
 fn new_global_lock_fields() {
     let lock = state::new_global_lock("my-infra");
     assert_eq!(lock.name, "my-infra");
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: a new lock is written at the per-stack schema. "1.0" is still
+    // READ (and migrated in memory on load); it is no longer written.
+    assert_eq!(lock.schema, state::stamp::SCHEMA_CURRENT);
     assert!(!lock.last_apply.is_empty());
     assert!(lock.generator.starts_with("forjar"));
     assert!(lock.machines.is_empty());
@@ -141,7 +143,7 @@ fn save_load_global_lock_roundtrip() {
     assert!(loaded.is_some());
     let loaded = loaded.unwrap();
     assert_eq!(loaded.name, "test-infra");
-    assert_eq!(loaded.schema, "1.0");
+    assert_eq!(loaded.schema, state::stamp::SCHEMA_CURRENT);
 }
 
 #[test]
@@ -159,7 +161,7 @@ fn load_global_lock_missing_returns_none() {
 fn update_global_lock_creates_machine_entries() {
     let (_dir, state_dir) = make_state_dir();
     let results = vec![("web".to_string(), 5, 5, 0), ("db".to_string(), 3, 2, 1)];
-    state::update_global_lock(&state_dir, "my-infra", &results).unwrap();
+    state::update_global_lock(&state_dir, "my-infra", None, &results).unwrap();
 
     let lock = state::load_global_lock(&state_dir).unwrap().unwrap();
     assert_eq!(lock.name, "my-infra");

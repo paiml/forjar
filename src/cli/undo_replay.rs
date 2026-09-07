@@ -23,6 +23,7 @@
 //! class of defect as #377, one layer down. So the body is staged as a hidden
 //! sibling of the config the operator named, used, and deleted.
 
+use super::apply::cmd_apply;
 use crate::core::types::GenerationMeta;
 use std::path::{Path, PathBuf};
 
@@ -154,6 +155,71 @@ impl Drop for ReplayConfig {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
     }
+}
+
+/// Apply a generation's recorded config so the host converges to that
+/// generation. `force` is on and confirmation is pre-granted; every other knob
+/// is the `cmd_apply` default.
+///
+/// Generation recording is paused for the duration: `rollback_to_generation`
+/// has already pointed `current` at the target, and appending a new generation
+/// here would push `current` past the state the host is in, making a second
+/// `undo` target what the first had just restored.
+///
+/// `invoking` is `(the CURRENT config's name, the operator's own -f)` — the
+/// identity this apply stamps the state dir with, PMAT-172. It is not the
+/// identity of the document being applied, and both differences matter: `file`
+/// is a temp sibling deleted when this returns, and the recorded config's
+/// `name:` is whatever the stack was called at that generation, which after a
+/// rename is a name the operator has already stopped using. Stamping either
+/// leaves the dir claiming a stack that is not there.
+pub(super) fn replay_generation(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    invoking: (&str, &Path), // (current config name, the operator's -f)
+) -> Result<(), String> {
+    let _paused = super::apply_snapshot::PauseGenerationRecording::new();
+    let _stamp =
+        crate::core::state::stamp::replay::StampOverride::invoking(invoking.0, Some(invoking.1));
+    cmd_apply(
+        file,
+        state_dir,
+        machine_filter,
+        None,
+        None,
+        None,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        None,
+        false,
+        false,
+        None,
+        None,
+        false,
+        false,
+        None,
+        false,
+        false,
+        0,
+        true,
+        false,
+        None,
+        false,
+        None,
+        None,
+        None,
+        false,
+        None,
+        false,
+        None,  // telemetry_endpoint
+        false, // refresh
+        None,  // force_tag
+        &[],
+    )
 }
 
 /// Resources whose desired bytes live OUTSIDE the recorded config, and which

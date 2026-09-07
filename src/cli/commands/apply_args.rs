@@ -57,7 +57,7 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub timeout: Option<u64>,
 
-    /// State directory
+    /// State directory — several stacks (config names) may share one state dir as long as their names and machines differ; a name re-applied from a different -f, or a machine another stack owns, still warns here. `forjar undo`/`rollback` refuse outright while this dir holds more than one stack, until stack-scoped restore lands under PMAT-162 (GH-377, #469)
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
