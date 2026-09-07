@@ -247,16 +247,70 @@ fn sec017_on_a_line_that_is_not_a_chmod_command_still_fails() {
     assert!(err.contains("SEC017"), "rejected, but not by SEC017: {err}");
 }
 
-/// A line with two chmods: the second is a genuine bare `chmod 666`. SEC017
-/// reports once per line, so a rule that parses only the first command would
-/// swallow the true positive.
+/// A line with two chmods, in every shape that hid the second one from the
+/// first version of this gate. Each of these was measured ACCEPTED by that
+/// version and REFUSED before PMAT-204 existed: they are the regression the
+/// review caught, and they are what the redact-and-re-lint rule exists for.
+///
+/// `chmod 666` unquoted is included last as the easy case; the six above it
+/// are the ones that a command-position parser gets wrong, so a rule that
+/// passes only the last line proves nothing.
 #[test]
 fn a_second_chmod_on_the_same_line_is_not_hidden_by_the_first() {
-    let err = validate_script("chmod '0644' '/srv/a'; chmod 666 /srv/b\n").expect_err(
-        "a bare `chmod 666` sharing a line with a safe chmod was accepted — the exemption \
-         looked only at the first command on the line",
-    );
-    assert!(err.contains("SEC017"), "rejected, but not by SEC017: {err}");
+    for script in [
+        "chmod '0644' '/srv/a'; sudo -u root chmod 777 /srv/b\n",
+        "chmod '0644' '/srv/a'; `chmod 777 /srv/b`\n",
+        "chmod '0644' '/srv/a'; env chmod 777 /srv/b\n",
+        "chmod '0644' '/srv/a'; (chmod 777 /srv/b)\n",
+        "chmod '0644' '/srv/a' && chmod 777 /srv/b\n",
+        "chmod '0644' '/opt/app666/t'; chmod '0666' '/srv/b'\n",
+        "chmod '0644' '/srv/a'; chmod 666 /srv/b\n",
+    ] {
+        assert!(
+            validate_script(script).is_err(),
+            "a real chmod sharing a line with a safe chmod was ACCEPTED: {script}"
+        );
+    }
+}
+
+/// A world-writable mode wherever it sits on the line, in the widths and
+/// spellings the first version of this gate could not read: five octal digits,
+/// a symbolic `a+w`, and a mode inside `find -exec` where chmod is not the
+/// command. bashrs reports none of these — forjar does.
+#[test]
+fn a_world_writable_mode_is_refused_wherever_it_sits() {
+    for script in [
+        "chmod '00666' '/srv/b'\n",
+        "chmod 'a+w' '/srv/b'\n",
+        "chmod o+w /srv/b\n",
+        "find /srv -type f -exec chmod '0666' {} \\;\n",
+        "chmod '0644' '/srv/a'; chmod '0662' '/srv/b'\n",
+    ] {
+        let err = validate_script(script)
+            .expect_err(&format!("a world-writable mode was accepted: {script}"));
+        assert!(
+            err.contains("FJ-CHMOD-WW"),
+            "refused, but not by forjar's own world-writable check: {err}"
+        );
+    }
+}
+
+/// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
+/// a mode in a variable and a mode taken from another file pass now exactly as
+/// they passed before PMAT-204. This test fails the day one of them starts
+/// being refused — at which point the CHANGELOG and the module header must say
+/// so rather than this test being deleted.
+#[test]
+fn the_undecidable_shapes_are_documented_not_claimed() {
+    for script in [
+        "MODE=666\nchmod \"$MODE\" '/srv/b'\n",
+        "chmod '0644' --reference=/elsewhere /srv/b\n",
+    ] {
+        assert!(
+            validate_script(script).is_ok(),
+            "this shape is now refused — update the module header and the CHANGELOG: {script}"
+        );
+    }
 }
 
 // ── 6: the exempted shape, at the gate ──────────────────────────────────────

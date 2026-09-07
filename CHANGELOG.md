@@ -15,17 +15,23 @@ which word is the mode, so `/opt/app666/config` read as a world-writable chmod
 and the resource failed. The same rule missed the real case — measured
 2026-09-07 against the pinned bashrs 6.68.0, `chmod '0666' '/tmp/plain/t'`
 produces no finding at all, because the boundary check cannot see `666` behind
-the leading `0`. The gate now reads the chmod line's mode argument itself: a
-SEC017 hit is exempted only where the line is a single chmod whose first
-non-flag argument is a quoted octal literal without the world-write bit, and
-everything else — a bare `chmod 666`, a symbolic mode, a second chmod on the
-line, a line where `chmod` is an argument — still refuses. Both directions of
-the mistake are fixed, so this is stricter than before, not looser: a chmod
-whose mode really does carry the world-write bit is now refused under forjar's
-own code `FJ-CHMOD-WW`, naming the mode, before the script is allowed to run.
-`forjar validate --check-security` still reports such a mode as a warning on a
-config that loads — the refusal is at the point of execution, so scanning an
-insecure config remains possible.
+the leading `0`. The gate no longer lets the path
+speak for the mode, and it does not try to parse shell itself: it redacts every
+quoted argument that cannot be a mode, asks bashrs again, and drops the SEC017
+finding only if the rule stops reporting on the redacted line. A second chmod
+anywhere on the line — behind `sudo`, inside backticks, after `env`, in a
+subshell, in an `&&` list — survives redaction untouched and is still refused;
+the first attempt at this fix looked for the chmod command itself and accepted
+all five of those shapes, which three review lanes and a direct re-run caught
+before it shipped. In the other direction forjar now judges what bashrs cannot:
+every world-writable mode on any line, in any width (`0666`, `00666`, `0662`),
+symbolic (`a+w`, `o+w`) or sitting inside `find -exec`, is refused under
+forjar's own code `FJ-CHMOD-WW`, naming the mode. Two shapes remain undecidable
+by either instrument and are refused by neither, exactly as before: a mode held
+in a variable, and `--reference=FILE`, which takes the mode from another file.
+`forjar validate --check-security` still reports an insecure mode as a warning
+on a config that loads — the refusal is at the point of execution, so scanning
+an insecure config remains possible.
 
 **`apply`'s resource-set selectors resolved independently, one bug per
 selector (#466, #467, #468).** Measured 2026-09-05 against `paiml/infra`:

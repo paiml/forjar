@@ -19,6 +19,10 @@
 //! | chmod 666 /tmp/real                         | ERROR (true positive)           |
 //! ```
 //!
+//! Both instruments were measured: the linked library (bashrs 6.68.0, which is
+//! what `validate_script` calls, through `tests/falsification_chmod_path_is_not_a_mode.rs`)
+//! and the standalone `bashrs lint` CLI at 7.0.1. They agree on every row.
+//!
 //! Rows 1-3 are why `forjar apply` could not write a file under a directory
 //! named `app666`: forjar generates `chmod '<mode>' '<path>'`, the gate refused
 //! its own correct script, and the resource failed.
@@ -31,90 +35,99 @@
 //! mistaken for a mode (rows 1-3), and the mode stops being invisible (row 5,
 //! now [`ChmodVerdict::WorldWritable`], refused by forjar under its own code).
 //!
-//! The exemption is deliberately narrow. It requires a line with EXACTLY ONE
-//! chmod command whose first non-flag argument is a QUOTED octal literal with
-//! the world-write bit clear. A bare numeric mode, a symbolic mode (`u+x`), a
-//! `--reference` chmod, a second chmod on the same line, a line where `chmod`
-//! is an argument rather than the command, or anything this module cannot parse
-//! is [`ChmodVerdict::Undecided`] — bashrs keeps the last word and the finding
-//! stays an Error.
+//! HOW THE EXEMPTION DECIDES, AND WHY IT IS NOT A SHELL PARSER. The first
+//! version of this module tried to find the chmod COMMAND on the line and read
+//! its mode argument. Three blind review lanes and a direct re-run refuted it:
+//! `chmod '0644' '/srv/a'; sudo -u root chmod 777 /srv/b`, the same line with
+//! the second chmod inside backticks, and `env chmod 777 /srv/b` were all
+//! ACCEPTED, because the second chmod was not recognised as a command position
+//! and the line was therefore exempted whole. Those three lines were REFUSED
+//! before PMAT-204: that version weakened the gate it was meant to keep.
 //!
-//! FALSIFY IT: make [`chmod_mode_verdict`] return [`ChmodVerdict::SafeQuotedMode`]
-//! unconditionally and `tests/falsification_chmod_path_is_not_a_mode.rs` goes
-//! red on the bare-`chmod 666`, second-chmod-on-the-line and non-chmod-line
-//! cells.
+//! So forjar no longer judges the line. It REDACTS the path text and asks
+//! bashrs again: every quoted argument whose content is not an octal mode is
+//! replaced with `'/x'`, and the SEC017 finding is dropped only if the redacted
+//! line no longer produces one. Everything else on the line — a second chmod, a
+//! `sudo` prefix, backticks, `env`, an unquoted `777` — survives redaction
+//! untouched and is still judged by the rule that always judged it. The
+//! decision is bashrs's; forjar only removes the text that cannot be a mode.
+//!
+//! WHAT FORJAR JUDGES ITSELF is the other direction, where bashrs is blind
+//! (row 5): [`world_writable_modes`] reads EVERY `chmod` word on a line, takes
+//! the following non-flag token, and refuses an octal mode with the o+w bit or
+//! a symbolic mode granting world write (`a+w`, `o+w`, `+w`). It is deliberately
+//! over-eager — it does not care whether the chmod is in command position,
+//! because refusing too much is the safe direction for a gate.
+//!
+//! WHAT NEITHER CAN DECIDE, recorded rather than claimed: a mode in a variable
+//! (`chmod "$MODE" /x`), a mode taken from another file (`--reference=`), and a
+//! mode computed at run time. Those pass this module exactly as they passed it
+//! before PMAT-204.
+//!
+//! FALSIFY IT: make [`sec017_is_path_only`] return `true` unconditionally, or
+//! make [`world_writable_modes`] return an empty vector, and
+//! `tests/falsification_chmod_path_is_not_a_mode.rs` goes red.
 
-/// What forjar makes of the `chmod` line a SEC017 diagnostic points at.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ChmodVerdict {
-    /// Exactly one chmod, mode argument is a quoted octal literal without the
-    /// world-write bit. SEC017 matched something that is not the mode.
-    SafeQuotedMode,
-    /// Exactly one chmod and its mode argument really is world-writable. Carries
-    /// the literal as written, so the message can name it.
-    WorldWritable(String),
-    /// Not decidable here. Whatever bashrs said stands.
-    Undecided,
-}
+use bashrs::linter::{lint_shell, Severity};
 
-/// True where a `chmod` occurrence is a command word rather than a substring
-/// (`echo chmod` still counts as a word; `chmodx` and `/bin/chmod-ish` do not).
-fn is_word_boundary(line: &str, pos: usize, len: usize) -> bool {
-    let bytes = line.as_bytes();
-    let before_ok = pos == 0 || matches!(bytes[pos - 1], b' ' | b'\t' | b';' | b'&' | b'|' | b'(');
-    let after = pos + len;
-    let after_ok =
-        after >= bytes.len() || matches!(bytes[after], b' ' | b'\t' | b';' | b'&' | b'|');
-    before_ok && after_ok
-}
-
-/// Words that may stand between the start of a command and `chmod` without
-/// making `chmod` an argument of something else.
-const COMMAND_PREFIX_WORDS: &[&str] = &["sudo", "then", "do", "else", "{", "!", "time"];
-
-/// True where the text between the start of this command and `chmod` leaves
-/// `chmod` in command position. `echo chmod 777 /x` is a chmod WORD but not a
-/// chmod COMMAND — it has no mode argument to read, so bashrs keeps it.
-fn is_command_position(line: &str, pos: usize) -> bool {
-    let start = line[..pos]
-        .rfind([';', '&', '|', '(', '\n'])
-        .map_or(0, |i| i + 1);
-    line[start..pos].split_whitespace().all(|w| {
-        // `FOO=bar chmod ...` — an environment assignment, still command position.
-        w.contains('=') || COMMAND_PREFIX_WORDS.contains(&w)
-    })
-}
-
-/// Byte offsets of every `chmod` COMMAND on the line.
-fn chmod_positions(line: &str) -> Vec<usize> {
-    let mut out = Vec::new();
-    let mut from = 0usize;
-    while let Some(rel) = line[from..].find("chmod") {
-        let pos = from + rel;
-        if is_word_boundary(line, pos, "chmod".len()) && is_command_position(line, pos) {
-            out.push(pos);
+/// Replace every quoted argument that cannot be a mode with a fixed path.
+///
+/// A quoted token whose content parses as an octal mode is left alone — that is
+/// the one quoted thing on a chmod line that IS a mode. Everything else quoted
+/// is path-shaped text, and path text is what SEC017 mistakes for a mode.
+fn redact_quoted_paths(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(open) = rest.find(['\'', '"']) {
+        let quote = rest.as_bytes()[open] as char;
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        match after.find(quote) {
+            Some(close) => {
+                let inner = &after[..close];
+                if parse_octal_mode(inner).is_some() {
+                    out.push(quote);
+                    out.push_str(inner);
+                    out.push(quote);
+                } else {
+                    out.push_str("'/x'");
+                }
+                rest = &after[close + 1..];
+            }
+            None => {
+                // An unbalanced quote: leave the remainder exactly as written.
+                out.push_str(&rest[open..]);
+                return out;
+            }
         }
-        from = pos + "chmod".len();
     }
+    out.push_str(rest);
     out
 }
 
-/// Strip one matched pair of surrounding quotes, reporting whether there was one.
-fn unquote(token: &str) -> (&str, bool) {
-    let bytes = token.as_bytes();
-    if bytes.len() >= 2 {
-        let first = bytes[0];
-        if (first == b'\'' || first == b'"') && bytes[bytes.len() - 1] == first {
-            return (&token[1..token.len() - 1], true);
-        }
+/// True where SEC017 fired on this line only because of PATH text.
+///
+/// Redact the paths, ask bashrs again, and exempt the finding only if the rule
+/// itself stops reporting. A line that still trips SEC017 with its paths
+/// neutralised is a line whose chmod really is unsafe.
+pub(crate) fn sec017_is_path_only(line: &str) -> bool {
+    let redacted = redact_quoted_paths(line);
+    if redacted == line {
+        // Nothing was redacted, so no path text can be to blame.
+        return false;
     }
-    (token, false)
+    !lint_shell(&redacted)
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "SEC017" && d.severity == Severity::Error)
 }
 
-/// An octal file mode written as 3 or 4 digits, or `None` for anything else
-/// (symbolic modes, empty strings, `0o644`, a path).
+/// An octal file mode of 1 to 6 digits, or `None` for anything else.
+///
+/// The width is wide on purpose: `chmod '00666'` is a real world-writable mode
+/// that a 3-or-4-digit rule read as "not a mode" and let through (measured).
 fn parse_octal_mode(text: &str) -> Option<u32> {
-    if !(text.len() == 3 || text.len() == 4) {
+    if text.is_empty() || text.len() > 6 {
         return None;
     }
     if !text.bytes().all(|b| (b'0'..=b'7').contains(&b)) {
@@ -123,62 +136,67 @@ fn parse_octal_mode(text: &str) -> Option<u32> {
     u32::from_str_radix(text, 8).ok()
 }
 
-/// The first argument to chmod that is not an option, or `None` if an option
-/// makes the mode argument meaningless (`--reference=FILE` takes the mode from
-/// another file, so there is nothing on this line to judge).
-fn mode_token(rest: &str) -> Option<&str> {
-    for token in rest.split_whitespace() {
-        if token.starts_with("--reference") {
-            return None;
+/// Strip one matched pair of surrounding quotes.
+fn unquote(token: &str) -> &str {
+    let bytes = token.as_bytes();
+    if bytes.len() >= 2 {
+        let first = bytes[0];
+        if (first == b'\'' || first == b'"') && bytes[bytes.len() - 1] == first {
+            return &token[1..token.len() - 1];
         }
-        if token.starts_with('-') && token.len() > 1 {
-            continue;
-        }
-        return Some(token);
     }
-    None
+    token
 }
 
-/// Read the mode argument of the single `chmod` command on `line`.
+/// True where a symbolic mode grants write to everyone (`a+w`, `o+w`, `+w`).
+fn symbolic_grants_world_write(text: &str) -> bool {
+    let (who, op_rest) = match text.find(['+', '=']) {
+        Some(i) => (&text[..i], &text[i..]),
+        None => return false,
+    };
+    if !op_rest.contains('w') {
+        return false;
+    }
+    who.is_empty() || who.contains('a') || who.contains('o')
+}
+
+/// Every world-writable mode written on `line`, as it was written.
 ///
-/// Everything this cannot resolve is [`ChmodVerdict::Undecided`] on purpose:
-/// this function may only ever EXEMPT a finding, so an unparsable line must
-/// leave the gate exactly as strict as it was.
-pub(crate) fn chmod_mode_verdict(line: &str) -> ChmodVerdict {
-    let positions = chmod_positions(line);
-    // Two chmods share one SEC017 finding (the rule reports once per line), so
-    // judging only the first would let `chmod '0644' '/a'; chmod 666 /b` pass.
-    if positions.len() != 1 {
-        return ChmodVerdict::Undecided;
+/// Reads every `chmod` word, not only a command-position one: a mode inside
+/// `find -exec chmod '0666' {} \;` is as world-writable as any other, and this
+/// function may only ever ADD a refusal.
+pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut tokens = line.split_whitespace().peekable();
+    while let Some(tok) = tokens.next() {
+        if unquote(tok).trim_end_matches(';') != "chmod" {
+            continue;
+        }
+        for arg in tokens.by_ref() {
+            let inner = unquote(arg);
+            if inner.starts_with("--reference") {
+                break;
+            }
+            if inner.starts_with('-') && inner.len() > 1 && parse_octal_mode(inner).is_none() {
+                continue;
+            }
+            match parse_octal_mode(inner) {
+                Some(mode) if mode & 0o002 != 0 => found.push(inner.to_string()),
+                Some(_) => {}
+                None if symbolic_grants_world_write(inner) => found.push(inner.to_string()),
+                None => {}
+            }
+            break;
+        }
     }
-    let rest = &line[positions[0] + "chmod".len()..];
-    let token = match mode_token(rest) {
-        Some(t) => t,
-        None => return ChmodVerdict::Undecided,
-    };
-    let (inner, quoted) = unquote(token);
-    let mode = match parse_octal_mode(inner) {
-        Some(m) => m,
-        None => return ChmodVerdict::Undecided,
-    };
-    if mode & 0o002 != 0 {
-        return ChmodVerdict::WorldWritable(inner.to_string());
-    }
-    if quoted {
-        ChmodVerdict::SafeQuotedMode
-    } else {
-        // A bare `chmod 644 /x` is not a shape forjar generates, and an
-        // unquoted argument is not a literal we can be sure of. Leave it.
-        ChmodVerdict::Undecided
-    }
+    found
 }
 
 #[cfg(test)]
 mod chmod_mode_tests {
     use super::*;
 
-    /// The shape forjar generates, on the paths that broke: the mode is safe
-    /// and quoted, so the SEC017 hit is on the path.
+    /// The shape forjar generates, on the paths that broke.
     #[test]
     fn forjar_generated_lines_are_exempt() {
         for line in [
@@ -188,81 +206,106 @@ mod chmod_mode_tests {
             "chmod -R '0750' '/srv/app666'",
             "chmod \"0644\" \"/opt/app666/t\"",
         ] {
-            assert_eq!(
-                chmod_mode_verdict(line),
-                ChmodVerdict::SafeQuotedMode,
-                "not exempted: {line}"
-            );
+            assert!(sec017_is_path_only(line), "not exempted: {line}");
         }
+    }
+
+    /// The refuted shapes: a second chmod that the first version of this module
+    /// did not see. Each was ACCEPTED by that version and is refused here.
+    #[test]
+    fn a_real_chmod_elsewhere_on_the_line_is_never_exempt() {
+        for line in [
+            "chmod '0644' '/srv/a'; sudo -u root chmod 777 /srv/b",
+            "chmod '0644' '/srv/a'; `chmod 777 /srv/b`",
+            "chmod '0644' '/srv/a'; env chmod 777 /srv/b",
+            "chmod '0644' '/srv/a'; chmod 666 /srv/b",
+            "chmod '0644' '/srv/a' && chmod 777 /srv/b",
+            "chmod '0644' '/opt/app666/t'; chmod 777 /srv/b",
+        ] {
+            assert!(!sec017_is_path_only(line), "wrongly exempted: {line}");
+        }
+    }
+
+    /// A line with no quoting has nothing to redact, so nothing to exempt.
+    #[test]
+    fn an_unquoted_line_is_never_exempt() {
+        assert!(!sec017_is_path_only("chmod 666 /srv/data"));
+        assert!(!sec017_is_path_only("echo chmod 777 /var/www"));
     }
 
     /// Row 5 of the measurement table: bashrs sees nothing, forjar must.
     #[test]
-    fn a_quoted_world_writable_mode_is_named() {
+    fn world_writable_modes_are_named_wherever_they_sit() {
         assert_eq!(
-            chmod_mode_verdict("chmod '0666' '/tmp/plain/t'"),
-            ChmodVerdict::WorldWritable("0666".into())
+            world_writable_modes("chmod '0666' '/tmp/plain/t'"),
+            ["0666"]
         );
+        assert_eq!(world_writable_modes("chmod 0777 /tmp/plain/t"), ["0777"]);
         assert_eq!(
-            chmod_mode_verdict("chmod '0777' '/tmp/plain/t'"),
-            ChmodVerdict::WorldWritable("0777".into())
+            world_writable_modes("chmod '0662' '/tmp/plain/t'"),
+            ["0662"]
         );
+        // 5 digits: the width the first version read as "not a mode".
+        assert_eq!(world_writable_modes("chmod '00666' '/srv/b'"), ["00666"]);
+        // Second chmod on the line, quoted: invisible to SEC017 either way.
         assert_eq!(
-            chmod_mode_verdict("chmod 0666 /tmp/plain/t"),
-            ChmodVerdict::WorldWritable("0666".into())
+            world_writable_modes("chmod '0644' '/srv/a'; chmod '0666' '/srv/b'"),
+            ["0666"]
         );
-        // 0662: world-write bit set, no dangerous substring anywhere. bashrs
-        // has no rule that reaches it; the bit is what forjar judges.
+        // Not in command position, still a world-writable mode.
         assert_eq!(
-            chmod_mode_verdict("chmod '0662' '/tmp/plain/t'"),
-            ChmodVerdict::WorldWritable("0662".into())
+            world_writable_modes("find /srv -type f -exec chmod '0666' {} \\;"),
+            ["0666"]
         );
+        // Symbolic.
+        assert_eq!(world_writable_modes("chmod 'a+w' '/srv/b'"), ["a+w"]);
+        assert_eq!(world_writable_modes("chmod o+w /srv/b"), ["o+w"]);
+        // Flags are skipped, the mode after them is read.
+        assert_eq!(world_writable_modes("chmod -R '0666' '/srv/b'"), ["0666"]);
     }
 
-    /// Everything the parser cannot resolve must leave bashrs in charge.
     #[test]
-    fn unresolvable_lines_are_undecided() {
+    fn safe_and_undecidable_modes_are_not_named() {
         for line in [
-            // bare mode — not a shape forjar generates
-            "chmod 644 /srv/data",
-            // symbolic mode
-            "chmod u+x '/tmp/666/t'",
-            // chmod is an argument, not the command
-            "echo chmod 777 /var/www",
-            // two chmods share one SEC017 finding
-            "chmod '0644' '/srv/a'; chmod 666 /srv/b",
-            // the mode comes from another file
-            "chmod --reference='/srv/a666' '/srv/b'",
-            // no argument at all
-            "chmod",
-            // not a chmod line
+            "chmod '0644' '/srv/a'",
+            "chmod 0755 /srv/a",
+            "chmod u+x '/srv/a'",
+            "chmod g+w '/srv/a'",
+            "chmod --reference='/srv/a' '/srv/b'",
+            "chmod \"$MODE\" '/srv/b'",
             "echo '/opt/app666/t'",
+            "chmod",
         ] {
-            assert_eq!(
-                chmod_mode_verdict(line),
-                ChmodVerdict::Undecided,
-                "wrongly decided: {line}"
+            assert!(
+                world_writable_modes(line).is_empty(),
+                "wrongly named world-writable: {line}"
             );
         }
     }
 
     #[test]
-    fn octal_parsing_rejects_non_modes() {
+    fn octal_parsing_reads_the_widths_chmod_accepts() {
         assert_eq!(parse_octal_mode("0644"), Some(0o644));
         assert_eq!(parse_octal_mode("644"), Some(0o644));
         assert_eq!(parse_octal_mode("1777"), Some(0o1777));
+        assert_eq!(parse_octal_mode("00666"), Some(0o666));
         assert_eq!(parse_octal_mode("68"), None);
         assert_eq!(parse_octal_mode("0888"), None);
-        assert_eq!(parse_octal_mode("00644"), None);
         assert_eq!(parse_octal_mode(""), None);
+        assert_eq!(parse_octal_mode("0000000"), None);
     }
 
     #[test]
-    fn quoting_is_read_not_assumed() {
-        assert_eq!(unquote("'0644'"), ("0644", true));
-        assert_eq!(unquote("\"0644\""), ("0644", true));
-        assert_eq!(unquote("0644"), ("0644", false));
-        assert_eq!(unquote("'0644"), ("'0644", false));
-        assert_eq!(unquote("'"), ("'", false));
+    fn redaction_keeps_the_mode_and_replaces_the_path() {
+        assert_eq!(
+            redact_quoted_paths("chmod '0644' '/opt/app666/t'"),
+            "chmod '0644' '/x'"
+        );
+        assert_eq!(
+            redact_quoted_paths("chmod '0644' '/srv/a'; chmod 777 /srv/b"),
+            "chmod '0644' '/x'; chmod 777 /srv/b"
+        );
+        // An unbalanced quote is left exactly as written.
+        assert_eq!(redact_quoted_paths("chmod '0644"), "chmod '0644");
     }
 }

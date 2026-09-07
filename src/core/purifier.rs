@@ -12,7 +12,7 @@ use bashrs::bash_quality::Formatter;
 use bashrs::bash_transpiler::{PurificationOptions, Purifier};
 use bashrs::linter::{lint_shell, Diagnostic, LintResult, Severity};
 
-use super::purifier_sec017::{chmod_mode_verdict, ChmodVerdict};
+use super::purifier_sec017::{sec017_is_path_only, world_writable_modes};
 
 /// forjar's own code for a chmod whose declared mode grants world write.
 /// Not a bashrs code: bashrs has no finding for this shape (see
@@ -34,21 +34,21 @@ fn source_line<'a>(lines: &[&'a str], one_indexed: usize) -> Option<&'a str> {
 
 /// True where a SEC017 Error is a hit on the PATH rather than on the mode.
 ///
-/// The judgement is made by parsing the chmod line's mode argument
-/// ([`chmod_mode_verdict`]), never by matching on the message text: the message
-/// says "chmod 666" for `chmod '0644' '/opt/app666/t'`, which is precisely the
-/// text that is wrong.
+/// The judgement is bashrs's own, made again with the path text redacted
+/// ([`sec017_is_path_only`]), never by matching on the message text: the
+/// message says "chmod 666" for `chmod '0644' '/opt/app666/t'`, which is
+/// precisely the text that is wrong.
 fn is_path_false_positive(lines: &[&str], diag: &Diagnostic) -> bool {
     if diag.code != "SEC017" {
         return false;
     }
     match source_line(lines, diag.span.start_line) {
-        Some(line) => chmod_mode_verdict(line) == ChmodVerdict::SafeQuotedMode,
+        Some(line) => sec017_is_path_only(line),
         None => false,
     }
 }
 
-/// forjar's own findings: a chmod line declaring a world-writable mode.
+/// forjar's own findings: every world-writable mode written on any line.
 ///
 /// This is the half of the trade that makes PMAT-204 a change of instrument
 /// rather than a loosened gate. bashrs SEC017 produces NO finding for
@@ -59,13 +59,14 @@ fn world_writable_chmod_errors(lines: &[&str]) -> Vec<String> {
     lines
         .iter()
         .enumerate()
-        .filter_map(|(i, line)| match chmod_mode_verdict(line) {
-            ChmodVerdict::WorldWritable(mode) => Some(format!(
-                "[error] {WORLD_WRITABLE_CODE}: line {}: chmod mode '{mode}' is world-writable \
-                 (the o+w bit is set) — every user on the target could rewrite this path",
-                i + 1
-            )),
-            _ => None,
+        .flat_map(|(i, line)| {
+            world_writable_modes(line).into_iter().map(move |mode| {
+                format!(
+                    "[error] {WORLD_WRITABLE_CODE}: line {}: chmod mode '{mode}' is world-writable \
+                     (the o+w bit is set) — every user on the target could rewrite this path",
+                    i + 1
+                )
+            })
         })
         .collect()
 }
