@@ -17,9 +17,10 @@
 #                     requires 0 bashrs errors in the scripts this ticket ships;
 #                     Arm 4 ratchets the repo-wide count so one cannot become
 #                     two.
-#   cb-2100           the required check `gate` runs no CB rule; the fix is a
+#   cb-2100           (Arm 6) the required check `gate` runs no CB rule (PMAT-202); what it
+#                     does gate — a job running scripts/dogfood/*.sh — is measured here. Was:
 #                     .github/workflows edit this ticket may not make.
-#   cb-200            owned by the dated ratchet `make cb200-ratchet`.
+#   cb-200            (Arm 5) owned by the dated ratchet scripts/cb200-ratchet.sh, which runs here.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -162,7 +163,79 @@ if [ -n "$others_dirty" ]; then
   fail "bashrs errors in tracked shell scripts outside the recorded legacy set — a new script is scored, not inherited:${others_dirty}"
 fi
 
-echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) and ${n_others} other tracked script(s) at 0 bashrs errors; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
+# ------------------------------------------------ Arm 5: the CB-200 ratchet
+# CB-200 (the TDG grade gate) is disabled in .pmat.yaml because the dated
+# ratchet `scripts/cb200-ratchet.sh` owns that number with a recorded baseline
+# that may only shrink. A disable with its replacement running somewhere else
+# is a change of instrument only if the replacement runs HERE, in the same
+# gate — so it does.
+ratchet_rc=0
+ratchet_out="$(bash scripts/cb200-ratchet.sh 2>&1)" || ratchet_rc=$?
+if [ "$ratchet_rc" -ne 0 ]; then
+  printf '%s\n' "$ratchet_out" | tail -5
+  fail "the CB-200 ratchet (scripts/cb200-ratchet.sh) exited ${ratchet_rc}: the debt grew past its recorded baseline"
+fi
+
+# ----------------------------------------- Arm 6: the required check gates
+# CB-2100 (gate-effect) asks whether the required status check enforces any
+# CB rule and is disabled in .pmat.yaml because no required check runs
+# `pmat comply` (PMAT-202). What the required check DOES enforce is measured
+# here instead: every required context that is a job in ci.yml must, through
+# its `needs`, reach a job whose steps run at least one scripts/dogfood/*.sh —
+# the mechanical gates this file ships. A required check that gated nothing
+# of them would be the finding CB-2100 makes, and this arm makes it too.
+gate_effect_rc=0
+gate_effect="$(python3 - "$contexts" <<'PY_EOF'
+import sys
+try:
+    import yaml
+except ImportError:
+    print("UNMEASURED: python3 has no yaml module here, so ci.yml cannot be read")
+    sys.exit(3)
+wanted = [c for c in sys.argv[1].replace(",", " ").split() if c]
+try:
+    w = yaml.safe_load(open(".github/workflows/ci.yml"))
+except Exception as e:
+    print(f"UNMEASURED: cannot read .github/workflows/ci.yml: {e}")
+    sys.exit(3)
+jobs = (w or {}).get("jobs") or {}
+def runs_gate(job):
+    for s in (jobs.get(job) or {}).get("steps") or []:
+        if "scripts/dogfood/" in str(s.get("run", "")):
+            return True
+    return False
+def reach(job, seen):
+    if job in seen:
+        return False
+    seen.add(job)
+    if runs_gate(job):
+        return True
+    needs = (jobs.get(job) or {}).get("needs") or []
+    if isinstance(needs, str):
+        needs = [needs]
+    return any(reach(n, seen) for n in needs)
+bad = []
+seen_any = False
+for ctx in wanted:
+    if ctx not in jobs:
+        continue
+    seen_any = True
+    if not reach(ctx, set()):
+        bad.append(ctx)
+if not seen_any:
+    print(f"UNMEASURED: none of the required contexts [{' '.join(wanted)}] is a job in ci.yml")
+    sys.exit(3)
+if bad:
+    print("required check(s) reach no job that runs a dogfood gate: " + " ".join(bad))
+    sys.exit(1)
+print("ok")
+PY_EOF
+)" || gate_effect_rc=$?
+if [ "$gate_effect_rc" -ne 0 ]; then
+  fail "gate effect (Arm 6, the CB-2100 replacement): ${gate_effect}"
+fi
+
+echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) and ${n_others} other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [${contexts}] reach a dogfood gate; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
 
 # mutation: set BASHRS_ERROR_CEILING=0 — Arm 4 then reports the known
 # scripts/ledger-replay.sh SEC011 finding as a regression and the gate exits 1.

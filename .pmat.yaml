@@ -38,14 +38,17 @@ comply:
     # 1 fail. The ci.yml `dogfood` job this branch adds runs gates C and D and
     # the guard tests, not `pmat comply` — gate B runs in `make dogfood-release`,
     # where pmat, gh and bashrs exist, and comply.sh Arm 2 reads the ruleset
-    # CB-2100 cannot. Re-enable in the commit that makes a required check run
-    # `pmat comply check` (PMAT-202, 1.27).
+    # CB-2100 cannot. comply.sh Arm 6 measures what the required check DOES
+    # gate: each required context's job must reach, through `needs`, a job
+    # that runs scripts/dogfood/*.sh. Re-enable in the commit that makes a
+    # required check run `pmat comply check` (PMAT-202, 1.27).
     cb-2100:
       enabled: false
     # CB-200 is owned by the dated ratchet `make cb200-ratchet`
     # (scripts/ratchets/cb200-baseline.json): the debt is pre-existing, reported
     # every run, and may only shrink. Two gates enforcing one number disagree
-    # about scope; the ratchet is the one with a recorded baseline.
+    # about scope; the ratchet is the one with a recorded baseline, and
+    # scripts/dogfood/comply.sh Arm 5 runs it inside gate B.
     cb-200:
       enabled: false
   suppressions:
