@@ -16,9 +16,10 @@ and the resource failed. The same rule missed the real case — measured
 2026-09-07 against the pinned bashrs 6.68.0, `chmod '0666' '/tmp/plain/t'`
 produces no finding at all, because the boundary check cannot see `666` behind
 the leading `0`. The gate no longer lets the path
-speak for the mode, and it does not try to parse shell itself: it redacts every
-quoted argument that cannot be a mode, asks bashrs again, and drops the SEC017
-finding only if the rule stops reporting on the redacted line. A second chmod
+speak for the mode, and it does not try to parse shell itself: it redacts quoted
+PATH LITERALS only — a `/` in them, no shell metacharacter, no `chmod` — asks
+bashrs again, and drops the SEC017 finding only if the rule stops reporting on
+the redacted line. A second chmod
 anywhere on the line — behind `sudo`, inside backticks, after `env`, in a
 subshell, in an `&&` list, or behind a backslash-escaped quote — survives
 redaction untouched and is still refused; the first attempt at this fix looked

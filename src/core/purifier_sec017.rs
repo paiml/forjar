@@ -76,17 +76,51 @@
 //! baseline first; the table lives in
 //! `tests/falsification_chmod_path_is_not_a_mode.rs`.
 //!
+//! WHAT THE JUDGE ROUND CHANGED. Three judge lanes returned FAIL and their
+//! counterexamples were re-run against both the baseline and the fix: a quoted
+//! mode padded with whitespace (`chmod " 777" /foo`, `' 777'`, `'777 '`, a tab)
+//! parsed as "not a mode", was redacted away, and a script the baseline REFUSED
+//! became accepted. Redaction is now restricted to plain path literals — a `/`,
+//! no shell metacharacter, no `chmod` — so a quoted token that is not a path
+//! stays on the line. Forty-five shapes are measured against the baseline and
+//! against this code: three go refused -> accepted (the ticket's bug: a safe
+//! mode on a path containing 666 or 777), eleven go accepted -> refused (every
+//! world-writable mode the baseline could not see), and the rest are unchanged.
+//! No shape the baseline refused is accepted here.
+//!
 //! FALSIFY IT: make [`sec017_is_path_only`] return `true` unconditionally, or
 //! make [`world_writable_modes`] return an empty vector, and
 //! `tests/falsification_chmod_path_is_not_a_mode.rs` goes red.
 
 use bashrs::linter::{lint_shell, Severity};
 
-/// Replace every quoted argument that cannot be a mode with a fixed path.
+/// True where a quoted argument is a plain path literal: a `/` in it, no shell
+/// metacharacter that could make it executable text, and no `chmod`.
 ///
-/// A quoted token whose content parses as an octal mode is left alone — that is
-/// the one quoted thing on a chmod line that IS a mode. Everything else quoted
-/// is path-shaped text, and path text is what SEC017 mistakes for a mode.
+/// Deliberately conservative in the direction that keeps findings: anything
+/// this is unsure about is left on the line for bashrs to judge.
+fn is_plain_path_literal(inner: &str) -> bool {
+    inner.contains('/')
+        && !inner.contains("chmod")
+        && !inner.contains(['$', '`', ';', '&', '|', '\n'])
+}
+
+/// Replace quoted PATH LITERALS with a fixed path, and nothing else.
+///
+/// Redaction is the only thing forjar does to the line before handing it back
+/// to bashrs, so what it may remove has to be narrow enough that removing it
+/// cannot hide a finding. A quoted argument is redacted only when it is a plain
+/// path literal: it contains a `/`, it carries no shell metacharacter (`$`, a
+/// backtick, `;`, `&`, `|`, a newline) that could make it executable text, and
+/// it does not contain the word `chmod`.
+///
+/// Everything else is left exactly as written, which is what keeps the gate
+/// honest in the shapes the judge round found: `chmod " 777" /foo`,
+/// `chmod ' 777' /foo`, `chmod '777 ' /foo` and a tab-padded mode all have no
+/// `/` in the quoted argument, so they are not redacted, SEC017 still fires and
+/// the script is still refused — as it was before PMAT-204. An earlier version
+/// redacted any quoted token that did not PARSE as a mode, and those four
+/// shapes went from refused to accepted (measured against the baseline).
 fn redact_quoted_paths(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut chars = line.char_indices().peekable();
@@ -125,12 +159,12 @@ fn redact_quoted_paths(line: &str) -> String {
                 match end {
                     Some(j) => {
                         let inner = &line[start..j];
-                        if parse_octal_mode(inner).is_some() {
+                        if is_plain_path_literal(inner) {
+                            out.push_str("'/x'");
+                        } else {
                             out.push(quote);
                             out.push_str(inner);
                             out.push(quote);
-                        } else {
-                            out.push_str("'/x'");
                         }
                     }
                     None => {

@@ -349,6 +349,42 @@ fn escaped_and_embedded_quotes_do_not_break_a_correct_script() {
     }
 }
 
+/// The judge round's counterexamples: a quoted mode padded with whitespace.
+///
+/// `chmod " 777" /foo` does not PARSE as an octal mode, and the version of the
+/// redactor that removed every quoted token which failed to parse removed this
+/// one — taking the `777` out of bashrs's sight and turning a script the
+/// pre-PMAT-204 gate refused into one it accepted. Measured against the
+/// baseline, all four of these were refused there and must be refused here.
+/// The redactor removes plain PATH LITERALS only, which is why they are.
+#[test]
+fn a_whitespace_padded_quoted_mode_is_still_refused() {
+    for script in [
+        "chmod \" 777\" /foo\n",
+        "chmod ' 777' /foo\n",
+        "chmod '777 ' /foo\n",
+        "chmod '\t777' /foo\n",
+        "chmod 0644 777 /foo\n",
+    ] {
+        assert!(
+            validate_script(script).is_err(),
+            "a whitespace-padded quoted mode was accepted: {script}"
+        );
+    }
+}
+
+/// A quoted argument that is not a plain path literal is never redacted, so
+/// nothing executable can be hidden inside one. These carry a `$`, a backtick,
+/// a `;` or the word `chmod`, and each is left on the line for bashrs.
+#[test]
+fn only_plain_path_literals_are_redacted() {
+    assert!(validate_script("chmod '0644' '/srv/$app666/t'\n").is_err());
+    assert!(validate_script("chmod '0644' '/srv/a; chmod 777 /srv/b\n").is_err());
+    // The control: a plain path literal containing 666 IS redacted, which is
+    // the whole point of the ticket.
+    assert!(validate_script("chmod '0644' '/opt/app666/t'\n").is_ok());
+}
+
 /// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
 /// a mode in a variable and a mode taken from another file pass now exactly as
 /// they passed before PMAT-204. This test fails the day one of them starts
