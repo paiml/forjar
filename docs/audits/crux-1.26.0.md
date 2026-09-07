@@ -142,6 +142,21 @@ so `scripts/dogfood/crux-reconcile.sh` can check each paragraph has a row above:
 9. **(9)** "`forjar status` now attributes each machine to the stack that
    actually wrote it rather than to whichever config applied last."
 
+### Gate H keys
+
+`scripts/dogfood/crux-reconcile.sh` does not read the nine numbered entries
+above. It reads `CHANGELOG.md` for paragraphs that OPEN with a bold span at
+column 0 after a blank line, takes the first six words of that span (backticks
+removed) as the key, and requires one table row in this file that contains the
+key verbatim and names at least three surveyed systems. The `[Unreleased]`
+section on `main` at the cut holds two such paragraphs; measured 2026-09-07 in
+a scratch clone with `version = "1.26.0"`.
+
+| Key, verbatim as the gate derives it | Systems the mapped rows name | Rows above |
+|---|---|---|
+| apply's resource-set selectors resolved independently, one | Terraform, Ansible, SaltStack, Puppet | behaviours 1 to 5 |
+| One state dir shared by a | Terraform, Pulumi, Nix, Kubernetes | behaviours 6 to 9 |
+
 ## Provenance
 
 - Lane conversations: `conv-e1814b17` (108 s), `conv-67822dca` (113 s),
