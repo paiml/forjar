@@ -81,7 +81,7 @@
    - evidence: CONFIRMED by the majority of three judges after three refuters attacked it in per-lane clones; the mechanism was read at HEAD and matches the sentence as posed. Pinned by tests/falsification_crux_audit_shape.rs:105.
 
 16. [teamwork] T-F5 — docs/audits/crux-1.26.0.md:79 — A dogfood/crux-reconcile check would PASS. Every one of the 9 changelog bullets maps to exactly 3 rows in the table. There are no bullets without a row and no behaviours with fewer than 3 systems. (proposed fix: None needed; the reconciliation list is complete.)
-   - corrected: a crux-reconcile check passes: every one of the nine bold lead-in paragraphs of CHANGELOG [Unreleased] (paragraphs, not markdown bullets) maps to three rows
+   - corrected: the audit's nine numbered entries are not what the gate reads; crux-reconcile.sh keys the two paragraphs of [Unreleased] that open with a bold span (first six words each) and wants a table row per key naming three surveyed systems. Measured in a scratch clone at version 1.26.0 on 2026-09-07: FAIL (2 keys without a row) until the audit gained a Gate H keys table in 3a5e0bf7; PASS after (2 of 2 reconciled). Pinned by tests/falsification_crux_audit_shape.rs:218.
    - evidence: CONFIRMED-AS-NARROWED by the judges; the substance held under three refuters, the sentence changed. Pinned by tests/falsification_crux_audit_shape.rs:218.
 
 ## Tables as returned
