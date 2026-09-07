@@ -149,20 +149,40 @@ pub(super) fn pre_apply_generation(state_dir: &std::path::Path) -> Option<u32> {
 }
 
 /// FJ-1388: Rollback to pre-apply generation on failure.
+///
+/// PMAT-174: the multi-stack refusal (PMAT-162) leaves here as an `Err`, not as
+/// `warning: generation rollback failed`. A rollback in a dir several stacks
+/// share is whole-dir, so it would revert the neighbours; that is a refusal the
+/// run must exit on, and it used to be one line of stderr under a failed apply
+/// that exited on the resources instead.
+///
+/// `apply` no longer reaches it — `apply_preflight::rollback_on_failure_gate`
+/// asks the same question before the first byte is written, which is where an
+/// operator can still act on the answer. This copy stays because it is what any
+/// future caller of the rollback path inherits, and because a guard that only
+/// exists at the entrance is one refactor away from being missed.
+///
+/// Every OTHER rollback failure keeps its warning: the run is already failing
+/// on its resources, and a missing generation dir is not a reason to replace
+/// that diagnosis with a different one.
 pub(super) fn maybe_rollback_generation(
     rollback_on_failure: bool,
     state_dir: &std::path::Path,
     pre_apply_gen: Option<u32>,
     verbose: bool,
-) {
+) -> Result<(), String> {
     if !rollback_on_failure {
-        return;
+        return Ok(());
     }
-    let Some(gen) = pre_apply_gen else { return };
+    let Some(gen) = pre_apply_gen else {
+        return Ok(());
+    };
+    super::generation::restore::refuse_multi_stack_restore(state_dir, Some(gen))?;
     eprintln!("rollback: restoring state to generation {gen}");
     if let Err(e) = super::generation::rollback_to_generation(state_dir, gen, true) {
         eprintln!("warning: generation rollback failed: {e}");
     } else if verbose {
         eprintln!("rollback: restored to generation {gen}");
     }
+    Ok(())
 }

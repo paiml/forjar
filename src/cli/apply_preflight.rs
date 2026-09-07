@@ -59,6 +59,37 @@ fn event_log_gate(state_dir: &Path, machines: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// PMAT-174: REFUSE A PROMISE THIS STATE DIR CANNOT KEEP, BEFORE MAKING IT.
+///
+/// `--rollback-on-failure` promises to rewind the state dir if a resource
+/// fails, and that rewind is the WHOLE-DIR restore `refuse_multi_stack_restore`
+/// refuses in a dir more than one stack has applied to (PMAT-162). The refusal
+/// was reached only from `apply_failure_path` — after the executor had
+/// converged the host and the post-apply path had rewritten the state dir —
+/// and `maybe_rollback_generation` swallowed it into `warning: generation
+/// rollback failed`. So the operator who asked for "apply, and rewind if
+/// anything fails" got the apply, no rewind, and a warning, in that order.
+///
+/// Asked here, above the drift gate and the ControlMaster sockets, because that
+/// is the last point at which stopping is free. `maybe_rollback_generation`
+/// keeps its own copy of the question and now propagates the answer as an Err:
+/// this gate makes that one unreachable, and a guard that exists only where it
+/// cannot fire is a guard the next refactor deletes.
+///
+/// `--dry-run` is exempt: it converges nothing, so it makes no promise to
+/// break, and refusing it would make the read-only preview of a shared dir
+/// impossible for exactly the operator who is trying to understand it.
+pub(super) fn rollback_on_failure_gate(
+    rollback_on_failure: bool,
+    dry_run: bool,
+    state_dir: &Path,
+) -> Result<(), String> {
+    if !rollback_on_failure || dry_run {
+        return Ok(());
+    }
+    super::generation::restore::refuse_multi_stack_restore(state_dir, None)
+}
+
 /// The machines an ordinary apply under `machine_filter` will converge.
 pub(super) fn machines_in_scope(
     config: &types::ForjarConfig,

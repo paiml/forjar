@@ -5,6 +5,8 @@
 //! otherwise here is what made `undo`'s old refusal misdirect. Generations are numbered
 //! sequentially (0, 1, ...) with a `current` symlink, switched atomically by rename(2).
 
+pub(super) mod restore;
+
 use crate::core::types::GenerationMeta;
 use std::path::{Path, PathBuf};
 
@@ -33,7 +35,7 @@ pub(crate) fn create_generation(
         .map_err(|e| format!("cannot create generation {next}: {e}"))?;
 
     // Copy state files (skip generations/ and snapshots/ directories)
-    copy_state_to_generation(state_dir, &target)?;
+    restore::copy_state_to_generation(state_dir, &target)?;
 
     // Write metadata using GenerationMeta (FJ-2002)
     let mut meta = GenerationMeta::new(next, crate::tripwire::eventlog::now_iso8601());
@@ -51,7 +53,7 @@ pub(crate) fn create_generation(
         .map_err(|e| format!("cannot write generation metadata: {e}"))?;
 
     // Atomically switch current symlink
-    atomic_symlink_switch(&gen_dir, &target)?;
+    restore::atomic_symlink_switch(&gen_dir, &target)?;
 
     // destroy-undo-roundtrip-v1 contract: after the atomic switch, `current`
     // must resolve to the generation just created.
@@ -73,6 +75,12 @@ pub(crate) fn rollback_to_generation(
     if !yes {
         return Err("rollback --generation requires --yes to confirm state overwrite".to_string());
     }
+    // PMAT-161 (#469): before anything is read or moved. The restore below is
+    // whole-dir, so in a state dir several stacks share it reverts all of them;
+    // every caller — `undo`, `rollback --generation`, `apply
+    // --rollback-on-failure` — arrives here, which is why the guard is here and
+    // not in any one of them.
+    restore::refuse_multi_stack_restore(state_dir, Some(generation))?;
     let gen_dir = generations_dir(state_dir);
     let target = gen_dir.join(generation.to_string());
     if !target.exists() {
@@ -80,10 +88,10 @@ pub(crate) fn rollback_to_generation(
     }
 
     // Restore state from generation snapshot
-    restore_generation_to_state(&target, state_dir)?;
+    restore::restore_generation_to_state(&target, state_dir)?;
 
     // Switch current symlink
-    atomic_symlink_switch(&gen_dir, &target)?;
+    restore::atomic_symlink_switch(&gen_dir, &target)?;
 
     // destroy-undo-roundtrip-v1 contract: after rollback, `current` must
     // resolve to the restored generation.
@@ -132,6 +140,20 @@ pub(crate) fn current_generation(gen_dir: &Path) -> Option<u32> {
 }
 
 /// Garbage-collect old generations, keeping only the newest `keep` entries.
+///
+/// PMAT-182: NOT in a state dir several stacks share. Generations are numbered
+/// per STATE DIR and this sweep removes the oldest numbers by count, so in the
+/// paiml/infra layout one manifest's apply deleted the generations its
+/// neighbours' `undo` would have targeted — the same defect PMAT-177 fixed for
+/// named snapshots, one directory over. Both sweeps now ask
+/// [`state::stamp::retention::skip_note`], so a third cannot be written
+/// without it and the two that exist cannot drift apart again.
+///
+/// The check sits AFTER the keep-count test, so a dir under its retention
+/// count is silent: the note is owed to an operator whose generations are
+/// being kept beyond what they asked for, not to every apply. Every caller —
+/// `apply`, `destroy` and the `generation gc` verb — inherits it here, because
+/// the guard is at the primitive rather than in any one of them.
 pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
     let gen_dir = generations_dir(state_dir);
     if !gen_dir.exists() {
@@ -141,6 +163,10 @@ pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
         return;
     };
     if gens.len() <= keep as usize {
+        return;
+    }
+    if let Some(note) = crate::core::state::stamp::retention::skip_note(state_dir, "generation") {
+        eprintln!("{note}");
         return;
     }
     gens.sort();
@@ -253,100 +279,6 @@ pub(super) fn read_created_at(meta_path: &Path) -> String {
             })
         })
         .unwrap_or_else(|| "unknown".to_string())
-}
-
-/// Copy state files into a generation directory, skipping generations/ and snapshots/.
-fn copy_state_to_generation(state_dir: &Path, target: &Path) -> Result<(), String> {
-    let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name == "generations" || name == "snapshots" || name == ".snapshots" {
-            continue;
-        }
-        let src = entry.path();
-        let dst = target.join(&name);
-        if src.is_dir() {
-            std::fs::create_dir_all(&dst)
-                .map_err(|e| format!("cannot create {}: {e}", dst.display()))?;
-            super::snapshot::copy_dir_recursive(&src, &dst, "")?;
-        } else {
-            std::fs::copy(&src, &dst)
-                .map_err(|e| format!("cannot copy {} → {}: {e}", src.display(), dst.display()))?;
-        }
-    }
-    Ok(())
-}
-
-/// Restore state from a generation directory back to state_dir.
-fn restore_generation_to_state(gen_path: &Path, state_dir: &Path) -> Result<(), String> {
-    // Remove current state (except generations/ and snapshots/)
-    let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name == "generations" || name == "snapshots" || name == ".snapshots" {
-            continue;
-        }
-        let path = entry.path();
-        if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-                .map_err(|e| format!("cannot remove {}: {e}", path.display()))?;
-        } else {
-            std::fs::remove_file(&path)
-                .map_err(|e| format!("cannot remove {}: {e}", path.display()))?;
-        }
-    }
-
-    // Copy generation contents back (skip metadata)
-    let entries =
-        std::fs::read_dir(gen_path).map_err(|e| format!("cannot read generation: {e}"))?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        // Both are ABOUT the generation, not part of the state it holds. The
-        // recorded config in particular must not leak into the state dir: the
-        // next generation writes its own from the config actually applied.
-        if name == ".generation.yaml" || name == super::undo_replay::APPLIED_CONFIG {
-            continue;
-        }
-        let src = entry.path();
-        let dst = state_dir.join(&name);
-        if src.is_dir() {
-            std::fs::create_dir_all(&dst)
-                .map_err(|e| format!("cannot create {}: {e}", dst.display()))?;
-            super::snapshot::copy_dir_recursive(&src, &dst, "")?;
-        } else {
-            std::fs::copy(&src, &dst)
-                .map_err(|e| format!("cannot copy {} → {}: {e}", src.display(), dst.display()))?;
-        }
-    }
-    Ok(())
-}
-
-/// Atomically switch the `current` symlink to point to `target_dir`.
-fn atomic_symlink_switch(gen_dir: &Path, target_dir: &Path) -> Result<(), String> {
-    let current_link = gen_dir.join("current");
-    let tmp_link = gen_dir.join("current.tmp");
-
-    let _ = std::fs::remove_file(&tmp_link);
-
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(target_dir, &tmp_link)
-        .map_err(|e| format!("cannot create temp symlink: {e}"))?;
-
-    #[cfg(not(unix))]
-    std::fs::write(&tmp_link, target_dir.to_string_lossy().as_bytes())
-        .map_err(|e| format!("cannot create temp link: {e}"))?;
-
-    std::fs::rename(&tmp_link, &current_link).map_err(|e| {
-        format!(
-            "cannot rename {} → {}: {e}",
-            tmp_link.display(),
-            current_link.display(),
-        )
-    })?;
-
-    Ok(())
 }
 
 /// Print generations as JSON.

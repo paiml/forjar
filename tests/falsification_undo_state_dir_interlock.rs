@@ -306,12 +306,36 @@ fn a_renamed_stack_is_unblocked_by_one_apply() {
         "the refusal must name the remedy; got:\n{out}"
     );
 
+    // PMAT-161 (S2): the remedy apply must MOVE the host, or the undo at the
+    // end reverts nothing and "allowed" cannot be told from "did nothing" —
+    // which is how this test passed while a renamed stack's real undo was
+    // refused for ever (the old name's stamp stayed in `stacks`, so the dir
+    // "held 2 stacks"). Same file, same resource, new content.
+    write_stack(&s.root, "A", "stack-renamed", "aaa_file", "two");
+    let target = s.root.join("A/aaa_file.txt");
+
     let (rc, out) = apply(&s.cfg_a, &s.state_a);
     assert_eq!(rc, 0, "the remedy itself failed:\n{out}");
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "two\n",
+        "fixture: the remedy apply must leave something to undo"
+    );
+    // forjar#469 RE-EXPRESSED this assertion. It used to demand a warning here
+    // ("state dir … was last applied by stack 'stack-alpha'"), on the rule "a
+    // different NAME warns". That rule is the false positive #469 removes: the
+    // stamp this apply finds records the very `-f` now being applied, so it is
+    // THIS stack under its old name, not a second stack sharing the dir. Two
+    // configs through one state dir is a supported layout now; the conditions
+    // still worth a warning — the same name from a different `-f`, a machine
+    // another stack owns — are pinned in
+    // tests/falsification_state_stamp_per_name.rs. The intent this test is
+    // named for is untouched: one apply unblocks a renamed stack.
     assert!(
-        out.contains("was last applied by stack 'stack-alpha'"),
-        "apply must warn that it is re-stamping the dir — that warning is the only \
-         signal an operator gets that two configs share one state dir; got:\n{out}"
+        !out.contains("points at the wrong stack"),
+        "a rename is one stack applied from one -f; the wrong-stack warning here is \
+         the #469 false positive that fired on every apply of the supported \
+         many-stacks-one-state-dir layout; got:\n{out}"
     );
 
     let (rc, out) = run_in(
@@ -326,4 +350,10 @@ fn a_renamed_stack_is_unblocked_by_one_apply() {
         ],
     );
     assert_eq!(rc, 0, "undo still refused after the named remedy:\n{out}");
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "one\n",
+        "the undo was allowed but reverted nothing — a rename must be ONE \
+         lineage, not a stamp the remedy leaves behind:\n{out}"
+    );
 }

@@ -41,8 +41,10 @@ pub(super) fn output_verify_results(
 }
 
 /// Output lock generation results (JSON or text).
+#[allow(clippy::too_many_arguments)]
 pub(super) fn output_lock_results(
     state_dir: &Path,
+    file: &Path,
     config_name: &str,
     machine_resources: &indexmap::IndexMap<String, Vec<(String, &types::Resource)>>,
     total_machines: usize,
@@ -54,7 +56,9 @@ pub(super) fn output_lock_results(
         .iter()
         .map(|(name, resources)| (name.clone(), resources.len(), 0, 0))
         .collect();
-    state::update_global_lock(state_dir, config_name, &machine_results)?;
+    // forjar#469: `lock` writes the same stamp `apply` does, from the same `-f`,
+    // so a locked-then-applied stack is one stack rather than two.
+    state::update_global_lock(state_dir, config_name, Some(file), &machine_results)?;
 
     if json {
         let result = serde_json::json!({

@@ -101,7 +101,7 @@ fn main() {
         ("web-server".to_string(), 2_usize, 2_usize, 0_usize),
         ("db-server".to_string(), 3_usize, 3_usize, 0_usize),
     ];
-    state::update_global_lock(state_dir, "prod-infra", &results).expect("update global");
+    state::update_global_lock(state_dir, "prod-infra", None, &results).expect("update global");
 
     let global = state::load_global_lock(state_dir)
         .expect("load global")

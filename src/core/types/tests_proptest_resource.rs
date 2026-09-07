@@ -57,6 +57,7 @@ pub fn arb_global_lock() -> impl Strategy<Value = GlobalLock> {
                 generator: "forjar-test".to_string(),
                 machines: indexmap::IndexMap::new(),
                 outputs: outputs.into_iter().collect(),
+                stacks: indexmap::IndexMap::new(),
             };
             lock.outputs.sort_keys();
             lock
