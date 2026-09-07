@@ -116,7 +116,7 @@ help:
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
 	@echo "  dogfood       - The standing gates B C D G (hermetic; run on every commit)"
-	@echo "  dogfood-release - dogfood plus F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
+	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
 	@echo "  dogfood-published VERSION=x.y.z - gates C and D against the crate crates.io serves"
 	@echo "  release-check - Tag, GitHub release, crates.io, docs.rs, quorum receipts, crux doc"
 	@echo "  help          - Show this help message"
@@ -133,10 +133,15 @@ help:
 #
 #   dogfood           B C D G   cheap, hermetic, no network beyond the API calls
 #                               gate B already makes. Safe on every commit.
-#   dogfood-release   + F H     F is a full coverage build plus an in-diff
-#                               mutation run (minutes); H is RED until the
-#                               release's CRUX reconciliation is written. Both
-#                               block a PUBLISH, not a commit.
+#   dogfood-release  + A E F H  A and E ask GitHub for the PRs merged since the
+#                               last tag and demand a harness receipt and a
+#                               quorum receipt for each. They run FIRST because
+#                               they take seconds, and a release missing a
+#                               receipt should not have to wait on a coverage
+#                               build to hear so. F is a full coverage build
+#                               plus an in-diff mutation run (minutes); H is RED
+#                               until the release's CRUX reconciliation is
+#                               written. All four block a PUBLISH, not a commit.
 #   dogfood-published           the same C and D against the artifact crates.io
 #                               actually serves, which is the only way to catch
 #                               a surface that exists in the tree and not in the
@@ -152,6 +157,8 @@ dogfood:
 	bash scripts/dogfood/contracts.sh
 
 dogfood-release: dogfood
+	bash scripts/dogfood/harness.sh
+	bash scripts/dogfood/quorum.sh
 	bash scripts/dogfood/coverage.sh
 	bash scripts/dogfood/crux-reconcile.sh
 
