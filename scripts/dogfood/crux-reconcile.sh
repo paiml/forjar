@@ -106,14 +106,25 @@ if [ ! -f "$CHANGELOG" ]; then
   fail "no ${CHANGELOG}: there is nothing to reconcile and no way to notice that"
 fi
 
-# ------------------------------------- the behaviour bullets under [Unreleased]
+# ------------------------------------- which section: [Unreleased], or [<version>] at the cut
+#
+# The release-cut PR renames `## [Unreleased]` to `## [<version>]` before the
+# tag exists, so between that PR and the tag the paragraphs live under the
+# version heading. Read [Unreleased] when it opens at least one bold paragraph;
+# otherwise read [<version>]. After the tag the PENDING rule above applies.
+section="Unreleased"
+if ! awk '/^## \[Unreleased\]/{inu=1;blank=1;next} /^## \[/{inu=0} inu&&blank&&/^\*\*/{found=1} inu{blank=($0 ~ /^[[:space:]]*$/)} END{exit !found}' "$CHANGELOG"; then
+  section="$version"
+fi
+
+# ------------------------------------- the behaviour bullets under [Unreleased] or [<version>]
 #
 # A behaviour bullet is a bold span that OPENS a paragraph: `**` at column 0 on
 # a line preceded by a blank one. The restriction matters — the same file uses
 # bold mid-paragraph for emphasis ("**parse -> validate -> filter ...**"), and
 # counting those would make this gate demand a crux row for a sentence fragment.
-bullets="$(awk '
-  /^## \[Unreleased\]/ { inu = 1; blank = 1; next }
+bullets="$(awk -v ver="$section" '
+  $0 == "## [" ver "]" || $0 ~ ("^## \\[" ver "\\]") { inu = 1; blank = 1; next }
   /^## \[/            { inu = 0 }
   inu {
     if (!collecting && blank && $0 ~ /^\*\*/) { collecting = 1; buf = "" }
@@ -136,7 +147,7 @@ bullets="$(awk '
 
 n_bullets="$(count_lines "$bullets")"
 if [ "$n_bullets" -eq 0 ]; then
-  fail "no behaviour bullet under [Unreleased] in ${CHANGELOG}: either this release changes no behaviour — in which case there is nothing to publish — or the bullet parser stopped matching and every check below is vacuous"
+  fail "no behaviour bullet under [${section}] in ${CHANGELOG}: either this release changes no behaviour — in which case there is nothing to publish — or the bullet parser stopped matching and every check below is vacuous"
 fi
 
 if [ ! -f "$CRUX" ]; then
@@ -176,14 +187,14 @@ done <<<"$bullets"
 
 if [ -n "$missing" ]; then
   printf '%s' "$missing"
-  fail "$(count_lines "$missing") behaviour bullet(s) under [Unreleased] have no row in ${CRUX} — the rows above are the keys each must contain"
+  fail "$(count_lines "$missing") behaviour bullet(s) under [${section}] have no row in ${CRUX} — the rows above are the keys each must contain"
 fi
 if [ -n "$thin" ]; then
   printf '%s' "$thin"
   fail "$(count_lines "$thin") crux row(s) name fewer than ${MIN_SYSTEMS} world-class systems — provable-iac.md's floor is ${MIN_SYSTEMS}, named"
 fi
 
-echo "GATE H PASS ${matched} of ${n_bullets} behaviour bullet(s) under [Unreleased] reconciled in ${CRUX}, each naming >= ${MIN_SYSTEMS} of the ${#SYSTEMS[@]} surveyed systems"
+echo "GATE H PASS ${matched} of ${n_bullets} behaviour bullet(s) under [${section}] reconciled in ${CRUX}, each naming >= ${MIN_SYSTEMS} of the ${#SYSTEMS[@]} surveyed systems"
 
 # mutation: set MIN_SYSTEMS=4 — every crux row written to provable-iac.md's
 # floor of 3 is then reported as thin and the gate exits 1, which shows the
