@@ -23,11 +23,12 @@ name: Binary Release
 # and ideal for Docker / scratch / Alpine; gnu variants are smaller and
 # match typical Linux distributions. aarch64 builds use `cross`.
 
+# PMAT-170: this workflow no longer fires on a tag push or on the release
+# event. release.yml (clean-room) is the one producer of a release and its
+# assets; when both ran on the same tag they raced to upload overlapping
+# Linux targets and to overwrite SHA256SUMS. Keep this file for the manual
+# backfill case only (the clean-room queue is down): `workflow_dispatch`.
 on:
-  push:
-    tags: ['v*']
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -44,7 +45,7 @@ permissions:
   contents: write  # create the release + upload assets
 
 concurrency:
-  group: binary-release-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+  group: binary-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 env:
@@ -62,7 +63,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag || github.ref_name }}"
+          TAG="${{ inputs.tag }}"
           if [ -z "$TAG" ]; then
             echo "::error::No tag resolved (release event missing tag_name and no dispatch input)"
             exit 1
@@ -88,6 +89,7 @@ jobs:
               --title "$TAG" \
               --generate-notes \
               --verify-tag \
+              --prerelease \
               --repo "${{ github.repository }}"
           fi
 

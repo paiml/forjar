@@ -1,0 +1,122 @@
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-07"
+  author: "PAIML Engineering"
+  description: >
+    The GitHub-release lifecycle for forjar tags. release.yml (self-hosted
+    clean-room) is the sole producer of a tag-triggered GitHub Release: it
+    creates the release as a DRAFT PRERELEASE immediately after the
+    clean-room `verify` gate, records whether THIS run created it (so a
+    re-run of an old tag never touches a release it did not create or an
+    operator's hand-written notes), asserts `prerelease=true draft=true` for
+    a run that created it, and only un-drafts (asserting
+    `prerelease=true draft=false`) once every asset job — build-binaries,
+    checksums, dist-artifacts — has finished. Promotion to a fully public,
+    non-prerelease release stays the operator's step after
+    `make dogfood-published VERSION=` passes; no workflow does that
+    automatically. binary-release.yml (PMAT-170) is the manual backfill path
+    only: it no longer fires on `push` or `release`, because both racing
+    release.yml on the same tag produced overlapping Linux targets and a
+    clobbered SHA256SUMS; it fires solely on `workflow_dispatch`, resolves
+    the tag from `inputs.tag`, keys its concurrency group on `inputs.tag`
+    alone, and its own backfill release is a prerelease too.
+  references:
+    - "PMAT-166 — release.yml born a draft prerelease, published only after every asset job"
+    - "PMAT-170 — binary-release.yml restricted to workflow_dispatch backfill, concurrency keyed on inputs.tag"
+    - ".github/workflows/release.yml"
+    - ".github/workflows/binary-release.yml"
+
+equations:
+  release_lifecycle:
+    formula: |
+      state(release, t) =
+        t = create        -> {draft: true,  prerelease: true}
+        t = publish        -> {draft: false, prerelease: true}   (only if created_by_this_run)
+        t = operator_promote -> {draft: false, prerelease: false} (never automatic)
+    domain: "a GitHub Release object keyed by the release tag, across one release.yml run"
+    invariants:
+      - "A release created by this run is a draft prerelease immediately after creation"
+      - "A release created by this run is un-drafted (still a prerelease) only after verify, create-release, build-binaries, checksums and dist-artifacts have all resolved without failure or cancellation"
+      - "A release that already existed before this run (a re-run of an old tag) is never mutated by create-release or publish-release — only reported"
+      - "Promotion from prerelease to a full release happens nowhere in either workflow"
+  trigger_partition:
+    formula: |
+      fires_on(release.yml)        = { push: tags v* } ∪ { workflow_dispatch }
+      fires_on(binary-release.yml) = { workflow_dispatch }
+      concurrency_key(binary-release.yml) = "binary-release-${{ inputs.tag }}"
+    domain: "the `on:` mapping of every file under .github/workflows/"
+    invariants:
+      - "release.yml is the only workflow whose on.push.tags contains 'v*'"
+      - "binary-release.yml never fires on push or on the release event (PMAT-170)"
+      - "binary-release.yml's concurrency group depends only on inputs.tag, never on github.event.release.tag_name or github.ref_name"
+
+proof_obligations:
+  - type: safety
+    property: "A release this run created starts as a draft prerelease and is asserted as such"
+    formal: "created(run) ⟹ state_after_create(release) = {draft: true, prerelease: true}"
+    applies_to: release_lifecycle
+  - type: safety
+    property: "A release this run created is published only after every asset job resolves without failure/cancellation"
+    formal: "needs = {verify, create-release, build-binaries, checksums, dist-artifacts} ∧ always() ∧ ¬contains(needs.*.result, 'failure') ⟹ un-draft; else no-op"
+    applies_to: release_lifecycle
+  - type: invariant
+    property: "Exactly one workflow owns the v* tag-push trigger"
+    formal: "|{ w ∈ workflows : 'v*' ∈ w.on.push.tags }| = 1"
+    applies_to: trigger_partition
+  - type: independence
+    property: "The backfill workflow's trigger surface and concurrency key are independent of push/release events"
+    formal: "on(binary-release.yml) = {workflow_dispatch} ∧ concurrency_key = f(inputs.tag)"
+    applies_to: trigger_partition
+
+falsification_tests:
+  - id: FALSIFY-RELEASE-001
+    rule: "binary-release.yml fires only on workflow_dispatch"
+    prediction: "the on: mapping of binary-release.yml is exactly {workflow_dispatch} — no push, no release"
+    test: "rule1_binary_release_fires_only_on_workflow_dispatch"
+    if_fails: "binary-release.yml races release.yml on the same tag push, re-introducing the overlapping-target/clobbered-SHA256SUMS defect PMAT-170 fixed"
+
+  - id: FALSIFY-RELEASE-002
+    rule: "release.yml is the sole owner of the v* tag-push trigger"
+    prediction: "release.yml is the only file under .github/workflows/ whose on.push.tags contains 'v*'"
+    test: "rule2_release_yml_is_the_only_v_star_tag_push_producer"
+    if_fails: "two workflows both create/mutate the release for the same tag push with no ordering between them"
+
+  - id: FALSIFY-RELEASE-003
+    rule: "create-release creates a draft prerelease and records whether this run created it"
+    prediction: "the gh release create invocation in create-release carries --draft, --prerelease and --verify-tag; the step writes created=true or created=false to $GITHUB_OUTPUT; the job exposes outputs.created"
+    test: "rule3_create_release_step_creates_a_draft_prerelease_and_records_created"
+    if_fails: "downstream jobs cannot tell whether they own this release, so publish-release could un-draft a release it did not create or skip one it did"
+
+  - id: FALSIFY-RELEASE-004
+    rule: "the post-create assertion requires the exact draft-prerelease state for a run that created the release"
+    prediction: "the assert step contains the exact string prerelease=true draft=true, gated on steps.create.outputs.created"
+    test: "rule4_assert_step_requires_exact_draft_prerelease_string_when_created"
+    if_fails: "a create step that silently produced a public or non-prerelease release would go undetected"
+
+  - id: FALSIFY-RELEASE-005
+    rule: "publish-release un-drafts only after every asset job, and asserts the published state"
+    prediction: "a job named publish-release needs verify, create-release, build-binaries, checksums and dist-artifacts; its if contains always() and !contains(needs.*.result, 'failure'); its script runs gh release edit --draft=false --prerelease and asserts prerelease=true draft=false"
+    test: "rule5_publish_release_job_shape"
+    if_fails: "a half-uploaded asset set (a failed binary build, a missing checksum) is published to the public as if complete"
+
+  - id: FALSIFY-RELEASE-006
+    rule: "no workflow performs its own crates.io publish or silently swallows a failure outside the one known, unrelated exception"
+    prediction: "no workflow under .github/workflows/ contains cargo publish outside a comment or CARGO_REGISTRY_TOKEN anywhere; no workflow other than mutation.yml uses continue-on-error (mutation.yml's use is its advisory mutation-testing step, unrelated to release)"
+    test: "rule6_no_stray_publish_or_swallowed_failure_outside_mutation_yml"
+    if_fails: "a workflow could publish to crates.io out of band of the documented manual step, or mask a release-relevant failure as green"
+
+  - id: FALSIFY-RELEASE-007
+    rule: "binary-release.yml's concurrency group is keyed on inputs.tag alone, and its backfill release is a prerelease too"
+    prediction: "concurrency.group is exactly binary-release-${{ inputs.tag }}, and ensure-release's gh release create carries --prerelease"
+    test: "rule7_binary_release_concurrency_and_backfill_prerelease"
+    if_fails: "two backfill dispatches for different tags could serialize against each other unnecessarily, or a backfill release could be created as a full public release rather than a prerelease"
+
+qa_gate:
+  id: F-RELEASE-PRERELEASE-001
+  name: Release Prerelease Workflow Shape
+  checks: [release_lifecycle, trigger_partition]
+  pass_criteria: >-
+    All 7 FALSIFY-RELEASE tests pass — trigger partition between release.yml
+    and binary-release.yml, draft-prerelease birth, gated publish, and no
+    stray publish/failure-swallowing outside mutation.yml.
