@@ -405,6 +405,26 @@ fn an_octal_mode_of_any_width_is_read() {
     assert!(validate_script("chmod '0000644' '/opt/app666/t'\n").is_ok());
 }
 
+/// A second mode later in the same chmod's arguments. The merge review found
+/// it: `chmod '0644' '/x' 0666 '/y'` was accepted at the pre-PMAT-204 baseline
+/// too — SEC017 cannot see `0666` behind its leading zero and forjar's own
+/// check stopped after the first argument. Both directions are read now.
+#[test]
+fn a_world_writable_mode_later_in_the_arguments_is_refused() {
+    for script in [
+        "chmod '0644' '/x' 0666 '/y'\n",
+        "chmod '0644' '/x' 'a+w' '/y'\n",
+    ] {
+        assert!(
+            validate_script(script).is_err(),
+            "a world-writable mode after the first argument was accepted: {script}"
+        );
+    }
+    // A path is never an octal literal, so reading every argument does not
+    // start refusing correct scripts.
+    assert!(validate_script("chmod '0644' '/opt/app666/t' '/srv/0666-notes'\n").is_ok());
+}
+
 /// The shapes NEITHER instrument can decide, recorded so the claim stays exact:
 /// a mode in a variable and a mode taken from another file pass now exactly as
 /// they passed before PMAT-204. This test fails the day one of them starts

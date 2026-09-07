@@ -266,13 +266,19 @@ pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
         if unquote(tok).trim_matches(|c: char| ";&|(){}`".contains(c)) != "chmod" {
             continue;
         }
+        // Every argument up to the next command separator is examined, not
+        // only the first: `chmod '0644' '/x' 0666 '/y'` carries a second mode
+        // that a first-argument-only rule missed and that SEC017's
+        // digit-boundary check cannot see either (measured, accepted at the
+        // pre-PMAT-204 baseline too). A path never parses as an octal literal,
+        // so reading them all costs nothing but refuses more.
         for arg in tokens.by_ref() {
             let inner = unquote(arg);
             if inner.starts_with("--reference") {
                 break;
             }
-            if inner.starts_with('-') && inner.len() > 1 && parse_octal_mode(inner).is_none() {
-                continue;
+            if inner.contains([';', '&', '|']) {
+                break;
             }
             match parse_octal_mode(inner) {
                 Some(mode) if mode & 0o002 != 0 => found.push(inner.to_string()),
@@ -280,7 +286,6 @@ pub(crate) fn world_writable_modes(line: &str) -> Vec<String> {
                 None if symbolic_grants_world_write(inner) => found.push(inner.to_string()),
                 None => {}
             }
-            break;
         }
     }
     found

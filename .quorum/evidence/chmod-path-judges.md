@@ -137,3 +137,10 @@ Sixteen ids: seven claims the measurement confirms and nine rulings from four ad
 16. [q4-narrowed] R4.9 — q4: `chmod $EMPTY_VAR '0666' /foo` is accepted at both commits — the declared undecidable shape (a mode held in a variable), claimed by neither the code nor the CHANGELOG.
 - evidence: the declared undecidable shape, asserted accepted at both commits and documented at tests/falsification_chmod_path_is_not_a_mode.rs:414.
 
+## Merge review (quorum-review.sh, three lanes on the whole diff)
+
+Two lanes returned FAIL on one claim: that `chmod 644 'a\' /foo 777 'b'` and `chmod 0644 /foo ; eval 'c\hmod 777 /bar'` are accepted by this code, making the dossier's C5 false. Re-run through `validate_script` at both commits: both are REFUSED at the pre-PMAT-204 baseline and REFUSED here, and the reason is printed — bashrs refuses the first under SC2075 (escaping a single quote inside single quotes) and the second under SEC001 (command injection via eval), neither of which redaction touches, because a line that is not a plain path literal is never redacted. The lanes' counterexamples do not reproduce and C5 stands as written.
+
+The same round did find one true gap, and it is fixed: `chmod '0644' '/x' 0666 '/y'` — a world-writable mode later in the SAME chmod's arguments — was accepted at the baseline too (SEC017 cannot see 0666 behind its leading zero) and forjar's own check stopped after the first argument. `world_writable_modes` now reads every argument up to the next command separator, and the shape is pinned by `tests/falsification_chmod_path_is_not_a_mode.rs`.
+
+One lane wrote into the worktree during this round (a `[[bin]]` stanza in Cargo.toml, a `run_manual.rs`, a `test_script.rs` and an appended test), which is why merge-review lanes belong in clones like every other lane. The writes were reverted and the tree verified clean before this commit.
