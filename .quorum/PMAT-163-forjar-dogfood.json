@@ -61,10 +61,10 @@
   "still_green_when_reverted": "the mutation-declaration guard (tests/falsification_dogfood_scripts_declare_mutations.rs), which pins the scripts, not the skill name"
  },
  "merge_helper_note": "the per-PR quorum receipt this repository keeps is this committed file, .quorum/<branch-slug>.json, which release-check.sh Arm 5 reads at the merge commit; the merge helper additionally writes docs/audits/quorum-<ticket>.json, uncommitted, naming the pushed head",
- "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base_commit": "6b80b748c230a4b95dd53b46c262b7b27f37c8a3",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "f2d253f31db721b7679d2e089bf4c3ecaae80308",
+ "diff_sha256": "0ffbdebf2d156ea90cd82ce33a3d43ecb571cbc0",
  "evidence": {
   "files": [
    {
