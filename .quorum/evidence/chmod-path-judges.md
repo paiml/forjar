@@ -164,3 +164,13 @@ Two lanes FAIL, one PASS, and the failing lanes were right about a change the SE
 The fifty-shape matrix was measured again against both commits after the revert: four rows go refused to accepted — all four this ticket's own bug — and thirteen go accepted to refused. Nothing else moves.
 
 One lane also objected to `PMAT-205` (the conda store-hash flake observed in this branch's own pre-push gate) being minted in this diff. It stays: a flake seen and not filed is a flake laundered by the next rerun, and the roadmap row is where this program records one. It is named in the PR body and in the release triage table.
+
+## Merge review, fourth round (three lanes, in a clone)
+
+All three FAIL, two of them on one true defect and one on scope.
+
+The defect: comma-separated symbolic clauses were tested independently, so `chmod 'a=rwx,o-w'` and `chmod 'o+w,o-w'` were refused although the later clause removes world write. Measured at both commits: accepted at the pre-PMAT-204 baseline, refused by that head — a false refusal introduced by this change. Fixed: the clauses are folded in order over one permission set, and the shape is pinned in `tests/falsification_chmod_gate_survives_review.rs`. The grants still refuse.
+
+A leading-minus symbolic mode (`chmod -w /srv/b`) is accepted at both commits: `-w` removes write rather than granting it, so there is nothing to refuse, and the shape is not a regression.
+
+The scope objection — that minting PMAT-205 in this diff does something the ticket did not ask for — is answered rather than accepted: the flake was observed in this branch's own pre-push gate, and a flake seen and not filed is a flake the next rerun launders. The row is one roadmap entry; it is named in the PR body and carried into the release triage table.

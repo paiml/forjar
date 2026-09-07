@@ -169,3 +169,20 @@ fn a_symbolic_clause_that_removes_world_write_is_not_refused() {
     assert!(validate_script("chmod o=w /foo\n").is_err());
     assert!(validate_script("chmod 'u=rwx,o=w' '/srv/b'\n").is_err());
 }
+
+/// The fourth merge review: comma clauses apply in order to one permission set.
+/// `a=rwx,o-w` grants world write and then takes it back, and testing the
+/// clauses independently refused it — a false refusal the pre-PMAT-204 gate did
+/// not make (measured at both commits).
+#[test]
+fn a_later_clause_that_revokes_world_write_is_honoured() {
+    for script in ["chmod 'a=rwx,o-w' '/srv/b'\n", "chmod 'o+w,o-w' '/srv/b'\n"] {
+        assert!(
+            validate_script(script).is_ok(),
+            "a mode whose later clause removes world write was refused: {script}"
+        );
+    }
+    // And the grant still stands when nothing takes it back.
+    assert!(validate_script("chmod 'a=rwx' '/srv/b'\n").is_err());
+    assert!(validate_script("chmod 'u=rwx,o=w' '/srv/b'\n").is_err());
+}

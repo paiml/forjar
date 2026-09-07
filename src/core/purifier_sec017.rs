@@ -276,24 +276,31 @@ fn unquote(token: &str) -> &str {
 /// grants world write in its SECOND clause, and a rule that read only the
 /// leading `who` group called it safe (found by three refuter lanes, measured).
 fn symbolic_grants_world_write(text: &str) -> bool {
-    text.split(',').any(clause_grants_world_write)
+    // The clauses apply IN ORDER to one permission set, so they are folded,
+    // not tested independently: `a=rwx,o-w` grants world write in its first
+    // clause and takes it away in its second, and an `.any()` over the clauses
+    // called it world-writable — a false refusal the pre-PMAT-204 gate did not
+    // make (measured, found by a merge review).
+    text.split(',')
+        .fold(false, |granted, clause| clause_verdict(clause, granted))
 }
 
-/// One symbolic clause, read left to right the way chmod applies it.
+/// One symbolic clause, read left to right the way chmod applies it, starting
+/// from what the clauses before it left behind.
 ///
 /// `o=r-w` sets the other bits to `r` and then removes `w`: it does NOT grant
 /// world write, and a rule that only asked whether a `w` appeared after the
 /// first operator refused it (measured — a false refusal the baseline did not
 /// make). `+` grants, `-` revokes, `=` replaces, and the last word wins.
-fn clause_grants_world_write(clause: &str) -> bool {
+fn clause_verdict(clause: &str, carried: bool) -> bool {
     let Some(first) = clause.find(['+', '-', '=']) else {
-        return false;
+        return carried;
     };
     let (who, ops) = clause.split_at(first);
     if !(who.is_empty() || who.contains('a') || who.contains('o')) {
-        return false;
+        return carried;
     }
-    let mut granted = false;
+    let mut granted = carried;
     let mut op = None;
     let mut perms = String::new();
     let settle = |op: Option<char>, perms: &str, granted: &mut bool| match op {
