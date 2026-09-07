@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.26.0] - 2026-09-07
+## [1.26.0] - 2026-09-08
 
 
 **A file resource whose PATH contained `666` or `777` could not be applied
