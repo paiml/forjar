@@ -62,7 +62,7 @@
   "observed_failure": "test falsifier_table_has_a_row_for_every_rule_r1_through_r9 ... FAILED\ntest interfaces_name_restore_decision_with_restore_verb_and_restore_scope ... FAILED\ntest mutation_list_names_a_mutation_for_every_rule_r1_through_r9 ... FAILED\ntest section_4_example_carries_parent_and_restores_keys ... FAILED\ntest status_line_names_v10_and_reviewed ... FAILED\ntest review_record_shows_v9_review_three_of_three_pass ... FAILED\ntest rules_r1_through_r9_appear_as_bold_headings_in_order ... FAILED\ntest result: FAILED. 1 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
   "still_green_when_reverted": "the no-TODO/TBD/withdrawn-term control, which is a leakage check rather than a presence check"
  },
- "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base_commit": "bc46113c8fec9eae37f7193b2c452138ad3647d2",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
  "diff_sha256": "82b08f101edd34eb797daabdc0a5cf82af7a8c23",
