@@ -33,6 +33,7 @@ pub mod promotion;
 pub mod promotion_events;
 pub mod prove;
 pub mod purifier;
+mod purifier_sec017;
 pub mod quality_gate;
 pub mod recipe;
 pub mod remediate;

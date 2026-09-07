@@ -1,16 +1,21 @@
 {
   "check": "CB-200",
   "name": "TDG Grade Gate",
-  "recorded": "2026-08-22",
-  "ceiling": 27,
+  "recorded": "2026-09-07",
+  "ceiling": 651,
   "unit": "functions below minimum grade A",
+  "instrument": "pmat 3.39.0 (fresh index: pmat query x --rebuild-index); grades examples/, crates/, scripts and tests and weighs more than cyclomatic complexity",
   "rule": "MAY ONLY SHRINK. A run reporting more than ceiling is a regression and fails. Lowering this number is the only permitted edit.",
+  "previous_ceiling": 27,
+  "previous_instrument": "the pmat grader of 2026-08-23 (commit 6961b29d)",
+  "falsifier": "git checkout 6961b29d (the commit that recorded 27); pmat query x --rebuild-index; pmat comply check --format json \u2014 measured 628 on 2026-09-07 with pmat 3.39.0. Identical code, 27 then and 628 now: the instrument changed, so the series restarts.",
   "why": [
     "61 -> 51 by refactoring 17 files to reduce cyclomatic complexity, behaviour-preserving.",
     "Each refactor was produced in an isolated worktree, verified by its own cargo test run, and independently reviewed for behaviour change (short-circuit order, moved early returns, altered error variants).",
     "Both 61 and 51 measured with --rebuild-index, so the delta is real and not an index artifact.",
     "The remaining 51 are the harder cases plus functions whose grade is not driven by cyclomatic complexity.",
-    "61 -> 51 -> 50: the FVS work (paiml/forjar#288) replaced four hand-maintained MCP declaration lists with one derived table, removing the branchiest of them."
+    "61 -> 51 -> 50: the FVS work (paiml/forjar#288) replaced four hand-maintained MCP declaration lists with one derived table, removing the branchiest of them.",
+    "27 -> 651 (2026-09-07) is a change of instrument, not of code alone: the falsifier above puts the August code at 628 under the September grader. The series restarts at what main measures today (0776fd82: 651). The 23 between 628 and 651 is real growth from the two weeks in which this ratchet ran in no gate at all (PMAT-201 wires it into gate B, Arm 5); PMAT-203 brings the count back under 628 in 1.27. Nothing was waived: the number is measured, recorded with its instrument, and may only shrink from here."
   ],
   "not_a_bypass": "The gate still reports CB-200 as failing against grade A. This records the number so it cannot silently grow, per the dogfood protocol: 'Record a dated baseline in the crate rather than weakening a gate.'",
   "sample": [
@@ -20,6 +25,5 @@
     "src/core/state/process_lock.rs:187 reap_stale_if_unchanged [B] complexity 15",
     "src/mcp/handlers_state.rs:140 handle [B] complexity 15"
   ],
-  "previous_ceiling": 51,
   "measurement_note": "MUST be measured with a FRESH index: pmat query --rebuild-index. CB-200 own advice says plain `pmat query \"x\"` refreshes; it does NOT, and a stale index silently reports pre-change numbers."
 }

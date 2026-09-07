@@ -1,0 +1,46 @@
+# The dogfood fixture: one machine, transport: local, file resources only.
+#
+# Every read-only verb the docs gate runs (`validate`, `plan`, `graph`, `show`,
+# `lint`, `status`, `drift`) needs A config, and the one it is given decides
+# what the gate actually proves. This one is chosen so that:
+#
+#   * `transport: local` — no SSH socket, no network, no host to be absent.
+#     A fixture that named a real machine would make the gate's result depend
+#     on whether that machine was up, which is the definition of a flaky gate.
+#   * `type: file` with paths under `{{ params.root }}` — the docs gate points
+#     `root` at a temp dir, so nothing outside that dir can be read or written
+#     even if a verb the gate believed to be read-only is not.
+#   * a `depends_on` edge — `graph`, `plan` ordering and the dependency-closure
+#     paths are all vacuous over a single unrelated resource.
+#
+# It is NOT a demonstration of forjar. examples/ is for that. This file exists
+# to be measured against.
+version: "1.0"
+name: dogfood-local-files
+description: "Dogfood fixture: local transport, file resources, one dependency edge."
+
+machines:
+  here:
+    hostname: localhost
+    addr: 127.0.0.1
+    transport: local
+
+params:
+  root: /tmp/forjar-dogfood-fixture
+
+resources:
+  root_dir:
+    type: file
+    machine: here
+    path: "{{ params.root }}"
+    state: directory
+    mode: "0755"
+
+  greeting:
+    type: file
+    machine: here
+    path: "{{ params.root }}/greeting.txt"
+    content: "forjar dogfood fixture\n"
+    mode: "0644"
+    depends_on:
+      - root_dir

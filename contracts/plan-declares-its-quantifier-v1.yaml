@@ -144,3 +144,33 @@ falsification:
       Reproduce by reverting the three keys in `plan_json::print_plan_json` or
       the three fields on `PlanOutput`.
     expected: "json_plan_discloses_that_it_did_not_look_at_the_host and the_verb_surface_discloses_the_same_blind_spot fail"
+
+# The `falsification:` block above says how to BREAK the property. This block
+# says where the property is CURRENTLY PINNED — the shipped tests that go red
+# when it breaks. #298 is why both exist: a scenario a reader can reproduce by
+# hand is not a test CI runs, and the corpus had been counting the former as
+# the latter.
+falsification_tests:
+  - id: FALSIFY-PQ-001
+    rule: "The disclosure survives a fully converged plan"
+    prediction: "unconsulted(locks) > 0 on a converged sandbox ⇒ plan still discloses"
+    test: "tests/falsification_plan_discloses_its_blind_spot.rs::the_disclosure_survives_a_fully_converged_plan"
+    if_fails: "`0 to change` is printed as the state of the world; a mutated host reads as clean"
+
+  - id: FALSIFY-PQ-002
+    rule: "The disclosure is conditional on there being an observation to be blind to"
+    prediction: "no lock ⇒ unconsulted(locks) = 0 ⇒ no disclosure"
+    test: "tests/falsification_plan_discloses_its_blind_spot.rs::no_lock_means_no_disclosure"
+    if_fails: "An unconditional banner on a first-ever plan trains operators to skip the line"
+
+  - id: FALSIFY-PQ-003
+    rule: "The biconditional is not qualified to the TTY rendering"
+    prediction: "`plan --json` carries the disclosure keys, not only the human output"
+    test: "tests/falsification_plan_json_discloses_its_blind_spot.rs::json_plan_discloses_that_it_did_not_look_at_the_host"
+    if_fails: "THE 1.20.1 STATE — the consumers that cannot notice a missing disclosure are the ones handed the undisclosed lock diff"
+
+  - id: FALSIFY-PQ-004
+    rule: "The verb surface discloses what the CLI discloses"
+    prediction: "`verb call plan` carries the same blind-spot fields as `plan --json`"
+    test: "tests/falsification_plan_json_discloses_its_blind_spot.rs::the_verb_surface_discloses_the_same_blind_spot"
+    if_fails: "An MCP agent reads a lock diff as host truth on the one surface with no human to notice"

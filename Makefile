@@ -115,7 +115,65 @@ help:
 	@echo "  coverage-check - Enforce the 95% floor (pre-release gate)"
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
+	@echo "  dogfood       - The standing gates B C D G (hermetic; run on every commit)"
+	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
+	@echo "  dogfood-published VERSION=x.y.z - gates C and D against the crate crates.io serves"
+	@echo "  release-check - Tag, GitHub release, crates.io, docs.rs, quorum receipts, crux doc"
 	@echo "  help          - Show this help message"
+
+# ---------------------------------------------------------------- forjar-dogfood
+#
+# The eight standing gates of PMAT-163. Each script prints exactly one
+# `GATE <letter> PASS|FAIL <detail>` line and its exit code IS the verdict, so
+# make's own fail-fast is the aggregation: the first RED stops the target and
+# the line above it says what and why. No `-` prefix and no `|| true` anywhere
+# below — a gate whose failure is swallowed is a gate that prints.
+#
+# Which gate runs where, and why the split:
+#
+#   dogfood           B C D G   cheap, hermetic, no network beyond the API calls
+#                               gate B already makes. Safe on every commit.
+#   dogfood-release  + A E F H  A and E ask GitHub for the PRs merged since the
+#                               last tag and demand a harness receipt and a
+#                               quorum receipt for each. They run FIRST because
+#                               they take seconds, and a release missing a
+#                               receipt should not have to wait on a coverage
+#                               build to hear so. F is a full coverage build
+#                               plus an in-diff mutation run (minutes); H is RED
+#                               until the release's CRUX reconciliation is
+#                               written. All four block a PUBLISH, not a commit.
+#   dogfood-published           the same C and D against the artifact crates.io
+#                               actually serves, which is the only way to catch
+#                               a surface that exists in the tree and not in the
+#                               shipped binary.
+#   release-check               post-tag: tag, release, crates.io, docs.rs,
+#                               quorum receipts, crux doc. Pre-tag it reports
+#                               the registry arms PENDING rather than FAIL.
+.PHONY: dogfood dogfood-release dogfood-published release-check
+dogfood:
+	bash scripts/dogfood/comply.sh
+	bash scripts/dogfood/surface.sh
+	bash scripts/dogfood/docs.sh
+	bash scripts/dogfood/contracts.sh
+
+dogfood-release: dogfood
+	bash scripts/dogfood/harness.sh
+	bash scripts/dogfood/quorum.sh
+	bash scripts/dogfood/coverage.sh
+	bash scripts/dogfood/crux-reconcile.sh
+
+dogfood-published:
+	@# VERSION is required and is NOT defaulted to the tree's version: the
+	@# whole point of this target is to measure a DIFFERENT artifact, and a
+	@# default would let it silently re-measure the tree and pass.
+	test -n "$(VERSION)"
+	rm -rf /tmp/forjar-scratch
+	cargo install forjar --version $(VERSION) --locked --root /tmp/forjar-scratch
+	FORJAR_DOGFOOD_BIN=/tmp/forjar-scratch/bin/forjar bash scripts/dogfood/surface.sh
+	FORJAR_DOGFOOD_BIN=/tmp/forjar-scratch/bin/forjar bash scripts/dogfood/docs.sh
+
+release-check:
+	bash scripts/dogfood/release-check.sh
 
 .PHONY: cb200-ratchet
 cb200-ratchet:
