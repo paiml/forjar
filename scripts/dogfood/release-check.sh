@@ -269,47 +269,27 @@ fi
 # this arm always reported every PR as missing its receipt, or — worse, before
 # PMAT-178 — never checked at all.
 #
-# A receipt is not enough that it exists: `mutate.sh`'s own contract says a
-# waiver is `{"waived": {...}}` at the TOP LEVEL, and this arm is the release's
-# last chance to refuse one — a waived quorum is an unrefuted claim, not a
-# passed one. `quorum.lanes` and `quorum.judges` are read back against the
-# same floor `scripts/quorum-gate.sh` enforces at push time (3 and 3): a
-# receipt thinner than that was never a real quorum, whatever its number of
-# lines.
+# A receipt is not enough that it exists. This arm is the release's last
+# chance to refuse a waived or thin one, and it applies the SAME predicate
+# gate E (scripts/dogfood/quorum.sh) applies before the tag — lib/receipt.sh:
+# any waiver or override key anywhere, fewer than 3 lanes, judges or refuters
+# per claim, a round that refuted nothing, or no evidence file is not a quorum,
+# whatever its number of lines.
+# shellcheck source=scripts/dogfood/lib/receipt.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/receipt.sh"
+
 receipt_status() {
-  # $1 = raw JSON blob, passed as an argv, not on stdin — a heredoc `python3 -
-  # <<'PY'` would itself consume stdin as the PROGRAM SOURCE, silently
-  # discarding a blob piped in ahead of it. Prints one of ok|waived|thin.
-  python3 -c '
-import json, sys
-try:
-    d = json.loads(sys.argv[1])
-except Exception:
-    print("thin")
-    sys.exit(0)
-if not isinstance(d, dict):
-    print("thin")
-    sys.exit(0)
-if "waived" in d:
-    print("waived")
-    sys.exit(0)
-q = d.get("quorum")
-if not isinstance(q, dict):
-    print("thin")
-    sys.exit(0)
-lanes = q.get("lanes")
-if not isinstance(lanes, list) or len(lanes) < 3:
-    print("thin")
-    sys.exit(0)
-try:
-    judges = int(q.get("judges", 0))
-except Exception:
-    judges = 0
-if judges < 3:
-    print("thin")
-    sys.exit(0)
-print("ok")
-' "$1"
+  # $1 = raw JSON blob, passed as an argv. Prints one of ok|waived|thin, the
+  # tokens the report below and its falsification tests read; the reason
+  # itself comes from the shared predicate in lib/receipt.sh, the same one
+  # gate E applies before the tag.
+  local why
+  why="$(dogfood_receipt_status "$1")"
+  case "$why" in
+    ok) printf 'ok\n' ;;
+    *waiver*) printf 'waived\n' ;;
+    *) printf 'thin\n' ;;
+  esac
 }
 
 report=""
@@ -341,7 +321,7 @@ if [ -n "$report" ]; then
   printf '%s' "$report"
 fi
 if [ "$any_bad" -eq 1 ]; then
-  fail "one or more PR(s) merged since ${prev_tag} have a missing, waived or thin (< 3 lanes or < 3 judges) quorum receipt at .quorum/<branch>.json — see the receipt=... rows above; those changes are in the release with no record that their claims survived refutation, and a waiver is never a pass"
+  fail "one or more PR(s) merged since ${prev_tag} have a missing, waived or thin (< 3 lanes, judges or refuters per claim, no refuted claim, or no evidence) quorum receipt at .quorum/<branch>.json — see the receipt=... rows above; those changes are in the release with no record that their claims survived refutation, and a waiver is never a pass"
 fi
 
 # ------------------------------------------------- Arm 6: the CRUX reconciliation
@@ -375,11 +355,8 @@ else
   echo "GATE R PASS ${TAG} is on main and on origin; GitHub release published (prerelease=${prerelease}); crates.io serves ${CRATE} ${published}; docs.rs built the docs; ${n_prs} PR(s) since ${prev_tag} (of ${n_returned} GitHub reports merged in that window) all carry receipt=ok; ${CRUX} present"
 fi
 
-# mutation: delete the `"waived" in d` check inside `receipt_status` — a
-# receipt carrying a top-level `waived` key then reads `ok` instead of
-# `waived`, and this arm passes a release over a PR whose author waived their
-# own quorum. (Two other addresses: drop `.quorum/<slug>.json` for a PR in the
-# window and the row reads `receipt=missing`; put `--merges` back — enumerate
-# Arm 5's PR set with `git log --merges "${prev_tag}..HEAD"` instead of `gh pr
-# list --search "merged:>=..."` — and a squash-merged release collapses the set
-# to empty. All three exit 1.)
+# mutation: change `if [ "$status" != "ok" ]` below the report loop to
+# `if [ "$status" = "missing" ]` — a waived or thin receipt then sets nothing
+# and this arm passes a release over a PR whose quorum was waived or never
+# reached the floor; the falsification tests a_waived_receipt_is_red,
+# a_nested_override_is_red and a_thin_receipt_is_red go RED.

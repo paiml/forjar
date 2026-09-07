@@ -69,24 +69,9 @@ dogfood_load_window
 # jq every string sorts above every number, so a receipt claiming
 # `"judges": "3"` — or `"judges": "many"` — would clear a bare `>= 3` while
 # recording nothing countable.
-QUORUM_JQ='
-  def num($v): if ($v | type) == "number" then $v else -1 end;
-  def len($v): if ($v | type) == "array" then ($v | length) else -1 end;
-  if ([paths | .[-1]? | tostring] | any(test("waiv|override")))
-    then "carries a waiver/override key: a waived quorum is an unrefuted claim, not a passed one"
-  elif len(.quorum.lanes) < 3
-    then "quorum.lanes = \(len(.quorum.lanes)), below the floor of 3 that scripts/quorum-gate.sh enforces at push time"
-  elif num(.quorum.judges) < 3
-    then "quorum.judges = \(num(.quorum.judges)), below the floor of 3: a majority needs three"
-  elif num(.quorum.refuters_per_claim) < 3
-    then "quorum.refuters_per_claim = \(num(.quorum.refuters_per_claim)), below the floor of 3: a claim one refuter failed to kill only met one refuter"
-  elif num(.quorum.claims_refuted) < 1
-    then "quorum.claims_refuted = \(num(.quorum.claims_refuted)): a round that killed no claim did not hunt, which is the vacuous receipt this floor exists to refuse"
-  elif len(.evidence.files) < 1
-    then "evidence.files is empty: a verdict that cites no file is an opinion"
-  else "ok"
-  end
-'
+# shellcheck source=scripts/dogfood/lib/receipt.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/receipt.sh"
+QUORUM_JQ="$DOGFOOD_RECEIPT_JQ"
 
 i=0
 checked=0
@@ -135,7 +120,7 @@ fi
 
 echo "GATE E PASS ${checked} of ${DOGFOOD_PR_COUNT} merged PR(s) since ${DOGFOOD_PREV_TAG} carry a quorum receipt"
 
-# mutation: raise the lane floor in QUORUM_JQ from `len(.quorum.lanes) < 3` to
+# mutation: raise the lane floor in DOGFOOD_RECEIPT_JQ (scripts/dogfood/lib/receipt.sh, sourced above) from `len(.quorum.lanes) < 3` to
 # `len(.quorum.lanes) < 99` — every committed receipt then reads as thin and
 # the gate exits 1, which shows the lane count is read out of the receipt at
 # HEAD and not assumed.

@@ -103,20 +103,31 @@ fn stub_gh(dir: &Path, name: &str, json: &str) -> String {
     p.to_string_lossy().into_owned()
 }
 
-/// A receipt shaped like a real one: 3 lanes, 3 judges — exactly
-/// `scripts/quorum-gate.sh`'s floor.
+/// A receipt shaped like a real one — exactly the floor lib/receipt.sh reads:
+/// 3 lanes, 3 judges, 3 refuters per claim, one refuted claim, one evidence file.
 fn good_receipt() -> &'static str {
-    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3}}"#
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3, "refuters_per_claim": 3, "claims_refuted": 1}, "evidence": {"files": [{"path": "x"}]}}"#
+}
+
+/// A receipt whose waiver hides under `quorum` as an `override` — invisible to
+/// a top-level check, refused by the shared predicate.
+fn nested_override_receipt() -> &'static str {
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3, "refuters_per_claim": 3, "claims_refuted": 1, "override": {"by": "author"}}, "evidence": {"files": [{"path": "x"}]}}"#
+}
+
+/// A receipt at every floor but one: no claim was refuted, so no one hunted.
+fn unhunted_receipt() -> &'static str {
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3, "refuters_per_claim": 3, "claims_refuted": 0}, "evidence": {"files": [{"path": "x"}]}}"#
 }
 
 /// A receipt that waived the quorum instead of running one.
 fn waived_receipt() -> &'static str {
-    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3}, "waived": {"reason": "no credits"}}"#
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b", "lane-c"], "judges": 3, "refuters_per_claim": 3, "claims_refuted": 1}, "evidence": {"files": [{"path": "x"}]}, "waived": {"reason": "no credits"}}"#
 }
 
 /// A receipt below the lane floor — 2 lanes, not 3.
 fn thin_receipt() -> &'static str {
-    r#"{"quorum": {"lanes": ["lane-a", "lane-b"], "judges": 3}}"#
+    r#"{"quorum": {"lanes": ["lane-a", "lane-b"], "judges": 3, "refuters_per_claim": 3, "claims_refuted": 1}, "evidence": {"files": [{"path": "x"}]}}"#
 }
 
 struct Fixture {
@@ -370,6 +381,28 @@ fn a_waived_receipt_is_red() {
          and this arm must never treat it as a pass",
     );
     r.assert_says(&format!("#{PR} {} receipt=waived", slug()));
+}
+
+#[test]
+fn a_nested_override_is_red() {
+    let fx = fixture(false, Some(nested_override_receipt()));
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "an `override` key nested under `quorum` is a waiver a top-level check \
+         cannot see; the arm applies gate E's predicate, which refuses it anywhere",
+    );
+    r.assert_says(&format!("#{PR} {} receipt=waived", slug()));
+}
+
+#[test]
+fn a_receipt_that_refuted_nothing_is_red() {
+    let fx = fixture(false, Some(unhunted_receipt()));
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "claims_refuted = 0 is a round that did not hunt — the vacuous receipt \
+         gate E refuses before the tag, and this arm must refuse after it",
+    );
+    r.assert_says(&format!("#{PR} {} receipt=thin", slug()));
 }
 
 #[test]

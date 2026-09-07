@@ -32,10 +32,14 @@ comply:
     # the repo-wide ERROR count is ratcheted at 1 so one cannot become two.
     cb-400:
       enabled: false
-    # CB-2100 resolves the required check `gate` and correctly reports that it
-    # "gates nothing in the CB roster". The remedy is a .github/workflows edit —
-    # run `make dogfood` inside `ci / gate` — which PMAT-163 may not make.
-    # Re-enable in the same commit that wires it.
+    # CB-2100 (gate-effect) resolves the required check `gate` and reports that
+    # it "gates nothing in the CB roster": no required status check runs a CB
+    # check. Measured 2026-09-07 with `enabled: true` on this branch: still
+    # 1 fail. The ci.yml `dogfood` job this branch adds runs gates C and D and
+    # the guard tests, not `pmat comply` — gate B runs in `make dogfood-release`,
+    # where pmat, gh and bashrs exist, and comply.sh Arm 2 reads the ruleset
+    # CB-2100 cannot. Re-enable in the commit that makes a required check run
+    # `pmat comply check` (PMAT-202, 1.27).
     cb-2100:
       enabled: false
     # CB-200 is owned by the dated ratchet `make cb200-ratchet`
