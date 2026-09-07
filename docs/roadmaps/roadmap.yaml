@@ -2627,6 +2627,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: Found by the PMAT-163 merge review (quorum-review.sh width 3, lanes 2 and 3 FAIL at 507c730f).
+  notes: 'Found by the PMAT-163 merge review (quorum-review.sh width 3, lanes 2 and 3 FAIL at 507c730f).
     Absorbed on the DF branch; S1 because forjar-dogfood is the release blocker and its gate set was short
-    of the ticket.
+    of the ticket. Delta quorum (three lanes, conv-392746c8, conv-1b76d5b6, conv-add74d03): C1-C8 confirmed
+    3/3; lane 3 found that an empty PR window with commits on main passed both gates vacuously — absorbed
+    here: window.sh refuses it like release-check.sh Arm 5 (PMAT-178).'

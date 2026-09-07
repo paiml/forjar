@@ -166,6 +166,19 @@ fn gate_a_the_previous_releases_own_pr_is_outside_the_window() {
     r.assert_says("1 of 1");
 }
 
+#[test]
+fn gate_a_commits_since_the_tag_with_no_merged_pr_are_red() {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    let r = run(&fx, "harness.sh", &fx.gh_reporting_no_prs());
+    r.assert_not_green(
+        "A",
+        "one commit reached HEAD after the tag and gh reports no merged PR \
+         containing it: work that bypassed review must not read as an empty \
+         window, or the gate passes vacuously over exactly what it exists to catch",
+    );
+    r.assert_says("no merged PR");
+}
+
 // ------------------------------------------------------------------ gate E
 
 #[test]
@@ -245,4 +258,16 @@ fn gate_e_the_previous_releases_own_pr_is_outside_the_window() {
     r.assert_says("#76");
     r.assert_says("previous release");
     r.assert_says("1 of 1");
+}
+
+#[test]
+fn gate_e_commits_since_the_tag_with_no_merged_pr_are_red() {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    let r = run(&fx, "quorum.sh", &fx.gh_reporting_no_prs());
+    r.assert_not_green(
+        "E",
+        "a commit on main with no merged PR has no receipt anywhere; \
+         \"PASS 0 of 0\" over it would be the vacuous pass this file refuses",
+    );
+    r.assert_says("no merged PR");
 }

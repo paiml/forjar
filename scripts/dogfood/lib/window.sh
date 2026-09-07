@@ -141,6 +141,19 @@ dogfood_merged_prs() {
 
   DOGFOOD_PR_JSON="$(printf '%s' "$raw" | jq -c --argjson keep "$keep" '[ .[] | select((.mergeCommit.oid // "-") as $o | $keep | index($o) != null) ]')"
   DOGFOOD_PR_COUNT="$(printf '%s' "$DOGFOOD_PR_JSON" | jq -r 'length')"
+  # An empty window is a fact only when nothing reached HEAD since the tag.
+  # Commits on main with no merged PR containing them are work that bypassed
+  # review (or a window GitHub could not describe), and a gate that said
+  # "PASS 0 of 0" over them would be the vacuous pass release-check.sh Arm 5
+  # refuses (PMAT-178); both gates refuse it here for the same reason.
+  local crc=0 commits_since
+  commits_since="$(git rev-list --count "${DOGFOOD_PREV_TAG}..HEAD")" || crc=$?
+  if [ "$crc" -ne 0 ] || [ -z "$commits_since" ]; then
+    fail "git rev-list --count ${DOGFOOD_PREV_TAG}..HEAD exited ${crc}: whether anything landed since the tag cannot be read — UNMEASURED"
+  fi
+  if [ "$DOGFOOD_PR_COUNT" -eq 0 ] && [ "$commits_since" -gt 0 ]; then
+    fail "${commits_since} commit(s) reached HEAD since ${DOGFOOD_PREV_TAG} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it"
+  fi
 }
 
 # The three steps in the only order they work in.

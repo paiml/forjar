@@ -163,6 +163,12 @@ impl Fixture {
         )
     }
 
+    /// `gh` answering that nothing was merged — while the fixture's HEAD holds
+    /// one commit after the tag, so the window is not empty, only unclaimed.
+    pub(crate) fn gh_reporting_no_prs(&self) -> String {
+        stub_gh(self.root.parent().expect("tempdir"), "gh-no-prs", "[]")
+    }
+
     /// `gh` answering with exactly `--limit` PRs: the page is full, so the
     /// window may be truncated and neither gate can know the set it checks.
     pub(crate) fn gh_filling_the_page(&self) -> String {
