@@ -1,0 +1,128 @@
+{
+ "issue": "PMAT-204 — a file resource whose PATH contains 666 or 777 could not be applied: bashrs SEC017 reads a chmod line's literal text, so forjar's I8 gate refused its own correct script; the same rule missed a genuinely world-writable mode, which forjar now refuses itself",
+ "quorum": {
+  "lanes": [
+   "q1 claim lane 1",
+   "q1 claim lane 2",
+   "q1 claim lane 3",
+   "q1 independent-stack review — agy /teamwork-preview",
+   "q1 crux lane"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; every counterexample re-run against both the pre-fix baseline (0776fd82) and the branch head before it is acted on",
+  "rounds": "q1 width 5 (3 FAIL) refuted the first implementation; q2 width 3 refuters (3 FAIL) killed the redaction rule twice, both reproduced and fixed; q3 width 3 judges (3 FAIL) killed the whitespace-padded quoted mode, reproduced and fixed; q4 width 3 judges (3 FAIL) — none of the seven counterexamples reproduced, five refused at both commits and two accepted at both",
+  "claims_confirmed": 7,
+  "claims_refuted": 9,
+  "refuted_claims": [
+   "q1: the first implementation's exemption was line-scoped — `chmod '0644' '/srv/a'; sudo -u root chmod 777 /srv/b` and the same with the second chmod in backticks, after `env`, in a subshell and in an `&&` list were ACCEPTED although the pre-fix gate REFUSED every one. Re-run and confirmed; the design was replaced.",
+   "q1 lane 4 (/teamwork-preview) PASSED that implementation on the premise that a multi-chmod line is left to bashrs; the premise is false and the PASS is recorded as a review that agreed too early.",
+   "q2: `echo \\\" ; (chmod 777 /foo) ; echo \\\"` — a backslash-escaped quote re-paired the quotes and swallowed a real chmod 777. Refused at baseline, accepted by that commit: a regression, fixed by honouring backslash escapes.",
+   "q2: `chmod 'u=rwx,o=w' '/srv/b'` — a comma-clause symbolic mode was read as safe. Accepted at baseline too, so a hole the new check claimed to close and did not; every clause is judged now.",
+   "q2: a chmod behind a backtick or in a subshell was not tokenised as a chmod word by forjar's own check.",
+   "q3: `chmod \" 777\" /foo`, `' 777'`, `'777 '` and a tab-padded mode did not parse as modes, were redacted away with the paths, and turned scripts the baseline REFUSED into accepted ones. Redaction is now restricted to plain path literals.",
+   "q4: five of seven counterexamples (a backslash inside single quotes, process substitution, an escaped `c\\hmod`, and two variants) are refused at BOTH commits — the refutation did not reproduce.",
+   "q4: `chmod 0000666 /foo` is accepted at both commits — a shape neither instrument ever saw, not a regression; closed anyway by reading any octal width.",
+   "q4: `chmod $EMPTY_VAR '0666' /foo` is accepted at both commits — the declared undecidable shape (a mode held in a variable), claimed by neither the code nor the CHANGELOG."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Ansible file module",
+   "Puppet file",
+   "Chef file",
+   "Terraform local_file",
+   "Nix writeTextFile",
+   "shellcheck/bashrs linters"
+  ],
+  "verdict": "the field keeps the mode in a typed field so a digit-bearing path can never be read as a mode, and only Nix refuses world-writable by construction; forjar now does both — the path cannot speak for the mode, and a world-writable mode is refused at the gate. Third-party figures are documentation memory and marked [X]."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview on the first implementation",
+  "verdict": "PASS — and wrong: it rested on the premise that a line with several chmods is left to bashrs, which three blind lanes and a direct re-run disproved. Recorded as a review that agreed too early."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19432,
+  "files_parsed": 2122,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests: 0 hit(s) in the touched test path.",
+  "limit": "vacuity also measured by running all 45 shapes against the pre-fix baseline"
+ },
+ "falsification": {
+  "test": "the 18 tests of falsification_chmod_path_is_not_a_mode (both directions of every round: the path false positive, the world-writable refusal, the refuted multi-chmod shapes, the whitespace-padded modes, the plain-path-literal restriction, any octal width, and the two declared undecidable shapes)",
+  "test_file": "tests/falsification_chmod_path_is_not_a_mode.rs",
+  "cargo_test_target": "falsification_chmod_path_is_not_a_mode",
+  "reverted": "src/core/purifier.rs restored to 0776fd82 and src/core/purifier_sec017.rs removed from the build, the target run, both restored (tree verified clean)",
+  "observed_failure": "test a_quoted_safe_mode_on_a_path_containing_666_passes_the_gate ... FAILED\ntest a_quoted_world_writable_mode_is_refused_at_the_gate ... FAILED\ntest a_path_containing_666_converges ... FAILED\ntest a_path_containing_777_converges ... FAILED\ntest a_declared_mode_of_0666_is_refused_by_forjar ... FAILED\ntest a_declared_mode_of_0777_is_refused_by_forjar ... FAILED\nApply completed with errors: 0 converged, 0 unchanged, 1 FAILED\nerror: 1 resource(s) failed",
+  "still_green_when_reverted": "the controls: a bare `chmod 666`, `chmod -R 777` and a non-chmod line carrying the word chmod, all of which SEC017 refused before this change and must go on refusing"
+ },
+ "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "3837cc58f1e7369292c803a015375fcd75017b18",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/chmod-path-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 5491,
+    "sha256": "57c542cdfa386732a5fe707c7131b5c7ac5fede9ff4151e35fad7fb724bebc0b",
+    "blob": "392ec23130c87b37f9e1fbc857b1eafa0ead0ba9"
+   },
+   {
+    "path": ".quorum/evidence/chmod-path-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 9429,
+    "sha256": "b5f536786e0c1b8c48731fddafc8ebcd66cd02a852ea9eba9f671a6854e255a2",
+    "blob": "565ff3b29f80d25ea7c28231fc103a17bb14a8cf"
+   },
+   {
+    "path": ".quorum/evidence/chmod-path-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 31819,
+    "sha256": "43f491b5fa51cca62ea975ab65d111f2400f0ed0ac9e2ff20b9dcd29e29a21fe",
+    "blob": "0938d81b4c0fbc7d5d4af82d1d7a27882bd0aa70"
+   },
+   {
+    "path": ".quorum/evidence/chmod-path-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1125,
+    "sha256": "5af8847a84bae7d545f8417b12722f8eee8a82d7e846b998ecc6b19589c591a2",
+    "blob": "6ed06ad74a9f4408e64e81b5222fca3a3b994ec3"
+   },
+   {
+    "path": ".quorum/evidence/chmod-path-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 764,
+    "sha256": "3b452f894501c28388a64c34160a28199788e30ad85bdfc4d5fdc83f71bad4cb",
+    "blob": "3fcda85906bb460235bb634814c759f0c2884589"
+   },
+   {
+    "path": ".quorum/evidence/chmod-path-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 671,
+    "sha256": "f104a6d278ac197d1e74522e63c847a103fe846a0cede5f895bb3fd42da71b2c",
+    "blob": "df1500958733f54d052a61df3cb18cc88c7069ef"
+   }
+  ],
+  "total_bytes": 49299,
+  "claims_digest": ".quorum/evidence/chmod-path-judges.md"
+ }
+}
