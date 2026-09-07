@@ -24,7 +24,7 @@ metadata:
     closes that gap by driving the binary.
   references:
     - "issue: https://github.com/paiml/forjar/issues/97"
-    - "FJ-1386: generational state snapshots — src/cli/generation.rs"
+    - "FJ-1386: generational state snapshots — src/cli/generation/mod.rs"
     - "FJ-2003: active undo — src/cli/undo.rs"
     - "FJ-2005: undo-destroy replay — src/cli/undo_helpers.rs"
     - "Dolstra (2006) The Purely Functional Software Deployment Model (Nix generations)"
@@ -72,13 +72,13 @@ proof_obligations:
     property: "Create points current at the new generation"
     formal: "∀ S: create_generation(S) = Ok(g) ⟹ current_generation(gen_dir) = Some(g)"
     applies_to: all
-    enforced_by: "src/cli/generation.rs::create_generation debug_assert_eq!"
+    enforced_by: "src/cli/generation/mod.rs::create_generation debug_assert_eq!"
 
   - type: invariant
     property: "Rollback points current at the restored generation"
     formal: "∀ g: rollback_to_generation(g) = Ok(()) ⟹ current_generation(gen_dir) = Some(g)"
     applies_to: all
-    enforced_by: "src/cli/generation.rs::rollback_to_generation debug_assert_eq!"
+    enforced_by: "src/cli/generation/mod.rs::rollback_to_generation debug_assert_eq!"
 
   - type: roundtrip
     property: "Roundtrip restores the snapshot byte-for-byte"

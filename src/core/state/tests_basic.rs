@@ -1,6 +1,6 @@
 use super::tests_helpers::make_lock;
 use super::*;
-use crate::core::types::{ResourceLock, ResourceStatus, ResourceType};
+use crate::core::types::{MachineSummary, ResourceLock, ResourceStatus, ResourceType};
 use proptest::prelude::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -145,7 +145,8 @@ fn test_fj013_global_lock_roundtrip() {
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.name, "test-infra");
-    assert_eq!(loaded.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(loaded.schema, "1.1");
     assert_eq!(loaded.machines.len(), 1);
     assert_eq!(loaded.machines["lambda"].resources, 5);
     assert_eq!(loaded.machines["lambda"].converged, 4);
@@ -166,7 +167,7 @@ fn test_fj013_update_global_lock() {
         ("web".to_string(), 3_usize, 2_usize, 0_usize),
         ("db".to_string(), 5, 5, 0),
     ];
-    update_global_lock(dir.path(), "my-infra", &results).unwrap();
+    update_global_lock(dir.path(), "my-infra", None, &results).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.name, "my-infra");
@@ -188,10 +189,10 @@ fn test_fj013_update_global_lock_idempotent() {
     // Calling update_global_lock twice should overwrite, not duplicate
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 3_usize, 2_usize, 1_usize)];
-    update_global_lock(dir.path(), "infra", &results1).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results1).unwrap();
 
     let results2 = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
-    update_global_lock(dir.path(), "infra", &results2).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results2).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.machines.len(), 1);
@@ -203,10 +204,10 @@ fn test_fj013_update_global_lock_idempotent() {
 fn test_fj013_update_global_lock_adds_new_machines() {
     let dir = tempfile::tempdir().unwrap();
     let results1 = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
-    update_global_lock(dir.path(), "infra", &results1).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results1).unwrap();
 
     let results2 = vec![("db".to_string(), 5_usize, 5_usize, 0_usize)];
-    update_global_lock(dir.path(), "infra", &results2).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results2).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.machines.len(), 2);
@@ -290,7 +291,8 @@ fn test_fj013_lock_file_path_special_chars() {
 #[test]
 fn test_fj013_new_global_lock_empty_machines() {
     let lock = new_global_lock("my-infra");
-    assert_eq!(lock.schema, "1.0");
+    // forjar#469: the global lock writes schema 1.1 (per-stack stamps).
+    assert_eq!(lock.schema, "1.1");
     assert_eq!(lock.name, "my-infra");
     assert!(lock.machines.is_empty());
     assert!(lock.last_apply.contains('T'));
@@ -301,7 +303,7 @@ fn test_fj013_new_global_lock_empty_machines() {
 fn test_fj013_update_global_lock_empty_results() {
     let dir = tempfile::tempdir().unwrap();
     let results: Vec<(String, usize, usize, usize)> = vec![];
-    update_global_lock(dir.path(), "infra", &results).unwrap();
+    update_global_lock(dir.path(), "infra", None, &results).unwrap();
 
     let loaded = load_global_lock(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.name, "infra");

@@ -98,8 +98,9 @@ mod tests {
         let results = vec![make_apply_result("m", 1, 0, 0)];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
-            &state_dir, &config, &results, 1, false, false, None, &t_total,
+            &state_dir, &cfg_file, &config, &results, 1, false, false, None, &t_total,
         );
         assert!(result.is_ok());
     }
@@ -114,8 +115,10 @@ mod tests {
         let results = vec![make_apply_result("m", 1, 0, 0)];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
             &state_dir,
+            &cfg_file,
             &config,
             &results,
             1,
@@ -137,8 +140,10 @@ mod tests {
         let results = vec![make_apply_result("m", 0, 1, 0)];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
             &state_dir,
+            &cfg_file,
             &config,
             &results,
             0,
@@ -160,8 +165,9 @@ mod tests {
         let results: Vec<types::ApplyResult> = vec![];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
-            &state_dir, &config, &results, 0, false, false, None, &t_total,
+            &state_dir, &cfg_file, &config, &results, 0, false, false, None, &t_total,
         );
         assert!(result.is_ok());
     }
@@ -176,8 +182,9 @@ mod tests {
         let results = vec![make_apply_result("m", 0, 0, 2)];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
-            &state_dir, &config, &results, 0, false, false, None, &t_total,
+            &state_dir, &cfg_file, &config, &results, 0, false, false, None, &t_total,
         );
         assert!(result.is_ok());
     }
@@ -196,8 +203,10 @@ mod tests {
         ];
         let t_total = std::time::Instant::now();
 
+        let cfg_file = dir.path().join("forjar.yaml");
         let result = apply_post_actions(
             &state_dir,
+            &cfg_file,
             &config,
             &results,
             1,

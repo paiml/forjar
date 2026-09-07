@@ -7,17 +7,33 @@ use std::fmt;
 
 use super::ResourceType;
 
+// forjar#469: `StackStamp` is defined next to the code that writes and reads
+// it (`core::state::stamp`) and re-exported here, so `core::types::StackStamp`
+// stays the import path while this file stays under the 500-line file cap.
+pub use crate::core::state::stamp::StackStamp;
+
 // ============================================================================
 // State / Lock file
 // ============================================================================
 
 /// Global lock file (state/forjar.lock.yaml).
+///
+/// Schema (forjar#469): `"1.1"` is written; `"1.0"` is read and migrated in
+/// memory on load (`state::stamp::migrate`), and the next save persists it.
+/// Any OTHER schema is REFUSED by `state::load_global_lock`, naming the schema
+/// it found — a dir written by a newer forjar is never silently reinterpreted
+/// by an older one. The other direction degrades rather than corrupts: an
+/// older forjar parses a 1.1 file (serde ignores unknown fields) and DROPS
+/// `stacks` when it re-saves, keeping the single `name` stamp; machines and
+/// `outputs` survive, and the next 1.1 apply migrates `name` back.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalLock {
-    /// Schema version
+    /// Schema version ("1.0" legacy single-stamp, "1.1" per-stack stamps)
     pub schema: String,
 
-    /// Config name
+    /// Config name of the stack that applied LAST — kept alongside `stacks` so
+    /// an older forjar still reads a sensible file. It is a display value, not
+    /// the identity of the dir: one dir serves N configs (forjar#469).
     pub name: String,
 
     /// Last apply timestamp
@@ -32,6 +48,12 @@ pub struct GlobalLock {
     /// FJ-1260: Persisted output values for cross-stack data flow
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub outputs: IndexMap<String, String>,
+
+    /// forjar#469: per-stack stamps, keyed by config name exactly as the
+    /// machine sections are. `#[serde(default)]` so a pre-1.1 file parses; the
+    /// missing map is rebuilt from `name` on load (`state::stamp::migrate`).
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub stacks: IndexMap<String, StackStamp>,
 }
 
 /// Per-machine summary in the global lock.
