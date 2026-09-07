@@ -45,7 +45,7 @@ permissions:
   contents: write  # create the release + upload assets
 
 concurrency:
-  group: binary-release-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+  group: binary-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 env:
