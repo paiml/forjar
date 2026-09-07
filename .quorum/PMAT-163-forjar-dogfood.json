@@ -1,0 +1,128 @@
+{
+ "issue": "PMAT-163 — forjar-dogfood v1: the pre-publish release gate — eight standing requirements (harness receipt, pmat comply, surface from the built artifact, executable docs, a quorum receipt per merged PR, the 95-line coverage floor with in-diff mutants, contract depth, CRUX reconcile), mechanical gates from Make with no agent; closes #452 for the workspace test run",
+ "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "quorum": {
+  "lanes": [
+   "claim lane A — the gate scripts (scripts/dogfood/*.sh, lib)",
+   "claim lane B — Make targets, skill, CLAUDE.md, contract, guard tests, ledger, fixtures",
+   "claim lane C — the forjar-contracts corpus gating (#452) and the three filled falsifier lists",
+   "independent-stack review — agy /teamwork-preview theater hunt",
+   "crux — competitive survey (Rust conventions, Kubernetes SIG Release, Debian autopkgtest, Terraform acceptance tests)"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
+  "claims_confirmed": 31,
+  "claims_refuted": 5,
+  "refuted_claims": [
+   "L3-F1 — contracts/forjar-dogfood-coverage-v1.yaml:941 — FALSIFY-DF-006 maps the rule 'Exactly one skill claims the name' to the test `nothing_in_the_tree_is_still_called_dogfood` instead of `exactly_one_skill_claims_the_name`, creating a mismatch between the rule text and the test function named. (proposed fix: Change the test reference to `tests/falsification_dogfood_skill_is_named.rs::exactly_one_skill_claims_the_name` or update the rule text to match `nothing_in_the_tree_is_still_called_dogfood`.) — REFUTED: stale: fixed in f7d97024 (DF-006 cites exactly_one_skill_claims_the_name)",
+   "T-F1 — scripts/dogfood/docs.sh:197 — Gate theater: docs.sh reads the surface list from the committed CSV rather than the built artifact, allowing dead verbs to pass the presence check if the CSV is stale. — REFUTED: refuted on the merits: gate C verifies the committed ledger against the built binary in the same make run (surface.sh) before docs.sh reads it",
+   "T-F2 — scripts/dogfood/release-check.sh:140 — Exit 0 on failure: release-check.sh uses git log --merges to find PRs. If PRs are squash-merged, the pipeline returns empty but exits 0, bypassing the loop and silently passing the quorum check. — REFUTED: stale: fixed in f7d97024 and 3c740863 (gh pr list enumeration; committed receipt rule)",
+   "T-F5 — scripts/dogfood/docs.sh:250 — docs.sh executes blocks, so dead verbs fail execution. However, a dead verb listed in KNOWN_BROKEN (like forjar make clean) bypasses the exit code check and silently passes. — REFUTED: refuted on the merits: a KNOWN_BROKEN row prints a NOTE and is counted; nothing passes silently",
+   "T-F6 — scripts/dogfood/release-check.sh:158 — release-check.sh exits 0 (PASS) with PENDING if the tag is missing locally. If the release failed on GitHub but the tag isn't fetched locally, this script masks the failure by passing. — REFUTED: stale: fixed in f7d97024 (the remote is the authority; PENDING only when it has no tag)"
+  ],
+  "rounds": "claim round at cf9ac6f7 (5 lanes) forced four fixes (PMAT-178..181 at f7d97024 and 3c740863) and the ci.yml wiring (24129273, orchestrator); refuters at 029925b1 in standalone per-lane clones (35/35 ids, none invented) found one new observation (D8); judges at 6887af54, tables agreeing on 34 of 35 ids, no live defect"
+ },
+ "crux": {
+  "systems": [
+   "Rust: cargo publish --dry-run, cargo-semver-checks, cargo-mutants",
+   "Kubernetes SIG Release: conformance and release-blocking jobs",
+   "Debian: autopkgtest, piuparts, reproducible builds",
+   "Terraform: acceptance tests (TF_ACC) before a release"
+  ],
+  "verdict": "forjar's gate measures the built artifact like Kubernetes conformance, executes the documentation where none of the comparators does, pairs a line floor with in-diff mutants against gaming, and keeps the go/no-go with a human running `make dogfood-release` on a deterministic receipt; no surveyed system shows a rule it violates. All third-party figures are from documentation memory (sandboxed lane, no network) and marked asserted."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, sandboxed, no builds, agy 1.1.27, on the diff at cf9ac6f7",
+  "verdict": "FAIL on four mechanisms — a squash-blind PR enumeration, a one-directional ignored ratchet, a ledger read for the presence cross-check, a local-tag PENDING — of which three were real and are fixed in the diff (PMAT-178, 179, 180) and one is rejected with the ordering evidence (D5); it affirmed that the mutation comments are genuine one-line reds and the floors are hardcoded."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 1,
+  "tests_examined": 19362,
+  "files_parsed": 2111,
+  "accepted": [
+   {
+    "test": "crates/forjar-contracts/src/query/query_tests_coverage.rs::coverage_map_enrichment",
+    "reason": "pre-existing, not added or changed by this branch"
+   }
+  ],
+  "quality_gate": "pmat 3.39.0 `analyze vacuous-tests -f json` over the branch: 1 hit(s) in the touched test paths (listed in the pmat evidence file); the 43 aprender-corpus tests are cfg_attr-ignored with a reason each under an exact ratchet, never deleted.",
+  "limit": "The count is what the tool measured; discrimination measured by the falsification block and by each script declaring the one-line mutation that turns its gate red."
+ },
+ "falsification": {
+  "test": "its_first_frontmatter_line_declares_the_unshadowable_name (with exactly_one_skill_claims_the_name and nothing_in_the_tree_is_still_called_dogfood)",
+  "test_file": "tests/falsification_dogfood_skill_is_named.rs",
+  "cargo_test_target": "falsification_dogfood_skill_is_named",
+  "reverted": "the `name: forjar-dogfood` line deleted from .claude/skills/forjar-dogfood/SKILL.md with sed, the target run, the file restored from a copy (tree verified clean)",
+  "observed_failure": "test exactly_one_skill_claims_the_name ... FAILED\ntest its_first_frontmatter_line_declares_the_unshadowable_name ... FAILED\ntest result: FAILED. 2 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+  "still_green_when_reverted": "the mutation-declaration guard (tests/falsification_dogfood_scripts_declare_mutations.rs), which pins the scripts, not the skill name"
+ },
+ "merge_helper_note": "the per-PR quorum receipt this repository keeps is this committed file, .quorum/<branch-slug>.json, which release-check.sh Arm 5 reads at the merge commit; the merge helper additionally writes docs/audits/quorum-<ticket>.json, uncommitted, naming the pushed head",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/forjar-dogfood-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 17901,
+    "sha256": "689d23de4afdff3f8f3b605bf73fb3725f55652162953f8b35b478abc879bb75",
+    "blob": "f32685cda0681effdde928a363bd52cce3c1be8b"
+   },
+   {
+    "path": ".quorum/evidence/forjar-dogfood-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+   },
+   {
+    "path": ".quorum/evidence/forjar-dogfood-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 21873,
+    "sha256": "9395d1308917cadd744e9f0a00490cd36be54f12589bcc5b6e05a5ef7ab344d9",
+    "blob": "b0ee2c5cfa068c31ce7cdd7993723a6a08b514c0"
+   },
+   {
+    "path": ".quorum/evidence/forjar-dogfood-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 2696,
+    "sha256": "be46da828df0cfbf718ef88bc51dbb008acea60f20c0cb1155104aa79f595a9e",
+    "blob": "42d3f2ced57d1a6449d210b02d4143c445dcaa90"
+   },
+   {
+    "path": ".quorum/evidence/forjar-dogfood-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 4044,
+    "sha256": "de2d0a2d19313dc6ed05fcd0e9b25ad9029d3d90c0b7ad97b58406092be8904d",
+    "blob": "896d31084faf4f35123d68ba9d84a69fcd7edc97"
+   },
+   {
+    "path": ".quorum/evidence/forjar-dogfood-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1524,
+    "sha256": "e91c7685ac4aaa94711f32dac1f159e4e763b8ddc361e98fa506dacf69f87fb1",
+    "blob": "a3571a232f53021dfc1b762923b86f5675bb72f4"
+   }
+  ],
+  "total_bytes": 48038,
+  "claims_digest": ".quorum/evidence/forjar-dogfood-judges.md"
+ },
+ "diff_sha256": "f35ed2a936575aeb48796656b8d39d060446188a"
+}
