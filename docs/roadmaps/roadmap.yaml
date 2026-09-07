@@ -9,8 +9,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T11:08:54Z
-  updated: 2026-03-02T11:09:05.080467577+00:00
+  created: 2026-03-02 11:08:54+00:00
+  updated: 2026-03-02 11:09:05.080467+00:00
   spec: null
   acceptance_criteria:
   - Scan store entry outputs for references to other store paths. Build reachability graph for GC.
@@ -26,8 +26,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T11:09:01Z
-  updated: 2026-03-02T11:09:01Z
+  created: 2026-03-02 11:09:01+00:00
+  updated: 2026-03-02 11:09:01+00:00
   spec: null
   acceptance_criteria:
   - '4-level purity model: Pure(0), Pinned(1), Constrained(2), Impure(3). Static analysis of recipe resources.'
@@ -43,8 +43,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T11:09:01Z
-  updated: 2026-03-02T11:09:01Z
+  created: 2026-03-02 11:09:01+00:00
+  updated: 2026-03-02 11:09:01+00:00
   spec: null
   acceptance_criteria:
   - Compute transitive input closure. Closure hash via composite_hash over sorted input hashes.
@@ -60,8 +60,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T11:09:01Z
-  updated: 2026-03-02T11:09:01Z
+  created: 2026-03-02 11:09:01+00:00
+  updated: 2026-03-02 11:09:01+00:00
   spec: null
   acceptance_criteria:
   - 'forjar.inputs.lock.yaml: schema, pins with provider/version/hash. Read/write/diff.'
@@ -77,8 +77,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T11:09:01Z
-  updated: 2026-03-02T11:09:01Z
+  created: 2026-03-02 11:09:01+00:00
+  updated: 2026-03-02 11:09:01+00:00
   spec: null
   acceptance_criteria:
   - GC roots from profile symlinks, lock file pins. Mark-and-sweep follows references in meta.yaml.
@@ -94,8 +94,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T11:09:01Z
-  updated: 2026-03-02T11:09:01Z
+  created: 2026-03-02 11:09:01+00:00
+  updated: 2026-03-02 11:09:01+00:00
   spec: null
   acceptance_criteria:
   - 0-100 score based on purity levels, store coverage, input lock coverage.
@@ -111,8 +111,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T12:00:00Z
-  updated: 2026-03-02T12:00:00Z
+  created: 2026-03-02 12:00:00+00:00
+  updated: 2026-03-02 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - Sandbox config struct with level/memory/cpus/timeout. Validation. SandboxProfile presets.
@@ -128,8 +128,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T12:00:00Z
-  updated: 2026-03-02T12:00:00Z
+  created: 2026-03-02 12:00:00+00:00
+  updated: 2026-03-02 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - Cache source config (SSH/local). Substitution protocol (check local, check cache, build). SubstitutionResult.
@@ -145,8 +145,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T12:00:00Z
-  updated: 2026-03-02T12:00:00Z
+  created: 2026-03-02 12:00:00+00:00
+  updated: 2026-03-02 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - ProviderImport trait. ImportResult. Provider config for apt/cargo/uv/nix/docker/tofu. Import pipeline.
@@ -162,8 +162,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T12:00:00Z
-  updated: 2026-03-02T12:00:00Z
+  created: 2026-03-02 12:00:00+00:00
+  updated: 2026-03-02 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - Derivation struct with inputs/script/sandbox. DerivationResult. Closure computation. DAG validation.
@@ -179,8 +179,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T13:00:00Z
-  updated: 2026-03-02T13:00:00Z
+  created: 2026-03-02 13:00:00+00:00
+  updated: 2026-03-02 13:00:00+00:00
   spec: null
   acceptance_criteria:
   - DiffResult, SyncPlan structs. compute_diff, build_sync_plan. Upstream check commands.
@@ -196,8 +196,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T13:00:00Z
-  updated: 2026-03-02T13:00:00Z
+  created: 2026-03-02 13:00:00+00:00
+  updated: 2026-03-02 13:00:00+00:00
   spec: null
   acceptance_criteria:
   - 5-step conversion ladder analysis. ConversionReport with auto/manual changes. Purity projection.
@@ -213,8 +213,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T14:00:00Z
-  updated: 2026-03-02T14:00:00Z
+  created: 2026-03-02 14:00:00+00:00
+  updated: 2026-03-02 14:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar pin / --update / --check CLI commands wired to lockfile module. 11 tests.
@@ -230,8 +230,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T14:00:00Z
-  updated: 2026-03-02T14:00:00Z
+  created: 2026-03-02 14:00:00+00:00
+  updated: 2026-03-02 14:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar cache list/push/pull/verify CLI wired to cache module. 11 tests.
@@ -247,8 +247,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T14:00:00Z
-  updated: 2026-03-02T14:00:00Z
+  created: 2026-03-02 14:00:00+00:00
+  updated: 2026-03-02 14:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar store gc/list/diff/sync CLI wired to gc/store_diff modules. 13 tests.
@@ -264,8 +264,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T14:00:00Z
-  updated: 2026-03-02T14:00:00Z
+  created: 2026-03-02 14:00:00+00:00
+  updated: 2026-03-02 14:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar archive pack/unpack/inspect/verify CLI wired to FAR module. 10 tests.
@@ -281,8 +281,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T14:00:00Z
-  updated: 2026-03-02T14:00:00Z
+  created: 2026-03-02 14:00:00+00:00
+  updated: 2026-03-02 14:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar convert --reproducible CLI wired to conversion analysis module. 7 tests.
@@ -298,8 +298,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T15:00:00Z
-  updated: 2026-03-02T15:00:00Z
+  created: 2026-03-02 15:00:00+00:00
+  updated: 2026-03-02 15:00:00+00:00
   spec: null
   acceptance_criteria:
   - forjar store-import <provider> <ref> CLI with 8 providers. 14 tests.
@@ -315,8 +315,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:30:00Z
-  updated: 2026-03-02T15:30:00Z
+  created: 2026-03-02 15:30:00+00:00
+  updated: 2026-03-02 15:30:00+00:00
   spec: null
   acceptance_criteria:
   - 10-step sandbox lifecycle plan generator. Seccomp BPF for Full level. 16 tests.
@@ -332,8 +332,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:30:00Z
-  updated: 2026-03-02T15:30:00Z
+  created: 2026-03-02 15:30:00+00:00
+  updated: 2026-03-02 15:30:00+00:00
   spec: null
   acceptance_criteria:
   - 'Full substitution protocol: local store, SSH cache, build fallback, auto-push. 10 tests.'
@@ -349,8 +349,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:30:00Z
-  updated: 2026-03-02T15:30:00Z
+  created: 2026-03-02 15:30:00+00:00
+  updated: 2026-03-02 15:30:00+00:00
   spec: null
   acceptance_criteria:
   - Derivation plan + simulate + DAG execution. Store hit skipping. 14 tests.
@@ -366,11 +366,12 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:26:30Z
-  updated: 2026-03-02T15:31:13Z
+  created: 2026-03-02 15:26:30+00:00
+  updated: 2026-03-02 15:31:13+00:00
   spec: null
   acceptance_criteria:
-  - All examples compile with new store/script fields, Phase L spec header updated, Phases E/F/H descriptions updated
+  - All examples compile with new store/script fields, Phase L spec header updated, Phases E/F/H descriptions
+    updated
   phases: []
   subtasks: []
   estimated_effort: null
@@ -383,11 +384,12 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:26:32Z
-  updated: 2026-03-02T15:41:12Z
+  created: 2026-03-02 15:26:32+00:00
+  updated: 2026-03-02 15:41:12+00:00
   spec: null
   acceptance_criteria:
-  - Connect store gc, pin, convert --apply, store diff, store sync, store import CLI subcommands to the new _exec modules
+  - Connect store gc, pin, convert --apply, store diff, store sync, store import CLI subcommands to the
+    new _exec modules
   phases: []
   subtasks: []
   estimated_effort: null
@@ -400,8 +402,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T15:26:33Z
-  updated: 2026-03-02T15:45:58Z
+  created: 2026-03-02 15:26:33+00:00
+  updated: 2026-03-02 15:45:58+00:00
   spec: null
   acceptance_criteria:
   - Add cargo run --example demos for gc_exec, pin_resolve, cache_exec, convert_exec, sync_exec workflows
@@ -417,8 +419,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T15:26:35Z
-  updated: 2026-03-02T15:48:16Z
+  created: 2026-03-02 15:26:35+00:00
+  updated: 2026-03-02 15:48:16+00:00
   spec: null
   acceptance_criteria:
   - Expand 12-store.md book chapter with execution details, add forjar-cookbook store-operations recipe
@@ -434,8 +436,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T15:49:35Z
-  updated: 2026-03-02T15:51:35Z
+  created: 2026-03-02 15:49:35+00:00
+  updated: 2026-03-02 15:51:35+00:00
   spec: null
   acceptance_criteria:
   - Add tests for convert --apply, gc sweep execution, cache pull wiring, sync --apply paths
@@ -451,8 +453,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T15:49:37Z
-  updated: 2026-03-02T22:09:42Z
+  created: 2026-03-02 15:49:37+00:00
+  updated: 2026-03-02 22:09:42+00:00
   spec: null
   acceptance_criteria:
   - Connect cmd_cache_pull to cache_exec::pull_from_cache, add version resolution in convert_exec
@@ -468,8 +470,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-02T16:51:01Z
-  updated: 2026-03-02T22:09:38Z
+  created: 2026-03-02 16:51:01+00:00
+  updated: 2026-03-02 22:09:38+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -484,11 +486,12 @@ roadmap:
   status: completed
   priority: low
   assigned_to: null
-  created: 2026-03-02T22:01:31Z
-  updated: 2026-03-10T11:53:55Z
+  created: 2026-03-02 22:01:31+00:00
+  updated: 2026-03-10 11:53:55+00:00
   spec: null
   acceptance_criteria:
-  - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files and CLI dispatch modules. Needs systematic splitting.'
+  - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files
+    and CLI dispatch modules. Needs systematic splitting.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -501,11 +504,12 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-02T22:33:52Z
-  updated: 2026-03-02T22:49:16Z
+  created: 2026-03-02 22:33:52+00:00
+  updated: 2026-03-02 22:49:16+00:00
   spec: null
   acceptance_criteria:
-  - 'Falsification tests verifying all 12 phase spec claims: types exist, enums have correct variants, functions exist, numeric thresholds hold'
+  - 'Falsification tests verifying all 12 phase spec claims: types exist, enums have correct variants,
+    functions exist, numeric thresholds hold'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -518,8 +522,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T09:47:06Z
-  updated: 2026-03-03T13:44:07.160784672+00:00
+  created: 2026-03-03 09:47:06+00:00
+  updated: 2026-03-03 13:44:07.160784+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_far_archive passes, book 12-store.md updated with FAR section
@@ -535,8 +539,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T09:47:07Z
-  updated: 2026-03-03T13:46:01.502311411+00:00
+  created: 2026-03-03 09:47:07+00:00
+  updated: 2026-03-03 13:46:01.502311+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_secret_scan passes, book 12-store.md updated with security section
@@ -552,8 +556,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T09:47:08Z
-  updated: 2026-03-03T13:47:06.977103823+00:00
+  created: 2026-03-03 09:47:08+00:00
+  updated: 2026-03-03 13:47:06.977103+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_bash_provability passes, book 12-store.md updated with I8 section
@@ -569,8 +573,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-03T09:47:08Z
-  updated: 2026-03-03T13:48:47.314022166+00:00
+  created: 2026-03-03 09:47:08+00:00
+  updated: 2026-03-03 13:48:47.314022+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_benchmarks passes, cookbook reproducibility.md enhanced
@@ -586,8 +590,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T19:38:27Z
-  updated: 2026-03-04T12:20:51.725287266+00:00
+  created: 2026-03-03 19:38:27+00:00
+  updated: 2026-03-04 12:20:51.725287+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -602,8 +606,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T19:53:14Z
-  updated: 2026-03-04T12:20:58.066678475+00:00
+  created: 2026-03-03 19:53:14+00:00
+  updated: 2026-03-04 12:20:58.066678+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -618,8 +622,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T19:59:36Z
-  updated: 2026-03-04T12:20:23.067096630+00:00
+  created: 2026-03-03 19:59:36+00:00
+  updated: 2026-03-04 12:20:23.067096+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -634,8 +638,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T20:14:26Z
-  updated: 2026-03-04T12:20:29.310724693+00:00
+  created: 2026-03-03 20:14:26+00:00
+  updated: 2026-03-04 12:20:29.310724+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -646,12 +650,13 @@ roadmap:
 - id: PMAT-039
   github_issue: null
   item_type: task
-  title: 'FJ-1425: V2 spec batch 6 — fault injection, invariants, ISO export, brownfield import, cross-machine deps'
+  title: 'FJ-1425: V2 spec batch 6 — fault injection, invariants, ISO export, brownfield import, cross-machine
+    deps'
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-03T23:36:44Z
-  updated: 2026-03-04T12:20:34.956829651+00:00
+  created: 2026-03-03 23:36:44+00:00
+  updated: 2026-03-04 12:20:34.956829+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -666,8 +671,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-04T10:36:14Z
-  updated: 2026-03-04T12:20:40.801616241+00:00
+  created: 2026-03-04 10:36:14+00:00
+  updated: 2026-03-04 12:20:40.801616+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -682,8 +687,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-06T18:18:29Z
-  updated: 2026-03-08T11:41:09.607681540+00:00
+  created: 2026-03-06 18:18:29+00:00
+  updated: 2026-03-08 11:41:09.607681+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -698,11 +703,12 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-06T18:57:58Z
-  updated: 2026-03-08T11:41:55.006136909+00:00
+  created: 2026-03-06 18:57:58+00:00
+  updated: 2026-03-08 11:41:55.006136+00:00
   spec: null
   acceptance_criteria:
-  - Implement all PARTIAL phases in forjar-platform-spec.md with real runtime code, not stubs. Embrace deep tough work first.
+  - Implement all PARTIAL phases in forjar-platform-spec.md with real runtime code, not stubs. Embrace
+    deep tough work first.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -715,8 +721,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-07T22:03:53Z
-  updated: 2026-03-08T11:42:40.792467979+00:00
+  created: 2026-03-07 22:03:53+00:00
+  updated: 2026-03-08 11:42:40.792467+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -731,8 +737,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-08T10:55:02Z
-  updated: 2026-03-08T11:37:46.079936829+00:00
+  created: 2026-03-08 10:55:02+00:00
+  updated: 2026-03-08 11:37:46.079936+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -747,8 +753,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T11:12:44Z
-  updated: 2026-03-08T11:39:39.039855301+00:00
+  created: 2026-03-08 11:12:44+00:00
+  updated: 2026-03-08 11:39:39.039855+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -763,8 +769,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T11:59:40.219670038+00:00
-  updated: 2026-03-08T13:34:40.101214916+00:00
+  created: 2026-03-08 11:59:40.219670+00:00
+  updated: 2026-03-08 13:34:40.101214+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -775,12 +781,14 @@ roadmap:
 - id: PMAT-047
   github_issue: null
   item_type: task
-  title: 'Falsification gap: spec claims σ≥5 discrimination but actual σ=2.23 — qualified recipes cluster 80-89 with near-zero variance. Root cause: RES=61 floor (all recipes share policy template), CMP=65 floor. Fix: either adjust spec target or improve dimension discrimination.'
+  title: 'Falsification gap: spec claims σ≥5 discrimination but actual σ=2.23 — qualified recipes cluster
+    80-89 with near-zero variance. Root cause: RES=61 floor (all recipes share policy template), CMP=65
+    floor. Fix: either adjust spec target or improve dimension discrimination.'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:16Z
-  updated: 2026-03-08T13:35:30.258319088+00:00
+  created: 2026-03-08 13:13:16+00:00
+  updated: 2026-03-08 13:35:30.258319+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -791,12 +799,13 @@ roadmap:
 - id: PMAT-048
   github_issue: null
   item_type: task
-  title: 'Falsification gap: CSV missing static_grade/runtime_grade columns — spec 16 claims two-tier grade columns but CSV has single ''grade'' column'
+  title: 'Falsification gap: CSV missing static_grade/runtime_grade columns — spec 16 claims two-tier
+    grade columns but CSV has single ''grade'' column'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:22Z
-  updated: 2026-03-08T13:36:16.472658319+00:00
+  created: 2026-03-08 13:13:22+00:00
+  updated: 2026-03-08 13:36:16.472658+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -807,12 +816,13 @@ roadmap:
 - id: PMAT-049
   github_issue: null
   item_type: task
-  title: 'Falsification gap: CIS hardening recipe 92 RES=45 — spec 16 claims RES≥70 for tagged independent controls'
+  title: 'Falsification gap: CIS hardening recipe 92 RES=45 — spec 16 claims RES≥70 for tagged independent
+    controls'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:23Z
-  updated: 2026-03-08T13:37:02.084089403+00:00
+  created: 2026-03-08 13:13:23+00:00
+  updated: 2026-03-08 13:37:02.084089+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -823,12 +833,13 @@ roadmap:
 - id: PMAT-050
   github_issue: null
   item_type: task
-  title: 'Falsification gap: Dalla Palma correlation test missing — spec 16 claims r≥0.5 threshold but zero code exists'
+  title: 'Falsification gap: Dalla Palma correlation test missing — spec 16 claims r≥0.5 threshold but
+    zero code exists'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:24Z
-  updated: 2026-03-08T13:38:01.210582993+00:00
+  created: 2026-03-08 13:13:24+00:00
+  updated: 2026-03-08 13:38:01.210582+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -843,8 +854,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:25Z
-  updated: 2026-03-08T13:38:49.127388418+00:00
+  created: 2026-03-08 13:13:25+00:00
+  updated: 2026-03-08 13:38:49.127388+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -855,12 +866,13 @@ roadmap:
 - id: PMAT-052
   github_issue: null
   item_type: task
-  title: 'Falsification gap: state-query missing spec-claimed flags (--events, --failures, --destroy-log, --since, --run, --status, --age) and query UX needs positional pattern'
+  title: 'Falsification gap: state-query missing spec-claimed flags (--events, --failures, --destroy-log,
+    --since, --run, --status, --age) and query UX needs positional pattern'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T13:13:27Z
-  updated: 2026-03-08T13:39:33.528107133+00:00
+  created: 2026-03-08 13:13:27+00:00
+  updated: 2026-03-08 13:39:33.528107+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -875,8 +887,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-08T13:49:08Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-08 13:49:08+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -891,8 +903,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-08T16:50:34Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-08 16:50:34+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -907,8 +919,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-08T16:50:35Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-08 16:50:35+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -923,8 +935,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-08T16:50:36Z
-  updated: 2026-03-10T11:01:52Z
+  created: 2026-03-08 16:50:36+00:00
+  updated: 2026-03-10 11:01:52+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -939,8 +951,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-09T11:40:18Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-09 11:40:18+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -955,8 +967,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-09T12:01:23Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-09 12:01:23+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -971,8 +983,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-09T15:41:55Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-09 15:41:55+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria:
   - Support crate[feat1,feat2] syntax for cargo install features and detect empty bin dir
@@ -988,8 +1000,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1004,8 +1016,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1020,8 +1032,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1036,8 +1048,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1052,8 +1064,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1068,8 +1080,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1084,8 +1096,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1100,8 +1112,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T08:43:51Z
-  updated: 2026-03-10T11:01:58Z
+  created: 2026-03-10 08:43:51+00:00
+  updated: 2026-03-10 11:01:58+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1116,11 +1128,12 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-03-10T10:43:55Z
-  updated: 2026-03-10T11:53:56Z
+  created: 2026-03-10 10:43:55+00:00
+  updated: 2026-03-10 11:53:56+00:00
   spec: null
   acceptance_criteria:
-  - Download and install binaries from GitHub Releases via gh CLI. Supports tarball/zip extraction, version verification, and BLAKE3 drift detection.
+  - Download and install binaries from GitHub Releases via gh CLI. Supports tarball/zip extraction, version
+    verification, and BLAKE3 drift detection.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1133,20 +1146,29 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-03-10T15:53:58Z
-  updated: 2026-06-13T12:00:00Z
+  created: 2026-03-10 15:53:58+00:00
+  updated: 2026-06-13 12:00:00+00:00
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - Phases A-C are implemented (generators, dist parsing, CLI flags) — remaining work tracked in PMAT-080/081/082
-  - Homebrew/Nix artifacts contain real checksums and versions, never PLACEHOLDER_CHECKSUM/VERSION (F-3608, PMAT-080)
+  - Homebrew/Nix artifacts contain real checksums and versions, never PLACEHOLDER_CHECKSUM/VERSION (F-3608,
+    PMAT-080)
   - forjar dist --verify implements Phase D Tier 1 static verification (F-3609, PMAT-082)
-  - forjar dist --verify-containers implements Phase D Tier 2 container execution (ubuntu/gnu + alpine/musl installer runs, F-3601)
+  - forjar dist --verify-containers implements Phase D Tier 2 container execution (ubuntu/gnu + alpine/musl
+    installer runs, F-3601)
   - Spec status header reflects per-phase reality instead of PROPOSED (PMAT-084)
   phases: []
   subtasks: []
   estimated_effort: null
   labels: []
-  notes: 'COMPLETED 2026-06-13: all phases shipped. Phases A-C (PMAT-080/081/083/084) + Phase D Tier 1 static verify (PMAT-082, #146) + Phase D Tier 2 container execution (feat/dist-verify-tier2): `--verify-containers` runs the generated installer in ubuntu (gnu) and alpine (musl) containers OFFLINE against a locally-staged tarball (real sha256 verified, real tar extract, install to install_dir, version_cmd run), reusing convergence_container::detect_container_runtime + transport::write_stdin_or_reap. Degrades to a clean skip when no Docker. Container-spawning tests are ignored-in-CI (proxied clean-room HANGS on docker/network — same constraint as PR #153 OCI tests); orchestration is unit-tested hermetically. Live github.com fetch + latest-tag resolution are exercised by the release pipeline, not unit CI.'
+  notes: 'COMPLETED 2026-06-13: all phases shipped. Phases A-C (PMAT-080/081/083/084) + Phase D Tier 1
+    static verify (PMAT-082, #146) + Phase D Tier 2 container execution (feat/dist-verify-tier2): `--verify-containers`
+    runs the generated installer in ubuntu (gnu) and alpine (musl) containers OFFLINE against a locally-staged
+    tarball (real sha256 verified, real tar extract, install to install_dir, version_cmd run), reusing
+    convergence_container::detect_container_runtime + transport::write_stdin_or_reap. Degrades to a clean
+    skip when no Docker. Container-spawning tests are ignored-in-CI (proxied clean-room HANGS on docker/network
+    — same constraint as PR #153 OCI tests); orchestration is unit-tested hermetically. Live github.com
+    fetch + latest-tag resolution are exercised by the release pipeline, not unit CI.'
 - id: GH-129
   github_issue: 129
   item_type: task
@@ -1154,8 +1176,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-05-06T11:56:35.223675687+00:00
-  updated: 2026-06-12T12:00:00Z
+  created: 2026-05-06 11:56:35.223675+00:00
+  updated: 2026-06-12 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - Apply summary distinguishes `converged` from `forced` from `unchanged`
@@ -1168,7 +1190,9 @@ roadmap:
   estimated_effort: null
   labels:
   - bug
-  notes: 'Shipped in v1.4.2 via PR #130 (commit 7bf1cbe3): contracts/apply-summary-distinguishability-v1.yaml, tests/test_fj129_force_distinguishability.rs, CHANGELOG 1.4.2 entry. Outstanding companion-repo CI link tracked outside this repo.'
+  notes: 'Shipped in v1.4.2 via PR #130 (commit 7bf1cbe3): contracts/apply-summary-distinguishability-v1.yaml,
+    tests/test_fj129_force_distinguishability.rs, CHANGELOG 1.4.2 entry. Outstanding companion-repo CI
+    link tracked outside this repo.'
 - id: PMAT-070
   github_issue: null
   item_type: task
@@ -1176,13 +1200,14 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
   - Cargo.lock forjar entry matches Cargo.toml version on main (1.4.2)
   - ci.yml runs `cargo package --locked --no-verify` on every PR and the gate job requires it
-  - 'Root cause documented: release.yml verify failed on every v1.4.x tag with ''uncommitted Cargo.lock'' (run 25434595214)'
+  - 'Root cause documented: release.yml verify failed on every v1.4.x tag with ''uncommitted Cargo.lock''
+    (run 25434595214)'
   phases: []
   subtasks: []
   estimated_effort: 0.5d
@@ -1198,8 +1223,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
   - cargo deny check exits 0 locally and in audit.yml (advisories ok, bans ok, licenses ok, sources ok)
@@ -1217,12 +1242,13 @@ roadmap:
 - id: PMAT-072
   github_issue: null
   item_type: task
-  title: 'REL-3: Durable hosted-runner release path — binary-release.yml on tag push with idempotent release create'
+  title: 'REL-3: Durable hosted-runner release path — binary-release.yml on tag push with idempotent release
+    create'
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
   - binary-release.yml triggers on push tags v* and creates the GitHub Release idempotently on ubuntu-latest
@@ -1240,16 +1266,19 @@ roadmap:
 - id: PMAT-073
   github_issue: null
   item_type: task
-  title: 'SAFE-1: Fix 3 user-input-reachable panics (conditions unquote, script_secret_lint UTF-8, store_pin hash slice)'
+  title: 'SAFE-1: Fix 3 user-input-reachable panics (conditions unquote, script_secret_lint UTF-8, store_pin
+    hash slice)'
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
-  - 'src/core/conditions.rs unquote() requires len >= 2 before stripping quotes; `when: ''x == "''` no longer panics'
-  - src/core/script_secret_lint.rs:129 redaction uses char-boundary-safe truncation via a shared truncate_utf8 helper
+  - 'src/core/conditions.rs unquote() requires len >= 2 before stripping quotes; `when: ''x == "''` no
+    longer panics'
+  - src/core/script_secret_lint.rs:129 redaction uses char-boundary-safe truncation via a shared truncate_utf8
+    helper
   - src/cli/store_pin.rs:146 cmd_pin_check guards &locked_hash[..16] against short/corrupt lockfile hashes
   - Shared helper reused by graph_svg.rs and sbom.rs truncation sites
   - Unit tests + proptest prove no-panic on arbitrary inputs; coverage stays >= 95%
@@ -1260,20 +1289,23 @@ roadmap:
   - sprint-2026-06
   - day-2
   - bug
-  notes: panic=abort in release profile makes these process aborts. All three verified reachable on origin/main 7bf1cbe3.
+  notes: panic=abort in release profile makes these process aborts. All three verified reachable on origin/main
+    7bf1cbe3.
 - id: PMAT-074
   github_issue: null
   item_type: task
-  title: 'CI-1: Remove dead provable-contracts plumbing from remaining 11 workflows + merge dependabot action bumps'
+  title: 'CI-1: Remove dead provable-contracts plumbing from remaining 11 workflows + merge dependabot
+    action bumps'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
   - grep -r provable-contracts .github/workflows/ returns no matches
-  - All workflows still pass after removal (generated_contracts.rs is git-tracked; aprender-contracts from crates.io)
+  - All workflows still pass after removal (generated_contracts.rs is git-tracked; aprender-contracts
+    from crates.io)
   - Dependabot PRs
   phases: []
   subtasks: []
@@ -1282,7 +1314,8 @@ roadmap:
   - sprint-2026-06
   - day-2
   - ci
-  notes: 'Plumbing removed via #131/#133. Dependabot action bumps (#121/#122/#128) deferred - auto-rebase pending.'
+  notes: 'Plumbing removed via #131/#133. Dependabot action bumps (#121/#122/#128) deferred - auto-rebase
+    pending.'
 - id: PMAT-075
   github_issue: null
   item_type: task
@@ -1290,8 +1323,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 22:30:00+00:00
   spec: null
   acceptance_criteria:
   - Cargo.toml + Cargo.lock bumped to 1.4.3 together, CHANGELOG entry written
@@ -1312,13 +1345,14 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 22:30:00+00:00
   spec: null
   acceptance_criteria:
   - Regression tests pin fixes for
   - Issues
-  - Successor issue filed for flaky convergence_parallel_multiple_targets (the real remaining Coverage-workflow failure)
+  - Successor issue filed for flaky convergence_parallel_multiple_targets (the real remaining Coverage-workflow
+    failure)
   - Open-issue count drops from 18 to <= 5
   phases: []
   subtasks: []
@@ -1331,17 +1365,20 @@ roadmap:
 - id: PMAT-077
   github_issue: null
   item_type: task
-  title: 'INST-1: install.sh works end-to-end — SHA256SUMS asset, naming parity test, README/book install rewrite'
+  title: 'INST-1: install.sh works end-to-end — SHA256SUMS asset, naming parity test, README/book install
+    rewrite'
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 22:30:00+00:00
   spec: null
   acceptance_criteria:
   - binary-release.yml uploads a combined SHA256SUMS asset (or install.sh falls back to per-asset .sha256)
-  - Shell test asserts install.sh resolve_asset output matches workflow-produced asset names; bashrs lint clean
-  - README Installation documents binary tarball + install.sh one-liner with the real raw.githubusercontent.com URL
+  - Shell test asserts install.sh resolve_asset output matches workflow-produced asset names; bashrs lint
+    clean
+  - README Installation documents binary tarball + install.sh one-liner with the real raw.githubusercontent.com
+    URL
   - docs/book 01-getting-started.md MSRV corrected 1.85 -> 1.89.0
   - curl installer succeeds on a clean machine for the latest release
   phases: []
@@ -1359,12 +1396,13 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 22:30:00+00:00
   spec: null
   acceptance_criteria:
   - v1.0.0, v1.1.0, v1.1.1, v1.4.0, v1.4.1 have GitHub releases with notes from matching CHANGELOG sections
-  - v1.4.x backfills get binaries via workflow_dispatch (unlocked input for stale-lock tags); v1.0/1.1.x marked superseded, notes-only
+  - v1.4.x backfills get binaries via workflow_dispatch (unlocked input for stale-lock tags); v1.0/1.1.x
+    marked superseded, notes-only
   - Nightly CI step fails on any v* tag lacking a GitHub release
   phases: []
   subtasks: []
@@ -1381,11 +1419,12 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T00:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 00:30:00+00:00
   spec: null
   acceptance_criteria:
-  - v1.4.4 tagged after INST-1/INST-2 merge; release auto-created with binaries + SHA256SUMS + install.sh verified
+  - v1.4.4 tagged after INST-1/INST-2 merge; release auto-created with binaries + SHA256SUMS + install.sh
+    verified
   - No crates.io publish (Friday-only rule)
   phases: []
   subtasks: []
@@ -1402,14 +1441,16 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T22:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 22:30:00+00:00
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
-  - DistArgs gains --version <TAG>; generators resolve real per-target sha256 from the release SHA256SUMS (network) or --checksums-file (offline)
+  - DistArgs gains --version <TAG>; generators resolve real per-target sha256 from the release SHA256SUMS
+    (network) or --checksums-file (offline)
   - Generators hard-error instead of emitting PLACEHOLDER_CHECKSUM/VERSION
   - grep for PLACEHOLDER over generated homebrew formula + nix flake returns nothing
-  - Dogfood artifacts regenerated from dist-forjar.yaml including repo-root flake.nix (currently ships 4 placeholders)
+  - Dogfood artifacts regenerated from dist-forjar.yaml including repo-root flake.nix (currently ships
+    4 placeholders)
   - Falsification tests F-3608 and F-3610 pass
   phases: []
   subtasks: []
@@ -1418,7 +1459,8 @@ roadmap:
   - sprint-2026-06
   - day-5
   - feature
-  notes: 'Placeholder sites verified: dist_generators.rs:416/:457, dist_generators_b.rs:36/:56. platform_args.rs is at 538 lines — split or add to size exceptions when adding flags.'
+  notes: 'Placeholder sites verified: dist_generators.rs:416/:457, dist_generators_b.rs:36/:56. platform_args.rs
+    is at 538 lines — split or add to size exceptions when adding flags.'
 - id: PMAT-081
   github_issue: null
   item_type: task
@@ -1426,12 +1468,14 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T12:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 12:00:00+00:00
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
-  - cmd_dist rejects dist.source values local/url/s3 with a clear 'not yet supported' error instead of generating broken github.com URLs
-  - forjar schema JSON output includes a dist property block mirroring DistConfig (spec line 534 claims it already exists)
+  - cmd_dist rejects dist.source values local/url/s3 with a clear 'not yet supported' error instead of
+    generating broken github.com URLs
+  - forjar schema JSON output includes a dist property block mirroring DistConfig (spec line 534 claims
+    it already exists)
   - Schema snapshot test + error-message tests added
   phases: []
   subtasks: []
@@ -1448,8 +1492,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T12:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 12:00:00+00:00
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
   - DistArgs gains --verify; cmd_dist verify path runs bash -n + bashrs lint on generated install.sh
@@ -1467,16 +1511,19 @@ roadmap:
 - id: PMAT-083
   github_issue: 97
   item_type: task
-  title: 'CONTRACT-1: Author 3 missing provable contracts — idempotent-apply, plan-apply-equivalence, destroy-undo-roundtrip'
+  title: 'CONTRACT-1: Author 3 missing provable contracts — idempotent-apply, plan-apply-equivalence,
+    destroy-undo-roundtrip'
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
-  - contracts/idempotent-apply-v1.yaml formalizes converged-lock => NoOp plan + second-apply-zero-changes, bound to forjar::core::planner
-  - contracts/plan-apply-equivalence-v1.yaml formalizes plan/apply action-set equality with binding.yaml entry
+  - contracts/idempotent-apply-v1.yaml formalizes converged-lock => NoOp plan + second-apply-zero-changes,
+    bound to forjar::core::planner
+  - contracts/plan-apply-equivalence-v1.yaml formalizes plan/apply action-set equality with binding.yaml
+    entry
   - contracts/destroy-undo-roundtrip-v1.yaml formalizes undo-restores-generation with binding.yaml entry
   - build.rs AllImplemented policy passes; issue
   phases: []
@@ -1494,11 +1541,12 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T12:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 12:00:00+00:00
   spec: docs/specifications/platform/25-distribution-artifact-generation.md
   acceptance_criteria:
-  - Spec 25 status header changed from PROPOSED to per-phase status (A-C IMPLEMENTED, D status per DIST-3 outcome)
+  - Spec 25 status header changed from PROPOSED to per-phase status (A-C IMPLEMENTED, D status per DIST-3
+    outcome)
   - CHANGELOG v1.5.0 section covers DIST-1/2/3 + CONTRACT-1
   phases: []
   subtasks: []
@@ -1515,12 +1563,13 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T15:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 15:00:00+00:00
   spec: null
   acceptance_criteria:
   - v1.5.0 tagged Thursday 2026-06-18 evening after DIST/CONTRACT items merge; GitHub release green
-  - cargo publish --dry-run green, then cargo publish from the v1.5.0 tag on Friday 2026-06-19 (credentials present on this host)
+  - cargo publish --dry-run green, then cargo publish from the v1.5.0 tag on Friday 2026-06-19 (credentials
+    present on this host)
   - crates.io newest_version == 1.5.0
   phases: []
   subtasks: []
@@ -1529,7 +1578,8 @@ roadmap:
   - sprint-2026-06
   - day-8
   - release
-  notes: Published forjar v1.6.1 to crates.io 2026-06-13 (early — the 06-12 Friday window was a no-op at the time; brought crates.io current with the 6 GitHub releases rather than waiting to 06-19).
+  notes: Published forjar v1.6.1 to crates.io 2026-06-13 (early — the 06-12 Friday window was a no-op
+    at the time; brought crates.io current with the 6 GitHub releases rather than waiting to 06-19).
 - id: PMAT-086
   github_issue: null
   item_type: task
@@ -1537,13 +1587,15 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
   - CI job builds docs/book with mdbook; intentionally broken SUMMARY link fails CI
-  - 4x 'forjar completions' typos in 06-cli.md fixed to 'forjar completion'; stale '79 subcommands' claim removed
-  - Doc-parity test asserts every Commands enum variant appears in docs/book/src; stub sections added for the 23 undocumented commands
+  - 4x 'forjar completions' typos in 06-cli.md fixed to 'forjar completion'; stale '79 subcommands' claim
+    removed
+  - Doc-parity test asserts every Commands enum variant appears in docs/book/src; stub sections added
+    for the 23 undocumented commands
   phases: []
   subtasks: []
   estimated_effort: 1d
@@ -1559,11 +1611,12 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T01:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 01:00:00+00:00
   spec: null
   acceptance_criteria:
-  - pmat tdg --min-grade B+ exits 0 for anomaly.rs, undo_helpers.rs, image_cmd.rs, layer_builder.rs, image_assembler.rs, unknown_fields.rs
+  - pmat tdg --min-grade B+ exits 0 for anomaly.rs, undo_helpers.rs, image_cmd.rs, layer_builder.rs, image_assembler.rs,
+    unknown_fields.rs
   - No function above cyclomatic complexity 10 in the six files; no production .unwrap() outside cfg(test)
   - Strict pre-commit hook re-enabled (BLOCK_ON_NEW_FILES restored); issue
   phases: []
@@ -1581,11 +1634,12 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T02:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 02:00:00+00:00
   spec: null
   acceptance_criteria:
-  - Lib tests added per tests_cov_* pattern for cmd_dist (0%), apply_mode_exits (23%), cmd_canary/cmd_rolling (24%), dispatch_infra_cmd (6%)
+  - Lib tests added per tests_cov_* pattern for cmd_dist (0%), apply_mode_exits (23%), cmd_canary/cmd_rolling
+    (24%), dispatch_infra_cmd (6%)
   - Overall lib line coverage rises from 96.27%; function coverage from 92.37%
   phases: []
   subtasks: []
@@ -1594,7 +1648,8 @@ roadmap:
   - sprint-2026-06
   - day-10
   - debt
-  notes: 'Stretch follow-ons: OCI registry_push test server, SSH control-master extraction, L3-L5 coverage persistence (v1.6.0 anchor).'
+  notes: 'Stretch follow-ons: OCI registry_push test server, SSH control-master extraction, L3-L5 coverage
+    persistence (v1.6.0 anchor).'
 - id: PMAT-089
   github_issue: null
   item_type: task
@@ -1602,8 +1657,8 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-12T12:00:00Z
-  updated: 2026-06-13T12:00:00Z
+  created: 2026-06-12 12:00:00+00:00
+  updated: 2026-06-13 12:00:00+00:00
   spec: null
   acceptance_criteria:
   - v1.5.1 tagged after TDG-1/COV-1/DOCS-1 merge; GitHub release green with full asset set
@@ -1615,7 +1670,9 @@ roadmap:
   - sprint-2026-06
   - day-10
   - release
-  notes: superseded — v1.5.1 folded into v1.6.0 (single minor release). The separate v1.5.1 quality/docs patch tag was not cut; its TDG-1/COV-1/DOCS-1 content shipped as part of the v1.6.0 minor release instead of a standalone v1.5.1 point release.
+  notes: superseded — v1.5.1 folded into v1.6.0 (single minor release). The separate v1.5.1 quality/docs
+    patch tag was not cut; its TDG-1/COV-1/DOCS-1 content shipped as part of the v1.6.0 minor release
+    instead of a standalone v1.5.1 point release.
 - id: PMAT-090
   github_issue: 134
   item_type: task
@@ -1623,11 +1680,12 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-12T20:30:00Z
-  updated: 2026-06-12T20:30:00Z
+  created: 2026-06-12 20:30:00+00:00
+  updated: 2026-06-12 20:30:00+00:00
   spec: null
   acceptance_criteria:
-  - core::gitenv module scrubs all nine git repo-discovery env vars; every production git call site uses it
+  - core::gitenv module scrubs all nine git repo-discovery env vars; every production git call site uses
+    it
   - test_auto_commit_in_git_repo setup immune to hook-inherited GIT_DIR
   - Behavioral test demonstrates the hijack for unscrubbed commands and immunity for gitenv constructors
   phases: []
@@ -1637,7 +1695,8 @@ roadmap:
   - sprint-2026-06
   - day-2
   - bug
-  notes: 'Discovered mid-sprint: pre-push suite runs corrupted the host repo (stray commits, staged state/ deletions, core.bare flip). Fixed in #137.'
+  notes: 'Discovered mid-sprint: pre-push suite runs corrupted the host repo (stray commits, staged state/
+    deletions, core.bare flip). Fixed in #137.'
 - id: PMAT-091
   github_issue: 154
   item_type: task
@@ -1645,8 +1704,8 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-13T01:30:00Z
-  updated: 2026-06-13T02:00:00Z
+  created: 2026-06-13 01:30:00+00:00
+  updated: 2026-06-13 02:00:00+00:00
   spec: null
   acceptance_criteria:
   - All 28 double-refuted bug-hunt defects fixed (PRs
@@ -1668,12 +1727,14 @@ roadmap:
   status: completed
   priority: high
   assigned_to: null
-  created: 2026-06-13T02:30:00Z
-  updated: 2026-06-13T03:00:00Z
+  created: 2026-06-13 02:30:00+00:00
+  updated: 2026-06-13 03:00:00+00:00
   spec: null
   acceptance_criteria:
-  - Audit of v1.6.0 fix/feature code (the implementations the original hunt predated) found 9 double-refuted defects
-  - 'All fixed file-disjoint (PRs #166-#169): lock livelock/TOCTOU/PID-kill, shell-escape gaps, moved post-expansion, pre_apply retry, coverage demotion, Tier-2 checksum'
+  - Audit of v1.6.0 fix/feature code (the implementations the original hunt predated) found 9 double-refuted
+    defects
+  - 'All fixed file-disjoint (PRs #166-#169): lock livelock/TOCTOU/PID-kill, shell-escape gaps, moved
+    post-expansion, pre_apply retry, coverage demotion, Tier-2 checksum'
   - Shipped as v1.6.1
   phases: []
   subtasks: []
@@ -1682,7 +1743,8 @@ roadmap:
   - sprint-2026-06
   - day-10
   - bug
-  notes: 'Standout: the #159 O_EXCL lock rewrite introduced a 100%-CPU livelock regression; caught before users hit it. Closes #165.'
+  notes: 'Standout: the #159 O_EXCL lock rewrite introduced a 100%-CPU livelock regression; caught before
+    users hit it. Closes #165.'
 - id: PMAT-093
   github_issue: null
   item_type: task
@@ -1690,12 +1752,13 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-06-13T15:00:00Z
-  updated: 2026-06-13T16:45:00Z
+  created: 2026-06-13 15:00:00+00:00
+  updated: 2026-06-13 16:45:00+00:00
   spec: null
   acceptance_criteria:
   - Added .claude/skills/dogfood/SKILL.md (contract-first read-only QA) (#176)
-  - Ran it; fixed all 3 findings — README C9 (#180), check --state-dir (#182), 4 stale examples + CI guard (#181)
+  - Ran it; fixed all 3 findings — README C9 (#180), check --state-dir (#182), 4 stale examples + CI guard
+    (#181)
   - Re-dogfooded clean (GO); shipped as v1.6.2 to GitHub + crates.io
   phases: []
   subtasks: []
@@ -1704,7 +1767,8 @@ roadmap:
   - sprint-2026-06
   - dogfood
   - docs
-  notes: Dogfood found 2 false positives too (validate-pipe-exit, undo vs undo-destroy) — caught by the skill discipline, not filed.
+  notes: Dogfood found 2 false positives too (validate-pipe-exit, undo vs undo-destroy) — caught by the
+    skill discipline, not filed.
 - id: PMAT-130
   github_issue: null
   item_type: task
@@ -1712,11 +1776,12 @@ roadmap:
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-06-25T06:36:44Z
-  updated: 2026-06-25T06:36:44Z
+  created: 2026-06-25 06:36:44+00:00
+  updated: 2026-06-25 06:36:44+00:00
   spec: null
   acceptance_criteria:
-  - Native DNS/DHCP-independent fleet overlay resource (static secondary IP + self-heal service/timer/dispatcher), replacing machines/fleet-hosts shell installer
+  - Native DNS/DHCP-independent fleet overlay resource (static secondary IP + self-heal service/timer/dispatcher),
+    replacing machines/fleet-hosts shell installer
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1729,11 +1794,14 @@ roadmap:
   status: inprogress
   priority: medium
   assigned_to: null
-  created: 2026-06-25T06:55:01Z
-  updated: 2026-06-25T06:55:03.173996208+00:00
+  created: 2026-06-25 06:55:01+00:00
+  updated: 2026-06-25 06:55:03.173996+00:00
   spec: null
   acceptance_criteria:
-  - 'PMAT-130 capstone: A) add overlay_hosts to desired-state hash collector; B) RFC5227 arping -D duplicate-address defense + injective overlay_ip plan check; C) /run/fleet-overlay/status.json heartbeat + nonzero-exit-on-absent + drift heartbeat; D) jittered fleet-overlay.timer; E) provable contract overlay-interface-v1.yaml + bindings + falsification tests'
+  - 'PMAT-130 capstone: A) add overlay_hosts to desired-state hash collector; B) RFC5227 arping -D duplicate-address
+    defense + injective overlay_ip plan check; C) /run/fleet-overlay/status.json heartbeat + nonzero-exit-on-absent
+    + drift heartbeat; D) jittered fleet-overlay.timer; E) provable contract overlay-interface-v1.yaml
+    + bindings + falsification tests'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1746,11 +1814,18 @@ roadmap:
   status: completed
   priority: medium
   assigned_to: null
-  created: 2026-08-18T17:32:28Z
-  updated: 2026-08-18T17:50:07.016816650+00:00
+  created: 2026-08-18 17:32:28+00:00
+  updated: 2026-08-18 17:50:07.016816+00:00
   spec: null
   acceptance_criteria:
-  - '1) The unresolved-secret guard added alongside GH-254-era work lived in the executor and aborted the whole apply on any resource''s unresolved {{secrets.*}} anywhere on the machine; moved to codegen dispatch so only the offending resource fails. 2) GH-254''s re-assertion of completion_check in task apply scripts interpolated a multi-line YAML block-scalar check directly before '' ; }; then'', and the block scalar''s trailing newline put the semicolon on its own line -- an empty statement right after a newline that already terminated the previous command, which bash rejects as a syntax error. Found live on paiml/infra''s machines/intel/forjar.yaml: 14 resources failed identically on a --force apply.'
+  - '1) The unresolved-secret guard added alongside GH-254-era work lived in the executor and aborted
+    the whole apply on any resource''s unresolved {{secrets.*}} anywhere on the machine; moved to codegen
+    dispatch so only the offending resource fails. 2) GH-254''s re-assertion of completion_check in task
+    apply scripts interpolated a multi-line YAML block-scalar check directly before '' ; }; then'', and
+    the block scalar''s trailing newline put the semicolon on its own line -- an empty statement right
+    after a newline that already terminated the previous command, which bash rejects as a syntax error.
+    Found live on paiml/infra''s machines/intel/forjar.yaml: 14 resources failed identically on a --force
+    apply.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1763,11 +1838,16 @@ roadmap:
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-08-18T17:42:23Z
-  updated: 2026-08-18T17:42:23Z
+  created: 2026-08-18 17:42:23+00:00
+  updated: 2026-08-18 17:42:23+00:00
   spec: null
   acceptance_criteria:
-  - 238 functions exceed complexity 20, 7 files exceed 500 lines (incl. the 31171-line generated_contracts.rs), 56 untested match arms in src/core/codegen/dispatch.rs, and this session's convention of not pushing branches without being asked. All pre-existing, none introduced by or touched in PMAT-132's 2 fixes (secret-guard relocation to codegen dispatch; multi-line completion_check bash-syntax fix in task.rs). Tracked here so PMAT-132 can close honestly via --override-claims rather than silently skip its own falsification gate.
+  - 238 functions exceed complexity 20, 7 files exceed 500 lines (incl. the 31171-line generated_contracts.rs),
+    56 untested match arms in src/core/codegen/dispatch.rs, and this session's convention of not pushing
+    branches without being asked. All pre-existing, none introduced by or touched in PMAT-132's 2 fixes
+    (secret-guard relocation to codegen dispatch; multi-line completion_check bash-syntax fix in task.rs).
+    Tracked here so PMAT-132 can close honestly via --override-claims rather than silently skip its own
+    falsification gate.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1782,11 +1862,18 @@ roadmap:
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-08-19T08:51:46Z
-  updated: 2026-08-19T08:51:46Z
+  created: 2026-08-19 08:51:46+00:00
+  updated: 2026-08-19 08:51:46+00:00
   spec: null
   acceptance_criteria:
-  - 'forjar''s cargo provider check ran ''cargo install --list'' — cargo''s install RECORD — and treated a listed crate as installed. rust-cache''s post step deletes the real files in a shared ~/.cargo/bin without updating that record, so on intel 2026-08-19 forjar reported rustup-installer and stack-tool-{copia,forjar,pmat,pzsh} as ''no changes'' on a host with no rustup, no cargo and no rustc: 5 of 5 falsely converged, exit 0. Fix: use the record only to learn WHICH binaries a crate owns, then run each one, resolving through $CARGO_HOME/bin so GH-257''s PATH-independence survives. Includes a cargo-subcommand fallback (cargo-X X --version) because cargo-mutants and cargo-llvm-cov reject a bare --version and would otherwise be reported missing forever, forcing a ~10min recompile per apply.'
+  - 'forjar''s cargo provider check ran ''cargo install --list'' — cargo''s install RECORD — and treated
+    a listed crate as installed. rust-cache''s post step deletes the real files in a shared ~/.cargo/bin
+    without updating that record, so on intel 2026-08-19 forjar reported rustup-installer and stack-tool-{copia,forjar,pmat,pzsh}
+    as ''no changes'' on a host with no rustup, no cargo and no rustc: 5 of 5 falsely converged, exit
+    0. Fix: use the record only to learn WHICH binaries a crate owns, then run each one, resolving through
+    $CARGO_HOME/bin so GH-257''s PATH-independence survives. Includes a cargo-subcommand fallback (cargo-X
+    X --version) because cargo-mutants and cargo-llvm-cov reject a bare --version and would otherwise
+    be reported missing forever, forcing a ~10min recompile per apply.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1799,11 +1886,23 @@ roadmap:
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-08-19T09:12:10Z
-  updated: 2026-08-19T09:12:10Z
+  created: 2026-08-19 09:12:10+00:00
+  updated: 2026-08-19 09:12:10+00:00
   spec: null
   acceptance_criteria:
-  - 'Two defects found by falsifying the PMAT-134 fix against the live host. (1) ApplyConfig::refresh was declared, documented in --help as ''Re-run check scripts, only re-apply what fails'', threaded through every call site, and read by NOTHING in production code. ''forjar apply --refresh'' returned in 0.1s without contacting the host and reported ''1 unchanged'' over a dangling symlink whose own check script printed ''missing:'' and exited 1. This is the mechanism by which the 2026-08-19 toolchain outage stayed invisible: apply decides from the lock file, never the host. Fixed via refresh_locks - run each in-scope resource''s check on its host, evict failing lock entries so the planner re-plans exactly those; scoped by -t/-r/-m; exit 2 (not-applicable) and transport errors are not failures. Plain apply stays lock-based, pinned by a test. (2) Once refresh worked the apply died on ''cp: not writing through dangling symlink'' - the one state the resource most needs to repair. ''cp -f'' is refused too (verified on host). Placement changed to ''install -m 755'' (POSIX; cp --remove-destination is GNU-only). Verified end-to-end on intel: inject dangling symlink, apply --refresh, 1 converged, pzsh 0.3.6 restored as a real file.'
+  - 'Two defects found by falsifying the PMAT-134 fix against the live host. (1) ApplyConfig::refresh
+    was declared, documented in --help as ''Re-run check scripts, only re-apply what fails'', threaded
+    through every call site, and read by NOTHING in production code. ''forjar apply --refresh'' returned
+    in 0.1s without contacting the host and reported ''1 unchanged'' over a dangling symlink whose own
+    check script printed ''missing:'' and exited 1. This is the mechanism by which the 2026-08-19 toolchain
+    outage stayed invisible: apply decides from the lock file, never the host. Fixed via refresh_locks
+    - run each in-scope resource''s check on its host, evict failing lock entries so the planner re-plans
+    exactly those; scoped by -t/-r/-m; exit 2 (not-applicable) and transport errors are not failures.
+    Plain apply stays lock-based, pinned by a test. (2) Once refresh worked the apply died on ''cp: not
+    writing through dangling symlink'' - the one state the resource most needs to repair. ''cp -f'' is
+    refused too (verified on host). Placement changed to ''install -m 755'' (POSIX; cp --remove-destination
+    is GNU-only). Verified end-to-end on intel: inject dangling symlink, apply --refresh, 1 converged,
+    pzsh 0.3.6 restored as a real file.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1816,11 +1915,31 @@ roadmap:
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-08-29T18:00:00Z
-  updated: 2026-08-29T18:00:00Z
+  created: 2026-08-29 18:00:00+00:00
+  updated: 2026-08-29 18:00:00+00:00
   spec: null
   acceptance_criteria:
-  - 'Three code paths placed an executable with a plain ''cp'', which opens the destination in place and is therefore refused by the kernel for a RUNNING binary (ETXTBSY, "Text file busy") and by coreutils for a DANGLING SYMLINK — the two states forjar most needs to repair. Verified by executing the generated shell, not by reading it: github_release.rs:147 (live on the fleet for rclone, age, sops into /usr/local/bin and apr, batuta, renacer into a shared ~/.cargo/bin) and dist_generators.rs:384/399, the generated install.sh — the ''curl | sh'' path by which every sovereign tool is UPGRADED, so the destination is routinely the binary the user just ran. The cost was a machine: paiml/infra''s lambda-labs self-applies, so its forjar.yaml left forjar undeclared (":155", ":207") and the box drifted to 1.20.1 while the fleet ran 1.21.x, which made its sovereign YAML guard NO-GO. NOTE the ":207" claim — that a cargo resource cannot re-install the running forjar — was already FALSE: the cargo provider moved to install(1) in v1.15.0 (PMAT-135) and cargo install itself stages and renames. (2) install(1), PMAT-135''s fix, clears both refusals but is NOT atomic: GNU unlinks the destination then creates it, so the path is briefly absent and a concurrent exec fails ENOENT — which matters on a host where sixteen CI runners share one $CARGO_HOME/bin. Measured on lambda-labs over 4000 replacements: install(1) 10611 absent of 396132 stats; temp+mv 0 of 741725. Fix: one emitted shell helper, core::shell_install::_fj_install_bin — stage a SIBLING of the destination (so the rename stays on one filesystem) then mv -f, i.e. rename(2), which neither opens the destination nor follows it and leaves no window. Used by all three sites, replacing both cp and install(1) so there is one mechanism rather than three. Poka-yoke: tests/falsification_replace_running_binary.rs executes each generator against a genuinely running binary and a genuinely dangling symlink, and proven to discriminate by reverting the helper to cp (4 red) and to install(1) (the atomicity probe red, 10252 of 356398 absent).'
+  - 'Three code paths placed an executable with a plain ''cp'', which opens the destination in place and
+    is therefore refused by the kernel for a RUNNING binary (ETXTBSY, "Text file busy") and by coreutils
+    for a DANGLING SYMLINK — the two states forjar most needs to repair. Verified by executing the generated
+    shell, not by reading it: github_release.rs:147 (live on the fleet for rclone, age, sops into /usr/local/bin
+    and apr, batuta, renacer into a shared ~/.cargo/bin) and dist_generators.rs:384/399, the generated
+    install.sh — the ''curl | sh'' path by which every sovereign tool is UPGRADED, so the destination
+    is routinely the binary the user just ran. The cost was a machine: paiml/infra''s lambda-labs self-applies,
+    so its forjar.yaml left forjar undeclared (":155", ":207") and the box drifted to 1.20.1 while the
+    fleet ran 1.21.x, which made its sovereign YAML guard NO-GO. NOTE the ":207" claim — that a cargo
+    resource cannot re-install the running forjar — was already FALSE: the cargo provider moved to install(1)
+    in v1.15.0 (PMAT-135) and cargo install itself stages and renames. (2) install(1), PMAT-135''s fix,
+    clears both refusals but is NOT atomic: GNU unlinks the destination then creates it, so the path is
+    briefly absent and a concurrent exec fails ENOENT — which matters on a host where sixteen CI runners
+    share one $CARGO_HOME/bin. Measured on lambda-labs over 4000 replacements: install(1) 10611 absent
+    of 396132 stats; temp+mv 0 of 741725. Fix: one emitted shell helper, core::shell_install::_fj_install_bin
+    — stage a SIBLING of the destination (so the rename stays on one filesystem) then mv -f, i.e. rename(2),
+    which neither opens the destination nor follows it and leaves no window. Used by all three sites,
+    replacing both cp and install(1) so there is one mechanism rather than three. Poka-yoke: tests/falsification_replace_running_binary.rs
+    executes each generator against a genuinely running binary and a genuinely dangling symlink, and proven
+    to discriminate by reverting the helper to cp (4 red) and to install(1) (the atomicity probe red,
+    10252 of 356398 absent).'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1829,15 +1948,25 @@ roadmap:
 - id: PMAT-159
   github_issue: null
   item_type: task
-  title: 'sudo: true ran nothing for a non-root user — the wrapper passed the script on fd 3 and sudo closes fd 3'
+  title: 'sudo: true ran nothing for a non-root user — the wrapper passed the script on fd 3 and sudo
+    closes fd 3'
   status: inprogress
   priority: high
   assigned_to: null
-  created: 2026-09-05T08:49:18Z
-  updated: 2026-09-05T08:50:21.253426742+00:00
+  created: 2026-09-05 08:49:18+00:00
+  updated: 2026-09-05 08:50:21.253426+00:00
   spec: null
   acceptance_criteria:
-  - 'Measured 2026-09-05 on lambda-labs, forjar 1.24.0: in_declared_privilege_context (src/core/codegen/dispatch.rs) emits ''sudo bash /dev/fd/3 3<<DELIM'' for every sudo: true resource run by a non-root user. sudo''s closefrom default closes every descriptor >= 3 before exec, so the elevated bash reports ''/dev/fd/3: No such file or directory'' and exits 127 — apply, check and state_query alike, since all three share the wrapper. Repro: ''sudo bash /dev/fd/3 3<<<echo'' fails, ''sudo bash -s <<<echo'' works. The unit tests asserted the TEXT of the form and stayed green. Fix: cross the sudo boundary as a private 0600 temp file (mktemp, quoted heredoc, ''sudo bash <tmp>'', EXIT trap removes it), keeping stdin as the transport left it. Tests: unit test asserting no /dev/fd in the sudo form; integration test that EXECUTES the wrapper under real sudo (gated on uid != 0 and ''sudo -n true''), asserting exit code, stdout and that the temp file is gone; discrimination proven by reverting the emitter.'
+  - 'Measured 2026-09-05 on lambda-labs, forjar 1.24.0: in_declared_privilege_context (src/core/codegen/dispatch.rs)
+    emits ''sudo bash /dev/fd/3 3<<DELIM'' for every sudo: true resource run by a non-root user. sudo''s
+    closefrom default closes every descriptor >= 3 before exec, so the elevated bash reports ''/dev/fd/3:
+    No such file or directory'' and exits 127 — apply, check and state_query alike, since all three share
+    the wrapper. Repro: ''sudo bash /dev/fd/3 3<<<echo'' fails, ''sudo bash -s <<<echo'' works. The unit
+    tests asserted the TEXT of the form and stayed green. Fix: cross the sudo boundary as a private 0600
+    temp file (mktemp, quoted heredoc, ''sudo bash <tmp>'', EXIT trap removes it), keeping stdin as the
+    transport left it. Tests: unit test asserting no /dev/fd in the sudo form; integration test that EXECUTES
+    the wrapper under real sudo (gated on uid != 0 and ''sudo -n true''), asserting exit code, stdout
+    and that the temp file is gone; discrimination proven by reverting the emitter.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1846,18 +1975,54 @@ roadmap:
 - id: PMAT-160
   github_issue: 466
   item_type: task
-  title: 'apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip and the machine selector (#467), --subset resolves depends_on by graph closure (#468) — one PR, one code path: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply'
+  title: 'apply filter pipeline: --dry-run honours -r/-g (#466), --check honours --subset/--exclude/-g/--skip
+    and the machine selector (#467), --subset resolves depends_on by graph closure (#468) — one PR, one
+    code path: parse -> validate the full graph -> filter by graph closure -> validate the selection ->
+    check | dry-run | apply'
   status: inprogress
   priority: medium
   assigned_to: null
-  created: 2026-09-05T17:08:33Z
-  updated: 2026-09-05T17:53:20Z
+  created: 2026-09-05 17:08:33+00:00
+  updated: 2026-09-05 17:53:20+00:00
   spec: null
   acceptance_criteria:
-  - 'Measured 2026-09-05 on forjar 1.25.2 against paiml/infra (found by paiml/infra#442), three bugs in one family: (#466) apply --dry-run -r stack-tool-forjar listed all 139 lambda-labs resources as ''would execute'' while the executor and the confirmation count scoped to one; (#467) apply --check --subset screen-sharing on mini ran every one of 32 resources, never printed the ''Subset filter ... selected'' line apply prints, and exited 1 on four drifts outside the subset — and --check cannot take --exclude / -g / --skip at all; (#468) apply --subset stack-tool-forjar (and --dry-run --subset) was refused with "depends on unknown ''rustup-installer''" although the file declares it and the lock has it converged, while -r stack-tool-forjar converged. Root causes: the dry-run listing renders the unscoped plan; dispatch_apply_b.rs returns into cmd_check before apply_scope/apply_filters run; apply_gates::filter_subset prunes config.resources before resolver::build_execution_order validates edges.'
-  - 'Fix is ONE code path in ONE PR, in this order: parse -> validate the full graph -> filter by graph closure -> validate the selection -> check | dry-run | apply. Every resource-set selector (-r, -g, --subset, --resource-filter, make goals, and the negatives --exclude, --skip, --only-machine, --exclude-machine) is resolved exactly once — full graph validated, closure taken, negatives contracted, selection re-validated — and apply --check, --dry-run and the real apply all consume that set; none of the three re-derives its own resource selection. -m stays the executor-level machine filter and lock selector it is today (a closure must not pull a dependency across machines, and unscoped and -m paths stay byte-identical); -t stays the plan-level tag filter. The CLI still dispatches per mode; the one code path is the selection pipeline (Selectors + resolve_selection) that every mode calls. The standalone `forjar check` command shares cmd_check and resolves through the same pipeline, so `check -r` follows the closure and a selector naming nothing is refused. The selection expands to its depends_on closure and says so (''Subset filter x: 1 selected, +1 dependency''), the way apply_goal_closure already does for goals; a declared dependency outside the selection is never reported as unknown. --check accepts --subset/--exclude/-g/--skip and the machine selector and prints the same selection line as the apply it stands in for.'
-  - 'Falsifiable, with a fixture where a depends_on b and c is unrelated: (a) apply --dry-run -r a lists exactly a and b, and the listing count equals the summary count and the --json body; (b) apply --check --subset a checks exactly a and b, never c, and exits 0 while c drifts; (c) apply --subset a converges a after b with no unknown-dependency refusal; (d) one test runs --check --subset X, --dry-run --subset X and --subset X over the same config and asserts the three selected key sets are identical, and repeats that for -r, -g, --exclude and --skip. The existing plan_selector tests and tests_gh_dogfood_p1 / tests_cov_apply_b stay green.'
-  - 'Starting point is the two unpushed commits on fix/dry-run-honours-resource-filter (5b20cb41 scoped_dry_run_plan, d7da5996 roadmap); they are carried forward, not rewritten. The whole widened diff is quorumed by three real agy lanes against this ticket — no waiver; the existing .quorum/evidence/PMAT-160-agy-3-lanes.json covered head 5b20cb41 only and is superseded by the receipt for the final head. CHANGELOG names #466 #467 #468; contracts/flag-has-effect-v1.yaml gains rows for --check x {--subset,--exclude,-g,--skip,-m} and --dry-run x {-r,-g}; the release gate (clean-room) must pass. Closes #466, #467, #468.'
+  - 'Measured 2026-09-05 on forjar 1.25.2 against paiml/infra (found by paiml/infra#442), three bugs in
+    one family: (#466) apply --dry-run -r stack-tool-forjar listed all 139 lambda-labs resources as ''would
+    execute'' while the executor and the confirmation count scoped to one; (#467) apply --check --subset
+    screen-sharing on mini ran every one of 32 resources, never printed the ''Subset filter ... selected''
+    line apply prints, and exited 1 on four drifts outside the subset — and --check cannot take --exclude
+    / -g / --skip at all; (#468) apply --subset stack-tool-forjar (and --dry-run --subset) was refused
+    with "depends on unknown ''rustup-installer''" although the file declares it and the lock has it converged,
+    while -r stack-tool-forjar converged. Root causes: the dry-run listing renders the unscoped plan;
+    dispatch_apply_b.rs returns into cmd_check before apply_scope/apply_filters run; apply_gates::filter_subset
+    prunes config.resources before resolver::build_execution_order validates edges.'
+  - 'Fix is ONE code path in ONE PR, in this order: parse -> validate the full graph -> filter by graph
+    closure -> validate the selection -> check | dry-run | apply. Every resource-set selector (-r, -g,
+    --subset, --resource-filter, make goals, and the negatives --exclude, --skip, --only-machine, --exclude-machine)
+    is resolved exactly once — full graph validated, closure taken, negatives contracted, selection re-validated
+    — and apply --check, --dry-run and the real apply all consume that set; none of the three re-derives
+    its own resource selection. -m stays the executor-level machine filter and lock selector it is today
+    (a closure must not pull a dependency across machines, and unscoped and -m paths stay byte-identical);
+    -t stays the plan-level tag filter. The CLI still dispatches per mode; the one code path is the selection
+    pipeline (Selectors + resolve_selection) that every mode calls. The standalone `forjar check` command
+    shares cmd_check and resolves through the same pipeline, so `check -r` follows the closure and a selector
+    naming nothing is refused. The selection expands to its depends_on closure and says so (''Subset filter
+    x: 1 selected, +1 dependency''), the way apply_goal_closure already does for goals; a declared dependency
+    outside the selection is never reported as unknown. --check accepts --subset/--exclude/-g/--skip and
+    the machine selector and prints the same selection line as the apply it stands in for.'
+  - 'Falsifiable, with a fixture where a depends_on b and c is unrelated: (a) apply --dry-run -r a lists
+    exactly a and b, and the listing count equals the summary count and the --json body; (b) apply --check
+    --subset a checks exactly a and b, never c, and exits 0 while c drifts; (c) apply --subset a converges
+    a after b with no unknown-dependency refusal; (d) one test runs --check --subset X, --dry-run --subset
+    X and --subset X over the same config and asserts the three selected key sets are identical, and repeats
+    that for -r, -g, --exclude and --skip. The existing plan_selector tests and tests_gh_dogfood_p1 /
+    tests_cov_apply_b stay green.'
+  - 'Starting point is the two unpushed commits on fix/dry-run-honours-resource-filter (5b20cb41 scoped_dry_run_plan,
+    d7da5996 roadmap); they are carried forward, not rewritten. The whole widened diff is quorumed by
+    three real agy lanes against this ticket — no waiver; the existing .quorum/evidence/PMAT-160-agy-3-lanes.json
+    covered head 5b20cb41 only and is superseded by the receipt for the final head. CHANGELOG names #466
+    #467 #468; contracts/flag-has-effect-v1.yaml gains rows for --check x {--subset,--exclude,-g,--skip,-m}
+    and --dry-run x {-r,-g}; the release gate (clean-room) must pass. Closes #466, #467, #468.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1869,20 +2034,56 @@ roadmap:
 - id: PMAT-161
   github_issue: 469
   item_type: task
-  title: 'state stamp keyed by config name (as the lock is): apply, status and the wrong-stack guard support a shared state dir; every restore verb refuses a multi-stack dir until PMAT-162; single-stamp state migrates on first apply (#469)'
+  title: 'state stamp keyed by config name (as the lock is): apply, status and the wrong-stack guard support
+    a shared state dir; every restore verb refuses a multi-stack dir until PMAT-162; single-stamp state
+    migrates on first apply (#469)'
   status: inprogress
   priority: medium
   assigned_to: null
-  created: 2026-09-05T17:53:20Z
-  updated: 2026-09-06T08:09:21.005820513+00:00
+  created: 2026-09-05 17:53:20+00:00
+  updated: 2026-09-06 08:09:21.005820+00:00
   spec: null
   acceptance_criteria:
-  - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:), and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room''; this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each touched only its own lock section. The lock file is already keyed by config name; the stamp is a single value, so for this layout the warning is a false positive on every apply and undo refuses a layout apply supports.'
-  - 'Fix: the state stamp becomes a per-name map keyed exactly as the lock is (name -> {file, applied_at, ...}); apply writes only its own name''s entry. The #377 warning fires only when the SAME name''s entry was last written from a different -f (the rename / wrong-stack case it was built for) — that case still warns, and the #377 tests stay green with their intent unchanged. Six stacks through one state dir produce zero warnings.'
-  - 'NARROWED 2026-09-06 (owner decision): generations are numbered per state dir and a restore is whole-dir, so stack-scoped restore is spec-first (PMAT-162). This release: undo, undo --resume, rollback and apply --rollback-on-failure REFUSE — before anything is destroyed or applied — while the dir holds more than one stack, naming PMAT-162 and listing the stacks; a single-stack dir (including a migrated legacy one) restores exactly as before. A rename (same file, new name) is one lineage: the old stamp is retired on the next apply and undo''s replay stamps as the invoking stack.'
-  - 'Migration: a state dir carrying the old single stamp is migrated on the first apply (or undo) that reads it — the old stamp becomes the entry for its own name, nothing is dropped, the sidecar/integrity hash is re-sealed by the same write, and no warning fires on that first apply unless the #377 condition genuinely holds. Migration is idempotent and covered by a test whose fixture was written in the pre-fix format; an older forjar reading the new format fails closed with a message naming the format, never silently.'
-  - 'Widened after the plan grill (agy teamwork lane, 2026-09-06): calling the layout supported also requires (i) a machine-ownership guard — a machine name already recorded under another stack''s entry is the same wrong-stack condition as a same-name-different-file stamp (warn on apply, refuse on undo), because generations and per-machine locks are keyed by machine name only; (ii) per-stack outputs — persist_outputs merges this stack''s outputs into the map and removes only keys this stack owned, instead of replacing the whole map; (iii) forjar status attributes each machine to the stack that wrote it, from the stacks map, not to the last-applied name; (iv) the config identity in the stamp is the config path relative to the state dir when both share a tree (absolute otherwise), so the same checkout layout at another path is the same stack; (v) a migrated legacy stamp (file unknown) matches any file on the first post-upgrade apply and is then pinned — documented as the one-apply window.'
-  - 'Documented: shared --state-dir (one state dir, N configs, each applied with -f machines/<m>/forjar.yaml --state-dir state) is stated as supported for apply, status and the wrong-stack guard in the state-dir book page and the --state-dir CLI help, with the two refusal conditions and the multi-stack restore refusal explained next to it. CHANGELOG entry references #469 and #377; the PR answers and closes #469.'
+  - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra
+    keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:),
+    and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different
+    configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room'';
+    this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each
+    touched only its own lock section. The lock file is already keyed by config name; the stamp is a single
+    value, so for this layout the warning is a false positive on every apply and undo refuses a layout
+    apply supports.'
+  - 'Fix: the state stamp becomes a per-name map keyed exactly as the lock is (name -> {file, applied_at,
+    ...}); apply writes only its own name''s entry. The #377 warning fires only when the SAME name''s
+    entry was last written from a different -f (the rename / wrong-stack case it was built for) — that
+    case still warns, and the #377 tests stay green with their intent unchanged. Six stacks through one
+    state dir produce zero warnings.'
+  - 'NARROWED 2026-09-06 (owner decision): generations are numbered per state dir and a restore is whole-dir,
+    so stack-scoped restore is spec-first (PMAT-162). This release: undo, undo --resume, rollback and
+    apply --rollback-on-failure REFUSE — before anything is destroyed or applied — while the dir holds
+    more than one stack, naming PMAT-162 and listing the stacks; a single-stack dir (including a migrated
+    legacy one) restores exactly as before. A rename (same file, new name) is one lineage: the old stamp
+    is retired on the next apply and undo''s replay stamps as the invoking stack.'
+  - 'Migration: a state dir carrying the old single stamp is migrated on the first apply (or undo) that
+    reads it — the old stamp becomes the entry for its own name, nothing is dropped, the sidecar/integrity
+    hash is re-sealed by the same write, and no warning fires on that first apply unless the #377 condition
+    genuinely holds. Migration is idempotent and covered by a test whose fixture was written in the pre-fix
+    format; an older forjar reading the new format fails closed with a message naming the format, never
+    silently.'
+  - 'Widened after the plan grill (agy teamwork lane, 2026-09-06): calling the layout supported also requires
+    (i) a machine-ownership guard — a machine name already recorded under another stack''s entry is the
+    same wrong-stack condition as a same-name-different-file stamp (warn on apply, refuse on undo), because
+    generations and per-machine locks are keyed by machine name only; (ii) per-stack outputs — persist_outputs
+    merges this stack''s outputs into the map and removes only keys this stack owned, instead of replacing
+    the whole map; (iii) forjar status attributes each machine to the stack that wrote it, from the stacks
+    map, not to the last-applied name; (iv) the config identity in the stamp is the config path relative
+    to the state dir when both share a tree (absolute otherwise), so the same checkout layout at another
+    path is the same stack; (v) a migrated legacy stamp (file unknown) matches any file on the first post-upgrade
+    apply and is then pinned — documented as the one-apply window.'
+  - 'Documented: shared --state-dir (one state dir, N configs, each applied with -f machines/<m>/forjar.yaml
+    --state-dir state) is stated as supported for apply, status and the wrong-stack guard in the state-dir
+    book page and the --state-dir CLI help, with the two refusal conditions and the multi-stack restore
+    refusal explained next to it. CHANGELOG entry references #469 and #377; the PR answers and closes
+    #469.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -1894,12 +2095,13 @@ roadmap:
 - id: PMAT-162
   github_issue: null
   item_type: task
-  title: 'GO: generation ownership and stack-scoped restore — spec first (schema 1.2 owner+machines per generation; restore identity on non-owner stacks)'
+  title: 'GO: generation ownership and stack-scoped restore — spec first (schema 1.2 owner+machines per
+    generation; restore identity on non-owner stacks)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:09:20Z
-  updated: 2026-09-06T08:09:20Z
+  created: 2026-09-06 08:09:20+00:00
+  updated: 2026-09-06 08:09:20+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1911,12 +2113,14 @@ roadmap:
 - id: PMAT-163
   github_issue: null
   item_type: task
-  title: 'DF: forjar-dogfood v1 — eight standing gates (harness receipt, pmat comply, surface CLI/MCP/HTTP, README+cookbook executable claims, teamwork quorum per PR, 95% coverage with in-diff mutants, pv depth, CRUX reconcile)'
+  title: 'DF: forjar-dogfood v1 — eight standing gates (harness receipt, pmat comply, surface CLI/MCP/HTTP,
+    README+cookbook executable claims, teamwork quorum per PR, 95% coverage with in-diff mutants, pv depth,
+    CRUX reconcile)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:41:30Z
-  updated: 2026-09-06T08:41:30Z
+  created: 2026-09-06 08:41:30+00:00
+  updated: 2026-09-06 08:41:30+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1928,12 +2132,13 @@ roadmap:
 - id: PMAT-164
   github_issue: null
   item_type: task
-  title: 'CX: CRUX audit for the 1.26.0 release — every CHANGELOG behaviour change against three reference systems'
+  title: 'CX: CRUX audit for the 1.26.0 release — every CHANGELOG behaviour change against three reference
+    systems'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:41:30Z
-  updated: 2026-09-06T08:41:30Z
+  created: 2026-09-06 08:41:30+00:00
+  updated: 2026-09-06 08:41:30+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1949,8 +2154,8 @@ roadmap:
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:41:30Z
-  updated: 2026-09-06T08:41:30Z
+  created: 2026-09-06 08:41:30+00:00
+  updated: 2026-09-06 08:41:30+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1962,12 +2167,13 @@ roadmap:
 - id: PMAT-166
   github_issue: null
   item_type: task
-  title: 'RP: release workflow creates the GitHub prerelease after the clean-room verify (no publish job, no registry secret)'
+  title: 'RP: release workflow creates the GitHub prerelease after the clean-room verify (no publish job,
+    no registry secret)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:41:30Z
-  updated: 2026-09-06T08:41:30Z
+  created: 2026-09-06 08:41:30+00:00
+  updated: 2026-09-06 08:41:30+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1983,8 +2189,8 @@ roadmap:
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T08:41:30Z
-  updated: 2026-09-06T08:41:30Z
+  created: 2026-09-06 08:41:30+00:00
+  updated: 2026-09-06 08:41:30+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1996,12 +2202,13 @@ roadmap:
 - id: PMAT-168
   github_issue: null
   item_type: task
-  title: 'S1: undo runs destroy_absent_from_target before the multi-stack restore refusal — the guard must precede any destroy (found by the SG worker)'
+  title: 'S1: undo runs destroy_absent_from_target before the multi-stack restore refusal — the guard
+    must precede any destroy (found by the SG worker)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T09:15:54Z
-  updated: 2026-09-06T09:15:54Z
+  created: 2026-09-06 09:15:54+00:00
+  updated: 2026-09-06 09:15:54+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2013,12 +2220,13 @@ roadmap:
 - id: PMAT-169
   github_issue: null
   item_type: task
-  title: 'S1: forjar-contracts vendored unit tests fail in the workspace (38, aprender corpus paths) so cargo llvm-cov --workspace cannot pass (#452)'
+  title: 'S1: forjar-contracts vendored unit tests fail in the workspace (38, aprender corpus paths) so
+    cargo llvm-cov --workspace cannot pass (#452)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T09:15:54Z
-  updated: 2026-09-06T09:15:54Z
+  created: 2026-09-06 09:15:54+00:00
+  updated: 2026-09-06 09:15:54+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2031,12 +2239,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: release.yml and binary-release.yml both fire on a v* tag and race on overlapping assets and SHA256SUMS (found by triage lane F)'
+  title: 'S1: release.yml and binary-release.yml both fire on a v* tag and race on overlapping assets
+    and SHA256SUMS (found by triage lane F)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T09:15:54Z
-  updated: 2026-09-06T09:15:54Z
+  created: 2026-09-06 09:15:54+00:00
+  updated: 2026-09-06 09:15:54+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2049,12 +2258,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: a renamed stack leaves its old stamp in the shared state dir, so the multi-stack restore guard counts two stacks and refuses the renamed stack''s undo (found by the S1fix worker)'
+  title: 'S2: a renamed stack leaves its old stamp in the shared state dir, so the multi-stack restore
+    guard counts two stacks and refuses the renamed stack''s undo (found by the S1fix worker)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T09:55:56Z
-  updated: 2026-09-06T09:55:56Z
+  created: 2026-09-06 09:55:56+00:00
+  updated: 2026-09-06 09:55:56+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2067,12 +2277,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: undo''s replay re-stamps the shared state dir under the target generation''s historical name with file None, resurrecting a retired rename after one real undo (found by the PMAT-171 worker)'
+  title: 'S2: undo''s replay re-stamps the shared state dir under the target generation''s historical
+    name with file None, resurrecting a retired rename after one real undo (found by the PMAT-171 worker)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T11:28:10Z
-  updated: 2026-09-06T11:28:10Z
+  created: 2026-09-06 11:28:10+00:00
+  updated: 2026-09-06 11:28:10+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2085,12 +2296,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: spec v2 review findings absorbed into spec v3 — R4 journaled per-dir switch instead of one rename, R3 lineage keyed by file not name, R2 lineage-cursor semantics for --generations K'
+  title: 'S2: spec v2 review findings absorbed into spec v3 — R4 journaled per-dir switch instead of one
+    rename, R3 lineage keyed by file not name, R2 lineage-cursor semantics for --generations K'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T11:28:10Z
-  updated: 2026-09-06T11:28:10Z
+  created: 2026-09-06 11:28:10+00:00
+  updated: 2026-09-06 11:28:10+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2103,12 +2315,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: apply --rollback-on-failure runs the whole apply before the multi-stack restore refusal, which maybe_rollback_generation then swallows into a warning (quorum q1)'
+  title: 'S1: apply --rollback-on-failure runs the whole apply before the multi-stack restore refusal,
+    which maybe_rollback_generation then swallows into a warning (quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T15:02:24Z
-  updated: 2026-09-06T15:02:24Z
+  created: 2026-09-06 15:02:24+00:00
+  updated: 2026-09-06 15:02:24+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2121,12 +2334,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: stamp::same_config_file strips ParentDir so ../forjar.yaml matches any */forjar.yaml — a false rename retirement steals another stack''s entry (quorum q1, executed reproducer)'
+  title: 'S1: stamp::same_config_file strips ParentDir so ../forjar.yaml matches any */forjar.yaml — a
+    false rename retirement steals another stack''s entry (quorum q1, executed reproducer)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T15:02:24Z
-  updated: 2026-09-06T15:02:24Z
+  created: 2026-09-06 15:02:24+00:00
+  updated: 2026-09-06 15:02:24+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2139,12 +2353,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: a scoped apply (-m) rewrites the stamp''s machines with only the filtered machine, releasing the others to sibling stacks (quorum q1)'
+  title: 'S1: a scoped apply (-m) rewrites the stamp''s machines with only the filtered machine, releasing
+    the others to sibling stacks (quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T15:02:25Z
-  updated: 2026-09-06T15:02:25Z
+  created: 2026-09-06 15:02:25+00:00
+  updated: 2026-09-06 15:02:25+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2157,12 +2372,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: gc_old_snapshots trims generation snapshots belonging to other stacks in a shared state dir (quorum q1)'
+  title: 'S1: gc_old_snapshots trims generation snapshots belonging to other stacks in a shared state
+    dir (quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T15:02:26Z
-  updated: 2026-09-06T15:02:26Z
+  created: 2026-09-06 15:02:26+00:00
+  updated: 2026-09-06 15:02:26+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2175,12 +2391,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: release-check.sh enumerates merged PRs with git log --merges, so under squash merges the quorum-receipt arm loops over nothing and passes (DF quorum q1)'
+  title: 'S1: release-check.sh enumerates merged PRs with git log --merges, so under squash merges the
+    quorum-receipt arm loops over nothing and passes (DF quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T16:19:15Z
-  updated: 2026-09-06T16:19:15Z
+  created: 2026-09-06 16:19:15+00:00
+  updated: 2026-09-06 16:19:15+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2193,12 +2410,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: coverage.sh IGNORED_CEILING is one-directional, so a newly parked corpus test hides inside the slack (DF quorum q1)'
+  title: 'S2: coverage.sh IGNORED_CEILING is one-directional, so a newly parked corpus test hides inside
+    the slack (DF quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T16:19:16Z
-  updated: 2026-09-06T16:19:16Z
+  created: 2026-09-06 16:19:16+00:00
+  updated: 2026-09-06 16:19:16+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2211,12 +2429,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: release-check.sh reports PENDING pre-tag from the local tag list, so a missing GitHub release for an existing remote tag is masked (DF quorum q1)'
+  title: 'S2: release-check.sh reports PENDING pre-tag from the local tag list, so a missing GitHub release
+    for an existing remote tag is masked (DF quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T16:19:17Z
-  updated: 2026-09-06T16:19:17Z
+  created: 2026-09-06 16:19:17+00:00
+  updated: 2026-09-06 16:19:17+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2229,12 +2448,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S3: FALSIFY-DF-006 names nothing_in_the_tree_is_still_called_dogfood for the exactly-one-skill rule (DF quorum q1)'
+  title: 'S3: FALSIFY-DF-006 names nothing_in_the_tree_is_still_called_dogfood for the exactly-one-skill
+    rule (DF quorum q1)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T16:19:17Z
-  updated: 2026-09-06T16:19:17Z
+  created: 2026-09-06 16:19:17+00:00
+  updated: 2026-09-06 16:19:17+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2247,12 +2467,14 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: gc_generations (src/cli/generation/mod.rs) has no shared-dir guard and removes the oldest generation dirs of every stack in a shared state dir — the second retention path PMAT-177 did not cover (refuter q2)'
+  title: 'S1: gc_generations (src/cli/generation/mod.rs) has no shared-dir guard and removes the oldest
+    generation dirs of every stack in a shared state dir — the second retention path PMAT-177 did not
+    cover (refuter q2)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T17:12:18Z
-  updated: 2026-09-06T17:12:18Z
+  created: 2026-09-06 17:12:18+00:00
+  updated: 2026-09-06 17:12:18+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2265,12 +2487,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: stack_conflict calls same_config_file with state_dir None, so the wrong-stack guard still uses the suffix match PMAT-175 removed from the rename path (refuter q2)'
+  title: 'S2: stack_conflict calls same_config_file with state_dir None, so the wrong-stack guard still
+    uses the suffix match PMAT-175 removed from the rename path (refuter q2)'
   status: planned
   priority: high
   assigned_to: null
-  created: 2026-09-06T17:12:18Z
-  updated: 2026-09-06T17:12:18Z
+  created: 2026-09-06 17:12:18+00:00
+  updated: 2026-09-06 17:12:18+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2283,12 +2506,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S1: publish-from-tag.sh writes .publish-* metadata into the tag worktree after its clean-tree gate, so cargo publish refuses the root crate for uncommitted files (PP quorum q1, measured)'
+  title: 'S1: publish-from-tag.sh writes .publish-* metadata into the tag worktree after its clean-tree
+    gate, so cargo publish refuses the root crate for uncommitted files (PP quorum q1, measured)'
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-06T21:09:19Z
-  updated: 2026-09-06T21:09:19Z
+  created: 2026-09-06 21:09:19+00:00
+  updated: 2026-09-06 21:09:19+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2301,12 +2525,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: publish-from-tag.sh polls the index with grep -qF on cargo search, which collides on prefixes and never terminates once a newer version exists (PP quorum q1)'
+  title: 'S2: publish-from-tag.sh polls the index with grep -qF on cargo search, which collides on prefixes
+    and never terminates once a newer version exists (PP quorum q1)'
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-06T21:09:19Z
-  updated: 2026-09-06T21:09:19Z
+  created: 2026-09-06 21:09:19+00:00
+  updated: 2026-09-06 21:09:19+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2319,12 +2544,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S2: publish-from-tag.sh''s topological sort does not filter dev-dependencies, so a dev-dep back-edge is reported as a cycle (PP quorum q1)'
+  title: 'S2: publish-from-tag.sh''s topological sort does not filter dev-dependencies, so a dev-dep back-edge
+    is reported as a cycle (PP quorum q1)'
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-06T21:09:20Z
-  updated: 2026-09-06T21:09:20Z
+  created: 2026-09-06 21:09:20+00:00
+  updated: 2026-09-06 21:09:20+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2337,12 +2563,13 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S3: publish-from-tag test C does not pin the detached worktree, and the header''s --detach mutation claim is vacuous because git detaches at a tag anyway (PP quorum q1)'
+  title: 'S3: publish-from-tag test C does not pin the detached worktree, and the header''s --detach mutation
+    claim is vacuous because git detaches at a tag anyway (PP quorum q1)'
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-06T21:09:21Z
-  updated: 2026-09-06T21:09:21Z
+  created: 2026-09-06 21:09:21+00:00
+  updated: 2026-09-06 21:09:21+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2355,12 +2582,14 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'S3: crux-1.26.0.md cites src/core/state/stamp.rs (a path that exists on no branch) with stale line ranges, copies one adopt() rationale across the Nix, Pulumi and Kubernetes rows, and overstates the emptied-selection refusal (CX quorum q1)'
+  title: 'S3: crux-1.26.0.md cites src/core/state/stamp.rs (a path that exists on no branch) with stale
+    line ranges, copies one adopt() rationale across the Nix, Pulumi and Kubernetes rows, and overstates
+    the emptied-selection refusal (CX quorum q1)'
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-06T21:09:21Z
-  updated: 2026-09-06T21:09:21Z
+  created: 2026-09-06 21:09:21+00:00
+  updated: 2026-09-06 21:09:21+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2369,3 +2598,35 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-201
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: forjar-dogfood gates A (harness receipt per merged PR) and E (quorum receipt per merged
+    PR) are not mechanical — the skill delegated them to an agent and dogfood-release omits them (PMAT-163
+    merge review 2, lanes 2 and 3 at 507c730f)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: '2026-09-07T13:30:00Z'
+  updated: '2026-09-07T13:30:00Z'
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/harness.sh (gate A): every PR merged since the previous v* tag maps to a ticket id
+    and docs/audits/impl-<id>-receipt.md exists, ends with IMPL-<id>-RECEIPT-END and has exactly one verdict:
+    line; gh unreachable or a PR with no ticket id is FAIL, never skipped'
+  - 'scripts/dogfood/quorum.sh (gate E): every PR merged since the previous v* tag has .quorum/<headRefName
+    with / as ->.json at HEAD with quorum.lanes >= 3, judges >= 3, refuters_per_claim >= 3, claims_refuted
+    >= 1, evidence.files non-empty and no waiver key'
+  - make dogfood-release runs both before coverage; the REQUIRED array of falsification_dogfood_scripts_declare_mutations
+    names nine scripts; shim-backed guard tests for both scripts mirror falsification_dogfood_release_check_pr_window
+  - .claude/skills/forjar-dogfood/SKILL.md describes A, E and H as mechanical gates read from make output,
+    allows no Agent tool and provisions no subagents, and still lists no surface
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: Found by the PMAT-163 merge review (quorum-review.sh width 3, lanes 2 and 3 FAIL at 507c730f).
+    Absorbed on the DF branch; S1 because forjar-dogfood is the release blocker and its gate set was short
+    of the ticket.
