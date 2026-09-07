@@ -64,7 +64,7 @@
  "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "810e1d948dbf2ff1ff343c08bc37ab9378bbbe0b",
+ "diff_sha256": "3271a650fa104d318616d4b5d90c61e2af8b6358",
  "evidence": {
   "files": [
    {
@@ -90,9 +90,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 25414,
-    "sha256": "a1086eab336cf6b4bde88da4ded757b18f8bab401fec152598562bc555a0b7da",
-    "blob": "7de290d57215b8dda0e401542bfdf5d0160f0c67"
+    "bytes": 26863,
+    "sha256": "c8a22e7ebff7dd2a2a673ec19e25aac8714c961e59b86972d7366768edebff9d",
+    "blob": "7133a4303f60ba521cefab3294cf282446948c82"
    },
    {
     "path": ".quorum/evidence/chmod-path-agy.md",
@@ -122,7 +122,7 @@
     "blob": "df1500958733f54d052a61df3cb18cc88c7069ef"
    }
   ],
-  "total_bytes": 42894,
+  "total_bytes": 44343,
   "claims_digest": ".quorum/evidence/chmod-path-judges.md"
  }
 }
