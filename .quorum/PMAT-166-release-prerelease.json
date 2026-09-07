@@ -59,7 +59,7 @@
   "observed_failure": "test rule7_binary_release_concurrency_and_backfill_prerelease ... FAILED\ntest rule5_publish_release_job_shape ... FAILED\ntest rule4_assert_step_requires_exact_draft_prerelease_string_when_created ... FAILED\ntest rule3_create_release_step_creates_a_draft_prerelease_and_records_created ... FAILED\ntest rule1_binary_release_fires_only_on_workflow_dispatch ... FAILED\ntest rule2_release_yml_is_the_only_v_star_tag_push_producer ... FAILED\ntest result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
   "still_green_when_reverted": "the tests that hold on origin/main too (no cargo publish, no registry token in any workflow) — named in the observed output"
  },
- "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base_commit": "bc46113c8fec9eae37f7193b2c452138ad3647d2",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
  "diff_sha256": "2887a32a47715e959921ebe236ab2d28e177bb59",
