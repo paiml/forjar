@@ -1,7 +1,7 @@
 ---
 name: forjar-dogfood
-description: The forjar pre-publish go/no-go. Runs the mechanical gates (make dogfood-release) and adds the three that need judgement, then writes one deterministic receipt. Read-only.
-allowed-tools: Bash(cargo:*), Bash(make:*), Bash(pmat:*), Bash(pv:*), Bash(gh:*), Bash(git:*), Bash(bash:*), Bash(find:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(sort:*), Bash(diff:*), Bash(timeout:*), Bash(jq:*), Bash(python3:*), Bash(echo:*), Bash(cat:*), Bash(mktemp:*), Bash(mkdir:*), Bash(cmp:*), Read, Glob, Grep, Agent
+description: The forjar pre-publish go/no-go. Runs the mechanical gates (make dogfood-release), reads their output, and writes one deterministic receipt. Read-only, no subagents.
+allowed-tools: Bash(cargo:*), Bash(make:*), Bash(pmat:*), Bash(pv:*), Bash(gh:*), Bash(git:*), Bash(bash:*), Bash(find:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(sort:*), Bash(diff:*), Bash(timeout:*), Bash(jq:*), Bash(python3:*), Bash(echo:*), Bash(cat:*), Bash(mktemp:*), Bash(mkdir:*), Bash(cmp:*), Read, Glob, Grep
 effort: high
 ---
 
@@ -24,23 +24,28 @@ asking for "the dogfood" got a different document, with no error and no diff.
 
 | Gate | What it asserts | Where it runs |
 |------|-----------------|---------------|
-| **A** | The frame: HEAD is the tree under test, the release binary is this version, the receipt is reproducible | this skill |
+| **A** | Every PR merged since the last tag carries `docs/audits/impl-<ticket>-receipt.md`, ending in its END marker, with exactly one verdict | `scripts/dogfood/harness.sh` |
 | **B** | `pmat comply check` passes against the committed config | `scripts/dogfood/comply.sh` |
 | **C** | The declared transport surface equals the surface the built binary exposes | `scripts/dogfood/surface.sh` |
 | **D** | Every documented `forjar …` invocation runs, and every count README claims is the derived one | `scripts/dogfood/docs.sh` |
-| **E** | One quorum receipt per PR merged since the last tag | this skill |
+| **E** | Every PR merged since the last tag carries `.quorum/<slug>.json` at the quorum floor, with no waiver anywhere in it | `scripts/dogfood/quorum.sh` |
 | **F** | Coverage ≥ 95% line, and 0 mutant survivors in the diff | `scripts/dogfood/coverage.sh` |
 | **G** | Every contract validates, lints, and resolves its falsifiers to tests that run in `ci / gate` | `scripts/dogfood/contracts.sh` |
-| **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` + judgement here |
+| **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` |
 
-B, C, D, F, G, H are **mechanical**: shell, no agent, `make dogfood-release`
-runs all six and fails on the first RED. This skill does not re-implement them
-and does not paraphrase their output — it runs the Make target and quotes the
-`GATE <letter> …` line each script printed.
+All eight are **mechanical**: shell, no agent. `make dogfood-release` runs
+every one of them and fails on the first RED. This skill does not re-implement
+a gate, does not decide a gate, and does not paraphrase a gate's output — it
+runs the Make target and quotes the `GATE <letter> …` line each script printed.
 
-A, E and the second half of H need judgement and run here.
+A and E were prose here until PMAT-201, discharged by an agent that read GitHub
+and formed a view. An agent that forms a view is not a gate: it has no exit
+code, it does not run in CI, and it cannot be shown to go red. They are now
+`scripts/dogfood/harness.sh` and `scripts/dogfood/quorum.sh`, sharing one
+window in `scripts/dogfood/lib/window.sh`, with falsifiers in
+`tests/falsification_dogfood_harness_and_quorum.rs`.
 
-## Frame — do this first, in this order
+## Frame — do this first, in this order (this is not a gate)
 
 ```bash
 VER=$(python3 -c "import re,io;print(re.search(r'^version = \"(.*)\"', io.open('Cargo.toml').read(), re.M).group(1))")
@@ -48,17 +53,18 @@ bash ~/.claude/skills/paiml-implement/scripts/goal.sh set --ticket "DF-$VER"
 git rev-parse HEAD && git status --porcelain
 ```
 
-**A fails** if the tree is dirty (a gate measured against uncommitted edits is
-not measuring the release), if `git rev-parse HEAD` is not the commit the
-release will be cut from, or if the release binary's `--version` is not the
-`Cargo.toml` version. The scripts assert the last one themselves; A is where you
-say which commit the receipt is about.
+**The whole run is `NOT-MEASURED`** if the tree is dirty (a gate measured
+against uncommitted edits is not measuring the release), if `git rev-parse HEAD`
+is not the commit the release will be cut from, or if the release binary's
+`--version` is not the `Cargo.toml` version. The scripts assert the last one
+themselves. The frame is where you say which commit the receipt is about; it
+decides nothing else.
 
 Never resolve `forjar` from `PATH`. The binary under test is
 `$(cargo metadata --format-version 1 --no-deps | jq -r .target_directory)/release/forjar`
 after `cargo build --release`, which is what `make dogfood` builds.
 
-## Gate B, C, D, F, G, H — run them, do not reimplement them
+## Gates A–H — run them, do not reimplement them and do not re-decide them
 
 ```bash
 make dogfood-release
@@ -70,48 +76,43 @@ that is the design: the remaining gates are **NOT MEASURED**, and the receipt
 must say `not measured` for them rather than carrying a stale verdict from a
 previous run. An unmeasured gate is not a passing gate.
 
-`make dogfood` is the shorter tier (B, C, D, G) — no coverage, no crux. It is
-what `ci / gate` runs per commit. `make dogfood-release` is the release gate.
+`make dogfood` is the shorter tier (B, C, D, G) — no coverage, no crux, no
+GitHub window. It is what `ci / gate` runs per commit. `make dogfood-release`
+is the release gate: it adds A and E (seconds, so they run first), then F and H.
 
-## Gate E — one quorum receipt per merged PR since the last tag
+## Gates A and E — what the two window gates read, so you can read their output
 
-```bash
-LAST=$(git describe --tags --abbrev=0)
-WHEN=$(git log -1 --format=%cs "$LAST")
-gh pr list --repo paiml/forjar --state merged --base main \
-   --search "merged:>=$WHEN" --json number,title,mergedAt,headRefName
-ls .quorum/*.json 2>/dev/null
-```
+Both ask GitHub for the PRs merged into `main` since the newest `v*` tag
+reachable from HEAD, keep the ones whose merge commit is an ancestor of this
+HEAD, and check one file per PR AT HEAD:
 
-The per-PR receipt is the COMMITTED `.quorum/<slug>.json`, where `<slug>` is
-the PR's head branch with every `/` replaced by `-` — the same file
-`scripts/quorum-gate.sh` refuses a push without — read at the PR's merge
-commit or, failing that, at HEAD. `docs/audits/quorum-<pr>.md` names nothing
-real; do not look for it.
+- **A**, `scripts/dogfood/harness.sh`: the ticket id is the first `PMAT-<n>` in
+  the branch, then the title, then the body; the receipt is
+  `docs/audits/impl-<ticket>-receipt.md`; its last line must be
+  `IMPL-<ticket>-RECEIPT-END` and exactly one line must match `^verdict:`.
+- **E**, `scripts/dogfood/quorum.sh`: the receipt is the COMMITTED
+  `.quorum/<slug>.json`, where `<slug>` is the PR's head branch with every `/`
+  replaced by `-` — the same file `scripts/quorum-gate.sh` refuses a push
+  without. `docs/audits/quorum-<pr>.md` names nothing real; do not look for it.
 
-**E fails** if a PR merged since `$LAST` has no such receipt, if the receipt
-carries a top-level `waived` key, or if it names fewer than 3 lanes or fewer
-than 3 judges. Name every offending PR number in the receipt. Do not create the missing
-receipts — that is the orchestrator's budget, not yours.
+A GitHub client that cannot answer, or a page that fills the `--limit`, is
+UNMEASURED and both gates FAIL saying so — that is not a window with no PRs.
 
-## Gate H — the judgement half
+## Gate H — the script is the verdict
 
-`scripts/dogfood/crux-reconcile.sh` proves the *shape*: a row exists for each
-`[Unreleased]` behaviour bullet and each row cites ≥3 systems. It cannot judge
-whether the row is *about* the bullet. Read `docs/audits/crux-<ver>.md` against
-`CHANGELOG.md [Unreleased]` and say so.
+`scripts/dogfood/crux-reconcile.sh` decides H: a row exists for each
+`[Unreleased]` behaviour bullet and each row cites ≥3 systems. Quote its line.
+If you believe a row is topically unrelated to the bullet it claims to
+reconcile, that is a FINDING for the receipt and a ticket for the orchestrator
+— it is not a verdict you may substitute for the script's, in either
+direction.
 
-**H fails** if the script failed, or if a row is topically unrelated to the
-bullet it claims to reconcile.
+## No subagents, no re-deciding
 
-## Subagents
-
-At most **three**, all read-only, `Agent` descriptions exactly `DF/ph1`,
-`DF/ph2`, `DF/ph3`. Suggested split: `DF/ph1` = E (GitHub archaeology),
-`DF/ph2` = H (crux reading), `DF/ph3` = reading the `make dogfood-release`
-output back against the scripts. A subagent **returns text**. The orchestrator
-is the **sole writer** of the receipt; a subagent that writes to
-`docs/audits/` has broken the determinism guarantee below.
+Every gate is a script with an exit code, so there is nothing here to delegate:
+this skill spawns no subagent and is the sole writer of the receipt. Do not
+create a missing receipt for a PR, and do not argue a FAIL down — quote the
+line, name the PR, and let the orchestrator budget the ticket.
 
 ## The receipt
 
@@ -134,7 +135,7 @@ Hard requirements, because the receipt is checked by re-running:
 Determinism is asserted by running twice. If `--twice` is in `$ARGUMENTS`:
 generate the receipt, copy it aside, run the whole gate set and regeneration a
 second time, and `cmp` the two files. Report the `cmp` result. A non-identical
-pair is a **NO-GO** on gate A regardless of B–H, because it means the receipt is
+pair is a **NO-GO** regardless of A–H, because it means the receipt is
 reporting something other than the tree.
 
 ## Verdict
@@ -153,6 +154,9 @@ reporting something other than the tree.
   no destructive `gh api` call. Findings are text in the receipt.
 - No edits to source, contracts, workflows, or `Cargo.toml`. File findings; the
   orchestrator budgets the tickets.
+- No subagents. Every gate is a script with an exit code; there is nothing here
+  for a subagent to decide, and a delegated verdict is a verdict with no
+  falsifier.
 - No surface list written into this document. The surface is derived from the
   built binary by `scripts/dogfood/surface.sh` into
   `docs/audits/surface_audit.csv`; a list copied into prose is a second source
