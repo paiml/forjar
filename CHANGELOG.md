@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A file resource whose PATH contained `666` or `777` could not be applied
+(PMAT-204).** forjar emits `chmod '<mode>' '<path>'` for every file resource
+carrying a `mode:`, and the I8 gate refused it: bashrs SEC017 scans the literal
+text of any line containing the word `chmod` for `777`/`666` and never asks
+which word is the mode, so `/opt/app666/config` read as a world-writable chmod
+and the resource failed. The same rule missed the real case — measured
+2026-09-07 against the pinned bashrs 6.68.0, `chmod '0666' '/tmp/plain/t'`
+produces no finding at all, because the boundary check cannot see `666` behind
+the leading `0`. The gate now reads the chmod line's mode argument itself: a
+SEC017 hit is exempted only where the line is a single chmod whose first
+non-flag argument is a quoted octal literal without the world-write bit, and
+everything else — a bare `chmod 666`, a symbolic mode, a second chmod on the
+line, a line where `chmod` is an argument — still refuses. Both directions of
+the mistake are fixed, so this is stricter than before, not looser: forjar also
+refuses a world-writable declared mode at validation time now, naming the
+resource and the mode.
+
 **`apply`'s resource-set selectors resolved independently, one bug per
 selector (#466, #467, #468).** Measured 2026-09-05 against `paiml/infra`:
 `apply --dry-run -r stack-tool-forjar` printed all 139 resources of a fleet
