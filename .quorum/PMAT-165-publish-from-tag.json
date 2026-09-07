@@ -1,126 +1,126 @@
 {
-  "issue": "PMAT-165 (publish poka-yoke) \u2014 `make publish-from-tag TAG=vX.Y.Z` publishes to crates.io only from a detached worktree of the tag, refusing a missing, malformed or off-main tag, a version mismatch and a dirty tree, with the registry token stripped from the environment, crates published in dependency order with the index polled between dependents",
-  "quorum": {
-    "lanes": [
-      "claim lane A \u2014 the script",
-      "claim lane B \u2014 the tests and the shim",
-      "claim lane C \u2014 the Makefile, the contract, .gitignore",
-      "independent-stack review \u2014 agy /teamwork-preview",
-      "crux \u2014 competitive survey (cargo publish --workspace, cargo-release, release-plz, cargo-workspaces, Trusted Publishing)"
+ "issue": "PMAT-165 (publish poka-yoke) — `make publish-from-tag TAG=vX.Y.Z` publishes to crates.io only from a detached worktree of the tag, refusing a missing, malformed or off-main tag, a version mismatch and a dirty tree, with the registry token stripped from the environment, crates published in dependency order with the index polled between dependents",
+ "quorum": {
+  "lanes": [
+   "claim lane A — the script",
+   "claim lane B — the tests and the shim",
+   "claim lane C — the Makefile, the contract, .gitignore",
+   "independent-stack review — agy /teamwork-preview",
+   "crux — competitive survey (cargo publish --workspace, cargo-release, release-plz, cargo-workspaces, Trusted Publishing)"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
+  "rounds": "claim round at ec67a34d forced PMAT-184..187 (02d65ef1 RED, ea89439b GREEN, 0044c116 contract); refuters at 0f9a19b5 in standalone clones (27/27 ids); judges at 619723dd, 3/3 PASS, who also answered the five attacks the refuters skipped",
+  "claims_confirmed": 19,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "L3-F1 — scripts/publish-from-tag.sh:111 — The script creates `.publish-metadata.json`, `.publish-pkgs.tsv`, and `.publish-order.tsv` in `$WT`. Since `$WT` is the root of the workspace crate, and these files are not in `.gitignore` or Cargo.toml `exclude`, `cargo publish` on the root crate will fail with an uncommitted files error. — REFUTED: stale: fixed in ea89439b (scratch in a sibling mktemp -d; clean tree re-asserted before every publish)",
+   "L1-F5 — scripts/publish-from-tag.sh:106 — The execution of `cd \\\"$WT\\\"` proves the publish runs in the detached worktree and not the ambient repo. — REFUTED: refuted 3-0: `cd \"$WT\"` does not prove a detached worktree (a clone passes it); the guard that does is case c, git-common-dir plus two live worktrees (D4)",
+   "T-F1 — scripts/publish-from-tag.sh:31 — `git worktree add --detach` mutation guard on tags is necessary (proposed fix: Remove `--detach` to prove it is vacuous; git automatically detaches on tags.) — REFUTED: stale: fixed in ea89439b (the header names the real guard)",
+   "T-F2 — scripts/publish-from-tag.sh:100 — `grep -v '^!! target/'` correctly handles ignored target/ (proposed fix: Remove the grep filter; target/ cannot exist in a fresh /tmp worktree.) — REFUTED: stale: fixed in ea89439b (the dead grep removed; --ignored strict)",
+   "T-F3 — scripts/publish-from-tag.sh:142 — `cargo search` correctly parses index version (proposed fix: Use exact parsing instead of `grep -qF \"${name} = \\\"${version}\\\"\"` which is vulnerable to substring/prefix collisions and newer-version deadlocks.) — REFUTED: stale: fixed in ea89439b (cargo info NAME@VERSION poll, anchored fallback, bounded exit 2)",
+   "T-F4 — scripts/publish-from-tag.sh:167 — `DRY_RUN=1` succeeds with path dependencies (proposed fix: Skip dry run or restructure for multi-crate path dependencies.) — REFUTED: accepted limit, not a defect (D7): cargo publish --dry-run resolves registry dependencies",
+   "T-F5 — scripts/publish-from-tag.sh:120 — Topological sort correctly handles cycles (proposed fix: Filter out dev-dependencies in the jq query to prevent false cycle rejections.) — REFUTED: stale: fixed in ea89439b (dev-dependencies filtered from the topological sort)",
+   "L2-F1 — tests/falsification_publish_from_tag.rs:175 — The diff has defect FALSIFY-PUBLISH-C-weak-assertion at tests/falsification_publish_from_tag.rs:175 because test C only checks cwd != repo_path and worktree_count == 1, meaning the script could skip creating a detached worktree entirely (e.g. by using git clone or cp into a temp dir) and still falsely pass the test. — REFUTED: stale: fixed in ea89439b (case c pins git-common-dir and the live worktree count)"
+  ]
+ },
+ "crux": {
+  "systems": [
+   "cargo publish --workspace",
+   "cargo-release",
+   "release-plz",
+   "cargo-workspaces",
+   "crates.io Trusted Publishing"
+  ],
+  "verdict": "forjar computes the order from cargo metadata, polls the index with a bounded cargo info loop (better than cargo-workspaces' fixed sleep, comparable to release-plz), and refuses a dirty tree with no override; the one deviation, local long-lived credentials versus Trusted Publishing, is the operator's sanctioned path. Third-party figures are from documentation memory (sandboxed lane) and asserted."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, sandboxed, agy 1.1.27, on the diff at ec67a34d",
+  "verdict": "FAIL on five mechanisms — the vacuous --detach guard claim, the dead target/ grep, the grep -qF index poll, dev-dependency cycles, the DRY_RUN limit — four fixed in ea89439b and one accepted as cargo's own limit (D7); it noted that the green suite would have approved the original, which is why the contract lane's measured scratch-file defect (PMAT-184) was decisive."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19357,
+  "files_parsed": 2108,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests over the branch: 0 hit(s) in the touched test paths.",
+  "limit": "discrimination measured by mutation (falsification block) and the RED commit"
+ },
+ "falsification": {
+  "test": "c_dry_run_publishes_only_from_a_worktree_of_this_repo (with the nine other shim-backed cases of falsification_publish_from_tag: refusals a, b; scratch f; index poll g, h, i; dev-dependency j)",
+  "test_file": "tests/falsification_publish_from_tag.rs",
+  "cargo_test_target": "falsification_publish_from_tag",
+  "reverted": "the `git worktree add` line of scripts/publish-from-tag.sh replaced with `git clone --no-local` plus `checkout --detach` (a copy, not a worktree of the repository), the target run, the script restored from a copy (tree verified clean)",
+  "observed_failure": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s",
+  "still_green_when_reverted": "every case but c — the refusals, the scratch-dir rule, the index poll and the dependency order do not depend on the checkout being a worktree"
+ },
+ "base_commit": "0776fd82a57158a87b7dc3e7602a12dee52db893",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "468bfca645e0ceb40c190307726668d24352af9a",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/publish-from-tag-claims.md",
+    "roles": [
+     "claims"
     ],
-    "refuters_per_claim": 3,
-    "judges": 3,
-    "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
-    "rounds": "claim round at ec67a34d forced PMAT-184..187 (02d65ef1 RED, ea89439b GREEN, 0044c116 contract); refuters at 0f9a19b5 in standalone clones (27/27 ids); judges at 619723dd, 3/3 PASS, who also answered the five attacks the refuters skipped",
-    "claims_confirmed": 19,
-    "claims_refuted": 8,
-    "refuted_claims": [
-      "L3-F1 \u2014 scripts/publish-from-tag.sh:111 \u2014 The script creates `.publish-metadata.json`, `.publish-pkgs.tsv`, and `.publish-order.tsv` in `$WT`. Since `$WT` is the root of the workspace crate, and these files are not in `.gitignore` or Cargo.toml `exclude`, `cargo publish` on the root crate will fail with an uncommitted files error. \u2014 REFUTED: stale: fixed in ea89439b (scratch in a sibling mktemp -d; clean tree re-asserted before every publish)",
-      "L1-F5 \u2014 scripts/publish-from-tag.sh:106 \u2014 The execution of `cd \\\"$WT\\\"` proves the publish runs in the detached worktree and not the ambient repo. \u2014 REFUTED: refuted 3-0: `cd \"$WT\"` does not prove a detached worktree (a clone passes it); the guard that does is case c, git-common-dir plus two live worktrees (D4)",
-      "T-F1 \u2014 scripts/publish-from-tag.sh:31 \u2014 `git worktree add --detach` mutation guard on tags is necessary (proposed fix: Remove `--detach` to prove it is vacuous; git automatically detaches on tags.) \u2014 REFUTED: stale: fixed in ea89439b (the header names the real guard)",
-      "T-F2 \u2014 scripts/publish-from-tag.sh:100 \u2014 `grep -v '^!! target/'` correctly handles ignored target/ (proposed fix: Remove the grep filter; target/ cannot exist in a fresh /tmp worktree.) \u2014 REFUTED: stale: fixed in ea89439b (the dead grep removed; --ignored strict)",
-      "T-F3 \u2014 scripts/publish-from-tag.sh:142 \u2014 `cargo search` correctly parses index version (proposed fix: Use exact parsing instead of `grep -qF \"${name} = \\\"${version}\\\"\"` which is vulnerable to substring/prefix collisions and newer-version deadlocks.) \u2014 REFUTED: stale: fixed in ea89439b (cargo info NAME@VERSION poll, anchored fallback, bounded exit 2)",
-      "T-F4 \u2014 scripts/publish-from-tag.sh:167 \u2014 `DRY_RUN=1` succeeds with path dependencies (proposed fix: Skip dry run or restructure for multi-crate path dependencies.) \u2014 REFUTED: accepted limit, not a defect (D7): cargo publish --dry-run resolves registry dependencies",
-      "T-F5 \u2014 scripts/publish-from-tag.sh:120 \u2014 Topological sort correctly handles cycles (proposed fix: Filter out dev-dependencies in the jq query to prevent false cycle rejections.) \u2014 REFUTED: stale: fixed in ea89439b (dev-dependencies filtered from the topological sort)",
-      "L2-F1 \u2014 tests/falsification_publish_from_tag.rs:175 \u2014 The diff has defect FALSIFY-PUBLISH-C-weak-assertion at tests/falsification_publish_from_tag.rs:175 because test C only checks cwd != repo_path and worktree_count == 1, meaning the script could skip creating a detached worktree entirely (e.g. by using git clone or cp into a temp dir) and still falsely pass the test. \u2014 REFUTED: stale: fixed in ea89439b (case c pins git-common-dir and the live worktree count)"
-    ]
-  },
-  "crux": {
-    "systems": [
-      "cargo publish --workspace",
-      "cargo-release",
-      "release-plz",
-      "cargo-workspaces",
-      "crates.io Trusted Publishing"
+    "bytes": 12601,
+    "sha256": "5f397b302e9206d3a7ebdb4a29d05aacc63e404e1f5518ec9f2b07aecfab6f71",
+    "blob": "bfd1d723fe487d2c02fae5362025ae9b3bf363ac"
+   },
+   {
+    "path": ".quorum/evidence/publish-from-tag-refuters.md",
+    "roles": [
+     "lanes"
     ],
-    "verdict": "forjar computes the order from cargo metadata, polls the index with a bounded cargo info loop (better than cargo-workspaces' fixed sleep, comparable to release-plz), and refuses a dirty tree with no override; the one deviation, local long-lived credentials versus Trusted Publishing, is the operator's sanctioned path. Third-party figures are from documentation memory (sandboxed lane) and asserted."
-  },
-  "agy_teamwork": {
-    "ran": true,
-    "mode": "/teamwork-preview, sandboxed, agy 1.1.27, on the diff at ec67a34d",
-    "verdict": "FAIL on five mechanisms \u2014 the vacuous --detach guard claim, the dead target/ grep, the grep -qF index poll, dev-dependency cycles, the DRY_RUN limit \u2014 four fixed in ea89439b and one accepted as cargo's own limit (D7); it noted that the green suite would have approved the original, which is why the contract lane's measured scratch-file defect (PMAT-184) was decisive."
-  },
-  "pmat": {
-    "tools": [
-      "analyze_vacuous_tests"
+    "bytes": 9516,
+    "sha256": "e3222f80250b6685147971eec0482e4366e6e323aed3079e52daccfe24426205",
+    "blob": "744d5d809edb3bc809bcce25c95be54d9d863664"
+   },
+   {
+    "path": ".quorum/evidence/publish-from-tag-judges.md",
+    "roles": [
+     "judges"
     ],
-    "vacuous_tests_in_touched_paths": 0,
-    "tests_examined": 19357,
-    "files_parsed": 2108,
-    "accepted": [],
-    "quality_gate": "pmat 3.39.0 analyze vacuous-tests over the branch: 0 hit(s) in the touched test paths.",
-    "limit": "discrimination measured by mutation (falsification block) and the RED commit"
-  },
-  "falsification": {
-    "test": "c_dry_run_publishes_only_from_a_worktree_of_this_repo (with the nine other shim-backed cases of falsification_publish_from_tag: refusals a, b; scratch f; index poll g, h, i; dev-dependency j)",
-    "test_file": "tests/falsification_publish_from_tag.rs",
-    "cargo_test_target": "falsification_publish_from_tag",
-    "reverted": "line 114 of scripts/publish-from-tag.sh (`run git worktree add --detach \"$WT\" \"$TAG\"`) replaced with `run git clone --no-local -q \"$(git rev-parse --show-toplevel)\" \"$WT\" && run git -C \"$WT\" checkout -q --detach \"$TAG\"` (a copy, not a worktree of the repository), the target run, the script restored from a copy (tree verified clean). An earlier attempt recorded a passing run because its sed pattern did not match the `run `-prefixed line; that observation was wrong and is replaced here.",
-    "observed_failure": "test c_dry_run_publishes_only_from_a_worktree_of_this_repo ... FAILED\nthread 'c_dry_run_publishes_only_from_a_worktree_of_this_repo' (949614) panicked at tests/falsification_publish_from_tag.rs:96:9:\ntest result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s",
-    "still_green_when_reverted": "every case but c \u2014 the refusals, the scratch-dir rule, the index poll and the dependency order do not depend on the checkout being a worktree"
-  },
-  "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
-  "base": "origin/main",
-  "recorded_at": "2026-09-07",
-  "diff_sha256": "468bfca645e0ceb40c190307726668d24352af9a",
-  "evidence": {
-    "files": [
-      {
-        "path": ".quorum/evidence/publish-from-tag-claims.md",
-        "roles": [
-          "claims"
-        ],
-        "bytes": 12601,
-        "sha256": "5f397b302e9206d3a7ebdb4a29d05aacc63e404e1f5518ec9f2b07aecfab6f71",
-        "blob": "bfd1d723fe487d2c02fae5362025ae9b3bf363ac"
-      },
-      {
-        "path": ".quorum/evidence/publish-from-tag-refuters.md",
-        "roles": [
-          "lanes"
-        ],
-        "bytes": 9516,
-        "sha256": "e3222f80250b6685147971eec0482e4366e6e323aed3079e52daccfe24426205",
-        "blob": "744d5d809edb3bc809bcce25c95be54d9d863664"
-      },
-      {
-        "path": ".quorum/evidence/publish-from-tag-judges.md",
-        "roles": [
-          "judges"
-        ],
-        "bytes": 16871,
-        "sha256": "692a4d41040b82b340d0eee2d61a2501d7b2e3ae2aac7594644244baebd4961b",
-        "blob": "a013d9ac902a311db909e583cf4b16d23652f31c"
-      },
-      {
-        "path": ".quorum/evidence/publish-from-tag-agy.md",
-        "roles": [
-          "agy"
-        ],
-        "bytes": 2168,
-        "sha256": "8b1100001a05e5bd7e4b841473d4354844c4cf0e1ce4f455b072cbd60113a804",
-        "blob": "f17d719a24af82b876e00f795d9df5a1869036e1"
-      },
-      {
-        "path": ".quorum/evidence/publish-from-tag-crux.md",
-        "roles": [
-          "crux"
-        ],
-        "bytes": 2238,
-        "sha256": "a8c8e91456babb4cbe75d3434ab13e7cf8ec0e7785e01cb58e3aa55684fbff92",
-        "blob": "1bf043db28125099b245503ec0a43cb9e546b595"
-      },
-      {
-        "path": ".quorum/evidence/publish-from-tag-pmat.md",
-        "roles": [
-          "pmat"
-        ],
-        "bytes": 627,
-        "sha256": "4f279bd372107fc740781f036c9056c6f823ae935df032a35845d51612ebcb7e",
-        "blob": "dd7ae068092e5c2f5829fed37c0dd2f7b064001c"
-      }
+    "bytes": 16871,
+    "sha256": "692a4d41040b82b340d0eee2d61a2501d7b2e3ae2aac7594644244baebd4961b",
+    "blob": "a013d9ac902a311db909e583cf4b16d23652f31c"
+   },
+   {
+    "path": ".quorum/evidence/publish-from-tag-agy.md",
+    "roles": [
+     "agy"
     ],
-    "total_bytes": 44021,
-    "claims_digest": ".quorum/evidence/publish-from-tag-judges.md"
-  }
+    "bytes": 2168,
+    "sha256": "8b1100001a05e5bd7e4b841473d4354844c4cf0e1ce4f455b072cbd60113a804",
+    "blob": "f17d719a24af82b876e00f795d9df5a1869036e1"
+   },
+   {
+    "path": ".quorum/evidence/publish-from-tag-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2238,
+    "sha256": "a8c8e91456babb4cbe75d3434ab13e7cf8ec0e7785e01cb58e3aa55684fbff92",
+    "blob": "1bf043db28125099b245503ec0a43cb9e546b595"
+   },
+   {
+    "path": ".quorum/evidence/publish-from-tag-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 627,
+    "sha256": "4f279bd372107fc740781f036c9056c6f823ae935df032a35845d51612ebcb7e",
+    "blob": "dd7ae068092e5c2f5829fed37c0dd2f7b064001c"
+   }
+  ],
+  "total_bytes": 44021,
+  "claims_digest": ".quorum/evidence/publish-from-tag-judges.md"
+ }
 }
