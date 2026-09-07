@@ -30,7 +30,7 @@ jobs:
     name: quorum receipt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # THE PUSHED HEAD, NOT THE PR MERGE COMMIT.
           #
