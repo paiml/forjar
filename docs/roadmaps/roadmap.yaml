@@ -2632,3 +2632,26 @@ roadmap:
     of the ticket. Delta quorum (three lanes, conv-392746c8, conv-1b76d5b6, conv-add74d03): C1-C8 confirmed
     3/3; lane 3 found that an empty PR window with commits on main passed both gates vacuously — absorbed
     here: window.sh refuses it like release-check.sh Arm 5 (PMAT-178).'
+- id: PMAT-203
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S2: CB-200 ratchet re-based to pmat 3.39''s grader — 651 functions below grade A on main (the
+    August baseline commit measures 628 under the same grader, so 23 is real growth); bring it back under
+    628, then keep shrinking (1.27)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: '2026-09-07T15:00:00Z'
+  updated: '2026-09-07T15:00:00Z'
+  spec: null
+  acceptance_criteria:
+  - scripts/ratchets/cb200-baseline.json ceiling <= 628 with pmat 3.39.0 and a fresh index
+  - no function under src/ regresses below its grade at 0776fd82
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found through the PMAT-163 merge review 5: the ratchet was UNMEASURED with CB-200 disabled and
+    REGRESSED (651 > 27) with it enabled; the falsifier in the baseline file shows the instrument changed.'

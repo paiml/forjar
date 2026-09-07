@@ -20,7 +20,7 @@
 #   cb-2100           (Arm 6) the required check `gate` runs no CB rule (PMAT-202); what it
 #                     does gate — a job running scripts/dogfood/*.sh — is measured here. Was:
 #                     .github/workflows edit this ticket may not make.
-#   cb-200            (Arm 5) owned by the dated ratchet scripts/cb200-ratchet.sh, which runs here.
+#   cb-200            reports (enabled); Arm 1 exempts exactly it, Arm 5 enforces the ratchet ceiling.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -75,11 +75,36 @@ bashrs_count() {
 }
 
 # --------------------------------------------------------------- Arm 1: comply
-rc=0
-out="$(pmat comply check --failures-only 2>&1)" || rc=$?
-if [ "$rc" -ne 0 ]; then
-  echo "$out"
-  fail "pmat comply check exited ${rc} against the committed .pmat.yaml"
+# `pmat comply check` against the committed .pmat.yaml. CB-200 (the TDG grade
+# gate) is expected to report Fail here — 651 functions below grade A on main
+# under pmat 3.39's grader — and is OWNED by Arm 5 below, which enforces the
+# recorded ceiling and may only see it shrink. Any OTHER failing check fails
+# this gate. The JSON is the predicate, not the exit code: comply exits 1 for
+# the CB-200 failure it is expected to report.
+comply_rc=0
+comply_json="$(pmat comply check --format json 2>/dev/null)" || comply_rc=$?
+if [ -z "$comply_json" ]; then
+  fail "pmat comply check produced no output (exit ${comply_rc}) — unmeasured is not clean"
+fi
+other_fails="$(printf '%s' "$comply_json" | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+i = raw.find("{")
+try:
+    d = json.loads(raw[i:]) if i >= 0 else {}
+except Exception as e:
+    print("UNPARSED: " + str(e))
+    sys.exit(0)
+bad = []
+for c in d.get("checks", []) or []:
+    name = str(c.get("name", "?"))
+    if str(c.get("status", "")).lower() == "fail" and not name.startswith("CB-200:"):
+        bad.append(name)
+print("\n".join(bad))
+')"
+if [ -n "$other_fails" ]; then
+  printf '%s\n' "$other_fails"
+  fail "pmat comply check reports failing check(s) other than CB-200 (CB-200 is owned by the ratchet in Arm 5)"
 fi
 
 # ------------------------------------------------ Arm 2: the protection ruleset
