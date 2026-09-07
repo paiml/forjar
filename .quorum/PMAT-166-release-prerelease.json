@@ -1,0 +1,126 @@
+{
+ "issue": "PMAT-166 — the tag workflow creates a draft prerelease after the clean-room verify, asserts it, and publishes it only after every asset job; binary-release is dispatch-only, so two producers no longer race on one tag (closes PMAT-170); a shape test pins the workflows",
+ "quorum": {
+  "lanes": [
+   "claim lane A — release.yml create/assert/publish",
+   "claim lane B — binary-release.yml trigger removal and every other tag trigger",
+   "claim lane C — the release path end to end",
+   "independent-stack review — agy /teamwork-preview",
+   "crux — competitive survey (cargo-dist, GoReleaser, release-please, GitHub release events, Homebrew/Nix consumers)"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "majority of three judges; CONFIRMED-AS-NARROWED counts as survived",
+  "rounds": "claim round at 95322bb5 forced the restructure ca5e305d; refuters at e2438564 found the concurrency-group chain (fixed 58ef4b0c); judges at 58ef4b0c agreed on every directed question; the shape test and contract were added after the judges",
+  "claims_confirmed": 20,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "L2-F1 — .github/workflows/binary-release.yml:88 — The fallback `gh release create` omits `--prerelease`, meaning it creates a FULL release if it is missing, which violates the constraint that promotion is never the workflow's. (proposed fix: Add `--prerelease \\` before `--repo`.) — REFUTED: stale: fixed in ca5e305d",
+   "L3-F1 — .github/workflows/binary-release.yml:88 — The diff has defect missing --prerelease flag when creating the release in backfill (proposed fix: Add the --prerelease flag to the gh release create command so it does not silently create a full release.) — REFUTED: stale: fixed in ca5e305d",
+   "L1-F3 — .github/workflows/release.yml:159 — assert step fails on draft or missing, passes on promoted — REFUTED: stale: fixed in ca5e305d (the assert step now requires prerelease=true draft=true when this run created the release)",
+   "L1-F7 — .github/workflows/binary-release.yml:88 — the diff has defect missing --prerelease flag at .github/workflows/binary-release.yml:88 — REFUTED: stale: fixed in ca5e305d (--prerelease on the backfill create)",
+   "T-F1 — .github/workflows/release.yml:162 — The assert step validates the release is a prerelease. (proposed fix: Add a check for `*prerelease=false*` in the case statement if you genuinely want to forbid silent promotion by the workflow, though distinguishing this from an operator's past promotion is impossible using just `gh release view`. Also add `-r` to jq to remove raw quotes.) — REFUTED: stale: fixed in ca5e305d (the assert checks the prerelease flag)",
+   "T-F3 — .github/workflows/release-audit.yml:25 — `release: published` in `release-audit.yml` will break on prereleases. (proposed fix: None needed. Creating a prerelease *does* trigger the `published` event, but the audit script loops over all tags and gracefully skips tags with 0 assets (`if [ \"$n\" = \"0\" ]; then continue`). Because the prerelease is created before binaries exist, it hits this `n=0` fast path and gracefully skips.) — REFUTED: refuted on the merits: release-audit.yml and scripts/release-object-audit.sh assert nothing about the prerelease flag, and a draft never fires the published event",
+   "T-F4 — .github/workflows/binary-release.yml:48 — `github.ref_name` is broken when dispatched from a branch. (proposed fix: None needed. While `github.ref_name` is the branch name (e.g. `main`) on dispatch, `inputs.tag` takes precedence in the `||` chain and is marked `required: true`, so it always supplies the concurrency group.) — REFUTED: stale: fixed in 95322bb5 and 58ef4b0c (inputs.tag alone, concurrency group included)",
+   "T-F5 — .github/workflows/release.yml:148 — `--verify-tag` requires the tag to exist in the local checkout. (proposed fix: None needed. The `create-release` job has no checkout step at all. `gh release create --verify-tag` verifies the tag's existence in the *remote repository* via the GitHub API.) — REFUTED: refuted on the merits: gh release create --verify-tag asks the remote API; the create-release job has no checkout step"
+  ]
+ },
+ "crux": {
+  "systems": [
+   "cargo-dist",
+   "GoReleaser",
+   "release-please / semantic-release",
+   "GitHub release events (published, prereleased, --latest)",
+   "Homebrew and Nix asset consumers"
+  ],
+  "verdict": "the field builds into a draft and publishes at the end with one producer per tag; forjar adopted exactly that shape (draft prerelease, published after the asset jobs, dispatch-only backfill) and keeps the crates.io publish manual by the operator directive; no surveyed system shows a rule forjar violates. Third-party figures are from documentation memory (sandboxed lane) and asserted."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview, sandboxed, agy 1.1.27, on the diff at 95322bb5",
+  "verdict": "FAIL on the assert step ignoring the prerelease flag, plus four mechanisms; the first forced ca5e305d, one was fixed in 95322bb5/58ef4b0c, two were rejected with evidence (release-audit asserts nothing about the flag; --verify-tag asks the remote API)."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19354,
+  "files_parsed": 2107,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests over the branch: 0 hit(s) in the touched test paths.",
+  "limit": "the tool measures the shape test; discrimination measured by reverting the workflows (falsification block)"
+ },
+ "falsification": {
+  "test": "the seven tests of falsification_release_workflow_shape (binary-release.yml dispatch-only; release.yml the only tag trigger; draft+prerelease+verify-tag on create with created= outputs; the assert string; the publish-release job shape; no cargo publish / registry token / continue-on-error outside mutation.yml; the backfill concurrency group and --prerelease)",
+  "test_file": "tests/falsification_release_workflow_shape.rs",
+  "cargo_test_target": "falsification_release_workflow_shape",
+  "reverted": "both workflow files restored from origin/main with git show, the target run, the files restored with git checkout (tree verified clean)",
+  "observed_failure": "test rule7_binary_release_concurrency_and_backfill_prerelease ... FAILED\ntest rule5_publish_release_job_shape ... FAILED\ntest rule4_assert_step_requires_exact_draft_prerelease_string_when_created ... FAILED\ntest rule3_create_release_step_creates_a_draft_prerelease_and_records_created ... FAILED\ntest rule1_binary_release_fires_only_on_workflow_dispatch ... FAILED\ntest rule2_release_yml_is_the_only_v_star_tag_push_producer ... FAILED\ntest result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+  "still_green_when_reverted": "the tests that hold on origin/main too (no cargo publish, no registry token in any workflow) — named in the observed output"
+ },
+ "base_commit": "a8efff16c57e39efffdbe5ace621c789487ecd34",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "fc0410fa54e2db231a491f91b5f4e1f682fb85b9",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/release-prerelease-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 15282,
+    "sha256": "d02ab2e5510278086a514869359c2cc6421ebaf0f1f530f34b71ccf8786d4ce9",
+    "blob": "9176dafa3736f197619ecd552465b8aed0a26d33"
+   },
+   {
+    "path": ".quorum/evidence/release-prerelease-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 8873,
+    "sha256": "1b7ff58fd17e68a029c3cc9ecbd7a47372891a64bbae917e911127a3c7ecc4fe",
+    "blob": "0a601175c151929e1bc8206dd506b1702a14d309"
+   },
+   {
+    "path": ".quorum/evidence/release-prerelease-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 21948,
+    "sha256": "1f15bb928d4b2dd7efaf986854cc1dccd5403af4eecd3d261dd0e980011991ac",
+    "blob": "c3728b0e942acd833bfdff0be88a95b6a6b774eb"
+   },
+   {
+    "path": ".quorum/evidence/release-prerelease-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 2162,
+    "sha256": "569f5157cd24e4e3c63e938e0528515eefacb1a95384eed7a7d8f4472dbb8407",
+    "blob": "9359515f2d7c2dbdf9bbb3ddb62cd5f4ded19f32"
+   },
+   {
+    "path": ".quorum/evidence/release-prerelease-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 4699,
+    "sha256": "f62039a741a86db56b14f253e3cb9240f73dc8c6fbc2353a9098b9eb8f597991",
+    "blob": "edf7edb97cc79da841d277d2db8f565d7756f2f4"
+   },
+   {
+    "path": ".quorum/evidence/release-prerelease-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 612,
+    "sha256": "31e784ce797e6b6e05a77b8d314f480bb9195c00d6f76b7702b82bdaabe8422f",
+    "blob": "0f71db82f7113ba4eb9d34114b533d9ea51f8cfc"
+   }
+  ],
+  "total_bytes": 53576,
+  "claims_digest": ".quorum/evidence/release-prerelease-judges.md"
+ }
+}
