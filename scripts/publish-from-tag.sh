@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# publish-from-tag.sh — publish the workspace to crates.io from a DETACHED
+# publish-from-tag.sh — publish the workspace to crates.io from a detached
 # worktree of a release tag. Never from a possibly-dirty working tree, and
 # never with `--allow-dirty`.
 #
@@ -20,18 +20,27 @@
 #   * TAG does not exist
 #   * TAG's commit is not on origin/main
 #   * TAG's Cargo.toml [package] version disagrees with the tag name
-# A dirty detached worktree (tracked drift, or untracked files other than
-# build litter under target/) refuses with exit 3.
+#   * a published crate never appears on the index within the bounded poll
+# A dirty worktree refuses with exit 3.
 #
-# Offline test hook (tests/falsification_publish_from_tag.rs drives this): a
-# shim `cargo` placed first on PATH answers `metadata` and `search`, and logs
-# every argv line plus its cwd, so the test can assert the exact sequence and
+# Offline test hooks (tests/falsification_publish_from_tag.rs drives these): a
+# shim `cargo` placed first on PATH answers `metadata`, `search` and `info`,
+# and logs every argv line plus its cwd, the live worktree count and a
+# directory listing, so the suite can assert the exact sequence and
 # environment of every cargo invocation without ever calling crates.io.
+# `PUBLISH_POLL_DELAYS` overrides the index backoff schedule so the bounded
+# poll can be exercised without real sleeping. `TMPDIR` scopes the worktree
+# and scratch directories, so a crashed run leaks nothing into a shared /tmp.
 #
-# NOTE ON --detach: removing it from `git worktree add` makes checking out a
-# tag ref fail outright (a tag is not a branch you can attach a worktree to),
-# so this script cannot silently regress to a non-detached, dirtiable
-# worktree — that is the mutation guard for this whole file.
+# MUTATION GUARD (PMAT-187). It is NOT `--detach`: `git worktree add` detaches
+# at a tag whether or not the flag is passed, so removing it changes nothing
+# any test can see. The guard is that cargo runs inside a WORKTREE OF THIS
+# REPOSITORY. Replacing `git worktree add` below with `git clone` or `cp -r`
+# would still give cargo a clean, tag-shaped tree — and would still pass a
+# naive "cwd is not the repo" assertion — but the shim's
+# `git rev-parse --git-common-dir` would then resolve to the copy's own .git
+# and `git worktree list` would show one worktree instead of two, which is
+# exactly what case (c) of the falsification suite pins.
 set -euo pipefail
 
 die() {
@@ -84,32 +93,62 @@ cargo_toml_version="$(git show "$TAG:Cargo.toml" | manifest_version | head -n1)"
 
 # --------------------------------------------------------- detached worktree --
 
-WT="$(mktemp -d /tmp/forjar-publish-XXXXXX)"
+# Two directories, both under $TMPDIR and both removed by the same trap. WT is
+# the tag checkout cargo publishes from; SCRATCH holds this script's own
+# metadata/order files. They are separate on purpose (PMAT-184): a scratch
+# file written inside WT is an untracked file in the tree `cargo publish`
+# packages, and cargo then refuses the crate unless it is handed
+# `--allow-dirty` — the one flag this whole pattern exists to avoid.
+WT="$(mktemp -d "${TMPDIR:-/tmp}/forjar-publish-XXXXXX")"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/forjar-publish-scratch-XXXXXX")"
 
 cleanup() {
   printf '+ git worktree remove --force %s\n' "$WT" >&2
   git worktree remove --force "$WT" >/dev/null 2>&1 || true
+  # `:?` is not decoration: an unset or empty variable here would make
+  # this `rm -rf` a command about /, and this runs from a trap.
+  rm -rf "${SCRATCH:?}" "${WT:?}"
 }
 trap cleanup EXIT
 
 run git worktree add --detach "$WT" "$TAG"
 
-# Tracked drift or stray untracked files in the checked-out tag are a defect
-# in this script (or the tag), not something to paper over. `target/` is
-# build litter, exempt.
-dirty="$(cd "$WT" && git status --porcelain --ignored | grep -v '^!! target/' || true)"
-if [[ -n "$dirty" ]]; then
-  printf '%s\n' "$dirty" >&2
-  exit 3
-fi
+# A freshly checked-out tag has nothing untracked and nothing ignored — not
+# even target/, which cargo has not had a chance to create yet. Anything at
+# all here is a defect in this script or in the tag, so the check is strict:
+# `--ignored` included, no exemptions.
+assert_worktree_pristine() {
+  local dirty
+  dirty="$(git -C "$WT" status --porcelain --ignored)"
+  if [[ -n "$dirty" ]]; then
+    printf 'refusing: the tag worktree is not pristine:\n%s\n' "$dirty" >&2
+    exit 3
+  fi
+}
+
+# Re-asserted immediately before every `cargo publish`, because cleanliness at
+# checkout time says nothing about cleanliness after this script (or a
+# previous crate's dry-run) has run. This one mirrors what cargo publish
+# itself refuses — gitignored build litter under target/ is cargo's own doing
+# and does not count, untracked files that are NOT ignored do.
+assert_worktree_publishable() {
+  local dirty
+  dirty="$(git -C "$WT" status --porcelain)"
+  if [[ -n "$dirty" ]]; then
+    printf 'refusing: the worktree is dirty before publishing %s:\n%s\n' "$1" "$dirty" >&2
+    exit 3
+  fi
+}
+
+assert_worktree_pristine
 
 cd "$WT" || exit 2
 
 # ------------------------------------------------------ topological order --
 
-metadata_file="$WT/.publish-metadata.json"
-pkgs_file="$WT/.publish-pkgs.tsv"
-order_file="$WT/.publish-order.tsv"
+metadata_file="$SCRATCH/metadata.json"
+pkgs_file="$SCRATCH/pkgs.tsv"
+order_file="$SCRATCH/order.tsv"
 
 run cargo metadata --no-deps --format-version=1 >"$metadata_file"
 
@@ -117,7 +156,13 @@ run cargo metadata --no-deps --format-version=1 >"$metadata_file"
 # redirected line below: bashrs's shell-aware parser scans literal `|`
 # characters wherever they occur, including inside a quoted jq program, and
 # misreads them as real shell pipes preceding the `>` redirect.
-pkgs_filter='.packages[] | [.name, .version, (.publish|tostring), ([.dependencies[] | select(.path != null) | .name] | join(","))] | @tsv'
+#
+# Only NORMAL (kind == null) and BUILD dependencies are publish-order edges
+# (PMAT-186). A dev-dependency is resolved for `cargo test`, never for
+# packaging, so counting it turns the perfectly legal "crate A depends on
+# crate B, B dev-depends back on A" shape into a phantom cycle that refuses a
+# release that cargo itself would publish happily.
+pkgs_filter='.packages[] | [.name, .version, (.publish|tostring), ([.dependencies[] | select(.path != null) | select(.kind == null or .kind == "build") | .name] | join(","))] | @tsv'
 jq -r "$pkgs_filter" "$metadata_file" >"$pkgs_file"
 
 # Kahn's topological sort over path-dependency edges: a crate is emitted only
@@ -136,25 +181,58 @@ topo_sort "$pkgs_file" >"$order_file" ||
 
 # --------------------------------------------------------------- publishing --
 
-# `cargo search NAME --limit 1` prints `name = "version"    # description`,
-# possibly among other near-matches; grep -F anchors the exact assignment
-# rather than trusting a prefix/partial match on the name.
-already_published() {
-  local name="$1" version="$2"
-  run cargo search "$name" --limit 1 | grep -qF "${name} = \"${version}\""
+# `cargo info NAME@VERSION` asks the registry about ONE exact version and
+# answers with its exit code (PMAT-185). The `cargo search` it replaces
+# reports only the newest version of a prefix-matched name, so it could never
+# see an older version and would happily accept another crate's line as proof.
+CARGO_INFO_AVAILABLE=""
+cargo_info_available() {
+  if [[ -z "$CARGO_INFO_AVAILABLE" ]]; then
+    if cargo info --help >/dev/null 2>&1; then
+      CARGO_INFO_AVAILABLE="yes"
+    else
+      CARGO_INFO_AVAILABLE="no"
+    fi
+  fi
+  [[ "$CARGO_INFO_AVAILABLE" = "yes" ]]
 }
 
-# Bounded backoff over a fixed sequence of delays, never a single fixed
-# sleep: the index is eventually consistent after a publish, and a
-# dependent crate resolving against it too early is a spurious failure, not
-# a real one.
+# Fallback for a cargo too old to have `cargo info`: parse `cargo search`, but
+# anchor the match at column 1 of the line and require the exact name AND the
+# exact version. `index(line, needle) == 1` is an anchored literal match with
+# no regex metacharacters to escape — `grep -F` alone would accept
+# `other-demo = "0.0.1"` as evidence about `demo`.
+search_says_published() {
+  local name="$1" version="$2"
+  run cargo search "$name" --limit 1 |
+    awk -v n="$name" -v v="$version" 'index($0, n " = \"" v "\"") == 1 { found = 1 } END { exit !found }'
+}
+
+already_published() {
+  local name="$1" version="$2"
+  if cargo_info_available; then
+    printf '+ cargo info %s@%s --registry crates-io\n' "$name" "$version" >&2
+    cargo info "$name@$version" --registry crates-io >/dev/null 2>&1
+    return
+  fi
+  search_says_published "$name" "$version"
+}
+
+# Bounded backoff over a delay sequence, never a single fixed sleep: the index
+# is eventually consistent after a publish, and a dependent crate resolving
+# against it too early is a spurious failure, not a real one. When the bound
+# is exhausted the run refuses (exit 2) naming the crate and version, rather
+# than publishing a dependent against an index that has not caught up.
 poll_index() {
   local name="$1" version="$2" delay
-  for delay in 1 2 4 8 8 8 8 8; do
+  local -a delays=()
+  IFS=' ' read -r -a delays <<<"${PUBLISH_POLL_DELAYS:-1 2 4 8 8 8 8 8}"
+  for delay in "${delays[@]}"; do
     already_published "$name" "$version" && return 0
     sleep "$delay"
   done
-  die "refusing: $name $version never appeared on the index after publishing"
+  already_published "$name" "$version" && return 0
+  die "refusing: $name $version never appeared on the index after publishing (bounded poll exhausted)"
 }
 
 last_name="$(tail -n1 "$order_file" | cut -f1)"
@@ -164,12 +242,14 @@ while IFS=$'\t' read -r name version; do
     continue
   fi
 
+  assert_worktree_publishable "$name (dry run)"
   run env -u CARGO_REGISTRY_TOKEN cargo publish --dry-run --locked -p "$name"
 
   if [[ "${DRY_RUN:-0}" = "1" ]]; then
     continue
   fi
 
+  assert_worktree_publishable "$name"
   run env -u CARGO_REGISTRY_TOKEN cargo publish --locked -p "$name"
 
   # Between a dependency and its dependents, wait for the index to catch up.
