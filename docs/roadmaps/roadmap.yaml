@@ -3052,3 +3052,24 @@ roadmap:
   labels:
   - kind:code
   notes: 'The second half of #487. The issue offered two fixes and said either alone is sufficient; PMAT-214 took option (1), --refresh re-checking failed entries. Option (2) is this. The operator measured it directly: "skipped 10: in the lock, not in the config 7, not converged in the lock 3", which means drift is blind to precisely the resources whose live state is most worth measuring. Not in 1.27.0.'
+- id: PMAT-216
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'gate F''s mutation arm cannot run: cargo mutants exits ''interrupted'' in its first Test phase on any input, including a single unrelated file, so the in-diff mutation measurement is environmentally UNMEASURED'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-08T20:54:17Z
+  updated: 2026-09-08T20:54:17Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/coverage.sh completes its mutation arm and writes outcomes.json on this workstation'
+  - 'the root cause is named, not worked around: whatever signals cargo mutants during its first Test phase is identified'
+  - 'if the cause is a test that signals its own process group, that test is fixed rather than the arm being weakened'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found while gating 1.27.0. cargo mutants reports "ERROR interrupted / scenario execution internal error err=interrupted phase=Test" and writes no outcomes.json, immediately after "Found N mutants to test". Reproduced four times: with --in-diff on the release diff, with --baseline skip, and with --file src/cli/drift_state.rs, which shares nothing with the release diff. So it is NOT this branch. Memory was not the cause on the last three attempts (107 GB free). One suspect worth checking first: src/core/store/mutation_runner.rs emits pkill -f ''<resource_id>'', and a pkill -f inside a test can match processes outside the test, which is a self-match hazard this fleet has hit before. The 95% line floor is unaffected and was measured green (96.38%) by cargo llvm-cov --fail-under-lines 95, exit 0.'

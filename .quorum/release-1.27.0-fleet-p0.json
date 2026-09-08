@@ -1,0 +1,122 @@
+{
+ "issue": "PMAT-212/213/214 — four defects the operator found running forjar against the fleet and declared P0: drift -f answered about machines its config never declares and judged them against the local filesystem (#488, #485), a task whose command exits non-zero latched with no way back (#487), and the cargo check could not see what the cargo install wrote (#489)",
+ "quorum": {
+  "lanes": [
+   "blind review lane 1",
+   "blind review lane 2",
+   "blind review lane 3",
+   "CRUX survey lane",
+   "two paiml-impl-worker phases, every acceptance command re-run by the orchestrator"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; all three FAILs were re-run against the real binary before anything was changed, two reproduced and are fixed, one is answered in the evidence and the PR body",
+  "rounds": "three lanes at 9ad01216: 3 FAIL. Two findings reproduced (the --dry-run bypass, found independently by lanes 2 and 3; the CARGO_HOME shadowing, found by lane 2) and are fixed in 733804f4. The bundling objection is answered, not accepted.",
+  "claims_confirmed": 5,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "The branch introduced a guard against a false green and left the same false green reachable through --dry-run: cmd_drift_dry_run calls the state-dir walk directly rather than through collect_machine_locks where the guard sat, so `drift --dry-run -m <undeclared>` printed '0 resource(s) would be checked' and exited 0. Two of three lanes found it independently; it reproduced; the refusal now runs in both doors. The four original cases missed it because none exercised -m at all.",
+   "The rustup bootstrap block still hard-coded $HOME/.cargo/bin after the new prelude prepended ${CARGO_HOME:-$HOME/.cargo}/bin. Measured with CARGO_HOME=/opt/toolchain, the hard-coded export put $HOME/.cargo/bin ahead of the directory rustup actually installs into. Both lines now use the same expression.",
+   "One lane refused the branch for carrying three tickets. Accurate about PMAT-212's ticket text and deliberate: the operator declared four issues P0 with the fleet blocked, and the self-hosted pool was measured at 14 of 16 runners busy, so three PRs would serialise three CI passes. Each ticket keeps its own commit, receipt, falsification test and roadmap row; answered in the PR body rather than left implicit."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Terraform",
+   "Ansible",
+   "Puppet",
+   "Chef",
+   "Pulumi"
+  ],
+  "verdict": "three of the four systems surveyed for the latch keep no failure verdict at all, so it is a defect they cannot have; Terraform is the one that persists a verdict and its way back is a forced destroy-and-recreate rather than a re-read. forjar had the persistence and no release of any kind. On scoping, three of four bound a state query to its target BY CONSTRUCTION, which is why none needed an --all-stacks opt-out. On the environment, four of four bind check and action to one environment by construction or one named declaration."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "three quorum review lanes at 9ad01216 plus one CRUX plan lane, all sandboxed and schema-enforced",
+  "verdict": "3 FAIL — two findings reproduced under re-run and are fixed, one is answered"
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat tdg"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "vacuous-tests 0 in the touched test paths; pmat work validate passes; no TDG regression and no ceiling raised — drift_state.rs was restructured to A+ rather than accepted at A, and executor/mod.rs was brought back under the 500-line limit rather than bypassed",
+  "limit": "the mutation arm of gate F is measured separately and recorded in the release receipt"
+ },
+ "falsification": {
+  "test": "drift -f must not report a stack its config never declares, and -m naming a machine the config does not declare must be refused through every door that walks the state dir",
+  "test_file": "tests/falsification_drift_scopes_to_the_config_it_was_given.rs",
+  "cargo_test_target": "falsification_drift_scopes_to_the_config_it_was_given",
+  "reverted": "the scope filter and the refusal call removed in turn, the target run, both restored (tree verified clean)",
+  "observed_failure": "3 of 4 original cases fail against origin/main; with the refusal call commented out, a_machine_the_config_does_not_declare_is_refused_by_name_in_both_doors FAILS with 'scanned zero machines and reported success' and the other five stay green",
+  "still_green_when_reverted": "a_declared_machine_with_no_state_yet_is_not_an_error, which pins behaviour the fix must NOT break",
+  "sibling_falsifications": "tests/falsification_cargo_check_sees_what_install_wrote.rs (9 cases, two mutations killed, one of them a comment-only repair) and tests/falsification_refresh_unlatches_a_failed_task.rs (5 cases, two mutations killed)"
+ },
+ "base_commit": "19b9c1f1e42ea254b3322e526d451835fb92e480",
+ "base": "origin/main",
+ "recorded_at": "2026-09-08",
+ "diff_sha256": "8cacdf705121fc3d3751b9dd04cb3396f1c2b1c0",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/fleet-p0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1506,
+    "sha256": "06e9ca7370f6fc857808fd631f959129e2477a5ad22417e996ccc47cc1b97376",
+    "blob": "b36d70d19543567ce7c08f1a015e1496867c20df"
+   },
+   {
+    "path": ".quorum/evidence/fleet-p0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3104,
+    "sha256": "37c14f8558a6282ea1efb02dbe28a1b19c72e07ed06b2b8c41c46b3bdd553999",
+    "blob": "c4127bcd6ae65d376ccc3207f5a978a7ed47480f"
+   },
+   {
+    "path": ".quorum/evidence/fleet-p0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5177,
+    "sha256": "ee05048774112670deb8fad0c71c03a35ca77d5800cd91d0a06c10cf8ea14e3b",
+    "blob": "3cbc4da7c0fc72d61d633f6ec31f21b17997f126"
+   },
+   {
+    "path": ".quorum/evidence/fleet-p0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1172,
+    "sha256": "d4f40f370a49ac8b86794333461e331ce218dc72ea03ea756de720927724edbf",
+    "blob": "1f307bc26cd4c9d9f62e8fdf9baef9ed94e0532a"
+   },
+   {
+    "path": ".quorum/evidence/fleet-p0-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 1002,
+    "sha256": "07ff97a4a6d6ba45df9fe845c731f185c79b831c68f172596a22516ec265e116",
+    "blob": "fc2529513eba8b766a36f293448f5f74f959cb2c"
+   },
+   {
+    "path": ".quorum/evidence/fleet-p0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1276,
+    "sha256": "3e12b8cc8646d27b6863800178f1b7471ecdbbd084f16be7386ad77a9405d203",
+    "blob": "76fc0ea55654a8c29a99d849aea25c11d8b876b0"
+   }
+  ],
+  "total_bytes": 13237,
+  "claims_digest": ".quorum/evidence/fleet-p0-judges.md"
+ }
+}

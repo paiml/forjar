@@ -2,7 +2,7 @@
 
 ## Method
 
-One `agy` plan lane (conversation `33f16f57-5337-45c6-949d-432abd5480ca`) surveyed
+One `agy` plan lane (conversation an agy plan lane recorded in the session transcript) surveyed
 four world-class configuration-management and infrastructure-as-code systems
 against each of the three behaviour changes in this release, from documentation
 memory only — no network access and no live invocation of any reference system.
