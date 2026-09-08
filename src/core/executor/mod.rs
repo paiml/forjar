@@ -396,7 +396,10 @@ pub fn apply_scoped(
     } else if let Some(tag) = cfg.force_tag {
         selective_force_locks(&locks, cfg.config, tag)
     } else if cfg.refresh {
-        refresh::refresh_locks(cfg, &locks)
+        let refreshed = refresh::refresh_locks(cfg, &locks);
+        // PMAT-214 (forjar#487): the planner's view is discarded; see below.
+        refresh::persist_unlatched(&refreshed, &mut locks);
+        refreshed
     } else {
         locks.clone()
     };
