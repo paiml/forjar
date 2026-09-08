@@ -1,0 +1,112 @@
+{
+ "issue": "PMAT-210 — issue #485, a severity-1 drift false positive, was filed four hours after the 1.26.0 cut; this branch classifies it, mints PMAT-209 for 1.27, records the row in the release triage, and measures the local half of the defect so the deferral is narrowed rather than guessed",
+ "waived": {
+  "reason": "The gate has no shape a kind:triage branch can satisfy, and this is that branch. It requires falsification.test_file to name a .rs file the branch TOUCHED, and it requires 33% of adjudicated claims to cite src|tests|scripts|benches/*.rs or a root Cargo.toml/Cargo.lock/CHANGELOG.md/README.md that the branch touched. The paiml-implement rail says a kind:triage branch may change only docs/audits/** and docs/roadmaps/roadmap.yaml, and this one changes exactly those. The two rules cannot both hold: there is no honest diff that satisfies both, so the waiver is the shape gap, not a shortfall of review. What actually ran is in this receipt and in .quorum/evidence/triage485-*.md — two three-lane rounds (the first refuted the branch and the refutation was answered by reframing it, not by arguing with it), one /teamwork-preview whose finding added the control probe, one CRUX survey of four systems, and pmat work validate re-run by the orchestrator. The gap is ticketed as PMAT-211 for 1.27, with the fix specified as making a triage-shaped diff passable and proving it with a falsification test. The CIT_RE comment in scripts/quorum_evidence.py already names this failure mode for release commits — a gate that cannot be passed honestly teaches a repo to reach for the waiver — and this is the same failure for a different shape."
+ },
+ "quorum": {
+  "lanes": [
+   "blind review lane 1",
+   "blind review lane 2",
+   "blind review lane 3",
+   "agy /teamwork-preview",
+   "CRUX survey"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; round 1's three FAILs were re-read against the ticket they were given, and the frame was corrected rather than the diff; the teamwork finding was answered by running the probe it named",
+  "rounds": "round 1 at a2a6876a: 3 lanes, 3 FAIL, one finding (the ticket beside the diff described the fix, not the triage). Round 2 at 00f973f6 against PMAT-210: 3 lanes, 3 PASS. Teamwork and CRUX at the same head, both PASS.",
+  "claims_confirmed": 4,
+  "claims_refuted": 2,
+  "refuted_claims": [
+   "Three lanes refuted the branch as an implementation of PMAT-209 — no code, no fixture, no reason-string change. Correct about the text they were given. The triage was reframed as its own ticket, PMAT-210 (kind: triage), and PMAT-209 became what it mints; the same three lanes then passed it.",
+   "The /teamwork-preview lane refuted the receipt's narrowing: probes on 1.26.0 alone cannot separate 'the local path is immune' from '1.26.0 already fixed what 1.25.2 got wrong'. Its words: 'Without the 1.25.2 local probe, the narrowing is a guess disguised as a measurement.' Probe C was run on the 1.25.2 release binary with its sha256 checked against that tag's SHA256SUMS; it also reports No drift detected, so the narrowing now rests on a control."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Ansible",
+   "Puppet/Chef",
+   "Terraform",
+   "nixpkgs"
+  ],
+  "verdict": "none of the four amends or re-tags a published release for a defect of this class; the fix is always a later version and the report is tracked against a milestone. forjar is equivalent on the deferral and stronger on the artifact — the disposition, its rationale, the ticket and the target release sit in one row of the release's own triage document. Its one finding, that forjar amends an audit document belonging to a release already cut, is recorded and answered in .quorum/evidence/triage485-crux.md.",
+  "conversation": "239fd011-83b4-4c8d-a7dd-c2b992c992d3"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview at 00f973f6, sandboxed, schema-enforced",
+  "verdict": "PASS — deferral is the right disposition and the alternatives were killed by name; the evidence as first written overclaimed and the missing probe was named precisely",
+  "conversation": "284839f2-6d45-40a1-9466-e0782ed9d5df"
+ },
+ "pmat": {
+  "tools": [
+   "pmat work validate"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "pmat work validate passes; PMAT-209, PMAT-210 and PMAT-211 all resolve in the roadmap",
+  "limit": "analyze_vacuous_tests is not applicable: the branch adds no test because it adds no code. The touched paths are two Markdown files and one YAML file."
+ },
+ "falsification": {
+  "test": "not applicable to a kind:triage branch, and not faked. The gate requires a .rs test the branch touched; a triage branch may not touch one. What stands in its place is the control probe the teamwork lane demanded: the conclusion 'the local path is immune' was tested against the version the report is filed against, 1.25.2, where it could have failed and did not.",
+  "test_file": null,
+  "cargo_test_target": null,
+  "control_probe": "forjar 1.25.2 from the release tarball, sha256 ca633235aa95ac3c306ad1d78b6d24ede567c4b8953e722c3da739a44c6d75c4 matching that tag's SHA256SUMS: plan 1 to add; apply 1 converged, 0 unchanged, 0 failed; apply again 0 converged, 1 unchanged; drift No drift detected",
+  "what_it_rules_out": "that 1.26.0 fixed the defect and the fleet pin already closed it"
+ },
+ "base_commit": "19b9c1f1e42ea254b3322e526d451835fb92e480",
+ "base": "origin/main",
+ "recorded_at": "2026-09-08",
+ "diff_sha256": "PENDING",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/triage485-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 910,
+    "sha256": "d06729b66432588f0ea43f424b86be7d013636025477dac0a453666fb4ef6aa1",
+    "blob": "9ed490a7ea428b8b5f66a6df6ed6ca0be2bc81e9"
+   },
+   {
+    "path": ".quorum/evidence/triage485-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3530,
+    "sha256": "e472c91e1ddd7c75cb186740e67f5e53ca997a91901705a81f6d28b83b779621",
+    "blob": "c72678f4bda364f2a8319f99e85ec5c741c927bf"
+   },
+   {
+    "path": ".quorum/evidence/triage485-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 898,
+    "sha256": "d8a46851affea1e57b4754e80f47dbf32447b76c53ba12e0d258d042397e6a6d",
+    "blob": "70a392632635e214f54bc80b298cadbaec088197"
+   },
+   {
+    "path": ".quorum/evidence/triage485-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 1302,
+    "sha256": "3f10671aa237367861ce2704e43301de35deff58bec0cc8ff047d52debc2202d",
+    "blob": "8a3d6d9737443827e1e1f6dd7aa8408b967d4677"
+   },
+   {
+    "path": ".quorum/evidence/triage485-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2016,
+    "sha256": "2dc46b8bd9d3380847ee2217e9e8feeed8761069606964086cd05a1ab13fda9a",
+    "blob": "986283e355c117fa855e98d6ade6804efe9d0b8c"
+   }
+  ],
+  "total_bytes": 8656,
+  "claims_digest": ".quorum/evidence/triage485-claims.md"
+ }
+}

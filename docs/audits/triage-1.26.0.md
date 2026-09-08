@@ -42,6 +42,14 @@ The five-whys for each closed PR is the closing comment on that PR; the common r
 
 Class: S1 blocks a release, S2 ships with a ticket, S3 is cosmetic. The epic rows PMAT-145..154 and the umbrella PMAT-137 were carried onto main's roadmap from the local roadmap branch in the release-cut PR, so every id above resolves in `docs/roadmaps/roadmap.yaml`.
 
+## Filed after the cut
+
+| Issue | Title (short) | Class | Disposition | Ticket | Release |
+|---|---|---|---|---|---|
+| #485 | a file resource whose content is byte-identical is reported DRIFTED | S1 | deferred: filed by the operator at 16:04Z on 2026-09-08, after the tag, the publish and the fleet pin. It reproduces on three resources across two machines against 1.25.2, and it is what keeps the infra drift tripwire from ever being green. It is not in the 1.26.0 window and a published release cannot absorb it; it is the first ticket of 1.27 | PMAT-209 | 1.27 |
+
+An S1 arriving after the cut does not retroactively make the cut unsound: the row above is outside the window every gate in this release measured. It is recorded here so the board is not read as empty, and it is the first item of the next release, not a loose end of this one.
+
 ## Quorum findings minted during the program
 
 | Ticket | Class | Carried by | Status |
@@ -63,6 +71,6 @@ Class: S1 blocks a release, S2 ships with a ticket, S3 is cosmetic. The epic row
 | PMAT-203 | S2 (the CB-200 ratchet re-based to pmat 3.39's grader: 651 on main, 628 at the August baseline commit under the same grader; bring it under 628) | — | deferred to 1.27 |
 | PMAT-162 | spec-first (generation ownership) | #481 (spec) | implementation in 1.27 |
 
-No S1 finding is open at the cut.
+No S1 finding was open at the cut. One was filed four hours after it — #485, above — and is deferred to 1.27 as PMAT-209.
 
 TRIAGE-1.26.0-END
