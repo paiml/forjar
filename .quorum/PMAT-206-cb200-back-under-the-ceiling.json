@@ -49,17 +49,17 @@
   "limit": "no test added by this branch; the existing suites re-run green after each reduction"
  },
  "falsification": {
-  "test": "the observe suite (75), the purifier suite (51), the two chmod falsification files (9 + 15) and the example run, all at HEAD; the ratchet observed exit 0 at 651 with the cache fresh and again after a source was made newer than the cache (NOTE printed, cache removed)",
-  "test_file": "tests/falsification_chmod_path_is_not_a_mode.rs",
-  "cargo_test_target": "falsification_chmod_path_is_not_a_mode",
-  "reverted": "the ratchet run against the pre-branch script on the same tree (git show HEAD:scripts/cb200-ratchet.sh) reported 654, 653 and 652 through the reductions because it graded the stale cache; the same tree with the cache removed reported 651",
-  "observed_failure": "✗ CB-200 REGRESSED: 654 functions below grade A, recorded ceiling is 651 (main, stale cache) → ✓ CB-200 at the recorded ceiling (651), pre-existing and not growing (this branch, fresh cache)",
-  "still_green_when_reverted": "every Rust suite: the reductions are behaviour-preserving by construction and the tests cannot tell them apart"
+  "test": "the four cases of falsification_cb200_ratchet_measures_this_tree (a stale cache is announced and removed before comply runs; a fresh cache is left alone; the ceiling still refuses 652; a missing cache root is skipped), with a pmat shim that records whether the cache directory existed when comply was invoked",
+  "test_file": "tests/falsification_cb200_ratchet_measures_this_tree.rs",
+  "cargo_test_target": "falsification_cb200_ratchet_measures_this_tree",
+  "reverted": "scripts/cb200-ratchet.sh replaced by its origin/main version (git show origin/main:scripts/cb200-ratchet.sh), the target run, the file restored (tree verified clean)",
+  "observed_failure": "test a_cache_older_than_the_tree_is_removed_before_comply_runs ... FAILED\ntest result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+  "still_green_when_reverted": "the three controls — a fresh cache left alone, the ceiling refusing 652, a missing cache root skipped — which the old script also satisfied"
  },
  "base_commit": "2acefaec0c9fd59b7e34ccabf467a52d4f553b86",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "8367fd8fd5bc464f917dc1d2c3aa73aee2b8ae1a",
+ "diff_sha256": "9d2c5aa498cd11b00b1f60c7b0ce10867c7e6955",
  "evidence": {
   "files": [
    {
@@ -85,9 +85,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 5824,
-    "sha256": "b3bbc6d4eeec95bdc5ed96083e97eb597a0de3e09bf2414b8996adce77bee4bd",
-    "blob": "1d5604ca4263fb8fb608d16947b1a4c477dc2f0a"
+    "bytes": 5999,
+    "sha256": "3b16235b87c4ff6c3992d99de8bc11d6df25f4d5f77a8e6f863d9b4c61814968",
+    "blob": "c2197e352266e10a8a801fb8001d83558c2efead"
    },
    {
     "path": ".quorum/evidence/cb200-agy.md",
@@ -117,7 +117,7 @@
     "blob": "e69e68558dbac6fac2f3d2b951b2dfe0c2c6e38d"
    }
   ],
-  "total_bytes": 16183,
+  "total_bytes": 16358,
   "claims_digest": ".quorum/evidence/cb200-judges.md"
  }
 }
