@@ -77,15 +77,31 @@ pub(super) fn check_passes_on(cfg: &ApplyConfig, resource: &Resource, machine_na
 ///
 /// "Re-run check scripts, only re-apply what fails" has two halves. This is the
 /// one that says what PASSES is not re-applied.
-fn should_seed(
+pub(super) fn seed_converged(cfg: &ApplyConfig, machine_name: &str, lock: &mut StateLock) {
+    let unlocked: Vec<String> = cfg
+        .config
+        .resources
+        .keys()
+        .filter(|id| !lock.resources.contains_key(*id))
+        .cloned()
+        .collect();
+    record_converged(cfg, machine_name, lock, unlocked);
+}
+
+/// Does the HOST — not the lock — report this resource as being in its declared
+/// state right now?
+///
+/// Shared by seeding (an entry that does not exist) and unlatching (an entry
+/// that exists and says the resource is broken), because the evidence required
+/// is identical: the resource is in this apply's scope, it is declared for this
+/// machine, and its check ran here and exited 0.
+fn host_says_converged(
     cfg: &ApplyConfig,
     machine_name: &str,
     id: &str,
     resource: &Resource,
-    lock: &StateLock,
 ) -> bool {
-    !lock.resources.contains_key(id)
-        && super::refresh::refresh_in_scope(cfg, id, resource)
+    super::refresh::refresh_in_scope(cfg, id, resource)
         && resource.machine.iter().any(|m| m == machine_name)
         && check_passes_on(cfg, resource, machine_name)
 }
@@ -108,15 +124,60 @@ fn converged_entry(resource: &Resource) -> ResourceLock {
     }
 }
 
-pub(super) fn seed_converged(cfg: &ApplyConfig, machine_name: &str, lock: &mut StateLock) {
-    let seeds: Vec<(String, ResourceLock)> = cfg
-        .config
-        .resources
-        .iter()
-        .filter(|(id, r)| should_seed(cfg, machine_name, id, r, lock))
-        .map(|(id, r)| (id.clone(), converged_entry(r)))
+/// Record, as converged, each candidate the host says is already converged.
+///
+/// The one writer both halves of `--refresh` go through: seeding (candidates
+/// with no lock entry) and unlatching (candidates the lock calls broken) differ
+/// only in which entries they nominate, never in the evidence required.
+fn record_converged(
+    cfg: &ApplyConfig,
+    machine_name: &str,
+    lock: &mut StateLock,
+    candidates: Vec<String>,
+) {
+    let entries: Vec<(String, ResourceLock)> = candidates
+        .into_iter()
+        .filter_map(|id| cfg.config.resources.get(&id).map(|r| (id, r)))
+        .filter(|(id, r)| host_says_converged(cfg, machine_name, id, r))
+        .map(|(id, r)| (id, converged_entry(r)))
         .collect();
-    for (id, entry) in seeds {
+    for (id, entry) in entries {
         lock.resources.insert(id, entry);
     }
+}
+
+/// PMAT-214 (forjar#487): re-check the entries the lock records as BROKEN.
+///
+/// `refresh_locks` evicts an entry whose live check FAILS, and `seed_converged`
+/// adds one for a resource that has NO entry. Between them sits the case
+/// neither covers: an entry that EXISTS, says `failed`, and whose check now
+/// passes. Nothing re-ran that check, so `--refresh` planned an `Update`, and
+/// the generated script is command-then-check —
+///
+/// ```sh
+/// set -euo pipefail
+/// <command>                   # a guard's command exits 1 by design
+/// if ! { <completion_check> } # never reached
+/// ```
+///
+/// — so the command re-failed and the failure was re-recorded. A latch.
+///
+/// It closes on the resources forjar's own idioms require: a guard whose command
+/// cannot succeed because the action needs a secret no config may hold, and whose
+/// job is to refuse loudly and name the make target. Measured on yoga 2026-09-07
+/// against a correctly registered runner — check PASS by hand inside forjar's own
+/// wrapper, `drift` skipping the entry, `apply --refresh -r runner-registered`
+/// still "0 converged, 0 unchanged, 2 failed". On gx10 it also took three
+/// dependents with it under `policy.failure: stop_on_first`.
+///
+/// NOT a forgiveness rule: the promotion demands a fresh check that exits 0, so
+/// nothing reaches `converged` without the host saying so.
+pub(super) fn unlatch_failed(cfg: &ApplyConfig, machine_name: &str, lock: &mut StateLock) {
+    let broken: Vec<String> = lock
+        .resources
+        .iter()
+        .filter(|(_, rl)| rl.status != ResourceStatus::Converged)
+        .map(|(id, _)| id.clone())
+        .collect();
+    record_converged(cfg, machine_name, lock, broken);
 }

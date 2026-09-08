@@ -109,6 +109,13 @@ pub(crate) fn refresh_locks(
             None => empty_lock(machine),
         };
         new_lock.resources.retain(|rid, _| !stale.contains(rid));
+        // PMAT-214 (forjar#487): the entries above were evicted because their
+        // check FAILED. What remains may still include entries the lock records
+        // as failed whose check now PASSES — a guard whose command exits 1 by
+        // design, re-run forever because nothing re-checked it. Unlatch those
+        // before seeding, so the same evidence (a fresh check, exit 0) decides
+        // both the entry that exists and the entry that does not.
+        super::refresh_seed::unlatch_failed(cfg, machine, &mut new_lock);
         super::refresh_seed::seed_converged(cfg, machine, &mut new_lock);
         result.insert(machine.clone(), new_lock);
     }
