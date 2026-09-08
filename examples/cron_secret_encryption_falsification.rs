@@ -17,10 +17,31 @@ use forjar::core::state_encryption::{
     create_metadata, derive_key, hash_data, keyed_hash, verify_keyed_hash, verify_metadata,
 };
 
+/// One falsification criterion: print the verdict, then refuse to continue if
+/// it did not survive. The five-line `if ok { "yes" } else { "no" }` block this
+/// replaces appeared once per criterion and was the whole of these functions'
+/// branching (CB-200 counted `main` at complexity 38 because of it, PMAT-206).
+fn criterion(label: &str, ok: bool) {
+    println!(
+        "  {label}: {} {}",
+        if ok { "yes" } else { "no" },
+        if ok { "✓" } else { "✗ FALSIFIED" }
+    );
+    assert!(ok, "{label}");
+}
+
 fn main() {
     println!("Forjar Cron / Secret Lint / Encryption / Ephemeral Falsification");
     println!("{}", "=".repeat(60));
 
+    cron_parsing();
+    script_secret_lint();
+    state_encryption();
+    ephemeral_values();
+}
+
+/// FJ-3103: Cron Parsing
+fn cron_parsing() {
     // ── FJ-3103: Cron Parsing ──
     println!("\n[FJ-3103] Cron Expression Parsing:");
 
@@ -28,12 +49,7 @@ fn main() {
     let ok_15 = every_15.minutes.len() == 4
         && every_15.minutes.contains(&0)
         && every_15.minutes.contains(&45);
-    println!(
-        "  */15 → 4 values (0,15,30,45): {} {}",
-        if ok_15 { "yes" } else { "no" },
-        if ok_15 { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(ok_15);
+    criterion("*/15 → 4 values (0,15,30,45)", ok_15);
 
     let business = parse_cron("0 9 * * 1-5").unwrap();
     let t_mon = CronTime {
@@ -51,100 +67,79 @@ fn main() {
         weekday: 0,
     };
     let biz_ok = matches(&business, &t_mon) && !matches(&business, &t_sun);
-    println!(
-        "  Mon 9:00 matches, Sun 9:00 doesn't: {} {}",
-        if biz_ok { "yes" } else { "no" },
-        if biz_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(biz_ok);
+    criterion("Mon 9:00 matches, Sun 9:00 doesn't", biz_ok);
 
     let summary = schedule_summary(&every_15);
     println!("  Summary: {summary}");
 
     let err = parse_cron("* *");
     let err_ok = err.is_err();
-    println!(
-        "  Invalid '* *' rejected: {} {}",
-        if err_ok { "yes" } else { "no" },
-        if err_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(err_ok);
+    criterion("Invalid '* *' rejected", err_ok);
+}
 
+/// FJ-3307: Script Secret Lint
+fn script_secret_lint() {
     // ── FJ-3307: Script Secret Lint ──
     println!("\n[FJ-3307] Script Secret Leakage Detection:");
 
     let clean = scan_script("#!/bin/bash\napt-get install nginx\n");
     let clean_ok = clean.clean();
-    println!(
-        "  Clean script passes: {} {}",
-        if clean_ok { "yes" } else { "no" },
-        if clean_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(clean_ok);
+    criterion("Clean script passes", clean_ok);
 
     let leak = scan_script("echo $PASSWORD > /tmp/log\ncurl -u admin:pass https://api.com\n");
     let leak_ok = !leak.clean() && leak.findings.len() >= 2;
-    println!(
-        "  echo $PASSWORD + curl -u detected ({} findings): {} {}",
-        leak.findings.len(),
-        if leak_ok { "yes" } else { "no" },
-        if leak_ok { "✓" } else { "✗ FALSIFIED" }
+    criterion(
+        &format!(
+            "echo $PASSWORD + curl -u detected ({} findings)",
+            leak.findings.len()
+        ),
+        leak_ok,
     );
-    assert!(leak_ok);
 
     let comments = scan_script("# echo $PASSWORD\n# sshpass -p secret ssh x\n");
     let comment_ok = comments.clean();
-    println!(
-        "  Comments skipped: {} {}",
-        if comment_ok { "yes" } else { "no" },
-        if comment_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(comment_ok);
+    criterion("Comments skipped", comment_ok);
 
     let v = validate_no_leaks("echo $TOKEN\n");
     let v_ok = v.is_err();
-    println!(
-        "  validate_no_leaks rejects leaked token: {} {}",
-        if v_ok { "yes" } else { "no" },
-        if v_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(v_ok);
+    criterion("validate_no_leaks rejects leaked token", v_ok);
+}
 
-    // ── FJ-3303: State Encryption ──
+/// FJ-3303: State Encryption
+fn state_encryption() {
+    // ── FJ-3303: State Encryption (BLAKE3) ──
     println!("\n[FJ-3303] State Encryption (BLAKE3):");
-
-    let h1 = hash_data(b"state data");
-    let h2 = hash_data(b"state data");
-    let hash_ok = h1 == h2 && h1.len() == 64;
-    println!(
-        "  BLAKE3 hash deterministic (64 hex): {} {}",
-        if hash_ok { "yes" } else { "no" },
-        if hash_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(hash_ok);
-
     let key = derive_key("my-passphrase");
-    let hmac = keyed_hash(b"ciphertext", &key);
-    let hmac_ok = verify_keyed_hash(b"ciphertext", &key, &hmac)
-        && !verify_keyed_hash(b"tampered", &key, &hmac);
-    println!(
-        "  HMAC verify + tamper detection: {} {}",
-        if hmac_ok { "yes" } else { "no" },
-        if hmac_ok { "✓" } else { "✗ FALSIFIED" }
+    criterion(
+        "BLAKE3 hash deterministic (64 hex)",
+        hash_is_deterministic(),
     );
-    assert!(hmac_ok);
-
-    let meta = create_metadata(b"plaintext state", b"encrypted bytes", &key);
-    let meta_ok = meta.version == 1
-        && verify_metadata(&meta, b"encrypted bytes", &key)
-        && !meta.encrypted_at.is_empty();
-    println!(
-        "  Metadata v1 + verified: {} {}",
-        if meta_ok { "yes" } else { "no" },
-        if meta_ok { "✓" } else { "✗ FALSIFIED" }
+    criterion(
+        "HMAC verify + tamper detection",
+        hmac_detects_tampering(&key),
     );
-    assert!(meta_ok);
+    criterion("Metadata v1 + verified", metadata_verifies(&key));
+}
 
+fn hash_is_deterministic() -> bool {
+    let h1 = hash_data(b"state data");
+    h1 == hash_data(b"state data") && h1.len() == 64
+}
+
+fn hmac_detects_tampering(key: &[u8; 32]) -> bool {
+    let hmac = keyed_hash(b"ciphertext", key);
+    verify_keyed_hash(b"ciphertext", key, &hmac) && !verify_keyed_hash(b"tampered", key, &hmac)
+}
+
+fn metadata_verifies(key: &[u8; 32]) -> bool {
+    let meta = create_metadata(b"plaintext state", b"encrypted bytes", key);
+    meta.version == 1
+        && verify_metadata(&meta, b"encrypted bytes", key)
+        && !meta.encrypted_at.is_empty()
+}
+
+/// FJ-3302: Ephemeral Values
+fn ephemeral_values() {
     // ── FJ-3302: Ephemeral Values ──
     println!("\n[FJ-3302] Ephemeral Value Pipeline:");
 
@@ -166,30 +161,15 @@ fn main() {
         &resolved,
     );
     let sub_ok = config == "postgres://u:s3cret@h/db?k=abc123";
-    println!(
-        "  Template substitution: {} {}",
-        if sub_ok { "yes" } else { "no" },
-        if sub_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(sub_ok);
+    criterion("Template substitution", sub_ok);
 
     let records = to_records(&resolved);
     let rec_ok = records.len() == 2 && records[0].hash.len() == 64;
-    println!(
-        "  to_records strips plaintext: {} {}",
-        if rec_ok { "yes" } else { "no" },
-        if rec_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(rec_ok);
+    criterion("to_records strips plaintext", rec_ok);
 
     let drift = check_drift(&resolved, &records);
     let drift_ok = drift.iter().all(|d| d.status == DriftStatus::Unchanged);
-    println!(
-        "  Drift unchanged after same resolve: {} {}",
-        if drift_ok { "yes" } else { "no" },
-        if drift_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(drift_ok);
+    criterion("Drift unchanged after same resolve", drift_ok);
 
     let changed = vec![ResolvedEphemeral {
         key: "db_pass".into(),
@@ -198,12 +178,7 @@ fn main() {
     }];
     let change_drift = check_drift(&changed, &records);
     let change_ok = change_drift[0].status == DriftStatus::Changed;
-    println!(
-        "  Drift detected after rotation: {} {}",
-        if change_ok { "yes" } else { "no" },
-        if change_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(change_ok);
+    criterion("Drift detected after rotation", change_ok);
 
     println!("\n{}", "=".repeat(60));
     println!("All cron/secret/encryption/ephemeral criteria survived.");

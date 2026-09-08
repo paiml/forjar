@@ -29,8 +29,47 @@ ceiling=$(python3 -c "import json;print(json.load(open('$BASE'))['ceiling'])")
 # met. A stale measurement is not a measurement.
 pmat query "resource" --rebuild-index --limit 1 >/dev/null 2>&1 || true
 
-# `|| true` on the producer would be the exact defect this protocol warns about,
-# so the JSON is captured and its absence handled explicitly instead.
+# THAT REBUILD IS NOT THE INDEX THIS GATE READS. `pmat query --rebuild-index`
+# refreshes the project index; `pmat comply check` grades from its OWN cache
+# under ~/.cache/paiml-mcp-agent-toolkit/comply/index/<tree>-<hash>/. Measured
+# 2026-09-08 (PMAT-206): after `observe::classify` became a table, comply went
+# on reporting `classify [F] (complexity: 34)` at its old line and the count sat
+# three above the ceiling through three real reductions. Clearing that cache and
+# re-running gave the true number, 651, immediately.
+#
+# A gate quoting a tree that no longer exists is worse than no gate. So the
+# cache is judged by AGE, before comply runs: if the newest tracked source file
+# is newer than the cache, the cache cannot describe this tree and is removed.
+# The staleness is announced rather than swallowed — the point is a true
+# measurement AND a visible tool defect, not a quiet one.
+#
+# The directory is found by NAME under the tool's own cache root, never by
+# pattern-matching comply's JSON: that output carries source snippets and file
+# paths from violations, so a regex over it can hand `rm -rf` a path out of the
+# repository (found by the PMAT-206 quorum, four lanes).
+cache_root="${PMAT_COMPLY_CACHE:-$HOME/.cache/paiml-mcp-agent-toolkit/comply/index}"
+# `sed -n 1p`, not `head -1`: head closes the pipe after one line, `ls` takes
+# SIGPIPE, xargs reports 125 for a signalled child, and under `pipefail` the
+# whole script died here with no output at all (measured: exit 125, 0 lines).
+newest_src=$(git ls-files -z -- '*.rs' '*.py' | xargs -0 -r stat -c '%Y %n' 2>/dev/null | sort -rn | sed -n '1p' | cut -d' ' -f2-)
+if [ -n "$newest_src" ] && [ -d "$cache_root" ]; then
+  for dir in "$cache_root/$(basename "$PWD")"-*; do
+    [ -d "$dir" ] || continue
+    case "$dir" in
+      "$cache_root"/*) ;;
+      *) continue ;;
+    esac
+    if [ "$newest_src" -nt "$dir" ]; then
+      echo "  NOTE: ${dir} is older than ${newest_src} — pmat comply would grade a tree that no longer exists."
+      echo "        Removing it so this run measures THIS tree. (pmat query --rebuild-index does not refresh it.)"
+      # `:?` is not decoration: an unset or empty variable here would make
+      # this `rm -rf` a command about /. The case above already pinned it
+      # under the cache root; this pins it non-empty.
+      [ -n "$dir" ] && [ "$dir" != "/" ] && rm -rf "${dir:?}"
+    fi
+  done
+fi
+
 raw=$(pmat comply check --format json 2>/dev/null || true)
 [ -n "$raw" ] || { echo "✗ CB-200 UNMEASURED: pmat comply produced no output"; exit 1; }
 
