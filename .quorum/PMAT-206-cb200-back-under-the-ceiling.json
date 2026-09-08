@@ -59,7 +59,7 @@
  "base_commit": "2acefaec0c9fd59b7e34ccabf467a52d4f553b86",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "9d2c5aa498cd11b00b1f60c7b0ce10867c7e6955",
+ "diff_sha256": "b8a4b1c2862e1f2c01c541ea1a46f7e9b48204a9",
  "evidence": {
   "files": [
    {
@@ -85,9 +85,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 5999,
-    "sha256": "3b16235b87c4ff6c3992d99de8bc11d6df25f4d5f77a8e6f863d9b4c61814968",
-    "blob": "c2197e352266e10a8a801fb8001d83558c2efead"
+    "bytes": 6247,
+    "sha256": "17757fbda0458f733763670655a9975f40e1e553a8691fed6ca1b995977a3bf7",
+    "blob": "4844f169901ca8c88153621c0ebaa5319d6bf736"
    },
    {
     "path": ".quorum/evidence/cb200-agy.md",
@@ -112,12 +112,12 @@
     "roles": [
      "pmat"
     ],
-    "bytes": 1495,
-    "sha256": "40774bdc7d5df7791e2ce8ab53e6993e8a8957aeb5f278389035a94a85e3dfc7",
-    "blob": "e69e68558dbac6fac2f3d2b951b2dfe0c2c6e38d"
+    "bytes": 1902,
+    "sha256": "c776e404e86d17fc57e61a571d593d59d5287c3a77899ea0f8ab8ebeed5fed0f",
+    "blob": "0a2beab07af9460218f880cae383c20e1496bc3f"
    }
   ],
-  "total_bytes": 16358,
+  "total_bytes": 17013,
   "claims_digest": ".quorum/evidence/cb200-judges.md"
  }
 }
