@@ -5,7 +5,7 @@ metadata:
   created: "2026-09-06"
   author: "PAIML Engineering"
   description: |
-    Publish-from-tag — `scripts/publish-from-tag.sh` publishes the workspace
+    Publish-from-tag — `scripts/publish-from-tag.sh` publishes the member crates
     to crates.io only from a DETACHED worktree of a release tag, never from
     the ambient working tree, and never with `--allow-dirty`.
 
@@ -129,7 +129,7 @@ equations:
     formula: |
       edges(pkg) = { d ∈ deps(pkg) : d.path ≠ null ∧ d.kind ∈ {null, "build"} }
 
-      topo_order = Kahn(workspace crates minus publish=false, edges)
+      topo_order = Kahn(member crates minus publish=false, edges)
       A dev-dependency (kind = "dev") is NEVER an ordering edge, so a
       dev-dependency back-edge is not a cycle.
     domain: "the `cargo metadata --no-deps` package graph"
@@ -149,7 +149,7 @@ equations:
       i.e. `cargo publish --dry-run --locked -p pkg` always precedes
       `cargo publish --locked -p pkg`, and under DRY_RUN=1 the real publish
       never runs for any package.
-    domain: "pkg ∈ workspace crates, topologically ordered"
+    domain: "pkg ∈ member crates, topologically ordered"
     codomain: "Sequence<CargoInvocation>"
     invariants:
       - "Under DRY_RUN=1, the shim log contains `publish --dry-run --locked`
@@ -168,7 +168,7 @@ equations:
       poll_index(pkg) = first success of {already_published(pkg) after delay_i}
         for delay ∈ [1, 2, 4, 8, 8, 8, 8, 8]  -- bounded backoff, never fixed
       poll_index skipped when pkg = last(topo_order)
-    domain: "pkg ∈ workspace crates except the last in publish order"
+    domain: "pkg ∈ member crates except the last in publish order"
     codomain: "Result<(), ExitCode 2>"
     invariants:
       - "The poll asks about ONE EXACT VERSION. `cargo search` reports only

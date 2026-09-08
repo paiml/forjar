@@ -172,43 +172,43 @@ falsification_tests:
   - id: FALSIFY-CRUX-AUDIT-001
     rule: "RULE 1 — the audit exists and its title names the release"
     prediction: "docs/audits/crux-1.26.0.md exists and its top-level `# ` title contains \"1.26.0\""
-    test: "the_audit_exists_and_its_title_names_1_26_0"
+    test: tests/falsification_crux_audit_shape.rs::the_audit_exists_and_its_title_names_1_26_0
     if_fails: "the audit was emptied, renamed, or retitled for a different release"
   - id: FALSIFY-CRUX-AUDIT-002
     rule: "RULE 2 — every behaviour has >= 3 reference rows"
     prediction: "for n in 1..=9, at least 3 lines start with `| (n)`"
-    test: "every_behaviour_has_at_least_three_reference_rows"
+    test: tests/falsification_crux_audit_shape.rs::every_behaviour_has_at_least_three_reference_rows
     if_fails: "a behaviour was audited against fewer than 3 reference systems, or the table was truncated"
   - id: FALSIFY-CRUX-AUDIT-003
     rule: "RULE 3 — one disposition per row"
     prediction: "every table row's last cell matches adopt(PMAT- or reject("
-    test: "every_row_has_exactly_one_disposition"
+    test: tests/falsification_crux_audit_shape.rs::every_row_has_exactly_one_disposition
     if_fails: "a row has no disposition, a malformed one, or the table was emptied"
   - id: FALSIFY-CRUX-AUDIT-004
     rule: "RULE 4 — every row cites a third party and forjar's own code"
     prediction: "every row's third cell contains [X] and fourth cell contains [V"
-    test: "every_row_cites_a_third_party_and_forjars_own_code"
+    test: tests/falsification_crux_audit_shape.rs::every_row_cites_a_third_party_and_forjars_own_code
     if_fails: "a row lost its asserted-vs-measured marker and can no longer be trusted"
   - id: FALSIFY-CRUX-AUDIT-005
     rule: "RULE 5 — no stale pre-refactor citation"
     prediction: "the audit contains neither \"src/core/state/stamp.rs\" nor \"owner.yaml\""
-    test: "the_audit_cites_no_pre_refactor_stamp_module"
+    test: tests/falsification_crux_audit_shape.rs::the_audit_cites_no_pre_refactor_stamp_module
     test_secondary: "the_audit_names_no_flat_owner_yaml"
     if_fails: "a citation resolves to nothing on the branch the audit names, or a hallucinated path was introduced"
   - id: FALSIFY-CRUX-AUDIT-006
     rule: "RULE 6 — the GO-spec section names both precedents"
     prediction: "a section headed \"What the GO spec\" contains both \"Nix profile generations\" and \"Kubernetes rollout history\""
-    test: "the_go_spec_section_names_its_two_precedents"
+    test: tests/falsification_crux_audit_shape.rs::the_go_spec_section_names_its_two_precedents
     if_fails: "the recommendation section was dropped or narrowed to one precedent, hiding the lane dissent"
   - id: FALSIFY-CRUX-AUDIT-007
     rule: "RULE 7 — Reconciliation maps every CHANGELOG bullet"
     prediction: "the Reconciliation section has at least 9 numbered `N. **(n)**` mapped entries"
-    test: "the_reconciliation_section_maps_every_changelog_bullet"
+    test: tests/falsification_crux_audit_shape.rs::the_reconciliation_section_maps_every_changelog_bullet
     if_fails: "a CHANGELOG behaviour bullet is untraceable to any audit row"
   - id: FALSIFY-CRUX-AUDIT-008
     rule: "RULE 8 — [X] never leaks into human-facing docs"
     prediction: "neither README.md nor any file under docs/book/src contains the literal [X]"
-    test: "readme_and_book_never_leak_the_x_marker"
+    test: tests/falsification_crux_audit_shape.rs::readme_and_book_never_leak_the_x_marker
     if_fails: "a reader outside the audit's context sees an unexplained marker"
 
 qa_gate:

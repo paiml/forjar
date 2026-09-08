@@ -45,13 +45,17 @@ MIN_CONTRACTS=30
 #
 # MAY ONLY SHRINK. Was 15 before PMAT-163 anchored apply-receipt-v1,
 # apply-summary-distinguishability-v1 and plan-declares-its-quantifier-v1.
+# flag-has-effect-v1.yaml left this list on 2026-09-08 (PMAT-165): three of its
+# entries cite a cargo test target in `command:` — falsification_yes_is_not_an_
+# integrity_override and falsification_plan_file_runs_every_gate — which the
+# rule above now resolves to tests/<target>.rs. Nothing about the contract
+# changed; the gate stopped looking in one field only.
 UNANCHORED=(
   "codegen-dispatch-v1.yaml"
   "config-load-consistency-v1.yaml"
   "copia-provisioning-v1.yaml"
   "dag-ordering-v1.yaml"
   "execution-safety-v1.yaml"
-  "flag-has-effect-v1.yaml"
   "input-rejection-v1.yaml"
   "machine-output-parses-v1.yaml"
   "provable-iac-v1.yaml"
@@ -177,9 +181,29 @@ for path in sys.argv[1:]:
     # ("proptest with random DAGs") describe an experiment nobody runs.
     anchored = 0
     for t in tests:
-        cite = (t or {}).get("test") or ""
-        m = re.search(r"([\w./-]+\.rs)", cite)
-        if m and os.path.isfile(m.group(1)):
+        # WHERE A CITATION MAY LIVE. `pv` treats `test` and `command` as the
+        # same field for some contract kinds — measured 2026-09-08 on
+        # undo-refuses-multi-stack-state-dir-v1.yaml, where adding `test:`
+        # beside `command:` made pv refuse the file as a duplicate field, and
+        # renaming `command:` let the same `test:` through. A contract that
+        # cites its falsifier in `command:` is wired, and reading only `test`
+        # called sixteen wired falsifiers prose.
+        #
+        # HOW A CITATION RESOLVES. Either a path ending in `.rs` that exists,
+        # or cargo's own `--test <target>`, which by cargo's layout IS
+        # `tests/<target>.rs` — a name that resolves to a file on disk is an
+        # address a reviewer can follow, which is the whole point of the rule.
+        cite = " ".join(
+            str((t or {}).get(k) or "") for k in ("test", "test_secondary", "command")
+        )
+        hit = False
+        for m in re.finditer(r"([\w./-]+\.rs)", cite):
+            if os.path.isfile(m.group(1)):
+                hit = True
+        for m in re.finditer(r"--test\s+([A-Za-z0-9_]+)", cite):
+            if os.path.isfile(os.path.join("tests", m.group(1) + ".rs")):
+                hit = True
+        if hit:
             anchored += 1
     if tests and anchored == 0:
         anchored_gaps.append(name)
