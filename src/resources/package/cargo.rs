@@ -59,6 +59,59 @@ fn first_unsafe_cargo_token<'a>(
     None
 }
 
+/// The PATH repair that EVERY cargo-provider script emits before it looks for
+/// `cargo` or for a crate's binary.
+///
+/// # Why this exists (forjar#489)
+///
+/// The install action bootstraps rustup with `--no-modify-path` and then
+/// repairs its own `PATH`. The CHECK and the DRIFT observable did not, so on a
+/// host where cargo is absent from the NON-INTERACTIVE PATH, forjar installed a
+/// crate successfully and then reported it `missing:` forever.
+///
+/// forjar CREATES that host itself. `rustup-init -y --no-modify-path` appends
+/// `. "$HOME/.cargo/env"` to the BOTTOM of `~/.bashrc` (line 118 on the box
+/// this was measured on), and Ubuntu's stock `~/.bashrc` returns at line 8 when
+/// the shell is not interactive — which is what `ssh host 'cmd'` gives you. So
+/// the sourcing line never runs, and the PATH forjar's own check inherits has
+/// no cargo in it.
+///
+/// Measured on `yoga` against 1.25.2, freshly reimaged: `~/.cargo/bin/rg`
+/// present and executable, `rg --version` -> `ripgrep 15.1.0`,
+/// `~/.cargo/.crates.toml` valid and listing it, `cargo install --list` listing
+/// it — and `forjar check` printing `missing:ripgrep`. Same for `bat` and
+/// `fd-find`. The second symptom is the same root cause seen from the apply
+/// side: the install action's `command -v cargo ||` guard kept missing, so
+/// every apply re-ran the rustup installer over a toolchain already there.
+///
+/// # Why one helper rather than three copies
+///
+/// The three sites disagreeing is the defect. A shared emitter means a future
+/// edit cannot fix the check and forget the observable.
+///
+/// # Shape
+///
+/// - Honours `CARGO_HOME` exactly as `_CARGO_BIN`/`_CRATES_TOML` below do; the
+///   fleet runs a shared `CARGO_HOME` on several boxes.
+/// - IDEMPOTENT: the `case` guard means re-running it (or an apply that also
+///   repairs PATH inside its rustup block) cannot grow `$PATH` without bound.
+/// - Safe under `set -u`: `${PATH:-}` rather than `$PATH`, since the check
+///   scripts run with `set -euo pipefail` in force.
+/// - It modifies THIS script's environment only. It writes no shell rc file
+///   and does not pass `--modify-path` to rustup: forjar does not own the
+///   operator's login shell.
+pub(crate) fn path_prelude() -> &'static str {
+    "# forjar#489: cargo may be installed and absent from the NON-INTERACTIVE\n\
+     # PATH -- rustup is bootstrapped with --no-modify-path and Ubuntu's\n\
+     # ~/.bashrc returns before the line rustup appends. Repair PATH here, in\n\
+     # this script's own environment, or the check reports `missing:` for a\n\
+     # crate it just installed. Idempotent, and honours CARGO_HOME.\n\
+     case \":${PATH:-}:\" in\n\
+       *\":${CARGO_HOME:-$HOME/.cargo}/bin:\"*) ;;\n\
+       *) export PATH=\"${CARGO_HOME:-$HOME/.cargo}/bin:${PATH:-}\" ;;\n\
+     esac"
+}
+
 pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
@@ -100,6 +153,7 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
     // Respects CARGO_BUILD_JOBS if already set; defaults to min(nproc/2, 8).
     format!(
         "set -euo pipefail\n\
+         {path_prelude}\n\
          command -v cargo >/dev/null 2>&1 || {{\n\
            RUSTUP_INIT=$(mktemp /tmp/rustup-init.XXXXXX)\n\
            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o \"$RUSTUP_INIT\"\n\
@@ -203,6 +257,7 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
          }}\n\
          {}",
         installs.join("\n"),
+        path_prelude = path_prelude(),
         install_fns = crate::core::shell_install::atomic_install_dir_fn()
     )
 }
@@ -347,7 +402,7 @@ pub(crate) fn state_query(packages: &[String]) -> String {
     //         kani
     // Top-level lines are unindented; binaries are indented beneath.
     // Order is stable, so the digest is stable. (paiml/infra#208.)
-    per_package_query(packages, |p| {
+    let queries = per_package_query(packages, |p| {
         let (crate_name, _) = parse_cargo_features(p);
         let awk = format!(
             "awk -v c={} '/^[^[:space:]]/{{inblk=($1==c)}} inblk&&/^[[:space:]]/{{print $1}}'",
@@ -361,5 +416,9 @@ pub(crate) fn state_query(packages: &[String]) -> String {
             crate = crate_name,
             missing = sh_squote(&format!("{crate_name}=MISSING")),
         )
-    })
+    });
+    // The PATH repair goes FIRST: both `cargo install --list` and the
+    // `command -v "$b"` below resolve through PATH, and this observable feeds
+    // DRIFT, so its blindness costs a re-apply on every run (forjar#489).
+    format!("{}\n{}", path_prelude(), queries)
 }
