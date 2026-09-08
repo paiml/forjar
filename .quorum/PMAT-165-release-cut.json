@@ -15,12 +15,12 @@
   "claims_confirmed": 7,
   "claims_refuted": 6,
   "refuted_claims": [
-   "Three lanes reported that the roadmap edit reformats timestamps across rows it should not touch. Parsed rather than diffed: no created changed anywhere and exactly one row has an unchanged status with a changed updated. The claim does not reproduce.",
-   "One lane reported gate H now ignores the version section whenever [Unreleased] holds a paragraph, passing a release whose paragraphs have no crux row. That is the rule as designed and as pinned: a paragraph added after the cut must be reconciled, and the released section was reconciled when it was cut.",
+   "Three lanes reported the roadmap edit reformats timestamps across rows it should not touch. Parsed rather than diffed: no created changed anywhere and exactly one row has an unchanged status with a changed updated. The claim does not reproduce.",
+   "One lane reported gate H now ignores the version section whenever [Unreleased] holds a paragraph. That is the rule as designed: a paragraph added after the cut must be reconciled, and the released section was reconciled when it was cut.",
    "One lane reported the CHANGELOG citing docs/audits/release-1.26.0-receipt.md as though it were in the tree. True: that receipt is written after the publish.",
    "One lane counted nine behaviours in the CHANGELOG's crux sentence where the audit now has ten.",
    "One lane found coverage.sh reading `git diff --name-only`, which quotes a path containing a space, so an anchored src/ match could miss a file the diff touches.",
-   "One lane found contracts.sh counting a falsifier as wired when ANY named path resolved, letting an unwired citation hide behind a wired one."
+   "The merge review found three more: the PMAT-204 receipt said it was merged by 'PR #None', PMAT-206 was still inprogress in the roadmap and absent from the triage table, and this digest cited test line numbers that did not support the sentences they were attached to."
   ]
  },
  "crux": {
@@ -57,7 +57,7 @@
  "base_commit": "b2442fe09064e8d0445da9f2d3c834b8d7940317",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "271849ad64e5618ecf1796e0d4533f058b98cc8a",
+ "diff_sha256": "6ab618224c1b378db90997ca319c850c48ef4ea3",
  "evidence": {
   "files": [
    {
@@ -83,9 +83,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 6309,
-    "sha256": "c6b91e46970dc95a27ee291c90e5e53350c191b30ff66104ed75ab6b2a3c8a3e",
-    "blob": "9bf7536fedd85ecef4a4c733634f21c10dc083bb"
+    "bytes": 6617,
+    "sha256": "b6a1d9d2edf7c27ef2818810bf93cc635bf1026b368943e578b45786b8f9189c",
+    "blob": "e4c06bb935aa61b3b04fa65040e21fc37ba7620f"
    },
    {
     "path": ".quorum/evidence/release-cut-agy.md",
@@ -115,7 +115,7 @@
     "blob": "626e999c02e859a96d70361be502a165dc8d76f4"
    }
   ],
-  "total_bytes": 17141,
+  "total_bytes": 17449,
   "claims_digest": ".quorum/evidence/release-cut-judges.md"
  }
 }
