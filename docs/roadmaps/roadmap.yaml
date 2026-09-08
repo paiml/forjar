@@ -2445,3 +2445,23 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
+- id: PMAT-206
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S1: the 1.26.0 merges pushed CB-200 from 651 to 654 functions below grade A, so gate B refuses the cut — bring the count back under the recorded ceiling without raising it'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-08T09:00:00Z
+  updated: 2026-09-08T09:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/cb200-ratchet.sh exits 0 on the branch head with the ceiling unchanged at 651'
+  - 'every function changed to reach it is behaviour-preserving and has its existing tests green; no ceiling edit, no exclusion, no #[allow]'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Measured 2026-09-08: main is 654 against a ceiling of 651 recorded 2026-09-07. Two of the three came from PMAT-204''s own new module and were removed by decomposing redact_quoted_paths and clause_verdict (both A+ now, measured 653). The rest is grade drift under the changed instrument. Reducing rather than re-baselining: the ratchet''s own rule is that the number may only shrink.'
