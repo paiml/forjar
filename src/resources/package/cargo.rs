@@ -160,7 +160,7 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
            chmod +x \"$RUSTUP_INIT\"\n\
            \"$RUSTUP_INIT\" -y --no-modify-path\n\
            rm -f \"$RUSTUP_INIT\"\n\
-           export PATH=\"$HOME/.cargo/bin:$PATH\"\n\
+           export PATH=\"${{CARGO_HOME:-$HOME/.cargo}}/bin:$PATH\"\n\
          }}\n\
          if [ -z \"${{CARGO_BUILD_JOBS:-}}\" ]; then\n\
            _nproc=$(nproc 2>/dev/null || echo 4)\n\

@@ -6,7 +6,7 @@ use super::drift_lockless::{dry_run_lockless, scan_lockless};
 use super::drift_report::{
     census_json, print_drift_summary, run_drift_alert, send_drift_notification,
 };
-use super::drift_state::{collect_machine_locks, machine_state_dirs};
+use super::drift_state::{collect_machine_locks, machine_state_dirs, refuse_out_of_scope};
 use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::drift;
@@ -450,6 +450,15 @@ pub(crate) fn cmd_drift_dry_run(
     json: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
+    // forjar#488: THE PREVIEW REFUSES WHAT THE RUN REFUSES.
+    //
+    // The scope guard lived in `collect_machine_locks`, which the preview does
+    // not go through — it calls `machine_state_dirs` directly. So
+    // `drift --dry-run -m <undeclared>` scanned zero machines and printed
+    // "0 resource(s) would be checked", exit 0: the same false green the guard
+    // exists to prevent, in the command an operator reaches for FIRST when
+    // they are unsure. Found by two of three review lanes independently.
+    refuse_out_of_scope(machine_filter, scope)?;
     let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         let opts = drift::DriftOptions {
             run_task_checks: !no_task_checks,

@@ -230,9 +230,14 @@ fn test_fj1005_cargo_bootstrap_rustup() {
         script.contains("cargo install --force --locked --root"),
         "must still install (with --root for cache): {script}"
     );
+    // forjar#489: the bootstrap's own repair honours CARGO_HOME, like the
+    // prelude above it. It used to hard-code `$HOME/.cargo/bin`, which under a
+    // custom CARGO_HOME prepends a directory rustup did not install into and
+    // shadows the one it did — found by a review lane, measured: with
+    // CARGO_HOME=/opt/toolchain the hard-coded form put $HOME/.cargo/bin first.
     assert!(
-        script.contains(".cargo/bin:$PATH"),
-        "must add cargo to PATH: {script}"
+        script.contains("${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"),
+        "must add cargo to PATH, honouring CARGO_HOME: {script}"
     );
 }
 

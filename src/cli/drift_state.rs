@@ -121,7 +121,7 @@ pub(super) fn collect_machine_locks(
 /// nothing, and the caller would report "No drift detected." over ZERO
 /// machines. That is the same false green the unknown-machine refusal already
 /// exists to prevent, reached by a different door.
-fn refuse_out_of_scope(
+pub(super) fn refuse_out_of_scope(
     machine_filter: Option<&str>,
     scope: Option<&[String]>,
 ) -> Result<(), String> {

@@ -211,3 +211,65 @@ fn a_declared_machine_with_no_state_yet_is_not_an_error() {
         "and it must still not answer about the other stack.\n{text}"
     );
 }
+
+/// The scope has an edge, and a scope with an unguarded edge is a false green.
+///
+/// `-m <machine>` narrows a run by name. Once the walk is scoped to the config,
+/// a `-m` naming a real state directory OUTSIDE that config matches nothing —
+/// and "matched nothing" printed as "No drift detected." over zero machines is
+/// exactly the failure the unknown-machine refusal in `drift_state.rs` already
+/// exists to prevent, reached by a different door.
+///
+/// Both doors are tested, because only one of them was closed. The guard lived
+/// in `collect_machine_locks`, which the PREVIEW does not go through — it calls
+/// `machine_state_dirs` directly — so `drift --dry-run -m <undeclared>`
+/// reported `0 resource(s) would be checked` and exited 0. Two of three review
+/// lanes found that independently, and the four cases above did not, because
+/// none of them exercised `-m` at all.
+#[test]
+fn a_machine_the_config_does_not_declare_is_refused_by_name_in_both_doors() {
+    let (fleet, home) = Fleet::two_stacks("outofscope");
+
+    let cfg = home.display().to_string();
+    for extra in [vec![], vec!["--dry-run"]] {
+        let mut args = vec!["drift", "-f", cfg.as_str(), "-m", "elsewhere"];
+        args.extend(extra.iter().copied());
+        let (text, ok) = fleet.run(&args);
+        assert!(
+            !ok,
+            "forjar#488: `drift {} -m elsewhere` scanned zero machines and \
+             reported success. A filter that matches nothing is a refusal, not a \
+             clean bill of health.\n{text}",
+            extra.first().copied().unwrap_or("")
+        );
+        assert!(
+            text.contains("not declared by this config"),
+            "the refusal must say WHY, and list what the config does declare.\n{text}"
+        );
+        assert!(
+            text.contains("home"),
+            "the refusal must name the machines this config declares, or an \
+             operator cannot tell a typo from a wrong -f.\n{text}"
+        );
+    }
+}
+
+/// And the machine the config DOES declare still works through both doors.
+#[test]
+fn a_machine_the_config_declares_is_accepted_in_both_doors() {
+    let (fleet, home) = Fleet::two_stacks("inscope");
+    let cfg = home.display().to_string();
+    for extra in [vec![], vec!["--dry-run"]] {
+        let mut args = vec!["drift", "-f", cfg.as_str(), "-m", "home"];
+        args.extend(extra.iter().copied());
+        let (text, ok) = fleet.run(&args);
+        assert!(
+            ok,
+            "scoping must not break the -m it was always for:\n{text}"
+        );
+        assert!(
+            !text.contains("probe-elsewhere"),
+            "and it must still not answer about the other stack:\n{text}"
+        );
+    }
+}
