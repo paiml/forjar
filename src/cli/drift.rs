@@ -6,7 +6,7 @@ use super::drift_lockless::{dry_run_lockless, scan_lockless};
 use super::drift_report::{
     census_json, print_drift_summary, run_drift_alert, send_drift_notification,
 };
-use super::drift_state::{collect_machine_locks, machine_state_dirs};
+use super::drift_state::{collect_machine_locks, machine_state_dirs, refuse_out_of_scope};
 use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::drift;
@@ -112,7 +112,18 @@ pub(super) fn report_machine_findings(
                 "actual_hash": f.actual_hash,
             }));
         } else {
-            println!("  {}: {} ({})", red("DRIFTED"), f.resource_id, f.detail);
+            // forjar#488: NAME THE MACHINE ON THE ROW. Aggregated output whose
+            // rows do not say which box they came from cannot be attributed
+            // after the fact, and that is precisely how gx10's `bashrc` was
+            // read as yoga's — the operator went looking for a resource that
+            // the config in hand does not contain.
+            println!(
+                "  {}: {} on {} ({})",
+                red("DRIFTED"),
+                f.resource_id,
+                name,
+                f.detail
+            );
             println!("    Expected: {}", f.expected_hash);
             println!("    Actual:   {}", f.actual_hash);
         }
@@ -206,9 +217,10 @@ fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     config: Option<&types::ForjarConfig>,
+    scope: Option<&[String]>,
     scan_opts: ScanOptions,
 ) -> Result<DriftScan, String> {
-    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter)? else {
+    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter, scope)? else {
         return scan_lockless(state_dir, machine_filter, config, scan_opts);
     };
 
@@ -284,15 +296,30 @@ pub(crate) fn cmd_drift(
     json: bool,
     verbose: bool,
     env_file: Option<&Path>,
+    all_stacks: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
+
+    // forjar#488: WHAT THIS RUN IS ABOUT.
+    //
+    // `Some(names)` is "the machines this config declares" and is the default
+    // whenever a config was loaded. `None` is the whole state dir, which is now
+    // reached only by asking for it (`--all-stacks`) or by having no config to
+    // scope with — never by pointing `-f` at one machine and being answered
+    // about thirty others.
+    let scope: Option<Vec<String>> = match (&config, all_stacks) {
+        (Some(cfg), false) => Some(cfg.machines.keys().cloned().collect()),
+        _ => None,
+    };
+    let scope_ref = scope.as_deref();
 
     if dry_run {
         return cmd_drift_dry_run(
             config.as_ref(),
             state_dir,
             machine_filter,
+            scope_ref,
             json,
             no_task_checks,
         );
@@ -313,7 +340,13 @@ pub(crate) fn cmd_drift(
             run_task_checks: !no_task_checks,
         },
     };
-    let scan = scan_machines_for_drift(state_dir, machine_filter, config.as_ref(), scan_opts)?;
+    let scan = scan_machines_for_drift(
+        state_dir,
+        machine_filter,
+        config.as_ref(),
+        scope_ref,
+        scan_opts,
+    )?;
     let DriftScan {
         machines_checked,
         total_drift,
@@ -413,10 +446,20 @@ pub(crate) fn cmd_drift_dry_run(
     config: Option<&types::ForjarConfig>,
     state_dir: &Path,
     machine_filter: Option<&str>,
+    scope: Option<&[String]>,
     json: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
-    let Some(names) = machine_state_dirs(state_dir, machine_filter)? else {
+    // forjar#488: THE PREVIEW REFUSES WHAT THE RUN REFUSES.
+    //
+    // The scope guard lived in `collect_machine_locks`, which the preview does
+    // not go through — it calls `machine_state_dirs` directly. So
+    // `drift --dry-run -m <undeclared>` scanned zero machines and printed
+    // "0 resource(s) would be checked", exit 0: the same false green the guard
+    // exists to prevent, in the command an operator reaches for FIRST when
+    // they are unsure. Found by two of three review lanes independently.
+    refuse_out_of_scope(machine_filter, scope)?;
+    let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         let opts = drift::DriftOptions {
             run_task_checks: !no_task_checks,
         };

@@ -211,6 +211,12 @@ fn apply_pre_checks(args: &ApplyArgs) -> Result<(), String> {
             false,
             false,
             args.env_file.as_deref(),
+            // forjar#488: the gate asks about THIS config's machines, never the
+            // whole state dir. `--abort-on-drift` refusing an apply because a
+            // different box drifted — or because another computer's copy of a
+            // path differs from this one's — is the aborting version of the
+            // same defect.
+            false,
             // `--abort-on-drift` is a GATE, and a gate that declines to run the
             // assertions is the shape this repo keeps finding at the bottom of
             // its incidents. The task checks stay on here even though the apply

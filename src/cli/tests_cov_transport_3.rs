@@ -295,20 +295,20 @@ resources:
     #[test]
     fn test_cmd_drift_dry_run_empty_state_dir() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let result = cmd_drift_dry_run(None, tmp.path(), None, false, false);
+        let result = cmd_drift_dry_run(None, tmp.path(), None, None, false, false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_cmd_drift_dry_run_empty_state_dir_json() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let result = cmd_drift_dry_run(None, tmp.path(), None, true, false);
+        let result = cmd_drift_dry_run(None, tmp.path(), None, None, true, false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_cmd_drift_dry_run_nonexistent_dir_errors() {
-        let result = cmd_drift_dry_run(None, Path::new("/nonexistent/drift/dir/cov"), None, false, false);
+        let result = cmd_drift_dry_run(None, Path::new("/nonexistent/drift/dir/cov"), None, None, false, false);
         assert!(result.is_err());
     }
 
@@ -326,7 +326,7 @@ resources:
             ],
         );
 
-        let result = cmd_drift_dry_run(None, state_dir, None, false, false);
+        let result = cmd_drift_dry_run(None, state_dir, None, None, false, false);
         assert!(result.is_ok());
     }
 
@@ -345,7 +345,7 @@ resources:
             ],
         );
 
-        let result = cmd_drift_dry_run(None, state_dir, None, true, false);
+        let result = cmd_drift_dry_run(None, state_dir, None, None, true, false);
         assert!(result.is_ok());
     }
 
@@ -366,7 +366,7 @@ resources:
         );
 
         // Filter to only host-a
-        let result = cmd_drift_dry_run(None, state_dir, Some("host-a"), false, false);
+        let result = cmd_drift_dry_run(None, state_dir, Some("host-a"), None, false, false);
         assert!(result.is_ok());
     }
 
@@ -381,7 +381,7 @@ resources:
             vec![("r1", "blake3:xxx", types::ResourceStatus::Converged)],
         );
 
-        let result = cmd_drift_dry_run(None, state_dir, Some("nonexistent"), false, false);
+        let result = cmd_drift_dry_run(None, state_dir, Some("nonexistent"), None, false, false);
         assert!(result.is_ok());
     }
 

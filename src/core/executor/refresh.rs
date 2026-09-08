@@ -109,6 +109,13 @@ pub(crate) fn refresh_locks(
             None => empty_lock(machine),
         };
         new_lock.resources.retain(|rid, _| !stale.contains(rid));
+        // PMAT-214 (forjar#487): the entries above were evicted because their
+        // check FAILED. What remains may still include entries the lock records
+        // as failed whose check now PASSES — a guard whose command exits 1 by
+        // design, re-run forever because nothing re-checked it. Unlatch those
+        // before seeding, so the same evidence (a fresh check, exit 0) decides
+        // both the entry that exists and the entry that does not.
+        super::refresh_seed::unlatch_failed(cfg, machine, &mut new_lock);
         super::refresh_seed::seed_converged(cfg, machine, &mut new_lock);
         result.insert(machine.clone(), new_lock);
     }
@@ -125,5 +132,48 @@ fn empty_lock(machine: &str) -> StateLock {
         generator: format!("forjar-refresh {}", env!("CARGO_PKG_VERSION")),
         blake3_version: "1.5".to_string(),
         resources: indexmap::IndexMap::new(),
+    }
+}
+
+/// PMAT-214 (forjar#487): carry `--refresh`'s promotions into the locks that
+/// get WRITTEN, so one `--refresh` is a way back and not a mask.
+///
+/// `refresh_locks` builds the view the PLANNER reads, and that view is then
+/// discarded: `dispatch_apply` writes the original locks. So unlatching a
+/// broken entry made that one apply green and left `status: failed` on disk,
+/// and the next plain apply re-ran the always-failing command and re-armed the
+/// latch. Measured against the real binary, in order: `1 FAILED`;
+/// `status: failed`; `--refresh` -> `0 converged, 1 unchanged`;
+/// `status: failed` still; plain apply -> `1 FAILED` again. forjar#487 asks for
+/// a way BACK, and that sequence is still "no documented way back", one
+/// command later.
+///
+/// A promotion is an entry present in both maps that the lock recorded as not
+/// converged and the refreshed view records as converged. That transition can
+/// only have come from `unlatch_failed`, which requires the resource to be in
+/// scope, declared for this machine, and to have had its check run on the host
+/// and exit 0 — the same evidence seeding demands.
+///
+/// Nothing else crosses. An eviction is how the planner is told to re-apply a
+/// resource, not a decision to forget it, and a seeded entry for a resource
+/// that had none keeps the behaviour it has always had.
+pub(crate) fn persist_unlatched(
+    refreshed: &HashMap<String, StateLock>,
+    locks: &mut HashMap<String, StateLock>,
+) {
+    for (machine, lock) in locks.iter_mut() {
+        let Some(view) = refreshed.get(machine) else {
+            continue;
+        };
+        for (id, entry) in &lock.resources.clone() {
+            if entry.status == ResourceStatus::Converged {
+                continue;
+            }
+            if let Some(fresh) = view.resources.get(id) {
+                if fresh.status == ResourceStatus::Converged {
+                    lock.resources.insert(id.clone(), fresh.clone());
+                }
+            }
+        }
     }
 }

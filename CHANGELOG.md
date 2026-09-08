@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-09-08
+
+Four defects found by the operator running forjar against the fleet, all filed
+on 2026-09-08, all fixed here. Three of them are the same shape: forjar answered
+a question that was not asked, and the answer looked like a fact about the
+machine in front of you.
+
+**`drift -f <config>` answered about machines that config never declares
+(#488, #485).** The state-dir walk ignored the config entirely: measured, 31
+stacks checked from a config declaring one machine, the first row reported
+belonging to a different box. Worse, `check_machine_drift` resolves a stack with
+`config.machines.get(name)`, so a stack the loaded config does NOT declare
+missed, fell to the lock-only arm, and was compared against the LOCAL
+filesystem. A resource living on another machine was judged by the path of the
+same name on the workstation. That is why a file whose content was byte
+identical to its declaration reported DRIFTED with two stable, different hashes:
+they are hashes of two different files on two different computers. `apply`
+converged the remote one, the next `drift` re-read the local one, for ever. The
+walk is now scoped to the machines the config declares; `--all-stacks` asks the
+wide question on purpose; every DRIFTED row names its machine, so even an
+aggregated run can be attributed. A `-m` naming a machine the config does not
+declare is refused by name rather than scanning nothing and reporting clean.
+
+**A task whose command exits non-zero latched, and `--refresh` could not free
+it (#487).** The generated script is command-then-check, so once the lock
+recorded a failure every later apply re-ran a command that cannot succeed and
+never reached the check. `--refresh` is documented as "re-run check scripts,
+only re-apply what fails" and did not re-check an entry already recorded as
+failed. It does now — and it writes down what it measured, so one `--refresh` is
+a way back rather than a flag to pass for ever. Only promotions are persisted,
+on the evidence of a check that ran on the host and exited 0.
+
+**The cargo provider's check could not see what its install had just written
+(#489).** The install action repairs its own PATH; `package_check` and the drift
+observable did not. On a host where cargo is not on the NON-INTERACTIVE PATH —
+which forjar creates itself by running `rustup-init --no-modify-path` — forjar
+installed a crate successfully and then reported it `missing:` for ever, and
+re-ran the rustup bootstrap on every apply because its own guard kept missing.
+All three sites now emit one shared, idempotent prelude that honours
+`CARGO_HOME`. No shell file is touched.
+
+
 ## [1.26.0] - 2026-09-08
 
 
