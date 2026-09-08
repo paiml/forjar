@@ -2926,3 +2926,22 @@ roadmap:
   labels:
   - kind:code
   notes: 'PR #463 was the draft; it was closed with five-whys on 2026-09-07 for the 1.26.0 cut (it edits every workflow and carried no receipt, and the release-workflow PR of that cut edits two of them under a receipt that hashes its diff). Carried onto main''s roadmap on 2026-09-08 because docs/audits/triage-1.26.0.md defers #463 to this id and a triage table that cites a ticket must be able to resolve it. Re-cut from the released main in 1.27.'
+- id: PMAT-207
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'S3: docs/audits/impl-PMAT-137-receipt.md carries no verdict line and no IMPL-PMAT-137-RECEIPT-END marker, so it would fail gate A if PMAT-137 ever appeared in a release window'
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-09-08T11:30:00Z
+  updated: 2026-09-08T11:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'the receipt ends with IMPL-PMAT-137-RECEIPT-END and carries exactly one line matching ^[Vv]erdict:, and a check refuses any docs/audits/impl-*-receipt.md that does not'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found by the PMAT-165 release quorum (two lanes). It predates the 1.26.0 cut and no PR in that window maps to PMAT-137, so gate A never reads it; the schema is still the schema. Deferred to 1.27.'
