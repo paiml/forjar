@@ -1,0 +1,123 @@
+{
+ "issue": "PMAT-206 — the 1.26.0 merges pushed CB-200 from 651 to 654 and gate B refused the cut; three behaviour-preserving reductions and one measurement fix (the ratchet was grading a stale comply cache) bring the branch to exactly the recorded ceiling with the ceiling untouched",
+ "quorum": {
+  "lanes": [
+   "q1 claim lane 1",
+   "q1 claim lane 2",
+   "q1 claim lane 3",
+   "q1 independent-stack review — agy /teamwork-preview",
+   "q1 crux lane"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; every finding re-run or re-read by the orchestrator before it is acted on",
+  "rounds": "q1 width 5 (4 FAIL, 1 PASS) on the first ratchet rewrite — the JSON regex, the probe, the offender dump and the arm count were all acted on; q2 width 3 refuter-judges on the corrected commit — R1-R4 and R7 confirmed 3/3, R5 refuted on its wording (the pre-existing, checked `|| true`), R6 refuted by one lane on a stale sentence in the baseline, fixed",
+  "claims_confirmed": 7,
+  "claims_refuted": 6,
+  "refuted_claims": [
+   "the first rewrite parsed the cache path out of comply's JSON with an unanchored regex and handed it to `rm -rf`; four lanes found that the JSON carries source snippets and file paths from violations, so the regex could match a path outside the cache.",
+   "the first rewrite ran comply twice and put `|| true` on the probe run, so a failed probe silently fell through to a stale measurement.",
+   "the offender dump to target/cb200-offenders.txt was scope the ticket did not ask for.",
+   "the baseline's new `why` entry said a 34-arm match was replaced; the match had 32 field arms and a fallthrough (one lane measured it).",
+   "the claim 'no `|| true` on `pmat comply check`' is false as written: the measuring run has carried `|| true` since before this branch, because comply exits 1 whenever CB-200 reports — which it is expected to — and the JSON must still be captured; the very next line refuses an empty result as UNMEASURED.",
+   "the baseline's `why` entry still said the cache entry was read from comply's own message — the withdrawn first rewrite — while the shipped script finds it by name (one lane)."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "SonarQube",
+   "CodeClimate",
+   "Ratchet-style debt gates",
+   "clippy with a baseline"
+  ],
+  "verdict": "the field refreshes analysis in CI and compares new code against a merge base; forjar refreshes the cache and says so, keeps its absolute ceiling (PMAT-203 tracks lowering it), and records merge-base comparison as the panel recommendation for 1.27. Figures are documentation memory, marked [X]."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview on the first rewrite",
+  "verdict": "FAIL on the JSON regex feeding rm -rf and on hiding the staleness; both acted on — the regex is gone and the staleness is printed before the cache is removed."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "tests_examined": 19505,
+  "files_parsed": 2136,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests: 0 hit(s) in the touched test paths.",
+  "limit": "no test added by this branch; the existing suites re-run green after each reduction"
+ },
+ "falsification": {
+  "test": "the observe suite (75), the purifier suite (51), the two chmod falsification files (9 + 15) and the example run, all at HEAD; the ratchet observed exit 0 at 651 with the cache fresh and again after a source was made newer than the cache (NOTE printed, cache removed)",
+  "test_file": "tests/falsification_chmod_path_is_not_a_mode.rs",
+  "cargo_test_target": "falsification_chmod_path_is_not_a_mode",
+  "reverted": "the ratchet run against the pre-branch script on the same tree (git show HEAD:scripts/cb200-ratchet.sh) reported 654, 653 and 652 through the reductions because it graded the stale cache; the same tree with the cache removed reported 651",
+  "observed_failure": "✗ CB-200 REGRESSED: 654 functions below grade A, recorded ceiling is 651 (main, stale cache) → ✓ CB-200 at the recorded ceiling (651), pre-existing and not growing (this branch, fresh cache)",
+  "still_green_when_reverted": "every Rust suite: the reductions are behaviour-preserving by construction and the tests cannot tell them apart"
+ },
+ "base_commit": "2acefaec0c9fd59b7e34ccabf467a52d4f553b86",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "8367fd8fd5bc464f917dc1d2c3aa73aee2b8ae1a",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/cb200-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2641,
+    "sha256": "b0c88816c0a04eef2287d7446b212ae752667cefb7a5b89a8d381626d7b9784c",
+    "blob": "965b59671a7c8aed053138805289409b1ba04f0a"
+   },
+   {
+    "path": ".quorum/evidence/cb200-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3500,
+    "sha256": "ba42887218f22ba9c3d77fd50f4d255b878aa65d9a1a37dd3e0b2bce1055ee71",
+    "blob": "4c017ab103fe8a68262d166562254edf2258cb18"
+   },
+   {
+    "path": ".quorum/evidence/cb200-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5824,
+    "sha256": "b3bbc6d4eeec95bdc5ed96083e97eb597a0de3e09bf2414b8996adce77bee4bd",
+    "blob": "1d5604ca4263fb8fb608d16947b1a4c477dc2f0a"
+   },
+   {
+    "path": ".quorum/evidence/cb200-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1778,
+    "sha256": "2f59143b61842c5e06554e06ae9487b067a81adeeeee260bf54b0aa55e735a7f",
+    "blob": "661d0037f5dc0c745826f5663905d0a4e04b702d"
+   },
+   {
+    "path": ".quorum/evidence/cb200-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 945,
+    "sha256": "a4c4743ff60c4140d0b2acff779fe598e4cc3811969012b7fcd961ef49ebfe89",
+    "blob": "e183c41fa32e1cfb0386c1fdf8e47e9b58f1c051"
+   },
+   {
+    "path": ".quorum/evidence/cb200-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1495,
+    "sha256": "40774bdc7d5df7791e2ce8ab53e6993e8a8957aeb5f278389035a94a85e3dfc7",
+    "blob": "e69e68558dbac6fac2f3d2b951b2dfe0c2c6e38d"
+   }
+  ],
+  "total_bytes": 16183,
+  "claims_digest": ".quorum/evidence/cb200-judges.md"
+ }
+}
