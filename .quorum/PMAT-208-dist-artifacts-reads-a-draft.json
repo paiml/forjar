@@ -44,17 +44,19 @@
   "limit": "the rest of the diff is receipts and a roadmap row"
  },
  "falsification": {
-  "test": "RULE 8 of falsification_release_workflow_shape — the dist job fetches SHA256SUMS over the API before the step that needs it and passes --checksums-file",
+  "test": "RULE 8 of falsification_release_workflow_shape — the dist job fetches SHA256SUMS over the API before the step that needs it and passes --checksums-file, read from the COMMAND text with comment lines dropped",
   "test_file": "tests/falsification_release_workflow_shape.rs",
   "cargo_test_target": "falsification_release_workflow_shape",
   "reverted": ".github/workflows/release.yml replaced by its origin/main version, the target run, the file restored (tree verified clean)",
   "observed_failure": "test rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url ... FAILED / test result: FAILED. 7 passed; 1 failed",
-  "still_green_when_reverted": "rules 1 to 7, which the released workflow already satisfied"
+  "still_green_when_reverted": "rules 1 to 7, which the released workflow already satisfied",
+  "mutation_argument_deleted": "the --checksums-file argument removed from the command with the step's comments left in place: FAILED, 7 passed / 1 failed, message 'the dist step does not pass --checksums-file'. Against the first version of RULE 8 the same mutation left 8 passed — the rule was reading the word out of the comment that explains it. The merge-review quorum raised that on all three lanes; it reproduced here and is fixed in this branch.",
+  "mutation_fetch_deleted": "the gh release download command removed with its comment left in place: FAILED, 7 passed / 1 failed, message 'dist-artifacts never fetches the checksums over the API'"
  },
  "base_commit": "818a060d972b2eb9deceb795334afea29dd28f0d",
  "base": "origin/main",
- "recorded_at": "2026-09-07",
- "diff_sha256": "e4fe248891d11413b82d7035625d32782b236549",
+ "recorded_at": "2026-09-08",
+ "diff_sha256": "b4cee9291ca4dd71e72bec8a419dedbb60a18770",
  "evidence": {
   "files": [
    {
@@ -71,9 +73,9 @@
     "roles": [
      "lanes"
     ],
-    "bytes": 3096,
-    "sha256": "ac3c4f833cb0983df9a0d4001788000dcb8ceea6dda0bb414794a68e01f67cf1",
-    "blob": "af64a7699debb4c142ca083ff61db7367af01a6f"
+    "bytes": 4751,
+    "sha256": "043cf3074acbcf0d4d6834dcb93f9be85ecd5d9d5e81bae1ef2c28dbbb19799b",
+    "blob": "5cb5fc53d41088ceb235c27cba4bda5f52cff2ad"
    },
    {
     "path": ".quorum/evidence/dist-draft-judges.md",
@@ -112,7 +114,7 @@
     "blob": "4f6ef355335f948af08a052e03db45356cb5b99a"
    }
   ],
-  "total_bytes": 11695,
+  "total_bytes": 13350,
   "claims_digest": ".quorum/evidence/dist-draft-judges.md"
  }
 }

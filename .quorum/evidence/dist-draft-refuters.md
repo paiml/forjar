@@ -28,3 +28,14 @@ The implemented repair is the pragmatic and correct choice. It technically paper
 
 Successfully created the Implementation Plan artifact detailing how release automations sequence draft creation, upload, and publication, and recommended the cargo-dist [X] posture for forjar.
 
+
+## Merge-review round at bffc3e15 — three lanes, all FAIL, and what reproduced
+
+The pre-merge round above ran on the diff. A second round ran on the merge candidate and refuted two of its own conclusions. Lanes 1, 2 and 3 all said RULE 8 was reading the flag out of the step's comment, not out of the command; lanes 1 and 3 said the receipt's `recorded_at` predated the failure it describes. Both were measured here, not accepted:
+
+- The `--checksums-file` argument was deleted from the command with the comments left in place. The first version of RULE 8 reported `8 passed`. The rule was vacuous exactly as claimed, and lanes 2 and 3 of the round above were wrong to call it non-vacuous. The job text now drops comment lines before any search, and the flag is looked for after the `dist` command rather than anywhere in the job; the same mutation now reports `7 passed; 1 failed`.
+- The `gh release download` command was deleted with its comment left in place. The old rule failed, but on the wrong assertion and with the comment quoted back as the offending text. It now fails on `dist-artifacts never fetches the checksums over the API`.
+- Lane 2 also found an unbounded slice, `job[fetch..fetch + 400]`, which would panic instead of naming the rule on a shorter job. Every window is now clamped to the job length.
+- `recorded_at` said 2026-09-07. PMAT-208 was opened on 2026-09-08, after the release run failed that morning. Corrected to 2026-09-08.
+
+Lane 2 of this round is the sharpest finding of the release: a shape gate that reads its own documentation is worse than no gate, because it reports green for the thing it was written to prevent.
