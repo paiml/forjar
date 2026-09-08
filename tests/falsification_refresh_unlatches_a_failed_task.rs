@@ -240,3 +240,42 @@ fn a_plain_apply_still_reruns_the_command_of_a_failed_resource() {
         "without --refresh the lock is the authority and the command runs:\n{out}"
     );
 }
+
+/// forjar#487 asked for a way BACK, not a flag to pass for ever.
+///
+/// `--refresh`'s promotion used to live only in `plan_locks`, which steers the
+/// planner and is then discarded — `dispatch_apply` writes the original locks.
+/// So `--refresh` reported the resource converged, left `status: failed` on
+/// disk, and the next PLAIN apply re-ran the command and re-latched. Measured
+/// against the real binary before the fix, in that order: `1 failed`; then
+/// `0 converged, 1 unchanged`; then `status: failed` still in the lock; then
+/// `1 failed` again, with the command run a second time.
+#[test]
+fn one_refresh_unlatches_durably_and_a_plain_apply_afterwards_is_green() {
+    let f = latched();
+    fs::write(&f.registered, "{\"poolName\": \"gpu-nodes\"}").unwrap();
+
+    let (first, ok) = apply(&f.cfg, &f.state, &["--refresh"]);
+    assert!(ok, "--refresh must honour the passing check:\n{first}");
+
+    let lock = fs::read_to_string(f.state.join("localhost").join("state.lock.yaml"))
+        .expect("the apply wrote a lock");
+    assert!(
+        !lock.contains("status: failed"),
+        "forjar#487: --refresh measured the resource converged and did not write \
+         it down, so the lock still records the latch and the next apply re-arms \
+         it. There is still no way back.\n{lock}"
+    );
+
+    let (second, ok2) = apply(&f.cfg, &f.state, &[]);
+    assert!(
+        ok2,
+        "forjar#487: a PLAIN apply after a --refresh must not re-latch — that is \
+         what 'there is no documented way back' means:\n{second}"
+    );
+    assert!(
+        !f.ran.exists(),
+        "the always-failing command must not have run again: a converged guard is \
+         SKIPPED, which is the whole reason the refuse-loudly pattern works.\n{second}"
+    );
+}
