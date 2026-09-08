@@ -151,6 +151,28 @@ changed_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' | grep -c .)" 
 if [ "$grc" -gt 1 ]; then
   fail "grep exited ${grc} counting the changed .rs files — the mutation scope is UNMEASURED"
 fi
+# MUTABLE .rs files, not all of them. `cargo mutants` mutates library and binary
+# targets; it does not mutate `tests/`, `benches/` or `examples/`. A branch whose
+# only Rust change is a new integration test therefore produces zero mutants and
+# no outcomes.json — which the UNMEASURED arm below read as "the tool did not
+# run". Measured 2026-09-08 on the 1.26.0 release cut, whose Rust change is one
+# falsification test: `INFO No mutants to filter`, exit 0, no outcomes.json, and
+# the release gate went red on a branch with nothing to mutate.
+#
+# Counting the mutable set instead keeps both halves honest: a diff that touches
+# a src/ file still MUST produce mutants and kill them, and a tests-only diff
+# passes this arm while every other arm still measures it.
+mrc=0
+mutable_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' \
+  | grep -E '(^|/)src/' | grep -c .)" || mrc=$?
+if [ "$mrc" -gt 1 ]; then
+  fail "grep exited ${mrc} counting the mutable changed .rs files — the mutation scope is UNMEASURED"
+fi
+if [ "$changed_rs" -gt 0 ] && [ "$mutable_rs" -eq 0 ]; then
+  rm -rf "${work:?}"
+  echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus, ceiling ${IGNORED_EXPECTED}); mutants: ${changed_rs} .rs file(s) changed, none under src/ — cargo mutants has no library or binary target to mutate in this diff"
+  exit 0
+fi
 if [ "$changed_rs" -eq 0 ]; then
   rm -rf "${work:?}"
   echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); no .rs differs from origin/main, so there is nothing to mutate"
