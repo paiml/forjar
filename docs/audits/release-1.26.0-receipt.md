@@ -34,7 +34,7 @@ Binary provenance: the gates resolve their binary through `scripts/dogfood/lib/b
 
 ## What shipped
 
-Two user-visible behaviour changes, ten behaviours in the CRUX audit:
+Three user-visible behaviour changes, split into ten behaviours in the CRUX audit and counted as three by gate H:
 
 - every resource-set selector resolves once, through one selection, closed downward over `depends_on` (#472)
 - one state dir shared by a fleet of stacks: apply, status and the wrong-stack guard support it; undo refuses while it holds more than one stack (#473)
