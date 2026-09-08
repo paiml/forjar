@@ -2907,3 +2907,22 @@ roadmap:
   labels:
   - kind:code
   notes: 'Measured 2026-09-08: main is 654 against a ceiling of 651 recorded 2026-09-07. Two of the three came from PMAT-204''s own new module and were removed by decomposing redact_quoted_paths and clause_verdict (both A+ now, measured 653). The rest is grade drift under the changed instrument. Reducing rather than re-baselining: the ratchet''s own rule is that the number may only shrink.'
+- id: PMAT-158
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'BSE-001 wave 1: timeout-minutes on every CI job (paiml/infra docs/specifications/build-system-enhancement.md section 4, BSE-05)'
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-09-08T11:00:00Z
+  updated: 2026-09-08T11:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'every job in .github/workflows/*.yml declares timeout-minutes, in one PR carrying a quorum receipt'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'PR #463 was the draft; it was closed with five-whys on 2026-09-07 for the 1.26.0 cut (it edits every workflow and carried no receipt, and the release-workflow PR of that cut edits two of them under a receipt that hashes its diff). Carried onto main''s roadmap on 2026-09-08 because docs/audits/triage-1.26.0.md defers #463 to this id and a triage table that cites a ticket must be able to resolve it. Re-cut from the released main in 1.27.'

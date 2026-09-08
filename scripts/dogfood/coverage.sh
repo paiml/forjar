@@ -163,8 +163,12 @@ fi
 # a src/ file still MUST produce mutants and kill them, and a tests-only diff
 # passes this arm while every other arm still measures it.
 mrc=0
-mutable_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' \
-  | grep -E '(^|/)src/' | grep -c .)" || mrc=$?
+# `-z`: `git diff --name-only` QUOTES a path containing a space or a non-ASCII
+# byte ("src/a b.rs"), and a leading quote defeats an anchored match, so a diff
+# that does touch src/ could read as zero mutable files (found by the PMAT-165
+# quorum). NUL-delimited output is never quoted.
+mutable_rs="$(git diff --name-only -z "origin/main...HEAD" -- '*.rs' \
+  | tr '\0' '\n' | grep -E '(^|/)src/' | grep -c .)" || mrc=$?
 if [ "$mrc" -gt 1 ]; then
   fail "grep exited ${mrc} counting the mutable changed .rs files — the mutation scope is UNMEASURED"
 fi

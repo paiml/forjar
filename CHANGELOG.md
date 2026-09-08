@@ -214,7 +214,7 @@ migration's one-apply window) still matches nothing (PMAT-183).
   refusals exit 2, scratch lives outside the worktree, the clean tree is
   re-asserted after the build, the index is polled with a bounded backoff.
 - `docs/audits/crux-1.26.0.md` (PMAT-164, #478) compares the two behaviour
-  changes above, split into nine behaviours, against Terraform, Ansible,
+  changes above, split into ten behaviours, against Terraform, Ansible,
   SaltStack, Puppet, Make, Nix, Kubernetes and Pulumi; one adopt (stack-scoped
   restore, PMAT-162), the rest rejected with rationale.
 - `docs/specifications/forjar-state-generation-ownership.md` v10 (PMAT-162,
@@ -224,7 +224,9 @@ migration's one-apply window) still matches nothing (PMAT-183).
 - `docs/audits/triage-1.26.0.md` records the disposition of every open issue
   and PR at the cut; the roadmap carries a ticket for every deferral.
 - Release-day rule: the Friday-only publish rule was overridden by operator
-  directive (2026-09-06); recorded in `docs/audits/release-1.26.0-receipt.md`.
+  directive (2026-09-06). The release receipt written after the publish,
+  `docs/audits/release-1.26.0-receipt.md`, records it with the day the publish
+  actually happened.
 
 ## [1.25.2] — 2026-09-05
 

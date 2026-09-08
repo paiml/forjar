@@ -196,14 +196,17 @@ for path in sys.argv[1:]:
         cite = " ".join(
             str((t or {}).get(k) or "") for k in ("test", "test_secondary", "command")
         )
-        hit = False
-        for m in re.finditer(r"([\w./-]+\.rs)", cite):
-            if os.path.isfile(m.group(1)):
-                hit = True
-        for m in re.finditer(r"--test\s+([A-Za-z0-9_]+)", cite):
-            if os.path.isfile(os.path.join("tests", m.group(1) + ".rs")):
-                hit = True
-        if hit:
+        # EVERY named path must exist, not merely one of them: a citation that
+        # names a file that is not there is an address a reviewer cannot follow,
+        # and counting it because a sibling resolved is how an unwired falsifier
+        # hides behind a wired one (found by the PMAT-165 quorum).
+        paths = [m.group(1) for m in re.finditer(r"([\w./-]+\.rs)", cite)]
+        targets = [
+            os.path.join("tests", m.group(1) + ".rs")
+            for m in re.finditer(r"--test\s+([A-Za-z0-9_]+)", cite)
+        ]
+        named = paths + targets
+        if named and all(os.path.isfile(x) for x in named):
             anchored += 1
     if tests and anchored == 0:
         anchored_gaps.append(name)
