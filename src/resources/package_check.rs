@@ -165,7 +165,19 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            // forjar#489: repair PATH before asking cargo anything.
+            //
+            // Everything below resolves `cargo` through PATH, and the host
+            // forjar itself creates by running `rustup-init --no-modify-path`
+            // has no cargo on the NON-INTERACTIVE PATH. Without this the check
+            // reports `missing:<crate>` for a crate it installed, forever.
+            // Emitted by the install action's own helper so the two cannot
+            // drift apart again.
+            format!(
+                "{}\n{}",
+                crate::resources::package::cargo::path_prelude(),
+                verdict::check_script_from(&checks)
+            )
         }
         "uv" => {
             let checks: Vec<String> = packages
