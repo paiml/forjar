@@ -8,7 +8,7 @@ Thirteen ids: seven claims confirmed by the second round or by measurement, and 
 - evidence: src/core/observe/mod.rs:70 holds the table and src/core/observe/mod.rs:55 the lookup with `or_else(|| classify_e01::classify(field))`; the orchestrator's own diff of the 32 pairs against the match found only trailing-comma differences.
 
 2. [measured] C2 — The purifier decompositions keep every pinned verdict: the two falsification suites (9 and 15 tests) pass at HEAD, and one lane's narrowing — that an escaped-quote line now passes where it once failed — is the PMAT-204 fix already on main, not this diff.
-- evidence: src/core/purifier_sec017.rs:191, src/core/purifier_sec017.rs:164, src/core/purifier_sec017.rs:293 and src/core/purifier_sec017.rs:391 are the decomposed sites; the suites that pin them were re-run after each edit.
+- evidence: src/core/purifier_sec017.rs:191, src/core/purifier_sec017.rs:164, src/core/purifier_sec017.rs:293 and src/core/purifier_sec017.rs:191 are the decomposed sites; the suites that pin them were re-run after each edit.
 
 3. [measured] C3 — The example asserts all fourteen criteria it asserted before, with the same labels, through one `criterion` helper; three lanes read every assertion and the example runs to its final line.
 - evidence: the helper prints the verdict then asserts with the label; `cargo run --example cron_secret_encryption_falsification` ends with the survival line; the decomposed sites are pinned by src/core/purifier_sec017.rs:164 in the same spirit.
@@ -17,7 +17,7 @@ Thirteen ids: seven claims confirmed by the second round or by measurement, and 
 - evidence: the guarded site in scripts/cb200-ratchet.sh follows the same `:?` discipline as scripts/publish-from-tag.sh; the Rust surface it protects is measured at src/core/observe/mod.rs:55.
 
 5. [design] C5 — The ratchet never swallows a measurement: an empty comply result is UNMEASURED and exit 1, a stale cache is announced as a NOTE and removed rather than silently refreshed, and the probe run with its `|| true` from the first rewrite is gone.
-- evidence: observed twice on this branch — cache fresh: exit 0 at 651; source newer than the cache: NOTE printed, cache removed, exit 0 at 651; the number it measures is the grade of sites such as src/core/purifier_sec017.rs:191.
+- evidence: pinned by tests/falsification_cb200_ratchet_measures_this_tree.rs:167 (a cache older than the tree is gone before comply runs, observed RED against main's ratchet), tests/falsification_cb200_ratchet_measures_this_tree.rs:190 (a newer cache is left alone) and tests/falsification_cb200_ratchet_measures_this_tree.rs:205 (the ceiling still refuses 652); observed live twice on this branch as well.
 
 6. [measured] C6 — With a fresh comply index the branch measures exactly the recorded ceiling, 651, and the ceiling in scripts/ratchets/cb200-baseline.json is unchanged; three lanes confirmed the number and the file.
 - evidence: the measurement table in the claims dossier (654 → 653 → 652 → 651 as the cache was refreshed); the sites that moved it are src/core/observe/mod.rs:70 and src/core/purifier_sec017.rs:293.
@@ -28,10 +28,10 @@ Thirteen ids: seven claims confirmed by the second round or by measurement, and 
 ## REFUTED
 
 8. [q1] R1 — the first rewrite parsed the cache path out of comply's JSON with an unanchored regex and handed it to `rm -rf`; four lanes found that the JSON carries source snippets and file paths from violations, so the regex could match a path outside the cache.
-- corrected: the directory is found by name under the cache root and never read from JSON; the guard discipline mirrors the sites this file protects, such as src/core/purifier_sec017.rs:391.
+- corrected: the directory is found by name under the cache root and never read from JSON; the guard discipline mirrors the sites this file protects, such as src/core/purifier_sec017.rs:191.
 
 9. [q1] R2 — the first rewrite ran comply twice and put `|| true` on the probe run, so a failed probe silently fell through to a stale measurement.
-- corrected: the probe run is gone; one comply run, its absence UNMEASURED; the measured grades at src/core/purifier_sec017.rs:367 and siblings are what it reports.
+- corrected: the probe run is gone; one comply run, its absence UNMEASURED; the measured grades at src/core/purifier_sec017.rs:293 and siblings are what it reports.
 
 10. [q1] R3 — the offender dump to target/cb200-offenders.txt was scope the ticket did not ask for.
 - corrected: removed; with the cache fixed the number is actionable on its own, as the movement of src/core/observe/mod.rs:70 out of the top ten showed.
