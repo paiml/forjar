@@ -53,6 +53,23 @@ pub struct DriftArgs {
     #[arg(short = 'w', long)]
     pub workspace: Option<String>,
 
+    /// Check every stack in the state dir, not only the ones this config declares
+    ///
+    /// forjar#488: `drift -f <config>` used to do this UNCONDITIONALLY. It walked
+    /// every directory under `--state-dir` — the operator measured 31 stacks
+    /// checked from a config declaring one machine — and reported the first one
+    /// it found, which was not the one that was asked about. Worse, a stack the
+    /// loaded config does not declare has no machine to resolve against, so it
+    /// was compared against THIS box's filesystem: one computer's file judged
+    /// against another computer's recorded hash, reported as drift for ever
+    /// (forjar#485).
+    ///
+    /// The wide question is a real question — paiml/infra's nightly tripwire
+    /// asks it deliberately — so it keeps a way to be asked. It is a request
+    /// now, not a surprise.
+    #[arg(long)]
+    pub all_stacks: bool,
+
     /// Do not execute task completion_checks (cheaper, and blind to guards)
     ///
     /// forjar#380: drift executes the `completion_check` of every converged

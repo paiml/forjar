@@ -100,7 +100,10 @@ impl Fleet {
             "the plan must describe the stack before it is applied: {plan}"
         );
         let (text, ok) = self.run(&["apply", "-f", &cfg.display().to_string(), "--yes"]);
-        assert!(ok, "the fixture must converge before drift is measured: {text}");
+        assert!(
+            ok,
+            "the fixture must converge before drift is measured: {text}"
+        );
     }
 
     /// A two-stack fleet: `home` is the one the operator asks about, `elsewhere`

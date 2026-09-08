@@ -101,6 +101,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             json,
             env_file,
             workspace,
+            all_stacks,
             no_task_checks,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
@@ -115,6 +116,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 json,
                 verbose,
                 env_file.as_deref(),
+                all_stacks,
                 no_task_checks,
             )
         }

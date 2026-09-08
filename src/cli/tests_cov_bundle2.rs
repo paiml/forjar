@@ -183,40 +183,40 @@ mod tests {
     #[test]
     fn test_drift_dry_run() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(None, d.path(), None, false, false);
+        let _ = cmd_drift_dry_run(None, d.path(), None, None, false, false);
     }
     #[test]
     fn test_drift_dry_run_json() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(None, d.path(), None, true, false);
+        let _ = cmd_drift_dry_run(None, d.path(), None, None, true, false);
     }
     #[test]
     fn test_drift_dry_run_machine() {
         let d = setup_state();
-        let _ = cmd_drift_dry_run(None, d.path(), Some("m1"), false, false);
+        let _ = cmd_drift_dry_run(None, d.path(), Some("m1"), None, false, false);
     }
     #[test]
     fn test_drift_full() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, false, None, false);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, false, None, false, false);
     }
     #[test]
     fn test_drift_json() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, true, false, None, false);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, true, false, None, false, false);
     }
     #[test]
     fn test_drift_verbose() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, true, None, false);
+        let _ = cmd_drift(f.path(), d.path(), None, false, None, false, true, false, true, None, false, false);
     }
     #[test]
     fn test_drift_tripwire() {
         let f = write_cfg(CFG);
         let d = setup_state();
-        let _ = cmd_drift(f.path(), d.path(), None, true, None, false, true, false, false, None, false);
+        let _ = cmd_drift(f.path(), d.path(), None, true, None, false, true, false, false, None, false, false);
     }
 }

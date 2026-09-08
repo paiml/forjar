@@ -32,6 +32,7 @@ use std::path::Path;
 pub(super) fn machine_state_dirs(
     state_dir: &Path,
     machine_filter: Option<&str>,
+    scope: Option<&[String]>,
 ) -> Result<Option<Vec<String>>, String> {
     let entries = match std::fs::read_dir(state_dir) {
         Ok(entries) => entries,
@@ -44,18 +45,31 @@ pub(super) fn machine_state_dirs(
             ))
         }
     };
-    let mut names = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if machine_filter.is_some_and(|filter| name != filter) {
-            continue;
-        }
-        if !entry.path().is_dir() {
-            continue;
-        }
-        names.push(name);
-    }
+    let names = entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().to_string())
+        .filter(|name| in_this_run(name, machine_filter, scope))
+        .collect();
     Ok(Some(names))
+}
+
+/// Whether one state directory belongs to the run being asked for.
+///
+/// `machine_filter` is `-m`, and has always been here. `scope` is forjar#488:
+/// the machines the loaded config declares.
+///
+/// A stack this config does not declare is not this run's business.
+/// `check_machine_drift` resolves a stack with `config.machines.get(name)`; a
+/// miss falls to the lock-only arm, which has no machine and therefore reads
+/// the recorded path on the LOCAL box. On a fleet that is a different
+/// computer's file, and the mismatch is permanent (forjar#485). Excluding the
+/// stack HERE means it is never opened at all, so there is no arm to fall to.
+fn in_this_run(name: &str, machine_filter: Option<&str>, scope: Option<&[String]>) -> bool {
+    if machine_filter.is_some_and(|filter| name != filter) {
+        return false;
+    }
+    scope.is_none_or(|declared| declared.iter().any(|m| m == name))
 }
 
 /// `(machine_name, lock)` pairs from the state directory, or `None` when the
@@ -63,8 +77,10 @@ pub(super) fn machine_state_dirs(
 pub(super) fn collect_machine_locks(
     state_dir: &Path,
     machine_filter: Option<&str>,
+    scope: Option<&[String]>,
 ) -> Result<Option<Vec<(String, types::StateLock)>>, String> {
-    let Some(names) = machine_state_dirs(state_dir, machine_filter)? else {
+    refuse_out_of_scope(machine_filter, scope)?;
+    let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         return Ok(None);
     };
     let mut locks = Vec::new();
@@ -98,6 +114,41 @@ pub(super) fn collect_machine_locks(
     Ok(Some(locks))
 }
 
+/// A `-m` THAT THE CONFIG DOES NOT DECLARE IS A REFUSAL, NOT AN EMPTY SCAN.
+///
+/// With forjar#488's scope in place, `-m other` where `other` is a real state
+/// directory outside this config would pass the existence check and then match
+/// nothing, and the caller would report "No drift detected." over ZERO
+/// machines. That is the same false green the unknown-machine refusal already
+/// exists to prevent, reached by a different door.
+fn refuse_out_of_scope(
+    machine_filter: Option<&str>,
+    scope: Option<&[String]>,
+) -> Result<(), String> {
+    let (Some(filter), Some(declared)) = (machine_filter, scope) else {
+        return Ok(());
+    };
+    if declared.iter().any(|m| m == filter) {
+        return Ok(());
+    }
+    Err(out_of_scope_machine(filter, declared))
+}
+
+/// The refusal for a `-m` naming a machine this config does not declare.
+fn out_of_scope_machine(filter: &str, declared: &[String]) -> String {
+    format!(
+        "machine '{filter}' is not declared by this config, so there is nothing \
+         here to check for it.\n  This config declares: {}\n  \
+         Point -f at the config that declares '{filter}', or pass --all-stacks \
+         to check every stack in the state dir (forjar#488).",
+        if declared.is_empty() {
+            "no machines".to_string()
+        } else {
+            declared.join(", ")
+        }
+    )
+}
+
 /// The refusal for a `-m` that names no machine directory.
 fn unknown_machine(state_dir: &Path, filter: &str) -> String {
     let known: Vec<String> = std::fs::read_dir(state_dir)
@@ -128,8 +179,11 @@ mod tests {
     fn an_absent_state_dir_is_not_an_error() {
         let d = tempfile::tempdir().unwrap();
         let missing = d.path().join("no-such-state");
-        assert_eq!(machine_state_dirs(&missing, None), Ok(None));
-        assert!(matches!(collect_machine_locks(&missing, None), Ok(None)));
+        assert_eq!(machine_state_dirs(&missing, None, None), Ok(None));
+        assert!(matches!(
+            collect_machine_locks(&missing, None, None),
+            Ok(None)
+        ));
     }
 
     /// THE LINE. A state path that exists and is not a readable directory is a
@@ -139,7 +193,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let file = d.path().join("state");
         std::fs::write(&file, "not a directory").unwrap();
-        let err = machine_state_dirs(&file, None).unwrap_err();
+        let err = machine_state_dirs(&file, None, None).unwrap_err();
         assert!(err.contains("cannot read state dir"), "{err}");
     }
 
@@ -148,6 +202,9 @@ mod tests {
     #[test]
     fn a_present_empty_state_dir_enumerates_nothing() {
         let d = tempfile::tempdir().unwrap();
-        assert_eq!(machine_state_dirs(d.path(), None), Ok(Some(Vec::new())));
+        assert_eq!(
+            machine_state_dirs(d.path(), None, None),
+            Ok(Some(Vec::new()))
+        );
     }
 }

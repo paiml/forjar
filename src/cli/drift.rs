@@ -112,7 +112,18 @@ pub(super) fn report_machine_findings(
                 "actual_hash": f.actual_hash,
             }));
         } else {
-            println!("  {}: {} ({})", red("DRIFTED"), f.resource_id, f.detail);
+            // forjar#488: NAME THE MACHINE ON THE ROW. Aggregated output whose
+            // rows do not say which box they came from cannot be attributed
+            // after the fact, and that is precisely how gx10's `bashrc` was
+            // read as yoga's — the operator went looking for a resource that
+            // the config in hand does not contain.
+            println!(
+                "  {}: {} on {} ({})",
+                red("DRIFTED"),
+                f.resource_id,
+                name,
+                f.detail
+            );
             println!("    Expected: {}", f.expected_hash);
             println!("    Actual:   {}", f.actual_hash);
         }
@@ -206,9 +217,10 @@ fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     config: Option<&types::ForjarConfig>,
+    scope: Option<&[String]>,
     scan_opts: ScanOptions,
 ) -> Result<DriftScan, String> {
-    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter)? else {
+    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter, scope)? else {
         return scan_lockless(state_dir, machine_filter, config, scan_opts);
     };
 
@@ -284,15 +296,30 @@ pub(crate) fn cmd_drift(
     json: bool,
     verbose: bool,
     env_file: Option<&Path>,
+    all_stacks: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
+
+    // forjar#488: WHAT THIS RUN IS ABOUT.
+    //
+    // `Some(names)` is "the machines this config declares" and is the default
+    // whenever a config was loaded. `None` is the whole state dir, which is now
+    // reached only by asking for it (`--all-stacks`) or by having no config to
+    // scope with — never by pointing `-f` at one machine and being answered
+    // about thirty others.
+    let scope: Option<Vec<String>> = match (&config, all_stacks) {
+        (Some(cfg), false) => Some(cfg.machines.keys().cloned().collect()),
+        _ => None,
+    };
+    let scope_ref = scope.as_deref();
 
     if dry_run {
         return cmd_drift_dry_run(
             config.as_ref(),
             state_dir,
             machine_filter,
+            scope_ref,
             json,
             no_task_checks,
         );
@@ -313,7 +340,13 @@ pub(crate) fn cmd_drift(
             run_task_checks: !no_task_checks,
         },
     };
-    let scan = scan_machines_for_drift(state_dir, machine_filter, config.as_ref(), scan_opts)?;
+    let scan = scan_machines_for_drift(
+        state_dir,
+        machine_filter,
+        config.as_ref(),
+        scope_ref,
+        scan_opts,
+    )?;
     let DriftScan {
         machines_checked,
         total_drift,
@@ -413,10 +446,11 @@ pub(crate) fn cmd_drift_dry_run(
     config: Option<&types::ForjarConfig>,
     state_dir: &Path,
     machine_filter: Option<&str>,
+    scope: Option<&[String]>,
     json: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
-    let Some(names) = machine_state_dirs(state_dir, machine_filter)? else {
+    let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         let opts = drift::DriftOptions {
             run_task_checks: !no_task_checks,
         };

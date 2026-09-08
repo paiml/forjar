@@ -34,6 +34,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         )
         .unwrap();
@@ -94,6 +95,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         )
         .unwrap();
@@ -152,6 +154,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         );
         assert!(result.is_err());
@@ -176,6 +179,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         )
         .unwrap();
@@ -198,6 +202,7 @@ mod tests {
                 json: false,
                 env_file: None,
                 workspace: None,
+                all_stacks: false,
                 no_task_checks: false,
             }),
             0,
@@ -260,6 +265,7 @@ mod tests {
             false,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         )
         .unwrap();
@@ -318,6 +324,7 @@ mod tests {
             true,
             false,
             None, // no env_file
+            false, // all_stacks
             false,
         )
         .unwrap();
