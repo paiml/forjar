@@ -57,7 +57,7 @@
  "base_commit": "b2442fe09064e8d0445da9f2d3c834b8d7940317",
  "base": "origin/main",
  "recorded_at": "2026-09-07",
- "diff_sha256": "6ab618224c1b378db90997ca319c850c48ef4ea3",
+ "diff_sha256": "ee2361387afe62a2745f499e204147edb7783760",
  "evidence": {
   "files": [
    {
@@ -83,9 +83,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 6617,
-    "sha256": "b6a1d9d2edf7c27ef2818810bf93cc635bf1026b368943e578b45786b8f9189c",
-    "blob": "e4c06bb935aa61b3b04fa65040e21fc37ba7620f"
+    "bytes": 7116,
+    "sha256": "7c32be47883230dca2b65c3c566290c04a2cec3edd337f5992be622a1b2c19d5",
+    "blob": "40ef090e47b6b12e698c9187d2479fac0a61cd36"
    },
    {
     "path": ".quorum/evidence/release-cut-agy.md",
@@ -115,7 +115,7 @@
     "blob": "626e999c02e859a96d70361be502a165dc8d76f4"
    }
   ],
-  "total_bytes": 17449,
+  "total_bytes": 17948,
   "claims_digest": ".quorum/evidence/release-cut-judges.md"
  }
 }
