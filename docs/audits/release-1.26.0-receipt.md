@@ -11,7 +11,7 @@ verdict: SHIPPED — crates.io serves 1.26.0, docs.rs built it, the GitHub relea
 | main at the cut | `818a060d` — "release: forjar 1.26.0 — the cut (PMAT-165) (#483)" |
 | crates.io | `forjar 1.26.0`, published from a detached worktree of the tag with the local credentials file |
 | docs.rs | `doc_status: true` for 1.26.0 |
-| GitHub release | published, not a prerelease, 14 assets (6 tarballs, 6 `.sha256`, `SHA256SUMS`, `install.sh`) |
+| GitHub release | published, not a prerelease, 14 assets — the workflow uploaded 13 (6 tarballs, 6 `.sha256`, `SHA256SUMS`) and `install.sh` is the fourteenth, added by hand for the reason below |
 | release day rule | `overridden(operator 2026-09-06)` — the Friday-only rule appears in this repo only as historical notes on completed REL-* roadmap rows, never as a live gate, so nothing in the tree needed rewriting |
 | clean room | `fleet` — `make -C ~/src/infra/machines/clean-room clean-room-forjar`, source announced as the release worktree at `818a060d`, ten gates A0–B4 all PASSED |
 
