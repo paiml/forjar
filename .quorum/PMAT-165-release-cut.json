@@ -1,0 +1,121 @@
+{
+ "issue": "PMAT-165 — the forjar 1.26.0 release cut: version, CHANGELOG, the CRUX audit's tenth behaviour, the triage table, the roadmap dispositions, an implementation receipt per merged PR, and the three gate repairs the act of cutting exposed",
+ "quorum": {
+  "lanes": [
+   "blind claim lane 1",
+   "blind claim lane 2",
+   "blind claim lane 3",
+   "independent-stack review — agy /teamwork-preview",
+   "crux lane"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; every finding measured against the tree before it is acted on or set aside",
+  "rounds": "five lanes at 83992ea6 (3 FAIL, 2 PASS); six findings acted on, three measured and not reproduced",
+  "claims_confirmed": 7,
+  "claims_refuted": 6,
+  "refuted_claims": [
+   "Three lanes reported that the roadmap edit reformats timestamps across rows it should not touch. Parsed rather than diffed: no created changed anywhere and exactly one row has an unchanged status with a changed updated. The claim does not reproduce.",
+   "One lane reported gate H now ignores the version section whenever [Unreleased] holds a paragraph, passing a release whose paragraphs have no crux row. That is the rule as designed and as pinned: a paragraph added after the cut must be reconciled, and the released section was reconciled when it was cut.",
+   "One lane reported the CHANGELOG citing docs/audits/release-1.26.0-receipt.md as though it were in the tree. True: that receipt is written after the publish.",
+   "One lane counted nine behaviours in the CHANGELOG's crux sentence where the audit now has ten.",
+   "One lane found coverage.sh reading `git diff --name-only`, which quotes a path containing a space, so an anchored src/ match could miss a file the diff touches.",
+   "One lane found contracts.sh counting a falsifier as wired when ANY named path resolved, letting an unwired citation hide behind a wired one."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "ripgrep",
+   "cargo",
+   "tokio",
+   "serde"
+  ],
+  "verdict": "a release cut is a metadata commit and product fixes belong to their own PRs — which is what this release did: every behaviour change landed in its own PR under its own receipt. What the cut adds beyond metadata is three gate repairs, each because cutting was what exposed the blind spot, each with falsification tests observed RED against main. Third-party figures are documentation memory, marked [X]."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview at 83992ea6 (first attempt timed out at 298s, re-run took 1035s)",
+  "verdict": "PASS — repairing a blocking gate inside the release it blocks is remediation where no threshold moves: the coverage floor stays 95, the CB-200 ceiling stays 651, the unanchored-contract ceiling shrank, and each repair carries a test that was RED against the gate on main."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests: 0 hits in the two test files this cut adds.",
+  "limit": "the rest of the cut is documents; their falsifier is the eight-gate run recorded in the claims dossier"
+ },
+ "falsification": {
+  "test": "the four cases of falsification_crux_gate_reads_the_release_section and the five of falsification_coverage_gate_mutation_scope — the two gates the cut repairs, each pinned in both directions with a shim",
+  "test_file": "tests/falsification_crux_gate_reads_the_release_section.rs",
+  "cargo_test_target": "falsification_crux_gate_reads_the_release_section",
+  "reverted": "each gate script replaced by its origin/main version, the target run, the script restored (tree verified clean)",
+  "observed_failure": "crux gate: 1 of 4 failed (at_the_cut_the_gate_reads_the_version_section) — GATE H FAIL no behaviour bullet under [Unreleased]; coverage gate: 1 of 5 failed (a_diff_whose_only_rust_change_is_a_test_passes_and_says_why) — GATE F FAIL cargo mutants wrote no outcomes.json, the mutation arm is UNMEASURED",
+  "still_green_when_reverted": "the controls in each file — the section rule before the cut, the empty-release refusal, the src/ demand, the survivor refusal — which the old scripts also satisfied"
+ },
+ "base_commit": "b2442fe09064e8d0445da9f2d3c834b8d7940317",
+ "base": "origin/main",
+ "recorded_at": "2026-09-07",
+ "diff_sha256": "271849ad64e5618ecf1796e0d4533f058b98cc8a",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/release-cut-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2845,
+    "sha256": "72fffb4150c89abb0a3bda336639edb4f1b27de71e742f9a228db405f707555e",
+    "blob": "1c97ed509323ea6e74aed74fba0d7fe0c91024aa"
+   },
+   {
+    "path": ".quorum/evidence/release-cut-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 4504,
+    "sha256": "3417be106adf0268e17e45f2312f7ffe28a3b558a14733d0b77b65531daa60a9",
+    "blob": "996d34db5438cb03425908391c00d7428a07fb76"
+   },
+   {
+    "path": ".quorum/evidence/release-cut-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 6309,
+    "sha256": "c6b91e46970dc95a27ee291c90e5e53350c191b30ff66104ed75ab6b2a3c8a3e",
+    "blob": "9bf7536fedd85ecef4a4c733634f21c10dc083bb"
+   },
+   {
+    "path": ".quorum/evidence/release-cut-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1673,
+    "sha256": "03fcd2d3c3b7a273a8376fff1ef2bbe395acd40cf46f13b834726f0a6d647aa0",
+    "blob": "84349db8b8edd69bd7ef1f4a3394bd0ccc8276f8"
+   },
+   {
+    "path": ".quorum/evidence/release-cut-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 831,
+    "sha256": "64c395a567a0af850d983aaa3da274cb2433880c4344231d501bbeefea4999c6",
+    "blob": "a3d956bac31f5fff949c4f4999019144b7780c1b"
+   },
+   {
+    "path": ".quorum/evidence/release-cut-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 979,
+    "sha256": "6fb9bfa3bb56633118e52301424b307edc9f0c803f1625ce8b9a6787d56bd38b",
+    "blob": "626e999c02e859a96d70361be502a165dc8d76f4"
+   }
+  ],
+  "total_bytes": 17141,
+  "claims_digest": ".quorum/evidence/release-cut-judges.md"
+ }
+}
