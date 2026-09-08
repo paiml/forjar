@@ -15,6 +15,7 @@ Every open pull request and issue on paiml/forjar at the cut, with one dispositi
 | #481 | spec(state): generation ownership and stack-scoped restore, v10 (PMAT-162) | merged (`.quorum/PMAT-162-generation-ownership-spec.json`); implementation deferred to 1.27 |
 | #479 | ci(release): the clean-room gate creates the GitHub prerelease (PMAT-166) | merged (`.quorum/PMAT-166-release-prerelease.json`) |
 | #480 | build: publish-from-tag (PMAT-165) | merged (`.quorum/PMAT-165-publish-from-tag.json`) |
+| #482 | fix(cb200): the ratchet grades this tree, and three functions come back under the ceiling (PMAT-206) | merged (`.quorum/PMAT-206-cb200-back-under-the-ceiling.json`); opened during the cut when gate B refused it |
 
 The five-whys for each closed PR is the closing comment on that PR; the common root is one rule of the release program: every PR merged into main carries a three-lane quorum receipt, and none of the three had one or was worth the round it would take.
 
@@ -54,6 +55,9 @@ Class: S1 blocks a release, S2 ships with a ticket, S3 is cosmetic. The epic row
 | PMAT-201 | S1 (dogfood gates A and E were not mechanical; found by the #476 merge review, then a vacuous empty-window pass found by the delta quorum) | #476 | completed |
 | PMAT-204 | S2 (a file path containing 666 or 777 made apply refuse its own script; five regressions caught and fixed across nine rounds) | #477 | completed |
 | PMAT-205 | S3 (the conda store-hash test flaked once under the full library run) | — | deferred to 1.27 |
+| PMAT-206 | S1 (the release's own merges took CB-200 from 651 to 654 and gate B refused the cut; the ratchet was also grading a stale cache) | #482 | completed |
+| PMAT-207 | S3 (an older implementation receipt carries neither a verdict line nor its END marker) | — | deferred to 1.27 |
+| PMAT-158 | CI (timeout-minutes on every job; PR #463's ticket, carried onto the roadmap so the row above resolves) | — | deferred to 1.27 |
 | PMAT-189 | S3 (README `forjar make clean` KNOWN_BROKEN in gate D) | — | deferred to 1.27 |
 | PMAT-202 | CI (a required check running `pmat comply check`, so CB-2100 can be re-enabled; measured still failing when enabled) | — | deferred to 1.27 |
 | PMAT-203 | S2 (the CB-200 ratchet re-based to pmat 3.39's grader: 651 on main, 628 at the August baseline commit under the same grader; bring it under 628) | — | deferred to 1.27 |

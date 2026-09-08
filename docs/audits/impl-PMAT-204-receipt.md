@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-204 — a file resource whose path contains 666 or 777 could not be applied: bashrs SEC017 read the path as a chmod mode, and forjar now refuses a world-writable mode itself
 
-verdict: DONE — merged into main by PR #None (sha per git log); quorum receipt `.quorum/PMAT-204-chmod-path-false-positive.json` (7 confirmed, 9 refuted); no waiver.
+verdict: DONE — merged into main by PR #477 (6b80b748); quorum receipt `.quorum/PMAT-204-chmod-path-false-positive.json` (7 confirmed, 9 refuted); no waiver.
 
 ## Identity
 
@@ -8,7 +8,7 @@ verdict: DONE — merged into main by PR #None (sha per git log); quorum receipt
 |---|---|
 | ticket | PMAT-204 (kind: code) |
 | branch | PMAT-204-chmod-path-false-positive |
-| PR | #None |
+| PR | #477 |
 | base_commit (receipt) | 0776fd82a57158a87b7dc3e7602a12dee52db893 |
 | diff_sha256 (receipt) | 3837cc58f1e7369292c803a015375fcd75017b18 |
 | quorum | lanes 5, refuters/claim 3, judges 3 |
