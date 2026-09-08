@@ -73,43 +73,43 @@ falsification_tests:
   - id: FALSIFY-RELEASE-001
     rule: "binary-release.yml fires only on workflow_dispatch"
     prediction: "the on: mapping of binary-release.yml is exactly {workflow_dispatch} — no push, no release"
-    test: "rule1_binary_release_fires_only_on_workflow_dispatch"
+    test: tests/falsification_release_workflow_shape.rs::rule1_binary_release_fires_only_on_workflow_dispatch
     if_fails: "binary-release.yml races release.yml on the same tag push, re-introducing the overlapping-target/clobbered-SHA256SUMS defect PMAT-170 fixed"
 
   - id: FALSIFY-RELEASE-002
     rule: "release.yml is the sole owner of the v* tag-push trigger"
     prediction: "release.yml is the only file under .github/workflows/ whose on.push.tags contains 'v*'"
-    test: "rule2_release_yml_is_the_only_v_star_tag_push_producer"
+    test: tests/falsification_release_workflow_shape.rs::rule2_release_yml_is_the_only_v_star_tag_push_producer
     if_fails: "two workflows both create/mutate the release for the same tag push with no ordering between them"
 
   - id: FALSIFY-RELEASE-003
     rule: "create-release creates a draft prerelease and records whether this run created it"
     prediction: "the gh release create invocation in create-release carries --draft, --prerelease and --verify-tag; the step writes created=true or created=false to $GITHUB_OUTPUT; the job exposes outputs.created"
-    test: "rule3_create_release_step_creates_a_draft_prerelease_and_records_created"
+    test: tests/falsification_release_workflow_shape.rs::rule3_create_release_step_creates_a_draft_prerelease_and_records_created
     if_fails: "downstream jobs cannot tell whether they own this release, so publish-release could un-draft a release it did not create or skip one it did"
 
   - id: FALSIFY-RELEASE-004
     rule: "the post-create assertion requires the exact draft-prerelease state for a run that created the release"
     prediction: "the assert step contains the exact string prerelease=true draft=true, gated on steps.create.outputs.created"
-    test: "rule4_assert_step_requires_exact_draft_prerelease_string_when_created"
+    test: tests/falsification_release_workflow_shape.rs::rule4_assert_step_requires_exact_draft_prerelease_string_when_created
     if_fails: "a create step that silently produced a public or non-prerelease release would go undetected"
 
   - id: FALSIFY-RELEASE-005
     rule: "publish-release un-drafts only after every asset job, and asserts the published state"
     prediction: "a job named publish-release needs verify, create-release, build-binaries, checksums and dist-artifacts; its if contains always() and !contains(needs.*.result, 'failure'); its script runs gh release edit --draft=false --prerelease and asserts prerelease=true draft=false"
-    test: "rule5_publish_release_job_shape"
+    test: tests/falsification_release_workflow_shape.rs::rule5_publish_release_job_shape
     if_fails: "a half-uploaded asset set (a failed binary build, a missing checksum) is published to the public as if complete"
 
   - id: FALSIFY-RELEASE-006
     rule: "no workflow performs its own crates.io publish or silently swallows a failure outside the one known, unrelated exception"
     prediction: "no workflow under .github/workflows/ contains cargo publish outside a comment or CARGO_REGISTRY_TOKEN anywhere; no workflow other than mutation.yml uses continue-on-error (mutation.yml's use is its advisory mutation-testing step, unrelated to release)"
-    test: "rule6_no_stray_publish_or_swallowed_failure_outside_mutation_yml"
+    test: tests/falsification_release_workflow_shape.rs::rule6_no_stray_publish_or_swallowed_failure_outside_mutation_yml
     if_fails: "a workflow could publish to crates.io out of band of the documented manual step, or mask a release-relevant failure as green"
 
   - id: FALSIFY-RELEASE-007
     rule: "binary-release.yml's concurrency group is keyed on inputs.tag alone, and its backfill release is a prerelease too"
     prediction: "concurrency.group is exactly binary-release-${{ inputs.tag }}, and ensure-release's gh release create carries --prerelease"
-    test: "rule7_binary_release_concurrency_and_backfill_prerelease"
+    test: tests/falsification_release_workflow_shape.rs::rule7_binary_release_concurrency_and_backfill_prerelease
     if_fails: "two backfill dispatches for different tags could serialize against each other unnecessarily, or a backfill release could be created as a full public release rather than a prerelease"
 
 qa_gate:

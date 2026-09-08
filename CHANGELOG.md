@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-09-08
+
+
 **A file resource whose PATH contained `666` or `777` could not be applied
 (PMAT-204).** forjar emits `chmod '<mode>' '<path>'` for every file resource
 carrying a `mode:`, and the I8 gate refused it: bashrs SEC017 scans the literal
@@ -187,6 +190,43 @@ always held, and the tail comparison is deleted rather than narrowed. Portabilit
 is unchanged — the same layout in another checkout, config and state moving
 together, is still the same stack — and a stamp with no recorded file (the 1.0
 migration's one-apply window) still matches nothing (PMAT-183).
+
+### Release engineering (no forjar behaviour changes; the paragraphs above are the behaviour changes gate H reconciles)
+
+- `forjar-dogfood` is a release blocker (PMAT-163, #476). Eight standing gates
+  under `scripts/dogfood/` — harness receipt, `pmat comply`, the CLI/MCP/HTTP
+  surface measured from the built binary against the committed ledger
+  `docs/audits/surface_audit.csv`, executable README and cookbook claims, a
+  quorum receipt per merged PR, 95 % line coverage with `cargo mutants
+  --in-diff`, `pv` contract depth, and the CRUX reconciliation — run as
+  `make dogfood`, `make dogfood-release`, `make dogfood-published VERSION=`
+  and `make release-check`. Binary provenance is asserted before any dogfood
+  claim. The vendored contracts tests that read the aprender corpus (#452,
+  PMAT-169) are parked behind the `aprender-corpus` feature under an exact
+  ignored-count ratchet.
+- The release workflow creates the GitHub prerelease itself, as a draft, after
+  the clean-room gate (`--draft --prerelease --verify-tag`), and un-drafts it
+  once the asset jobs finish (PMAT-166, #479); `binary-release.yml` is
+  dispatch-only and no longer races the tag push (PMAT-170). No workflow runs
+  `cargo publish` and no registry secret exists in GitHub.
+- `make publish-from-tag TAG=vX.Y.Z` (PMAT-165, #480) publishes to crates.io
+  from a detached worktree of the tag with the local credentials file only:
+  refusals exit 2, scratch lives outside the worktree, the clean tree is
+  re-asserted after the build, the index is polled with a bounded backoff.
+- `docs/audits/crux-1.26.0.md` (PMAT-164, #478) compares the two behaviour
+  changes above, split into ten behaviours, against Terraform, Ansible,
+  SaltStack, Puppet, Make, Nix, Kubernetes and Pulumi; one adopt (stack-scoped
+  restore, PMAT-162), the rest rejected with rationale.
+- `docs/specifications/forjar-state-generation-ownership.md` v10 (PMAT-162,
+  #481) is the reviewed design for generation ownership and stack-scoped
+  restore; nine three-lane review rounds; implementation ships in 1.27 and no
+  restore semantics change before it.
+- `docs/audits/triage-1.26.0.md` records the disposition of every open issue
+  and PR at the cut; the roadmap carries a ticket for every deferral.
+- Release-day rule: the Friday-only publish rule was overridden by operator
+  directive (2026-09-06). The release receipt written after the publish,
+  `docs/audits/release-1.26.0-receipt.md`, records it with the day the publish
+  actually happened.
 
 ## [1.25.2] — 2026-09-05
 

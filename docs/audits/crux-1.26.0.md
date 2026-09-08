@@ -102,6 +102,11 @@ the one this audit adopts): *the GO spec must isolate generations by stack
 ID and replay only the target stack's resources, upgrading forjar's
 whole-dir snapshot mechanism to a Nix-like stack-scoped restore.*
 
+| (10) a declared file mode is validated before the script runs, and a PATH is never read as a mode | Ansible `file` module | `mode:` is a typed parameter distinct from `path:`, so a path can never be parsed as a mode; a world-writable mode is applied without complaint, and only the external `ansible-lint` rule `risky-file-permissions` warns [X] | The mode is a typed field too, but the generated shell was re-linted as TEXT, so `chmod '0644' '/opt/app666/t'` read as `chmod 666`; the gate now redacts plain path literals and asks bashrs again [V `src/core/purifier_sec017.rs`] | forjar validates the emitted script, which no surveyed system does; that is where the confusion came from and where it is fixed | reject(the typed field already exists; the defect was in the shell gate, fixed in 1.26.0) |
+| (10) a declared file mode is validated before the script runs, and a PATH is never read as a mode | Puppet `file` resource | `mode` is a typed attribute; Puppet emits no shell for it and applies a world-writable mode silently [X] | forjar refuses a world-writable mode at the gate under its own code `FJ-CHMOD-WW`, in any octal width or symbolic clause that ends up granting it [V `src/core/purifier.rs`] | forjar is stricter: Puppet warns nowhere, forjar refuses | reject(adopting Puppet's silence would remove a refusal) |
+| (10) a declared file mode is validated before the script runs, and a PATH is never read as a mode | Terraform `local_file.file_permission` | A string attribute validated by regex for shape only; no world-writable refusal, and no generated shell to lint [X] | Same shape validation plus the world-write refusal above [V] | forjar refuses what Terraform accepts | reject(forjar is already stricter) |
+| (10) a declared file mode is validated before the script runs, and a PATH is never read as a mode | Nix `writeTextFile` | Store paths are read-only by construction, so the question does not arise: a world-writable file in the store is impossible [X] | forjar writes to the live filesystem, so it must decide; it decides by refusing the o+w bit [V] | Nix's posture (make the unsafe state unrepresentable) is unavailable to a tool that manages existing hosts | reject(structural, not portable) |
+
 ## Reconciliation
 
 Every behaviour-change paragraph in `CHANGELOG.md`'s `[Unreleased]` section
@@ -149,13 +154,14 @@ above. It reads `CHANGELOG.md` for paragraphs that OPEN with a bold span at
 column 0 after a blank line, takes the first six words of that span (backticks
 removed) as the key, and requires one table row in this file that contains the
 key verbatim and names at least three surveyed systems. The `[Unreleased]`
-section on `main` at the cut holds two such paragraphs; measured 2026-09-07 in
+section on `main` at the cut holds three such paragraphs; measured 2026-09-07 in
 a scratch clone with `version = "1.26.0"`.
 
 | Key, verbatim as the gate derives it | Systems the mapped rows name | Rows above |
 |---|---|---|
 | apply's resource-set selectors resolved independently, one | Terraform, Ansible, SaltStack, Puppet | behaviours 1 to 5 |
 | One state dir shared by a | Terraform, Pulumi, Nix, Kubernetes | behaviours 6 to 9 |
+| A file resource whose PATH contained | Ansible, Puppet, Terraform, Nix | behaviour 10 |
 
 ## Provenance
 

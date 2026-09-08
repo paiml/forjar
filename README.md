@@ -93,9 +93,9 @@ tree roughly in half — 360 crates to 191, measured with
 
 ```toml
 # the binary, everything on
-forjar = "1.25"
+forjar = "1.26"
 # library only: api, core, copia, resources, transport, tripwire
-forjar = { version = "1.20", default-features = false }
+forjar = { version = "1.26", default-features = false }
 ```
 
 `cli` is one feature rather than three because `cli`, `mcp` and `verb` are
