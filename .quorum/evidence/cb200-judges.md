@@ -23,7 +23,7 @@ Thirteen ids: seven claims confirmed by the second round or by measurement, and 
 - evidence: the measurement table in the claims dossier (654 → 653 → 652 → 651 as the cache was refreshed); the sites that moved it are src/core/observe/mod.rs:70 and src/core/purifier_sec017.rs:293.
 
 7. [scope] C7 — Nothing in the diff is outside the ticket's two acceptance criteria once the offender dump was removed; the lanes confirmed the remaining files each serve one of the two criteria.
-- evidence: four files change — the observe table at src/core/observe/mod.rs:70, the purifier decompositions at src/core/purifier_sec017.rs:191, the example, the ratchet and its baseline; the roadmap row is the ticket itself.
+- evidence: seven files change and each serves one of the two criteria — the observe table at src/core/observe/mod.rs:70, the purifier decompositions at src/core/purifier_sec017.rs:191, the example, the ratchet and its baseline for the measurement, and, added after the first review round, tests/falsification_cb200_ratchet_measures_this_tree.rs with its ci guard-step wiring, which pins the measurement rule the round was fought over; the roadmap row is the ticket itself.
 
 ## REFUTED
 
