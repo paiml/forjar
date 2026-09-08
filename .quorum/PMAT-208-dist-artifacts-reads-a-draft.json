@@ -1,0 +1,120 @@
+{
+ "issue": "PMAT-208 — release.yml's dist-artifacts job resolved checksums from the public download URL, which a draft release does not serve; the 1.26.0 run failed there and the release was finished by hand",
+ "quorum": {
+  "lanes": [
+   "blind claim lane 1",
+   "blind claim lane 2",
+   "blind claim lane 3",
+   "independent-stack review — agy /teamwork-preview",
+   "crux lane"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; the one FAIL was re-run directly and was right",
+  "rounds": "five lanes at 7bcc2ad1 (1 FAIL, 4 PASS); the failing claim reproduced and is fixed",
+  "claims_confirmed": 5,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "One lane found the release receipt saying 'Two user-visible behaviour changes' and then listing three — the CHANGELOG carries three and gate H counts three.",
+   "The teamwork lane found the deeper coupling: the workflow uses the GitHub release as a staging area, so a job that produces assets consumes assets.",
+   "The CRUX lane found that every surveyed tool checksums locally before touching the releases API, and none reads an unpublished draft."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "GoReleaser",
+   "cargo-dist",
+   "electron-builder",
+   "actions/create-release"
+  ],
+  "verdict": "every surveyed tool computes checksums locally before touching the releases API and none reads an unpublished draft; forjar reads the release because the release is its staging area, and the aggregation posture is recorded as the 1.27 candidate. Figures are documentation memory, marked [X]."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "/teamwork-preview at 7bcc2ad1 (first attempt timed out at 402s; the retry returned in 136s)",
+  "verdict": "PASS — the repair is right and the coupling underneath it is real; a decoupled design was judged not worth the cost against the deliberate draft-as-staging."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "pmat 3.39.0 analyze vacuous-tests: 0 hit(s) in the touched test file.",
+  "limit": "the rest of the diff is receipts and a roadmap row"
+ },
+ "falsification": {
+  "test": "RULE 8 of falsification_release_workflow_shape — the dist job fetches SHA256SUMS over the API before the step that needs it and passes --checksums-file, read from the COMMAND text with comment lines dropped",
+  "test_file": "tests/falsification_release_workflow_shape.rs",
+  "cargo_test_target": "falsification_release_workflow_shape",
+  "reverted": ".github/workflows/release.yml replaced by its origin/main version, the target run, the file restored (tree verified clean)",
+  "observed_failure": "test rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url ... FAILED / test result: FAILED. 7 passed; 1 failed",
+  "still_green_when_reverted": "rules 1 to 7, which the released workflow already satisfied",
+  "mutation_argument_deleted": "the --checksums-file argument removed from the command with the step's comments left in place: FAILED, 7 passed / 1 failed, message 'the dist step does not pass --checksums-file'. Against the first version of RULE 8 the same mutation left 8 passed — the rule was reading the word out of the comment that explains it. The merge-review quorum raised that on all three lanes; it reproduced here and is fixed in this branch.",
+  "mutation_fetch_deleted": "the gh release download command removed with its comment left in place: FAILED, 7 passed / 1 failed, message 'dist-artifacts never fetches the checksums over the API'"
+ },
+ "base_commit": "818a060d972b2eb9deceb795334afea29dd28f0d",
+ "base": "origin/main",
+ "recorded_at": "2026-09-08",
+ "diff_sha256": "b4cee9291ca4dd71e72bec8a419dedbb60a18770",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/dist-draft-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2068,
+    "sha256": "20e561be50e3df0ff27cdfa31a5d89eb16161b4c7c999d69c7297fe3a7e77996",
+    "blob": "5bd66efff936472fa46e599e309067c19a5a9284"
+   },
+   {
+    "path": ".quorum/evidence/dist-draft-refuters.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 4751,
+    "sha256": "043cf3074acbcf0d4d6834dcb93f9be85ecd5d9d5e81bae1ef2c28dbbb19799b",
+    "blob": "5cb5fc53d41088ceb235c27cba4bda5f52cff2ad"
+   },
+   {
+    "path": ".quorum/evidence/dist-draft-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 3608,
+    "sha256": "aa2d9d31702dc443608ed486c9e2871f79c365392b6cff940231d6672fb4781d",
+    "blob": "2124bc406134bb460d4f1777ee10aade909ad960"
+   },
+   {
+    "path": ".quorum/evidence/dist-draft-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1447,
+    "sha256": "9ca66c1d6255f80c4f24e0b5cfb63aa552c98fb5de2b04cea8a2b09b58eed7fc",
+    "blob": "eb15ebdf102baba0836988a067220e233a9c98bf"
+   },
+   {
+    "path": ".quorum/evidence/dist-draft-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 746,
+    "sha256": "926784062a132efad83de72d0418ce2008cc3010176afb646ea230d90da63848",
+    "blob": "29797ecad2a4b88e0564cb707a43b7ec80aa5bf2"
+   },
+   {
+    "path": ".quorum/evidence/dist-draft-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 730,
+    "sha256": "9add33e1e1348118964ef3b019c1533d6bf696197e78db23f717f7b3a295ac61",
+    "blob": "4f6ef355335f948af08a052e03db45356cb5b99a"
+   }
+  ],
+  "total_bytes": 13350,
+  "claims_digest": ".quorum/evidence/dist-draft-judges.md"
+ }
+}

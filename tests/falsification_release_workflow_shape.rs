@@ -347,3 +347,86 @@ fn rule7_binary_release_concurrency_and_backfill_prerelease() {
          must carry `--prerelease`:\n{ensure_release}"
     );
 }
+
+/// RULE 8 (PMAT-208): the dist job must not read the public download URL while
+/// the release it describes is still a draft.
+///
+/// The 1.26.0 run uploaded all thirteen assets and then failed here:
+///
+/// ```text
+/// error: cannot resolve checksums for release asset(s) forjar-1.26.0-x86_64-unknown-linux-gnu.tar.gz, ...
+/// ```
+///
+/// `forjar dist` resolves checksums from
+/// `https://github.com/<repo>/releases/download/<tag>/<asset>`, and GitHub does
+/// not serve that path for a draft — which the release is until
+/// `publish-release` un-drafts it, by the design RULE 3 pins. So the checksums
+/// have to arrive over the authenticated API instead, and the dist step has to
+/// be told to use them: `gh release download --pattern SHA256SUMS` before it,
+/// `--checksums-file` on it. Both halves are asserted, and so is their order —
+/// a fetch after the step that needs it would be no fetch at all.
+#[test]
+fn rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url() {
+    let wf = read(".github/workflows/release.yml");
+    // Slice the job by LINES: a naive split on a two-space indent ends the job
+    // at the first comment written at that indent, which is inside it.
+    //
+    // COMMENT LINES ARE DROPPED. The step is documented in prose that names
+    // `gh release download` and `--checksums-file`, so a search over the raw
+    // text finds the explanation and passes with the command deleted — measured:
+    // removing the `--checksums-file` argument left all eight rules green.
+    // What this rule pins is the COMMAND, so the command is all it reads.
+    let mut job = String::new();
+    let mut inside = false;
+    for line in wf.lines() {
+        if line.starts_with("  dist-artifacts:") {
+            inside = true;
+            continue;
+        }
+        if inside
+            && line.len() > 2
+            && line.starts_with("  ")
+            && !line.starts_with("   ")
+            && !line.trim_start().starts_with('#')
+            && line.trim_end().ends_with(':')
+        {
+            break;
+        }
+        if inside && !line.trim_start().starts_with('#') {
+            job.push_str(line);
+            job.push('\n');
+        }
+    }
+    assert!(
+        !job.is_empty(),
+        "RULE 8: release.yml has no dist-artifacts job"
+    );
+    let job = job.as_str();
+    // Every window below is clamped: a job shorter than the window would
+    // otherwise panic on the slice instead of naming the rule that failed.
+    let window = |from: usize, n: usize| &job[from..(from + n).min(job.len())];
+
+    let fetch = job
+        .find("gh release download")
+        .expect("RULE 8: dist-artifacts never fetches the checksums over the API");
+    assert!(
+        window(fetch, 400).contains("--pattern SHA256SUMS"),
+        "RULE 8: the fetch does not ask for SHA256SUMS: {}",
+        window(fetch, 200)
+    );
+
+    let dist = job
+        .find("dist \\")
+        .or_else(|| job.find("-- dist"))
+        .expect("RULE 8: dist-artifacts no longer runs `forjar dist`");
+    assert!(
+        job[dist..].contains("--checksums-file"),
+        "RULE 8: the dist step does not pass --checksums-file, so it reads the public \
+         download URL and cannot see a draft release's assets: {}",
+        window(dist, 300)
+    );
+    assert!(
+        fetch < dist,
+        "RULE 8: the checksums are fetched AFTER the step that needs them"
+    );
+}
