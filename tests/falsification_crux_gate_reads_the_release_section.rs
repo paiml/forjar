@@ -42,10 +42,9 @@ fn write(root: &Path, rel: &str, body: &str) {
 fn fixture(changelog: &str, crux: &str, version: &str) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path();
-    for rel in ["scripts/dogfood/crux-reconcile.sh"] {
-        let body = std::fs::read_to_string(repo().join(rel)).expect("the gate under test");
-        write(root, rel, &body);
-    }
+    let rel = "scripts/dogfood/crux-reconcile.sh";
+    let body = std::fs::read_to_string(repo().join(rel)).expect("the gate under test");
+    write(root, rel, &body);
     write(
         root,
         "Cargo.toml",
