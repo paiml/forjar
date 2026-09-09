@@ -59,7 +59,7 @@ fn test_prevent_destroy_blocks_destroy_action() {
         &resource,
         "m1",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(
         action,
@@ -87,7 +87,7 @@ fn test_destroy_allowed_without_prevent_destroy() {
         &resource,
         "m1",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(
         action,
@@ -120,7 +120,7 @@ fn test_prevent_destroy_false_allows_destroy() {
         &resource,
         "m1",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(
         action,

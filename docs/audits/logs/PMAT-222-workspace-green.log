@@ -1,0 +1,144 @@
+# reduced from gate-ws2.log — 3077448 bytes, sha256 03cc1991d4801ac301066026f791ba589e204e7b1b7231a84b292b843434d83b; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9m 52s
+     Running unittests src/lib.rs (target/debug/deps/forjar-3e5fad37e7813a84)
+
+running 13515 tests
+test api::tests::every_promised_item_is_reachable_through_the_api_module ... ok
+test cli::apply_gates::tests::destructive_dry_run ... ok
+test cli::apply_from_plan::tests_apply_from_plan::the_default_knobs_request_nothing ... ok
+test cli::apply_gates::tests::budget_none_always_ok ... ok
+test cli::apply_gates::tests::destructive_yes_override ... ok
+test cli::apply_gates::tests::destructive_not_confirmed ... ok
+test cli::apply_gates::tests::budget_within_limit ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_sealed_plan_may_legitimately_report_no_changes ... ok
+test cli::apply_gates::tests::budget_at_limit ... ok
+test cli::apply_gates::tests::destructive_zero_count ... ok
+test cli::apply_gates::tests::parallel_flag_false ... ok
+test cli::apply_gates::tests::parallel_flag_true ... ok
+test api::tests::changed_inputs_are_reported ... ok
+test api::tests::a_fully_fresh_resource_reports_no_reason ... ok
+test api::tests::outputs_missing_is_checked_before_any_hash_comparison ... ok
+test cli::apply_gates::tests::destructive_blocks ... ok
+test cli::apply_gates::tests::security_gate_high_passes ... ok
+test cli::apply_gates::tests::event_json_format ... ok
+test cli::apply_gates::tests::security_gate_critical_blocks ... ok
+test cli::apply_gates::tests::security_gate_critical_passes ... ok
+test cli::apply_gates::tests::security_gate_high_blocks ... ok
+test cli::apply_gates::tests::security_gate_case_insensitive ... ok
+test cli::apply_gates::tests::snapshots_to_remove_at_limit ... ok
+test cli::apply_gates::tests::snapshots_to_remove_within_limit ... ok
+test cli::apply_gates::tests::snapshots_to_remove_exceeds ... ok
+test cli::apply_gates::tests::security_gate_low_blocks ... ok
+test cli::apply_gates::tests::security_gate_low_passes ... ok
+test cli::apply_gates::tests::notify_status_success ... ok
+test cli::apply_gates::tests::security_gate_medium_blocks ... ok
+test cli::apply_gates::tests::victorops_recovery_on_success ... ok
+test cli::apply_gates::tests::security_gate_medium_passes ... ok
+test cli::apply_gates::tests::security_gate_unknown_severity ... ok
+test api::tests::a_missing_baseline_means_rebuild_not_fresh ... ok
+## verdict lines
+test result: ok. 13511 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 87.32s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.50s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.16s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.43s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+## tail
+test src/core/types/state_types.rs - core::types::state_types::ResourceStatus (line 164) ... ok
+test src/core/types/run_log_types.rs - core::types::run_log_types::RunLogEntry (line 131) ... ok
+test src/core/types/service_mode_types.rs - core::types::service_mode_types::DispatchConfig (line 152) ... ok
+test src/core/types/security_types.rs - core::types::security_types::SecretConfig (line 67) ... ok
+test src/core/types/security_types.rs - core::types::security_types::SecretProvider (line 13) ... ok
+test src/core/types/wasm_types.rs - core::types::wasm_types::BundleSizeDrift (line 263) ... ok
+test src/core/types/wasm_types.rs - core::types::wasm_types::CdnTarget (line 126) ... ok
+test src/core/types/validation_types.rs - core::types::validation_types::DeepCheckFlags (line 268) ... ok
+test src/core/types/wasm_types.rs - core::types::wasm_types::WasmOptLevel (line 10) ... ok
+test src/core/types/run_log_types.rs - core::types::run_log_types::RunLogEntry::format_json (line 231) ... ok
+test src/core/types/validation_types.rs - core::types::validation_types::ValidationSeverity (line 11) ... ok
+test src/core/types/wasm_types.rs - core::types::wasm_types::WasmSizeBudget (line 79) ... ok
+test src/core/types/state_types.rs - core::types::state_types::yaml_value_to_string (line 443) ... ok
+test src/core/types/validation_types.rs - core::types::validation_types::ValidateOutput (line 145) ... ok
+test src/core/types/undo_types.rs - core::types::undo_types::UndoPlan (line 13) ... ok
+
+test result: ok. 88 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 9.05s
+
+   Doc-tests provable_contracts
+
+running 3 tests
+test crates/forjar-contracts/src/build_helper.rs - build_helper (line 12) ... ignored
+test crates/forjar-contracts/src/build_helper.rs - build_helper::verify_source_functions (line 195) ... ignored
+test crates/forjar-contracts/src/codegen.rs - codegen::generate_from_contract (line 33) ... ignored
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests provable_contracts_macros
+
+running 6 tests
+test crates/forjar-contracts-macros/src/lib.rs - (line 11) ... ignored
+test crates/forjar-contracts-macros/src/lib.rs - contract (line 126) ... ignored
+test crates/forjar-contracts-macros/src/lib.rs - ensures (line 298) ... ignored
+test crates/forjar-contracts-macros/src/lib.rs - invariant (line 326) ... ignored
+test crates/forjar-contracts-macros/src/lib.rs - must_contract (line 362) ... ignored
+test crates/forjar-contracts-macros/src/lib.rs - requires (line 270) ... ignored
+
+test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+WS_EXIT=0

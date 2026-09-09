@@ -1,0 +1,128 @@
+{
+  "issue": "PMAT-222 (forjar#499) — the build-I/O probe map was keyed by resource id alone, so a task declared on a local and a remote machine planned the remote row from the controller's probe: local inputs stale, remote row Update from a hash of the wrong tree; local inputs fresh, remote row NoOp with its tree unmeasured. The map is now keyed by (machine, resource id); a digest answers for the tree it was taken on and no other.",
+  "quorum": {
+    "lanes": [
+      "review lane 1",
+      "review lane 2",
+      "review lane 3",
+      "orchestrator rerun of every command"
+    ],
+    "refuters_per_claim": 3,
+    "judges": 3,
+    "kill_rule": "the plan was grilled before a line was written and the finished diff was judged by three lanes with the base pinned; a lane could fail the whole diff on one refuted claim, and every lane claim was re-run by the orchestrator before it counted — one claim all three lanes confirmed (the surface ceiling) was refuted by the workspace gate and fixed before this receipt was written",
+    "rounds": "one sandboxed teamwork lane on the plan (7 child conversations measured; verdict implement-with-changes, three plan claims refuted and corrected before phase 1), then three sandboxed --mode plan lanes on the diff (3/3 PASS, every code claim confirmed, no dissent), then the orchestrator's reruns and the workspace gate",
+    "claims_confirmed": 9,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "A (String, String) tuple key is the right shape for the re-keyed probe map. Corrected: (String, String) has no Borrow<(&str, &str)>, so every lookup in the planner's loop would allocate; the map is one map per machine and get(&str, &str) allocates nothing.",
+      "The plan named every site the new type reaches. Corrected: ten planner test call sites, the api.rs re-export, the tests_api ceiling and core/task/mod.rs were missing; all are in the fix commit and the lib target compiles.",
+      "The lock's input_hash/output_hash are already right per machine because the lock is per machine (the issue's own premise). Corrected: record_io_hashes hashes the controller's tree into every machine's lock and check_task_input_cache reads it back for a remote cache: true task; filed as forjar#501, not widened.",
+      "The supported surface is 12 (confirmed by all three diff lanes by reading the literal). Corrected: the workspace gate read 8 — rustfmt had wrapped the five-item re-export and the ceiling test counts items per pub-use line; two single-line re-exports restore 12, measured by api::tests 7 passed and the workspace suite green."
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Bazel remote execution",
+      "Nix",
+      "Ansible"
+    ],
+    "verdict": "accept(Bazel: an action key carries the execution platform, so a digest is a fact about the tree it was computed from and never served to another; Nix: derivations are keyed by system and a cache answers only for the system it built; Ansible: facts live in hostvars keyed by the host they were gathered on) and reject(Make: one process, one tree, no notion of a remote target — the shape forjar had by accident)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed /teamwork-preview lane on the plan (7 children) and three sandboxed --mode plan lanes on the diff, review-only, base pinned by SHA; no lane ran cargo",
+    "verdict": "plan: implement-with-changes on eight findings, three of them refutations that were corrected; diff: 3/3 PASS, every claim confirmed, no dissent — and one of those confirmations (C7) was then refuted by the workspace gate"
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests",
+      "roadmap-lint.sh",
+      "kind-gate.sh",
+      "model-gate.sh",
+      "target-guard.sh",
+      "config-lint.sh",
+      "transcript-gate.sh",
+      "status-lint.sh",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "cargo test --workspace",
+      "scripts/dogfood/contracts.sh"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": [],
+    "quality_gate": "cargo test --workspace exit 0 on the final tree, 315 binaries, 19,608 passed, after one red run (exit 101, api::tests::the_supported_surface_stays_small 8 != 12) that stopped the line; the RED tests observed failing on the pre-fix tree at the far-row assertion (left: Update, right: NoOp) and passing after; planner + task::tests_probe + api 263 passed; forjar#497 suites 6 + 5 passed; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS",
+    "limit": "no lane ran cargo — the delegate forbade it while a workspace test ran on the host — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). The phase-1 delegate hit its turn cap after its lane had finished; the lane files were read directly."
+  },
+  "falsification": {
+    "test": "a task converged on [box, far] with both loopback, far then moved to a TEST-NET address this host cannot answer for, and the LOCAL input rewritten, plans box=update and far=no_op, names exactly (build, far) in the unprobed census, and prints 1 to change, 1 unchanged with build@far and not build@box in the disclosure",
+    "test_file": "tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs",
+    "cargo_test_target": "falsification_probe_answers_for_the_tree_it_was_taken_on",
+    "reverted": "the whole fix absent (the tree at 68853425 plus the two RED tests holds the tests against the base code): the stale case fails at the far-row assertion with every precondition (both rows converged and probed, out.txt written) green; the fresh case, the forjar#497 regression guard, passes as expected",
+    "observed_failure": "a_stale_local_probe_moves_only_the_row_it_measured fails with 'the remote tree was never read; a probe taken on this host must not answer for it' (left: \"update\", right: \"no_op\"); the planner-boundary twin a_stale_local_probe_does_not_plan_the_remote_row fails with left: Update, right: NoOp",
+    "still_green_when_reverted": "every precondition assertion, and the fresh-input case, which is what proves the fixture converges on both machines and that the forjar#497 disclosure is not what this ticket changes"
+  },
+  "base_commit": "bc2819cce43e0ccac0812a6d1acbd1e6adb1501f",
+  "base": "origin/main",
+  "recorded_at": "2026-09-09",
+  "diff_sha256": "100c667ece0f8e98838743af84006ae99130a30a",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/keyed-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1881,
+        "sha256": "f0e5e3476bc13d0d05317e157235d4c5fe9f9bd007f8abee6de8b8957a32180a",
+        "blob": "22c93354d1637d4439d9cda191b46d6692b40eb6"
+      },
+      {
+        "path": ".quorum/evidence/keyed-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2610,
+        "sha256": "0c55908f08f396ba0ec50c27229f48dc3dc44eee1f8779ff5ba6bb956e50f297",
+        "blob": "a0735af8208969f8a61ea6e15344fd6442d9972e"
+      },
+      {
+        "path": ".quorum/evidence/keyed-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6906,
+        "sha256": "5ce7f4a2503bf682c5dcec09d1c6cbd58f0617a2908dcab3a61be997cb1a291f",
+        "blob": "26760a6f07105ad14a6b4e4058e588d8cd586893"
+      },
+      {
+        "path": ".quorum/evidence/keyed-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1047,
+        "sha256": "712c6cb686d336c4068502708cb7cb02f7461528aa9941d345c8a26594d29afd",
+        "blob": "4111477e688681d6e77651836e0be9cee0d8d270"
+      },
+      {
+        "path": ".quorum/evidence/keyed-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 1631,
+        "sha256": "310506186eb85e407a109d4259bc914a4b01b03c9f11c9a16d4f7789c8127be5",
+        "blob": "34c0c5f66f3431b328ae61ffa41a8073e7246e4c"
+      },
+      {
+        "path": ".quorum/evidence/keyed-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1871,
+        "sha256": "bc2e511efdb1ea62d116aaad92fc02ed52ba98a64d66d8ea9e9dfe697fabf0f9",
+        "blob": "7e81dfd371dd3d32ce9b6376f713ea7c2ce0fa26"
+      }
+    ],
+    "total_bytes": 15946,
+    "claims_digest": ".quorum/evidence/keyed-judges.md"
+  }
+}

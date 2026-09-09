@@ -8,3 +8,7 @@
 {"repo": "forjar", "ticket": "PMAT-221", "phase": "2-surfaces", "mode": "subagent:opus (worker maxTurns 40 hit; receipt missing) + delegate:agy teamwork x1", "est": 1, "actual": 10}
 {"repo": "forjar", "ticket": "PMAT-221", "phase": "3-review", "mode": "delegate:agy quorum x3", "est": 1, "actual": 5}
 {"repo": "forjar", "ticket": "PMAT-221", "phase": "4-receipt", "mode": "direct", "est": 1, "actual": 14}
+{"repo": "forjar", "ticket": "PMAT-222", "phase": "0-discovery", "mode": "direct", "est": 4, "actual": 27, "basis": "transcript k from the #500 merge (159) to goal.sh set (186); includes ~6 turns of PMAT-221 close-out that are not separable; estimate.sh printed K_HAT=4 ROWS=0 again"}
+{"repo": "forjar", "ticket": "PMAT-222", "phase": "1-red+core", "mode": "direct + delegate:agy teamwork x1 (7 children)", "est": 1, "actual": 14, "basis": "k 186 -> 200 at the fix commit"}
+{"repo": "forjar", "ticket": "PMAT-222", "phase": "2-contract", "mode": "direct", "est": 1, "actual": 2, "basis": "k 200 -> 202 at the contract commit"}
+{"repo": "forjar", "ticket": "PMAT-222", "phase": "3-review+gate", "mode": "delegate:agy quorum x3 + jidoka fix", "est": 1, "actual": 4, "basis": "k 202 -> 206 at the re-export commit"}

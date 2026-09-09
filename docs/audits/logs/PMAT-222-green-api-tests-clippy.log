@@ -1,0 +1,53 @@
+# reduced from green3.log — 1348 bytes, sha256 fa7f5c3abf790e95d1101ec6985da3db7404ca5fe2cb2c2292f3481995dfb19e; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.41s
+     Running unittests src/lib.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/forjar-d6a1c9adc308245c)
+
+running 7 tests
+test api::tests::a_fully_fresh_resource_reports_no_reason ... ok
+test api::tests::changed_inputs_are_reported ... ok
+test api::tests::every_promised_item_is_reachable_through_the_api_module ... ok
+test api::tests::outputs_missing_is_checked_before_any_hash_comparison ... ok
+test api::tests::a_missing_baseline_means_rebuild_not_fresh ... ok
+test api::tests::the_supported_surface_stays_small ... ok
+test api::tests::hash_file_is_deterministic_prefixed_and_byte_sensitive ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 13508 filtered out; finished in 0.00s
+
+API_EXIT=0
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.03s
+CLIPPY_EXIT=0
+## verdict lines
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 13508 filtered out; finished in 0.00s
+API_EXIT=0
+CLIPPY_EXIT=0
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.41s
+     Running unittests src/lib.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/forjar-d6a1c9adc308245c)
+
+running 7 tests
+test api::tests::a_fully_fresh_resource_reports_no_reason ... ok
+test api::tests::changed_inputs_are_reported ... ok
+test api::tests::every_promised_item_is_reachable_through_the_api_module ... ok
+test api::tests::outputs_missing_is_checked_before_any_hash_comparison ... ok
+test api::tests::a_missing_baseline_means_rebuild_not_fresh ... ok
+test api::tests::the_supported_surface_stays_small ... ok
+test api::tests::hash_file_is_deterministic_prefixed_and_byte_sensitive ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 13508 filtered out; finished in 0.00s
+
+API_EXIT=0
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.03s
+CLIPPY_EXIT=0

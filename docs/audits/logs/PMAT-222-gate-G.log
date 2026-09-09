@@ -1,0 +1,17 @@
+# reduced from gateG.log — 671 bytes, sha256 e3317d5c8e3084c85f6779a977ffcae34b4dd39ba55cc5800fc6ea435551745c; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `release` profile [optimized] target(s) in 48.84s
+GATE G PASS 40 contract(s) validate; pv lint 0 errors; 4 kernel(s) carry equations and kani harnesses; every contract names a falsifier; citations resolve; 12 verb(s) and 12 resource kind(s) reconcile
+## verdict lines
+GATE G PASS 40 contract(s) validate; pv lint 0 errors; 4 kernel(s) carry equations and kani harnesses; every contract names a falsifier; citations resolve; 12 verb(s) and 12 resource kind(s) reconcile
+## tail
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `release` profile [optimized] target(s) in 48.84s
+GATE G PASS 40 contract(s) validate; pv lint 0 errors; 4 kernel(s) carry equations and kani harnesses; every contract names a falsifier; citations resolve; 12 verb(s) and 12 resource kind(s) reconcile

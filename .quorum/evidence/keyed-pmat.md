@@ -1,0 +1,9 @@
+# Quorum evidence — PMAT-222 — pmat and the gates
+
+- Roadmap entry PMAT-222 appended textually (the YAML round-trip rewrites every timestamp), `kind:code`, `orch:fable` with `orch-basis:M>=3` (four owning modules measured before the ticket was opened: core/task/probe.rs, core/executor/mod.rs, core/planner/mod.rs, core/planner/unprobed.rs); `roadmap-lint.sh` mode=pyyaml, 172 entries valid.
+- `kind-gate.sh`: kind=code, 15 files at the DoD. `model-gate.sh`: model=fable class=fable decision=admit basis=file, tier 1 meets tier 1. `target-guard.sh`: PASS. `config-lint.sh`: slots=3.
+- `pmat hooks install --strict --force`: every commit carries `Pmat-Ticket: PMAT-222`; the pre-commit hook ran fmt, complexity, TDG and clippy on each of the four commits; none was refused.
+- `pmat analyze vacuous-tests` over src/core/planner (0 of 244), src/core/task (1 of 105 — `tests_ambient.rs:59`, pre-existing, not in this diff) and tests/ (none in the new file).
+- Gate: `cargo test --workspace` exit 0 on the final tree, 315 binaries, 19,608 passed, 0 failed — after one red run (exit 101, `api::tests::the_supported_surface_stays_small` read 8 against 12) that stopped the line and was fixed by a single-line re-export; clippy `--all-targets -D warnings` exit 0; rustfmt stable check exit 0; gate G `scripts/dogfood/contracts.sh` PASS (40 contracts, citations resolve).
+- Not measured on this host: gate F's mutation arm (`cargo mutants`, PMAT-216); no mutation-score figure is claimed. The discriminating mutation was run by hand: the two RED tests were observed failing on the pre-fix tree at the assertion that names the remote row (`left: Update, right: NoOp`) with every precondition green, and passing after.
+- I-3 `transcript-gate.sh`: PASS attempted=5 denied=0 running_peak=1 slots=3 (two delegates this ticket, three in the earlier ticket of the same session).

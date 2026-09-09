@@ -152,8 +152,8 @@ fn the_supported_surface_stays_small() {
         })
         .sum();
     assert_eq!(
-        reexports, 11,
-        "the supported surface is 11 items (7 functions + 4 types). Changing it \
+        reexports, 12,
+        "the supported surface is 12 items (7 functions + 5 types). Changing it \
          is a semver decision: update this number deliberately, with a changelog \
          entry, not to make the test pass."
     );

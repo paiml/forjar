@@ -1,0 +1,82 @@
+# reduced from red-lib.log — 2035 bytes, sha256 9ba3c1b6d027bbfff6dce6f0ece11d40cb8f4ce847956abb4ee80dcf5fc88a53; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.65s
+     Running unittests src/lib.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/forjar-d6a1c9adc308245c)
+
+running 9 tests
+test core::planner::tests_unprobed::the_probe_coverage_predicate_has_one_definition ... ok
+test core::planner::tests_unprobed::probe_covers_answers_for_this_host_only ... ok
+test core::planner::tests_unprobed::a_task_that_will_run_anyway_is_not_named ... ok
+test core::planner::tests_unprobed::the_census_never_changes_the_action ... ok
+test core::planner::tests_unprobed::a_converged_task_on_a_machine_this_host_does_not_answer_for_is_named ... ok
+test core::planner::tests_unprobed::an_empty_probe_map_on_a_local_machine_is_disclosed_too ... ok
+test core::planner::tests_unprobed::a_probed_task_is_not_named ... ok
+test core::planner::tests_unprobed::a_local_probe_says_nothing_about_a_remote_machine ... ok
+test core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row ... FAILED
+
+failures:
+
+---- core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row stdout ----
+  build: stale — inputs changed
+  build: stale — inputs changed
+
+thread 'core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row' (2880699) panicked at src/core/planner/tests_unprobed.rs:315:5:
+assertion `left == right` failed: the remote tree was never read; the local probe must not answer for it
+  left: Update
+ right: NoOp
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 13504 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+LIB_EXIT=101
+## verdict lines
+thread 'core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row' (2880699) panicked at src/core/planner/tests_unprobed.rs:315:5:
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 13504 filtered out; finished in 0.01s
+error: test failed, to rerun pass `--lib`
+LIB_EXIT=101
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.65s
+     Running unittests src/lib.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/forjar-d6a1c9adc308245c)
+
+running 9 tests
+test core::planner::tests_unprobed::the_probe_coverage_predicate_has_one_definition ... ok
+test core::planner::tests_unprobed::probe_covers_answers_for_this_host_only ... ok
+test core::planner::tests_unprobed::a_task_that_will_run_anyway_is_not_named ... ok
+test core::planner::tests_unprobed::the_census_never_changes_the_action ... ok
+test core::planner::tests_unprobed::a_converged_task_on_a_machine_this_host_does_not_answer_for_is_named ... ok
+test core::planner::tests_unprobed::an_empty_probe_map_on_a_local_machine_is_disclosed_too ... ok
+test core::planner::tests_unprobed::a_probed_task_is_not_named ... ok
+test core::planner::tests_unprobed::a_local_probe_says_nothing_about_a_remote_machine ... ok
+test core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row ... FAILED
+
+failures:
+
+---- core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row stdout ----
+  build: stale — inputs changed
+  build: stale — inputs changed
+
+thread 'core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row' (2880699) panicked at src/core/planner/tests_unprobed.rs:315:5:
+assertion `left == right` failed: the remote tree was never read; the local probe must not answer for it
+  left: Update
+ right: NoOp
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 13504 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+LIB_EXIT=101
