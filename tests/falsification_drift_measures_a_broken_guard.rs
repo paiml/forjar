@@ -172,9 +172,12 @@ fn a_guard_whose_assertion_is_still_false_is_reported_as_drift() {
     );
 }
 
-/// THE CENSUS MUST STILL DISTINGUISH. Measuring more resources must not turn
-/// the census into decoration: something that genuinely cannot be evaluated is
-/// still counted as not inspected, never as clean.
+/// THE CENSUS MUST STILL DISTINGUISH, CASE 1: the operator DECLINED.
+///
+/// `--no-task-checks` is a choice not to measure, and it has to keep saying so
+/// in its own words. Before the fix this resource was skipped as "not converged
+/// in the lock" and the operator's own choice never appeared, so this case also
+/// pins that the remaining reasons are no longer masked by the status check.
 #[test]
 fn what_cannot_be_evaluated_is_still_not_counted_as_clean() {
     let f = latched("census");
@@ -190,5 +193,69 @@ fn what_cannot_be_evaluated_is_still_not_counted_as_clean() {
     assert!(
         out.contains("inspected 0 of 1") || out.contains("not inspected"),
         "and it must not be counted as inspected.\n{out}"
+    );
+}
+
+/// THE CENSUS MUST STILL DISTINGUISH, CASE 2: nothing CAN evaluate it.
+///
+/// A review lane refused the case above as insufficient for the acceptance
+/// criterion, and it was right: `--no-task-checks` is a declined measurement,
+/// not an impossible one. The genuinely unevaluatable resource is a `task` with
+/// NO `completion_check` whose lock says `failed`. It has no assertion to run,
+/// so the task path skips it without a census entry by design, leaving the
+/// state-query path to census it; and that path still excludes `Failed`,
+/// because a failed apply's recorded digest is not a baseline.
+///
+/// Both halves of the fix are pinned here at once. Something with nothing to
+/// measure is still NOT counted as clean, and `SkipReason::NotConverged` is
+/// still live for the paths that genuinely need a baseline — which is what
+/// makes the change to the task path narrow rather than a blanket removal.
+#[test]
+fn a_resource_nothing_can_evaluate_is_still_not_counted_as_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    let cfg = dir.path().join("forjar.yaml");
+    fs::create_dir_all(&state).unwrap();
+    fs::write(
+        &cfg,
+        r#"version: "1.0"
+name: no-assertion
+machines:
+  box:
+    hostname: box
+    addr: 127.0.0.1
+resources:
+  no-check-at-all:
+    type: task
+    machine: box
+    command: "exit 1"
+"#,
+    )
+    .unwrap();
+
+    let c = cfg.display().to_string();
+    let s = state.display().to_string();
+    let (out, ok) = run(&["apply", "-f", &c, "--state-dir", &s, "--yes"]);
+    assert!(!ok, "the fixture needs a failed entry:\n{out}");
+    let lock = fs::read_to_string(state.join("box").join("state.lock.yaml")).unwrap();
+    assert!(
+        lock.contains("status: failed"),
+        "the fixture must arm the latch:\n{lock}"
+    );
+
+    let (drift, _) = run(&["drift", "-f", &c, "--state-dir", &s]);
+    assert!(
+        drift.contains("not converged in the lock"),
+        "a resource with no assertion and no usable baseline must still be \
+         NAMED as unmeasured. If this reason disappeared, the fix stopped being \
+         about assertions and became a blanket removal.\n{drift}"
+    );
+    assert!(
+        drift.contains("inspected 0 of 1") || drift.contains("1 not inspected"),
+        "and it must not be counted as inspected.\n{drift}"
+    );
+    assert!(
+        !drift.contains("DRIFTED"),
+        "nor invented as drift: not measured is not the same as diverged.\n{drift}"
     );
 }
