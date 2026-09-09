@@ -155,13 +155,11 @@ pub(crate) fn build_resource_details(
             let hash = if transport::controller_answers_for(machine) {
                 hasher::hash_file(std::path::Path::new(path)).ok()
             } else {
-                // STRONG contract: `cat` stdout can be empty when the file
-                // is empty or not yet present — use the sentinel wrapper.
-                let script = format!("cat '{path}'");
-                transport::exec_script(machine, &script)
-                    .ok()
-                    .filter(|out| out.success())
-                    .map(|out| hasher::hash_string_or_sentinel(&out.stdout))
+                // THE SAME READER DRIFT USES, not a second one that resembles
+                // it. A plain `cat` here disagreed with drift's `__DIR__`
+                // protocol on a directory and on a file whose content IS the
+                // literal `__DIR__`; a review lane found the second.
+                crate::tripwire::drift::remote_path_digest(path, machine)
             };
             if let Some(h) = hash {
                 details.insert("content_hash".to_string(), serde_yaml_ng::Value::String(h));

@@ -193,3 +193,32 @@ fn apply_and_drift_share_one_definition_of_local() {
         "a routable address is not this host"
     );
 }
+
+/// ONE READER, NOT TWO THAT RESEMBLE EACH OTHER.
+///
+/// The writer used a plain `cat '{path}'` while drift used
+/// `if [ -d ]; then echo __DIR__; else cat; fi` and digested `ls -la` on
+/// seeing that marker. They disagreed on a directory and on a file whose entire
+/// content is the literal `__DIR__` — a permanent mismatch on a converged
+/// resource, found by a review lane. Both sides call `remote_path_digest` now.
+///
+/// A behavioural test would need a reachable non-local machine, which this
+/// suite deliberately does not have, so the invariant is asserted where it
+/// lives: the writer must not build a read script of its own.
+#[test]
+fn the_baseline_writer_does_not_grow_a_second_read_protocol() {
+    let src = include_str!("helpers.rs");
+    assert!(
+        src.contains("remote_path_digest"),
+        "the remote arm of build_resource_details must go through the ONE \
+         reader drift uses; a second protocol is how the __DIR__ collision got \
+         in"
+    );
+    assert!(
+        !src.contains("cat '{path}'"),
+        "the writer has grown its own `cat` script again. Drift answers \
+         `__DIR__` for a directory and digests a listing instead; a plain `cat` \
+         disagrees with that on a directory and on a file whose content IS the \
+         literal __DIR__."
+    );
+}
