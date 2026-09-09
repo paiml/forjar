@@ -119,6 +119,7 @@ fn main() {
         to_update: 0,
         to_destroy: 3,
         unchanged: 0,
+        unprobed: Vec::new(),
     };
     let count = reversibility::count_irreversible(&cfg, &plan);
     let warnings = reversibility::warn_irreversible(&cfg, &plan);

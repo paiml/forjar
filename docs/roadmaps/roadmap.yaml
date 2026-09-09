@@ -3138,3 +3138,28 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found by three review lanes during PMAT-219 and filed rather than fixed there, because widening machine_is_local under four callers this ticket had not measured is exactly the move that turns one fix into a regression. machine_is_local checks !is_container_transport plus a local address; drift''s reads_the_controller, now transport::controller_answers_for, also checks !is_pepita_transport, and says why: a pepita machine commonly declares addr 127.0.0.1 and its files live inside the namespace. exec_script dispatches pepita FIRST, so anything that must agree with what exec_script will actually do has to exclude it. The four sites are src/core/task/probe.rs:289, src/core/executor/mod.rs:426, src/core/executor/output_verify.rs:54 and src/transport/mod.rs:288. The fourth needs care: exec_script handles pepita before reaching that line, so tightening there may be a no-op or may not, and that is to be measured rather than assumed. machine_is_local''s own doc already asks for the fix: one definition, one place.'
+- id: PMAT-221
+  kind: code
+  github_issue: 497
+  item_type: task
+  title: 'S1: the planner cannot tell ''probed, nothing stale'' from ''never probed'', so a task on any non-local machine plans NoOp when its sources change and says nothing (#497)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-09T14:31:13Z
+  updated: 2026-09-09T14:31:13Z
+  spec: null
+  acceptance_criteria:
+  - 'the planner distinguishes a resource it probed and found nothing stale from a resource it never probed: a converged task whose declared build I/O could not be measured on its machine is named in the plan, per (resource, machine), with the reason'
+  - 'the action does not change: an unprobed converged task still plans NoOp (a rebuild-every-run would break f(f(x)) = f(x) at the plan level and make every remote task rebuild for ever); what changes is that the plan SAYS so'
+  - 'every shipped plan surface carries it: the TTY rendering, plan --json, the MCP/HTTP/verb PlanOutput, the dry-run body and a sealed plan file, in the forjar#342/#372 shape: a TOTAL list (present, possibly empty) beside a PARTIAL prose disclosure that names forjar drift / --refresh as the instrument that can answer'
+  - 'a plan with nothing unprobed is byte-identical to today on every surface and every previously sealed plan file still verifies'
+  - 'the probe-coverage predicate has ONE definition, shared by probe_config, the executor pre-plan probe and the planner census'
+  - 'a falsification test drives the binary: a task converged on a loopback machine whose address is then changed to a remote one plans NoOp AND discloses; with the disclosure removed the test fails'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  notes: 'orch-basis:M>=3 — five owning modules measured before the ticket was opened: src/core/types (ExecutionPlan), src/core/planner (the fallthrough at determine_present_action), src/core/task/probe.rs (the coverage predicate probe_config and the executor pre-plan probe both inline), src/cli (print_helpers, plan_json, plan_file, apply_dry_run, mod.rs bridge) and src/mcp (PlanOutput). Filed from PMAT-220 by three review lanes: probes.get(id) returning None falls through to the config-hash comparison, so a converged task whose inputs changed on a machine this host does not answer for plans NoOp with its YAML unchanged. True for every SSH target since the probe existed; #495 added namespaces to the set. The repository''s own doctrine (scripts/dogfood, DriftCensus) is that an UNMEASURED check must never print the same thing as a passed one; the planner has no census. The cheap and honest fix the issue asks for is disclosure at the planner boundary in the forjar#342 shape, not a remote probe (that is --refresh''s opt-in round trip).'

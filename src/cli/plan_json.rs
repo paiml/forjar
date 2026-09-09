@@ -15,6 +15,12 @@ use crate::core::types;
 /// CI parser, an MCP agent reading `to_update: 0`) were the ones still receiving
 /// an undisclosed lock diff, while the human at a terminal, who at least has
 /// `forjar drift` in muscle memory, was the only one told.
+///
+/// forjar#497 adds the THIRD blind spot in the same shape: `unprobed`, the
+/// converged resources whose declared build I/O this plan did not measure. A
+/// TOTAL list beside a PARTIAL prose sentence, both folded into the one
+/// `disclosure` key, because "read `disclosure`" has to stay a complete
+/// instruction.
 pub(crate) fn print_plan_json(
     plan: &types::ExecutionPlan,
     config: &types::ForjarConfig,
@@ -71,11 +77,15 @@ pub(crate) fn print_plan_json(
         // tell those apart.
         "lock_relative": true,
         "unconsulted_observations": unconsulted,
+        // forjar#497: the same argument again — `unprobed: []` says "everything
+        // was measured", an absent key says "older binary", and only the plan
+        // knows which.
+        "unprobed": plan.unprobed,
     });
     // The prose disclosure is present iff there is a blind spot to declare —
     // the contract's biconditional, and the reason it is not an unconditional
     // banner: noise is how a warning stops being read.
-    if let Some(msg) = super::print_helpers::scope_disclosure(unconsulted) {
+    if let Some(msg) = super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed) {
         output["disclosure"] = serde_json::json!(msg);
     }
     println!(

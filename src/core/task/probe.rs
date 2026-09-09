@@ -282,14 +282,24 @@ pub fn probe_config(config: &crate::core::types::ForjarConfig) -> HashMap<String
         &config.machines,
         &config.secrets,
     );
-    probe_all(&resolved, |m| {
-        config
-            .machines
-            .get(m)
-            // forjar#495: NOT `machine_is_local`, which admits a pepita
-            // namespace. This probe hashes declared inputs and outputs on the
-            // CONTROLLER; for a namespaced machine those files live inside the
-            // namespace, so measuring here answers about the wrong host.
-            .is_some_and(crate::transport::controller_answers_for)
-    })
+    probe_all(&resolved, |m| probe_covers(config, m))
+}
+
+/// Does this host's build-I/O probe cover `machine`?
+///
+/// ONE definition, forjar#497. `probe_config`, the executor's pre-plan probe
+/// and the planner's unprobed census all ask this, so what the planner
+/// reports as "not measured" is exactly the set the probe skipped — two
+/// inlined copies of the predicate is how the census and the probe drift
+/// apart and a resource gets reported as both.
+///
+/// forjar#495: NOT `machine_is_local`, which admits a pepita namespace. The
+/// probe hashes declared inputs and outputs on the CONTROLLER; for a
+/// namespaced machine those files live inside the namespace, so measuring
+/// here answers about the wrong host.
+pub fn probe_covers(config: &crate::core::types::ForjarConfig, machine: &str) -> bool {
+    config
+        .machines
+        .get(machine)
+        .is_some_and(crate::transport::controller_answers_for)
 }

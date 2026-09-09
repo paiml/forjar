@@ -226,47 +226,6 @@ impl fmt::Display for PlanAction {
     }
 }
 
-/// A single planned change.
-#[derive(Debug, Clone, Serialize)]
-pub struct PlannedChange {
-    /// Resource ID
-    pub resource_id: String,
-
-    /// Target machine
-    pub machine: String,
-
-    /// Resource type
-    pub resource_type: ResourceType,
-
-    /// Action to take
-    pub action: PlanAction,
-
-    /// Human-readable description
-    pub description: String,
-}
-
-/// Full execution plan.
-#[derive(Debug, Clone, Serialize)]
-pub struct ExecutionPlan {
-    /// Config name
-    pub name: String,
-
-    /// Planned changes grouped by machine
-    pub changes: Vec<PlannedChange>,
-
-    /// Topological execution order (resource IDs)
-    pub execution_order: Vec<String>,
-
-    /// Number of resources to create.
-    pub to_create: u32,
-    /// Number of resources to update.
-    pub to_update: u32,
-    /// Number of resources to destroy.
-    pub to_destroy: u32,
-    /// Number of unchanged resources.
-    pub unchanged: u32,
-}
-
 // ============================================================================
 // Provenance events
 // ============================================================================

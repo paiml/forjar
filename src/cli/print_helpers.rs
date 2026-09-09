@@ -123,6 +123,67 @@ fn print_scope_disclosure(unconsulted: usize) {
     }
 }
 
+/// Name what this plan did not MEASURE.
+///
+/// forjar#497. `determine_present_action` lets an observed probe override a
+/// matching config hash and falls through to the hash comparison when there is
+/// no probe, so "probed, nothing stale" and "never probed" both plan `NoOp`.
+/// The probe is only taken for machines this host answers for, so every
+/// converged task on an SSH target has read as `unchanged` however far its
+/// declared inputs moved. The action is deliberately unchanged — rebuilding
+/// every unprobed resource would break f(f(x)) = f(x) at the plan level — so
+/// the disclosure is the whole fix.
+///
+/// A VALUE, not a `println!`, for the forjar#342 reason directly above: a
+/// side-effecting printer can only be consumed from inside `print_plan`, which
+/// is exactly how the first disclosure failed to reach `--json` and the verb
+/// surface. `None` when the census is empty is the contract's biconditional,
+/// not an optimisation.
+///
+/// The count is of what the plan is BLIND to. It must never read as "N
+/// drifted": whether those inputs moved is precisely what was not measured.
+pub(crate) fn unprobed_disclosure(unprobed: &[types::UnprobedResource]) -> Option<String> {
+    if unprobed.is_empty() {
+        return None;
+    }
+    let mut entries = String::new();
+    for u in unprobed {
+        if !entries.is_empty() {
+            entries.push_str("; ");
+        }
+        entries.push_str(&format!("{}@{} ({})", u.resource_id, u.machine, u.reason));
+    }
+    Some(format!(
+        "This plan did not measure the declared build inputs or artifacts of {} \
+         converged\nresource(s) — `unchanged` for them is config-relative only: \
+         {entries}. Run\n`forjar apply --refresh` to re-check them on their machines, \
+         or `forjar drift` for what\nthe machines actually hold.",
+        unprobed.len()
+    ))
+}
+
+/// Print the unprobed census, when there is one.
+fn print_unprobed_disclosure(unprobed: &[types::UnprobedResource]) {
+    if let Some(msg) = unprobed_disclosure(unprobed) {
+        println!("\n{msg}");
+    }
+}
+
+/// The plan's disclosures as ONE value: what it did not consult (forjar#342)
+/// and what it did not measure (forjar#497), folded the way every surface
+/// must fold them. `None` iff both are empty. `plan --json` and the MCP layer
+/// call this rather than composing the two themselves, so the fold cannot
+/// drift between surfaces.
+pub(crate) fn plan_disclosure(
+    unconsulted: usize,
+    unprobed: &[types::UnprobedResource],
+) -> Option<String> {
+    crate::core::unattended::merge_disclosures(
+        scope_disclosure(unconsulted),
+        unprobed_disclosure(unprobed),
+    )
+}
+
 /// Print the plan summary line.
 fn print_plan_summary(plan: &types::ExecutionPlan) {
     println!(
@@ -162,6 +223,7 @@ pub(crate) fn print_plan(
     println!();
     print_plan_summary(plan);
     print_scope_disclosure(unconsulted);
+    print_unprobed_disclosure(&plan.unprobed);
 }
 
 /// FJ-255/274: Print a content diff block for a file resource.

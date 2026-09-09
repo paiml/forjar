@@ -3,3 +3,8 @@
 {"repo": "forjar", "ticket": "PMAT-215", "phase": "2-fix", "mode": "agy-goal", "est": 1, "actual": 1}
 {"repo": "forjar", "ticket": "PMAT-215", "phase": "3-gate", "mode": "direct", "est": 1, "actual": 7}
 {"repo": "forjar", "ticket": "PMAT-215", "phase": "4-review", "mode": "agy-quorum", "est": 1, "actual": 8}
+{"repo": "forjar", "ticket": "PMAT-221", "phase": "0-discovery", "mode": "direct", "est": 4, "actual": 61, "basis": "first-run[U] (estimate.sh printed K_HAT=4 ROWS=0; the repo key it matched is empty)"}
+{"repo": "forjar", "ticket": "PMAT-221", "phase": "1-red+core", "mode": "direct", "est": 1, "actual": 24}
+{"repo": "forjar", "ticket": "PMAT-221", "phase": "2-surfaces", "mode": "subagent:opus (worker maxTurns 40 hit; receipt missing) + delegate:agy teamwork x1", "est": 1, "actual": 10}
+{"repo": "forjar", "ticket": "PMAT-221", "phase": "3-review", "mode": "delegate:agy quorum x3", "est": 1, "actual": 5}
+{"repo": "forjar", "ticket": "PMAT-221", "phase": "4-receipt", "mode": "direct", "est": 1, "actual": 14}

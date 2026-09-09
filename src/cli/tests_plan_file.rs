@@ -56,6 +56,7 @@ resources:
             to_update: 1,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         }
     }
 
@@ -325,6 +326,76 @@ resources:
         let err = load_plan_file(&plan_path, &config, dir.path()).unwrap_err();
         assert!(err.starts_with("PLAN_MALFORMED:"), "{err}");
         assert!(err.contains("to_create"), "{err}");
+    }
+
+    /// forjar#497: a plan whose census is non-empty round-trips, and the
+    /// document verifies. The seal's diff leg is taken over the plan's own
+    /// serialisation, so a reader that dropped the census would make an honest
+    /// document fail its own seal — which is exactly what happened before
+    /// `unprobed_from_doc` existed.
+    #[test]
+    fn test_unprobed_census_round_trips_through_the_seal() {
+        let dir = tempfile::tempdir().unwrap();
+        let plan_path = dir.path().join("plan.json");
+        let config = make_test_config();
+        let mut plan = make_test_plan();
+        plan.unprobed = vec![UnprobedResource {
+            resource_id: "web-pkg".to_string(),
+            machine: "m1".to_string(),
+            reason: "this host does not answer for machine m1".to_string(),
+        }];
+        save_plan_file(
+            &plan,
+            &PlanSelectors::default(),
+            &config,
+            Path::new("forjar.yaml"),
+            dir.path(),
+            &plan_path,
+        )
+        .unwrap();
+
+        let doc = read_doc(&plan_path);
+        assert_eq!(doc["unprobed"].as_array().unwrap().len(), 1, "{doc:#}");
+        assert_eq!(doc["unprobed"][0]["machine"], "m1", "{doc:#}");
+
+        let loaded = load_plan_file(&plan_path, &config, dir.path()).unwrap();
+        assert_eq!(
+            loaded.plan.unprobed, plan.unprobed,
+            "the census must read back byte-for-byte, or the diff leg fails"
+        );
+    }
+
+    /// The TOTAL-list half of the contract, on the sealed surface: nothing
+    /// unprobed writes `[]`, never an absent key, and the document still
+    /// verifies (the struct field is skipped when empty, so the sealed
+    /// serialisation is unchanged from before the field existed).
+    #[test]
+    fn test_empty_census_is_written_as_an_empty_list_and_still_verifies() {
+        let (dir, plan_path, config) = saved();
+
+        let doc = read_doc(&plan_path);
+        let census = doc["unprobed"]
+            .as_array()
+            .unwrap_or_else(|| panic!("`unprobed` must be present, not absent:\n{doc:#}"));
+        assert!(census.is_empty(), "{doc:#}");
+
+        let loaded = load_plan_file(&plan_path, &config, dir.path()).unwrap();
+        assert!(loaded.plan.unprobed.is_empty());
+    }
+
+    /// A census that is not the census shape is refused, not defaulted away.
+    /// Quietly reading it as empty would drop the one thing the field carries.
+    #[test]
+    fn test_malformed_census_is_refused() {
+        let (dir, plan_path, config) = saved();
+
+        let mut doc = read_doc(&plan_path);
+        doc["unprobed"] = serde_json::json!("nonsense");
+        write_doc(&plan_path, &doc);
+
+        let err = load_plan_file(&plan_path, &config, dir.path()).unwrap_err();
+        assert!(err.starts_with("PLAN_MALFORMED:"), "{err}");
+        assert!(err.contains("unprobed"), "{err}");
     }
 
     /// Helper to compute config hash for test plan files.

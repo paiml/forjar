@@ -141,10 +141,15 @@ impl Handler for PlanHandler {
         // forjar#372: the two blind spots compose into the one string a
         // consumer reads — what this plan did not CONSULT, and what it did not
         // EXECUTE.
-        let disclosure = crate::core::unattended::merge_disclosures(
-            crate::cli::scope_disclosure_for_mcp(unconsulted),
-            crate::core::unattended::disclosure(&unattended_skipped),
-        );
+        // forjar#497: and the third — what this plan did not MEASURE. Three
+        // blind spots, still one string, because "read `disclosure`" must stay
+        // a complete instruction for an agent.
+        let unprobed: Vec<UnprobedOutput> = exec_plan
+            .unprobed
+            .iter()
+            .map(UnprobedOutput::from)
+            .collect();
+        let disclosure = plan_disclosure(unconsulted, &unattended_skipped, &exec_plan.unprobed);
         Ok(PlanOutput {
             to_create: exec_plan.to_create,
             to_update: exec_plan.to_update,
@@ -154,9 +159,24 @@ impl Handler for PlanHandler {
             lock_relative: true,
             unconsulted_observations: unconsulted,
             unattended_skipped,
+            unprobed,
             disclosure,
         })
     }
+}
+
+/// The three blind spots of a plan folded into the one string a consumer
+/// reads: what it did not CONSULT and did not MEASURE (the CLI's own fold,
+/// reached by name), then what this surface did not EXECUTE (forjar#372).
+fn plan_disclosure(
+    unconsulted: usize,
+    unattended_skipped: &[String],
+    unprobed: &[crate::core::types::UnprobedResource],
+) -> Option<String> {
+    crate::core::unattended::merge_disclosures(
+        crate::cli::plan_disclosure_for_mcp(unconsulted, unprobed),
+        crate::core::unattended::disclosure(unattended_skipped),
+    )
 }
 
 #[async_trait::async_trait]

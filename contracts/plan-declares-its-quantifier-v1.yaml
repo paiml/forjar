@@ -37,6 +37,7 @@ metadata:
     - "apply-converges-observed-drift-v1.yaml — same quantifier hole, closed for apply"
     - "issue: https://github.com/paiml/forjar/issues/305"
     - "prior art: Terraform plan -detailed-exitcode; ArgoCD Synced/OutOfSync conditions"
+    - "issue: https://github.com/paiml/forjar/issues/497"
 
 equations:
   plan_ranges_over_config_and_lock_only:
@@ -69,6 +70,22 @@ equations:
                                  to run (∅ on the CLI, which runs them)
       plan_output.disclosure ≠ None ⟺ unconsulted(locks) > 0
                                     ∨ skipped(config, surface) ≠ ∅
+
+      forjar#497 added a THIRD blind spot, on every surface, and it is the one
+      the plan is blind to by CONSTRUCTION rather than by policy:
+
+      probe_covers(config, m) = this host answers for machine m, so the planner
+                                may read that machine's tree (ONE definition,
+                                `core::task::probe_covers`; the probe, the
+                                executor pre-plan probe and the census all ask
+                                it)
+      unprobed(plan) = { (r, m) : action(r, m) = NoOp
+                                ∧ r declares task_inputs ∨ ambient_inputs
+                                                         ∨ output_artifacts
+                                ∧ (¬probe_covers(config, m) ∨ probe absent) }
+      plan_output.disclosure ≠ None ⟺ unconsulted(locks) > 0
+                                    ∨ skipped(config, surface) ≠ ∅
+                                    ∨ unprobed(plan) ≠ ∅
     domain: "locks ∈ HashMap<String, StateLock>"
     codomain: "bool"
     invariants:
@@ -80,6 +97,12 @@ equations:
       - "A machine consumer must be able to distinguish `unconsulted_observations: 0` from an older binary that emits no such key, so the count is a TOTAL function and the prose is the partial one"
       - "forjar#372: `unattended_skipped` is the second blind spot and follows the same shape — a TOTAL list (present, possibly empty) beside a PARTIAL prose sentence, both folded into the one `disclosure` field so a consumer reading only the prose learns of both"
       - "forjar#372: `skipped` is empty by construction on the CLI, which still executes `ambient_inputs`, `sops`/`op` and `output_equivalence` normalisers. So the CLI and unattended `disclosure` strings agree on every config that declares none of those, and diverge — correctly — on one that does"
+      - "forjar#497: `unprobed` is the third blind spot and follows the same shape — a TOTAL list (present, possibly empty) beside a PARTIAL prose sentence, folded into the one `disclosure` field, so `read disclosure` stays a complete instruction for an agent"
+      - "forjar#497: the count is of what the plan did not MEASURE, never of what drifted. Whether those inputs moved is exactly what was not measured, and a census presented as `N stale` would be this contract's own sin one level up"
+      - "forjar#497: the ACTION is unchanged by the disclosure. Planning `Update` for every resource this host cannot probe would rebuild every remote task on every apply and break f(f(x)) = f(x) at the plan level — the census discloses, it does not widen the domain (the same choice `plan_ranges_over_config_and_lock_only` makes above)"
+      - "forjar#497: `probe_covers` has ONE definition. A second copy of the predicate is how the probe and the census would come to disagree about which machines were measured, and the disclosure would then be true of a set nothing else uses"
+      - "forjar#497: a resource that plans Create/Update is NEVER named — it is going to run, so a missing probe hides nothing behind it, and listing it would be the unconditional banner the second invariant forbids"
+      - "forjar#497: EVERY SHIPPED PLAN SURFACE carries the census — the TTY `print_plan`, `plan --json`, the MCP/HTTP/verb `PlanOutput`, `apply --dry-run` (text and `--json`), the sealed plan file, and the `apply --plan-file --dry-run` preview of that file"
     notes: |
       The second invariant is what keeps this from becoming a banner. A warning
       printed unconditionally is a warning nobody reads, and this fleet has
@@ -144,6 +167,28 @@ falsification:
       Reproduce by reverting the three keys in `plan_json::print_plan_json` or
       the three fields on `PlanOutput`.
     expected: "json_plan_discloses_that_it_did_not_look_at_the_host and the_verb_surface_discloses_the_same_blind_spot fail"
+  - id: never-probed-reads-as-probed-and-clean
+    description: |
+      THE forjar#497 STATE. Remove the census — `planner::unprobed` and the
+      `unprobed` key on the six plan surfaces — and converge a `task` that
+      declares `task_inputs` and `output_artifacts` on a machine this host
+      answers for, then move that machine to an address it does not (an SSH
+      target; since forjar#495 a pepita namespace does the same). Change the
+      declared input on disk.
+
+      `determine_present_action` lets an observed probe override a matching
+      config hash and falls through to the hash comparison when there is no
+      probe, and the probe is only taken where `probe_covers` holds. So a
+      MISSING probe and a probe that found nothing stale produce the same
+      `NoOp`, and `forjar plan` prints
+
+        Plan: 0 to add, 0 to change, 0 to destroy, 1 unchanged.
+
+      and nothing else, while the machine's tree was never read. That is
+      "unmeasured reads as clean" — the same defect this contract was written
+      for, one level down: not a lock diff presented as the world, but an
+      absent measurement presented as a passed one.
+    expected: "a_remote_task_whose_inputs_changed_plans_noop_and_says_so, the_disclosure_does_not_depend_on_whether_the_inputs_moved and the_verb_surface_carries_the_census fail"
 
 # The `falsification:` block above says how to BREAK the property. This block
 # says where the property is CURRENTLY PINNED — the shipped tests that go red
@@ -174,3 +219,45 @@ falsification_tests:
     prediction: "`verb call plan` carries the same blind-spot fields as `plan --json`"
     test: "tests/falsification_plan_json_discloses_its_blind_spot.rs::the_verb_surface_discloses_the_same_blind_spot"
     if_fails: "An MCP agent reads a lock diff as host truth on the one surface with no human to notice"
+
+  - id: FALSIFY-PQ-005
+    rule: "A converged resource this host could not probe is NAMED, with its machine and the instrument that can answer"
+    prediction: "a task converged locally, then moved to a TEST-NET address, plans NoOp AND prints `did not measure`, `build@box` and `forjar drift`"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_remote_task_whose_inputs_changed_plans_noop_and_says_so"
+    if_fails: "A missing probe prints as `unchanged`: unmeasured reads as clean on every SSH target and every namespace"
+
+  - id: FALSIFY-PQ-006
+    rule: "The census is about MEASUREMENT, not about change"
+    prediction: "an unprobed converged resource is disclosed even when its declared inputs did not move"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::the_disclosure_does_not_depend_on_whether_the_inputs_moved"
+    if_fails: "The disclosure is conditioned on the very fact the planner could not establish, so it fires only when it was not needed"
+
+  - id: FALSIFY-PQ-007
+    rule: "The suppression at zero, beside a TOTAL machine-readable list"
+    prediction: "a probed task is not named on the TTY, and `plan --json` still carries `unprobed: []`"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_probed_task_is_not_named_and_the_json_list_is_present_but_empty"
+    if_fails: "Either an unconditional banner operators learn to skip, or an absent key a parser cannot tell from an older binary"
+
+  - id: FALSIFY-PQ-008
+    rule: "The census reaches the machine-readable surfaces and is folded into the one prose field"
+    prediction: "`plan --json` carries `unprobed[0].{resource_id,machine,reason}` and a `disclosure` naming `build@box` and `forjar drift`; the sealed plan file carries the same list"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::json_carries_the_census_as_a_total_list_and_folds_it_into_the_disclosure"
+    if_fails: "The 1.20.1 shape again — the consumers that cannot notice a missing disclosure are the ones handed the unmeasured plan"
+
+  - id: FALSIFY-PQ-009
+    rule: "A resource that is going to run anyway is never named"
+    prediction: "a task whose config changed plans Update and is absent from `unprobed`, on the TTY and in `plan --json`"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_task_that_will_run_anyway_is_not_named"
+    if_fails: "The disclosure becomes the banner the second invariant forbids"
+
+  - id: FALSIFY-PQ-011
+    rule: "The census travels with a sealed plan"
+    prediction: "`plan --out` over an unprobed converged task writes a top-level `unprobed` array with that resource and its machine into the document"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_sealed_plan_file_carries_the_census"
+    if_fails: "A plan reviewed later and applied by someone else hides what it did not measure — the one surface where the reviewer cannot re-run the probe"
+
+  - id: FALSIFY-PQ-010
+    rule: "The verb/MCP/HTTP PlanOutput carries the census too"
+    prediction: "`verb call plan` over an unprobed converged task returns `unprobed` with one entry and a `disclosure` naming `build@box`"
+    test: "tests/falsification_plan_json_discloses_its_blind_spot.rs::the_verb_surface_carries_the_census"
+    if_fails: "An agent reads `to_update: 0` over a resource nothing measured, on the one surface with no human to notice"

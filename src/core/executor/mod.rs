@@ -420,10 +420,7 @@ pub fn apply_scoped(
         &cfg.config.secrets,
     );
     let probes = crate::core::task::probe_all(&resolved_for_probe, |m| {
-        cfg.config
-            .machines
-            .get(m)
-            .is_some_and(crate::transport::controller_answers_for)
+        crate::core::task::probe_covers(cfg.config, m)
     });
     let plan = planner::plan_with_probes(
         cfg.config,

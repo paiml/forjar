@@ -1,0 +1,128 @@
+{
+ "issue": "PMAT-221 (forjar#497) — the planner could not tell 'probed, nothing stale' from 'never probed': a missing probe fell through to the config-hash comparison, so a converged task on any machine this host does not answer for planned NoOp over changed sources and said nothing",
+ "quorum": {
+  "lanes": [
+   "review lane 1",
+   "review lane 2",
+   "review lane 3",
+   "orchestrator rerun of every command"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "the plan was grilled before a line was written and the finished diff was judged by three lanes with the base pinned; a lane could fail the whole diff on one refuted claim, and one did — the refutation was fixed and gate G re-run rather than argued away",
+  "rounds": "one sandboxed teamwork lane on the plan (fan-out measured as unknown — single-lane, never counted as agreement; verdict do-not-implement-as-written on three claims, each re-checked and corrected), then three sandboxed plan lanes on 4fd70763...faf5d77f, base pinned by SHA: 2 PASS / 1 FAIL, partial=false; every code claim confirmed by all three, one contract claim refuted by one lane and named as a gap by the other two.",
+  "claims_confirmed": 6,
+  "claims_refuted": 4,
+  "refuted_claims": [
+   "The plan left ~50 struct literals unaddressed and should compute the census on the fly at presentation time. Corrected: an on-the-fly census is a second measurement that can disagree with the plan and cannot travel with a sealed file; the literal sites were edited by script — twenty-one files including examples/planner_proof_sat_why.rs, missed by the first sweep and caught by the pre-commit clippy gate. Measured: cargo test --workspace, 314 binaries, 19,603 passed.",
+   "The apply --plan-file preview is a shipped plan surface the plan did not name. Corrected: added to phase 2's scope and wired through the same value function; the contract now lists every surface by name.",
+   "The census hides a regression: the probe map is keyed by resource id, so a resource on a local and a remote machine carries the local verdict for the remote row. Corrected: pre-existing, left unchanged on purpose and DISCLOSED — the census asks the machine predicate before the map, so the remote row is named although the map has an entry; the keying is filed as forjar#499.",
+   "Every FALSIFY row of the contract amendment resolves. Corrected: FALSIFY-PQ-009 bundled the plan-file rule but cited the Update-path test and the plan-file case was cited by no row; PQ-009 narrowed, PQ-011 added, gate G re-run: 40 contracts validate, every citation resolves."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Bazel / Nix input-addressed actions",
+   "Ansible --check UNREACHABLE column",
+   "Terraform plan -refresh=false"
+  ],
+  "verdict": "accept(Bazel/Nix: an action never proceeds on an unhashed input where the hash can be taken; Ansible: a host not measured gets its own named column and is never counted ok) and reject(Terraform -refresh=false: an unmeasured resource printed as clean, with the caveat living in the docs). forjar cannot hash a remote tree from the controller without a round trip, so the honest fix is the Ansible column — name the rows, keep the action, name the instrument."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one sandboxed /teamwork-preview lane on the plan (single-lane, fan-out unmeasured) and three sandboxed --mode plan lanes on the diff, review-only, base pinned by SHA",
+  "verdict": "plan: do-not-implement-as-written on three claims, each re-checked; diff: 2 PASS / 1 FAIL, every code claim confirmed, the one refutation fixed"
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work add",
+   "pmat work validate",
+   "kind-gate.sh",
+   "model-gate.sh",
+   "target-guard.sh",
+   "transcript-gate.sh",
+   "status-lint.sh",
+   "pmat hooks install --strict",
+   "pmat tdg (pre-commit)",
+   "cargo test --workspace",
+   "scripts/dogfood/contracts.sh"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "cargo test --workspace exit 0, 314 binaries, 19,603 passed; falsification_planner_names_what_it_did_not_probe RED at 1102238b (6 failed) and GREEN at faf5d77f (6 passed); planner::tests_unprobed 8 passed; touched lib modules 135 passed; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS; every source file under 500 lines (state_types.rs 459 after the move, mcp/types.rs 490); dogfood gate B (CB-200 ratchet) RED at 653 > 651 after the surfaces landed, back at the ceiling after the disclosure fold was shared",
+  "limit": "no lane ran cargo — the delegate forbade it on disk grounds — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). The phase-2 worker hit its turn cap after committing and returned no receipt; its work is verified only by the reruns above."
+ },
+ "falsification": {
+  "test": "a task converged on a loopback machine and then moved to a TEST-NET address this host cannot answer for plans NoOp AND names itself as unmeasured, per resource@machine, on the TTY, in plan --json (a TOTAL list, present and empty when everything was measured), in the verb surface and in the sealed plan file; a task that will run anyway is never named",
+  "test_file": "tests/falsification_planner_names_what_it_did_not_probe.rs",
+  "cargo_test_target": "falsification_planner_names_what_it_did_not_probe",
+  "reverted": "the whole fix absent (commit 1102238b, the RED commit, holds the test against the base code): six cases fail, each at its first disclosure assertion, every precondition (`0 to add, 0 to change`, `1 to change`, the apply that converged the task) passing",
+  "observed_failure": "a_remote_task_whose_inputs_changed_plans_noop_and_says_so fails with 'the plan must say it did not measure this resource's declared build I/O'; a_probed_task_is_not_named_and_the_json_list_is_present_but_empty fails with 'plan --json must carry `unprobed` as a TOTAL list'; a_sealed_plan_file_carries_the_census fails with 'the plan file must carry `unprobed`'; the JSON, unmoved-input and Update-path cases fail on the absent key",
+  "still_green_when_reverted": "every precondition assertion, which is what proves the fixture converges, moves and re-plans for the right reasons before the disclosure is asked for"
+ },
+ "base_commit": "4fd707630570d6ed5bdbfc34fdbdeeefc4b590ad",
+ "base": "origin/main",
+ "recorded_at": "2026-09-09",
+ "diff_sha256": "5f6df9569f1ccafd8cc5b5977a7b636e991e912e",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/unprobed-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1691,
+    "sha256": "0e44d54786ac799556d2c7980821721493c77db8031651ba2f9771a7d55d8ab0",
+    "blob": "3749f253d897223d3ae403aa113b2156e5b5b230"
+   },
+   {
+    "path": ".quorum/evidence/unprobed-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3235,
+    "sha256": "a137c6cb4d175d0314db03135c3e2cd6abcb2f4df76d39e0973a48f675df9b24",
+    "blob": "b359e0fd3d644327cd705add9ae812650f47b75c"
+   },
+   {
+    "path": ".quorum/evidence/unprobed-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5739,
+    "sha256": "26997d2ba4c9f6e50adcd6e033f5384527024095599d875f40a49ab784949dd5",
+    "blob": "96c29d198caa2998eeb6370601851ef25faf4e62"
+   },
+   {
+    "path": ".quorum/evidence/unprobed-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1056,
+    "sha256": "d3ba01ccbaed41d4b2cfe3236266e8c6ad3630e24f80c0968875f91c4840f20d",
+    "blob": "bb9bc2984ca388a436f90f376d0733dcda7af5d9"
+   },
+   {
+    "path": ".quorum/evidence/unprobed-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2019,
+    "sha256": "0b46b94bf3e6f5e7a0bf470c1538584aca8458c6a7d6a118ba8c882f71268b48",
+    "blob": "7930c5338c78db92b3a23afdf33b7b77f1de7280"
+   },
+   {
+    "path": ".quorum/evidence/unprobed-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1275,
+    "sha256": "be027547cb3aced9dc6ef85b8d1f5ddace0d45cfc0f221d8e821fe519ef2d4c9",
+    "blob": "a8a963a9beff0a78b3dbc314b1ff2d8f89f683d7"
+   }
+  ],
+  "total_bytes": 15015,
+  "claims_digest": ".quorum/evidence/unprobed-judges.md"
+ }
+}

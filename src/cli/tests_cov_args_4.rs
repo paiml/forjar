@@ -179,6 +179,7 @@ mod tests {
             to_update: 0,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         print_plan_cost(&plan);
     }
@@ -197,6 +198,7 @@ mod tests {
             to_update: 1,
             to_destroy: 0,
             unchanged: 1,
+            unprobed: Vec::new(),
         };
         print_plan_cost(&plan);
     }
@@ -215,6 +217,7 @@ mod tests {
             to_update: 0,
             to_destroy: 3,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         // destroy_cost = (5*2)+(4*2)+(5*2) = 28, triggers high warning
         print_plan_cost(&plan);
@@ -243,6 +246,7 @@ mod tests {
             to_update: 0,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         print_plan_cost(&plan);
     }

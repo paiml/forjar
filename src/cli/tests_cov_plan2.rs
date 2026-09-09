@@ -210,6 +210,7 @@ fn plan_cost_empty() {
         changes: vec![],
         execution_order: vec![],
         to_create: 0, to_update: 0, to_destroy: 0, unchanged: 0,
+        unprobed: Vec::new(),
     };
     super::plan::print_plan_cost(&plan);
 }
@@ -237,6 +238,7 @@ fn plan_cost_with_changes() {
         ],
         execution_order: vec!["pkg".to_string(), "svc".to_string()],
         to_create: 1, to_update: 0, to_destroy: 1, unchanged: 0,
+        unprobed: Vec::new(),
     };
     super::plan::print_plan_cost(&plan);
 }
@@ -259,6 +261,7 @@ fn plan_cost_high_destroy() {
         changes,
         execution_order: vec![],
         to_create: 0, to_update: 0, to_destroy: 5, unchanged: 0,
+        unprobed: Vec::new(),
     };
     // Should print high destructive cost warning
     super::plan::print_plan_cost(&plan);

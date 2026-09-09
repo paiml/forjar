@@ -152,6 +152,12 @@ pub(crate) fn save_plan_file(
         "to_update": plan.to_update,
         "to_destroy": plan.to_destroy,
         "unchanged": plan.unchanged,
+        // forjar#497: the census travels with the document. A sealed plan is
+        // reviewed later and applied by someone else, and what it did not
+        // MEASURE is exactly what that reviewer cannot reconstruct from the
+        // counters. Written unconditionally — `[]` says "everything was
+        // measured", an absent key says "written by an older binary".
+        "unprobed": plan.unprobed,
         "execution_order": plan.execution_order,
         "changes": changes,
         // Refs #358: what this plan was filtered by, so `apply --plan-file` can
@@ -173,6 +179,24 @@ fn plan_str<'a>(entry: &'a serde_json::Value, key: &str, default: &'a str) -> &'
 /// A plan-file unsigned field, or 0 when absent or not a number.
 fn plan_u32(doc: &serde_json::Value, key: &str) -> u32 {
     doc.get(key).and_then(|v| v.as_u64()).unwrap_or(0) as u32
+}
+
+/// forjar#497: read the unprobed census back.
+///
+/// Absent reads as empty — a document written before the field existed, whose
+/// seal was taken over a plan whose `unprobed` was empty anyway (the struct
+/// field is skipped when empty, so that serialisation is byte-identical). A
+/// value that is not the census shape is an ERROR rather than a fallback to
+/// empty, by this file's own rule: every field round-trips to what the writer
+/// held or is refused, because a field the reader quietly rewrites makes an
+/// honest document fail its own seal — and here the quiet rewrite would drop
+/// the disclosure, which is the one thing the field exists to carry.
+fn unprobed_from_doc(doc: &serde_json::Value) -> Result<Vec<types::UnprobedResource>, String> {
+    let Some(raw) = doc.get("unprobed") else {
+        return Ok(Vec::new());
+    };
+    serde_json::from_value(raw.clone())
+        .map_err(|e| format!("PLAN_MALFORMED: unreadable 'unprobed' census: {e}"))
 }
 
 /// A plan-file array-of-strings field, or empty when absent.
@@ -258,6 +282,7 @@ fn plan_body_from_doc(doc: &serde_json::Value) -> Result<types::ExecutionPlan, S
         to_update: plan_u32(doc, "to_update"),
         to_destroy: plan_u32(doc, "to_destroy"),
         unchanged: plan_u32(doc, "unchanged"),
+        unprobed: unprobed_from_doc(doc)?,
     })
 }
 

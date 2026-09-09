@@ -379,10 +379,11 @@ pub(crate) fn unconsulted_observations_for_mcp(
     print_helpers::unconsulted_observations(locks)
 }
 
-/// forjar#342: the prose disclosure, for the MCP layer.
-///
-/// `None` at zero, exactly as on the CLI — the contract's biconditional holds
-/// on every shipped plan surface or on none of them.
-pub(crate) fn scope_disclosure_for_mcp(unconsulted: usize) -> Option<String> {
-    print_helpers::scope_disclosure(unconsulted)
+/// forjar#497: the CLI plan's two disclosures folded into one value, for the
+/// MCP layer — the same fold `plan --json` performs, reached by name.
+pub(crate) fn plan_disclosure_for_mcp(
+    unconsulted: usize,
+    unprobed: &[crate::core::types::UnprobedResource],
+) -> Option<String> {
+    print_helpers::plan_disclosure(unconsulted, unprobed)
 }
