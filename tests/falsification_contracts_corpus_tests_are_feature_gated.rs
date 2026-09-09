@@ -29,12 +29,24 @@
 //! yielded a right one, when a branch was compared against a `main` that had
 //! only ever run the vacuous half.
 //!
-//! WHAT THIS RULE DOES NOT SAY. `cross_project_tests.rs` guards assertions with
-//! `has_sibling_repos()` on purpose and documents it, and those assertions are
-//! ABOUT the sibling — `find_binding_path(&aprender_dir, "aprender")` needs the
-//! directory and asks for nothing from forjar's index. That idiom is sound and
-//! is left alone. The rule below is narrow on purpose: it is about querying
-//! aprender's KERNELS, which only the corpus can answer.
+//! WHAT THIS RULE IS, EXACTLY. It is a TEXT ratchet over the crate's sources,
+//! not semantic analysis. It reads for the shape of the defect and nothing
+//! more. Three reviewers said so independently and they are right, so it is
+//! written here rather than left for the next reader to discover: the rule can
+//! be evaded by moving the check into a helper, by `is_dir()` instead of
+//! `exists()`, or by binding the path to a local first. It catches the defect
+//! coming back the way it went in, which is the common case, and it is honest
+//! about not catching a determined rewrite.
+//!
+//! `cross_project_tests.rs` guards assertions with `has_sibling_repos()` on
+//! purpose and documents it, and those assertions are ABOUT the sibling —
+//! `find_binding_path(&aprender_dir, "aprender")` needs the directory and asks
+//! nothing of forjar's index. That idiom is sound. It is EXEMPTED BY NAME
+//! below, because it used to pass this rule only by accident: its check lives
+//! in a helper, so the banned shape never appears inside a `#[test]` body. An
+//! exemption that holds by accident is not an exemption, it is a gap that
+//! happens to be empty, and the next file to use a helper would inherit it
+//! silently. The scan is now file-wide and the one allowed file is named.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,34 +65,26 @@ fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Split a file into `#[test]` blocks: the attributes above each one, and the
-/// body up to the next `#[test]`. Crude on purpose — a parser here would be a
-/// second implementation of rustc, and the shape this rule reads is stable.
-fn test_blocks(src: &str) -> Vec<(String, String)> {
+/// Every `#[test]` body in a file, as text.
+///
+/// The attributes above each test are NOT returned. An earlier draft parsed
+/// them with a 12-line window and then discarded the result, which three
+/// reviewers each spotted as dead code; the rule reads bodies, so bodies are
+/// all it collects.
+fn test_bodies(src: &str) -> Vec<String> {
     let lines: Vec<&str> = src.lines().collect();
-    let mut blocks = Vec::new();
+    let mut bodies = Vec::new();
     for (i, line) in lines.iter().enumerate() {
         if line.trim() != "#[test]" {
             continue;
-        }
-        // ATTRIBUTES: a fixed window back to the end of the previous item,
-        // because the gate is written multi-line and a line-shape walk stopped
-        // one line short of `)]` every time.
-        let mut start = i;
-        while start > 0 && i - start < 12 {
-            let prev = lines[start - 1].trim();
-            if prev == "}" || prev.ends_with(';') || prev.is_empty() {
-                break;
-            }
-            start -= 1;
         }
         let mut end = i + 1;
         while end < lines.len() && lines[end].trim() != "#[test]" {
             end += 1;
         }
-        blocks.push((lines[start..i].join("\n"), lines[i..end].join("\n")));
+        bodies.push(lines[i..end].join("\n"));
     }
-    blocks
+    bodies
 }
 
 /// THE RATCHET MUST MATCH THE TREE.
@@ -151,6 +155,36 @@ fn the_aprender_corpus_ratchet_matches_what_the_tree_actually_carries() {
          inside its own tests."
     );
 
+    // AND THE LIVING PROSE THAT STATES IT. The figure turned out to live in
+    // five places, and the first version of this rule covered two. A reviewer
+    // found `Cargo.toml` and `VENDORED.md` still saying 38 after the set had
+    // grown to 39 — documentation that contradicts the gate it documents, which
+    // is how the next reader learns to distrust both. Historical text is NOT
+    // included: a completed roadmap row states what was true when it was filed
+    // and rewriting it would falsify the record.
+    for (path, phrase) in [
+        (
+            "crates/forjar-contracts/Cargo.toml",
+            "tests that read aprender's contract corpus",
+        ),
+        ("crates/forjar-contracts/VENDORED.md", "of the crate's"),
+    ] {
+        let text = fs::read_to_string(root.join(path))
+            .unwrap_or_else(|e| panic!("{path} must be readable: {e}"));
+        let stale: Vec<&str> = text
+            .lines()
+            .filter(|l| l.contains(phrase))
+            .filter(|l| !l.contains(&recorded_annotations.to_string()))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "forjar#452: {path} describes the gated set with a figure other than \
+             the recorded {recorded_annotations}. Living documentation that \
+             contradicts the ratchet teaches readers to trust neither:\n  {}",
+            stale.join("\n  ")
+        );
+    }
+
     assert_eq!(
         measured, recorded_annotations,
         "forjar#452: the tree carries {measured} aprender-corpus annotation(s) and \
@@ -161,46 +195,78 @@ fn the_aprender_corpus_ratchet_matches_what_the_tree_actually_carries() {
     );
 }
 
-/// AND THE GATE MUST NOT BE A DIRECTORY CHECK. The specific wrong guard, named,
-/// so re-introducing it fails here rather than on someone's workstation.
+/// AND THE GATE MUST NOT BE A DIRECTORY CHECK.
+///
+/// The specific wrong guard, named, so re-introducing it fails here rather than
+/// on someone's workstation. The scan is FILE-WIDE, not per-test-body, because
+/// the shape can be hidden one call deep: `cross_project_tests.rs` puts it in
+/// `has_sibling_repos()` and so never carried it inside a `#[test]` at all. A
+/// body-only scan would have let any file do the same and call it a pass.
+///
+/// One file is exempt, by name and with its reason. That is the point of the
+/// change: it used to be exempt by accident.
 #[test]
 fn no_test_decides_to_assert_by_looking_for_a_sibling_checkout_of_aprender() {
+    // `cross_project_tests.rs` asserts ABOUT the sibling — `find_binding_path`
+    // on the aprender directory, `CrossProjectIndex::build_with_extra` given
+    // that path. Those assertions need the directory and ask nothing of
+    // forjar's own index, so "is the neighbour here" is the right question for
+    // them and the wrong one for a corpus query.
+    const EXEMPT: [&str; 1] = ["cross_project_tests.rs"];
+
     let crate_src = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/forjar-contracts/src");
     let mut files = Vec::new();
     rust_sources(&crate_src, &mut files);
+    assert!(
+        files.len() > 20,
+        "the sweep found only {} source file(s), so it is measuring nothing",
+        files.len()
+    );
 
     let mut offenders = Vec::new();
+    let mut exempt_seen = 0usize;
     for f in &files {
+        let name = f
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let Ok(src) = fs::read_to_string(f) else {
             continue;
         };
-        for (_, body) in test_blocks(&src) {
-            let joined: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
-            // `if !<something>.join("aprender").exists() { return; }` — bail out
-            // when the neighbour is missing, then assert regardless of whether
-            // THIS repo can answer the question.
-            let bails_on_missing_sibling = joined.contains("join(\"aprender\").exists()")
-                && (joined.contains("if !") || joined.contains("{ return; }"))
-                && joined.contains("return");
-            if bails_on_missing_sibling && body.contains("assert") {
-                let name = body
-                    .lines()
-                    .find(|l| l.contains("fn "))
-                    .unwrap_or("<unknown>")
-                    .trim()
-                    .to_string();
-                offenders.push(format!("{}: {}", f.display(), name));
-            }
+        let joined: String = src.split_whitespace().collect::<Vec<_>>().join(" ");
+        let reaches_for_the_sibling = joined.contains("join(\"aprender\").exists()")
+            || joined.contains("join(\"aprender\").is_dir()");
+        if !reaches_for_the_sibling {
+            continue;
+        }
+        if EXEMPT.contains(&name.as_str()) {
+            exempt_seen += 1;
+            continue;
+        }
+        // A file that reaches for the neighbour AND asserts is making a claim
+        // whose truth depends on what else is on the disk.
+        if test_bodies(&src).iter().any(|b| b.contains("assert")) {
+            offenders.push(f.display().to_string());
         }
     }
 
+    assert_eq!(
+        exempt_seen,
+        EXEMPT.len(),
+        "the exemption list names {} file(s) and {} of them still reach for a \
+         sibling aprender checkout. An exemption for something that no longer \
+         does it is dead text: drop the name from EXEMPT.",
+        EXEMPT.len(),
+        exempt_seen
+    );
     assert!(
         offenders.is_empty(),
-        "forjar#452: {} test(s) return early when a sibling aprender checkout is \
-         missing and then assert. That guard answers 'is a neighbour on disk', \
-         not 'does THIS repo ship the corpus', so it is vacuous in CI and lets \
-         the assertion run — and fail — on a workstation. Use the \
-         aprender-corpus feature gate, which says the true thing:\n  {}",
+        "forjar#452: {} file(s) look for a sibling aprender checkout and then \
+         assert. That guard answers 'is a neighbour on disk', not 'does THIS \
+         repo ship the corpus', so it is vacuous in CI and lets the assertion \
+         run — and fail — on a workstation. Use the aprender-corpus feature \
+         gate, which says the true thing:\n  {}",
         offenders.len(),
         offenders.join("\n  ")
     );

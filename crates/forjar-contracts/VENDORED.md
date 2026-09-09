@@ -35,13 +35,13 @@ forjar's `build.rs` verifies forjar's bindings.
 
 ## The aprender corpus tests (#452)
 
-The same missing corpus that makes `build.rs` inert makes 38 of the crate's
+The same missing corpus that makes `build.rs` inert makes 39 of the crate's
 1,376 unit tests fail: they read `contracts/aprender/binding.yaml`, copy
 `contracts/softmax-kernel-v1.yaml`, query the index for `softmax`/`RMSNorm`, or
 assert `contracts.len() > 100`. All of those describe **aprender's** corpus.
 forjar vendors the crate, not the corpus, so every one of them fails on
 `NotFound` or an empty result set — a statement about the vendoring, never about
-the code under test, and 38 permanent reds that make a real regression in this
+the code under test, and 39 permanent reds that make a real regression in this
 crate invisible.
 
 They are gated by
