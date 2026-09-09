@@ -43,7 +43,7 @@
 use super::census::{DriftCensus, SkipReason};
 use super::ignore::should_ignore_drift;
 use super::{DriftFinding, DRIFT_QUERY_TIMEOUT_SECS};
-use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, TaskMode};
+use crate::core::types::{Machine, Resource, ResourceType, TaskMode};
 
 /// Per-invocation bounds on how much work a drift run may do on the target.
 #[derive(Debug, Clone, Copy)]
@@ -104,7 +104,7 @@ pub(super) fn detect_task_drift(
         let Some(resource) = resources.get(id).filter(|r| owns(r)) else {
             continue;
         };
-        if let Some(reason) = skip_reason(rl, id, resources, opts) {
+        if let Some(reason) = skip_reason(id, resources, opts) {
             census.skipped(id, &rl.resource_type, reason);
             continue;
         }
@@ -118,16 +118,10 @@ pub(super) fn detect_task_drift(
 
 /// Why this task would not be checked, or `None` to check it.
 fn skip_reason(
-    rl: &crate::core::types::ResourceLock,
     id: &str,
     resources: &indexmap::IndexMap<String, Resource>,
     opts: DriftOptions,
 ) -> Option<SkipReason> {
-    // `Drifted` is re-checked for the same reason the state-query path
-    // re-checks it: it means "needs work", not "stop looking" (forjar#310).
-    if rl.status != ResourceStatus::Converged && rl.status != ResourceStatus::Drifted {
-        return Some(SkipReason::NotConverged);
-    }
     if should_ignore_drift(id, resources) {
         return Some(SkipReason::IgnoreDrift);
     }

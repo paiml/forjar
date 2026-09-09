@@ -88,7 +88,10 @@ fn latched(name: &str) -> Latched {
     let c = cfg.display().to_string();
     let s = state.display().to_string();
     let (out, ok) = run(&["apply", "-f", &c, "--state-dir", &s, "--yes"]);
-    assert!(!ok, "the unregistered guard must fail its first apply:\n{out}");
+    assert!(
+        !ok,
+        "the unregistered guard must fail its first apply:\n{out}"
+    );
 
     let lock = fs::read_to_string(state.join("box").join("state.lock.yaml")).unwrap();
     assert!(
