@@ -169,6 +169,21 @@ fn print_unprobed_disclosure(unprobed: &[types::UnprobedResource]) {
     }
 }
 
+/// The plan's disclosures as ONE value: what it did not consult (forjar#342)
+/// and what it did not measure (forjar#497), folded the way every surface
+/// must fold them. `None` iff both are empty. `plan --json` and the MCP layer
+/// call this rather than composing the two themselves, so the fold cannot
+/// drift between surfaces.
+pub(crate) fn plan_disclosure(
+    unconsulted: usize,
+    unprobed: &[types::UnprobedResource],
+) -> Option<String> {
+    crate::core::unattended::merge_disclosures(
+        scope_disclosure(unconsulted),
+        unprobed_disclosure(unprobed),
+    )
+}
+
 /// Print the plan summary line.
 fn print_plan_summary(plan: &types::ExecutionPlan) {
     println!(

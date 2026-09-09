@@ -39,3 +39,13 @@ pub struct UnprobedOutput {
     /// Why no probe was taken.
     pub reason: String,
 }
+
+impl From<&crate::core::types::UnprobedResource> for UnprobedOutput {
+    fn from(u: &crate::core::types::UnprobedResource) -> Self {
+        Self {
+            resource_id: u.resource_id.clone(),
+            machine: u.machine.clone(),
+            reason: u.reason.clone(),
+        }
+    }
+}

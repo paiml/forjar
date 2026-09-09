@@ -10,7 +10,7 @@ verdict: DONE — a converged resource whose declared build I/O this host could 
 | issue | forjar#497, filed from PMAT-220's review lanes |
 | branch | PMAT-221-planner-names-what-it-did-not-probe |
 | base | 4fd70763 |
-| commits | 5349a0a2 roadmap · 1102238b RED · 081159a8 core · 9957cb04 surfaces · faf5d77f tests+contract · 7cd37067 contract row · this receipt |
+| commits | 5349a0a2 roadmap · 1102238b RED · 081159a8 core · 9957cb04 surfaces · faf5d77f tests+contract · 7cd37067 contract row · 17835455 receipt · the fold extraction · this receipt |
 | discover.json sha256 | 3bbbd6ac8efcb062fe35047255a2f4c17526925a5ef7166dcfee0f91c37edd5b |
 | gate_cmd | `cargo test --workspace` — `gate_cmd_fallback=true`, said in the first status block |
 | model gate | `model=fable class=fable decision=admit basis=file`; tier 1 meets tier 1 |
@@ -56,6 +56,7 @@ The plan was grilled by one teamwork lane before phase 1 (fan-out measured as un
 | `cargo test --workspace` (gate_cmd, detached) | — | **exit 0, 314 binaries, 19,603 passed, 0 failed** |
 | `scripts/dogfood/contracts.sh` (gate G) | — | PASS: 40 contracts validate, every citation resolves |
 | `pmat analyze vacuous-tests` over src/core/planner, src/cli, src/mcp, tests | — | 0 in touched paths (one pre-existing hit in `progress.rs`) |
+| `scripts/cb200-ratchet.sh` (dogfood gate B) | — | RED at 17835455 (653 > 651), **at the ceiling (651) after the fold was shared** |
 
 Mutations observed RED: the RED commit 1102238b is the diff's own falsifier — six cases, each failing at the assertion it names with every precondition green. Gate F's mutation arm cannot run on this host (PMAT-216); no `cargo mutants` figure is claimed.
 
@@ -73,11 +74,13 @@ Worker receipt: missing ⇒ treated as `partial=true`; every number above is an 
 
 ## Jidoka
 
-No red gate stopped the line. Two refusals worth recording: the pre-commit clippy gate refused the phase-1 commit over the `examples/` literal (fixed in place); bashrs lint refused the first fixture's `cat in.txt > out.txt` as SC1035 (a file named `in` reads as the keyword) — the fixture uses `src.txt`, and the falsification test's doc says why. Nothing appended to `.pmat/jidoka.jsonl`: neither was a defect in a module.
+One red gate stopped the line after the PR was opened: `make dogfood` gate B, the CB-200 ratchet, counted 653 functions below grade A against a ceiling of 651. Five whys, recorded in `.pmat/jidoka.jsonl`: the disclosure fold and the census row mapping had been inlined at each surface, pushing `print_plan_json`, `render_dry_run_actions` and the MCP plan handler to A-; the phase-2 brief named no instrument and the worker's turn cap left none run; the pre-commit TDG check grades touched files against a self-refreshed baseline, so a per-function drop passes it while the tree-wide ratchet counts it. Fixed by one shared value (`print_helpers::plan_disclosure`, reached by the MCP layer through a named shim), a `From` impl for the MCP row and a dry-run summary helper; two shims the fold made dead were removed. Re-measured: ratchet at 651, clippy clean, acceptance 6 passed, verb 5 passed, touched lib modules 135 passed.
+
+Two refusals worth recording: the pre-commit clippy gate refused the phase-1 commit over the `examples/` literal (fixed in place); bashrs lint refused the first fixture's `cat in.txt > out.txt` as SC1035 (a file named `in` reads as the keyword) — the fixture uses `src.txt`, and the falsification test's doc says why. Nothing appended to `.pmat/jidoka.jsonl`: neither was a defect in a module.
 
 ## Estimates
 
-`K̂=4 basis=first-run[U]` (`estimate.sh` matched no rows under this repo key); `K=120` declared against `docs/audits/impl-estimates.jsonl:L1-L5`. Actual: 61 turns of discovery before the ticket existed, 24 core, 10 surfaces, 5 review, 14 receipt — 114 of 120, above the 0.8K andon line but with the gate PASS throughout. Rows appended.
+`K̂=4 basis=first-run[U]` (`estimate.sh` matched no rows under this repo key); `K=120` declared against `docs/audits/impl-estimates.jsonl:L1-L5`. Actual: 61 turns of discovery before the ticket existed, 24 core, 10 surfaces, 5 review, 14 receipt, then 12 more to run the line back from the ratchet — about 126 against K=120, over the declared budget; the gate_cmd was PASS throughout and the only red was dogfood gate B, fixed rather than andoned because the fix was three extractions. Rows appended.
 
 ## Gaps
 

@@ -92,19 +92,26 @@ pub(super) fn render_dry_run_actions(plan: &types::ExecutionPlan) -> String {
     if plan.changes.is_empty() {
         let _ = writeln!(out, "  {}", dim("(nothing selected)"));
     }
+    push_dry_run_summary(&mut out, plan);
+    out
+}
+
+/// The summary line, then what the plan did not measure.
+///
+/// forjar#497: a dry run is a plan surface, and the summary line is exactly
+/// the sentence that reads as "nothing is wrong" for a resource nothing
+/// measured. Same value function as `print_plan`, so the two cannot word it
+/// differently.
+fn push_dry_run_summary(out: &mut String, plan: &types::ExecutionPlan) {
+    use std::fmt::Write;
     let _ = writeln!(
         out,
         "\n{} to add, {} to change, {} to destroy, {} unchanged. No changes applied.",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
-    // forjar#497: a dry run is a plan surface, and the summary line above is
-    // exactly the sentence that reads as "nothing is wrong" for a resource
-    // nothing measured. Same value function as `print_plan`, so the two cannot
-    // word it differently.
     if let Some(msg) = super::print_helpers::unprobed_disclosure(&plan.unprobed) {
         let _ = writeln!(out, "\n{msg}");
     }
-    out
 }
 
 /// The `--json` dry-run body, rendered from the SAME scoped plan as the text

@@ -85,11 +85,7 @@ pub(crate) fn print_plan_json(
     // The prose disclosure is present iff there is a blind spot to declare —
     // the contract's biconditional, and the reason it is not an unconditional
     // banner: noise is how a warning stops being read.
-    let disclosure = crate::core::unattended::merge_disclosures(
-        super::print_helpers::scope_disclosure(unconsulted),
-        super::print_helpers::unprobed_disclosure(&plan.unprobed),
-    );
-    if let Some(msg) = disclosure {
+    if let Some(msg) = super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed) {
         output["disclosure"] = serde_json::json!(msg);
     }
     println!(

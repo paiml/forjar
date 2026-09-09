@@ -50,7 +50,7 @@
   ],
   "vacuous_tests_in_touched_paths": 0,
   "accepted": [],
-  "quality_gate": "cargo test --workspace exit 0, 314 binaries, 19,603 passed; falsification_planner_names_what_it_did_not_probe RED at 1102238b (6 failed) and GREEN at faf5d77f (6 passed); planner::tests_unprobed 8 passed; touched lib modules 135 passed; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS; every source file under 500 lines (state_types.rs 459 after the move, mcp/types.rs 490)",
+  "quality_gate": "cargo test --workspace exit 0, 314 binaries, 19,603 passed; falsification_planner_names_what_it_did_not_probe RED at 1102238b (6 failed) and GREEN at faf5d77f (6 passed); planner::tests_unprobed 8 passed; touched lib modules 135 passed; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS; every source file under 500 lines (state_types.rs 459 after the move, mcp/types.rs 490); dogfood gate B (CB-200 ratchet) RED at 653 > 651 after the surfaces landed, back at the ceiling after the disclosure fold was shared",
   "limit": "no lane ran cargo — the delegate forbade it on disk grounds — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). The phase-2 worker hit its turn cap after committing and returned no receipt; its work is verified only by the reruns above."
  },
  "falsification": {
