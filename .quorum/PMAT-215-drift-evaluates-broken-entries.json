@@ -1,0 +1,124 @@
+{
+ "issue": "PMAT-215 (forjar#487 second half) — drift SKIPPED every resource the lock recorded as not converged, so a type: task guard whose completion_check is its real assertion stopped being measured the moment an apply recorded it failed; the operator measured three such guards skipped across two fleet machines",
+ "quorum": {
+  "lanes": [
+   "review lane 1",
+   "review lane 2",
+   "review lane 3",
+   "agy goal lane (writes)",
+   "orchestrator rerun of every acceptance and gate command"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "a lane verdict is a claim; both substantive FAIL findings were re-run by the orchestrator before anything changed and both reproduced",
+  "rounds": "one goal lane implemented and committed (partial=true: agy returned status=ERROR with a complete structured_output, and lane-reduce scored it NO-VERDICT on a schema field-name mismatch). Three sandboxed review lanes at 39aa4a09: 1 PASS, 2 FAIL.",
+  "claims_confirmed": 4,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "The case pinning acceptance criterion 2 tested --no-task-checks, which is the operator DECLINING a measurement rather than a resource that cannot be measured. Lane 2 refused it and was right. A fourth case now uses a task with no completion_check whose lock says failed: no assertion for the task path, no baseline for the state-query path, so nothing can evaluate it and it must still be named as unmeasured. Mutating mod.rs toward a blanket removal fails that one case and leaves the other three green.",
+   "Nine lines of CLAUDE.md were in the diff and the ticket does not ask for them. Lane 3 refused the branch for it. The paiml-implement:orch-routing block was staged in the working tree before the branch existed and rode along into the first commit; reverted in its own commit rather than quietly amended away.",
+   "The workspace gate's red was first attributed to this branch on evidence that could not support it: forjar-contracts coverage_map_enrichment early-returns unless a sibling aprender is visible, so the branch ran for real in ~/src/forjar while main ran vacuously in a worktree under /tmp. Re-running origin/main from a corpus-visible path reproduced the failure with none of this branch's changes. Filed on forjar#452."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Terraform",
+   "Puppet",
+   "Chef",
+   "Ansible"
+  ],
+  "verdict": "NotRun for this ticket by decision, not omission. docs/audits/crux-1.27.0.md surveyed this exact behaviour one release earlier under 'A task whose command exits non-zero': three of the four keep no failure verdict at all so the latch is a defect they cannot have, and Terraform's way back is a forced rebuild rather than a re-read. This ticket is the second half of the same issue and adds no new behaviour class; the assertion-versus-baseline distinction it introduces is recorded as the question for the NEXT release's survey."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one goal lane with writes, then three sandboxed plan lanes for review",
+  "verdict": "the goal lane produced the fix and a partial receipt; the review round returned 1 PASS and 2 FAIL, and both substantive findings reproduced under rerun and are fixed"
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat tdg",
+   "transcript-gate.sh",
+   "kind-gate.sh",
+   "model-gate.sh"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "vacuous-tests 0; pmat work validate passes; task_check.rs 238 lines under the 500 limit; no --no-verify on any commit; transcript-gate PASS attempted=11 denied=2 running_peak=3 slots=3",
+  "limit": "cargo test --workspace is RED on forjar-contracts coverage_map_enrichment, reproduced on origin/main from a corpus-visible path and filed on forjar#452; discover.json reports gate_cmd_fallback=true, so that command is a fallback rather than this repository's declared gate"
+ },
+ "falsification": {
+  "test": "a type: task guard whose lock records it as failed must be evaluated, reported as drift when its assertion is false, and exit --tripwire non-zero; and a resource nothing can evaluate must still be named as unmeasured rather than counted clean",
+  "test_file": "tests/falsification_drift_measures_a_broken_guard.rs",
+  "cargo_test_target": "falsification_drift_measures_a_broken_guard",
+  "reverted": "the NotConverged early return restored in task_check.rs, and separately the NotConverged skip removed from mod.rs to simulate a blanket removal; the target run each time, both restored (tree verified clean)",
+  "observed_failure": "against origin/main: 3 of 3 cases fail. With the mod.rs skip removed: a_resource_nothing_can_evaluate_is_still_not_counted_as_clean FAILS with 'If this reason disappeared, the fix stopped being about assertions and became a blanket removal' while the other three stay green",
+  "still_green_when_reverted": "the other three cases under the blanket-removal mutation, which is what makes the fourth case a measurement of narrowness rather than of the fix",
+  "end_to_end": "release binary against a temp state dir: before, skipped 1: not converged in the lock 1 and No drift detected.; after, DRIFTED: runner-registered on box (completion_check fails on box: task=pending) and --tripwire exit 1, then inspected 1 of 1 and exit 0 once the registration exists"
+ },
+ "base_commit": "54e36f130a4a12b623576d0332aae44f779dc34e",
+ "base": "origin/main",
+ "recorded_at": "2026-09-09",
+ "diff_sha256": "9537856a9006b2086c8ac00cc87691f91dfda234",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/guard-drift-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 970,
+    "sha256": "d3cb7c9fe37090dae6718026e55d9b703e1f4660d93fa1bfc55291cf8ea074f5",
+    "blob": "496773adc8adf2ef3467de069353cf624832239a"
+   },
+   {
+    "path": ".quorum/evidence/guard-drift-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 2592,
+    "sha256": "b18aa60eb2eb603cff1a75255a9142c1c9f62aa3cf11be3402a5f258d614a35a",
+    "blob": "1ae4531fa5cc6e667179fce6abaeb3c3e87db98a"
+   },
+   {
+    "path": ".quorum/evidence/guard-drift-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 3962,
+    "sha256": "8bf37ae9c258dc5bf203e02d7881f06aab546237d2a9a34131a48fec2850857d",
+    "blob": "ada2222495d4cd84aa82fd94ddc2d0d55b64b9be"
+   },
+   {
+    "path": ".quorum/evidence/guard-drift-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1261,
+    "sha256": "30a060707f2c2919f23d21abd1159a63c16ae760dc09c0c3e8835c9526040ef9",
+    "blob": "0c719a929a5f69a286a89c7fde70a36c2a8d8d3d"
+   },
+   {
+    "path": ".quorum/evidence/guard-drift-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 1119,
+    "sha256": "d8a5f57a1dbfde3efb5d8ad182b7902bcad59e4c5b536f04987c0512280d6261",
+    "blob": "93bd63c7409b1f77578b4d1aa32cf484bd7b395b"
+   },
+   {
+    "path": ".quorum/evidence/guard-drift-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1318,
+    "sha256": "8e542962c50558cbe0da8a7e2d23a72e7c06d0ea5c934b00db7b6e2e51a7ad0d",
+    "blob": "915fb710d9ec45301ab98c723895f757fcb92e8e"
+   }
+  ],
+  "total_bytes": 11222,
+  "claims_digest": ".quorum/evidence/guard-drift-judges.md"
+ }
+}
