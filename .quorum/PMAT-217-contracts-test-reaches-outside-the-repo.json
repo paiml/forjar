@@ -1,0 +1,120 @@
+{
+ "issue": "PMAT-217 (forjar#452) — coverage_map_enrichment decided whether to assert by checking for a sibling aprender checkout, a different question from whether THIS repo ships the corpus it queries, so cargo test --workspace was vacuously green in CI and red on a fleet workstation",
+ "quorum": {
+  "lanes": [
+   "review lane 1",
+   "review lane 2",
+   "review lane 3",
+   "orchestrator rerun of every cargo command and every mutation"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "three lanes disagreed with each other about where the stale figures were, all claiming measured; re-grepping settled it rather than a reduced consensus",
+  "rounds": "three sandboxed plan lanes at ae43a884: 3 FAIL, partial=false. Two findings unanimous, one single-lane, one three-way contradiction, and one brief item no lane answered.",
+  "claims_confirmed": 3,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "The ratchet figure lives in FIVE places and the first version moved two. The cargo shim in the gate's own falsification suite carried a canned '43 ignored' and gate F went red inside its own tests; the new invariant caught that. Review then found two more, in crates/forjar-contracts/Cargo.toml and VENDORED.md. Lane 2 asserted, measured, that nothing was left behind anywhere, and was wrong; lanes 1 and 3 each found sites the other missed. One of lane 3's two is a completed roadmap row whose title records what was true when filed and stays as filed.",
+   "The suite shipped an attribute parser whose output was discarded — a leftover from a rule already replaced. All three lanes found it. Removed rather than wired up.",
+   "The sibling-check rule was evadable by moving the check one call deep, and cross_project_tests.rs was passing it by exactly that accident rather than by decision. The scan is file-wide now and that file is exempt BY NAME with its reason, with a case that fails if the exemption stops applying. Measured: a helper-hidden version in a non-exempt file is caught now and was not before. The docstring, which had claimed semantic awareness it does not have, now says it is a text ratchet and names what it cannot catch."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "cargo vendor (Rust)",
+   "Go vendored modules",
+   "Debian packaging"
+  ],
+  "verdict": "all three surveyed systems make the question disappear rather than answer it: cargo vendor and Go's vendor/ exclude vendored tests from the run entirely, and Debian packaging disables what it cannot run but records only the decision, not a count. forjar is stricter than all three — the tests still compile and run every build, each names its own reason, and the count is ratcheted EXACTLY in both directions. The cost of being stricter is that an exact figure living in five places rots unless something checks it, and nothing did; this ticket adds that check. None of the three has a notion of a test that decides whether to assert by looking at what else is on the disk, which is the defect removed here."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "three sandboxed plan lanes, review-only",
+  "verdict": "3 FAIL; two unanimous findings and one single-lane finding all reproduced and are fixed, and a three-way contradiction about completeness was resolved by re-grepping"
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "kind-gate.sh",
+   "model-gate.sh",
+   "cargo test --workspace"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "cargo test --workspace exit 0, 311 binaries green from the corpus-visible path that was red; forjar-contracts 1332 passed / 44 ignored; with --features aprender-corpus exactly 39 fail, agreeing with both the recorded figure and the count in the tree; fmt clean; clippy exit 0",
+  "limit": "no lane ran cargo — the delegate forbade it after measuring 213G of build output against 220G free — so every count is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216) and no cargo mutants figure is claimed."
+ },
+ "falsification": {
+  "test": "no file in the vendored crate may look for a sibling aprender checkout and then assert, and the ratchet figure must agree across the tree, both recorded constants, the gate's own cargo shim and the living prose",
+  "test_file": "tests/falsification_contracts_corpus_tests_are_feature_gated.rs",
+  "cargo_test_target": "falsification_contracts_corpus_tests_are_feature_gated",
+  "reverted": "four mutations in turn, each restored and the tree verified clean: the sibling check put back in the test body; the same defect hidden in a helper in a non-exempt file; the shim's count reverted to 43; Cargo.toml's figure reverted to 38",
+  "observed_failure": "each mutation fails exactly the rule that should catch it and no other — the helper-hidden one being the case the earlier body-only rule could not see",
+  "still_green_when_reverted": "the ratchet invariant under the two sibling-check mutations, and the sibling rule under the two figure mutations, which is what keeps the two rules independent"
+ },
+ "base_commit": "2826c449941cfcf175d9ab7a4c8d5dbca12ad136",
+ "base": "origin/main",
+ "recorded_at": "2026-09-09",
+ "diff_sha256": "fcc9b60f33cc986ede587b7af2d73738fe80378e",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/corpus-gate-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 776,
+    "sha256": "40a60a2b1ee37ce021ba0d3142ea235a67928c41e4130551442f9b314fc546eb",
+    "blob": "93dc76579d0ae2aa60419fb248d57c0d72986108"
+   },
+   {
+    "path": ".quorum/evidence/corpus-gate-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3059,
+    "sha256": "9a152d0cd210df7d62a0561298005b1520b743fb283fd264d555da8f7c1070d5",
+    "blob": "58fbabf647341141f82a2a08c43c29333d18028c"
+   },
+   {
+    "path": ".quorum/evidence/corpus-gate-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 3612,
+    "sha256": "63b272dd02b889dc610bb0ef0e52069cda203802f6804b9b7c6315dc3580690e",
+    "blob": "96e0d03c6a2b0ee42ece462ed8c3628c471144a0"
+   },
+   {
+    "path": ".quorum/evidence/corpus-gate-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 951,
+    "sha256": "0b88c8144d6876013fc9c2f0451b7c029693c9a5c2ed7b3c8312a6476d7e9a72",
+    "blob": "0305d4b4f81862b3769ed8c468c5dd13a6de6613"
+   },
+   {
+    "path": ".quorum/evidence/corpus-gate-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2217,
+    "sha256": "e5f76fb66d3fbe6f4b406b1d26f1df13868fb708754fc86e09130fd02d8ee68c",
+    "blob": "ca8865be1d41434110f9946d3574875da4c04d95"
+   },
+   {
+    "path": ".quorum/evidence/corpus-gate-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1382,
+    "sha256": "939bfddff3be7c71955217aa9fb06c0014e1e2b51f125ac4da1c5a45bd808815",
+    "blob": "617c442b52213d25d99464d80ba8f68ff22af14c"
+   }
+  ],
+  "total_bytes": 11997,
+  "claims_digest": ".quorum/evidence/corpus-gate-judges.md"
+ }
+}
