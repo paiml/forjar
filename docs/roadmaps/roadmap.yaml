@@ -3116,3 +3116,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Refiled by the operator on #485 with the mechanism, after my first close asserted the wrong one. build_resource_details reads through the transport ONLY for is_container_transport(); every other machine, INCLUDING PLAIN SSH, takes the else branch and hashes the CONTROLLER at that path. So a fleet resource declaring /home/noah/.bashrc records the WORKSTATION''s copy as its baseline. This is forjar#305''s root cause, fixed on the READ side (check_file_resource_drift now dispatches through exec_script) and left live on the WRITE side, which is why drift''s Actual is right and its Expected is a third file. It explains all four of the operator''s measurements, including why the stored value matches neither the declaration nor the live file, and why exactly the resources whose paths also exist on the controller are the ones that never converge. The prescription is already written in the sibling module: exec_script dispatches pepita > container > local > ssh, so a local machine still hashes locally and nothing needs a special case.'
+- id: PMAT-220
+  kind: code
+  github_issue: 495
+  item_type: task
+  title: 'S1: machine_is_local excludes a container but not a pepita namespace, so the build-IO probe, the pre-plan probe and output verification may read the CONTROLLER''s filesystem on a namespace''s behalf and report the answer as the target''s (#495)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-09T11:35:29Z
+  updated: 2026-09-09T11:35:29Z
+  spec: null
+  acceptance_criteria:
+  - 'no code decides whether it may read THIS host''s filesystem on a machine''s behalf using a predicate that forgets a pepita namespace'
+  - 'each of the four machine_is_local call sites is judged on its own: the three that gate a controller-side READ move to the strict predicate, and the exec dispatch is measured before it is touched rather than changed on the strength of the other three'
+  - 'a falsification test fails if a controller-side read is gated on a predicate that admits a namespace'
+  - 'nothing that was local before stops being local: a genuinely local machine keeps every behaviour it had'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found by three review lanes during PMAT-219 and filed rather than fixed there, because widening machine_is_local under four callers this ticket had not measured is exactly the move that turns one fix into a regression. machine_is_local checks !is_container_transport plus a local address; drift''s reads_the_controller, now transport::controller_answers_for, also checks !is_pepita_transport, and says why: a pepita machine commonly declares addr 127.0.0.1 and its files live inside the namespace. exec_script dispatches pepita FIRST, so anything that must agree with what exec_script will actually do has to exclude it. The four sites are src/core/task/probe.rs:289, src/core/executor/mod.rs:426, src/core/executor/output_verify.rs:54 and src/transport/mod.rs:288. The fourth needs care: exec_script handles pepita before reaching that line, so tightening there may be a no-op or may not, and that is to be measured rather than assumed. machine_is_local''s own doc already asks for the fix: one definition, one place.'

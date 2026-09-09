@@ -51,7 +51,12 @@ use crate::transport;
 /// Returns an empty vec when there is nothing to verify: no declared outputs,
 /// or a non-local target.
 pub(crate) fn missing_outputs(resource: &Resource, machine: &Machine) -> Vec<String> {
-    if resource.output_artifacts.is_empty() || !crate::transport::machine_is_local(machine) {
+    // forjar#495: `machine_is_local` admits a pepita namespace, so a
+    // namespaced machine declaring a loopback address had its declared
+    // artifacts looked for on THIS host and reported missing. They live inside
+    // the namespace. Reporting nothing is what this function already promises
+    // for a non-local target: there is nothing HERE to verify.
+    if resource.output_artifacts.is_empty() || !crate::transport::controller_answers_for(machine) {
         return Vec::new();
     }
     let base = crate::core::task::probe::probe_base_dir(resource);
@@ -234,6 +239,11 @@ mod tests {
     fn remote() -> Machine {
         serde_yaml_ng::from_str("hostname: far\naddr: 10.9.9.9\n").unwrap()
     }
+    /// A kernel namespace, which commonly declares a loopback address while its
+    /// files live inside the namespace — the shape forjar#495 is about.
+    fn namespace() -> Machine {
+        serde_yaml_ng::from_str("hostname: ns\naddr: 127.0.0.1\ntransport: pepita\n").unwrap()
+    }
     fn task(dir: &std::path::Path, outs: &[&str]) -> Resource {
         Resource {
             resource_type: ResourceType::Task,
@@ -313,5 +323,43 @@ mod tests {
         let e = missing_outputs_error(&["a.txt".into(), "b.txt".into()]);
         assert!(e.contains("a.txt") && e.contains("b.txt"), "{e}");
         assert!(e.contains("NOT converged"), "{e}");
+    }
+
+    /// forjar#495: WHOSE FILESYSTEM ANSWERS FOR THIS MACHINE?
+    ///
+    /// This gate read `machine_is_local`, which excludes a container and not a
+    /// pepita namespace. So a namespaced machine declaring a loopback address
+    /// was treated as local and its declared artifacts were looked for on THIS
+    /// host; they live inside the namespace, so the apply failed with a list of
+    /// outputs that exist perfectly well on the target. Same shape as
+    /// forjar#485: measure one filesystem, report the answer as another's.
+    ///
+    /// Reporting nothing for a machine this host cannot answer for is what the
+    /// function's own doc already promises, and the two rows that must not move
+    /// are checked in the same table so a fix cannot quietly trade one for the
+    /// other.
+    #[test]
+    fn only_a_machine_this_host_answers_for_has_its_artifacts_verified_here() {
+        let d = tempfile::tempdir().unwrap();
+        let r = task(d.path(), &["absent.txt"]);
+        for (machine, expected, why) in [
+            (
+                local(),
+                vec!["absent.txt".to_string()],
+                "a local target IS the controller, so a declared artifact that is not here is genuinely missing",
+            ),
+            (
+                remote(),
+                Vec::new(),
+                "a routable remote was already exempt and stays exempt",
+            ),
+            (
+                namespace(),
+                Vec::new(),
+                "forjar#495: a namespaced machine's artifacts are inside the namespace, not here, so looking for them on the controller reports a resource that is fine as broken",
+            ),
+        ] {
+            assert_eq!(missing_outputs(&r, &machine), expected, "{why}");
+        }
     }
 }

@@ -423,7 +423,7 @@ pub fn apply_scoped(
         cfg.config
             .machines
             .get(m)
-            .is_some_and(crate::transport::machine_is_local)
+            .is_some_and(crate::transport::controller_answers_for)
     });
     let plan = planner::plan_with_probes(
         cfg.config,
