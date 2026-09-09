@@ -88,6 +88,32 @@ fn file_drift_finding(
     }
 }
 
+/// THE ONE READER: what does that machine hold at this path, as a digest?
+///
+/// forjar#485. The apply path writes the baseline this module later reads, and
+/// the two used different scripts. Drift asks `if [ -d ]; then echo __DIR__;
+/// else cat; fi` and, on seeing `__DIR__`, digests `ls -la` instead. A plain
+/// `cat` on the writing side therefore disagreed with it in two places: on a
+/// DIRECTORY, where `cat` fails and drift digests a listing, and on a file
+/// whose entire content is the literal `__DIR__`, where the writer digests the
+/// string and the reader digests a listing — a permanent, confident mismatch on
+/// a resource that is perfectly converged. A review lane found the second one.
+///
+/// Both sides call this now, so the protocol cannot be half-adopted. Its
+/// lossiness is shared too: `exec_script` decodes stdout with
+/// `String::from_utf8_lossy`, so a non-UTF-8 byte becomes U+FFFD on the way in.
+/// That is a real limit of reading a file through a shell, and it is now
+/// SYMMETRIC — both sides lose the same bytes — where before only one did.
+pub fn remote_path_digest(path: &str, machine: &Machine) -> Option<String> {
+    let script = format!(
+        "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
+    );
+    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
+        Ok(out) if out.success() => hash_remote_content(&out, path, machine),
+        _ => None,
+    }
+}
+
 /// Check a file resource for drift via transport (for container/remote machines).
 /// Runs `cat <path>` on the target and hashes the output.
 pub fn check_file_drift_via_transport(
@@ -249,7 +275,7 @@ pub(super) fn detect_drift_impl(
 /// the same name answers about the wrong host, which is forjar#407's defect
 /// shape one transport over (E05 quorum, agy lane).
 pub(super) fn reads_the_controller(m: &Machine) -> bool {
-    crate::transport::is_local_addr(&m.addr)
-        && !m.is_container_transport()
-        && !m.is_pepita_transport()
+    // forjar#485: ONE definition, in transport, shared with the apply path that
+    // writes the baseline this function reads. They disagreed once.
+    crate::transport::controller_answers_for(m)
 }

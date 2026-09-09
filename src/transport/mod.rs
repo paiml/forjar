@@ -450,6 +450,28 @@ pub fn machine_is_local(machine: &Machine) -> bool {
             || is_local_addr(&machine.addr))
 }
 
+/// Does reading THIS host's filesystem answer for that machine?
+///
+/// forjar#485. The apply path and the drift path each had their own answer to
+/// this and the two disagreed, which is worse than either being wrong: apply
+/// recorded a baseline from one filesystem and drift read the actual from
+/// another, so the comparison could never close. Three review lanes found the
+/// gap independently.
+///
+/// Stricter than `machine_is_local`, deliberately. That predicate excludes a
+/// container but not a pepita namespace, so a pepita machine declaring
+/// `addr: 127.0.0.1` reads as local there — while `exec_script` dispatches
+/// pepita FIRST and answers from inside the namespace. Anything that must
+/// agree with what `exec_script` will actually do has to exclude both.
+///
+/// `machine_is_local` keeps its own definition and its own four callers; the
+/// hole it has for pepita is real and is filed separately, not widened here.
+pub fn controller_answers_for(machine: &Machine) -> bool {
+    is_local_addr(&machine.addr)
+        && !machine.is_container_transport()
+        && !machine.is_pepita_transport()
+}
+
 /// Check if an address is this machine.
 /// Is this address this very host? Exposed because drift needs the same
 /// answer: reading the controller's filesystem is CORRECT for a local machine

@@ -333,6 +333,9 @@ fn detect_nonfile_drift(
 
 mod census;
 mod file;
+// forjar#485: the ONE reader, shared with the apply path that writes the
+// baseline this module reads. Re-exported rather than opening the module.
+pub use file::remote_path_digest;
 mod ignore;
 mod image;
 mod lockless;

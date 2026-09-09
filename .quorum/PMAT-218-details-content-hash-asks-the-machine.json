@@ -1,0 +1,122 @@
+{
+ "issue": "PMAT-219 (forjar#485) — build_resource_details read through the transport only for a container, so every other machine INCLUDING PLAIN SSH recorded a hash of the CONTROLLER's file at the declared path as the baseline; drift then read a correct actual from the machine and compared it against a third file, permanently",
+ "quorum": {
+  "lanes": [
+   "review lane 1",
+   "review lane 2",
+   "review lane 3",
+   "orchestrator rerun of every command and every mutation",
+   "the digest measurement no lane could run"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "three lanes refused the first fix; every finding was re-run or measured before acting, and the one claim two lanes made confidently was settled by running it rather than by counting lanes",
+  "rounds": "three sandboxed plan lanes at 836554f6, base pinned by SHA because local main was behind origin/main: 3 FAIL, partial=false. Four findings acted on, two affirmed without change.",
+  "claims_confirmed": 3,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "The fix used machine_is_local, which excludes a container but NOT a pepita namespace, while drift's reads_the_controller excludes both — so apply would hash the controller while drift asked the namespace, the original defect surviving one transport over with the two sides now permanently disagreed. All three lanes found it. transport::controller_answers_for is now the one definition, called by the writer and delegated to by drift; the hole machine_is_local keeps for its other four callers is filed as forjar#495 rather than widened here.",
+   "The migration argument was too broad. Two lanes said hash_file and hash_string_or_sentinel agree for ordinary files and neither could run it; measured, they are identical for non-empty UTF-8 text and differ only for an empty file (sentinel) and non-UTF-8 bytes (from_utf8_lossy). The asymmetry survives in that narrower form, which is what the code now states, with the numbers in it.",
+   "One lane found a protocol collision the others missed: the writer used a plain cat while drift uses the __DIR__ directory protocol and digests ls -la on seeing that marker, so a file whose entire content is the literal __DIR__ was digested two different ways — a permanent mismatch on a converged resource. Both sides call one reader now. Separately, all three lanes refused an unrelated comment rewrite in mod.rs, which existed only to free two lines; reverted, and the module declaration moved to tests_edge_details.rs via #[path]."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Ansible",
+   "Puppet",
+   "Terraform"
+  ],
+  "verdict": "all three make this defect hard or impossible to express, for the same structural reason: the thing that reads state runs where the state is, or talks to an API that does. Ansible keeps no persisted baseline and reads files on the target through the connection plugin; a Puppet agent runs on the node and reports what it found there; Terraform's state is written from provider reads against the real API. forjar's controller reads remote files through a transport, a deliberate design whose cost is that 'read this path' has two meanings and the code must choose correctly every time. It chose wrong in one branch for every transport but containers. The fix makes the choice once — one predicate, one reader — rather than at each call site; forjar#495 records that the same choice is still made independently at four more."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "three sandboxed plan lanes, review-only, base pinned by SHA",
+  "verdict": "3 FAIL; four findings acted on and two affirmed. The delegate forbade cargo on disk grounds and said so, which is why the crux was measured rather than adjudicated between two confident lanes."
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "kind-gate.sh",
+   "model-gate.sh",
+   "cargo test --workspace"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "cargo test --workspace exit 0, 311 binaries; baseline_transport 6 passed; fmt clean; clippy exit 0; mod.rs untouched and still 500 lines",
+  "limit": "no lane ran cargo — the delegate forbade it after measuring 213G of build output against 220G free — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216) and no cargo mutants figure is claimed."
+ },
+ "falsification": {
+  "test": "a file's baseline on a remote or namespaced machine must never be a hash of the controller's copy of that path, an unreachable target must record nothing rather than something wrong, a local machine must be unaffected, and the writer must not grow a second read protocol",
+  "test_file": "tests/falsification_baseline_and_drift_share_one_reader.rs",
+  "cargo_test_target": "falsification_baseline_and_drift_share_one_reader",
+  "reverted": "the predicate reverted to machine_is_local, and separately the whole fix reverted; the target run each time and both restored, tree verified clean",
+  "observed_failure": "predicate reverted to machine_is_local: the integration rule fails with 'the baseline writer must ask the shared predicate', and in the lib suite the pepita case fails alone while the other five stay green. Fix reverted entirely: the two original lib cases fail with the recorded hash equal to the controller's, the local guard green.",
+  "still_green_when_reverted": "a_local_machine_still_records_the_hash_of_the_file_it_manages, under both mutations, which is what makes it a guard rather than a demonstration",
+  "measured_separately": "hash_file vs hash_string_or_sentinel: identical for non-empty UTF-8 text, differing for an empty file and for non-UTF-8 bytes"
+ },
+ "base_commit": "3a8b415eee4fc1c0c75eb4af802f62ae98dc1984",
+ "base": "origin/main",
+ "recorded_at": "2026-09-09",
+ "diff_sha256": "b119dda5d9e41f0d0ae8d1b673c371c00c3fd87e",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/baseline-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 769,
+    "sha256": "dba899c39949ba05c9e409b1e92b7634b3c8b8aaadf797b1ade02a02545b9ae3",
+    "blob": "b6ab1744fba300dcf5d95a9e74f14092cc20e470"
+   },
+   {
+    "path": ".quorum/evidence/baseline-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3780,
+    "sha256": "47217d940997bc9f8582cab46a437a5b75904b8fd9e1c4459b74ace5efbd7196",
+    "blob": "b3e0445e7cf0b0aa64e19c6a776d94a54e9b5d44"
+   },
+   {
+    "path": ".quorum/evidence/baseline-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 3258,
+    "sha256": "9ff072e7cc9f6437536c2df913364264b65e02d740ceb3dd8c227ece9195082c",
+    "blob": "b9a6f84d8745604cef89716694e611959a0df6ff"
+   },
+   {
+    "path": ".quorum/evidence/baseline-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1252,
+    "sha256": "37f5d7f68e2fe2a1f79b40743dab69a8e0f47bb41f8067e735b2f95f756ff8d3",
+    "blob": "d3a9437faadb7f745162012dfbf2c4f7c40c23fe"
+   },
+   {
+    "path": ".quorum/evidence/baseline-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2028,
+    "sha256": "b595ae2e9a1e5701e8f7ad45949efc1964cf57f7ae00071515613759d0226f43",
+    "blob": "58e81634f4af019f675ddf60bd8489165ef9ecf7"
+   },
+   {
+    "path": ".quorum/evidence/baseline-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1346,
+    "sha256": "43f41dfc795bc16098d02e113e02a71efec764bc49601ee018c0bd925457ee80",
+    "blob": "ad2e38453ce074c1145cc29f30f16e3f7e37f6ce"
+   }
+  ],
+  "total_bytes": 12433,
+  "claims_digest": ".quorum/evidence/baseline-judges.md"
+ }
+}
