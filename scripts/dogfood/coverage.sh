@@ -52,8 +52,8 @@ FLOOR=95
 # in both directions — every change to the excluded set is a deliberate edit of
 # these two lines, in the diff, where a reviewer sees it. That is the only way
 # an exclusion mechanism stays honest.
-APRENDER_ANNOTATIONS=38
-IGNORED_EXPECTED=43
+APRENDER_ANNOTATIONS=39
+IGNORED_EXPECTED=44
 
 fail() {
   echo "GATE F FAIL $1"

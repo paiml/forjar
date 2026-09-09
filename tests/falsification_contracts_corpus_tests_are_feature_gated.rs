@@ -124,6 +124,33 @@ fn the_aprender_corpus_ratchet_matches_what_the_tree_actually_carries() {
         .map(|src| src.matches("not(feature = \"aprender-corpus\")").count())
         .sum();
 
+    // THE FIGURE LIVES IN TWO PLACES, so the invariant has to reach both. The
+    // gate's own falsification suite runs coverage.sh against a `cargo` shim
+    // that prints a canned "N ignored" line, and that N has to agree with
+    // IGNORED_EXPECTED or gate F fails inside its own tests rather than on the
+    // tree. Moving one number and not the other is precisely the mistake this
+    // rule exists to catch, and it caught it on the commit that added the rule.
+    let recorded_ignored = recorded("IGNORED_EXPECTED=");
+    let shim = fs::read_to_string(root.join("tests/falsification_coverage_gate_mutation_scope.rs"))
+        .expect("the gate's falsification suite must be where this rule looks");
+    let shim_ignored: usize = shim
+        .lines()
+        .find_map(|l| {
+            l.split_once(" ignored;")
+                .and_then(|(head, _)| head.rsplit_once("failed; "))
+                .map(|(_, n)| n.to_string())
+        })
+        .expect("the cargo shim must print an ignored count")
+        .parse()
+        .expect("the shim's ignored count must be a number");
+    assert_eq!(
+        shim_ignored, recorded_ignored,
+        "forjar#452: the cargo shim in the gate's own falsification suite prints \
+         {shim_ignored} ignored and scripts/dogfood/coverage.sh records \
+         {recorded_ignored}. Both must move in the same commit, or gate F goes red \
+         inside its own tests."
+    );
+
     assert_eq!(
         measured, recorded_annotations,
         "forjar#452: the tree carries {measured} aprender-corpus annotation(s) and \
