@@ -245,10 +245,16 @@ falsification_tests:
     if_fails: "The 1.20.1 shape again — the consumers that cannot notice a missing disclosure are the ones handed the unmeasured plan"
 
   - id: FALSIFY-PQ-009
-    rule: "A resource that is going to run anyway is never named, and the census travels with a sealed plan"
-    prediction: "a task whose config changed plans Update and is absent from `unprobed`; `plan --out` writes the census into the document"
+    rule: "A resource that is going to run anyway is never named"
+    prediction: "a task whose config changed plans Update and is absent from `unprobed`, on the TTY and in `plan --json`"
     test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_task_that_will_run_anyway_is_not_named"
-    if_fails: "The disclosure becomes the banner the second invariant forbids, or a reviewed plan file hides what it did not measure"
+    if_fails: "The disclosure becomes the banner the second invariant forbids"
+
+  - id: FALSIFY-PQ-011
+    rule: "The census travels with a sealed plan"
+    prediction: "`plan --out` over an unprobed converged task writes a top-level `unprobed` array with that resource and its machine into the document"
+    test: "tests/falsification_planner_names_what_it_did_not_probe.rs::a_sealed_plan_file_carries_the_census"
+    if_fails: "A plan reviewed later and applied by someone else hides what it did not measure — the one surface where the reviewer cannot re-run the probe"
 
   - id: FALSIFY-PQ-010
     rule: "The verb/MCP/HTTP PlanOutput carries the census too"
