@@ -84,9 +84,11 @@ pub use crate::tripwire::hasher::hash_file;
 // * A missing recorded baseline means "re-run once to establish one", NOT
 //   "fresh". Getting that backwards is the classic cache bug: a corrected
 //   source file silently fails to trigger a rebuild.
-pub use crate::core::task::probe::{
-    probe_all, probe_resource, staleness_reason, IoDigest, ProbeMap,
-};
+pub use crate::core::task::probe::{probe_all, probe_resource, staleness_reason, IoDigest};
+// forjar#499: `probe_all` returns a map keyed by (machine, resource id). Its own line, because
+// `the_supported_surface_stays_small` counts re-exports per `pub use` line and rustfmt wraps a
+// five-item brace list — the count went 11 -> 8 on the wrapped form, measured.
+pub use crate::core::task::probe::ProbeMap;
 
 // Glob expansion and base-directory resolution over a declared I/O spec.
 //
