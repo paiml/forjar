@@ -3094,3 +3094,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found while gating PMAT-215, where it turned the workspace gate red and first produced a wrong conclusion. coverage_map_enrichment queries softmax, an aprender kernel, against forjar''s IaC corpus and asserts the results are non-empty. It early-returns unless CARGO_MANIFEST_DIR/../.. has a sibling aprender, so it passes vacuously in CI and in any worktree outside ~/src and runs for real on a workstation that has aprender checked out. A test whose verdict depends on what else is on the developer''s disk is worse than a plain failure. Its immediate sibling violations_enrichment already carries the right cfg_attr(not(feature = "aprender-corpus"), ignore = ...) citing #452. NARROWED after reading the file: crates/forjar-contracts/src/query/cross_project_tests.rs uses a sibling-directory check deliberately and documents it (has_sibling_repos, "In CI, only this repo is checked out so siblings are absent"), and those tests guard their assertions with it rather than asserting past it. That idiom is not the defect and is left alone. The defect is using that same check as a proxy for a DIFFERENT question: a neighbouring aprender checkout does not put softmax contracts into forjar''s index, so the guard passes and the assertion then cannot hold.'
+- id: PMAT-219
+  kind: code
+  github_issue: 485
+  item_type: task
+  title: 'S1: build_resource_details hashes the CONTROLLER''s filesystem for every non-container machine, so a remote file resource''s lock baseline is the workstation''s copy of that path — permanent false drift on any resource whose path also exists locally (#485)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-09T08:44:58Z
+  updated: 2026-09-09T08:44:58Z
+  spec: null
+  acceptance_criteria:
+  - 'the content_hash a lock entry records for a file on a REMOTE machine is read through the transport, never from the controller''s filesystem'
+  - 'when the read cannot reach the target, no content_hash is recorded at all — an absent baseline is honest, a wrong one is not'
+  - 'a local machine still hashes locally, because exec_script dispatches pepita > container > local > ssh and a local target is the controller'
+  - 'a falsification test proves the recorded hash is not the controller''s copy when the two differ, without needing SSH'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Refiled by the operator on #485 with the mechanism, after my first close asserted the wrong one. build_resource_details reads through the transport ONLY for is_container_transport(); every other machine, INCLUDING PLAIN SSH, takes the else branch and hashes the CONTROLLER at that path. So a fleet resource declaring /home/noah/.bashrc records the WORKSTATION''s copy as its baseline. This is forjar#305''s root cause, fixed on the READ side (check_file_resource_drift now dispatches through exec_script) and left live on the WRITE side, which is why drift''s Actual is right and its Expected is a third file. It explains all four of the operator''s measurements, including why the stored value matches neither the declaration nor the live file, and why exactly the resources whose paths also exist on the controller are the ones that never converge. The prescription is already written in the sibling module: exec_script dispatches pepita > container > local > ssh, so a local machine still hashes locally and nothing needs a special case.'

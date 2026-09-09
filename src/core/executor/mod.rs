@@ -25,6 +25,8 @@ mod tests_advanced;
 #[cfg(test)]
 mod tests_advanced_b;
 #[cfg(test)]
+mod tests_baseline_transport;
+#[cfg(test)]
 mod tests_concurrent;
 #[cfg(test)]
 mod tests_converge;
@@ -383,14 +385,9 @@ pub fn apply_scoped(
         HashMap::new()
     };
 
-    // FJ-2300/FJ-3010: Force mode selection
-    // --force: nuclear — empty locks, all resources re-applied
-    // --force-tag: selective — empty locks only for resources matching tag
-    // --refresh: run each in-scope resource's check script against its HOST and
-    //   evict the lock entry for any that fails, so the planner re-plans exactly
-    //   those. The previous comment claimed "check scripts re-evaluate live
-    //   state during execution" — they do not: a resource the planner calls
-    //   NoOp is never executed, so its check never runs. See refresh_locks.
+    // FJ-2300/FJ-3010: force is nuclear, force-tag selective, refresh evicts
+    // what its live check fails. A resource the planner calls NoOp is never
+    // executed, so its check never runs on its own — see refresh_locks.
     let plan_locks = if cfg.force {
         HashMap::new()
     } else if let Some(tag) = cfg.force_tag {
