@@ -338,6 +338,7 @@ fn print_plan_with_filter() {
             "old".to_string(),
             "same".to_string(),
         ],
+        unprobed: Vec::new(),
     };
     // With machine filter
     print_plan(&plan, Some("m1"), None, 0);

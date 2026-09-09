@@ -41,6 +41,7 @@ mod tests {
             to_update: 1,
             to_destroy: 1,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         // Just verify it doesn't panic — output goes to stdout
         print_plan(&plan, None, None, 0);

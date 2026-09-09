@@ -234,6 +234,7 @@ fn test_fj131_execution_plan_serialize() {
         to_update: 2,
         to_destroy: 0,
         unchanged: 3,
+        unprobed: Vec::new(),
     };
     let json = serde_json::to_string(&ep).unwrap();
     assert!(json.contains("\"to_create\":1"));

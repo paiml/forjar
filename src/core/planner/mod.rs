@@ -108,6 +108,10 @@ pub fn plan_with_probes(
         "IDEMPOTENT-APPLY violated: action counters do not partition the change set"
     );
 
+    // forjar#497: taken AFTER propagation, so a NoOp a rebuilt prerequisite
+    // just promoted is no longer counted as silence.
+    let unprobed = unprobed::census(config, &changes, probes);
+
     ExecutionPlan {
         name: config.name.clone(),
         changes,
@@ -116,6 +120,7 @@ pub fn plan_with_probes(
         to_update,
         to_destroy,
         unchanged,
+        unprobed,
     }
 }
 
@@ -434,6 +439,7 @@ pub mod proof_obligation;
 pub mod propagation;
 pub mod reversibility;
 pub mod sat_deps;
+mod unprobed;
 pub mod why;
 
 #[cfg(test)]
@@ -468,6 +474,8 @@ mod tests_proof_cov;
 mod tests_reversibility;
 #[cfg(test)]
 mod tests_sat_deps_b;
+#[cfg(test)]
+mod tests_unprobed;
 #[cfg(test)]
 mod tests_when;
 #[cfg(test)]

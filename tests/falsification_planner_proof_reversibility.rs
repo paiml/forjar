@@ -278,6 +278,7 @@ fn make_plan_with_destroys() -> (ForjarConfig, ExecutionPlan) {
         to_update: 0,
         to_destroy: 3,
         unchanged: 0,
+        unprobed: Vec::new(),
     };
     (config, plan)
 }

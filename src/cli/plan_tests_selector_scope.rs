@@ -36,6 +36,7 @@ fn plan_of(changes: Vec<PlannedChange>) -> ExecutionPlan {
         to_update: 0,
         to_destroy: 0,
         unchanged: 0,
+        unprobed: Vec::new(),
     }
 }
 

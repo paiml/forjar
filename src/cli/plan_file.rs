@@ -258,6 +258,7 @@ fn plan_body_from_doc(doc: &serde_json::Value) -> Result<types::ExecutionPlan, S
         to_update: plan_u32(doc, "to_update"),
         to_destroy: plan_u32(doc, "to_destroy"),
         unchanged: plan_u32(doc, "unchanged"),
+        unprobed: Vec::new(),
     })
 }
 

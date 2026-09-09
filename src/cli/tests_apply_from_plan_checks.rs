@@ -35,6 +35,7 @@ fn plan_of(changes: Vec<PlannedChange>) -> types::ExecutionPlan {
         to_update: 0,
         to_destroy: 0,
         unchanged: 0,
+        unprobed: Vec::new(),
     };
     for c in &plan.changes {
         match c.action {

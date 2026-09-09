@@ -107,6 +107,7 @@ resources:
                 to_update: 0,
                 to_destroy: 0,
                 unchanged: 0,
+                unprobed: Vec::new(),
             };
             let plan_path = dir.path().join("plan.json");
             save_plan_file(

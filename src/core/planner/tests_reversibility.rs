@@ -229,6 +229,7 @@ mod tests {
             to_update: 0,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         assert_eq!(count_irreversible(&config, &plan), 0);
     }
@@ -266,6 +267,7 @@ mod tests {
             to_update: 0,
             to_destroy: 2,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         // user destroy = irreversible, package destroy = reversible
         assert_eq!(count_irreversible(&config, &plan), 1);
@@ -292,6 +294,7 @@ mod tests {
             to_update: 0,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         assert_eq!(count_irreversible(&config, &plan), 0);
     }
@@ -339,6 +342,7 @@ mod tests {
             to_update: 0,
             to_destroy: 3,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         let warnings = warn_irreversible(&config, &plan);
         assert_eq!(warnings.len(), 2); // user + network
@@ -357,6 +361,7 @@ mod tests {
             to_update: 0,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         assert!(warn_irreversible(&config, &plan).is_empty());
     }
@@ -379,6 +384,7 @@ mod tests {
             to_update: 0,
             to_destroy: 1,
             unchanged: 0,
+            unprobed: Vec::new(),
         };
         // Resource "gone" not in config => defaults to irreversible
         assert_eq!(count_irreversible(&config, &plan), 1);

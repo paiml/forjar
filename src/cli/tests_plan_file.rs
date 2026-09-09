@@ -56,6 +56,7 @@ resources:
             to_update: 1,
             to_destroy: 0,
             unchanged: 0,
+            unprobed: Vec::new(),
         }
     }
 

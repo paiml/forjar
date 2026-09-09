@@ -364,6 +364,7 @@ fn count_irreversible_plan() {
         to_update: 0,
         to_destroy: 1,
         unchanged: 0,
+        unprobed: Vec::new(),
     };
 
     assert_eq!(reversibility::count_irreversible(&config, &plan_result), 1);

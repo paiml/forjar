@@ -56,6 +56,7 @@ pub fn body(name: &str, changes: Vec<PlannedChange>, execution_order: &[&str]) -
         to_update: 0,
         to_destroy: 0,
         unchanged: 0,
+        unprobed: Vec::new(),
     };
     for c in &plan.changes {
         match c.action {
