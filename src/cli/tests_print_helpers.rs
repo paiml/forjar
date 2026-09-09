@@ -47,6 +47,33 @@ mod tests {
         print_plan(&plan, None, None, 0);
     }
 
+    /// forjar#497, the suppression at zero. An unconditional banner is noise,
+    /// and noise is how a disclosure stops being read.
+    #[test]
+    fn an_empty_census_produces_no_disclosure() {
+        assert!(unprobed_disclosure(&[]).is_none());
+    }
+
+    /// The wording is load-bearing: the entry names the (resource, machine)
+    /// pair, the sentence says MEASURE rather than "drifted", and it names the
+    /// instrument that can answer.
+    #[test]
+    fn a_census_entry_names_the_pair_the_measurement_and_the_remedy() {
+        let census = vec![types::UnprobedResource {
+            resource_id: "build".to_string(),
+            machine: "box".to_string(),
+            reason: "this host does not answer for machine box".to_string(),
+        }];
+        let msg = unprobed_disclosure(&census).expect("a non-empty census discloses");
+        assert!(msg.contains("did not measure"), "{msg}");
+        assert!(msg.contains("build@box"), "{msg}");
+        assert!(msg.contains("forjar drift"), "{msg}");
+        assert!(
+            !msg.contains("drifted"),
+            "the count is of what was NOT MEASURED, never of what drifted: {msg}"
+        );
+    }
+
     #[test]
     fn test_fj132_export_scripts_creates_files() {
         let dir = tempfile::tempdir().unwrap();

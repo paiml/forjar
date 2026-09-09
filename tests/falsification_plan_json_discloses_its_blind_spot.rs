@@ -76,6 +76,23 @@ impl Sandbox {
         parse(&self.run(&["plan", "--json", "-f", self.cfg().to_str().unwrap()]))
     }
 
+    /// forjar#497: a task whose declared build I/O lives on `addr`. Converged
+    /// on loopback, the lock holds real input/output hashes; moved to a
+    /// TEST-NET address this host cannot answer for, the probe can no longer be
+    /// taken and the machine name is not part of the resource hash, so the plan
+    /// still says `unchanged` and the census is the only thing that says why.
+    fn write_task_config(&self, addr: &str) {
+        let cfg = format!(
+            "version: \"1.0\"\nname: blind-spot\nmachines:\n  box:\n    hostname: box\n\
+             \x20   addr: {addr}\nresources:\n  build:\n    type: task\n    machine: box\n\
+             \x20   command: \"cat src.txt > out.txt\"\n    working_dir: {}\n\
+             \x20   task_inputs: [src.txt]\n    output_artifacts: [out.txt]\n",
+            self.dir.display()
+        );
+        fs::write(self.cfg(), cfg).expect("config");
+        fs::write(self.dir.join("src.txt"), "v1\n").expect("input");
+    }
+
     /// The same plan through the unified verb surface — which is also MCP stdio
     /// and HTTP, since all three serialise one `PlanOutput`.
     fn verb_plan(&self) -> serde_json::Value {
@@ -199,4 +216,41 @@ fn cli_json_and_the_verb_surface_agree_on_the_blind_spot() {
     );
     assert_eq!(cli["disclosure"], verb["disclosure"]);
     assert!(cli["disclosure"].is_string(), "{cli:#}");
+}
+
+/// forjar#497, on the surface with no human to notice. The verb/MCP/HTTP
+/// `PlanOutput` must carry the unprobed census as a TOTAL list and fold it into
+/// the one `disclosure` an agent reads — otherwise an agent asked "is this
+/// stack converged?" is handed `to_update: 0` over a resource nothing measured.
+#[test]
+fn the_verb_surface_carries_the_census() {
+    let sb = Sandbox::new("census");
+    sb.write_task_config("127.0.0.1");
+    sb.apply();
+    assert!(
+        sb.dir.join("out.txt").exists(),
+        "precondition: the task must have run locally"
+    );
+    sb.write_task_config("203.0.113.7");
+
+    let v = sb.verb_plan();
+
+    let census = v["unprobed"]
+        .as_array()
+        .unwrap_or_else(|| panic!("the verb surface must carry `unprobed`:\n{v:#}"));
+    assert_eq!(census.len(), 1, "one converged task, one entry:\n{v:#}");
+    assert_eq!(census[0]["resource_id"], "build", "{v:#}");
+    assert_eq!(census[0]["machine"], "box", "{v:#}");
+    assert!(
+        census[0]["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("box"),
+        "the reason names the machine this host does not answer for:\n{v:#}"
+    );
+    let disclosure = v["disclosure"].as_str().unwrap_or_default();
+    assert!(
+        disclosure.contains("build@box") && disclosure.contains("forjar drift"),
+        "the census must be folded into the one field an agent reads:\n{v:#}"
+    );
 }
