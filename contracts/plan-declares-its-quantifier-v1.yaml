@@ -76,13 +76,18 @@ equations:
 
       probe_covers(config, m) = this host answers for machine m, so the planner
                                 may read that machine's tree (ONE definition,
-                                `core::task::probe_covers`; the probe, the
-                                executor pre-plan probe and the census all ask
-                                it)
+                                `core::task::probe_covers`; the probe and the
+                                executor pre-plan probe skip on it, the census
+                                words its reason with it)
+      probe(m, r)             = the digest the probe took ON m for r — the map
+                                is keyed by (machine, resource) since
+                                forjar#499, so a digest answers for the tree
+                                it was taken on and no other; a row on a
+                                machine the probe never visited finds nothing
       unprobed(plan) = { (r, m) : action(r, m) = NoOp
                                 ∧ r declares task_inputs ∨ ambient_inputs
                                                          ∨ output_artifacts
-                                ∧ (¬probe_covers(config, m) ∨ probe absent) }
+                                ∧ probe(m, r) absent }
       plan_output.disclosure ≠ None ⟺ unconsulted(locks) > 0
                                     ∨ skipped(config, surface) ≠ ∅
                                     ∨ unprobed(plan) ≠ ∅
@@ -101,6 +106,7 @@ equations:
       - "forjar#497: the count is of what the plan did not MEASURE, never of what drifted. Whether those inputs moved is exactly what was not measured, and a census presented as `N stale` would be this contract's own sin one level up"
       - "forjar#497: the ACTION is unchanged by the disclosure. Planning `Update` for every resource this host cannot probe would rebuild every remote task on every apply and break f(f(x)) = f(x) at the plan level — the census discloses, it does not widen the domain (the same choice `plan_ranges_over_config_and_lock_only` makes above)"
       - "forjar#497: `probe_covers` has ONE definition. A second copy of the predicate is how the probe and the census would come to disagree about which machines were measured, and the disclosure would then be true of a set nothing else uses"
+      - "forjar#499: the map the planner consults is keyed by (machine, resource). A digest taken on this host answers for this host's rows only — on `[local, remote]` a stale local input rebuilds the local row while the remote row keeps config-hash planning AND is named; it is never planned from a hash of the wrong tree, which is the forjar#485 shape one level up. The census reads the map alone to decide what was measured; the predicate only words the reason"
       - "forjar#497: a resource that plans Create/Update is NEVER named — it is going to run, so a missing probe hides nothing behind it, and listing it would be the unconditional banner the second invariant forbids"
       - "forjar#497: EVERY SHIPPED PLAN SURFACE carries the census — the TTY `print_plan`, `plan --json`, the MCP/HTTP/verb `PlanOutput`, `apply --dry-run` (text and `--json`), the sealed plan file, and the `apply --plan-file --dry-run` preview of that file"
     notes: |
@@ -189,6 +195,27 @@ falsification:
       for, one level down: not a lock diff presented as the world, but an
       absent measurement presented as a passed one.
     expected: "a_remote_task_whose_inputs_changed_plans_noop_and_says_so, the_disclosure_does_not_depend_on_whether_the_inputs_moved and the_verb_surface_carries_the_census fail"
+  - id: a-local-probe-answers-for-a-remote-row
+    description: |
+      THE forjar#499 STATE. Key the probe map by resource id alone again —
+      `probe_all` inserting one digest per id, `determine_present_action`
+      reading `probes.get(id)` for every (resource, machine) row — and
+      converge a `task` declaring `task_inputs` and `output_artifacts` on
+      `[box, far]` with both machines this host, then move `far` to an
+      address this host does not answer for and rewrite the declared input.
+
+      The probe is taken once, on the controller, and the planner reads it
+      for both rows, so `forjar plan` prints
+
+        Plan: 0 to add, 2 to change, 0 to destroy, 0 unchanged.
+
+      The far row rebuilds from a hash of the wrong tree: a correct hash of
+      the controller's files presented as a fact about a machine nobody read.
+      With the input left alone the same key makes the far row `NoOp` with
+      its tree unmeasured — the forjar#497 case, which the census named only
+      because it asked the machine predicate before a map that could not
+      answer per machine.
+    expected: "a_stale_local_probe_moves_only_the_row_it_measured and a_stale_local_probe_does_not_plan_the_remote_row fail"
 
 # The `falsification:` block above says how to BREAK the property. This block
 # says where the property is CURRENTLY PINNED — the shipped tests that go red
@@ -261,3 +288,21 @@ falsification_tests:
     prediction: "`verb call plan` over an unprobed converged task returns `unprobed` with one entry and a `disclosure` naming `build@box`"
     test: "tests/falsification_plan_json_discloses_its_blind_spot.rs::the_verb_surface_carries_the_census"
     if_fails: "An agent reads `to_update: 0` over a resource nothing measured, on the one surface with no human to notice"
+
+  - id: FALSIFY-PQ-012
+    rule: "A probe answers only for the tree it was taken on"
+    prediction: "a task converged on [box, far] with far then moved to a TEST-NET address and the LOCAL input rewritten plans `1 to change, 1 unchanged`: box is `update`, far is `no_op` and the only `unprobed` row, on the TTY and in `plan --json`"
+    test: "tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs::a_stale_local_probe_moves_only_the_row_it_measured"
+    if_fails: "The remote row is planned from the controller's hash — a correct hash of the wrong tree, the forjar#485 shape one level up"
+
+  - id: FALSIFY-PQ-013
+    rule: "The forjar#497 disclosure survives the re-keying"
+    prediction: "with the local input fresh both rows plan `no_op` and far is still the one `unprobed` row"
+    test: "tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs::a_fresh_local_probe_still_says_nothing_about_the_remote_row"
+    if_fails: "Reading the map alone made the census stop naming the machine the probe never visited"
+
+  - id: FALSIFY-PQ-014
+    rule: "The planner boundary agrees with the binary: a stale local probe moves the local row only"
+    prediction: "with the probe map handed in by the caller, `plan` over [box, far] with the local input rewritten plans box Update, far NoOp, and names far"
+    test: "src/core/planner/tests_unprobed.rs::a_stale_local_probe_does_not_plan_the_remote_row"
+    if_fails: "The key is right in the binary and wrong at the boundary, or the reverse — one of the two tests is pinning the wrong thing"
