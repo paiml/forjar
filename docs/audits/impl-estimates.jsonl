@@ -1,1 +1,5 @@
 {"repo":"paiml/forjar","ticket":"PMAT-160","phase":"all","mode":"subagent:opus x3 + delegate:agy x9","est":3,"actual":37,"basis":"first-run[U]"}
+{"repo": "forjar", "ticket": "PMAT-215", "phase": "1-red-test", "mode": "direct", "est": 1, "actual": 2}
+{"repo": "forjar", "ticket": "PMAT-215", "phase": "2-fix", "mode": "agy-goal", "est": 1, "actual": 1}
+{"repo": "forjar", "ticket": "PMAT-215", "phase": "3-gate", "mode": "direct", "est": 1, "actual": 7}
+{"repo": "forjar", "ticket": "PMAT-215", "phase": "4-review", "mode": "agy-quorum", "est": 1, "actual": 8}
