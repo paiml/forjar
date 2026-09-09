@@ -12,7 +12,7 @@ fn test_fj132_determine_action_no_lock_creates() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(action, PlanAction::Create);
 }
@@ -54,7 +54,7 @@ fn test_fj132_determine_action_converged_same_hash_noop() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(action, PlanAction::NoOp);
 }
@@ -95,7 +95,7 @@ fn test_fj132_determine_action_hash_changed_updates() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(action, PlanAction::Update);
 }
@@ -135,7 +135,7 @@ fn test_fj132_determine_action_absent_with_lock_destroys() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(action, PlanAction::Destroy);
 }
@@ -154,7 +154,7 @@ fn test_fj132_determine_action_absent_no_lock_destroys() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(
         action,
@@ -198,7 +198,7 @@ fn test_fj132_determine_action_failed_retries() {
         &resource,
         "web",
         &locks,
-        &std::collections::HashMap::new(),
+        &crate::core::task::ProbeMap::default(),
     );
     assert_eq!(
         action,

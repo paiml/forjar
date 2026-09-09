@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A build-I/O probe answers only for the tree it was taken on (#499).** The
+probe map was keyed by resource id alone, so a task declared on a local and a
+remote machine planned the remote row from the controller's probe: local
+inputs stale, remote row `Update` from a hash of the wrong tree; local inputs
+fresh, remote row `NoOp` with the remote tree unmeasured. The map is now keyed
+by (machine, resource): a digest answers for the machine it was taken on and
+no other, the remote row keeps config-hash planning and is named in the plan's
+`unprobed` census. Found by the #497 review. `api::probe_all` returns the new
+`api::ProbeMap`; the supported surface grows from 11 to 12 items.
+
 ## [1.27.0] - 2026-09-08
 
 Four defects found by the operator running forjar against the fleet, all filed

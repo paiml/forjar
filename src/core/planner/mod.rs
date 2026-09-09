@@ -37,7 +37,7 @@ pub fn plan_with_probes(
     execution_order: &[String],
     locks: &std::collections::HashMap<String, StateLock>,
     tag_filter: Option<&str>,
-    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
+    probes: &crate::core::task::ProbeMap,
 ) -> ExecutionPlan {
     // FJ-1210: Apply moved blocks — rename resource keys in lock state
     let locks = moved::apply_moved_blocks(&config.moved, locks);
@@ -217,7 +217,7 @@ fn determine_action(
     resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
-    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
+    probes: &crate::core::task::ProbeMap,
 ) -> PlanAction {
     let state = resource
         .state
@@ -321,7 +321,7 @@ fn determine_present_action(
     resource: &Resource,
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
-    probes: &std::collections::HashMap<String, crate::core::task::IoDigest>,
+    probes: &crate::core::task::ProbeMap,
 ) -> PlanAction {
     // FJ-2725 (PMAT-199): a phony resource that reaches the planner was named
     // as an explicit goal — `strip_unrequested_phony` removed every other one
@@ -354,7 +354,11 @@ fn determine_present_action(
     // — only the filesystem knows it must re-run. Checked before the hash
     // comparison because a stale artifact is a correctness bug, not a
     // preference.
-    if let Some(probe) = probes.get(resource_id) {
+    //
+    // forjar#499: the map is keyed by (machine, resource). A digest taken on
+    // this host answers for this host's rows only; a row on a machine the
+    // probe did not visit finds nothing here and keeps config-hash planning.
+    if let Some(probe) = probes.get(machine_name, resource_id) {
         let stored_in = rl.details.get("input_hash").and_then(|v| v.as_str());
         let stored_out = rl.details.get("output_hash").and_then(|v| v.as_str());
         if let Some(reason) = crate::core::task::staleness_reason(probe, stored_in, stored_out) {

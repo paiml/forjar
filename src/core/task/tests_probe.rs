@@ -278,3 +278,46 @@ fn an_undeclared_non_ambient_change_is_still_not_stale() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// forjar#499: a digest is recorded under the machine it answers for and no
+/// other. A task on `[here, there]` with only `here` on this host is probed
+/// once and keyed once — `there` finds nothing and keeps config-hash planning.
+#[test]
+fn a_probe_is_keyed_by_the_machine_it_answers_for() {
+    let mut resources = indexmap::IndexMap::new();
+    let mut r = task_with(&["src/a.c"], &["build/a.o"], Some("/proj"));
+    r.machine =
+        crate::core::types::MachineTarget::Multiple(vec!["here".to_string(), "there".to_string()]);
+    resources.insert("t".to_string(), r);
+
+    let probed = probe_all(&resources, |m| m == "here");
+
+    assert!(
+        probed.get("here", "t").is_some(),
+        "this host's row is probed"
+    );
+    assert!(
+        probed.get("there", "t").is_none(),
+        "a digest taken here answers for nothing there"
+    );
+    assert_eq!(probed.len(), 1);
+    assert!(!probed.is_empty());
+}
+
+/// Two machine names that are both this host share the one digest: the
+/// controller's tree is the tree for both, and probing it twice would only
+/// read the same files again.
+#[test]
+fn two_machines_this_host_answers_for_share_one_digest() {
+    let mut resources = indexmap::IndexMap::new();
+    let mut r = task_with(&["src/a.c"], &["build/a.o"], Some("/proj"));
+    r.machine =
+        crate::core::types::MachineTarget::Multiple(vec!["here".to_string(), "also".to_string()]);
+    resources.insert("t".to_string(), r);
+
+    let probed = probe_all(&resources, |_| true);
+
+    assert_eq!(probed.len(), 2);
+    assert_eq!(probed.get("here", "t"), probed.get("also", "t"));
+    assert!(probed.get("elsewhere", "t").is_none());
+}

@@ -19,9 +19,7 @@
 //! config, the changes and the probe map the planner was handed, and nothing
 //! else: no filesystem, no transport.
 
-use std::collections::HashMap;
-
-use crate::core::task::{declares_inputs, probe_covers, IoDigest};
+use crate::core::task::{declares_inputs, probe_covers, ProbeMap};
 use crate::core::types::{ForjarConfig, PlanAction, PlannedChange, Resource, UnprobedResource};
 
 /// Name every converged resource whose declared build I/O this plan did not
@@ -39,7 +37,7 @@ use crate::core::types::{ForjarConfig, PlanAction, PlannedChange, Resource, Unpr
 pub(super) fn census(
     config: &ForjarConfig,
     changes: &[PlannedChange],
-    probes: &HashMap<String, IoDigest>,
+    probes: &ProbeMap,
 ) -> Vec<UnprobedResource> {
     changes
         .iter()
@@ -67,28 +65,27 @@ fn declares_build_io(resource: &Resource) -> bool {
 /// Why no probe stands behind this (resource, machine), or `None` when one
 /// does.
 ///
-/// The machine is asked FIRST, through the same predicate the probe itself
-/// uses (`probe_covers`, one definition). The probe map is keyed by resource
-/// id alone, so a resource declared on both a local and a remote machine
-/// carries the local probe's answer under its id — that answer says nothing
-/// about the remote machine's tree, and the remote row is named here even
-/// though the map has an entry. The second arm covers a probe the caller
-/// could have taken and did not: an older caller passing an empty map, or a
+/// The map decides, alone. It is keyed by (machine, resource) since
+/// forjar#499, so an entry is a digest of THAT machine's tree and nothing
+/// else. `probe_covers` (one definition, shared with the probe) only words
+/// the reason: a machine this host does not answer for was skipped on
+/// purpose; a machine it does answer for with no entry is a probe the caller
+/// could have taken and did not — an older caller passing an empty map, or a
 /// digest that came back empty and was dropped.
 fn unprobed_reason(
     config: &ForjarConfig,
     resource_id: &str,
     machine: &str,
-    probes: &HashMap<String, IoDigest>,
+    probes: &ProbeMap,
 ) -> Option<String> {
-    if !probe_covers(config, machine) {
-        return Some(format!(
-            "this host does not answer for machine {machine}, so the declared \
-             inputs and artifacts of {resource_id} were not measured"
-        ));
+    if probes.get(machine, resource_id).is_some() {
+        return None;
     }
-    if !probes.contains_key(resource_id) {
+    if probe_covers(config, machine) {
         return Some(format!("no probe was taken for {resource_id} on {machine}"));
     }
-    None
+    Some(format!(
+        "this host does not answer for machine {machine}, so the declared \
+         inputs and artifacts of {resource_id} were not measured"
+    ))
 }

@@ -195,10 +195,9 @@ fn a_probed_task_is_not_named() {
     assert!(plan.unprobed.is_empty(), "{:#?}", plan.unprobed);
 }
 
-/// The probe map is keyed by resource id alone, so a resource on both a
-/// local and a remote machine carries the local probe's answer under its id.
-/// That answer says nothing about the remote tree: the remote row is named,
-/// the local row is not, and neither action moves.
+/// forjar#499: the probe map is keyed by (machine, resource), so the probe
+/// taken on this host answers for `box` alone. The remote row is named, the
+/// local row is not, and with the input unmoved neither action moves.
 #[test]
 fn a_local_probe_says_nothing_about_a_remote_machine() {
     let wd = WorkDir::new("mixed");
@@ -232,7 +231,13 @@ fn an_empty_probe_map_on_a_local_machine_is_disclosed_too() {
     let config = config("box", &wd.path());
     let locks = converged_locks(&config, |_| HashMap::new());
 
-    let plan = super::plan_with_probes(&config, &order(), &locks, None, &HashMap::new());
+    let plan = super::plan_with_probes(
+        &config,
+        &order(),
+        &locks,
+        None,
+        &crate::core::task::ProbeMap::default(),
+    );
 
     assert_eq!(action_of(&plan, "build", "box"), PlanAction::NoOp);
     assert_eq!(plan.unprobed.len(), 1, "{:#?}", plan.unprobed);
@@ -283,4 +288,44 @@ fn the_probe_coverage_predicate_has_one_definition() {
         !EXECUTOR.contains(raw) && !CENSUS.contains(raw),
         "a second inlined copy is how the probe and the census drift apart"
     );
+}
+
+/// forjar#499. The probe is taken on THIS host, so it answers for `box` and
+/// says nothing about `far`. A local input that moved must plan `Update` on
+/// the local row only; the remote row keeps the config-hash answer, `NoOp`,
+/// and is named. Before the fix the map was keyed by resource id alone and
+/// the remote row planned `Update` from the local probe — a correct hash of
+/// the wrong tree.
+#[test]
+fn a_stale_local_probe_does_not_plan_the_remote_row() {
+    let wd = WorkDir::new("mixed-stale");
+    let config = config("[box, far]", &wd.path());
+    let io = recorded_io(&config);
+    let locks = converged_locks(&config, |id| {
+        if id == "build" {
+            io.clone()
+        } else {
+            HashMap::new()
+        }
+    });
+    std::fs::write(wd.0.join("src.txt"), "v2\n").expect("mutate input");
+
+    let plan = plan(&config, &order(), &locks, None);
+
+    assert_eq!(
+        action_of(&plan, "build", "box"),
+        PlanAction::Update,
+        "the local row saw its declared input move"
+    );
+    assert_eq!(
+        action_of(&plan, "build", "far"),
+        PlanAction::NoOp,
+        "the remote tree was never read; the local probe must not answer for it"
+    );
+    let named: Vec<(&str, &str)> = plan
+        .unprobed
+        .iter()
+        .map(|u| (u.resource_id.as_str(), u.machine.as_str()))
+        .collect();
+    assert_eq!(named, vec![("build", "far")], "{:#?}", plan.unprobed);
 }

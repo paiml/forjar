@@ -293,8 +293,13 @@ fn e01_editing_one_identity_field_replans_as_update() {
         edit(&mut new);
 
         let locks = converged_lock(rtype.clone(), hash_desired_state(&old));
-        let action =
-            super::determine_action("r", &new, "m1", &locks, &std::collections::HashMap::new());
+        let action = super::determine_action(
+            "r",
+            &new,
+            "m1",
+            &locks,
+            &crate::core::task::ProbeMap::default(),
+        );
         if action != PlanAction::Update {
             silent.push(format!("{field} ({rtype}) -> {action:?}"));
         }

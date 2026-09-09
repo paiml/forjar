@@ -28,9 +28,9 @@
 //!
 //! # Purity
 //!
-//! The planner stays pure. It receives an already-computed `HashMap<String,
-//! IoDigest>` and never touches the filesystem or a transport, so its unit
-//! tests just construct the map.
+//! The planner stays pure. It receives an already-computed [`ProbeMap`],
+//! keyed by (machine, resource id), and never touches the filesystem or a
+//! transport, so its unit tests just construct the map.
 
 use super::ambient::{declares_inputs, hash_declared_inputs};
 use super::output_hash::hash_outputs_with;
@@ -59,6 +59,49 @@ impl IoDigest {
     /// True when this resource declares nothing to track.
     pub fn is_empty(&self) -> bool {
         self.input_hash.is_none() && self.output_hash.is_none() && !self.outputs_missing
+    }
+}
+
+/// The build-I/O probes a plan may consult, keyed by (machine, resource id).
+///
+/// forjar#499. The map was keyed by resource id alone, so a task declared on
+/// `[box, far]` carried the probe taken on this host under one key and the
+/// planner read it for BOTH rows — the far row planned from a hash of the
+/// wrong tree, invisible because the number was a correct hash of the wrong
+/// files. A digest now answers only for the machine it was taken on: a
+/// lookup for a (machine, resource) the probe never visited returns nothing,
+/// and the planner falls back to config-hash planning for that row and names
+/// it in the `unprobed` census.
+///
+/// One map per machine rather than a `(String, String)` key, so a lookup by
+/// two `&str` allocates nothing in the planner's inner loop.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProbeMap {
+    by_machine: HashMap<String, HashMap<String, IoDigest>>,
+}
+
+impl ProbeMap {
+    /// Record `digest` as the probe of `resource_id` on `machine`.
+    pub fn insert(&mut self, machine: &str, resource_id: &str, digest: IoDigest) {
+        self.by_machine
+            .entry(machine.to_string())
+            .or_default()
+            .insert(resource_id.to_string(), digest);
+    }
+
+    /// The probe of `resource_id` taken on `machine`, if one was.
+    pub fn get(&self, machine: &str, resource_id: &str) -> Option<&IoDigest> {
+        self.by_machine.get(machine)?.get(resource_id)
+    }
+
+    /// True when no (machine, resource) was probed.
+    pub fn is_empty(&self) -> bool {
+        self.by_machine.values().all(HashMap::is_empty)
+    }
+
+    /// The number of (machine, resource) pairs probed.
+    pub fn len(&self) -> usize {
+        self.by_machine.values().map(HashMap::len).sum()
     }
 }
 
@@ -154,27 +197,31 @@ pub fn resolve_under(base: &Path, path: &str) -> PathBuf {
 
 /// Probe every resource that declares build I/O.
 ///
-/// `is_local` decides whether a resource's machine is on this host. Resources
-/// on remote machines are SKIPPED rather than probed: hashing the controller's
-/// filesystem for a remote target would compare the wrong tree and silently
-/// produce wrong build decisions. Skipping preserves today's behaviour for
-/// them (config-hash planning) instead of inventing a wrong answer.
-pub fn probe_all<F>(
-    resources: &indexmap::IndexMap<String, Resource>,
-    is_local: F,
-) -> HashMap<String, IoDigest>
+/// `is_local` decides whether a machine is on this host. A resource is probed
+/// once, on the controller, and the digest is recorded under EVERY machine of
+/// that resource `is_local` admits — they are all this host's tree. Machines
+/// it refuses get no entry: hashing the controller's filesystem for a remote
+/// target would compare the wrong tree and silently produce wrong build
+/// decisions, so those rows keep config-hash planning and the planner names
+/// them (forjar#497, forjar#499).
+pub fn probe_all<F>(resources: &indexmap::IndexMap<String, Resource>, is_local: F) -> ProbeMap
 where
     F: Fn(&str) -> bool,
 {
-    let mut out = HashMap::new();
+    let mut out = ProbeMap::default();
     for (id, resource) in resources {
-        if !resource.machine.iter().any(&is_local) {
+        let local: Vec<&str> = resource.machine.iter().filter(|m| is_local(m)).collect();
+        if local.is_empty() {
             continue;
         }
-        if let Some(d) = probe_resource(resource) {
-            if !d.is_empty() {
-                out.insert(id.clone(), d);
-            }
+        let Some(digest) = probe_resource(resource) else {
+            continue;
+        };
+        if digest.is_empty() {
+            continue;
+        }
+        for machine in local {
+            out.insert(machine, id, digest.clone());
         }
     }
     out
@@ -275,7 +322,7 @@ pub fn record_io_hashes(
 /// Resources MUST be resolved first: `working_dir` is routinely
 /// `{{params.proj}}`, and probing the raw form makes every artifact look
 /// missing.
-pub fn probe_config(config: &crate::core::types::ForjarConfig) -> HashMap<String, IoDigest> {
+pub fn probe_config(config: &crate::core::types::ForjarConfig) -> ProbeMap {
     let resolved = crate::core::resolver::resolve_all(
         &config.resources,
         &config.params,
