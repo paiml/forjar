@@ -13,6 +13,7 @@ pub mod handlers_ops;
 pub mod handlers_remediate;
 pub mod handlers_state;
 pub mod paths;
+pub mod plan_output_types;
 pub mod registry;
 pub mod types;
 pub mod types_ops;

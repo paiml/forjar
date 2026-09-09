@@ -189,6 +189,13 @@ fn preview_scoped_plan(
         );
     }
     println!("\n{shown} reviewed change(s). No changes applied.");
+    // forjar#497: the sealed body carries the census the planner took, so the
+    // preview of that body says what the plan did not MEASURE — otherwise this
+    // is the one plan surface where a reviewer reads `=` beside a resource
+    // nothing looked at. Same value function as `print_plan`.
+    if let Some(msg) = super::print_helpers::unprobed_disclosure(&plan.unprobed) {
+        println!("\n{msg}");
+    }
 }
 
 /// Converge exactly the `(machine, resource)` pairs the reviewed plan named,

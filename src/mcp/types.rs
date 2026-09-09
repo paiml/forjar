@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 // exactly ONE path a consumer imports.
 pub use super::types_ops::*;
 
+// forjar#497: the rows `PlanOutput` is built out of live in
+// `plan_output_types.rs` for the same 500-line cap. Same rule: one import path.
+pub use super::plan_output_types::{PlannedChangeOutput, UnprobedOutput};
+
 // ── Input / Output types ────────────────────────────────────────────
 
 /// MCP validate handler input.
@@ -71,25 +75,18 @@ pub struct PlanOutput {
     /// lock-relative for whatever is listed here. Always present, including
     /// empty, so a consumer can tell "nothing skipped" from "an older binary".
     pub unattended_skipped: Vec<String>,
+    /// forjar#497: the converged resources whose declared build inputs or
+    /// artifacts this plan did not measure, per (resource, machine), with a
+    /// reason. Always present, including empty, so a consumer can tell
+    /// "everything was measured" from "an older binary".
+    pub unprobed: Vec<UnprobedOutput>,
     /// The prose form of the disclosure. Present iff there is something to
     /// disclose — `unconsulted_observations` is non-zero, or
-    /// `unattended_skipped` is non-empty, or both. Names `forjar drift` as the
-    /// command that can answer the question this report cannot.
+    /// `unattended_skipped` is non-empty, or `unprobed` is non-empty, or any
+    /// combination. Names `forjar drift` as the command that can answer the
+    /// question this report cannot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<String>,
-}
-
-/// A single planned resource change.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct PlannedChangeOutput {
-    /// Resource identifier.
-    pub resource_id: String,
-    /// Target machine name.
-    pub machine: String,
-    /// Planned action (create, update, destroy).
-    pub action: String,
-    /// Human-readable change description.
-    pub description: String,
 }
 
 /// MCP drift handler input.

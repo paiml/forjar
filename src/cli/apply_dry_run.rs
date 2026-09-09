@@ -97,6 +97,13 @@ pub(super) fn render_dry_run_actions(plan: &types::ExecutionPlan) -> String {
         "\n{} to add, {} to change, {} to destroy, {} unchanged. No changes applied.",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
+    // forjar#497: a dry run is a plan surface, and the summary line above is
+    // exactly the sentence that reads as "nothing is wrong" for a resource
+    // nothing measured. Same value function as `print_plan`, so the two cannot
+    // word it differently.
+    if let Some(msg) = super::print_helpers::unprobed_disclosure(&plan.unprobed) {
+        let _ = writeln!(out, "\n{msg}");
+    }
     out
 }
 
@@ -124,5 +131,8 @@ pub(super) fn render_dry_run_json(plan: &types::ExecutionPlan) -> serde_json::Va
         "to_destroy": plan.to_destroy,
         "unchanged": plan.unchanged,
         "changes": changes,
+        // forjar#497: TOTAL, like every other census this repo publishes — `[]`
+        // says "everything was measured", an absent key says "older binary".
+        "unprobed": plan.unprobed,
     })
 }

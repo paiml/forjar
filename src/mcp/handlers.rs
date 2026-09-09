@@ -141,9 +141,24 @@ impl Handler for PlanHandler {
         // forjar#372: the two blind spots compose into the one string a
         // consumer reads — what this plan did not CONSULT, and what it did not
         // EXECUTE.
+        // forjar#497: and the third — what this plan did not MEASURE. Three
+        // blind spots, still one string, because "read `disclosure`" must stay
+        // a complete instruction for an agent.
+        let unprobed: Vec<UnprobedOutput> = exec_plan
+            .unprobed
+            .iter()
+            .map(|u| UnprobedOutput {
+                resource_id: u.resource_id.clone(),
+                machine: u.machine.clone(),
+                reason: u.reason.clone(),
+            })
+            .collect();
         let disclosure = crate::core::unattended::merge_disclosures(
-            crate::cli::scope_disclosure_for_mcp(unconsulted),
-            crate::core::unattended::disclosure(&unattended_skipped),
+            crate::core::unattended::merge_disclosures(
+                crate::cli::scope_disclosure_for_mcp(unconsulted),
+                crate::core::unattended::disclosure(&unattended_skipped),
+            ),
+            crate::cli::unprobed_disclosure_for_mcp(&exec_plan.unprobed),
         );
         Ok(PlanOutput {
             to_create: exec_plan.to_create,
@@ -154,6 +169,7 @@ impl Handler for PlanHandler {
             lock_relative: true,
             unconsulted_observations: unconsulted,
             unattended_skipped,
+            unprobed,
             disclosure,
         })
     }
