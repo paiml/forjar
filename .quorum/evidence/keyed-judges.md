@@ -24,7 +24,7 @@
 - evidence: the orchestrator's `wc -l`: src/core/planner/mod.rs 488, src/core/task/probe.rs 352, src/core/planner/unprobed.rs 91; clippy `--all-targets -D warnings` exit 0 on the final tree. All three lanes confirmed.
 
 8. [risk] NO CONFIG PLANS WORSE, ONE PLANS DIFFERENTLY — two machine names that are both this host share the one digest; the only shape that changes is a machine alias this host answers for that `probe_covers` misses, which now keeps config-hash planning AND is named where before it planned Update through the id key.
-- evidence: lane 3 named the alias case under C9 and lanes 1–2 found none; the orchestrator judged it the intended trade — src/core/task/probe.rs:224 records only what was measured, and src/core/planner/unprobed.rs:84 names the rest. The predicate's coverage is forjar#485/#495's concern, unchanged by this diff.
+- evidence: lane 3 named the alias case under C9 and lanes 1–2 found none; the orchestrator judged it the intended trade — src/core/task/probe.rs:224 records only what was measured, and src/core/planner/unprobed.rs:84 names the rest. The predicate's coverage belongs to forjar#485/#495 and this diff leaves it alone.
 
 9. [paths] EVERY PLAN PATH STILL PROBES — `plan()` builds the map through `probe_config` and the executor's pre-plan probe builds its own from resolved resources; no dry-run, plan-file, MCP or verb path lost its map, so nothing is newly named as unprobed.
 - evidence: the forjar#497 suites re-run green by the orchestrator (`falsification_planner_names_what_it_did_not_probe` 6 passed, `falsification_plan_json_discloses_its_blind_spot` 5 passed); lane 1 grepped every `plan_with_probes` caller. All three lanes confirmed.

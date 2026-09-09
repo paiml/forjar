@@ -1,0 +1,88 @@
+# reduced from gate-ws.log — 2694528 bytes, sha256 8e3c4b514b27a98b046a55fa4ce91fcbe79c45886d679713c56d5d67416b8198; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8m 35s
+     Running unittests src/lib.rs (target/debug/deps/forjar-3e5fad37e7813a84)
+
+running 13515 tests
+test api::tests::a_fully_fresh_resource_reports_no_reason ... ok
+test api::tests::changed_inputs_are_reported ... ok
+test api::tests::every_promised_item_is_reachable_through_the_api_module ... ok
+test api::tests::outputs_missing_is_checked_before_any_hash_comparison ... ok
+test cli::apply_from_plan::tests_apply_from_plan::the_default_knobs_request_nothing ... ok
+test api::tests::a_missing_baseline_means_rebuild_not_fresh ... ok
+test cli::apply_from_plan::tests_apply_from_plan::prepare_config_reports_a_missing_file_rather_than_panicking ... ok
+test cli::apply_from_plan::tests_apply_from_plan::every_action_has_a_distinct_sigil ... ok
+test api::tests::the_supported_surface_stays_small ... FAILED
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_create_relabelled_as_a_no_op_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_filtered_plan_that_is_stale_says_which_filters_were_used ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_deleted_pending_line_is_refused_even_beside_an_honest_no_op ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_deleted_line_out_of_a_still_busy_plan_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_filtered_empty_plan_discloses_over_any_world ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_machine_the_plan_names_narrows_it ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_pair_naming_no_configured_resource_survives_nothing ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_machine_the_plan_only_no_ops_is_not_in_scope ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_machine_outside_the_plan_is_an_error_naming_what_is_covered ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_group_the_plan_covers_narrows_it_and_one_it_does_not_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_plan_narrower_than_the_config_is_honoured_under_its_own_selectors ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_pair_the_planner_does_not_produce_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_plan_apply_with_no_replanning_flags_is_not_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_resource_the_plan_names_narrows_it ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_resource_outside_the_plan_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_rewritten_description_is_refused_even_with_the_action_honest ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_sealed_plan_may_legitimately_report_no_changes ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_rewritten_resource_type_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_empty_body_is_refused_when_the_planner_still_has_work ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_empty_body_over_a_world_of_no_ops_is_honoured ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_tag_the_plan_covers_narrows_it_and_one_it_does_not_is_refused ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_empty_body_over_an_empty_world_is_honoured ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_honest_converged_plan_is_honoured ... ok
+## verdict lines
+thread 'api::tests::the_supported_surface_stays_small' (3098964) panicked at src/tests_api.rs:154:5:
+test result: FAILED. 13510 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 64.76s
+error: test failed, to rerun pass `-p forjar --lib`
+WS_EXIT=101
+## tail
+test core::executor::tests_edge_details::baseline_transport::a_remote_file_baseline_is_never_the_controllers_copy_of_that_path ... ok
+test core::executor::tests_edge_details::baseline_transport::an_unreachable_target_records_no_baseline_rather_than_a_wrong_one ... ok
+test cli::tests_cov_notify_c::tests::test_doctor_network_ssh_key ... ok
+test mcp::tests_drift_e05::drift_over_an_unreachable_machine_must_not_answer_clean ... ok
+test transport::tests_dispatch_b::test_fj132_timeout_zero_seconds_fails ... ok
+test cli::tests_store_import::tests::import_cargo_no_version ... ok
+test cli::tests_store_import::tests::import_docker_json ... ok
+test cli::tests_store_import::tests::import_mixed_case_provider ... ok
+test resources::nas_archive::tests::a_destination_that_does_not_match_is_never_deleted_from ... ok
+test resources::nas_archive::tests::an_archived_directory_is_verified_then_replaced_by_a_symlink ... ok
+test resources::nas_archive::tests::a_large_tree_with_a_few_small_files_is_archived ... ok
+test resources::nas_archive::tests::a_handful_of_small_files_is_not_refused ... ok
+test resources::nas_archive::tests::a_second_pass_is_a_no_op ... ok
+test core::dogfood::tests::exercised_types_all_have_a_real_exercise ... ok
+test core::store::tests_mutation_runner::dispatch_container_backend_available ... ok
+test core::store::tests_convergence_runner::dispatch_container_backend ... ok
+test core::store::tests_container_build::build_plan_layer_adjustment ... ok
+test core::store::tests_container_build::build_without_base_image_uses_default ... ok
+test core::store::tests_container_build::build_image_creates_oci_layout ... ok
+test core::store::tests_container_build::build_with_multiple_scripts ... ok
+test core::store::tests_container_build::build_with_empty_scripts ... ok
+
+failures:
+
+---- api::tests::the_supported_surface_stays_small stdout ----
+
+thread 'api::tests::the_supported_surface_stays_small' (3098964) panicked at src/tests_api.rs:154:5:
+assertion `left == right` failed: the supported surface is 12 items (7 functions + 5 types). Changing it is a semver decision: update this number deliberately, with a changelog entry, not to make the 
+  left: 8
+ right: 12
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    api::tests::the_supported_surface_stays_small
+
+test result: FAILED. 13510 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 64.76s
+
+error: test failed, to rerun pass `-p forjar --lib`
+WS_EXIT=101

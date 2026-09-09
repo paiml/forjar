@@ -1,0 +1,88 @@
+# reduced from red-bin.log — 2303 bytes, sha256 3ec857e561321f5569e55418c66d8e17b950ef442c91f877df0e41c4e2a5a390; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.81s
+     Running tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_probe_answers_for_the_tree_it_was_taken_on-e1c7b1c134af13a9)
+
+running 2 tests
+test a_stale_local_probe_moves_only_the_row_it_measured ... FAILED
+test a_fresh_local_probe_still_says_nothing_about_the_remote_row ... ok
+
+failures:
+
+---- a_stale_local_probe_moves_only_the_row_it_measured stdout ----
+
+thread 'a_stale_local_probe_moves_only_the_row_it_measured' (2876221) panicked at tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs:188:5:
+assertion `left == right` failed: the remote tree was never read; a probe taken on this host must not answer for it — that is a correct hash of the wrong tree.
+{
+  "name": "keyed",
+  "to_create": 0,
+  "to_update": 2,
+  "to_destroy": 0,
+  "unchanged": 0,
+  "execution_order": [
+    "build"
+  ],
+  "changes": [
+    {
+      "resource_id": "build",
+      "machine": "box",
+      "resource_type": "task",
+      "action": "update",
+      "description": "build: update (state changed)"
+    },
+    {
+      "resource_id": "build",
+      "machine": "far",
+      "resource_type": "task",
+      "action": "update",
+      "description": "build: update (state changed)"
+    }
+## verdict lines
+thread 'a_stale_local_probe_moves_only_the_row_it_measured' (2876221) panicked at tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs:188:5:
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+error: test failed, to rerun pass `--test falsification_probe_answers_for_the_tree_it_was_taken_on`
+BIN_EXIT=101
+## tail
+  "to_create": 0,
+  "to_update": 2,
+  "to_destroy": 0,
+  "unchanged": 0,
+  "execution_order": [
+    "build"
+  ],
+  "changes": [
+    {
+      "resource_id": "build",
+      "machine": "box",
+      "resource_type": "task",
+      "action": "update",
+      "description": "build: update (state changed)"
+    },
+    {
+      "resource_id": "build",
+      "machine": "far",
+      "resource_type": "task",
+      "action": "update",
+      "description": "build: update (state changed)"
+    }
+  ],
+  "lock_relative": true,
+  "unconsulted_observations": 2,
+  "unprobed": [],
+  "disclosure": "This plan is lock-relative: it compares the config to the lock, and did not\ncontact any machine. 2 locked resource(s) carry state observed on a\ntarget that this plan did not consult
+}
+  left: "update"
+ right: "no_op"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_stale_local_probe_moves_only_the_row_it_measured
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test falsification_probe_answers_for_the_tree_it_was_taken_on`
+BIN_EXIT=101

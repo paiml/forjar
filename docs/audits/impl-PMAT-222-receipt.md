@@ -18,6 +18,29 @@ verdict: DONE — the probe map is keyed by (machine, resource id); a digest ans
 | status-line join | `[U]` — statusLine `session_id` = hook `session_id`, `tasks[].id` = hook `agent_id`, `transcript_path` on subagentStatusLine stdin: not measured this run; every dispatch was declared with `goal.sh worker` first and every Agent description began with `PMAT-222/ph<i>` |
 | k_measured vs global | `k_measured_at_set=186`; at the receipt commit see the estimates table; `global` = the difference; gap 0 by construction (both from the transcript, distinct assistant ids) |
 
+orch_model: fable [A]   orch_class: code   orch_decision: admit   orch_basis: M>=3
+fable_binding: true   quota_age_h: absent   quota_mark: ?   k_measured_at_set: 186
+
+routes:
+  ph0  class=orchestration  route=self  w=100.00  basis=absent  (run at receipt time)
+  ph1  class=cross  route=agy-goal  w=1.00  basis=quota.json@49h  effort=1[U]  (overridden to direct: agy write lanes barred by the recorded hazard)
+  ph1.grill  class=plan  route=agy-plan  w=1.00  basis=quota.json@49h  effort=1[U]  (delegate teamwork, read-only)
+  ph2  class=mechanical  route=agy-goal  w=1.00  basis=absent  note=fable-binding  effort=1[U]  (run at receipt time; overridden to direct, one file)
+  ph3  class=review  route=agy-quorum  w=1.00  basis=quota.json@50h  effort=1[U]  (delegate quorum width 3)
+  ph4  class=orchestration  route=self  w=100.00  basis=absent
+
+verification:
+  cmd="cargo test --test falsification_probe_answers_for_the_tree_it_was_taken_on (pre-fix tree)"  claimed_exit=-  rerun_exit=101  log_path=docs/audits/logs/PMAT-222-red-binary.log  sha256=bccfd029d1297421
+  cmd="cargo test --lib -- planner::tests_unprobed (pre-fix tree)"  claimed_exit=-  rerun_exit=101  log_path=docs/audits/logs/PMAT-222-red-lib.log  sha256=fbde561406954d79
+  cmd="cargo test --test falsification_probe_answers_for_the_tree_it_was_taken_on; the two forjar#497 suites (fixed tree)"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-222-green-binary-and-497.log  sha256=5d5d435f13f7317b
+  cmd="cargo test --lib -- planner task::tests_probe tests_api; cargo clippy --all-targets -- -D warnings"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-222-green-lib-clippy.log  sha256=10e17df5ee76f912
+  cmd="cargo test --lib -- api::tests; cargo clippy --all-targets -- -D warnings (after the re-export line)"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-222-green-api-tests-clippy.log  sha256=0e767c9f78e39f9d
+  cmd="bash scripts/dogfood/contracts.sh"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-222-gate-G.log  sha256=543a0b7d2964db22
+  cmd="cargo test --workspace at 3d8a1606"  claimed_exit=0(lanes, by reading)  rerun_exit=101  log_path=docs/audits/logs/PMAT-222-workspace-red.log  sha256=73a2a6f4b8a37daa
+  cmd="cargo test --workspace at 00343bd7"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-222-workspace-green.log  sha256=df39063f848c72f8
+
+Each log under docs/audits/logs/ is the reduced form (head, verdict lines, tail) of the full log, whose byte count and sha256 are on its first line.
+
 ## The defect and the fix
 
 `probe_all` inserted one `IoDigest` per RESOURCE ID, taken on the controller, for any resource with at least one machine this host answers for; `determine_present_action` read it by resource id for every (resource, machine) row it planned. A task on `[box, far]` carried the controller's probe for the far row: local inputs stale, far planned `Update` from a hash of the wrong tree; local inputs fresh, far planned `NoOp` with its tree unmeasured — disclosed since forjar#497 only because the census asked the machine predicate BEFORE a map that could not answer per machine. Measured before the fix: the RED test's stale case planned far as `Update` (`left: Update, right: NoOp`).

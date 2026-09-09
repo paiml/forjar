@@ -1,0 +1,87 @@
+# reduced from green2.log — 21734 bytes, sha256 0b9016619cc2d84556d4480f9b5fc17ee887bde9be3b7add3565234fb20b94bf; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.21s
+     Running unittests src/lib.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/forjar-d6a1c9adc308245c)
+
+running 263 tests
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_pair_the_planner_does_not_produce_is_refused ... ok
+test core::planner::minimal_changeset::tests::test_changeset_serde ... ok
+test core::planner::minimal_changeset::tests::test_single_change ... ok
+test core::planner::minimal_changeset::tests::test_no_changes_needed ... ok
+test core::planner::minimal_changeset::tests::test_dependency_propagation ... ok
+test core::planner::minimal_changeset::tests::test_new_resource ... ok
+test core::planner::minimal_changeset::tests::test_verify_minimality_empty ... ok
+test core::planner::minimal_changeset::tests::test_verify_minimality_nonempty ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_empty_body_is_refused_when_the_planner_still_has_work ... ok
+test core::planner::moved::tests::empty_moved_is_clone ... ok
+test core::planner::moved::tests::chained_moves_resolve_in_single_pass_without_clobber ... ok
+test core::planner::moved::tests::simple_rename_preserves_hash_and_status ... ok
+test core::planner::moved::tests::colliding_targets_do_not_overwrite_each_others_source ... ok
+test core::planner::sat_deps::tests::test_all_satisfied_empty ... ok
+test core::planner::sat_deps::tests::test_clause_satisfied ... ok
+test core::planner::sat_deps::tests::test_build_problem_structure ... ok
+test core::planner::moved::tests::validate_accepts_clean_renames ... ok
+test core::planner::moved::tests::validate_rejects_noop_move ... ok
+test core::planner::sat_deps::tests::test_deps_with_unknown_resources ... ok
+test core::planner::moved::tests::validate_rejects_duplicate_from ... ok
+test core::planner::moved::tests::validate_rejects_chained_moves ... ok
+test core::planner::moved::tests::validate_rejects_colliding_to ... ok
+test core::planner::moved::tests::validate_accepts_to_naming_the_renamed_resource ... ok
+test core::planner::sat_deps::tests::test_dpll_backtracking ... ok
+test core::planner::sat_deps::tests::test_empty_clauses_unsat_result ... ok
+test core::planner::sat_deps::tests::test_has_empty_clause ... ok
+test core::planner::sat_deps::tests::test_pick_unassigned_all_assigned ... ok
+test core::planner::sat_deps::tests::test_many_resources_satisfiable ... ok
+test core::planner::sat_deps::tests::test_pick_unassigned_first ... ok
+test core::planner::sat_deps::tests::test_propagate_units_assigns_unit_clause ... ok
+test core::planner::sat_deps::tests::test_sat_result_serde ... ok
+test core::planner::sat_deps::tests::test_satisfiable_diamond ... ok
+test core::planner::sat_deps::tests::test_satisfiable_linear_deps ... ok
+## verdict lines
+test result: ok. 263 passed; 0 failed; 0 ignored; 0 measured; 13252 filtered out; finished in 0.08s
+LIB_EXIT=0
+CLIPPY_EXIT=0
+## tail
+test core::task::tests_probe::a_probe_is_keyed_by_the_machine_it_answers_for ... ok
+test core::task::tests_probe::base_dir_is_working_dir_not_cwd ... ok
+test core::task::tests_probe::changed_inputs_force_rebuild ... ok
+test core::planner::tests_why::tests::test_why_content_field_diff ... ok
+test core::task::tests_probe::missing_output_forces_rebuild ... ok
+test core::task::tests_probe::resource_declaring_no_io_is_not_probed ... ok
+test core::task::tests_probe::remote_resources_are_never_probed ... ok
+test core::task::tests_probe::modified_output_is_detected ... ok
+test core::planner::tests_why_cov::packages_diff_detected ... ok
+test core::planner::tests_hash_completeness::the_reflection_sees_the_fields_e01_measured ... ok
+test core::verus_spec::tests::test_planner_state_handler_invariant ... ok
+test core::verus_spec::tests::test_planner_state_idempotency ... ok
+test core::planner::tests_why_cov::version_diff_detected ... ok
+test core::planner::tests_why_cov::no_field_diffs_generic_message ... ok
+test core::planner::tests_why_cov::path_diff_detected ... ok
+test core::task::tests_probe::two_machines_this_host_answers_for_share_one_digest ... ok
+test core::task::tests_probe::directory_artifact_is_identified_by_existence_not_contents ... ok
+test core::task::tests_probe::unchanged_io_is_not_stale ... ok
+test core::task::tests_probe::mixed_file_and_directory_artifacts_still_track_the_file ... ok
+test core::task::tests_probe::an_undeclared_non_ambient_change_is_still_not_stale ... ok
+test core::planner::tests_why::tests::test_why_no_change ... ok
+test core::task::tests_probe::real_filesystem_roundtrip_detects_content_change ... ok
+test core::planner::tests_unprobed::a_converged_task_on_a_machine_this_host_does_not_answer_for_is_named ... ok
+test core::planner::tests_unprobed::a_task_that_will_run_anyway_is_not_named ... ok
+test core::planner::tests_unprobed::an_empty_probe_map_on_a_local_machine_is_disclosed_too ... ok
+test core::planner::tests_unprobed::the_census_never_changes_the_action ... ok
+test core::planner::tests_unprobed::a_probed_task_is_not_named ... ok
+test core::planner::tests_unprobed::a_stale_local_probe_does_not_plan_the_remote_row ... ok
+test core::planner::tests_unprobed::a_local_probe_says_nothing_about_a_remote_machine ... ok
+test core::planner::tests_hash_completeness::e01_editing_one_identity_field_replans_as_update ... ok
+test core::planner::tests_hash_completeness::every_identity_field_moves_the_desired_state_hash ... ok
+
+test result: ok. 263 passed; 0 failed; 0 ignored; 0 measured; 13252 filtered out; finished in 0.08s
+
+LIB_EXIT=0
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36.42s
+CLIPPY_EXIT=0

@@ -1,0 +1,113 @@
+# reduced from green1.log — 17603 bytes, sha256 420edeaf0800ccd3870acbdd8fa6a03b42b882ef1e864ea8cd65ae44fde5bc26; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.44s
+     Running tests/falsification_probe_answers_for_the_tree_it_was_taken_on.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_probe_answers_for_the_tree_it_was_taken_on-e1c7b1c134af13a9)
+
+running 2 tests
+test a_fresh_local_probe_still_says_nothing_about_the_remote_row ... ok
+test a_stale_local_probe_moves_only_the_row_it_measured ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+
+BIN_EXIT=0
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+error[E0308]: mismatched types
+   --> src/core/planner/tests_determine.rs:15:9
+    |
+ 10 |     let action = determine_action(
+    |                  ---------------- arguments to this function are incorrect
+...
+ 15 |         &std::collections::HashMap::new(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&ProbeMap`, found `&HashMap<_, _>`
+    |
+    = note: expected reference `&ProbeMap`
+               found reference `&std::collections::HashMap<_, _>`
+note: function defined here
+   --> src/core/planner/mod.rs:215:4
+    |
+215 | fn determine_action(
+    |    ^^^^^^^^^^^^^^^^
+...
+220 |     probes: &crate::core::task::ProbeMap,
+    |     ------------------------------------
+
+error[E0308]: mismatched types
+   --> src/core/planner/tests_determine.rs:57:9
+    |
+ 52 |     let action = determine_action(
+## verdict lines
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+BIN_EXIT=0
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error: could not compile `forjar` (lib test) due to 10 previous errors
+LIB_EXIT=101
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+T497_EXIT=0
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error[E0308]: mismatched types
+error: could not compile `forjar` (lib test) due to 10 previous errors
+CLIPPY_EXIT=101
+## tail
+...
+ 90 |         &std::collections::HashMap::new(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&ProbeMap`, found `&HashMap<_, _>`
+    |
+    = note: expected reference `&core::task::probe::ProbeMap`
+               found reference `&std::collections::HashMap<_, _>`
+note: function defined here
+   --> src/core/planner/mod.rs:215:4
+    |
+215 | fn determine_action(
+    |    ^^^^^^^^^^^^^^^^
+...
+220 |     probes: &crate::core::task::ProbeMap,
+    |     ------------------------------------
+
+error[E0308]: mismatched types
+   --> src/core/planner/tests_lifecycle.rs:123:9
+    |
+118 |     let action = determine_action(
+    |                  ---------------- arguments to this function are incorrect
+...
+123 |         &std::collections::HashMap::new(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&ProbeMap`, found `&HashMap<_, _>`
+    |
+    = note: expected reference `&core::task::probe::ProbeMap`
+               found reference `&std::collections::HashMap<_, _>`
+note: function defined here
+   --> src/core/planner/mod.rs:215:4
+    |
+215 | fn determine_action(
+    |    ^^^^^^^^^^^^^^^^
+...
+220 |     probes: &crate::core::task::ProbeMap,
+    |     ------------------------------------
+
+For more information about this error, try `rustc --explain E0308`.
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+error: could not compile `forjar` (lib test) due to 10 previous errors
+warning: build failed, waiting for other jobs to finish...
+CLIPPY_EXIT=101
