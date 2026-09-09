@@ -3,6 +3,13 @@
 use super::test_fixtures::*;
 use super::*;
 
+// forjar#485's cases live in their own file and are declared here rather than
+// in mod.rs, which sits exactly on the 500-line file-health limit. Shrinking an
+// unrelated comment there to make room was refused by review, correctly: the
+// ticket did not ask for it.
+#[path = "tests_baseline_transport.rs"]
+mod baseline_transport;
+
 #[test]
 fn test_fj012_build_details_nonexistent_file_no_hash() {
     // content is set but the file doesn't exist → no content_hash

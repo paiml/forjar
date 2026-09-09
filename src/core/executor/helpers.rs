@@ -129,16 +129,30 @@ pub(crate) fn build_resource_details(
             // never converge being exactly those whose path also exists on the
             // controller.
             //
-            // LOCAL KEEPS `hash_file`, DELIBERATELY. `exec_script` would work —
-            // it dispatches pepita > container > local > ssh — but it hashes
-            // `cat` stdout through `hash_string_or_sentinel`, which is a
-            // different digest identity from `hash_file`'s stream over the raw
-            // bytes (an empty file becomes the sentinel, for one). Switching
-            // the local arm would invalidate every existing local baseline and
-            // report false drift on all of them: the same defect, inverted.
-            // Remote entries have no such claim on us — their recorded value is
-            // a hash of the wrong file.
-            let hash = if transport::machine_is_local(machine) {
+            // LOCAL KEEPS `hash_file`, and the reason is narrower than it
+            // first looked. Review refused a broader claim and measurement
+            // settled it: for ordinary non-empty UTF-8 text the two digests are
+            // IDENTICAL, because both hash the same bytes with no framing.
+            //
+            //     ordinary        file=f92ca07e3206 str=f92ca07e3206 same=true
+            //     no_trailing_nl  file=6437b3ac3846 str=6437b3ac3846 same=true
+            //     empty           file=af1349b9f5f9 str=d70cbc1aa622 same=false
+            //     non_utf8        file=2a7c022c5f18 str=6329f2bdda5d same=false
+            //
+            // So the asymmetry buys exactly two things: an EMPTY file keeps its
+            // real digest instead of the sentinel, and a file with non-UTF-8
+            // bytes keeps its raw-byte digest instead of one taken after
+            // `String::from_utf8_lossy` has replaced them. Every existing local
+            // baseline of those two kinds would otherwise flip to false drift.
+            // Remote entries have no such claim, because their recorded value
+            // is a hash of the wrong file entirely.
+            //
+            // THE PREDICATE IS SHARED WITH DRIFT, not merely similar to it.
+            // `machine_is_local` excludes a container but not a pepita
+            // namespace, so using it here left apply hashing the controller
+            // while drift asked the namespace — the original defect surviving
+            // one transport over, with the two sides now permanently disagreed.
+            let hash = if transport::controller_answers_for(machine) {
                 hasher::hash_file(std::path::Path::new(path)).ok()
             } else {
                 // STRONG contract: `cat` stdout can be empty when the file

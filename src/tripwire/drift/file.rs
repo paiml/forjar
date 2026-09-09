@@ -249,7 +249,7 @@ pub(super) fn detect_drift_impl(
 /// the same name answers about the wrong host, which is forjar#407's defect
 /// shape one transport over (E05 quorum, agy lane).
 pub(super) fn reads_the_controller(m: &Machine) -> bool {
-    crate::transport::is_local_addr(&m.addr)
-        && !m.is_container_transport()
-        && !m.is_pepita_transport()
+    // forjar#485: ONE definition, in transport, shared with the apply path that
+    // writes the baseline this function reads. They disagreed once.
+    crate::transport::controller_answers_for(m)
 }
