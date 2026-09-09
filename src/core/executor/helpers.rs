@@ -110,8 +110,37 @@ pub(crate) fn build_resource_details(
     }
     if resource.content.is_some() {
         if let Some(ref path) = resource.path {
-            let hash = if machine.is_container_transport() {
-                // Read file content via transport for container machines.
+            // ASK THE MACHINE THAT OWNS THE FILE (forjar#485).
+            //
+            // This branched on `is_container_transport()`, which is
+            // `transport == "container" || addr == "container"`. So a CONTAINER
+            // was read through the transport and everything else — INCLUDING
+            // PLAIN SSH — fell to the local arm and hashed THIS host at the
+            // declared path. A fleet resource declaring `/home/<user>/.bashrc`
+            // therefore recorded the WORKSTATION's `.bashrc` as its baseline.
+            //
+            // That is forjar#305's root cause. It was fixed on the READ side —
+            // `tripwire::drift::file::check_file_resource_drift` now dispatches
+            // through the transport — and left here on the WRITE side, so drift
+            // asked the machine for a correct ACTUAL and compared it against an
+            // EXPECTED taken from a third file. The gap never closes: the
+            // operator measured declared and live byte-identical to each other,
+            // the stored expected matching neither, and the resources that
+            // never converge being exactly those whose path also exists on the
+            // controller.
+            //
+            // LOCAL KEEPS `hash_file`, DELIBERATELY. `exec_script` would work —
+            // it dispatches pepita > container > local > ssh — but it hashes
+            // `cat` stdout through `hash_string_or_sentinel`, which is a
+            // different digest identity from `hash_file`'s stream over the raw
+            // bytes (an empty file becomes the sentinel, for one). Switching
+            // the local arm would invalidate every existing local baseline and
+            // report false drift on all of them: the same defect, inverted.
+            // Remote entries have no such claim on us — their recorded value is
+            // a hash of the wrong file.
+            let hash = if transport::machine_is_local(machine) {
+                hasher::hash_file(std::path::Path::new(path)).ok()
+            } else {
                 // STRONG contract: `cat` stdout can be empty when the file
                 // is empty or not yet present — use the sentinel wrapper.
                 let script = format!("cat '{path}'");
@@ -119,9 +148,6 @@ pub(crate) fn build_resource_details(
                     .ok()
                     .filter(|out| out.success())
                     .map(|out| hasher::hash_string_or_sentinel(&out.stdout))
-            } else {
-                // Local filesystem hash
-                hasher::hash_file(std::path::Path::new(path)).ok()
             };
             if let Some(h) = hash {
                 details.insert("content_hash".to_string(), serde_yaml_ng::Value::String(h));

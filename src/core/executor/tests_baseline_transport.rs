@@ -97,7 +97,7 @@ fn an_unreachable_target_records_no_baseline_rather_than_a_wrong_one() {
     let details = build_resource_details(&resource, &remote_machine());
 
     assert!(
-        details.get("content_hash").is_none(),
+        !details.contains_key("content_hash"),
         "a baseline that could not be read is ABSENT, not guessed. Absent makes \
          `locked_file_target` return None and the file path decline to judge, \
          which is honest; a wrong one produces a confident verdict about a file \
