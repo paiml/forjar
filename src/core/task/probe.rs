@@ -286,6 +286,10 @@ pub fn probe_config(config: &crate::core::types::ForjarConfig) -> HashMap<String
         config
             .machines
             .get(m)
-            .is_some_and(crate::transport::machine_is_local)
+            // forjar#495: NOT `machine_is_local`, which admits a pepita
+            // namespace. This probe hashes declared inputs and outputs on the
+            // CONTROLLER; for a namespaced machine those files live inside the
+            // namespace, so measuring here answers about the wrong host.
+            .is_some_and(crate::transport::controller_answers_for)
     })
 }

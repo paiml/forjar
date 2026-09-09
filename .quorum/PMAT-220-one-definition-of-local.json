@@ -1,0 +1,121 @@
+{
+ "issue": "PMAT-220 (forjar#495) — the build-IO probe, the pre-plan probe and output verification decided whether they could read THIS host's filesystem on a machine's behalf using machine_is_local, which excludes a container and not a pepita namespace; a namespace has its own rootfs, so they measured the wrong filesystem and reported the answer as the target's",
+ "quorum": {
+  "lanes": [
+   "review lane 1",
+   "review lane 2",
+   "review lane 3",
+   "orchestrator rerun of every command and every mutation"
+  ],
+  "refuters_per_claim": 3,
+  "judges": 3,
+  "kill_rule": "three lanes disagreed about whether the probe change was a regression; settling that disagreement rather than counting lanes is what located a defect older than this ticket",
+  "rounds": "three sandboxed plan lanes on d14ffaaf...832cde42, base pinned by SHA: 3 FAIL, partial=false. Four claims confirmed by all three, two refuted, one of the refutations found three separate ways.",
+  "claims_confirmed": 3,
+  "claims_refuted": 3,
+  "refuted_claims": [
+   "The rule named three files, so a fourth controller-side read added anywhere else would have stayed green — vacuous against exactly what it exists to prevent. It sweeps all of src/ now with one file exempt by name; measured, the same call added to src/core/state/reconstruct.rs is reported by name.",
+   "The rule read its own explanation twice over: comment stripping covered whole lines only, leaving a trailing comment and a block comment as doors, and the ordering check compared string positions, which a binding above the early returns would satisfy while changing what the code does. All three comment forms are stripped now and each predicate must sit in a guard whose body RETURNS. Third instance of this shape in the repository, after RULE 8 and the cargo PATH prelude.",
+   "Two lanes called the probe change a regression: a missing probe means the planner skips the staleness check, so a namespaced task stops rebuilding when its sources change. The third lane answered that the old behaviour did not detect those changes either, since it hashed the controller — and was right. The planner cannot tell 'probed, nothing stale' from 'never probed', which has been true for EVERY non-local machine since the probe existed. Filed as forjar#497. This ticket's trade, a silent gap in place of a confident wrong answer about the wrong filesystem, is deliberate and named."
+  ]
+ },
+ "crux": {
+  "systems": [
+   "Docker / OCI tooling",
+   "systemd-nspawn with machinectl",
+   "Ansible connection plugins"
+  ],
+  "verdict": "all three make the mistake unrepresentable by putting the boundary in the API rather than in a predicate: a container or machine is named, and there is no call that accidentally reads the host path instead. forjar's boundary is a function each caller must remember to consult, which is why this defect appeared at four call sites and needed a tree-wide rule to keep it away. accept(the transport design, which buys one place to run from) and reject(the predicate-per-caller shape). Two tickets have now fixed instances; the rule added here is a guard rather than a cure."
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "three sandboxed plan lanes, review-only, base pinned by SHA",
+  "verdict": "3 FAIL; the vacuity findings were correct in three separate ways and the disagreement about the probe located forjar#497"
+ },
+ "pmat": {
+  "tools": [
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "kind-gate.sh",
+   "model-gate.sh",
+   "pmat tdg",
+   "cargo test --workspace"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "accepted": [],
+  "quality_gate": "cargo test --workspace exit 0, 313 binaries; output_verify 9 passed; the rule file 2 passed; fmt clean; clippy exit 0; output_verify.rs restored to A+ by folding two repetitive cases into one table; mod.rs left at exactly 500 lines with no new comment",
+  "limit": "no lane ran cargo — the delegate forbade it on disk grounds — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216)."
+ },
+ "falsification": {
+  "test": "no file under src/ may gate a read of this host's filesystem on a predicate that admits a pepita namespace, and the one exempt file must keep the dispatch ordering that makes its exemption true",
+  "test_file": "tests/falsification_a_namespace_is_not_the_controller.rs",
+  "cargo_test_target": "falsification_a_namespace_is_not_the_controller",
+  "reverted": "the loose predicate restored at output_verify; a fourth call added in src/core/state/reconstruct.rs; a trailing-comment fake fix — each run and each restored, tree verified clean",
+  "observed_failure": "loose predicate restored: the behavioural case fails with 'a namespaced machine's artifacts are inside the namespace, not here' and the tree rule names the file. Fourth call added: the tree rule names src/core/state/reconstruct.rs. Trailing-comment fake fix: the tree rule still fails, because comments are stripped before it reads.",
+  "still_green_when_reverted": "the two guard rows of the output-verification table under every mutation, which is what keeps a fix from trading one wrong answer for another"
+ },
+ "base_commit": "d14ffaaf374a5cc483aa2d295f199ad6d02bc8bc",
+ "base": "origin/main",
+ "recorded_at": "2026-09-09",
+ "diff_sha256": "a70e71f18cba3d8a8870fce9e0bc123a71bc054a",
+ "evidence": {
+  "files": [
+   {
+    "path": ".quorum/evidence/namespace-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 730,
+    "sha256": "1e97a40d841eabf5eb8571e750154179be4a9c9864158a5512f7e35e92492207",
+    "blob": "4b8390e3e4f86cb1ecb3e7a752a6d512f6600c77"
+   },
+   {
+    "path": ".quorum/evidence/namespace-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 3082,
+    "sha256": "81e0f4e170bd7e9ca0909776cc7fbfc69fbfaea5c0fd77755cea68c1fe451b77",
+    "blob": "bb0b05da9f5afa720873c7128f8de5bdd7793690"
+   },
+   {
+    "path": ".quorum/evidence/namespace-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 3030,
+    "sha256": "891774a5f9c12fc667493768cc1ebb92749b67aa86b6edcb2632e5391da5bd89",
+    "blob": "5f9cacd236d0db805be57dcd5a5325bd67b25875"
+   },
+   {
+    "path": ".quorum/evidence/namespace-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 910,
+    "sha256": "c2eaaae93b2e42c490ad9a2ee5aa8f660a4a55270d4aac3347a24ba6c09d5cd3",
+    "blob": "b8cd45dd46138dda22b54855aed3d439edaa62bb"
+   },
+   {
+    "path": ".quorum/evidence/namespace-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 1713,
+    "sha256": "3de64e7eaca74d35f24b78be4890d385dc79dd5ceadf916de843bf2240fac922",
+    "blob": "051a0dad27a579b8527a0f1162c2b5e8f0023de3"
+   },
+   {
+    "path": ".quorum/evidence/namespace-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1277,
+    "sha256": "f39c1ed3c5cda317fff9fd2cb1789b9c86e9f3d3567b766578fa4a961c8ab115",
+    "blob": "cad90a4ace8ec4557a113a2f58ed6a4a0a0088d9"
+   }
+  ],
+  "total_bytes": 10742,
+  "claims_digest": ".quorum/evidence/namespace-judges.md"
+ }
+}
