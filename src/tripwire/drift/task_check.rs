@@ -117,6 +117,41 @@ pub(super) fn detect_task_drift(
 }
 
 /// Why this task would not be checked, or `None` to check it.
+///
+/// THE LOCK'S STATUS IS NOT CONSULTED HERE, AND THAT IS THE POINT (forjar#487).
+///
+/// This used to return `SkipReason::NotConverged` for anything the lock did not
+/// record as `Converged` or `Drifted`. `src/tripwire/drift/mod.rs` still does,
+/// for a reason written down there and still correct: a failed apply's recorded
+/// HASH is not a baseline anything can be compared against, so the state-query,
+/// file and image paths have nothing to measure and must say so.
+///
+/// A `completion_check` is not a baseline. It is an ASSERTION: it asks the host
+/// a question and reads the answer, and it needs nothing from the lock to be
+/// answerable. A failed apply does not make the question unanswerable — it
+/// makes it urgent. That is the whole shape of the guard resource forjar itself
+/// makes necessary: `command` refuses loudly and names the human step, and the
+/// check is the only thing that can say whether the step has happened.
+///
+/// Measured before the fix, on a guard whose check passed by hand:
+///
+/// ```text
+///   inspected 0 of 1 resource(s) in scope: none
+///   skipped 1: not converged in the lock 1
+///   No drift detected.
+/// ```
+///
+/// The operator hit it on two machines at once — `skipped 10: in the lock, not
+/// in the config 7, not converged in the lock 3`, where those three were these
+/// guards. Drift was blind to precisely the resources the lock believed were
+/// broken. The earlier note here said `Drifted` is re-checked because it means
+/// "needs work", not "stop looking" (forjar#310); `Failed` means the same thing
+/// and more, and now no status stops the check.
+///
+/// What remains below is unchanged and still skips: an explicit
+/// `lifecycle.ignore_drift`, and `--no-task-checks`. Both are the operator
+/// declining the measurement, and both stay NAMED in the census, because an
+/// unmeasured check and a passed check must never print the same thing.
 fn skip_reason(
     id: &str,
     resources: &indexmap::IndexMap<String, Resource>,
