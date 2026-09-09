@@ -14,7 +14,7 @@ exclude = ["tests/", "benches/"]
 [features]
 default = []
 kani = []
-# The 38 tests that read aprender's contract corpus (contracts/aprender/binding.yaml,
+# The 39 tests that read aprender's contract corpus (contracts/aprender/binding.yaml,
 # softmax/rmsnorm kernel contracts, "100+ contracts"). forjar vendors this CRATE, not
 # aprender's corpus, so those tests measure a directory that does not exist here and
 # fail on NotFound — a failure about the vendoring, never about the code under test

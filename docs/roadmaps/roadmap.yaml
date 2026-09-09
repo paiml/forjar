@@ -2709,7 +2709,7 @@ roadmap:
   kind: code
   github_issue: 452
   item_type: task
-  title: 'CI: run the vendored contracts suite with the aprender corpus in one lane (the 43 tests parked by PMAT-169 behind the aprender-corpus feature) so the ratchet can shrink (GH #452 follow-up, 1.27)'
+  title: 'CI: run the vendored contracts suite with the aprender corpus in one lane (the tests parked by PMAT-169 behind the aprender-corpus feature) so the ratchet can shrink (GH #452 follow-up, 1.27)'
   status: planned
   priority: medium
   assigned_to: null
@@ -3073,3 +3073,24 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found while gating 1.27.0. cargo mutants reports "ERROR interrupted / scenario execution internal error err=interrupted phase=Test" and writes no outcomes.json, immediately after "Found N mutants to test". Reproduced four times: with --in-diff on the release diff, with --baseline skip, and with --file src/cli/drift_state.rs, which shares nothing with the release diff. So it is NOT this branch. Memory was not the cause on the last three attempts (107 GB free). One suspect worth checking first: src/core/store/mutation_runner.rs emits pkill -f ''<resource_id>'', and a pkill -f inside a test can match processes outside the test, which is a self-match hazard this fleet has hit before. The 95% line floor is unaffected and was measured green (96.38%) by cargo llvm-cov --fail-under-lines 95, exit 0.'
+- id: PMAT-217
+  kind: code
+  github_issue: 452
+  item_type: task
+  title: forjar-contracts coverage_map_enrichment asserts an aprender kernel against forjar's IaC corpus, and hides it behind a sibling-directory check, so cargo test --workspace is red on a fleet workstation and vacuously green in CI (#452)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-09T07:36:06Z
+  updated: 2026-09-09T07:36:06Z
+  spec: null
+  acceptance_criteria:
+  - 'cargo test --workspace passes from a path whose grandparent contains a sibling aprender checkout, which is the fleet workstation layout'
+  - 'no test uses "is a sibling checkout present" as a proxy for "does THIS repo ship the corpus this test queries" — the two are different questions and only the second decides whether the assertion can hold'
+  - 'a test that needs a corpus forjar does not ship is gated by the aprender-corpus feature and says so in its ignore reason, exactly as violations_enrichment already is'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found while gating PMAT-215, where it turned the workspace gate red and first produced a wrong conclusion. coverage_map_enrichment queries softmax, an aprender kernel, against forjar''s IaC corpus and asserts the results are non-empty. It early-returns unless CARGO_MANIFEST_DIR/../.. has a sibling aprender, so it passes vacuously in CI and in any worktree outside ~/src and runs for real on a workstation that has aprender checked out. A test whose verdict depends on what else is on the developer''s disk is worse than a plain failure. Its immediate sibling violations_enrichment already carries the right cfg_attr(not(feature = "aprender-corpus"), ignore = ...) citing #452. NARROWED after reading the file: crates/forjar-contracts/src/query/cross_project_tests.rs uses a sibling-directory check deliberately and documents it (has_sibling_repos, "In CI, only this repo is checked out so siblings are absent"), and those tests guard their assertions with it rather than asserting past it. That idiom is not the defect and is left alone. The defect is using that same check as a proxy for a DIFFERENT question: a neighbouring aprender checkout does not put softmax contracts into forjar''s index, so the guard passes and the assertion then cannot hold.'

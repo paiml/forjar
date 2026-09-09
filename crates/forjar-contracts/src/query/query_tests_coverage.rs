@@ -252,11 +252,25 @@
         assert!(!output.results.is_empty());
     }
 
+    // THE GATE IS THE CORPUS, NOT THE NEIGHBOURS (#452).
+    //
+    // This asked whether a sibling `aprender` checkout existed and returned
+    // early if not. That is a different question from the one that decides
+    // whether the assertion below can hold: a neighbour on disk does not put
+    // softmax contracts into forjar's index, which ships an IaC corpus. So the
+    // guard passed on any workstation with aprender beside forjar and the test
+    // then failed on `!output.results.is_empty()`, while CI and every worktree
+    // outside ~/src took the early return and reported a pass.
+    //
+    // Green for the wrong reason in one place and red in another is worse than
+    // a plain failure: it made a branch look like the cause of a red that
+    // `main` shared, because the two were run from different directories.
+    #[cfg_attr(
+        not(feature = "aprender-corpus"),
+        ignore = "needs aprender's kernel corpus in contracts/ (softmax bindings); forjar ships an IaC corpus (#452)"
+    )]
     #[test]
     fn coverage_map_enrichment() {
-        // Coverage map requires sibling repos (aprender) for binding data
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
-        if !root.parent().is_some_and(|p| p.join("aprender").exists()) { return; }
         let index = test_index();
         let params = QueryParams {
             query: "softmax".to_string(),

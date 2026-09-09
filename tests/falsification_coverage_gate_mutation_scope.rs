@@ -65,7 +65,7 @@ const CARGO_SHIM: &str = r#"#!/usr/bin/env bash
 set -uo pipefail
 case "${1:-}" in
   test)
-    echo "test result: ok. 1 passed; 0 failed; 43 ignored; 0 measured; 0 filtered out"
+    echo "test result: ok. 1 passed; 0 failed; 44 ignored; 0 measured; 0 filtered out"
     ;;
   llvm-cov)
     printf 'TOTAL 100 0 100.00%% 100 0 100.00%% 100 0 96.40%% 100 0 100.00%%\n'
