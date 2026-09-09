@@ -3163,3 +3163,28 @@ roadmap:
   - kind:code
   - orch:fable
   notes: 'orch-basis:M>=3 — five owning modules measured before the ticket was opened: src/core/types (ExecutionPlan), src/core/planner (the fallthrough at determine_present_action), src/core/task/probe.rs (the coverage predicate probe_config and the executor pre-plan probe both inline), src/cli (print_helpers, plan_json, plan_file, apply_dry_run, mod.rs bridge) and src/mcp (PlanOutput). Filed from PMAT-220 by three review lanes: probes.get(id) returning None falls through to the config-hash comparison, so a converged task whose inputs changed on a machine this host does not answer for plans NoOp with its YAML unchanged. True for every SSH target since the probe existed; #495 added namespaces to the set. The repository''s own doctrine (scripts/dogfood, DriftCensus) is that an UNMEASURED check must never print the same thing as a passed one; the planner has no census. The cheap and honest fix the issue asks for is disclosure at the planner boundary in the forjar#342 shape, not a remote probe (that is --refresh''s opt-in round trip).'
+- id: PMAT-222
+  kind: code
+  github_issue: 499
+  item_type: task
+  title: 'S1: the build-I/O probe map is keyed by resource id alone, so a resource declared on a local and a remote machine plans the remote row from the local probe (#499)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-09T16:58:00Z
+  updated: 2026-09-09T16:58:00Z
+  spec: null
+  acceptance_criteria:
+  - 'the probe map is keyed by (machine, resource id): a digest only ever answers for the tree it was taken on, and a lookup for a (resource, machine) the probe never visited returns nothing'
+  - 'a task declared on a local and a remote machine whose LOCAL inputs changed plans Update on the local row and NoOp on the remote row, and the remote row is named in the unprobed census; before this ticket the remote row planned Update from the local probe'
+  - 'a task declared on a local and a remote machine whose local inputs are fresh plans NoOp on both rows and the remote row is still named; nothing about the forjar#497 disclosure regresses'
+  - 'the census decides from the map alone whether a (resource, machine) was measured; the coverage predicate only words the reason, and keeps its one definition'
+  - 'both producers (probe_config and the executor pre-plan probe) and both consumers (determine_present_action and the census) read the keyed map; a probe map keyed by resource id alone no longer exists in src/'
+  - 'a falsification test drives the binary: a task converged on [loopback, TEST-NET] with its local input then rewritten plans 1 to change, the remote row is NoOp and named; with the key reverted to the resource id the test fails'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (probe_all inserts one IoDigest per resource id, probe_config wraps it), src/core/executor/mod.rs (the pre-plan probe is the second producer), src/core/planner/mod.rs (determine_present_action looks the digest up by resource id for every (resource, machine) it plans) and src/core/planner/unprobed.rs (the census asks the machine predicate before the map because the map cannot answer per machine). Filed from PMAT-221 by one teamwork lane and three quorum lanes and left unfixed there on purpose: forjar#497 discloses an absent probe, this re-keys the map under every consumer. The defect is the forjar#485 shape one level up: a hash taken on the controller reported as a fact about a remote tree, invisible because the number is a correct hash of the wrong tree. Multi-machine task resources with declared build I/O are exactly the fleet''s build boxes. The fix the issue names: key by (machine, resource_id) so the lock''s per-machine input_hash/output_hash is compared against a probe of the same machine, never another.'
