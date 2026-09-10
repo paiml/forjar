@@ -1,0 +1,69 @@
+# reduced from PMAT-223-mutN3-bin.log — 1237 bytes, sha256 c5146f97303bfbee8804296cc064ac813e3756b81d3d41628b11219244d02e8b; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.20s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_forced_apply_runs_a_cached_task ... FAILED
+
+failures:
+
+---- a_forced_apply_runs_a_cached_task stdout ----
+
+thread 'a_forced_apply_runs_a_cached_task' (2315834) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:232:5:
+assertion `left == right` failed: the operator forced the run and the cache refused it.
+far: 0 converged, 1 unchanged, 0 failed (0.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+
+  left: 1
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_forced_apply_runs_a_cached_task
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.83s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## verdict lines
+test a_forced_apply_runs_a_cached_task ... FAILED
+thread 'a_forced_apply_runs_a_cached_task' (2315834) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:232:5:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.83s
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.20s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_forced_apply_runs_a_cached_task ... FAILED
+
+failures:
+
+---- a_forced_apply_runs_a_cached_task stdout ----
+
+thread 'a_forced_apply_runs_a_cached_task' (2315834) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:232:5:
+assertion `left == right` failed: the operator forced the run and the cache refused it.
+far: 0 converged, 1 unchanged, 0 failed (0.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+
+  left: 1
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_forced_apply_runs_a_cached_task
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.83s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+EXIT=101

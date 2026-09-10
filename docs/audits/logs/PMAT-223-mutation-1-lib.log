@@ -1,0 +1,59 @@
+# reduced from PMAT-223-mut1-lib.log — 1310 bytes, sha256 43dea47763c0aa387bc6657534c06f86edfcfe10e35232d4cb6c4b0385fbba66; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 38.06s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 2 tests
+test core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read ... FAILED
+test core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used ... ok
+
+failures:
+
+---- core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read stdout ----
+
+thread 'core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read' (1995157) panicked at src/core/executor/tests_input_cache.rs:104:5:
+a remote cache: true task was skipped from a hash of this host's files
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+## verdict lines
+test core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read ... FAILED
+thread 'core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read' (1995157) panicked at src/core/executor/tests_input_cache.rs:104:5:
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+error: test failed, to rerun pass `--lib`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 38.06s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 2 tests
+test core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read ... FAILED
+test core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used ... ok
+
+failures:
+
+---- core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read stdout ----
+
+thread 'core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read' (1995157) panicked at src/core/executor/tests_input_cache.rs:104:5:
+a remote cache: true task was skipped from a hash of this host's files
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+EXIT=101

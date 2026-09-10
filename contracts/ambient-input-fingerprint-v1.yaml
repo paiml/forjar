@@ -27,6 +27,7 @@ metadata:
     LD_PRELOAD — the issue ranks those last and calls them best-effort.
   references:
     - "issue: https://github.com/paiml/forjar/issues/244"
+    - "issue: https://github.com/paiml/forjar/issues/501 — the hash is recorded and read only for a machine this host answers for, and the cache reader asks the planner's question"
     - "contracts/undeclared-input-detection-v1.yaml — option (a); its completeness notes hand this case off explicitly"
     - "contracts/verify-reproducibility-v1.yaml — option (b)"
     - "contracts/idempotent-apply-v1.yaml — the pump this must not create"
@@ -57,8 +58,43 @@ proof_obligations:
       "inputs changed" on every plan forever and breaks f(f(x)) = f(x), which is
       worse than the bug being fixed. The cwd for the ambient commands is
       therefore derived from the RESOURCE (`probe_base_dir`), not from the
-      caller's `base_dir` — the executor passes `state_dir.parent()` where the
-      probe passes `working_dir`.
+      caller's `base_dir`. (The executor's cache reader used to pass
+      `state_dir.parent()` where the probe passed `working_dir`; since
+      forjar#501 the reader goes through `probe_resource`, so the FILE base
+      agrees too — `hash_inputs` folds the expanded path into the hash, and
+      the two bases could never have matched.)
+
+  - type: soundness
+    property: "A recorded hash answers only for a machine this host answers for"
+    formal: "record(r, m) writes input_hash/output_hash ⟺ probe_answers_for(m);  read(r, m) consults them ⟺ probe_answers_for(m)"
+    applies_to: all
+    enforced_by: "src/core/task/probe.rs::probe_answers_for — the ONE wrapper of the transport predicate in the module; record_io_hashes, check_task_input_cache and probe_covers all go through it"
+    notes: |
+      forjar#501. The hashes are taken on the CONTROLLER. Written under a
+      remote machine's lock they were a correct hash of the wrong tree — the
+      forjar#485 shape in the write path — and the cache reader, once it
+      shared the writer's base, would have skipped a remote run from them. So
+      the writer records nothing for such a machine (an absent hash reads as
+      "no recorded input hash" in `staleness_reason`: re-run once, never
+      clean) and the reader has no answer for it: the task runs there.
+
+  - type: equivalence
+    property: "The cache reader asks the planner's question"
+    formal: "hit(r, m) ⟺ probe_answers_for(m) ∧ ¬force ∧ input_hash(r) = lock(r, m).input_hash ∧ staleness_reason(probe(r), lock(r, m)) = None;  hit ⟹ lock(r, m).hash := hash_desired_state(r)"
+    applies_to: "every `cache: true` task"
+    enforced_by: "src/core/executor/resource_meta.rs::check_task_input_cache (probe_resource against the lock, through staleness_reason), src/core/executor/machine_b.rs::task_inputs_are_cached (false under --force), src/core/executor/resource_meta.rs::settle_cached_row (the spec hash a hit satisfies)"
+    notes: |
+      Measured on the first LIVE run of the inputs-only test, forjar#501: a
+      deleted output artifact was skipped as `unchanged` and never rebuilt
+      (the plan had said `output artifact missing`); `--force` ran nothing
+      over a cached task; and a hit left the old spec hash in the lock, so
+      the plan said `1 to change` and apply said `1 unchanged`, on every run,
+      forever. A hit now means inputs unchanged AND outputs present and
+      unmodified, the operator's `--force` wins, and the row takes the spec
+      it now satisfies. The one behaviour this makes visible: a `cache: true`
+      task whose command changed but whose declared inputs did not is skipped
+      — the make semantics FJ-2701 declared and, with a dead cache, never
+      delivered; `--force` runs it.
 
   - type: equivalence
     property: "Existing locks keep validating"
@@ -111,6 +147,14 @@ enforcement:
     description: "No ambient_inputs means a byte-identical recorded hash"
     check: "tests/falsification_ambient_inputs.rs::no_ambient_inputs_leaves_the_recorded_hash_byte_identical"
     severity: "ERROR"
+  a_hash_answers_for_its_machine:
+    description: "forjar#501: the writer records nothing for a machine this host does not answer for, and the reader never skips a remote run from this host's hash"
+    check: "tests/falsification_io_hash_answers_for_its_machine.rs::a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash"
+    severity: "ERROR"
+  the_cache_asks_the_planners_question:
+    description: "forjar#501: a hit is decided from the writer's base and the planner's staleness question, yields to --force, and settles the spec hash"
+    check: "tests/falsification_io_hash_answers_for_its_machine.rs::a_deleted_output_is_rebuilt_not_reported_unchanged"
+    severity: "ERROR"
 
 falsification_tests:
   - id: FALSIFY-AMB-001
@@ -149,6 +193,42 @@ falsification_tests:
     test: "tests/falsification_ambient_inputs.rs::ambient_inputs_are_template_resolved"
     if_fails: "The literal template is executed as a shell command — the FJ-2721 defect, on a new field"
 
+  - id: FALSIFY-AMB-007
+    rule: "The cache reader hashes the base the writer used"
+    prediction: "a cache: true task converged on loopback with working_dir under the sandbox and the state dir beside it, re-applied with a changed command and unchanged inputs, is reported `1 unchanged` and its command does not run"
+    test: "tests/falsification_io_hash_answers_for_its_machine.rs::a_cache_hit_is_decided_from_the_base_the_writer_used"
+    if_fails: "The reader hashes the state directory's parent; the expanded path inside the hash never matches the writer's and every cache: true task re-runs on every apply — the dead cache measured on 643363b3"
+
+  - id: FALSIFY-AMB-008
+    rule: "The reader never skips a remote run from this host's hash"
+    prediction: "the same task moved to a TEST-NET address with its command changed is executed there — the apply fails at ssh, names it, records the row failed — and is never reported `unchanged`"
+    test: "tests/falsification_io_hash_answers_for_its_machine.rs::a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash"
+    if_fails: "A task on a machine this host cannot read is skipped from a hash of this host's files — the forjar#485 shape at the cache; green on 643363b3 only because the cache was dead"
+
+  - id: FALSIFY-AMB-009
+    rule: "The writer records nothing for a machine this host does not answer for"
+    prediction: "record_io_hashes for a loopback machine records input_hash and output_hash; for a TEST-NET machine it records neither, and staleness_reason over the absent hash says `no recorded input hash`"
+    test: "src/core/task/tests_probe.rs::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for"
+    if_fails: "A remote machine's lock carries a correct hash of the controller's tree, and everything that reads it reads a fact about the wrong machine"
+
+  - id: FALSIFY-AMB-010
+    rule: "A deleted or modified output is not a hit"
+    prediction: "with the artifact deleted after a converge, apply rebuilds it (`1 converged`, the command runs) instead of reporting `unchanged`"
+    test: "tests/falsification_io_hash_answers_for_its_machine.rs::a_deleted_output_is_rebuilt_not_reported_unchanged"
+    if_fails: "The reader answers from inputs alone: plan says `output artifact missing`, apply says `unchanged`, and the artifact is never rebuilt — measured on the first live run of the inputs-only test"
+
+  - id: FALSIFY-AMB-011
+    rule: "--force runs a cached task"
+    prediction: "after a hit, `apply --force` runs the command"
+    test: "tests/falsification_io_hash_answers_for_its_machine.rs::a_forced_apply_runs_a_cached_task"
+    if_fails: "The operator forced the run and the cache refused it"
+
+  - id: FALSIFY-AMB-012
+    rule: "A hit settles the spec hash"
+    prediction: "after a hit, `plan --json` reads `to_update: 0, unchanged: 1`"
+    test: "tests/falsification_io_hash_answers_for_its_machine.rs::a_cache_hit_is_decided_from_the_base_the_writer_used"
+    if_fails: "The plan says `1 to change` and apply says `1 unchanged`, forever — an idempotency pump at the plan level"
+
 qa_gate:
   id: F-AMB-001
   name: "Ambient Input Fingerprint Contract"
@@ -158,7 +238,9 @@ qa_gate:
     - "an_unchanged_ambient_input_settles"
     - "a_broken_fingerprint_is_not_dropped"
     - "existing_locks_keep_validating"
-  pass_criteria: "All 6 falsification tests pass"
-  falsification: "Make hash_declared_inputs composite unconditionally — FALSIFY-AMB-004 goes red; make it composite only in the probe — FALSIFY-AMB-002 goes red"
+    - "a_hash_answers_for_its_machine"
+    - "the_cache_asks_the_planners_question"
+  pass_criteria: "All 12 falsification tests pass"
+  falsification: "Make hash_declared_inputs composite unconditionally — FALSIFY-AMB-004 goes red; make it composite only in the probe — FALSIFY-AMB-002 goes red; remove the machine guard from check_task_input_cache — FALSIFY-AMB-008 goes red; hash the state directory's parent there — FALSIFY-AMB-007 goes red; drop staleness_reason from it — FALSIFY-AMB-010 goes red"
 
 verification_level: L3

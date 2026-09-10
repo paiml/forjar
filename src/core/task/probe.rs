@@ -273,7 +273,7 @@ pub fn staleness_reason(
 /// Called by the executor after a successful apply so the NEXT plan has a
 /// baseline to compare the probe against.
 ///
-/// Two fixes are baked in versus the code this replaces:
+/// Three fixes are baked in versus the code this replaces:
 /// * the base directory is `working_dir`, not `state_dir.parent()`. A build
 ///   declares paths relative to its project root; hashing against the state
 ///   directory made every relative input hash as absent, silently disabling
@@ -281,11 +281,21 @@ pub fn staleness_reason(
 /// * it no longer requires `cache: true`. Recording is what makes correctness
 ///   possible (rebuild when inputs change), so it is not opt-in; `cache`
 ///   remains the switch for SKIPPING work, not for tracking it.
+/// * forjar#501: it records NOTHING for a machine this host does not answer
+///   for. The hashes are taken on the controller; under a remote machine's
+///   lock they were a correct hash of the wrong tree, and the cache reader
+///   would skip a remote run from them. An absent `input_hash` reads as
+///   "no recorded input hash" in [`staleness_reason`] — re-run once — never
+///   as clean.
 pub fn record_io_hashes(
     resource: &Resource,
+    machine: &crate::core::types::Machine,
     details: &mut std::collections::HashMap<String, serde_yaml_ng::Value>,
 ) {
     if !declares_inputs(resource) && resource.output_artifacts.is_empty() {
+        return;
+    }
+    if !probe_answers_for(machine) {
         return;
     }
     let base = probe_base_dir(resource);
@@ -345,8 +355,19 @@ pub fn probe_config(config: &crate::core::types::ForjarConfig) -> ProbeMap {
 /// namespaced machine those files live inside the namespace, so measuring
 /// here answers about the wrong host.
 pub fn probe_covers(config: &crate::core::types::ForjarConfig, machine: &str) -> bool {
-    config
-        .machines
-        .get(machine)
-        .is_some_and(crate::transport::controller_answers_for)
+    config.machines.get(machine).is_some_and(probe_answers_for)
+}
+
+/// Does a hash taken on THIS host answer for `machine`?
+///
+/// forjar#501. The one place this module names the transport predicate
+/// (forjar#485's single definition of "this host's filesystem is that
+/// machine's"): [`probe_covers`] asks it for a machine NAME through the
+/// config; the executor's I/O writer ([`record_io_hashes`]) and its cache
+/// reader ask it for the `Machine` they hold. A digest of this host's tree is
+/// a fact about this host's machines and no other — recording it under a
+/// remote machine's lock, or reading it back to skip a remote run, is a
+/// correct hash of the wrong tree.
+pub fn probe_answers_for(machine: &crate::core::types::Machine) -> bool {
+    crate::transport::controller_answers_for(machine)
 }

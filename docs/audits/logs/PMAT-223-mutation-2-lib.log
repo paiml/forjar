@@ -1,0 +1,59 @@
+# reduced from PMAT-223-mut2-lib.log — 1259 bytes, sha256 a4e0cadc5b84b0e4d79ec5b2884608d79c21b6dabd9b93bea561f870a821880e; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.21s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 2 tests
+test core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read ... ok
+test core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used ... FAILED
+
+failures:
+
+---- core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used stdout ----
+
+thread 'core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used' (2019869) panicked at src/core/executor/tests_input_cache.rs:75:5:
+unchanged inputs must hit: the reader hashed a different base than the writer
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+## verdict lines
+test core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used ... FAILED
+thread 'core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used' (2019869) panicked at src/core/executor/tests_input_cache.rs:75:5:
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+error: test failed, to rerun pass `--lib`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.21s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 2 tests
+test core::executor::tests_input_cache::the_cache_has_no_answer_for_a_machine_this_host_cannot_read ... ok
+test core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used ... FAILED
+
+failures:
+
+---- core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used stdout ----
+
+thread 'core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used' (2019869) panicked at src/core/executor/tests_input_cache.rs:75:5:
+unchanged inputs must hit: the reader hashed a different base than the writer
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::executor::tests_input_cache::the_cache_reads_the_base_the_writer_used
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 13517 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+EXIT=101

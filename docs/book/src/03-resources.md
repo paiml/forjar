@@ -973,6 +973,8 @@ stages:
 
 When `cache: true`, forjar hashes all input files before execution. If the input hash matches the stored hash from the previous run, the stage is skipped. Output artifacts are also hashed for drift detection.
 
+For a `task` resource with `cache: true` the executor asks more than the stage engine does (#501): a hit requires the input hash to match AND every declared `output_artifacts` entry to be present and unmodified, so a deleted artifact is rebuilt; `--force` runs the task regardless; and the recorded hashes are taken on the controller and kept only for machines this host answers for, so a task on a remote machine is never skipped from the controller's files.
+
 ### Pipeline Execution Engine
 
 The pipeline engine processes stages sequentially with cache-aware skipping:

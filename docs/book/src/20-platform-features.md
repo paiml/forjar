@@ -128,7 +128,11 @@ Drift scenarios detected:
 ## Task Input Caching (FJ-2701)
 
 Task resources with `cache: true` and `task_inputs` patterns use
-BLAKE3 hashing to skip re-execution when inputs haven't changed.
+BLAKE3 hashing to skip re-execution when inputs haven't changed AND every
+declared output artifact is still present and unmodified (#501); `--force`
+runs the task regardless, and the recorded hashes answer only for machines
+this host can read, so a task on a remote machine is never skipped from the
+controller's files.
 
 ```yaml
 resources:

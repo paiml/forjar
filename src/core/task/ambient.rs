@@ -52,9 +52,12 @@ pub fn declares_inputs(resource: &Resource) -> bool {
 ///
 /// `file_base` is the directory `task_inputs` globs are relative to. The
 /// ambient commands run instead with cwd = [`probe_base_dir`], derived from the
-/// RESOURCE — the executor passes `state_dir.parent()` where the probe passes
-/// `working_dir`, and an ambient component that depended on which caller asked
-/// would report "inputs changed" on every plan forever.
+/// RESOURCE, never from the caller's `file_base` — an ambient component that
+/// depended on which caller asked would report "inputs changed" on every plan
+/// forever. (The executor's cache reader used to pass `state_dir.parent()`
+/// here where the probe passed `working_dir`; since forjar#501 both pass
+/// [`probe_base_dir`], because `hash_inputs` folds the expanded path into the
+/// hash and the two bases could never agree.)
 ///
 /// With no `ambient_inputs` the result is byte-identical to `hash_inputs`, so
 /// upgrading forjar does not invalidate a single existing lock.

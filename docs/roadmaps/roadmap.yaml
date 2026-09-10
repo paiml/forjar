@@ -3188,3 +3188,28 @@ roadmap:
   - kind:code
   - orch:fable
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (probe_all inserts one IoDigest per resource id, probe_config wraps it), src/core/executor/mod.rs (the pre-plan probe is the second producer), src/core/planner/mod.rs (determine_present_action looks the digest up by resource id for every (resource, machine) it plans) and src/core/planner/unprobed.rs (the census asks the machine predicate before the map because the map cannot answer per machine). Filed from PMAT-221 by one teamwork lane and three quorum lanes and left unfixed there on purpose: forjar#497 discloses an absent probe, this re-keys the map under every consumer. The defect is the forjar#485 shape one level up: a hash taken on the controller reported as a fact about a remote tree, invisible because the number is a correct hash of the wrong tree. Multi-machine task resources with declared build I/O are exactly the fleet''s build boxes. The fix the issue names: key by (machine, resource_id) so the lock''s per-machine input_hash/output_hash is compared against a probe of the same machine, never another.'
+- id: PMAT-223
+  kind: code
+  github_issue: 501
+  item_type: task
+  title: 'S1: record_io_hashes writes a hash of the controller''s tree into every machine''s lock, and check_task_input_cache reads it back for a remote cache: true task (#501)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-10T05:54:53Z
+  updated: 2026-09-10T05:54:53Z
+  spec: null
+  acceptance_criteria:
+  - 'record_io_hashes takes the machine and records nothing for a machine this host does not answer for; an absent input_hash reads as "no recorded input hash" in staleness_reason, never as clean'
+  - 'check_task_input_cache hashes against probe_base_dir(resource), the base record_io_hashes used, so a cache: true task can hit the cache at all; before this ticket the reader hashed state_dir.parent() and the expanded path inside the hash never matched the writer''s'
+  - 'check_task_input_cache refuses to answer for a machine this host does not answer for: a cache: true task on a remote machine is never skipped from the controller''s tree'
+  - 'the coverage predicate keeps its one definition: probe.rs references transport::controller_answers_for exactly once and both the writer and the cache reader go through the same wrapper'
+  - 'a falsification test drives the binary: a cache: true task converged on loopback, then re-applied with a changed command and unchanged inputs, is reported unchanged and does not run; before this ticket it ran on every apply'
+  - 'a second binary test: the same task moved to a TEST-NET address with its command changed is executed on the machine (the apply fails at ssh) instead of reported unchanged from the controller''s hash; with the machine guard removed from the reader the test fails'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (record_io_hashes has no machine argument and hashes probe_base_dir on the controller), src/core/executor/resource_ops.rs (record_success calls it for every (resource, machine) it converges, with the machine in hand), src/core/executor/resource_meta.rs with machine_b.rs (check_task_input_cache hashes state_dir.parent() and reads the lock''s input_hash for any machine; task_inputs_are_cached is its one caller) and src/transport/mod.rs (controller_answers_for, the one definition #485/#495/#497/#499 share). Filed from PMAT-222 by the review lanes and confirmed by reading: the #485 shape in the write path. Measured by hand on 643363b3 before the ticket was opened: a cache: true task converged on loopback and re-applied with a changed command and unchanged inputs ran again on every apply, with working_dir under the sandbox AND with working_dir equal to the state directory''s parent — hash_inputs folds the expanded file path into the hash, so the writer''s absolute working_dir base and the reader''s state-dir base can never agree. The cache is dead today, which is what hides the remote half: once the reader uses the writer''s base, a remote cache: true task would be skipped from the controller''s hash unless the reader refuses to answer for a machine this host cannot read. The fix the issue names: the machine guard on both sides through the one predicate, and the writer''s base on the reader.'

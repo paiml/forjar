@@ -1,0 +1,131 @@
+{
+  "issue": "PMAT-223 (forjar#501) — record_io_hashes hashed the controller's tree into every machine's lock and check_task_input_cache read it back for a remote cache: true task, against a base directory that could never match the writer's, so the cache was dead and, once alive, would have skipped a remote run from the controller's files, skipped a deleted output, refused --force and never settled the plan. The writer now records only for a machine this host answers for; the reader refuses such a machine, hashes the writer's base, asks the planner's question, yields to --force, and settles the spec hash on a hit.",
+  "base": "origin/main",
+  "base_commit": "643363b3bca8b3d8abce55878f3a54fd0908c32a",
+  "diff_sha256": "2f4376688fae5ff78be65d336b32a0d2c0bf2a9d",
+  "recorded_at": "2026-09-10",
+  "quorum": {
+    "lanes": [
+      "plan grill lane (teamwork, single model)",
+      "review lane 1 (four rounds)",
+      "review lane 2 (four rounds)",
+      "review lane 3 (four rounds)",
+      "orchestrator rerun of every command"
+    ],
+    "refuters_per_claim": 3,
+    "judges": 3,
+    "kill_rule": "the plan was grilled before a line was written and the finished diff was judged by three lanes with the base pinned, in four rounds; a lane could fail the whole diff on one refuted claim, and every lane claim was re-run by the orchestrator before it counted — one lane prediction (the settle) was refuted by the orchestrator against a stale binary and then confirmed against the right one, and three lane refutations in round 3 were themselves refuted by the text at the reviewed commit",
+    "rounds": "one sandboxed teamwork lane on the plan (single model; verdict implement-with-changes, two plan claims refuted), then three sandboxed --mode plan lanes on the diff at dda3cf0e (1 PASS / 2 FAIL, every code claim confirmed, refusals on scope and a count), three at f6cb029a (3 FAIL, every code claim confirmed, refusals on three doc sentences), three at 25b17924 (3 FAIL, every code claim confirmed, refusals on two more sentences and three lane errors), three at de070d12 (2 PASS / 1 FAIL, every code claim confirmed, the FAIL refuting two sentences the text already corrects), then the orchestrator's reruns and the workspace gate",
+    "claims_confirmed": 9,
+    "claims_refuted": 6,
+    "refuted_claims": [
+      "The hit's consequences are FJ-2701's to name, not this ticket's to fix. Corrected: the grill lane predicted the plan pump; measured on the fixed binary, a hit left the old spec hash in the lock (plan `1 to change` forever), a deleted output was skipped as unchanged, and --force ran nothing; all three fixed in d4f7cc93 because the diff is what made them reachable.",
+      "Only two readers of the recorded hashes exist. Corrected: cli/verify.rs::recorded_output_hash is a third; after this diff only rows this host answers for carry output_hash, so it reads this host's tree by construction; the doc note there was dropped on review and the analysis lives in the receipt.",
+      "The remote binary case is red on the base. Corrected: it passes on 643363b3 by accident because the dead cache never skipped anything; it is red against the fixed reader with its machine guard removed (mutation M1), and the test's module doc says so.",
+      "The test doc already said which case is red against what (round-2 C6). Corrected: it did not; the module doc now names each case's falsifier.",
+      "Seven mutation logs (round-1 C7). Corrected: eight logs cover six mutations — M1 lib and binary, M2 lib, M3 lib, N1 binary, N2 lib and binary, N3 binary.",
+      "The diff touches only what the ticket names and leaves no doc claim false (C12, rounds 1-3). Corrected: the verify.rs note was dropped; five sentences the diff made false or incomplete were corrected across two commits (tests_ambient.rs, the task-framework spec's should_skip_task block, the book's stage-cache paragraph and platform-features page, the FJ-2701 comment at the cache-hit call site); the pipeline stage-cache sentences stay because should_skip_stage is untouched."
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Make",
+      "Bazel",
+      "Nix",
+      "ccache"
+    ],
+    "verdict": "accept(Make: a missing target is rebuilt, the recipe text is not tracked, and -B is the operator override; Bazel: the action-cache key carries the execution platform and a hit whose outputs cannot be fetched is a miss; Nix: derivations are keyed by system and a missing store path is rebuilt, never trusted from the database row; ccache: a hit is served only if the object can actually be produced, RECACHE forces) and reject(an inputs-only memo that reports done over a deleted artifact and answers for a machine it never measured — the shape forjar had, dead by accident of a mismatched base directory)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed /teamwork-preview lane on the plan (fan-out unmeasurable: read as one model) and three sandboxed --mode plan lanes on the diff per round, four rounds, review-only, base pinned by SHA; no lane ran cargo",
+    "verdict": "plan: implement-with-changes (the settle demanded here, the third reader named); diff: every code claim confirmed by every lane in every round; round 1 1 PASS/2 FAIL on scope, round 2 3 FAIL on three doc sentences, round 3 3 FAIL on two sentences plus three lane errors contradicted by the text, round 4 2 PASS / 1 FAIL with the dissent contradicted by the text; twelve lane readings confirmed every code claim and none found a functional defect"
+  },
+  "pmat": {
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "target-guard.sh",
+      "config-lint.sh",
+      "transcript-gate.sh",
+      "status-lint.sh",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "cargo test --workspace",
+      "scripts/dogfood/contracts.sh",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": [],
+    "quality_gate": "cargo test --workspace exit 0 on the final tree with --no-fail-fast, 316 binaries, 19,618 passed, 0 failed, 58 ignored — after one fail-fast run stopped RED at the lib binary on cli::tests_build_image::cmd_build_with_load_flag_no_runtime, a host-dependent test outside this diff (docker on PATH, docker load exit 1) filed as forjar#503 and green on the rerun; the RED binary case observed failing on 643363b3 at the `1 unchanged` assertion and passing after; six hand mutations each observed FAILING their named test; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS (40 contracts, citations resolve)",
+    "limit": "no lane ran cargo — the delegate forbade it while builds ran on the host — so every number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). Round-2's delegate hit its turn cap after its lanes had finished; the lane files were read directly."
+  },
+  "falsification": {
+    "test": "a cache: true task converged on loopback with working_dir under the sandbox and the state dir beside it, re-applied with a changed command and unchanged inputs, is reported `1 unchanged`, its command does not run, and plan --json then reads to_update 0; the same task with its output deleted is rebuilt; apply --force runs it; moved to a TEST-NET address with its command changed it is executed there (the apply fails at ssh, the row records failed) and is never reported unchanged",
+    "test_file": "tests/falsification_io_hash_answers_for_its_machine.rs",
+    "cargo_test_target": "falsification_io_hash_answers_for_its_machine",
+    "reverted": "the whole fix absent (643363b3 plus the RED commit b6899db1): the base case fails at the `1 unchanged` assertion with every precondition green (the local converge succeeded, the command ran once, the lock recorded an input hash); the remote case passes there by accident because the dead cache never skips, and is red against the fix with the reader's machine guard removed (docs/audits/logs/PMAT-223-mutation-1-binary.log)",
+    "observed_failure": "a_cache_hit_is_decided_from_the_base_the_writer_used fails with `the declared inputs did not move; the cache must answer from the same base the writer used` — the apply printed `1 converged, 0 unchanged` and runs.log grew to two lines (docs/audits/logs/PMAT-223-red-binary.log)",
+    "still_green_when_reverted": "every precondition assertion, and the remote case — which is exactly why the receipt says that case is red against the mutant and not against the base"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/answers-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2863,
+        "sha256": "968daa7c9f28a61ab996f44f3ec3d3b155549f124e8ddde313f50135114207d0",
+        "blob": "e34fb287523e427ff0c20927a68e6c7dc0a02d70"
+      },
+      {
+        "path": ".quorum/evidence/answers-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 4959,
+        "sha256": "1e461cb31296bb41afb70ebeb8dea1098d987d1ac0b76334288559f07de80f4f",
+        "blob": "182e12fe5afbfaf2b942f3f546cae943e5c0b128"
+      },
+      {
+        "path": ".quorum/evidence/answers-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 10089,
+        "sha256": "614f8f54aea04d25d45251a03a50d0555419146b8f243ec1d12c06f6e9b94a9c",
+        "blob": "dd36a89d6d21d7106d4c68845e3ab19880efc54f"
+      },
+      {
+        "path": ".quorum/evidence/answers-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2112,
+        "sha256": "c5abf6e116897aa515d007b4424e8550632da5f1df7b10ee52c1682f8c1f50e4",
+        "blob": "dfbec8887a000e64052ffca2bf24e3ef6181a0db"
+      },
+      {
+        "path": ".quorum/evidence/answers-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 2065,
+        "sha256": "fda1fc50e7819aafbe05495971160c643c798defbbe6cc7d4d040ec9134cc148",
+        "blob": "e7c687a4aaf3b48bee35d0ae650c680c71e53a79"
+      },
+      {
+        "path": ".quorum/evidence/answers-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2136,
+        "sha256": "9a7aa32b0042dafdbade505661cdbd1939ea43e3257aae57c272da23ee326820",
+        "blob": "5c2d2e069870112dcbbf0ed2723ce3652af061e2"
+      }
+    ],
+    "total_bytes": 24224,
+    "claims_digest": ".quorum/evidence/answers-judges.md"
+  }
+}
