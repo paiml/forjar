@@ -1,0 +1,34 @@
+# reduced from PMAT-223-green-binary-2.log — 856 bytes, sha256 168a9cd56a5c0d87cbe9cf71c3aa7efcd852f2c086b141ee89c70a84ba2e2900; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.77s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 4 tests
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... ok
+test a_deleted_output_is_rebuilt_not_reported_unchanged ... ok
+test a_forced_apply_runs_a_cached_task ... ok
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+
+## verdict lines
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.77s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 4 tests
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... ok
+test a_deleted_output_is_rebuilt_not_reported_unchanged ... ok
+test a_forced_apply_runs_a_cached_task ... ok
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+
+EXIT=0

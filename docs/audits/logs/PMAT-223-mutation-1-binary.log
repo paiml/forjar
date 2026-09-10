@@ -1,0 +1,69 @@
+# reduced from PMAT-223-mut1-bin.log — 1568 bytes, sha256 32c6520d39027d1c975bdaf3583427d78dee1e65dc4e355a5c8bdb940ea95c29; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.54s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... FAILED
+
+failures:
+
+---- a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash stdout ----
+
+thread 'a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash' (1999669) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:177:5:
+a task on a machine this host cannot read was reported unchanged from a hash of this host's files.
+far: 0 converged, 1 unchanged, 0 failed (5.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+  drift: [far] build — state query failed: ssh: connect to host 203.0.113.7 port 22: Connection timed out
+warning: SSH multiplexing failed for far: ControlMaster failed for root@203.0.113.7 (exit 255)
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 15.87s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## verdict lines
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... FAILED
+thread 'a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash' (1999669) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:177:5:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 15.87s
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.54s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... FAILED
+
+failures:
+
+---- a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash stdout ----
+
+thread 'a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash' (1999669) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:177:5:
+a task on a machine this host cannot read was reported unchanged from a hash of this host's files.
+far: 0 converged, 1 unchanged, 0 failed (5.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+  drift: [far] build — state query failed: ssh: connect to host 203.0.113.7 port 22: Connection timed out
+warning: SSH multiplexing failed for far: ControlMaster failed for root@203.0.113.7 (exit 255)
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 15.87s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+EXIT=101

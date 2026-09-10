@@ -1,0 +1,67 @@
+# reduced from PMAT-223-red-binary.log — 1402 bytes, sha256 7bddbee72758a6ab95c3943beeac334798199dbbc79b84801cd02eb819ae5913; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.22s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 2 tests
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... FAILED
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... ok
+
+failures:
+
+---- a_cache_hit_is_decided_from_the_base_the_writer_used stdout ----
+
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (1697021) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:151:5:
+the declared inputs did not move; the cache must answer from the same base the writer used.
+far: 1 converged, 0 unchanged, 0 failed (0.1s)
+
+Apply complete: 1 converged, 0 unchanged.
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_cache_hit_is_decided_from_the_base_the_writer_used
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## verdict lines
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... FAILED
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (1697021) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:151:5:
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.22s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 2 tests
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... FAILED
+test a_remote_cache_true_task_is_never_skipped_from_the_controllers_hash ... ok
+
+failures:
+
+---- a_cache_hit_is_decided_from_the_base_the_writer_used stdout ----
+
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (1697021) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:151:5:
+the declared inputs did not move; the cache must answer from the same base the writer used.
+far: 1 converged, 0 unchanged, 0 failed (0.1s)
+
+Apply complete: 1 converged, 0 unchanged.
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_cache_hit_is_decided_from_the_base_the_writer_used
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.86s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+EXIT=101

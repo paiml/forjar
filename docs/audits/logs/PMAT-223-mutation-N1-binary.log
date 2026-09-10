@@ -1,0 +1,89 @@
+# reduced from PMAT-223-mutN1-bin.log — 2752 bytes, sha256 65691770871a8fee6434c3e3354ec80013a6a44ff3f72dcdde5c90c030fb959a; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+warning: unused import: `settle_cached_row`
+  --> src/core/executor/mod.rs:99:56
+   |
+99 | pub(crate) use resource_meta::{check_task_input_cache, settle_cached_row, update_run_meta};
+   |                                                        ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `settle_cached_row` is never used
+  --> src/core/executor/resource_meta.rs:66:15
+   |
+66 | pub(crate) fn settle_cached_row(ctx: &mut RecordCtx, resource_id: &str, resolved: &Resource) {
+   |               ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `forjar` (lib) generated 2 warnings (2 duplicates)
+warning: `forjar` (lib) generated 2 warnings (run `cargo fix --lib -p forjar` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.43s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... FAILED
+
+failures:
+
+---- a_cache_hit_is_decided_from_the_base_the_writer_used stdout ----
+
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (2279993) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:189:5:
+assertion `left == right` failed: a cache hit must satisfy the current spec, or the plan never settles.
+{
+  "name": "cache501",
+  "to_create": 0,
+  "to_update": 1,
+  "to_destroy": 0,
+  "unchanged": 0,
+  "execution_order": [
+## verdict lines
+test a_cache_hit_is_decided_from_the_base_the_writer_used ... FAILED
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (2279993) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:189:5:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.82s
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## tail
+failures:
+
+---- a_cache_hit_is_decided_from_the_base_the_writer_used stdout ----
+
+thread 'a_cache_hit_is_decided_from_the_base_the_writer_used' (2279993) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:189:5:
+assertion `left == right` failed: a cache hit must satisfy the current spec, or the plan never settles.
+{
+  "name": "cache501",
+  "to_create": 0,
+  "to_update": 1,
+  "to_destroy": 0,
+  "unchanged": 0,
+  "execution_order": [
+    "build"
+  ],
+  "changes": [
+    {
+      "resource_id": "build",
+      "machine": "far",
+      "resource_type": "task",
+      "action": "update",
+      "description": "build: update (state changed)"
+    }
+  ],
+  "lock_relative": true,
+  "unconsulted_observations": 1,
+  "unprobed": [],
+  "disclosure": "This plan is lock-relative: it compares the config to the lock, and did not\ncontact any machine. 1 locked resource(s) carry state observed on a\ntarget that this plan did not consult — run `forjar drift` for what the machines\nactually hold."
+}
+  left: Some(1)
+ right: Some(0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_cache_hit_is_decided_from_the_base_the_writer_used
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.82s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+EXIT=101

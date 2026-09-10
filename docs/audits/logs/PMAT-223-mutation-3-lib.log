@@ -1,0 +1,89 @@
+# reduced from PMAT-223-mut3-lib.log — 2672 bytes, sha256 2b9c92fa9be4e4d76a2e73f76e52212626b6215ee015190c52f361f52e64b4ea; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.61s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 17 tests
+test core::task::tests_probe::absolute_artifact_paths_are_not_rebased ... ok
+test core::task::tests_probe::absent_recorded_hash_rebuilds_once_to_establish_baseline ... ok
+test core::task::tests_probe::changed_inputs_force_rebuild ... ok
+test core::task::tests_probe::missing_output_forces_rebuild ... ok
+test core::task::tests_probe::base_dir_is_working_dir_not_cwd ... ok
+test core::task::tests_probe::modified_output_is_detected ... ok
+test core::task::tests_probe::resource_declaring_no_io_is_not_probed ... ok
+test core::task::tests_probe::remote_resources_are_never_probed ... ok
+test core::task::tests_probe::a_probe_is_keyed_by_the_machine_it_answers_for ... ok
+test core::task::tests_probe::unchanged_io_is_not_stale ... ok
+test core::task::tests_probe::the_writer_and_the_coverage_predicate_share_one_answer ... ok
+test core::task::tests_probe::two_machines_this_host_answers_for_share_one_digest ... ok
+test core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for ... FAILED
+test core::task::tests_probe::directory_artifact_is_identified_by_existence_not_contents ... ok
+test core::task::tests_probe::mixed_file_and_directory_artifacts_still_track_the_file ... ok
+test core::task::tests_probe::an_undeclared_non_ambient_change_is_still_not_stale ... ok
+test core::task::tests_probe::real_filesystem_roundtrip_detects_content_change ... ok
+
+failures:
+
+---- core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for stdout ----
+
+thread 'core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for' (2029917) panicked at src/core/task/tests_probe.rs:357:5:
+a hash of this host's files was recorded as a fact about a machine nobody read: {"input_hash": String("blake3:aa1010f591945965a486bd41efb90203efba0cdf67dce6ba726c1b4015ca6c66"), "output_hash": String("blake3:c472a28bc87677d2cbf6415079179dc8f49fdad3de16b6450ded584c0ffec047")}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for
+
+test result: FAILED. 16 passed; 1 failed; 0 ignored; 0 measured; 13502 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`
+## verdict lines
+test core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for ... FAILED
+thread 'core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for' (2029917) panicked at src/core/task/tests_probe.rs:357:5:
+test result: FAILED. 16 passed; 1 failed; 0 ignored; 0 measured; 13502 filtered out; finished in 0.02s
+error: test failed, to rerun pass `--lib`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.61s
+     Running unittests src/lib.rs (target/debug/deps/forjar-d6a1c9adc308245c)
+
+running 17 tests
+test core::task::tests_probe::absolute_artifact_paths_are_not_rebased ... ok
+test core::task::tests_probe::absent_recorded_hash_rebuilds_once_to_establish_baseline ... ok
+test core::task::tests_probe::changed_inputs_force_rebuild ... ok
+test core::task::tests_probe::missing_output_forces_rebuild ... ok
+test core::task::tests_probe::base_dir_is_working_dir_not_cwd ... ok
+test core::task::tests_probe::modified_output_is_detected ... ok
+test core::task::tests_probe::resource_declaring_no_io_is_not_probed ... ok
+test core::task::tests_probe::remote_resources_are_never_probed ... ok
+test core::task::tests_probe::a_probe_is_keyed_by_the_machine_it_answers_for ... ok
+test core::task::tests_probe::unchanged_io_is_not_stale ... ok
+test core::task::tests_probe::the_writer_and_the_coverage_predicate_share_one_answer ... ok
+test core::task::tests_probe::two_machines_this_host_answers_for_share_one_digest ... ok
+test core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for ... FAILED
+test core::task::tests_probe::directory_artifact_is_identified_by_existence_not_contents ... ok
+test core::task::tests_probe::mixed_file_and_directory_artifacts_still_track_the_file ... ok
+test core::task::tests_probe::an_undeclared_non_ambient_change_is_still_not_stale ... ok
+test core::task::tests_probe::real_filesystem_roundtrip_detects_content_change ... ok
+
+failures:
+
+---- core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for stdout ----
+
+thread 'core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for' (2029917) panicked at src/core/task/tests_probe.rs:357:5:
+a hash of this host's files was recorded as a fact about a machine nobody read: {"input_hash": String("blake3:aa1010f591945965a486bd41efb90203efba0cdf67dce6ba726c1b4015ca6c66"), "output_hash": String("blake3:c472a28bc87677d2cbf6415079179dc8f49fdad3de16b6450ded584c0ffec047")}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    core::task::tests_probe::an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for
+
+test result: FAILED. 16 passed; 1 failed; 0 ignored; 0 measured; 13502 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`
+EXIT=101

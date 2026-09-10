@@ -1,0 +1,87 @@
+# reduced from PMAT-223-mutN2-bin.log — 1837 bytes, sha256 8d0b1a341dbe3ebe717e9a25f555c8e9d7cd6426214ead1eb96286c33c834394; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+warning: unused variable: `stored_out`
+  --> src/core/executor/resource_meta.rs:50:9
+   |
+50 |     let stored_out = rl.details.get("output_hash").and_then(|v| v.as_str());
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_stored_out`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `forjar` (lib) generated 1 warning (run `cargo fix --lib -p forjar` to apply 1 suggestion)
+warning: `forjar` (lib) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.04s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_deleted_output_is_rebuilt_not_reported_unchanged ... FAILED
+
+failures:
+
+---- a_deleted_output_is_rebuilt_not_reported_unchanged stdout ----
+
+thread 'a_deleted_output_is_rebuilt_not_reported_unchanged' (2308648) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:209:5:
+the artifact was deleted and never rebuilt: the cache answered from inputs alone.
+far: 0 converged, 1 unchanged, 0 failed (0.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+  build: stale — output artifact missing
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_deleted_output_is_rebuilt_not_reported_unchanged
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1.11s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## verdict lines
+test a_deleted_output_is_rebuilt_not_reported_unchanged ... FAILED
+thread 'a_deleted_output_is_rebuilt_not_reported_unchanged' (2308648) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:209:5:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1.11s
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+warning: unused variable: `stored_out`
+  --> src/core/executor/resource_meta.rs:50:9
+   |
+50 |     let stored_out = rl.details.get("output_hash").and_then(|v| v.as_str());
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_stored_out`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `forjar` (lib) generated 1 warning (run `cargo fix --lib -p forjar` to apply 1 suggestion)
+warning: `forjar` (lib) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.04s
+     Running tests/falsification_io_hash_answers_for_its_machine.rs (target/debug/deps/falsification_io_hash_answers_for_its_machine-e81cc48483099713)
+
+running 1 test
+test a_deleted_output_is_rebuilt_not_reported_unchanged ... FAILED
+
+failures:
+
+---- a_deleted_output_is_rebuilt_not_reported_unchanged stdout ----
+
+thread 'a_deleted_output_is_rebuilt_not_reported_unchanged' (2308648) panicked at tests/falsification_io_hash_answers_for_its_machine.rs:209:5:
+the artifact was deleted and never rebuilt: the cache answered from inputs alone.
+far: 0 converged, 1 unchanged, 0 failed (0.0s)
+
+Apply complete: 0 converged, 1 unchanged.
+  build: stale — output artifact missing
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_deleted_output_is_rebuilt_not_reported_unchanged
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1.11s
+
+error: test failed, to rerun pass `--test falsification_io_hash_answers_for_its_machine`
+EXIT=101

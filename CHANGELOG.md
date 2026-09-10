@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**An I/O hash is recorded and read only for a machine this host answers for,
+and the `cache: true` reader asks the planner's question (#501).** The apply
+path hashed the controller's tree into every machine's lock, and the executor's
+input cache read it back for a `cache: true` task on any machine — a hash of
+files that were never on that machine. Beside it the reader hashed the state
+directory's parent while the writer hashed `working_dir`, and the hash folds
+the expanded path in, so the cache never hit: every `cache: true` task re-ran
+on every apply. Now the writer records nothing for a machine this host does not
+answer for (an absent hash reads as re-run once, never as clean); the reader
+refuses to answer for such a machine, hashes the writer's base, and asks
+exactly what the planner asks — inputs unchanged AND outputs present and
+unmodified — so a deleted artifact is rebuilt; `--force` bypasses the cache;
+and a hit settles the row's spec hash, so the next plan reads `0 to change`
+rather than `1 to change` forever. Found by the #499 review. The behaviour
+this makes visible: a `cache: true` task whose command changed but whose
+declared inputs did not is now skipped, the make semantics the cache always
+declared; `--force` runs it.
+
 **A build-I/O probe answers only for the tree it was taken on (#499).** The
 probe map was keyed by resource id alone, so a task declared on a local and a
 remote machine planned the remote row from the controller's probe: local
