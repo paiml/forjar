@@ -4,7 +4,7 @@
   "branch": "PMAT-230-release-download-clobber",
   "base": "b3e5812d",
   "base_commit": "b3e5812de31fb184ce774ec286caaf7a1333b8a2",
-  "diff_sha256": "cc94bf3adaceaf6427119ea69fe4c8ff37ba783f",
+  "diff_sha256": "a79dd0cb3dbc38ca0398b0c1b4ddadc505b4428f",
   "recorded_at": "after three review rounds and the twelve-case mutation battery, before the push",
   "quorum": {
     "lanes": [
@@ -31,15 +31,15 @@
   },
   "falsification": {
     "test": "rule 9 (every `gh release download` in every workflow passes --clobber, none passes --skip-existing, none is guarded with ||, and fewer than three call sites is itself a failure) and rule 10 (dist-artifacts and homebrew clear the fixed /tmp directory they write into, and the clear precedes the write)",
-    "test_file": "tests/falsification_release_workflow_shape.rs",
-    "cargo_test_target": "falsification_release_workflow_shape",
+    "test_file": "tests/falsification_release_workflow_fixed_paths.rs",
+    "cargo_test_target": "falsification_release_workflow_fixed_paths",
     "reverted": "main's .github/workflows/release.yml and binary-release.yml checked out over this branch's tests (git checkout b3e5812d -- …), then restored with git checkout HEAD -- …",
-    "observed_failure": "8 passed, 2 failed — rule 9 names the call site with no --clobber and rule 10 names the job that never clears its fixed directory (docs/audits/logs/PMAT-230-gate-tests.log); 10 passed with the workflows restored. Twelve further cases in docs/audits/logs/PMAT-230-rule9-mutations.log: seven evasions turn rule 9 red, two innocent commands leave it green, three mutations of the guards turn rule 10 red.",
-    "still_green_when_reverted": "rules 1-8, which prove the change adds a property rather than altering the ones release.yml already had"
+    "observed_failure": "0 passed, 2 failed — rule 9 names the call site with no --clobber and rule 10 names the job that never clears its fixed directory (docs/audits/logs/PMAT-230-gate-tests.log); 2 passed with the workflows restored, and the sibling falsification_release_workflow_shape binary stays at 8 passed throughout. Twelve further cases in docs/audits/logs/PMAT-230-rule9-mutations.log: seven evasions turn rule 9 red, two innocent commands leave it green, three mutations of the guards turn rule 10 red.",
+    "still_green_when_reverted": "the eight PMAT-166 rules in the sibling binary falsification_release_workflow_shape.rs, which prove the change adds a property rather than altering the ones release.yml already had"
   },
   "evidence": {
     "claims_digest": ".quorum/evidence/clobber-judges.md",
-    "total_bytes": 37497,
+    "total_bytes": 37947,
     "files": [
       {
         "path": ".quorum/evidence/clobber-claims.md",
@@ -64,9 +64,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 8297,
-        "sha256": "27dcd2ef66aaa621e34457e415535a51baebceaac95342764d7493590de45273",
-        "blob": "482bb0afdde2f3cf4e2dcae7d3f9c28b7eb748d1"
+        "bytes": 8747,
+        "sha256": "fd97a6f3f4ac644457dcfc892d3ef079c44e404eaa1d87e29f7238b22641568a",
+        "blob": "8e82a90f738669886fff43d3974130ae3578d7b3"
       },
       {
         "path": ".quorum/evidence/clobber-agy.md",
@@ -122,8 +122,8 @@
       "analyze_vacuous_tests"
     ],
     "vacuous_tests_in_touched_paths": 0,
-    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json: 43 of 4713 tests examined flagged tree-wide (331 files parsed); 0 in tests/falsification_release_workflow_shape.rs, the one touched test file. Nothing to accept.",
-    "quality_gate": "cargo test --test falsification_release_workflow_shape: 10 passed at HEAD, 8 passed / 2 failed against main's workflows (docs/audits/logs/PMAT-230-gate-tests.log). Twelve mutation cases as designed (docs/audits/logs/PMAT-230-rule9-mutations.log). actionlint's finding set identical to main's (22 both sides; two in-script line numbers move). Both workflows parse as YAML. GATE T PASS on the branch. No src/ change, so gate F's mutation arm measures zero.",
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json: 43 of 4713 tests examined flagged tree-wide (331 files parsed); 0 in either touched test file. Nothing to accept.",
+    "quality_gate": "cargo test --test falsification_release_workflow_fixed_paths: 2 passed at HEAD, 0 passed / 2 failed against main's workflows, with the sibling shape binary at 8 passed throughout; the 500-line file-health ratchet refused the rules while they lived in the shape file (432 -> 671) and is green after the split (docs/audits/logs/PMAT-230-gate-tests.log). Twelve mutation cases as designed (docs/audits/logs/PMAT-230-rule9-mutations.log). actionlint's finding set identical to main's (22 both sides; two in-script line numbers move). Both workflows parse as YAML. GATE T PASS on the branch. No src/ change, so gate F's mutation arm measures zero.",
     "limit": "the pre-commit complexity check refused the first commit and the red-proof checkout chained behind it destroyed a staged fix — recorded in docs/audits/jidoka.jsonl, and the reason every later red proof was run only against a COMMITTED fix. cargo mutants remains unmeasurable on this host (PMAT-216). The v1.28.0 release is not published by this branch; it is what the branch makes possible."
   }
 }

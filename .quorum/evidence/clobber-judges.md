@@ -2,6 +2,8 @@
 
 Three rounds of three sandboxed lanes, base pinned at b3e5812d: round 1 on 469cc9a9 (0/3 PASS), round 2 on b02d26b4 (1/3 PASS), round 3 on 5d1920f6 (0/3 PASS). **No round is claimed to have passed.** Each round refuted the RULE, never the workflow fix, and each refutation that reproduced was closed and measured before the next round; the twelve-case battery in `docs/audits/logs/PMAT-230-rule9-mutations.log` is the instrument, not the lanes' prose.
 
+After round 3 the two rules were moved into `tests/falsification_release_workflow_fixed_paths.rs`: they had pushed `falsification_release_workflow_shape.rs` from 432 to 671 lines and the repository's 500-line ratchet refused it in CI by name. Nothing about either rule changed in the move, and both batteries were re-run against the new binary; the lanes judged the rules where they were written, which is why the round summaries name the old file.
+
 Citations resolve at the merge base: `tests/falsification_release_workflow_shape.rs:250` is `"dist-artifacts"` inside rule 5's asset-job list, `:365` and `:369` are rule 8's doc line naming `gh release download --pattern SHA256SUMS` and its test function, `:107` is `non_comment_lines`, and `:43` is `all_workflow_files` — the four pieces of the file this change builds on.
 
 ## CONFIRMED

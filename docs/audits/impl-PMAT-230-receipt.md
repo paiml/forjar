@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-230 — every `gh release download` overwrites what the previous release left, and the two other fixed /tmp paths are cleared
 
-verdict: PASS — the v1.28.0 release was blocked at `dist-artifacts` by ``/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or `--skip-existing` to skip file)``, a file left by a previous release on a runner that is not ephemeral; all three `gh release download` call sites now pass `--clobber`, the two other fixed `/tmp` paths release.yml writes into are cleared before they are written, and rules 9 and 10 of the workflow shape test hold both properties — red together against main's workflows (8 passed, 2 failed) and green here (10 passed), with twelve mutation cases measured one at a time. Three review rounds, nine lanes, **none of which passed**: every refutation that reproduced was fixed and the fix measured, and the ones deliberately not acted on are named. Not claimed: that the v1.28.0 release is published — that is the next step, and gate R reports it PENDING until it is.
+verdict: PASS — the v1.28.0 release was blocked at `dist-artifacts` by ``/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or `--skip-existing` to skip file)``, a file left by a previous release on a runner that is not ephemeral; all three `gh release download` call sites now pass `--clobber`, the two other fixed `/tmp` paths release.yml writes into are cleared before they are written, and rules 9 and 10 of the workflow shape test hold both properties — red together against main's workflows (0 passed, 2 failed in their own binary) and green here, with twelve mutation cases measured one at a time. Three review rounds, nine lanes, **none of which passed**: every refutation that reproduced was fixed and the fix measured, and the ones deliberately not acted on are named. Not claimed: that the v1.28.0 release is published — that is the next step, and gate R reports it PENDING until it is.
 
 orch_model: opus [A]   orch_class: code   orch_decision: admit   orch_basis: release
 fable_binding: false   quota_age_h: absent   quota_mark: ?   k_measured_at_set: refused(R-5)
@@ -14,8 +14,8 @@ routes:
   ph3  class=orchestration  route=self  w=100.00  basis=absent
 
 verification:
-  cmd="cargo test --test falsification_release_workflow_shape, with main's workflows checked out (RED: 8 passed, 2 failed) then at HEAD (GREEN: 10 passed)"  claimed_exit=101(lanes)  rerun_exit=101/0  log_path=docs/audits/logs/PMAT-230-gate-tests.log  sha256=89d336da7db663d2
-  cmd="twelve mutation cases: seven evasions of rule 9, two innocent commands that must stay green, three mutations of rule 10's guards"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-230-rule9-mutations.log  sha256=67b7a028d8ce7803
+  cmd="cargo test --test falsification_release_workflow_fixed_paths, with main's workflows checked out (RED: 0 passed, 2 failed) then at HEAD (GREEN: 2 passed, and 8 passed in the sibling shape binary)"  claimed_exit=101(lanes)  rerun_exit=101/0  log_path=docs/audits/logs/PMAT-230-gate-tests.log  sha256=49f44e9b92acef13
+  cmd="twelve mutation cases: seven evasions of rule 9, two innocent commands that must stay green, three mutations of rule 10's guards"  claimed_exit=-  rerun_exit=0  log_path=docs/audits/logs/PMAT-230-rule9-mutations.log  sha256=937be5e85f88e2bf
 
 ## What broke, and where it had already been written down
 
@@ -37,7 +37,7 @@ The lesson was already in the file, one job over. `checksums` clears its staging
 
 ## Falsification
 
-Rules 9 and 10 are red together against main's workflows and green here (`docs/audits/logs/PMAT-230-gate-tests.log`). Twelve cases, each applied alone to release.yml's `dist-artifacts` call site and reverted (`docs/audits/logs/PMAT-230-rule9-mutations.log`):
+Rules 9 and 10 are red together against main's workflows and green here (`docs/audits/logs/PMAT-230-gate-tests.log`). They live in `tests/falsification_release_workflow_fixed_paths.rs`: written beside PMAT-166's rules 1-8 in `falsification_release_workflow_shape.rs`, they pushed that file from 432 to 671 lines, the repository's 500-line ratchet refused it in CI by name, and the split is by subject — the shape of the release object on one side, what a non-ephemeral runner leaves behind on the other. Twelve cases, each applied alone to release.yml's `dist-artifacts` call site and reverted (`docs/audits/logs/PMAT-230-rule9-mutations.log`):
 
 | case | rule 9 |
 |---|---|
@@ -73,12 +73,14 @@ Two round-3 findings are deliberately **not** acted on, and are named rather tha
 
 | gate | result |
 |---|---|
-| `cargo test --test falsification_release_workflow_shape` | 10 passed at HEAD; 8 passed / 2 failed against main's workflows |
+| `cargo test --test falsification_release_workflow_fixed_paths` | 2 passed at HEAD; 0 passed / 2 failed against main's workflows |
+| `cargo test --test falsification_release_workflow_shape` | 8 passed, unchanged — the split moved rules, not behaviour |
+| `file-health` (the 500-line ratchet) | refused the unsplit file by name in CI (432 -> 671) and is green after the split |
 | twelve mutation cases | 10 red as designed, 2 innocent commands green |
 | `actionlint` over every workflow | the finding SET is identical to main's (22 both sides; only two in-script line numbers move). actionlint has never exited 0 here — it does not know the `clean-room` runner label — so the measurement is the diff of the finding sets, not the exit code |
 | YAML parse | both edited workflows parse |
 | `scripts/dogfood/tagged.sh` | GATE T PASS on the branch |
-| `pmat analyze vacuous-tests --path tests` | 43 of 4713 tree-wide, 0 in the touched test file |
+| `pmat analyze vacuous-tests --path tests` | 43 of 4713 tree-wide, 0 in either touched test file |
 | gate F's mutation arm | nothing under `src/` changes, so the arm has nothing to mutate — a measured zero, not a skip (PMAT-216 stays open) |
 | pre-commit | format, complexity, clippy, SATD green on every commit; every commit carries `Pmat-Ticket: PMAT-230` |
 
