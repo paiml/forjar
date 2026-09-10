@@ -1,0 +1,93 @@
+# reduced from PMAT-224-red.log — 3132 bytes, sha256 5a7eda1d6f0cb155092a500e09780ae8c59bab80cf683048299eda24fe43399a; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.59s
+     Running tests/falsification_quorum_gate_has_a_triage_shape.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_gate_has_a_triage_shape-527d7e514bc3de07)
+
+running 6 tests
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... FAILED
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... FAILED
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... FAILED
+
+failures:
+
+---- a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches stdout ----
+
+thread 'a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches' (7296) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:360:5:
+assertion `left == right` failed: a triage branch cited its ledger and its roadmap row and the evidence gate still refused it. Nothing a triage branch can honestly cite would anchor, so the only way past this gate is `waived`:
+✗ QUORUM GATE: only 0/4 (0%) adjudicated claims cite a
+  file:line inside this branch's own diff; floor is 33%.
+  Prose about code the branch never touched is not evidence FOR this change.
+
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify stdout ----
+
+thread 'a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify' (7295) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:409:5:
+assertion `left == right` failed: a kind: triage receipt over a diff that touches only the ledger, the roadmap and its own receipt was refused. The gate has no shape a triage branch can satisfy, so every triage PR must be waived:
+✗ QUORUM GATE: falsification is missing 'test' -- the revert-the-hunk check is not optional
+
+  left: 1
+ right: 0
+
+---- a_triage_receipt_over_a_code_diff_is_refused_by_name stdout ----
+
+thread 'a_triage_receipt_over_a_code_diff_is_refused_by_name' (7294) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:432:5:
+## verdict lines
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... FAILED
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... FAILED
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... FAILED
+thread 'a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches' (7296) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:360:5:
+thread 'a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify' (7295) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:409:5:
+thread 'a_triage_receipt_over_a_code_diff_is_refused_by_name' (7294) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:432:5:
+test result: FAILED. 3 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+error: test failed, to rerun pass `--test falsification_quorum_gate_has_a_triage_shape`
+## tail
+
+failures:
+
+---- a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches stdout ----
+
+thread 'a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches' (7296) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:360:5:
+assertion `left == right` failed: a triage branch cited its ledger and its roadmap row and the evidence gate still refused it. Nothing a triage branch can honestly cite would anchor, so the only way past this gate is `waived`:
+✗ QUORUM GATE: only 0/4 (0%) adjudicated claims cite a
+  file:line inside this branch's own diff; floor is 33%.
+  Prose about code the branch never touched is not evidence FOR this change.
+
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify stdout ----
+
+thread 'a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify' (7295) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:409:5:
+assertion `left == right` failed: a kind: triage receipt over a diff that touches only the ledger, the roadmap and its own receipt was refused. The gate has no shape a triage branch can satisfy, so every triage PR must be waived:
+✗ QUORUM GATE: falsification is missing 'test' -- the revert-the-hunk check is not optional
+
+  left: 1
+ right: 0
+
+---- a_triage_receipt_over_a_code_diff_is_refused_by_name stdout ----
+
+thread 'a_triage_receipt_over_a_code_diff_is_refused_by_name' (7294) panicked at tests/falsification_quorum_gate_has_a_triage_shape.rs:432:5:
+the refusal must name the file outside the triage rail, not fail for some other reason:
+✗ QUORUM GATE: falsification is missing 'test' -- the revert-the-hunk check is not optional
+
+
+
+failures:
+    a_triage_receipt_over_a_code_diff_is_refused_by_name
+    a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify
+    a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches
+
+test result: FAILED. 3 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+error: test failed, to rerun pass `--test falsification_quorum_gate_has_a_triage_shape`
+EXIT=101

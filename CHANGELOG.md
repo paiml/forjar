@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**The committed-quorum gate has a shape a `kind: triage` branch can satisfy
+(#491).** A triage branch classifies and links — a ledger under `docs/audits/`,
+roadmap rows, its own receipt — and writes no code, so it had no Rust test to
+name and no citable path: it anchored 0% of its claims by construction and
+could not satisfy the falsification block, and every triage PR was pushed
+`waived`. A receipt may now declare `kind: triage`; the gate then verifies from
+the diff that the branch touched nothing outside `docs/audits/**`,
+`docs/roadmaps/roadmap.yaml` and `.quorum/**` (a triage receipt over a code
+diff is refused by name), requires the falsification block to say
+`not_applicable` with a reason and refuses one that also names a test, prints
+exactly what it did not verify, and lets a citation into documentation the
+branch touches anchor a claim — for that kind only, so a code branch cannot
+anchor its claims on the receipt it wrote itself. Every other floor is
+unchanged. The other half of the rail lives in the `paiml-implement` skill
+(paiml/paiml-implement#68).
+
 **An I/O hash is recorded and read only for a machine this host answers for,
 and the `cache: true` reader asks the planner's question (#501).** The apply
 path hashed the controller's tree into every machine's lock, and the executor's
