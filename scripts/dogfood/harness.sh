@@ -52,21 +52,15 @@ fail() {
 
 dogfood_load_window
 
-# The ticket id a PR names, looked for in the branch, then the title, then the
-# body — cheapest and most deliberate first. A merged PR that names none has no
-# address at which a receipt could be looked for, and is a FAIL rather than a
-# skip: "we could not tell which ticket this was" must never read as "this one
-# is fine".
-pr_ticket() {
-  local src
-  DOGFOOD_TICKET=""
-  for src in "$@"; do
-    if [[ "$src" =~ (PMAT-[0-9]+) ]]; then
-      DOGFOOD_TICKET="${BASH_REMATCH[1]}"
-      return 0
-    fi
-  done
-}
+# The ticket a PR names — the first `PMAT-<n>` in the branch, then the title,
+# then the body, cheapest and most deliberate first — is read by
+# `dogfood_pr_tickets` in lib/window.sh, the one rule gates A and T share. An
+# id that is not a roadmap row resolves only through a row that declares
+# `alias:<id>` (PMAT-225); otherwise the PR has NO address at which a receipt
+# could be looked for, and that is a FAIL rather than a skip, or a fall-through
+# to the next id: "we could not tell which ticket this was" must never read as
+# "this one is fine", and a forgotten roadmap row must never be papered over by
+# an older ticket the body happens to mention.
 
 i=0
 checked=0
@@ -80,8 +74,11 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   dogfood_pr_field "$i" ".body"
   body="$DOGFOOD_FIELD"
 
-  pr_ticket "$href" "$title" "$body"
+  dogfood_pr_tickets "$href" "$title" "$body"
   id="$DOGFOOD_TICKET"
+  if [ -z "$id" ] && [ -n "$DOGFOOD_STRAY_IDS" ]; then
+    fail "PR #${num} (branch ${href}) names ${DOGFOOD_STRAY_IDS}, which is not a row of docs/roadmaps/roadmap.yaml at HEAD and which no row declares as its alias:<id>, so the harness receipt it must carry has no address: a ticket that is not on the roadmap cannot be shown to have been implemented under the harness"
+  fi
   if [ -z "$id" ]; then
     fail "PR #${num} (branch ${href}) names no PMAT-<n> ticket in its branch, title or body, so the harness receipt it must carry has no address: a merged PR whose ticket cannot be identified cannot be shown to have been implemented under the harness"
   fi

@@ -1834,14 +1834,15 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-05T08:49:18Z
-  updated: 2026-09-05T08:50:21.253426742+00:00
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on lambda-labs, forjar 1.24.0: in_declared_privilege_context (src/core/codegen/dispatch.rs) emits ''sudo bash /dev/fd/3 3<<DELIM'' for every sudo: true resource run by a non-root user. sudo''s closefrom default closes every descriptor >= 3 before exec, so the elevated bash reports ''/dev/fd/3: No such file or directory'' and exits 127 — apply, check and state_query alike, since all three share the wrapper. Repro: ''sudo bash /dev/fd/3 3<<<echo'' fails, ''sudo bash -s <<<echo'' works. The unit tests asserted the TEXT of the form and stayed green. Fix: cross the sudo boundary as a private 0600 temp file (mktemp, quoted heredoc, ''sudo bash <tmp>'', EXIT trap removes it), keeping stdin as the transport left it. Tests: unit test asserting no /dev/fd in the sudo form; integration test that EXECUTES the wrapper under real sudo (gated on uid != 0 and ''sudo -n true''), asserting exit code, stdout and that the temp file is gone; discrimination proven by reverting the emitter.'
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.25.2
   notes: null
 - id: PMAT-160
   github_issue: 466
@@ -1851,7 +1852,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-05T17:08:33Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on forjar 1.25.2 against paiml/infra (found by paiml/infra#442), three bugs in one family: (#466) apply --dry-run -r stack-tool-forjar listed all 139 lambda-labs resources as ''would execute'' while the executor and the confirmation count scoped to one; (#467) apply --check --subset screen-sharing on mini ran every one of 32 resources, never printed the ''Subset filter ... selected'' line apply prints, and exited 1 on four drifts outside the subset — and --check cannot take --exclude / -g / --skip at all; (#468) apply --subset stack-tool-forjar (and --dry-run --subset) was refused with "depends on unknown ''rustup-installer''" although the file declares it and the lock has it converged, while -r stack-tool-forjar converged. Root causes: the dry-run listing renders the unscoped plan; dispatch_apply_b.rs returns into cmd_check before apply_scope/apply_filters run; apply_gates::filter_subset prunes config.resources before resolver::build_execution_order validates edges.'
@@ -1865,6 +1866,7 @@ roadmap:
   - bug
   - apply
   - filters
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #472. apply filter pipeline; merged 2026-09-06'
 - id: PMAT-161
   github_issue: 469
@@ -1874,7 +1876,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-05T17:53:20Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:), and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room''; this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each touched only its own lock section. The lock file is already keyed by config name; the stamp is a single value, so for this layout the warning is a false positive on every apply and undo refuses a layout apply supports.'
@@ -1890,6 +1892,7 @@ roadmap:
   - bug
   - state
   - undo
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #473. state stamp keyed by config name; shipped narrowed to shared --state-dir for apply/status/stack_conflict, undo refused in a multi-stack dir'
 - id: PMAT-162
   github_issue: null
@@ -1899,7 +1902,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-06T08:09:20Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1907,6 +1910,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Spec merged in 1.26.0 by #481 (docs/specifications/forjar-state-generation-ownership.md v10, reviewed 3/3). Implementation is this ticket in 1.27: no restore semantics ship before it.'
 - id: PMAT-163
   github_issue: null
@@ -1916,7 +1920,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-06T08:41:30Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1924,6 +1928,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #476. forjar-dogfood v1, eight gates'
 - id: PMAT-164
   github_issue: null
@@ -1933,7 +1938,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-06T08:41:30Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1941,6 +1946,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #478. docs/audits/crux-1.26.0.md'
 - id: PMAT-165
   github_issue: null
@@ -1950,7 +1956,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-06T08:41:30Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1958,6 +1964,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #482. release cut 1.26.0'
 - id: PMAT-166
   github_issue: null
@@ -1967,7 +1974,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-06T08:41:30Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -1975,6 +1982,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #479. release workflow prerelease step'
 - id: PMAT-167
   github_issue: null
@@ -2431,7 +2439,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-07T16:00:00Z
-  updated: 2026-09-07T16:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'a file resource at a path containing 666 or 777 (e.g. /opt/app666/config) applies, and the falsification test that pins it is RED before the fix'
@@ -2442,6 +2450,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
 - id: PMAT-137
   kind: code
@@ -2452,7 +2461,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-09-02T16:20:39Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'Umbrella for the 2026-09-02 program. Stages S1-S6. GitHub #403-#417, #422, #423.'
@@ -2461,6 +2470,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.25.0
+  - release:v1.25.2
   notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).'
 - id: PMAT-145
   kind: code
@@ -2896,7 +2907,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-08T09:00:00Z
-  updated: 2026-09-08T12:00:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'scripts/cb200-ratchet.sh exits 0 on the branch head with the ceiling unchanged at 651'
@@ -2906,6 +2917,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.26.0
   notes: 'Completed in 1.26.0 by #482: three behaviour-preserving reductions brought the count from 654 to the recorded ceiling of 651, and the ratchet was found grading a stale pmat comply cache that pmat query --rebuild-index does not refresh.'
 - id: PMAT-158
   kind: code
@@ -2954,7 +2966,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-08T15:30:00Z
-  updated: 2026-09-08T15:30:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'dist-artifacts downloads SHA256SUMS from the draft release with gh (authenticated, works on drafts) and passes --checksums-file, so it never depends on the public download URL'
@@ -2964,6 +2976,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.27.0
   notes: 'Measured on the 1.26.0 release run (34224834188): every asset uploaded, then `forjar dist --all --version v1.26.0` exited 1 with ''cannot resolve checksums for release asset(s) ...'' because src/cli/dist_checksums.rs fetches https://github.com/<repo>/releases/download/<tag>/<asset>, which is not served for a draft. PMAT-166 made the release a draft until the asset jobs finish, which is right; the dist job is what has to change. forjar already ships the escape hatch the error names: --checksums-file. The 1.26.0 installer was generated by hand from the tag with that flag and uploaded, and the release was promoted by hand.'
 - id: PMAT-212
   kind: code
@@ -2974,7 +2987,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-08T17:26:44Z
-  updated: 2026-09-08T18:40:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'drift -f <config> checks only the machines that config declares, and reports no finding for a stack it does not declare'
@@ -2987,6 +3000,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.27.0
   notes: 'Filed by the operator 2026-09-08 as #488, measured at 31 stacks checked from a config declaring one machine. #485 is the same defect seen from the other side: check_machine_drift resolves a stack with config.machines.get(name), so a stack the config does not declare falls to the lock-only arm and is compared against the LOCAL filesystem — another computer''s file judged by the workstation''s copy of the path, which is why a byte-identical file reported DRIFTED with two stable different hashes. Fixed by scoping the state-dir walk, so the stack is never opened and there is no arm to fall to. Closes both.'
 - id: PMAT-213
   kind: code
@@ -2997,7 +3011,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-08T17:26:47Z
-  updated: 2026-09-08T18:40:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - 'the cargo package_check and the drift observable emit the same PATH repair the install action emits, before they ask cargo anything'
@@ -3009,6 +3023,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.27.0
   notes: 'Filed by the operator 2026-09-08 as #489 on a freshly reimaged box. forjar creates the condition itself: rustup-init --no-modify-path leaves cargo off the non-interactive PATH, Ubuntu''s stock bashrc returns at line 8 when not interactive, and rustup appends its env line at the bottom. Measured on yoga: rg installed and working, .crates.toml valid, cargo install --list listing it, forjar reporting missing:ripgrep.'
 - id: PMAT-214
   kind: code
@@ -3019,7 +3034,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-08T17:26:50Z
-  updated: 2026-09-08T18:55:00Z
+  updated: 2026-09-10T11:09:51Z
   spec: null
   acceptance_criteria:
   - '--refresh re-runs the completion_check for an entry the lock records as FAILED, before running its command, and skips the command when that check passes'
@@ -3031,6 +3046,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.27.0
   notes: 'Filed by the operator 2026-09-08 as #487, measured on two machines. The refuse-loudly guard pattern (exit 1, name the make target) is the one forjar itself makes necessary for an ephemeral-token registration, and it armed a latch. The first fix made --refresh green while leaving status: failed on disk, so the next plain apply re-latched; caught by re-running the operator''s sequence end to end against the real binary. The second half persists what --refresh measured. drift skipping not-converged entries is recorded as the remaining half and is not fixed here.'
 - id: PMAT-215
   kind: code
@@ -3041,7 +3057,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-08T19:09:43Z
-  updated: 2026-09-08T19:09:43Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'drift evaluates a resource the lock records as not converged rather than counting it in the skipped census'
@@ -3051,6 +3067,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.28.0
   notes: 'The second half of #487. The issue offered two fixes and said either alone is sufficient; PMAT-214 took option (1), --refresh re-checking failed entries. Option (2) is this. The operator measured it directly: "skipped 10: in the lock, not in the config 7, not converged in the lock 3", which means drift is blind to precisely the resources whose live state is most worth measuring. Not in 1.27.0.'
 - id: PMAT-216
   kind: code
@@ -3082,7 +3099,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-09T07:36:06Z
-  updated: 2026-09-09T07:36:06Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'cargo test --workspace passes from a path whose grandparent contains a sibling aprender checkout, which is the fleet workstation layout'
@@ -3093,6 +3110,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.28.0
   notes: 'Found while gating PMAT-215, where it turned the workspace gate red and first produced a wrong conclusion. coverage_map_enrichment queries softmax, an aprender kernel, against forjar''s IaC corpus and asserts the results are non-empty. It early-returns unless CARGO_MANIFEST_DIR/../.. has a sibling aprender, so it passes vacuously in CI and in any worktree outside ~/src and runs for real on a workstation that has aprender checked out. A test whose verdict depends on what else is on the developer''s disk is worse than a plain failure. Its immediate sibling violations_enrichment already carries the right cfg_attr(not(feature = "aprender-corpus"), ignore = ...) citing #452. NARROWED after reading the file: crates/forjar-contracts/src/query/cross_project_tests.rs uses a sibling-directory check deliberately and documents it (has_sibling_repos, "In CI, only this repo is checked out so siblings are absent"), and those tests guard their assertions with it rather than asserting past it. That idiom is not the defect and is left alone. The defect is using that same check as a proxy for a DIFFERENT question: a neighbouring aprender checkout does not put softmax contracts into forjar''s index, so the guard passes and the assertion then cannot hold.'
 - id: PMAT-219
   kind: code
@@ -3103,7 +3121,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-09T08:44:58Z
-  updated: 2026-09-09T08:44:58Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'the content_hash a lock entry records for a file on a REMOTE machine is read through the transport, never from the controller''s filesystem'
@@ -3115,6 +3133,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - alias:PMAT-218
+  - release:v1.28.0
   notes: 'Refiled by the operator on #485 with the mechanism, after my first close asserted the wrong one. build_resource_details reads through the transport ONLY for is_container_transport(); every other machine, INCLUDING PLAIN SSH, takes the else branch and hashes the CONTROLLER at that path. So a fleet resource declaring /home/noah/.bashrc records the WORKSTATION''s copy as its baseline. This is forjar#305''s root cause, fixed on the READ side (check_file_resource_drift now dispatches through exec_script) and left live on the WRITE side, which is why drift''s Actual is right and its Expected is a third file. It explains all four of the operator''s measurements, including why the stored value matches neither the declaration nor the live file, and why exactly the resources whose paths also exist on the controller are the ones that never converge. The prescription is already written in the sibling module: exec_script dispatches pepita > container > local > ssh, so a local machine still hashes locally and nothing needs a special case.'
 - id: PMAT-220
   kind: code
@@ -3125,7 +3145,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-09T11:35:29Z
-  updated: 2026-09-09T11:35:29Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'no code decides whether it may read THIS host''s filesystem on a machine''s behalf using a predicate that forgets a pepita namespace'
@@ -3137,6 +3157,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.28.0
   notes: 'Found by three review lanes during PMAT-219 and filed rather than fixed there, because widening machine_is_local under four callers this ticket had not measured is exactly the move that turns one fix into a regression. machine_is_local checks !is_container_transport plus a local address; drift''s reads_the_controller, now transport::controller_answers_for, also checks !is_pepita_transport, and says why: a pepita machine commonly declares addr 127.0.0.1 and its files live inside the namespace. exec_script dispatches pepita FIRST, so anything that must agree with what exec_script will actually do has to exclude it. The four sites are src/core/task/probe.rs:289, src/core/executor/mod.rs:426, src/core/executor/output_verify.rs:54 and src/transport/mod.rs:288. The fourth needs care: exec_script handles pepita before reaching that line, so tightening there may be a no-op or may not, and that is to be measured rather than assumed. machine_is_local''s own doc already asks for the fix: one definition, one place.'
 - id: PMAT-221
   kind: code
@@ -3147,7 +3168,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-09T14:31:13Z
-  updated: 2026-09-09T14:31:13Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'the planner distinguishes a resource it probed and found nothing stale from a resource it never probed: a converged task whose declared build I/O could not be measured on its machine is named in the plan, per (resource, machine), with the reason'
@@ -3162,6 +3183,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
+  - release:v1.28.0
   notes: 'orch-basis:M>=3 — five owning modules measured before the ticket was opened: src/core/types (ExecutionPlan), src/core/planner (the fallthrough at determine_present_action), src/core/task/probe.rs (the coverage predicate probe_config and the executor pre-plan probe both inline), src/cli (print_helpers, plan_json, plan_file, apply_dry_run, mod.rs bridge) and src/mcp (PlanOutput). Filed from PMAT-220 by three review lanes: probes.get(id) returning None falls through to the config-hash comparison, so a converged task whose inputs changed on a machine this host does not answer for plans NoOp with its YAML unchanged. True for every SSH target since the probe existed; #495 added namespaces to the set. The repository''s own doctrine (scripts/dogfood, DriftCensus) is that an UNMEASURED check must never print the same thing as a passed one; the planner has no census. The cheap and honest fix the issue asks for is disclosure at the planner boundary in the forjar#342 shape, not a remote probe (that is --refresh''s opt-in round trip).'
 - id: PMAT-222
   kind: code
@@ -3172,7 +3194,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-09T16:58:00Z
-  updated: 2026-09-09T16:58:00Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'the probe map is keyed by (machine, resource id): a digest only ever answers for the tree it was taken on, and a lookup for a (resource, machine) the probe never visited returns nothing'
@@ -3187,6 +3209,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
+  - release:v1.28.0
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (probe_all inserts one IoDigest per resource id, probe_config wraps it), src/core/executor/mod.rs (the pre-plan probe is the second producer), src/core/planner/mod.rs (determine_present_action looks the digest up by resource id for every (resource, machine) it plans) and src/core/planner/unprobed.rs (the census asks the machine predicate before the map because the map cannot answer per machine). Filed from PMAT-221 by one teamwork lane and three quorum lanes and left unfixed there on purpose: forjar#497 discloses an absent probe, this re-keys the map under every consumer. The defect is the forjar#485 shape one level up: a hash taken on the controller reported as a fact about a remote tree, invisible because the number is a correct hash of the wrong tree. Multi-machine task resources with declared build I/O are exactly the fleet''s build boxes. The fix the issue names: key by (machine, resource_id) so the lock''s per-machine input_hash/output_hash is compared against a probe of the same machine, never another.'
 - id: PMAT-223
   kind: code
@@ -3197,7 +3220,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-10T05:54:53Z
-  updated: 2026-09-10T05:54:53Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'record_io_hashes takes the machine and records nothing for a machine this host does not answer for; an absent input_hash reads as "no recorded input hash" in staleness_reason, never as clean'
@@ -3212,6 +3235,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
+  - release:v1.28.0
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (record_io_hashes has no machine argument and hashes probe_base_dir on the controller), src/core/executor/resource_ops.rs (record_success calls it for every (resource, machine) it converges, with the machine in hand), src/core/executor/resource_meta.rs with machine_b.rs (check_task_input_cache hashes state_dir.parent() and reads the lock''s input_hash for any machine; task_inputs_are_cached is its one caller) and src/transport/mod.rs (controller_answers_for, the one definition #485/#495/#497/#499 share). Filed from PMAT-222 by the review lanes and confirmed by reading: the #485 shape in the write path. Measured by hand on 643363b3 before the ticket was opened: a cache: true task converged on loopback and re-applied with a changed command and unchanged inputs ran again on every apply, with working_dir under the sandbox AND with working_dir equal to the state directory''s parent — hash_inputs folds the expanded file path into the hash, so the writer''s absolute working_dir base and the reader''s state-dir base can never agree. The cache is dead today, which is what hides the remote half: once the reader uses the writer''s base, a remote cache: true task would be skipped from the controller''s hash unless the reader refuses to answer for a machine this host cannot read. The fix the issue names: the machine guard on both sides through the one predicate, and the writer''s base on the reader.'
 - id: PMAT-224
   kind: code
@@ -3222,7 +3246,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-10T08:58:02Z
-  updated: 2026-09-10T08:58:02Z
+  updated: 2026-09-10T11:09:53Z
   spec: null
   acceptance_criteria:
   - 'a citation into a documentation file the branch touches (docs/**.md, docs/roadmaps/roadmap.yaml) anchors a claim under the same at-base and as-added rules as a Rust file, so the 33% floor is reachable by a branch that writes no Rust; a citation into a file the branch does not touch still anchors nothing'
@@ -3237,4 +3261,31 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
+  - release:v1.28.0
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: scripts/quorum-gate.sh (the falsification block requires test_file to be in the pushed tree AND touched by the branch and runs cargo test on it; nothing in the gate reads a kind), scripts/quorum_evidence.py (CIT_RE anchors only src|tests|scripts|benches/*.rs and the four root files, so a branch that writes no Rust cannot reach the 33% floor), tests/falsification_quorum_anchors_release_shaped.rs with tests/falsification_quorum_gate_reads_the_pushed_ref.rs (the two fixture harnesses that pin the gate shape and the template for the triage case), and the paiml-implement skill''s kind-gate.sh (the triage rail, another repository). Filed from the closure of #486, whose kind:triage branch received two three-lane rounds, a teamwork lane and a four-system CRUX survey and was pushed WAIVED because the gate had no shape for it. The CIT_RE comment already names the failure mode for release commits: a gate that cannot be passed honestly is what teaches a repo to reach for the waiver. Ten waived receipts sit in .quorum/ today. The fix the issue names: anchor documentation, declare where falsification does not apply and say so, and decide the rail; pinned by a fixture test.'
+- id: PMAT-225
+  kind: code
+  github_issue: 506
+  item_type: task
+  title: 'S2: every ticket names the tag that shipped it, PRs are tagged as they merge, and the two-day release cadence is a gate'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-10T10:38:41Z
+  updated: 2026-09-10T11:09:51Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/roadmaps/releases.yaml is the DECLARED side: cadence_days, a floor tag, one row per tag at or above the floor (cut, prs, tickets, dogfood, crux) and the open goal (next.tag, next.due = previous cut + cadence_days); scripts/release-goal.sh show prints one status line joining it to the measured window with basis= on every number'
+  - 'every roadmap row named by a tag''s PR window carries the label release:<tag>, and every ticket merged since the newest tag carries release:<next.tag>; release-goal.sh tag and sync add the label textually and idempotently (no YAML round-trip)'
+  - 'scripts/dogfood/tagged.sh prints exactly one GATE T PASS|FAIL line, carries a # mutation: comment, is strict, swallows no measurement, and FAILS by name when a declared row disagrees with the window GitHub reports, when a merged PR''s ticket lacks its release label, when a row names a tag origin does not carry, when a tag at or above the dogfood floor has no receipt at HEAD, and when the open goal is overdue (now past next.due, PRs merged, Cargo.toml still at the tagged version); a gh that cannot answer is UNMEASURED and red'
+  - 'a falsification test drives the gate over fixture repositories with a stub gh: each red arm is red for its own reason and the green fixture passes; with the arm removed the corresponding case fails'
+  - 'gate T is wired into make dogfood-release, the mutations guard test, the forjar-dogfood skill table, CLAUDE.md and contracts/forjar-dogfood-coverage-v1.yaml'
+  - 'a daily scheduled workflow runs gate T and make dogfood on main and keeps exactly one issue open while the cadence is red, closing it when green; actionlint passes and a shape test pins the schedule and the two commands'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.28.0
+  notes: 'orch-basis:release — the ticket declares and measures the release cadence itself. Measured before it was opened: newest tag v1.27.0 cut 2026-09-08T21:46:04Z; eight PRs (#493 #494 #496 #498 #500 #502 #504 #505) merged since and none names a release; 174 roadmap rows carry no release field or label; zero GitHub milestones; the squash subject is a lossy link (the 1.27.0 release commit names PMAT-212/213/214 and a PMAT-[0-9]+ scan sees one). Five owning modules: docs/roadmaps (the declared side), scripts/release-goal.sh (status line and textual repair), scripts/dogfood/tagged.sh with scripts/dogfood/lib/window.sh (the measured side), tests/ (fixture-driven falsification), .github/workflows (the daily instrument). Filed as forjar#506.'

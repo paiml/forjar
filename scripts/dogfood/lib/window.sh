@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # The release window: the set of PRs merged into main since the last tag that
-# is reachable from HEAD.
+# is reachable from HEAD — and, since PMAT-225, the window between ANY two
+# refs, and the ticket(s) a PR names.
 #
 # Gate A (scripts/dogfood/harness.sh) and gate E (scripts/dogfood/quorum.sh)
 # ask the same question of GitHub and then check a different file per answer.
-# The question lives here once, so that the two gates cannot drift into
-# checking different windows and reporting the same word.
+# Gate T (scripts/dogfood/tagged.sh) asks it once per tagged release. The
+# question lives here once, so that the gates cannot drift into checking
+# different windows and reporting the same word.
 #
 # SOURCED, NOT RUN. Sourcing this file defines functions and three constants
 # and does nothing else: no output, no git, no gh. A helper with a side effect
@@ -25,7 +27,7 @@
 # The caller must define `fail()` (printing its own `GATE <letter> FAIL …`)
 # BEFORE sourcing this file.
 
-# The GitHub client. Named here because it is a REQUIREMENT of both gates, not
+# The GitHub client. Named here because it is a REQUIREMENT of the gates, not
 # a convenience: the set of PRs merged since a tag is a fact only GitHub holds,
 # so a gh that cannot answer leaves the window unmeasured, and an unmeasured
 # window is a FAIL naming the tool — never a PASS over "no PRs found".
@@ -40,7 +42,7 @@ GH="${GH:-gh}"
 REPO="paiml/forjar"
 
 # The page the PR enumeration asks for. If GitHub fills it exactly, the window
-# may have been truncated and neither gate knows the set it is checking.
+# may have been truncated and no gate knows the set it is checking.
 PR_PAGE_LIMIT=200
 
 # The newest v* tag reachable from HEAD -> DOGFOOD_PREV_TAG.
@@ -61,23 +63,48 @@ dogfood_prev_tag() {
   DOGFOOD_PREV_TAG="$tag"
 }
 
-# The commit date of DOGFOOD_PREV_TAG in UTC -> DOGFOOD_PREV_TAG_DATE.
+# The commit date of REF in UTC -> DOGFOOD_REF_DATE.
 #
 # UTC and not local time: the string is handed to GitHub's `merged:>=` search,
 # and a local-time bound silently moves the edge of the window by the offset,
 # which drops or admits whatever merged inside it.
-dogfood_prev_tag_date() {
+dogfood_ref_date() {
   local rc=0 when
-  when="$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%dT%H:%M:%SZ "$DOGFOOD_PREV_TAG")" || rc=$?
+  when="$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%dT%H:%M:%SZ "$1")" || rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$when" ]; then
-    fail "cannot read the commit date of ${DOGFOOD_PREV_TAG} (git exit ${rc}), so the PR window has no lower bound — UNMEASURED"
+    fail "cannot read the commit date of ${1} (git exit ${rc}), so the PR window has no lower bound — UNMEASURED"
   fi
-  DOGFOOD_PREV_TAG_DATE="$when"
+  DOGFOOD_REF_DATE="$when"
 }
 
-# The PRs GitHub reports as merged into main since DOGFOOD_PREV_TAG_DATE,
-# narrowed to those actually inside this HEAD ->
-# DOGFOOD_PR_JSON (a JSON array), DOGFOOD_PR_COUNT, DOGFOOD_PR_OUTSIDE.
+# The commit date of DOGFOOD_PREV_TAG in UTC -> DOGFOOD_PREV_TAG_DATE.
+dogfood_prev_tag_date() {
+  dogfood_ref_date "$DOGFOOD_PREV_TAG"
+  DOGFOOD_PREV_TAG_DATE="$DOGFOOD_REF_DATE"
+}
+
+# The moment TAG was CUT, in UTC -> DOGFOOD_TAG_DATE.
+#
+# `creatordate` is the tagger date of an annotated tag and the committer date
+# of a lightweight one. The release cadence (gate T) counts from here, not
+# from the commit date used above: a release commit can sit unreleased for a
+# day before anyone tags it, and the window bound is the commit while the
+# release clock is the tag. (Refuted by the PMAT-225 plan grill: measured
+# against the commit date, a Friday merge tagged on Monday would be overdue at
+# the moment it was cut.)
+dogfood_tag_date() {
+  local rc=0 when
+  when="$(TZ=UTC git for-each-ref --format='%(creatordate:format-local:%Y-%m-%dT%H:%M:%SZ)' "refs/tags/$1")" || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$when" ]; then
+    fail "cannot read when ${1} was cut (git for-each-ref exit ${rc}, or no such tag): the release clock has no origin — UNMEASURED"
+  fi
+  DOGFOOD_TAG_DATE="$when"
+}
+
+# The PRs GitHub reports as merged into main since LOWER's commit date,
+# narrowed to those inside UPPER and not inside LOWER ->
+# DOGFOOD_PR_JSON (a JSON array), DOGFOOD_PR_COUNT, DOGFOOD_PR_OUTSIDE,
+# DOGFOOD_PR_PREVIOUS.
 #
 # THE PR SET COMES FROM GITHUB, NOT FROM `git log --merges`. This repository
 # squash-merges, and a squash merge leaves one ordinary commit with no second
@@ -86,15 +113,21 @@ dogfood_prev_tag_date() {
 # the reason release-check.sh Arm 5 was rewritten (PMAT-178) and the reason
 # these gates never re-derive the set locally.
 #
-# GitHub's window is a time range, so it also holds PRs merged after this
-# tree's HEAD. Membership is decided by ancestry, on the merge commit GitHub
-# names, in this checkout: those are reported as outside and not counted, which
-# is a fact about the window and not a failure of it.
-dogfood_merged_prs() {
-  local rc=0 raw n jrc=0 i=0 num oid arc keep='[]'
-  raw="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${DOGFOOD_PREV_TAG_DATE}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName,title,body 2>&1)" || rc=$?
+# MEMBERSHIP IS ANCESTRY, NEVER A TIME UPPER BOUND. GitHub's `mergedAt` for a
+# release's own PR is one second AFTER the commit date of the tag cut on it
+# (measured on v1.27.0: 21:46:05Z against 21:46:04Z), so a `merged:<=<tag
+# date>` bound would lose exactly the PR that made the release. The search is
+# bounded below only; each PR's merge commit is then placed by
+# `git merge-base --is-ancestor` — inside LOWER (the previous window, not
+# counted), inside UPPER (this window), or neither (merged after UPPER,
+# reported and not counted).
+dogfood_prs_between() {
+  local lower="$1" upper="$2"
+  local rc=0 raw n jrc=0 i=0 num oid arc prev_rc keep='[]'
+  dogfood_ref_date "$lower"
+  raw="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${DOGFOOD_REF_DATE}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName,title,body 2>&1)" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "${GH} pr list exited ${rc} (${raw}) — the PRs merged since ${DOGFOOD_PREV_TAG} cannot be enumerated without GitHub, and an unenumerable window is UNMEASURED, which is not the same as a window with no PRs"
+    fail "${GH} pr list exited ${rc} (${raw}) — the PRs merged since ${lower} cannot be enumerated without GitHub, and an unenumerable window is UNMEASURED, which is not the same as a window with no PRs"
   fi
   n="$(printf '%s' "$raw" | jq -r 'if type == "array" then length else error("not an array") end')" || jrc=$?
   if [ "$jrc" -ne 0 ]; then
@@ -110,50 +143,56 @@ dogfood_merged_prs() {
     num="$(printf '%s' "$raw" | jq -r ".[${i}].number // \"-\"")"
     oid="$(printf '%s' "$raw" | jq -r ".[${i}].mergeCommit.oid // \"-\"")"
     if [ "$oid" = "-" ] || [ -z "$oid" ]; then
-      fail "GitHub reports PR #${num} merged since ${DOGFOOD_PREV_TAG} with no merge commit, so whether it is inside this HEAD cannot be decided — UNMEASURED"
+      fail "GitHub reports PR #${num} merged since ${lower} with no merge commit, so whether it is inside this window cannot be decided — UNMEASURED"
     fi
     # The previous release's own PR is merged at the very second its tag is
     # cut, so `merged:>=<tag date>` returns it; its merge commit is an ancestor
     # of (or is) the tag, which puts it in the PREVIOUS window, not this one.
     prev_rc=0
-    git merge-base --is-ancestor "$oid" "$DOGFOOD_PREV_TAG" >/dev/null 2>&1 || prev_rc=$?
+    git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?
     if [ "$prev_rc" -eq 0 ]; then
-      echo "  #${num} ${oid} is inside ${DOGFOOD_PREV_TAG} (the previous release) — not counted"
+      echo "  #${num} ${oid} is inside ${lower} (the previous release) — not counted"
       DOGFOOD_PR_PREVIOUS=$((DOGFOOD_PR_PREVIOUS + 1))
       i=$((i + 1))
       continue
     fi
     if [ "$prev_rc" -ne 1 ]; then
-      fail "git merge-base --is-ancestor ${oid} ${DOGFOOD_PREV_TAG} exited ${prev_rc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin) — UNMEASURED"
+      fail "git merge-base --is-ancestor ${oid} ${lower} exited ${prev_rc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin) — UNMEASURED"
     fi
     arc=0
-    git merge-base --is-ancestor "$oid" HEAD >/dev/null 2>&1 || arc=$?
+    git merge-base --is-ancestor "$oid" "$upper" >/dev/null 2>&1 || arc=$?
     case "$arc" in
       0) keep="$(printf '%s' "$keep" | jq -c --arg o "$oid" '. + [$o]')" ;;
       1)
-        echo "  #${num} ${oid} is outside this HEAD (merged after it) — not counted"
+        echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted"
         DOGFOOD_PR_OUTSIDE=$((DOGFOOD_PR_OUTSIDE + 1))
         ;;
-      *) fail "git merge-base --is-ancestor ${oid} HEAD exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
+      *) fail "git merge-base --is-ancestor ${oid} ${upper} exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
     esac
     i=$((i + 1))
   done
 
   DOGFOOD_PR_JSON="$(printf '%s' "$raw" | jq -c --argjson keep "$keep" '[ .[] | select((.mergeCommit.oid // "-") as $o | $keep | index($o) != null) ]')"
   DOGFOOD_PR_COUNT="$(printf '%s' "$DOGFOOD_PR_JSON" | jq -r 'length')"
-  # An empty window is a fact only when nothing reached HEAD since the tag.
-  # Commits on main with no merged PR containing them are work that bypassed
-  # review (or a window GitHub could not describe), and a gate that said
-  # "PASS 0 of 0" over them would be the vacuous pass release-check.sh Arm 5
-  # refuses (PMAT-178); both gates refuse it here for the same reason.
+  # An empty window is a fact only when nothing reached UPPER since LOWER.
+  # Commits with no merged PR containing them are work that bypassed review
+  # (or a window GitHub could not describe), and a gate that said "PASS 0 of
+  # 0" over them would be the vacuous pass release-check.sh Arm 5 refuses
+  # (PMAT-178); every gate refuses it here for the same reason.
   local crc=0 commits_since
-  commits_since="$(git rev-list --count "${DOGFOOD_PREV_TAG}..HEAD")" || crc=$?
+  commits_since="$(git rev-list --count "${lower}..${upper}")" || crc=$?
   if [ "$crc" -ne 0 ] || [ -z "$commits_since" ]; then
-    fail "git rev-list --count ${DOGFOOD_PREV_TAG}..HEAD exited ${crc}: whether anything landed since the tag cannot be read — UNMEASURED"
+    fail "git rev-list --count ${lower}..${upper} exited ${crc}: whether anything landed since ${lower} cannot be read — UNMEASURED"
   fi
   if [ "$DOGFOOD_PR_COUNT" -eq 0 ] && [ "$commits_since" -gt 0 ]; then
-    fail "${commits_since} commit(s) reached HEAD since ${DOGFOOD_PREV_TAG} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it"
+    fail "${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it"
   fi
+}
+
+# The PRs merged since DOGFOOD_PREV_TAG that are inside HEAD — the window
+# gates A and E check.
+dogfood_merged_prs() {
+  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD
 }
 
 # The three steps in the only order they work in.
@@ -185,4 +224,188 @@ dogfood_pr_field() {
 # missing its receipt.
 dogfood_slug() {
   DOGFOOD_SLUG="${1//\//-}"
+}
+
+# ---------------------------------------------------------------------------
+# The ticket registry and the ticket(s) a PR names (PMAT-225, forjar#506).
+#
+# The registry is docs/roadmaps/roadmap.yaml, read ONCE per run and AT HEAD
+# by default (a gate reads committed state, never the working tree; see the
+# receipts above). scripts/release-goal.sh sets DOGFOOD_ROADMAP_REF=worktree,
+# because a status line that ignores the label you just added is not a status.
+
+# Every `- id:` / label pair of the registry -> DOGFOOD_ROW_LABELS (lines of
+# "<id> <label>"), and every id -> DOGFOOD_ROW_IDS (one per line).
+dogfood_roadmap_rows() {
+  local ref="${DOGFOOD_ROADMAP_REF:-HEAD}" rc=0 text
+  if [ -n "${DOGFOOD_ROW_IDS_LOADED:-}" ]; then
+    return 0
+  fi
+  if [ "$ref" = "worktree" ]; then
+    text="$(cat docs/roadmaps/roadmap.yaml)" || rc=$?
+  else
+    text="$(git show "${ref}:docs/roadmaps/roadmap.yaml")" || rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    fail "docs/roadmaps/roadmap.yaml cannot be read at ${ref} (exit ${rc}): the ticket registry is unreadable, so no PR's ticket can be identified — UNMEASURED"
+  fi
+  DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(PMAT-[0-9][0-9]*\)$/\1/p')"
+  # `labels: []` opens a list that the next key closes; `labels:` followed by
+  # `  - x` lines is the populated shape. Both are one awk state.
+  DOGFOOD_ROW_LABELS="$(printf '%s\n' "$text" | awk '
+    /^- id: /       { id = $3; inlist = 0; next }
+    /^  labels:/    { inlist = 1; next }
+    inlist && /^  - / { print id " " $2; next }
+    { inlist = 0 }')"
+  DOGFOOD_ROW_IDS_LOADED=1
+}
+
+# Is $1 a roadmap row? Exit 0 or 1 — usable in `if`, never under `$(...)`.
+dogfood_is_row() {
+  local rc=0
+  dogfood_roadmap_rows
+  printf '%s\n' "$DOGFOOD_ROW_IDS" | grep -q -x -F -- "$1" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} looking $1 up in the ticket registry — UNMEASURED"
+  fi
+  return "$rc"
+}
+
+# The labels of row $1 -> DOGFOOD_LABELS (space-separated, possibly empty).
+dogfood_row_labels() {
+  local rc=0 hits
+  dogfood_roadmap_rows
+  hits="$(printf '%s\n' "$DOGFOOD_ROW_LABELS" | grep -E "^$1 " | cut -d' ' -f2-)" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} reading the labels of $1 — UNMEASURED"
+  fi
+  DOGFOOD_LABELS="$(printf '%s\n' "$hits" | tr '\n' ' ' | sed 's/ *$//')"
+}
+
+# Every row carrying label $1 -> DOGFOOD_ROWS (space-separated, possibly empty).
+dogfood_rows_with_label() {
+  local rc=0 hits
+  dogfood_roadmap_rows
+  hits="$(printf '%s\n' "$DOGFOOD_ROW_LABELS" | grep -F -- " $1" | grep -E " $(printf '%s' "$1" | sed 's/[][\\.*^$+?(){}|]/\\&/g')\$" | cut -d' ' -f1)" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} looking for rows labelled $1 — UNMEASURED"
+  fi
+  DOGFOOD_ROWS="$(printf '%s\n' "$hits" | tr '\n' ' ' | sed 's/ *$//')"
+}
+
+# Every `PMAT-<n>` in $1, one per line, in order of appearance, with the slash
+# shorthand expanded (`PMAT-212/213/214` is three ids — the 1.27.0 release
+# commit names its tickets that way, and a plain scan sees one of three) ->
+# DOGFOOD_IDS. "None" is a legitimate answer (grep exit 1); grep failing to
+# run (>= 2) is UNMEASURED.
+dogfood_ids_in() {
+  local rc=0 hits
+  hits="$(printf '%s\n' "$1" | grep -o -E 'PMAT-[0-9]+(/[0-9]+)*')" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} scanning a PR for ticket ids — UNMEASURED"
+  fi
+  DOGFOOD_IDS="$(printf '%s\n' "$hits" | awk -F'[-/]' 'NF > 1 { for (i = 2; i <= NF; i++) print "PMAT-" $i }')"
+}
+
+# The row $1 resolves to -> DOGFOOD_ROW: $1 itself when it is a row; the one
+# row that declares the label `alias:$1` when $1 is not (PR #496's branch is
+# named PMAT-218, a ticket that never existed, and its title names PMAT-219 —
+# the row that owns the work declares the misnomer, and the declaration is in
+# the registry where a reader looks); empty when neither.
+#
+# A stray id is NEVER skipped in favour of the next one: the plan grill
+# refuted that rule by construction — a branch whose row was forgotten would
+# fall through to an older ticket named in the body, whose receipt already
+# exists, and gate A would pass over the missing work.
+dogfood_resolve_id() {
+  DOGFOOD_ROW=""
+  if dogfood_is_row "$1"; then
+    DOGFOOD_ROW="$1"
+    return 0
+  fi
+  dogfood_rows_with_label "alias:$1"
+  case "$DOGFOOD_ROWS" in
+    "") ;;
+    *" "*) fail "more than one roadmap row declares alias:$1 (${DOGFOOD_ROWS}), so the id resolves to no single ticket — a declaration that names two owners names none" ;;
+    *) DOGFOOD_ROW="$DOGFOOD_ROWS" ;;
+  esac
+}
+
+# The ticket(s) a PR names, from its head branch $1, title $2 and body $3 ->
+#   DOGFOOD_TICKET   the receipt address gate A reads: the FIRST id in the
+#                    branch, then the title, then the body, resolved; empty when
+#                    the PR names no id at all, or its first id is stray
+#   DOGFOOD_TICKETS  every resolved id in the branch and title, in order of
+#                    first appearance (the release a PR ships in is every ticket
+#                    it names); when branch and title name none, the body's first
+#   DOGFOOD_STRAY_IDS every id in the branch and title that resolves to nothing
+#
+# Cheapest and most deliberate source first, as gate A has always read it.
+dogfood_pr_tickets() {
+  local id first=""
+  DOGFOOD_TICKET=""
+  DOGFOOD_TICKETS=""
+  DOGFOOD_STRAY_IDS=""
+  dogfood_ids_in "$1
+$2"
+  for id in $DOGFOOD_IDS; do
+    [ -z "$first" ] && first="$id"
+    dogfood_take_id "$id"
+  done
+  if [ -z "$first" ]; then
+    dogfood_ids_in "$3"
+    for id in $DOGFOOD_IDS; do
+      first="$id"
+      dogfood_take_id "$id"
+      break
+    done
+  fi
+  if [ -n "$first" ]; then
+    dogfood_resolve_id "$first"
+    DOGFOOD_TICKET="$DOGFOOD_ROW"
+  fi
+}
+
+# Classify one id into DOGFOOD_TICKETS or DOGFOOD_STRAY_IDS, once.
+dogfood_take_id() {
+  dogfood_resolve_id "$1"
+  if [ -n "$DOGFOOD_ROW" ]; then
+    case " $DOGFOOD_TICKETS " in
+      *" $DOGFOOD_ROW "*) ;;
+      *) DOGFOOD_TICKETS="${DOGFOOD_TICKETS:+$DOGFOOD_TICKETS }$DOGFOOD_ROW" ;;
+    esac
+  else
+    case " $DOGFOOD_STRAY_IDS " in
+      *" $1 "*) ;;
+      *) DOGFOOD_STRAY_IDS="${DOGFOOD_STRAY_IDS:+$DOGFOOD_STRAY_IDS }$1" ;;
+    esac
+  fi
+}
+
+# The ticket census of the window in DOGFOOD_PR_JSON -> DOGFOOD_WINDOW_TICKETS
+# (space-separated, version-sorted, unique), DOGFOOD_WINDOW_STRAYS ("#<pr>:<id>,
+# <id>" per PR naming an id that resolves to no row), DOGFOOD_WINDOW_UNTICKETED
+# ("#<pr>" per PR naming no row at all). Every PR's ids go through
+# `dogfood_pr_tickets`, the one rule. An empty census is a legitimate answer:
+# `awk NF` selects the non-empty lines and, unlike `grep -v '^$'`, exits 0 when
+# there are none — a grep exit 1 under pipefail inside this assignment would
+# kill the caller with no verdict line (measured on the v1.25.1 window, which
+# names no ticket at all).
+dogfood_window_tickets() {
+  local i=0 num href title body all="" strays="" none=""
+  while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
+    dogfood_pr_field "$i" ".number"; num="$DOGFOOD_FIELD"
+    dogfood_pr_field "$i" ".headRefName"; href="$DOGFOOD_FIELD"
+    dogfood_pr_field "$i" ".title"; title="$DOGFOOD_FIELD"
+    dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
+    dogfood_pr_tickets "$href" "$title" "$body"
+    all="$all $DOGFOOD_TICKETS"
+    [ -z "$DOGFOOD_STRAY_IDS" ] || strays="$strays #${num}:${DOGFOOD_STRAY_IDS// /,}"
+    [ -n "$DOGFOOD_TICKETS" ] || none="$none #${num}"
+    i=$((i + 1))
+  done
+  # shellcheck disable=SC2086 — $all is a list of ids, split on purpose
+  DOGFOOD_WINDOW_TICKETS="$(printf '%s\n' $all | awk 'NF' | sort -u -V | tr '\n' ' ' | sed 's/ *$//')"
+  DOGFOOD_WINDOW_STRAYS="${strays# }"
+  DOGFOOD_WINDOW_UNTICKETED="${none# }"
 }

@@ -1,0 +1,10 @@
+# reduced from PMAT-225-gate-B.log — 238 bytes, sha256 2c6d751dce65c9213bc626fee8a484ed58dc600cbacf1ecbe139c907a6add34e; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 2 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+GATE_B_EXIT=0
+## verdict lines
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 2 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+GATE_B_EXIT=0
+## tail
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 2 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+GATE_B_EXIT=0

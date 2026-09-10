@@ -43,7 +43,7 @@ machine-run half of: the clean room proves the artifact BUILDS from a cold tree,
 
 ```bash
 make dogfood            # B C D G — hermetic, cheap; run it on every commit
-make dogfood-release    # + A E F H — the pre-publish gate
+make dogfood-release    # + A E T F H — the pre-publish gate
 make dogfood-published VERSION=x.y.z   # C and D against what crates.io serves
 make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
 ```
@@ -58,6 +58,7 @@ make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
 | F `coverage.sh` | the 95% line floor enforced inside llvm-cov, plus `cargo mutants` over this branch's own diff |
 | G `contracts.sh` | the contract corpus validates, lints, has depth, and every citation resolves |
 | H `crux-reconcile.sh` | every behaviour bullet under CHANGELOG `[Unreleased]` has a `docs/audits/crux-<ver>.md` row naming >=3 world-class systems |
+| T `tagged.sh` | every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>`, every ticket merged since the newest tag carries `release:<next.tag>`, and the next cut is not overdue (`cadence_days`, 2); `make release-goal` prints the join as one status line |
 | R `release-check.sh` | the tag, the release, crates.io, docs.rs, a committed `.quorum/<branch>.json` receipt (unwaived, >=3 lanes, >=3 judges) per merged PR |
 
 The operator-facing procedure is the **`forjar-dogfood` skill**

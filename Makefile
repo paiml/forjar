@@ -116,14 +116,15 @@ help:
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
 	@echo "  dogfood       - The standing gates B C D G (hermetic; run on every commit)"
-	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
+	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), T (release goals: every tag declared, every ticket labelled, the cut on time), F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
 	@echo "  dogfood-published VERSION=x.y.z - gates C and D against the crate crates.io serves"
 	@echo "  release-check - Tag, GitHub release, crates.io, docs.rs, quorum receipts, crux doc"
+	@echo "  release-goal  - The release goal as one status line: <next tag> <bar> elapsed/cadence, merged and tagged tickets, due, basis"
 	@echo "  help          - Show this help message"
 
 # ---------------------------------------------------------------- forjar-dogfood
 #
-# The eight standing gates of PMAT-163. Each script prints exactly one
+# The eight standing gates of PMAT-163, and T (PMAT-225). Each script prints exactly one
 # `GATE <letter> PASS|FAIL <detail>` line and its exit code IS the verdict, so
 # make's own fail-fast is the aggregation: the first RED stops the target and
 # the line above it says what and why. No `-` prefix and no `|| true` anywhere
@@ -133,12 +134,19 @@ help:
 #
 #   dogfood           B C D G   cheap, hermetic, no network beyond the API calls
 #                               gate B already makes. Safe on every commit.
-#   dogfood-release  + A E F H  A and E ask GitHub for the PRs merged since the
-#                               last tag and demand a harness receipt and a
+#   dogfood-release  + A E T F H  A and E ask GitHub for the PRs merged since
+#                               the last tag and demand a harness receipt and a
 #                               quorum receipt for each. They run FIRST because
 #                               they take seconds, and a release missing a
 #                               receipt should not have to wait on a coverage
-#                               build to hear so. F is a full coverage build
+#                               build to hear so. T (PMAT-225) reconciles
+#                               docs/roadmaps/releases.yaml — every tagged
+#                               release declared, every shipped ticket
+#                               labelled release:<tag>, every ticket merged
+#                               since the newest tag labelled with the next
+#                               one, and the next cut not overdue — against
+#                               git and GitHub; seconds too, so it runs before
+#                               F. F is a full coverage build
 #                               plus an in-diff mutation run (minutes); H is RED
 #                               until the release's CRUX reconciliation is
 #                               written. All four block a PUBLISH, not a commit.
@@ -159,8 +167,16 @@ dogfood:
 dogfood-release: dogfood
 	bash scripts/dogfood/harness.sh
 	bash scripts/dogfood/quorum.sh
+	bash scripts/dogfood/tagged.sh
 	bash scripts/dogfood/coverage.sh
 	bash scripts/dogfood/crux-reconcile.sh
+
+# The release goal, in the paiml-implement goal shape: declared (the ledger
+# and the labels) joined against measured (tags, PRs, the clock). Reads the
+# working tree and says so; gate T is the judge and reads HEAD.
+.PHONY: release-goal
+release-goal:
+	bash scripts/release-goal.sh show
 
 dogfood-published:
 	@# VERSION is required and is NOT defaulted to the tree's version: the
