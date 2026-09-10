@@ -1,0 +1,144 @@
+{
+  "kind": "code",
+  "issue": "PMAT-226 — release: forjar 1.28.0, the first cut under the two-day cadence docs/roadmaps/releases.yaml declares (due 2026-09-10T22:10:01Z): nine PRs merged since 1.27.0 across nine tickets, every one carrying release:v1.28.0 before the cut; Cargo.toml/Cargo.lock/README bumped, CHANGELOG [1.28.0] with nine behaviour paragraphs (five written here for merged PRs that had none), docs/audits/crux-1.28.0.md with a row per paragraph (gate H 9 of 9), and the one line of code: scripts/quorum-gate.sh's kind: triage rail admits docs/roadmaps/releases.yaml by file, so the post-tag ledger booking (PMAT-227) is a triage PR with an honest shape.",
+  "branch": "PMAT-226-release-1.28.0",
+  "base": "191770fa",
+  "base_commit": "191770fa7cc01d2b9e8f32a866f0e8f1beaa2fe1",
+  "diff_sha256": "88f27091c3b198d7093483cc70d418c2d526a4ed",
+  "recorded_at": "after the quorum round, before the push; the tree at the commit the diff hash names",
+  "quorum": {
+    "lanes": [
+      "ph3.crux teamwork lane (conv-ba0f8bcf)",
+      "ph4 review lane 1 (conv-8a855795)",
+      "ph4 review lane 2 (conv-9f491252)",
+      "ph4 review lane 3 (conv-8a38ece1)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one CRUX survey lane on the nine [1.28.0] paragraphs at 97e72ce6 (PASS, nine rows, three forjar descriptions corrected by the orchestrator); three --mode plan lanes on the diff at 568dc169 with the base pinned at 191770fa: 1/3 PASS, 2/3 FAIL, lane-reduce dissent 2; both refutations are corrections to the claim text and neither touches the diff, so no second round on an unchanged diff",
+    "kill_rule": "a lane could fail the whole diff on one refuted claim; every lane claim was re-run by the orchestrator before it was recorded (the triage-shape test at HEAD and against main's gate script, gate H, gates A/E/T, cargo metadata --locked, the merged-PR census, release-goal.sh sync --check); a refuted claim is recorded REFUTED with its correction, never rewritten into a pass",
+    "claims_confirmed": 10,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "C5 as worded: '[1.28.0] carries the four paragraphs [Unreleased] held plus five new ones' — lane 3: six paragraphs are new, counting the non-bold introduction. Corrected: five new BOLD behaviour paragraphs (the gate H keys) plus one non-bold introduction gate H does not key; every bold paragraph compared to its PR body by all three lanes.",
+      "C11 as worded: 'the PMAT-226 roadmap row carries … orch:fable with an orch-basis: token' — lanes 2 and 3 read `orch-basis: token` as a literal and found `orch-basis:release`. Corrected: the notes open with the token `orch-basis:release`, one of the five spellings model-gate.sh accepts; the claim meant a token of that form."
+    ]
+  },
+  "falsification": {
+    "test": "a_triage_receipt_over_the_release_ledger_is_on_the_rail: a kind: triage receipt over a diff that adds docs/roadmaps/releases.yaml passes the whole gate (exit 0); its sibling another_file_under_roadmaps_is_still_off_the_rail: docs/roadmaps/notes.md is refused and named",
+    "test_file": "tests/falsification_quorum_gate_has_a_triage_shape.rs",
+    "cargo_test_target": "falsification_quorum_gate_has_a_triage_shape",
+    "reverted": "main's scripts/quorum-gate.sh (191770fa) checked out over this branch's test file (git checkout 191770fa -- scripts/quorum-gate.sh), then restored with git checkout HEAD -- scripts/quorum-gate.sh",
+    "observed_failure": "7 passed, 1 failed — a_triage_receipt_over_the_release_ledger_is_on_the_rail fails at its exit-code assertion with the gate naming docs/roadmaps/releases.yaml as off the rail (docs/audits/logs/PMAT-226-gate-tests.log); 8 passed with the rail restored",
+    "still_green_when_reverted": "the six pre-existing cases and the negative case, which prove the fixture refactor changed no existing shape and that the rail is by file, not by directory"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/release-1.28.0-judges.md",
+    "total_bytes": 26608,
+    "files": [
+      {
+        "path": ".quorum/evidence/release-1.28.0-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3289,
+        "sha256": "d9b875ae7c28885d83e55328783d71d3972bc47039e56f4ced3650673e2112cb",
+        "blob": "13b9c2dbd16fb099a4c7e3ec2e87f6a4aeb708a2"
+      },
+      {
+        "path": ".quorum/evidence/release-1.28.0-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 9955,
+        "sha256": "31cdcada0a162cc8c57168baf39f281085d1075e7f438fa0f0320ef05b5932ab",
+        "blob": "47264420d3b1cc915ede1a2fe39b26eb4faf3bc3"
+      },
+      {
+        "path": ".quorum/evidence/release-1.28.0-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6584,
+        "sha256": "52b645f70ca08e6852636a422d612916d377ee4d4b8cd93793b7abfbeaf0b0d0",
+        "blob": "cc797bda918e417ca7e0b11d56247585a94620f4"
+      },
+      {
+        "path": ".quorum/evidence/release-1.28.0-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1898,
+        "sha256": "1108e7c7abe1a92f670092159ed00b30c9c342c083b3b2d5dc1ba2cdd63dcb8f",
+        "blob": "618fc470be6c66fda66bd514ff416aae778e4c74"
+      },
+      {
+        "path": ".quorum/evidence/release-1.28.0-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 1764,
+        "sha256": "642f8c56e3886c6b0dc370f7cc7dbe626ede19b4758968a8bfdfb5999ec433d1",
+        "blob": "b470cfcc6b28fcd921bda70989804466f043426e"
+      },
+      {
+        "path": ".quorum/evidence/release-1.28.0-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 3118,
+        "sha256": "712c3049a896eccdc7a8006a0bcbcd65b16a367612245405de8728885c7c7ef0",
+        "blob": "6253c6e0d7a0c7db10ffe2bf434b9a44eddef3cd"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Ansible",
+      "Chef",
+      "Terraform",
+      "SLSA",
+      "Nix",
+      "Bazel",
+      "Docker",
+      "Pulumi",
+      "Puppet",
+      "Podman"
+    ],
+    "verdict": "accept(nine rows in docs/audits/crux-1.28.0.md, each naming >= 3 of gate H's 28-system roster; the release-engineering rows find that every surveyed project records release impact at merge and reconciles at the cut — Kubernetes release-note blocks and milestones, Ansible changelog fragments, Chef Expeditor, Terraform .changelog — and that none makes the cadence itself red, which is the one claim that is forjar's alone; the defect rows find the per-instance addressing, builder-keyed caches and never-stop-measuring properties the surveyed systems have by construction)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed teamwork lane for the CRUX survey, three sandboxed --mode plan lanes on the diff; review-only, base pinned by SHA, writes=false; both delegate dispatches hit the 30-turn cap after every lane had finished and the orchestrator read the lane files and ran lane-reduce.sh itself",
+    "verdict": "CRUX lane PASS (three descriptions of forjar corrected before commit); review 1/3 PASS, 2/3 FAIL on claim wording only, every code claim 3/3 CONFIRMED, no second round on an unchanged diff"
+  },
+  "pmat": {
+    "ticket": "PMAT-226",
+    "tools": [
+      "pmat work add",
+      "kind-gate.sh",
+      "model-gate.sh (refused once: no orch-basis token; admitted after the row was patched)",
+      "target-guard.sh",
+      "config-lint.sh",
+      "discover.sh",
+      "estimate.sh (K̂=5 basis=first-run[U])",
+      "goal.sh (set refused, R-5, fourth ticket of the session; worker declarations for ph3.crux and ph4.quorum)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "pmat analyze complexity (pre-commit)",
+      "cargo test --test falsification_quorum_gate_has_a_triage_shape",
+      "cargo metadata --locked --offline",
+      "make dogfood-release (A B C D E F G H T)",
+      "bashrs lint",
+      "scripts/release-goal.sh tag|sync --check",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on 568dc169: 43 of 4713 tests examined flagged tree-wide (331 files parsed), 0 in the one touched test file tests/falsification_quorum_gate_has_a_triage_shape.rs; nothing to accept",
+    "quality_gate": "make dogfood-release exit 0 on 568dc169, one run: GATE A/B/C/D/E/F/G/H/T all PASS (docs/audits/logs/PMAT-226-dogfood-release.log); F: line coverage 96.45% >= 95%, mutants: 1 .rs file changed, none under src/; the rail test 8 passed at HEAD and 7 passed / 1 failed with main's gate script stashed in (docs/audits/logs/PMAT-226-gate-tests.log); gate R pre-tag PASS with four arms PENDING",
+    "limit": "no src/ file changes, so gate F's mutation arm has nothing to mutate on this branch and passes by coverage.sh's tests-only rule (a measured zero); PMAT-216 (cargo mutants dies on this host) stays open for branches that touch src/. The estimator had no rows for this repository shape (K̂=5 basis=first-run[U]). goal.sh set refused under R-5 for the fourth ticket of one session; recorded, not worked around."
+  }
+}
