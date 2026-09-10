@@ -50,6 +50,28 @@ CIT_RE = re.compile(
     r"|(?<![\w./-])(?:Cargo\.toml|Cargo\.lock|CHANGELOG\.md|README\.md)):(\d+)\b"
 )
 
+# forjar#491: the same shape, one level up. A `kind: triage` branch -- classify
+# and link, no diff -- touches only docs/audits/** and the roadmap. It has no
+# Rust file to cite, so under CIT_RE it anchors 0% BY CONSTRUCTION and every
+# triage PR was pushed `waived`. For a receipt that declares `kind: triage`, a
+# citation into a DOCUMENTATION file the branch touches anchors under the same
+# at-base / as-added / must-be-touched rules. ONLY for that kind: widening the
+# shape for every receipt would let a code branch anchor its claims on the
+# receipt it wrote itself instead of on code, and scripts/quorum-gate.sh refuses
+# a `kind: triage` receipt whose diff touches anything outside the triage rail,
+# so declaring the kind is not a way around this. `.quorum/evidence/**` is
+# deliberately absent: a digest citing itself is circular.
+CIT_RE_TRIAGE = re.compile(
+    r"\b((?:src|tests|scripts|benches)/[A-Za-z0-9_./-]+\.rs"
+    r"|docs/[A-Za-z0-9_./-]+\.(?:md|yaml|jsonl)"
+    r"|(?<![\w./-])(?:Cargo\.toml|Cargo\.lock|CHANGELOG\.md|README\.md)):(\d+)\b"
+)
+
+
+def citation_shape(receipt_kind):
+    """The citation regex a receipt of this kind anchors with."""
+    return CIT_RE_TRIAGE if receipt_kind == "triage" else CIT_RE
+
 # SHAPE-BASED, never environment-derived. A scanner keyed on "whoever is running
 # it" passes clean on every other machine. These sixteen are a DENYLIST and
 # cannot prove absence -- a novel credential shape or a customer name in prose
@@ -123,35 +145,39 @@ def truncated(body):
     return None
 
 
-def check_manifest(ev, head, blobs):
-    listed, roles, total = set(), set(), 0
-    for e in ev["files"]:
-        path, rs = e.get("path", ""), e.get("roles", [])
-        if not path.startswith(".quorum/evidence/"):
-            die(f"evidence path '{path}' is outside .quorum/evidence/")
-        if path in listed:
-            die(f"evidence path '{path}' is listed twice")
-        if not isinstance(rs, list) or not rs or set(rs) - ROLES:
-            die(f"evidence '{path}' roles {rs!r}; must be a non-empty subset of {sorted(ROLES)}")
-        listed.add(path)
-        roles.update(rs)
-        raw = blob_at(head, path)
-        if raw is None:
-            die(f"evidence '{path}' is NOT COMMITTED at HEAD.\n"
-                f"  The gate reads the tree; CI reviews what was PUSHED.\n"
-                f"  Commit it:  git add {path} && git commit")
-        bid = git("rev-parse", f"{head}:{path}")[1].strip()
-        sha = hashlib.sha256(raw).hexdigest()
-        for field, got, want in (("blob", e.get("blob"), bid),
-                                 ("sha256", e.get("sha256"), sha),
-                                 ("bytes", e.get("bytes"), len(raw))):
-            if got != want:
-                die(f"evidence '{path}': receipt {field}={str(got)[:16]}, committed {str(want)[:16]}")
-        if len(raw) > FILE_MAX:
-            die(f"evidence '{path}' is {len(raw)}B over the {FILE_MAX}B ceiling. Split by role;\n"
-                "  the raw journal belongs in an expiring artifact, not in git.")
-        blobs[path] = (bid, raw)
-        total += len(raw)
+def check_entry_shape(e, listed):
+    """One manifest entry's path and roles, before anything is read from git."""
+    path, rs = e.get("path", ""), e.get("roles", [])
+    if not path.startswith(".quorum/evidence/"):
+        die(f"evidence path '{path}' is outside .quorum/evidence/")
+    if path in listed:
+        die(f"evidence path '{path}' is listed twice")
+    if not isinstance(rs, list) or not rs or set(rs) - ROLES:
+        die(f"evidence '{path}' roles {rs!r}; must be a non-empty subset of {sorted(ROLES)}")
+    return path, rs
+
+
+def committed_blob(e, head, path):
+    """The blob the entry names, read from the commit and checked field by field."""
+    raw = blob_at(head, path)
+    if raw is None:
+        die(f"evidence '{path}' is NOT COMMITTED at HEAD.\n"
+            f"  The gate reads the tree; CI reviews what was PUSHED.\n"
+            f"  Commit it:  git add {path} && git commit")
+    bid = git("rev-parse", f"{head}:{path}")[1].strip()
+    sha = hashlib.sha256(raw).hexdigest()
+    for field, got, want in (("blob", e.get("blob"), bid),
+                             ("sha256", e.get("sha256"), sha),
+                             ("bytes", e.get("bytes"), len(raw))):
+        if got != want:
+            die(f"evidence '{path}': receipt {field}={str(got)[:16]}, committed {str(want)[:16]}")
+    if len(raw) > FILE_MAX:
+        die(f"evidence '{path}' is {len(raw)}B over the {FILE_MAX}B ceiling. Split by role;\n"
+            "  the raw journal belongs in an expiring artifact, not in git.")
+    return bid, raw
+
+
+def check_totals_and_roles(ev, total, roles):
     if total != ev.get("total_bytes"):
         die(f"evidence.total_bytes={ev.get('total_bytes')}, committed blobs sum to {total}")
     if total > TOTAL_MAX:
@@ -160,6 +186,18 @@ def check_manifest(ev, head, blobs):
         if need not in roles:
             die(f"no evidence file carries role '{need}'. The rule names lane summaries,\n"
                 "  judge scores and the independent review as evidence -- not only claims.")
+
+
+def check_manifest(ev, head, blobs):
+    listed, roles, total = set(), set(), 0
+    for e in ev["files"]:
+        path, rs = check_entry_shape(e, listed)
+        listed.add(path)
+        roles.update(rs)
+        bid, raw = committed_blob(e, head, path)
+        blobs[path] = (bid, raw)
+        total += len(raw)
+    check_totals_and_roles(ev, total, roles)
     return listed
 
 
@@ -188,30 +226,32 @@ def check_redaction(blobs):
                     "  THIS REPO IS PUBLIC -- this exact class already leaked once.")
 
 
-def check_claims(blobs, dp, want_conf, want_ref, base, head, touched):
-    text = blobs[dp][1].decode("utf-8", "replace")
-    counts, seen, adjudicated = {"CONFIRMED": 0, "REFUTED": 0}, set(), []
-    for kind, body in sections(text):
-        for it in items(body):
-            counts[kind] += 1
-            adjudicated.append(it)
-            head_line = re.sub(r"\s+", " ", it.split("\n")[0]).strip().lower()
-            if head_line in seen:
-                die(f"'{dp}': duplicate claim {head_line[:60]!r} -- "
-                    "N copies of one sentence is a tally with extra steps")
-            seen.add(head_line)
-            if len(it) < ITEM_MIN:
-                die(f"'{dp}': a {kind} claim is {len(it)}B, floor {ITEM_MIN}B")
-            subs = SUB_RE.findall(it)
-            if not subs:
-                die(f"'{dp}': a {kind} claim carries no '- evidence:'/'- corrected:' subline")
-            for _, sb in subs:
-                why = truncated(sb.rstrip())
-                if why:
-                    die(f"'{dp}': a {kind} subline is TRUNCATED -- {why}.\n"
-                        f"     ...{sb.rstrip()[-60:]!r}\n"
-                        "  Fix the EMITTER: a severed citation is unreviewable and no\n"
-                        "  other tier survives to complete it.")
+def check_item(it, kind, dp, seen):
+    """One adjudicated claim: distinct headline, over the floor, sublines intact."""
+    head_line = re.sub(r"\s+", " ", it.split("\n")[0]).strip().lower()
+    if head_line in seen:
+        die(f"'{dp}': duplicate claim {head_line[:60]!r} -- "
+            "N copies of one sentence is a tally with extra steps")
+    seen.add(head_line)
+    if len(it) < ITEM_MIN:
+        die(f"'{dp}': a {kind} claim is {len(it)}B, floor {ITEM_MIN}B")
+    subs = SUB_RE.findall(it)
+    if not subs:
+        die(f"'{dp}': a {kind} claim carries no '- evidence:'/'- corrected:' subline")
+    for _, sb in subs:
+        check_subline(sb, kind, dp)
+
+
+def check_subline(sb, kind, dp):
+    why = truncated(sb.rstrip())
+    if why:
+        die(f"'{dp}': a {kind} subline is TRUNCATED -- {why}.\n"
+            f"     ...{sb.rstrip()[-60:]!r}\n"
+            "  Fix the EMITTER: a severed citation is unreviewable and no\n"
+            "  other tier survives to complete it.")
+
+
+def check_tallies(counts, want_conf, want_ref):
     # SYMMETRY. The gate used to demand prose for what the panel KILLED and accept
     # a bare integer for what it BLESSED -- strict about the claims nobody
     # fabricates to look good, lax about the ones that ship into the changelog.
@@ -221,7 +261,18 @@ def check_claims(blobs, dp, want_conf, want_ref, base, head, touched):
             die(f"{label}={want} but the digest carries {counts[kind]} {kind} claims.\n"
                 "  A tally that disagrees with its own prose is the black box this gate\n"
                 "  already rejects for the refuted side.")
-    check_anchors(adjudicated, dp, base, head, touched)
+
+
+def check_claims(blobs, dp, want_conf, want_ref, base, head, touched, cit_re):
+    text = blobs[dp][1].decode("utf-8", "replace")
+    counts, seen, adjudicated = {"CONFIRMED": 0, "REFUTED": 0}, set(), []
+    for kind, body in sections(text):
+        for it in items(body):
+            counts[kind] += 1
+            adjudicated.append(it)
+            check_item(it, kind, dp, seen)
+    check_tallies(counts, want_conf, want_ref)
+    check_anchors(adjudicated, dp, base, head, touched, cit_re)
 
 
 def anchors_at_base(src, dp, p, n, touched):
@@ -264,7 +315,7 @@ def anchors_as_added(head, dp, p, n, touched):
     return True
 
 
-def check_anchors(adjudicated, dp, base, head, touched):
+def check_anchors(adjudicated, dp, base, head, touched, cit_re):
     """A citation must resolve IN THE TREE and name a file this diff touches.
 
     This is the check with teeth, because it is anchored to the merge-base tree --
@@ -282,7 +333,7 @@ def check_anchors(adjudicated, dp, base, head, touched):
     anchored = 0
     for it in adjudicated:
         hit = False
-        for p, n in CIT_RE.findall(it):
+        for p, n in cit_re.findall(it):
             src = blob_at(base, p)
             if src is None:
                 hit = anchors_as_added(head, dp, p, n, touched) or hit
@@ -295,6 +346,26 @@ def check_anchors(adjudicated, dp, base, head, touched):
             die(f"only {anchored}/{len(adjudicated)} ({rate:.0%}) adjudicated claims cite a\n"
                 f"  file:line inside this branch's own diff; floor is {ANCHOR_MIN:.0%}.\n"
                 "  Prose about code the branch never touched is not evidence FOR this change.")
+
+
+def receipt_identity(r, base):
+    """The receipt's kind, base and evidence list, each refused by name."""
+    # forjar#491: the kind decides which citation shape anchors. A receipt that
+    # declares no kind is a code receipt, and nothing about it changes.
+    receipt_kind = r.get("kind", "code")
+    if receipt_kind not in ("code", "triage"):
+        die(f"receipt kind={receipt_kind!r} is not one of code | triage")
+    got = r.get("base_commit")
+    if not got:
+        die(f"receipt is missing 'base_commit'. Without it every file:line citation\n"
+            f"  rots the moment this branch's own fix moves a line. Set it to {base}.")
+    if got != base:
+        die(f"receipt base_commit={got[:12]}... but the merge-base is {base[:12]}...")
+    ev = r.get("evidence")
+    if not isinstance(ev, dict) or not ev.get("files"):
+        die("receipt has no evidence.files[]. A verdict with no attached reasoning is\n"
+            "  the bare integer the owner's rule rejects.")
+    return receipt_kind, ev
 
 
 def main():
@@ -312,17 +383,7 @@ def main():
     # manifest because git blobs are content-addressed and do not move when a new
     # commit is made -- HEAD is not. Nothing is lost: `diff_sha256` already binds
     # the content of HEAD, which is what head_commit was reaching for.
-    got = r.get("base_commit")
-    if not got:
-        die(f"receipt is missing 'base_commit'. Without it every file:line citation\n"
-            f"  rots the moment this branch's own fix moves a line. Set it to {base}.")
-    if got != base:
-        die(f"receipt base_commit={got[:12]}... but the merge-base is {base[:12]}...")
-
-    ev = r.get("evidence")
-    if not isinstance(ev, dict) or not ev.get("files"):
-        die("receipt has no evidence.files[]. A verdict with no attached reasoning is\n"
-            "  the bare integer the owner's rule rejects.")
+    receipt_kind, ev = receipt_identity(r, base)
 
     blobs = {}
     listed = check_manifest(ev, head, blobs)
@@ -331,9 +392,12 @@ def main():
     dp = ev.get("claims_digest")
     if dp not in blobs:
         die("evidence.claims_digest must name one of evidence.files[]")
-    check_claims(blobs, dp, want_conf, want_ref, base, head, touched)
+    check_claims(blobs, dp, want_conf, want_ref, base, head, touched,
+                 citation_shape(receipt_kind))
+    kind_note = " (kind: triage -- documentation the branch touches anchors)" \
+        if receipt_kind == "triage" else ""
     print(f"  evidence: {len(blobs)} files, {ev['total_bytes']}B, "
-          f"{want_conf} confirmed + {want_ref} refuted, redaction clean")
+          f"{want_conf} confirmed + {want_ref} refuted, redaction clean{kind_note}")
 
 
 if __name__ == "__main__":
