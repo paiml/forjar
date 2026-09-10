@@ -118,6 +118,28 @@ pub(crate) fn waived_quorum_receipt() -> &'static str {
         "evidence": {"files": ["docs/audits/claims.md"]}}"#
 }
 
+/// A registry in the shape `docs/roadmaps/roadmap.yaml` has: one `- id:`
+/// block per row, each with a `labels:` list (empty ones are `labels: []`,
+/// the way `pmat work add` writes them).
+pub(crate) fn roadmap(rows: &[(&str, &[&str])]) -> String {
+    let mut text = String::from("roadmap_version: '1.0'\nroadmap:\n");
+    for (id, labels) in rows {
+        text.push_str(&format!(
+            "- id: {id}\n  title: fixture row\n  status: planned\n"
+        ));
+        if labels.is_empty() {
+            text.push_str("  labels: []\n");
+        } else {
+            text.push_str("  labels:\n");
+            for l in *labels {
+                text.push_str(&format!("  - {l}\n"));
+            }
+        }
+        text.push_str("  notes: null\n");
+    }
+    text
+}
+
 pub(crate) struct Fixture {
     pub(crate) _dir: tempfile::TempDir,
     pub(crate) root: PathBuf,
@@ -131,6 +153,28 @@ pub(crate) struct Fixture {
 }
 
 impl Fixture {
+    /// Declare, on a new row `owner` committed at HEAD with its own good
+    /// harness receipt, that the id `stray` (which is no row) means `owner` —
+    /// the `alias:<id>` label a misnamed branch resolves through.
+    pub(crate) fn declare_alias(&self, stray: &str, owner: &str) {
+        let alias = format!("alias:{stray}");
+        write(
+            &self.root,
+            "docs/roadmaps/roadmap.yaml",
+            &roadmap(&[(TICKET, &[]), (owner, &[alias.as_str()])]),
+        );
+        write(
+            &self.root,
+            &format!("docs/audits/impl-{owner}-receipt.md"),
+            &good_impl_receipt().replace(TICKET, owner),
+        );
+        git(&self.root, &["add", "-A"]);
+        git(
+            &self.root,
+            &["commit", "-qm", "the owner declares the misnomer"],
+        );
+    }
+
     /// `gh` answering with two merged PRs: #76, the previous release's own PR
     /// whose merge commit IS the tagged commit, and #77, the work in this
     /// window. Only #77 is this window's.
@@ -284,6 +328,13 @@ pub(crate) fn fixture(impl_receipt: Option<&str>, quorum_receipt: Option<&str>) 
         write(&root, rel, &body);
     }
     write(&root, "seed.txt", "the release before this window\n");
+    // The ticket registry gate A resolves every PR's id against (PMAT-225):
+    // the fixture ticket is a row, and nothing else is.
+    write(
+        &root,
+        "docs/roadmaps/roadmap.yaml",
+        &roadmap(&[(TICKET, &[])]),
+    );
     git(&root, &["add", "-A"]);
     git(&root, &["commit", "-qm", "the previous release"]);
     git(&root, &["tag", PREV_TAG]);

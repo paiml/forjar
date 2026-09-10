@@ -93,6 +93,41 @@ fn gate_a_a_merged_pr_with_no_ticket_id_is_named_and_red() {
     r.assert_says(&format!("#{PR}"));
 }
 
+/// PMAT-225: PR #496's branch was named after a ticket that never existed
+/// (PMAT-218) while its title named the real one (PMAT-219). The first id is
+/// the address, as it always was — and an id that is not a roadmap row is
+/// named and red rather than skipped for the next one: skipping would let a
+/// branch whose row was forgotten fall through to an older ticket in the body
+/// whose receipt already exists, and pass over the missing work.
+#[test]
+fn gate_a_a_first_id_that_is_not_a_roadmap_row_is_named_and_red() {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    let gh = fx.gh_reporting("PMAT-997/misnamed", "the real work (PMAT-999)", "");
+    let r = run(&fx, "harness.sh", &gh);
+    r.assert_not_green(
+        "A",
+        "the branch names PMAT-997, which is no roadmap row and which no row \
+         declares as its alias; the title's PMAT-999 must not be reached for",
+    );
+    r.assert_says("PMAT-997");
+    r.assert_says("alias:");
+}
+
+/// The declared way through: the row that owns the work says `alias:PMAT-997`
+/// and carries the receipt, so the misnamed branch resolves to it.
+#[test]
+fn gate_a_a_stray_id_resolves_through_the_row_that_declares_it_as_alias() {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    fx.declare_alias("PMAT-997", "PMAT-998");
+    let gh = fx.gh_reporting("PMAT-997/misnamed", "the real work", "");
+    let r = run(&fx, "harness.sh", &gh);
+    r.assert_green(
+        "A",
+        "PMAT-998 declares alias:PMAT-997 and carries its receipt at HEAD",
+    );
+    r.assert_says("PMAT-998");
+}
+
 #[test]
 fn gate_a_a_missing_harness_receipt_is_named_and_red() {
     let fx = fixture(None, Some(good_quorum_receipt()));

@@ -1,0 +1,57 @@
+# Release goals — the DECLARED side (PMAT-225, forjar#506).
+#
+# scripts/dogfood/tagged.sh (gate T) is the MEASURED side: it re-derives every
+# row below from the tags git holds and the PRs GitHub reports merged, and
+# FAILS by name wherever this file disagrees. scripts/release-goal.sh show
+# joins the two into one status line; `release-goal.sh window TAG` prints the
+# measured row to paste here; `release-goal.sh cut TAG --next NEXT` writes it
+# after a tag is cut. Edit as text. Quote nothing that is not quoted here.
+#
+# cadence_days   a cut is due this many days after the previous one; past the
+#                due instant with PRs merged and no version bump, gate T is red
+# floor          the first tag whose window names a pmat ticket; nothing older
+#                is declared and nothing older is checked
+# harness_floor  from here every PR in a window names a roadmap ticket (gate A's
+#                regime, PMAT-163); below it a window may hold unticketed PRs
+# dogfood_floor  from here every tag has docs/audits/dogfood-<ver>-receipt.md
+#                and docs/audits/crux-<ver>.md at HEAD
+# releases[]     tag, cut (the tag's creation instant, UTC), prs (every PR whose
+#                merge commit the tag contains and the previous tag does not),
+#                tickets (every roadmap row those PRs name in branch or title)
+# next           the open goal: the tag the merged-since-newest window ships
+#                in, and the instant it is due (previous cut + cadence_days)
+#
+# Every ticket a row names carries the label `release:<tag>` in roadmap.yaml;
+# every ticket merged since the newest tag carries `release:<next.tag>`.
+cadence_days: 2
+floor: v1.25.0
+harness_floor: v1.26.0
+dogfood_floor: v1.26.0
+releases:
+  - tag: v1.25.0
+    cut: 2026-09-04T00:13:32Z
+    prs: [397, 398, 399, 402, 418, 419, 420, 421, 424, 425, 426, 427, 436, 437, 438, 439, 440, 441, 442, 443, 444, 448, 450, 451, 453, 454, 455]
+    tickets: [PMAT-137]
+  - tag: v1.25.1
+    cut: 2026-09-04T02:07:29Z
+    prs: [457]
+    tickets: []
+  - tag: v1.25.2
+    cut: 2026-09-05T16:25:29Z
+    prs: [430, 458, 459, 460, 461, 464, 465]
+    tickets: [PMAT-137, PMAT-159]
+  - tag: v1.26.0
+    cut: 2026-09-08T12:02:13Z
+    prs: [472, 473, 476, 477, 478, 479, 480, 481, 482, 483]
+    tickets: [PMAT-160, PMAT-161, PMAT-162, PMAT-163, PMAT-164, PMAT-165, PMAT-166, PMAT-204, PMAT-206]
+    dogfood: docs/audits/dogfood-1.26.0-receipt.md
+    crux: docs/audits/crux-1.26.0.md
+  - tag: v1.27.0
+    cut: 2026-09-08T22:10:01Z
+    prs: [484, 490]
+    tickets: [PMAT-208, PMAT-212, PMAT-213, PMAT-214]
+    dogfood: docs/audits/dogfood-1.27.0-receipt.md
+    crux: docs/audits/crux-1.27.0.md
+next:
+  tag: v1.28.0
+  due: 2026-09-10T22:10:01Z
