@@ -1,0 +1,91 @@
+# reduced from PMAT-225-gate-tests.log — 5066 bytes, sha256 93c977c1bdf3859b5cab277bc354d973f14ecc53a2af518fe2bdda27ced76db2; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (<repo>)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.77s
+     Running tests/falsification_dogfood_harness_and_quorum.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_dogfood_harness_and_quorum-61978be5eb656d74)
+
+running 19 tests
+test gate_e_a_gh_that_cannot_answer_is_unmeasured_and_red ... ok
+test gate_a_a_gh_that_cannot_answer_is_unmeasured_and_red ... ok
+test gate_a_a_full_page_is_unmeasured_and_red ... ok
+test gate_a_commits_since_the_tag_with_no_merged_pr_are_red ... ok
+test gate_e_commits_since_the_tag_with_no_merged_pr_are_red ... ok
+test gate_e_a_missing_quorum_receipt_is_named_and_red ... ok
+test gate_e_a_pr_with_its_quorum_receipt_passes ... ok
+test gate_e_a_thin_quorum_is_red ... ok
+test gate_e_a_waiver_anywhere_in_the_receipt_is_red ... ok
+test gate_e_the_previous_releases_own_pr_is_outside_the_window ... ok
+test gate_a_a_merged_pr_with_no_ticket_id_is_named_and_red ... ok
+test gate_a_a_receipt_without_the_end_marker_is_red ... ok
+test gate_a_a_pr_with_its_harness_receipt_passes ... ok
+test gate_a_a_receipt_with_two_verdicts_is_red ... ok
+test gate_a_an_alias_declared_by_two_rows_names_no_owner_and_is_red ... ok
+test gate_a_a_missing_harness_receipt_is_named_and_red ... ok
+test gate_a_a_first_id_that_is_not_a_roadmap_row_is_named_and_red ... ok
+test gate_a_a_stray_id_resolves_through_the_row_that_declares_it_as_alias ... ok
+test gate_a_the_previous_releases_own_pr_is_outside_the_window ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/falsification_dogfood_release_check_pr_window.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_dogfood_release_check_pr_window-7dcc5d8bcb1974c7)
+
+running 9 tests
+test a_gh_that_cannot_answer_is_a_fail_and_never_a_pass ... ok
+test a_tag_that_exists_on_the_remote_is_never_pending ... ok
+test an_empty_pr_set_over_commits_that_landed_is_red ... ok
+test a_pr_without_its_receipt_is_named_and_red ... ok
+test a_thin_receipt_is_red ... ok
+test a_nested_override_is_red ... ok
+test a_waived_receipt_is_red ... ok
+test a_receipt_that_refuted_nothing_is_red ... ok
+## verdict lines
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.69s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+TESTS_EXIT=0
+## tail
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/falsification_release_goal_cut_books_the_tag.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_release_goal_cut_books_the_tag-b1dc3dba685827be)
+
+running 1 test
+test a_tag_that_was_cut_and_never_declared_is_red_until_cut_books_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.69s
+
+     Running tests/falsification_release_goal_workflow_shape.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_release_goal_workflow_shape-25a386913a667727)
+
+running 5 tests
+test rule_1_it_runs_every_day_and_on_demand ... ok
+test rule_4_nothing_is_swallowed ... ok
+test rule_3_one_issue_is_kept_open_while_red_and_closed_when_green ... ok
+test rule_5_the_gate_and_the_dogfood_half_that_a_hosted_runner_can_run ... ok
+test rule_2_gate_t_runs_first_with_a_token_and_a_full_clone ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/falsification_release_goals_are_measured.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_release_goals_are_measured-6a3cbb4c08059463)
+
+running 12 tests
+test a_row_naming_a_tag_origin_does_not_carry_is_red ... ok
+test a_gh_that_cannot_answer_is_unmeasured_and_red ... ok
+test a_declared_window_that_disagrees_with_github_is_named_and_red ... ok
+test a_shipped_ticket_without_its_release_label_is_named_and_red ... ok
+test a_ticket_claiming_a_release_it_was_not_in_is_red ... ok
+test a_declared_due_that_is_not_cut_plus_cadence_is_red ... ok
+test a_tree_at_a_version_no_goal_names_is_red ... ok
+test a_merged_ticket_without_the_next_release_label_is_named_and_red ... ok
+test a_declared_ledger_that_matches_git_and_github_is_green_and_counts ... ok
+test a_stray_id_in_a_tagged_window_is_red_until_a_row_declares_the_alias ... ok
+test a_release_at_the_dogfood_floor_without_its_receipt_is_red ... ok
+test an_overdue_cut_is_red_until_the_version_is_bumped ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+TESTS_EXIT=0

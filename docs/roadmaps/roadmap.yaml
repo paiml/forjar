@@ -3268,7 +3268,7 @@ roadmap:
   github_issue: 506
   item_type: task
   title: 'S2: every ticket names the tag that shipped it, PRs are tagged as they merge, and the two-day release cadence is a gate'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-10T10:38:41Z

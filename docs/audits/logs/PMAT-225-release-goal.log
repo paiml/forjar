@@ -1,0 +1,75 @@
+# reduced from PMAT-225-release-goal.log — 1588 bytes, sha256 c2c13575e7b13b6e89bc37feb147418aa544accac5002edcc8eda16130854a4a; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+  #490 54e36f130a4a12b623576d0332aae44f779dc34e is inside v1.27.0 (the previous release) — not counted
+v1.28.0 ███████░░░ 38h/48h left=9h · 8 merged, 8 tagged · due 2026-09-10T22:10:01Z basis=docs/roadmaps/releases.yaml:L55 window=v1.27.0..HEAD(ca3f8d70) ledger=worktree
+SHOW_EXIT=0
+== window v1.25.0
+  - tag: v1.25.0
+    cut: 2026-09-04T00:13:32Z
+    prs: [397, 398, 399, 402, 418, 419, 420, 421, 424, 425, 426, 427, 436, 437, 438, 439, 440, 441, 442, 443, 444, 448, 450, 451, 453, 454, 455]
+    tickets: [PMAT-137]
+    # PRs naming no roadmap ticket: #455 #453 #451 #450 #448 #444 #443 #442 #441 #440 #439 #438 #437 #436 #427 #426 #425 #424 #421 #420 #419 #418 #402 #399 #398 #397
+== window v1.25.1
+  - tag: v1.25.1
+    cut: 2026-09-04T02:07:29Z
+    prs: [457]
+    tickets: []
+    # PRs naming no roadmap ticket: #457
+== window v1.25.2
+  - tag: v1.25.2
+    cut: 2026-09-05T16:25:29Z
+    prs: [430, 458, 459, 460, 461, 464, 465]
+    tickets: [PMAT-137, PMAT-159]
+    # PRs naming no roadmap ticket: #461 #460 #459 #458
+== window v1.26.0
+  - tag: v1.26.0
+    cut: 2026-09-08T12:02:13Z
+    prs: [472, 473, 476, 477, 478, 479, 480, 481, 482, 483]
+    tickets: [PMAT-160, PMAT-161, PMAT-162, PMAT-163, PMAT-164, PMAT-165, PMAT-166, PMAT-204, PMAT-206]
+    dogfood: docs/audits/dogfood-1.26.0-receipt.md
+    crux: docs/audits/crux-1.26.0.md
+== window v1.27.0
+  - tag: v1.27.0
+    cut: 2026-09-08T22:10:01Z
+    prs: [484, 490]
+    tickets: [PMAT-208, PMAT-212, PMAT-213, PMAT-214]
+    dogfood: docs/audits/dogfood-1.27.0-receipt.md
+    crux: docs/audits/crux-1.27.0.md
+## verdict lines
+SHOW_EXIT=0
+## tail
+  #490 54e36f130a4a12b623576d0332aae44f779dc34e is inside v1.27.0 (the previous release) — not counted
+v1.28.0 ███████░░░ 38h/48h left=9h · 8 merged, 8 tagged · due 2026-09-10T22:10:01Z basis=docs/roadmaps/releases.yaml:L55 window=v1.27.0..HEAD(ca3f8d70) ledger=worktree
+SHOW_EXIT=0
+== window v1.25.0
+  - tag: v1.25.0
+    cut: 2026-09-04T00:13:32Z
+    prs: [397, 398, 399, 402, 418, 419, 420, 421, 424, 425, 426, 427, 436, 437, 438, 439, 440, 441, 442, 443, 444, 448, 450, 451, 453, 454, 455]
+    tickets: [PMAT-137]
+    # PRs naming no roadmap ticket: #455 #453 #451 #450 #448 #444 #443 #442 #441 #440 #439 #438 #437 #436 #427 #426 #425 #424 #421 #420 #419 #418 #402 #399 #398 #397
+== window v1.25.1
+  - tag: v1.25.1
+    cut: 2026-09-04T02:07:29Z
+    prs: [457]
+    tickets: []
+    # PRs naming no roadmap ticket: #457
+== window v1.25.2
+  - tag: v1.25.2
+    cut: 2026-09-05T16:25:29Z
+    prs: [430, 458, 459, 460, 461, 464, 465]
+    tickets: [PMAT-137, PMAT-159]
+    # PRs naming no roadmap ticket: #461 #460 #459 #458
+== window v1.26.0
+  - tag: v1.26.0
+    cut: 2026-09-08T12:02:13Z
+    prs: [472, 473, 476, 477, 478, 479, 480, 481, 482, 483]
+    tickets: [PMAT-160, PMAT-161, PMAT-162, PMAT-163, PMAT-164, PMAT-165, PMAT-166, PMAT-204, PMAT-206]
+    dogfood: docs/audits/dogfood-1.26.0-receipt.md
+    crux: docs/audits/crux-1.26.0.md
+== window v1.27.0
+  - tag: v1.27.0
+    cut: 2026-09-08T22:10:01Z
+    prs: [484, 490]
+    tickets: [PMAT-208, PMAT-212, PMAT-213, PMAT-214]
+    dogfood: docs/audits/dogfood-1.27.0-receipt.md
+    crux: docs/audits/crux-1.27.0.md

@@ -1,0 +1,31 @@
+# reduced from PMAT-225-bashrs.log — 570 bytes, sha256 dbbf262b331249d09025447839d6bc37a30709e4f4d8e63fb7f777e0a029ace3; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+== scripts/dogfood/tagged.sh
+Summary: [32m0 error(s)[0m, [33m38 warning(s)[0m, [2m43 info(s)[0m
+== scripts/dogfood/lib/window.sh
+Summary: [32m0 error(s)[0m, [33m46 warning(s)[0m, [2m61 info(s)[0m
+== scripts/dogfood/lib/releases.sh
+Summary: [32m0 error(s)[0m, [33m59 warning(s)[0m, [2m27 info(s)[0m
+== scripts/release-goal.sh
+Summary: [32m0 error(s)[0m, [33m12 warning(s)[0m, [2m32 info(s)[0m
+== scripts/dogfood/harness.sh
+Summary: [32m0 error(s)[0m, [33m12 warning(s)[0m, [2m18 info(s)[0m
+== actionlint
+actionlint: 0 findings
+BASHRS_EXIT=0
+## verdict lines
+BASHRS_EXIT=0
+## tail
+== scripts/dogfood/tagged.sh
+Summary: [32m0 error(s)[0m, [33m38 warning(s)[0m, [2m43 info(s)[0m
+== scripts/dogfood/lib/window.sh
+Summary: [32m0 error(s)[0m, [33m46 warning(s)[0m, [2m61 info(s)[0m
+== scripts/dogfood/lib/releases.sh
+Summary: [32m0 error(s)[0m, [33m59 warning(s)[0m, [2m27 info(s)[0m
+== scripts/release-goal.sh
+Summary: [32m0 error(s)[0m, [33m12 warning(s)[0m, [2m32 info(s)[0m
+== scripts/dogfood/harness.sh
+Summary: [32m0 error(s)[0m, [33m12 warning(s)[0m, [2m18 info(s)[0m
+== actionlint
+actionlint: 0 findings
+BASHRS_EXIT=0
