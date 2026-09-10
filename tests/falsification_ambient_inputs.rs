@@ -38,6 +38,11 @@ use forjar::core::types::{MachineTarget, Resource, ResourceType};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// forjar#501: the writer records only for a machine this host answers for.
+fn this_host() -> forjar::core::types::Machine {
+    serde_yaml_ng::from_str("hostname: box\naddr: 127.0.0.1").expect("machine")
+}
+
 fn fixture(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("fj244-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -73,7 +78,7 @@ fn apply_and_record(r: &Resource, dir: &Path) -> HashMap<String, serde_yaml_ng::
         .expect("run recipe");
     assert!(status.success(), "fixture recipe failed");
     let mut details = HashMap::new();
-    record_io_hashes(r, &mut details);
+    record_io_hashes(r, &this_host(), &mut details);
     details
 }
 
@@ -180,7 +185,7 @@ fn an_ambient_only_resource_is_still_probed() {
     );
 
     let mut details = HashMap::new();
-    record_io_hashes(&r, &mut details);
+    record_io_hashes(&r, &this_host(), &mut details);
     assert!(
         details.contains_key("input_hash"),
         "the lock recorded nothing to compare the next probe against"

@@ -57,6 +57,8 @@ mod tests_hooks;
 #[cfg(test)]
 mod tests_hooks_b;
 #[cfg(test)]
+mod tests_input_cache;
+#[cfg(test)]
 mod tests_localhost;
 #[cfg(test)]
 mod tests_localhost2;

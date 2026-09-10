@@ -226,13 +226,14 @@ pub(super) fn execute_wave_parallel(
 fn task_inputs_are_cached(
     cfg: &ApplyConfig,
     ctx: &RecordCtx,
+    machine: &Machine,
     resource_id: &str,
     resolved: &Resource,
 ) -> bool {
     if !(resolved.cache && crate::core::task::declares_inputs(resolved)) {
         return false;
     }
-    let Some(cached) = check_task_input_cache(resource_id, resolved, ctx) else {
+    let Some(cached) = check_task_input_cache(resource_id, resolved, machine, ctx) else {
         return false;
     };
     if cfg.trace {
@@ -285,7 +286,7 @@ fn prepare_wave_resources(
         // FJ-2701: Task input caching — skip execution if inputs unchanged.
         // Refs #412: the width-1 path has done this since FJ-2701; a wide wave
         // re-ran every cached task.
-        if task_inputs_are_cached(cfg, ctx, &change.resource_id, &resolved) {
+        if task_inputs_are_cached(cfg, ctx, machine, &change.resource_id, &resolved) {
             skipped.push((idx, ResourceOutcome::Unchanged));
             continue;
         }

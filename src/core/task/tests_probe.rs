@@ -261,7 +261,7 @@ fn an_undeclared_non_ambient_change_is_still_not_stale() {
 
     let r = task_with(&["src/slide.svg"], &["out/slide.png"], dir.to_str());
     let mut details = std::collections::HashMap::new();
-    record_io_hashes(&r, &mut details);
+    record_io_hashes(&r, &this_host(), &mut details);
     let stored_in = details.get("input_hash").and_then(|v| v.as_str());
     let stored_out = details.get("output_hash").and_then(|v| v.as_str());
 
@@ -320,4 +320,66 @@ fn two_machines_this_host_answers_for_share_one_digest() {
     assert_eq!(probed.len(), 2);
     assert_eq!(probed.get("here", "t"), probed.get("also", "t"));
     assert!(probed.get("elsewhere", "t").is_none());
+}
+
+/// A machine this host answers for.
+fn this_host() -> crate::core::types::Machine {
+    serde_yaml_ng::from_str("hostname: box\naddr: 127.0.0.1").expect("machine")
+}
+
+/// RFC 5737 TEST-NET-3: never routable, never this host.
+fn elsewhere() -> crate::core::types::Machine {
+    serde_yaml_ng::from_str("hostname: far\naddr: 203.0.113.7").expect("machine")
+}
+
+/// forjar#501, THE WRITE PATH. The hashes are taken on this host, so they are
+/// recorded under a machine this host answers for and under no other. Before
+/// this a remote machine's lock carried a correct hash of the controller's
+/// tree, and the cache reader skipped a remote run from it.
+#[test]
+fn an_io_hash_is_recorded_only_for_a_machine_this_host_answers_for() {
+    let dir = std::env::temp_dir().join(format!("forjar-501-write-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("src.txt"), "v1").unwrap();
+    std::fs::write(dir.join("out.txt"), "built").unwrap();
+    let r = task_with(&["src.txt"], &["out.txt"], dir.to_str());
+
+    let mut here = std::collections::HashMap::new();
+    record_io_hashes(&r, &this_host(), &mut here);
+    assert!(
+        here.contains_key("input_hash") && here.contains_key("output_hash"),
+        "this host's tree is this host's machine's tree: both hashes recorded"
+    );
+
+    let mut there = std::collections::HashMap::new();
+    record_io_hashes(&r, &elsewhere(), &mut there);
+    assert!(
+        !there.contains_key("input_hash") && !there.contains_key("output_hash"),
+        "a hash of this host's files was recorded as a fact about a machine \
+         nobody read: {there:?}"
+    );
+
+    // And the absence is honest: the next probe re-runs once, never reads clean.
+    let probe = probe_resource(&r).expect("declares I/O");
+    assert_eq!(
+        staleness_reason(&probe, None, None).as_deref(),
+        Some("no recorded input hash"),
+        "an absent recorded hash must read as re-run, not as converged"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// forjar#501: the writer, the cache reader and `probe_covers` share ONE
+/// answer to "does this host's tree answer for that machine".
+#[test]
+fn the_writer_and_the_coverage_predicate_share_one_answer() {
+    assert!(probe_answers_for(&this_host()), "loopback is this host");
+    assert!(!probe_answers_for(&elsewhere()), "TEST-NET is not");
+    let mut ns = this_host();
+    ns.transport = Some("pepita".to_string());
+    assert!(
+        !probe_answers_for(&ns),
+        "a namespace on loopback is not this host's filesystem (forjar#495)"
+    );
 }

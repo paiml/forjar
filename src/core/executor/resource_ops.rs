@@ -75,8 +75,10 @@ pub(crate) fn record_success(
     }
 
     // FJ-2710 (PMAT-197): record observed I/O so the NEXT plan can detect
-    // staleness. See core::task::probe::record_io_hashes.
-    crate::core::task::probe::record_io_hashes(resolved, &mut details);
+    // staleness. See core::task::probe::record_io_hashes. forjar#501: it
+    // records nothing for a machine this host does not answer for — the
+    // hashes are of THIS host's tree.
+    crate::core::task::probe::record_io_hashes(resolved, machine, &mut details);
 
     // FJ-266: `insert` returns the entry it displaced, which is the
     // before-state this converge overwrote. Free — no extra read.

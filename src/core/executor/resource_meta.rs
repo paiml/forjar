@@ -14,13 +14,28 @@ use super::*;
 /// Returns Some(message) if the task should be skipped (cache hit).
 /// Refs #412: shared with the wide-wave prepare phase, which used to skip the
 /// cache entirely — the same `cache: true` task re-ran under `--parallel`.
+///
+/// forjar#501, two things the reader must agree with the writer on:
+/// * the MACHINE. The lock's `input_hash` was taken on THIS host. For a
+///   machine this host does not answer for it is a hash of the wrong tree
+///   (or, since #501, absent), so the cache has no answer and the task runs
+///   there — skipping a remote run from the controller's files was the
+///   forjar#485 shape at this site.
+/// * the BASE. `record_io_hashes` hashes relative to `probe_base_dir` —
+///   `working_dir` — and `hash_inputs` folds the expanded path into the hash,
+///   so hashing against the state directory's parent could never match it:
+///   the cache was dead, and its deadness hid the machine half.
 pub(crate) fn check_task_input_cache(
     resource_id: &str,
     resource: &Resource,
+    machine: &Machine,
     ctx: &RecordCtx,
 ) -> Option<String> {
-    let base_dir = ctx.state_dir.parent().unwrap_or(ctx.state_dir);
-    let current_hash = crate::core::task::hash_declared_inputs(resource, base_dir)?;
+    if !crate::core::task::probe::probe_answers_for(machine) {
+        return None;
+    }
+    let base_dir = crate::core::task::probe::probe_base_dir(resource);
+    let current_hash = crate::core::task::hash_declared_inputs(resource, &base_dir)?;
     let stored_hash = ctx
         .lock
         .resources
