@@ -128,6 +128,25 @@ fn gate_a_a_stray_id_resolves_through_the_row_that_declares_it_as_alias() {
     r.assert_says("PMAT-998");
 }
 
+/// Two rows declaring the same alias name no owner at all: the resolver
+/// refuses rather than picking one, and gate A is red naming both. (The
+/// PMAT-225 quorum: the refusal was reachable and untested.)
+#[test]
+fn gate_a_an_alias_declared_by_two_rows_names_no_owner_and_is_red() {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    fx.declare_alias_on("PMAT-997", &["PMAT-998", "PMAT-996"]);
+    let gh = fx.gh_reporting("PMAT-997/misnamed", "the real work", "");
+    let r = run(&fx, "harness.sh", &gh);
+    r.assert_not_green(
+        "A",
+        "PMAT-998 and PMAT-996 both declare alias:PMAT-997, so the id resolves to \
+         no single ticket",
+    );
+    r.assert_says("PMAT-998");
+    r.assert_says("PMAT-996");
+    r.assert_says("names none");
+}
+
 #[test]
 fn gate_a_a_missing_harness_receipt_is_named_and_red() {
     let fx = fixture(None, Some(good_quorum_receipt()));

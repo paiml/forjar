@@ -157,17 +157,27 @@ impl Fixture {
     /// harness receipt, that the id `stray` (which is no row) means `owner` —
     /// the `alias:<id>` label a misnamed branch resolves through.
     pub(crate) fn declare_alias(&self, stray: &str, owner: &str) {
+        self.declare_alias_on(stray, &[owner]);
+    }
+
+    /// The same declaration on EVERY row in `owners` — two owners is the
+    /// shape the resolver must refuse: a declaration naming two owners names
+    /// none.
+    pub(crate) fn declare_alias_on(&self, stray: &str, owners: &[&str]) {
         let alias = format!("alias:{stray}");
-        write(
-            &self.root,
-            "docs/roadmaps/roadmap.yaml",
-            &roadmap(&[(TICKET, &[]), (owner, &[alias.as_str()])]),
-        );
-        write(
-            &self.root,
-            &format!("docs/audits/impl-{owner}-receipt.md"),
-            &good_impl_receipt().replace(TICKET, owner),
-        );
+        let labels: [&str; 1] = [alias.as_str()];
+        let mut rows: Vec<(&str, &[&str])> = vec![(TICKET, &[])];
+        for owner in owners {
+            rows.push((owner, &labels));
+        }
+        write(&self.root, "docs/roadmaps/roadmap.yaml", &roadmap(&rows));
+        for owner in owners {
+            write(
+                &self.root,
+                &format!("docs/audits/impl-{owner}-receipt.md"),
+                &good_impl_receipt().replace(TICKET, owner),
+            );
+        }
         git(&self.root, &["add", "-A"]);
         git(
             &self.root,

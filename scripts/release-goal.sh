@@ -135,14 +135,23 @@ window_prs() {
   PRS="$(printf '%s' "$DOGFOOD_PR_JSON" | jq -r '[.[].number] | sort | map(tostring) | join(", ")')"
 }
 
+# The row for TAG (or the open window), exactly as the ledger spells it: from
+# dogfood_floor on, the receipt and crux paths the release must carry (the
+# PMAT-225 quorum refuted a `window` that omitted them — its output and the
+# ledger's rows were not the same text).
 cmd_window() {
-  local tag="${1:-}" lower upper cutline
+  local tag="${1:-}" lower upper cutline receipts=""
+  dogfood_load_releases
+  dogfood_releases_field '.dogfood_floor'
   if [ -n "$tag" ]; then
     git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || fail "no such tag: ${tag}"
     lower_tag_of "$tag"; lower="$LOWER"; upper="$tag"
     dogfood_tag_date "$tag"; cutline="    cut: ${DOGFOOD_TAG_DATE}"
+    if dogfood_semver_ge "$tag" "$DOGFOOD_FIELD"; then
+      receipts="    dogfood: docs/audits/dogfood-${tag#v}-receipt.md
+    crux: docs/audits/crux-${tag#v}.md"
+    fi
   else
-    dogfood_load_releases
     dogfood_prev_tag; lower="$DOGFOOD_PREV_TAG"; upper="HEAD"
     dogfood_releases_field '.next.tag'; tag="$DOGFOOD_FIELD"
     cutline="    cut: null   # not cut yet — the open window since ${lower}"
@@ -154,6 +163,7 @@ cmd_window() {
   echo "$cutline"
   echo "    prs: [${PRS}]"
   echo "    tickets: [$(printf '%s' "$TICKETS" | sed 's/ /, /g')]"
+  [ -z "$receipts" ] || echo "$receipts"
   [ -z "$STRAYS" ] || echo "    # stray ids (no row, no alias): ${STRAYS}"
   [ -z "$UNTICKETED" ] || echo "    # PRs naming no roadmap ticket: ${UNTICKETED}"
 }
@@ -257,8 +267,7 @@ if not m:
     sys.exit(3)
 text = text.replace("\nreleases: []\n", "\nreleases:\n", 1)
 m = re.search(r"^next:\n(?:  .*\n?)*", text, re.M)
-ver = tag[1:]
-row = row.rstrip("\n") + "\n    dogfood: docs/audits/dogfood-%s-receipt.md\n    crux: docs/audits/crux-%s.md\n" % (ver, ver)
+row = row.rstrip("\n") + "\n"
 before = text[: m.start()].rstrip("\n") + "\n"
 text = before + row + "next:\n  tag: %s\n  due: %s\n" % (nxt, due)
 io.open(path, "w", encoding="utf-8").write(text)
