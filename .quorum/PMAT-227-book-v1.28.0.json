@@ -1,0 +1,119 @@
+{
+  "kind": "triage",
+  "issue": "PMAT-227 — the booking half of the forjar 1.28.0 cut: docs/roadmaps/releases.yaml gains the v1.28.0 row written by `scripts/release-goal.sh cut v1.28.0 --next v1.29.0` (cut = the annotated tag's creatordate 2026-09-10T16:07:14Z, ten PRs, ten tickets, the dogfood and crux receipts) and the open goal v1.29.0 due exactly two days later, so gate T is green on main again; PMAT-227, PMAT-228 and PMAT-229 carry release:v1.29.0 from the moment they were minted. A tag's row cannot be written before the tag exists, which is why this is a second PR, and it is judgeable as kind: triage only because PMAT-226 widened this gate's rail to admit the ledger.",
+  "branch": "PMAT-227-book-v1.28.0",
+  "base": "cdcc0e80",
+  "base_commit": "cdcc0e80a17a95158fbf9693556df81149020401",
+  "diff_sha256": "da8fa27c24c57b224188c395f1cccc65a431f3d8",
+  "recorded_at": "after the quorum round and the two filings it produced, before the push",
+  "quorum": {
+    "lanes": [
+      "ph2 review lane 1 (conv-4372a570)",
+      "ph2 review lane 2 (conv-86493b36)",
+      "ph2 review lane 3 (conv-71645ff3)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed lanes on the diff at a47ca249, base pinned at cdcc0e80: 0/3 PASS, 3/3 FAIL, lane-reduce dissent 3. Each lane was given the exact command that decides each claim, so a verdict is a rerun rather than a reading; eight of nine claims came back grounding=measured from every lane.",
+    "kill_rule": "a lane could fail the whole booking on one refuted claim, and all three did. The orchestrator re-ran both refutations: C8 is a real error in the claim text (corrected, and what it exposed filed as PMAT-229), C4's refutation does not reproduce (recorded as a lane misread with the measurement that settles it). Neither changes the diff, so no second round was run on an unchanged diff — converting a 3/3 FAIL into a green line by re-judging nothing is the theater this gate exists to prevent.",
+    "claims_confirmed": 8,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "C8 as worded: '`release-goal.sh show` prints the v1.29.0 goal with basis=docs/roadmaps/releases.yaml:L62 and sync --check finds nothing to label' — refuted by all three lanes on both halves. On the branch both exit 2 on the bypassed-review arm and print no goal line; at main's HEAD with this ledger the basis is L61, because removing the stray line the tool pasted shifted every later line up by one. Corrected in the digest; the status-line refusal is filed as PMAT-229 with scripts/dogfood/tagged.sh explicitly required to stay as strict."
+    ],
+    "lane_errors": [
+      "C4, refuted by lane 1 alone and NOT reproduced when the orchestrator re-ran it: the lane reported PMAT-227's labels block as kind:triage alone; at a47ca249 it is kind:triage, orch:fable, release:v1.29.0, and lanes 2 and 3 read it correctly. Recorded as a lane error rather than dropped."
+    ]
+  },
+  "falsification": {
+    "not_applicable": "this branch contains no code: the diff is the release ledger, two roadmap rows, its own receipts and this artifact. There is no test to revert and none was run, so no falsification is claimed. What stands in its place is that every field of the booked row was re-derived by `scripts/release-goal.sh window v1.28.0` and by `scripts/dogfood/tagged.sh`, both of which refuse when the declared and the measured disagree, and that gate T is red on this branch for a reason the receipt names by hand (the bypassed-review arm) rather than silently."
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/book-1.28.0-judges.md",
+    "total_bytes": 23409,
+    "files": [
+      {
+        "path": ".quorum/evidence/book-1.28.0-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3239,
+        "sha256": "58c1ab53173132e74fd4159d49cd4fddd877803b8007e8c9af70714e47196791",
+        "blob": "26a6394f322957ddacfd3e186db75dd044bfbd73"
+      },
+      {
+        "path": ".quorum/evidence/book-1.28.0-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 8042,
+        "sha256": "45e6e4899ea53d089d0e91ce03b2eec9af609cafb4720af707274d53ad054449",
+        "blob": "bbed9a8947eabd38a72587b66762dbf6aa34e9a7"
+      },
+      {
+        "path": ".quorum/evidence/book-1.28.0-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 7639,
+        "sha256": "dcf3a2083cc5dd68d689850801b07e457126230afac6a96d656736a765290853",
+        "blob": "49028ba1a8684dd7e29dca42469c420dab37c09b"
+      },
+      {
+        "path": ".quorum/evidence/book-1.28.0-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1560,
+        "sha256": "f633ffe145d8c742e73f228b1bf58183ff475b9dbd892a24e2acbeefdac1bf5c",
+        "blob": "0d2bfeaf4d26eb0882e08f1fbb10b0b403e3a04d"
+      },
+      {
+        "path": ".quorum/evidence/book-1.28.0-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2929,
+        "sha256": "b7ad0f5ddf1a920c47e74eccee5c1b933c551230a1143fa06ae6e175e77640f3",
+        "blob": "481a2e6e74e91b3f846f523c78aebab000f2bbf0"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Ansible",
+      "Chef",
+      "Terraform",
+      "SLSA"
+    ],
+    "verdict": "accept(docs/audits/crux-1.28.0.md row 9 surveyed exactly this act — the bookkeeping that follows a cut — and found that in all four surveyed projects it is a bot's commit or an attestation rather than a reviewed change: krel generates Kubernetes' CHANGELOG files, Expeditor commits Chef's version bump, nixpkgs' release managers bump the branch directly, SLSA records the release as a signed attestation. forjar's ledger row is a reviewed change in the tree, which is the stricter shape, and the rail is what makes it affordable. No new comparison was run for this PR: the release it books is the one that document audits.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed lanes on the diff, review-only, base pinned by SHA, writes=false; the delegate hit its 30-turn cap after all three lanes had written their files and the orchestrator ran lane-reduce.sh itself",
+    "verdict": "0/3 PASS, 3/3 FAIL; one real finding (PMAT-229) and one lane misread, both re-run by the orchestrator before being recorded"
+  },
+  "pmat": {
+    "ticket": "PMAT-227",
+    "tools": [
+      "pmat work add",
+      "kind-gate.sh (kind=triage files=0)",
+      "model-gate.sh (refused under fable, admitted under opus after the operator switched the session model mid-ticket)",
+      "target-guard.sh",
+      "goal.sh (set refused, R-5; worker declared the review lane)",
+      "route.sh",
+      "transcript-gate.sh",
+      "scripts/release-goal.sh cut|tag|show|sync|window",
+      "scripts/dogfood/tagged.sh",
+      "scripts/dogfood/release-check.sh",
+      "scripts/publish-from-tag.sh",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 43 of 4713 tests examined flagged tree-wide (331 files parsed); 0 in the touched paths, because this branch touches no test file and no source file at all — the diff is the release ledger, two roadmap rows, the receipts and this artifact. Nothing to accept. The gate requires this scan by name even for a kind: triage receipt, which is right: a branch that claims it touches no tests should be made to prove it rather than asserted.",
+    "quality_gate": "scripts/dogfood/tagged.sh in a worktree at main (cdcc0e80) with this ledger: GATE T PASS 6 tagged release(s) since v1.25.0 … 26 ticket(s) carry their tag; 0 of 0 PR(s) merged since v1.28.0 carry release:v1.29.0; due 2026-09-12T16:07:14Z (docs/audits/logs/PMAT-227-gate-T-main.log). On the branch: red on the bypassed-review arm alone (docs/audits/logs/PMAT-227-gate-T-branch.log). The booked row equals `release-goal.sh window v1.28.0` byte for byte (docs/audits/logs/PMAT-227-row-equals-window.log). No cargo build was run and none is claimed: this branch contains no code.",
+    "limit": "the GitHub release for v1.28.0 was still building its binaries when this artifact was recorded; crates.io (1.28.0, created_at 2026-09-10T16:12:45Z) and docs.rs (doc_status true) were measured, the release was not, and docs/audits/release-1.28.0-receipt.md is where that verdict belongs. goal.sh set refused under R-5 for the fifth ticket of one session; recorded, not worked around."
+  }
+}
