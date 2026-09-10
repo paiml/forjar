@@ -3,7 +3,7 @@
   "kind": "code",
   "base": "origin/main",
   "base_commit": "8e8e79e4aa2c205f32151977efccb59b14f838bd",
-  "diff_sha256": "d727379bf8d549af3d150315d963cb3d2d805c23",
+  "diff_sha256": "e9d0d61f705951b66b03460900c2323a6ceac8de",
   "recorded_at": "2026-09-10",
   "quorum": {
     "lanes": [
@@ -80,12 +80,12 @@
         "roles": [
           "pmat"
         ],
-        "bytes": 3409,
-        "sha256": "aa6959ffd7c99d2a9e1c5b806c8870859d64373ba41ca3e8b054c60f71ef0b6b",
-        "blob": "557b0f3eb2e543b836ccacf9995cfb936791739c"
+        "bytes": 3387,
+        "sha256": "11657acc11fcea64158697da75b6e304a9a54b8e62220c9a72787368c11ea918",
+        "blob": "2af3110349534b969b3abd71b644edfca0f5d592"
       }
     ],
-    "total_bytes": 35384
+    "total_bytes": 35362
   },
   "falsification": {
     "test": "thirteen fixture cases over temp repositories with a bare origin, annotated tags and a stub gh driving the real gate and tool: the green ledger passes and counts; a declared window that disagrees with GitHub, a merged ticket without the next label, a shipped ticket without its label, a ticket claiming a release it was not in, a row naming a tag origin lacks, a due instant one second off, an overdue cut, a version no goal names, a release at the dogfood floor without its receipt, a stray id in a tagged window, and a gh that cannot answer are each red by name; the cut flow books a tag, moves the goal that missed, labels the open window and turns the gate green",
