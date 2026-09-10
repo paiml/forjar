@@ -255,6 +255,8 @@ m = re.search(r"^next:\n(?:  .*\n?)*", text, re.M)
 if not m:
     print("release-goal: no next: block in %s" % path, file=sys.stderr)
     sys.exit(3)
+text = text.replace("\nreleases: []\n", "\nreleases:\n", 1)
+m = re.search(r"^next:\n(?:  .*\n?)*", text, re.M)
 ver = tag[1:]
 row = row.rstrip("\n") + "\n    dogfood: docs/audits/dogfood-%s-receipt.md\n    crux: docs/audits/crux-%s.md\n" % (ver, ver)
 before = text[: m.start()].rstrip("\n") + "\n"
