@@ -1,0 +1,129 @@
+{
+  "kind": "code",
+  "issue": "PMAT-230 — the v1.28.0 release was blocked at release.yml's dist-artifacts job by `/tmp/SHA256SUMS already exists`, a file left by a previous release on a clean-room runner that is not ephemeral. All three `gh release download` call sites now pass --clobber (never --skip-existing, which would exit 0 leaving the PREVIOUS release's checksums for `forjar dist --checksums-file` to embed in install.sh), and the two other fixed /tmp paths release.yml writes into are cleared before they are written: /tmp/dist-output, whose whole contents are uploaded as the release's artifact, and /tmp/tap, where `git clone` exits 128 over an existing directory. Rules 9 and 10 of the workflow shape test hold both properties.",
+  "branch": "PMAT-230-release-download-clobber",
+  "base": "b3e5812d",
+  "base_commit": "b3e5812de31fb184ce774ec286caaf7a1333b8a2",
+  "diff_sha256": "cc94bf3adaceaf6427119ea69fe4c8ff37ba783f",
+  "recorded_at": "after three review rounds and the twelve-case mutation battery, before the push",
+  "quorum": {
+    "lanes": [
+      "r1 lane 1 (conv-c4f6ed9a)",
+      "r1 lane 2 (conv-9ac5e9ef)",
+      "r1 lane 3 (conv-cb48b6c9)",
+      "r2 lane 1 (conv-7bafa035)",
+      "r2 lane 2 (conv-01bfac91)",
+      "r2 lane 3 (conv-a18d4087)",
+      "r3 lane 1 (conv-2380ce3b)",
+      "r3 lane 2 (conv-b4eb714e)",
+      "r3 lane 3 (conv-96287542)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "three, each on a different commit with the base pinned at b3e5812d: 469cc9a9 (0/3 PASS), b02d26b4 (1/3 PASS), 5d1920f6 (0/3 PASS). NO ROUND PASSED and none is claimed to have. Each round refuted the RULE, never the workflow fix; every refutation that reproduced was closed and measured before the next round.",
+    "kill_rule": "a lane could fail the whole change on one refuted claim and eight of nine did. Every refutation was re-run by the orchestrator: the ones that reproduced became mutation cases in docs/audits/logs/PMAT-230-rule9-mutations.log, and the two deliberately not acted on are named in the digest with the reason. What closes the ticket is the twelve-case battery and the red/green pair, not a green lane — and the battery caught a defect in the rule that no lane found (cutting the joined command at a bare `|` also cut it at `||`, disarming the suppressed-failure assertion).",
+    "claims_confirmed": 8,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "Round 3, as worded: 'rule 9 finds a call site by reading gh's grammar' — refuted 3/3. It read `release` as any token after `gh`, so `gh api --pattern release download` was flagged, and it did not skip a flag's value when looking for the subcommand. Corrected: `release` must be gh's own subcommand (first non-flag token after `gh`, with -R/--repo and their value skipped) and the subcommand the first non-flag token after that; battery case 9 is the lane's counter-example and leaves the rule green, case 1 keeps `gh release -R repo download` red.",
+      "Round 3, as worded: 'the rule's comment names what it cannot catch' — refuted by one lane: two commands separated by `&&` or `;` on one continued line were neither caught nor admitted, and the second's flags were read as the first's. Corrected: joined_command cuts at the first `&&` or `;` (and NOT at a bare `|`, which would disarm the `||` assertion — measured), and the comment now names the shell forms that remain outside the ratchet."
+    ]
+  },
+  "falsification": {
+    "test": "rule 9 (every `gh release download` in every workflow passes --clobber, none passes --skip-existing, none is guarded with ||, and fewer than three call sites is itself a failure) and rule 10 (dist-artifacts and homebrew clear the fixed /tmp directory they write into, and the clear precedes the write)",
+    "test_file": "tests/falsification_release_workflow_shape.rs",
+    "cargo_test_target": "falsification_release_workflow_shape",
+    "reverted": "main's .github/workflows/release.yml and binary-release.yml checked out over this branch's tests (git checkout b3e5812d -- …), then restored with git checkout HEAD -- …",
+    "observed_failure": "8 passed, 2 failed — rule 9 names the call site with no --clobber and rule 10 names the job that never clears its fixed directory (docs/audits/logs/PMAT-230-gate-tests.log); 10 passed with the workflows restored. Twelve further cases in docs/audits/logs/PMAT-230-rule9-mutations.log: seven evasions turn rule 9 red, two innocent commands leave it green, three mutations of the guards turn rule 10 red.",
+    "still_green_when_reverted": "rules 1-8, which prove the change adds a property rather than altering the ones release.yml already had"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/clobber-judges.md",
+    "total_bytes": 37497,
+    "files": [
+      {
+        "path": ".quorum/evidence/clobber-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 8016,
+        "sha256": "3a3c6b6a4288e1ba00bd3196eab4ac8d244145cfdeb5f67bcabb023f95bcb875",
+        "blob": "21cb8ba8d3c9cd0860c9fca250fbbb9bcf58db2b"
+      },
+      {
+        "path": ".quorum/evidence/clobber-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 16791,
+        "sha256": "8e1b1f71a6c248c60c6b036f953db6816fd64c7bc0b74942d4d97254f388e4cf",
+        "blob": "72e477888e5cae52d4945260abfe0b121be41f12"
+      },
+      {
+        "path": ".quorum/evidence/clobber-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 8297,
+        "sha256": "27dcd2ef66aaa621e34457e415535a51baebceaac95342764d7493590de45273",
+        "blob": "482bb0afdde2f3cf4e2dcae7d3f9c28b7eb748d1"
+      },
+      {
+        "path": ".quorum/evidence/clobber-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1878,
+        "sha256": "c6c0b6eecf372c2bb9949c71622bb76c627bd82c25d4a5e334317a3cd5e6e6c9",
+        "blob": "1c1b693c6e881e808985b0e6bdd29224de620ecf"
+      },
+      {
+        "path": ".quorum/evidence/clobber-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2515,
+        "sha256": "afcc1b3d3c4a26f3d5dcdfa84323e830e3bea6b2853b7d1690d2f7a55beb2e5c",
+        "blob": "b41931b9b6ec80c0bce34919bdfa0bcc26d90b0f"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Bazel",
+      "Nix",
+      "SLSA"
+    ],
+    "verdict": "accept(the surveyed release systems make this defect unreachable rather than guarded: a Kubernetes release job runs on an ephemeral pod whose filesystem does not survive it [X], Bazel's actions execute in a sandbox whose inputs are declared and whose outputs are the only thing that leaves [X], a Nix builder gets a fresh store path per derivation [X], and SLSA's whole premise is a build whose environment is reproducible and not carried over between runs [X]. forjar's clean-room runners are long-lived by design — that is what makes them a clean room for THIS repository's binaries — so the property those systems get from ephemerality has to be written down, and the two rules here are where it is written. No new CRUX row is due: this release's behaviour paragraphs are already reconciled in docs/audits/crux-1.28.0.md and this change adds none.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "nine sandboxed lanes over three rounds, review-only, base pinned by SHA, writes=false; each delegate dispatch hit its 30-turn cap after the lanes had written their files, and the orchestrator ran lane-reduce.sh itself",
+    "verdict": "0/3, 1/3, 0/3 PASS. Eight refutations across the rounds, six closed with a mutation case each, two named as deliberately unclosed."
+  },
+  "pmat": {
+    "ticket": "PMAT-230",
+    "tools": [
+      "pmat work add",
+      "kind-gate.sh",
+      "model-gate.sh",
+      "target-guard.sh",
+      "goal.sh (set refused R-5; worker declared all three rounds)",
+      "route.sh",
+      "transcript-gate.sh",
+      "scripts/release-goal.sh tag",
+      "scripts/dogfood/tagged.sh",
+      "cargo test --test falsification_release_workflow_shape",
+      "actionlint",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "pmat analyze complexity (pre-commit, which REFUSED the first commit)",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json: 43 of 4713 tests examined flagged tree-wide (331 files parsed); 0 in tests/falsification_release_workflow_shape.rs, the one touched test file. Nothing to accept.",
+    "quality_gate": "cargo test --test falsification_release_workflow_shape: 10 passed at HEAD, 8 passed / 2 failed against main's workflows (docs/audits/logs/PMAT-230-gate-tests.log). Twelve mutation cases as designed (docs/audits/logs/PMAT-230-rule9-mutations.log). actionlint's finding set identical to main's (22 both sides; two in-script line numbers move). Both workflows parse as YAML. GATE T PASS on the branch. No src/ change, so gate F's mutation arm measures zero.",
+    "limit": "the pre-commit complexity check refused the first commit and the red-proof checkout chained behind it destroyed a staged fix — recorded in docs/audits/jidoka.jsonl, and the reason every later red proof was run only against a COMMITTED fix. cargo mutants remains unmeasurable on this host (PMAT-216). The v1.28.0 release is not published by this branch; it is what the branch makes possible."
+  }
+}
