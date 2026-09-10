@@ -3338,3 +3338,23 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:release — the booking half of the 1.28.0 cut (PMAT-226): a tag''s row can only be written after the tag exists (its cut instant is the tagger date; gate T T2 is red for a row naming a tag origin lacks), so every release is two PRs and this is the second. Classify + link, no code: the repo''s quorum gate admits it on the triage rail as of PMAT-226. Fifth ticket of session 94370bba; goal.sh set refuses under R-5; proceeding on the user''s verbatim instruction quoted on PMAT-226. The skill''s own kind:triage rail (issue-universe snapshot, batches) is for issue triage and does not fit a ledger booking; kind-gate.sh''s output is recorded in the receipt and the code-shaped receipt rows are kept.'
+- id: PMAT-228
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'release-goal.sh cut pastes the window library''s not-counted note into the ledger: the note is printed on stdout and cut captures stdout'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T16:11:37Z
+  updated: 2026-09-10T16:11:37Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/lib/window.sh prints its "is inside <prev> (the previous release) — not counted" note on stderr, or scripts/release-goal.sh cut and window filter it; the ledger row cut writes is byte-identical to window''s row with no note line'
+  - 'a fixture case in tests/falsification_release_goal_cut_books_the_tag.rs whose window carries the previous release''s own PR asserts the booked file contains no line matching "not counted"; it is red without the fix'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Measured 2026-09-10 booking v1.28.0 (PMAT-227): cut wrote `  #490 54e36f13… is inside v1.27.0 (the previous release) — not counted` as line 55 of docs/roadmaps/releases.yaml, a YAML comment by accident of the leading #. Removed by hand in PMAT-227; the code fix belongs here with its test.'
