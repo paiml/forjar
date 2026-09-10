@@ -3,7 +3,7 @@
   "kind": "code",
   "base": "origin/main",
   "base_commit": "8e8e79e4aa2c205f32151977efccb59b14f838bd",
-  "diff_sha256": "e9d0d61f705951b66b03460900c2323a6ceac8de",
+  "diff_sha256": "125d9e1d46f9295136457be177476ed254e42ead",
   "recorded_at": "2026-09-10",
   "quorum": {
     "lanes": [
@@ -80,12 +80,12 @@
         "roles": [
           "pmat"
         ],
-        "bytes": 3387,
-        "sha256": "11657acc11fcea64158697da75b6e304a9a54b8e62220c9a72787368c11ea918",
-        "blob": "2af3110349534b969b3abd71b644edfca0f5d592"
+        "bytes": 3892,
+        "sha256": "67366e13ce725b746553665176d1380c38c056d98479d5c150e4ff315d385b85",
+        "blob": "c78e372c1d1b12a1f8ed42fad825027d39851c25"
       }
     ],
-    "total_bytes": 35362
+    "total_bytes": 35867
   },
   "falsification": {
     "test": "thirteen fixture cases over temp repositories with a bare origin, annotated tags and a stub gh driving the real gate and tool: the green ledger passes and counts; a declared window that disagrees with GitHub, a merged ticket without the next label, a shipped ticket without its label, a ticket claiming a release it was not in, a row naming a tag origin lacks, a due instant one second off, an overdue cut, a version no goal names, a release at the dogfood floor without its receipt, a stray id in a tagged window, and a gh that cannot answer are each red by name; the cut flow books a tag, moves the goal that missed, labels the open window and turns the gate green",
@@ -111,8 +111,186 @@
   },
   "pmat": {
     "ticket": "PMAT-225",
-    "hooks": "pmat hooks install --strict --force; every commit carries Pmat-Ticket: PMAT-225; the pre-commit hook accepted every commit",
-    "gates": "cargo test --workspace --locked --no-fail-fast exit 0 (322 binaries, 19,643 passed, 0 failed); clippy --all-targets -D warnings exit 0; rustfmt check clean; gate B PASS (14 gate scripts at 0 bashrs errors); gate G PASS; gate T PASS live and red under its mutation; actionlint clean",
-    "not_measured": "gate F's mutation arm (cargo mutants, PMAT-216)"
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "target-guard.sh",
+      "config-lint.sh",
+      "goal.sh (set refused, R-5; worker declarations)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "pmat analyze complexity (pre-commit)",
+      "cargo test --workspace",
+      "cargo clippy --all-targets -D warnings",
+      "scripts/dogfood/comply.sh",
+      "scripts/dogfood/contracts.sh",
+      "scripts/dogfood/tagged.sh",
+      "bashrs lint",
+      "actionlint",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 31,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on c9490940: 43 of 4711 tests examined flagged tree-wide; 31 in the touched test files (19 in tests/falsification_dogfood_harness_and_quorum.rs of which 16 predate this branch, 12 in tests/falsification_release_goals_are_measured.rs), all `no-failure-mode`; 0 conditional skips in the touched files; the cut-flow and workflow-shape tests (inline asserts) are not flagged, which is the scanner's blind spot measured from the other side",
+    "accepted": [
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_gh_that_cannot_answer_is_unmeasured_and_red",
+        "line": 57,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_full_page_is_unmeasured_and_red",
+        "line": 71,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_merged_pr_with_no_ticket_id_is_named_and_red",
+        "line": 84,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_first_id_that_is_not_a_roadmap_row_is_named_and_red",
+        "line": 103,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_stray_id_resolves_through_the_row_that_declares_it_as_alias",
+        "line": 119,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_an_alias_declared_by_two_rows_names_no_owner_and_is_red",
+        "line": 135,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_missing_harness_receipt_is_named_and_red",
+        "line": 151,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_receipt_without_the_end_marker_is_red",
+        "line": 163,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_receipt_with_two_verdicts_is_red",
+        "line": 175,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_pr_with_its_harness_receipt_passes",
+        "line": 190,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_the_previous_releases_own_pr_is_outside_the_window",
+        "line": 205,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_commits_since_the_tag_with_no_merged_pr_are_red",
+        "line": 224,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_a_gh_that_cannot_answer_is_unmeasured_and_red",
+        "line": 239,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_a_missing_quorum_receipt_is_named_and_red",
+        "line": 251,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_a_thin_quorum_is_red",
+        "line": 263,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_a_waiver_anywhere_in_the_receipt_is_red",
+        "line": 275,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_a_pr_with_its_quorum_receipt_passes",
+        "line": 287,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_the_previous_releases_own_pr_is_outside_the_window",
+        "line": 300,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_dogfood_harness_and_quorum.rs::gate_e_commits_since_the_tag_with_no_merged_pr_are_red",
+        "line": 318,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_declared_ledger_that_matches_git_and_github_is_green_and_counts",
+        "line": 18,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_declared_window_that_disagrees_with_github_is_named_and_red",
+        "line": 28,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_merged_ticket_without_the_next_release_label_is_named_and_red",
+        "line": 40,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_shipped_ticket_without_its_release_label_is_named_and_red",
+        "line": 52,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_ticket_claiming_a_release_it_was_not_in_is_red",
+        "line": 64,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_row_naming_a_tag_origin_does_not_carry_is_red",
+        "line": 80,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_declared_due_that_is_not_cut_plus_cadence_is_red",
+        "line": 91,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::an_overdue_cut_is_red_until_the_version_is_bumped",
+        "line": 102,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_tree_at_a_version_no_goal_names_is_red",
+        "line": 118,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_release_at_the_dogfood_floor_without_its_receipt_is_red",
+        "line": 129,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_stray_id_in_a_tagged_window_is_red_until_a_row_declares_the_alias",
+        "line": 144,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      },
+      {
+        "test": "tests/falsification_release_goals_are_measured.rs::a_gh_that_cannot_answer_is_unmeasured_and_red",
+        "line": 166,
+        "why": "the scanner sees no assert in the body: every assertion is inside the fixture's Run::assert_red / assert_green / assert_says (tests/dogfood_gates_harness/mod.rs, tests/release_goal_fixture/mod.rs), which assert!/assert_ne!/assert_eq! and panic — the same shape as the 16 gate A/E cases already on main; measured failing during this branch's development (the >/dev/null death, the forgiven call and the local-time cut instant were each caught by assert_red, docs/audits/jidoka.jsonl)"
+      }
+    ],
+    "quality_gate": "cargo test --workspace --locked --no-fail-fast exit 0 on ab9bddc8, 322 binaries, 19,643 passed, 0 failed; the twelve gate T cases and the cut flow green on ca3f8d70 and every red arm red by name; the two new gate A cases 0 passed 2 failed against main's harness.sh + lib/window.sh (stashed) and 19 passed after; the registered mutation of gate T red on the real ledger; clippy --all-targets -D warnings exit 0; rustfmt check clean; gate B PASS (14 gate scripts at 0 bashrs errors); gate G PASS (40 contracts, citations resolve); actionlint 0 findings",
+    "limit": "only one lane per round ran cargo (its own CARGO_TARGET_DIR); every other cargo number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). The mint-time half of the continuous labelling lives in the paiml-implement skill (paiml/paiml-implement#72)."
   }
 }
