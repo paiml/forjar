@@ -483,7 +483,12 @@ fn strip_trailing_comment(line: &str) -> &str {
 }
 
 /// One shell command, joined across the backslash continuations it is
-/// written with, comments removed.
+/// written with, comments removed, and CUT at the first `&&`, `;` or `|`.
+///
+/// The cut is what keeps two commands on one continued line from lending
+/// each other their flags — `gh release download … && \` followed by a
+/// second `gh release` line would otherwise be read as one command carrying
+/// the union of both flag sets (found by a quorum lane).
 fn joined_command(lines: &[&str], start: usize) -> String {
     let mut cmd = String::new();
     for line in &lines[start..] {
@@ -492,6 +497,14 @@ fn joined_command(lines: &[&str], start: usize) -> String {
         cmd.push('\n');
         if !text.trim_end().ends_with('\\') {
             break;
+        }
+    }
+    // `&&` and `;` only. Cutting at a bare `|` would also cut at `||` and
+    // silently disarm the assertion below that refuses a suppressed failure —
+    // measured, by the mutation battery, one edit after it was written.
+    for sep in ["&&", ";"] {
+        if let Some(i) = cmd.find(sep) {
+            cmd.truncate(i);
         }
     }
     cmd
@@ -510,8 +523,20 @@ fn joined_command(lines: &[&str], start: usize) -> String {
 fn release_subcommand(cmd: &str) -> Option<&str> {
     let toks: Vec<&str> = cmd.split_whitespace().collect();
     let gh = toks.iter().position(|t| *t == "gh")?;
-    let rel = toks[gh..].iter().position(|t| *t == "release")? + gh;
-    let mut i = rel + 1;
+    // `release` must be THIS `gh`'s subcommand, not merely a later token: a
+    // quorum lane showed `gh api --pattern release download` being read as a
+    // release download because the word appeared somewhere after `gh`.
+    let rel = next_word(&toks, gh + 1)?;
+    if toks[rel] != "release" {
+        return None;
+    }
+    next_word(&toks, rel + 1).map(|i| toks[i])
+}
+
+/// The index of the first token at or after `from` that is not a flag,
+/// skipping the value of the two `gh` flags that take one.
+fn next_word(toks: &[&str], from: usize) -> Option<usize> {
+    let mut i = from;
     while i < toks.len() {
         let t = toks[i];
         if t == "-R" || t == "--repo" {
@@ -519,7 +544,7 @@ fn release_subcommand(cmd: &str) -> Option<&str> {
         } else if t.starts_with('-') {
             i += 1;
         } else {
-            return Some(t);
+            return Some(i);
         }
     }
     None
@@ -589,4 +614,58 @@ fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
          rule is meant to sweep every workflow, and a rule that matches nothing passes \
          for the wrong reason"
     );
+}
+
+// ---------------------------------------------------------------------
+// Rule 10: a job that writes into a FIXED /tmp directory clears it first.
+//
+// PMAT-230, found by a quorum lane reviewing rule 9's fix. The clean-room
+// runners are not ephemeral, and release.yml already carries the lesson in
+// its `checksums` job — "THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT
+// IS NOT EPHEMERAL", written after v1.18.0 shipped a SHA256SUMS with ten
+// lines, four of them belonging to 1.17.0. Two more jobs write into fixed
+// /tmp paths: `dist-artifacts` generates into /tmp/dist-output and uploads
+// that whole directory as the release's artifact, and `homebrew` clones the
+// tap into /tmp/tap, which `git clone` refuses when it exists. The second
+// had never been reached, because the checksums download two steps above it
+// died first (v1.27.0's homebrew job failed exactly there).
+//
+// Ordering, not merely presence: a clear that runs after the write is not a
+// guard.
+// ---------------------------------------------------------------------
+#[test]
+fn rule10_a_fixed_tmp_directory_is_cleared_before_it_is_written() {
+    let text = read(".github/workflows/release.yml");
+    for (job, clear, write) in [
+        (
+            "dist-artifacts",
+            "rm -rf /tmp/dist-output",
+            "--output-dir /tmp/dist-output",
+        ),
+        ("homebrew", "rm -rf /tmp/tap", "git clone"),
+    ] {
+        // Comment lines are dropped first: this rule's own explanation quotes
+        // `git clone`, and a marker found inside a comment is not the step.
+        let block: String = non_comment_lines(job_block(&text, job))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let c = block.find(clear).unwrap_or_else(|| {
+            panic!(
+                "PMAT-230 rule 10: release.yml's {job} job writes into a fixed /tmp \
+                 directory on a runner that is not ephemeral and never clears it. \
+                 `{clear}` is missing, so the previous release's files are still there \
+                 when this one runs — the shape the `checksums` job's own staging-\
+                 directory comment records from v1.18.0."
+            )
+        });
+        let w = block
+            .find(write)
+            .unwrap_or_else(|| panic!("PMAT-230 rule 10: {job} no longer contains `{write}`"));
+        assert!(
+            c < w,
+            "PMAT-230 rule 10: release.yml's {job} job clears its fixed directory AFTER \
+             it writes into it (`{clear}` appears after `{write}`); a clear that runs \
+             after the write is not a guard"
+        );
+    }
 }

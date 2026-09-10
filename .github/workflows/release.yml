@@ -404,6 +404,11 @@ jobs:
           # the v1.25.1 backfill failed here without it. `--checksums-file` is
           # the interface forjar's own error message names, and it is what keeps
           # this step off the public download URL (PMAT-208).
+          # PMAT-230: same non-ephemeral-runner lesson the `checksums` job
+          # records — /tmp/dist-output is a FIXED path and `dist` does not
+          # clear it, so a file from the previous release would be uploaded as
+          # this release's artifact, which is the v1.18.0 laundering shape.
+          rm -rf /tmp/dist-output
           cargo run --release -- dist \
             -f dist-forjar.yaml \
             --all \
@@ -485,6 +490,13 @@ jobs:
           FORMULA="/tmp/dist-output/homebrew.rb"
 
           # Clone the tap repo
+          # PMAT-230: /tmp/tap is a FIXED path on a runner that is not
+          # ephemeral, and `git clone` into an existing directory exits 128.
+          # Found by a quorum lane reviewing the --clobber fix: this step has
+          # never been reached, because the checksums download two steps above
+          # died first on the same class of defect (v1.27.0's homebrew job
+          # failed there).
+          rm -rf /tmp/tap
           git clone "https://x-access-token:${GH_TOKEN}@github.com/paiml/homebrew-tap.git" /tmp/tap
           cp "$FORMULA" /tmp/tap/Formula/forjar.rb
 

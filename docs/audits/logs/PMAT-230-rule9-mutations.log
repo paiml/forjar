@@ -1,10 +1,16 @@
-== rule 9, round 2: every evasion the six lanes named, applied one at a time to release.yml's dist-artifacts call site
--- 1-flags-before-subcommand: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 2-backslash-split-subcommand: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 3-suppressed-failure: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 4-gh-split-from-release: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 5-trailing-comment-carries-the-flag: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 6-flag-hidden-in-a-pattern: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
--- 7-innocent-upload-with-a-download-token-MUST-STAY-GREEN: test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+== rule 9, final: every evasion the nine quorum lanes named across three rounds, applied one at a time to release.yml's dist-artifacts call site; cases 8 and 9 are innocent commands that must NOT be flagged
+-- 1-flags-before-subcommand: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 2-backslash-splits-release-download: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 3-suppressed-failure: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 4-backslash-splits-gh-release: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 5-trailing-comment-carries-the-flag: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 6-flag-hidden-in-a-pattern: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 7-a-second-command-lends-its-flag: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 8-innocent-upload-with-a-download-token-MUST-STAY-GREEN: test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- 9-an-unrelated-gh-command-MUST-STAY-GREEN: test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+== rule 10: each guard removed, and one moved after the write it guards
+-- drop-dist-clear: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- drop-tap-clear: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+-- move-tap-clear-after-clone: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
 == restored
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

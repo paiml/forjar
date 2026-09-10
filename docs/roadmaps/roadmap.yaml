@@ -3396,6 +3396,7 @@ roadmap:
   - 'every `gh release download` in .github/workflows/** passes --clobber, and none passes --skip-existing: a leftover file from the previous release must be overwritten, never kept, because the step that reads it (test -s, then dist --checksums-file) cannot tell a fresh checksums file from a stale one'
   - 'a rule in tests/falsification_release_workflow_shape.rs asserts it over every workflow file, is red against the workflow as it stands today (both release.yml call sites), and names the call site it refuses'
   - 'actionlint passes and the v1.28.0 release completes when release.yml is re-dispatched from main with the fix: dist-artifacts green, publish-release un-drafts, install.sh attached'
+  - 'the two other fixed /tmp paths release.yml writes into on the same non-ephemeral runners are cleared before they are written — /tmp/dist-output in dist-artifacts (whose whole contents are uploaded as the release artifact) and /tmp/tap in homebrew (where git clone exits 128 over an existing directory) — and rule 10 asserts the clear exists AND precedes the write, red when either guard is dropped or moved after it'
   phases: []
   subtasks: []
   estimated_effort: null
