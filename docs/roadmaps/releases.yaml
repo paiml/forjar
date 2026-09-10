@@ -52,6 +52,12 @@ releases:
     tickets: [PMAT-208, PMAT-212, PMAT-213, PMAT-214]
     dogfood: docs/audits/dogfood-1.27.0-receipt.md
     crux: docs/audits/crux-1.27.0.md
+  - tag: v1.28.0
+    cut: 2026-09-10T16:07:14Z
+    prs: [493, 494, 496, 498, 500, 502, 504, 505, 507, 508]
+    tickets: [PMAT-215, PMAT-217, PMAT-219, PMAT-220, PMAT-221, PMAT-222, PMAT-223, PMAT-224, PMAT-225, PMAT-226]
+    dogfood: docs/audits/dogfood-1.28.0-receipt.md
+    crux: docs/audits/crux-1.28.0.md
 next:
-  tag: v1.28.0
-  due: 2026-09-10T22:10:01Z
+  tag: v1.29.0
+  due: 2026-09-12T16:07:14Z

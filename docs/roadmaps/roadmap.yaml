@@ -3314,3 +3314,27 @@ roadmap:
   - orch:fable
   - release:v1.28.0
   notes: 'orch-basis:release — the cut of v1.28.0 under the two-day cadence PMAT-225 declared (due 2026-09-10T22:10:01Z). Third-plus ticket in session 94370bba: goal.sh set refuses under R-5; proceeding on the user''s verbatim "continue autonomously using pmat-implement: ensure all tickets/work are linked to tagged releases using \"pmat goal\" style and ensuring frequent releases/dogfood after every 2 days (tickets/pull requests must be tagged/triaged continuously)". The release ledger sits outside the quorum gate''s triage rail (PMAT-224 predates PMAT-225), so a booking PR could anchor nothing; the rail widening ships in this cut so the booking (PMAT-227) can be kind: triage.'
+- id: PMAT-227
+  kind: triage
+  github_issue: null
+  item_type: task
+  title: 'book v1.28.0 in the release ledger: the row from the tag, the open goal v1.29.0, and gate T green on main again'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T16:08:44Z
+  updated: 2026-09-10T16:08:45Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/roadmaps/releases.yaml carries the v1.28.0 row written by scripts/release-goal.sh cut v1.28.0 --next v1.29.0 — cut = the tag''s creatordate, prs and tickets = the measured window v1.27.0..v1.28.0 — and next.tag v1.29.0 with next.due = cut + 2 days exactly; the row is byte-identical to release-goal.sh window v1.28.0'
+  - 'this ticket carries release:v1.29.0 (the open window) and every row labelled release:v1.28.0 is in the v1.28.0 window (cut moved none)'
+  - 'scripts/dogfood/tagged.sh is green on the branch and on main after the merge: GATE T PASS 6 tagged release(s) since v1.25.0 … 0 of 0 PR(s) merged since v1.28.0 …, and scripts/release-goal.sh show names v1.29.0'
+  - 'the diff touches only docs/roadmaps/releases.yaml, docs/roadmaps/roadmap.yaml, docs/audits/** and .quorum/** — the kind: triage rail PMAT-226 widened — and the quorum artifact declares kind: triage with falsification.not_applicable'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — the booking half of the 1.28.0 cut (PMAT-226): a tag''s row can only be written after the tag exists (its cut instant is the tagger date; gate T T2 is red for a row naming a tag origin lacks), so every release is two PRs and this is the second. Classify + link, no code: the repo''s quorum gate admits it on the triage rail as of PMAT-226. Fifth ticket of session 94370bba; goal.sh set refuses under R-5; proceeding on the user''s verbatim instruction quoted on PMAT-226. The skill''s own kind:triage rail (issue-universe snapshot, batches) is for issue triage and does not fit a ledger booking; kind-gate.sh''s output is recorded in the receipt and the code-shaped receipt rows are kept.'
