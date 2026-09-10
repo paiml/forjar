@@ -1,0 +1,90 @@
+# reduced from PMAT-223-workspace.log — 2696221 bytes, sha256 fc43be72283314d484ba5234316a4e1dc32ca22331807d6df83ee2a05823630b; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13m 24s
+     Running unittests src/lib.rs (target/debug/deps/forjar-3e5fad37e7813a84)
+
+running 13521 tests
+test cli::apply_gates::tests::destructive_not_confirmed ... ok
+test cli::apply_gates::tests::budget_at_limit ... ok
+test cli::apply_gates::tests::destructive_dry_run ... ok
+test cli::apply_gates::tests::destructive_yes_override ... ok
+test cli::apply_gates::tests::budget_none_always_ok ... ok
+test cli::apply_gates::tests::budget_within_limit ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::a_sealed_plan_may_legitimately_report_no_changes ... ok
+test cli::apply_from_plan::tests_apply_from_plan::the_default_knobs_request_nothing ... ok
+test api::tests::every_promised_item_is_reachable_through_the_api_module ... ok
+test cli::apply_gates::tests::destructive_zero_count ... ok
+test cli::apply_gates::tests::parallel_flag_false ... ok
+test cli::apply_gates::tests::parallel_flag_true ... ok
+test api::tests::changed_inputs_are_reported ... ok
+test api::tests::outputs_missing_is_checked_before_any_hash_comparison ... ok
+test cli::apply_gates::tests::event_json_format ... ok
+test api::tests::a_fully_fresh_resource_reports_no_reason ... ok
+test cli::apply_gates::tests::destructive_blocks ... ok
+test cli::apply_gates::tests::snapshots_to_remove_at_limit ... ok
+test cli::apply_gates::tests::snapshots_to_remove_exceeds ... ok
+test cli::apply_gates::tests::snapshots_to_remove_within_limit ... ok
+test cli::apply_gates::tests::security_gate_medium_blocks ... ok
+test cli::apply_gates::tests::security_gate_high_passes ... ok
+test cli::apply_gates::tests::security_gate_case_insensitive ... ok
+test cli::apply_gates::tests::security_gate_critical_passes ... ok
+test cli::apply_gates::tests::security_gate_high_blocks ... ok
+test cli::apply_gates::tests::security_gate_critical_blocks ... ok
+test cli::apply_gates::tests::security_gate_low_passes ... ok
+test cli::apply_gates::tests::security_gate_low_blocks ... ok
+test cli::apply_gates::tests::security_gate_medium_passes ... ok
+test api::tests::a_missing_baseline_means_rebuild_not_fresh ... ok
+test cli::apply_gates::tests::budget_exceeded ... ok
+test cli::apply_from_plan_checks::tests_apply_from_plan_checks::an_unsealed_plan_reporting_no_changes_is_refused ... ok
+## verdict lines
+test cli::tests_build_image::cmd_build_with_load_flag_no_runtime ... FAILED
+'--failed-since=[FJ-672\: Show resources failed since a given timestamp]:FAILED_SINCE:_default' \
+thread 'cli::tests_build_image::cmd_build_with_load_flag_no_runtime' (2671431) panicked at src/cli/tests_build_image.rs:359:9:
+test result: FAILED. 13516 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 70.68s
+error: test failed, to rerun pass `-p forjar --lib`
+## tail
+test resources::nas_archive::tests::a_handful_of_small_files_is_not_refused ... ok
+test resources::nas_archive::tests::a_large_tree_with_a_few_small_files_is_archived ... ok
+test resources::nas_archive::tests::a_destination_that_does_not_match_is_never_deleted_from ... ok
+test resources::nas_archive::tests::a_second_pass_is_a_no_op ... ok
+test cli::tests_store_import::tests::import_docker_json ... ok
+test cli::tests_store_import::tests::import_mixed_case_provider ... ok
+test core::store::tests_mutation_runner::dispatch_container_backend_available has been running for over 60 seconds
+test core::dogfood::tests::exercised_types_all_have_a_real_exercise ... ok
+test core::store::tests_container_build::build_with_empty_scripts ... ok
+test core::store::tests_container_build::build_without_base_image_uses_default ... ok
+test core::store::tests_container_build::build_with_multiple_scripts ... ok
+test core::store::tests_convergence_runner::dispatch_container_backend ... ok
+test core::store::tests_container_build::build_plan_layer_adjustment ... ok
+test core::store::tests_container_build::build_image_creates_oci_layout ... ok
+test core::store::tests_mutation_runner::dispatch_container_backend_available ... ok
+
+failures:
+
+---- cli::tests_build_image::cmd_build_with_load_flag_no_runtime stdout ----
+
+Building img (myapp:latest)
+  Layer 1/1: 1 files, 1536 -> 86 bytes
+
+  Image: myapp:latest (1 layers, 86 bytes)
+  Layout: state/images/img
+  Built in 0.0s
+
+--load: piping OCI tarball to `docker load`...
+
+thread 'cli::tests_build_image::cmd_build_with_load_flag_no_runtime' (2671431) panicked at src/cli/tests_build_image.rs:359:9:
+got: Err("docker load exited with exit status: 1")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cli::tests_build_image::cmd_build_with_load_flag_no_runtime
+
+test result: FAILED. 13516 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 70.68s
+
+error: test failed, to rerun pass `-p forjar --lib`
+EXIT=101

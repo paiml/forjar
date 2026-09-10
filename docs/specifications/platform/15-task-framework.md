@@ -247,15 +247,21 @@ resources:
 
 **Algorithm**:
 ```
-fn should_skip_task(task, state_lock):
-    if not task.cache:
+fn should_skip_task(task, machine, state_lock, force):
+    if not task.cache or force:            # #501: --force is the operator saying "run it"
         return false
+    if not controller_answers_for(machine):   # #501: the recorded hashes are THIS host's tree;
+        return false                       #       a remote machine's row never answers
     for input_glob in task.task_inputs:
         for file in glob(input_glob):
             current_hash = blake3(file)
             if current_hash != state_lock.input_hashes[file]:
                 return false   // Input changed → must re-run
-    return true                // All inputs unchanged → skip
+    for artifact in task.output_artifacts:   # #501: the planner's question, not inputs alone
+        if missing(artifact) or blake3(artifact) != state_lock.output_hash:
+            return false   // Output deleted or modified → must re-run
+    state_lock.hash = hash_desired_state(task)   # #501: a hit satisfies the CURRENT spec
+    return true                // Inputs unchanged, outputs intact → skip
 ```
 
 **Storage**: Input/output hashes stored in `state.lock.yaml` per task:

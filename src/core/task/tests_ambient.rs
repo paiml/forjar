@@ -97,9 +97,10 @@ fn stderr_is_not_hashed() {
 
 #[test]
 fn ambient_commands_run_in_the_resources_working_dir() {
-    // Derived from the RESOURCE, not from the caller's base_dir: the executor
-    // passes state_dir.parent() where the probe passes working_dir, and an
-    // ambient component that differed between them would pump forever.
+    // Derived from the RESOURCE, not from the caller's base_dir: the executor's
+    // cache reader used to pass state_dir.parent() where the probe passes
+    // working_dir (since forjar#501 both go through probe_base_dir), and an
+    // ambient component that differed between callers would pump forever.
     let dir = std::env::temp_dir().join(format!("forjar-amb-cwd-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();

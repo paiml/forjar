@@ -22,6 +22,13 @@
 //! so the lock records real hashes, then moves to a TEST-NET address this host
 //! cannot answer for. The machine name is not part of the resource hash, so
 //! the lock still matches; only the cache can decide the row.
+//!
+//! Which case is red against what, said plainly: the base case and the
+//! deleted-output case FAIL on 643363b3 (the cache never hit, so the task ran
+//! again). The remote case PASSES on 643363b3 by accident — the same dead
+//! cache never skipped anything — and is red only against the fixed reader
+//! with its machine guard removed (docs/audits/logs/PMAT-223-mutation-1-binary.log).
+//! The forced case is red against the reader without its `--force` bypass.
 
 use std::fs;
 use std::path::PathBuf;
