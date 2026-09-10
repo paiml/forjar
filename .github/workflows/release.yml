@@ -383,9 +383,17 @@ jobs:
           # `gh release download` is authenticated and does see a draft, so the
           # checksums come from the release itself either way; the only change
           # is that they arrive over the API rather than the public URL.
+          # PMAT-230: --clobber, because /tmp persists between jobs on these
+          # runners and the file the PREVIOUS release left is still there. The
+          # v1.28.0 run died right here ("/tmp/SHA256SUMS already exists"),
+          # leaving a draft release with thirteen assets and no installer.
+          # NOT --skip-existing: that keeps the previous release's checksums,
+          # exits 0, satisfies the `test -s` below and embeds them in
+          # install.sh — the v1.18.0 failure again, with a friendlier exit code.
           gh release download "$RELEASE_TAG" \
             --repo "${{ github.repository }}" \
             --pattern SHA256SUMS \
+            --clobber \
             --dir /tmp
           test -s /tmp/SHA256SUMS
 
@@ -438,8 +446,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # PMAT-230: same fixed-path hazard as dist-artifacts, same fix.
           gh release download "$RELEASE_TAG" \
             --pattern "SHA256SUMS" \
+            --clobber \
             --dir /tmp/checksums \
             --repo "${{ github.repository }}"
 

@@ -3381,3 +3381,26 @@ roadmap:
   - kind:code
   - release:v1.29.0
   notes: 'Found by the PMAT-227 quorum (all three lanes refuted the claim that show prints the goal on the branch). Measured 2026-09-10 on PMAT-227-book-v1.28.0: `bash scripts/release-goal.sh show` exits 2 with `2 commit(s) reached HEAD since v1.28.0 and GitHub reports no merged PR containing any of them`, printing no goal line; the same ledger in a worktree at main prints `v1.29.0 … due 2026-09-12T16:07:14Z basis=docs/roadmaps/releases.yaml:L61`. The refusal is correct for gate T (a release gate) and wrong for the status line `make release-goal`, which an operator runs while ON a feature branch — the due instant and the elapsed bar do not depend on the unmerged commits, only the merged count does. This is the continuous half of PMAT-225''s brief: a cadence you cannot read from where you work is not a cadence you keep.'
+- id: PMAT-230
+  kind: code
+  github_issue: null
+  item_type: task
+  title: the release workflow's two gh release download calls write to a fixed path on a runner that is not ephemeral, so the second release on that runner dies and a stale checksums file would otherwise be read as this release's
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T18:46:12Z
+  updated: 2026-09-10T18:46:13Z
+  spec: null
+  acceptance_criteria:
+  - 'every `gh release download` in .github/workflows/** passes --clobber, and none passes --skip-existing: a leftover file from the previous release must be overwritten, never kept, because the step that reads it (test -s, then dist --checksums-file) cannot tell a fresh checksums file from a stale one'
+  - 'a rule in tests/falsification_release_workflow_shape.rs asserts it over every workflow file, is red against the workflow as it stands today (both release.yml call sites), and names the call site it refuses'
+  - 'actionlint passes and the v1.28.0 release completes when release.yml is re-dispatched from main with the fix: dist-artifacts green, publish-release un-drafts, install.sh attached'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — a release blocker, found by the v1.28.0 cut. dist-artifacts died with `/tmp/SHA256SUMS already exists (use --clobber to overwrite file or --skip-existing to skip)`, leaving the release a draft prerelease with 13 assets and no installer. The file is a leftover from a PREVIOUS release on the same non-ephemeral clean-room runner. The repository already learned this exact lesson one job over: the checksums job carries the comment `THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL` and clears /tmp/release-assets first, after v1.18.0 shipped a 10-line SHA256SUMS with four lines belonging to 1.17.0. dist-artifacts and homebrew download into /tmp and /tmp/checksums with no guard at all. --skip-existing must be refused as well as absent: it would satisfy the step`s `test -s` guard with the PREVIOUS release`s checksums and embed them in install.sh, which is the v1.18.0 failure again with a friendlier exit code.'

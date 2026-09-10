@@ -430,3 +430,91 @@ fn rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url() {
         "RULE 8: the checksums are fetched AFTER the step that needs them"
     );
 }
+
+// ---------------------------------------------------------------------
+// Rule 9: every `gh release download` passes --clobber and none passes
+// --skip-existing.
+//
+// PMAT-230. The clean-room runners are NOT ephemeral and `/tmp` persists
+// between jobs. `checksums` already knows this — its staging directory is
+// cleared first, with a comment recalling the v1.18.0 release whose
+// SHA256SUMS carried ten lines, four of them belonging to 1.17.0 — but the
+// two jobs that fetch a file with `gh release download` write into a fixed
+// path with no guard at all. The v1.28.0 release died there:
+// `/tmp/SHA256SUMS already exists (use --clobber to overwrite file or
+// --skip-existing to skip)`, leaving a draft release with thirteen assets
+// and no installer.
+//
+// `--skip-existing` is refused as well as absence, and it is the more
+// dangerous of the two: it exits 0 leaving the PREVIOUS release's checksums
+// in place, the following `test -s` guard passes, and `forjar dist
+// --checksums-file` embeds them into `install.sh`. That is the v1.18.0
+// failure again with a friendlier exit code, which is why this rule cannot
+// be satisfied by making the error go away.
+// ---------------------------------------------------------------------
+/// One `gh release download` invocation, joined across the backslash
+/// continuations it is written with: the flags sit on their own lines.
+fn joined_command(lines: &[&str], start: usize) -> String {
+    let mut cmd = String::new();
+    for line in &lines[start..] {
+        cmd.push_str(line);
+        cmd.push('\n');
+        if !line.trim_end().ends_with('\\') {
+            break;
+        }
+    }
+    cmd
+}
+
+/// The two halves of rule 9, asserted against one call site.
+fn assert_download_overwrites(file_name: &str, cmd: &str) {
+    assert!(
+        !cmd.contains("--skip-existing"),
+        "PMAT-230 rule 9: {file_name} passes --skip-existing to `gh release download`. \
+         On these non-ephemeral runners that KEEPS the file the PREVIOUS release left \
+         behind and exits 0, so the step's own `test -s` guard passes and the stale \
+         checksums reach `install.sh`. Overwrite it with --clobber:\n{cmd}"
+    );
+    assert!(
+        cmd.contains("--clobber"),
+        "PMAT-230 rule 9: {file_name} runs `gh release download` without --clobber. \
+         `/tmp` persists between jobs on the clean-room runners, so the second release \
+         to use this path dies with `already exists` — the v1.28.0 cut did, leaving a \
+         draft release with no installer. The `checksums` job's staging-directory \
+         comment is the same lesson one job over:\n{cmd}"
+    );
+}
+
+/// Every `gh release download` call site in one workflow file.
+fn download_sites(text: &str) -> Vec<String> {
+    let lines: Vec<&str> = non_comment_lines(text).collect();
+    lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.contains("gh release download"))
+        .map(|(i, _)| joined_command(&lines, i))
+        .collect()
+}
+
+#[test]
+fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
+    let mut sites = 0usize;
+    for path in all_workflow_files() {
+        let file_name = path
+            .file_name()
+            .expect("workflow file has a name")
+            .to_string_lossy()
+            .to_string();
+        let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        for cmd in download_sites(&text) {
+            sites += 1;
+            assert_download_overwrites(&file_name, &cmd);
+        }
+    }
+    assert!(
+        sites >= 3,
+        "PMAT-230 rule 9: found only {sites} `gh release download` call site(s); the \
+         rule is meant to sweep every workflow, and a rule that matches nothing passes \
+         for the wrong reason"
+    );
+}

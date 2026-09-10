@@ -252,7 +252,10 @@ jobs:
           set -euo pipefail
           TAG="${{ needs.ensure-release.outputs.tag }}"
           mkdir assets && cd assets
-          gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.tar.gz'
+          # PMAT-230: --clobber on every `gh release download`, so a re-run of
+          # this backfill over a directory that already holds the tarballs
+          # overwrites them instead of exiting 1.
+          gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.tar.gz' --clobber
           # #324/#325: this job regenerates SHA256SUMS from whatever is CURRENTLY
           # attached to the release, so anything stray that reached the object
           # gets laundered into the authoritative checksum file. That is how
