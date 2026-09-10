@@ -3,7 +3,7 @@
   "kind": "code",
   "base": "origin/main",
   "base_commit": "8e8e79e4aa2c205f32151977efccb59b14f838bd",
-  "diff_sha256": "125d9e1d46f9295136457be177476ed254e42ead",
+  "diff_sha256": "445708bb0957b5691ca0dae2f3689fe9e87028e6",
   "recorded_at": "2026-09-10",
   "quorum": {
     "lanes": [
@@ -53,9 +53,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 5228,
-        "sha256": "b0567645a611a5f1796e42ad91c6d2b185c022ae95f510f8b5018728d94ac4d3",
-        "blob": "a59f459aa99db89cce80ccfef4249460264c52aa"
+        "bytes": 13094,
+        "sha256": "5efc07d6156cb459ff8813cc8da339d4aad0a4fe8ab4efdd6d5a2a4be7f7fad1",
+        "blob": "43ee9d63ed0c537b41410954b2cddcee8e13a1df"
       },
       {
         "path": ".quorum/evidence/goal-agy.md",
@@ -85,7 +85,8 @@
         "blob": "c78e372c1d1b12a1f8ed42fad825027d39851c25"
       }
     ],
-    "total_bytes": 35867
+    "total_bytes": 43733,
+    "claims_digest": ".quorum/evidence/goal-judges.md"
   },
   "falsification": {
     "test": "thirteen fixture cases over temp repositories with a bare origin, annotated tags and a stub gh driving the real gate and tool: the green ledger passes and counts; a declared window that disagrees with GitHub, a merged ticket without the next label, a shipped ticket without its label, a ticket claiming a release it was not in, a row naming a tag origin lacks, a due instant one second off, an overdue cut, a version no goal names, a release at the dogfood floor without its receipt, a stray id in a tagged window, and a gh that cannot answer are each red by name; the cut flow books a tag, moves the goal that missed, labels the open window and turns the gate green",
