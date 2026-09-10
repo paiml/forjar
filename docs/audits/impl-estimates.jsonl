@@ -12,3 +12,8 @@
 {"repo": "forjar", "ticket": "PMAT-222", "phase": "1-red+core", "mode": "direct + delegate:agy teamwork x1 (7 children)", "est": 1, "actual": 14, "basis": "k 186 -> 200 at the fix commit"}
 {"repo": "forjar", "ticket": "PMAT-222", "phase": "2-contract", "mode": "direct", "est": 1, "actual": 2, "basis": "k 200 -> 202 at the contract commit"}
 {"repo": "forjar", "ticket": "PMAT-222", "phase": "3-review+gate", "mode": "delegate:agy quorum x3 + jidoka fix", "est": 1, "actual": 4, "basis": "k 202 -> 206 at the re-export commit"}
+{"repo": "forjar", "ticket": "PMAT-223", "phase": "0-discovery", "mode": "direct", "est": 4, "actual": 15, "basis": "k_measured at goal.sh set; includes the by-hand repro of the dead cache; estimate.sh printed K_HAT=4 ROWS=0"}
+{"repo": "forjar", "ticket": "PMAT-223", "phase": "1-red+fix", "mode": "direct + delegate:agy teamwork x1 (single model)", "est": 1, "actual": 12, "basis": "k 15 -> 27 at d4f7cc93, orchestrator's attribution [U]; includes the stale-binary detour"}
+{"repo": "forjar", "ticket": "PMAT-223", "phase": "2-contract+docs", "mode": "direct", "est": 1, "actual": 3, "basis": "k 27 -> 30 at dda3cf0e [U]"}
+{"repo": "forjar", "ticket": "PMAT-223", "phase": "3-review+gate", "mode": "delegate:agy quorum x3, four rounds", "est": 1, "actual": 10, "basis": "k 30 -> 40 at de070d12 [U]; four rounds of three lanes, one red gate, two doc-correction commits"}
+{"repo": "forjar", "ticket": "PMAT-223", "phase": "4-receipt", "mode": "direct", "est": 1, "actual": 5, "basis": "k 40 -> 45 at the receipt commit [U]"}

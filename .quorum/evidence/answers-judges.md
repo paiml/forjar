@@ -1,0 +1,50 @@
+# Quorum evidence — PMAT-223 — adjudicated claims
+
+## CONFIRMED
+
+1. [writer] NOTHING FOR A MACHINE THIS HOST CANNOT READ — `record_io_hashes` takes the machine and returns before hashing when this host does not answer for it, so a remote machine's lock no longer carries a correct hash of the controller's tree; an absent `input_hash` reads as `no recorded input hash` in `staleness_reason` (re-run once), never as clean.
+- evidence: src/core/task/probe.rs:298 is the guard; src/core/executor/resource_ops.rs:81 passes the machine from `record_success`; src/core/task/tests_probe.rs:264 is the updated caller. All lanes in three rounds confirmed; the unit test in tests_probe.rs measures both machines and the staleness reading, and mutation M3 (docs/audits/logs/PMAT-223-mutation-3-lib.log) shows it FAILED with the guard removed.
+
+2. [predicate] ONE WRAPPER, THREE CALLERS — `probe_answers_for` is the only place probe.rs names the transport predicate; `probe_covers`, `record_io_hashes` and the executor's cache reader all go through it, so the writer, the reader and the planner's coverage census cannot disagree about which machines this host's tree answers for.
+- evidence: src/core/task/probe.rs:298 calls the wrapper from the writer; src/core/executor/resource_meta.rs:43 calls it from the reader; the orchestrator's count of `crate::transport::controller_answers_for` is 1 in probe.rs, 0 in executor/mod.rs, 0 in planner/unprobed.rs, and `the_probe_coverage_predicate_has_one_definition` passed in every lib run. All lanes confirmed.
+
+3. [reader] THE READER ASKS THE PLANNER'S QUESTION — `check_task_input_cache` refuses a machine this host does not answer for, hashes through `probe_resource` (the writer's base, `probe_base_dir`) instead of the state directory's parent, and a hit requires `staleness_reason == None`: inputs unchanged AND outputs present and unmodified.
+- evidence: src/core/executor/resource_meta.rs:43 is the machine guard and :46 the probe; src/core/executor/tests_input_cache.rs:59 pins the base agreement, :94 the outputs question, :166 the refusal; mutations M1, M2 and N2 each show the named unit test FAILED (docs/audits/logs/PMAT-223-mutation-1-lib.log, -2-lib.log, -N2-lib.log). All lanes confirmed.
+
+4. [operator] --FORCE WINS — `task_inputs_are_cached` returns false under `--force`, so a cache that would otherwise skip the run yields to the operator; measured before the fix, a forced apply over a cached task ran nothing.
+- evidence: src/core/executor/machine_b.rs:236 is the early return; tests/falsification_io_hash_answers_for_its_machine.rs:229 drives `apply --force` through the real binary and counts the runs; mutation N3 shows it FAILED without the bypass (docs/audits/logs/PMAT-223-mutation-N3-binary.log). All lanes confirmed.
+
+5. [settle] A HIT SATISFIES THE CURRENT SPEC — `settle_cached_row` writes `hash_desired_state(resolved)` into the lock row on a hit, called from `prepare_wave_resources`, so the next plan reads `0 to change`; measured on the fixed binary before this hunk, the plan said `1 to change` and apply said `1 unchanged` on every run.
+- evidence: src/core/executor/machine_b.rs:293 is the call; src/core/executor/tests_input_cache.rs:128 pins the written hash; tests/falsification_io_hash_answers_for_its_machine.rs:175 asserts `to_update: 0` after the hit through `plan --json`; mutation N1 shows that assertion FAILED with the call removed (docs/audits/logs/PMAT-223-mutation-N1-binary.log). All lanes confirmed.
+
+6. [readers] NO FOURTH READER — the recorded hashes are read in src/ by the planner (through the (machine, resource) probe map, never a remote row since forjar#499), by the cache reader, and by `verify`'s `recorded_output_hash`, which now finds only rows this host answers for by construction; every lane grepped both keys and found no other.
+- evidence: src/core/executor/resource_meta.rs:46 is the reader after the fix; src/core/planner/mod.rs reads `probes.get(machine_name, resource_id)` before `input_hash` (unchanged by this diff); three rounds of lanes confirmed by grep, and the orchestrator's grep of `"input_hash"` and `"output_hash"` across src/ agrees.
+
+7. [contract] THE CORPUS NAMES THE RULE — two proof obligations, two enforcement checks and rows FALSIFY-AMB-007..012 in `ambient-input-fingerprint-v1.yaml` cite the binary and unit tests by their exact names, and the paragraph that said the executor passes `state_dir.parent()` is corrected.
+- evidence: src/core/task/ambient.rs:58 is the corrected doc the contract mirrors; gate G (`scripts/dogfood/contracts.sh`) PASS, 40 contracts validate, citations resolve (docs/audits/logs/PMAT-223-gate-G.log). All lanes in every round confirmed the citations by grep.
+
+8. [changelog] EVERY SENTENCE TRUE BY READING — the [Unreleased] paragraph names both halves of the defect, the dead cache and why it was dead (the hash folds the expanded path in), the three hazards the live cache exposed, and the one behaviour made visible: a `cache: true` task whose command changed but whose declared inputs did not is skipped, and `--force` runs it.
+- evidence: CHANGELOG.md:11 opens the paragraph; the dead-cache sentence follows from `hash_inputs` in src/core/task/io_tracking.rs (`format!("{file_path}\0{hash}")`, unchanged) and the old reader base; all six lanes of rounds 1 and 2 confirmed C10, round 3 below.
+
+9. [ceiling] UNDER 500 LINES, COMPLEXITY IN BUDGET — `src/core/executor/mod.rs` is 499 lines after the test-module mount; `check_task_input_cache` has five early returns and no nested branching, `settle_cached_row` one `if let`; every touched src/ file stays under the ceiling and no `unwrap`, `expect` or `#[allow]` was added outside tests.
+- evidence: the orchestrator's `wc -l`: executor/mod.rs 499, task/probe.rs 373, executor/resource_meta.rs 83, executor/machine_b.rs 361; clippy `--all-targets -D warnings` exit 0 on the final tree (docs/audits/logs/PMAT-223-clippy.log). All lanes measured 499.
+
+## REFUTED
+
+1. [plan] THE HIT'S CONSEQUENCES ARE FJ-2701'S TO NAME, NOT THIS TICKET'S TO FIX — the plan proposed the writer's base plus the machine guard and nothing more, calling whatever else a live cache did shipped semantics to name in the CHANGELOG and file separately; the grill lane refused that reading and demanded the settle in this ticket.
+- corrected: the grill lane predicted the plan pump; the orchestrator refuted it against a stale binary, then confirmed it and two more against the right one — a deleted output skipped as unchanged (tests/falsification_io_hash_answers_for_its_machine.rs:209), `--force` refused (:229), the plan never settling (:175). All three are fixed in this diff because the diff is what made them reachable.
+
+2. [plan] ONLY TWO READERS OF THE RECORDED HASHES EXIST — the plan inventoried the planner (through the keyed probe map) and the executor's cache reader as the only consumers of a lock row's `input_hash` and `output_hash`, and named no site in src/cli.
+- corrected: `cli/verify.rs::recorded_output_hash` scans every machine's lock for the first `output_hash`; after this diff only rows this host answers for carry one, so it reads this host's tree by construction. A doc note there was dropped on review as out of scope; the analysis lives in the receipt (docs/audits/impl-PMAT-223-receipt.md).
+
+3. [red] THE REMOTE CASE IS RED ON THE BASE — the plan expected both binary cases of the falsifier to fail on 643363b3: the base case at the `1 unchanged` assertion and the remote case at the assertion that a task on a TEST-NET machine is never reported unchanged from this host's hash.
+- corrected: the remote case PASSES on 643363b3 by accident, because the dead cache never skipped anything; it is red against the fixed reader with its machine guard removed (docs/audits/logs/PMAT-223-mutation-1-binary.log), and the test file's module doc says so plainly since 25b17924 (tests/falsification_io_hash_answers_for_its_machine.rs:254 is the case).
+
+4. [wording] THE TEST DOC ALREADY SAID WHICH CASE IS RED AGAINST WHAT — the round-2 claim C6 asserted that the falsifier's module doc stated explicitly that the remote case passes on the base by accident and is red only against the reader with its guard removed.
+- corrected: it did not; it said only that the dead cache hid the remote half. Three lanes refuted the wording; the module doc now names each case's falsifier (base and deleted-output cases red on 643363b3, remote red against M1, forced red against N3).
+
+5. [count] SEVEN MUTATION LOGS — the round-1 claim C7 counted the committed logs under docs/audits/logs as seven, one per mutation, and asked the lanes to confirm that each showed the named test failing with its hunk removed.
+- corrected: eight logs cover six mutations (M1 lib and binary, M2 lib, M3 lib, N1 binary, N2 lib and binary, N3 binary); two lanes counted, one confirmed without counting and is treated as unhunted on C7. The count in the claim was wrong; every log's verdict lines name the test the mutation should kill (docs/audits/logs/PMAT-223-mutation-*.log).
+
+6. [scope] THE DIFF TOUCHES ONLY WHAT THE TICKET NAMES AND LEAVES NO DOC FALSE — the round-1 claim C12 rested on the two doc hunks being in scope; the round-2 claim rested on no other sentence being false.
+- corrected: the verify.rs note was dropped (f6cb029a); the ambient.rs paragraph stayed because the diff made its old sentence false (src/core/task/ambient.rs:58); round 2 found three more sentences the diff made false — the tests_ambient.rs comment, the task-framework spec's `should_skip_task` block, the book's stage-cache paragraph — corrected in 25b17924 with the pipeline-stage sentences left standing because `should_skip_stage` is untouched; round 3 found two more — the FJ-2701 comment at the cache-hit call site (src/core/executor/machine_b.rs:289) and the platform-features page — corrected in the next commit. Lane 1's round-3 refutations of C6, C9 and C12(a) were contradicted by the text at 25b17924 (the delegate's cross-checks) and count as a lane error, not a refuted claim.
