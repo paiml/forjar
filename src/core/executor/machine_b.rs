@@ -286,7 +286,8 @@ fn prepare_wave_resources(
             &cfg.config.machines,
             &cfg.config.secrets,
         )?;
-        // FJ-2701: Task input caching — skip execution if inputs unchanged.
+        // FJ-2701: Task input caching — skip execution if inputs are unchanged
+        // AND the declared outputs are present and unmodified (forjar#501).
         // Refs #412: the width-1 path has done this since FJ-2701; a wide wave
         // re-ran every cached task.
         if task_inputs_are_cached(cfg, ctx, machine, &change.resource_id, &resolved) {
