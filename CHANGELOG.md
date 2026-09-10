@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-09-10
+
+The first cut under the two-day cadence `docs/roadmaps/releases.yaml` declares
+(PMAT-225; due 2026-09-10T22:10:01Z). Nine PRs merged since 1.27.0 across nine
+tickets, every one carrying `release:v1.28.0` before the cut, all of it found by
+an operator or a review: three more fleet defects (#485's write side, #487's
+second half, #495), three planner and cache defects the reviews of those
+located (#497, #499, #501), two gate shapes (#491, and the release goals of
+#506), and this cut's own one-line change to the quorum gate's rail. Test-only
+and not a behaviour: the `forjar-contracts` corpus test is gated on the corpus
+rather than on a sibling checkout (#452, PR #494).
+
 **Every ticket names the tag that shipped it, a PR is tagged when it merges,
 and the two-day release cadence is a gate (#506).** Nothing in the tree, on
 the roadmap or on the issues named the release a merged ticket would ship in;
@@ -72,6 +84,60 @@ by (machine, resource): a digest answers for the machine it was taken on and
 no other, the remote row keeps config-hash planning and is named in the plan's
 `unprobed` census. Found by the #497 review. `api::probe_all` returns the new
 `api::ProbeMap`; the supported surface grows from 11 to 12 items.
+
+**The plan names what it did not probe (#497).** A missing build-I/O probe
+and a probe that found nothing stale both planned `NoOp`, and the probe is only
+taken for machines this host answers for, so a converged task on any SSH target
+planned `NoOp` over changed sources and said nothing. The action is deliberately
+unchanged — rebuilding every unprobed resource would rebuild every remote task
+on every apply and break f(f(x)) = f(x) at the plan level — and the plan now
+carries `unprobed`, a census of the (resource, machine) rows it did not measure,
+each with its reason, rendered on every surface: the TTY plan's disclosure
+prose, `plan --json` and the MCP/HTTP `PlanOutput` (`unprobed`, always
+present), `apply --dry-run`, and the sealed plan file, which still verifies
+byte-identically when the census is empty. `probe_covers` is the one definition
+of what a probe covers.
+
+**A file resource on a remote machine records that machine's baseline, not
+the controller's (#485).** The lock-baseline writer hashed the controller's
+file at the declared path for every transport but a container, so a resource
+declaring `/home/<user>/.bashrc` on an SSH machine recorded the workstation's
+copy; drift then read the real file from the machine and compared it against a
+third one, and the gap never closed. One predicate,
+`transport::controller_answers_for`, now decides for apply and drift alike
+whether this host answers for a machine, and a remote baseline is read through
+the transport by the same reader drift uses, so a file whose whole content is
+the directory marker is digested the same way on both sides. Existing lock
+entries keep their wrong hash until the next apply on that machine.
+
+**`drift` measures a guard the lock believes is broken (#487).** A `type: task`
+resource whose apply had failed was skipped by drift as "not converged in the
+lock" — precisely the resource whose live state is most worth measuring. A
+`completion_check` is an assertion, not a baseline: it needs nothing from the
+lock to be answerable. drift now runs it; a failing assertion is a DRIFTED row,
+`--tripwire` exits 1 on it, and a failed task with no `completion_check` is
+named as unmeasured rather than silently skipped. File, image and the
+state-query path are unchanged by design, and a test fails if that stops being
+true.
+
+**A pepita namespace is not the controller at the three sites that read one
+(#495).** `machine_is_local` excluded a container and not a namespace, while
+the predicate drift and the lock writer share excluded both, so the build-I/O
+probe, the pre-plan probe and output verification hashed and stat'ed the
+controller's tree for a namespaced machine whose rootfs is its own — declared
+artifacts were reported missing because they were looked for here. All three
+sites now ask the shared predicate, and a rule over all of `src/` keeps a
+fourth site from reappearing.
+
+**The committed-quorum gate's triage rail admits the release ledger
+(PMAT-226).** `docs/roadmaps/releases.yaml` is a declared-side file the way the
+roadmap is — one row per tag, edited textually — and booking a tag's row after
+the cut is classify-and-link work with no code in it. The rail from #491 named
+`docs/audits/**`, `docs/roadmaps/roadmap.yaml` and `.quorum/**` only, so a
+`kind: triage` receipt over the booking was refused by name and a `kind: code`
+one could anchor no citation: the one PR every release needs had no honest
+shape. The rail now names the ledger beside the roadmap, by file and not by
+directory; every other path outside the rail is still refused by name.
 
 ## [1.27.0] - 2026-09-08
 
