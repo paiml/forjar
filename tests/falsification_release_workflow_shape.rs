@@ -441,8 +441,8 @@ fn rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url() {
 // SHA256SUMS carried ten lines, four of them belonging to 1.17.0 — but the
 // two jobs that fetch a file with `gh release download` write into a fixed
 // path with no guard at all. The v1.28.0 release died there:
-// `/tmp/SHA256SUMS already exists (use --clobber to overwrite file or
-// --skip-existing to skip)`, leaving a draft release with thirteen assets
+// ``/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or
+// `--skip-existing` to skip file)``, leaving a draft release with thirteen assets
 // and no installer.
 //
 // `--skip-existing` is refused as well as absence, and it is the more
@@ -450,7 +450,16 @@ fn rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url() {
 // in place, the following `test -s` guard passes, and `forjar dist
 // --checksums-file` embeds them into `install.sh`. That is the v1.18.0
 // failure again with a friendlier exit code, which is why this rule cannot
-// be satisfied by making the error go away.
+// be satisfied by making the error go away. `||` is refused for the same
+// reason: suppressing the exit code leaves the stale file in place too.
+//
+// THIS IS A TEXT RATCHET AND HERE IS WHAT IT CANNOT CATCH. It reads the
+// workflow's own text, so a download assembled from a variable (`$GH
+// release download`, `eval "$cmd"`), one written inside a here-doc that
+// this line-joiner does not follow, or one in a script the workflow calls
+// rather than in the workflow itself, all pass unseen. What it does
+// guarantee is that a call site written the way all three of today's are
+// written cannot lose its --clobber without turning this test red.
 // ---------------------------------------------------------------------
 /// One `gh release download` invocation, joined across the backslash
 /// continuations it is written with: the flags sit on their own lines.
@@ -476,6 +485,13 @@ fn assert_download_overwrites(file_name: &str, cmd: &str) {
          checksums reach `install.sh`. Overwrite it with --clobber:\n{cmd}"
     );
     assert!(
+        !cmd.contains("||"),
+        "PMAT-230 rule 9: {file_name} guards a `gh release download` with `||`. A \
+         suppressed failure leaves the file the previous release left exactly where it \
+         was and continues, which is the outcome --clobber exists to prevent; this \
+         repository's rule is that nothing swallows a measurement:\n{cmd}"
+    );
+    assert!(
         cmd.contains("--clobber"),
         "PMAT-230 rule 9: {file_name} runs `gh release download` without --clobber. \
          `/tmp` persists between jobs on the clean-room runners, so the second release \
@@ -485,14 +501,27 @@ fn assert_download_overwrites(file_name: &str, cmd: &str) {
     );
 }
 
+/// Is this joined command a `gh release download`?
+///
+/// The subcommand is looked for as a WHOLE TOKEN in the joined command, not
+/// as the literal substring `gh release download`, because `gh` accepts its
+/// global flags before the subcommand (`gh release -R paiml/forjar
+/// download …`) and because a backslash can split `gh release` from
+/// `download`. All three quorum lanes independently found that hole in the
+/// first version of this rule, which matched the literal string.
+fn is_download(cmd: &str) -> bool {
+    cmd.split_whitespace().any(|t| t == "download")
+}
+
 /// Every `gh release download` call site in one workflow file.
 fn download_sites(text: &str) -> Vec<String> {
     let lines: Vec<&str> = non_comment_lines(text).collect();
     lines
         .iter()
         .enumerate()
-        .filter(|(_, l)| l.contains("gh release download"))
+        .filter(|(_, l)| l.contains("gh release"))
         .map(|(i, _)| joined_command(&lines, i))
+        .filter(|cmd| is_download(cmd))
         .collect()
 }
 

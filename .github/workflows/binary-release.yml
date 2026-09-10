@@ -252,9 +252,15 @@ jobs:
           set -euo pipefail
           TAG="${{ needs.ensure-release.outputs.tag }}"
           mkdir assets && cd assets
-          # PMAT-230: --clobber on every `gh release download`, so a re-run of
-          # this backfill over a directory that already holds the tarballs
-          # overwrites them instead of exiting 1.
+          # PMAT-230: --clobber on every `gh release download`. NOT load-bearing
+          # here and said so rather than implied: this job is on a hosted
+          # (ephemeral) runner and `mkdir assets` above gives it a fresh
+          # directory, so the fixed-path collision that killed the v1.28.0
+          # release in release.yml cannot happen on this line today. It carries
+          # the flag because the rule is uniform over every workflow — a rule
+          # that names the two files it was written for is a rule a third call
+          # site walks past — and because `runs-on` has moved under these jobs
+          # before.
           gh release download "$TAG" --repo "${{ github.repository }}" --pattern '*.tar.gz' --clobber
           # #324/#325: this job regenerates SHA256SUMS from whatever is CURRENTLY
           # attached to the release, so anything stray that reached the object

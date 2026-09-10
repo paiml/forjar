@@ -1,0 +1,12 @@
+== the three evasions the lanes named, each applied to release.yml's dist-artifacts call site, each must turn rule 9 RED
+-- mutation: flags-before-subcommand
+PMAT-230 rule 9: release.yml runs `gh release download` without --clobber. `/tmp` persists between jobs on the clean-room runners, so the second release to use this path dies with `already exists` — the v1.28.0 cut did, leaving a draft release with no installer. The `checksums` job's staging-directory comment is the same lesson one job over:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+-- mutation: backslash-split-subcommand
+PMAT-230 rule 9: release.yml runs `gh release download` without --clobber. `/tmp` persists between jobs on the clean-room runners, so the second release to use this path dies with `already exists` — the v1.28.0 cut did, leaving a draft release with no installer. The `checksums` job's staging-directory comment is the same lesson one job over:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+-- mutation: suppressed-failure
+PMAT-230 rule 9: release.yml guards a `gh release download` with `||`. A suppressed failure leaves the file the previous release left exactly where it was and continues, which is the outcome --clobber exists to prevent; this repository's rule is that nothing swallows a measurement:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+== restored; rule 9 green again
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
