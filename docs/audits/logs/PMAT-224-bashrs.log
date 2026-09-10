@@ -1,0 +1,86 @@
+# reduced from PMAT-224-bashrs.log — 8690 bytes, sha256 1c96f80e3426b1125e78c20cf453c3cdf3e396f031076ce38ae70729714f3d60; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+[2m2026-09-10T09:20:04.083961Z[0m [32m INFO[0m [2mbashrs::cli::commands::lint_cmds[0m[2m:[0m Linting scripts/quorum-gate.sh
+Issues found in [36mscripts/quorum-gate.sh[0m:
+
+[33m⚠[0m [2m217:5-74[0m [33m217:5-74 [warning] BRS0001: Comment here is not a command. Use a no-op `:` if the body is empty[0m
+
+[2mℹ[0m [2m273:15-17[0m [2m273:15-17 [info] SC1012: \n is just literal '\n' in single quotes. Use $'\n' or double quotes for escape sequence[0m
+
+[2mℹ[0m [2m227:12-15[0m [2m227:12-15 [info] SC1135: Use \$ in double quotes rather than breaking out of the quote[0m
+
+[2mℹ[0m [2m106:30-49[0m [2m106:30-49 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m123:43-62[0m [2m123:43-62 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m128:16-35[0m [2m128:16-35 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m188:41-54[0m [2m188:41-54 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m194:41-50[0m [2m194:41-50 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m208:31-40[0m [2m208:31-40 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m227:13-22[0m [2m227:13-22 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m328:38-47[0m [2m328:38-47 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[33m⚠[0m [2m85:24-68[0m [33m85:24-68 [warning] SC2046: Quote this to prevent word splitting: $(git config user.email 2>/dev/null || true)[0m
+  [32mFix:[0m "$(git config user.email 2>/dev/null || true)"
+
+[33m⚠[0m [2m121:10-23[0m [33m121:10-23 [warning] SC2047: Quote ${QUORUM_SKIP to prevent word splitting, or use [[..]] instead of [..][0m
+
+[33m⚠[0m [2m272:7-19[0m [33m272:7-19 [warning] SC2047: Quote ${PRINT_HASH to prevent word splitting, or use [[..]] instead of [..][0m
+
+[2mℹ[0m [2m106:30-49[0m [2m106:30-49 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+
+[2mℹ[0m [2m123:43-62[0m [2m123:43-62 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+
+[2mℹ[0m [2m128:16-35[0m [2m128:16-35 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+## verdict lines
+Summary: [32m0 error(s)[0m, [33m15 warning(s)[0m, [2m42 info(s)[0m
+## tail
+[2mℹ[0m [2m135:67-75[0m [2m135:67-75 [info] SC2162: read without -r will mangle backslashes[0m
+  [32mFix:[0m read -r the
+
+[2mℹ[0m [2m85:1-70[0m [2m85:1-70 [info] BRS0018: Redirection before pipe applies to first command only. Reorder if this is unexpected[0m
+
+[2mℹ[0m [2m135:1-84[0m [2m135:1-84 [info] BRS0018: Redirection before pipe applies to first command only. Reorder if this is unexpected[0m
+
+[2mℹ[0m [2m193:1-10[0m [2m193:1-10 [info] SC2249: Consider adding a *) default case to handle unexpected values[0m
+
+[33m⚠[0m [2m135:1-84[0m [33m135:1-84 [warning] BRS0023: Use 'read -r' to prevent backslash interpretation[0m
+
+[2mℹ[0m [2m121:1-35[0m [2m121:1-35 [info] BRS0024: Use ${var:?} to fail if variable is unset, rather than defaulting to empty[0m
+
+[2mℹ[0m [2m51:1-22[0m [2m51:1-22 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m63:1-23[0m [2m63:1-23 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m86:1-16[0m [2m86:1-16 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m96:1-20[0m [2m96:1-20 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m157:1-14[0m [2m157:1-14 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m158:1-13[0m [2m158:1-13 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m104:1-38[0m [2m104:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m122:1-38[0m [2m122:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m171:1-94[0m [2m171:1-94 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m272:1-38[0m [2m272:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[33m⚠[0m [2m632:14-16[0m [33m632:14-16 [warning] PERF002: Command substitution inside loop body forks a subshell each iteration. Consider moving outside the loop.[0m
+
+[33m⚠[0m [2m639:10-12[0m [33m639:10-12 [warning] PERF002: Command substitution inside loop body forks a subshell each iteration. Consider moving outside the loop.[0m
+
+[2mℹ[0m [2m135:67-71[0m [2m135:67-71 [info] REL003: `read` without `-t` timeout may block indefinitely. Consider adding `-t <seconds>`.[0m
+
+Summary: [32m0 error(s)[0m, [33m15 warning(s)[0m, [2m42 info(s)[0m
+EXIT=1
