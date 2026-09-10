@@ -35,3 +35,6 @@
 {"repo": "forjar", "ticket": "PMAT-227", "phase": "0-frame + booking (cut, row, next goal, two roadmap rows)", "mode": "direct", "est": 2, "actual": 2, "basis": "k 180 -> 190 [U]; release-goal.sh cut did the arithmetic"}
 {"repo": "forjar", "ticket": "PMAT-227", "phase": "2-review (quorum x3) + re-running both refutations", "mode": "delegate:agy quorum x3", "est": 2, "actual": 3, "basis": "k 190 -> 200 [U]; 0/3 PASS, one real finding (PMAT-229), one lane misread"}
 {"repo": "forjar", "ticket": "PMAT-227", "phase": "3-receipts, artifact, push, PR", "mode": "direct", "est": 2, "actual": 2, "basis": "k 200 -> 210 (projected at push) [U]"}
+{"repo": "forjar", "ticket": "PMAT-230", "phase": "0-frame + rule 9 + the workflow fix", "mode": "direct", "est": 2, "actual": 3, "basis": "k 210 -> 226 [U]; one commit refused by the complexity hook and re-done"}
+{"repo": "forjar", "ticket": "PMAT-230", "phase": "2-review round 1 + fixes", "mode": "delegate:agy quorum x3", "est": 2, "actual": 3, "basis": "k 226 -> 236 [U]; 0/3 PASS, three findings, all acted on"}
+{"repo": "forjar", "ticket": "PMAT-230", "phase": "2-review round 2 + the token rewrite + the seven-case battery", "mode": "delegate:agy quorum x3", "est": 2, "actual": 3, "basis": "k 236 -> 246 [U]; 1/3 PASS, four more findings, all closed and measured"}
