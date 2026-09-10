@@ -1,0 +1,20 @@
+== make dogfood-release on 568dc169 (tracked tree clean), one run; the nine verdict lines, the bash lines, and rc
+bash scripts/dogfood/comply.sh
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 2 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+bash scripts/dogfood/surface.sh
+GATE C PASS 211 CLI name(s), 12 MCP tool(s), 12 HTTP verb(s); every declared name is live and every live name declared; matches docs/audits/surface_audit.csv; CLI/verb/MCP agree on the fixture
+bash scripts/dogfood/docs.sh
+GATE D PASS 18 documented invocation(s) from README.md run or parse against the fixtures (1 pinned as known-broken above); version claims reconcile with Cargo.toml; 98 cookbook config(s) validate
+bash scripts/dogfood/contracts.sh
+GATE G PASS 40 contract(s) validate; pv lint 0 errors; 4 kernel(s) carry equations and kani harnesses; every contract names a falsifier; citations resolve; 12 verb(s) and 12 resource kind(s) reconciled against the corpus (11 unanchored, 2 ungoverned, both at their recorded ceiling)
+bash scripts/dogfood/harness.sh
+GATE A PASS 9 of 9 merged PR(s) since v1.27.0 carry a harness receipt
+bash scripts/dogfood/quorum.sh
+GATE E PASS 9 of 9 merged PR(s) since v1.27.0 carry a quorum receipt
+bash scripts/dogfood/tagged.sh
+GATE T PASS 5 tagged release(s) since v1.25.0 reconcile with git and GitHub and 16 ticket(s) carry their tag; 9 of 9 PR(s) merged since v1.27.0 carry release:v1.28.0; cut in flight: Cargo.toml is at 1.28.0
+bash scripts/dogfood/coverage.sh
+GATE F PASS line coverage 96.45% >= 95%; forjar-contracts 0 failed / 44 ignored (39 aprender-corpus, ceiling 44); mutants: 1 .rs file(s) changed, none under src/ — cargo mutants has no library or binary target to mutate in this diff
+bash scripts/dogfood/crux-reconcile.sh
+GATE H PASS 9 of 9 behaviour bullet(s) under [1.28.0] reconciled in docs/audits/crux-1.28.0.md, each naming >= 3 of the 28 surveyed systems
+rc=0

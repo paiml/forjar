@@ -1,0 +1,24 @@
+== RED: main's scripts/quorum-gate.sh (191770fa) checked out over this branch's test file (git checkout 191770fa -- scripts/quorum-gate.sh)
+ 1 file changed, 5 insertions(+), 11 deletions(-)
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... ok
+test another_file_under_roadmaps_is_still_off_the_rail ... ok
+test a_triage_receipt_over_the_release_ledger_is_on_the_rail ... FAILED
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... ok
+assertion `left == right` failed: the release ledger was refused as off the rail:
+✗ QUORUM GATE: a kind: triage receipt over a diff that touches docs/roadmaps/releases.yaml
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+== restore: git checkout HEAD -- scripts/quorum-gate.sh
+== GREEN: HEAD 568dc169
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... ok
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test another_file_under_roadmaps_is_still_off_the_rail ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... ok
+test a_triage_receipt_over_the_release_ledger_is_on_the_rail ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s

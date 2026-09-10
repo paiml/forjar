@@ -51,7 +51,8 @@ CIT_RE = re.compile(
 )
 
 # forjar#491: the same shape, one level up. A `kind: triage` branch -- classify
-# and link, no diff -- touches only docs/audits/** and the roadmap. It has no
+# and link, no diff -- touches only docs/audits/**, the roadmap and, since
+# PMAT-226, the release ledger docs/roadmaps/releases.yaml. It has no
 # Rust file to cite, so under CIT_RE it anchors 0% BY CONSTRUCTION and every
 # triage PR was pushed `waived`. For a receipt that declares `kind: triage`, a
 # citation into a DOCUMENTATION file the branch touches anchors under the same

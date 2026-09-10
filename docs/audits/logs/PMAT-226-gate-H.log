@@ -1,0 +1,7 @@
+# reduced from gate-H-226.log — 140 bytes, sha256 30151e0df72fd81507a4497184d2daf6db365abe7f2d1607bf6cc6bbfcd1c75c; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+GATE H PASS 9 of 9 behaviour bullet(s) under [1.28.0] reconciled in docs/audits/crux-1.28.0.md, each naming >= 3 of the 28 surveyed systems
+## verdict lines
+GATE H PASS 9 of 9 behaviour bullet(s) under [1.28.0] reconciled in docs/audits/crux-1.28.0.md, each naming >= 3 of the 28 surveyed systems
+## tail
+GATE H PASS 9 of 9 behaviour bullet(s) under [1.28.0] reconciled in docs/audits/crux-1.28.0.md, each naming >= 3 of the 28 surveyed systems

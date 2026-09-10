@@ -4,7 +4,8 @@
 //! the branch wrote or changed, and `scripts/quorum_evidence.py::check_anchors`
 //! requires ≥33% of adjudicated claims to cite a `.rs` file (or a root manifest)
 //! the branch touches. A `kind:triage` branch — classify and link, no diff —
-//! touches only `docs/audits/**` and `docs/roadmaps/roadmap.yaml`. It has no
+//! touches only `docs/audits/**`, `docs/roadmaps/roadmap.yaml` and, since
+//! PMAT-226, the release ledger `docs/roadmaps/releases.yaml`. It has no
 //! Rust file to name and no citable path, so it can anchor 0% by construction
 //! and can never satisfy the falsification block. Every triage PR was therefore
 //! pushed `waived`, which the `CIT_RE` comment in `quorum_evidence.py` already
@@ -13,8 +14,9 @@
 //! The shape this pins: a receipt may declare `kind: triage`. Then a citation
 //! into a DOCUMENTATION file the branch touches anchors a claim under the same
 //! at-base / as-added / must-be-touched rules a `.rs` file has always had; the
-//! diff must lie within `docs/audits/**`, `docs/roadmaps/roadmap.yaml` and
-//! `.quorum/**` (a triage receipt over a code diff is refused BY NAME, because
+//! diff must lie within `docs/audits/**`, `docs/roadmaps/roadmap.yaml`,
+//! `docs/roadmaps/releases.yaml` and `.quorum/**` (a triage receipt over a
+//! code diff is refused BY NAME, because
 //! it would be the cheapest way to skip the falsification); and the
 //! falsification block declares `not_applicable` with a reason, which the gate
 //! PRINTS as what it did not verify. Every other floor — lanes, judges,
@@ -39,6 +41,9 @@ const ACTOR: &str = "tester@example.com";
 const BRANCH: &str = "PMAT-999-triage-fixture";
 const LEDGER: &str = "docs/audits/triage-ledger-999.md";
 const ROADMAP: &str = "docs/roadmaps/roadmap.yaml";
+const RELEASES: &str = "docs/roadmaps/releases.yaml";
+/// The one edit a triage receipt must never cover.
+const CODE_EDIT: (&str, &str) = ("src/lib.rs", "pub fn one() -> u32 {\n    2\n}\n");
 const OTHER_DOC: &str = "docs/book/src/other.md";
 const DIGEST_PATH: &str = ".quorum/evidence/triage-claims.md";
 
@@ -162,9 +167,10 @@ struct Triage {
 
 /// A merge-base with a roadmap, a doc page the branch never touches and one
 /// Rust file; then a triage branch that ADDS a ledger, edits the roadmap and
-/// commits its claims digest. `touch_code` makes the branch also edit
-/// `src/lib.rs` — the shape a triage receipt must never cover.
-fn triage_fixture(digest_text: &str, touch_code: bool) -> Triage {
+/// commits its claims digest. `also` makes the branch write one more file —
+/// `CODE_EDIT` is the shape a triage receipt must never cover, the release
+/// ledger the shape it must (PMAT-226).
+fn triage_fixture(digest_text: &str, also: Option<(&str, &str)>) -> Triage {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = dir.path().to_path_buf();
     git(&repo, &["init", "-q", "-b", "main"]);
@@ -192,8 +198,8 @@ fn triage_fixture(digest_text: &str, touch_code: bool) -> Triage {
         ROADMAP,
         &format!("{BASE_ROADMAP}- id: PMAT-999\n  kind: triage\n  status: done\n"),
     );
-    if touch_code {
-        write(&repo, "src/lib.rs", "pub fn one() -> u32 {\n    2\n}\n");
+    if let Some((path, body)) = also {
+        write(&repo, path, body);
     }
     write(&repo, DIGEST_PATH, digest_text);
     git(&repo, &["add", "-A"]);
@@ -355,7 +361,7 @@ fn not_applicable() -> serde_json::Value {
 /// row it edits — the only two files it touches — and that must be enough.
 #[test]
 fn a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches() {
-    let f = triage_fixture(&triage_digest(), false);
+    let f = triage_fixture(&triage_digest(), None);
     let r = run_evidence(&f, 3, 1);
     assert_eq!(
         r.code, 0,
@@ -374,7 +380,7 @@ fn a_documentation_citation_outside_the_diff_anchors_nothing() {
     let cite = format!("{OTHER_DOC}:1");
     let f = triage_fixture(
         &digest(&[("a", &cite), ("b", &cite), ("c", &cite)], &[("d", &cite)]),
-        false,
+        None,
     );
     let r = run_evidence(&f, 3, 1);
     assert_ne!(r.code, 0, "{}", r.text);
@@ -385,7 +391,7 @@ fn a_documentation_citation_outside_the_diff_anchors_nothing() {
 /// branch cannot cite the receipt or the ledger it wrote itself instead of code.
 #[test]
 fn a_code_receipt_cannot_anchor_its_claims_on_documentation() {
-    let f = triage_fixture(&triage_digest(), false);
+    let f = triage_fixture(&triage_digest(), None);
     let mut r: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&f.receipt).unwrap()).unwrap();
     r.as_object_mut().unwrap().remove("kind");
@@ -403,7 +409,7 @@ fn a_code_receipt_cannot_anchor_its_claims_on_documentation() {
 /// gate, and the gate says in its own output what it did not verify.
 #[test]
 fn a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify() {
-    let f = triage_fixture(&triage_digest(), false);
+    let f = triage_fixture(&triage_digest(), None);
     commit_full_receipt(&f, Some("triage"), not_applicable());
     let r = whole_gate(&f);
     assert_eq!(
@@ -425,7 +431,7 @@ fn a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify() {
 /// `kind: triage` would otherwise be the cheapest way to skip the falsification.
 #[test]
 fn a_triage_receipt_over_a_code_diff_is_refused_by_name() {
-    let f = triage_fixture(&triage_digest(), true);
+    let f = triage_fixture(&triage_digest(), Some(CODE_EDIT));
     commit_full_receipt(&f, Some("triage"), not_applicable());
     let r = whole_gate(&f);
     assert_ne!(r.code, 0, "{}", r.text);
@@ -437,10 +443,37 @@ fn a_triage_receipt_over_a_code_diff_is_refused_by_name() {
     );
 }
 
+/// PMAT-226: the release ledger is on the rail. Booking a tag's row after the
+/// cut is classify + link with no code in it, and it is the one PR every
+/// release needs; before this the booking had no honest shape.
+#[test]
+fn a_triage_receipt_over_the_release_ledger_is_on_the_rail() {
+    let f = triage_fixture(&triage_digest(), Some((RELEASES, "cadence_days: 2\n")));
+    assert!(f.touched.contains(RELEASES), "{:?}", f.touched);
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_eq!(
+        r.code, 0,
+        "the release ledger was refused as off the rail:\n{}",
+        r.text
+    );
+}
+
+/// The rail names the ledger by file, not the directory: any other path under
+/// `docs/roadmaps/` is still refused by name.
+#[test]
+fn another_file_under_roadmaps_is_still_off_the_rail() {
+    let f = triage_fixture(&triage_digest(), Some(("docs/roadmaps/notes.md", "x\n")));
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains("docs/roadmaps/notes.md"), "{}", r.text);
+}
+
 /// Nothing changes for a code receipt: no `kind`, no falsification, still refused.
 #[test]
 fn a_code_receipt_with_no_falsification_is_still_refused() {
-    let f = triage_fixture(&triage_digest(), false);
+    let f = triage_fixture(&triage_digest(), None);
     commit_full_receipt(&f, None, serde_json::json!({}));
     let r = whole_gate(&f);
     assert_ne!(r.code, 0, "{}", r.text);
