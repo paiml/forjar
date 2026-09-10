@@ -23,9 +23,11 @@ fn fixture() -> (tempfile::TempDir, Resource) {
     std::fs::create_dir_all(dir.path().join("proj")).expect("proj");
     std::fs::create_dir_all(dir.path().join("state")).expect("state");
     std::fs::write(dir.path().join("proj/src.txt"), "v1").expect("input");
+    std::fs::write(dir.path().join("proj/out.txt"), "built").expect("output");
     let resource = Resource {
         resource_type: ResourceType::Task,
         task_inputs: vec!["src.txt".to_string()],
+        output_artifacts: vec!["out.txt".to_string()],
         working_dir: Some(dir.path().join("proj").display().to_string()),
         cache: true,
         ..Default::default()
@@ -82,6 +84,82 @@ fn the_cache_reads_the_base_the_writer_used() {
         check_task_input_cache("build", &resource, &here, &ctx).is_none(),
         "changed inputs must miss"
     );
+}
+
+/// The reader asks the planner's question, not the inputs-only one: a
+/// deleted or modified output is not a hit. Measured before this: `plan` said
+/// `output artifact missing`, apply said `unchanged`, and the artifact was
+/// never rebuilt.
+#[test]
+fn a_missing_or_modified_output_is_not_a_cache_hit() {
+    let (dir, resource) = fixture();
+    let here = machine("127.0.0.1");
+    let mut lock = converged_lock(&resource, &here);
+    let state_dir = dir.path().join("state");
+    let ctx = RecordCtx {
+        lock: &mut lock,
+        state_dir: &state_dir,
+        machine_name: "far",
+        tripwire: false,
+        failure_policy: &FailurePolicy::StopOnFirst,
+        timeout_secs: None,
+    };
+    assert!(
+        check_task_input_cache("build", &resource, &here, &ctx).is_some(),
+        "precondition: inputs unchanged, output present and unmodified — a hit"
+    );
+
+    std::fs::write(dir.path().join("proj/out.txt"), "edited by hand").expect("modify");
+    assert!(
+        check_task_input_cache("build", &resource, &here, &ctx).is_none(),
+        "a modified output must rebuild, whatever the inputs say"
+    );
+
+    std::fs::remove_file(dir.path().join("proj/out.txt")).expect("delete");
+    assert!(
+        check_task_input_cache("build", &resource, &here, &ctx).is_none(),
+        "a deleted output must rebuild, whatever the inputs say"
+    );
+}
+
+/// A hit satisfies the CURRENT spec: the row takes the spec hash of the
+/// resource it was asked to converge, so the next plan settles on NoOp.
+#[test]
+fn a_cache_hit_settles_the_spec_hash() {
+    let (dir, resource) = fixture();
+    let here = machine("127.0.0.1");
+    let mut lock = converged_lock(&resource, &here);
+    let state_dir = dir.path().join("state");
+    let mut ctx = RecordCtx {
+        lock: &mut lock,
+        state_dir: &state_dir,
+        machine_name: "far",
+        tripwire: false,
+        failure_policy: &FailurePolicy::StopOnFirst,
+        timeout_secs: None,
+    };
+    let mut changed = resource.clone();
+    changed.command = Some("echo two".to_string());
+    assert_ne!(
+        ctx.lock.resources["build"].hash,
+        planner::hash_desired_state(&changed),
+        "precondition: the spec moved"
+    );
+
+    settle_cached_row(&mut ctx, "build", &changed);
+
+    assert_eq!(
+        ctx.lock.resources["build"].hash,
+        planner::hash_desired_state(&changed),
+        "the row must carry the spec it now satisfies, or the plan says `1 to change` forever"
+    );
+    assert!(
+        ctx.lock.resources["build"]
+            .details
+            .contains_key("input_hash"),
+        "the observed I/O hashes stay: inputs unchanged is what the hit means"
+    );
+    drop(dir);
 }
 
 #[test]

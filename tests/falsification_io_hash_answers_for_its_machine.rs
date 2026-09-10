@@ -97,8 +97,14 @@ impl Sandbox {
     }
 
     fn apply(&self) -> (i32, String) {
+        self.apply_with(&[])
+    }
+
+    fn apply_with(&self, extra: &[&str]) -> (i32, String) {
         let out = Command::new(FORJAR)
-            .args(["apply", "--yes", "-f"])
+            .args(["apply", "--yes"])
+            .args(extra)
+            .arg("-f")
             .arg(self.cfg())
             .current_dir(&self.dir)
             .output()
@@ -109,6 +115,24 @@ impl Sandbox {
             String::from_utf8_lossy(&out.stderr)
         ));
         (out.status.code().unwrap_or(-1), text)
+    }
+}
+
+impl Sandbox {
+    fn plan_json(&self) -> serde_json::Value {
+        let out = Command::new(FORJAR)
+            .args(["plan", "--json", "-f"])
+            .arg(self.cfg())
+            .current_dir(&self.dir)
+            .output()
+            .expect("run forjar");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        serde_json::from_str(&stdout).unwrap_or_else(|e| {
+            panic!(
+                "forjar plan --json did not print JSON: {e}\nstdout: {stdout}\nstderr: {}",
+                String::from_utf8_lossy(&out.stderr)
+            )
+        })
     }
 }
 
@@ -157,6 +181,58 @@ fn a_cache_hit_is_decided_from_the_base_the_writer_used() {
         sb.runs(),
         1,
         "the task ran again over unchanged inputs: the cache never hit.\n{out}"
+    );
+
+    // And the hit SETTLES: the row now carries the spec it satisfies. Before
+    // this the plan said `1 to change` and apply said `1 unchanged`, forever.
+    let plan = sb.plan_json();
+    assert_eq!(
+        plan["to_update"].as_u64(),
+        Some(0),
+        "a cache hit must satisfy the current spec, or the plan never settles.\n{plan:#}"
+    );
+    assert_eq!(plan["unchanged"].as_u64(), Some(1), "{plan:#}");
+}
+
+/// THE QUESTION. The reader asks what the planner asks. A deleted output
+/// artifact is what a build cache exists to notice; the first live run of the
+/// inputs-only test skipped it (`plan` said `output artifact missing`, apply
+/// said `unchanged`, and the artifact was never rebuilt).
+#[test]
+fn a_deleted_output_is_rebuilt_not_reported_unchanged() {
+    let sb = Sandbox::new("rmout");
+    sb.converge_locally();
+    fs::remove_file(sb.dir.join("proj/out.txt")).expect("delete the artifact");
+
+    let (code, out) = sb.apply();
+    assert_eq!(code, 0, "{out}");
+    assert!(
+        sb.dir.join("proj/out.txt").exists(),
+        "the artifact was deleted and never rebuilt: the cache answered from \
+         inputs alone.\n{out}"
+    );
+    assert_eq!(sb.runs(), 2, "the task must have run to rebuild it.\n{out}");
+    assert!(out.contains("1 converged"), "{out}");
+}
+
+/// THE OPERATOR. `--force` says run it. A cache that overrides that is a
+/// refusal, not a cache — measured: a forced apply over a cached task ran
+/// nothing.
+#[test]
+fn a_forced_apply_runs_a_cached_task() {
+    let sb = Sandbox::new("force");
+    sb.converge_locally();
+    sb.write_config("127.0.0.1", "two");
+    let (code, out) = sb.apply();
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(sb.runs(), 1, "precondition: the hit.\n{out}");
+
+    let (code, out) = sb.apply_with(&["--force"]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(
+        sb.runs(),
+        2,
+        "the operator forced the run and the cache refused it.\n{out}"
     );
 }
 

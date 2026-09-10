@@ -230,7 +230,10 @@ fn task_inputs_are_cached(
     resource_id: &str,
     resolved: &Resource,
 ) -> bool {
-    if !(resolved.cache && crate::core::task::declares_inputs(resolved)) {
+    // forjar#501: `--force` is the operator saying "run it". A cache that
+    // overrides that is not a cache, it is a refusal — measured: a forced
+    // apply over a cached task ran nothing.
+    if cfg.force || !(resolved.cache && crate::core::task::declares_inputs(resolved)) {
         return false;
     }
     let Some(cached) = check_task_input_cache(resource_id, resolved, machine, ctx) else {
@@ -287,6 +290,7 @@ fn prepare_wave_resources(
         // Refs #412: the width-1 path has done this since FJ-2701; a wide wave
         // re-ran every cached task.
         if task_inputs_are_cached(cfg, ctx, machine, &change.resource_id, &resolved) {
+            settle_cached_row(ctx, &change.resource_id, &resolved);
             skipped.push((idx, ResourceOutcome::Unchanged));
             continue;
         }
