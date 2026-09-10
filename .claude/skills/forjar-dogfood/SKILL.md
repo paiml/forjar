@@ -20,7 +20,7 @@ machines that run this. The old repo skill was `name: dogfood`, so a contributor
 asking for "the dogfood" got a different document, with no error and no diff.
 `tests/falsification_dogfood_skill_is_named.rs` fails if the name reverts.
 
-## The eight gates
+## The eight gates, and T
 
 | Gate | What it asserts | Where it runs |
 |------|-----------------|---------------|
@@ -32,9 +32,17 @@ asking for "the dogfood" got a different document, with no error and no diff.
 | **F** | Coverage ≥ 95% line, and 0 mutant survivors in the diff | `scripts/dogfood/coverage.sh` |
 | **G** | Every contract validates, lints, and resolves its falsifiers to tests that run in `ci / gate` | `scripts/dogfood/contracts.sh` |
 | **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` |
+| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>`, every ticket merged since the newest tag carries `release:<next.tag>`, and the next cut is not overdue (PMAT-225) | `scripts/dogfood/tagged.sh` |
 
-All eight are **mechanical**: shell, no agent. `make dogfood-release` runs
-every one of them and fails on the first RED. This skill does not re-implement
+All nine are **mechanical**: shell, no agent. `make dogfood-release` runs
+every one of them and fails on the first RED. T is the release-goal gate: the
+declared side is `docs/roadmaps/releases.yaml` and the `release:<tag>` labels
+on the roadmap rows, the measured side is git and GitHub, and
+`make release-goal` (`scripts/release-goal.sh show`) prints the join as one
+status line — `<next tag> <bar> <elapsed>h/<cadence>h left=<h> · <merged>
+merged, <tagged> tagged · due <instant> basis=…`. After a tag,
+`scripts/release-goal.sh cut <tag> --next <next>` writes the row and moves the
+labels; before one, `scripts/release-goal.sh sync` labels the open window. This skill does not re-implement
 a gate, does not decide a gate, and does not paraphrase a gate's output — it
 runs the Make target and quotes the `GATE <letter> …` line each script printed.
 

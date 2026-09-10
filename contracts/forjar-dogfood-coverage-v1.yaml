@@ -256,10 +256,40 @@ falsification_tests:
     test: "tests/falsification_quorum_gate_has_a_triage_shape.rs::a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches"
     if_fails: "Either a triage branch can cite nothing that counts, or a code branch can anchor every claim on the receipt it wrote itself"
 
+  - id: FALSIFY-DF-016
+    rule: "Every reachable tag at or above the ledger floor has a row in docs/roadmaps/releases.yaml whose cut, prs and tickets are exactly what git and GitHub say (gate T, PMAT-225)"
+    prediction: "Declaring a PR the window does not contain makes the guard test fail: the gate names the tag, the declared list and the measured list and exits 1"
+    test: "tests/falsification_release_goals_are_measured.rs::a_declared_window_that_disagrees_with_github_is_named_and_red"
+    if_fails: "The ledger is prose again: a row can name PRs and tickets a release never shipped and nothing reads it back"
+
+  - id: FALSIFY-DF-017
+    rule: "Every ticket merged since the newest tag carries the label release:<next.tag> — a PR is tagged when it merges, not when the cut is made"
+    prediction: "Removing the label from a ticket in the open window makes the guard test fail: the gate names the ticket and the label"
+    test: "tests/falsification_release_goals_are_measured.rs::a_merged_ticket_without_the_next_release_label_is_named_and_red"
+    if_fails: "Linkage is reconstructed at the cut from memory, which is the lossy squash-subject scan this gate replaced"
+
+  - id: FALSIFY-DF-018
+    rule: "Past next.due with PRs merged since the newest tag and Cargo.toml still at the tagged version, the cut is OVERDUE and the gate is red by name; a bumped Cargo.toml is a cut in flight and passes"
+    prediction: "Moving DOGFOOD_NOW three hours past next.due makes the guard test fail on the un-bumped tree and pass on the bumped one"
+    test: "tests/falsification_release_goals_are_measured.rs::an_overdue_cut_is_red_until_the_version_is_bumped"
+    if_fails: "The two-day cadence has no instrument: a release can be a week late and every gate stays green"
+
+  - id: FALSIFY-DF-019
+    rule: "A ticket carrying release:<tag> that no PR of <tag>'s window names is a fabricated link and is red"
+    prediction: "Labelling a row with a release it was not in makes the guard test fail: the gate names the ticket and the tag"
+    test: "tests/falsification_release_goals_are_measured.rs::a_ticket_claiming_a_release_it_was_not_in_is_red"
+    if_fails: "A label becomes a claim nothing checks, and the ledger and the roadmap drift apart silently"
+
+  - id: FALSIFY-DF-020
+    rule: "Gate A resolves a PR's first ticket id against the roadmap: an id that is no row and that no row declares as alias:<id> is named and red, never skipped for the next id"
+    prediction: "Skipping stray ids in dogfood_pr_tickets makes the guard test fail: a branch named after a ticket that never existed passes on the title's ticket"
+    test: "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_first_id_that_is_not_a_roadmap_row_is_named_and_red"
+    if_fails: "A branch whose roadmap row was forgotten falls through to an older ticket the body mentions, whose receipt already exists, and gate A passes over the missing work"
+
 qa_gate:
   id: F-DF-001
   name: "forjar-dogfood v1 — the standing gates"
-  description: "Eight gates, each with a registered one-line mutation, wired into make targets a human runs before publishing"
+  description: "Eight standing gates and the release-goal gate T, each with a registered one-line mutation, wired into make targets a human runs before publishing"
   checks:
     - "gate_b_comply"
     - "gate_c_surface"

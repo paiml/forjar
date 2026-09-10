@@ -1,0 +1,93 @@
+# Release goal — the daily instrument of PMAT-225 (forjar#506).
+#
+# Every day, on main: gate T (scripts/dogfood/tagged.sh — every tagged release
+# declared in docs/roadmaps/releases.yaml, every shipped ticket labelled
+# release:<tag>, every ticket merged since the newest tag labelled with the next
+# one, and the next cut not overdue), then the hosted-runner half of
+# `make dogfood` (gates C and D, the way ci.yml's dogfood job runs them; B and
+# G need pmat, bashrs and pv, which a hosted runner does not have).
+#
+# While the goal is RED, exactly one issue labelled `release-goal` stays open,
+# carrying the GATE line and the run; when it is green again the issue is
+# closed with the commit that made it so. A missed release is thereby visible
+# without anyone remembering to look. No `continue-on-error`, no `|| true`:
+# a red gate is a red run.
+#
+# tests/falsification_release_goal_workflow_shape.rs pins this shape.
+
+name: Release goal
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: release-goal
+  cancel-in-progress: false
+
+jobs:
+  release-goal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Gate T — the release goal, declared against measured
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          bash scripts/dogfood/tagged.sh 2>&1 | tee gate-t.log
+
+      - name: Build the artifact the surface gate measures
+        run: cargo build --release --locked
+
+      - name: Gate C — surface from the built artifact
+        run: bash scripts/dogfood/surface.sh 2>&1 | tee gate-c.log
+
+      - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
+        run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
+
+      - name: Gate D — documented invocations run against fixtures
+        run: bash scripts/dogfood/docs.sh 2>&1 | tee gate-d.log
+        env:
+          COOKBOOK: ${{ runner.temp }}/forjar-cookbook
+
+      - name: Keep one issue open while the goal is red
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # awk exits 0 whether or not a verdict line exists; "none" is an answer here, not a failure to forgive
+          verdict="$(for f in gate-t.log gate-c.log gate-d.log; do if [ -f "$f" ]; then cat "$f"; fi; done | awk '/^GATE [A-Z] FAIL/ { print; exit }')"
+          if [ -z "$verdict" ]; then
+            verdict="a step failed before any gate printed its verdict — see the run"
+          fi
+          body="$(printf '%s\n\nrun: %s\ncommit: %s\n\nThe release goal is docs/roadmaps/releases.yaml: "make release-goal" prints it, "scripts/release-goal.sh sync" labels the open window, "scripts/release-goal.sh cut TAG --next NEXT" books a cut.\n' "$verdict" "$RUN_URL" "$GITHUB_SHA")"
+          open="$(gh issue list --repo "$GITHUB_REPOSITORY" --label release-goal --state open --json number --jq '.[0].number // ""')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --label release-goal --title "release goal: RED — ${verdict:0:80}" --body "$body"
+          fi
+
+      - name: Close the issue when the goal is green
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --label release-goal --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "green again at $GITHUB_SHA: $(grep -E '^GATE T PASS' gate-t.log | head -1)"
+          done

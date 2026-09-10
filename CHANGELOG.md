@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Every ticket names the tag that shipped it, a PR is tagged when it merges,
+and the two-day release cadence is a gate (#506).** Nothing in the tree, on
+the roadmap or on the issues named the release a merged ticket would ship in;
+the only ticket-to-tag link was the squash-commit subject, which is lossy (the
+1.27.0 release commit names `PMAT-212/213/214` and a `PMAT-[0-9]+` scan sees
+one of three); and no gate asked whether the newest tag was old.
+`docs/roadmaps/releases.yaml` now declares the release goals in the
+`paiml-implement` goal shape — `cadence_days`, the floors, one row per tag
+(cut, PRs, tickets, dogfood receipt, crux document) and the open goal
+(`next.tag`, `next.due`) — every roadmap row a tag's window names carries the
+label `release:<tag>` and every ticket merged since the newest tag carries
+`release:<next.tag>`, and gate T (`scripts/dogfood/tagged.sh`, in
+`make dogfood-release`) re-derives every row from git and GitHub and is red
+by name wherever the declared and the measured disagree, where a merged
+ticket is unlabelled, where a receipt is missing at HEAD, and where the cut is
+overdue with the version unbumped. `make release-goal` prints the join as one
+status line with `basis=` on every number; `scripts/release-goal.sh
+sync|tag|alias|cut` are the textual pens. Beside it, gate A resolves a PR's
+first ticket id against the roadmap: an id that is no row is named and red
+unless a row declares it as `alias:<id>` (PR #496's branch was named after a
+ticket that never existed), never skipped for the next id.
+
 **The committed-quorum gate has a shape a `kind: triage` branch can satisfy
 (#491).** A triage branch classifies and links — a ledger under `docs/audits/`,
 roadmap rows, its own receipt — and writes no code, so it had no Rust test to
