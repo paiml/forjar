@@ -456,29 +456,80 @@ fn rule8_dist_artifacts_takes_its_checksums_from_the_api_not_the_public_url() {
 // THIS IS A TEXT RATCHET AND HERE IS WHAT IT CANNOT CATCH. It reads the
 // workflow's own text, so a download assembled from a variable (`$GH
 // release download`, `eval "$cmd"`), one written inside a here-doc that
-// this line-joiner does not follow, or one in a script the workflow calls
-// rather than in the workflow itself, all pass unseen. What it does
-// guarantee is that a call site written the way all three of today's are
+// this line-joiner does not follow, and one in a script the workflow calls
+// rather than in the workflow itself all pass unseen. Six quorum lanes over
+// two rounds shaped what it does catch: the subcommand is read as a token
+// after `gh release` and not as the literal string `gh release download`,
+// so global flags before the subcommand and a backslash anywhere inside it
+// are caught; the flags are compared as whole tokens, so `--pattern
+// "*--clobber*"` does not satisfy the check; and a trailing `#` comment is
+// cut before any of that, so `… # --clobber` does not either. What it
+// guarantees is that a call site written the way all three of today's are
 // written cannot lose its --clobber without turning this test red.
 // ---------------------------------------------------------------------
-/// One `gh release download` invocation, joined across the backslash
-/// continuations it is written with: the flags sit on their own lines.
+/// The shell text of one line, with any trailing `#` comment removed.
+///
+/// `non_comment_lines` drops a line that BEGINS with `#`; a comment at the
+/// end of a command line survives it, and `gh release download … # --clobber`
+/// would then satisfy a flag check while the command carries no such flag
+/// (found by a quorum lane). Naive on purpose: a `#` inside a quoted string
+/// is cut too. No call site in this repository has one, and a rule that
+/// under-reads a command is safe here — it can only make the rule stricter.
+fn strip_trailing_comment(line: &str) -> &str {
+    match line.find('#') {
+        Some(i) => &line[..i],
+        None => line,
+    }
+}
+
+/// One shell command, joined across the backslash continuations it is
+/// written with, comments removed.
 fn joined_command(lines: &[&str], start: usize) -> String {
     let mut cmd = String::new();
     for line in &lines[start..] {
-        cmd.push_str(line);
+        let text = strip_trailing_comment(line);
+        cmd.push_str(text);
         cmd.push('\n');
-        if !line.trim_end().ends_with('\\') {
+        if !text.trim_end().ends_with('\\') {
             break;
         }
     }
     cmd
 }
 
+/// The `gh release` subcommand this command invokes, if it invokes one.
+///
+/// Tokens, never substrings, and the subcommand is the first token after
+/// `release` that is not a flag — `gh` takes its global flags before the
+/// subcommand (`gh release -R owner/repo download …`), and `-R`/`--repo`
+/// take a value. That is the whole of `gh`'s grammar this needs to know,
+/// and it is stated here rather than left implicit: three quorum lanes
+/// walked past the earlier substring match, and two more showed that
+/// matching the bare word `download` anywhere flags `gh release upload
+/// --title download` as a download.
+fn release_subcommand(cmd: &str) -> Option<&str> {
+    let toks: Vec<&str> = cmd.split_whitespace().collect();
+    let gh = toks.iter().position(|t| *t == "gh")?;
+    let rel = toks[gh..].iter().position(|t| *t == "release")? + gh;
+    let mut i = rel + 1;
+    while i < toks.len() {
+        let t = toks[i];
+        if t == "-R" || t == "--repo" {
+            i += 2;
+        } else if t.starts_with('-') {
+            i += 1;
+        } else {
+            return Some(t);
+        }
+    }
+    None
+}
+
 /// The two halves of rule 9, asserted against one call site.
 fn assert_download_overwrites(file_name: &str, cmd: &str) {
+    let has = |flag: &str| cmd.split_whitespace().any(|t| t == flag);
     assert!(
-        !cmd.contains("--skip-existing"),
+        !has("--skip-existing"),
         "PMAT-230 rule 9: {file_name} passes --skip-existing to `gh release download`. \
          On these non-ephemeral runners that KEEPS the file the PREVIOUS release left \
          behind and exits 0, so the step's own `test -s` guard passes and the stale \
@@ -492,7 +543,7 @@ fn assert_download_overwrites(file_name: &str, cmd: &str) {
          repository's rule is that nothing swallows a measurement:\n{cmd}"
     );
     assert!(
-        cmd.contains("--clobber"),
+        has("--clobber"),
         "PMAT-230 rule 9: {file_name} runs `gh release download` without --clobber. \
          `/tmp` persists between jobs on the clean-room runners, so the second release \
          to use this path dies with `already exists` — the v1.28.0 cut did, leaving a \
@@ -501,27 +552,19 @@ fn assert_download_overwrites(file_name: &str, cmd: &str) {
     );
 }
 
-/// Is this joined command a `gh release download`?
-///
-/// The subcommand is looked for as a WHOLE TOKEN in the joined command, not
-/// as the literal substring `gh release download`, because `gh` accepts its
-/// global flags before the subcommand (`gh release -R paiml/forjar
-/// download …`) and because a backslash can split `gh release` from
-/// `download`. All three quorum lanes independently found that hole in the
-/// first version of this rule, which matched the literal string.
-fn is_download(cmd: &str) -> bool {
-    cmd.split_whitespace().any(|t| t == "download")
-}
-
 /// Every `gh release download` call site in one workflow file.
 fn download_sites(text: &str) -> Vec<String> {
     let lines: Vec<&str> = non_comment_lines(text).collect();
     lines
         .iter()
         .enumerate()
-        .filter(|(_, l)| l.contains("gh release"))
+        .filter(|(_, l)| {
+            strip_trailing_comment(l)
+                .split_whitespace()
+                .any(|t| t == "gh")
+        })
         .map(|(i, _)| joined_command(&lines, i))
-        .filter(|cmd| is_download(cmd))
+        .filter(|cmd| release_subcommand(cmd) == Some("download"))
         .collect()
 }
 
