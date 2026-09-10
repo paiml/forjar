@@ -1,0 +1,130 @@
+{
+  "issue": "PMAT-224 (forjar#491) — the committed-quorum gate had no shape a kind:triage branch could satisfy: no Rust test to name, no citable path, its own receipt outside its rail, so every triage PR was pushed waived. A receipt may now declare kind: triage; the gate verifies the rail from the diff, requires the falsification block to say not_applicable and prints what it did not verify, and documentation the branch touches anchors its claims for that kind only.",
+  "base": "origin/main",
+  "base_commit": "be86315358c1a06dbd1b41f65b6653fc5d1f6a7b",
+  "diff_sha256": "71cc2235c39bfba0e3fc627d51c708a71bbe1d7a",
+  "recorded_at": "2026-09-10",
+  "quorum": {
+    "lanes": [
+      "plan grill lane (teamwork, single model)",
+      "review lane 1",
+      "review lane 2",
+      "review lane 3",
+      "orchestrator rerun of every command"
+    ],
+    "refuters_per_claim": 3,
+    "judges": 3,
+    "kill_rule": "the plan was grilled before a line was written and the finished diff was judged by three lanes with the base pinned; a lane could fail the whole diff on one refuted claim, and every lane claim was re-run by the orchestrator before it counted",
+    "rounds": "one sandboxed teamwork lane on the plan (single model; two plan claims refuted and corrected before the fix was written), then three sandboxed --mode plan lanes on the diff at 15418d23 (3/3 PASS, lane-reduce agreed, one honest refutation of a claim's wording), then the orchestrator's reruns, the hook's own refusal and the workspace gate",
+    "claims_confirmed": 9,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "Widen the citation shape to documentation for every receipt; the must-be-touched rule closes the free-rider path. Corrected: a code branch always touches the receipt and ledger it writes, so documentation anchors only when the receipt declares kind: triage, and the gate's rail refusal makes declaring the kind useless for a code diff.",
+      "The triage arm bypasses only test_file and cargo_test_target. Corrected: the block's first loop already requires test, reverted and observed_failure, so the whole block is replaced by the not_applicable shape for kind: triage, and the gate prints it.",
+      "The extraction of seven helpers is strictly behaviour-preserving. Corrected: the seven extractions are; receipt_identity also carries the new guard refusing a kind other than code or triage — a message main could not print on a field it did not read; a receipt with no kind takes the identical path."
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Gerrit",
+      "monorepo presubmits (Bazel/Copybara)",
+      "Debian control declarations",
+      "rust-lang bors"
+    ],
+    "verdict": "accept(Gerrit: per-change-type submit rules with the missing label displayed; monorepo presubmits: a docs-only change reports no affected targets, never all tests passed; Debian: a declared absence is printed, an undeclared one rejected; bors: a reduced job set is named in the merge) and reject(the waiver: a free-text reason accepted in place of a shape, which teaches every author whose change does not fit that the reason field is the gate)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed /teamwork-preview lane on the plan (fan-out unmeasurable: read as one model) and three sandboxed --mode plan lanes on the diff, review-only, base pinned by SHA; no lane ran cargo; lanes ran bashrs",
+    "verdict": "plan: implement-with-changes (documentation anchors for triage only; the whole falsification block replaced for triage); diff: 3/3 PASS, lane-reduce agreed, C5's wording refuted by lane 2 and corrected in the digest"
+  },
+  "pmat": {
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "target-guard.sh",
+      "config-lint.sh",
+      "transcript-gate.sh",
+      "status-lint.sh",
+      "pmat hooks install --strict",
+      "pmat tdg (pre-commit)",
+      "pmat analyze complexity (pre-commit)",
+      "cargo test --workspace",
+      "scripts/dogfood/contracts.sh",
+      "bashrs lint",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": [],
+    "quality_gate": "cargo test --workspace --no-fail-fast exit 0 on 15418d23, 317 binaries, 19624 passed, 0 failed, 58 ignored; the six fixture cases 3 RED on main for the right reasons and 6 green after; three hand mutations each FAILING their named case; the pre-commit hook refused the first fix on cognitive complexity already on main (90/83/27 > 25) and accepted the extracted file; clippy --all-targets -D warnings exit 0; rustfmt stable check exit 0; gate G PASS (40 contracts, citations resolve); bashrs 0 errors, 15 warnings, unchanged from main",
+    "limit": "no lane ran cargo, so every cargo number is an orchestrator rerun. Gate F's mutation arm cannot run on this host (PMAT-216). The rail's other half is in another repository (paiml/paiml-implement#68)."
+  },
+  "falsification": {
+    "test": "six fixture cases over temp repositories driving the real scripts: a triage-shaped digest anchors on the ledger and roadmap it touches; a triage receipt passes the whole gate and the output says NOT APPLICABLE (kind: triage); a triage receipt over a diff touching src/lib.rs is refused naming the file; a documentation cite outside the diff anchors nothing; a code receipt cannot anchor on documentation; a code receipt with no falsification is still refused",
+    "test_file": "tests/falsification_quorum_gate_has_a_triage_shape.rs",
+    "cargo_test_target": "falsification_quorum_gate_has_a_triage_shape",
+    "reverted": "the whole fix absent (be863153 plus the RED commit 7dad1e47): the anchor case fails at `only 0/4 (0%)`, the two triage gate cases at `falsification is missing 'test'`, with every precondition assertion green; the three controls pass there and after",
+    "observed_failure": "a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches, a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify and a_triage_receipt_over_a_code_diff_is_refused_by_name fail (docs/audits/logs/PMAT-224-red.log); one hunk at a time, mutations 1, 2 and 3 kill exactly those three (docs/audits/logs/PMAT-224-mutation-{1,2,3}.log)",
+    "still_green_when_reverted": "a_documentation_citation_outside_the_diff_anchors_nothing, a_code_receipt_cannot_anchor_its_claims_on_documentation and a_code_receipt_with_no_falsification_is_still_refused — the over-correction controls, which prove the widening does not turn the floors off"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/triage-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2130,
+        "sha256": "59beebe037c3468089ecfced0f861345ad49a944d9b2f2e5da3bc1ae7993cb17",
+        "blob": "ac68f616f493a94f0a8a4e291cc3589681fa1541"
+      },
+      {
+        "path": ".quorum/evidence/triage-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2708,
+        "sha256": "af5de9595f9f4a32d1d8f257b80d78237b059a34d4163bd38e1a747f19387a0e",
+        "blob": "d1f1a65b1d94fd0a209893cdb4867bc021fe0ec6"
+      },
+      {
+        "path": ".quorum/evidence/triage-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6886,
+        "sha256": "096344b03a0d4546c5f392f4f74247aae094ecf942cd7d5634c188e8dd70fbcb",
+        "blob": "9c6079c502089e47640479307133ba33bb39efa9"
+      },
+      {
+        "path": ".quorum/evidence/triage-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1027,
+        "sha256": "5dd763551d9628b8d653e6675d7e6a6629dfc7aa5f0020149907df9ece0ae19e",
+        "blob": "40c8dece0edac1d017d7424c49e07c4664017678"
+      },
+      {
+        "path": ".quorum/evidence/triage-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 2009,
+        "sha256": "2187caf813613f105dc62f9cc298438eb4f115e7bbc8e2072fe7e543a2f954eb",
+        "blob": "845eb690d8066aa7ce78d95df72a717b2ff5b625"
+      },
+      {
+        "path": ".quorum/evidence/triage-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2380,
+        "sha256": "4c1f1e688a258b8e7bdab65f065980105b00aea63be688c92fabe52ec7298d3a",
+        "blob": "409db92f469a498009348dcc126b12726512fb34"
+      }
+    ],
+    "total_bytes": 17140,
+    "claims_digest": ".quorum/evidence/triage-judges.md"
+  }
+}
