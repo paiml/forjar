@@ -370,22 +370,28 @@ for field in ("issue", "diff_sha256", "quorum", "falsification", "crux", "agy_te
 #
 # The rail is verified FROM THE DIFF, not trusted from the receipt: a `kind:
 # triage` receipt over a diff that touches anything outside docs/audits/**,
-# docs/roadmaps/roadmap.yaml and .quorum/** is refused BY NAME, because declaring
+# docs/roadmaps/roadmap.yaml, docs/roadmaps/releases.yaml (PMAT-226) and
+# .quorum/** is refused BY NAME, because declaring
 # the kind would otherwise be the cheapest way to skip the falsification below.
 receipt_kind = r.get("kind", "code")
 if receipt_kind not in ("code", "triage"):
     die(f"receipt kind={receipt_kind!r} is not one of code | triage")
 if receipt_kind == "triage":
+    # PMAT-226: the release ledger, docs/roadmaps/releases.yaml, is the roadmap's
+    # sibling -- declared goals, one row per tag, edited textually -- and booking
+    # a tag's row after the cut is classify + link with no code in it. Named by
+    # file, not by directory: docs/roadmaps/** would admit any future file there.
     def on_rail(p):
         return p.startswith("docs/audits/") or p == "docs/roadmaps/roadmap.yaml" \
-            or p.startswith(".quorum/")
+            or p == "docs/roadmaps/releases.yaml" or p.startswith(".quorum/")
     off_rail = sorted(p for p in touched if not on_rail(p))
     if off_rail:
         die("a kind: triage receipt over a diff that touches "
             + ", ".join(off_rail) + "\n"
-            "  A triage branch is classify + link, no diff: docs/audits/**, the roadmap\n"
-            "  and its own receipt under .quorum/. Anything else is code, and a code\n"
-            "  change is judged as code -- with a falsification test it wrote itself.")
+            "  A triage branch is classify + link, no diff: docs/audits/**, the roadmap,\n"
+            "  the release ledger docs/roadmaps/releases.yaml and its own receipt under\n"
+            "  .quorum/. Anything else is code, and a code change is judged as code --\n"
+            "  with a falsification test it wrote itself.")
 
 # THE BINDING. Without this the whole gate is theater: one receipt would clear
 # every future branch, and an amended commit would keep a verdict about code

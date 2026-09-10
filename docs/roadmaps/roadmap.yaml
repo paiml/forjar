@@ -3289,3 +3289,28 @@ roadmap:
   - orch:fable
   - release:v1.28.0
   notes: 'orch-basis:release — the ticket declares and measures the release cadence itself. Measured before it was opened: newest tag v1.27.0 cut 2026-09-08T21:46:04Z; eight PRs (#493 #494 #496 #498 #500 #502 #504 #505) merged since and none names a release; 174 roadmap rows carry no release field or label; zero GitHub milestones; the squash subject is a lossy link (the 1.27.0 release commit names PMAT-212/213/214 and a PMAT-[0-9]+ scan sees one). Five owning modules: docs/roadmaps (the declared side), scripts/release-goal.sh (status line and textual repair), scripts/dogfood/tagged.sh with scripts/dogfood/lib/window.sh (the measured side), tests/ (fixture-driven falsification), .github/workflows (the daily instrument). Filed as forjar#506.'
+- id: PMAT-226
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'release: forjar 1.28.0 — the first cut under the two-day cadence, and the triage rail admits the release ledger'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T13:30:15Z
+  updated: 2026-09-10T13:31:37Z
+  spec: null
+  acceptance_criteria:
+  - 'Cargo.toml, Cargo.lock and the README caret requirements say 1.28.0 / 1.28; CHANGELOG [Unreleased] becomes [1.28.0] - 2026-09-10 with one bold paragraph per behaviour, and docs/audits/crux-1.28.0.md carries a row naming >=3 surveyed systems for every one of them (gate H)'
+  - 'scripts/quorum-gate.sh admits docs/roadmaps/releases.yaml on the kind: triage rail beside docs/roadmaps/roadmap.yaml, so the post-tag ledger booking is a triage PR; tests/falsification_quorum_gate_has_a_triage_shape.rs is red without the change (a triage receipt over a diff adding the ledger is refused by name) and any other path outside the rail is still refused'
+  - 'make dogfood-release exits 0 on the release branch (A B C D E G T F H) and docs/audits/dogfood-1.28.0-receipt.md quotes every GATE line; gate F''s mutation arm measures 0 mutable src/ files on this branch and says so (PMAT-216 stays open for branches that touch src/)'
+  - 'the PR is squash-merged, v1.28.0 is an annotated tag on the squash commit pushed with the user''s credentials, binary-release.yml attaches the four Linux binaries, cargo publish --locked from the tag worktree succeeds, and scripts/dogfood/release-check.sh reports the tag, the release, crates.io and docs.rs'
+  - 'the follow-up triage ticket books the row with scripts/release-goal.sh cut v1.28.0 --next v1.29.0 and gate T is green on main again with next.tag v1.29.0 due 2026-09-12 at the cut instant + 48h'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.28.0
+  notes: 'orch-basis:release — the cut of v1.28.0 under the two-day cadence PMAT-225 declared (due 2026-09-10T22:10:01Z). Third-plus ticket in session 94370bba: goal.sh set refuses under R-5; proceeding on the user''s verbatim "continue autonomously using pmat-implement: ensure all tickets/work are linked to tagged releases using \"pmat goal\" style and ensuring frequent releases/dogfood after every 2 days (tickets/pull requests must be tagged/triaged continuously)". The release ledger sits outside the quorum gate''s triage rail (PMAT-224 predates PMAT-225), so a booking PR could anchor nothing; the rail widening ships in this cut so the booking (PMAT-227) can be kind: triage.'
