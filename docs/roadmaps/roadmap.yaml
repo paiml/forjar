@@ -3213,3 +3213,28 @@ roadmap:
   - kind:code
   - orch:fable
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (record_io_hashes has no machine argument and hashes probe_base_dir on the controller), src/core/executor/resource_ops.rs (record_success calls it for every (resource, machine) it converges, with the machine in hand), src/core/executor/resource_meta.rs with machine_b.rs (check_task_input_cache hashes state_dir.parent() and reads the lock''s input_hash for any machine; task_inputs_are_cached is its one caller) and src/transport/mod.rs (controller_answers_for, the one definition #485/#495/#497/#499 share). Filed from PMAT-222 by the review lanes and confirmed by reading: the #485 shape in the write path. Measured by hand on 643363b3 before the ticket was opened: a cache: true task converged on loopback and re-applied with a changed command and unchanged inputs ran again on every apply, with working_dir under the sandbox AND with working_dir equal to the state directory''s parent — hash_inputs folds the expanded file path into the hash, so the writer''s absolute working_dir base and the reader''s state-dir base can never agree. The cache is dead today, which is what hides the remote half: once the reader uses the writer''s base, a remote cache: true task would be skipped from the controller''s hash unless the reader refuses to answer for a machine this host cannot read. The fix the issue names: the machine guard on both sides through the one predicate, and the writer''s base on the reader.'
+- id: PMAT-224
+  kind: code
+  github_issue: 491
+  item_type: task
+  title: 'S2: the committed-quorum gate has no shape a kind:triage branch can satisfy, so every triage PR must be waived (#491)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-10T08:58:02Z
+  updated: 2026-09-10T08:58:02Z
+  spec: null
+  acceptance_criteria:
+  - 'a citation into a documentation file the branch touches (docs/**.md, docs/roadmaps/roadmap.yaml) anchors a claim under the same at-base and as-added rules as a Rust file, so the 33% floor is reachable by a branch that writes no Rust; a citation into a file the branch does not touch still anchors nothing'
+  - 'a receipt may declare kind: triage; the gate then requires the diff to lie within docs/audits/**, docs/roadmaps/roadmap.yaml and .quorum/** and refuses by name a triage receipt over any other file'
+  - 'for kind: triage the falsification block declares not_applicable with a reason and the gate prints exactly what it did not verify; for every other receipt the revert-the-hunk checks are unchanged and a code-shaped diff with no falsification still fails'
+  - 'every other floor — lanes, judges, refuters, at least one refuted claim as text, crux, agy_teamwork, pmat, evidence provenance and redaction — applies to a triage receipt unchanged; no waiver key is involved'
+  - 'a falsification test drives scripts/quorum-gate.sh and scripts/quorum_evidence.py over fixture repositories: a triage-shaped diff with a triage receipt passes, a triage receipt over a diff touching src/ is refused, a code-shaped diff with no falsification still fails, and a documentation citation anchors only when the file is touched; with the triage arm removed the passing case fails'
+  - 'the triage rail that admits only docs/audits/** and docs/roadmaps/roadmap.yaml lives in the paiml-implement skill (kind-gate.sh), outside this repository: the receipt names it as the remaining half and files or fixes it there'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: scripts/quorum-gate.sh (the falsification block requires test_file to be in the pushed tree AND touched by the branch and runs cargo test on it; nothing in the gate reads a kind), scripts/quorum_evidence.py (CIT_RE anchors only src|tests|scripts|benches/*.rs and the four root files, so a branch that writes no Rust cannot reach the 33% floor), tests/falsification_quorum_anchors_release_shaped.rs with tests/falsification_quorum_gate_reads_the_pushed_ref.rs (the two fixture harnesses that pin the gate shape and the template for the triage case), and the paiml-implement skill''s kind-gate.sh (the triage rail, another repository). Filed from the closure of #486, whose kind:triage branch received two three-lane rounds, a teamwork lane and a four-system CRUX survey and was pushed WAIVED because the gate had no shape for it. The CIT_RE comment already names the failure mode for release commits: a gate that cannot be passed honestly is what teaches a repo to reach for the waiver. Ten waived receipts sit in .quorum/ today. The fix the issue names: anchor documentation, declare where falsification does not apply and say so, and decide the rail; pinned by a fixture test.'

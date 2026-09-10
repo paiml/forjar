@@ -1,0 +1,17 @@
+# reduced from PMAT-224-clippy.log — 498 bytes, sha256 315dffa97429049b9c2eea6d696ca8b1e93074bcef0c69e4f485a3a834637196; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+   Compiling forjar-contracts-macros v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts-macros)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.40s
+## verdict lines
+## tail
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+   Compiling forjar-contracts-macros v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts-macros)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.40s
+EXIT=0

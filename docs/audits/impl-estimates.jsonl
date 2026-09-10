@@ -17,3 +17,8 @@
 {"repo": "forjar", "ticket": "PMAT-223", "phase": "2-contract+docs", "mode": "direct", "est": 1, "actual": 3, "basis": "k 27 -> 30 at dda3cf0e [U]"}
 {"repo": "forjar", "ticket": "PMAT-223", "phase": "3-review+gate", "mode": "delegate:agy quorum x3, four rounds", "est": 1, "actual": 10, "basis": "k 30 -> 40 at de070d12 [U]; four rounds of three lanes, one red gate, two doc-correction commits"}
 {"repo": "forjar", "ticket": "PMAT-223", "phase": "4-receipt", "mode": "direct", "est": 1, "actual": 5, "basis": "k 40 -> 45 at the receipt commit [U]"}
+{"repo": "forjar", "ticket": "PMAT-224", "phase": "0-discovery", "mode": "direct", "est": 4, "actual": 19, "basis": "k_measured 45 at PMAT-223's receipt -> 64 at the first PMAT-224 status block; goal.sh set refused (R-5), so no k_measured_at_set; estimate.sh printed K_HAT=4 ROWS=0"}
+{"repo": "forjar", "ticket": "PMAT-224", "phase": "1-red+fix", "mode": "direct + delegate:agy teamwork x1 (single model)", "est": 1, "actual": 6, "basis": "k 64 -> 70 at 9da1f848, orchestrator's attribution [U]; includes the hook refusal and the extraction"}
+{"repo": "forjar", "ticket": "PMAT-224", "phase": "2-contract+docs", "mode": "direct", "est": 1, "actual": 1, "basis": "k 70 -> 71 at 15418d23 [U]"}
+{"repo": "forjar", "ticket": "PMAT-224", "phase": "3-review+gate", "mode": "delegate:agy quorum x3", "est": 1, "actual": 3, "basis": "k 71 -> 74 [U]; one round, 3/3 PASS"}
+{"repo": "forjar", "ticket": "PMAT-224", "phase": "4-receipt", "mode": "direct", "est": 1, "actual": 1, "basis": "k 74 -> 75 at the receipt commit [U]"}

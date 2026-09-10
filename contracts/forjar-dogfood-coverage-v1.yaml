@@ -238,6 +238,24 @@ falsification_tests:
     test: "tests/falsification_dogfood_release_check_pr_window.rs::a_thin_receipt_is_red"
     if_fails: "The release-time check enforces a lower bar than the push-time one it is supposed to audit, so a receipt that should never have reached `main` passes retroactively"
 
+  - id: FALSIFY-DF-013
+    rule: "A `kind: triage` receipt over a diff inside the triage rail passes the push-time gate without a falsification test, and the gate prints what it did not verify (forjar#491)"
+    prediction: "Removing the triage arm of the falsification block in `scripts/quorum-gate.sh` makes the guard test fail: a triage-shaped fixture with `falsification.not_applicable` is refused at `falsification is missing 'test'`"
+    test: "tests/falsification_quorum_gate_has_a_triage_shape.rs::a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify"
+    if_fails: "The gate has no shape a triage branch can satisfy, so every triage PR is pushed `waived` — the exact failure mode the CIT_RE comment names for release commits"
+
+  - id: FALSIFY-DF-014
+    rule: "A `kind: triage` receipt over a diff that touches code is refused BY NAME"
+    prediction: "Emptying the rail check's `off_rail` list in `scripts/quorum-gate.sh` makes the guard test fail: a triage receipt over a diff touching `src/lib.rs` passes, or is refused without naming the file"
+    test: "tests/falsification_quorum_gate_has_a_triage_shape.rs::a_triage_receipt_over_a_code_diff_is_refused_by_name"
+    if_fails: "Declaring `kind: triage` becomes the cheapest way to skip the falsification for a code change"
+
+  - id: FALSIFY-DF-015
+    rule: "Documentation the branch touches anchors a claim for `kind: triage` only"
+    prediction: "Making `citation_shape` return `CIT_RE` for every kind makes the guard test fail (a triage digest anchors 0 of 4); making it return `CIT_RE_TRIAGE` for every kind makes the free-rider control fail (a code receipt anchors on documentation)"
+    test: "tests/falsification_quorum_gate_has_a_triage_shape.rs::a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches"
+    if_fails: "Either a triage branch can cite nothing that counts, or a code branch can anchor every claim on the receipt it wrote itself"
+
 qa_gate:
   id: F-DF-001
   name: "forjar-dogfood v1 — the standing gates"

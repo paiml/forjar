@@ -31,6 +31,9 @@
 #                  - it is bound to this diff (hash), so it cannot be recycled
 #                  - lane/refuter/judge counts meet the declared floors
 #                  - the falsification test EXISTS in the tree
+#                  - or, for a receipt that declares `kind: triage` (forjar#491),
+#                    that the diff touches nothing outside the triage rail and the
+#                    receipt SAYS no test was reverted -- printed, never implied
 #                  - that test PASSES right now, with the fix in place
 #   ATTESTED only  - that the same test went RED when the fix was reverted
 #
@@ -358,6 +361,32 @@ for field in ("issue", "diff_sha256", "quorum", "falsification", "crux", "agy_te
         die(f"receipt is missing required field '{field}' -- all four lanes are mandatory\n"
             "  (crux = competitive survey, quorum = adversarial, agy_teamwork, pmat = mechanical)")
 
+# THE KIND (forjar#491). A receipt may declare `kind: triage`: the branch
+# classifies and links -- a ledger under docs/audits/, roadmap rows, and its own
+# receipt -- and writes no code. That shape could not pass this gate at all (no
+# Rust test to revert, no citable path), so every triage PR was pushed `waived`,
+# which is the failure mode the CIT_RE comment in quorum_evidence.py names: a
+# gate that cannot be passed honestly teaches a repo to reach for the waiver.
+#
+# The rail is verified FROM THE DIFF, not trusted from the receipt: a `kind:
+# triage` receipt over a diff that touches anything outside docs/audits/**,
+# docs/roadmaps/roadmap.yaml and .quorum/** is refused BY NAME, because declaring
+# the kind would otherwise be the cheapest way to skip the falsification below.
+receipt_kind = r.get("kind", "code")
+if receipt_kind not in ("code", "triage"):
+    die(f"receipt kind={receipt_kind!r} is not one of code | triage")
+if receipt_kind == "triage":
+    def on_rail(p):
+        return p.startswith("docs/audits/") or p == "docs/roadmaps/roadmap.yaml" \
+            or p.startswith(".quorum/")
+    off_rail = sorted(p for p in touched if not on_rail(p))
+    if off_rail:
+        die("a kind: triage receipt over a diff that touches "
+            + ", ".join(off_rail) + "\n"
+            "  A triage branch is classify + link, no diff: docs/audits/**, the roadmap\n"
+            "  and its own receipt under .quorum/. Anything else is code, and a code\n"
+            "  change is judged as code -- with a falsification test it wrote itself.")
+
 # THE BINDING. Without this the whole gate is theater: one receipt would clear
 # every future branch, and an amended commit would keep a verdict about code
 # that no longer exists.
@@ -465,6 +494,31 @@ if int(vac) > 0 and not pmat.get("accepted"):
 # check that outranks the whole panel is: revert the production hunk and watch
 # the test go red for the right reason.
 f = r["falsification"]
+
+# forjar#491: for a kind: triage receipt the revert-the-hunk check has no hunk
+# to revert. The gate does not pretend otherwise -- it requires the receipt to
+# SAY so (`not_applicable`, a reason), refuses a receipt that also names a test
+# (one shape, not both), and prints exactly what it did not verify, so an
+# unmeasured check never reads like a passed one. The rail check above is what
+# keeps this arm honest: only a diff that touches no code reaches it.
+if receipt_kind == "triage":
+    na = f.get("not_applicable")
+    if not isinstance(na, str) or not na.strip():
+        die("a kind: triage receipt must carry falsification.not_applicable: a reason\n"
+            "  string saying why no test was reverted. Silence is not a pass.")
+    both = [k for k in ("test", "test_file", "cargo_test_target", "reverted", "observed_failure") if f.get(k)]
+    if both:
+        die("a kind: triage receipt carries falsification." + ", ".join(both) + " beside\n"
+            "  not_applicable -- one shape, not both. Either the branch reverted a hunk\n"
+            "  and is a code receipt, or it did not and says so.")
+    print(f"✓ quorum receipt valid for {r['issue']} (kind: triage)")
+    print(f"    lanes={len(lanes)} refuters={refuters} judges={judges} "
+          f"confirmed={confirmed} refuted={refuted}")
+    print("    falsification: NOT APPLICABLE (kind: triage) -- no test was reverted and none was run;")
+    print("      the ledger's read-backs are the branch's evidence, and this gate does not read them")
+    print(f"      reason: {na.strip()}")
+    sys.exit(0)
+
 for field in ("test", "reverted", "observed_failure"):
     if not f.get(field):
         die(f"falsification is missing '{field}' -- the revert-the-hunk check is not optional")

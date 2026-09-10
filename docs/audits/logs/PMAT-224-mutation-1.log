@@ -1,0 +1,11 @@
+# reduced from PMAT-224-mut1.log — 186 bytes, sha256 17de1ab02e995aa39ddd70268493c340f14e488e2c0dea7d93708173cce3275e; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... FAILED
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s
+## verdict lines
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... FAILED
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s
+## tail
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... FAILED
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s
+EXIT=101

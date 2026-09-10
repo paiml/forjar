@@ -304,6 +304,20 @@ about code that no longer exists.
 }
 ```
 
+A branch that writes no code — `kind: triage` (forjar#491) — declares the kind
+and replaces the falsification block with the reason no hunk was reverted; the
+gate prints that reason as what it did not verify:
+
+```json
+{
+  "kind": "triage",
+  "issue": "PMAT-209 — triage of the issues filed after the 1.26.0 cut",
+  "falsification": {
+    "not_applicable": "kind: triage — the branch writes no code; the ledger's read-backs are its evidence"
+  }
+}
+```
+
 ### Floors
 
 | Field | Floor | Rationale |
@@ -356,6 +370,16 @@ document exists to prevent.
 **ATTESTED** (recorded, not confirmed):
 - that the same test went **red** when the fix was reverted
 
+**NOT APPLICABLE, and said so** (`kind: triage`, forjar#491):
+- a receipt that declares `kind: triage` covers a branch that classifies and
+  links — a ledger under `docs/audits/`, roadmap rows, its own receipt — and
+  writes no code. There is no hunk to revert. The gate VERIFIES from the diff
+  that the branch touched nothing outside `docs/audits/**`,
+  `docs/roadmaps/roadmap.yaml` and `.quorum/**` (a triage receipt over a code
+  diff is refused by name), requires `falsification.not_applicable` to carry a
+  reason, refuses a receipt that also names a test, and PRINTS that no test was
+  reverted and none was run. An unmeasured check never reads like a passed one.
+
 The red half is attested because verifying it means reverting production code and
 rebuilding, which a pre-push hook must not do to a developer's working tree. The
 green half *is* checked, and a receipt naming a test that does not exist or does not
@@ -372,6 +396,12 @@ wall clock, and would only re-derive what the receipt records.
 - A missing base ref is **UNMEASURED → exit 1**, not a pass.
 - `.quorum/` is excluded from its own diff hash, or writing the receipt would
   invalidate the receipt.
+- A `kind: triage` receipt (forjar#491) is judged against the triage rail —
+  `docs/audits/**`, `docs/roadmaps/roadmap.yaml`, `.quorum/**` — and for that
+  kind a citation into documentation the branch touches anchors a claim under
+  the same at-base / as-added / must-be-touched rules as a Rust file. For every
+  other receipt documentation anchors nothing, so a code branch cannot anchor
+  its claims on the receipt it wrote itself.
 
 ## Who is bound, and how to get past it
 

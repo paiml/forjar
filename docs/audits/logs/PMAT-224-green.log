@@ -1,0 +1,38 @@
+# reduced from PMAT-224-green.log — 1035 bytes, sha256 b6b10e70e7958b440dcfc5ce37adfe61a5244a8a5f177b15f705b54c32333d13; head 40 lines, every 'test result' / GATE / _EXIT line, tail 40 lines
+## head
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.35s
+     Running tests/falsification_quorum_gate_has_a_triage_shape.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_gate_has_a_triage_shape-527d7e514bc3de07)
+
+running 6 tests
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... ok
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+## verdict lines
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+## tail
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.27.0 (/home/noah/src/forjar)
+warning: forjar@1.27.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.35s
+     Running tests/falsification_quorum_gate_has_a_triage_shape.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_gate_has_a_triage_shape-527d7e514bc3de07)
+
+running 6 tests
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... ok
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+EXIT=0
