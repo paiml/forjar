@@ -1,0 +1,8 @@
+== scripts/dogfood/tagged.sh on the branch at a47ca249 (HEAD carries this branch's own unmerged commits since v1.28.0)
+GATE T v1.25.0 cut 2026-09-04T00:13:32Z: 27 PR(s), 1 ticket(s) labelled release:v1.25.0 ok
+GATE T v1.25.1 cut 2026-09-04T02:07:29Z: 1 PR(s), 0 ticket(s) labelled release:v1.25.1 ok
+GATE T v1.25.2 cut 2026-09-05T16:25:29Z: 7 PR(s), 2 ticket(s) labelled release:v1.25.2 ok
+GATE T v1.26.0 cut 2026-09-08T12:02:13Z: 10 PR(s), 9 ticket(s) labelled release:v1.26.0 ok
+GATE T v1.27.0 cut 2026-09-08T22:10:01Z: 2 PR(s), 4 ticket(s) labelled release:v1.27.0 ok
+GATE T v1.28.0 cut 2026-09-10T16:07:14Z: 10 PR(s), 10 ticket(s) labelled release:v1.28.0 ok
+GATE T FAIL 1 commit(s) reached HEAD since v1.28.0 and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it

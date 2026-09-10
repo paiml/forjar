@@ -1,0 +1,11 @@
+== scripts/release-goal.sh show and sync --check, on the branch and in a worktree at main (cdcc0e80) with this branch's ledger
+-- on the branch (a47ca249+):
+  #508 cdcc0e80a17a95158fbf9693556df81149020401 is inside v1.28.0 (the previous release) — not counted
+release-goal: 2 commit(s) reached HEAD since v1.28.0 and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it
+show rc=2
+-- in a worktree at main with this ledger:
+  #508 cdcc0e80a17a95158fbf9693556df81149020401 is inside v1.28.0 (the previous release) — not counted
+v1.29.0 ░░░░░░░░░░ 0h/48h left=47h · 0 merged, 0 tagged · due 2026-09-12T16:07:14Z basis=docs/roadmaps/releases.yaml:L61 window=v1.28.0..HEAD(cdcc0e80) ledger=worktree(dirty)
+show rc=0
+  #508 cdcc0e80a17a95158fbf9693556df81149020401 is inside v1.28.0 (the previous release) — not counted
+sync rc=0
