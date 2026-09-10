@@ -3294,11 +3294,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'release: forjar 1.28.0 — the first cut under the two-day cadence, and the triage rail admits the release ledger'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T13:30:15Z
-  updated: 2026-09-10T13:31:37Z
+  updated: 2026-09-10T15:05:00Z
   spec: null
   acceptance_criteria:
   - 'Cargo.toml, Cargo.lock and the README caret requirements say 1.28.0 / 1.28; CHANGELOG [Unreleased] becomes [1.28.0] - 2026-09-10 with one bold paragraph per behaviour, and docs/audits/crux-1.28.0.md carries a row naming >=3 surveyed systems for every one of them (gate H)'
