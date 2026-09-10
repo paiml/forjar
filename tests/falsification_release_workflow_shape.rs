@@ -12,6 +12,13 @@
 //! targets, clobbered SHA256SUMS), and its backfill release is a prerelease
 //! too.
 //!
+//! PMAT-230's two rules about FIXED PATHS on these non-ephemeral runners —
+//! every `gh release download` overwriting what the previous release left,
+//! and every fixed `/tmp` directory being cleared before it is written —
+//! live in the sibling binary `falsification_release_workflow_fixed_paths.rs`.
+//! They were written here and moved out when this file crossed the repository's
+//! 500-line ceiling; the split is by subject, not by convenience.
+//!
 //! Each test below asserts one rule from the PMAT-166 ticket, named in its
 //! function name and panic message, by reading the workflow YAML at
 //! `env!("CARGO_MANIFEST_DIR")` — the same bytes GitHub Actions parses —

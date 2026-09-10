@@ -1,0 +1,43 @@
+# Quorum evidence — PMAT-230 — adjudicated claims
+
+Three rounds of three sandboxed lanes, base pinned at b3e5812d: round 1 on 469cc9a9 (0/3 PASS), round 2 on b02d26b4 (1/3 PASS), round 3 on 5d1920f6 (0/3 PASS). **No round is claimed to have passed.** Each round refuted the RULE, never the workflow fix, and each refutation that reproduced was closed and measured before the next round; the twelve-case battery in `docs/audits/logs/PMAT-230-rule9-mutations.log` is the instrument, not the lanes' prose.
+
+After round 3 the two rules were moved into `tests/falsification_release_workflow_fixed_paths.rs`: they had pushed `falsification_release_workflow_shape.rs` from 432 to 671 lines and the repository's 500-line ratchet refused it in CI by name. Nothing about either rule changed in the move, and both batteries were re-run against the new binary; the lanes judged the rules where they were written, which is why the round summaries name the old file.
+
+Citations resolve at the merge base: `tests/falsification_release_workflow_shape.rs:250` is `"dist-artifacts"` inside rule 5's asset-job list, `:365` and `:369` are rule 8's doc line naming `gh release download --pattern SHA256SUMS` and its test function, `:107` is `non_comment_lines`, and `:43` is `all_workflow_files` — the four pieces of the file this change builds on.
+
+## CONFIRMED
+
+1. [the-defect] THE DEFECT IS REAL AND WAS OBSERVED, NOT REASONED ABOUT — run 34500075606's `dist-artifacts` job died with ``/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or `--skip-existing` to skip file)``, `publish-release` was skipped, and v1.28.0's GitHub release sat as a draft prerelease with thirteen assets and no installer.
+- evidence: all three round-1 lanes read the run with `gh run view 34500075606 --log-failed` and `gh release view v1.28.0`; the orchestrator did the same. The step this fires in is the one rule 8 already governs at `tests/falsification_release_workflow_shape.rs:369`, which asserts the fetch exists and precedes the `dist` call but says nothing about it succeeding twice.
+
+2. [same-lesson-one-job-over] THE REPOSITORY HAD ALREADY LEARNED THIS — release.yml's `checksums` job clears its staging directory first, under a comment that names the v1.18.0 release whose SHA256SUMS carried ten lines, four of them belonging to 1.17.0. `dist-artifacts` and `homebrew` had no guard at all.
+- evidence: confirmed by every lane in rounds 1 and 3 reading the job; `tests/falsification_release_workflow_shape.rs:250` is where rule 5 already names `dist-artifacts` as an asset job that must finish before the release is un-drafted, which is why a silent failure there is a release blocker rather than a nuisance.
+
+3. [three-sites] EVERY `gh release download` PASSES `--clobber` AND NONE PASSES `--skip-existing` — three call sites: release.yml's `dist-artifacts`, release.yml's `homebrew`, binary-release.yml's `checksums`.
+- evidence: nine lanes across three rounds confirmed the flag on each; `--skip-existing` is refused BY NAME because it exits 0 leaving the previous release's file in place, satisfies the step's own `test -s /tmp/SHA256SUMS`, and reaches `install.sh` through `forjar dist --checksums-file` — the v1.18.0 laundering with a friendlier exit code.
+
+4. [not-load-bearing-and-said-so] THE FLAG ON binary-release.yml IS NOT NEEDED THERE AND THE COMMENT SAYS SO — that job runs on `ubuntu-latest` and `mkdir assets` precedes the download, so the collision cannot happen on that line today.
+- evidence: all three round-1 lanes and two round-3 lanes raised it as an unnecessary diff; re-run by the orchestrator (`runs-on: ubuntu-latest`, `mkdir assets && cd assets`). It is kept because the rule sweeps every workflow — `all_workflow_files` at `tests/falsification_release_workflow_shape.rs:43` is the same sweep-everything shape the file already uses — and because `runs-on` has moved under these jobs before. The finding was not dropped: it is written into the workflow's own comment.
+
+5. [battery] TWELVE CASES ARE MEASURED ONE AT A TIME, NOT ARGUED — seven evasions turn rule 9 red (flags before the subcommand; a backslash splitting `release`/`download`; `|| true`; a backslash splitting `gh`/`release`; a trailing `# --clobber` comment; `--pattern "*--clobber*"`; a second command lending its flag across `&&`), two innocent commands leave it green (`gh release upload --title download`, `gh api --pattern release download`), and three mutations of the new guards turn rule 10 red.
+- evidence: `docs/audits/logs/PMAT-230-rule9-mutations.log`, each case applied to release.yml's dist-artifacts call site and reverted before the next. Round-3 lanes re-ran the first battery themselves and reported it matched. The joiner reads comment-free lines through `non_comment_lines` at `tests/falsification_release_workflow_shape.rs:107`.
+
+6. [self-caught] THE BATTERY CAUGHT A DEFECT IN THE RULE ONE EDIT AFTER IT WAS WRITTEN — cutting the joined command at a bare `|` also cut it at `||`, which silently disarmed the assertion that refuses a suppressed failure. Case 3 went from red to green and said so.
+- evidence: `docs/audits/logs/PMAT-230-rule9-mutations.log`; the separator list is now `&&` and `;` only, with the reason written where the cut happens. This is the argument for the battery over another round of prose: no lane found it, and the instrument did.
+
+7. [sibling-defect] THE FIX WOULD HAVE MOVED THE FAILURE RATHER THAN REMOVED IT — `homebrew` clones the tap into the fixed path `/tmp/tap`, and `git clone` over an existing directory exits 128 on a runner that is not ephemeral. That step has never been reached, because the checksums download two steps above it died first (v1.27.0's `homebrew` job failed exactly there, at step 5 "Download release checksums").
+- evidence: found by a round-3 lane, re-run by the orchestrator against the job and against v1.27.0's run. Fixed here with `rm -rf /tmp/tap`, beside `rm -rf /tmp/dist-output` in `dist-artifacts`, whose whole directory is uploaded as the release's artifact — the same laundering shape as v1.18.0. Rule 10 asserts each clear exists AND precedes the write it guards.
+
+8. [scope] NOTHING UNDER src/ CHANGES — the diff is two workflow files, one test file, one roadmap row and one audit log, so gate F's mutation arm has nothing to mutate on this branch and says so.
+- evidence: `git diff --name-only main...HEAD`, confirmed by every lane in every round; `tests/falsification_release_workflow_shape.rs:43`'s sweep is the only test surface touched.
+
+## REFUTED
+
+9. [grammar] AS WORDED IN ROUND 3: "rule 9 finds a call site by reading gh's grammar" — refuted by all three round-3 lanes. It read `release` as any token appearing after `gh`, so `gh api --pattern release download` was read as a release download, and it did not skip a flag's value when looking for the subcommand.
+- evidence: lanes 1, 2 and 3 of round 3 each produced the counter-example; the orchestrator reproduced `gh api --pattern release download` being flagged. `tests/falsification_release_workflow_shape.rs:107` and `:43` are the two helpers the site finder is built on, and neither knows anything about `gh`.
+- corrected: `release` must now be `gh`'s own subcommand — the first non-flag token after `gh`, with `-R`/`--repo` and their value skipped — and the subcommand is the first non-flag token after that. Case 9 of the battery is exactly the lane's counter-example and leaves the rule green; case 1 keeps `gh release -R repo download` red.
+
+10. [named-limits] AS WORDED IN ROUND 3: "the rule's comment names what it cannot catch" — refuted by one round-3 lane: two commands separated by `;` or `&&` on one continued line were neither caught nor admitted, and the flags of the second were read as belonging to the first.
+- evidence: the lane's counter-example, reproduced by the orchestrator as battery case 7 (`… && \` then a second `gh release download … --clobber`), which was GREEN before the fix and is RED after it.
+- corrected: `joined_command` now cuts at the first `&&` or `;`, so no command lends another its flags; the comment states the rule is a text ratchet and names what remains outside it — a command assembled from a variable, one inside a here-doc the line-joiner does not follow, one in a script the workflow calls, and a `gh` token inside a quoted string, which can only produce a false positive that fails the test loudly. Two round-3 findings are deliberately NOT acted on and are named here instead: a malformed `--repo` with no value, and `gh` inside a quoted string. Neither exists in this repository, both fail closed or fail loudly, and chasing them would mean parsing shell in a test whose whole purpose is to be cheaper than that.

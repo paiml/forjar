@@ -1,0 +1,9 @@
+== RED: main's (b3e5812d) .github/workflows checked out over this branch's tests; the fix is COMMITTED, so this is reversible
+test rule10_a_fixed_tmp_directory_is_cleared_before_it_is_written ... FAILED
+test rule9_every_release_download_overwrites_what_a_previous_release_left ... FAILED
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+== restore
+(empty means restored)
+== GREEN: HEAD ec1f3659, both binaries
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
