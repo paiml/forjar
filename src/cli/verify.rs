@@ -75,13 +75,6 @@ pub(crate) fn cmd_verify(args: &VerifyArgs, verbose: bool) -> Result<(), String>
 /// first version of this looked for. The symptom was every resource reporting
 /// `skipped (no-recorded-hash)`, which reads like "nothing to do" rather than
 /// like a bug, so the end-to-end test is what caught it.
-///
-/// forjar#501: only the rows of machines THIS host answers for carry
-/// `output_hash` now, so the first row found is a hash of this host's tree —
-/// which is the tree `verify` re-runs the task in. A resource declared only on
-/// machines this host cannot read has no recorded hash and is reported
-/// `skipped (no-recorded-hash)`, the honest answer; before #501 that row held
-/// a correct hash of the wrong tree and verify compared against it.
 fn recorded_output_hash(state_dir: &Path, id: &str) -> Option<String> {
     let entries = std::fs::read_dir(state_dir).ok()?;
     for entry in entries.filter_map(Result::ok) {
