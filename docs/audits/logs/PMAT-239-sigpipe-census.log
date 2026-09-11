@@ -1,0 +1,35 @@
+== every pipeline under set -o pipefail whose right-hand side can exit early (PMAT-240)
+   grep -q / grep -m / head / jq -e fed by printf, cat, sed or git
+scripts/ledger-replay.sh:116:        sed 's/^/      /' "$WORK/$i.out" | head -12
+scripts/cb200-ratchet.sh:99:if printf '%s' "$raw" | grep -q 'index is stale'; then
+scripts/publish-from-tag.sh:88:cargo_toml_version="$(git show "$TAG:Cargo.toml" | manifest_version | head -n1)"
+scripts/dogfood/release-check.sh:67:version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/release-check.sh:175:prev_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | grep -vxF -- "$TAG" | head -1)" || prev_rc=$?
+scripts/dogfood/release-check.sh:336:latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+scripts/release-goal.sh:117:  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+scripts/dogfood/tagged.sh:105:  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+scripts/dogfood/contracts.sh:222:if printf '%s\n' "$depth_out" | grep -q '^HARD '; then
+scripts/dogfood/docs.sh:305:if printf '%s\n' "$report" | grep -q '^FAILURE '; then
+scripts/dogfood/lib/binary.sh:27:want="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/lib/releases.sh:64:  printf '%s' "$json" | jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null || rc=$?
+scripts/dogfood/lib/releases.sh:141:  v="$(printf '%s\n' "$text" | sed -n 's/^version = "\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+scripts/dogfood/crux-reconcile.sh:74:  printf '%s\n' "$hits" | sed -n '/^|/p' | head -1
+scripts/dogfood/crux-reconcile.sh:87:version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/crux-reconcile.sh:98:latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+scripts/dogfood/crux-reconcile.sh:178:    if printf '%s' "$row" | grep -qiF -- "$s"; then
+scripts/dogfood/lib/window.sh:56:  tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)" || rc=$?
+scripts/dogfood/lib/window.sh:303:  # ONE PROCESS. `grep … | head -1` is the same defect one line over: head
+
+== the two this branch fixes
+   scripts/dogfood/lib/window.sh: the registry lookup (printf | grep -q) -> a here-string
+   scripts/dogfood/lib/window.sh: the status reader (grep | head -1 | cut) -> one awk
+== the rule is red when the pattern returns
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+== restored
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.32s
+
+== the rule is red when the pattern returns: one leaky pipeline inserted into scripts/release-goal.sh
+PMAT-239: scripts/release-goal.sh:330 pipes into `grep -q`, which exits before its left-hand side finishes. Under `set -o pipefail` the left side takes SIGPIPE and the pipeline returns 141, so a gate reports UNMEASURED at random — measured on this very gate. Capture and use a here-string, or do it in one process:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+== restored
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.33s

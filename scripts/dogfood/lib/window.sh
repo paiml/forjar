@@ -53,7 +53,13 @@ PR_PAGE_LIMIT=200
 # the day the tag list fails to fetch.
 dogfood_prev_tag() {
   local rc=0 tag
-  tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)" || rc=$?
+  # PMAT-239: no pipe. `git tag … | head -1` has head exit after one line,
+  # git take SIGPIPE, and pipefail report 141 — the same defect that made this
+  # gate call a readable registry UNMEASURED at random. Capture, then take the
+  # first line with parameter expansion: one process, no signal.
+  local tags
+  tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)" || rc=$?
+  tag="${tags%%$'\n'*}"
   if [ "$rc" -ne 0 ]; then
     fail "git tag --merged HEAD exited ${rc} — the lower bound of the PR window cannot be read, so the window is UNMEASURED"
   fi
@@ -286,14 +292,42 @@ dogfood_roadmap_rows() {
     /^  labels:/    { inlist = 1; next }
     inlist && /^  - / { print id " " $2; next }
     { inlist = 0 }')"
+  # PMAT-236: the STATUS of every row, from the same single read. Gate T
+  # reconciles the ledger and the labels and never looked at this, so the
+  # roadmap could say a shipped ticket had not started — and did, for sixteen
+  # tickets across five releases, with nothing going red.
+  DOGFOOD_ROW_STATUSES="$(printf '%s\n' "$text" | awk '
+    /^- id: /        { id = $3; next }
+    /^  status: /    { if (id != "") { print id " " $2; id = "" } next }')"
   DOGFOOD_ROW_IDS_LOADED=1
+}
+
+# The status of row $1 -> DOGFOOD_ROW_STATUS (empty when the row has none).
+dogfood_row_status() {
+  local rc=0 hit
+  dogfood_roadmap_rows
+  # ONE PROCESS. `grep … | head -1` is the same defect one line over: head
+  # exits after the first line, grep takes SIGPIPE, and pipefail reports 141 —
+  # which is exactly what PMAT-239 is about. awk matches, prints and exits by
+  # itself, with nothing to signal.
+  hit="$(awk -v id="$1" '$1 == id { print $2; exit }' <<< "$DOGFOOD_ROW_STATUSES")" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "awk exited ${rc} reading the status of $1 — UNMEASURED"
+  fi
+  DOGFOOD_ROW_STATUS="$hit"
 }
 
 # Is $1 a roadmap row? Exit 0 or 1 — usable in `if`, never under `$(...)`.
 dogfood_is_row() {
   local rc=0
   dogfood_roadmap_rows
-  printf '%s\n' "$DOGFOOD_ROW_IDS" | grep -q -x -F -- "$1" || rc=$?
+  # PMAT-239: a HERE-STRING, never a pipe. `grep -q` exits at the first match
+  # and closes the pipe; `printf` then takes SIGPIPE, and under `set -o
+  # pipefail` the pipeline's status becomes 141. Measured on main: gate T
+  # reported `grep exited 141 looking PMAT-225 up in the ticket registry —
+  # UNMEASURED` on one run and passed on the next two, which is a gate that
+  # fails CI at random. A here-string has no second process to kill.
+  grep -q -x -F -- "$1" <<< "$DOGFOOD_ROW_IDS" || rc=$?
   if [ "$rc" -gt 1 ]; then
     fail "grep exited ${rc} looking $1 up in the ticket registry — UNMEASURED"
   fi

@@ -3413,21 +3413,20 @@ roadmap:
   - release:v1.29.0
   notes: orch-basis:release — the closing record of the 1.28.0 release. The release was published by hand with `gh release edit --draft=false --prerelease` because publish-release declined to (PMAT-232), and promoted to a full release after `make dogfood-published VERSION=1.28.0` passed, which is the operator step the workflow names; everything else was done by the workflow. Sixth-plus ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user's verbatim instruction quoted on PMAT-226. Three quorum lanes refuted three facts in the first draft of the receipt — a rounded crates.io timestamp, a miscounted cancellation, and this very notes field, which a row-patching bug had left null — and all three were corrected.
 - id: PMAT-232
-  kind: code
   github_issue: null
   item_type: task
   title: publish-release cannot un-draft a release a previous run created, so a re-dispatch leaves the release a draft for ever
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:31Z
-  updated: 2026-09-10T23:57:33Z
+  updated: 2026-09-11T10:33:34Z
   spec: null
   acceptance_criteria:
   - 'release.yml publish-release un-drafts the release whenever every asset job succeeded, not only when THIS run created it: a workflow_dispatch re-run over a release a previous run created must publish it'
-  - 'the assertion runs UNCONDITIONALLY and asserts only that the release is not a draft, so an un-draft that did not happen is a failure rather than a skip; prerelease=true is deliberately not asserted, because a re-dispatch over a release an operator has promoted to a full release must leave it promoted, and rule 4 already asserts prerelease=true draft=true for a run that creates one'
-  - 'the edit is conditional on the release BEING a draft, so that same re-dispatch cannot demote a published release back to a prerelease'
-  - 'a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today'
+  - the assertion runs UNCONDITIONALLY and asserts only that the release is not a draft, so an un-draft that did not happen is a failure rather than a skip; prerelease=true is deliberately not asserted, because a re-dispatch over a release an operator has promoted to a full release must leave it promoted, and rule 4 already asserts prerelease=true draft=true for a run that creates one
+  - the edit is conditional on the release BEING a draft, so that same re-dispatch cannot demote a published release back to a prerelease
+  - a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3481,17 +3480,17 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'sync the roadmap''s status field with what actually shipped: 16 tickets named by a tagged release or a merged PR still read planned or inprogress'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T05:30:56Z
-  updated: 2026-09-11T05:30:58Z
+  updated: 2026-09-11T10:33:34Z
   spec: null
   acceptance_criteria:
   - 'every ticket named by a row of docs/roadmaps/releases.yaml, and every ticket of a PR merged since the newest tag, reads status: completed'
-  - 'the status is moved with `pmat work edit <id> -s inprogress` then `-s completed` — the tool refuses Planned -> Completed directly — and never by editing the YAML by hand'
+  - the status is moved with `pmat work edit <id> -s inprogress` then `-s completed` — the tool refuses Planned -> Completed directly — and never by editing the YAML by hand
   - 'the diff carries no semantic change outside status, updated and the top-level kind: field the tool drops; every dropped kind: field is shown to be duplicated by a kind:* label, and every release:<tag> label is intact'
-  - 'pmat work validate passes and gate T stays green'
+  - pmat work validate passes and gate T stays green
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3522,21 +3521,20 @@ roadmap:
   - release:v1.29.0
   notes: 'Found by the PMAT-235 sync: 16 tickets across five releases (v1.25.2 through the open v1.29.0 window) carried a correct release:<tag> label and an untouched status of planned or inprogress, and no gate anywhere went red for it. Gate T checks the label in both directions and never looks at the status, so the roadmap said none of the 1.28.0 work had started on the day it shipped. The label is the link a release needs; the status is what a person reads.'
 - id: PMAT-237
-  kind: code
   github_issue: null
   item_type: task
   title: 'a PR pays the full release suite even when it touches no code: 8 of the last 10 merged PRs changed no src/ and each still spent ~131 job-minutes on ledger-replay, dogfood, bench, coverage and the workspace tests'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T08:37:16Z
-  updated: 2026-09-11T08:42:36Z
+  updated: 2026-09-11T10:33:34Z
   spec: null
   acceptance_criteria:
   - 'scripts/ci/changed-class.sh is the ONE decision: it reads a file list and prints code=true|false, is an allow-list of the harmless rather than a deny-list of the heavy, and treats an unclassified path, an unreadable diff and README.md / docs/audits/surface_audit.csv / contracts/** as code'
-  - 'tests/falsification_pr_lane_runs_what_the_change_can_break.rs drives that script with fabricated file lists in both directions, and is red under the registered mutation (the unclassified arm made harmless)'
-  - 'the five heavy jobs — ci, dogfood, examples-validate, no-default-features, doctests in ci.yml, ledger-replay in proofs.yml, coverage, benchmark — run only when the class says code, and ci.yml''s gate and proofs.yml''s aggregator each REFUSE a skip when the class says code, so a saving cannot become a hole'
-  - 'the class is computed by one composite action that calls the one script, and a rule asserts every gated workflow uses it'
+  - tests/falsification_pr_lane_runs_what_the_change_can_break.rs drives that script with fabricated file lists in both directions, and is red under the registered mutation (the unclassified arm made harmless)
+  - the five heavy jobs — ci, dogfood, examples-validate, no-default-features, doctests in ci.yml, ledger-replay in proofs.yml, coverage, benchmark — run only when the class says code, and ci.yml's gate and proofs.yml's aggregator each REFUSE a skip when the class says code, so a saving cannot become a hole
+  - the class is computed by one composite action that calls the one script, and a rule asserts every gated workflow uses it
   - 'make dogfood-release is untouched: the release gate still runs everything'
   phases: []
   subtasks: []
@@ -3546,3 +3544,65 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:state — measured 2026-09-11 on the ten most recently merged PRs: EIGHT touched no src/ at all, and every one still paid about 131 job-minutes — ledger-replay 34, dogfood 26, bench 18, the workspace suite 14, coverage 12, ci/lint 7, ci/coverage 7, examples-validate 6. The critical path was about 50 minutes per PR on a fleet of 20 runners shared with every other paiml repository, which is why a docs-only booking PR waited ninety minutes for a runner during the v1.28.0 release. The release gate is not touched and still runs everything; what changes is what a PR pays for what it changed. The allow-list direction is the whole safety argument: being wrong costs forty minutes of CI one way and ships untested code the other, and those are not the same mistake.'
+- id: PMAT-238
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'gate T''s verdict line counted tickets against PRs: two tickets in one PR printed 8 of 7 PR(s) merged'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T10:36:28Z
+  spec: null
+  acceptance_criteria:
+  - 'gate T''s verdict line says how many TICKETS carry the next tag and how many PRs they came from, never one count of the other'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `8 of 7 PR(s) merged since v1.28.0 carry release:v1.29.0`, because PR #515 carried two tickets (PMAT-228 and PMAT-229) while the arm counts tickets and the sentence said PRs. Harmless arithmetic, and the single line an operator is told to read said something impossible.'
+- id: PMAT-239
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'gate T dies with grep exited 141 at random: a pipe into grep -q takes SIGPIPE under pipefail, so a passing gate reports UNMEASURED'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T10:36:28Z
+  spec: null
+  acceptance_criteria:
+  - 'no pipeline in scripts/dogfood/lib/window.sh feeds a process that exits early (grep -q, head) from a printf, so no pipeline can return 141 under set -o pipefail'
+  - 'gate T run repeatedly against the same tree reports the same verdict every time'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `GATE T FAIL grep exited 141 looking PMAT-225 up in the ticket registry — UNMEASURED` on one run, PASS on the next two. 141 is 128+13, SIGPIPE: `printf … | grep -q` has grep exit at the first match and close the pipe, printf takes the signal, and pipefail makes that the pipeline''s status. The gate was right to refuse an unmeasured read; the read should not have been unmeasurable.'
+- id: PMAT-240
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'the SIGPIPE class is repository-wide: 18 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T11:03:11Z
+  updated: 2026-09-11T11:03:11Z
+  spec: null
+  acceptance_criteria:
+  - 'every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood'
+  - 'a rule refuses a new one: no script under scripts/ that sets pipefail may pipe printf, cat, sed or git into grep -q, grep -m, head or jq -e'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236''s own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed.'

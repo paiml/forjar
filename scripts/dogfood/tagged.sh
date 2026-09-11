@@ -102,7 +102,11 @@ reachable_tags_from_floor() {
 # The tag just below $1 among the tags reachable from it -> LOWER.
 lower_tag_of() {
   local rc=0 t
-  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+  # PMAT-239: one capture and one awk, never a three-stage pipe whose last
+  # two stages exit early and leave git holding a closed pipe.
+  local all
+  all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} exited ${rc}: the lower bound of ${1}'s window cannot be read — UNMEASURED"
   fi
@@ -262,6 +266,7 @@ for tag in $TAGS; do
   n=0
   for _ in $DOGFOOD_WINDOW_TICKETS; do n=$((n + 1)); done
   tickets_checked=$((tickets_checked + n))
+  DOGFOOD_LEDGER_TICKETS="${DOGFOOD_LEDGER_TICKETS:-} ${DOGFOOD_WINDOW_TICKETS}"
   echo "GATE T ${tag} cut ${DOGFOOD_TAG_DATE}: ${DOGFOOD_PR_COUNT} PR(s), ${n} ticket(s) labelled release:${tag} ok"
   checked=$((checked + 1))
 done
@@ -289,6 +294,34 @@ for t in $DOGFOOD_WINDOW_TICKETS; do
   esac
 done
 
+# T7 (PMAT-236): A SHIPPED TICKET SAYS IT SHIPPED.
+#
+# T2 and T4 reconcile the ledger and the `release:<tag>` labels, and neither
+# looks at `status`. So the roadmap said none of the 1.28.0 work had started on
+# the day 1.28.0 shipped: sixteen tickets across five releases read `planned` or
+# `inprogress` while their labels were correct, and no gate went red for it
+# (PMAT-235 backfilled them). The label is the link a release needs; the status
+# is what a person reads, and a record only half true is the kind that is
+# trusted right up until it matters.
+# The open window's tickets too: their PRs have merged, so the work has landed
+# and `completed` is what PMAT-235 established that means. This is the arm that
+# catches the drift as it happens rather than five releases later.
+check_status() {
+  local t="$1" where="$2"
+  dogfood_row_status "$t"
+  case "$DOGFOOD_ROW_STATUS" in
+    completed|cancelled) ;;
+    "") fail "${t} ${where} and has no status on its roadmap row — UNMEASURED" ;;
+    *) fail "${t} ${where} and its roadmap row still reads status: ${DOGFOOD_ROW_STATUS}: the work has landed and the roadmap says it has not started (move it with: pmat work edit ${t} -s inprogress && pmat work edit ${t} -s completed)" ;;
+  esac
+}
+for t in $DOGFOOD_LEDGER_TICKETS; do
+  check_status "$t" "is named by a tagged release in docs/roadmaps/releases.yaml"
+done
+for t in $DOGFOOD_WINDOW_TICKETS; do
+  check_status "$t" "is named by a PR merged since ${NEWEST}"
+done
+
 dogfood_epoch "$NEXT_DUE"; due="$DOGFOOD_EPOCH"
 dogfood_cargo_version
 case "$DOGFOOD_CARGO_VERSION" in
@@ -307,7 +340,7 @@ else
   clock="due ${NEXT_DUE}, $(( (due - NOW) / 3600 ))h left"
 fi
 
-echo "GATE T PASS ${checked} tagged release(s) since ${FLOOR} reconcile with git and GitHub and ${tickets_checked} ticket(s) carry their tag; ${open_tagged} of ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carry release:${NEXT_TAG}; ${clock}"
+echo "GATE T PASS ${checked} tagged release(s) since ${FLOOR} reconcile with git and GitHub and ${tickets_checked} ticket(s) carry their tag and say they shipped; ${open_tagged} ticket(s) from ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carry release:${NEXT_TAG}; ${clock}"
 
 # mutation: change `dogfood_iso $((newest_cut + CADENCE_DAYS * 86400))` to
 # `dogfood_iso $((newest_cut + CADENCE_DAYS * 86400))` — the derived due

@@ -20,7 +20,7 @@ fn a_declared_ledger_that_matches_git_and_github_is_green_and_counts() {
     let r = run(&fx, AN_HOUR);
     r.assert_green("the ledger, the labels and the window agree");
     r.assert_says("1 tagged release(s) since v0.0.1");
-    r.assert_says("1 of 1 PR(s) merged since v0.0.1 carry release:v0.0.2");
+    r.assert_says("1 ticket(s) from 1 PR(s) merged since v0.0.1 carry release:v0.0.2");
     r.assert_says("47h left");
 }
 
@@ -253,4 +253,121 @@ fn no_environment_variable_can_soften_the_gate() {
         text.contains("GATE T PASS") || text.contains("GATE T FAIL"),
         "the gate must still reach a verdict:\n{text}"
     );
+}
+
+/// PMAT-236: a ticket a release names must say it shipped.
+///
+/// T2 and T4 reconcile the ledger and the `release:<tag>` labels, and neither
+/// looked at `status`. So the roadmap said none of the 1.28.0 work had started
+/// on the day 1.28.0 shipped — sixteen tickets across five releases read
+/// `planned` or `inprogress` while their labels were correct, and nothing went
+/// red. The label is the link a release needs; the status is what a person
+/// reads, and a record half true is the kind that is trusted until it matters.
+#[test]
+fn a_shipped_ticket_whose_row_says_planned_is_named_and_red() {
+    let shipped_still_planned = fixture(Case {
+        rows: vec![
+            (concat!("planned:", "PMAT-901"), vec!["release:v0.0.1"]),
+            (OPEN, vec!["release:v0.0.2"]),
+        ],
+        ..Case::default()
+    });
+    let r = run(&shipped_still_planned, AN_HOUR);
+    r.assert_red("PMAT-901 shipped in v0.0.1 and its row still reads planned");
+    r.assert_says("PMAT-901");
+    r.assert_says("status: planned");
+    r.assert_says("pmat work edit");
+}
+
+/// The same arm reaches the OPEN window: a ticket whose PR has merged has
+/// landed, whether or not a tag has been cut over it. This is the case that
+/// catches the drift as it happens rather than five releases later.
+#[test]
+fn a_merged_ticket_whose_row_says_planned_is_named_and_red() {
+    let merged_still_planned = fixture(Case {
+        rows: vec![
+            (SHIPPED, vec!["release:v0.0.1"]),
+            (concat!("planned:", "PMAT-902"), vec!["release:v0.0.2"]),
+        ],
+        ..Case::default()
+    });
+    let r = run(&merged_still_planned, AN_HOUR);
+    r.assert_red("PMAT-902 merged since v0.0.1 and its row still reads planned");
+    r.assert_says("PMAT-902");
+    r.assert_says("merged since v0.0.1");
+}
+
+/// PMAT-239: the same tree, the same verdict, every time. A `printf … | grep
+/// -q` had grep close the pipe at the first match, printf take SIGPIPE, and
+/// `pipefail` report 141 — so the gate called a readable registry UNMEASURED
+/// at random. Ten runs is not a proof of determinism, but one flake in three
+/// was how this was found.
+#[test]
+fn the_same_tree_gives_the_same_verdict_every_time() {
+    let fx = fixture(Case::default());
+    let first = run(&fx, AN_HOUR);
+    first.assert_green("the declared ledger matches");
+    for _ in 0..9 {
+        let again = run(&fx, AN_HOUR);
+        assert_eq!(
+            again.code, first.code,
+            "PMAT-239: the gate gave a different exit code on the same tree:\n{}",
+            again.text
+        );
+        assert!(
+            !again.text.contains("exited 141"),
+            "PMAT-239: a pipeline returned 141 (SIGPIPE) and the gate called a \
+             readable registry UNMEASURED:\n{}",
+            again.text
+        );
+    }
+}
+
+/// PMAT-239 / PMAT-240: the pattern, not the instance.
+///
+/// Ten runs of a gate cannot distinguish a fix from luck — a review lane put
+/// the odds at 1.7% for a flake that showed one time in three, and it is right.
+/// This is the deterministic half: the three files this branch owns carry no
+/// pipeline whose right-hand side can exit before its left-hand side finishes,
+/// so none of them can return 141 under `set -o pipefail`.
+///
+/// Eighteen more such pipelines exist elsewhere under `scripts/`; they are
+/// filed as PMAT-240 with the census committed, and this rule is deliberately
+/// scoped to what this branch fixed rather than made red on work it did not do.
+#[test]
+fn the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let owned = [
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/tagged.sh",
+        "scripts/release-goal.sh",
+    ];
+    let early = ["grep -q", "grep -m", "head", "jq -e"];
+    for rel in owned {
+        let text =
+            std::fs::read_to_string(root.join(rel)).unwrap_or_else(|e| panic!("read {rel}: {e}"));
+        for (n, line) in text.lines().enumerate() {
+            if line.trim_start().starts_with('#') {
+                continue;
+            }
+            let Some((_, rhs)) = line.split_once('|') else {
+                continue;
+            };
+            // `||` is a shell operator, not a pipeline.
+            if rhs.starts_with('|') {
+                continue;
+            }
+            for e in early {
+                assert!(
+                    !rhs.trim_start().starts_with(e),
+                    "PMAT-239: {rel}:{} pipes into `{e}`, which exits before its \
+                     left-hand side finishes. Under `set -o pipefail` the left side \
+                     takes SIGPIPE and the pipeline returns 141, so a gate reports \
+                     UNMEASURED at random — measured on this very gate. Capture and \
+                     use a here-string, or do it in one process:\n    {line}",
+                    n + 1
+                );
+            }
+        }
+    }
 }

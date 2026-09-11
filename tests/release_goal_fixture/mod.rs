@@ -51,11 +51,20 @@ pub(crate) fn write(root: &Path, rel: &str, body: &str) {
     std::fs::write(p, body).expect("write");
 }
 
+/// A row whose id is prefixed `planned:` is written with `status: planned`;
+/// every other row is `completed`. PMAT-236 made the status part of what gate
+/// T reconciles — a ticket a release names must say it shipped — so a fixture
+/// that wrote every row as `planned` would make every case red for a reason no
+/// case is about.
 pub(crate) fn roadmap(rows: &[(&str, &[&str])]) -> String {
     let mut text = String::from("roadmap_version: '1.0'\nroadmap:\n");
     for (id, labels) in rows {
+        let (id, status) = match id.strip_prefix("planned:") {
+            Some(rest) => (rest, "planned"),
+            None => (*id, "completed"),
+        };
         text.push_str(&format!(
-            "- id: {id}\n  title: fixture row\n  status: planned\n  updated: 2026-01-01T00:00:00Z\n"
+            "- id: {id}\n  title: fixture row\n  status: {status}\n  updated: 2026-01-01T00:00:00Z\n"
         ));
         if labels.is_empty() {
             text.push_str("  labels: []\n");

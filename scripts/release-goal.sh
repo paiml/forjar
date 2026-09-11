@@ -114,7 +114,11 @@ PY
 # The tag just below $1 among the tags reachable from $1 -> LOWER.
 lower_tag_of() {
   local rc=0 t
-  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+  # PMAT-239: one capture and one awk, never a three-stage pipe whose last
+  # two stages exit early and leave git holding a closed pipe.
+  local all
+  all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} failed (exit ${rc})"
   fi
