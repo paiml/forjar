@@ -1,0 +1,27 @@
+### the booked row, re-derived
+  - tag: v1.29.0
+    cut: 2026-09-11T19:55:10Z
+    prs: [509, 510, 511, 513, 514, 515, 516, 517, 518, 519, 523, 524, 527]
+    tickets: [PMAT-227, PMAT-228, PMAT-229, PMAT-230, PMAT-231, PMAT-232, PMAT-234, PMAT-235, PMAT-236, PMAT-237, PMAT-238, PMAT-239, PMAT-241, PMAT-520, PMAT-521, PMAT-522]
+    dogfood: docs/audits/dogfood-1.29.0-receipt.md
+    crux: docs/audits/crux-1.29.0.md
+    cookbook: 7c100454e8f9fb2b5b13f076b773f808071d5e08
+
+### RED — the raise arm with the justification removed
+GATE B FAIL the CB-2110..CB-2115 ceilings (Arm 7): RAISED WITHOUT A REASON: CB-2112 raised 34 -> 35 with no justification.CB-2112 — a ceiling that may only shrink is a rule nobody enforced until PMAT-531; raising one needs a reason in scr
+
+### GREEN — restored
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=35/35 CB-2114=34/34 CB-2115=42/43 held; require
+
+### the ten cases
+test commit_traceability_is_not_exempt ... ok
+test the_exemption_list_and_the_ceilings_are_the_same_set ... ok
+test a_check_exempted_but_not_ratcheted_is_refused_by_the_gate_itself ... ok
+test fewer_findings_than_the_ceiling_is_green ... ok
+test a_check_that_left_the_roster_is_unmeasured_and_never_zero ... ok
+test a_tree_at_the_ceiling_is_green_and_says_every_number ... ok
+test a_check_with_no_finding_count_is_unmeasured ... ok
+test every_verdict_the_arm_reaches_arrives_with_words ... ok
+test one_finding_over_the_ceiling_is_a_regression ... ok
+test a_ceiling_may_not_rise_without_a_written_reason ... ok
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
