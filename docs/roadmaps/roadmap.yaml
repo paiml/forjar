@@ -3785,8 +3785,8 @@ roadmap:
   github_issue: 531
   item_type: task
   title: 'book v1.29.0 in the release ledger, and correct the two false records the booking round found'
-  release: 1.29.0
-  status: inprogress
+  release: 1.30.0
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:25:00Z
@@ -3804,5 +3804,55 @@ roadmap:
   labels:
   - kind:triage
   - orch:fable
-  - release:v1.29.0
-  notes: 'The booking half of the three-PR release shape. Gate T is red on main between the tag and this merge, by design: the tag exists and no row declares it. Three review lanes read the booking and found two false records — PMAT-240 completed while thirteen of its own sites remained, and PMAT-233 cancelled but labelled for the next window — and both gates that should have caught them are filed as PMAT-528 and PMAT-529.'
+  - release:v1.30.0
+  notes: 'The booking half of the three-PR release shape. Its PR merged AFTER the v1.29.0 tag, so by the window rule — the same one gates A and E apply — it is v1.30.0 work, and gate T said so by name on main: a ticket claiming a release it was not in is a fabricated link. The booking is ABOUT v1.29.0 and IN v1.30.0, and the ledger row records what was in the release. Gate T is red on main between the tag and this merge, by design: the tag exists and no row declares it. Three review lanes read the booking and found two false records — PMAT-240 completed while thirteen of its own sites remained, and PMAT-233 cancelled but labelled for the next window — and both gates that should have caught them are filed as PMAT-528 and PMAT-529.'
+- id: PMAT-533
+  kind: triage
+  github_issue: 533
+  item_type: task
+  title: 'the v1.29.0 release record: tag, release, crates.io, docs.rs, and the window that closed'
+  release: 1.30.0
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-12T08:00:00Z
+  updated: 2026-09-12T08:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/audits/release-1.29.0-receipt.md records the tag, the GitHub release, the crates.io version, the docs.rs build and the per-PR quorum receipts, ending in its END marker with exactly one verdict line'
+  - 'no ticket carries release:v1.29.0 unless a PR in that window names it'
+  - 'gate T and gate R are both green on main afterwards'
+  - '`make dogfood-published VERSION=1.29.0` runs gates C and D against what crates.io actually serves'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.30.0
+  notes: 'The third PR of the release shape. Gate T was red on main after the booking for one reason it named precisely: PMAT-531 carried release:v1.29.0 and its PR merged after the tag.'
+- id: PMAT-534
+  kind: code
+  github_issue: 534
+  item_type: task
+  title: 'GitHub''s "latest release" pointed at v1.25.2 for four releases, because nothing marks a release latest'
+  release: 1.30.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T08:00:00Z
+  updated: 2026-09-12T08:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate R refuses a released version that is not what repos/:owner/:repo/releases/latest resolves to, naming both'
+  - 'a deliberate prerelease is still allowed and says so, rather than being forced to latest'
+  - 'the promotion is either performed by the release flow or is a named, checked step of the release procedure — not an unwritten one'
+  - 'falsification cases drive a stale pointer, a correct one, and a deliberate prerelease'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Measured 2026-09-12 before it was corrected by hand: repos/paiml/forjar/releases/latest resolved to v1.25.2 while v1.26.0, v1.27.0 and v1.28.0 were all prerelease=false draft=false. Anyone resolving that URL got a four-version-old binary for days. Two causes: release.yml un-drafts with --prerelease so a tag-triggered release lands as a prerelease and nothing performs the promotion; and --prerelease=false alone does not recompute latest, which needs --latest. Gate R READS isPrerelease and reports it, never asserts it, and never asks what /releases/latest resolves to — so it was green for four releases while what a user downloads was stale.'
