@@ -200,64 +200,60 @@ fn the_process_cap_is_applied_and_fails_closed() {
     );
 }
 
-/// And with no stub at all, on this machine, the guarded script still measures.
+/// The guard does not stop the measurement it guards.
 ///
-/// A guard that stops the thing it guards is not a guard. This is the case
-/// that would have caught `ulimit -u 256`, which killed the script's own fork
-/// on a host already running 2,352 threads.
+/// This is the case that would have caught `ulimit -u 256`, which killed the
+/// script's own fork on a host already running 2,352 threads. A guard that
+/// stops the thing it guards is not a guard.
 ///
-/// The check it measures is DISCOVERED from the installed tool rather than
-/// named here. A fixed id made this case depend on the roster: `CB-2110` was
-/// in it at 14:00 on 2026-09-11 and gone at 18:34, after pmat was rebuilt
-/// locally from a different source state under the same version string, and
-/// the case then failed for a reason that had nothing to do with the guard.
-/// Refusing a rotted id is the script's job and is asserted elsewhere; here
-/// the subject is the guard, so the id is taken from what the tool carries.
+/// `pmat` is STUBBED rather than resolved from `PATH`, for two reasons. The
+/// hosted runner has no pmat, so the real one made this case die rather than
+/// measure — and dying is not a verdict. And the subject here is the CAP, not
+/// the roster: an earlier version named `CB-2110`, which left the roster when
+/// pmat was rebuilt locally, and the case then failed for a reason that had
+/// nothing to do with the guard.
+///
+/// The stub still forks, and the cap still applies to this account's real
+/// thread count, so a cap set too tight fails here exactly as it did on the
+/// machine.
 #[test]
-fn the_guarded_script_still_measures_on_this_machine() {
-    let out = Command::new("pmat")
-        .args(["comply", "check", "--format", "json"])
-        .current_dir(repo())
-        .output()
-        .expect("pmat must run");
-    let text = String::from_utf8_lossy(&out.stdout);
-    let start = match text.find('{') {
-        Some(i) => i,
-        None => panic!("pmat comply check --format json printed no JSON object"),
-    };
-    let doc: serde_json::Value =
-        serde_json::from_str(&text[start..]).expect("comply output must parse");
-    // A check this script can actually count: one that PASSES (which it reads
-    // as zero findings) or one whose message opens with a finding count. A
-    // `Warn` carrying prose is refused by design, and picking one of those
-    // would test the refusal rather than the guard.
-    let id = doc["checks"]
-        .as_array()
-        .expect("checks must be an array")
-        .iter()
-        .filter(|c| {
-            let status = c["status"].as_str().unwrap_or("").to_ascii_lowercase();
-            let msg = c["message"].as_str().unwrap_or("");
-            status == "pass"
-                || msg
-                    .split_whitespace()
-                    .next()
-                    .is_some_and(|w| w.parse::<i64>().is_ok())
-        })
-        .filter_map(|c| c["name"].as_str())
-        .filter_map(|n| n.split(':').next())
-        .find(|n| n.starts_with("CB-"))
-        .expect("the roster must carry at least one countable CB check")
-        .to_string();
-
-    let (code, stdout, stderr) = run(&[], &[&id]);
-    assert_eq!(
-        code, 0,
-        "the guard stopped the measurement of {id}, which this pmat does carry:\n\
-         {stdout}\n{stderr}"
+fn the_guard_does_not_stop_the_measurement() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let bin = dir.path();
+    let stub = bin.join("pmat");
+    std::fs::write(
+        &stub,
+        "#!/usr/bin/env bash\nprintf '%s' '{\"checks\":[{\"name\":\"CB-0001: Fixture\",\"status\":\"Fail\",\"message\":\"7 finding(s) — SOMETHING 7: a line\"}]}'\n",
+    )
+    .expect("write stub");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&stub).expect("stat").permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&stub, perms).expect("chmod");
+    }
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
     );
-    assert!(
-        stdout.trim().parse::<i64>().is_ok(),
-        "measuring {id} printed {stdout:?}, which is not a count"
+    let out = Command::new("bash")
+        .arg(repo().join("scripts/ratchets/comply-count.sh"))
+        .arg("CB-0001")
+        .current_dir(repo())
+        .env("PATH", path)
+        .output()
+        .expect("bash must run");
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert_eq!(
+        out.status.code().unwrap_or(-1),
+        0,
+        "the guard stopped a measurement it should have allowed:\n{stdout}\n{stderr}"
+    );
+    assert_eq!(
+        stdout.trim(),
+        "7",
+        "the measurement printed {stdout:?} rather than the count the check reported"
     );
 }
