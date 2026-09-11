@@ -1,0 +1,8 @@
+### gate B on origin/main — six checks pmat 3.40 added, none of them ours
+CB-2115: Roadmap Coherence
+CB-2112: Ticket Linkage
+CB-2114: Release Binding
+CB-2110: Spec Epics
+CB-2111: Spec Reviews
+GATE B FAIL pmat comply check reports failing check(s) other than CB-200 (CB-200 is owned by the ratchet in Arm 5)
+exit=1
